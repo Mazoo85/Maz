@@ -2698,6 +2698,37 @@ int main() {
         CHECK(aliveZombies(tree) == 9);                           // boss + 4 waves * 2 runners = 9, capped
     }
 
+    // Ultimate = panic button: unleashing the charged overcharge clears the field AND grants a brief
+    // invulnerability window, so it's safe mid-swarm. A not-ready ultimate does nothing (no free i-frames).
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zv = z->script();
+        std::vector<Value> sp = {Value::fromNum(5.0), Value::fromNum(0.0),
+                                 Value::fromNum(100.0), Value::fromNum(0.0)};
+        vm.callOn(zv, "spawn_at", sp);
+        Value sv = survivor->script();
+        std::vector<Value> none;
+        sField(survivor, "iframes")->number = 0.0;
+        sField(survivor, "ult_ready")->boolean = true;
+        vm.callOn(sv, "detonate", none);
+        CHECK(!sField(z, "alive")->boolean);                 // screen-wide blast wiped the field
+        CHECK(sField(survivor, "iframes")->number >= 1.0);   // and left the survivor briefly untouchable
+        CHECK(!sField(survivor, "ult_ready")->boolean);      // ultimate spent
+
+        // Not charged: detonating grants nothing.
+        SceneTree t2;
+        SceneNode* surv2 = zomboid::buildScene(t2);
+        auto& vm2 = t2.scripts().vm();
+        Value s2v = surv2->script();
+        sField(surv2, "iframes")->number = 0.0;
+        sField(surv2, "ult_ready")->boolean = false;
+        vm2.callOn(s2v, "detonate", none);
+        CHECK(sField(surv2, "iframes")->number == 0.0);      // no charge → no free i-frames
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

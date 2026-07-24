@@ -259,6 +259,9 @@ class Survivor {
         g_shake = 3.0;
         self.ult = 0;
         self.ult_ready = false;
+        # A brief invulnerability window as the blast goes off, so the ultimate is a true panic button —
+        # you're safe for the moment it takes to clear the field, even mid-swarm.
+        if (self.iframes < 1.0) { self.iframes = 1.0; }
     }
 
     func _process(dt) {

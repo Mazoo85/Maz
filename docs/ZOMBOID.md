@@ -62,7 +62,8 @@ cycling automatically.
   **slows** anything standing in it, so it holds a lane as area denial, not just chip damage.
 - **Mine (T)** / **Sentry (Y)** — a proximity mine, and a stationary auto-turret that thins a lane. The
   sentry has a limited magazine and a lifetime, so place it where it'll earn its bolts.
-- **Overcharge (Q)** — a screen-wide ultimate blast. Kills charge the meter; unleash it when full.
+- **Overcharge (Q)** — a screen-wide ultimate blast that also grants a brief **invulnerability window**,
+  so it's a true panic button. Kills charge the meter; unleash it when full.
 - **Second Wind** — a stored revive: lethal damage is cancelled once, bursting you back to half health
   with a crowd-clearing nova. Earned again every 50 kills.
 - **Body armor** — a bought plate that soaks damage before your health; buy a fresh one with **9**.

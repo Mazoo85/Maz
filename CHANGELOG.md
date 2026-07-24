@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — ultimate grants panic-button i-frames.** Unleashing the charged overcharge (Q) now
+  also gives a brief invulnerability window as the screen-wide blast goes off, so it's a true
+  get-out-of-jail button you can fire mid-swarm without eating a hit in the same instant. A not-ready
+  ultimate still does nothing (no free i-frames). Headless-tested: a charged detonation wipes the
+  field, spends the charge, and leaves the survivor briefly untouchable; an uncharged one grants nothing.
 - **ZOMBOID — dash strike now staggers too.** The offensive dodge-roll (Space) already shoulder-checks
   zombies it bulldozes through; now it also briefly flinches each one (reusing the same `stagger()` the
   melee shove uses), so dashing *into* a pinch reliably scatters and roots the pack you punch through,
