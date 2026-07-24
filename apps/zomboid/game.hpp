@@ -1989,12 +1989,24 @@ class Zombie {
                                                 self.attack_range = 1.3;
                                                 self.score_value = 35;
                                             } else {
+                                            if (k == 12) {
+                                                # Healer: a back-line medic that periodically knits the
+                                                # wounds of nearby zombies. Fragile but force-multiplying,
+                                                # so it's a priority kill before it undoes your damage.
+                                                self.health = 34 + w * 7;
+                                                self.speed = 8 + w;
+                                                self.damage = 4;
+                                                self.radius = 1.15;
+                                                self.attack_range = 1.3;
+                                                self.score_value = 40;
+                                            } else {
                                                 self.health = 25 + w * 8;
                                                 self.speed = 13 + w;
                                                 self.damage = 6;
                                                 self.radius = 1.0;
                                                 self.attack_range = 1.2;
                                                 self.score_value = 10;
+                                            }
                                             }
                                             }
                                         }
@@ -2203,6 +2215,32 @@ class Zombie {
                 emit(self.node.x, self.node.y, 18, 1);   # shriek burst
             }
         }
+        # Healer (kind 12): on a cooldown it mends every wounded zombie in a radius, knitting a chunk of
+        # health back (never past their max). Force-multiplying but fragile, so cull it before it undoes
+        # your work. It never heals itself, keeping it a body you can burn down.
+        if (self.kind == 12) {
+            self.cooldown = self.cooldown - dt;
+            if (self.cooldown <= 0) {
+                self.cooldown = 4.0;
+                var mended = 0;
+                var hi = 0;
+                var hn = len(g_zombies);
+                while (hi < hn) {
+                    var hz = g_zombies[hi];
+                    if (hz.alive and hz != self and hz.health < hz.max_health) {
+                        var hdx = hz.node.x - self.node.x;
+                        var hdy = hz.node.y - self.node.y;
+                        if (hdx * hdx + hdy * hdy <= 196.0) {   # radius 14
+                            hz.health = hz.health + hz.max_health * 0.25;
+                            if (hz.health > hz.max_health) { hz.health = hz.max_health; }
+                            mended = mended + 1;
+                        }
+                    }
+                    hi = hi + 1;
+                }
+                if (mended > 0) { emit(self.node.x, self.node.y, 10, 0); }   # heal pulse (sparks)
+            }
+        }
         # Chill status: while slowed, the zombie crawls at 40% speed.
         self.slow_timer = self.slow_timer - dt;
         if (self.slow_timer < 0) { self.slow_timer = 0; }
@@ -2393,6 +2431,9 @@ class Director {
                     if (i % 13 == 0 and w >= 7) {
                         k = 11;
                     } else {
+                    if (i % 17 == 0 and w >= 9) {
+                        k = 12;
+                    } else {
                         if (i % 6 == 0 and w >= 5) {
                             k = 5;
                         } else {
@@ -2406,6 +2447,7 @@ class Director {
                                 }
                             }
                         }
+                    }
                     }
                     }
                     }

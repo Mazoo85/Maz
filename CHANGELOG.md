@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — Healer zombie (12th enemy type).** A back-line medic joins the horde from wave 9: on a
+  cooldown it knits the wounds of every nearby zombie inside a radius, restoring a quarter of their max
+  health (capped at full, never over), which can steadily undo your chip damage on a tough pack. It's
+  fragile and never heals itself, so it's a priority kill — silence it before it patches the swarm back
+  up. Renders as a green medic and pulses when it mends. Headless-tested: a wounded zombie inside the
+  radius is topped up (a near-full one clamps exactly to max, not past it), while one outside the radius
+  is left to bleed.
 - **ZOMBOID — Overflow power-up (infinite ammo).** A new seventh power-up: for its duration you fire
   freely — no ammo spent, no reloads — so you can hose down a wave without pausing to reload. Grabbing
   it also tops your current magazine and cancels any reload in progress; the survivor glows warm gold

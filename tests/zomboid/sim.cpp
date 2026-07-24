@@ -2416,6 +2416,48 @@ int main() {
         CHECK(fzMoved > czMoved);   // the frenzied one covered more ground
     }
 
+    // Healer (kind 12): a back-line medic that, on a cooldown, mends every wounded zombie inside a
+    // radius by a chunk of their max health — capped at full, never past it — while a far zombie is
+    // left to bleed. It never heals itself and never top-heals a zombie already at full.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+
+        SceneNode* healer = tree.findNode("Zombie0");
+        SceneNode* nearLow = tree.findNode("Zombie1");    // 6 units away, badly wounded
+        SceneNode* nearHigh = tree.findNode("Zombie2");   // 6 units away, barely wounded (cap check)
+        SceneNode* farZ = tree.findNode("Zombie3");       // 50 units away — outside radius 14
+
+        Value hv = healer->script();
+        std::vector<Value> hs = {Value::fromNum(30.0), Value::fromNum(0.0),
+                                 Value::fromNum(12.0), Value::fromNum(5.0)};   // spawn(x,y,kind,wave)
+        vm.callOn(hv, "spawn", hs);
+        CHECK((int)sField(healer, "kind")->number == 12);
+        sField(healer, "speed")->number = 0.0;   // pin it in place so the heal radius stays fixed
+
+        auto park = [&](SceneNode* z, double x, double hp) {
+            Value zv = z->script();
+            std::vector<Value> a = {Value::fromNum(x), Value::fromNum(0.0),
+                                    Value::fromNum(100.0), Value::fromNum(0.0)};  // walker, full=100
+            tree.scripts().vm().callOn(zv, "spawn_at", a);
+            sField(z, "health")->number = hp;   // wound it (max_health stays 100)
+        };
+        park(nearLow, 24.0, 20.0);    // 6 from the healer at x=30
+        park(nearHigh, 36.0, 90.0);   // 6 from the healer, near full
+        park(farZ, -20.0, 20.0);      // 50 from the healer
+
+        // Drive only the healer: its cooldown starts at 0, so it mends on the first frame and then
+        // sits on its 4 s cooldown. The parked patients don't move, keeping distances fixed.
+        for (int i = 0; i < 10; ++i) { vm.callOn(hv, "_process", dt); }
+
+        CHECK(sField(nearLow, "health")->number == 45.0);    // 20 + 25% of 100
+        CHECK(sField(nearHigh, "health")->number == 100.0);  // 90 + 25 clamped to max, not 115
+        CHECK(sField(farZ, "health")->number == 20.0);       // out of range — untouched
+    }
+
     // Flawless-wave bonus: clearing a wave without taking a hit doubles the clear bonus, pays cash,
     // and patches the survivor up; taking any hit during the wave forfeits all of that.
     {
