@@ -190,9 +190,55 @@ int main() {
         CHECK(sField(survivor, "food")->number == food0 + 1);
     }
 
+    // Enemy variety: a boss wave (5) spawns a boss plus a mix of kinds with distinct stats.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        SceneNode* dir = tree.findNode("Director");
+        Value ds = dir->script();
+        std::vector<Value> a = {Value::fromNum(5.0)};
+        tree.scripts().vm().callOn(ds, "start_wave", a); // force wave 5 directly
+
+        bool hasBoss = false, hasRunner = false, hasBrute = false, hasWalker = false;
+        double bossHp = 0.0, runnerSpd = 0.0, walkerSpd = 0.0, bruteHp = 0.0, walkerHp = 0.0;
+        for (SceneNode* z : tree.nodesInGroup("zombies")) {
+            if (!z->script().instance->findField("alive")->boolean) continue;
+            const int k = (int)z->script().instance->findField("kind")->number;
+            const double hp = z->script().instance->findField("health")->number;
+            const double sp = z->script().instance->findField("speed")->number;
+            if (k == 3) { hasBoss = true; bossHp = hp; }
+            else if (k == 2) { hasBrute = true; bruteHp = hp; }
+            else if (k == 1) { hasRunner = true; runnerSpd = sp; }
+            else { hasWalker = true; walkerSpd = sp; walkerHp = hp; }
+        }
+        CHECK(hasBoss);                          // the boss leads every 5th wave
+        CHECK(hasRunner && hasBrute && hasWalker); // a genuine mix
+        CHECK(bossHp > 300.0);                   // the boss is a bullet sponge
+        CHECK(bruteHp > walkerHp);               // brutes are tankier than walkers
+        CHECK(runnerSpd > walkerSpd);            // runners outrun walkers
+    }
+
+    // A brute soaks more damage than a walker before dying (per-kind health matters).
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zs = z->script();
+        std::vector<Value> brute = {Value::fromNum(3.0), Value::fromNum(0.0), Value::fromNum(2.0),
+                                    Value::fromNum(1.0)}; // spawn(x,y,kind=2,wave=1)
+        tree.scripts().vm().callOn(zs, "spawn", brute);
+        const double hp0 = z->script().instance->findField("health")->number;
+        CHECK(hp0 >= 90.0); // brute wave-1 hp = 80 + 20
+        std::vector<Value> dmg = {Value::fromNum(25.0)}; // one pistol hit
+        tree.scripts().vm().callOn(zs, "take_damage", dmg);
+        CHECK(z->script().instance->findField("alive")->boolean); // survives a single shot
+        CHECK(z->script().instance->findField("health")->number < hp0);
+        (void)survivor;
+    }
+
     if (g_fail == 0) {
-        std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons (pistol/shotgun/smg), "
-                    "kills/score, survival, loot.\n");
+        std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety "
+                    "(runner/brute/boss), kills/score, survival, loot.\n");
         return 0;
     }
     std::printf("zomboid_sim: %d failure(s).\n", g_fail);

@@ -23,6 +23,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
   emits a 6-bullet burst, the SMG out-shoots the pistol over a second, a bullet kills a zombie and
   scores, cleared waves escalate, and survival/loot still hold. Kept as its own fast-compiling target
   so game iterations verify in a second instead of rebuilding the full unit suite.
+- **Enemy variety** — four zombie kinds with distinct stats, sprites and sizes: walkers (baseline),
+  runners (fast, fragile), brutes (slow, tanky, big, hard-hitting) and a boss that leads every 5th
+  wave. The Director mixes kinds into each wave (runners from wave 2, brutes from wave 3); tougher
+  kinds award more score, and bullet hit tests use each body's radius so big enemies are easier to
+  hit. Verified headless: a forced wave 5 spawns a boss (HP > 300) plus a genuine runner/brute/walker
+  mix with runners out-pacing and brutes out-tanking walkers, and a brute survives a single pistol
+  shot. Autopilot 45 s run reaches wave 5 (a boss wave).
 
 ### Scripting & scene
 - `maz::script` — a from-scratch, header-only scripting language (the GDScript competitor): values,

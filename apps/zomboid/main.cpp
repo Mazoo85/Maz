@@ -114,7 +114,9 @@ int main(int argc, char** argv) {
     // One sprite texture per node kind.
     render::TextureHandle texSurvivor = renderer->createTexture(16, 16, makeSquare(240, 205, 70).data());
     render::TextureHandle texZombie = renderer->createTexture(16, 16, makeSquare(90, 170, 80).data());
-    render::TextureHandle texZombieHurt = renderer->createTexture(16, 16, makeSquare(150, 110, 60).data());
+    render::TextureHandle texRunner = renderer->createTexture(16, 16, makeSquare(80, 200, 180).data());
+    render::TextureHandle texBrute = renderer->createTexture(16, 16, makeSquare(165, 55, 55).data());
+    render::TextureHandle texBoss = renderer->createTexture(16, 16, makeSquare(195, 70, 195).data());
     render::TextureHandle texBullet = renderer->createTexture(16, 16, makeSquare(255, 240, 120).data());
     render::TextureHandle texLoot = renderer->createTexture(16, 16, makeSquare(210, 120, 200).data());
     const uint8_t white[4] = {255, 255, 255, 255};
@@ -271,12 +273,20 @@ int main(int argc, char** argv) {
             for (scene::SceneNode* l : tree.nodesInGroup("loot")) {
                 if (!fieldBool(l, "taken")) drawAt(l->x(), l->y(), texLoot, 2.0f, kNoTint);
             }
-            // Zombies (only the live ones); tint toward "hurt" as health drops.
+            // Zombies (only the live ones); sprite + size by kind, tinted red as health drops.
             for (scene::SceneNode* z : tree.nodesInGroup("zombies")) {
                 if (!fieldBool(z, "alive")) continue;
+                const int zk = static_cast<int>(field(z, "kind"));
+                render::TextureHandle ztex = texZombie;
+                if (zk == 1) ztex = texRunner;
+                else if (zk == 2) ztex = texBrute;
+                else if (zk == 3) ztex = texBoss;
+                const float size = static_cast<float>(field(z, "radius")) * 2.4f;
                 const double hp = field(z, "health"), mhp = field(z, "max_health");
                 const float f = mhp > 0.0 ? static_cast<float>(hp / mhp) : 1.0f;
-                drawAt(z->x(), z->y(), f > 0.5f ? texZombie : texZombieHurt, 2.5f, kNoTint);
+                const render::Color tint =
+                    f < 0.4f ? render::Color{1.0f, 0.55f, 0.55f, 1.0f} : kNoTint;
+                drawAt(z->x(), z->y(), ztex, size, tint);
             }
             // Bullets in flight.
             for (scene::SceneNode* b : tree.nodesInGroup("bullets")) {

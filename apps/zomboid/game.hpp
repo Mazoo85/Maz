@@ -217,7 +217,8 @@ class Bullet {
             if (z.alive) {
                 var dx = z.node.x - self.node.x;
                 var dy = z.node.y - self.node.y;
-                if (dx * dx + dy * dy <= self.hit_radius * self.hit_radius) {
+                var rr = self.hit_radius + z.radius;
+                if (dx * dx + dy * dy <= rr * rr) {
                     z.take_damage(self.damage);
                     self.active = false;
                     return;
@@ -233,24 +234,78 @@ class Bullet {
 # so the Director can recycle it next wave.
 class Zombie {
     var alive = false;
+    var kind = 0;          # 0 walker, 1 runner, 2 brute, 3 boss
     var health = 30;
     var max_health = 30;
     var speed = 15;
     var damage = 6;
+    var radius = 1.0;      # body radius (bullet hit test + draw size)
     var attack_range = 1.2;
+    var score_value = 10;
     var cooldown = 0;
 
     func _ready() { g_zombies.append(self); }
 
-    # Director call: place this zombie and bring it to life with wave-scaled stats.
+    # Revive as a plain walker with explicit hp/speed (used by tests to park a target).
     func spawn_at(x, y, hp, spd) {
         self.node.x = x;
         self.node.y = y;
+        self.kind = 0;
         self.health = hp;
         self.max_health = hp;
         self.speed = spd;
+        self.damage = 6;
+        self.radius = 1.0;
+        self.attack_range = 1.2;
+        self.score_value = 10;
         self.cooldown = 0;
         self.alive = true;
+    }
+
+    # Director call: revive as kind k with wave-w-scaled stats.
+    #   0 walker - baseline    1 runner - fast/fragile
+    #   2 brute  - slow/tanky/big/hard-hitting    3 boss - huge, every 5th wave
+    func spawn(x, y, k, w) {
+        self.node.x = x;
+        self.node.y = y;
+        self.kind = k;
+        self.cooldown = 0;
+        self.alive = true;
+        if (k == 1) {
+            self.health = 14 + w * 4;
+            self.speed = 22 + w;
+            self.damage = 4;
+            self.radius = 0.8;
+            self.attack_range = 1.0;
+            self.score_value = 8;
+        } else {
+            if (k == 2) {
+                self.health = 80 + w * 20;
+                self.speed = 8;
+                self.damage = 16;
+                self.radius = 1.8;
+                self.attack_range = 1.8;
+                self.score_value = 25;
+            } else {
+                if (k == 3) {
+                    self.health = 400 + w * 60;
+                    self.speed = 7;
+                    self.damage = 30;
+                    self.radius = 3.0;
+                    self.attack_range = 2.5;
+                    self.score_value = 200;
+                } else {
+                    self.health = 25 + w * 8;
+                    self.speed = 13 + w;
+                    self.damage = 6;
+                    self.radius = 1.0;
+                    self.attack_range = 1.2;
+                    self.score_value = 10;
+                }
+            }
+        }
+        if (self.speed > 30) { self.speed = 30; }
+        self.max_health = self.health;
     }
 
     func take_damage(dmg) {
@@ -260,7 +315,7 @@ class Zombie {
             self.health = 0;
             self.alive = false;
             g_kills = g_kills + 1;
-            g_score = g_score + 10;
+            g_score = g_score + self.score_value;
         }
     }
 
@@ -308,19 +363,34 @@ class Director {
         var pool = len(g_zombies);
         var count = self.base + w * 2;
         if (count > pool) { count = pool; }
-        var hp = 25 + w * 10;
-        var spd = 13 + w;
-        if (spd > 26) { spd = 26; }
         var cx = 0;
         var cy = 0;
         if (g_player != nil) { cx = g_player.node.x; cy = g_player.node.y; }
+        var boss = 0;
+        if (w % 5 == 0) { boss = 1; }
         var i = 0;
         while (i < pool) {
             var z = g_zombies[i];
             if (i < count) {
+                # Choose this spawn's kind: a boss leads every 5th wave, brutes from wave 3,
+                # runners from wave 2, walkers otherwise.
+                var k = 0;
+                if (boss == 1 and i == 0) {
+                    k = 3;
+                } else {
+                    if (i % 5 == 0 and w >= 3) {
+                        k = 2;
+                    } else {
+                        if (i % 3 == 0 and w >= 2) {
+                            k = 1;
+                        } else {
+                            k = 0;
+                        }
+                    }
+                }
                 var ang = 6.28318530718 * i / count;
                 var r = 34 + randf_range(0, 10);
-                z.spawn_at(cx + cos(ang) * r, cy + sin(ang) * r, hp, spd);
+                z.spawn(cx + cos(ang) * r, cy + sin(ang) * r, k, w);
             }
             i = i + 1;
         }
