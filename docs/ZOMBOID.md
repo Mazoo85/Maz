@@ -95,7 +95,7 @@ Thirteen zombie types join the horde as the waves climb:
 | 2 | **Brute** | Slow, tanky, hits hard. |
 | 3 | **Boss** | Huge bullet-sponge that leads every 5th wave; **ground-slams** for heavy damage *and* hurls you back — but it **flashes a warning as it winds up**, so dash clear of the ring to dodge it. **Enrages** below 35% health — faster, slams twice as often, and calls in waves of runners. |
 | 4 | **Exploder** | Detonates on death — shoot it from a distance. |
-| 5 | **Spitter** | Hangs back and lobs acid that leaves a caustic **puddle** on the ground. |
+| 5 | **Spitter** | Hangs back and lobs acid that leaves a caustic **puddle** on the ground — it eats your health *and* **slows you to half speed** while you stand in it, so slog clear rather than tanking it. |
 | 6 | **Splitter** | Bursts into two runners when killed. |
 | 7 | **Summoner** | A back-line necromancer that **keeps its distance** — retreats when you close in while it calls reinforcements. Chase it down. |
 | 8 | **Armored** | Modest health behind a heavy damage-absorbing **shield** — break it down first. |

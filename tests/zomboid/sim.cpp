@@ -2744,6 +2744,36 @@ int main() {
         CHECK((int)glob(t3, "g_combo") == 0);
     }
 
+    // Spitter acid puddle bogs the survivor down: standing in it sets the acid-slow timer (main.cpp
+    // halves movement while it's up); standing clear leaves it at zero.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+
+        // In-puddle case: survivor at the puddle centre gets slowed.
+        SceneTree t1;
+        SceneNode* s1 = zomboid::buildScene(t1);
+        s1->setPosition(0.0, 0.0);
+        auto& vm1 = t1.scripts().vm();
+        SceneNode* acid1 = t1.findNode("Acid0");
+        Value a1 = acid1->script();
+        std::vector<Value> at = {Value::fromNum(0.0), Value::fromNum(0.0)};
+        vm1.callOn(a1, "splat_at", at);
+        CHECK(sField(s1, "acid_slow")->number == 0.0);   // not yet
+        vm1.callOn(a1, "_process", dt);                  // first tick lands the caustic burn
+        CHECK(sField(s1, "acid_slow")->number > 0.0);    // now bogged down
+
+        // Clear case: survivor well outside the puddle is untouched.
+        SceneTree t2;
+        SceneNode* s2 = zomboid::buildScene(t2);
+        s2->setPosition(100.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        SceneNode* acid2 = t2.findNode("Acid0");
+        Value a2 = acid2->script();
+        vm2.callOn(a2, "splat_at", at);
+        vm2.callOn(a2, "_process", dt);
+        CHECK(sField(s2, "acid_slow")->number == 0.0);   // out of the puddle — no slow
+    }
+
     // Flawless-wave bonus: clearing a wave without taking a hit doubles the clear bonus, pays cash,
     // and patches the survivor up; taking any hit during the wave forfeits all of that.
     {

@@ -139,6 +139,7 @@ class Survivor {
     var buff_dmg = 1.0;
     var pierce_shots = false;  # while a piercing power-up is active, bullets punch through zombies
     var adrenaline = false; # last-stand surge: fire faster while critically wounded (<25% health)
+    var acid_slow = 0;      # >0 while standing in a spitter's acid puddle — movement is bogged down
     var crit_chance = 0.15; # chance a shot lands a critical hit for bonus damage
     var crit_mult = 2.0;    # critical-hit damage multiplier
     var pellets = 1;        # bullets per shot (shotgun fires several)
@@ -284,6 +285,7 @@ class Survivor {
         if (self.dash_cd > 0) { self.dash_cd = self.dash_cd - dt; }
         if (self.melee_cd > 0) { self.melee_cd = self.melee_cd - dt; }
         if (self.iframes > 0) { self.iframes = self.iframes - dt; }
+        if (self.acid_slow > 0) { self.acid_slow = self.acid_slow - dt; }
         if (self.dash_time > 0) {
             self.dash_time = self.dash_time - dt;
             self.node.x = self.node.x + self.dash_vx * dt;
@@ -1654,6 +1656,9 @@ class AcidPool {
                     var dy = g_player.node.y - self.node.y;
                     if (dx * dx + dy * dy <= self.radius * self.radius) {
                         g_player.take_damage(self.dps * 0.35);
+                        # Caustic sludge also bogs the survivor down, so an acid puddle is real area
+                        # denial — you can't just tank the damage and hold your spot in it.
+                        g_player.acid_slow = 0.5;
                     }
                 }
             }

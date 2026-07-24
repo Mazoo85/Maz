@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — spitter acid now bogs you down.** A spitter's caustic puddle used to only eat at your
+  health; now it also **slows you to half speed** while you're standing in it, making it genuine area
+  denial — you can't just tank the damage and hold your ground, you have to slog out of it. Headless-
+  tested: a survivor standing in a fresh puddle picks up the acid-slow state, while one standing clear
+  does not.
 - **ZOMBOID — the boss slam is now telegraphed.** The boss no longer slams instantly: it rears back
   for a half-second wind-up (flashing a bright warning white) before the shockwave lands, giving a
   sharp survivor a window to dash or run clear of the radius and avoid the hit entirely. Turns the
