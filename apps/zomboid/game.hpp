@@ -2215,6 +2215,22 @@ class Zombie {
                 return;
             }
         }
+        # Summoner (kind 7): a back-line necromancer that keeps its distance — it backs away when the
+        # survivor closes in rather than shambling into melee, holding a comfortable range from which it
+        # keeps calling reinforcements. It must be chased down or picked off before it floods the field.
+        if (self.kind == 7) {
+            var keep = 14.0;
+            if (dist < keep and dist > 0.01) {
+                self.node.x = self.node.x - (dx / dist) * self.speed * sm * dt;   # retreat
+                self.node.y = self.node.y - (dy / dist) * self.speed * sm * dt;
+            } else {
+                if (dist > keep + 4.0) {
+                    self.node.x = self.node.x + (dx / dist) * self.speed * 0.5 * sm * dt; # drift in slowly
+                    self.node.y = self.node.y + (dy / dist) * self.speed * 0.5 * sm * dt;
+                }
+            }
+            return;
+        }
         if (dist > self.attack_range) {
             self.node.x = self.node.x + (dx / dist) * self.speed * aggro * sm * dt;
             self.node.y = self.node.y + (dy / dist) * self.speed * aggro * sm * dt;

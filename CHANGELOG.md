@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — Summoner now kites.** The Summoner (kind 7) no longer shambles into melee: it holds a
+  comfortable range, backing away when the survivor closes in and drifting in only when far off, all
+  while it keeps calling reinforcements. That turns it into a proper "chase it down" priority target —
+  ignore it and it flees to safety and floods the field. Headless-tested: parked close it retreats
+  (distance grows), parked far it drifts inward.
 - **ZOMBOID — flawless-wave bonus.** Clearing a whole wave without taking a single hit now **doubles**
   the wave-clear score bonus, pays a cash reward, and patches the survivor up a little — a reward for
   aggressive, clean play that also gives skilled runs a real scoring ceiling. Any hit that lands

@@ -2461,6 +2461,41 @@ int main() {
         CHECK(glob(t2, "g_cash") - c0b == 0.0);          // no cash reward
     }
 
+    // Summoner (kind 7) kiting: it keeps its distance — backing away when the survivor closes in
+    // rather than shambling into melee, and drifting in only when far away.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+
+        // Retreat case: parked close (inside the keep-away range), it moves AWAY from the survivor.
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        SceneNode* sum = tree.findNode("Zombie0");
+        Value sv = sum->script();
+        std::vector<Value> sp = {Value::fromNum(8.0), Value::fromNum(0.0),
+                                 Value::fromNum(7.0), Value::fromNum(4.0)};   // spawn kind 7, wave 4
+        vm.callOn(sv, "spawn", sp);
+        CHECK((int)sField(sum, "kind")->number == 7);
+        const double dNear0 = sum->x();                 // starts 8 units out (player at origin)
+        for (int i = 0; i < 30; ++i) vm.callOn(sv, "_process", dt);  // 0.5 s (< 4 s summon delay)
+        CHECK(sum->x() > dNear0);                        // backed away — distance grew
+
+        // Drift-in case: parked well beyond the hold range, it closes some of the gap.
+        SceneTree t2;
+        SceneNode* s2 = zomboid::buildScene(t2);
+        s2->setPosition(0.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        SceneNode* sum2 = t2.findNode("Zombie0");
+        Value s2v = sum2->script();
+        std::vector<Value> sp2 = {Value::fromNum(30.0), Value::fromNum(0.0),
+                                  Value::fromNum(7.0), Value::fromNum(4.0)};   // 30 units — far
+        vm2.callOn(s2v, "spawn", sp2);
+        const double dFar0 = sum2->x();
+        for (int i = 0; i < 30; ++i) vm2.callOn(s2v, "_process", dt);
+        CHECK(sum2->x() < dFar0);                        // drifted inward toward the survivor
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

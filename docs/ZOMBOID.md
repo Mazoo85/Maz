@@ -83,7 +83,7 @@ Twelve zombie types join the horde as the waves climb:
 | 4 | **Exploder** | Detonates on death — shoot it from a distance. |
 | 5 | **Spitter** | Hangs back and lobs acid that leaves a caustic **puddle** on the ground. |
 | 6 | **Splitter** | Bursts into two runners when killed. |
-| 7 | **Summoner** | Periodically calls in reinforcements. |
+| 7 | **Summoner** | A back-line necromancer that **keeps its distance** — retreats when you close in while it calls reinforcements. Chase it down. |
 | 8 | **Armored** | Modest health behind a heavy damage-absorbing **shield** — break it down first. |
 | 9 | **Leaper** | Light and quick; closes the gap in sudden **pounces**. |
 | 10 | **Bloater** | Fat, slow, tanky; ruptures into a **toxic cloud** on death — kill it at range. |
