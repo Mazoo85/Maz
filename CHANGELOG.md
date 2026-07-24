@@ -105,6 +105,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Body armor (buyable damage buffer)** — a depletable armor plate the survivor buys from the shop
+  (key **9**, $80): incoming hits chip the plate first, and only damage that overflows a *spent* plate
+  reaches health — a persistent survivability buffer distinct from the shield power-up's brief total
+  immunity. The survivor takes on a steel sheen while plated. Verified headless (`zomboid_sim`): a small
+  hit is fully soaked by the plate (health untouched), a bigger hit breaks the plate and passes only the
+  overflow to health, and buying armor deducts the cost and fits a full plate.
 - **Salvage economy + in-fight shop** — every kill now banks **cash** (shown on the HUD), which the
   survivor can spend mid-fight without pausing: **6** buys an ammo refill ($50), **7** buys a grenade
   ($40), **8** buys a heal ($60). It's the first real player-agency/economy layer — do you hoard for a

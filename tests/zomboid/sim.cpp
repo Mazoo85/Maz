@@ -1915,6 +1915,39 @@ int main() {
         CHECK(sField(dormant, "slow_timer")->number == 0.0);     // a dormant slot is left alone
     }
 
+    // Body armor: a depletable plate takes the hit first, and only the overflow past a spent plate
+    // reaches health. Bought from the shop (kind 3) for cash.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+
+        // Give a 50-point plate; a 30 hit is fully absorbed (health untouched, armor drops to 20).
+        sField(survivor, "armor")->number = 50.0;
+        const double h0 = sField(survivor, "health")->number;
+        std::vector<Value> hit30 = {Value::fromNum(30.0)};
+        vm.callOn(sv, "take_damage", hit30);
+        CHECK(sField(survivor, "armor")->number == 20.0);
+        CHECK(sField(survivor, "health")->number == h0);        // plate ate all of it
+
+        // A 40 hit breaks the remaining 20 plate; 20 overflow reaches health.
+        std::vector<Value> hit40 = {Value::fromNum(40.0)};
+        vm.callOn(sv, "take_damage", hit40);
+        CHECK(sField(survivor, "armor")->number == 0.0);        // plate spent
+        CHECK(sField(survivor, "health")->number == h0 - 20.0); // only the overflow bled through
+
+        // Buying armor (kind 3, cost 80) from the shop straps on a full plate.
+        Value* cash = const_cast<Value*>(vm.getGlobal("g_cash"));
+        cash->number = 100.0;
+        sField(survivor, "armor")->number = 0.0;
+        std::vector<Value> buyArmor = {Value::fromNum(3.0)};
+        Value ok = vm.callOn(sv, "buy", buyArmor);
+        CHECK(ok.boolean);
+        CHECK(glob(tree, "g_cash") == 20.0);                    // 100 - 80
+        CHECK(sField(survivor, "armor")->number == sField(survivor, "armor_max")->number);
+    }
+
     // Salvage economy: kills bank cash, and buy() spends it on ammo/grenades/heals — succeeding when
     // the survivor can afford it, rejected (with no effect) when they can't.
     {

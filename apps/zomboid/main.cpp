@@ -318,6 +318,7 @@ int main(int argc, char** argv) {
                 if (input.keyPressed(SDL_SCANCODE_6)) buyKind = 0;
                 else if (input.keyPressed(SDL_SCANCODE_7)) buyKind = 1;
                 else if (input.keyPressed(SDL_SCANCODE_8)) buyKind = 2;
+                else if (input.keyPressed(SDL_SCANCODE_9)) buyKind = 3;
                 if (buyKind >= 0) {
                     script::Value self = survivor->script();
                     std::vector<script::Value> a = {script::Value::fromNum(static_cast<double>(buyKind))};
@@ -698,6 +699,8 @@ int main(int argc, char** argv) {
                     // Last-stand: pulse red-hot while critically wounded.
                     const float pulse = 0.6f + 0.4f * std::sin(static_cast<float>(simTime) * 14.0f);
                     body = render::Color{1.0f, 0.3f * pulse, 0.2f * pulse, 1.0f};
+                } else if (field(survivor, "armor") > 0.0) {
+                    body = render::Color{0.7f, 0.75f, 0.8f, 1.0f};   // steel plate sheen
                 }
                 // Dodge-roll i-frames: ghost the survivor translucent-blue while invulnerable.
                 if (field(survivor, "iframes") > 0.0) {
@@ -763,9 +766,11 @@ int main(int argc, char** argv) {
             font.drawText(*renderer, 16.0f, 122.0f, nadeBuf, render::Color{0.7f, 0.85f, 0.7f, 1.0f},
                           0.45f);
             // Salvage cash + shop hotkeys (below the ultimate meter to avoid the revive/ult lines).
-            char cashBuf[96];
-            std::snprintf(cashBuf, sizeof(cashBuf), "$%d   BUY: AMMO 50 (6)  NADE 40 (7)  HEAL 60 (8)",
-                          static_cast<int>(globalNum(tree, "g_cash")));
+            char cashBuf[128];
+            const int armorNow = static_cast<int>(field(survivor, "armor"));
+            std::snprintf(cashBuf, sizeof(cashBuf),
+                          "$%d  ARMOR %d   BUY: AMMO 50(6) NADE 40(7) HEAL 60(8) ARMOR 80(9)",
+                          static_cast<int>(globalNum(tree, "g_cash")), armorNow);
             font.drawText(*renderer, 16.0f, 170.0f, cashBuf, render::Color{0.95f, 0.85f, 0.35f, 1.0f},
                           0.45f);
             const int revives = static_cast<int>(field(survivor, "revives"));

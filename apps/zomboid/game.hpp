@@ -100,6 +100,8 @@ func emit(x, y, count, kind) {
 class Survivor {
     var health = 100;
     var max_health = 100;
+    var armor = 0;          # body-armor plate: a depletable damage buffer bought from the shop
+    var armor_max = 100;
     var hunger = 0;
     var alive = true;
     var food = 3;
@@ -734,11 +736,13 @@ class Survivor {
         var cost = 50;
         if (kind == 1) { cost = 40; }
         if (kind == 2) { cost = 60; }
+        if (kind == 3) { cost = 80; }
         if (g_cash < cost) { return false; }
         g_cash = g_cash - cost;
         if (kind == 0) { self.collect_ammo(); }
         if (kind == 1) { self.grenades = self.grenades + 1; }
         if (kind == 2) { self.heal(40); }
+        if (kind == 3) { self.armor = self.armor_max; }   # strap on a fresh armor plate
         emit(self.node.x, self.node.y, 8, 0);
         return true;
     }
@@ -809,7 +813,17 @@ class Survivor {
         # An active shield power-up soaks all incoming damage.
         if (self.buff_kind == 2 and self.buff_timer > 0) { return; }
         self.regen_timer = 0;   # taking a hit resets the out-of-combat heal delay
-        self.health = self.health - dmg;
+        var d = dmg;
+        # Body armor is a depletable buffer: it takes the hit first, and only the overflow past a
+        # spent plate bleeds through to health (bought from the shop, key 9).
+        if (self.armor > 0) {
+            self.armor = self.armor - d;
+            emit(self.node.x, self.node.y, 3, 0);   # sparks off the plate
+            if (self.armor >= 0) { return; }        # fully absorbed
+            d = 0 - self.armor;                     # remainder past the broken plate
+            self.armor = 0;
+        }
+        self.health = self.health - d;
         if (self.health <= 0) {
             if (self.revives > 0) { self.second_wind(); return; }
             self.health = 0;
