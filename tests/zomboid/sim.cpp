@@ -374,6 +374,25 @@ int main() {
         tree.scripts().vm().callOn(self, "apply_upgrade", none); // k3: +ammo
         CHECK((*sField(s, "reserves")->array)[0].number > res0);
         CHECK((int)sField(s, "upgrades")->number == 4);
+        const double crit0 = sField(s, "crit_chance")->number;
+        tree.scripts().vm().callOn(self, "apply_upgrade", none); // k4: +crit chance
+        CHECK(sField(s, "crit_chance")->number > crit0);
+        CHECK((int)sField(s, "upgrades")->number == 5);
+    }
+
+    // Critical hits: a shot rolls for bonus damage; forcing the odds proves both branches.
+    {
+        SceneTree tree;
+        SceneNode* s = zomboid::buildScene(tree);
+        Value self = s->script();
+        std::vector<Value> none;
+        const double dmg = sField(s, "damage")->number;
+        const double cm = sField(s, "crit_mult")->number;
+
+        sField(s, "crit_chance")->number = 1.0;   // always crit
+        CHECK(tree.scripts().vm().callOn(self, "shot_damage", none).number == dmg * cm);
+        sField(s, "crit_chance")->number = 0.0;   // never crit
+        CHECK(tree.scripts().vm().callOn(self, "shot_damage", none).number == dmg);
     }
 
     // Progression is wired to waves: clearing wave 1 grants the first upgrade when wave 2 opens.

@@ -572,9 +572,10 @@ int main(int argc, char** argv) {
             std::snprintf(buf, sizeof(buf), "WAVE %d      SCORE %d      KILLS %d", wave, score, kills);
             font.drawText(*renderer, sw * 0.5f - 220.0f, 14.0f, buf, kWhite, 0.55f);
             // Upgrade progression.
-            std::snprintf(buf, sizeof(buf), "UPGRADES %d   DMG x%.1f   RATE x%.1f",
+            std::snprintf(buf, sizeof(buf), "UPGRADES %d   DMG x%.1f   RATE x%.1f   CRIT %d%%",
                           static_cast<int>(field(survivor, "upgrades")), field(survivor, "dmg_mult"),
-                          field(survivor, "rate_mult"));
+                          field(survivor, "rate_mult"),
+                          static_cast<int>(field(survivor, "crit_chance") * 100.0 + 0.5));
             font.drawText(*renderer, sw * 0.5f - 220.0f, 44.0f, buf,
                           render::Color{0.7f, 0.95f, 0.75f, 1.0f}, 0.42f);
             // Combo multiplier — flashes big when it's live.

@@ -108,6 +108,8 @@ class Survivor {
     var buff_fr = 1.0;      # temporary fire-rate / damage multipliers layered over the upgrades
     var buff_dmg = 1.0;
     var adrenaline = false; # last-stand surge: fire faster while critically wounded (<25% health)
+    var crit_chance = 0.15; # chance a shot lands a critical hit for bonus damage
+    var crit_mult = 2.0;    # critical-hit damage multiplier
     var pellets = 1;        # bullets per shot (shotgun fires several)
     var spread = 0;         # random aim jitter per pellet, radians
     var bullet_speed = 70;
@@ -281,6 +283,12 @@ class Survivor {
         self.damage = self.base_dmg * self.dmg_mult * self.buff_dmg;
     }
 
+    # Roll this shot's damage: usually the base, occasionally a critical hit for bonus damage.
+    func shot_damage() {
+        if (randf() < self.crit_chance) { return self.damage * self.crit_mult; }
+        return self.damage;
+    }
+
     # Activate a timed power-up buff picked up from the field. A new pickup refreshes the timer.
     func grant_powerup(kind) {
         self.buff_kind = kind;
@@ -292,9 +300,10 @@ class Survivor {
         self.apply_mults();
     }
 
-    # Apply the next between-wave upgrade, cycling: +damage, +fire rate, +max health (heal), +ammo.
+    # Apply the next between-wave upgrade, cycling: +damage, +fire rate, +max health (heal), +ammo,
+    # +crit chance.
     func apply_upgrade() {
-        var k = self.upgrades % 4;
+        var k = self.upgrades % 5;
         if (k == 0) {
             self.dmg_mult = self.dmg_mult + 0.2;
         } else {
@@ -305,10 +314,14 @@ class Survivor {
                     self.max_health = self.max_health + 25;
                     self.health = self.max_health;
                 } else {
-                    self.reserves[0] = self.reserves[0] + 36;
-                    self.reserves[1] = self.reserves[1] + 12;
-                    self.reserves[2] = self.reserves[2] + 60;
-                    self.reserves[3] = self.reserves[3] + 10;
+                    if (k == 3) {
+                        self.reserves[0] = self.reserves[0] + 36;
+                        self.reserves[1] = self.reserves[1] + 12;
+                        self.reserves[2] = self.reserves[2] + 60;
+                        self.reserves[3] = self.reserves[3] + 10;
+                    } else {
+                        self.crit_chance = self.crit_chance + 0.05;
+                    }
                 }
             }
         }
@@ -336,6 +349,7 @@ class Survivor {
     # front of the survivor (all in one shot), then spawns a harmless fast tracer bullet for the visual.
     func railgun_fire(ax, ay) {
         var beam = 1.2;
+        var dmg = self.shot_damage();   # one crit roll for the whole beam
         var i = 0;
         var n = len(g_zombies);
         while (i < n) {
@@ -348,7 +362,7 @@ class Survivor {
                     var px = rx - t * ax;         # perpendicular offset from the beam
                     var py = ry - t * ay;
                     var rr = beam + z.radius;
-                    if (px * px + py * py <= rr * rr) { z.take_damage(self.damage); }
+                    if (px * px + py * py <= rr * rr) { z.take_damage(dmg); }
                 }
             }
             i = i + 1;
@@ -381,7 +395,7 @@ class Survivor {
         while (i < n) {
             var b = g_bullets[i];
             if (b.active == false) {
-                b.fire(self.node.x, self.node.y, dx, dy, self.bullet_speed, self.damage);
+                b.fire(self.node.x, self.node.y, dx, dy, self.bullet_speed, self.shot_damage());
                 self.shots = self.shots + 1;
                 return;
             }
