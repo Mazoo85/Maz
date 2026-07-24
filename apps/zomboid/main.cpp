@@ -558,8 +558,10 @@ int main(int argc, char** argv) {
             for (scene::SceneNode* st : tree.nodesInGroup("sentries")) {
                 if (!fieldBool(st, "active")) continue;
                 const float slife = static_cast<float>(field(st, "life"));
+                const float sammo = static_cast<float>(field(st, "ammo"));
                 const float flash = 0.8f + 0.2f * std::sin(static_cast<float>(simTime) * 18.0f);
-                const float dim = slife < 3.0f ? 0.5f : 1.0f;
+                // Dims as it nears expiry OR as the magazine runs low, so a spent sentry reads at a glance.
+                const float dim = (slife < 3.0f || sammo <= 6.0f) ? 0.5f : 1.0f;
                 drawAt(st->x(), st->y(), texSentry, 2.0f,
                        render::Color{0.6f * flash * dim, 0.85f * flash * dim, 1.0f * dim, 1.0f});
             }

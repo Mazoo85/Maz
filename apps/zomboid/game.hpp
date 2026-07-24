@@ -1447,6 +1447,8 @@ class Sentry {
     var fire_rate = 3.0;     # bolts per second
     var range = 16.0;
     var damage = 22;
+    var ammo = 25;           # limited magazine — burns out fast against a dense pack
+    var ammo_max = 25;
 
     func _ready() { g_sentries.append(self); }
 
@@ -1455,6 +1457,7 @@ class Sentry {
         self.node.y = y;
         self.life = self.max_life;
         self.fire_cd = 0;
+        self.ammo = self.ammo_max;
         self.active = true;
     }
 
@@ -1483,6 +1486,11 @@ class Sentry {
             target.take_damage(self.damage);
             emit(target.node.x, target.node.y, 3, 0);   # impact sparks on the target
             self.fire_cd = 1.0 / self.fire_rate;
+            self.ammo = self.ammo - 1;                   # spend a bolt; it dies when the magazine is dry
+            if (self.ammo <= 0) {
+                self.active = false;
+                emit(self.node.x, self.node.y, 8, 0);    # spark-out puff when the sentry runs dry
+            }
         }
     }
 }

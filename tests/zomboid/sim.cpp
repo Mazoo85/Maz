@@ -2529,6 +2529,39 @@ int main() {
         CHECK(glob(tree, "g_cash") == 85.0);            // 70 from kills + 15 milestone bounty
     }
 
+    // Sentry ammo: the auto-turret carries a limited magazine and shuts down once it's dry — even
+    // with a target still in range and time left on its lifetime clock, so placement is a real choice.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        SceneNode* sentry = tree.findNode("Sentry0");
+        Value sv = sentry->script();
+        std::vector<Value> dep = {Value::fromNum(0.0), Value::fromNum(0.0)};
+        vm.callOn(sv, "deploy", dep);
+        const int ammoMax = (int)sField(sentry, "ammo")->number;
+        CHECK(ammoMax > 0);
+        CHECK(sField(sentry, "active")->boolean);
+
+        // One fat target parked in range: it's always the pick, and it survives every bolt.
+        SceneNode* dummy = tree.findNode("Zombie0");
+        Value dv = dummy->script();
+        std::vector<Value> sp = {Value::fromNum(4.0), Value::fromNum(0.0),
+                                 Value::fromNum(100000.0), Value::fromNum(0.0)};
+        vm.callOn(dv, "spawn_at", sp);
+        const double dmg = sField(sentry, "damage")->number;
+        const double hp0 = sField(dummy, "health")->number;
+
+        // Run ~9 s — long enough to empty a 25-bolt magazine (25/3 s) but under the 12 s lifetime.
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        for (int i = 0; i < 540; ++i) vm.callOn(sv, "_process", dt);
+        CHECK(!sField(sentry, "active")->boolean);              // shut down: out of bolts, not time
+        CHECK(sField(sentry, "life")->number > 0.0);            // lifetime clock still had time left
+        CHECK((int)sField(sentry, "ammo")->number == 0);        // magazine emptied
+        // It fired exactly ammoMax bolts — the target lost exactly that much health, no more.
+        CHECK(hp0 - sField(dummy, "health")->number == ammoMax * dmg);
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

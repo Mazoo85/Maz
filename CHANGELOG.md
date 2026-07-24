@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — sentry ammo.** The deployable auto-turret now carries a limited magazine (25 bolts) and
+  shuts down the moment it runs dry, on top of its existing lifetime clock. Against a dense pack it
+  burns out fast, so *where* and *when* you place it is a real decision rather than free area denial.
+  The sentry dims visibly as its magazine runs low. Headless-tested: with a target always in range and
+  time still on the clock, the sentry fires exactly a full magazine, then deactivates out of bolts.
 - **ZOMBOID — killstreak milestone rewards.** The combo system now pays out: every 10th unbroken kill
   banks a +15 cash bounty, and every 20th also patches the survivor up — turning a long, unbroken
   streak into a tangible reward on top of the existing score multiplier, and giving the decaying combo
