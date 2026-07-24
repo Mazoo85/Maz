@@ -2929,6 +2929,34 @@ int main() {
         CHECK(sField(outBlast, "active")->boolean);   // out of the blast — spared
     }
 
+    // Night salvage bonus: a kill after dusk banks 50% more cash than the same kill by day — reward
+    // for surviving the deadlier hours.
+    {
+        std::vector<Value> lethal = {Value::fromNum(9999.0)};
+        std::vector<Value> sp = {Value::fromNum(50.0), Value::fromNum(0.0),
+                                 Value::fromNum(10.0), Value::fromNum(0.0)};  // walker, score 10
+
+        // Day kill: base salvage of 7 (5 + int(10/4)) at multiplier x1.
+        SceneTree t1;
+        zomboid::buildScene(t1);
+        auto& vm1 = t1.scripts().vm();
+        Value z1 = t1.findNode("Zombie0")->script();
+        vm1.callOn(z1, "spawn_at", sp);
+        CHECK(!(bool)(glob(t1, "g_phase") >= 30.0));   // starts in daytime
+        vm1.callOn(z1, "take_damage", lethal);
+        CHECK(glob(t1, "g_cash") == 7.0);
+
+        // Night kill: force the clock past dusk (g_phase >= half of g_day_len) → +50% salvage.
+        SceneTree t2;
+        zomboid::buildScene(t2);
+        auto& vm2 = t2.scripts().vm();
+        const_cast<Value*>(vm2.getGlobal("g_phase"))->number = 40.0;   // deep night (day_len 60)
+        Value z2 = t2.findNode("Zombie0")->script();
+        vm2.callOn(z2, "spawn_at", sp);
+        vm2.callOn(z2, "take_damage", lethal);
+        CHECK(glob(t2, "g_cash") == 10.0);             // 7 + int(7/2)
+    }
+
     // Flawless-wave bonus: clearing a wave without taking a hit doubles the clear bonus, pays cash,
     // and patches the survivor up; taking any hit during the wave forfeits all of that.
     {

@@ -8,6 +8,10 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — night pays better.** The day/night cycle already made the horde faster and deadlier
+  after dusk; now kills landed at night also bank **50% more salvage cash**, so holding out through
+  the dark hours is a real risk/reward play instead of pure danger. Headless-tested: the same walker
+  pays 7 cash killed by day and 10 killed at night.
 - **ZOMBOID — grenades set off barrels.** A thrown grenade's frag blast now detonates any explosive
   barrel inside its radius, so lobbing a grenade at a barrel chains into a far bigger explosion —
   completing the "anything explosive/fiery sets off a barrel" rule alongside bullets, other barrels,
