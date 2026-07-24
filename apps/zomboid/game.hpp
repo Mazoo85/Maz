@@ -1433,7 +1433,8 @@ class Barrel {
 # so the Director can recycle it next wave.
 class Zombie {
     var alive = false;
-    var kind = 0;          # 0 walker, 1 runner, 2 brute, 3 boss, 4 exploder, 5 spitter, 6 splitter
+    var kind = 0;          # 0 walker, 1 runner, 2 brute, 3 boss, 4 exploder, 5 spitter, 6 splitter,
+                           #   7 summoner, 8 armored, 9 leaper
     var spawn_wave = 1;    # wave this zombie was spawned in (used to scale its splitlings)
     var health = 30;
     var max_health = 30;
@@ -1452,6 +1453,10 @@ class Zombie {
     var summon_cd = 0;     # summoner (kind 7) reinforcement timer
     var summon_budget = 0; # summoner: remaining reinforcements it may call before it's spent
     var shield = 0;        # armored zombie (kind 8): damage pool that must be broken before health
+    var leap_cd = 0;       # leaper (kind 9): cooldown before it can pounce again
+    var leaping = 0;       # leaper: seconds remaining in the current pounce (flies along leap vector)
+    var leap_vx = 0;       # leaper: stored pounce velocity locked in at the start of the lunge
+    var leap_vy = 0;
 
     func _ready() { g_zombies.append(self); }
 
@@ -1558,6 +1563,10 @@ class Zombie {
         if (k == 7) { self.summon_budget = 6; }
         self.shield = 0;
         if (k == 8) { self.shield = 50 + w * 8; }   # armored zombie's damage-absorbing shield
+        self.leap_cd = 1.5;    # a leaper's first pounce comes a beat after it appears
+        self.leaping = 0;
+        self.leap_vx = 0;
+        self.leap_vy = 0;
         self.alive = true;
         if (k == 1) {
             self.health = 14 + w * 4;
@@ -1627,12 +1636,22 @@ class Zombie {
                                         self.attack_range = 1.3;
                                         self.score_value = 28;
                                     } else {
-                                        self.health = 25 + w * 8;
-                                        self.speed = 13 + w;
-                                        self.damage = 6;
-                                        self.radius = 1.0;
-                                        self.attack_range = 1.2;
-                                        self.score_value = 10;
+                                        if (k == 9) {
+                                            # Leaper: light and quick, closes the gap in sudden pounces.
+                                            self.health = 22 + w * 5;
+                                            self.speed = 12;
+                                            self.damage = 8;
+                                            self.radius = 1.0;
+                                            self.attack_range = 1.2;
+                                            self.score_value = 16;
+                                        } else {
+                                            self.health = 25 + w * 8;
+                                            self.speed = 13 + w;
+                                            self.damage = 6;
+                                            self.radius = 1.0;
+                                            self.attack_range = 1.2;
+                                            self.score_value = 10;
+                                        }
                                     }
                                 }
                             }
@@ -1786,6 +1805,31 @@ class Zombie {
             }
             return;
         }
+        # Leaper (kind 9): between pounces it walks; on a ready cooldown at mid-range it winds up a
+        # sudden lunge — a fast burst toward the survivor that closes distance far quicker than a walk.
+        if (self.kind == 9) {
+            if (self.leaping > 0) {
+                self.leaping = self.leaping - dt;
+                self.node.x = self.node.x + self.leap_vx * sm * dt;
+                self.node.y = self.node.y + self.leap_vy * sm * dt;
+                self.cooldown = self.cooldown - dt;
+                if (dist <= self.attack_range and self.cooldown <= 0) {
+                    g_player.take_damage(self.damage * aggro);
+                    self.cooldown = 1.0;
+                }
+                return;
+            }
+            self.leap_cd = self.leap_cd - dt;
+            if (self.leap_cd <= 0 and self.slow_timer <= 0 and dist > self.attack_range and dist < 16.0) {
+                var ls = 32.0;   # pounce burst speed
+                self.leap_vx = (dx / dist) * ls;
+                self.leap_vy = (dy / dist) * ls;
+                self.leaping = 0.32;
+                self.leap_cd = 3.0;
+                emit(self.node.x, self.node.y, 6, 0);   # dust puff on take-off
+                return;
+            }
+        }
         if (dist > self.attack_range) {
             self.node.x = self.node.x + (dx / dist) * self.speed * aggro * sm * dt;
             self.node.y = self.node.y + (dy / dist) * self.speed * aggro * sm * dt;
@@ -1853,6 +1897,9 @@ class Director {
                     if (i % 7 == 0 and w >= 4) {
                         k = 4;
                     } else {
+                    if (i % 4 == 0 and w >= 5) {
+                        k = 9;
+                    } else {
                         if (i % 6 == 0 and w >= 5) {
                             k = 5;
                         } else {
@@ -1866,6 +1913,7 @@ class Director {
                                 }
                             }
                         }
+                    }
                     }
                     }
                     }

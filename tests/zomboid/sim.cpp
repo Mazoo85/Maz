@@ -1680,6 +1680,44 @@ int main() {
         CHECK(sField(zn[2], "health")->number == 200.0); // third untouched
     }
 
+    // Leaper (kind 9): between pounces it walks, but on a ready cooldown at mid-range it lunges — a
+    // fast burst that covers far more ground per frame than its walk. Player parked at the origin and
+    // only the leaper is stepped, so the motion is deterministic and one-dimensional (both stay on y=0).
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        Value* phase = const_cast<Value*>(vm.getGlobal("g_phase"));
+        phase->number = 0.0;                          // dawn → danger()==1.0, so walk speed is exactly 12
+
+        SceneNode* leaper = tree.findNode("Zombie0");
+        Value lv = leaper->script();
+        std::vector<Value> sp = {Value::fromNum(30.0), Value::fromNum(0.0),
+                                 Value::fromNum(9.0), Value::fromNum(5.0)}; // spawn(x,y,kind=9,wave=5)
+        vm.callOn(lv, "spawn", sp);
+        CHECK((int)sField(leaper, "kind")->number == 9);
+        CHECK((int)sField(leaper, "score_value")->number == 16);
+
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        bool leaped = false;
+        double maxLeapStep = 0.0;  // largest single-frame move made while mid-pounce
+        double maxWalkStep = 0.0;  // largest single-frame move made while walking
+        double px = leaper->x();
+        for (int i = 0; i < 900 && leaper->x() > 2.0; ++i) {
+            const bool midLeap = sField(leaper, "leaping")->number > 0.0;
+            vm.callOn(lv, "_process", dt);
+            const double step = px - leaper->x();     // travels toward the origin, so px > new x
+            px = leaper->x();
+            if (midLeap) { leaped = true; if (step > maxLeapStep) maxLeapStep = step; }
+            else if (step > maxWalkStep) { maxWalkStep = step; }
+        }
+        const double walkPerFrame = 12.0 / 60.0;      // 0.20 units/frame at danger()==1.0
+        CHECK(leaped);                                 // a pounce actually fired
+        CHECK(maxWalkStep <= walkPerFrame + 0.001);    // walking never exceeds the base walk step
+        CHECK(maxLeapStep > walkPerFrame * 1.8);       // the pounce is markedly faster than a walk
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

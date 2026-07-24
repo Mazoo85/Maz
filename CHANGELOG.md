@@ -105,6 +105,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Leaper zombie (new enemy)** — a lean, lime-green zombie (kind 9) that doesn't just shamble: at
+  mid-range, on a short cooldown, it winds up a *pounce* — a fast burst that closes the gap far quicker
+  than a walk before dropping back to a stalk. Light on health but hard to keep at a comfortable
+  distance, it punishes standing still and forces you to keep moving. Joins the wave roster from wave 5.
+  Verified headless (`zomboid_sim`): with the survivor parked and only the leaper stepped, a pounce
+  fires, each walking frame stays within the base walk step, and each pounce frame covers markedly more
+  ground than a walk.
 - **Piercing-rounds power-up (new pickup)** — a violet power-up (kind 3) that, while active, makes the
   survivor's bullets punch *through* zombies instead of stopping at the first: each round now carries up
   to two extra pierces, hitting a whole line of enemies before it's spent. A mid-tier version of the
