@@ -345,6 +345,26 @@ int main(int argc, char** argv) {
                 std::vector<script::Value> a = {script::Value::fromNum(dashX), script::Value::fromNum(dashY)};
                 tree.scripts().vm().callOn(self, "dash", a);
             }
+
+            // Melee shove (F while playing; autopilot swings when a zombie is point-blank).
+            bool meleeNow = false;
+            if (autopilot) {
+                if (field(survivor, "melee_cd") <= 0.0) {
+                    const double r = field(survivor, "melee_range");
+                    for (scene::SceneNode* z : tree.nodesInGroup("zombies")) {
+                        if (!fieldBool(z, "alive")) continue;
+                        const double dx = z->x() - survivor->x(), dy = z->y() - survivor->y();
+                        if (dx * dx + dy * dy <= r * r) { meleeNow = true; break; }
+                    }
+                }
+            } else {
+                meleeNow = input.keyPressed(SDL_SCANCODE_F);
+            }
+            if (meleeNow) {
+                script::Value self = survivor->script();
+                std::vector<script::Value> none;
+                tree.scripts().vm().callOn(self, "melee", none);
+            }
         }
 
         // Advance the simulation (weapon cadence, bullets, zombie AI, waves).
@@ -566,7 +586,7 @@ int main(int argc, char** argv) {
             const render::Color kDim{0.75f, 0.8f, 0.85f, 1};
             font.drawText(*renderer, 16.0f, 12.0f, "ZOMBOID", kWhite, 0.8f);
             font.drawText(*renderer, 16.0f, 46.0f,
-                          autopilot ? "AUTOPILOT" : "WASD MOVE  MOUSE AIM  LMB FIRE  1-4 GUN  SPACE DODGE  E EAT",
+                          autopilot ? "AUTOPILOT" : "WASD MOVE  AIM  FIRE  1-4 GUN  SPACE DODGE  F MELEE  E EAT",
                           kDim, 0.45f);
             // Active weapon name.
             const char* kWeaponNames[4] = {"PISTOL", "SHOTGUN", "SMG", "RAILGUN"};

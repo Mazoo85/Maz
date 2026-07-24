@@ -146,6 +146,11 @@ class Survivor {
     var dash_vy = 0;
     var iframes = 0;         # invulnerability window granted by the dodge
     var dash_speed = 46;
+    # Close-quarters melee shove: a last-resort swing that damages and knocks back adjacent zombies.
+    var melee_cd = 0;
+    var melee_cd_max = 1.1;
+    var melee_range = 4.5;
+    var melee_dmg = 55;
 
     func _ready() { g_player = self; self.set_weapon(0); }
 
@@ -201,6 +206,7 @@ class Survivor {
         # Dodge-roll timers: cooldown recharges, i-frames tick down, and an active
         # dodge carries the survivor in a short burst.
         if (self.dash_cd > 0) { self.dash_cd = self.dash_cd - dt; }
+        if (self.melee_cd > 0) { self.melee_cd = self.melee_cd - dt; }
         if (self.iframes > 0) { self.iframes = self.iframes - dt; }
         if (self.dash_time > 0) {
             self.dash_time = self.dash_time - dt;
@@ -549,6 +555,37 @@ class Survivor {
         self.iframes = 0.35;
         self.dash_cd = self.dash_cd_max;
         return true;
+    }
+
+    # Close-quarters melee shove: a heavy swing that damages and knocks back every zombie in a short
+    # radius. Free (no ammo) but on a short cooldown — a last resort when a zombie is on top of you.
+    # Returns the number of zombies struck, or -1 if it was on cooldown.
+    func melee() {
+        if (self.alive == false) { return -1; }
+        if (self.melee_cd > 0) { return -1; }
+        self.melee_cd = self.melee_cd_max;
+        var hit = 0;
+        var i = 0;
+        var n = len(g_zombies);
+        while (i < n) {
+            var z = g_zombies[i];
+            if (z.alive) {
+                var dx = z.node.x - self.node.x;
+                var dy = z.node.y - self.node.y;
+                var d2 = dx * dx + dy * dy;
+                if (d2 <= self.melee_range * self.melee_range) {
+                    var m = sqrt(d2);
+                    if (m < 0.01) { m = 0.01; }
+                    z.hit_knockback(dx / m, dy / m, 6.0);
+                    z.take_damage(self.melee_dmg);
+                    hit = hit + 1;
+                }
+            }
+            i = i + 1;
+        }
+        emit(self.node.x, self.node.y, 14, 2);
+        g_shake = 1.2;
+        return hit;
     }
 
     func take_damage(dmg) {

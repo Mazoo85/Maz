@@ -105,6 +105,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Melee shove** — press F (or, on autopilot, when a zombie is point-blank) for a free close-range
+  swing that damages and knocks back every zombie in a short radius, then goes on a ~1-second cooldown.
+  It costs no ammo, so it's the last-resort answer when a walker is right on top of you or you're mid-
+  reload. Verified headless (`zomboid_sim`): a swing strikes only the point-blank zombie (damaging and
+  knocking it back), leaves a distant zombie untouched, sets the cooldown, and a second swing during
+  cooldown is refused and deals no further damage.
 - **Dodge-roll** — press SPACE (or, on autopilot, when a zombie crowds you) for an evasive burst in
   your movement/aim direction, with a brief window of invulnerability (i-frames) that ignores all
   damage mid-roll, then a ~4-second cooldown. The survivor ghosts translucent-blue while invulnerable.

@@ -720,6 +720,45 @@ int main() {
         CHECK(sField(survivor, "health")->number < 100.0);    // vulnerable again
     }
 
+    // Melee shove: a free close-range swing that damages and knocks back adjacent zombies, then
+    // goes on cooldown. Zombies out of range are untouched.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        Value sv = survivor->script();
+        survivor->setPosition(0.0, 0.0);
+
+        // Park a tanky zombie point-blank (x=2) and another farZ away (x=40).
+        SceneNode* nearZ = tree.findNode("Zombie0");
+        SceneNode* farZ = tree.findNode("Zombie1");
+        std::vector<Value> atNear = {Value::fromNum(2.0), Value::fromNum(0.0), Value::fromNum(300.0),
+                                     Value::fromNum(0.0)};
+        std::vector<Value> atFar = {Value::fromNum(40.0), Value::fromNum(0.0), Value::fromNum(300.0),
+                                    Value::fromNum(0.0)};
+        Value nearS = nearZ->script();
+        Value farS = farZ->script();
+        tree.scripts().vm().callOn(nearS, "spawn_at", atNear);
+        tree.scripts().vm().callOn(farS, "spawn_at", atFar);
+        const double nearHp0 = nearZ->script().instance->findField("health")->number;
+        const double farHp0 = farZ->script().instance->findField("health")->number;
+        const double farX0 = farZ->x();
+
+        std::vector<Value> none;
+        Value struck = tree.scripts().vm().callOn(sv, "melee", none);
+        CHECK(struck.number == 1.0);                                          // only the nearZ zombie
+        CHECK(nearZ->script().instance->findField("health")->number < nearHp0); // damaged
+        CHECK(nearZ->x() > 2.0);                                                // knocked back (+x)
+        CHECK(farZ->script().instance->findField("health")->number == farHp0);  // farZ one untouched
+        CHECK(farZ->x() == farX0);
+        CHECK(sField(survivor, "melee_cd")->number > 0.0);                     // on cooldown
+
+        // A second swing during cooldown is refused (-1) and deals no further damage.
+        const double nearHp1 = nearZ->script().instance->findField("health")->number;
+        Value again = tree.scripts().vm().callOn(sv, "melee", none);
+        CHECK(again.number == -1.0);
+        CHECK(nearZ->script().instance->findField("health")->number == nearHp1);
+    }
+
     // Exploder (kind 4): fast/fragile suicide bomber that blasts the survivor on death
     // only if they are close, so it must be shot from a distance.
     {
