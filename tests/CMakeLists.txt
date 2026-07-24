@@ -2912,3 +2912,8 @@ add_executable(maz_diff_tests core/diff.cpp)
 target_link_libraries(maz_diff_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME diff COMMAND maz_diff_tests)
 set_tests_properties(diff PROPERTIES TIMEOUT 30)
+
+add_executable(maz_ahrsfilter_tests math/ahrsfilter.cpp)
+target_link_libraries(maz_ahrsfilter_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ahrs_filter COMMAND maz_ahrsfilter_tests)
+set_tests_properties(ahrs_filter PROPERTIES TIMEOUT 30)

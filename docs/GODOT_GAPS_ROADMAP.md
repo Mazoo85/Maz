@@ -150,6 +150,15 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **AHRS attitude filter — gyro + accelerometer sensor fusion** (`math::MadgwickFilter::updateImu` /
+  `math::gravityDirectionBody`, `AhrsFilter.hpp`) — DONE (M817); Madgwick's gradient-descent IMU filter fuses
+  a noisy accelerometer ("which way is down") with a drift-prone gyroscope into a stable orientation
+  quaternion — the standard sensor fusion behind motion controls, phone/tablet tilt input, and VR/AR
+  controller tracking. Godot hands you the raw `get_gyroscope()`/`get_accelerometer()` and no fusion. Verified
+  with independent ground truth: the gravity-direction helper is cross-checked against glm's own quaternion
+  rotation; static tilt convergence, dynamic tracking against an analytic exponential-map rotation, gyro-only
+  integration matching that analytic rotation, and the (correct) unobservability of yaw without a
+  magnetometer are all asserted (ctest `ahrs_filter`).
 - [x] **Sequence diff / longest common subsequence** (`core::longestCommonSubsequence` / `core::diff` →
   `DiffEntry`/`DiffOp`, `Diff.hpp`) — DONE (M816); compare two sequences and produce the minimal edit script
   (keeps, deletions, insertions) that turns one into the other, built on the classic LCS dynamic program.
