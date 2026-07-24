@@ -69,6 +69,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
   giving a reason to push into danger for a top-up. Verified headless (`zomboid_sim`): the pool builds,
   `drop_medkit` activates a kit, walking onto it heals and consumes it, the heal is capped at max, and
   an ignored kit expires.
+- **Exploder zombies** — a fifth zombie kind (from wave 4): a fast, fragile suicide bomber that
+  detonates when killed, dealing area-of-effect damage to the survivor if they are within ~5 units,
+  so it must be shot from a distance rather than let close. The blast throws extra particles and a
+  bigger screen-shake, and the Director folds exploders into the mix on later waves. Verified headless
+  (`zomboid_sim`): a spawned exploder is faster and more fragile than a walker, dying next to the
+  survivor drains their health while an identical exploder dying far away does not, and a forced wave 4
+  actually contains an exploder.
 - **Sound effects** — procedural SFX (`audio::Audio`) for gunfire (per-weapon pitch), zombie deaths,
   reloads, grenade/boss booms, wave starts, taking a bite, and dying. The app fires one-shots by
   watching simulation state change frame-to-frame — no script hooks needed — and resyncs on restart so

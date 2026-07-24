@@ -596,12 +596,21 @@ class Zombie {
                     self.attack_range = 2.5;
                     self.score_value = 200;
                 } else {
-                    self.health = 25 + w * 8;
-                    self.speed = 13 + w;
-                    self.damage = 6;
-                    self.radius = 1.0;
-                    self.attack_range = 1.2;
-                    self.score_value = 10;
+                    if (k == 4) {
+                        self.health = 20 + w * 5;
+                        self.speed = 18 + w;
+                        self.damage = 3;
+                        self.radius = 1.1;
+                        self.attack_range = 1.2;
+                        self.score_value = 15;
+                    } else {
+                        self.health = 25 + w * 8;
+                        self.speed = 13 + w;
+                        self.damage = 6;
+                        self.radius = 1.0;
+                        self.attack_range = 1.2;
+                        self.score_value = 10;
+                    }
                 }
             }
         }
@@ -626,6 +635,19 @@ class Zombie {
             var s = 0.5;
             if (self.kind == 2) { s = 1.0; }
             if (self.kind == 3) { s = 2.5; }
+            # An exploder detonates on death: area-of-effect damage to a nearby
+            # survivor, so it must be shot from a distance.
+            if (self.kind == 4) {
+                s = 1.5;
+                if (g_player != nil) {
+                    if (g_player.alive) {
+                        var ex = g_player.node.x - self.node.x;
+                        var ey = g_player.node.y - self.node.y;
+                        if (ex * ex + ey * ey <= 25.0) { g_player.take_damage(35); }
+                    }
+                }
+                emit(self.node.x, self.node.y, 20, 1); # blast burst
+            }
             g_shake = g_shake + s;
             if (g_shake > 3.0) { g_shake = 3.0; }
             # A slain zombie sometimes drops a medkit.
@@ -694,13 +716,17 @@ class Director {
                 if (boss == 1 and i == 0) {
                     k = 3;
                 } else {
-                    if (i % 5 == 0 and w >= 3) {
-                        k = 2;
+                    if (i % 7 == 0 and w >= 4) {
+                        k = 4;
                     } else {
-                        if (i % 3 == 0 and w >= 2) {
-                            k = 1;
+                        if (i % 5 == 0 and w >= 3) {
+                            k = 2;
                         } else {
-                            k = 0;
+                            if (i % 3 == 0 and w >= 2) {
+                                k = 1;
+                            } else {
+                                k = 0;
+                            }
                         }
                     }
                 }

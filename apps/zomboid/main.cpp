@@ -117,6 +117,7 @@ int main(int argc, char** argv) {
     render::TextureHandle texRunner = renderer->createTexture(16, 16, makeSquare(80, 200, 180).data());
     render::TextureHandle texBrute = renderer->createTexture(16, 16, makeSquare(165, 55, 55).data());
     render::TextureHandle texBoss = renderer->createTexture(16, 16, makeSquare(195, 70, 195).data());
+    render::TextureHandle texExploder = renderer->createTexture(16, 16, makeSquare(235, 130, 30).data());
     render::TextureHandle texBullet = renderer->createTexture(16, 16, makeSquare(255, 240, 120).data());
     render::TextureHandle texBlood = renderer->createTexture(16, 16, makeSquare(170, 30, 30).data());
     render::TextureHandle texGrenade = renderer->createTexture(16, 16, makeSquare(70, 90, 70).data());
@@ -398,6 +399,7 @@ int main(int argc, char** argv) {
                 if (zk == 1) ztex = texRunner;
                 else if (zk == 2) ztex = texBrute;
                 else if (zk == 3) ztex = texBoss;
+                else if (zk == 4) ztex = texExploder;
                 const float size = static_cast<float>(field(z, "radius")) * 2.4f;
                 const double hp = field(z, "health"), mhp = field(z, "max_health");
                 const float f = mhp > 0.0 ? static_cast<float>(hp / mhp) : 1.0f;

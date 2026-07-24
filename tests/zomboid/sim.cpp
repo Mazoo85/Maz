@@ -506,10 +506,62 @@ int main() {
         CHECK(activeMedkits(tree) == 0);
     }
 
+    // Exploder (kind 4): fast/fragile suicide bomber that blasts the survivor on death
+    // only if they are close, so it must be shot from a distance.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zs = z->script();
+
+        // Fragile + fast relative to a walker: wave-1 hp 25, speed 19.
+        std::vector<Value> spawn = {Value::fromNum(2.0), Value::fromNum(0.0), Value::fromNum(4.0),
+                                    Value::fromNum(1.0)}; // spawn(x=2,y=0,kind=4,wave=1)
+        tree.scripts().vm().callOn(zs, "spawn", spawn);
+        CHECK((int)z->script().instance->findField("kind")->number == 4);
+        CHECK(z->script().instance->findField("health")->number <= 30.0);   // fragile
+        CHECK(z->script().instance->findField("speed")->number > 15.0);     // faster than a walker
+
+        // Dying next to the survivor detonates: AoE damage lands.
+        survivor->setPosition(0.0, 0.0);
+        sField(survivor, "health")->number = 100.0;
+        std::vector<Value> kill = {Value::fromNum(999.0)};
+        tree.scripts().vm().callOn(zs, "take_damage", kill);
+        CHECK(!z->script().instance->findField("alive")->boolean);
+        CHECK(sField(survivor, "health")->number < 100.0);                  // blast hurt the survivor
+
+        // A second exploder dying far away does NOT reach the survivor.
+        SceneNode* z2 = tree.findNode("Zombie1");
+        Value zs2 = z2->script();
+        std::vector<Value> spawnFar = {Value::fromNum(200.0), Value::fromNum(0.0),
+                                       Value::fromNum(4.0), Value::fromNum(1.0)};
+        tree.scripts().vm().callOn(zs2, "spawn", spawnFar);
+        const double hpBefore = sField(survivor, "health")->number;
+        tree.scripts().vm().callOn(zs2, "take_damage", kill);
+        CHECK(!z2->script().instance->findField("alive")->boolean);
+        CHECK(sField(survivor, "health")->number == hpBefore);              // out of blast range
+    }
+
+    // The Director mixes exploders into later waves (wave 4+).
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        SceneNode* dir = tree.findNode("Director");
+        Value ds = dir->script();
+        std::vector<Value> a = {Value::fromNum(4.0)};
+        tree.scripts().vm().callOn(ds, "start_wave", a); // force wave 4
+        bool hasExploder = false;
+        for (SceneNode* z : tree.nodesInGroup("zombies")) {
+            if (!z->script().instance->findField("alive")->boolean) continue;
+            if ((int)z->script().instance->findField("kind")->number == 4) hasExploder = true;
+        }
+        CHECK(hasExploder);
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "
-                    "high-score persistence, medkits, kills/score, survival, loot.\n");
+                    "high-score persistence, medkits, exploders, kills/score, survival, loot.\n");
         return 0;
     }
     std::printf("zomboid_sim: %d failure(s).\n", g_fail);
