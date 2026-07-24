@@ -1788,6 +1788,7 @@ class Zombie {
     var shield = 0;        # armored zombie (kind 8): damage pool that must be broken before health
     var leap_cd = 0;       # leaper (kind 9): cooldown before it can pounce again
     var leaping = 0;       # leaper: seconds remaining in the current pounce (flies along leap vector)
+    var leap_wind = 0;     # leaper: coil/telegraph timer — it crouches briefly before the pounce fires
     var leap_vx = 0;       # leaper: stored pounce velocity locked in at the start of the lunge
     var leap_vy = 0;
     var bleed_stacks = 0;  # laceration stacks from kinetic rounds — each ticks damage over time
@@ -1947,6 +1948,7 @@ class Zombie {
         if (k == 8) { self.shield = 50 + w * 8; }   # armored zombie's damage-absorbing shield
         self.leap_cd = 1.5;    # a leaper's first pounce comes a beat after it appears
         self.leaping = 0;
+        self.leap_wind = 0;
         self.leap_vx = 0;
         self.leap_vy = 0;
         self.bleed_stacks = 0;
@@ -2412,14 +2414,24 @@ class Zombie {
                 }
                 return;
             }
+            if (self.leap_wind > 0) {
+                # Coiled: rooted for a beat, telegraphing the pounce so the survivor can juke sideways.
+                # The lunge then commits toward wherever the survivor is when the wind-up finishes.
+                self.leap_wind = self.leap_wind - dt;
+                if (self.leap_wind <= 0) {
+                    var lw = 32.0;   # pounce burst speed
+                    self.leap_vx = (dx / dist) * lw;
+                    self.leap_vy = (dy / dist) * lw;
+                    self.leaping = 0.32;
+                    self.leap_cd = 3.0;
+                    emit(self.node.x, self.node.y, 6, 0);   # dust puff on take-off
+                }
+                return;
+            }
             self.leap_cd = self.leap_cd - dt;
             if (self.leap_cd <= 0 and self.slow_timer <= 0 and dist > self.attack_range and dist < 16.0) {
-                var ls = 32.0;   # pounce burst speed
-                self.leap_vx = (dx / dist) * ls;
-                self.leap_vy = (dy / dist) * ls;
-                self.leaping = 0.32;
-                self.leap_cd = 3.0;
-                emit(self.node.x, self.node.y, 6, 0);   # dust puff on take-off
+                self.leap_wind = 0.35;   # crouch and coil before springing
+                emit(self.node.x, self.node.y, 2, 1);   # tell puff as it hunkers down
                 return;
             }
         }

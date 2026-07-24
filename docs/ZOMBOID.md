@@ -99,7 +99,7 @@ Thirteen zombie types join the horde as the waves climb:
 | 6 | **Splitter** | Bursts into two runners when killed. |
 | 7 | **Summoner** | A back-line necromancer that **keeps its distance** — retreats when you close in while it calls reinforcements. Chase it down. |
 | 8 | **Armored** | Modest health behind a heavy damage-absorbing **shield** — break it down first. |
-| 9 | **Leaper** | Light and quick; closes the gap in sudden **pounces**. |
+| 9 | **Leaper** | Light and quick; closes the gap in sudden **pounces** — but it **crouches and flashes** as it coils, so read the tell and juke sideways to dodge the lunge. |
 | 10 | **Bloater** | Fat, slow, tanky; ruptures into a **toxic cloud** on death — kill it at range. |
 | 11 | **Screamer** | Fragile back-line support; periodically **shrieks**, whipping nearby zombies into a speed frenzy. Silence it first. |
 | 12 | **Healer** | A back-line medic that periodically **mends** nearby wounded zombies, undoing your chip damage. Fragile and never heals itself — cull it before it patches the pack back up. |

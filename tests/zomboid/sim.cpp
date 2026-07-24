@@ -2774,6 +2774,35 @@ int main() {
         CHECK(sField(s2, "acid_slow")->number == 0.0);   // out of the puddle — no slow
     }
 
+    // Leaper pounce telegraph: a ready leaper at mid-range crouches (leap_wind) for a beat — rooted,
+    // not yet flying — before it springs, giving the survivor a window to juke aside.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        SceneNode* leaper = tree.findNode("Zombie0");
+        Value lz = leaper->script();
+        std::vector<Value> sp = {Value::fromNum(10.0), Value::fromNum(0.0),
+                                 Value::fromNum(9.0), Value::fromNum(5.0)};   // leaper at mid-range
+        vm.callOn(lz, "spawn", sp);
+        sField(leaper, "leap_cd")->number = 0.0;    // ready to pounce
+        sField(leaper, "slow_timer")->number = 0.0;
+        const double x0 = leaper->x();
+
+        // One tick starts the coil: it winds up but hasn't sprung and hasn't moved.
+        vm.callOn(lz, "_process", dt);
+        CHECK(sField(leaper, "leap_wind")->number > 0.0);   // coiling
+        CHECK(sField(leaper, "leaping")->number == 0.0);    // not airborne yet
+        CHECK(leaper->x() == x0);                            // rooted during the tell
+
+        // After the wind-up it commits the pounce (locks in a leap velocity and goes airborne).
+        for (int i = 0; i < 25; ++i) { vm.callOn(lz, "_process", dt); }
+        CHECK(sField(leaper, "leap_vx")->number != 0.0);    // sprang toward the survivor
+        CHECK(leaper->x() < x0);                             // closed the gap (moved toward the origin)
+    }
+
     // Flawless-wave bonus: clearing a wave without taking a hit doubles the clear bonus, pays cash,
     // and patches the survivor up; taking any hit during the wave forfeits all of that.
     {

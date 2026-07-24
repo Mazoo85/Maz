@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — leaper pounce is now telegraphed.** The leaper no longer springs the instant its
+  cooldown is up: it first **crouches and coils for a beat** (flashing lime), rooted in place, before
+  it lunges — and the pounce commits toward wherever you are when the wind-up ends. Read the coil and
+  juke sideways to make it whiff. Headless-tested: a ready leaper at mid-range spends its first tick
+  coiling (rooted, not airborne), then springs toward the survivor once the wind-up elapses.
 - **ZOMBOID — spitter acid now bogs you down.** A spitter's caustic puddle used to only eat at your
   health; now it also **slows you to half speed** while you're standing in it, making it genuine area
   denial — you can't just tank the damage and hold your ground, you have to slog out of it. Headless-
