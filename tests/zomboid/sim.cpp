@@ -2229,6 +2229,64 @@ int main() {
         CHECK((int)sField(z3, "bleed_stacks")->number >= 1);            // the hit lacerated it
     }
 
+    // Stagger / flinch: a heavy single blow (>=40% of full health) that doesn't kill roots the zombie
+    // in place for a fraction of a second; a light hit doesn't; and a cooldown stops it being re-locked.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+
+        // Heavy hit roots: a staggered walker makes no headway toward the survivor while flinching.
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zv = z->script();
+        std::vector<Value> sp = {Value::fromNum(10.0), Value::fromNum(0.0),
+                                 Value::fromNum(300.0), Value::fromNum(20.0)};   // hp 300, speed 20
+        vm.callOn(zv, "spawn_at", sp);
+        std::vector<Value> heavy = {Value::fromNum(130.0)};   // 130 >= 40% of 300 → staggers
+        vm.callOn(zv, "take_damage", heavy);
+        CHECK(sField(z, "stagger_timer")->number > 0.0);
+        const double xRooted = z->x();
+        for (int i = 0; i < 10; ++i) vm.callOn(zv, "_process", dt);   // ~0.17 s, still flinching
+        CHECK(sField(z, "stagger_timer")->number > 0.0);
+        CHECK(z->x() == xRooted);                                     // never moved while rooted
+
+        // Light hit doesn't stagger, and the zombie keeps advancing.
+        SceneTree t2;
+        SceneNode* surv2 = zomboid::buildScene(t2);
+        surv2->setPosition(0.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        SceneNode* z2 = t2.findNode("Zombie0");
+        Value z2v = z2->script();
+        std::vector<Value> sp2 = {Value::fromNum(10.0), Value::fromNum(0.0),
+                                  Value::fromNum(300.0), Value::fromNum(20.0)};
+        vm2.callOn(z2v, "spawn_at", sp2);
+        std::vector<Value> light = {Value::fromNum(50.0)};    // 50 < 40% of 300 → no stagger
+        vm2.callOn(z2v, "take_damage", light);
+        CHECK(sField(z2, "stagger_timer")->number == 0.0);
+        const double xStart = z2->x();
+        for (int i = 0; i < 5; ++i) vm2.callOn(z2v, "_process", dt);
+        CHECK(z2->x() < xStart);                                      // closed distance normally
+
+        // Cooldown: a second heavy hit landed while still on cooldown does NOT re-stagger.
+        SceneTree t3;
+        SceneNode* surv3 = zomboid::buildScene(t3);
+        surv3->setPosition(0.0, 0.0);
+        auto& vm3 = t3.scripts().vm();
+        SceneNode* z3 = t3.findNode("Zombie0");
+        Value z3v = z3->script();
+        std::vector<Value> sp3 = {Value::fromNum(10.0), Value::fromNum(0.0),
+                                  Value::fromNum(300.0), Value::fromNum(20.0)};
+        vm3.callOn(z3v, "spawn_at", sp3);
+        vm3.callOn(z3v, "take_damage", heavy);                        // first stagger
+        for (int i = 0; i < 30; ++i) vm3.callOn(z3v, "_process", dt); // ~0.5 s: flinch ends, cd still up
+        CHECK(sField(z3, "stagger_timer")->number == 0.0);
+        vm3.callOn(z3v, "take_damage", heavy);                        // heavy again, but on cooldown
+        CHECK(sField(z3, "stagger_timer")->number == 0.0);            // blocked — no re-lock
+        CHECK(sField(z3, "alive")->boolean);                          // 300-130-130 = 40, still up
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

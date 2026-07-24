@@ -1665,6 +1665,8 @@ class Zombie {
     var bleed_stacks = 0;  # laceration stacks from kinetic rounds — each ticks damage over time
     var bleed_timer = 0;   # while > 0 the wound is open and bleeding; refreshed by fresh hits
     var bleed_tick = 0;    # accumulator so bleed damage lands in periodic ticks, not every frame
+    var stagger_timer = 0; # brief flinch: a heavy single hit freezes the zombie where it stands
+    var stagger_cd = 0;    # cooldown after a flinch so it can't be perpetually stun-locked
 
     func _ready() { g_zombies.append(self); }
 
@@ -1805,6 +1807,8 @@ class Zombie {
         self.bleed_stacks = 0;
         self.bleed_timer = 0;
         self.bleed_tick = 0;
+        self.stagger_timer = 0;
+        self.stagger_cd = 0;
         self.alive = true;
         if (k == 1) {
             self.health = 14 + w * 4;
@@ -2025,6 +2029,14 @@ class Zombie {
             # And sometimes an ammo box, to keep reserves topped up between crates.
             if (randf() < 0.10) { drop_ammo(self.node.x, self.node.y); }
         }
+        # Stagger: a heavy single blow (at least 40% of full health) that doesn't kill briefly roots
+        # the zombie where it stands — a reward for big hits (shotgun point-blank, railgun, grenades,
+        # crits). A cooldown stops rapid fire from stun-locking it, and the boss is immune.
+        if (self.alive and self.kind != 3 and self.stagger_cd <= 0 and d >= self.max_health * 0.4) {
+            self.stagger_timer = 0.35;
+            self.stagger_cd = 1.2;
+            emit(self.node.x, self.node.y, 3, 0);
+        }
     }
 
     func _process(dt) {
@@ -2072,8 +2084,15 @@ class Zombie {
         # Chill status: while slowed, the zombie crawls at 40% speed.
         self.slow_timer = self.slow_timer - dt;
         if (self.slow_timer < 0) { self.slow_timer = 0; }
+        # Stagger status: a flinch roots the zombie completely for a fraction of a second, and its
+        # cooldown ticks down so it can be staggered again once the window has passed.
+        self.stagger_cd = self.stagger_cd - dt;
+        if (self.stagger_cd < 0) { self.stagger_cd = 0; }
+        self.stagger_timer = self.stagger_timer - dt;
+        if (self.stagger_timer < 0) { self.stagger_timer = 0; }
         var sm = 1.0;
         if (self.slow_timer > 0) { sm = 0.4; }
+        if (self.stagger_timer > 0) { sm = 0.0; }   # flinching — rooted where it stands
         if (self.kind == 3) {
             # Boss enrage: once badly wounded (below 35% health) it flies into a rage for a climactic
             # second phase — permanently faster, and slamming twice as often. Triggers once.

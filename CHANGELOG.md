@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — heavy-hit stagger / flinch.** A single big blow (at least 40% of a zombie's full
+  health) that doesn't kill now briefly roots it where it stands — rewarding shotgun point-blanks,
+  railgun shots, grenades, and crits with a moment of breathing room. A short per-zombie cooldown
+  stops rapid fire from stun-locking anything, and the boss is immune. Flinching zombies flash pale.
+  Headless-tested: a heavy hit roots a walker (no advance while flinching), a light hit doesn't (it
+  keeps closing), and a second heavy hit during the cooldown does not re-lock it.
 - **ZOMBOID — bleed / laceration DoT.** Kinetic rounds (bullets and the railgun beam) now open a
   bleeding wound on the zombies they hit: a stacking damage-over-time that ticks for a few seconds
   after the shot, rewards staying on-target (stacks build up, capped at 5), and finishes fleeing or

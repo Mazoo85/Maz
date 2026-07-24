@@ -640,6 +640,10 @@ int main(int argc, char** argv) {
                     const float bt = std::min(1.0f, static_cast<float>(bleed) / 5.0f);
                     tint = render::Color{0.85f, 0.15f + 0.2f * (1.0f - bt), 0.2f, 1.0f};
                 }
+                // A flinching (staggered) zombie flashes pale — a quick "that landed" tell.
+                if (field(z, "stagger_timer") > 0.0) {
+                    tint = render::Color{1.0f, 1.0f, 0.75f, 1.0f};
+                }
                 // An enraged boss pulses an angry red, whatever its wound tint.
                 if (fieldBool(z, "enraged")) {
                     const float rp = 0.7f + 0.3f * std::sin(static_cast<float>(simTime) * 16.0f);
