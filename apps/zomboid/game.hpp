@@ -31,6 +31,7 @@ var g_particles = [];   # object pool for impact / blood particles (juice)
 var g_grenades = [];    # object pool for thrown grenades
 var g_medkits = [];     # object pool for dropped health pickups
 var g_spits = [];       # object pool for spitter acid globs (enemy ranged projectiles)
+var g_powerups = [];    # object pool for timed power-up pickups (rapid-fire / damage / shield)
 var g_shake = 0;        # screen-shake magnitude; decays every frame
 
 var g_score = 0;
@@ -100,6 +101,11 @@ class Survivor {
     var dmg_mult = 1.0;     # upgrade multipliers, grow between waves
     var rate_mult = 1.0;
     var upgrades = 0;       # number of between-wave upgrades applied
+    # Temporary power-up buff (from pooled pickups): kind -1 none, 0 rapid-fire, 1 damage, 2 shield.
+    var buff_kind = -1;
+    var buff_timer = 0;
+    var buff_fr = 1.0;      # temporary fire-rate / damage multipliers layered over the upgrades
+    var buff_dmg = 1.0;
     var pellets = 1;        # bullets per shot (shotgun fires several)
     var spread = 0;         # random aim jitter per pellet, radians
     var bullet_speed = 70;
@@ -134,6 +140,18 @@ class Survivor {
         # Advance the shared world clock (survivor owns it).
         g_phase = g_phase + dt;
         if (g_phase >= g_day_len) { g_phase = g_phase - g_day_len; }
+
+        # Power-up buff countdown: when it lapses, strip the temporary multipliers.
+        if (self.buff_kind >= 0) {
+            self.buff_timer = self.buff_timer - dt;
+            if (self.buff_timer <= 0) {
+                self.buff_kind = -1;
+                self.buff_timer = 0;
+                self.buff_fr = 1.0;
+                self.buff_dmg = 1.0;
+                self.apply_mults();
+            }
+        }
 
         # Survival pressure: hunger creeps up; at max hunger, health drains.
         self.hunger = self.hunger + dt * 1.5;
@@ -201,8 +219,19 @@ class Survivor {
 
     # Fold the upgrade multipliers onto the active weapon's base stats.
     func apply_mults() {
-        self.fire_rate = self.base_fr * self.rate_mult;
-        self.damage = self.base_dmg * self.dmg_mult;
+        self.fire_rate = self.base_fr * self.rate_mult * self.buff_fr;
+        self.damage = self.base_dmg * self.dmg_mult * self.buff_dmg;
+    }
+
+    # Activate a timed power-up buff picked up from the field. A new pickup refreshes the timer.
+    func grant_powerup(kind) {
+        self.buff_kind = kind;
+        self.buff_timer = 8.0;
+        self.buff_fr = 1.0;
+        self.buff_dmg = 1.0;
+        if (kind == 0) { self.buff_fr = 2.2; }   # rapid fire
+        if (kind == 1) { self.buff_dmg = 2.2; }  # double damage
+        self.apply_mults();
     }
 
     # Apply the next between-wave upgrade, cycling: +damage, +fire rate, +max health (heal), +ammo.
@@ -334,6 +363,8 @@ class Survivor {
     }
 
     func take_damage(dmg) {
+        # An active shield power-up soaks all incoming damage.
+        if (self.buff_kind == 2 and self.buff_timer > 0) { return; }
         self.health = self.health - dmg;
         if (self.health <= 0) { self.health = 0; self.alive = false; }
     }
@@ -595,6 +626,54 @@ func drop_medkit(x, y) {
     }
 }
 
+# A pooled power-up pickup dropped rarely by a dying zombie. Walk over it to gain a timed buff:
+# kind 0 = rapid fire, 1 = double damage, 2 = shield (temporary invulnerability). Blinks near expiry.
+class Powerup {
+    var active = false;
+    var kind = 0;
+    var life = 0;
+    var max_life = 14;
+    var pickup_range = 2.2;
+
+    func _ready() { g_powerups.append(self); }
+
+    func place(x, y, k) {
+        self.node.x = x;
+        self.node.y = y;
+        self.kind = k;
+        self.life = self.max_life;
+        self.active = true;
+    }
+
+    func _process(dt) {
+        if (self.active == false) { return; }
+        self.life = self.life - dt;
+        if (self.life <= 0) { self.active = false; return; }
+        if (g_player == nil) { return; }
+        if (g_player.alive == false) { return; }
+        var dx = g_player.node.x - self.node.x;
+        var dy = g_player.node.y - self.node.y;
+        if (dx * dx + dy * dy <= self.pickup_range * self.pickup_range) {
+            g_player.grant_powerup(self.kind);
+            self.active = false;
+        }
+    }
+}
+
+# Activate a dormant power-up of kind k from the pool at (x, y).
+func drop_powerup(x, y, k) {
+    var i = 0;
+    var n = len(g_powerups);
+    while (i < n) {
+        var p = g_powerups[i];
+        if (p.active == false) {
+            p.place(x, y, k);
+            return;
+        }
+        i = i + 1;
+    }
+}
+
 # A pooled zombie. Dormant (alive == false) until the Director spawns it into a wave; then it walks at
 # the survivor and bites on a cooldown. Killed by bullets; on death it awards score and goes dormant
 # so the Director can recycle it next wave.
@@ -727,6 +806,12 @@ class Zombie {
             if (g_shake > 3.0) { g_shake = 3.0; }
             # A slain zombie sometimes drops a medkit.
             if (randf() < 0.12) { drop_medkit(self.node.x, self.node.y); }
+            # Rarely it drops a power-up instead (random kind: rapid-fire, damage, or shield).
+            if (randf() < 0.05) {
+                var pk = int(randf_range(0, 3));
+                if (pk > 2) { pk = 2; }
+                drop_powerup(self.node.x, self.node.y, pk);
+            }
         }
     }
 
@@ -881,6 +966,7 @@ constexpr int kParticlePool = 90;
 constexpr int kGrenadePool = 8;
 constexpr int kMedkitPool = 12;
 constexpr int kSpitPool = 24;
+constexpr int kPowerupPool = 8;
 constexpr int kLootCount = 3;
 
 // Build the starting scene: a survivor at the origin, a wave Director, a pool of dormant zombies and
@@ -931,6 +1017,14 @@ inline maz::scene::SceneNode* buildScene(maz::scene::SceneTree& tree) {
         s->setPosition(100000.0, 100000.0);
         s->addToGroup("spits");
         tree.attachScript(*s, "Spit");
+    }
+
+    // Power-up pool — dormant timed buffs zombies may rarely drop.
+    for (int i = 0; i < kPowerupPool; ++i) {
+        maz::scene::SceneNode* p = tree.createChild(tree.root(), "Powerup" + std::to_string(i));
+        p->setPosition(100000.0, 100000.0);
+        p->addToGroup("powerups");
+        tree.attachScript(*p, "Powerup");
     }
 
     // Zombie pool — dormant; the Director revives them wave by wave.

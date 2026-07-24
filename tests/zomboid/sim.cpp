@@ -47,6 +47,12 @@ static int activeSpits(SceneTree& t) {
         if (s->script().instance->findField("active")->boolean) ++c;
     return c;
 }
+static int activePowerups(SceneTree& t) {
+    int c = 0;
+    for (SceneNode* p : t.nodesInGroup("powerups"))
+        if (p->script().instance->findField("active")->boolean) ++c;
+    return c;
+}
 static void setWeapon(SceneTree& t, SceneNode* s, int w) {
     Value self = s->script();
     std::vector<Value> a = {Value::fromNum(static_cast<double>(w))};
@@ -512,6 +518,42 @@ int main() {
         CHECK(activeMedkits(tree) == 0);
     }
 
+    // Power-ups: rare pooled pickups grant a timed buff that reverts when it lapses.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        CHECK((int)tree.nodesInGroup("powerups").size() == zomboid::kPowerupPool);
+        CHECK(activePowerups(tree) == 0);
+
+        // Rapid-fire (kind 0): fire rate jumps while the buff is up, then falls back to base.
+        survivor->setPosition(0.0, 0.0);
+        const double baseRate = sField(survivor, "fire_rate")->number;
+        std::vector<Value> at = {Value::fromNum(0.0), Value::fromNum(0.0), Value::fromNum(0.0)};
+        tree.scripts().vm().call("drop_powerup", at);
+        CHECK(activePowerups(tree) == 1);
+        tree.process(0.016);                                    // walk onto it
+        CHECK(activePowerups(tree) == 0);                       // consumed
+        CHECK((int)sField(survivor, "buff_kind")->number == 0);
+        CHECK(sField(survivor, "fire_rate")->number > baseRate * 1.5);
+        sField(survivor, "health")->number = 100000.0;          // outlast the buff, ignore the horde
+        for (int i = 0; i < 600; ++i) tree.process(1.0 / 60.0); // > 8 s buff window
+        CHECK((int)sField(survivor, "buff_kind")->number == -1);
+        const double fr = sField(survivor, "fire_rate")->number;
+        CHECK(fr > baseRate - 0.01 && fr < baseRate + 0.01);    // reverted to base
+
+        // Shield (kind 2): incoming damage is fully negated while active.
+        survivor->setPosition(0.0, 0.0);
+        std::vector<Value> at2 = {Value::fromNum(0.0), Value::fromNum(0.0), Value::fromNum(2.0)};
+        tree.scripts().vm().call("drop_powerup", at2);
+        tree.process(0.016);                                    // pick it up
+        CHECK((int)sField(survivor, "buff_kind")->number == 2);
+        sField(survivor, "health")->number = 100.0;
+        Value sv = survivor->script();
+        std::vector<Value> dmg = {Value::fromNum(50.0)};
+        tree.scripts().vm().callOn(sv, "take_damage", dmg);
+        CHECK(sField(survivor, "health")->number == 100.0);     // shield soaked it
+    }
+
     // Exploder (kind 4): fast/fragile suicide bomber that blasts the survivor on death
     // only if they are close, so it must be shot from a distance.
     {
@@ -594,8 +636,8 @@ int main() {
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "
-                    "high-score persistence, medkits, exploders, spitters, kills/score, survival, "
-                    "loot.\n");
+                    "high-score persistence, medkits, exploders, spitters, power-ups, kills/score, "
+                    "survival, loot.\n");
         return 0;
     }
     std::printf("zomboid_sim: %d failure(s).\n", g_fail);

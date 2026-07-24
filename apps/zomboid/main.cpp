@@ -120,6 +120,9 @@ int main(int argc, char** argv) {
     render::TextureHandle texExploder = renderer->createTexture(16, 16, makeSquare(235, 130, 30).data());
     render::TextureHandle texSpitter = renderer->createTexture(16, 16, makeSquare(150, 200, 40).data());
     render::TextureHandle texSpit = renderer->createTexture(16, 16, makeSquare(180, 230, 60).data());
+    render::TextureHandle texPowRapid = renderer->createTexture(16, 16, makeSquare(255, 200, 40).data());
+    render::TextureHandle texPowDamage = renderer->createTexture(16, 16, makeSquare(255, 70, 70).data());
+    render::TextureHandle texPowShield = renderer->createTexture(16, 16, makeSquare(70, 180, 255).data());
     render::TextureHandle texBullet = renderer->createTexture(16, 16, makeSquare(255, 240, 120).data());
     render::TextureHandle texBlood = renderer->createTexture(16, 16, makeSquare(170, 30, 30).data());
     render::TextureHandle texGrenade = renderer->createTexture(16, 16, makeSquare(70, 90, 70).data());
@@ -393,6 +396,17 @@ int main(int argc, char** argv) {
                                         : 0.35f;
                 drawAt(m->x(), m->y(), texMedkit, 1.8f, render::Color{0.5f * blink, blink, 0.6f * blink, 1.0f});
             }
+            // Power-up pickups (rapid-fire / damage / shield), blinking as they near expiry.
+            for (scene::SceneNode* p : tree.nodesInGroup("powerups")) {
+                if (!fieldBool(p, "active")) continue;
+                const int pk = static_cast<int>(field(p, "kind"));
+                render::TextureHandle ptex = pk == 1 ? texPowDamage : (pk == 2 ? texPowShield : texPowRapid);
+                const float life = static_cast<float>(field(p, "life"));
+                const float blink = (life > 3.0f || std::sin(static_cast<float>(simTime) * 12.0f) > 0.0f)
+                                        ? 1.0f
+                                        : 0.4f;
+                drawAt(p->x(), p->y(), ptex, 1.8f, render::Color{blink, blink, blink, 1.0f});
+            }
             // Zombies (only the live ones); sprite + size by kind, tinted red as health drops.
             for (scene::SceneNode* z : tree.nodesInGroup("zombies")) {
                 if (!fieldBool(z, "alive")) continue;
@@ -449,8 +463,17 @@ int main(int argc, char** argv) {
                 drawAt(survivor->x() + aimX * 2.2, survivor->y() + aimY * 2.2, texBullet, 1.3f * flick,
                        render::Color{1.0f, 0.95f, 0.6f, 0.9f});
             }
-            // Survivor on top.
-            if (alive) drawAt(survivor->x(), survivor->y(), texSurvivor, 3.0f, kNoTint);
+            // Survivor on top; tinted while a power-up buff is active (shield = blue halo).
+            if (alive) {
+                render::Color body = kNoTint;
+                const int bk = static_cast<int>(field(survivor, "buff_kind"));
+                if (field(survivor, "buff_timer") > 0.0) {
+                    if (bk == 2) body = render::Color{0.5f, 0.8f, 1.0f, 1.0f};       // shield
+                    else if (bk == 1) body = render::Color{1.0f, 0.6f, 0.6f, 1.0f};  // damage
+                    else if (bk == 0) body = render::Color{1.0f, 0.95f, 0.5f, 1.0f}; // rapid fire
+                }
+                drawAt(survivor->x(), survivor->y(), texSurvivor, 3.0f, body);
+            }
 
             // --- HUD (pixel-space overlay) ---
             render::Camera2D uiCam;

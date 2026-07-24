@@ -83,6 +83,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
   and must be prioritized. The Director folds spitters into later waves. Verified headless
   (`zomboid_sim`): a spawned spitter holds its ground rather than closing to melee, a tick puts an acid
   glob in the air, and the glob travels and lands on a stationary survivor to drain their health.
+- **Power-up pickups** — a slain zombie rarely drops an object-pooled power-up; walk over it for a
+  short timed buff: rapid fire (fire rate ×2.2), double damage (×2.2), or a shield (all incoming
+  damage negated). Buffs layer over the permanent upgrade multipliers and cleanly revert when the
+  ~8 s timer lapses; a fresh pickup refreshes it. The survivor is tinted by the active buff (blue for
+  shield). Verified headless (`zomboid_sim`): the pool builds, collecting a rapid-fire kit multiplies
+  the fire rate and it falls back to base once the window elapses, and a shield fully soaks a 50-damage
+  hit.
 - **Sound effects** — procedural SFX (`audio::Audio`) for gunfire (per-weapon pitch), zombie deaths,
   reloads, grenade/boss booms, wave starts, taking a bite, and dying. The app fires one-shots by
   watching simulation state change frame-to-frame — no script hooks needed — and resyncs on restart so
