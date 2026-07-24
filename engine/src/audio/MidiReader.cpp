@@ -250,10 +250,15 @@ bool readMidi(const std::string& path, Sequencer& seq, std::string* err) {
     // patterns instead of one long flattened roll. A single-bar file stays a single pattern (no
     // playlist / song-mode change).
     const int nSteps = std::max(1, seq.numSteps());
+    constexpr int kMaxBars = 4096; // cap the arrangement span so a crafted/huge note tick can't drive
+                                   // an unbounded pattern allocation (OOM) on import
     int maxBar = 0;
     for (const RawNote& rn : notes) {
         const int absStep = rn.onTick < 0 ? 0 : (rn.onTick + ticksPerStep / 2) / ticksPerStep;
         maxBar = std::max(maxBar, absStep / nSteps);
+    }
+    if (maxBar > kMaxBars) {
+        maxBar = kMaxBars;
     }
     while (seq.patternCount() <= maxBar) {
         seq.addPattern(); // new patterns start empty
@@ -265,6 +270,9 @@ bool readMidi(const std::string& path, Sequencer& seq, std::string* err) {
             lenSteps = 1;
         }
         const int bar = absStep / nSteps;
+        if (bar > maxBar) {
+            continue; // note lies past the capped arrangement span (crafted/oversized file) → drop it
+        }
         const int localStep = absStep % nSteps;
         seq.selectPattern(bar); // subsequent roll()/roll2()/grid ops target this bar's pattern
         if (rn.channel == 9) {

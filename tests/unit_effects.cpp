@@ -1966,6 +1966,25 @@ int main() {
         check(diff > 0.0, "chorus decorrelates the stereo image");
         check(rms(sig) > 0.0, "chorus still passes signal");
 
+        // Regression: at a depth beyond the 12 ms base the modulated delay used to go negative and
+        // read past the write head, clicking once per LFO cycle. Clamped to ≥1 sample, a slow tone
+        // stays smooth — the max per-sample jump stays near the tone's own tiny slope, no spike.
+        audio::Chorus deep;
+        deep.setEnabled(true);
+        deep.setMix(0.5f);
+        deep.setDepth(20.0f); // > 12 ms base → old code's delay crossed zero
+        deep.setRate(2.0f);   // ~2 LFO cycles across the 1 s buffer
+        std::vector<float> slow = sineStereo(sr, 110.0, 0.5, sr);
+        deep.process(slow.data(), sr, sr);
+        double maxJump = 0.0;
+        for (int i = 1; i < sr; ++i) {
+            maxJump = std::max(maxJump, std::fabs(static_cast<double>(
+                                           slow[static_cast<size_t>(i) * 2] -
+                                           slow[static_cast<size_t>(i - 1) * 2])));
+        }
+        // Fixed: ~0.008 (near the 110 Hz tone's own per-sample slope). Buggy: ~0.073 (the wrap click).
+        check(maxJump < 0.02, "high-depth chorus has no per-cycle delay-wrap click (smooth output)");
+
         // Feedback: routing the wet back changes the sound vs a clean (feedback 0) chorus.
         auto chorusOut = [&](float fb) {
             audio::Chorus c;

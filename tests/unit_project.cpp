@@ -1377,6 +1377,20 @@ int main() {
         check(!audio::loadProjectFromString("garbage no header", s2, m2, a2, &err),
               "loadProjectFromString rejects a non-project string");
 
+        // Robustness regression: a corrupt/crafted file with absurd file-controlled counts must not
+        // drive an unbounded allocation (OOM / multi-GB resize) on load — the counts are clamped.
+        {
+            audio::Sequencer sc;
+            audio::Mixer mc;
+            audio::Automation ac;
+            const std::string malicious =
+                "cjc 1\npatterns 2000000000\ntrackflag 2000000000 1 0\nplaylist 2000000000\n";
+            check(audio::loadProjectFromString(malicious, sc, mc, ac, &err),
+                  "a crafted project with huge counts loads without hanging or OOM");
+            check(sc.patternCount() <= 4096,
+                  "a crafted pattern count is clamped (no unbounded pattern allocation)");
+        }
+
         // Undo/redo via snapshots: push the pre-edit state, edit, undo restores it, redo re-applies.
         audio::UndoHistory hist;
         hist.push(snapA);

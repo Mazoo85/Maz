@@ -1197,6 +1197,36 @@ int main() {
               "a centred step stays balanced L/R (default path unchanged)");
     }
 
+    // --- Regression: per-step pan survives a pattern-length change ------------
+    // setNumSteps re-lays-out every parallel per-step row to the new stride; the pan row was omitted,
+    // so a resize left it mis-strided (wrong reads) and the next setStepPan wiped the whole row.
+    {
+        audio::Sequencer s;
+        s.setStepPan(0, 2, -100); // 16 steps by default
+        s.setStepPan(1, 5, 80);
+        s.setNumSteps(32);        // grow
+        check(s.stepPan(0, 2) == -100 && s.stepPan(1, 5) == 80,
+              "per-step pan survives growing the pattern length");
+        s.setNumSteps(8);         // shrink (both steps still within range)
+        check(s.stepPan(0, 2) == -100 && s.stepPan(1, 5) == 80,
+              "per-step pan survives shrinking the pattern length");
+    }
+
+    // --- Regression: rotateChannel moves ALL per-step rows with the hit ------
+    // rotateChannel rotated only grid/prob/ratchet; per-step tune/nudge/pan/stride stayed put, so a
+    // rotated hit lost its pitch/pan/etc. Now every parallel row rotates together.
+    {
+        audio::Sequencer s;
+        s.setStep(0, 4, true);
+        s.setStepPan(0, 4, -100);
+        s.setStepTune(0, 4, 12);
+        s.rotateChannel(0, 3); // step 4 → step 7
+        check(s.stepPan(0, 7) == -100 && s.stepPan(0, 4) == 0,
+              "rotateChannel moves per-step pan with the hit");
+        check(s.stepTune(0, 7) == 12 && s.stepTune(0, 4) == 0,
+              "rotateChannel moves per-step tune with the hit");
+    }
+
     // --- Master tuning -------------------------------------------------------
     {
         audio::Sequencer s;
@@ -1898,6 +1928,28 @@ int main() {
         (void)renderMono(looped, 3 * 16 * 6000, sampleRate); // three bars
         check(looped.playing(), "a looping song keeps playing past the playlist end");
         check(looped.songLoop(), "song loop defaults to on");
+    }
+
+    // Regression: at the 1-D play-once end the sequencer must release EVERY instrument (extra channels
+    // + hosted plugins), not just the three built-ins. Before the fix a note held on an extra channel
+    // to the final bar line never got its note-off (the stop skips triggerStep) and droned forever.
+    {
+        audio::Sequencer once;
+        once.setBpm(120.0);
+        once.addPattern(); // patterns 0 and 1 exist
+        const int ch = once.addInstrumentChannel();
+        once.instrumentSynth(ch).setEnvelope(0.001f, 0.01f, 1.0f, 0.03f); // full sustain, quick release
+        // A note filling the whole last bar → still held when play-once stops at that bar's end.
+        once.instrumentRoll(1, ch).addNote(audio::Note{0, 16, 69, 1.0f});
+        once.setPlaylist({0, 1});
+        once.setSongMode(true);
+        once.setSongLoop(false);
+        once.play();
+        (void)renderMono(once, 2 * 16 * 6000, sampleRate); // play both bars → stop at the end
+        check(!once.playing(), "play-once with an extra-channel note stops at the arrangement end");
+        (void)renderMono(once, sampleRate / 2, sampleRate); // half a second of tail
+        check(once.instrumentSynth(ch).activeVoices() == 0,
+              "play-once releases a held extra-channel note at the arrangement end (no hang)");
     }
 
     // Song loop region: restrict playback to a sub-range of the playlist [start, end).

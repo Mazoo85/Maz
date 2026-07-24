@@ -64,6 +64,7 @@ private:
     void* handle_ = nullptr; // dlopen handle
     const void* entry_ = nullptr;
     const void* plugin_ = nullptr;
+    bool entryInited_ = false; // clap_entry->init() succeeded → deinit() is legal (CLAP contract)
     bool activated_ = false;
     bool processing_ = false;
     int maxBlock_ = 4096;

@@ -110,9 +110,13 @@ bool ClapHost::load(const std::string& path, int sampleRate, int maxBlock, std::
         if (err != nullptr) {
             *err = "clap_entry->init failed";
         }
+        // init() failed → the CLAP contract forbids deinit(); drop entry_ so unload() skips it (it
+        // still dlcloses the module). Later failures reach unload() only after init() succeeded.
+        entry_ = nullptr;
         unload();
         return false;
     }
+    entryInited_ = true;
 
     const auto* factory =
         static_cast<const clap_plugin_factory_t*>(entry->get_factory(CLAP_PLUGIN_FACTORY_ID));
@@ -194,14 +198,15 @@ void ClapHost::unload() {
         }
     }
     const auto* entry = static_cast<const clap_plugin_entry_t*>(entry_);
-    if (entry != nullptr && entry->deinit != nullptr) {
-        entry->deinit();
+    if (entry != nullptr && entryInited_ && entry->deinit != nullptr) {
+        entry->deinit(); // only legal once init() has succeeded
     }
     if (handle_ != nullptr) {
         dlclose(handle_);
     }
     plugin_ = nullptr;
     entry_ = nullptr;
+    entryInited_ = false;
     handle_ = nullptr;
     activated_ = false;
     processing_ = false;

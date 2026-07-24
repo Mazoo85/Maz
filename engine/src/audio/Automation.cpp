@@ -570,11 +570,16 @@ void Automation::applyTargetValue(AudioEngine& engine, AutoTarget target, float 
             engine.sequencer().setMasterTune(v);
             break;
         case AutoTarget::LeadPluginParam0: {
-            // Automate the hosted lead instrument's first parameter (normalized 0..1). No-op when no
-            // plugin is loaded or it exposes no such parameter.
+            // Automate the hosted lead instrument's first parameter. The lane value `v` is normalized
+            // 0..1; setParam expects a value in the parameter's own [min, max] range (plain range for
+            // CLAP; always 0..1 for VST3), so denormalize into that range. Feeding the raw 0..1 would
+            // clamp to the minimum for any CLAP param whose range isn't 0..1. No-op when no plugin is
+            // loaded or it exposes no such parameter.
             InstrumentPlugin* lp = engine.sequencer().leadPlugin();
-            if (lp != nullptr && lp->loaded()) {
-                lp->setParam(0, static_cast<double>(v));
+            if (lp != nullptr && lp->loaded() && lp->paramCount() > 0) {
+                const double mn = lp->paramMin(0);
+                const double mx = lp->paramMax(0);
+                lp->setParam(0, mn + static_cast<double>(v) * (mx - mn));
             }
             break;
         }

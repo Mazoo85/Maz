@@ -552,6 +552,14 @@ void Chorus::process(float* stereo, int frames, int sampleRate) {
     const float fb = std::clamp(feedback_, 0.0f, 0.9f);
 
     auto readAt = [&](const std::vector<float>& buf, float delay) {
+        // The modulated delay is baseMs ± depthMs; with base 12 ms and depth up to 20 ms it can go
+        // negative, which would make `write_ - delay` read PAST the write head (a stale ~size-old
+        // sample) and click once per LFO cycle. Clamp the tap to ≥1 sample so it never crosses zero —
+        // matching the Delay/Vibrato/Rotary taps. No effect until depth pushes past the 12 ms base, so
+        // typical depths (default 3 ms) stay bit-identical.
+        if (delay < 1.0f) {
+            delay = 1.0f;
+        }
         float rp = static_cast<float>(write_) - delay;
         while (rp < 0.0f) {
             rp += static_cast<float>(size_);

@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <type_traits>
 
 namespace maz::audio {
 
@@ -166,6 +167,7 @@ void Sequencer::setNumSteps(int steps) {
         std::vector<uint8_t> rt(static_cast<size_t>(chans) * static_cast<size_t>(n), 1);
         std::vector<int8_t> tn(static_cast<size_t>(chans) * static_cast<size_t>(n), 0);
         std::vector<int8_t> nd(static_cast<size_t>(chans) * static_cast<size_t>(n), 0);
+        std::vector<int8_t> pn(static_cast<size_t>(chans) * static_cast<size_t>(n), 0);
         std::vector<uint8_t> sd(static_cast<size_t>(chans) * static_cast<size_t>(n), 1);
         for (int c = 0; c < chans; ++c) {
             for (int s = 0; s < copy; ++s) {
@@ -188,6 +190,9 @@ void Sequencer::setNumSteps(int steps) {
                 if (src < p.nudge.size()) {
                     nd[dst] = p.nudge[src];
                 }
+                if (src < p.pan.size()) {
+                    pn[dst] = p.pan[src];
+                }
                 if (src < p.stride.size()) {
                     sd[dst] = p.stride[src];
                 }
@@ -198,6 +203,7 @@ void Sequencer::setNumSteps(int steps) {
         p.ratchet = std::move(rt);
         p.tune = std::move(tn);
         p.nudge = std::move(nd);
+        p.pan = std::move(pn);
         p.stride = std::move(sd);
     }
     numSteps_ = n;
@@ -850,12 +856,15 @@ void Sequencer::rotateChannel(int channel, int offset) {
     }
     Pattern& p = patterns_[static_cast<size_t>(current_)];
     const size_t base = static_cast<size_t>(channel) * static_cast<size_t>(n);
-    // Rotate one channel's slice of a parallel row (grid / prob / ratchet), if it is allocated.
-    auto rotateRow = [&](std::vector<uint8_t>& v) {
+    // Rotate one channel's slice of a parallel per-step row, if it is allocated. Templated so every
+    // row type moves with the hit: grid/prob/ratchet/stride (uint8_t) AND tune/nudge/pan (int8_t) —
+    // otherwise the rotated hits would desync from their pitch/nudge/pan/trig-condition attributes.
+    auto rotateRow = [&](auto& v) {
         if (v.size() != p.grid.size()) {
-            return; // prob/ratchet may be unallocated (all-default) → nothing to move
+            return; // an unallocated (all-default) row → nothing to move
         }
-        std::vector<uint8_t> row(static_cast<size_t>(n));
+        using T = typename std::decay_t<decltype(v)>::value_type;
+        std::vector<T> row(static_cast<size_t>(n));
         for (int s = 0; s < n; ++s) {
             row[static_cast<size_t>((s + off) % n)] = v[base + static_cast<size_t>(s)];
         }
@@ -866,6 +875,10 @@ void Sequencer::rotateChannel(int channel, int offset) {
     rotateRow(p.grid);
     rotateRow(p.prob);
     rotateRow(p.ratchet);
+    rotateRow(p.tune);
+    rotateRow(p.nudge);
+    rotateRow(p.pan);
+    rotateRow(p.stride);
 }
 
 void Sequencer::clear() {
@@ -1740,11 +1753,12 @@ void Sequencer::renderStems(float* drums, float* lead, float* bass, float** grou
                             playlistPos_ = loopStart;
                             switchTo(playlist_[static_cast<size_t>(loopStart)]);
                         } else {
-                            // Play-once: stop cleanly at the end of the arrangement/region.
+                            // Play-once: stop cleanly at the end of the arrangement/region. Release
+                            // EVERY instrument (built-ins + extra channels + hosted lead/channel
+                            // plugins) so a note ringing to the final bar line doesn't drone forever —
+                            // rendering continues past `playing_`, only the step clock stops.
                             playing_ = false;
-                            synth_.allNotesOff();
-                            synth2_.allNotesOff();
-                            sampler_.allNotesOff();
+                            releaseAllNotes();
                         }
                     } else {
                         playlistPos_ = next;

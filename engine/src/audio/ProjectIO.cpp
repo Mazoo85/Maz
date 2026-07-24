@@ -1241,6 +1241,9 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
         } else if (tag == "patterns") {
             int count = 1;
             ls >> count;
+            if (count > 4096) {
+                count = 4096; // guard against a corrupt/crafted count driving an unbounded alloc loop
+            }
             while (seq.patternCount() < count) {
                 seq.addPattern();
             }
@@ -1306,6 +1309,8 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
                 int idx = 0;
                 if (ls >> idx) {
                     seqList.push_back(idx);
+                } else {
+                    break; // stream exhausted/failed → stop (a crafted huge count can't spin the loop)
                 }
             }
             seq.setPlaylist(seqList);
@@ -1353,8 +1358,12 @@ static bool readProjectFrom(std::istream& f, Sequencer& seq, Mixer& mixer, Autom
         } else if (tag == "trackflag") {
             int t = 0, m = 0, s = 0;
             ls >> t >> m >> s;
-            seq.setTrackMuted(t, m != 0);
-            seq.setTrackSoloed(t, s != 0);
+            // `t` is a file-controlled index that setTrackMuted/Soloed resize a vector to — cap it so a
+            // corrupt/crafted value can't request a multi-gigabyte allocation on load.
+            if (t >= 0 && t < 4096) {
+                seq.setTrackMuted(t, m != 0);
+                seq.setTrackSoloed(t, s != 0);
+            }
         } else if (tag == "marker") {
             int bar = 0;
             ls >> bar;
