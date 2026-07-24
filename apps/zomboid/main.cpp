@@ -430,9 +430,16 @@ int main(int argc, char** argv) {
                 const float size = static_cast<float>(field(z, "radius")) * 2.4f;
                 const double hp = field(z, "health"), mhp = field(z, "max_health");
                 const float f = mhp > 0.0 ? static_cast<float>(hp / mhp) : 1.0f;
-                const render::Color tint =
+                const bool elite = fieldBool(z, "elite");
+                render::Color tint =
                     f < 0.4f ? render::Color{1.0f, 0.55f, 0.55f, 1.0f} : kNoTint;
-                drawAt(z->x(), z->y(), ztex, size, tint);
+                float esize = size;
+                if (elite) {
+                    tint = f < 0.4f ? render::Color{1.0f, 0.75f, 0.35f, 1.0f}   // wounded gold
+                                    : render::Color{1.0f, 0.85f, 0.25f, 1.0f};  // champion gold
+                    esize = size * 1.3f; // elites are visibly bigger
+                }
+                drawAt(z->x(), z->y(), ztex, esize, tint);
             }
             // Bullets in flight.
             for (scene::SceneNode* b : tree.nodesInGroup("bullets")) {

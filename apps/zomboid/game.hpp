@@ -782,8 +782,19 @@ class Zombie {
     var score_value = 10;
     var cooldown = 0;
     var slam_cd = 0;       # boss (kind 3) ground-slam special-attack timer
+    var elite = false;     # "champion" modifier: much tankier, faster, worth far more
 
     func _ready() { g_zombies.append(self); }
+
+    # Crown this zombie an elite: a tankier, faster, high-value champion that always drops a medkit.
+    func make_elite() {
+        self.elite = true;
+        self.health = self.health * 2.5;
+        self.max_health = self.health;
+        self.speed = self.speed * 1.15;
+        if (self.speed > 30) { self.speed = 30; }
+        self.score_value = self.score_value * 3;
+    }
 
     # Revive as a plain walker with explicit hp/speed (used by tests to park a target).
     func spawn_at(x, y, hp, spd) {
@@ -798,6 +809,7 @@ class Zombie {
         self.attack_range = 1.2;
         self.score_value = 10;
         self.cooldown = 0;
+        self.elite = false;
         self.alive = true;
     }
 
@@ -810,6 +822,7 @@ class Zombie {
         self.kind = k;
         self.cooldown = 0;
         self.slam_cd = 3.0;    # a boss's first ground slam lands a few seconds in
+        self.elite = false;
         self.alive = true;
         if (k == 1) {
             self.health = 14 + w * 4;
@@ -900,8 +913,13 @@ class Zombie {
             }
             g_shake = g_shake + s;
             if (g_shake > 3.0) { g_shake = 3.0; }
-            # A slain zombie sometimes drops a medkit.
-            if (randf() < 0.12) { drop_medkit(self.node.x, self.node.y); }
+            # A slain zombie sometimes drops a medkit; an elite always does, plus an extra flourish.
+            if (self.elite) {
+                drop_medkit(self.node.x, self.node.y);
+                emit(self.node.x, self.node.y, 16, 1);
+            } else {
+                if (randf() < 0.12) { drop_medkit(self.node.x, self.node.y); }
+            }
             # Rarely it drops a power-up instead (random kind: rapid-fire, damage, or shield).
             if (randf() < 0.05) {
                 var pk = int(randf_range(0, 3));
@@ -1018,6 +1036,8 @@ class Director {
                 var ang = 6.28318530718 * i / count;
                 var r = 34 + randf_range(0, 10);
                 z.spawn(cx + cos(ang) * r, cy + sin(ang) * r, k, w);
+                # From wave 2, a non-boss zombie is occasionally crowned an elite champion.
+                if (k != 3 and w >= 2 and randf() < 0.08) { z.make_elite(); }
             }
             i = i + 1;
         }

@@ -688,6 +688,33 @@ int main() {
         CHECK(hasExploder);
     }
 
+    // Elite ("champion") zombies: crowning one boosts its health and score and guarantees a medkit.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        (void)survivor;
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zv = z->script();
+        std::vector<Value> sp = {Value::fromNum(5.0), Value::fromNum(0.0), Value::fromNum(0.0),
+                                 Value::fromNum(2.0)}; // spawn(x,y,kind=0,wave=2)
+        tree.scripts().vm().callOn(zv, "spawn", sp);
+        const double baseHp = z->script().instance->findField("health")->number;
+        const double baseScore = z->script().instance->findField("score_value")->number;
+
+        std::vector<Value> none;
+        tree.scripts().vm().callOn(zv, "make_elite", none);
+        CHECK(z->script().instance->findField("elite")->boolean);
+        CHECK(z->script().instance->findField("health")->number > baseHp * 2.0);
+        CHECK(z->script().instance->findField("score_value")->number > baseScore * 2.0);
+
+        // Killing an elite always drops a medkit.
+        CHECK(activeMedkits(tree) == 0);
+        std::vector<Value> big = {Value::fromNum(9999.0)};
+        tree.scripts().vm().callOn(zv, "take_damage", big);
+        CHECK(!z->script().instance->findField("alive")->boolean);
+        CHECK(activeMedkits(tree) >= 1); // guaranteed elite drop
+    }
+
     // Boss ground slam (kind 3): a periodic shockwave hits a survivor within its radius even when
     // they are outside melee-bite range, but spares one standing well clear of it.
     {

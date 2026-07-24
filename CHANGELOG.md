@@ -26,6 +26,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
   emits a 6-bullet burst, the SMG out-shoots the pistol over a second, a bullet kills a zombie and
   scores, cleared waves escalate, and survival/loot still hold. Kept as its own fast-compiling target
   so game iterations verify in a second instead of rebuilding the full unit suite.
+- **Elite champions** — from wave 2 the Director occasionally crowns a non-boss zombie as an elite:
+  2.5× health, a speed bump, 3× score, and a guaranteed medkit on death (plus an extra blood
+  flourish). They read at a glance — the app draws them larger and gold-tinted — turning a routine
+  zombie into a high-value, high-risk target worth chasing. Verified headless (`zomboid_sim`):
+  `make_elite` more than doubles a zombie's health and score, and killing an elite always drops a
+  medkit (where an ordinary kill only sometimes does).
 - **Boss ground slam** — the boss now has a special attack on top of its bite: every ~4 seconds it
   slams the ground, emitting a radial shockwave (particle burst + heavy screen-shake) that deals a
   flat 25 damage to the survivor if they are within ~10 units. Because the boss is slow, the slam is
