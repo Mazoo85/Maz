@@ -663,6 +663,11 @@ int main(int argc, char** argv) {
                     const float rp = 0.7f + 0.3f * std::sin(static_cast<float>(simTime) * 16.0f);
                     tint = render::Color{1.0f, 0.25f * rp, 0.2f * rp, 1.0f};
                 }
+                // Boss slam wind-up: flash a bright warning white so you can read the tell and dash clear.
+                if (field(z, "slam_warn") > 0.0) {
+                    const float wp = 0.6f + 0.4f * std::sin(static_cast<float>(simTime) * 40.0f);
+                    tint = render::Color{1.0f, 1.0f, 0.5f + 0.5f * wp, 1.0f};
+                }
                 // Burning overrides other tints: a flickering ember glow.
                 if (field(z, "burn_timer") > 0.0) {
                     const float fl = 0.7f + 0.3f * std::sin(static_cast<float>(simTime) * 24.0f +

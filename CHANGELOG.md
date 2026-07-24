@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the boss slam is now telegraphed.** The boss no longer slams instantly: it rears back
+  for a half-second wind-up (flashing a bright warning white) before the shockwave lands, giving a
+  sharp survivor a window to dash or run clear of the radius and avoid the hit entirely. Turns the
+  slam from unavoidable chip damage into a readable skill check. Headless-tested: the first tick only
+  starts the wind-up (no damage), and the slam lands ~0.5s later, hitting an in-range survivor and
+  sparing one who is clear.
 - **ZOMBOID — a big combo buys grace.** The kill-streak multiplier no longer decays on a flat timer:
   the higher your multiplier, the longer the gap you can go between kills before it resets (base 2.5s,
   up to 4.5s at ×5). A hard-won streak is now more resilient and worth pushing for, instead of

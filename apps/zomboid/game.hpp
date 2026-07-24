@@ -1771,6 +1771,7 @@ class Zombie {
     var score_value = 10;
     var cooldown = 0;
     var slam_cd = 0;       # boss (kind 3) ground-slam special-attack timer
+    var slam_warn = 0;     # boss: telegraph wind-up counting down before a slam actually lands
     var enraged = false;   # boss (kind 3): flips true when badly wounded — faster, slams twice as often
     var elite = false;     # "champion" modifier: much tankier, faster, worth far more
     var slow_timer = 0;    # while > 0 the zombie is chilled and crawls at reduced speed
@@ -1927,6 +1928,7 @@ class Zombie {
         self.spawn_wave = w;
         self.cooldown = 0;
         self.slam_cd = 3.0;    # a boss's first ground slam lands a few seconds in
+        self.slam_warn = 0;
         self.enraged = false;
         self.elite = false;
         self.slow_timer = 0;
@@ -2352,20 +2354,30 @@ class Zombie {
             var slam_gap = 4.0;
             if (self.enraged) { slam_gap = 2.0; }
             self.slam_cd = self.slam_cd - dt;
-            if (self.slam_cd <= 0) {
-                self.slam_cd = slam_gap;
-                if (dist <= 10.0) {
-                    g_player.take_damage(25);
-                    # Knockback: the shockwave physically hurls the survivor away from the boss, so a
-                    # slam clears space instead of just chipping health — punishing standing too close.
-                    if (dist > 0.01) {
-                        g_player.node.x = g_player.node.x + (dx / dist) * 6.0;
-                        g_player.node.y = g_player.node.y + (dy / dist) * 6.0;
+            if (self.slam_warn > 0) {
+                # Wind-up telegraph: the boss rears back for a beat before the slam lands, giving a
+                # sharp survivor a window to dash or run clear of the radius before it hits.
+                self.slam_warn = self.slam_warn - dt;
+                if (self.slam_warn <= 0) {
+                    if (dist <= 10.0) {
+                        g_player.take_damage(25);
+                        # Knockback: the shockwave hurls the survivor away from the boss, so a slam
+                        # clears space instead of just chipping health — punishing standing too close.
+                        if (dist > 0.01) {
+                            g_player.node.x = g_player.node.x + (dx / dist) * 6.0;
+                            g_player.node.y = g_player.node.y + (dy / dist) * 6.0;
+                        }
                     }
+                    emit(self.node.x, self.node.y, 28, 1); # shockwave burst
+                    g_shake = g_shake + 2.5;
+                    if (g_shake > 3.0) { g_shake = 3.0; }
                 }
-                emit(self.node.x, self.node.y, 28, 1); # shockwave burst
-                g_shake = g_shake + 2.5;
-                if (g_shake > 3.0) { g_shake = 3.0; }
+            } else {
+                if (self.slam_cd <= 0) {
+                    self.slam_cd = slam_gap;
+                    self.slam_warn = 0.5;   # start the wind-up; the slam lands half a second later
+                    emit(self.node.x, self.node.y, 29, 1);   # telegraph ring
+                }
             }
         }
         if (self.kind == 5) {

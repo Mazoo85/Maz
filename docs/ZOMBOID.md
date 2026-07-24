@@ -93,7 +93,7 @@ Thirteen zombie types join the horde as the waves climb:
 | 0 | **Walker** | The baseline shambler. |
 | 1 | **Runner** | Fast, fragile; swarms you. |
 | 2 | **Brute** | Slow, tanky, hits hard. |
-| 3 | **Boss** | Huge bullet-sponge that leads every 5th wave; **ground-slams** for heavy damage *and* hurls you back, so you can't just stand in its face. **Enrages** below 35% health — faster, slams twice as often, and calls in waves of runners. |
+| 3 | **Boss** | Huge bullet-sponge that leads every 5th wave; **ground-slams** for heavy damage *and* hurls you back — but it **flashes a warning as it winds up**, so dash clear of the ring to dodge it. **Enrages** below 35% health — faster, slams twice as often, and calls in waves of runners. |
 | 4 | **Exploder** | Detonates on death — shoot it from a distance. |
 | 5 | **Spitter** | Hangs back and lobs acid that leaves a caustic **puddle** on the ground. |
 | 6 | **Splitter** | Bursts into two runners when killed. |

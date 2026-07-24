@@ -1530,8 +1530,9 @@ int main() {
         std::vector<Value> sp = {Value::fromNum(6.0), Value::fromNum(0.0), Value::fromNum(3.0),
                                  Value::fromNum(1.0)}; // boss at dist 6 (inside slam 10, outside bite)
         tree.scripts().vm().callOn(bz, "spawn", sp);
-        boss->script().instance->findField("slam_cd")->number = 0.01; // slam almost ready
-        tree.process(0.02);
+        sField(boss, "slam_cd")->number = 0.01; // slam almost ready
+        std::vector<Value> dt1 = {Value::fromNum(1.0 / 60.0)};
+        for (int i = 0; i < 45; ++i) { tree.scripts().vm().callOn(bz, "_process", dt1); } // wind-up then land
         CHECK(sField(survivor, "health")->number <= 75.0); // slam landed (~25), no bite at range 6
     }
     {
@@ -1544,8 +1545,9 @@ int main() {
         std::vector<Value> sp = {Value::fromNum(30.0), Value::fromNum(0.0), Value::fromNum(3.0),
                                  Value::fromNum(1.0)}; // far outside the slam radius
         tree.scripts().vm().callOn(bz, "spawn", sp);
-        boss->script().instance->findField("slam_cd")->number = 0.01;
-        tree.process(0.02);
+        sField(boss, "slam_cd")->number = 0.01;
+        std::vector<Value> dt2 = {Value::fromNum(1.0 / 60.0)};
+        for (int i = 0; i < 45; ++i) { tree.scripts().vm().callOn(bz, "_process", dt2); } // fires, can't reach
         CHECK(sField(survivor, "health")->number == 100.0); // out of slam range, unscathed
     }
 
@@ -2663,11 +2665,15 @@ int main() {
                                  Value::fromNum(3.0), Value::fromNum(5.0)};  // spawn(x,y,boss,wave)
         vm.callOn(bv, "spawn", bs);
         CHECK((int)sField(boss, "kind")->number == 3);
-        sField(boss, "slam_cd")->number = 0.0;           // slam fires on this step
+        sField(boss, "slam_cd")->number = 0.0;           // slam becomes ready this step
 
+        // First tick only starts the wind-up telegraph — the survivor is not hit yet.
         vm.callOn(bv, "_process", dt);
+        CHECK(survivor->x() == 5.0);                      // not yet knocked back
+        CHECK(sField(boss, "slam_warn")->number > 0.0);   // winding up
 
-        // The survivor was at x=5, one unit-vector *6 knockback along +x lands them past x=10.
+        // After the ~0.5s wind-up the slam lands and hurls the survivor clear (unit-vector *6 along +x).
+        for (int i = 0; i < 40; ++i) { vm.callOn(bv, "_process", dt); }
         CHECK(survivor->x() > 10.0);
         CHECK(survivor->y() == 0.0);                      // pushed straight along the boss→survivor axis
     }
