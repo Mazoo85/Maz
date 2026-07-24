@@ -305,6 +305,15 @@ int main(int argc, char** argv) {
                 std::vector<script::Value> none;
                 tree.scripts().vm().callOn(self, "throw_grenade", none);
             }
+
+            // Overcharge ultimate (Q while playing; autopilot fires it the moment it's ready).
+            bool ultNow = !autopilot && input.keyPressed(SDL_SCANCODE_Q);
+            if (autopilot && fieldBool(survivor, "ult_ready")) ultNow = true;
+            if (ultNow && fieldBool(survivor, "ult_ready")) {
+                script::Value self = survivor->script();
+                std::vector<script::Value> none;
+                tree.scripts().vm().callOn(self, "detonate", none);
+            }
         }
 
         // Advance the simulation (weapon cadence, bullets, zombie AI, waves).
@@ -530,6 +539,22 @@ int main(int argc, char** argv) {
             std::snprintf(nadeBuf, sizeof(nadeBuf), "GRENADES %d  (G)",
                           static_cast<int>(field(survivor, "grenades")));
             font.drawText(*renderer, 16.0f, 122.0f, nadeBuf, render::Color{0.7f, 0.85f, 0.7f, 1.0f},
+                          0.45f);
+            // Overcharge ultimate meter.
+            const bool ultReady = fieldBool(survivor, "ult_ready");
+            char ultBuf[48];
+            if (ultReady) {
+                std::snprintf(ultBuf, sizeof(ultBuf), "OVERCHARGE READY  (Q)");
+            } else {
+                std::snprintf(ultBuf, sizeof(ultBuf), "OVERCHARGE %d/%d",
+                              static_cast<int>(field(survivor, "ult")),
+                              static_cast<int>(field(survivor, "ult_max")));
+            }
+            const float ultPulse = ultReady ? 0.6f + 0.4f * std::sin(static_cast<float>(simTime) * 8.0f)
+                                            : 1.0f;
+            font.drawText(*renderer, 16.0f, 146.0f, ultBuf,
+                          ultReady ? render::Color{1.0f, 0.8f * ultPulse, 0.2f * ultPulse, 1.0f}
+                                   : render::Color{0.6f, 0.7f, 0.9f, 1.0f},
                           0.45f);
 
             // Wave / score / kills, top-centre-ish.

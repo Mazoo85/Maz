@@ -719,6 +719,35 @@ int main() {
         CHECK(sField(survivor, "health")->number == 100.0); // out of slam range, unscathed
     }
 
+    // Overcharge ultimate: kills fill the meter; a detonate wipes the field and resets the charge.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        Value sv = survivor->script();
+        CHECK(!sField(survivor, "ult_ready")->boolean);
+
+        const int need = (int)sField(survivor, "ult_max")->number;
+        std::vector<Value> one = {Value::fromNum(1.0)};
+        for (int i = 0; i < need; ++i) tree.scripts().vm().callOn(sv, "add_ult", one);
+        CHECK(sField(survivor, "ult_ready")->boolean);       // meter full
+
+        // Park a cluster of zombies, then detonate.
+        SceneNode* zn[5] = {tree.findNode("Zombie0"), tree.findNode("Zombie1"), tree.findNode("Zombie2"),
+                            tree.findNode("Zombie3"), tree.findNode("Zombie4")};
+        for (int i = 0; i < 5; ++i) {
+            Value zv = zn[i]->script();
+            std::vector<Value> a = {Value::fromNum(5.0 + i), Value::fromNum(0.0),
+                                    Value::fromNum(30.0), Value::fromNum(0.0)}; // spawn_at
+            tree.scripts().vm().callOn(zv, "spawn_at", a);
+        }
+        CHECK(aliveZombies(tree) >= 5);
+        std::vector<Value> none;
+        tree.scripts().vm().callOn(sv, "detonate", none);
+        CHECK(aliveZombies(tree) == 0);                      // field wiped
+        CHECK(!sField(survivor, "ult_ready")->boolean);      // charge consumed
+        CHECK(sField(survivor, "ult")->number == 0.0);
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

@@ -123,8 +123,38 @@ class Survivor {
     var cur_reserve = 48;
     var is_reloading = false;
     var grenades = 3;        # thrown-explosive count
+    # Overcharge ultimate: kills fill the meter; when full, detonate wipes the field.
+    var ult = 0;
+    var ult_max = 25;
+    var ult_ready = false;
 
     func _ready() { g_player = self; self.set_weapon(0); }
+
+    # Add ultimate charge (one per kill) until the meter is full.
+    func add_ult(n) {
+        if (self.ult_ready) { return; }
+        self.ult = self.ult + n;
+        if (self.ult >= self.ult_max) {
+            self.ult = self.ult_max;
+            self.ult_ready = true;
+        }
+    }
+
+    # Unleash the charged ultimate: a screen-wide blast that hammers every live zombie, then resets.
+    func detonate() {
+        if (self.ult_ready == false) { return; }
+        var i = 0;
+        var n = len(g_zombies);
+        while (i < n) {
+            var z = g_zombies[i];
+            if (z.alive) { z.take_damage(500); }
+            i = i + 1;
+        }
+        emit(self.node.x, self.node.y, 40, 1);
+        g_shake = 3.0;
+        self.ult = 0;
+        self.ult_ready = false;
+    }
 
     func _process(dt) {
         # Screen shake always eases back toward rest, even on the death screen.
@@ -850,6 +880,7 @@ class Zombie {
             g_mult = 1 + int(g_combo / 5);
             if (g_mult > 5) { g_mult = 5; }
             g_score = g_score + self.score_value * g_mult;
+            if (g_player != nil) { g_player.add_ult(1); } # a kill charges the ultimate meter
             emit(self.node.x, self.node.y, 10, 1); # blood burst on death
             var s = 0.5;
             if (self.kind == 2) { s = 1.0; }

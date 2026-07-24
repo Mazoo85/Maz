@@ -92,6 +92,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
   and must be prioritized. The Director folds spitters into later waves. Verified headless
   (`zomboid_sim`): a spawned spitter holds its ground rather than closing to melee, a tick puts an acid
   glob in the air, and the glob travels and lands on a stationary survivor to drain their health.
+- **Overcharge ultimate** — every kill charges a meter (25 kills to full); once ready, press Q to
+  detonate a screen-wide blast that hammers every live zombie on the field for 500 damage — wiping
+  ordinary hordes outright — then the meter resets. The HUD shows the charge and flashes "OVERCHARGE
+  READY"; autopilot fires it the moment it fills. Verified headless (`zomboid_sim`): charging the meter
+  to full sets the ready flag, a detonate clears a cluster of live zombies to zero, and the charge is
+  consumed back to empty.
 - **Adrenaline (last stand)** — dropping below 25% health triggers a passive fire-rate surge (×1.5),
   turning a near-death moment into a fighting chance instead of a slow bleed-out; the boost layers on
   top of the upgrade and power-up multipliers and drops away the instant you heal back above the
