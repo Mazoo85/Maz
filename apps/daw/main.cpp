@@ -367,8 +367,13 @@ int runHeadless(const core::AppConfig& cfg) {
         }
         // Optional master fade-in/out — applied last so it shapes the final normalized master.
         if (cfg.fadeInMs > 0 || cfg.fadeOutMs > 0) {
-            const int fin = cfg.fadeInMs * cfg.sampleRate / 1000;
-            const int fout = cfg.fadeOutMs * cfg.sampleRate / 1000;
+            // Compute the fade lengths in 64-bit — ms × sampleRate overflows int for long fades (e.g.
+            // 50000 ms × 48000 > INT_MAX) — then clamp to the buffer's frame count.
+            const long long totalFrames = static_cast<long long>(buf.size()) / channels;
+            const long long finLL = static_cast<long long>(cfg.fadeInMs) * cfg.sampleRate / 1000;
+            const long long foutLL = static_cast<long long>(cfg.fadeOutMs) * cfg.sampleRate / 1000;
+            const int fin = static_cast<int>(std::min(finLL, totalFrames));
+            const int fout = static_cast<int>(std::min(foutLL, totalFrames));
             audio::applyFade(buf.data(), static_cast<int>(buf.size()) / channels, channels, fin, fout);
             MAZ_LOG_INFO("audio: applied fade in %d ms / out %d ms", cfg.fadeInMs, cfg.fadeOutMs);
         }
@@ -802,7 +807,16 @@ void buildPianoRollUI(audio::Sequencer& seq, int mixerGroupCount) {
         }
         // Host a plugin instrument on this channel (layered with its built-in synth; mute that for
         // plugin-only via the gain above). The format is chosen by extension (.vst3 → VST3, else CLAP).
+        // The path field is one shared static buffer, so refresh it from THIS channel's stored plugin
+        // path whenever the selected lane changes — otherwise a Load would target the current channel
+        // with the previous lane's leftover text. Within a lane the buffer is left alone so typing a
+        // new path isn't clobbered each frame.
         static char instClap[256] = "";
+        static int instClapChannel = -1;
+        if (ic != instClapChannel) {
+            instClapChannel = ic;
+            std::snprintf(instClap, sizeof(instClap), "%s", seq.instrumentPluginPath(ic).c_str());
+        }
         ImGui::SetNextItemWidth(220.0f);
         ImGui::InputText("##instclap", instClap, sizeof(instClap));
         ImGui::SameLine();

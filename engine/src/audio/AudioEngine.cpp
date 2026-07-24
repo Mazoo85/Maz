@@ -233,6 +233,20 @@ void AudioEngine::render(float* out, int frames) {
                 if (!soloAudible_[2]) {
                     std::fill(stemBass_.begin(), stemBass_.end(), 0.0f);
                 }
+                // Instrument channels routed DIRECTLY into a group are pre-filled into groupBufs_ by
+                // renderStems above, before any solo gating. If a group is audible only because a
+                // soloed bus/group passes THROUGH it (downstream), the group's own direct inputs are
+                // not part of the soloed submix and must be silenced — keep them only when the group is
+                // itself soloed or feeds a soloed group (i.e. it is a source of the soloed signal). The
+                // buses add on top afterward, so a pass-through group still carries the soloed bus.
+                for (int g = 0; g < ng; ++g) {
+                    const bool keepInputs =
+                        mixer_.group(g).soloed() || soloFeeds_[static_cast<size_t>(3 + g)];
+                    if (!keepInputs) {
+                        std::fill(groupBufs_[static_cast<size_t>(g)].begin(),
+                                  groupBufs_[static_cast<size_t>(g)].end(), 0.0f);
+                    }
+                }
             }
             // Aux sends: each bus's (post-insert, post-solo) signal scaled by its own reverb/delay send
             // feeds the shared return, PLUS each audible submix group's post-insert signal by its own

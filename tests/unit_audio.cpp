@@ -447,6 +447,34 @@ int main() {
         gsoloBus.sequencer().play();
         check(masterEnergy(gsoloBus, 0.3) < 1e-6,
               "soloing an empty bus that feeds a group silences that group's other inputs");
+
+        // Regression: an instrument channel routed DIRECTLY into a group must be silenced when a solo
+        // only passes THROUGH that group. Channel X -> group0; the (empty) drums bus also -> group0 and
+        // is soloed. X's audio is pre-filled into the group buffer before solo gating, so without the
+        // fix it leaked to master. Soloing the empty pass-through bus must leave the master silent.
+        audio::AudioEngine gsoloChan;
+        gsoloChan.initOffline();
+        const int xch = gsoloChan.sequencer().addInstrumentChannel();
+        gsoloChan.sequencer().instrumentRoll(xch).addNote(audio::Note{0, 8, 60, 0.9f}); // X sounds
+        const int gc0 = gsoloChan.mixer().addGroup();
+        gsoloChan.sequencer().setInstrumentGroup(xch, gc0);              // X -> group0 directly
+        gsoloChan.mixer().track(audio::MixerBus::Drums).setOutput(gc0);  // drums bus -> group0 (thru)
+        gsoloChan.mixer().track(audio::MixerBus::Drums).setSoloed(true); // solo the empty drums bus
+        gsoloChan.sequencer().play();
+        check(masterEnergy(gsoloChan, 0.3) < 1e-6,
+              "soloing a bus that only passes through a group silences that group's direct channel input");
+
+        // Converse: soloing the group that CARRIES the channel input keeps it audible (it is a source).
+        audio::AudioEngine gsoloChanKeep;
+        gsoloChanKeep.initOffline();
+        const int xk = gsoloChanKeep.sequencer().addInstrumentChannel();
+        gsoloChanKeep.sequencer().instrumentRoll(xk).addNote(audio::Note{0, 8, 60, 0.9f});
+        const int gk0 = gsoloChanKeep.mixer().addGroup();
+        gsoloChanKeep.sequencer().setInstrumentGroup(xk, gk0);
+        gsoloChanKeep.mixer().group(gk0).setSoloed(true); // solo the group carrying X
+        gsoloChanKeep.sequencer().play();
+        check(masterEnergy(gsoloChanKeep, 0.3) > 0.0,
+              "soloing the group that carries a channel input keeps that input audible");
     }
 
     // --- Per-bus aux send: a bus's reverb send feeds the shared reverb tail --

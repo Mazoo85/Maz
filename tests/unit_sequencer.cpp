@@ -1227,6 +1227,15 @@ int main() {
               "rotateChannel moves per-step tune with the hit");
     }
 
+    // --- Regression: channelName is bounds-checked ---------------------------
+    // A crafted/corrupt project can set an out-of-range index (e.g. an unclamped sidechain source)
+    // that reaches channelName; it must return an empty name, not index out of bounds.
+    {
+        audio::Sequencer s;
+        check(s.channelName(-1).empty() && s.channelName(100000).empty(),
+              "channelName returns empty for an out-of-range channel (no OOB)");
+    }
+
     // --- Master tuning -------------------------------------------------------
     {
         audio::Sequencer s;

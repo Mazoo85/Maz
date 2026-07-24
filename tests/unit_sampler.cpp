@@ -889,6 +889,41 @@ int main() {
         check(identical, "dither is deterministic: same input → byte-identical WAV");
     }
 
+    // --- 32-bit float export: round-trip + spec-conformant non-PCM header ----
+    // A non-PCM (format 3) WAV must carry the 18-byte extended `fmt ` chunk (base 16 + a 2-byte
+    // cbSize=0); strict parsers reject a format-3 file with a 16-byte fmt. Float export also keeps
+    // headroom (values beyond ±1 survive verbatim, no clamp).
+    {
+        const std::string fpath = "unit_sampler_float.wav";
+        const std::vector<float> vals = {0.0f, 0.5f, -0.5f, 1.25f, -1.25f, 0.123456f};
+        check(audio::writeWav16(fpath, vals.data(), static_cast<int>(vals.size()), 1, sr, &err, false,
+                                32),
+              "write 32-bit float WAV");
+        audio::WavData fd;
+        check(audio::readWav16(fpath, fd, &err), "read 32-bit float WAV back");
+        bool match = fd.samples.size() == vals.size();
+        for (size_t i = 0; match && i < vals.size(); ++i) {
+            if (std::fabs(fd.samples[i] - vals[i]) > 1e-6f) {
+                match = false;
+            }
+        }
+        check(match, "32-bit float WAV round-trips samples exactly (incl. values beyond +/-1)");
+
+        // The `fmt ` chunk size is the little-endian uint32 at byte offset 16 (after RIFF<4>size<4>
+        // WAVE<4> 'fmt '<4>). It must be 18 for a conformant non-PCM file.
+        std::ifstream ff(fpath, std::ios::binary);
+        const std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(ff)),
+                                         std::istreambuf_iterator<char>());
+        bool haveHeader = bytes.size() >= 20;
+        const uint32_t fmtSize =
+            haveHeader ? (static_cast<uint32_t>(bytes[16]) | (static_cast<uint32_t>(bytes[17]) << 8) |
+                          (static_cast<uint32_t>(bytes[18]) << 16) |
+                          (static_cast<uint32_t>(bytes[19]) << 24))
+                       : 0u;
+        check(haveHeader && fmtSize == 18,
+              "float WAV writes the 18-byte extended fmt chunk (spec-conformant non-PCM)");
+    }
+
     // --- Export peak-normalization -------------------------------------------
     // Static peak normalization scales the buffer so its loudest sample hits the target, without
     // touching dynamics; it is a no-op on silence, and idempotent once at the target.

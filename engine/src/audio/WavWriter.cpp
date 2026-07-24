@@ -47,21 +47,27 @@ bool writeWav16(const std::string& path, const float* interleaved, int frames, i
     std::vector<uint8_t> buf;
     buf.reserve(44 + dataBytes);
 
-    // RIFF header. Float files add a 12-byte "fact" chunk (required for non-PCM by the spec).
+    // RIFF header. Float files add a 12-byte "fact" chunk (required for non-PCM by the spec) and an
+    // extended fmt chunk (18 bytes: the base 16 plus a 2-byte cbSize=0), which the WAVE spec requires
+    // for any non-PCM format code — strict parsers reject a format-3 file with a 16-byte fmt.
     const uint32_t factBytes = isFloat ? 12u : 0u;
+    const uint32_t fmtExtra = isFloat ? 2u : 0u; // the cbSize field on the extended fmt chunk
     buf.insert(buf.end(), {'R', 'I', 'F', 'F'});
-    putLE(buf, 36u + factBytes + dataBytes, 4); // file size minus the first 8 bytes
+    putLE(buf, 36u + fmtExtra + factBytes + dataBytes, 4); // file size minus the first 8 bytes
     buf.insert(buf.end(), {'W', 'A', 'V', 'E'});
 
     // fmt chunk: 1 = PCM, 3 = IEEE float.
     buf.insert(buf.end(), {'f', 'm', 't', ' '});
-    putLE(buf, 16u, 4);                                   // fmt chunk size
+    putLE(buf, 16u + fmtExtra, 4);                       // fmt chunk size (18 for non-PCM/float)
     putLE(buf, isFloat ? 3u : 1u, 2);                    // audio format
     putLE(buf, static_cast<uint32_t>(channels), 2);
     putLE(buf, static_cast<uint32_t>(sampleRate), 4);
     putLE(buf, byteRate, 4);
     putLE(buf, blockAlign, 2);
     putLE(buf, bitsPerSample, 2);
+    if (isFloat) {
+        putLE(buf, 0u, 2); // cbSize: no extension bytes follow
+    }
 
     // fact chunk (float only): the number of sample frames.
     if (isFloat) {

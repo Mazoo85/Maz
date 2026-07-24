@@ -206,7 +206,15 @@ public:
     // divided into steps. Clamped to 1–8.
     void setStepsPerBeat(int steps) { stepsPerBeat_ = steps < 1 ? 1 : (steps > 8 ? 8 : steps); }
     int numChannels() const { return static_cast<int>(channels_.size()); }
-    const std::string& channelName(int channel) const { return names_[static_cast<size_t>(channel)]; }
+    const std::string& channelName(int channel) const {
+        // Bounds-checked: a crafted/corrupt project can set an out-of-range index (e.g. an unclamped
+        // sidechain source) that reaches here — return an empty name rather than indexing OOB.
+        static const std::string kEmpty;
+        if (channel < 0 || static_cast<size_t>(channel) >= names_.size()) {
+            return kEmpty;
+        }
+        return names_[static_cast<size_t>(channel)];
+    }
     DrumVoice& channelVoice(int channel) { return channels_[static_cast<size_t>(channel)]; }
 
     // Per-channel mixer strip: volume (linear), mute, and solo. When any channel is soloed, only
