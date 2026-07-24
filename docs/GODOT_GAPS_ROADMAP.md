@@ -150,6 +150,17 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Octahedral unit-vector encoding** (`math::octEncode` / `octDecode` / `octEncodeHemi` /
+  `octDecodeHemi`, `OctahedralNormal.hpp`) — DONE (M809); pack a unit vector (a normal, a direction) into
+  just TWO numbers in [-1,1] and unpack it back with barely any error — the standard way modern renderers
+  store normals compactly in a G-buffer (deferred shading), a compressed normal map, or a light-probe
+  direction. Octahedral mapping unfolds the sphere onto a square far more uniformly than the old "store xy,
+  reconstruct z" hemisphere trick. Full-sphere and +Z-hemisphere variants (the latter uses the whole square
+  for extra precision). Godot does this only inside shaders; this is the reusable CPU-side pair for baking and
+  tools. Verified airtight: octDecode(octEncode(n)) recovers any unit vector to a tiny angular error
+  (< 0.002 rad) over 20k directions; encoded points stay within [-1,1]²; decoded vectors are unit length;
+  +Z encodes to the origin and the cardinal axes round-trip; and the hemisphere variant round-trips and
+  reaches the square's corners. ctest `octahedral_normal`.
 - [x] **Numerical integration** (`math::integrateGauss` / `integrateAdaptiveSimpson`, `Integrate.hpp`) —
   DONE (M808); estimate the definite integral of a function you can only evaluate pointwise — the everyday
   need behind measuring a curve's ARC LENGTH (integrate its speed), the AREA under a response curve, the WORK

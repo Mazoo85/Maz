@@ -2877,3 +2877,8 @@ add_executable(maz_integrate_tests math/integrate.cpp)
 target_link_libraries(maz_integrate_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME integrate COMMAND maz_integrate_tests)
 set_tests_properties(integrate PROPERTIES TIMEOUT 30)
+
+add_executable(maz_octahedralnormal_tests math/octahedralnormal.cpp)
+target_link_libraries(maz_octahedralnormal_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME octahedral_normal COMMAND maz_octahedralnormal_tests)
+set_tests_properties(octahedral_normal PROPERTIES TIMEOUT 30)
