@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — killstreak milestone rewards.** The combo system now pays out: every 10th unbroken kill
+  banks a +15 cash bounty, and every 20th also patches the survivor up — turning a long, unbroken
+  streak into a tangible reward on top of the existing score multiplier, and giving the decaying combo
+  timer real stakes. Headless-tested: nine kills pay nothing extra, the tenth trips the bounty exactly
+  (cash and a run-total milestone counter both advance).
 - **ZOMBOID — Summoner now kites.** The Summoner (kind 7) no longer shambles into melee: it holds a
   comfortable range, backing away when the survivor closes in and drifting in only when far off, all
   while it keeps calling reinforcements. That turns it into a proper "chase it down" priority target —

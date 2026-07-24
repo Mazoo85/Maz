@@ -2496,6 +2496,39 @@ int main() {
         CHECK(sum2->x() < dFar0);                        // drifted inward toward the survivor
     }
 
+    // Killstreak milestones: every 10th unbroken kill pays a +15 cash bounty (and every 20th heals);
+    // the 9th kill pays nothing extra, the 10th trips the milestone exactly.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);           // no process() — keep the field static, combo won't decay
+        auto& vm = tree.scripts().vm();
+        // Park 10 identical walkers (score_value 10 → 7 cash each) and kill them one at a time.
+        std::vector<SceneNode*> zs;
+        for (int i = 0; i < 10; ++i) {
+            SceneNode* z = tree.findNode("Zombie" + std::to_string(i));
+            Value zv = z->script();
+            std::vector<Value> sp = {Value::fromNum(20.0 * (i + 1)), Value::fromNum(0.0),
+                                     Value::fromNum(10.0), Value::fromNum(0.0)};  // far apart: no
+            vm.callOn(zv, "spawn_at", sp);                                        // overkill splash chain
+            zs.push_back(z);
+        }
+        CHECK(glob(tree, "g_cash") == 0.0);
+        CHECK(glob(tree, "g_streak_rewards") == 0.0);
+        std::vector<Value> lethal = {Value::fromNum(9999.0)};
+        for (int i = 0; i < 9; ++i) {         // nine kills: combo 9, no milestone yet
+            Value zv = zs[static_cast<size_t>(i)]->script();
+            vm.callOn(zv, "take_damage", lethal);
+        }
+        CHECK((int)glob(tree, "g_combo") == 9);
+        CHECK(glob(tree, "g_streak_rewards") == 0.0);   // not tripped before the 10th
+        CHECK(glob(tree, "g_cash") == 63.0);            // 9 kills * 7 cash, no bounty
+        Value zv10 = zs[9]->script();
+        vm.callOn(zv10, "take_damage", lethal);          // the 10th trips the milestone
+        CHECK((int)glob(tree, "g_combo") == 10);
+        CHECK(glob(tree, "g_streak_rewards") == 1.0);
+        CHECK(glob(tree, "g_cash") == 85.0);            // 70 from kills + 15 milestone bounty
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

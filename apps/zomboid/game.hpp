@@ -63,6 +63,7 @@ var g_combo = 0;         # current streak length
 var g_mult = 1;          # score multiplier from the streak (1 + one per 5 kills, capped at 5)
 var g_combo_timer = 0;   # seconds since the last kill
 var g_combo_window = 2.5;
+var g_streak_rewards = 0; # count of killstreak milestones (every 10th unbroken kill) hit this run
 
 # Day/night cycle. g_phase runs 0..g_day_len and wraps; the back half is night, when the horde
 # hunts faster and bites harder. Advanced once per frame by the survivor so the whole world shares
@@ -1985,6 +1986,14 @@ class Zombie {
             if (g_mult > 5) { g_mult = 5; }
             g_score = g_score + self.score_value * g_mult;
             g_cash = g_cash + 5 + int(self.score_value / 4);   # salvage banked from the kill
+            # Killstreak milestones: every 10th unbroken kill pays a cash bounty, and every 20th also
+            # patches the survivor up a little — rewarding sustained aggression before the combo decays.
+            if (g_combo % 10 == 0) {
+                g_cash = g_cash + 15;
+                g_streak_rewards = g_streak_rewards + 1;
+                if (g_combo % 20 == 0 and g_player != nil) { g_player.heal(8.0); }
+                emit(self.node.x, self.node.y, 14, 1);   # milestone flourish
+            }
             if (g_player != nil) { g_player.on_kill(); } # charges the ultimate + milestone rewards
             emit(self.node.x, self.node.y, 10, 1); # blood burst on death
             var s = 0.5;
