@@ -57,6 +57,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
   (`zomboid_sim`): firing drains the magazine and an auto-reload refills it from a diminished reserve;
   a weapon with an empty magazine and empty reserve fires exactly its last round then goes dry and
   cannot reload; and collecting loot raises the reserve.
+- **End-of-run summary** — the death screen now reports the run: time survived (m:ss), shot accuracy
+  (hits ÷ shots, capped at 100%), and total kills alongside the wave/score line. The survivor tracks
+  `time_survived` (advances only while alive) and a `hits` counter incremented whenever a bullet or the
+  railgun beam connects. Verified headless (`zomboid_sim`): the survive timer accrues ~1 s over 60
+  ticks and firing into a parked target raises the hit counter.
 - **Kill-milestone rewards** — every 25th kill hands the survivor a bonus grenade and a small heal,
   a steady sustained-play reward that runs alongside the between-wave upgrades. A single `on_kill` hook
   now drives kill tracking, the ultimate charge, and the milestone check. Verified headless

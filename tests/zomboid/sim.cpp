@@ -837,6 +837,31 @@ int main() {
         CHECK((int)sField(survivor, "next_bonus")->number == 50);  // next milestone advanced
     }
 
+    // Run stats: the survive timer advances while alive and bullet hits are counted (accuracy).
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        Value sv = survivor->script();
+        CHECK(sField(survivor, "time_survived")->number == 0.0);
+        std::vector<Value> dtv = {Value::fromNum(1.0 / 60.0)};
+        for (int i = 0; i < 60; ++i) tree.scripts().vm().callOn(sv, "_process", dtv);
+        const double t = sField(survivor, "time_survived")->number;
+        CHECK(t > 0.9 && t < 1.1); // ~1 s of survival tracked
+
+        // A bullet connecting increments the hit counter.
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zs = z->script();
+        std::vector<Value> at = {Value::fromNum(6.0), Value::fromNum(0.0), Value::fromNum(200.0),
+                                 Value::fromNum(0.0)}; // park a tanky target dead ahead
+        tree.scripts().vm().callOn(zs, "spawn_at", at);
+        sField(survivor, "aim_x")->number = 1.0;
+        sField(survivor, "aim_y")->number = 0.0;
+        sField(survivor, "hits")->number = 0.0;
+        sField(survivor, "firing")->boolean = true;
+        for (int i = 0; i < 30 && sField(survivor, "hits")->number == 0.0; ++i) tree.process(1.0 / 60.0);
+        CHECK(sField(survivor, "hits")->number >= 1.0); // a shot landed
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

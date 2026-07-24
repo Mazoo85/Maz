@@ -637,12 +637,23 @@ int main(int argc, char** argv) {
                               render::Color{0.95f, 0.25f, 0.25f, 1}, 1.2f);
                 std::snprintf(buf, sizeof(buf), "REACHED WAVE %d   -   SCORE %d", wave, score);
                 font.drawText(*renderer, sw * 0.5f - 150.0f, sh * 0.5f + 8.0f, buf, kWhite, 0.5f);
+                // Run summary: time survived (m:ss) and shot accuracy.
+                const int secs = static_cast<int>(field(survivor, "time_survived"));
+                const double shotsF = field(survivor, "shots");
+                int acc = shotsF > 0.0
+                              ? static_cast<int>(field(survivor, "hits") / shotsF * 100.0 + 0.5)
+                              : 0;
+                if (acc > 100) acc = 100;
+                std::snprintf(buf, sizeof(buf), "SURVIVED %d:%02d   -   ACCURACY %d%%   -   %d KILLS",
+                              secs / 60, secs % 60, acc, kills);
+                font.drawText(*renderer, sw * 0.5f - 190.0f, sh * 0.5f + 34.0f, buf,
+                              render::Color{0.75f, 0.85f, 0.95f, 1.0f}, 0.42f);
                 if (newBestThisRun) {
-                    font.drawText(*renderer, sw * 0.5f - 90.0f, sh * 0.5f + 40.0f, "NEW BEST!",
+                    font.drawText(*renderer, sw * 0.5f - 90.0f, sh * 0.5f + 64.0f, "NEW BEST!",
                                   render::Color{1.0f, 0.85f, 0.2f, 1.0f}, 0.6f);
                 }
                 if (!autopilot) {
-                    font.drawText(*renderer, sw * 0.5f - 150.0f, sh * 0.5f + 76.0f,
+                    font.drawText(*renderer, sw * 0.5f - 150.0f, sh * 0.5f + 100.0f,
                                   "PRESS ENTER TO RESTART", render::Color{0.85f, 0.9f, 0.95f, 1}, 0.5f);
                 }
             }

@@ -86,6 +86,8 @@ class Survivor {
     var food = 3;
     var loot_collected = 0;
     var regen_timer = 0;   # seconds since last damage; after a delay the survivor slowly heals
+    var time_survived = 0; # seconds alive this run (for the end-of-run summary)
+    var hits = 0;          # bullets that connected (paired with `shots` for accuracy)
 
     var aim_x = 1;
     var aim_y = 0;
@@ -209,6 +211,9 @@ class Survivor {
             self.adrenaline = low;
             self.apply_mults();
         }
+
+        # Run timer for the end-of-run summary (advances only while alive).
+        self.time_survived = self.time_survived + dt;
 
         # Out-of-combat regeneration: stay unharmed for a few seconds and health slowly recovers.
         self.regen_timer = self.regen_timer + dt;
@@ -377,7 +382,10 @@ class Survivor {
                     var px = rx - t * ax;         # perpendicular offset from the beam
                     var py = ry - t * ay;
                     var rr = beam + z.radius;
-                    if (px * px + py * py <= rr * rr) { z.take_damage(dmg); }
+                    if (px * px + py * py <= rr * rr) {
+                        z.take_damage(dmg);
+                        self.hits = self.hits + 1;   # railgun beam connections count too
+                    }
                 }
             }
             i = i + 1;
@@ -541,6 +549,7 @@ class Bullet {
                 var rr = self.hit_radius + z.radius;
                 if (dx * dx + dy * dy <= rr * rr) {
                     z.take_damage(self.damage);
+                    if (g_player != nil) { g_player.hits = g_player.hits + 1; }
                     self.active = false;
                     return;
                 }
