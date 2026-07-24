@@ -150,6 +150,19 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Newell polygon normal + area + centroid** (`math::polygonInfo3D` / `polygonNormal3D` /
+  `polygonArea3D` / `newellVector`, `PolygonNewell.hpp`) — DONE (M804); the robust normal, area, and
+  area-weighted centroid of an arbitrary planar (or nearly-planar) polygon with any vertex count. The naive
+  "cross two edges" face normal fails on n-gons — a near-collinear vertex pair collapses it, and a slightly
+  non-planar face has no single edge pair representing the whole polygon. Newell's method sums a signed
+  contribution over EVERY edge, so it always yields a stable area-weighted normal (its magnitude is exactly
+  twice the polygon area) — the standard way to compute face normals for lightmap/collision meshes, CSG and
+  importers. The engine only had triangle face normals; this handles quads and general polygons. Godot
+  exposes none. Verified airtight: for polygons built in a known tilted plane the Newell normal equals the
+  plane normal (CCW → right-hand rule) regardless of vertex count; the area matches an INDEPENDENT in-plane
+  shoelace (different arithmetic) and the regular n-gon closed form 0.5·n·R²·sin(2π/n); the unit square gives
+  area 1 and centre centroid; a concave L-shape's area and centroid match its rectangle decomposition; area
+  is translation-invariant and reversing the winding flips the normal. ctest `polygon_newell`.
 - [x] **Ballistics: launch-angle solver + intercept lead** (`math::ballisticAngles` / `ballisticVelocities`,
   `math::interceptLead`, `Ballistics.hpp`) — DONE (M803); the two aiming problems every action game needs and
   neither GLM nor Godot ships. (1) LAUNCH ANGLE: given projectile speed and gravity, at what angle do you fire

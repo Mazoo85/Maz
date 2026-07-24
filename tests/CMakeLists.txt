@@ -2852,3 +2852,8 @@ add_executable(maz_ballistics_tests math/ballistics.cpp)
 target_link_libraries(maz_ballistics_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME ballistics COMMAND maz_ballistics_tests)
 set_tests_properties(ballistics PROPERTIES TIMEOUT 30)
+
+add_executable(maz_polygonnewell_tests math/polygonnewell.cpp)
+target_link_libraries(maz_polygonnewell_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME polygon_newell COMMAND maz_polygonnewell_tests)
+set_tests_properties(polygon_newell PROPERTIES TIMEOUT 30)
