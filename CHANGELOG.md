@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — shotgun point-blank damage ramp.** Shotgun pellets now hit hardest fresh out of the
+  barrel and fade with travel, down to a 40% floor at the end of their flight — giving the shotgun a
+  true close-range identity (devastating in your face, weak across the arena) instead of flat damage
+  at any distance. Only the shotgun's pellets fall off; every other weapon is unchanged. Headless-tested:
+  a pellet deals full damage fresh, half at half-life, clamps to 40% when nearly spent, a plain round
+  ignores travel entirely, and firing the shotgun tags its pellets with the falloff flag.
 - **ZOMBOID — sentry ammo.** The deployable auto-turret now carries a limited magazine (25 bolts) and
   shuts down the moment it runs dry, on top of its existing lifetime clock. Against a dense pack it
   burns out fast, so *where* and *when* you place it is a real decision rather than free area denial.

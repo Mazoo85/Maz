@@ -617,6 +617,7 @@ class Survivor {
             if (b.active == false) {
                 b.fire(self.node.x, self.node.y, dx, dy, self.bullet_speed, self.shot_damage());
                 if (self.pierce_shots) { b.pierce_left = 2; }  # punch through up to 2 extra zombies
+                if (self.weapon == 1) { b.falloff = true; }    # shotgun pellets fade with travel
                 self.shots = self.shots + 1;
                 return;
             }
@@ -907,6 +908,7 @@ class Bullet {
     var pierce = false;    # a railgun tracer flies through zombies without dealing contact damage
     var pierce_left = 0;   # piercing power-up: extra zombies this bullet can punch through and keep going
     var hit_list = [];     # zombies already struck (so a piercing bullet doesn't re-hit the same body)
+    var falloff = false;   # shotgun pellets lose damage the farther they've flown (point-blank identity)
 
     func _ready() { g_bullets.append(self); }
 
@@ -920,7 +922,18 @@ class Bullet {
         self.pierce = false;
         self.pierce_left = 0;
         self.hit_list = [];
+        self.falloff = false;
         self.active = true;
+    }
+
+    # This bullet's damage at its current age. Plain rounds hit flat; a shotgun pellet (falloff) hits
+    # hardest fresh out of the barrel and fades toward 40% by the end of its flight — a point-blank ramp.
+    func effective_damage() {
+        if (self.falloff == false) { return self.damage; }
+        var frac = self.life / self.max_life;   # 1.0 just-fired → 0.0 at the end of its life
+        if (frac > 1.0) { frac = 1.0; }
+        if (frac < 0.4) { frac = 0.4; }
+        return self.damage * frac;
     }
 
     # True unless this bullet has already struck zombie `z` on an earlier frame (piercing bookkeeping).
@@ -953,7 +966,7 @@ class Bullet {
                 if (dx * dx + dy * dy <= rr * rr) {
                     var spd = sqrt(self.vx * self.vx + self.vy * self.vy);
                     if (spd > 0.001) { z.hit_knockback(self.vx / spd, self.vy / spd, 0.6); }
-                    z.take_damage(self.damage);
+                    z.take_damage(self.effective_damage());
                     z.apply_bleed(1);   # kinetic round tears a bleeding wound
                     if (g_player != nil) {
                         g_player.hits = g_player.hits + 1;
@@ -981,7 +994,7 @@ class Bullet {
                 var bdy = b.node.y - self.node.y;
                 var brr = self.hit_radius + b.radius;
                 if (bdx * bdx + bdy * bdy <= brr * brr) {
-                    b.take_damage(self.damage);
+                    b.take_damage(self.effective_damage());
                     if (g_player != nil) { g_player.hits = g_player.hits + 1; }
                     self.active = false;
                     return;

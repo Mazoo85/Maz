@@ -38,7 +38,8 @@ Run it: `./bin/zomboid` (or `./bin/zomboid --demo` to watch the autopilot show o
 ## Weapons
 
 - **Pistol** — accurate, reliable, unlimited-ish reserve. Your default.
-- **Shotgun** — a spread of pellets; devastating up close, weak at range.
+- **Shotgun** — a spread of pellets that hit hardest **point-blank** and lose damage with distance;
+  devastating in a zombie's face, weak across the arena.
 - **SMG** — high rate of fire, low per-shot damage, a slight spread.
 - **Railgun** — slow, high-damage hitscan beam that **pierces a whole line** of zombies in one shot.
 - **Flamethrower** — no bullets; a short **cone of fire** that sets everything in it alight. Melts

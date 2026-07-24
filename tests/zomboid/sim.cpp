@@ -2562,6 +2562,48 @@ int main() {
         CHECK(hp0 - sField(dummy, "health")->number == ammoMax * dmg);
     }
 
+    // Shotgun point-blank falloff: a pellet (falloff flag) hits hardest fresh and fades toward 40%
+    // over its flight; a plain round ignores travel entirely; and the shotgun tags its pellets.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        std::vector<Value> none;
+
+        SceneNode* b = tree.findNode("Bullet0");
+        Value bv = b->script();
+        sField(b, "damage")->number = 100.0;
+        sField(b, "max_life")->number = 2.0;
+
+        // Plain round: flat damage regardless of how long it's been flying.
+        sField(b, "falloff")->boolean = false;
+        sField(b, "life")->number = 0.5;
+        CHECK(vm.callOn(bv, "effective_damage", none).number == 100.0);
+
+        // Pellet fresh out of the barrel (life == max_life): full damage.
+        sField(b, "falloff")->boolean = true;
+        sField(b, "life")->number = 2.0;
+        CHECK(vm.callOn(bv, "effective_damage", none).number == 100.0);
+        // Half its life spent (frac 0.5): half damage.
+        sField(b, "life")->number = 1.0;
+        CHECK(vm.callOn(bv, "effective_damage", none).number == 50.0);
+        // Nearly spent (frac 0.1): clamped to the 40% floor, not lower.
+        sField(b, "life")->number = 0.2;
+        CHECK(vm.callOn(bv, "effective_damage", none).number == 40.0);
+
+        // Wiring: firing the shotgun (weapon 1) tags its pellets with falloff.
+        setWeapon(tree, survivor, 1);
+        sField(survivor, "aim_x")->number = 1.0;
+        sField(survivor, "aim_y")->number = 0.0;
+        Value sv = survivor->script();
+        vm.callOn(sv, "do_shoot", none);
+        bool anyFalloff = false;
+        for (SceneNode* pel : tree.nodesInGroup("bullets")) {
+            if (sField(pel, "active")->boolean && sField(pel, "falloff")->boolean) anyFalloff = true;
+        }
+        CHECK(anyFalloff);   // shotgun pellets carry the falloff flag
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "
