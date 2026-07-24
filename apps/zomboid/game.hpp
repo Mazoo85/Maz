@@ -1495,6 +1495,7 @@ class Zombie {
     var score_value = 10;
     var cooldown = 0;
     var slam_cd = 0;       # boss (kind 3) ground-slam special-attack timer
+    var enraged = false;   # boss (kind 3): flips true when badly wounded — faster, slams twice as often
     var elite = false;     # "champion" modifier: much tankier, faster, worth far more
     var slow_timer = 0;    # while > 0 the zombie is chilled and crawls at reduced speed
     var burn_timer = 0;    # while > 0 the zombie is on fire, taking damage over time
@@ -1620,6 +1621,7 @@ class Zombie {
         self.spawn_wave = w;
         self.cooldown = 0;
         self.slam_cd = 3.0;    # a boss's first ground slam lands a few seconds in
+        self.enraged = false;
         self.elite = false;
         self.slow_timer = 0;
         self.burn_timer = 0;
@@ -1858,11 +1860,21 @@ class Zombie {
         var sm = 1.0;
         if (self.slow_timer > 0) { sm = 0.4; }
         if (self.kind == 3) {
+            # Boss enrage: once badly wounded (below 35% health) it flies into a rage for a climactic
+            # second phase — permanently faster, and slamming twice as often. Triggers once.
+            if (self.enraged == false and self.health <= self.max_health * 0.35) {
+                self.enraged = true;
+                self.speed = self.speed * 1.7;
+                emit(self.node.x, self.node.y, 30, 1);   # rage burst
+                g_shake = 3.0;
+            }
             # Boss ground slam: a periodic radial shockwave that hammers a nearby survivor, so
             # standing next to the boss is punished even though it lumbers slowly. Still bites below.
+            var slam_gap = 4.0;
+            if (self.enraged) { slam_gap = 2.0; }
             self.slam_cd = self.slam_cd - dt;
             if (self.slam_cd <= 0) {
-                self.slam_cd = 4.0;
+                self.slam_cd = slam_gap;
                 if (dist <= 10.0) { g_player.take_damage(25); }
                 emit(self.node.x, self.node.y, 28, 1); # shockwave burst
                 g_shake = g_shake + 2.5;

@@ -105,6 +105,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Boss enrage phase** — a boss (every 5th wave) that drops below 35% health flies into a permanent
+  rage for a climactic second phase: it moves markedly faster and slams the ground twice as often,
+  pulsing angry red so you can read the shift at a glance. The transition triggers exactly once, so
+  wearing it down turns a lumbering sponge into a genuine sprint to the finish. Verified headless
+  (`zomboid_sim`): a full-health boss stays calm, wounding it below the threshold flips the enrage flag
+  and boosts its speed, and a subsequent frame doesn't compound the boost.
 - **Overkill gibs (chain kills)** — when a single hit lands far more damage than a zombie's full
   health (a railgun bolt, a big crit, a point-blank shotgun blast on an already-weakened body), the
   zombie *bursts* in a small shockwave that chips every nearby zombie — which can pop weakened

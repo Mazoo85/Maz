@@ -1849,6 +1849,38 @@ int main() {
         CHECK(sField(nb2, "health")->number == 100.0);       // but no overkill splash
     }
 
+    // Boss enrage: a boss dropped below 35% health flips into a permanent rage — it speeds up (once),
+    // and the flag latches so a second frame doesn't compound the speed boost.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        SceneNode* boss = tree.findNode("Zombie0");
+        Value bv = boss->script();
+        std::vector<Value> sp = {Value::fromNum(40.0), Value::fromNum(0.0),
+                                 Value::fromNum(3.0), Value::fromNum(1.0)}; // spawn boss (kind 3), wave 1
+        vm.callOn(bv, "spawn", sp);
+        CHECK((int)sField(boss, "kind")->number == 3);
+        CHECK(!sField(boss, "enraged")->boolean);          // not enraged at full health
+        const double calmSpeed = sField(boss, "speed")->number;
+
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        vm.callOn(bv, "_process", dt);                     // healthy: still calm
+        CHECK(!sField(boss, "enraged")->boolean);
+
+        // Wound it below the 35% threshold, then step: it should enrage and speed up.
+        sField(boss, "health")->number = sField(boss, "max_health")->number * 0.3;
+        vm.callOn(bv, "_process", dt);
+        CHECK(sField(boss, "enraged")->boolean);
+        const double rageSpeed = sField(boss, "speed")->number;
+        CHECK(rageSpeed > calmSpeed);
+
+        // The boost is one-shot: another frame must not multiply the speed again.
+        vm.callOn(bv, "_process", dt);
+        CHECK(sField(boss, "speed")->number == rageSpeed);
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

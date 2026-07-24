@@ -605,6 +605,11 @@ int main(int argc, char** argv) {
                 } else if (field(z, "shield") > 0.0) {
                     tint = render::Color{0.8f, 0.9f, 1.0f, 1.0f};   // armored — steel sheen
                 }
+                // An enraged boss pulses an angry red, whatever its wound tint.
+                if (fieldBool(z, "enraged")) {
+                    const float rp = 0.7f + 0.3f * std::sin(static_cast<float>(simTime) * 16.0f);
+                    tint = render::Color{1.0f, 0.25f * rp, 0.2f * rp, 1.0f};
+                }
                 // Burning overrides other tints: a flickering ember glow.
                 if (field(z, "burn_timer") > 0.0) {
                     const float fl = 0.7f + 0.3f * std::sin(static_cast<float>(simTime) * 24.0f +
