@@ -2904,6 +2904,31 @@ int main() {
         CHECK(sField(back, "active")->boolean);     // out of the cone — intact
     }
 
+    // Grenade sets off barrels: a barrel inside the frag's blast detonates; one outside is spared.
+    {
+        std::vector<Value> none;
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        SceneNode* nade = tree.findNode("Grenade0");
+        nade->setPosition(0.0, 0.0);   // detonate at the origin
+
+        SceneNode* inBlast = tree.findNode("Barrel0");
+        Value ib = inBlast->script();
+        std::vector<Value> near_ = {Value::fromNum(3.0), Value::fromNum(0.0)};   // within blast radius 5
+        vm.callOn(ib, "place", near_);
+        SceneNode* outBlast = tree.findNode("Barrel1");
+        Value ob = outBlast->script();
+        std::vector<Value> far_ = {Value::fromNum(40.0), Value::fromNum(0.0)};
+        vm.callOn(ob, "place", far_);
+
+        Value gv = nade->script();
+        vm.callOn(gv, "explode", none);
+
+        CHECK(!sField(inBlast, "active")->boolean);   // frag set it off
+        CHECK(sField(outBlast, "active")->boolean);   // out of the blast — spared
+    }
+
     // Flawless-wave bonus: clearing a wave without taking a hit doubles the clear bonus, pays cash,
     // and patches the survivor up; taking any hit during the wave forfeits all of that.
     {

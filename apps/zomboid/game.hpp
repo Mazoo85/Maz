@@ -1091,6 +1091,19 @@ class Grenade {
             }
             i = i + 1;
         }
+        # The frag also sets off any explosive barrel in the blast, so a grenade lobbed at a barrel
+        # chains into a far bigger explosion.
+        var gbi = 0;
+        var gbn = len(g_barrels);
+        while (gbi < gbn) {
+            var gb = g_barrels[gbi];
+            if (gb.active) {
+                var gbx = gb.node.x - self.node.x;
+                var gby = gb.node.y - self.node.y;
+                if (gbx * gbx + gby * gby <= self.blast_radius * self.blast_radius) { gb.take_damage(999); }
+            }
+            gbi = gbi + 1;
+        }
         emit(self.node.x, self.node.y, 24, 1);
         g_shake = g_shake + 1.8;
         if (g_shake > 3.0) { g_shake = 3.0; }

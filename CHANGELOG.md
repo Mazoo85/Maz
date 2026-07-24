@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — grenades set off barrels.** A thrown grenade's frag blast now detonates any explosive
+  barrel inside its radius, so lobbing a grenade at a barrel chains into a far bigger explosion —
+  completing the "anything explosive/fiery sets off a barrel" rule alongside bullets, other barrels,
+  the railgun, molotovs, and the flamethrower. Headless-tested: a barrel inside the grenade's blast
+  detonates while one outside it is spared.
 - **ZOMBOID — the flamethrower cooks off barrels too.** For consistency with the molotov, the
   flamethrower's flame cone now chips any explosive barrel it sweeps over until the barrel detonates —
   so you can torch a barrel to pop it, not just shoot it. Headless-tested: a barrel held in the flame
