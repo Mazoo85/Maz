@@ -142,6 +142,22 @@ int main(int argc, char** argv) {
     bool savedThisDeath = false;
     bool newBestThisRun = false;
 
+    // Procedural sound effects (no device in headless -> play() is a no-op). Fired by watching
+    // simulation state change frame-to-frame, so no script hooks are needed.
+    audio::Audio audio;
+    audio.init();
+    const audio::SoundDesc sfxPistol{audio::Wave::Square, 240.0f, 90.0f, 0.06f, 0.16f};
+    const audio::SoundDesc sfxShotgun{audio::Wave::Noise, 320.0f, 0.0f, 0.13f, 0.24f};
+    const audio::SoundDesc sfxSmg{audio::Wave::Square, 320.0f, 130.0f, 0.04f, 0.11f};
+    const audio::SoundDesc sfxKill{audio::Wave::Square, 170.0f, 40.0f, 0.12f, 0.20f};
+    const audio::SoundDesc sfxReload{audio::Wave::Square, 520.0f, 300.0f, 0.09f, 0.15f};
+    const audio::SoundDesc sfxBoom{audio::Wave::Noise, 140.0f, 0.0f, 0.34f, 0.34f};
+    const audio::SoundDesc sfxWave{audio::Wave::Square, 300.0f, 620.0f, 0.28f, 0.24f};
+    const audio::SoundDesc sfxHurt{audio::Wave::Square, 150.0f, 60.0f, 0.10f, 0.22f};
+    const audio::SoundDesc sfxDeath{audio::Wave::Square, 300.0f, 55.0f, 0.60f, 0.30f};
+    double aPrevShots = 0, aPrevKills = 0, aPrevWave = 0, aPrevHealth = 100, aPrevShake = 0;
+    bool aPrevReloading = false, aPrevAlive = true, resyncAudio = true;
+
     const float moveSpeed = 18.0f; // world units / second (survivor)
     const float worldToPx = 7.0f;  // scene units -> screen pixels for the camera zoom
     int rendered = 0;
@@ -214,6 +230,7 @@ int main(int argc, char** argv) {
                 nextGrenade = 4.0;
                 savedThisDeath = false;
                 newBestThisRun = false;
+                resyncAudio = true; // don't fire SFX from the reset's state jump
             }
         }
         double aimX = field(survivor, "aim_x"), aimY = field(survivor, "aim_y");
@@ -290,6 +307,36 @@ int main(int argc, char** argv) {
             while (clock.consumeFixedStep()) {
                 stepSim(static_cast<float>(clock.fixedDelta()));
             }
+        }
+
+        // --- Sound effects: detect state changes since last frame and fire one-shots. ---
+        {
+            const double shots = field(survivor, "shots");
+            const double kills = globalNum(tree, "g_kills");
+            const double wv = globalNum(tree, "g_wave");
+            const double health = field(survivor, "health");
+            const double shake = globalNum(tree, "g_shake");
+            const bool reloading = fieldBool(survivor, "is_reloading");
+            const bool aliveA = fieldBool(survivor, "alive");
+            const int weap = static_cast<int>(field(survivor, "weapon"));
+            if (resyncAudio) {
+                resyncAudio = false; // first frame (or just after a restart): sync without firing
+            } else {
+                if (shots > aPrevShots) audio.play(weap == 1 ? sfxShotgun : (weap == 2 ? sfxSmg : sfxPistol));
+                if (kills > aPrevKills) audio.play(sfxKill);
+                if (reloading && !aPrevReloading) audio.play(sfxReload);
+                if (shake - aPrevShake > 1.0) audio.play(sfxBoom);          // grenade / boss kill
+                if (wv > aPrevWave) audio.play(sfxWave);
+                if (health < aPrevHealth - 2.0) audio.play(sfxHurt);        // a bite (not the hunger drip)
+                if (!aliveA && aPrevAlive) audio.play(sfxDeath);
+            }
+            aPrevShots = shots;
+            aPrevKills = kills;
+            aPrevWave = wv;
+            aPrevHealth = health;
+            aPrevShake = shake;
+            aPrevReloading = reloading;
+            aPrevAlive = aliveA;
         }
 
         // Camera centred on the survivor, converting scene units to pixels.

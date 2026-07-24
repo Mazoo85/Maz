@@ -64,6 +64,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Sound effects** — procedural SFX (`audio::Audio`) for gunfire (per-weapon pitch), zombie deaths,
+  reloads, grenade/boss booms, wave starts, taking a bite, and dying. The app fires one-shots by
+  watching simulation state change frame-to-frame — no script hooks needed — and resyncs on restart so
+  a fresh run stays silent until it acts. Audio degrades gracefully with no device (headless smoke
+  runs clean, exit 0); the sound is owner-audible on real hardware.
 
 ### Scripting & scene
 - `maz::script` — a from-scratch, header-only scripting language (the GDScript competitor): values,
