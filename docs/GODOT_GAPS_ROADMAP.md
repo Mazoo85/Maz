@@ -150,6 +150,18 @@ only be written blind, the docs say exactly that.
 
 ### §5 High-end 3D rendering — [CODE HERE / SEE IT ON YOUR MACHINE]
 All of these need a live GPU to *see*, but the CPU-side data structures, bakers, and math are testable.
+- [x] **Quaternion averaging (mean rotation)** (`math::averageQuaternions`, `QuaternionAverage.hpp`) — DONE
+  (M815); the correct mean of a set of orientations. You cannot average rotations by averaging their
+  components (that biases toward whichever double-cover hemisphere the signs land in and breaks for
+  spread-out rotations). The principled answer (Markley et al. 2007) is the dominant eigenvector of the 4×4
+  matrix M = Σ w_i q_i q_iᵀ, solved here with a robust 4×4 Jacobi eigensolver (power iteration stalls when
+  the top two eigenvalues are close, e.g. two nearly-opposite rotations — Jacobi is exact). Because each term
+  q qᵀ is identical for q and −q, the result is correctly sign-insensitive. Uses: blending several bone/IK
+  orientation targets, smoothing a noisy tracked orientation over a window, fusing orientation sensors, a
+  representative rotation for an LOD/cluster. Godot's Quaternion has slerp but no averaging. Verified
+  airtight: the average of N copies of q is q; averaging q and −q returns q; the average of two rotations
+  equals glm::slerp(q0,q1,0.5) (an INDEPENDENT formula) over 200 random pairs; a symmetric ±θ spread averages
+  back to the base; and a dominant weight pulls the mean toward that rotation. ctest `quaternion_average`.
 - [x] **Monte-Carlo sampling warps** (`math::sampleConcentricDisk` / `sampleUniformDisk` /
   `sampleUniformTriangle` / `sampleCosineHemisphere` / `sampleUniformHemisphere` / `sampleUniformSphere`,
   `Sampling.hpp`) — DONE (M814); map a pair of uniform [0,1) random numbers onto a disk, triangle, sphere or

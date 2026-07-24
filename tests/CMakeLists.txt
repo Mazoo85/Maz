@@ -2902,3 +2902,8 @@ add_executable(maz_sampling_tests math/sampling.cpp)
 target_link_libraries(maz_sampling_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME sampling COMMAND maz_sampling_tests)
 set_tests_properties(sampling PROPERTIES TIMEOUT 30)
+
+add_executable(maz_quaternionaverage_tests math/quaternionaverage.cpp)
+target_link_libraries(maz_quaternionaverage_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME quaternion_average COMMAND maz_quaternionaverage_tests)
+set_tests_properties(quaternion_average PROPERTIES TIMEOUT 30)
