@@ -589,6 +589,26 @@ int main() {
         CHECK(sField(survivor, "health")->number == 100.0);     // shield soaked it
     }
 
+    // Adrenaline: dropping below 25% health surges the fire rate; healing back above it reverts.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        const double baseRate = sField(survivor, "fire_rate")->number;
+        const double maxHp = sField(survivor, "max_health")->number;
+        CHECK(!sField(survivor, "adrenaline")->boolean);
+
+        sField(survivor, "health")->number = maxHp * 0.2; // critically wounded
+        tree.process(0.016);
+        CHECK(sField(survivor, "adrenaline")->boolean);
+        CHECK(sField(survivor, "fire_rate")->number > baseRate * 1.4); // ~1.5x surge
+
+        sField(survivor, "health")->number = maxHp * 0.9; // patched up
+        tree.process(0.016);
+        CHECK(!sField(survivor, "adrenaline")->boolean);
+        const double fr = sField(survivor, "fire_rate")->number;
+        CHECK(fr > baseRate - 0.01 && fr < baseRate + 0.01);         // back to base
+    }
+
     // Exploder (kind 4): fast/fragile suicide bomber that blasts the survivor on death
     // only if they are close, so it must be shot from a distance.
     {

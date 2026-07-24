@@ -106,6 +106,7 @@ class Survivor {
     var buff_timer = 0;
     var buff_fr = 1.0;      # temporary fire-rate / damage multipliers layered over the upgrades
     var buff_dmg = 1.0;
+    var adrenaline = false; # last-stand surge: fire faster while critically wounded (<25% health)
     var pellets = 1;        # bullets per shot (shotgun fires several)
     var spread = 0;         # random aim jitter per pellet, radians
     var bullet_speed = 70;
@@ -151,6 +152,14 @@ class Survivor {
                 self.buff_dmg = 1.0;
                 self.apply_mults();
             }
+        }
+
+        # Last-stand adrenaline: critically wounded (<25% health) makes the survivor fire faster.
+        var low = false;
+        if (self.health <= self.max_health * 0.25) { low = true; }
+        if (low != self.adrenaline) {
+            self.adrenaline = low;
+            self.apply_mults();
         }
 
         # Survival pressure: hunger creeps up; at max hunger, health drains.
@@ -228,7 +237,9 @@ class Survivor {
 
     # Fold the upgrade multipliers onto the active weapon's base stats.
     func apply_mults() {
-        self.fire_rate = self.base_fr * self.rate_mult * self.buff_fr;
+        var adr = 1.0;
+        if (self.adrenaline) { adr = 1.5; }   # last-stand surge
+        self.fire_rate = self.base_fr * self.rate_mult * self.buff_fr * adr;
         self.damage = self.base_dmg * self.dmg_mult * self.buff_dmg;
     }
 

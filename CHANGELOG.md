@@ -92,6 +92,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
   and must be prioritized. The Director folds spitters into later waves. Verified headless
   (`zomboid_sim`): a spawned spitter holds its ground rather than closing to melee, a tick puts an acid
   glob in the air, and the glob travels and lands on a stationary survivor to drain their health.
+- **Adrenaline (last stand)** — dropping below 25% health triggers a passive fire-rate surge (×1.5),
+  turning a near-death moment into a fighting chance instead of a slow bleed-out; the boost layers on
+  top of the upgrade and power-up multipliers and drops away the instant you heal back above the
+  threshold. The survivor pulses red-hot while it's active. Verified headless (`zomboid_sim`): crossing
+  below 25% health flips on the adrenaline flag and lifts the fire rate, and healing back above it
+  reverts both to baseline.
 - **Power-up pickups** — a slain zombie rarely drops an object-pooled power-up; walk over it for a
   short timed buff: rapid fire (fire rate ×2.2), double damage (×2.2), or a shield (all incoming
   damage negated). Buffs layer over the permanent upgrade multipliers and cleanly revert when the
