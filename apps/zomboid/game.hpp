@@ -85,6 +85,7 @@ class Survivor {
     var alive = true;
     var food = 3;
     var loot_collected = 0;
+    var regen_timer = 0;   # seconds since last damage; after a delay the survivor slowly heals
 
     var aim_x = 1;
     var aim_y = 0;
@@ -190,6 +191,13 @@ class Survivor {
         if (low != self.adrenaline) {
             self.adrenaline = low;
             self.apply_mults();
+        }
+
+        # Out-of-combat regeneration: stay unharmed for a few seconds and health slowly recovers.
+        self.regen_timer = self.regen_timer + dt;
+        if (self.regen_timer > 5.0 and self.health < self.max_health) {
+            self.health = self.health + dt * 4.0;
+            if (self.health > self.max_health) { self.health = self.max_health; }
         }
 
         # Survival pressure: hunger creeps up; at max hunger, health drains.
@@ -455,6 +463,7 @@ class Survivor {
     func take_damage(dmg) {
         # An active shield power-up soaks all incoming damage.
         if (self.buff_kind == 2 and self.buff_timer > 0) { return; }
+        self.regen_timer = 0;   # taking a hit resets the out-of-combat heal delay
         self.health = self.health - dmg;
         if (self.health <= 0) { self.health = 0; self.alive = false; }
     }

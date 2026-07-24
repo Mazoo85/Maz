@@ -688,6 +688,30 @@ int main() {
         CHECK(hasExploder);
     }
 
+    // Out-of-combat regeneration: after a delay without damage, health slowly recovers, capped at max.
+    // Driven by calling the survivor's _process directly so the horde never interferes.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        Value sv = survivor->script();
+        const double maxHp = sField(survivor, "max_health")->number;
+        std::vector<Value> dtv = {Value::fromNum(1.0 / 60.0)};
+
+        sField(survivor, "health")->number = 40.0;
+        sField(survivor, "regen_timer")->number = 0.0;
+        for (int i = 0; i < 120; ++i) tree.scripts().vm().callOn(sv, "_process", dtv); // 2 s < delay
+        CHECK(sField(survivor, "health")->number <= 40.5);   // no heal yet inside the delay window
+
+        for (int i = 0; i < 240; ++i) tree.scripts().vm().callOn(sv, "_process", dtv); // +4 s past delay
+        CHECK(sField(survivor, "health")->number > 40.0);    // regenerated once the delay elapsed
+
+        // Regen never overshoots max health.
+        sField(survivor, "health")->number = maxHp - 2.0;
+        sField(survivor, "regen_timer")->number = 10.0;
+        for (int i = 0; i < 180; ++i) tree.scripts().vm().callOn(sv, "_process", dtv);
+        CHECK(sField(survivor, "health")->number == maxHp);
+    }
+
     // Elite ("champion") zombies: crowning one boosts its health and score and guarantees a medkit.
     {
         SceneTree tree;

@@ -104,6 +104,10 @@ All notable changes to the Maz Engine are recorded here. The format follows
   READY"; autopilot fires it the moment it fills. Verified headless (`zomboid_sim`): charging the meter
   to full sets the ready flag, a detonate clears a cluster of live zombies to zero, and the charge is
   consumed back to empty.
+- **Out-of-combat regeneration** — take no damage for ~5 seconds and the survivor slowly heals (4 HP/s)
+  back toward full, rewarding disengaging and repositioning between fights; any hit resets the delay, so
+  standing in the horde never heals you. Verified headless (`zomboid_sim`): health holds steady inside
+  the post-hit delay window, climbs once the delay elapses, and never overshoots max health.
 - **Adrenaline (last stand)** — dropping below 25% health triggers a passive fire-rate surge (×1.5),
   turning a near-death moment into a fighting chance instead of a slow bleed-out; the boost layers on
   top of the upgrade and power-up multipliers and drops away the instant you heal back above the
