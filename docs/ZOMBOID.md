@@ -72,7 +72,7 @@ grenades, a heal, or an armor plate. Hoard for a panic heal, or stay stocked on 
 
 ## The enemies
 
-Eleven zombie types join the horde as the waves climb:
+Twelve zombie types join the horde as the waves climb:
 
 | Kind | Enemy | Behaviour |
 |---|---|---|
@@ -87,6 +87,7 @@ Eleven zombie types join the horde as the waves climb:
 | 8 | **Armored** | Modest health behind a heavy damage-absorbing **shield** — break it down first. |
 | 9 | **Leaper** | Light and quick; closes the gap in sudden **pounces**. |
 | 10 | **Bloater** | Fat, slow, tanky; ruptures into a **toxic cloud** on death — kill it at range. |
+| 11 | **Screamer** | Fragile back-line support; periodically **shrieks**, whipping nearby zombies into a speed frenzy. Silence it first. |
 
 Some zombies spawn as **elites** — bigger, tankier, worth far more, and they always drop a medkit.
 

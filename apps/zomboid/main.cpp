@@ -124,6 +124,7 @@ int main(int argc, char** argv) {
     render::TextureHandle texArmored = renderer->createTexture(16, 16, makeSquare(110, 120, 140).data());
     render::TextureHandle texLeaper = renderer->createTexture(16, 16, makeSquare(150, 200, 90).data());
     render::TextureHandle texBloater = renderer->createTexture(16, 16, makeSquare(90, 140, 60).data());
+    render::TextureHandle texScreamer = renderer->createTexture(16, 16, makeSquare(230, 150, 40).data());
     render::TextureHandle texSpit = renderer->createTexture(16, 16, makeSquare(180, 230, 60).data());
     render::TextureHandle texPowRapid = renderer->createTexture(16, 16, makeSquare(255, 200, 40).data());
     render::TextureHandle texPowDamage = renderer->createTexture(16, 16, makeSquare(255, 70, 70).data());
@@ -619,6 +620,7 @@ int main(int argc, char** argv) {
                 else if (zk == 8) ztex = texArmored;
                 else if (zk == 9) ztex = texLeaper;
                 else if (zk == 10) ztex = texBloater;
+                else if (zk == 11) ztex = texScreamer;
                 const float size = static_cast<float>(field(z, "radius")) * 2.4f;
                 const double hp = field(z, "health"), mhp = field(z, "max_health");
                 const float f = mhp > 0.0 ? static_cast<float>(hp / mhp) : 1.0f;
@@ -634,6 +636,10 @@ int main(int argc, char** argv) {
                     tint = render::Color{0.55f, 0.75f, 1.0f, 1.0f}; // chilled — icy blue
                 } else if (field(z, "shield") > 0.0) {
                     tint = render::Color{0.8f, 0.9f, 1.0f, 1.0f};   // armored — steel sheen
+                }
+                // Frenzied zombies (whipped up by a screamer) flush hot orange while they surge.
+                if (field(z, "frenzy_timer") > 0.0) {
+                    tint = render::Color{1.0f, 0.55f, 0.2f, 1.0f};
                 }
                 // Bleeding shows a dark crimson wash that deepens with the stack count, so a
                 // hemorrhaging body reads at a glance (fire and rage still override it below).

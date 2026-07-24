@@ -1681,6 +1681,7 @@ class Zombie {
     var bleed_tick = 0;    # accumulator so bleed damage lands in periodic ticks, not every frame
     var stagger_timer = 0; # brief flinch: a heavy single hit freezes the zombie where it stands
     var stagger_cd = 0;    # cooldown after a flinch so it can't be perpetually stun-locked
+    var frenzy_timer = 0;  # while > 0 the zombie is whipped into a screamer's frenzy — moves faster
 
     func _ready() { g_zombies.append(self); }
 
@@ -1694,6 +1695,12 @@ class Zombie {
     # Chill this zombie (e.g. caught in a grenade blast): it crawls slowly for `dur` seconds.
     func apply_slow(dur) {
         if (dur > self.slow_timer) { self.slow_timer = dur; }
+    }
+
+    # Whip this zombie into a frenzy (a screamer's shriek): it surges faster for `dur` seconds.
+    func apply_frenzy(dur) {
+        if (self.alive == false) { return; }
+        if (dur > self.frenzy_timer) { self.frenzy_timer = dur; }
     }
 
     # Open a bleeding wound: kinetic rounds add laceration stacks that tick damage over time.
@@ -1823,6 +1830,7 @@ class Zombie {
         self.bleed_tick = 0;
         self.stagger_timer = 0;
         self.stagger_cd = 0;
+        self.frenzy_timer = 0;
         self.alive = true;
         if (k == 1) {
             self.health = 14 + w * 4;
@@ -1911,12 +1919,23 @@ class Zombie {
                                                 self.attack_range = 1.7;
                                                 self.score_value = 30;
                                             } else {
+                                            if (k == 11) {
+                                                # Screamer: fragile back-line support that periodically
+                                                # shrieks, whipping nearby zombies into a speed frenzy.
+                                                self.health = 30 + w * 6;
+                                                self.speed = 9 + w;
+                                                self.damage = 4;
+                                                self.radius = 1.1;
+                                                self.attack_range = 1.3;
+                                                self.score_value = 35;
+                                            } else {
                                                 self.health = 25 + w * 8;
                                                 self.speed = 13 + w;
                                                 self.damage = 6;
                                                 self.radius = 1.0;
                                                 self.attack_range = 1.2;
                                                 self.score_value = 10;
+                                            }
                                             }
                                         }
                                     }
@@ -2095,6 +2114,26 @@ class Zombie {
                 }
             }
         }
+        # Screamer (kind 11): on a cooldown it shrieks, whipping every nearby zombie into a speed
+        # frenzy. It's fragile, so silencing it early keeps the horde from surging — a priority target.
+        if (self.kind == 11) {
+            self.cooldown = self.cooldown - dt;
+            if (self.cooldown <= 0) {
+                self.cooldown = 5.0;
+                var si = 0;
+                var sn = len(g_zombies);
+                while (si < sn) {
+                    var oz = g_zombies[si];
+                    if (oz.alive and oz != self) {
+                        var sdx = oz.node.x - self.node.x;
+                        var sdy = oz.node.y - self.node.y;
+                        if (sdx * sdx + sdy * sdy <= 225.0) { oz.apply_frenzy(3.0); }  # radius 15
+                    }
+                    si = si + 1;
+                }
+                emit(self.node.x, self.node.y, 18, 1);   # shriek burst
+            }
+        }
         # Chill status: while slowed, the zombie crawls at 40% speed.
         self.slow_timer = self.slow_timer - dt;
         if (self.slow_timer < 0) { self.slow_timer = 0; }
@@ -2104,8 +2143,12 @@ class Zombie {
         if (self.stagger_cd < 0) { self.stagger_cd = 0; }
         self.stagger_timer = self.stagger_timer - dt;
         if (self.stagger_timer < 0) { self.stagger_timer = 0; }
+        # Frenzy status: a screamer's shriek surges nearby zombies to a burst of speed for a few seconds.
+        self.frenzy_timer = self.frenzy_timer - dt;
+        if (self.frenzy_timer < 0) { self.frenzy_timer = 0; }
         var sm = 1.0;
         if (self.slow_timer > 0) { sm = 0.4; }
+        if (self.frenzy_timer > 0) { sm = sm * 1.6; }   # whipped into a frenzy — surges faster
         if (self.stagger_timer > 0) { sm = 0.0; }   # flinching — rooted where it stands
         if (self.kind == 3) {
             # Boss enrage: once badly wounded (below 35% health) it flies into a rage for a climactic
@@ -2246,6 +2289,9 @@ class Director {
                     if (i % 11 == 0 and w >= 6) {
                         k = 10;
                     } else {
+                    if (i % 13 == 0 and w >= 7) {
+                        k = 11;
+                    } else {
                         if (i % 6 == 0 and w >= 5) {
                             k = 5;
                         } else {
@@ -2259,6 +2305,7 @@ class Director {
                                 }
                             }
                         }
+                    }
                     }
                     }
                     }

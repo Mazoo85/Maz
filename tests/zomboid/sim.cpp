@@ -2345,6 +2345,71 @@ int main() {
         CHECK(!active.boolean);
     }
 
+    // Screamer (kind 11): a fragile support zombie that periodically shrieks, whipping nearby zombies
+    // into a speed frenzy. A frenzied zombie covers more ground per second; a far one is untouched;
+    // and silencing (killing) the screamer means its shriek never lands.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+
+        // Frenzy case: the screamer shrieks and a nearby zombie speeds up (covers more ground).
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        SceneNode* screamer = tree.findNode("Zombie0");
+        SceneNode* near_ = tree.findNode("Zombie1");   // 6 units from screamer — inside radius 15
+        SceneNode* farZ = tree.findNode("Zombie2");    // 40 units — outside
+        // Screamer spawned as kind 11 via the full spawn() so it runs its shriek logic.
+        Value scv = screamer->script();
+        std::vector<Value> sp = {Value::fromNum(30.0), Value::fromNum(0.0),
+                                 Value::fromNum(11.0), Value::fromNum(5.0)};   // spawn(x,y,kind,wave)
+        vm.callOn(scv, "spawn", sp);
+        CHECK((int)sField(screamer, "kind")->number == 11);
+        auto park = [&](SceneNode* z, double x) {
+            Value zv = z->script();
+            std::vector<Value> a = {Value::fromNum(x), Value::fromNum(0.0),
+                                    Value::fromNum(100.0), Value::fromNum(10.0)};  // walker, speed 10
+            tree.scripts().vm().callOn(zv, "spawn_at", a);
+        };
+        park(near_, 24.0);   // 6 from the screamer at x=30
+        park(farZ, -10.0);   // 40 from the screamer
+        // Run enough frames for the screamer's 5 s cooldown to fire at least once (~6 s).
+        for (int i = 0; i < 360; ++i) {
+            vm.callOn(scv, "_process", dt);
+        }
+        CHECK(sField(near_, "frenzy_timer")->number > 0.0);   // caught the shriek
+        CHECK(sField(farZ, "frenzy_timer")->number == 0.0);   // too far — untouched
+
+        // A frenzied walker outruns an identical calm one over the same span.
+        SceneTree t2;
+        SceneNode* s2 = zomboid::buildScene(t2);
+        s2->setPosition(0.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        SceneNode* fz = t2.findNode("Zombie0");
+        SceneNode* cz = t2.findNode("Zombie1");
+        auto park2 = [&](SceneNode* z, double x) {
+            Value zv = z->script();
+            std::vector<Value> a = {Value::fromNum(x), Value::fromNum(0.0),
+                                    Value::fromNum(100.0), Value::fromNum(10.0)};
+            t2.scripts().vm().callOn(zv, "spawn_at", a);
+        };
+        park2(fz, 40.0);
+        park2(cz, 40.0);
+        Value fzv = fz->script();
+        std::vector<Value> fren = {Value::fromNum(2.0)};
+        vm2.callOn(fzv, "apply_frenzy", fren);
+        Value czv = cz->script();
+        const double fx0 = fz->x();
+        const double cx0 = cz->x();
+        for (int i = 0; i < 30; ++i) {   // 0.5 s of chasing the survivor at the origin
+            vm2.callOn(fzv, "_process", dt);
+            vm2.callOn(czv, "_process", dt);
+        }
+        const double fzMoved = fx0 - fz->x();   // both close toward the origin (x decreasing)
+        const double czMoved = cx0 - cz->x();
+        CHECK(fzMoved > czMoved);   // the frenzied one covered more ground
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

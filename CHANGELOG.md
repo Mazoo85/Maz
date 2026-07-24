@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — Screamer support zombie (12th enemy type).** A fragile back-line zombie (kind 11) that
+  periodically shrieks, whipping every nearby zombie into a temporary speed **frenzy** — turning a
+  slow shamble into a sudden surge. It makes the horde a priority-target puzzle: silence the screamer
+  early or watch the whole pack accelerate. Joins the director's spawn table from wave 7; frenzied
+  zombies flush hot orange, the screamer itself is amber. Headless-tested: a shriek frenzies a nearby
+  zombie but not a far one, and a frenzied zombie covers measurably more ground than a calm one.
 - **ZOMBOID — Vampiric power-up (lifesteal).** A new sixth power-up: for its duration, every kinetic
   hit you land (bullets and the railgun beam) siphons a little health back to you — a comeback tool
   that turns a target-rich swarm into a heal instead of a threat. Joins the drop table alongside
