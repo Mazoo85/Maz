@@ -1718,6 +1718,46 @@ int main() {
         CHECK(maxLeapStep > walkPerFrame * 1.8);       // the pounce is markedly faster than a walk
     }
 
+    // Flamethrower (weapon 4): a short cone of fire in front of the survivor — every live zombie inside
+    // the cone takes a little direct damage and is set alight; bodies behind, out of range, or off the
+    // cone axis are spared. One do_shoot, then assert who burned.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        setWeapon(tree, survivor, 4);
+        CHECK((int)sField(survivor, "weapon")->number == 4);
+        survivor->setPosition(0.0, 0.0);
+        sField(survivor, "aim_x")->number = 1.0;
+        sField(survivor, "aim_y")->number = 0.0;
+
+        SceneNode* inCone = tree.findNode("Zombie0");  // (6,0): ahead, in range, on axis
+        SceneNode* behind = tree.findNode("Zombie1");  // (-6,0): directly behind
+        SceneNode* farAway = tree.findNode("Zombie2"); // (30,0): ahead but well out of range
+        SceneNode* offAxis = tree.findNode("Zombie3"); // (1,9): near but far off the cone axis
+        const double px[4] = {6.0, -6.0, 30.0, 1.0};
+        const double py[4] = {0.0, 0.0, 0.0, 9.0};
+        SceneNode* zs[4] = {inCone, behind, farAway, offAxis};
+        for (int i = 0; i < 4; ++i) {
+            Value zv = zs[i]->script();
+            std::vector<Value> a = {Value::fromNum(px[i]), Value::fromNum(py[i]),
+                                    Value::fromNum(200.0), Value::fromNum(0.0)};
+            tree.scripts().vm().callOn(zv, "spawn_at", a);
+        }
+
+        Value sv = survivor->script();
+        std::vector<Value> none;
+        tree.scripts().vm().callOn(sv, "do_shoot", none);   // one flamethrower cone
+
+        CHECK(sField(inCone, "health")->number < 200.0);    // scorched
+        CHECK(sField(inCone, "burn_timer")->number > 0.0);  // and set alight
+        CHECK(sField(behind, "health")->number == 200.0);   // behind the survivor — spared
+        CHECK(sField(behind, "burn_timer")->number == 0.0);
+        CHECK(sField(farAway, "health")->number == 200.0);  // out of range — spared
+        CHECK(sField(farAway, "burn_timer")->number == 0.0);
+        CHECK(sField(offAxis, "health")->number == 200.0);  // off the cone axis — spared
+        CHECK(sField(offAxis, "burn_timer")->number == 0.0);
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

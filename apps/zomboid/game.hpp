@@ -128,12 +128,13 @@ class Survivor {
     var spread = 0;         # random aim jitter per pellet, radians
     var bullet_speed = 70;
 
-    # Ammo, per weapon index [pistol, shotgun, smg]: rounds in the magazine, spare rounds in reserve,
-    # magazine capacity, and reload time (seconds). Firing a shot spends one magazine round.
-    var mags = [12, 6, 30, 5];
-    var reserves = [48, 24, 90, 20];
-    var mag_sizes = [12, 6, 30, 5];
-    var reload_times = [1.2, 1.8, 2.0, 2.5];
+    # Ammo, per weapon index [pistol, shotgun, smg, railgun, flamethrower]: rounds in the magazine,
+    # spare rounds in reserve, magazine capacity, and reload time (seconds). Firing spends one round;
+    # the flamethrower burns fuel per tick, so it carries a big tank.
+    var mags = [12, 6, 30, 5, 100];
+    var reserves = [48, 24, 90, 20, 200];
+    var mag_sizes = [12, 6, 30, 5, 100];
+    var reload_times = [1.2, 1.8, 2.0, 2.5, 2.2];
     var reloading = false;
     var reload_t = 0;
     var cur_ammo = 12;       # convenience mirrors of the active weapon for the HUD
@@ -366,12 +367,22 @@ class Survivor {
                     self.spread = 0;
                     self.bullet_speed = 120;
                 } else {
-                    self.weapon = 0;
-                    self.base_fr = 6;
-                    self.base_dmg = 25;
-                    self.pellets = 1;
-                    self.spread = 0;
-                    self.bullet_speed = 70;
+                    if (i == 4) {
+                        # Flamethrower: rapid, very short range; low direct damage but sets zombies
+                        # alight so the burn does the real work. No projectiles — a cone in front.
+                        self.base_fr = 14;
+                        self.base_dmg = 5;
+                        self.pellets = 1;
+                        self.spread = 0;
+                        self.bullet_speed = 40;
+                    } else {
+                        self.weapon = 0;
+                        self.base_fr = 6;
+                        self.base_dmg = 25;
+                        self.pellets = 1;
+                        self.spread = 0;
+                        self.bullet_speed = 70;
+                    }
                 }
             }
         }
@@ -430,6 +441,7 @@ class Survivor {
                         self.reserves[1] = self.reserves[1] + 12;
                         self.reserves[2] = self.reserves[2] + 60;
                         self.reserves[3] = self.reserves[3] + 10;
+                        self.reserves[4] = self.reserves[4] + 120;
                     } else {
                         self.crit_chance = self.crit_chance + 0.05;
                     }
@@ -449,6 +461,7 @@ class Survivor {
         ax = ax / m;
         ay = ay / m;
         if (self.weapon == 3) { self.railgun_fire(ax, ay); return; }
+        if (self.weapon == 4) { self.flamethrower_fire(ax, ay); return; }
         var p = 0;
         while (p < self.pellets) {
             self.fire_one(ax, ay);
@@ -494,6 +507,36 @@ class Survivor {
             }
             j = j + 1;
         }
+        self.shots = self.shots + 1;
+    }
+
+    # Flamethrower: no projectiles — a short cone of fire in front of the survivor. Every live zombie
+    # inside the cone takes a little direct damage and is set alight, so the lingering burn does the
+    # heavy lifting. Devastating against packs at close range, useless at distance.
+    func flamethrower_fire(ax, ay) {
+        var range = 11.0;
+        var dmg = self.shot_damage();
+        var i = 0;
+        var n = len(g_zombies);
+        while (i < n) {
+            var z = g_zombies[i];
+            if (z.alive) {
+                var rx = z.node.x - self.node.x;
+                var ry = z.node.y - self.node.y;
+                var d = sqrt(rx * rx + ry * ry);
+                if (d <= range) {
+                    var dot = 1.0;                          # a body right on top counts as in-cone
+                    if (d > 0.01) { dot = (rx * ax + ry * ay) / d; }
+                    if (dot > 0.6) {                        # within a ~53-degree cone of the aim
+                        z.take_damage(dmg);
+                        z.ignite(1.4, 16);
+                        self.hits = self.hits + 1;
+                    }
+                }
+            }
+            i = i + 1;
+        }
+        emit(self.node.x + ax * 3.0, self.node.y + ay * 3.0, 4, 2);   # flame lick at the nozzle
         self.shots = self.shots + 1;
     }
 
@@ -648,6 +691,7 @@ class Survivor {
         self.reserves[1] = self.reserves[1] + 8;
         self.reserves[2] = self.reserves[2] + 40;
         self.reserves[3] = self.reserves[3] + 6;
+        self.reserves[4] = self.reserves[4] + 80;
         self.grenades = self.grenades + 1;
     }
 
@@ -655,7 +699,7 @@ class Survivor {
     func collect_ammo() {
         self.reserves[self.weapon] = self.reserves[self.weapon] + self.mag_sizes[self.weapon] * 2;
         var i = 0;
-        while (i < 4) {
+        while (i < 5) {
             if (i != self.weapon) { self.reserves[i] = self.reserves[i] + 4; }
             i = i + 1;
         }
@@ -672,6 +716,7 @@ class Survivor {
         self.reserves[1] = self.reserves[1] + 16;
         self.reserves[2] = self.reserves[2] + 90;
         self.reserves[3] = self.reserves[3] + 15;
+        self.reserves[4] = self.reserves[4] + 160;
     }
 
     # Evasive dodge-roll in a direction: a quick burst of movement plus brief invulnerability,

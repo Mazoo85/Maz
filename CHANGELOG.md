@@ -105,6 +105,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Flamethrower (new weapon)** — a fifth weapon (press 5): no projectiles, just a short cone of fire
+  in front of the survivor. Everything caught in the cone takes a little direct damage and is *set
+  alight*, so the lingering burn does the real work — devastating against a tight pack at close range,
+  useless at distance. Carries a big fuel tank (topped up by ammo boxes, crates, and the ammo upgrade),
+  and shows as `FLAME` on the HUD. Verified headless (`zomboid_sim`): a single burst scorches and
+  ignites a zombie in the cone while sparing bodies behind the survivor, out of range, or off the cone
+  axis.
 - **Leaper zombie (new enemy)** — a lean, lime-green zombie (kind 9) that doesn't just shamble: at
   mid-range, on a short cooldown, it winds up a *pounce* — a fast burst that closes the gap far quicker
   than a walk before dropping back to a stalk. Light on health but hard to keep at a comfortable
