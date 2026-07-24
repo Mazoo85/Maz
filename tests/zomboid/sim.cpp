@@ -126,6 +126,41 @@ int main() {
         CHECK(sField(sb, "shots")->number > sField(sa, "shots")->number);
     }
 
+    // Railgun (weapon 3): a piercing hitscan beam damages an entire line of zombies in one shot,
+    // while sparing bodies off the beam.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        setWeapon(tree, survivor, 3);
+        CHECK((int)sField(survivor, "weapon")->number == 3);
+        survivor->setPosition(0.0, 0.0);
+        sField(survivor, "aim_x")->number = 1.0;
+        sField(survivor, "aim_y")->number = 0.0;
+
+        SceneNode* zs[3] = {tree.findNode("Zombie0"), tree.findNode("Zombie1"), tree.findNode("Zombie2")};
+        const double xs[3] = {8.0, 14.0, 20.0};
+        for (int i = 0; i < 3; ++i) {
+            Value zv = zs[i]->script();
+            std::vector<Value> a = {Value::fromNum(xs[i]), Value::fromNum(0.0),
+                                    Value::fromNum(100.0), Value::fromNum(0.0)}; // spawn_at(x,y,hp,spd)
+            tree.scripts().vm().callOn(zv, "spawn_at", a);
+        }
+        SceneNode* off = tree.findNode("Zombie3"); // parked well off the beam
+        Value offv = off->script();
+        std::vector<Value> ao = {Value::fromNum(14.0), Value::fromNum(10.0),
+                                 Value::fromNum(100.0), Value::fromNum(0.0)};
+        tree.scripts().vm().callOn(offv, "spawn_at", ao);
+
+        Value sv = survivor->script();
+        std::vector<Value> none;
+        tree.scripts().vm().callOn(sv, "do_shoot", none); // one railgun shot
+
+        for (int i = 0; i < 3; ++i)
+            CHECK(zs[i]->script().instance->findField("health")->number <= 60.0); // whole line pierced
+        CHECK(off->script().instance->findField("health")->number == 100.0);      // off-beam spared
+        CHECK(activeBullets(tree) >= 1);                                           // visual tracer flew
+    }
+
     // A bullet kills a zombie: park one live zombie in the line of fire and shoot it.
     {
         SceneTree tree;

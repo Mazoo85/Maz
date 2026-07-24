@@ -16,9 +16,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
   remain. Score / wave / kills HUD, a hurt-tint on wounded zombies, an aim tracer and crosshair.
   100% of the rules are verified headless in CI; the render app steps a deterministic fixed timestep
   under `--headless`/`--frames` (a 30 s autopilot run reaches wave 4 / 36 kills with no GPU).
-- **Weapons** — three switchable guns (1/2/3): pistol (accurate), shotgun (6-pellet spread, slow),
-  and SMG (fast, weaker), each with its own fire rate, damage, spread and bullet speed; the shotgun
-  fires a real pellet burst in one shot. Verified headless (`tests/zomboid/sim.cpp`, ctest
+- **Weapons** — four switchable guns (1/2/3/4): pistol (accurate), shotgun (6-pellet spread, slow),
+  SMG (fast, weaker), and a **railgun** — a slow, high-damage **piercing hitscan beam** that damages
+  an entire line of zombies in a single shot (with its own magazine/reserve/reload), spawning a
+  fly-through tracer for the visual. Each gun has its own fire rate, damage, spread and bullet speed;
+  the shotgun fires a real pellet burst in one shot. Verified headless (`zomboid_sim`): a railgun shot
+  pierces three zombies lined up along the aim at once while sparing a body off the beam. Verified headless (`tests/zomboid/sim.cpp`, ctest
   `zomboid_sim`): pools build, wave 1 auto-spawns, firing respects each weapon's cadence, the shotgun
   emits a 6-bullet burst, the SMG out-shoots the pistol over a second, a bullet kills a zombie and
   scores, cleared waves escalate, and survival/loot still hold. Kept as its own fast-compiling target

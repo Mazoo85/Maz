@@ -274,11 +274,12 @@ int main(int argc, char** argv) {
             // Weapon switching: 1/2/3 while playing; autopilot cycles them every 8 s to show them off.
             int want = static_cast<int>(field(survivor, "weapon"));
             if (autopilot) {
-                want = static_cast<int>(simTime / 8.0) % 3;
+                want = static_cast<int>(simTime / 8.0) % 4;
             } else {
                 if (input.keyPressed(SDL_SCANCODE_1)) want = 0;
                 if (input.keyPressed(SDL_SCANCODE_2)) want = 1;
                 if (input.keyPressed(SDL_SCANCODE_3)) want = 2;
+                if (input.keyPressed(SDL_SCANCODE_4)) want = 3;
             }
             if (want != static_cast<int>(field(survivor, "weapon"))) {
                 script::Value self = survivor->script();
@@ -498,13 +499,13 @@ int main(int argc, char** argv) {
             const render::Color kDim{0.75f, 0.8f, 0.85f, 1};
             font.drawText(*renderer, 16.0f, 12.0f, "ZOMBOID", kWhite, 0.8f);
             font.drawText(*renderer, 16.0f, 46.0f,
-                          autopilot ? "AUTOPILOT" : "WASD MOVE  MOUSE AIM  LMB FIRE  1/2/3 GUN  E EAT",
+                          autopilot ? "AUTOPILOT" : "WASD MOVE  MOUSE AIM  LMB FIRE  1-4 GUN  E EAT",
                           kDim, 0.45f);
             // Active weapon name.
-            const char* kWeaponNames[3] = {"PISTOL", "SHOTGUN", "SMG"};
+            const char* kWeaponNames[4] = {"PISTOL", "SHOTGUN", "SMG", "RAILGUN"};
             int wi = static_cast<int>(field(survivor, "weapon"));
             if (wi < 0) wi = 0;
-            if (wi > 2) wi = 2;
+            if (wi > 3) wi = 3;
             font.drawText(*renderer, 16.0f, 72.0f, kWeaponNames[wi],
                           render::Color{1.0f, 0.85f, 0.4f, 1.0f}, 0.55f);
             // Ammo readout / reloading indicator.

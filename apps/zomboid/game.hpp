@@ -112,10 +112,10 @@ class Survivor {
 
     # Ammo, per weapon index [pistol, shotgun, smg]: rounds in the magazine, spare rounds in reserve,
     # magazine capacity, and reload time (seconds). Firing a shot spends one magazine round.
-    var mags = [12, 6, 30];
-    var reserves = [48, 24, 90];
-    var mag_sizes = [12, 6, 30];
-    var reload_times = [1.2, 1.8, 2.0];
+    var mags = [12, 6, 30, 5];
+    var reserves = [48, 24, 90, 20];
+    var mag_sizes = [12, 6, 30, 5];
+    var reload_times = [1.2, 1.8, 2.0, 2.5];
     var reloading = false;
     var reload_t = 0;
     var cur_ammo = 12;       # convenience mirrors of the active weapon for the HUD
@@ -200,12 +200,21 @@ class Survivor {
                 self.spread = 0.06;
                 self.bullet_speed = 82;
             } else {
-                self.weapon = 0;
-                self.base_fr = 6;
-                self.base_dmg = 25;
-                self.pellets = 1;
-                self.spread = 0;
-                self.bullet_speed = 70;
+                if (i == 3) {
+                    # Railgun: slow, high-damage, pierces a whole line of zombies (hitscan beam).
+                    self.base_fr = 2;
+                    self.base_dmg = 40;
+                    self.pellets = 1;
+                    self.spread = 0;
+                    self.bullet_speed = 120;
+                } else {
+                    self.weapon = 0;
+                    self.base_fr = 6;
+                    self.base_dmg = 25;
+                    self.pellets = 1;
+                    self.spread = 0;
+                    self.bullet_speed = 70;
+                }
             }
         }
         self.apply_mults();
@@ -250,6 +259,7 @@ class Survivor {
                     self.reserves[0] = self.reserves[0] + 36;
                     self.reserves[1] = self.reserves[1] + 12;
                     self.reserves[2] = self.reserves[2] + 60;
+                    self.reserves[3] = self.reserves[3] + 10;
                 }
             }
         }
@@ -265,11 +275,49 @@ class Survivor {
         if (m <= 0.0001) { return; }
         ax = ax / m;
         ay = ay / m;
+        if (self.weapon == 3) { self.railgun_fire(ax, ay); return; }
         var p = 0;
         while (p < self.pellets) {
             self.fire_one(ax, ay);
             p = p + 1;
         }
+    }
+
+    # Railgun: a piercing hitscan beam. Damages every zombie whose body straddles the aim ray in
+    # front of the survivor (all in one shot), then spawns a harmless fast tracer bullet for the visual.
+    func railgun_fire(ax, ay) {
+        var beam = 1.2;
+        var i = 0;
+        var n = len(g_zombies);
+        while (i < n) {
+            var z = g_zombies[i];
+            if (z.alive) {
+                var rx = z.node.x - self.node.x;
+                var ry = z.node.y - self.node.y;
+                var t = rx * ax + ry * ay;        # distance along the beam
+                if (t >= 0) {
+                    var px = rx - t * ax;         # perpendicular offset from the beam
+                    var py = ry - t * ay;
+                    var rr = beam + z.radius;
+                    if (px * px + py * py <= rr * rr) { z.take_damage(self.damage); }
+                }
+            }
+            i = i + 1;
+        }
+        # Visual tracer: a pierce bullet flies through everything and just expires (no extra damage).
+        var j = 0;
+        var mb = len(g_bullets);
+        while (j < mb) {
+            var b = g_bullets[j];
+            if (b.active == false) {
+                b.fire(self.node.x, self.node.y, ax, ay, self.bullet_speed, 0);
+                b.pierce = true;
+                self.shots = self.shots + 1;
+                return;
+            }
+            j = j + 1;
+        }
+        self.shots = self.shots + 1;
     }
 
     # Launch one bullet from the pool along (ax, ay) rotated by a random spread offset.
@@ -359,6 +407,7 @@ class Survivor {
         self.reserves[0] = self.reserves[0] + 24;
         self.reserves[1] = self.reserves[1] + 8;
         self.reserves[2] = self.reserves[2] + 40;
+        self.reserves[3] = self.reserves[3] + 6;
         self.grenades = self.grenades + 1;
     }
 
@@ -380,6 +429,7 @@ class Bullet {
     var max_life = 2.0;
     var damage = 25;
     var hit_radius = 1.6;
+    var pierce = false;    # a railgun tracer flies through zombies without dealing contact damage
 
     func _ready() { g_bullets.append(self); }
 
@@ -390,6 +440,7 @@ class Bullet {
         self.vy = diry * speed;
         self.damage = dmg;
         self.life = self.max_life;
+        self.pierce = false;
         self.active = true;
     }
 
@@ -399,6 +450,7 @@ class Bullet {
         self.node.y = self.node.y + self.vy * dt;
         self.life = self.life - dt;
         if (self.life <= 0) { self.active = false; return; }
+        if (self.pierce) { return; }   # railgun tracer: no contact damage, just flies on
 
         var i = 0;
         var n = len(g_zombies);
