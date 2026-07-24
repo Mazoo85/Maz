@@ -54,6 +54,12 @@ static int activePowerups(SceneTree& t) {
         if (p->script().instance->findField("active")->boolean) ++c;
     return c;
 }
+static int activeAcid(SceneTree& t) {
+    int c = 0;
+    for (SceneNode* a : t.nodesInGroup("acid"))
+        if (a->script().instance->findField("active")->boolean) ++c;
+    return c;
+}
 static void setWeapon(SceneTree& t, SceneNode* s, int w) {
     Value self = s->script();
     std::vector<Value> a = {Value::fromNum(static_cast<double>(w))};
@@ -1907,6 +1913,52 @@ int main() {
         for (int i = 0; i < 3; ++i)
             CHECK(sField(zs[i], "slow_timer")->number > 0.0);    // whole field chilled, any distance
         CHECK(sField(dormant, "slow_timer")->number == 0.0);     // a dormant slot is left alone
+    }
+
+    // Acid puddles: a spitter's glob leaves a caustic patch where it lands, and the survivor loses health
+    // while standing in it — but is safe just outside the radius. Also: a spitter's spit spawns a puddle.
+    {
+        // DoT case: puddle right on the survivor chews their health over a few ticks.
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        SceneNode* acid = tree.findNode("Acid0");
+        Value av = acid->script();
+        std::vector<Value> at = {Value::fromNum(0.0), Value::fromNum(0.0)};   // splat on the survivor
+        vm.callOn(av, "splat_at", at);
+        CHECK(sField(acid, "active")->boolean);
+        const double h0 = sField(survivor, "health")->number;
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        for (int i = 0; i < 90; ++i) vm.callOn(av, "_process", dt);   // ~1.5 s of standing in it
+        CHECK(sField(survivor, "health")->number < h0);              // it ate away at the survivor
+
+        // Safe case: a puddle far from the survivor never touches their health.
+        SceneTree t2;
+        SceneNode* surv2 = zomboid::buildScene(t2);
+        surv2->setPosition(0.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        SceneNode* acid2 = t2.findNode("Acid0");
+        Value a2v = acid2->script();
+        std::vector<Value> far = {Value::fromNum(40.0), Value::fromNum(0.0)};
+        vm2.callOn(a2v, "splat_at", far);
+        const double h2 = sField(surv2, "health")->number;
+        for (int i = 0; i < 90; ++i) vm2.callOn(a2v, "_process", dt);
+        CHECK(sField(surv2, "health")->number == h2);               // out of the puddle — unharmed
+
+        // A spitter's glob leaves a puddle: launch one, land it, and a puddle should be active.
+        SceneTree t3;
+        SceneNode* surv3 = zomboid::buildScene(t3);
+        surv3->setPosition(0.0, 0.0);
+        auto& vm3 = t3.scripts().vm();
+        SceneNode* spit = t3.findNode("Spit0");
+        Value spv = spit->script();
+        std::vector<Value> lp = {Value::fromNum(3.0), Value::fromNum(0.0),
+                                 Value::fromNum(0.0), Value::fromNum(0.0)}; // launch(x,y,tx,ty)
+        vm3.callOn(spv, "launch", lp);
+        CHECK(activeAcid(t3) == 0);                                  // none yet, glob still in flight
+        for (int i = 0; i < 30 && activeAcid(t3) == 0; ++i) vm3.callOn(spv, "_process", dt);
+        CHECK(activeAcid(t3) >= 1);                                  // the glob landed and left acid
     }
 
     if (g_fail == 0) {

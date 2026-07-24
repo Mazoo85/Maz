@@ -133,6 +133,7 @@ int main(int argc, char** argv) {
     render::TextureHandle texMine = renderer->createTexture(16, 16, makeSquare(150, 40, 40).data());
     render::TextureHandle texSentry = renderer->createTexture(16, 16, makeSquare(90, 150, 220).data());
     render::TextureHandle texFire = renderer->createTexture(16, 16, makeSquare(255, 120, 30).data());
+    render::TextureHandle texAcid = renderer->createTexture(16, 16, makeSquare(120, 210, 40).data());
     render::TextureHandle texBarrel = renderer->createTexture(16, 16, makeSquare(200, 60, 40).data());
     render::TextureHandle texBullet = renderer->createTexture(16, 16, makeSquare(255, 240, 120).data());
     render::TextureHandle texBlood = renderer->createTexture(16, 16, makeSquare(170, 30, 30).data());
@@ -568,6 +569,15 @@ int main(int argc, char** argv) {
                                                            static_cast<float>(fp->x()));
                 drawAt(fp->x(), fp->y(), texFire, fr,
                        render::Color{1.0f, 0.5f * flick + 0.1f, 0.1f, 0.5f});
+            }
+            // Spitter acid puddles — a bubbling green caustic patch under the zombies.
+            for (scene::SceneNode* ap : tree.nodesInGroup("acid")) {
+                if (!fieldBool(ap, "active")) continue;
+                const float ar = static_cast<float>(field(ap, "radius")) * 2.0f;
+                const float bub = 0.7f + 0.3f * std::sin(static_cast<float>(simTime) * 9.0f +
+                                                         static_cast<float>(ap->y()));
+                drawAt(ap->x(), ap->y(), texAcid, ar,
+                       render::Color{0.4f * bub + 0.1f, 0.85f * bub, 0.15f, 0.5f});
             }
             // Explosive barrels — a rusty hazard; flashes as its hull is chipped low.
             for (scene::SceneNode* bl : tree.nodesInGroup("barrels")) {

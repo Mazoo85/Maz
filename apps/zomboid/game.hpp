@@ -37,6 +37,7 @@ var g_crates = [];      # object pool for periodic supply-crate care packages
 var g_mines = [];       # object pool for deployable proximity mines
 var g_sentries = [];    # object pool for deployable auto-turret sentries
 var g_fires = [];       # object pool for molotov fire patches (burning ground)
+var g_acid = [];        # object pool for spitter acid puddles (caustic ground hazard)
 var g_barrels = [];     # explosive barrels scattered in the arena (shoot to detonate)
 var g_shake = 0;        # screen-shake magnitude; decays every frame
 
@@ -984,6 +985,7 @@ class Spit {
             }
         }
         emit(self.node.x, self.node.y, 8, 1);
+        leave_acid(self.node.x, self.node.y);   # the glob leaves a caustic puddle where it lands
         self.active = false;
     }
 
@@ -1424,6 +1426,66 @@ class FirePool {
         }
         self.puff = self.puff - dt;
         if (self.puff <= 0) { self.puff = 0.3; emit(self.node.x, self.node.y, 3, 1); }
+    }
+}
+
+# A pooled acid puddle left where a spitter's glob lands: caustic ground that eats at the survivor while
+# they stand in it, then dries up. Unlike molotov fire (which burns zombies), this is an enemy hazard —
+# it punishes the survivor for holding a spot a spitter can reach, adding spatial pressure to spitters.
+class AcidPool {
+    var active = false;
+    var life = 0;
+    var max_life = 4.5;
+    var radius = 3.2;
+    var dps = 14;
+    var tick = 0;     # accumulator so the burn lands in periodic ticks, not every frame
+    var puff = 0;
+
+    func _ready() { g_acid.append(self); }
+
+    func splat_at(x, y) {
+        self.node.x = x;
+        self.node.y = y;
+        self.life = self.max_life;
+        self.tick = 0;
+        self.puff = 0;
+        self.active = true;
+        emit(x, y, 12, 1);
+    }
+
+    func _process(dt) {
+        if (self.active == false) { return; }
+        self.life = self.life - dt;
+        if (self.life <= 0) { self.active = false; return; }
+        self.tick = self.tick - dt;
+        if (self.tick <= 0) {
+            self.tick = 0.35;
+            if (g_player != nil) {
+                if (g_player.alive) {
+                    var dx = g_player.node.x - self.node.x;
+                    var dy = g_player.node.y - self.node.y;
+                    if (dx * dx + dy * dy <= self.radius * self.radius) {
+                        g_player.take_damage(self.dps * 0.35);
+                    }
+                }
+            }
+        }
+        self.puff = self.puff - dt;
+        if (self.puff <= 0) { self.puff = 0.4; emit(self.node.x, self.node.y, 2, 1); }
+    }
+}
+
+# Activate a dormant acid puddle from the pool at (x, y).
+func leave_acid(x, y) {
+    var i = 0;
+    var n = len(g_acid);
+    while (i < n) {
+        var a = g_acid[i];
+        if (a.active == false) {
+            a.splat_at(x, y);
+            return;
+        }
+        i = i + 1;
     }
 }
 
@@ -2121,6 +2183,7 @@ constexpr int kCratePool = 2;
 constexpr int kMinePool = 6;
 constexpr int kSentryPool = 3;
 constexpr int kFirePool = 4;
+constexpr int kAcidPool = 8;
 constexpr int kBarrelPool = 6;
 constexpr int kLootCount = 3;
 
@@ -2220,6 +2283,14 @@ inline maz::scene::SceneNode* buildScene(maz::scene::SceneTree& tree) {
         f->setPosition(100000.0, 100000.0);
         f->addToGroup("fires");
         tree.attachScript(*f, "FirePool");
+    }
+
+    // Spitter acid-puddle pool — dormant until a spitter's glob lands.
+    for (int i = 0; i < kAcidPool; ++i) {
+        maz::scene::SceneNode* a = tree.createChild(tree.root(), "Acid" + std::to_string(i));
+        a->setPosition(100000.0, 100000.0);
+        a->addToGroup("acid");
+        tree.attachScript(*a, "AcidPool");
     }
 
     // Explosive barrels — scattered around the arena, live from the start (shoot to detonate).

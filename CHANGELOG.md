@@ -105,6 +105,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Acid puddles (spitter ground hazard)** — a spitter's acid glob now leaves a bubbling green caustic
+  puddle where it lands, and the puddle lingers for a few seconds eating away at the survivor's health
+  while they stand in it (safe just outside the radius). Where molotov fire is *your* tool against the
+  horde, this is the horde's tool against you — it adds real spatial pressure, turning spitters into
+  zone-denial enemies that punish holding a spot. Implemented as a new pooled hazard (like fire patches
+  and mines). Verified headless (`zomboid_sim`): a puddle on the survivor drains health over time while
+  one placed away leaves them unharmed, and a spitter's glob spawns a puddle when it lands.
 - **Cryo-nova power-up (new pickup)** — an icy-cyan power-up (kind 4) that works as a panic button:
   grabbing it instantly *chills every zombie on the field*, so a swarm crawls at reduced speed while you
   reload, reposition, or break for a medkit. Joins the random drop table alongside rapid-fire, damage,
