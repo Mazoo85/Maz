@@ -105,6 +105,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Wave mutators (run-to-run variety)** — from wave 3 on, each wave rolls a random modifier that
+  reshapes the whole horde for that round: **Feral** (everything moves faster), **Hulking** (everything
+  is tougher), or **Frenzied** (noticeably more of them). The active modifier is named on the HUD in
+  pink (`FERAL HORDE` / `HULKING HORDE` / `FRENZIED HORDE`), so no two runs feel quite the same. Verified
+  headless (`zomboid_sim`): against an unmutated baseline, the feral roll spawns a faster walker with
+  untouched health, the hulking roll a tougher walker (with matching max-health) at unchanged speed, and
+  the director rolls no modifier before wave 3 but a valid one after.
 - **Flamethrower (new weapon)** — a fifth weapon (press 5): no projectiles, just a short cone of fire
   in front of the survivor. Everything caught in the cone takes a little direct damage and is *set
   alight*, so the lingering burn does the real work — devastating against a tight pack at close range,

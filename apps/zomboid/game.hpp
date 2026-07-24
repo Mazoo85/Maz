@@ -44,6 +44,11 @@ var g_score = 0;
 var g_kills = 0;
 var g_wave = 0;
 
+# Wave mutator: from wave 3 on, each wave rolls a random modifier that reshapes the whole horde for
+# that wave, for run-to-run variety. 0 none, 1 feral (faster), 2 hulking (tougher), 3 frenzy (more of
+# them). Applied to every zombie as it spawns; the survivor sees the active modifier on the HUD.
+var g_mutator = 0;
+
 # Kill-streak combo: fast, unbroken kills build a score multiplier that decays if you stop killing.
 var g_combo = 0;         # current streak length
 var g_mult = 1;          # score multiplier from the streak (1 + one per 5 kills, capped at 5)
@@ -1705,6 +1710,11 @@ class Zombie {
                 }
             }
         }
+        # Wave mutator reshapes the whole horde: feral bodies are faster, hulking ones tougher (frenzy
+        # only affects how many spawn, handled by the director). Applied before the speed clamp so a
+        # feral runner still tops out at the hard speed cap.
+        if (g_mutator == 1) { self.speed = self.speed * 1.35; }
+        if (g_mutator == 2) { self.health = self.health * 1.5; }
         if (self.speed > 30) { self.speed = 30; }
         self.max_health = self.health;
     }
@@ -1912,8 +1922,14 @@ class Director {
     func start_wave(w) {
         # Reward surviving the previous wave with a permanent upgrade.
         if (w >= 2 and g_player != nil) { g_player.apply_upgrade(); }
+        # Roll this wave's mutator (from wave 3 on): a random modifier that reshapes the whole horde.
+        g_mutator = 0;
+        if (w >= 3) { g_mutator = int(randf_range(1, 4)); }
+        if (g_mutator > 3) { g_mutator = 3; }
         var pool = len(g_zombies);
         var count = self.base + w * 2;
+        # Frenzy mutator throws a bigger horde at the survivor.
+        if (g_mutator == 3) { count = count + int(count / 2); }
         if (count > pool) { count = pool; }
         var cx = 0;
         var cy = 0;

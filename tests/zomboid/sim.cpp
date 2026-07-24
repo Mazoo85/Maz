@@ -1758,6 +1758,52 @@ int main() {
         CHECK(sField(offAxis, "burn_timer")->number == 0.0);
     }
 
+    // Wave mutator: an active modifier reshapes the whole horde as it spawns — feral (1) is faster,
+    // hulking (2) is tougher — measured against an unmutated baseline of the same kind and wave.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value* mut = const_cast<Value*>(vm.getGlobal("g_mutator"));
+
+        SceneNode* base = tree.findNode("Zombie0");
+        SceneNode* fast = tree.findNode("Zombie1");
+        SceneNode* tough = tree.findNode("Zombie2");
+        // spawn(x, y, kind, wave): a plain walker (kind 0) at wave 4 in each case.
+        auto spawnWalker = [&](SceneNode* z) {
+            Value zv = z->script();
+            std::vector<Value> a = {Value::fromNum(20.0), Value::fromNum(0.0),
+                                    Value::fromNum(0.0), Value::fromNum(4.0)};
+            vm.callOn(zv, "spawn", a);
+        };
+
+        mut->number = 0.0; spawnWalker(base);              // baseline, no mutator
+        const double baseSpd = sField(base, "speed")->number;
+        const double baseHp = sField(base, "health")->number;
+
+        mut->number = 1.0; spawnWalker(fast);              // feral: faster
+        CHECK(sField(fast, "speed")->number > baseSpd);
+        CHECK(sField(fast, "health")->number == baseHp);   // feral leaves health alone
+
+        mut->number = 2.0; spawnWalker(tough);             // hulking: tougher
+        CHECK(sField(tough, "health")->number > baseHp);
+        CHECK(sField(tough, "max_health")->number == sField(tough, "health")->number);
+        CHECK(sField(tough, "speed")->number == baseSpd);  // hulking leaves speed alone
+
+        mut->number = 0.0;                                 // reset so later logic is unaffected
+
+        // The director rolls a mutator from wave 3 on, and none before it.
+        SceneNode* dir = tree.findNode("Director");
+        Value ds = dir->script();
+        std::vector<Value> w2 = {Value::fromNum(2.0)};
+        vm.callOn(ds, "start_wave", w2);
+        CHECK((int)glob(tree, "g_mutator") == 0);          // no mutator before wave 3
+        std::vector<Value> w6 = {Value::fromNum(6.0)};
+        vm.callOn(ds, "start_wave", w6);
+        const int rolled = (int)glob(tree, "g_mutator");
+        CHECK(rolled >= 1 && rolled <= 3);                 // a valid modifier was rolled
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "
