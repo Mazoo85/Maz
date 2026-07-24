@@ -975,6 +975,19 @@ class Zombie {
                         if (ex * ex + ey * ey <= 25.0) { g_player.take_damage(35); }
                     }
                 }
+                # The blast also catches nearby zombies (but not other exploders, to bound the chain),
+                # so an exploder shot inside a pack takes the pack with it.
+                var bi = 0;
+                var bn = len(g_zombies);
+                while (bi < bn) {
+                    var oz = g_zombies[bi];
+                    if (oz.alive and oz.kind != 4) {
+                        var ozx = oz.node.x - self.node.x;
+                        var ozy = oz.node.y - self.node.y;
+                        if (ozx * ozx + ozy * ozy <= 25.0) { oz.take_damage(40); }
+                    }
+                    bi = bi + 1;
+                }
                 emit(self.node.x, self.node.y, 20, 1); # blast burst
             }
             g_shake = g_shake + s;

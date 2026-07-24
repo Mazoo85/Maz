@@ -110,8 +110,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
   an ignored kit expires.
 - **Exploder zombies** — a fifth zombie kind (from wave 4): a fast, fragile suicide bomber that
   detonates when killed, dealing area-of-effect damage to the survivor if they are within ~5 units,
-  so it must be shot from a distance rather than let close. The blast throws extra particles and a
-  bigger screen-shake, and the Director folds exploders into the mix on later waves. Verified headless
+  so it must be shot from a distance rather than let close. Its blast now also catches **nearby
+  zombies** (40 damage in the same radius, other exploders excluded so the chain stays bounded), so an
+  exploder popped inside a pack can take the pack with it — a double-edged crowd tool. The blast throws
+  extra particles and a bigger screen-shake, and the Director folds exploders into the mix on later
+  waves. Verified headless (`zomboid_sim`): a detonating exploder hurts a nearby walker while a distant
+  one is untouched. Verified headless
   (`zomboid_sim`): a spawned exploder is faster and more fragile than a walker, dying next to the
   survivor drains their health while an identical exploder dying far away does not, and a forced wave 4
   actually contains an exploder.

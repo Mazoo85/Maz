@@ -810,6 +810,37 @@ int main() {
         CHECK(activeMedkits(tree) >= 1); // guaranteed elite drop
     }
 
+    // Exploder chain: its death blast also damages nearby non-exploder zombies (but spares distant ones).
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(100.0, 100.0); // keep the player well clear of the blast
+        SceneNode* ex = tree.findNode("Zombie0");
+        Value exs = ex->script();
+        std::vector<Value> sp = {Value::fromNum(0.0), Value::fromNum(0.0), Value::fromNum(4.0),
+                                 Value::fromNum(1.0)}; // exploder at origin
+        tree.scripts().vm().callOn(exs, "spawn", sp);
+
+        SceneNode* near = tree.findNode("Zombie1");
+        Value nears = near->script();
+        std::vector<Value> np = {Value::fromNum(3.0), Value::fromNum(0.0), Value::fromNum(200.0),
+                                 Value::fromNum(0.0)}; // tanky walker 3 units away
+        tree.scripts().vm().callOn(nears, "spawn_at", np);
+        SceneNode* far = tree.findNode("Zombie2");
+        Value fars = far->script();
+        std::vector<Value> fp = {Value::fromNum(20.0), Value::fromNum(0.0), Value::fromNum(200.0),
+                                 Value::fromNum(0.0)}; // walker well outside the blast
+        tree.scripts().vm().callOn(fars, "spawn_at", fp);
+
+        const double nearHp0 = near->script().instance->findField("health")->number;
+        const double farHp0 = far->script().instance->findField("health")->number;
+        std::vector<Value> kill = {Value::fromNum(999.0)};
+        tree.scripts().vm().callOn(exs, "take_damage", kill); // detonate
+        CHECK(!ex->script().instance->findField("alive")->boolean);
+        CHECK(near->script().instance->findField("health")->number < nearHp0); // caught in the chain
+        CHECK(far->script().instance->findField("health")->number == farHp0);  // out of range, spared
+    }
+
     // Boss ground slam (kind 3): a periodic shockwave hits a survivor within its radius even when
     // they are outside melee-bite range, but spares one standing well clear of it.
     {
