@@ -30,6 +30,7 @@ var g_zombies = [];     # object pool: every Zombie appends itself here in _read
 var g_particles = [];   # object pool for impact / blood particles (juice)
 var g_grenades = [];    # object pool for thrown grenades
 var g_medkits = [];     # object pool for dropped health pickups
+var g_spits = [];       # object pool for spitter acid globs (enemy ranged projectiles)
 var g_shake = 0;        # screen-shake magnitude; decays every frame
 
 var g_score = 0;
@@ -441,6 +442,70 @@ class Grenade {
     }
 }
 
+# A pooled acid glob lobbed by a spitter zombie. Flies toward where the survivor stood when it was
+# fired (so it can be side-stepped), then splashes on arrival — damaging the survivor only if they are
+# still near the impact point. This is the horde's one ranged threat, so a spitter must be prioritized.
+class Spit {
+    var active = false;
+    var vx = 0;
+    var vy = 0;
+    var fuse = 0;
+    var splash = 2.6;
+    var dmg = 12;
+
+    func _ready() { g_spits.append(self); }
+
+    func launch(x, y, tx, ty) {
+        self.node.x = x;
+        self.node.y = y;
+        var dx = tx - x;
+        var dy = ty - y;
+        var d = sqrt(dx * dx + dy * dy);
+        if (d < 0.001) { d = 0.001; }
+        var spd = 24;
+        self.vx = (dx / d) * spd;
+        self.vy = (dy / d) * spd;
+        self.fuse = d / spd;   # lands roughly where the survivor was at launch
+        self.active = true;
+    }
+
+    func splat() {
+        if (g_player != nil) {
+            if (g_player.alive) {
+                var dx = g_player.node.x - self.node.x;
+                var dy = g_player.node.y - self.node.y;
+                if (dx * dx + dy * dy <= self.splash * self.splash) {
+                    g_player.take_damage(self.dmg);
+                }
+            }
+        }
+        emit(self.node.x, self.node.y, 8, 1);
+        self.active = false;
+    }
+
+    func _process(dt) {
+        if (self.active == false) { return; }
+        self.node.x = self.node.x + self.vx * dt;
+        self.node.y = self.node.y + self.vy * dt;
+        self.fuse = self.fuse - dt;
+        if (self.fuse <= 0) { self.splat(); }
+    }
+}
+
+# Activate a dormant acid glob from the pool, launched from (x, y) toward (tx, ty).
+func launch_spit(x, y, tx, ty) {
+    var i = 0;
+    var n = len(g_spits);
+    while (i < n) {
+        var s = g_spits[i];
+        if (s.active == false) {
+            s.launch(x, y, tx, ty);
+            return;
+        }
+        i = i + 1;
+    }
+}
+
 # A pooled impact particle: a short-lived speck that flies out from a hit and fades. Sparks (kind 0) are
 # fast and brief; blood (kind 1) is redder, slower, and lingers a touch longer. Pure juice.
 class Particle {
@@ -604,12 +669,22 @@ class Zombie {
                         self.attack_range = 1.2;
                         self.score_value = 15;
                     } else {
-                        self.health = 25 + w * 8;
-                        self.speed = 13 + w;
-                        self.damage = 6;
-                        self.radius = 1.0;
-                        self.attack_range = 1.2;
-                        self.score_value = 10;
+                        if (k == 5) {
+                            # Spitter: keeps its distance (large attack_range) and lobs acid.
+                            self.health = 30 + w * 6;
+                            self.speed = 11 + w;
+                            self.damage = 0;
+                            self.radius = 1.0;
+                            self.attack_range = 13;
+                            self.score_value = 18;
+                        } else {
+                            self.health = 25 + w * 8;
+                            self.speed = 13 + w;
+                            self.damage = 6;
+                            self.radius = 1.0;
+                            self.attack_range = 1.2;
+                            self.score_value = 10;
+                        }
                     }
                 }
             }
@@ -663,6 +738,19 @@ class Zombie {
         var dx = g_player.node.x - self.node.x;
         var dy = g_player.node.y - self.node.y;
         var dist = sqrt(dx * dx + dy * dy);
+        if (self.kind == 5) {
+            # Spitter: advance only until inside spitting range, then hold and lob acid on a cooldown.
+            if (dist > self.attack_range) {
+                self.node.x = self.node.x + (dx / dist) * self.speed * aggro * dt;
+                self.node.y = self.node.y + (dy / dist) * self.speed * aggro * dt;
+            }
+            self.cooldown = self.cooldown - dt;
+            if (dist <= self.attack_range and self.cooldown <= 0) {
+                launch_spit(self.node.x, self.node.y, g_player.node.x, g_player.node.y);
+                self.cooldown = 2.2;
+            }
+            return;
+        }
         if (dist > self.attack_range) {
             self.node.x = self.node.x + (dx / dist) * self.speed * aggro * dt;
             self.node.y = self.node.y + (dy / dist) * self.speed * aggro * dt;
@@ -719,13 +807,17 @@ class Director {
                     if (i % 7 == 0 and w >= 4) {
                         k = 4;
                     } else {
-                        if (i % 5 == 0 and w >= 3) {
-                            k = 2;
+                        if (i % 6 == 0 and w >= 5) {
+                            k = 5;
                         } else {
-                            if (i % 3 == 0 and w >= 2) {
-                                k = 1;
+                            if (i % 5 == 0 and w >= 3) {
+                                k = 2;
                             } else {
-                                k = 0;
+                                if (i % 3 == 0 and w >= 2) {
+                                    k = 1;
+                                } else {
+                                    k = 0;
+                                }
                             }
                         }
                     }
@@ -788,6 +880,7 @@ constexpr int kZombiePool = 40;
 constexpr int kParticlePool = 90;
 constexpr int kGrenadePool = 8;
 constexpr int kMedkitPool = 12;
+constexpr int kSpitPool = 24;
 constexpr int kLootCount = 3;
 
 // Build the starting scene: a survivor at the origin, a wave Director, a pool of dormant zombies and
@@ -830,6 +923,14 @@ inline maz::scene::SceneNode* buildScene(maz::scene::SceneTree& tree) {
         m->setPosition(100000.0, 100000.0);
         m->addToGroup("medkits");
         tree.attachScript(*m, "Medkit");
+    }
+
+    // Spit pool — dormant acid globs spitter zombies lob at the survivor.
+    for (int i = 0; i < kSpitPool; ++i) {
+        maz::scene::SceneNode* s = tree.createChild(tree.root(), "Spit" + std::to_string(i));
+        s->setPosition(100000.0, 100000.0);
+        s->addToGroup("spits");
+        tree.attachScript(*s, "Spit");
     }
 
     // Zombie pool — dormant; the Director revives them wave by wave.

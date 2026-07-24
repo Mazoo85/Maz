@@ -118,6 +118,8 @@ int main(int argc, char** argv) {
     render::TextureHandle texBrute = renderer->createTexture(16, 16, makeSquare(165, 55, 55).data());
     render::TextureHandle texBoss = renderer->createTexture(16, 16, makeSquare(195, 70, 195).data());
     render::TextureHandle texExploder = renderer->createTexture(16, 16, makeSquare(235, 130, 30).data());
+    render::TextureHandle texSpitter = renderer->createTexture(16, 16, makeSquare(150, 200, 40).data());
+    render::TextureHandle texSpit = renderer->createTexture(16, 16, makeSquare(180, 230, 60).data());
     render::TextureHandle texBullet = renderer->createTexture(16, 16, makeSquare(255, 240, 120).data());
     render::TextureHandle texBlood = renderer->createTexture(16, 16, makeSquare(170, 30, 30).data());
     render::TextureHandle texGrenade = renderer->createTexture(16, 16, makeSquare(70, 90, 70).data());
@@ -400,6 +402,7 @@ int main(int argc, char** argv) {
                 else if (zk == 2) ztex = texBrute;
                 else if (zk == 3) ztex = texBoss;
                 else if (zk == 4) ztex = texExploder;
+                else if (zk == 5) ztex = texSpitter;
                 const float size = static_cast<float>(field(z, "radius")) * 2.4f;
                 const double hp = field(z, "health"), mhp = field(z, "max_health");
                 const float f = mhp > 0.0 ? static_cast<float>(hp / mhp) : 1.0f;
@@ -416,6 +419,10 @@ int main(int argc, char** argv) {
                 if (!fieldBool(g, "active")) continue;
                 const float blink = 0.6f + 0.4f * std::sin(static_cast<float>(simTime) * 20.0f);
                 drawAt(g->x(), g->y(), texGrenade, 1.1f, render::Color{blink, 1.0f, blink, 1.0f});
+            }
+            // Acid globs in flight (spitter projectiles).
+            for (scene::SceneNode* s : tree.nodesInGroup("spits")) {
+                if (fieldBool(s, "active")) drawAt(s->x(), s->y(), texSpit, 0.9f, kNoTint);
             }
             // Impact particles (sparks + blood), fading with life.
             for (scene::SceneNode* p : tree.nodesInGroup("particles")) {

@@ -76,6 +76,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
   (`zomboid_sim`): a spawned exploder is faster and more fragile than a walker, dying next to the
   survivor drains their health while an identical exploder dying far away does not, and a forced wave 4
   actually contains an exploder.
+- **Spitter zombies** — a sixth zombie kind (from wave 5): the horde's one ranged threat. Instead of
+  charging, a spitter halts at a distance and lobs object-pooled acid globs at where the survivor was
+  standing, on a cooldown; a glob travels and splashes on arrival, hurting the survivor only if they
+  are still near the impact — so it can be side-stepped, but a spitter left alone will chip you down
+  and must be prioritized. The Director folds spitters into later waves. Verified headless
+  (`zomboid_sim`): a spawned spitter holds its ground rather than closing to melee, a tick puts an acid
+  glob in the air, and the glob travels and lands on a stationary survivor to drain their health.
 - **Sound effects** — procedural SFX (`audio::Audio`) for gunfire (per-weapon pitch), zombie deaths,
   reloads, grenade/boss booms, wave starts, taking a bite, and dying. The app fires one-shots by
   watching simulation state change frame-to-frame — no script hooks needed — and resyncs on restart so

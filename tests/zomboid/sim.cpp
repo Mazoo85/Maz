@@ -41,6 +41,12 @@ static int activeParticles(SceneTree& t) {
         if (p->script().instance->findField("active")->boolean) ++c;
     return c;
 }
+static int activeSpits(SceneTree& t) {
+    int c = 0;
+    for (SceneNode* s : t.nodesInGroup("spits"))
+        if (s->script().instance->findField("active")->boolean) ++c;
+    return c;
+}
 static void setWeapon(SceneTree& t, SceneNode* s, int w) {
     Value self = s->script();
     std::vector<Value> a = {Value::fromNum(static_cast<double>(w))};
@@ -542,6 +548,33 @@ int main() {
         CHECK(sField(survivor, "health")->number == hpBefore);              // out of blast range
     }
 
+    // Spitter (kind 5): a ranged zombie that halts at distance and lobs acid globs.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zs = z->script();
+        CHECK((int)tree.nodesInGroup("spits").size() == zomboid::kSpitPool);
+        CHECK(activeSpits(tree) == 0);
+
+        // Spawn a spitter 10 units away — inside its ~13 spitting range.
+        survivor->setPosition(0.0, 0.0);
+        sField(survivor, "health")->number = 100.0;
+        std::vector<Value> spawn = {Value::fromNum(10.0), Value::fromNum(0.0), Value::fromNum(5.0),
+                                    Value::fromNum(1.0)}; // spawn(x=10,y=0,kind=5,wave=1)
+        tree.scripts().vm().callOn(zs, "spawn", spawn);
+        CHECK((int)z->script().instance->findField("kind")->number == 5);
+
+        // One tick: cooldown starts at 0, so it lobs a glob and holds its ground (doesn't rush in).
+        tree.process(0.05);
+        CHECK(activeSpits(tree) >= 1);   // a glob is airborne
+        CHECK(z->x() > 5.0);             // the spitter kept its distance
+
+        // Let the glob travel and splash on the stationary survivor.
+        for (int i = 0; i < 120; ++i) tree.process(1.0 / 60.0);
+        CHECK(sField(survivor, "health")->number < 100.0); // the acid hit landed
+    }
+
     // The Director mixes exploders into later waves (wave 4+).
     {
         SceneTree tree;
@@ -561,7 +594,8 @@ int main() {
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "
-                    "high-score persistence, medkits, exploders, kills/score, survival, loot.\n");
+                    "high-score persistence, medkits, exploders, spitters, kills/score, survival, "
+                    "loot.\n");
         return 0;
     }
     std::printf("zomboid_sim: %d failure(s).\n", g_fail);
