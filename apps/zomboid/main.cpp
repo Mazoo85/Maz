@@ -312,6 +312,19 @@ int main(int argc, char** argv) {
                 tree.scripts().vm().callOn(self, "reload", none);
             }
 
+            // Salvage shop: spend banked cash on ammo (6), a grenade (7), or a heal (8).
+            if (!autopilot) {
+                int buyKind = -1;
+                if (input.keyPressed(SDL_SCANCODE_6)) buyKind = 0;
+                else if (input.keyPressed(SDL_SCANCODE_7)) buyKind = 1;
+                else if (input.keyPressed(SDL_SCANCODE_8)) buyKind = 2;
+                if (buyKind >= 0) {
+                    script::Value self = survivor->script();
+                    std::vector<script::Value> a = {script::Value::fromNum(static_cast<double>(buyKind))};
+                    tree.scripts().vm().callOn(self, "buy", a);
+                }
+            }
+
             // Throw a grenade (G while playing; autopilot lobs one every ~5 s).
             bool throwNow = !autopilot && input.keyPressed(SDL_SCANCODE_G);
             if (autopilot && simTime >= nextGrenade && field(survivor, "grenades") > 0.0) {
@@ -748,6 +761,12 @@ int main(int argc, char** argv) {
                           static_cast<int>(field(survivor, "sentries")),
                           static_cast<int>(field(survivor, "molotovs")));
             font.drawText(*renderer, 16.0f, 122.0f, nadeBuf, render::Color{0.7f, 0.85f, 0.7f, 1.0f},
+                          0.45f);
+            // Salvage cash + shop hotkeys (below the ultimate meter to avoid the revive/ult lines).
+            char cashBuf[96];
+            std::snprintf(cashBuf, sizeof(cashBuf), "$%d   BUY: AMMO 50 (6)  NADE 40 (7)  HEAL 60 (8)",
+                          static_cast<int>(globalNum(tree, "g_cash")));
+            font.drawText(*renderer, 16.0f, 170.0f, cashBuf, render::Color{0.95f, 0.85f, 0.35f, 1.0f},
                           0.45f);
             const int revives = static_cast<int>(field(survivor, "revives"));
             if (revives > 0) {

@@ -105,6 +105,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Salvage economy + in-fight shop** — every kill now banks **cash** (shown on the HUD), which the
+  survivor can spend mid-fight without pausing: **6** buys an ammo refill ($50), **7** buys a grenade
+  ($40), **8** buys a heal ($60). It's the first real player-agency/economy layer — do you hoard for a
+  panic heal, or keep topped up on grenades? Purchases are refused (no cash spent) when you can't afford
+  them. Verified headless (`zomboid_sim`): a kill pays out salvage, an affordable buy deducts the cost
+  and grants the item, and an unaffordable buy is rejected with cash and state untouched.
 - **Bloater zombie (new enemy)** — a fat, slow, tanky zombie (kind 10) that *ruptures into a lingering
   toxic cloud when it dies* (reusing the acid-puddle hazard). Popping one at point-blank range leaves you
   standing in poison, so it's best dropped from a distance — a natural fit for the railgun or a well-timed

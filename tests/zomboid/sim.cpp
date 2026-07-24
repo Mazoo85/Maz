@@ -1915,6 +1915,46 @@ int main() {
         CHECK(sField(dormant, "slow_timer")->number == 0.0);     // a dormant slot is left alone
     }
 
+    // Salvage economy: kills bank cash, and buy() spends it on ammo/grenades/heals — succeeding when
+    // the survivor can afford it, rejected (with no effect) when they can't.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value* cash = const_cast<Value*>(vm.getGlobal("g_cash"));
+
+        // A kill banks cash.
+        SceneNode* z0 = tree.findNode("Zombie0");
+        Value zv = z0->script();
+        std::vector<Value> at = {Value::fromNum(4.0), Value::fromNum(0.0), Value::fromNum(20.0),
+                                 Value::fromNum(0.0)};
+        vm.callOn(zv, "spawn_at", at);
+        cash->number = 0.0;
+        std::vector<Value> lethal = {Value::fromNum(9999.0)};
+        vm.callOn(zv, "take_damage", lethal);
+        CHECK(glob(tree, "g_cash") > 0.0);                     // the kill paid out salvage
+
+        // Afford it: buying a grenade (cost 40) spends cash and adds a grenade.
+        Value sv = survivor->script();
+        cash->number = 100.0;
+        const double nades0 = sField(survivor, "grenades")->number;
+        std::vector<Value> buyNade = {Value::fromNum(1.0)};
+        Value ok = vm.callOn(sv, "buy", buyNade);
+        CHECK(ok.boolean);
+        CHECK(glob(tree, "g_cash") == 60.0);                   // 100 - 40
+        CHECK(sField(survivor, "grenades")->number == nades0 + 1.0);
+
+        // Can't afford it: with 10 cash, a 60-cost heal is refused and nothing changes.
+        cash->number = 10.0;
+        sField(survivor, "health")->number = 50.0;             // wound them so a heal would be visible
+        const double hp0 = sField(survivor, "health")->number;
+        std::vector<Value> buyHeal = {Value::fromNum(2.0)};
+        Value poor = vm.callOn(sv, "buy", buyHeal);
+        CHECK(!poor.boolean);
+        CHECK(glob(tree, "g_cash") == 10.0);                   // untouched
+        CHECK(sField(survivor, "health")->number == hp0);      // no heal applied
+    }
+
     // Bloater (kind 10): a slow, tanky zombie that bursts into a lingering toxic cloud (an acid puddle)
     // when it dies — so a careless point-blank kill leaves the survivor standing in poison.
     {

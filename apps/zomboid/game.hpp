@@ -45,6 +45,10 @@ var g_score = 0;
 var g_kills = 0;
 var g_wave = 0;
 
+# Salvage economy: kills drop cash the survivor banks and spends mid-fight on ammo, grenades, or a heal
+# (keys 6/7/8). A light between-the-action shop that rewards racking up kills.
+var g_cash = 0;
+
 # Wave mutator: from wave 3 on, each wave rolls a random modifier that reshapes the whole horde for
 # that wave, for run-to-run variety. 0 none, 1 feral (faster), 2 hulking (tougher), 3 frenzy (more of
 # them). Applied to every zombie as it spawns; the survivor sees the active modifier on the HUD.
@@ -721,6 +725,22 @@ class Survivor {
             if (i != self.weapon) { self.reserves[i] = self.reserves[i] + 4; }
             i = i + 1;
         }
+    }
+
+    # Spend banked salvage on a mid-fight purchase: 0 = ammo refill, 1 = grenade, 2 = heal. Returns
+    # true if the survivor could afford it (and the buy landed), false if too poor.
+    func buy(kind) {
+        if (self.alive == false) { return false; }
+        var cost = 50;
+        if (kind == 1) { cost = 40; }
+        if (kind == 2) { cost = 60; }
+        if (g_cash < cost) { return false; }
+        g_cash = g_cash - cost;
+        if (kind == 0) { self.collect_ammo(); }
+        if (kind == 1) { self.grenades = self.grenades + 1; }
+        if (kind == 2) { self.heal(40); }
+        emit(self.node.x, self.node.y, 8, 0);
+        return true;
     }
 
     # Grab a supply-crate care package: a big refill of ammo, grenades, and health.
@@ -1847,6 +1867,7 @@ class Zombie {
             g_mult = 1 + int(g_combo / 5);
             if (g_mult > 5) { g_mult = 5; }
             g_score = g_score + self.score_value * g_mult;
+            g_cash = g_cash + 5 + int(self.score_value / 4);   # salvage banked from the kill
             if (g_player != nil) { g_player.on_kill(); } # charges the ultimate + milestone rewards
             emit(self.node.x, self.node.y, 10, 1); # blood burst on death
             var s = 0.5;
