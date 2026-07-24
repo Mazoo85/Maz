@@ -1565,6 +1565,23 @@ class Zombie {
         }
     }
 
+    # Overkill gib: a decisive killing blow bursts this body in a small shockwave that chips every
+    # nearby zombie, so a heavy hit (railgun, crit) landed on a weakened pack chains through it.
+    func overkill_burst() {
+        var i = 0;
+        var n = len(g_zombies);
+        while (i < n) {
+            var z = g_zombies[i];
+            if (z.alive and z != self) {
+                var dx = z.node.x - self.node.x;
+                var dy = z.node.y - self.node.y;
+                if (dx * dx + dy * dy <= 16.0) { z.take_damage(25); }   # radius 4
+            }
+            i = i + 1;
+        }
+        emit(self.node.x, self.node.y, 14, 1);   # gib burst
+    }
+
     # Crown this zombie an elite: a tankier, faster, high-value champion that always drops a medkit.
     func make_elite() {
         self.elite = true;
@@ -1779,6 +1796,11 @@ class Zombie {
             if (self.kind == 6) {
                 self.split_off(2);
                 emit(self.node.x, self.node.y, 12, 1);
+            }
+            # Overkill: if the killing hit alone dwarfed this body's full health (and it isn't an
+            # exploder or boss, which have their own death behaviour), it gibs in a chain shockwave.
+            if (d >= self.max_health * 1.5 and self.kind != 4 and self.kind != 3) {
+                self.overkill_burst();
             }
             g_shake = g_shake + s;
             if (g_shake > 3.0) { g_shake = 3.0; }

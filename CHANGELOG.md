@@ -105,6 +105,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
   "NEW BEST!") and offers "PRESS ENTER TO RESTART", which rebuilds a fresh SceneTree for a clean run.
   Verified headless (`zomboid_sim`): `beatsBest` ranks runs correctly (score primary, wave tiebreak),
   and a best written through `KeyValueStore.save()` reloads intact.
+- **Overkill gibs (chain kills)** — when a single hit lands far more damage than a zombie's full
+  health (a railgun bolt, a big crit, a point-blank shotgun blast on an already-weakened body), the
+  zombie *bursts* in a small shockwave that chips every nearby zombie — which can pop weakened
+  neighbours in turn, chaining through a tight pack. Bosses and exploders keep their own death
+  behaviour and are exempt. Verified headless (`zomboid_sim`): a hit dwarfing the target's health gibs
+  it and damages an in-range neighbour while sparing one out of range, whereas a merely-lethal hit kills
+  cleanly with no shockwave.
 - **Wave mutators (run-to-run variety)** — from wave 3 on, each wave rolls a random modifier that
   reshapes the whole horde for that round: **Feral** (everything moves faster), **Hulking** (everything
   is tougher), or **Frenzied** (noticeably more of them). The active modifier is named on the HUD in

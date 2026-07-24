@@ -1804,6 +1804,51 @@ int main() {
         CHECK(rolled >= 1 && rolled <= 3);                 // a valid modifier was rolled
     }
 
+    // Overkill gib: a killing blow far larger than a zombie's full health bursts it in a shockwave that
+    // chips nearby zombies; a merely-lethal blow does not. Neighbours outside the burst radius are safe.
+    {
+        // Overkill case: 100 damage onto a 20-hp body (100 >= 1.5*20) gibs and splashes the neighbour.
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        SceneNode* target = tree.findNode("Zombie0");
+        SceneNode* near_ = tree.findNode("Zombie1");   // 3 units away — inside the radius-4 burst
+        SceneNode* farZ = tree.findNode("Zombie2");    // 10 units away — outside the burst
+        auto place = [&](SceneNode* z, double x, double hp) {
+            Value zv = z->script();
+            std::vector<Value> a = {Value::fromNum(x), Value::fromNum(0.0),
+                                    Value::fromNum(hp), Value::fromNum(0.0)};
+            tree.scripts().vm().callOn(zv, "spawn_at", a);
+        };
+        place(target, 0.0, 20.0);
+        place(near_, 3.0, 100.0);
+        place(farZ, 10.0, 100.0);
+        Value tv = target->script();
+        std::vector<Value> big = {Value::fromNum(100.0)};
+        tree.scripts().vm().callOn(tv, "take_damage", big);
+        CHECK(!sField(target, "alive")->boolean);            // the target died
+        CHECK(sField(near_, "health")->number < 100.0);      // neighbour caught the gib shockwave
+        CHECK(sField(farZ, "health")->number == 100.0);      // out of range — untouched
+
+        // Control: a merely-lethal blow (exactly 20 onto 20 hp) kills without any overkill burst.
+        SceneTree t2;
+        zomboid::buildScene(t2);
+        SceneNode* tgt2 = t2.findNode("Zombie0");
+        SceneNode* nb2 = t2.findNode("Zombie1");
+        auto place2 = [&](SceneNode* z, double x, double hp) {
+            Value zv = z->script();
+            std::vector<Value> a = {Value::fromNum(x), Value::fromNum(0.0),
+                                    Value::fromNum(hp), Value::fromNum(0.0)};
+            t2.scripts().vm().callOn(zv, "spawn_at", a);
+        };
+        place2(tgt2, 0.0, 20.0);
+        place2(nb2, 3.0, 100.0);
+        Value tv2 = tgt2->script();
+        std::vector<Value> exact = {Value::fromNum(20.0)};
+        t2.scripts().vm().callOn(tv2, "take_damage", exact);
+        CHECK(!sField(tgt2, "alive")->boolean);              // still dies
+        CHECK(sField(nb2, "health")->number == 100.0);       // but no overkill splash
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "
