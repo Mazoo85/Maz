@@ -3625,6 +3625,39 @@ int main() {
         CHECK(glob(tree, "g_cash") == cashPreSwitch);           // ...switching weapons spends no cash
     }
 
+    // Second wind (revive): a lethal hit while a revive is banked cancels death — the survivor bursts
+    // back to half health with emergency i-frames, hunger relieved, and one revive spent. With no
+    // revive left, the next lethal hit is final. (second_wind() was previously exercised only in-engine
+    // via the death path, never asserted directly.)
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+        // Exactly one banked revive; no armor/i-frames to soak the hit; wounded and hungry.
+        sField(survivor, "revives")->number = 1.0;
+        sField(survivor, "armor")->number = 0.0;
+        sField(survivor, "iframes")->number = 0.0;
+        sField(survivor, "hunger")->number = 80.0;
+        sField(survivor, "health")->number = 30.0;
+        const double maxHp = sField(survivor, "max_health")->number;
+
+        std::vector<Value> lethal = {Value::fromNum(9999.0)};
+        vm.callOn(sv, "take_damage", lethal);                    // would be fatal
+        CHECK(sField(survivor, "alive")->boolean);               // death cancelled
+        CHECK(sField(survivor, "revives")->number == 0.0);       // the charge is spent
+        CHECK(std::abs(sField(survivor, "health")->number - maxHp * 0.5) < 1e-6); // back to half HP
+        CHECK(sField(survivor, "iframes")->number > 0.0);        // emergency invulnerability granted
+        CHECK(sField(survivor, "hunger")->number == 0.0);        // hunger pressure relieved
+
+        // No revive left: the next lethal hit is final. Clear the emergency i-frames first (they would
+        // otherwise soak the hit outright) so the death path is actually exercised.
+        sField(survivor, "iframes")->number = 0.0;
+        vm.callOn(sv, "take_damage", lethal);
+        CHECK(!sField(survivor, "alive")->boolean);              // dead for good — no charge to spend
+        CHECK(sField(survivor, "health")->number == 0.0);
+    }
+
     // Salvage economy: kills bank cash, and buy() spends it on ammo/grenades/heals — succeeding when
     // the survivor can afford it, rejected (with no effect) when they can't.
     {

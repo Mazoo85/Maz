@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — regression-test the SECOND WIND revive mechanic.**
+  The revive (`second_wind`) — a lethal hit is cancelled if the survivor has a banked charge, restoring
+  half health with emergency i-frames and a crowd-clearing nova — was only ever exercised in-engine via
+  the death path, never asserted directly. Added a regression test: a lethal hit with a revive banked
+  cancels death (survivor lives, back to half HP, i-frames granted, hunger relieved, one charge spent),
+  and with no charge left the next lethal hit is final. Test-only change — no gameplay logic changed —
+  pinning down a major survival mechanic that carried no direct coverage.
 - **ZOMBOID — moved the boss health bar to the bottom-centre to stop it clipping the wave readout.**
   The boss bar was placed at top-centre, but that band is already dense (wave/score, upgrades, combo,
   and power-up lines), so the bar and its label sat only a few pixels from the "WAVE n  SCORE n" line
