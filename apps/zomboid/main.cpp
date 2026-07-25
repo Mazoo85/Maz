@@ -1025,7 +1025,10 @@ int main(int argc, char** argv) {
                     // wave leader is never lost off-screen. The marker's edge position IS the direction
                     // cue. Screen mapping mirrors the mouse->world code above: screen = center + (world -
                     // survivor) * zoom, same axis orientation (no y-flip), so the direction is exact.
-                    if (survivor) {
+                    // Gated on `alive` (like the reticle and aim tracer): it's a live navigation cue, not
+                    // frozen final-state info, so it has no business pulsing on the game-over screen. (The
+                    // health bar above stays unconditional — that IS final-state info, like health/hunger.)
+                    if (alive && survivor) {
                         const float cx = sw * 0.5f, cy = sh * 0.5f;
                         const float bsx = cx + static_cast<float>(boss->x() - survivor->x()) * worldToPx;
                         const float bsy = cy + static_cast<float>(boss->y() - survivor->y()) * worldToPx;

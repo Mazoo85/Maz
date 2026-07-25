@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — stop the off-screen boss marker pulsing on the game-over screen.**
+  The off-screen boss direction marker is a live navigation cue (it computes a screen-edge pointer from
+  the survivor's position toward an off-screen boss), so — like the reticle and aim tracer, which are
+  already alive-gated — it shouldn't render once the survivor is dead. It was drawing unconditionally, so
+  dying while a boss was off-screen left a magenta marker pulsing on the "YOU DIED" screen. Gated it on
+  the survivor being alive. The boss health *bar* stays unconditional on purpose — that's frozen final-
+  state info, like the health/hunger bars. Presentation-only fix; build, headless smoke, and 3600-frame
+  run all pass.
 - **ZOMBOID — stop a frozen power-up countdown lingering on the game-over screen.**
   Same class of fix as the LAST STAND gating: the active-power-up readout (name + countdown) drew
   unconditionally, but `buff_timer` stops ticking once the survivor's per-frame update early-returns on
