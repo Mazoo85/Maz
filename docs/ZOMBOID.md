@@ -208,7 +208,10 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
   and it becomes a fireball on the horde. Acid is **volatile**, so fire isn't the only trigger: any hard
   blast sets it off — a **mine**, a **grenade**, or an **exploding barrel** whose radius overlaps a puddle
   flashes it over the same way. Lob a grenade onto (or pop a barrel next to) a spitter's pool and it chains
-  into a big combined fireball that also lights up the surrounding pack.
+  into a big combined fireball that also lights up the surrounding pack. And the flash-over is itself a
+  violent blast: if a puddle is sitting **on an explosive barrel**, lighting the acid **cooks the barrel
+  off too**, so an acid pool that lands over a barrel is a two-stage bomb — torch the sludge, the flash
+  pops the barrel.
 - **Explosive barrels** — rusty barrels are scattered around the arena; shoot one to pop a big blast,
   and lure the horde onto them. The blast is **double-edged** — caught in it yourself you take half
   the damage and get flung clear, so detonate them at a distance, never in your own face. **Fire cooks

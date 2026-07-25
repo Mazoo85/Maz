@@ -2652,6 +2652,39 @@ int main() {
         CHECK(sField(farAcid, "active")->boolean);      // out of range — still a puddle
     }
 
+    // Acid flash-over pops barrels: lighting a caustic puddle detonates an explosive barrel caught in the
+    // flash (combust radius = acid radius + 2), while a barrel well outside the flash is untouched — so a
+    // puddle sitting on a barrel is a two-stage bomb, completing the "every violent combustion sets off a
+    // barrel" rule (fire, blast, and now the acid flash-over).
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(100.0, 100.0);   // keep the survivor clear of everything
+        auto& vm = tree.scripts().vm();
+
+        SceneNode* acid = tree.findNode("Acid0");
+        Value av = acid->script();
+        std::vector<Value> at = {Value::fromNum(0.0), Value::fromNum(0.0)};   // splat_at(x,y)
+        vm.callOn(av, "splat_at", at);
+        CHECK(sField(acid, "active")->boolean);
+
+        SceneNode* nearBarrel = tree.findNode("Barrel0");
+        SceneNode* farBarrel = tree.findNode("Barrel1");
+        Value nbv = nearBarrel->script();
+        Value fbv = farBarrel->script();
+        std::vector<Value> nearPos = {Value::fromNum(3.0), Value::fromNum(0.0)};   // inside the flash-over
+        std::vector<Value> farPos = {Value::fromNum(40.0), Value::fromNum(0.0)};   // well outside
+        vm.callOn(nbv, "place", nearPos);
+        vm.callOn(fbv, "place", farPos);
+        CHECK(sField(nearBarrel, "active")->boolean);
+        CHECK(sField(farBarrel, "active")->boolean);
+
+        std::vector<Value> noargs;
+        vm.callOn(av, "combust", noargs);
+        CHECK(!sField(nearBarrel, "active")->boolean);   // barrel on the puddle cooked off by the flash
+        CHECK(sField(farBarrel, "active")->boolean);      // out of range — still standing
+    }
+
     // Melee execute: a melee swing finishes a badly-wounded (<30% health) non-boss outright and refunds
     // most of its cooldown; a healthy target takes only the normal swing and no refund.
     {

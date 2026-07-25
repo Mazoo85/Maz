@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — lighting a caustic puddle now sets off a barrel underneath it.** A spitter's acid pool
+  flashes over into a violent fireball when a naked flame or blast touches it — that flash already burned
+  the horde, but it ignored any explosive barrel sitting in it. Now the flash-over cooks off a barrel it
+  engulfs, exactly the way fire and blasts do, so a puddle that lands on a barrel becomes a two-stage bomb:
+  torch the acid, the flash pops the barrel. This finishes the rule that every violent combustion in the
+  game (fire, blast, and now the acid flash-over) can detonate a barrel. Headless-tested: an acid pool
+  combusting pops a barrel sitting on it while one well outside the flash is left standing.
 - **ZOMBOID — the railgun now pops explosive barrels.** Every other gun detonates a barrel by shooting it,
   but the railgun's hitscan beam passed straight through one (its visual tracer deals no damage), so the
   most powerful weapon was the only one that couldn't set off a barrel. The beam now detonates any barrel

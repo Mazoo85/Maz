@@ -2151,6 +2151,21 @@ class AcidPool {
             }
             i = i + 1;
         }
+        # The flash-over is a violent combustion in its own right, so it cooks off any explosive barrel it
+        # engulfs — just like a naked flame or a hard blast does. A spitter's puddle that happens to sit on
+        # a barrel becomes a two-stage bomb: light the acid, the flash-over pops the barrel. Completes the
+        # rule that every violent combustion (fire, blast, now the acid flash) can set a barrel off.
+        var bi = 0;
+        var bn = len(g_barrels);
+        while (bi < bn) {
+            var cb = g_barrels[bi];
+            if (cb.active) {
+                var bx = cb.node.x - self.node.x;
+                var by = cb.node.y - self.node.y;
+                if (bx * bx + by * by <= r * r) { cb.take_damage(999); }
+            }
+            bi = bi + 1;
+        }
     }
 }
 
