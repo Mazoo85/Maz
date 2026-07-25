@@ -2767,6 +2767,14 @@ class Zombie {
         self.cooldown = self.cooldown - dt;
         if (dist <= self.attack_range and self.cooldown <= 0) {
             g_player.take_damage(self.damage * aggro);
+            # A Brute (kind 2) doesn't just bite — its heavy blow HURLS the survivor back, wrecking your
+            # position and your aim. So a brute that reaches you is a real spacing threat, not just a
+            # damage tick — you get thrown clear (maybe into the rest of the horde). A dodging survivor
+            # (i-frames up) rides it out untouched.
+            if (self.kind == 2 and g_player.iframes <= 0 and dist > 0.01) {
+                g_player.node.x = g_player.node.x + (dx / dist) * 4.0;
+                g_player.node.y = g_player.node.y + (dy / dist) * 4.0;
+            }
             self.cooldown = 1.0;
         }
     }

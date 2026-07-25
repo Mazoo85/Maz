@@ -2955,6 +2955,32 @@ int main() {
         CHECK(ultGainAtMult(5.0) > ultGainAtMult(1.0));
     }
 
+    // Brute knockback-on-hit: a Brute (kind 2) that lands its blow doesn't just deal damage — it hurls
+    // the survivor back, a real spacing threat. A walker's bite doesn't, and a dodging survivor
+    // (i-frames up) rides out the blow without being moved.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        // Player displacement after one attack tick from a zombie of `kind`, with `iframes` set.
+        auto pushFrom = [&](double kind, double iframes) {
+            SceneTree tree;
+            SceneNode* p = zomboid::buildScene(tree);
+            p->setPosition(0.0, 0.0);
+            auto& vm = tree.scripts().vm();
+            sField(p, "iframes")->number = iframes;
+            std::vector<Value> sp = {Value::fromNum(-1.0), Value::fromNum(0.0),
+                                     Value::fromNum(kind), Value::fromNum(5.0)};  // at (-1,0), wave 5
+            Value z = tree.findNode("Zombie0")->script();
+            vm.callOn(z, "spawn", sp);
+            sField(tree.findNode("Zombie0"), "cooldown")->number = 0.0;   // ready to strike
+            const double x0 = p->x();
+            vm.callOn(z, "_process", dt);
+            return p->x() - x0;
+        };
+        CHECK(pushFrom(2.0, 0.0) > 3.0);      // brute hurls the survivor back (~4 units, +x)
+        CHECK(pushFrom(0.0, 0.0) == 0.0);     // a walker's bite doesn't shove
+        CHECK(pushFrom(2.0, 1.0) == 0.0);     // dodging (i-frames) rides the brute's blow out
+    }
+
     // Railgun armor-piercing: the beam shears any shield clean off before biting into health, so it's
     // the counter to armored zombies and Bulwark waves. A zombie off the beam keeps its shield.
     {

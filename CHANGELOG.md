@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — Brutes now hurl you back when they hit.** A Brute's heavy blow no longer just chips your
+  health — it **physically throws the survivor clear** (about 4 units), wrecking your position and your
+  aim and potentially flinging you into the rest of the horde. It gives the Brute a distinct identity —
+  a genuine spacing threat you have to respect, not just a slow damage sponge — and rewards dodging: a
+  survivor mid-dodge-roll (i-frames up) rides the blow out untouched. Headless-tested: a brute's hit
+  shoves the survivor >3 units, a walker's bite moves them 0, and an i-framed survivor isn't budged.
 - **ZOMBOID — combo streaks now charge the Overcharge ultimate faster.** Kills landed on a hot combo
   streak bank **more ultimate meter** each (1× at ×1–2, 2× at ×3–4, 3× at ×5) instead of a flat one per
   kill. Keeping a chain alive now earns the screen-clearing panic button far more often, so the combo
