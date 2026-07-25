@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — pin `Spit.splat()`, the glob's landing impact + puddle drop.** When a spitter's acid glob
+  lands it does two things: a direct SPLASH hit for impact damage if it lands within its splash radius of
+  the survivor (separate from the puddle's slow burn), and it always drops a caustic puddle where it lands,
+  then goes inactive. The acid tests already cover the puddle's damage-over-time; this pins the impact gate
+  — a glob landing on you bites and leaves a puddle, one landing well clear only leaves the puddle. Test-only
+  change — no gameplay logic altered.
 - **ZOMBOID — pin `Director.alive_count()`, the wave-clear gate.** The wave director advances the run (and
   pays the clear bonus) only when this count reads 0, so it must track the true number of live pooled
   zombies exactly — a miscount would either strand the run on a "cleared" wave that still has zombies or

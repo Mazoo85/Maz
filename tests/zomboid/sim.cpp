@@ -4569,6 +4569,46 @@ int main() {
         CHECK(activeAcid(tree) == zomboid::kAcidPool);               // still capped — clean no-op
     }
 
+    // Spit.splat() is the glob's landing: a direct SPLASH hit if it lands within its splash radius of the
+    // survivor (immediate impact damage, separate from the puddle's slow burn), plus it always drops an
+    // acid puddle where it lands and goes inactive. The acid tests above cover the puddle's DoT; this pins
+    // the impact gate — a glob landing on you bites, one landing well clear only leaves the puddle.
+    {
+        // Direct hit: glob lands on the survivor → impact damage AND a puddle.
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        sField(survivor, "armor")->number = 0.0;     // no plate to soak the impact
+        sField(survivor, "iframes")->number = 0.0;   // not mid-dodge
+        auto& vm = tree.scripts().vm();
+        SceneNode* spit = tree.findNode("Spit0");
+        spit->setPosition(0.0, 0.0);                  // right on the survivor
+        sField(spit, "active")->boolean = true;
+        const double hp0 = sField(survivor, "health")->number;
+        const int acid0 = activeAcid(tree);
+        Value spv = spit->script();
+        std::vector<Value> none;
+        vm.callOn(spv, "splat", none);
+        CHECK(sField(survivor, "health")->number < hp0);   // impact bit the survivor
+        CHECK(activeAcid(tree) == acid0 + 1);              // ...and left a puddle
+        CHECK(!sField(spit, "active")->boolean);          // glob spent
+
+        // Miss: glob lands far away → no direct impact, but still leaves its puddle.
+        SceneTree t2;
+        SceneNode* surv2 = zomboid::buildScene(t2);
+        surv2->setPosition(0.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        SceneNode* spit2 = t2.findNode("Spit0");
+        spit2->setPosition(40.0, 0.0);                // well outside the splash radius (2.6)
+        sField(spit2, "active")->boolean = true;
+        const double h2 = sField(surv2, "health")->number;
+        const int acid2 = activeAcid(t2);
+        Value sp2 = spit2->script();
+        vm2.callOn(sp2, "splat", none);
+        CHECK(sField(surv2, "health")->number == h2);      // untouched — landed clear
+        CHECK(activeAcid(t2) == acid2 + 1);               // puddle still forms where it lands
+    }
+
     // Acid corrodes the horde too: a zombie standing in a caustic puddle is bogged down (slowed),
     // refreshed each tick, while a zombie just outside the radius is untouched. This makes a spitter's
     // own puddle a double-edged battlefield the survivor can kite the swarm through.
