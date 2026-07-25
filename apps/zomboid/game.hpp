@@ -1008,6 +1008,23 @@ class Survivor {
             self.melee_cd = self.melee_cd_max * 0.35;
             self.heal(executed * 5.0);
         }
+        # A melee shove also bats incoming spitter acid globs out of the air within reach — a defensive
+        # read: time the swing to knock a glob down before it lands. A swatted glob is destroyed clean,
+        # leaving NO caustic puddle (unlike letting it splat), so a well-timed shove fully denies it.
+        var mi = 0;
+        var mn = len(g_spits);
+        while (mi < mn) {
+            var sp = g_spits[mi];
+            if (sp.active) {
+                var sx = sp.node.x - self.node.x;
+                var sy = sp.node.y - self.node.y;
+                if (sx * sx + sy * sy <= self.melee_range * self.melee_range) {
+                    sp.active = false;                       # batted out of the air — no splat, no puddle
+                    emit(sp.node.x, sp.node.y, 3, 1);
+                }
+            }
+            mi = mi + 1;
+        }
         emit(self.node.x, self.node.y, 14, 2);
         g_shake = 1.2;
         return hit;

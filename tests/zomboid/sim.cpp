@@ -3173,6 +3173,37 @@ int main() {
 
     }
 
+    // Melee swats acid globs: a well-timed shove bats an incoming spitter glob out of the air (within
+    // melee reach), destroying it clean with no acid puddle. A glob out of reach sails on untouched.
+    {
+        std::vector<Value> none;
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        sField(survivor, "melee_cd")->number = 0.0;              // melee ready
+
+        // A glob in reach (melee_range 4.5) and one well out of reach.
+        Value near = tree.findNode("Spit0")->script();
+        std::vector<Value> nearLaunch = {Value::fromNum(2.0), Value::fromNum(0.0),
+                                         Value::fromNum(0.0), Value::fromNum(0.0)};
+        vm.callOn(near, "launch", nearLaunch);
+        Value far = tree.findNode("Spit1")->script();
+        std::vector<Value> farLaunch = {Value::fromNum(30.0), Value::fromNum(0.0),
+                                        Value::fromNum(0.0), Value::fromNum(0.0)};
+        vm.callOn(far, "launch", farLaunch);
+        CHECK(sField(tree.findNode("Spit0"), "active")->boolean);
+        CHECK(sField(tree.findNode("Spit1"), "active")->boolean);
+
+        const int acidBefore = activeAcid(tree);
+        Value sv = survivor->script();
+        vm.callOn(sv, "melee", none);
+
+        CHECK(!sField(tree.findNode("Spit0"), "active")->boolean);   // batted out of the air
+        CHECK(sField(tree.findNode("Spit1"), "active")->boolean);    // too far — sails on
+        CHECK(activeAcid(tree) == acidBefore);                       // swatted glob leaves NO puddle
+    }
+
     // Railgun armor-piercing: the beam shears any shield clean off before biting into health, so it's
     // the counter to armored zombies and Bulwark waves. A zombie off the beam keeps its shield.
     {

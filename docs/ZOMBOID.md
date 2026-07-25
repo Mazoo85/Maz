@@ -69,7 +69,9 @@ better at kiting the horde and slipping out of hazards the deeper you get.
   **executes** any badly-wounded (<30% health) non-boss outright, and an execute refunds most of the
   cooldown **and siphons a little health back** (executioner's bloodthirst) — so wading into a wounded
   pack to shove-execute stragglers is a real *sustain* button, and chaining finishers both cleans up
-  and patches you up.
+  and patches you up. A shove also **bats an incoming spitter acid glob out of the air** if one's in
+  reach — a well-timed swing destroys the glob clean, leaving no puddle, so melee doubles as an active
+  *deflect* against ranged acid.
 - **Grenade (G)** / **Molotov (X)** — a thrown frag / a lingering fire patch that both burns *and*
   **slows** anything standing in it, so it holds a lane as area denial, not just chip damage. The
   grenade also **concusses** — anything that survives the blast is briefly **stunned in place**, and a

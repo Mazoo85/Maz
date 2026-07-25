@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — melee shove now bats spitter acid globs out of the air.** A well-timed **melee (F)** now
+  swats down any incoming spitter acid glob within reach — a defensive read that destroys the glob
+  **clean, leaving no caustic puddle** (unlike letting it splat on the ground). So the shove isn't just
+  a create-space/execute button: it's also an active *deflect* against ranged acid, rewarding good timing
+  with total denial. A glob out of reach sails on untouched. Headless-tested: a glob in melee range is
+  destroyed with no puddle left behind, while one well out of range is unaffected.
 - **ZOMBOID — the Screamer now telegraphs its shriek (readable counterplay).** The Screamer no longer
   frenzies the horde the instant its cooldown is up — it now **winds up with a tell first** (a brief
   flash before the shriek lands), giving you a window to burst the fragile back-liner down or **chill it**
