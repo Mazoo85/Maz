@@ -2346,11 +2346,17 @@ class Zombie {
         var made = 0;
         var i = 0;
         var n = len(g_zombies);
+        # The reinforcement's kind scales with the run: an early summoner calls fodder walkers, but from
+        # the mid-game (wave 5+) it calls faster RUNNERS instead — so a summoner left alive stays a real
+        # threat deep into a run rather than trickling in walkers the player easily outpaces. Killing the
+        # summoner (or interrupting its cast) is the answer at every stage, but it matters more late.
+        var rk = 0;
+        if (self.spawn_wave >= 5) { rk = 1; }
         while (i < n and made < cnt) {
             var z = g_zombies[i];
             if (z.alive == false and z != self) {
                 var ang = randf_range(0, 6.2831853);
-                z.spawn(self.node.x + cos(ang) * 2.0, self.node.y + sin(ang) * 2.0, 0, self.spawn_wave);
+                z.spawn(self.node.x + cos(ang) * 2.0, self.node.y + sin(ang) * 2.0, rk, self.spawn_wave);
                 made = made + 1;
             }
             i = i + 1;

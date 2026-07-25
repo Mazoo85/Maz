@@ -1269,6 +1269,37 @@ int main() {
         CHECK(aliveZombies(tree) == capped);   // no more reinforcements after the budget is spent
     }
 
+    // Summoner reinforcement scaling: an early (wave < 5) summoner calls fodder walkers, but a mid/late
+    // summoner (wave 5+) calls faster runners instead, so it stays a threat deep into a run.
+    {
+        // Late summoner → runner reinforcement.
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        SceneNode* sm = tree.findNode("Zombie0");
+        Value smv = sm->script();
+        std::vector<Value> lateSpawn = {Value::fromNum(40.0), Value::fromNum(0.0),
+                                        Value::fromNum(7.0), Value::fromNum(7.0)}; // wave 7 summoner
+        vm.callOn(smv, "spawn", lateSpawn);
+        std::vector<Value> one = {Value::fromNum(1.0)};
+        vm.callOn(smv, "summon", one);
+        CHECK(sField(tree.findNode("Zombie1"), "alive")->boolean);
+        CHECK((int)sField(tree.findNode("Zombie1"), "kind")->number == 1);  // a runner, not a walker
+
+        // Early summoner → walker reinforcement (control).
+        SceneTree t2;
+        zomboid::buildScene(t2);
+        auto& vm2 = t2.scripts().vm();
+        SceneNode* sm2 = t2.findNode("Zombie0");
+        Value sm2v = sm2->script();
+        std::vector<Value> earlySpawn = {Value::fromNum(40.0), Value::fromNum(0.0),
+                                         Value::fromNum(7.0), Value::fromNum(1.0)}; // wave 1 summoner
+        vm2.callOn(sm2v, "spawn", earlySpawn);
+        vm2.callOn(sm2v, "summon", one);
+        CHECK(sField(t2.findNode("Zombie1"), "alive")->boolean);
+        CHECK((int)sField(t2.findNode("Zombie1"), "kind")->number == 0);   // a plain walker
+    }
+
     // Ammo drop: a pooled ammo box refills the active weapon's reserve (and a little for the rest) on
     // pickup, and drifts toward a nearby survivor via magnetism.
     {

@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — summoner reinforcements scale with the run.** A summoner used to call plain **walkers** no
+  matter how deep you were, so a late-game summoner just trickled in fodder you easily outran — no longer a
+  real reason to prioritise it. From the mid-game on (wave 5+) it now calls faster **runners** instead, so
+  a summoner left alive stays a genuine threat and hunting it down (or interrupting its cast) matters at
+  every stage. Early summoners still call walkers, keeping the opening waves gentle. Headless-tested: a
+  wave-7 summoner's reinforcement is a runner, while a wave-1 summoner's is a walker.
 - **ZOMBOID — a healer can no longer top up the boss.** The healer zombie's mend pulse restored 25% of a
   target's max health, and it applied to *any* wounded zombie in range — including the boss. On the
   bullet-sponge boss that meant a single pulse could refund a huge slice of the health bar you'd been
