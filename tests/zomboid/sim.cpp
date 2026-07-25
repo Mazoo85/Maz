@@ -2910,6 +2910,42 @@ int main() {
             vm2.callOn(b2v, "_process", dt);
         }
         CHECK(sField(b2, "health")->number <= burnBase);   // burning → no enrage-heal (it only loses HP)
+
+        // Enraged but BLEEDING: the same gate blocks the self-heal (bleed is DoT, holds the wound open).
+        SceneTree t3;
+        SceneNode* s3 = zomboid::buildScene(t3);
+        s3->setPosition(0.0, 0.0);
+        auto& vm3 = t3.scripts().vm();
+        SceneNode* b3 = t3.findNode("Zombie0");
+        Value b3v = b3->script();
+        vm3.callOn(b3v, "spawn", sp);
+        sField(b3, "health")->number = sField(b3, "max_health")->number * 0.3;
+        vm3.callOn(b3v, "_process", dt);   // enrages
+        sField(b3, "health")->number = sField(b3, "max_health")->number * 0.3;  // reset to a clean baseline
+        const double bleedBase = sField(b3, "health")->number;
+        for (int i = 0; i < 60; ++i) {
+            sField(b3, "bleed_stacks")->number = 3.0;   // sustain a bleed the whole run
+            sField(b3, "bleed_timer")->number = 3.0;    // ...keep the wound open so the stacks don't clear
+            vm3.callOn(b3v, "_process", dt);
+        }
+        CHECK(sField(b3, "health")->number <= bleedBase);   // bleeding → no enrage-heal
+
+        // Enraged but CHILLED: cold shuts the self-heal off too (cryo is a hard counter to the enrage).
+        SceneTree t4;
+        SceneNode* s4 = zomboid::buildScene(t4);
+        s4->setPosition(0.0, 0.0);
+        auto& vm4 = t4.scripts().vm();
+        SceneNode* b4 = t4.findNode("Zombie0");
+        Value b4v = b4->script();
+        vm4.callOn(b4v, "spawn", sp);
+        sField(b4, "health")->number = sField(b4, "max_health")->number * 0.3;
+        vm4.callOn(b4v, "_process", dt);   // enrages
+        const double chillBase = sField(b4, "health")->number;
+        for (int i = 0; i < 60; ++i) {
+            sField(b4, "slow_timer")->number = 2.0;   // keep it frozen the whole run
+            vm4.callOn(b4v, "_process", dt);
+        }
+        CHECK(sField(b4, "health")->number <= chillBase);   // chilled → self-heal shut off (never climbs)
     }
 
     // Boss bounty: felling a boss (the wave leader) always drops a full care package — a guaranteed

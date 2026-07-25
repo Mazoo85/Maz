@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — fully pinned the boss's "can't heal while hurt" rule with tests for bleed and cold, not just fire.**
+  During its enrage phase the boss slowly heals itself, and the key counter is that keeping damage-over-time
+  or cold on it shuts that self-heal off — burning, **bleeding**, or **chilled**, it can't knit its wounds.
+  The existing test only proved the *burning* case; the bleed and chill paths (chill especially matters,
+  since cryo is a whole build) went unverified. Added both, so all three shut-off conditions are now locked
+  against regression. Test-only change — the game is unchanged; full suite, headless smoke, and the
+  3600-frame run all pass.
 - **ZOMBOID — eating a ration when you're not hungry no longer wastes it.**
   The game is careful never to squander a resource — the shop declines a heal at full health or a fresh
   plate over an untouched one without charging you, and the auto-feed only eats at max hunger. But the
