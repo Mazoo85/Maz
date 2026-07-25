@@ -72,7 +72,9 @@ better at kiting the horde and slipping out of hazards the deeper you get.
   grenade also **concusses** — anything that survives the blast is briefly **stunned in place**, and a
   staggered body takes the weak-point bonus, so a frag lobbed into a pack sets up your follow-up fire.
 - **Mine (T)** / **Sentry (Y)** — a proximity mine, and a stationary auto-turret that thins a lane. The
-  sentry has a limited magazine and a lifetime, so place it where it'll earn its bolts.
+  sentry has a limited magazine and a lifetime, so place it where it'll earn its bolts. A mine's blast
+  **cooks off explosive barrels** and **daisy-chains through exploder packs**, so rigging one beside a
+  barrel — or in a nest of exploders — sets up a massive environmental chain reaction.
 - **Overcharge (Q)** — a screen-wide ultimate blast that also grants a brief **invulnerability window**,
   so it's a true panic button. Kills charge the meter; unleash it when full. Kills landed **on a hot combo
   streak charge it faster** — up to 3× the meter per kill at ×5 — so keeping a chain alive earns the

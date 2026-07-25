@@ -3022,6 +3022,32 @@ int main() {
               sField(tree.findNode("Zombie3"), "max_health")->number);
     }
 
+    // Mine cooks off barrels: a proximity mine's blast now detonates an explosive barrel in range, so
+    // rigging a mine beside a barrel sets up a huge combined blast. A barrel well outside the mine's
+    // radius is left standing.
+    {
+        std::vector<Value> at = {Value::fromNum(50.0), Value::fromNum(0.0)};
+
+        SceneTree tree;
+        SceneNode* player = zomboid::buildScene(tree);
+        player->setPosition(100.0, 100.0);   // clear of the blast
+        auto& vm = tree.scripts().vm();
+        Value barrelNear = tree.findNode("Barrel0")->script();
+        std::vector<Value> nearPos = {Value::fromNum(52.0), Value::fromNum(0.0)};   // within 6-unit radius
+        vm.callOn(barrelNear, "place", nearPos);
+        Value barrelFar = tree.findNode("Barrel1")->script();
+        std::vector<Value> farPos = {Value::fromNum(90.0), Value::fromNum(0.0)};     // well clear
+        vm.callOn(barrelFar, "place", farPos);
+
+        Value mine = tree.findNode("Mine0")->script();
+        vm.callOn(mine, "arm", at);
+        sField(tree.findNode("Mine0"), "arm_delay")->number = 0.0;   // skip the safety fuse
+        vm.callOn(mine, "detonate", std::vector<Value>{});
+
+        CHECK(!sField(tree.findNode("Barrel0"), "active")->boolean);  // cooked off by the mine
+        CHECK(sField(tree.findNode("Barrel1"), "active")->boolean);   // far barrel survives
+    }
+
     // Railgun armor-piercing: the beam shears any shield clean off before biting into health, so it's
     // the counter to armored zombies and Bulwark waves. A zombie off the beam keeps its shield.
     {

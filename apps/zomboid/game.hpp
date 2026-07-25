@@ -1607,6 +1607,21 @@ class Mine {
             }
             i = i + 1;
         }
+        # A mine's blast also cooks off any explosive barrel in range, so laying a mine beside a barrel
+        # rigs a huge combined detonation — and the barrel's own blast chains on to more barrels. (Nearby
+        # exploders are already set off above: the blast's 120 damage kills them, triggering their own
+        # detonation, so mines daisy-chain through an exploder pack too.)
+        var bi = 0;
+        var bn = len(g_barrels);
+        while (bi < bn) {
+            var b = g_barrels[bi];
+            if (b.active) {
+                var bdx = b.node.x - self.node.x;
+                var bdy = b.node.y - self.node.y;
+                if (bdx * bdx + bdy * bdy <= self.blast_radius * self.blast_radius) { b.take_damage(999); }
+            }
+            bi = bi + 1;
+        }
         emit(self.node.x, self.node.y, 28, 1);
         g_shake = g_shake + 2.2;
         if (g_shake > 3.0) { g_shake = 3.0; }

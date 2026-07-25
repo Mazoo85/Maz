@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — proximity mines now cook off explosive barrels.** A mine's blast detonates any explosive
+  barrel in range, so rigging a mine beside a barrel sets up a huge combined blast (and the barrel's own
+  blast chains on to more barrels). Mines already daisy-chain through exploder packs — their 120-damage
+  blast kills exploders, triggering each one's detonation — so a well-placed mine can set off a whole
+  environmental chain reaction. Headless-tested: a mine detonation pops a barrel within its radius while
+  a barrel well clear is left standing.
 - **ZOMBOID — exploders now chain-detonate each other.** An exploder's death blast used to spare other
   exploders; now it **chain-detonates** them, daisy-chaining a whole cluster into one string of blasts
   (the chain even hops through a middle exploder to reach one outside the first's radius). It's a real
