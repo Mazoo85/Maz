@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — a dodge-roll now fully rides out a boss ground-slam (no more knockback while invulnerable).**
+  The slam's damage already respected the dodge's i-frames, but its knockback fired unconditionally, so a
+  survivor who perfectly dodged a slam took no damage yet was still hurled 6 units across the arena —
+  contradicting both the "untouchable mid-roll" promise the dodge is built on and the brute's blow, which
+  already spares a dodging survivor entirely. The slam's knockback now checks i-frames too, so a well-timed
+  roll rides the slam out completely (no damage, no knockback), matching the brute. Headless-tested: at a
+  fixed range a no-i-frame survivor is both damaged and flung, while an i-framed survivor keeps full health
+  and stays exactly in place.
 - **ZOMBOID — the Savage Horde mutator now also boosts the Exploder's blast.** The Savage mutator scales
   every zombie's contact damage by 1.6, but the Exploder doesn't bite — it detonates for a flat 35 — so it
   was the one enemy a Savage wave left exactly as dangerous as normal, quietly breaking the "the whole

@@ -1993,6 +1993,51 @@ int main() {
         CHECK(sField(survivor, "health")->number == 100.0); // out of slam range, unscathed
     }
 
+    // Boss slam respects i-frames: a survivor mid-dodge rides the slam out UNTOUCHED — no damage AND no
+    // knockback — exactly like a brute's blow. Two runs at a fixed distance (boss pinned so the range
+    // stays put): without i-frames the slam both hurts and hurls; with i-frames up neither lands.
+    {
+        // Baseline — no i-frames: the slam damages and knocks the survivor back.
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        sField(survivor, "health")->number = 100.0;
+        sField(survivor, "iframes")->number = 0.0;
+        auto& vm = tree.scripts().vm();
+        SceneNode* boss = tree.findNode("Zombie0");
+        Value bz = boss->script();
+        std::vector<Value> sp = {Value::fromNum(6.0), Value::fromNum(0.0), Value::fromNum(3.0),
+                                 Value::fromNum(1.0)}; // boss at dist 6 (inside slam radius, outside bite)
+        vm.callOn(bz, "spawn", sp);
+        sField(boss, "speed")->number = 0.0;      // pin it so the slam distance stays fixed at 6
+        sField(boss, "slam_cd")->number = 0.01;   // slam almost ready
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        for (int i = 0; i < 45; ++i) { vm.callOn(bz, "_process", dt); }
+        CHECK(sField(survivor, "health")->number <= 75.0);   // took the ~25 slam
+        CHECK(survivor->x() < -1.0);                          // hurled away from the boss (toward -x)
+    }
+    {
+        // Dodging — i-frames up: the slam is fully ridden out. Only the boss is processed, so the
+        // survivor's i-frames never tick down and stay up across the whole wind-up.
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        sField(survivor, "health")->number = 100.0;
+        sField(survivor, "iframes")->number = 5.0;   // mid-dodge invulnerability
+        auto& vm = tree.scripts().vm();
+        SceneNode* boss = tree.findNode("Zombie0");
+        Value bz = boss->script();
+        std::vector<Value> sp = {Value::fromNum(6.0), Value::fromNum(0.0), Value::fromNum(3.0),
+                                 Value::fromNum(1.0)};
+        vm.callOn(bz, "spawn", sp);
+        sField(boss, "speed")->number = 0.0;
+        sField(boss, "slam_cd")->number = 0.01;
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        for (int i = 0; i < 45; ++i) { vm.callOn(bz, "_process", dt); }
+        CHECK(sField(survivor, "health")->number == 100.0);  // no damage — untouchable mid-roll
+        CHECK(survivor->x() == 0.0);                          // no knockback either — rode it out
+    }
+
     // Overcharge ultimate: kills fill the meter; a detonate wipes the field and resets the charge.
     {
         SceneTree tree;

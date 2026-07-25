@@ -3213,7 +3213,11 @@ class Zombie {
                         g_player.take_damage(25);
                         # Knockback: the shockwave hurls the survivor away from the boss, so a slam
                         # clears space instead of just chipping health — punishing standing too close.
-                        if (dist > 0.01) {
+                        # A dodging survivor (i-frames up) rides the slam out UNTOUCHED — no damage AND no
+                        # knockback — exactly like a brute's heavy blow. Without the i-frame gate the slam
+                        # still flung a perfectly-dodged survivor around, contradicting the "untouchable
+                        # mid-roll" promise the dodge is built on and the tell's "dash clear" counterplay.
+                        if (g_player.iframes <= 0 and dist > 0.01) {
                             g_player.node.x = g_player.node.x + (dx / dist) * 6.0;
                             g_player.node.y = g_player.node.y + (dy / dist) * 6.0;
                         }
