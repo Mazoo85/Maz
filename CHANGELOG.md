@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — added a top-of-screen boss health bar.**
+  The boss is each wave-5 milestone's marquee fight — a huge health pool with an enrage phase — but its
+  only on-screen health readout was the same wounded-red tint every zombie gets below 40%, giving no
+  sense of how far into the pool you actually were. Added a dedicated boss health bar across the top of
+  the screen that appears only while a boss is alive; it fills in the boss's signature magenta and turns
+  a pulsing red labelled *ENRAGED* once the boss drops below 35%, so the climactic fight now has a real
+  progress gauge. Presentation-only change (the boss's health/enrage state is existing, already-tested
+  game logic); the build, headless smoke, and 3600-frame run (which spawns boss waves) all pass.
 - **ZOMBOID — regression-test the leaper's chill interrupt (the frozen-mid-coil case).**
   A leaper's pounce can be broken during its wind-up by *either* a stagger *or* a chill, but only the
   stagger half of that was covered by a test. Added a regression test for the chill variant: freeze a

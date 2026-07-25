@@ -969,6 +969,35 @@ int main(int argc, char** argv) {
                               render::Color{0.85f, 0.5f, 0.75f, 0.9f}, 0.4f);
             }
 
+            // Boss health bar, top-center — shown only while a boss (kind 3) is on the field. The boss is
+            // the wave's marquee fight (a huge health pool with an enrage phase), and until now its only
+            // health readout was the same wounded-red tint every zombie gets below 40% — no sense of how
+            // far into the pool you are. A dedicated bar gives the player a real gauge of the fight.
+            {
+                scene::SceneNode* boss = nullptr;
+                for (scene::SceneNode* z : tree.nodesInGroup("zombies")) {
+                    if (fieldBool(z, "alive") && static_cast<int>(field(z, "kind")) == 3) { boss = z; break; }
+                }
+                if (boss) {
+                    const float bhp = static_cast<float>(field(boss, "health"));
+                    const float bmax = static_cast<float>(field(boss, "max_health"));
+                    const float bf = bmax > 0.0f ? bhp / bmax : 0.0f;
+                    const float bbw = sw * 0.44f, bbh = 18.0f;
+                    const float bbx = (sw - bbw) * 0.5f, bby = 30.0f;
+                    const char* bossLabel = fieldBool(boss, "enraged") ? "BOSS - ENRAGED" : "BOSS";
+                    font.drawText(*renderer, bbx, bby - 22.0f, bossLabel,
+                                  render::Color{1.0f, 0.5f, 0.95f, 1.0f}, 0.55f);
+                    rect(bbx - 3, bby - 3, bbw + 6, bbh + 6, render::Color{0, 0, 0, 0.6f});
+                    rect(bbx, bby, bbw, bbh, render::Color{0.16f, 0.10f, 0.16f, 1.0f});
+                    render::Color fill{0.80f, 0.25f, 0.75f, 1.0f};   // boss magenta, matching its sprite
+                    if (fieldBool(boss, "enraged")) {
+                        const float rp = 0.7f + 0.3f * std::sin(static_cast<float>(simTime) * 16.0f);
+                        fill = render::Color{1.0f, 0.25f * rp, 0.30f * rp, 1.0f};   // enraged: pulsing red
+                    }
+                    rect(bbx, bby, bbw * (bf < 0.0f ? 0.0f : bf), bbh, fill);
+                }
+            }
+
             // Reticle at the mouse (crosshair) when playing.
             if (!autopilot && alive) {
                 const float mx = input.mouseX(), my = input.mouseY();
