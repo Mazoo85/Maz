@@ -2365,6 +2365,47 @@ int main() {
         CHECK(rolled >= 1 && rolled <= 3);                 // a valid modifier was rolled
     }
 
+    // Savage Horde mutator (g_mutator == 8): every zombie bites 60% harder, but is no faster or tougher —
+    // measured against an unmutated baseline of the same kind and wave.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value* mut = const_cast<Value*>(vm.getGlobal("g_mutator"));
+
+        SceneNode* base = tree.findNode("Zombie0");
+        SceneNode* savage = tree.findNode("Zombie1");
+        auto spawnWalker = [&](SceneNode* z) {
+            Value zv = z->script();
+            std::vector<Value> a = {Value::fromNum(20.0), Value::fromNum(0.0),
+                                    Value::fromNum(0.0), Value::fromNum(4.0)};
+            vm.callOn(zv, "spawn", a);
+        };
+
+        mut->number = 0.0; spawnWalker(base);              // baseline, no mutator
+        const double baseDmg = sField(base, "damage")->number;
+        const double baseSpd = sField(base, "speed")->number;
+        const double baseHp = sField(base, "health")->number;
+
+        mut->number = 8.0; spawnWalker(savage);            // savage: bites harder
+        const double savDmg = sField(savage, "damage")->number;
+        CHECK(std::abs(savDmg - baseDmg * 1.6) < 1e-6);    // exactly 1.6x the baseline bite
+        CHECK(sField(savage, "speed")->number == baseSpd); // savage leaves speed alone
+        CHECK(sField(savage, "health")->number == baseHp); // ...and health alone
+
+        mut->number = 0.0;                                 // reset so later logic is unaffected
+
+        // The director's roll now reaches the savage band (8) — confirm the clamp allows it.
+        SceneNode* dir = tree.findNode("Director");
+        Value ds = dir->script();
+        for (int w = 3; w <= 40; ++w) {
+            std::vector<Value> wv = {Value::fromNum((double)w)};
+            vm.callOn(ds, "start_wave", wv);
+            const int m = (int)glob(tree, "g_mutator");
+            CHECK(m >= 1 && m <= 8);                        // every roll lands in the valid 1..8 range
+        }
+    }
+
     // Overkill gib: a killing blow far larger than a zombie's full health bursts it in a shockwave that
     // chips nearby zombies; a merely-lethal blow does not. Neighbours outside the burst radius are safe.
     {

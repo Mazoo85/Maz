@@ -252,10 +252,13 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
   knits its wounds back shut, so chip damage bleeds away — you must commit real burst to a kill. Its hard
   counters are **damage-over-time and cold**: a body that's **burning, bleeding, or chilled can't heal at
   all** — regen halts entirely while any of those is on it, so a molotov, lacerating fire, or a cryo
-  effect reliably shuts the self-heal off no matter how tanky the body), or **Relentless** (the whole
+  effect reliably shuts the self-heal off no matter how tanky the body), **Relentless** (the whole
   horde ignores knockback — your shove, dash-strike,
   mine blasts, and shotgun push stop moving them, so positioning-by-knockback is off the table and you
-  lean on damage, chills, staggers, and kiting instead). No two runs feel the same.
+  lean on damage, chills, staggers, and kiting instead), or **Savage** (the whole horde **bites 60%
+  harder** — no faster, no tougher, but every body that reaches you hurts far more, so one leak past your
+  fire can gut your health bar; keep the pack at range and never let a Savage wave crowd you). No two runs
+  feel the same.
 
 At the end of a run you're graded (**D** through **S**) on wave reached, kills, and accuracy, and your
 best wave + score persist between sessions.

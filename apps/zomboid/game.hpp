@@ -2728,6 +2728,9 @@ class Zombie {
         # Bulwark horde: every zombie carries a damage-absorbing shield (like the armored kind), so the
         # whole wave must be broken down before it can be hurt — punishing weak, spread-out fire.
         if (g_mutator == 4) { self.shield = self.shield + 15 + w * 2; }
+        # Savage horde: every bite lands harder (x1.6). The wave isn't faster or tougher, but a single
+        # missed body punishes the survivor far more — rewards keeping the horde at range.
+        if (g_mutator == 8) { self.damage = self.damage * 1.6; }
         if (self.speed > 30) { self.speed = 30; }
         self.max_health = self.health;
     }
@@ -3418,8 +3421,8 @@ class Director {
         g_wave_clean = true;   # a fresh wave starts flawless until the survivor takes a hit
         # Roll this wave's mutator (from wave 3 on): a random modifier that reshapes the whole horde.
         g_mutator = 0;
-        if (w >= 3) { g_mutator = int(randf_range(1, 8)); }
-        if (g_mutator > 7) { g_mutator = 7; }
+        if (w >= 3) { g_mutator = int(randf_range(1, 9)); }
+        if (g_mutator > 8) { g_mutator = 8; }
         var pool = len(g_zombies);
         var count = self.base + w * 2;
         # Frenzy mutator throws a bigger horde at the survivor.

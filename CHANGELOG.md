@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — new wave mutator: the Savage Horde.** An eighth random wave modifier joins Feral, Hulking,
+  Frenzied, Bulwark, Volatile, Regenerator, and Relentless. A **Savage** wave isn't faster or tougher — it
+  just **bites 60% harder** (every zombie's contact damage x1.6, boss included), so a single body that
+  slips past your fire punishes you far more than usual and the run rewards keeping the horde at range
+  rather than trading blows. Shown on the HUD as **SAVAGE HORDE** like the other mutators; the director's
+  wave-3+ roll now spans all eight. Headless-tested: a walker spawned under the Savage mutator deals
+  exactly 1.6x the unmutated bite while its speed and health are untouched, and every director roll across
+  waves 3–40 lands inside the valid 1–8 mutator range.
 - **ZOMBOID — the Spitter now keeps its firing distance.** The Spitter is the horde's one ranged
   attacker, described as an enemy that "keeps its distance" and lobs acid — but it only ever advanced to
   spitting range and then stood still, so you could stroll right up and melee it down for free. Now, like
