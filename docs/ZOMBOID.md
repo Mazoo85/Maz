@@ -194,7 +194,10 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
   sweep it with the flamethrower's cone or drop a molotov on it and it **flashes over** in one violent
   combustion — a burst of damage that sets alight every zombie caught in it, and the puddle is spent in
   the blast. So the ground a spitter poisons under a pack isn't just something to route around — torch it
-  and it becomes a fireball on the horde.
+  and it becomes a fireball on the horde. Acid is **volatile**, so fire isn't the only trigger: any hard
+  blast sets it off — a **mine**, a **grenade**, or an **exploding barrel** whose radius overlaps a puddle
+  flashes it over the same way. Lob a grenade onto (or pop a barrel next to) a spitter's pool and it chains
+  into a big combined fireball that also lights up the surrounding pack.
 - **Explosive barrels** — rusty barrels are scattered around the arena; shoot one to pop a big blast,
   and lure the horde onto them. The blast is **double-edged** — caught in it yourself you take half
   the damage and get flung clear, so detonate them at a distance, never in your own face. **Fire cooks

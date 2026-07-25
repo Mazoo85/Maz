@@ -2347,6 +2347,37 @@ int main() {
         CHECK(sField(survivor, "health")->number < h0);          // the blast caught the adjacent survivor
     }
 
+    // Grenade flashes over acid: a caustic puddle in the frag's blast radius combusts, while one well
+    // outside is untouched — completing the "any hard blast sets off volatile acid" rule (like the mine).
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(100.0, 100.0);   // keep the survivor clear of the blast
+        auto& vm = tree.scripts().vm();
+        SceneNode* gren = tree.findNode("Grenade0");
+        Value gv = gren->script();
+        std::vector<Value> place = {Value::fromNum(0.0), Value::fromNum(0.0),
+                                    Value::fromNum(1.0), Value::fromNum(0.0)}; // throw_at(x,y,dx,dy)
+        vm.callOn(gv, "throw_at", place);
+        gren->setPosition(0.0, 0.0);   // pin the blast centre at the origin
+
+        SceneNode* nearAcid = tree.findNode("Acid0");
+        SceneNode* farAcid = tree.findNode("Acid1");
+        Value nav = nearAcid->script();
+        Value fav = farAcid->script();
+        std::vector<Value> near = {Value::fromNum(3.0), Value::fromNum(0.0)};    // inside blast radius 5
+        std::vector<Value> far = {Value::fromNum(40.0), Value::fromNum(0.0)};    // well outside
+        vm.callOn(nav, "splat_at", near);
+        vm.callOn(fav, "splat_at", far);
+        CHECK(sField(nearAcid, "active")->boolean);
+        CHECK(sField(farAcid, "active")->boolean);
+
+        std::vector<Value> noargs;
+        vm.callOn(gv, "explode", noargs);
+        CHECK(!sField(nearAcid, "active")->boolean);    // flashed over by the frag
+        CHECK(sField(farAcid, "active")->boolean);      // out of range — still a puddle
+    }
+
     // Melee execute: a melee swing finishes a badly-wounded (<30% health) non-boss outright and refunds
     // most of its cooldown; a healthy target takes only the normal swing and no refund.
     {

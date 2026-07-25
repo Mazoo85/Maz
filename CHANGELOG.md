@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — grenades and barrels now flash over acid puddles.** A frag grenade or an exploding barrel
+  whose blast overlaps a spitter's caustic pool now combusts that acid on the spot (the same volatile
+  flash-over that a naked flame or a mine already triggered), completing the "any hard blast sets off
+  volatile acid" rule. Lob a grenade onto — or pop a barrel next to — a spitter's puddle and it chains
+  into a big combined fireball that also ignites the surrounding pack. Headless-tested: a puddle inside
+  the blast radius combusts while one well outside it stays a puddle.
 - **ZOMBOID — new between-wave upgrade: shorter dodge-roll cooldown.** The permanent upgrade cycle grows
   from seven picks to eight, adding a **-dodge-cooldown** upgrade that trims the dodge-roll's recharge
   (down to a 0.6s floor) so your escape roll — and its i-frames — comes back sooner the deeper you get. A

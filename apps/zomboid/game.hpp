@@ -1335,6 +1335,20 @@ class Grenade {
             }
             gbi = gbi + 1;
         }
+        # Acid is volatile — a hard blast flashes it over, same as a naked flame or a mine. Any caustic
+        # puddle caught in the frag's radius combusts, so a grenade lobbed onto a spitter's acid chains
+        # into a fiery flash-over that also sets the surrounding pack alight.
+        var gai = 0;
+        var gan = len(g_acid);
+        while (gai < gan) {
+            var ga = g_acid[gai];
+            if (ga.active) {
+                var gax = ga.node.x - self.node.x;
+                var gay = ga.node.y - self.node.y;
+                if (gax * gax + gay * gay <= self.blast_radius * self.blast_radius) { ga.combust(); }
+            }
+            gai = gai + 1;
+        }
         emit(self.node.x, self.node.y, 24, 1);
         g_shake = g_shake + 1.8;
         if (g_shake > 3.0) { g_shake = 3.0; }
@@ -2156,6 +2170,20 @@ class Barrel {
                 if (bx * bx + by * by <= self.blast_radius * self.blast_radius) { b.take_damage(999); }
             }
             bi = bi + 1;
+        }
+        # A hard blast flashes over volatile acid too: any caustic puddle in the barrel's radius combusts
+        # at once (on top of the lingering fire it leaves), so a barrel popped next to a spitter's pool
+        # sets off a big combined fireball.
+        var cai = 0;
+        var can = len(g_acid);
+        while (cai < can) {
+            var ca = g_acid[cai];
+            if (ca.active) {
+                var cax = ca.node.x - self.node.x;
+                var cay = ca.node.y - self.node.y;
+                if (cax * cax + cay * cay <= self.blast_radius * self.blast_radius) { ca.combust(); }
+            }
+            cai = cai + 1;
         }
         # The ruptured barrel spills burning fuel: it leaves a lingering fire patch where it stood, so a
         # popped barrel keeps denying that ground (and cooking anything that walks in) for a few seconds
