@@ -3653,6 +3653,44 @@ int main() {
         CHECK(sField(clean, "health")->number == 45.0);     // clean wound → mended (20 + 25% of 100)
     }
 
+    // Healer can't mend a CHILLED body either: cold holds the wound open exactly like burn/bleed, so the
+    // mend's anti-heal rule is truly unified across damage-over-time AND cryo — matching the Regenerator
+    // mutator and the boss enrage-heal, which both already halt on chill. A frozen patient in range is
+    // skipped while a clean-wounded neighbour is patched. (This is a chilled PATIENT, not a chilled healer
+    // — the caster here is unfrozen and casting normally; it's the target's frost that blocks the mend.)
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+
+        SceneNode* healer = tree.findNode("Zombie0");
+        Value hv = healer->script();
+        std::vector<Value> hs = {Value::fromNum(30.0), Value::fromNum(0.0),
+                                 Value::fromNum(12.0), Value::fromNum(5.0)};
+        vm.callOn(hv, "spawn", hs);
+        sField(healer, "speed")->number = 0.0;   // pin it so the heal radius stays fixed
+
+        auto park = [&](SceneNode* z, double x, double y) {
+            Value zv = z->script();
+            std::vector<Value> a = {Value::fromNum(x), Value::fromNum(y),
+                                    Value::fromNum(100.0), Value::fromNum(0.0)};  // walker, full=100
+            tree.scripts().vm().callOn(zv, "spawn_at", a);
+            sField(z, "health")->number = 20.0;   // wound it (max_health stays 100)
+        };
+        SceneNode* chilled = tree.findNode("Zombie1");
+        SceneNode* clean = tree.findNode("Zombie2");
+        park(chilled, 24.0, 0.0);    // 6 from the healer, in range
+        park(clean, 30.0, 12.0);     // 12 from the healer, in range
+        sField(chilled, "slow_timer")->number = 2.0;   // frozen — cold holds the wound open
+
+        for (int i = 0; i < 60; ++i) { vm.callOn(hv, "_process", dt); }
+
+        CHECK(sField(chilled, "health")->number == 20.0);   // chilled → mend skips it (unified with burn/bleed)
+        CHECK(sField(clean, "health")->number == 45.0);     // clean wound → mended (20 + 25% of 100)
+    }
+
     // Healer never mends the boss: the wave leader is exempt (like stagger/gib/overkill/Volatile), so a
     // healer beside a wounded boss can't refund its huge health bar — but it still mends a nearby walker.
     {

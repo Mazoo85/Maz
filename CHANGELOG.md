@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — a chilled body can no longer be healed by a Healer (the anti-heal rule is now truly
+  unified).** The game's rule is that a body which is **burning, bleeding, or chilled can't heal at all** —
+  and the Regenerator mutator and the boss's enrage-heal already honored all three. But the Healer's mend
+  only checked burning and bleeding, so a **frozen** zombie in a Healer's radius was still getting patched
+  up — even though the Healer's own code called this a "unified anti-heal role." Now cold blocks the mend
+  exactly like fire and bleed do, so a Cryo Nova / Frost Field shuts a Healer's mend off just as it shuts
+  off a Regenerator's self-heal. Headless-tested: a chilled wounded zombie in range is skipped by the mend
+  while a clean-wounded neighbour is patched, alongside the existing burn/bleed cases.
 - **ZOMBOID — new wave mutator: the Savage Horde.** An eighth random wave modifier joins Feral, Hulking,
   Frenzied, Bulwark, Volatile, Regenerator, and Relentless. A **Savage** wave isn't faster or tougher — it
   just **bites 60% harder** (every zombie's contact damage x1.6, boss included), so a single body that
