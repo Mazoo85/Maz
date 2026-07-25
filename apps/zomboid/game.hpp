@@ -2062,6 +2062,7 @@ class Zombie {
     var stagger_timer = 0; # brief flinch: a heavy single hit freezes the zombie where it stands
     var stagger_cd = 0;    # cooldown after a flinch so it can't be perpetually stun-locked
     var frenzy_timer = 0;  # while > 0 the zombie is whipped into a screamer's frenzy — moves faster
+    var scream_warn = 0;   # screamer (kind 11) shriek wind-up: telegraph beat before the shriek lands
 
     func _ready() { g_zombies.append(self); }
 
@@ -2629,21 +2630,36 @@ class Zombie {
         # Screamer (kind 11): on a cooldown it shrieks, whipping every nearby zombie into a speed
         # frenzy. It's fragile, so silencing it early keeps the horde from surging — a priority target.
         if (self.kind == 11) {
-            self.cooldown = self.cooldown - dt;
-            if (self.cooldown <= 0 and self.slow_timer <= 0) {   # a chilled screamer can't shriek
-                self.cooldown = 5.0;
-                var si = 0;
-                var sn = len(g_zombies);
-                while (si < sn) {
-                    var oz = g_zombies[si];
-                    if (oz.alive and oz != self) {
-                        var sdx = oz.node.x - self.node.x;
-                        var sdy = oz.node.y - self.node.y;
-                        if (sdx * sdx + sdy * sdy <= 225.0) { oz.apply_frenzy(3.0); }  # radius 15
+            if (self.scream_warn > 0) {
+                # Winding up: a telegraph beat before the shriek lands, so the survivor gets a window to
+                # burst the fragile screamer down or chill it — either cuts the shriek off entirely
+                # (kill it and _process never runs; a chill mid-tell makes it fizzle).
+                self.scream_warn = self.scream_warn - dt;
+                if (self.slow_timer > 0) {
+                    self.scream_warn = 0;   # chilled mid-wind-up → the shriek fizzles, no frenzy
+                } else {
+                    if (self.scream_warn <= 0) {
+                        var si = 0;
+                        var sn = len(g_zombies);
+                        while (si < sn) {
+                            var oz = g_zombies[si];
+                            if (oz.alive and oz != self) {
+                                var sdx = oz.node.x - self.node.x;
+                                var sdy = oz.node.y - self.node.y;
+                                if (sdx * sdx + sdy * sdy <= 225.0) { oz.apply_frenzy(3.0); }  # radius 15
+                            }
+                            si = si + 1;
+                        }
+                        emit(self.node.x, self.node.y, 18, 1);   # shriek burst
                     }
-                    si = si + 1;
                 }
-                emit(self.node.x, self.node.y, 18, 1);   # shriek burst
+            } else {
+                self.cooldown = self.cooldown - dt;
+                if (self.cooldown <= 0 and self.slow_timer <= 0) {   # a chilled screamer can't wind up
+                    self.scream_warn = 0.6;                          # start the telegraph
+                    self.cooldown = 5.0;                             # reset now so it won't retrigger mid-tell
+                    emit(self.node.x, self.node.y, 2, 1);            # tell puff — the shriek is coming
+                }
             }
         }
         # Healer (kind 12): on a cooldown it mends every wounded zombie in a radius, knitting a chunk of

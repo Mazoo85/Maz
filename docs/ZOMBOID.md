@@ -124,7 +124,7 @@ Fourteen zombie types join the horde as the waves climb:
 | 8 | **Armored** | Modest health behind a heavy damage-absorbing **shield** — break it down first. |
 | 9 | **Leaper** | Light and quick; closes the gap in sudden **pounces** — but it **crouches and flashes** as it coils, so read the tell and juke sideways to dodge the lunge. |
 | 10 | **Bloater** | Fat, slow, tanky; ruptures into a **toxic cloud** on death — kill it at range. |
-| 11 | **Screamer** | Fragile back-line support; periodically **shrieks**, whipping nearby zombies into a speed frenzy. Silence it first. |
+| 11 | **Screamer** | Fragile back-line support; periodically **shrieks**, whipping nearby zombies into a speed frenzy. It **winds up with a tell first**, so you get a beat to react: burst it down or **chill it** during the wind-up and the shriek is cut off entirely. Silence it first. |
 | 12 | **Healer** | A back-line medic that periodically **mends** nearby wounded zombies, undoing your chip damage. Fragile and never heals itself — cull it before it patches the pack back up. |
 | 13 | **Warper** | A fragile teleporter that shambles slowly, then **blinks a big chunk of the way to you in a single instant** — but it **shimmers violet and roots itself for a beat as it charges the blink**, so read the tell and shoot it or reposition before it phases in. Drop it fast — or **chill it** (Cryo Nova / Frost Field): a frozen Warper can't phase, so cryo pins it in place. |
 

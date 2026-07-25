@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the Screamer now telegraphs its shriek (readable counterplay).** The Screamer no longer
+  frenzies the horde the instant its cooldown is up — it now **winds up with a tell first** (a brief
+  flash before the shriek lands), giving you a window to burst the fragile back-liner down or **chill it**
+  to cut the shriek off. Killing it during the wind-up cancels the shriek entirely, and a Cryo Nova /
+  Frost Field applied mid-tell makes it fizzle. Turns "silence it first" from a race you couldn't see
+  into a readable reaction. Headless-tested: a neighbour isn't frenzied on the tell tick but is once the
+  shriek lands, and chilling the screamer during the wind-up prevents the frenzy entirely.
 - **ZOMBOID — active reload (skill-timed instant reload + damage surge).** Tapping **R** again during the
   tail end of a reload now triggers an **active reload**: the reload snaps shut instantly *and* grants a
   brief **+30% damage surge**. Miss the window (tap too early) and nothing happens — no penalty, the

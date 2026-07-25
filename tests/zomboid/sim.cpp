@@ -3126,6 +3126,53 @@ int main() {
         CHECK(std::abs(surgeDmg - baseDmg * 1.3) < 1e-6);
     }
 
+    // Screamer telegraph: the screamer no longer shrieks instantly — it winds up with a tell first, so
+    // the survivor gets a window to burst it or chill it. Verify the wind-up delays the frenzy, that the
+    // shriek does land after it, and that a chill during the wind-up fizzles it.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        std::vector<Value> screamSp = {Value::fromNum(0.0), Value::fromNum(0.0),
+                                       Value::fromNum(11.0), Value::fromNum(5.0)};  // screamer at origin
+        std::vector<Value> walkSp = {Value::fromNum(5.0), Value::fromNum(0.0),
+                                     Value::fromNum(0.0), Value::fromNum(5.0)};     // walker in radius 15
+        std::vector<Value> chill = {Value::fromNum(4.0)};
+
+        // Wind-up then shriek: the neighbour isn't frenzied on the tell tick, but is once it lands.
+        SceneTree t1;
+        SceneNode* p1 = zomboid::buildScene(t1);
+        p1->setPosition(200.0, 200.0);
+        auto& vm1 = t1.scripts().vm();
+        Value scr1 = t1.findNode("Zombie0")->script();
+        vm1.callOn(scr1, "spawn", screamSp);
+        sField(t1.findNode("Zombie0"), "speed")->number = 0.0;     // pin it so distances stay fixed
+        sField(t1.findNode("Zombie0"), "cooldown")->number = 0.0;  // ready to shriek
+        Value wk1 = t1.findNode("Zombie1")->script();
+        vm1.callOn(wk1, "spawn", walkSp);
+        vm1.callOn(scr1, "_process", dt);                          // enters the wind-up
+        CHECK(sField(t1.findNode("Zombie0"), "scream_warn")->number > 0.0);   // telegraphing
+        CHECK(sField(t1.findNode("Zombie1"), "frenzy_timer")->number == 0.0); // not yet frenzied
+        for (int i = 0; i < 50; ++i) { vm1.callOn(scr1, "_process", dt); }    // let the tell resolve
+        CHECK(sField(t1.findNode("Zombie1"), "frenzy_timer")->number > 0.0);  // shriek landed
+
+        // Chill during the wind-up fizzles the shriek: the neighbour is never frenzied.
+        SceneTree t2;
+        SceneNode* p2 = zomboid::buildScene(t2);
+        p2->setPosition(200.0, 200.0);
+        auto& vm2 = t2.scripts().vm();
+        Value scr2 = t2.findNode("Zombie0")->script();
+        vm2.callOn(scr2, "spawn", screamSp);
+        sField(t2.findNode("Zombie0"), "speed")->number = 0.0;
+        sField(t2.findNode("Zombie0"), "cooldown")->number = 0.0;
+        Value wk2 = t2.findNode("Zombie1")->script();
+        vm2.callOn(wk2, "spawn", walkSp);
+        vm2.callOn(scr2, "_process", dt);                          // enters the wind-up
+        CHECK(sField(t2.findNode("Zombie0"), "scream_warn")->number > 0.0);
+        vm2.callOn(scr2, "apply_slow", chill);                     // chill it mid-tell
+        for (int i = 0; i < 50; ++i) { vm2.callOn(scr2, "_process", dt); }
+        CHECK(sField(t2.findNode("Zombie1"), "frenzy_timer")->number == 0.0); // shriek fizzled
+
+    }
+
     // Railgun armor-piercing: the beam shears any shield clean off before biting into health, so it's
     // the counter to armored zombies and Bulwark waves. A zombie off the beam keeps its shield.
     {
