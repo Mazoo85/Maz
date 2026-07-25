@@ -161,6 +161,25 @@ struct Aabb3 {
                min.z <= o.max.z && max.z >= o.min.z;
     }
 
+    // Squared distance from `p` to the box (0 when `p` is inside) — the closest-point distance, clamping each
+    // axis into [min, max]. The exact basis for sphere/box tests, cheaper than the sqrt form.
+    float distanceSquared(const vec3& p) const {
+        float s = 0.0f;
+        for (int a = 0; a < 3; ++a) {
+            const float v = p[a];
+            if (v < min[a]) { const float e = min[a] - v; s += e * e; }
+            else if (v > max[a]) { const float e = v - max[a]; s += e * e; }
+        }
+        return s;
+    }
+
+    // True when a sphere (centre, radius) overlaps the box — the standard broadphase / trigger-volume test:
+    // the closest point on the box to the centre is within `radius`. Correct at corners (unlike a per-axis
+    // expand-by-radius test, which false-positives a sphere sitting off a box corner). Touching counts.
+    bool intersectsSphere(const vec3& center, float radius) const {
+        return distanceSquared(center) <= radius * radius;
+    }
+
     void enclosePoint(const vec3& p) {
         min = glm::min(min, p);
         max = glm::max(max, p);

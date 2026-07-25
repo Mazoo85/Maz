@@ -3711,6 +3711,18 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Sphere-AABB overlap + point-box distance** (`math::Aabb3::intersectsSphere` / `distanceSquared`) — DONE
+  (M554); the axis-aligned box had ray/box, box/box, and plane tests, and the OBB had sphere overlap, but the
+  AABB had no sphere test — the single most common broadphase / trigger-volume query (a ball vs a static block,
+  an explosion radius vs a crate, a proximity sensor). Implemented via the exact closest-point distance: clamp
+  the sphere centre into the box per axis and compare the squared gap to radius². `distanceSquared` is the
+  reusable point→box squared distance (0 inside), useful on its own. Correct at corners, unlike the per-axis
+  expand-by-radius shortcut that false-positives a sphere sitting off a box corner. Verified
+  (`ctest -R sphere_aabb`): distanceSquared is 0 inside and exact for face/edge/corner points; a sphere inside
+  or just off a face overlaps; a distant or just-past-the-face sphere does not; the discriminating off-corner
+  case — centre within radius on each axis separately but farther than radius from the actual corner — reports
+  NO overlap, and growing the radius past the corner distance flips it to yes; touching exactly counts.
+  [VERIFIABLE HERE]
 - [x] **Frustum sphere & point culling** (`render::frustumIntersectsSphere` / `frustumContainsPoint`) — DONE
   (M553); the "extract the planes once, cull many objects" pattern already existed for boxes
   (frustumIntersectsAabb) but not for bounding SPHERES — the cheapest scene-cull test, one dot product per
