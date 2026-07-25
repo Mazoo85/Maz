@@ -183,7 +183,18 @@ bool Audio::init() {
 void Audio::shutdown() {
     if (m_impl) {
         if (m_impl->stream) {
+            // Quiesce the device before tearing the stream down. The audio backend runs feed() on
+            // its own thread; if that callback is mid-flight (calling SDL_PutAudioStreamData) when
+            // SDL_DestroyAudioStream frees the stream's internal queue, SDL crashes inside
+            // SDL_DestroyAudioQueue (use-after-free). Pausing stops new callbacks; the lock/unlock
+            // pair blocks until any in-flight callback has returned. Observed as a hard segfault at
+            // teardown under the "dummy" audio driver (headless CI), and a latent race on real
+            // backends.
+            SDL_PauseAudioStreamDevice(m_impl->stream);
+            SDL_LockAudioStream(m_impl->stream);
+            SDL_UnlockAudioStream(m_impl->stream);
             SDL_DestroyAudioStream(m_impl->stream);
+            m_impl->stream = nullptr;
         }
         delete m_impl;
         m_impl = nullptr;

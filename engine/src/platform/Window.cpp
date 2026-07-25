@@ -64,7 +64,15 @@ void Window::shutdown() {
         m_window = nullptr;
     }
     if (m_ownsSdl) {
-        SDL_Quit();
+        // Quit ONLY the subsystems this window initialized. The global SDL_Quit() would tear down
+        // every subsystem — including SDL_INIT_AUDIO, which maz::audio::Audio owns and quits itself
+        // via SDL_QuitSubSystem in its destructor. Because Audio commonly outlives an explicit
+        // window.shutdown() call (it is destroyed later at scope exit), SDL_Quit() here frees the
+        // audio device out from under the still-live Audio, and its destructor then dereferences
+        // freed SDL state — a hard segfault at teardown (seen under the headless "dummy" driver).
+        // SDL's per-subsystem refcounting means quitting exactly what we started is the correct,
+        // lifetime-decoupled cleanup.
+        SDL_QuitSubSystem(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD);
         m_ownsSdl = false;
     }
 }

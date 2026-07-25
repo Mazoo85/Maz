@@ -749,6 +749,20 @@ All notable changes to the Maz Engine are recorded here. The format follows
   a fresh run stays silent until it acts. Audio degrades gracefully with no device (headless smoke
   runs clean, exit 0); the sound is owner-audible on real hardware.
 
+### Fixed
+- **Crash on exit when audio was active (segfault at teardown).** `platform::Window::shutdown()` called
+  the global `SDL_Quit()`, which tears down *every* SDL subsystem — including `SDL_INIT_AUDIO`, which
+  `audio::Audio` initializes and owns. Because `Audio` is usually destroyed *after* an explicit
+  `window.shutdown()`, `SDL_Quit()` freed the audio device out from under the still-live `Audio`, whose
+  destructor then dereferenced freed SDL state and crashed (observed as a hard `SIGSEGV` in
+  `SDL_DestroyAudioQueue` under the headless "dummy" audio driver — every ZOMBOID CI smoke run — and a
+  latent race on real audio backends). `Window::shutdown()` now quits *only* the subsystems it started
+  (`SDL_QuitSubSystem(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)`), leaving audio for `Audio` to tear down —
+  respecting SDL's per-subsystem refcounting so the two lifetimes are independent. `Audio::shutdown()`
+  additionally pauses the device and syncs with the audio callback before destroying the stream.
+  Verified: `zomboid_headless_smoke` now passes; the game exits 0 across five `dummy`-driver runs and a
+  clean AddressSanitizer run; the `orbs`/`swarm`/`world` apps are unaffected.
+
 ### Scripting & scene
 - `maz::script` — a from-scratch, header-only scripting language (the GDScript competitor): values,
   collections, stdlib+RNG, closures, classes + inheritance + `super`, host binding + lifecycle,
