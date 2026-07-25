@@ -142,6 +142,7 @@ class Survivor {
     var acid_slow = 0;      # >0 while standing in a spitter's acid puddle — movement is bogged down
     var crit_chance = 0.15; # chance a shot lands a critical hit for bonus damage
     var crit_mult = 2.0;    # critical-hit damage multiplier
+    var move_mult = 1.0;    # permanent walk-speed multiplier, grown by the between-wave speed upgrade
     var pellets = 1;        # bullets per shot (shotgun fires several)
     var spread = 0;         # random aim jitter per pellet, radians
     var bullet_speed = 70;
@@ -529,9 +530,9 @@ class Survivor {
     }
 
     # Apply the next between-wave upgrade, cycling: +damage, +fire rate, +max health (heal), +ammo,
-    # +crit chance.
+    # +crit chance, +crit damage, +move speed.
     func apply_upgrade() {
-        var k = self.upgrades % 6;
+        var k = self.upgrades % 7;
         if (k == 0) {
             self.dmg_mult = self.dmg_mult + 0.2;
         } else {
@@ -552,9 +553,16 @@ class Survivor {
                         if (k == 4) {
                             self.crit_chance = self.crit_chance + 0.05;
                         } else {
-                            # k == 5: heavier critical hits — deepens the crit build so +crit-chance
-                            # upgrades keep paying off with bigger spikes, not just more-frequent ones.
-                            self.crit_mult = self.crit_mult + 0.25;
+                            if (k == 5) {
+                                # k == 5: heavier critical hits — deepens the crit build so +crit-chance
+                                # upgrades keep paying off with bigger spikes, not just more-frequent ones.
+                                self.crit_mult = self.crit_mult + 0.25;
+                            } else {
+                                # k == 6: fleeter feet — a permanent walk-speed boost. Mobility is king in
+                                # a twin-stick survival game, so a faster survivor kites the horde, reaches
+                                # loot, and repositions out of hazards more easily as the run deepens.
+                                self.move_mult = self.move_mult + 0.08;
+                            }
                         }
                     }
                 }

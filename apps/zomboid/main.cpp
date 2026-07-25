@@ -214,8 +214,9 @@ int main(int argc, char** argv) {
             }
             const float len = std::sqrt(dx * dx + dy * dy);
             if (len > 0.0001f) {
+                // Permanent between-wave speed upgrades make the survivor fleeter over a run.
+                float ms = moveSpeed * static_cast<float>(field(survivor, "move_mult"));
                 // Caustic acid puddles bog the survivor down to half speed while they slog through.
-                float ms = moveSpeed;
                 if (field(survivor, "acid_slow") > 0.0) ms *= 0.5f;
                 survivor->setPosition(survivor->x() + dx / len * ms * dt,
                                       survivor->y() + dy / len * ms * dt);

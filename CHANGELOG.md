@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — new between-wave upgrade: move speed.** The permanent upgrade cycle grows from six picks
+  to seven, adding a **+move-speed** boost (+8% walk speed per pick). Mobility is king in a twin-stick
+  survival game, so a fleeter survivor kites the horde, reaches loot, and slips out of hazards more
+  easily as the run deepens — it slots in alongside +damage, +fire-rate, +max-health, +ammo,
+  +crit-chance and +crit-damage. Headless-tested: one full seven-upgrade cycle raises the walk-speed
+  multiplier once (1.0 → 1.08) while the older picks still apply, and a second cycle stacks it to 1.16.
 - **ZOMBOID — exploded barrels leave a lingering fire patch.** Popping an explosive barrel now spills
   burning fuel: the blast leaves a **fire patch** where the barrel stood, so a detonated barrel keeps
   denying that ground (and cooking anything that walks through) for a few seconds after the bang — and,

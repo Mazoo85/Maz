@@ -49,8 +49,9 @@ Run it: `./bin/zomboid` (or `./bin/zomboid --demo` to watch the autopilot show o
 
 Each weapon has its own magazine and reserve ammo; firing spends the magazine, **R** reloads it.
 Between waves you earn permanent upgrades (+damage, +fire-rate, +max-health, +ammo, +crit-chance,
-+crit-damage), cycling automatically — the two crit upgrades stack, so a crit build lands *both* more
-often *and* harder as the run goes on.
++crit-damage, +move-speed), cycling automatically — the two crit upgrades stack, so a crit build lands
+*both* more often *and* harder as the run goes on, and the move-speed picks make you steadily fleeter,
+better at kiting the horde and slipping out of hazards the deeper you get.
 
 ## The survivor's kit
 

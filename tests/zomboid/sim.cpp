@@ -390,10 +390,14 @@ int main() {
         tree.scripts().vm().callOn(self, "apply_upgrade", none); // k5: +crit damage
         CHECK(sField(s, "crit_mult")->number == cmult0 + 0.25);
         CHECK((int)sField(s, "upgrades")->number == 6);
-        // The cycle wraps at six: the seventh upgrade rolls back to +damage (k0).
-        const double dmgMult6 = sField(s, "dmg_mult")->number;
+        const double move6 = sField(s, "move_mult")->number;    // 1.0 by default
+        tree.scripts().vm().callOn(self, "apply_upgrade", none); // k6: +move speed
+        CHECK(sField(s, "move_mult")->number > move6);
+        CHECK((int)sField(s, "upgrades")->number == 7);
+        // The cycle wraps at seven: the eighth upgrade rolls back to +damage (k0).
+        const double dmgMult7 = sField(s, "dmg_mult")->number;
         tree.scripts().vm().callOn(self, "apply_upgrade", none); // k0 again: +damage
-        CHECK(sField(s, "dmg_mult")->number > dmgMult6);
+        CHECK(sField(s, "dmg_mult")->number > dmgMult7);
     }
 
     // Critical hits: a shot rolls for bonus damage; forcing the odds proves both branches.
@@ -2852,6 +2856,31 @@ int main() {
         vm.callOn(barrel, "take_damage", lethal);      // pop it
         CHECK(!sField(tree.findNode("Barrel0"), "active")->boolean);  // barrel is spent
         CHECK(activeFires(tree) >= 1);                 // ...and its rupture left a burning patch
+    }
+
+    // Between-wave upgrade cycle now includes a 7th pick: move speed. Cycling through a full round of
+    // seven upgrades bumps the walk-speed multiplier exactly once (the k==6 pick), on top of the older
+    // damage/rate/health/ammo/crit-chance/crit-damage picks — so mobility now grows over a long run.
+    {
+        std::vector<Value> none;
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+
+        CHECK(sField(survivor, "move_mult")->number == 1.0);   // starts at base walk speed
+        const double dmg0 = sField(survivor, "dmg_mult")->number;
+        const double crit0 = sField(survivor, "crit_mult")->number;
+        for (int i = 0; i < 7; ++i) { vm.callOn(sv, "apply_upgrade", none); }
+        // One full cycle: the move-speed pick landed once (+0.08), and the older picks still fire.
+        CHECK(sField(survivor, "move_mult")->number > 1.0);
+        CHECK(std::abs(sField(survivor, "move_mult")->number - 1.08) < 1e-9);
+        CHECK(sField(survivor, "dmg_mult")->number > dmg0);    // +damage pick still applied
+        CHECK(sField(survivor, "crit_mult")->number > crit0);  // +crit-damage pick still applied
+
+        // A second full cycle stacks another speed increment.
+        for (int i = 0; i < 7; ++i) { vm.callOn(sv, "apply_upgrade", none); }
+        CHECK(std::abs(sField(survivor, "move_mult")->number - 1.16) < 1e-9);
     }
 
     // Railgun armor-piercing: the beam shears any shield clean off before biting into health, so it's
