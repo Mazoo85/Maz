@@ -8,6 +8,15 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the armor plate's shatter burst now fires reliably on the hit that spends it.**
+  When your body-armor plate breaks it throws off a concussive burst that shoves and staggers nearby
+  zombies — a defensive payoff for wearing a plate into the crush. But there was a gap: if a hit landed
+  *exactly* on the plate's remaining value (spending it to precisely zero), the old check treated it as
+  "fully absorbed" and skipped the shatter — and no later hit could fire it either, since the plate was
+  already empty. So a plate ground down to exactly zero silently robbed you of its parting blast. Fixed
+  so the shatter fires the moment the plate is spent, whether the hit empties it exactly (no damage
+  bleeds through to health) or overflows it. Verified with a new exact-depletion regression test
+  alongside the existing soak/overflow cases; full suite, headless smoke, and the 3600-frame run pass.
 - **ZOMBOID — fixed the day/night threat so darkness is genuinely deadlier, not safer.**
   The whole point of the night cycle is that the horde gets more dangerous as it gets dark. But the
   aggression curve was mis-timed: it actually *peaked at dusk while the screen was still fully bright*

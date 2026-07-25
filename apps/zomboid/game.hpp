@@ -1145,8 +1145,10 @@ class Survivor {
         if (self.armor > 0) {
             self.armor = self.armor - d;
             emit(self.node.x, self.node.y, 3, 0);   # sparks off the plate
-            if (self.armor >= 0) { return; }        # fully absorbed
-            d = 0 - self.armor;                     # remainder past the broken plate
+            if (self.armor > 0) { return; }         # plate still has charge — hit fully soaked
+            # The plate is now spent: this is the breaking hit whether it landed exactly on the plate's
+            # last point (armor == 0, no bleed-through) or overflowed it. Fire the shatter on the break.
+            d = 0 - self.armor;                     # remainder past the broken plate (0 if it emptied exactly)
             self.armor = 0;
             # The plate doesn't fail quietly — it SHATTERS: as it breaks it throws off a concussive
             # burst that shoves and staggers the surrounding horde, buying a breath of space at the exact

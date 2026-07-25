@@ -3181,6 +3181,22 @@ int main() {
         CHECK(sField(survivor, "armor")->number == 0.0);     // plate broke
         CHECK(z->x() > 2.0);                                  // flung outward by the shatter burst
         CHECK(sField(z, "stagger_timer")->number > 0.0);     // and staggered
+
+        // Exact-depletion case: a hit landing EXACTLY on the plate's remaining charge still counts as
+        // the breaking hit — the shatter must fire (not be silently skipped), and with the plate soaking
+        // the full blow, no damage bleeds through to health. (Regression: the old `armor >= 0` early-out
+        // treated an exact-zero plate as "fully absorbed" and never shattered — on that hit or any later
+        // one, since armor was then 0.)
+        z->setPosition(2.0, 0.0);                            // reset the target next to the survivor
+        sField(z, "stagger_timer")->number = 0.0;
+        sField(survivor, "armor")->number = 25.0;
+        sField(survivor, "health")->number = 100.0;
+        std::vector<Value> exact = {Value::fromNum(25.0)};   // damage == remaining plate, to the point
+        vm.callOn(sv, "take_damage", exact);
+        CHECK(sField(survivor, "armor")->number == 0.0);     // plate spent exactly
+        CHECK(sField(survivor, "health")->number == 100.0);  // ...with zero bleed-through to health
+        CHECK(z->x() > 2.0);                                 // and the shatter still fired
+        CHECK(sField(z, "stagger_timer")->number > 0.0);
     }
 
     // Hunger pressure: while starving (hunger maxed), out-of-combat regen is SUPPRESSED, so health
