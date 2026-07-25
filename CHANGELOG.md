@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — regression-test the double-damage power-up (kind 1).** Of the ten power-ups, double-damage was
+  the only one whose signature effect had no direct test — rapid-fire, piercing, cryo nova, vampiric,
+  overflow, frost field, berserk, field medic, and shield all do. Added a test that grants it and confirms it
+  tags the buff, sets the damage multiplier to 2.2 while leaving fire rate untouched (distinct from berserk,
+  which lifts both), and flows through to the survivor's derived damage and a rolled shot (crit disabled so
+  the ×2.2 is exact). Test-only change — no gameplay logic altered.
 - **ZOMBOID — regression-test the dodge-cooldown upgrade floor.** The between-wave upgrade wheel's k==7 pick
   trims the dodge-roll cooldown by 0.3s each cycle, clamped so it never drops below a 0.6s floor — without
   that clamp, a long enough run would drive the cooldown to zero (then negative), giving a permanent

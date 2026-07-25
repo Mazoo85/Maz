@@ -6581,6 +6581,36 @@ int main() {
         CHECK(sField(survivor, "fire_rate")->number > baseFr);
     }
 
+    // Double-damage power-up (kind 1): unlike Berserk it lifts ONLY the damage multiplier (not fire rate),
+    // so shots hit 2.2x as hard while it's up. This was the one power-up whose signature effect had no
+    // direct test — rapid/piercing/cryo/vampiric/overflow/frost/berserk/medic/shield all do. Verify the
+    // grant tags the buff, sets buff_dmg to 2.2 with fire rate untouched, and flows through to the derived
+    // damage and a rolled shot.
+    {
+        std::vector<Value> none;
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+
+        sField(survivor, "crit_chance")->number = 0.0;   // isolate the buff term from crit rolls
+        tree.process(1.0 / 60.0);                         // settle derived stats
+        const double baseFr = sField(survivor, "fire_rate")->number;
+        const double baseDmg = sField(survivor, "damage")->number;
+        const double baseShot = vm.callOn(sv, "shot_damage", none).number;
+
+        std::vector<Value> one = {Value::fromNum(1.0)};
+        vm.callOn(sv, "grant_powerup", one);
+        CHECK((int)sField(survivor, "buff_kind")->number == 1);              // tagged double-damage
+        CHECK(sField(survivor, "buff_timer")->number > 0.0);                 // timer running
+        CHECK(std::abs(sField(survivor, "buff_dmg")->number - 2.2) < 1e-9);  // damage x2.2...
+        CHECK(sField(survivor, "buff_fr")->number == 1.0);                   // ...fire rate untouched (unlike berserk)
+        // Flows through to the derived damage and a rolled shot (crit disabled → exactly 2.2x).
+        CHECK(std::abs(sField(survivor, "damage")->number - baseDmg * 2.2) < 1e-6);
+        CHECK(std::abs(vm.callOn(sv, "shot_damage", none).number - baseShot * 2.2) < 1e-6);
+        CHECK(sField(survivor, "fire_rate")->number == baseFr);              // fire rate unchanged
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "
