@@ -919,6 +919,41 @@ int main() {
         CHECK(sField(farAcid, "active")->boolean);      // out of range — still a puddle
     }
 
+    // Mine cluster-aware trigger: a single zombie merely clipping the trigger ring (but not point-blank)
+    // does NOT waste the mine — it holds. A second zombie entering the ring makes a worthwhile cluster and
+    // it detonates at once.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(100.0, 100.0);            // keep the survivor clear
+        auto& vm = tree.scripts().vm();
+
+        SceneNode* mineN = tree.findNode("Mine0");
+        Value mv = mineN->script();
+        std::vector<Value> at = {Value::fromNum(0.0), Value::fromNum(0.0)};
+        vm.callOn(mv, "arm", at);
+        sField(mineN, "arm_delay")->number = 0.0;        // skip the safety fuse
+
+        // One zombie in the trigger ring (radius 3) but outside point-blank (1.5): the mine holds.
+        Value z0 = tree.findNode("Zombie0")->script();
+        std::vector<Value> s0 = {Value::fromNum(2.5), Value::fromNum(0.0), Value::fromNum(200.0),
+                                 Value::fromNum(0.0)};   // spawn_at(x,y,hp,spd)
+        vm.callOn(z0, "spawn_at", s0);
+        vm.callOn(mv, "_process", dt);
+        CHECK(sField(mineN, "active")->boolean);         // lone edge straggler — not wasted
+
+        // A second zombie joins the ring → a cluster worth catching → it detonates now.
+        Value z1 = tree.findNode("Zombie1")->script();
+        std::vector<Value> s1 = {Value::fromNum(2.5), Value::fromNum(0.6), Value::fromNum(200.0),
+                                 Value::fromNum(0.0)};
+        vm.callOn(z1, "spawn_at", s1);
+        const double z0hp = sField(tree.findNode("Zombie0"), "health")->number;
+        vm.callOn(mv, "_process", dt);
+        CHECK(!sField(mineN, "active")->boolean);         // cluster caught — detonated
+        CHECK(sField(tree.findNode("Zombie0"), "health")->number < z0hp);  // both in the blast
+    }
+
     // Second wind: lethal damage is cancelled while a revive charge remains — the survivor bursts back
     // with half health, i-frames, and a crowd-clearing nova. Only the final (chargeless) hit is fatal.
     {

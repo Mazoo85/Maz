@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — proximity mines now wait for a worthwhile catch.** A mine's blast radius (6) is twice its
+  trigger ring (3), so popping for the first lone straggler to clip the edge threw away most of the blast.
+  The trigger is now cluster-aware: a mine detonates the instant **two or more** zombies are inside the
+  trigger ring (a cluster its blast can engulf), or the moment a **single** zombie steps point-blank onto
+  it (half the trigger radius) — so a lone walker in the lane still sets it off rather than strolling over
+  a dud, but the mine holds for the group when it can. Headless-tested: one zombie merely clipping the ring
+  leaves the mine armed; a second zombie joining the ring detonates it and catches both.
 - **ZOMBOID — deployable sentries now focus-fire the biggest threat.** The auto-turret used to shoot
   whatever zombie was simply *nearest*, so it would happily empty its scarce magazine into slow walkers
   while a boss strolled past. It now ranks targets in range by kind-threat (boss > summoner > healer >

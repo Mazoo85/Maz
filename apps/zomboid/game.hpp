@@ -1800,7 +1800,14 @@ class Mine {
             if (self.arm_delay <= 0) { self.armed = true; }
             return;
         }
-        # Once armed, detonate if any live zombie is within trigger range.
+        # Cluster-aware trigger. The blast radius (6) dwarfs the trigger ring (3), so popping for the
+        # first lone straggler to clip the edge wastes most of the blast. Instead the mine holds for a
+        # worthwhile catch: it detonates the instant TWO or more zombies are inside the trigger ring (a
+        # cluster its blast can engulf), or the moment a single zombie steps point-blank onto it (half the
+        # trigger radius) — so a lone walker in the lane still sets it off rather than strolling over a dud.
+        var count = 0;
+        var point_blank = false;
+        var pb = self.trigger_range * 0.5;
         var i = 0;
         var n = len(g_zombies);
         while (i < n) {
@@ -1808,13 +1815,15 @@ class Mine {
             if (z.alive) {
                 var dx = z.node.x - self.node.x;
                 var dy = z.node.y - self.node.y;
-                if (dx * dx + dy * dy <= self.trigger_range * self.trigger_range) {
-                    self.detonate();
-                    return;
+                var d2 = dx * dx + dy * dy;
+                if (d2 <= self.trigger_range * self.trigger_range) {
+                    count = count + 1;
+                    if (d2 <= pb * pb) { point_blank = true; }
                 }
             }
             i = i + 1;
         }
+        if (point_blank or count >= 2) { self.detonate(); }
     }
 }
 

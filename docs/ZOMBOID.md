@@ -92,7 +92,11 @@ back sooner and sooner, so the deeper you get, the more often you can bail out o
   outrank a slow walker — so its scarce bolts land where they count (nearest only breaks ties between
   equal threats). When it finally powers down (empty or expired) it **self-destructs in a blast** that
   damages and staggers the zombies around it, so planting it deep in the horde earns a farewell explosion
-  (safe for you — it only hits zombies). A mine's blast
+  (safe for you — it only hits zombies). The proximity mine is **cluster-aware**: its blast radius is
+  twice its trigger ring, so rather than popping for the first lone straggler to clip the edge, it **holds
+  for a worthwhile catch** — it goes off the instant **two or more** zombies are in the ring, or the
+  moment a **single** zombie steps right on top of it (so a lone walker in the lane still sets it off, it
+  just isn't wasted on one that merely grazes the edge). A mine's blast
   **cooks off explosive barrels**, **daisy-chains through exploder packs**, and **flashes over caustic
   acid puddles** in range (acid is volatile — a hard blast sets it off just like fire), so rigging one
   beside a barrel, a nest of exploders, or a spitter's puddle sets up a massive environmental chain
