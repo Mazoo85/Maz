@@ -3711,6 +3711,18 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Triangle-AABB overlap** (`math::triangleIntersectsAabb`) — DONE (M551); does a triangle touch an
+  axis-aligned box? The classic Akenine-Möller "Fast 3D Triangle-Box Overlap Testing" — the primitive behind
+  CONSERVATIVE voxelization (flag every cell a triangle grazes, not just where a ray samples it, unlike the
+  M540 ray-parity voxelizer), triangle binning into a uniform grid / octree / BVH, and coarse tri-vs-region
+  culling. The math library had ray/box, box/box, and (M549) triangle/triangle, but not triangle/box.
+  Implemented as the full 13-axis separating-axis test: the 3 box face normals, the triangle's own normal, and
+  the 9 box-axis × triangle-edge cross products; touching counts. Center/half-extent and Aabb3 overloads.
+  Verified (`ctest -R triangle_box`): a triangle inside the box overlaps; one far outside does not; a big
+  triangle whose edge cuts through overlaps; the discriminating case — a triangle whose AABB overlaps the box
+  but whose body misses (separated by a diagonal edge-cross axis, which a naive AABB test gets wrong) — does
+  NOT overlap; a coplanar face triangle overlaps; one a hair above does not; a vertex touch counts; the Aabb3
+  overload agrees. [VERIFIABLE HERE]
 - [x] **Triangle-triangle intersection** (`math::trianglesIntersect`) — DONE (M549); the narrowphase primitive the
   math library was missing — it had ray/triangle (Möller-Trumbore), segment/triangle, and closest-point-on-triangle
   but no triangle-vs-triangle. Do two triangles in 3D touch or cross? Tomas Möller's "A Fast Triangle-Triangle

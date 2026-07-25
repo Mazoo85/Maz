@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_654 headers across 20 subsystems._
+_655 headers across 20 subsystems._
 
 ## Contents
 
@@ -2382,6 +2382,16 @@ Transform2D — Godot's Transform2D: the 2x3 affine matrix behind every Node2D. 
 maz::math Transform3D — the core spatial transform Godot builds every 3D node on: a 3x3 `basis` (rotation + scale + shear, columns = the transformed X/Y/Z axes) plus a `vec3 origin`. The engine renders with GLM mat4s, but gameplay/tools code wants Godot's ergonomic API — xform / xform_inv, affine_inverse, compose with `*`, translated / rotated / scaled (global and _local variants), looking_at, and interpolate_with (translation lerp + rotation slerp + scale lerp). This is that type, semantics matched to Godot's Transform3D/Basis source. Header-only, pure, deterministic; convert to/from the renderer's mat4 with toMat4 / fromMat4. Unit-tested to the bit.  Convention note (matches Godot): looking_at aims the -Z axis at the target (Godot's "forward"), and xform_inv / inverse take the fast orthonormal path (transpose) — use affineInverse when the basis carries scale or shear.
 
 **Types:** `Transform3D`
+
+### `TriangleBox`
+<sub>`engine/include/maz/math/TriangleBox.hpp`</sub>
+
+maz::math TRIANGLE-AABB OVERLAP — does a triangle touch an axis-aligned box? The classic "is this triangle inside this voxel/cell?" test (Akenine-Möller, "Fast 3D Triangle-Box Overlap Testing", 2001), the primitive behind CONSERVATIVE voxelization (every cell a triangle grazes, not just where a ray happens to sample it), triangle binning into a uniform grid or octree/BVH, and coarse tri-vs-region culling. The engine had ray/box, box/box, and triangle/triangle, but not triangle/box. Implemented as the full separating-axis test: 3 box face normals, the triangle's own normal, and the 9 cross products of the box axes with the triangle edges — if any axis separates them they do not overlap, otherwise they do. Touching counts as overlap. A degenerate (zero-area) triangle still tests correctly as a segment/point against the box. Pure, header-only, headless.
+
+**Functions:**
+
+- `inline bool triangleIntersectsAabb(const vec3& v0, const vec3& v1, const vec3& v2, const vec3& boxCenter,`
+- `inline bool triangleIntersectsAabb(const vec3& v0, const vec3& v1, const vec3& v2, const Aabb3& box)`
 
 ### `TriangleIntersect`
 <sub>`engine/include/maz/math/TriangleIntersect.hpp`</sub>

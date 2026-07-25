@@ -2725,6 +2725,11 @@ target_link_libraries(maz_triangleintersect_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME triangle_intersect COMMAND maz_triangleintersect_tests)
 set_tests_properties(triangle_intersect PROPERTIES TIMEOUT 30)
 
+add_executable(maz_trianglebox_tests math/trianglebox.cpp)
+target_link_libraries(maz_trianglebox_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME triangle_box COMMAND maz_trianglebox_tests)
+set_tests_properties(triangle_box PROPERTIES TIMEOUT 30)
+
 add_executable(maz_savitzkygolay_tests math/savitzkygolay.cpp)
 target_link_libraries(maz_savitzkygolay_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME savitzky_golay COMMAND maz_savitzkygolay_tests)
