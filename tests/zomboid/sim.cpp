@@ -1806,6 +1806,52 @@ int main() {
         CHECK(maxLeapStep > walkPerFrame * 1.8);       // the pounce is markedly faster than a walk
     }
 
+    // Leaper interrupt: a stagger landed during the pre-pounce coil breaks the leap outright — the
+    // leaper uncoils without ever leaving the ground. A leaper left undisturbed through the wind-up
+    // does pounce (control), so the interrupt is what makes the difference.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        const_cast<Value*>(vm.getGlobal("g_phase"))->number = 0.0;
+        SceneNode* leaper = tree.findNode("Zombie0");
+        Value lv = leaper->script();
+        std::vector<Value> sp = {Value::fromNum(30.0), Value::fromNum(0.0),
+                                 Value::fromNum(9.0), Value::fromNum(5.0)}; // spawn(x,y,kind=9,wave=5)
+        vm.callOn(lv, "spawn", sp);
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+
+        // Drive until it enters the coil (leap_wind > 0), before any pounce fires.
+        for (int i = 0; i < 900 && sField(leaper, "leap_wind")->number <= 0.0; ++i)
+            vm.callOn(lv, "_process", dt);
+        CHECK(sField(leaper, "leap_wind")->number > 0.0);   // coiled and telegraphing
+        CHECK(sField(leaper, "leaping")->number == 0.0);    // not yet airborne
+
+        // Stagger it mid-coil, then step once: the pounce is interrupted, not merely delayed.
+        std::vector<Value> stag = {Value::fromNum(0.5)};
+        vm.callOn(lv, "stagger", stag);
+        vm.callOn(lv, "_process", dt);
+        CHECK(sField(leaper, "leap_wind")->number == 0.0);  // coil broken
+        CHECK(sField(leaper, "leaping")->number == 0.0);    // never left the ground
+
+        // Control: an uninterrupted leaper does pounce.
+        SceneTree t2;
+        SceneNode* surv2 = zomboid::buildScene(t2);
+        surv2->setPosition(0.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        const_cast<Value*>(vm2.getGlobal("g_phase"))->number = 0.0;
+        SceneNode* lp2 = t2.findNode("Zombie0");
+        Value l2 = lp2->script();
+        vm2.callOn(l2, "spawn", sp);
+        bool leaped2 = false;
+        for (int i = 0; i < 900 && !leaped2; ++i) {
+            vm2.callOn(l2, "_process", dt);
+            if (sField(lp2, "leaping")->number > 0.0) leaped2 = true;
+        }
+        CHECK(leaped2);   // left undisturbed, the pounce fires
+    }
+
     // Flamethrower (weapon 4): a short cone of fire in front of the survivor — every live zombie inside
     // the cone takes a little direct damage and is set alight; bodies behind, out of range, or off the
     // cone axis are spared. One do_shoot, then assert who burned.

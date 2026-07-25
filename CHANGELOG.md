@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — a Leaper's pounce can now be interrupted mid-coil.** The Leaper telegraphs its lunge by
+  crouching and coiling for a beat — previously you could only juke sideways from it. Now a **stagger**
+  (a melee shove, a dash-strike, or a grenade's concussion) or a **chill** landed during that wind-up
+  **breaks the pounce outright**: it uncoils harmlessly and has to recover before it can coil again. So
+  punishing the tell denies the leap entirely — the same readable counterplay the back-line casters
+  (Screamer / Healer / Summoner) already have. Headless-tested: a leaper staggered mid-coil never leaves
+  the ground, while an undisturbed one still pounces.
 - **ZOMBOID — a mine's blast now flashes over caustic acid puddles.** Acid is volatile: a naked flame
   already combusts it (molotov / flamethrower / barrel-fire), and now a **hard explosion does too** —
   a proximity mine's detonation ignites any spitter puddle (or Volatile-horde pool) in its blast radius,

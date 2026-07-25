@@ -2886,6 +2886,17 @@ class Zombie {
                 return;
             }
             if (self.leap_wind > 0) {
+                # Interrupt: a stagger (a melee shove, a dash-strike, a grenade's concussion) or a chill
+                # landed during the coil breaks the pounce outright — the leaper uncoils harmlessly and
+                # has to recover before it can wind up again. So the telegraph isn't only something to
+                # juke sideways from: punish the tell and you deny the leap entirely (the same readable
+                # counterplay the back-line casters already have).
+                if (self.stagger_timer > 0 or self.slow_timer > 0) {
+                    self.leap_wind = 0;
+                    self.leap_cd = 1.5;    # brief recovery before it can coil again
+                    emit(self.node.x, self.node.y, 4, 0);   # fizzle puff as the pounce collapses
+                    return;
+                }
                 # Coiled: rooted for a beat, telegraphing the pounce so the survivor can juke sideways.
                 # The lunge then commits toward wherever the survivor is when the wind-up finishes.
                 self.leap_wind = self.leap_wind - dt;
