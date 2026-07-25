@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — a Warper's blink can now be interrupted mid-tell.** Like the Leaper's pounce, the Warper's
+  teleport telegraphs with a rooted shimmer — but previously a stagger only *paused* it (it resumed and
+  blinked the instant the flinch wore off). Now a **stagger** (shove / dash-strike / grenade concussion)
+  or a **chill** landed during the shimmer **cancels the blink outright** and puts it on recovery, so
+  punishing the tell denies the teleport instead of merely delaying it. This makes the interrupt
+  counterplay consistent across the Leaper and Warper. Headless-tested: a warper staggered mid-shimmer
+  never blinks (its tell resets and it stays put), while an undisturbed one still teleports in.
 - **ZOMBOID — you can now shoot a spitter's acid glob out of the air.** A bullet that catches an
   in-flight glob destroys it clean — no puddle left behind, exactly like a well-timed melee swat. This
   adds **ranged** counterplay to the spitter's one ranged threat: snipe the glob down from across the

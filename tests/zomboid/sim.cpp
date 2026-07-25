@@ -1870,6 +1870,49 @@ int main() {
         CHECK(leaped2);   // left undisturbed, the pounce fires
     }
 
+    // Warper interrupt: a stagger during the blink tell cancels the teleport outright (warp_warn resets,
+    // no blink). An uninterrupted warper does blink toward the survivor (control).
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        const_cast<Value*>(vm.getGlobal("g_phase"))->number = 0.0;
+        SceneNode* warper = tree.findNode("Zombie0");
+        Value wv = warper->script();
+        std::vector<Value> sp = {Value::fromNum(40.0), Value::fromNum(0.0),
+                                 Value::fromNum(13.0), Value::fromNum(5.0)}; // spawn(x,y,kind=13,wave=5)
+        vm.callOn(wv, "spawn", sp);
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        for (int i = 0; i < 900 && sField(warper, "warp_warn")->number <= 0.0; ++i)
+            vm.callOn(wv, "_process", dt);
+        CHECK(sField(warper, "warp_warn")->number > 0.0);   // shimmering — charging a blink
+        const double xBefore = warper->x();
+        std::vector<Value> stag = {Value::fromNum(0.5)};
+        vm.callOn(wv, "stagger", stag);
+        vm.callOn(wv, "_process", dt);
+        CHECK(sField(warper, "warp_warn")->number == 0.0);  // tell cancelled
+        CHECK(warper->x() > xBefore - 2.0);                 // did NOT blink ~half the distance inward
+
+        // Control: an uninterrupted warper blinks toward the survivor (a single-frame jump).
+        SceneTree t2;
+        SceneNode* surv2 = zomboid::buildScene(t2);
+        surv2->setPosition(0.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        const_cast<Value*>(vm2.getGlobal("g_phase"))->number = 0.0;
+        SceneNode* w2 = t2.findNode("Zombie0");
+        Value w2v = w2->script();
+        vm2.callOn(w2v, "spawn", sp);
+        bool blinked = false;
+        double prevx = w2->x();
+        for (int i = 0; i < 900 && !blinked; ++i) {
+            vm2.callOn(w2v, "_process", dt);
+            if (prevx - w2->x() > 3.0) blinked = true;   // a large single-frame jump = a blink
+            prevx = w2->x();
+        }
+        CHECK(blinked);
+    }
+
     // Flamethrower (weapon 4): a short cone of fire in front of the survivor — every live zombie inside
     // the cone takes a little direct damage and is set alight; bodies behind, out of range, or off the
     // cone axis are spared. One do_shoot, then assert who burned.

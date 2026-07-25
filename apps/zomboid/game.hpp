@@ -2986,6 +2986,15 @@ class Zombie {
             }
             return;
         }
+        # Interrupt the blink: a stagger (a shove/dash/grenade concussion) or a chill landed during the
+        # warper's shimmer tell cancels the teleport OUTRIGHT and puts it on cooldown — the same readable
+        # counterplay the leaper's coil has. Without this the stagger only paused the tell (it resumed and
+        # blinked the instant the flinch wore off); now punishing the tell denies the blink entirely.
+        if (self.kind == 13 and self.warp_warn > 0 and (self.stagger_timer > 0 or self.slow_timer > 0)) {
+            self.warp_warn = 0;
+            self.warp_cd = 1.5;                       # brief recovery before it can charge another blink
+            emit(self.node.x, self.node.y, 4, 0);     # fizzle shimmer as the phase collapses
+        }
         # Warper (kind 13): between slow shambles it teleports, on a cooldown, half the way to the
         # survivor in a single instant — erasing distance a walker never could and appearing right on
         # top of you. It only blinks while there's real ground to cover, then walks the last stretch.
