@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — pin the two-condition gate in `frost_active()`.** The Frost Field power-up's sustained
+  half-speed chill aura is driven by this predicate, which is true only when BOTH the held buff is the Frost
+  Field (kind 7) AND its timer hasn't expired. The existing movement test proves the aura slows zombies
+  while it's up; the new test pins the gates directly — expiring the timer switches the aura off (a
+  temporary buff can't leak on), and a different power-up with time left never registers as frost. Test-only
+  change — no gameplay logic altered.
 - **ZOMBOID — pin the day/night boundary in `is_night()`.** This one predicate is the day/night switch:
   it flips exactly at the half-day mark (`g_phase >= g_day_len / 2`) and gates the +50% night salvage bonus
   as well as feeding the horde danger ramp. Added a boundary test that confirms it reads false through the

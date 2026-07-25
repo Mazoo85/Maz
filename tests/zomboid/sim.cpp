@@ -6297,6 +6297,32 @@ int main() {
         CHECK(moved2 < moved1);                // frosted crawls less ground
         CHECK(moved2 < moved1 * 0.6);          // roughly half speed (with margin)
     }
+
+    // frost_active() predicate gate. The sustained chill aura is driven by this one method, which is true
+    // ONLY when BOTH conditions hold: the held buff is the Frost Field (kind 7) AND its timer hasn't run
+    // out. The movement test above proves the aura works while up; this pins the two gates directly, so the
+    // aura can't leak on after expiry (temporary buff) or fire under the wrong power-up. Expiring the timer
+    // must switch it off; a different buff_kind with time left must never register as frost.
+    {
+        SceneTree tree;
+        SceneNode* s = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value sv = s->script();
+        std::vector<Value> none;
+
+        std::vector<Value> grant = {Value::fromNum(7.0)};
+        vm.callOn(sv, "grant_powerup", grant);
+        CHECK(sField(s, "buff_kind")->number == 7.0);
+        CHECK(sField(s, "buff_timer")->number > 0.0);
+        CHECK(vm.callOn(sv, "frost_active", none).boolean);      // kind 7, time left → aura on
+
+        sField(s, "buff_timer")->number = 0.0;                   // timer expired
+        CHECK(!vm.callOn(sv, "frost_active", none).boolean);     // temporary buff must switch off
+
+        sField(s, "buff_timer")->number = 5.0;                   // time left again...
+        sField(s, "buff_kind")->number = 6.0;                    // ...but under a different power-up (overflow)
+        CHECK(!vm.callOn(sv, "frost_active", none).boolean);     // wrong kind never registers as frost
+    }
     // Frost Field confers the chill STATUS, not just a movement slow: while the aura is up every zombie's
     // slow_timer is refreshed, so bodies turn brittle, frost-shatter on death, and casters are shut off
     // exactly like a cryo nova — the behaviour the field is documented to have. Without the field the same
