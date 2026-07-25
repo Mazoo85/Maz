@@ -2981,6 +2981,47 @@ int main() {
         CHECK(pushFrom(2.0, 1.0) == 0.0);     // dodging (i-frames) rides the brute's blow out
     }
 
+    // Exploder chain reaction: killing one exploder detonates it, and its blast chain-detonates other
+    // exploders in range — a daisy-chain of blasts. Reaches even a third exploder out of the first's
+    // radius but within the second's. An exploder well clear of the chain survives. A plain zombie in
+    // the blast is caught (damaged) but doesn't chain.
+    {
+        std::vector<Value> lethal = {Value::fromNum(9999.0)};
+        // Exploders at 0, 3, 6 on the x-axis (blast radius 5): 0 reaches 3 directly; 3 then reaches 6.
+        auto spawnExploder = [&](SceneTree& t, const char* name, double x) {
+            Value z = t.findNode(name)->script();
+            std::vector<Value> sp = {Value::fromNum(x), Value::fromNum(0.0),
+                                     Value::fromNum(4.0), Value::fromNum(5.0)};
+            t.scripts().vm().callOn(z, "spawn", sp);
+        };
+        SceneTree tree;
+        SceneNode* player = zomboid::buildScene(tree);
+        player->setPosition(100.0, 100.0);   // well out of every blast
+        auto& vm = tree.scripts().vm();
+        spawnExploder(tree, "Zombie0", 0.0);
+        spawnExploder(tree, "Zombie1", 3.0);
+        spawnExploder(tree, "Zombie2", 6.0);
+        spawnExploder(tree, "Zombie3", 40.0);   // far clear of the chain
+        // A plain walker sitting next to the first exploder: caught by the blast, but not a chain link.
+        Value w = tree.findNode("Zombie4")->script();
+        std::vector<Value> wsp = {Value::fromNum(2.0), Value::fromNum(0.0),
+                                  Value::fromNum(0.0), Value::fromNum(1.0)};  // low-hp walker
+        vm.callOn(w, "spawn", wsp);
+
+        Value first = tree.findNode("Zombie0")->script();
+        vm.callOn(first, "take_damage", lethal);   // pop the first exploder
+
+        CHECK(!sField(tree.findNode("Zombie0"), "alive")->boolean);  // detonated
+        CHECK(!sField(tree.findNode("Zombie1"), "alive")->boolean);  // chained (in radius of #0)
+        CHECK(!sField(tree.findNode("Zombie2"), "alive")->boolean);  // chained via #1 (out of #0's radius)
+        CHECK(sField(tree.findNode("Zombie3"), "alive")->boolean);   // far exploder untouched
+        CHECK(!sField(tree.findNode("Zombie4"), "alive")->boolean);  // walker caught in the blast
+
+        // The distant exploder took no damage at all (full health).
+        CHECK(sField(tree.findNode("Zombie3"), "health")->number ==
+              sField(tree.findNode("Zombie3"), "max_health")->number);
+    }
+
     // Railgun armor-piercing: the beam shears any shield clean off before biting into health, so it's
     // the counter to armored zombies and Bulwark waves. A zombie off the beam keeps its shield.
     {

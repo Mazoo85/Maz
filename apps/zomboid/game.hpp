@@ -2384,17 +2384,28 @@ class Zombie {
                         if (ex * ex + ey * ey <= 25.0) { g_player.take_damage(35); }
                     }
                 }
-                # The blast also catches nearby zombies (but not other exploders, to bound the chain),
-                # so an exploder shot inside a pack takes the pack with it.
+                # The blast also catches nearby zombies, so an exploder shot inside a pack takes the pack
+                # with it — and it now CHAIN-DETONATES other exploders in range, daisy-chaining a cluster
+                # into one big string of blasts (a real reward for luring exploders together, but the
+                # survivor eats every blast they're standing in, so it cuts both ways). The chain is
+                # naturally bounded: self is already dead (alive == false) before this runs, so a detonated
+                # exploder is skipped and can't re-trigger — same safe recursion the barrels use.
                 var bi = 0;
                 var bn = len(g_zombies);
                 while (bi < bn) {
                     var oz = g_zombies[bi];
-                    if (oz.alive and oz.kind != 4) {
+                    if (oz.alive and oz != self) {
                         var ozx = oz.node.x - self.node.x;
                         var ozy = oz.node.y - self.node.y;
-                        # The incendiary blast burns survivors of the initial hit.
-                        if (ozx * ozx + ozy * ozy <= 25.0) { oz.take_damage(40); oz.ignite(3.0, 10); }
+                        if (ozx * ozx + ozy * ozy <= 25.0) {
+                            if (oz.kind == 4) {
+                                oz.take_damage(9999);   # chain-detonate the neighbouring exploder
+                            } else {
+                                # The incendiary blast burns survivors of the initial hit.
+                                oz.take_damage(40);
+                                oz.ignite(3.0, 10);
+                            }
+                        }
                     }
                     bi = bi + 1;
                 }

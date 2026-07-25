@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — exploders now chain-detonate each other.** An exploder's death blast used to spare other
+  exploders; now it **chain-detonates** them, daisy-chaining a whole cluster into one string of blasts
+  (the chain even hops through a middle exploder to reach one outside the first's radius). It's a real
+  reward for luring exploders together and popping one — but double-edged, since the survivor eats every
+  blast they're caught in. The chain is safely bounded (a detonated exploder is already dead and can't
+  re-trigger). Headless-tested: popping one of three lined-up exploders kills all three via the chain,
+  while an exploder well clear survives at full health and a plain zombie in the blast is caught but
+  isn't a chain link.
 - **ZOMBOID — Brutes now hurl you back when they hit.** A Brute's heavy blow no longer just chips your
   health — it **physically throws the survivor clear** (about 4 units), wrecking your position and your
   aim and potentially flinging you into the rest of the horde. It gives the Brute a distinct identity —

@@ -109,7 +109,7 @@ Fourteen zombie types join the horde as the waves climb:
 | 1 | **Runner** | Fast, fragile; swarms you. |
 | 2 | **Brute** | Slow, tanky, and its heavy blow doesn't just hurt — it **hurls you back**, wrecking your position and aim (and can fling you into the rest of the horde), so a brute that reaches you is a real spacing threat. Time a **dodge roll** through its swing and the i-frames let you ride it out untouched. |
 | 3 | **Boss** | Huge bullet-sponge that leads every 5th wave; **ground-slams** for heavy damage *and* hurls you back — but it **flashes a warning as it winds up**, so dash clear of the ring to dodge it. **Enrages** below 35% health — faster, slams twice as often, and calls in waves of runners. Felling one always drops a **full care package — a guaranteed medkit *and* a guaranteed power-up** — so grinding the wave leader down pays off big. |
-| 4 | **Exploder** | Detonates on death — shoot it from a distance. |
+| 4 | **Exploder** | Detonates on death — shoot it from a distance. Its blast now **chain-detonates other exploders** in range, so a cluster daisy-chains into a string of blasts: lure them together and pop one to wipe the group, but don't be standing in it yourself. |
 | 5 | **Spitter** | Hangs back and lobs acid that leaves a caustic **puddle** on the ground — it eats your health *and* **slows you to half speed** while you stand in it, so slog clear rather than tanking it. |
 | 6 | **Splitter** | Bursts into two runners when killed. |
 | 7 | **Summoner** | A back-line necromancer that **keeps its distance** — retreats when you close in while it calls reinforcements. Chase it down. |
