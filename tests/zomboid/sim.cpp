@@ -1940,6 +1940,30 @@ int main() {
         vm3.callOn(z3v, "_process", dt);
         CHECK(sField(z3, "health")->number == 50.0);   // dodged bite drew no blood → no leech
         const_cast<Value*>(vm3.getGlobal("g_mutator"))->number = 0.0;
+
+        // Boss exemption: the boss is excluded from Bloodthirsty like every other horde-wide modifier
+        // (its duel is self-contained). A boss that bites the survivor under Bloodthirsty still deals its
+        // hit but leeches nothing.
+        SceneTree t4;
+        SceneNode* surv4 = zomboid::buildScene(t4);
+        surv4->setPosition(0.0, 0.0);
+        auto& vm4 = t4.scripts().vm();
+        const_cast<Value*>(vm4.getGlobal("g_mutator"))->number = 9.0;
+        SceneNode* boss = t4.findNode("Zombie0");
+        Value bossv = boss->script();
+        std::vector<Value> bs = {Value::fromNum(2.0), Value::fromNum(0.0),
+                                 Value::fromNum(3.0), Value::fromNum(1.0)};   // boss (kind 3), wave 1
+        vm4.callOn(bossv, "spawn", bs);
+        boss->setPosition(2.0, 0.0);               // inside the boss's 2.5 attack range, not enraged
+        sField(boss, "health")->number = 300.0;    // wounded, so any wrongful heal would show
+        sField(boss, "cooldown")->number = 0.0;    // ready to bite
+        sField(boss, "slam_cd")->number = 99.0;    // suppress the slam so only the bite happens
+        sField(boss, "slam_warn")->number = 0.0;
+        const double bossSurvHp0 = sField(surv4, "health")->number;
+        vm4.callOn(bossv, "_process", dt);
+        CHECK(sField(surv4, "health")->number < bossSurvHp0);   // the boss bit the survivor
+        CHECK(sField(boss, "health")->number == 300.0);         // ...but leeched nothing (boss exempt)
+        const_cast<Value*>(vm4.getGlobal("g_mutator"))->number = 0.0;
     }
 
     // Spitter (kind 5): a ranged zombie that halts at distance and lobs acid globs.
