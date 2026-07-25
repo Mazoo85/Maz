@@ -894,6 +894,72 @@ int main() {
         }
     }
 
+    // Loot-collection economy: the three renewable-resource pickups — scattered loot (collect), a dropped
+    // ammo box (collect_ammo), and a supply-crate care package (collect_crate) — are what keep a long run
+    // supplied, but none of the three had a direct test of what it actually grants. Pin each one's payout.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+        std::vector<Value> none;
+        auto& reserves = *sField(survivor, "reserves")->array;
+
+        // (a) Scattered loot: +1 food, +1 grenade, +1 loot tally, and a top-up to every weapon's reserve.
+        const double food0 = sField(survivor, "food")->number;
+        const double nades0 = sField(survivor, "grenades")->number;
+        const double loot0 = sField(survivor, "loot_collected")->number;
+        double r0[5];
+        for (int i = 0; i < 5; ++i) r0[i] = reserves[i].number;
+        std::vector<Value> kind0 = {Value::fromNum(0.0)};
+        vm.callOn(sv, "collect", kind0);
+        CHECK(sField(survivor, "food")->number == food0 + 1.0);
+        CHECK(sField(survivor, "grenades")->number == nades0 + 1.0);
+        CHECK(sField(survivor, "loot_collected")->number == loot0 + 1.0);
+        CHECK(reserves[0].number == r0[0] + 24.0);   // pistol
+        CHECK(reserves[1].number == r0[1] + 8.0);    // shotgun
+        CHECK(reserves[2].number == r0[2] + 40.0);   // SMG
+        CHECK(reserves[3].number == r0[3] + 6.0);    // railgun
+        CHECK(reserves[4].number == r0[4] + 80.0);   // flamethrower
+
+        // (b) Ammo box: a big top-up to the ACTIVE weapon (2x its mag), a small one to the rest. Equip the
+        // SMG (weapon 2) so the active-vs-others split is unambiguous.
+        std::vector<Value> smg = {Value::fromNum(2.0)};
+        vm.callOn(sv, "set_weapon", smg);
+        const double magSmg = (*sField(survivor, "mag_sizes")->array)[2].number;   // 30
+        double b0[5];
+        for (int i = 0; i < 5; ++i) b0[i] = reserves[i].number;
+        vm.callOn(sv, "collect_ammo", none);
+        CHECK(reserves[2].number == b0[2] + magSmg * 2.0);   // active weapon: +2 mags
+        CHECK(reserves[0].number == b0[0] + 4.0);            // others: +4 each
+        CHECK(reserves[1].number == b0[1] + 4.0);
+        CHECK(reserves[3].number == b0[3] + 4.0);
+        CHECK(reserves[4].number == b0[4] + 4.0);
+
+        // (c) Supply crate: heals, and restocks rations, grenades, all three gadgets, and every reserve.
+        sField(survivor, "health")->number = 40.0;                 // wounded, room to heal
+        const double maxHp = sField(survivor, "max_health")->number;
+        const double food1 = sField(survivor, "food")->number;
+        const double nades1 = sField(survivor, "grenades")->number;
+        const double mines1 = sField(survivor, "mines")->number;
+        const double sentries1 = sField(survivor, "sentries")->number;
+        const double molotovs1 = sField(survivor, "molotovs")->number;
+        double c0[5];
+        for (int i = 0; i < 5; ++i) c0[i] = reserves[i].number;
+        vm.callOn(sv, "collect_crate", none);
+        CHECK(sField(survivor, "health")->number == std::min(40.0 + 50.0, maxHp)); // +50 heal, capped
+        CHECK(sField(survivor, "food")->number == food1 + 2.0);
+        CHECK(sField(survivor, "grenades")->number == nades1 + 2.0);
+        CHECK(sField(survivor, "mines")->number == mines1 + 1.0);
+        CHECK(sField(survivor, "sentries")->number == sentries1 + 1.0);
+        CHECK(sField(survivor, "molotovs")->number == molotovs1 + 1.0);
+        CHECK(reserves[0].number == c0[0] + 48.0);
+        CHECK(reserves[1].number == c0[1] + 16.0);
+        CHECK(reserves[2].number == c0[2] + 90.0);
+        CHECK(reserves[3].number == c0[3] + 15.0);
+        CHECK(reserves[4].number == c0[4] + 160.0);
+    }
+
     // Medkits: a dropped kit activates, heals the survivor on pickup (capped), and expires if ignored.
     auto activeMedkits = [](SceneTree& t) {
         int c = 0;

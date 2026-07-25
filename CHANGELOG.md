@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — regression-test the loot-collection economy (scattered loot, ammo box, supply crate).** The
+  three renewable-resource pickups — `collect` (scattered loot: +food, +grenade, and a top-up to every
+  weapon's reserve), `collect_ammo` (a dropped ammo box: 2 mags to the active weapon, a little to the rest),
+  and `collect_crate` (a supply-crate care package: heal + rations + grenades + all three gadgets + a big
+  reserve refill) — are what keep a long run supplied, but none had a direct test of what it actually grants.
+  Added a test pinning each one's exact payout. Test-only change — no gameplay logic altered.
 - **ZOMBOID — pin the acid-vs-fire distinction: a caustic puddle slows the horde but deals it no damage.**
   A spitter's acid pool bogs down any zombie wading through it (so you can kite the swarm through it) but
   deals the pack no health damage — "already-dead flesh doesn't bleed," so to actually hurt them you must
