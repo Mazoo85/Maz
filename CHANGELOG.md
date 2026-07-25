@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — regression-test per-weapon magazine independence across weapon switches.** Each of the five
+  weapons keeps its own loaded magazine and spare reserve (the `mags[]`/`reserves[]` arrays); switching only
+  re-points the HUD mirror (`cur_ammo`/`cur_reserve`) at the active weapon's counts, it never refills, clears,
+  or cross-contaminates another weapon's mag. That invariant — the whole reason the arrays exist instead of a
+  single shared counter — had no direct test: the existing coverage exercised reload/partial-reserve on one
+  weapon at a time. Added a test that half-spends the SMG, swaps to the shotgun and back, and confirms each
+  gun's mag and reserve survive the round-trip intact and the mirror always reflects the equipped weapon.
+  Test-only change — no gameplay logic changed.
 - **ZOMBOID — regression-test the stagger-cancel counterplay against the Screamer and Healer.** The two
   back-line casters fizzle their cast if they're chilled *or* staggered mid-wind-up (the guard is
   `slow_timer > 0 or stagger_timer > 0`), and the manual documents "stagger it (a melee shove or dash-strike)

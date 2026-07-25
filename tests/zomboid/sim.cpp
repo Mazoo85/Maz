@@ -3753,6 +3753,50 @@ int main() {
         CHECK(glob(tree, "g_cash") == cashPreSwitch);           // ...switching weapons spends no cash
     }
 
+    // Per-weapon magazines are independent and PERSIST across weapon switches. The whole point of the
+    // mags[]/reserves[] arrays (rather than one shared ammo counter) is that each gun keeps its own loaded
+    // magazine and spare pool: swap off a half-spent SMG to the shotgun and back, and the SMG must still be
+    // half-spent — switching only re-points the HUD mirror (cur_ammo/cur_reserve), it never refills, clears,
+    // or cross-contaminates another weapon's mag. A refactor collapsing this to a single shared counter would
+    // silently break the multi-weapon economy with nothing to catch it; this locks the invariant down.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+        auto& mags = *sField(survivor, "mags")->array;
+        auto& reserves = *sField(survivor, "reserves")->array;
+
+        // Deplete the SMG (weapon 2) to a distinctive part-mag/part-reserve, leave the shotgun (weapon 1)
+        // at different distinctive values, so a mix-up between the two would be visible.
+        mags[2] = Value::fromNum(7.0);   reserves[2] = Value::fromNum(50.0);   // SMG: 7 in mag, 50 spare
+        mags[1] = Value::fromNum(2.0);   reserves[1] = Value::fromNum(18.0);   // shotgun: 2 in mag, 18 spare
+
+        // Equip the SMG: the HUD mirror reflects the SMG's own counts.
+        std::vector<Value> smg = {Value::fromNum(2.0)};
+        vm.callOn(sv, "set_weapon", smg);
+        CHECK((int)sField(survivor, "weapon")->number == 2);
+        CHECK(sField(survivor, "cur_ammo")->number == 7.0);      // mirrors mags[2]
+        CHECK(sField(survivor, "cur_reserve")->number == 50.0);  // mirrors reserves[2]
+
+        // Switch to the shotgun: the mirror now shows the shotgun's counts, and the SMG's mag is untouched.
+        std::vector<Value> shotgun = {Value::fromNum(1.0)};
+        vm.callOn(sv, "set_weapon", shotgun);
+        CHECK((int)sField(survivor, "weapon")->number == 1);
+        CHECK(sField(survivor, "cur_ammo")->number == 2.0);      // mirrors mags[1], not the SMG's 7
+        CHECK(sField(survivor, "cur_reserve")->number == 18.0);  // mirrors reserves[1]
+        CHECK(mags[2].number == 7.0);                            // the SMG's mag was NOT wiped by the switch
+        CHECK(reserves[2].number == 50.0);                       // ...nor its reserve
+
+        // Switch back to the SMG: its half-spent magazine survived the round-trip intact (not refilled).
+        vm.callOn(sv, "set_weapon", smg);
+        CHECK((int)sField(survivor, "weapon")->number == 2);
+        CHECK(sField(survivor, "cur_ammo")->number == 7.0);      // still 7 — preserved, not reset to full
+        CHECK(sField(survivor, "cur_reserve")->number == 50.0);
+        CHECK(mags[1].number == 2.0);                            // and the shotgun's mag is likewise intact
+        CHECK(reserves[1].number == 18.0);
+    }
+
     // Second wind (revive): a lethal hit while a revive is banked cancels death — the survivor bursts
     // back to half health with emergency i-frames, hunger relieved, and one revive spent. With no
     // revive left, the next lethal hit is final. (second_wind() was previously exercised only in-engine
