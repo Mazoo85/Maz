@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the railgun now pops explosive barrels.** Every other gun detonates a barrel by shooting it,
+  but the railgun's hitscan beam passed straight through one (its visual tracer deals no damage), so the
+  most powerful weapon was the only one that couldn't set off a barrel. The beam now detonates any barrel
+  it straddles, using the same ray test it already uses to shear through a line of zombies — so lining a
+  railgun shot up through a zombie pack *and* a barrel chains the whole thing. Headless-tested: a barrel on
+  the beam detonates while one off the beam is untouched.
 - **ZOMBOID — a screamer can't frenzy the boss.** A screamer's shriek whips nearby zombies into a speed
   frenzy — and it used to catch the boss too, stacking on top of the boss's own enrage into a nearly
   uncatchable wave leader. The boss is now immune to frenzy (it's a self-contained fight tuned by its

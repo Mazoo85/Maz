@@ -670,6 +670,25 @@ class Survivor {
             }
             i = i + 1;
         }
+        # The beam pops any explosive barrel it passes through, just as an ordinary bullet does — the
+        # railgun shouldn't be the one gun that can't shoot a barrel. Same ray test as the zombie sweep.
+        var rbi = 0;
+        var rbn = len(g_barrels);
+        while (rbi < rbn) {
+            var rb = g_barrels[rbi];
+            if (rb.active) {
+                var brx = rb.node.x - self.node.x;
+                var bry = rb.node.y - self.node.y;
+                var bt = brx * ax + bry * ay;
+                if (bt >= 0) {
+                    var bpx = brx - bt * ax;
+                    var bpy = bry - bt * ay;
+                    var brr = beam + rb.radius;
+                    if (bpx * bpx + bpy * bpy <= brr * brr) { rb.take_damage(dmg); }
+                }
+            }
+            rbi = rbi + 1;
+        }
         # Visual tracer: a pierce bullet flies through everything and just expires (no extra damage).
         var j = 0;
         var mb = len(g_bullets);

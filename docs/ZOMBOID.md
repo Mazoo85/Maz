@@ -47,7 +47,8 @@ Run it: `./bin/zomboid` (or `./bin/zomboid --demo` to watch the autopilot show o
   like the damage, so it's your create-space button when something's on top of you.
 - **SMG** — high rate of fire, low per-shot damage, a slight spread.
 - **Railgun** — slow, high-damage hitscan beam that **pierces a whole line** of zombies in one shot,
-  and **shears straight through shields** — your go-to answer to armored zombies and Bulwark waves.
+  **shears straight through shields** — your go-to answer to armored zombies and Bulwark waves — and
+  **pops any explosive barrel** on the beam, so you can line up a pack and a barrel to chain the blast.
 - **Flamethrower** — no bullets; a short **cone of fire** that sets everything in it alight. Melts
   close packs, useless at distance. Sweeping it also **paints a lingering ground-fire trail** that keeps
   burning the lane for a few seconds after you stop — and, being fire, it flashes over any acid puddle it

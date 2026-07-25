@@ -168,6 +168,35 @@ int main() {
         CHECK(activeBullets(tree) >= 1);                                           // visual tracer flew
     }
 
+    // Railgun pops barrels: a barrel straddling the beam detonates (like an ordinary bullet), while one
+    // off the beam is untouched.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        setWeapon(tree, survivor, 3);
+        survivor->setPosition(0.0, 0.0);
+        sField(survivor, "aim_x")->number = 1.0;
+        sField(survivor, "aim_y")->number = 0.0;
+        auto& vm = tree.scripts().vm();
+
+        SceneNode* onBeam = tree.findNode("Barrel0");
+        SceneNode* offBeam = tree.findNode("Barrel1");
+        Value obv = onBeam->script();
+        Value ofv = offBeam->script();
+        std::vector<Value> onAt = {Value::fromNum(12.0), Value::fromNum(0.0)};    // dead on the +x beam
+        std::vector<Value> offAt = {Value::fromNum(12.0), Value::fromNum(10.0)};  // well off the beam
+        vm.callOn(obv, "place", onAt);
+        vm.callOn(ofv, "place", offAt);
+        CHECK(sField(onBeam, "active")->boolean);
+        CHECK(sField(offBeam, "active")->boolean);
+
+        Value sv = survivor->script();
+        std::vector<Value> none;
+        vm.callOn(sv, "do_shoot", none);   // one railgun beam down +x
+        CHECK(!sField(onBeam, "active")->boolean);   // barrel on the beam detonated
+        CHECK(sField(offBeam, "active")->boolean);   // off-beam barrel intact
+    }
+
     // A bullet kills a zombie: park one live zombie in the line of fire and shoot it.
     {
         SceneTree tree;
