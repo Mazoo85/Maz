@@ -3204,6 +3204,25 @@ int main() {
         CHECK(activeAcid(tree) == acidBefore);                       // swatted glob leaves NO puddle
     }
 
+    // Kill momentum feeds mobility: each kill shaves 0.3s off the dodge-roll cooldown, so chaining
+    // kills keeps your escape ready. The refund clamps at 0 and never goes negative.
+    {
+        std::vector<Value> none;
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+
+        sField(survivor, "dash_cd")->number = 2.0;              // mid-cooldown
+        vm.callOn(sv, "on_kill", none);
+        CHECK(std::abs(sField(survivor, "dash_cd")->number - 1.7) < 1e-9);   // shaved 0.3s
+
+        // A kill with the dodge already ready doesn't push the cooldown negative.
+        sField(survivor, "dash_cd")->number = 0.1;
+        vm.callOn(sv, "on_kill", none);
+        CHECK(sField(survivor, "dash_cd")->number == 0.0);      // clamped, not negative
+    }
+
     // Railgun armor-piercing: the beam shears any shield clean off before biting into health, so it's
     // the counter to armored zombies and Bulwark waves. A zombie off the beam keeps its shield.
     {

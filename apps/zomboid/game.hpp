@@ -202,6 +202,13 @@ class Survivor {
         # So keeping a chain alive earns the panic-button ultimate far more often — aggression pays off.
         var gain = 1 + int((g_mult - 1) * 0.5);
         self.add_ult(gain);
+        # Kill momentum feeds mobility: every kill shaves a little off the dodge-roll cooldown, so
+        # staying on the offensive keeps your escape ready. Chaining kills in a tight spot can refresh a
+        # dodge just when you need it — aggression sustains defense.
+        if (self.dash_cd > 0) {
+            self.dash_cd = self.dash_cd - 0.3;
+            if (self.dash_cd < 0) { self.dash_cd = 0; }
+        }
         if (self.kills >= self.next_bonus) {
             self.next_bonus = self.next_bonus + self.bonus_step;
             self.grenades = self.grenades + 1;

@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — kills now shave the dodge-roll cooldown (aggression sustains mobility).** Every kill trims
+  **0.3s off the dodge cooldown**, so staying on the offensive keeps your escape ready — chaining kills
+  in a tight spot can refresh a dodge right when you need it, tying aggression to defense. The refund
+  clamps at zero (never negative). Headless-tested: a kill at 2.0s cooldown drops it to 1.7s, and a kill
+  with the dodge nearly ready leaves it at 0 rather than going negative.
 - **ZOMBOID — melee shove now bats spitter acid globs out of the air.** A well-timed **melee (F)** now
   swats down any incoming spitter acid glob within reach — a defensive read that destroys the glob
   **clean, leaving no caustic puddle** (unlike letting it splat on the ground). So the shove isn't just
