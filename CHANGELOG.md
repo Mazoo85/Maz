@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — fixed the SECOND WIND / OVERCHARGE HUD lines overlapping.**
+  The left-column HUD runs on a ~24px line rhythm, but the banked-revive readout ("SECOND WIND x1") was
+  drawn at y=140 — only 6px above the OVERCHARGE ultimate meter at y=146 — so whenever the player held a
+  revive, the two lines rendered on top of each other and both became unreadable. Moved SECOND WIND to
+  its own clear line (y=194, below the cash/shop row), so it never collides with the ultimate readout.
+  Presentation-only fix; the build, headless smoke, and 3600-frame run all pass.
 - **ZOMBOID — added an off-screen boss direction marker.**
   The camera follows the survivor, so kiting away from a boss can scroll it right off the screen — and
   with no on-screen cue, you could lose track of the wave leader entirely. Added a pulsing magenta marker

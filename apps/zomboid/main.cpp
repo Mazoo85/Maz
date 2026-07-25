@@ -850,7 +850,10 @@ int main(int argc, char** argv) {
                 char revBuf[48];
                 std::snprintf(revBuf, sizeof(revBuf), "SECOND WIND x%d", revives);
                 const float rp = 0.7f + 0.3f * std::sin(static_cast<float>(simTime) * 4.0f);
-                font.drawText(*renderer, 16.0f, 140.0f, revBuf,
+                // Own line below the cash/shop row (y=170): the previous y=140 sat only 6px above the
+                // OVERCHARGE meter (y=146) on the column's ~24px rhythm, so a banked revive overlapped
+                // the ultimate readout. Keep it clear of both.
+                font.drawText(*renderer, 16.0f, 194.0f, revBuf,
                               render::Color{0.95f, 0.85f, 0.35f * rp + 0.2f, 1.0f}, 0.42f);
             }
             // Overcharge ultimate meter.
