@@ -792,6 +792,10 @@ int main(int argc, char** argv) {
                     body = render::Color{1.0f, 0.85f, 0.35f, 1.0f};  // active-reload damage surge glow
                 } else if (field(survivor, "armor") > 0.0) {
                     body = render::Color{0.7f, 0.75f, 0.8f, 1.0f};   // steel plate sheen
+                } else if (field(survivor, "acid_slow") > 0.0) {
+                    // Bogged in a spitter's caustic puddle — a sickly acid-green wash so the "why am I
+                    // crawling?" cue reads even when the survivor's own sprite covers the puddle beneath it.
+                    body = render::Color{0.6f, 0.85f, 0.25f, 1.0f};
                 }
                 // Dodge-roll i-frames: ghost the survivor translucent-blue while invulnerable.
                 if (field(survivor, "iframes") > 0.0) {

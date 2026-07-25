@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — tint the survivor while bogged in acid, closing the last status-without-feedback gap.** Every
+  status the survivor can be in tints the player sprite so its effect reads at a glance — power-up buffs, the
+  last-stand adrenaline pulse, the active-reload surge glow, the armor-plate sheen, and the dodge i-frame
+  ghost — but standing in a spitter's caustic puddle (half movement speed) had no such cue. Because the
+  survivor's sprite largely covers the green puddle beneath it, a slowed player had no clear "why am I
+  crawling?" signal. Added a sickly acid-green wash while `acid_slow` is active, consistent with the other
+  status tints. Host render layer only — no game logic altered; the headless soak run confirms no regression.
 - **ZOMBOID — give the Summoner a visible wind-up telegraph too, completing the back-line caster set.**
   Follow-up to the Screamer/Healer telegraph fix: the Summoner is the third back-line caster whose call
   "winds up with a tell first" per the manual, but it had the same problem — no sustained on-screen tell, only
