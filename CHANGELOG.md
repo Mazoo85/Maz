@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — pin the combo streak's widening grace window.** A kill-streak's decay window isn't fixed: it
+  grows with the multiplier (base 2.5s, +0.5s per step), so a hard-won streak survives a gap between kills
+  that would break a fresh one — the "worth pushing for" resilience the design promises. The existing combo
+  test covers build-up and a plain reset; this pins the resilience: the same ~3.0s idle lull breaks a base
+  streak (mult 1, 2.5s window) but is survived by a hot one (mult 3, 3.5s window) until pushed past its
+  wider gap. Test-only change — no gameplay logic altered.
 - **ZOMBOID — regression-test the `emit()` particle pool + exhaustion guard (the last of four pools).**
   `emit()` draws impact/blood particles from the shared pool (kParticlePool), spawning up to `count` per
   call and naturally fewer once the pool is drained, so the juice system can never overflow. The kill test

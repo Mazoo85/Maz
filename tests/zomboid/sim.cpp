@@ -837,6 +837,37 @@ int main() {
         CHECK((int)glob(tree, "g_mult") == 1);
     }
 
+    // Hot streaks are more resilient: the combo decay window widens with the multiplier (base 2.5s, +0.5s
+    // per mult step), so a hard-won streak survives a gap between kills that would break a fresh one — the
+    // "worth pushing for" grace the design promises. Same ~3.0s idle lull, two streak states: the base one
+    // (mult 1, window 2.5s) breaks, the hot one (mult 3, window 3.5s) holds until pushed past its wider gap.
+    {
+        // Base streak: mult 1 → window 2.5s. A ~3.0s lull breaks it.
+        SceneTree t1;
+        zomboid::buildScene(t1);
+        auto& vm1 = t1.scripts().vm();
+        const_cast<Value*>(vm1.getGlobal("g_combo"))->number = 3.0;
+        const_cast<Value*>(vm1.getGlobal("g_mult"))->number = 1.0;
+        const_cast<Value*>(vm1.getGlobal("g_combo_timer"))->number = 0.0;
+        for (int i = 0; i < 180; ++i) t1.process(1.0 / 60.0);   // ~3.0s with no kills
+        CHECK((int)glob(t1, "g_combo") == 0);                    // broke: 3.0 > 2.5
+        CHECK((int)glob(t1, "g_mult") == 1);
+
+        // Hot streak: mult 3 → window 3.5s. The SAME ~3.0s lull is survived.
+        SceneTree t2;
+        zomboid::buildScene(t2);
+        auto& vm2 = t2.scripts().vm();
+        const_cast<Value*>(vm2.getGlobal("g_combo"))->number = 12.0;
+        const_cast<Value*>(vm2.getGlobal("g_mult"))->number = 3.0;
+        const_cast<Value*>(vm2.getGlobal("g_combo_timer"))->number = 0.0;
+        for (int i = 0; i < 180; ++i) t2.process(1.0 / 60.0);   // ~3.0s — inside the widened window
+        CHECK((int)glob(t2, "g_combo") == 12);                   // held: 3.0 < 3.5
+        CHECK((int)glob(t2, "g_mult") == 3);
+        for (int i = 0; i < 60; ++i) t2.process(1.0 / 60.0);    // ~1.0s more → ~4.0s total > 3.5
+        CHECK((int)glob(t2, "g_combo") == 0);                    // now it finally resets
+        CHECK((int)glob(t2, "g_mult") == 1);
+    }
+
     // High-score meta: beatsBest ranks runs, and the persistence round-trips through KeyValueStore.
     {
         CHECK(zomboid::beatsBest(3, 500, 2, 400));   // a higher score wins
