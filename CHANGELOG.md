@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — fixed a key collision: buying a field kit and switching to the flamethrower were both on key 5.**
+  Keys 1–5 switch weapons (5 = flamethrower) and keys 6–9 buy shop items, but the field-kit buy was also
+  bound to 5 — so a single press of 5 fired *both* actions: switching to the flamethrower silently spent
+  $70 on a field kit (whenever affordable), and buying a field kit force-swapped your weapon to the
+  flamethrower. Moved the field-kit buy to the unused key **0**, so weapon-switching and the shop no longer
+  interfere. Updated the on-screen shop hint ("KIT 70(0)") and the controls doc to match. Verified: builds
+  clean and the full test suite, headless smoke, and 3600-frame run all pass (the collision was in host
+  input dispatch, so it's an input-mapping fix rather than a sim-logic one).
 - **ZOMBOID — grabbing a Cryo Nova no longer cancels your active power-up.** The Cryo Nova is documented as
   a one-shot panic button ("not a sustained buff"), but picking one up actually overwrote the sustained-buff
   slot — resetting `buff_kind`/`buff_timer` and the fire-rate/damage multipliers — so snagging a Cryo Nova

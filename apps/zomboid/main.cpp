@@ -328,14 +328,17 @@ int main(int argc, char** argv) {
             }
 
             // Salvage shop: spend banked cash on ammo (6), a grenade (7), a heal (8), armor (9),
-            // or a field kit (5 — mine + sentry + molotov).
+            // or a field kit (0 — mine + sentry + molotov). The field kit is on 0, NOT 5: keys 1-5 switch
+            // weapons (5 = flamethrower), so binding the field-kit buy to 5 as well fired BOTH actions on
+            // one press — switching to the flamethrower silently spent $70, and buying a kit force-swapped
+            // your weapon. Key 0 (unused by weapon-switch) keeps the two apart.
             if (!autopilot) {
                 int buyKind = -1;
                 if (input.keyPressed(SDL_SCANCODE_6)) buyKind = 0;
                 else if (input.keyPressed(SDL_SCANCODE_7)) buyKind = 1;
                 else if (input.keyPressed(SDL_SCANCODE_8)) buyKind = 2;
                 else if (input.keyPressed(SDL_SCANCODE_9)) buyKind = 3;
-                else if (input.keyPressed(SDL_SCANCODE_5)) buyKind = 4;   // field kit
+                else if (input.keyPressed(SDL_SCANCODE_0)) buyKind = 4;   // field kit (0, not 5 — see above)
                 if (buyKind >= 0) {
                     script::Value self = survivor->script();
                     std::vector<script::Value> a = {script::Value::fromNum(static_cast<double>(buyKind))};
@@ -835,7 +838,7 @@ int main(int argc, char** argv) {
             char cashBuf[128];
             const int armorNow = static_cast<int>(field(survivor, "armor"));
             std::snprintf(cashBuf, sizeof(cashBuf),
-                          "$%d  ARMOR %d   BUY: AMMO 50(6) NADE 40(7) HEAL 60(8) ARMOR 80(9) KIT 70(5)",
+                          "$%d  ARMOR %d   BUY: AMMO 50(6) NADE 40(7) HEAL 60(8) ARMOR 80(9) KIT 70(0)",
                           static_cast<int>(globalNum(tree, "g_cash")), armorNow);
             font.drawText(*renderer, 16.0f, 170.0f, cashBuf, render::Color{0.95f, 0.85f, 0.35f, 1.0f},
                           0.45f);
