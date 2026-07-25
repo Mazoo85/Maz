@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — regression-test the enraged boss's doubled slam cadence.** An enraged boss (below 35% health)
+  gets four buffs: faster movement, a self-heal, reinforcement calls, and — per the manual — it "slams twice
+  as often" (its ground-slam cooldown re-arms to 2.0s instead of 4.0s). The first three each had a test; the
+  halved slam interval did not. Added a test that fires a slam in both states and confirms the cooldown
+  re-arms to 4.0s when calm and 2.0s once enraged, completing the enrage-phase coverage. Test-only change —
+  no gameplay logic altered.
 - **ZOMBOID — regression-test the double-damage power-up (kind 1).** Of the ten power-ups, double-damage was
   the only one whose signature effect had no direct test — rapid-fire, piercing, cryo nova, vampiric,
   overflow, frost field, berserk, field medic, and shield all do. Added a test that grants it and confirms it

@@ -3237,6 +3237,46 @@ int main() {
         CHECK(sField(b4, "health")->number <= chillBase);   // chilled → self-heal shut off (never climbs)
     }
 
+    // Boss enrage slam cadence: the manual promises an enraged boss "slams twice as often". When a slam
+    // fires it re-arms its cooldown to slam_gap — 4.0s normally, 2.0s once enraged. The enrage speed,
+    // self-heal, and reinforcement-call are each tested above; this pins the last enrage sub-effect, the
+    // halved slam interval, which none of them exercise. Driving one _process with the slam ready re-arms
+    // the timer to the current gap, so the two states are read straight off slam_cd.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        std::vector<Value> bossSpawn = {Value::fromNum(6.0), Value::fromNum(0.0),
+                                        Value::fromNum(3.0), Value::fromNum(5.0)};  // boss (kind 3), wave 5
+
+        // Not enraged: a fired slam re-arms to the full 4.0s gap.
+        SceneTree t1;
+        SceneNode* p1 = zomboid::buildScene(t1);
+        p1->setPosition(0.0, 0.0);
+        auto& vm1 = t1.scripts().vm();
+        Value bv1 = t1.findNode("Zombie0")->script();
+        vm1.callOn(bv1, "spawn", bossSpawn);
+        sField(t1.findNode("Zombie0"), "speed")->number = 0.0;   // pin it (distance is irrelevant to the re-arm)
+        sField(t1.findNode("Zombie0"), "slam_cd")->number = 0.0; // slam ready this frame
+        sField(t1.findNode("Zombie0"), "slam_warn")->number = 0.0;
+        CHECK(!sField(t1.findNode("Zombie0"), "enraged")->boolean);   // full health → calm
+        vm1.callOn(bv1, "_process", dt);                             // fires the slam, re-arms the cooldown
+        CHECK(std::abs(sField(t1.findNode("Zombie0"), "slam_cd")->number - 4.0) < 1e-9); // full 4s gap
+
+        // Enraged: the same fired slam re-arms to only 2.0s — twice as often.
+        SceneTree t2;
+        SceneNode* p2 = zomboid::buildScene(t2);
+        p2->setPosition(0.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        Value bv2 = t2.findNode("Zombie0")->script();
+        vm2.callOn(bv2, "spawn", bossSpawn);
+        sField(t2.findNode("Zombie0"), "speed")->number = 0.0;
+        sField(t2.findNode("Zombie0"), "enraged")->boolean = true;   // force the rage phase
+        sField(t2.findNode("Zombie0"), "summon_budget")->number = 0.0; // no reinforcement noise
+        sField(t2.findNode("Zombie0"), "slam_cd")->number = 0.0;
+        sField(t2.findNode("Zombie0"), "slam_warn")->number = 0.0;
+        vm2.callOn(bv2, "_process", dt);
+        CHECK(std::abs(sField(t2.findNode("Zombie0"), "slam_cd")->number - 2.0) < 1e-9); // halved gap
+    }
+
     // Boss bounty: felling a boss (the wave leader) always drops a full care package — a guaranteed
     // medkit AND a guaranteed power-up — unlike an ordinary zombie whose drops are a rare dice roll.
     {
