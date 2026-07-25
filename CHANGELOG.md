@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — new Berserk power-up (a combined offensive surge).** A ninth power-up joins the drop
+  pool: **Berserk** lifts **both** your fire-rate *and* your damage at once (each ×1.7), where Rapid
+  Fire boosts only rate and Double Damage only damage — so it's the "go loud" button, the biggest
+  all-round burst of offense in a single pickup. It drops off the field like the others and is
+  guaranteed to be a candidate in a boss's care-package roll. Headless-tested: granting Berserk sets
+  both buff multipliers to 1.7 (both above 1), tags the buff, starts the timer, and the survivor's
+  derived fire rate genuinely outpaces its un-buffed baseline.
 - **ZOMBOID — medkits are never wasted (overflow banks as armor).** Picking up a medkit heals as
   before, but any healing past full health is now **converted to bonus body armor** (up to the plate
   cap) instead of being thrown away — so grabbing a kit while already topped up still pays off. Applies

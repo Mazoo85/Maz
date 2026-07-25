@@ -3647,6 +3647,37 @@ int main() {
         CHECK(minAmmo2 < full2);                             // normal fire spent rounds
     }
 
+    // Berserk power-up (kind 8): a combined offensive surge — it raises BOTH the fire-rate and the
+    // damage multiplier at once (rapid boosts only rate, double-damage only damage). Verify the grant
+    // sets both buff multipliers above 1, tags the buff kind, and starts the timer; and that the
+    // resulting fire rate genuinely outpaces the un-buffed baseline.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+
+        // Baseline fire rate with no buff (after one process tick to settle derived stats).
+        tree.process(1.0 / 60.0);
+        const double baseFr = sField(survivor, "fire_rate")->number;
+
+        std::vector<Value> eight = {Value::fromNum(8.0)};
+        vm.callOn(sv, "grant_powerup", eight);
+        CHECK((int)sField(survivor, "buff_kind")->number == 8);   // tagged berserk
+        CHECK(sField(survivor, "buff_timer")->number > 0.0);      // timer running
+        CHECK(sField(survivor, "buff_fr")->number > 1.0);         // fire-rate boosted
+        CHECK(sField(survivor, "buff_dmg")->number > 1.0);        // AND damage boosted
+        // Distinct from rapid (fr-only) and double-damage (dmg-only): both are lifted together.
+        CHECK(sField(survivor, "buff_fr")->number == 1.7);
+        CHECK(sField(survivor, "buff_dmg")->number == 1.7);
+
+        // The buff flows through to the derived fire_rate — a berserker fires faster.
+        tree.process(1.0 / 60.0);
+        CHECK(sField(survivor, "fire_rate")->number > baseFr);
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

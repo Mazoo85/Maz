@@ -485,6 +485,9 @@ class Survivor {
         if (kind == 0) { self.buff_fr = 2.2; }   # rapid fire
         if (kind == 1) { self.buff_dmg = 2.2; }  # double damage
         if (kind == 3) { self.pierce_shots = true; }  # piercing rounds
+        # Berserk (kind 8): a combined offensive surge — fire rate AND damage both jump at once, so
+        # it's the "go loud" button (rapid boosts only rate, double-damage only damage; this is both).
+        if (kind == 8) { self.buff_fr = 1.7; self.buff_dmg = 1.7; }
         # Cryo nova (kind 4): an instant panic button — chills every zombie on the field so a swarm
         # crawls while you reposition. One-shot on pickup rather than a sustained buff.
         if (kind == 4) {
@@ -2350,8 +2353,8 @@ class Zombie {
             # A just reward for grinding down the hardest target on the field.
             if (self.kind == 3) {
                 drop_medkit(self.node.x, self.node.y);
-                var bpk = int(randf_range(0, 8));
-                if (bpk > 7) { bpk = 7; }
+                var bpk = int(randf_range(0, 9));
+                if (bpk > 8) { bpk = 8; }
                 drop_powerup(self.node.x - 2.0, self.node.y, bpk);
                 emit(self.node.x, self.node.y, 24, 1);   # triumphant burst
             }
@@ -2383,10 +2386,10 @@ class Zombie {
                 if (randf() < 0.12) { drop_medkit(self.node.x, self.node.y); }
             }
             # Rarely it drops a power-up instead (rapid-fire, damage, shield, piercing, cryo, vampiric,
-            # overflow).
+            # overflow, frost field, berserk).
             if (randf() < 0.05) {
-                var pk = int(randf_range(0, 8));
-                if (pk > 7) { pk = 7; }
+                var pk = int(randf_range(0, 9));
+                if (pk > 8) { pk = 8; }
                 drop_powerup(self.node.x, self.node.y, pk);
             }
             # And sometimes an ammo box, to keep reserves topped up between crates.

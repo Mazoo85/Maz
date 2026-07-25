@@ -134,6 +134,9 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
 - **Overflow** — infinite ammo and no reloads for a while — hose down a wave without pausing.
 - **Frost Field** — a lingering cold aura that keeps *every* zombie crawling at half speed for its
   duration (unlike the one-shot Cryo Nova), so you can reposition or thin a swarm at your leisure.
+- **Berserk** — a combined offensive surge: fire rate **and** damage both jump at once (where Rapid
+  Fire boosts only rate and Double Damage only damage), so it's the "go loud" button — your biggest
+  all-round burst of firepower from a single pickup.
 
 ## Combat systems worth knowing
 
