@@ -1230,6 +1230,39 @@ int main() {
         CHECK(sField(survivor, "health")->number < 100.0);    // vulnerable again
     }
 
+    // Dash bulldozes each body once, not once per frame. A dash lasts ~13 frames; a zombie sitting in the
+    // path overlaps the survivor across several of them. dash_struck() dedups so the body takes exactly one
+    // dash strike (40 dmg) for the whole dash — without that guard it would be re-hit every overlapping
+    // frame and instantly deleted. Forcing a second identical overlap mid-dash must land no extra damage.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        Value sv = survivor->script();
+        survivor->setPosition(0.0, 0.0);
+
+        SceneNode* zomb = tree.findNode("Zombie0");
+        Value zv = zomb->script();
+        std::vector<Value> sp = {Value::fromNum(0.5), Value::fromNum(0.0),
+                                 Value::fromNum(500.0), Value::fromNum(0.0)};  // tanky, stationary, in range
+        tree.scripts().vm().callOn(zv, "spawn_at", sp);
+        const double hp0 = sField(zomb, "health")->number;
+
+        std::vector<Value> dir = {Value::fromNum(1.0), Value::fromNum(0.0)};
+        CHECK(tree.scripts().vm().callOn(sv, "dash", dir).boolean);
+
+        std::vector<Value> dtv = {Value::fromNum(1.0 / 60.0)};
+        tree.scripts().vm().callOn(sv, "_process", dtv);       // first overlap frame → one strike
+        const double afterFirst = sField(zomb, "health")->number;
+        CHECK(std::abs((hp0 - afterFirst) - 40.0) < 1e-6);     // exactly one dash strike (dash_dmg 40)
+
+        // Force a second identical overlap while the dash is still active: dash_struck() must refuse it.
+        CHECK(sField(survivor, "dash_time")->number > 0.0);    // still mid-dash
+        survivor->setPosition(0.0, 0.0);
+        zomb->setPosition(0.5, 0.0);
+        tree.scripts().vm().callOn(sv, "_process", dtv);       // overlap again — no new strike
+        CHECK(sField(zomb, "health")->number == afterFirst);   // dedup held: still one strike total
+    }
+
     // Melee shove: a free close-range swing that damages and knocks back adjacent zombies, then
     // goes on cooldown. Zombies out of range are untouched.
     {

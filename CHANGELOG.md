@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — regression-test the dash's once-per-body strike guard.** A dash lasts ~13 frames and a zombie
+  sitting in the path overlaps the survivor across several of them; `dash_struck()` dedups so the body takes
+  exactly one dash strike (40 dmg) for the whole dash, not one per overlapping frame (which would delete it
+  instantly). The new test lands the strike, then forces a second identical overlap mid-dash and confirms
+  no extra damage is dealt. Test-only change — no gameplay logic altered.
 - **ZOMBOID — pin the overkill burst's growing radius.** A massive overkill throws not just a heavier gib
   shockwave but a wider one — the burst reaches radius 4 at the threshold and grows to ~5.83 on a capped
   monster hit. The existing tests pin the damage scaling; this pins the reach: a neighbour parked at
