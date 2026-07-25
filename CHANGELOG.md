@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — pin the end-of-run rank thresholds and complete the grade-letter coverage.** The death screen
+  grades each run S/A/B/C/D via `runRank(wave, kills, accuracy)`, whose four point cutoffs (400/800/1300/1900)
+  decide what a run earns. The existing test hit D/B/S and monotonicity but never pinned the exact cutoffs or
+  the two mid tiers (C, A) — a balance tweak that shifted a threshold, or a rank the composite could no longer
+  reach, would pass unnoticed. Added boundary assertions that each cutoff lands on its intended grade with one
+  point below dropping a tier, plus the C and A letters, so the whole D/C/B/A/S ladder is locked. Test-only
+  change — no gameplay logic altered.
 - **ZOMBOID — surface the RELOAD key in the on-screen controls hint.** The controls one-liner listed most
   actions (move / aim / fire / weapons / dodge / melee / mine / grenade / eat) but omitted **R (reload)** —
   the one referenced key not shown anywhere else on the HUD (the gadget keys appear on the gadget line, the

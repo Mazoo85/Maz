@@ -812,6 +812,21 @@ int main() {
         CHECK(std::string(zomboid::runRankLetter(0)) == "D");
         CHECK(std::string(zomboid::runRankLetter(2)) == "B");
         CHECK(std::string(zomboid::runRankLetter(4)) == "S");
+        // ...and the two intermediate letters, so the whole D/C/B/A/S table is pinned.
+        CHECK(std::string(zomboid::runRankLetter(1)) == "C");
+        CHECK(std::string(zomboid::runRankLetter(3)) == "A");
+        // Exact tier thresholds (points = wave*120 + kills*6 + accuracy*4): every boundary lands on the
+        // intended grade, and one point below it drops a tier. This pins the four magic cutoffs (400/800/
+        // 1300/1900) that decide what a run earns — a balance tweak that shifts them can't slip by unnoticed,
+        // and it confirms the two mid tiers (C, A) are actually reachable, not just the D/B/S the checks above hit.
+        CHECK(zomboid::runRank(0, 0, 100) == 1);   // 400 pts -> C (just reaches the C cutoff)
+        CHECK(zomboid::runRank(0, 0, 99) == 0);    // 396 pts -> D (just under it)
+        CHECK(zomboid::runRank(5, 0, 50) == 2);    // 800 pts -> B
+        CHECK(zomboid::runRank(5, 0, 49) == 1);    // 796 pts -> C
+        CHECK(zomboid::runRank(10, 0, 25) == 3);   // 1300 pts -> A
+        CHECK(zomboid::runRank(10, 0, 24) == 2);   // 1296 pts -> B
+        CHECK(zomboid::runRank(15, 0, 25) == 4);   // 1900 pts -> S
+        CHECK(zomboid::runRank(15, 0, 24) == 3);   // 1896 pts -> A
 
         // Mutator HUD effect lines: every active mutator (1-9) has a non-empty, distinct plain-language
         // effect string (shown under its codename), and "no mutator" / out-of-range map to empty.
