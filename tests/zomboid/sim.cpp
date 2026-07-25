@@ -2883,6 +2883,56 @@ int main() {
         CHECK(std::abs(sField(survivor, "move_mult")->number - 1.16) < 1e-9);
     }
 
+    // Shotgun point-blank knockback: a shotgun pellet (falloff) lands a heavy shove that fades with
+    // travel, where a plain round gives only a light nudge — the shotgun's crowd-control identity.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        std::vector<Value> none;
+        // fire(px, py, dirx, diry, speed, dmg): a bullet placed just behind a zombie at (10,0).
+        std::vector<Value> shot = {Value::fromNum(8.0), Value::fromNum(0.0), Value::fromNum(1.0),
+                                   Value::fromNum(0.0), Value::fromNum(70.0), Value::fromNum(5.0)};
+        std::vector<Value> zsp = {Value::fromNum(10.0), Value::fromNum(0.0),
+                                  Value::fromNum(0.0), Value::fromNum(8.0)};  // walker, wave 8
+
+        // Method-level: a fresh pellet's shove is far stronger than a plain round's.
+        SceneTree t0;
+        zomboid::buildScene(t0);
+        auto& vm0 = t0.scripts().vm();
+        Value b0 = t0.findNode("Bullet0")->script();
+        vm0.callOn(b0, "fire", shot);
+        const double plainKnock = vm0.callOn(b0, "knock_strength", none).number;   // falloff off
+        sField(t0.findNode("Bullet0"), "falloff")->boolean = true;
+        const double pelletKnock = vm0.callOn(b0, "knock_strength", none).number;  // falloff on, fresh
+        CHECK(std::abs(plainKnock - 0.6) < 1e-9);
+        CHECK(std::abs(pelletKnock - 3.5) < 1e-9);
+        CHECK(pelletKnock > plainKnock * 4.0);
+
+        // End-to-end: a shotgun pellet bodily knocks the zombie back farther than a pistol round does.
+        SceneTree tp;
+        zomboid::buildScene(tp);
+        auto& vmp = tp.scripts().vm();
+        Value zp = tp.findNode("Zombie0")->script();
+        vmp.callOn(zp, "spawn", zsp);
+        Value bp = tp.findNode("Bullet0")->script();
+        vmp.callOn(bp, "fire", shot);                       // pistol round (no falloff)
+        vmp.callOn(bp, "_process", dt);
+        const double pistolPush = tp.findNode("Zombie0")->x() - 10.0;
+
+        SceneTree ts;
+        zomboid::buildScene(ts);
+        auto& vms = ts.scripts().vm();
+        Value zs = ts.findNode("Zombie0")->script();
+        vms.callOn(zs, "spawn", zsp);
+        Value bs = ts.findNode("Bullet0")->script();
+        vms.callOn(bs, "fire", shot);
+        sField(ts.findNode("Bullet0"), "falloff")->boolean = true;  // shotgun pellet
+        vms.callOn(bs, "_process", dt);
+        const double shotgunPush = ts.findNode("Zombie0")->x() - 10.0;
+
+        CHECK(pistolPush > 0.0);                 // both shove the zombie in the fire direction
+        CHECK(shotgunPush > pistolPush * 3.0);   // but the point-blank pellet shoves far harder
+    }
+
     // Railgun armor-piercing: the beam shears any shield clean off before biting into health, so it's
     // the counter to armored zombies and Bulwark waves. A zombie off the beam keeps its shield.
     {

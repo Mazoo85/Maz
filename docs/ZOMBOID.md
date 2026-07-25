@@ -40,7 +40,9 @@ Run it: `./bin/zomboid` (or `./bin/zomboid --demo` to watch the autopilot show o
 
 - **Pistol** — accurate, reliable, unlimited-ish reserve. Your default.
 - **Shotgun** — a spread of pellets that hit hardest **point-blank** and lose damage with distance;
-  devastating in a zombie's face, weak across the arena.
+  devastating in a zombie's face, weak across the arena. Up close it also **bodily knocks zombies back**
+  — a face-full flings the target away and buys you breathing room — and that shove fades with range just
+  like the damage, so it's your create-space button when something's on top of you.
 - **SMG** — high rate of fire, low per-shot damage, a slight spread.
 - **Railgun** — slow, high-damage hitscan beam that **pierces a whole line** of zombies in one shot,
   and **shears straight through shields** — your go-to answer to armored zombies and Bulwark waves.

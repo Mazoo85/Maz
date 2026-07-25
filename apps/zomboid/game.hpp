@@ -1058,6 +1058,18 @@ class Bullet {
         return self.damage * frac;
     }
 
+    # How hard this bullet shoves the zombie it hits. Plain rounds give a light 0.6 nudge; a shotgun
+    # pellet (falloff) lands a heavy point-blank shove that fades with travel — so a shotgun to the face
+    # bodily knocks a zombie back (its crowd-control identity), while pellets fired across the arena
+    # barely budge it. Scales on the same freshness ramp as the pellet's damage.
+    func knock_strength() {
+        if (self.falloff == false) { return 0.6; }
+        var frac = self.life / self.max_life;   # 1.0 just-fired → 0.0 at the end of its life
+        if (frac > 1.0) { frac = 1.0; }
+        if (frac < 0.4) { frac = 0.4; }
+        return 3.5 * frac;
+    }
+
     # True unless this bullet has already struck zombie `z` on an earlier frame (piercing bookkeeping).
     func not_hit(z) {
         var i = 0;
@@ -1087,7 +1099,7 @@ class Bullet {
                 var rr = self.hit_radius + z.radius;
                 if (dx * dx + dy * dy <= rr * rr) {
                     var spd = sqrt(self.vx * self.vx + self.vy * self.vy);
-                    if (spd > 0.001) { z.hit_knockback(self.vx / spd, self.vy / spd, 0.6); }
+                    if (spd > 0.001) { z.hit_knockback(self.vx / spd, self.vy / spd, self.knock_strength()); }
                     z.take_damage(self.effective_damage());
                     z.apply_bleed(1);   # kinetic round tears a bleeding wound
                     if (g_player != nil) {

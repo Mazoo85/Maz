@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the shotgun now bodily knocks zombies back point-blank.** A shotgun pellet at close range
+  lands a **heavy shove** (not just heavy damage), and that shove **fades with travel** on the same ramp
+  as its damage falloff — so a blast to the face flings a zombie back and buys you space, while pellets
+  fired across the arena barely nudge it. Gives the shotgun a real crowd-control identity beyond raw
+  point-blank damage. Plain rounds keep their light nudge. Headless-tested: a fresh pellet's knockback is
+  3.5 vs a plain round's 0.6, and end-to-end a point-blank pellet shoves a zombie back over 3× as far as
+  a pistol round.
 - **ZOMBOID — new between-wave upgrade: move speed.** The permanent upgrade cycle grows from six picks
   to seven, adding a **+move-speed** boost (+8% walk speed per pick). Mobility is king in a twin-stick
   survival game, so a fleeter survivor kites the horde, reaches loot, and slips out of hazards more
