@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the Warper now telegraphs its blink.** The teleporting Warper used to phase in with zero
+  warning; now it **shimmers violet and roots itself for a brief wind-up** before the blink actually
+  fires (matching the boss slam and leaper pounce tells), so the teleport is a readable, reactable
+  threat instead of an unfair pop-in — shoot it during the tell or reposition. Headless-tested: a
+  ready Warper spends a frame charging (rooted, no teleport) and only phases in after the wind-up.
 - **ZOMBOID — new shop item: the field kit ($70, key 5).** The salvage shop now sells a **field kit**
   that restocks the tactical gadgets in one buy — a **mine, a sentry, and a molotov** — giving the
   placement tools a reliable cash source between supply crates instead of relying on crate luck. Joins

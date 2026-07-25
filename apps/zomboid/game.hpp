@@ -1871,6 +1871,7 @@ class Zombie {
     var leap_vx = 0;       # leaper: stored pounce velocity locked in at the start of the lunge
     var leap_vy = 0;
     var warp_cd = 0;       # warper (kind 13): cooldown between blinks toward the survivor
+    var warp_warn = 0;     # warper: telegraph shimmer counting down before a blink actually fires
     var bleed_stacks = 0;  # laceration stacks from kinetic rounds — each ticks damage over time
     var bleed_timer = 0;   # while > 0 the wound is open and bleeding; refreshed by fresh hits
     var bleed_tick = 0;    # accumulator so bleed damage lands in periodic ticks, not every frame
@@ -2168,6 +2169,7 @@ class Zombie {
                                                 self.attack_range = 1.2;
                                                 self.score_value = 26;
                                                 self.warp_cd = 2.0;
+                                                self.warp_warn = 0;
                                             } else {
                                                 self.health = 25 + w * 8;
                                                 self.speed = 13 + w;
@@ -2605,14 +2607,26 @@ class Zombie {
         # survivor in a single instant — erasing distance a walker never could and appearing right on
         # top of you. It only blinks while there's real ground to cover, then walks the last stretch.
         if (self.kind == 13 and self.stagger_timer <= 0) {
+            if (self.warp_warn > 0) {
+                # Winding up: the warper shimmers in place for a beat before it phases, giving the
+                # survivor a fair tell to shoot it or reposition. It's rooted during the tell, then
+                # commits the blink toward wherever the survivor is when the wind-up finishes.
+                self.warp_warn = self.warp_warn - dt;
+                if (self.warp_warn <= 0 and dist > 4.0) {
+                    self.node.x = self.node.x + (dx / dist) * (dist * 0.5);
+                    self.node.y = self.node.y + (dy / dist) * (dist * 0.5);
+                    self.warp_cd = 2.5;
+                    emit(self.node.x, self.node.y, 12, 0);   # blink shimmer at the arrival point
+                }
+                return;   # rooted through the telegraph
+            }
             self.warp_cd = self.warp_cd - dt;
             # A chilled warper is locked down — a frozen body can't phase, so cryo (a Cryo Nova or a
             # Frost Field) is a hard counter that pins it in place until the chill wears off.
             if (self.warp_cd <= 0 and dist > 8.0 and self.slow_timer <= 0) {
-                self.node.x = self.node.x + (dx / dist) * (dist * 0.5);
-                self.node.y = self.node.y + (dy / dist) * (dist * 0.5);
-                self.warp_cd = 2.5;
-                emit(self.node.x, self.node.y, 12, 0);   # blink shimmer at the arrival point
+                self.warp_warn = 0.3;                        # start the telegraph shimmer
+                emit(self.node.x, self.node.y, 2, 1);        # tell puff as it charges the blink
+                return;                                      # root it the instant the tell begins
             }
         }
         if (dist > self.attack_range) {

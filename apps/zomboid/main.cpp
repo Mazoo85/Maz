@@ -682,6 +682,11 @@ int main(int argc, char** argv) {
                     const float lp = 0.6f + 0.4f * std::sin(static_cast<float>(simTime) * 38.0f);
                     tint = render::Color{0.7f * lp, 1.0f, 0.3f, 1.0f};
                 }
+                // Warper blink wind-up: a bright violet shimmer as it charges the teleport — shoot it now.
+                if (field(z, "warp_warn") > 0.0) {
+                    const float vp = 0.6f + 0.4f * std::sin(static_cast<float>(simTime) * 42.0f);
+                    tint = render::Color{0.8f * vp + 0.2f, 0.4f * vp, 1.0f, 1.0f};
+                }
                 // Burning overrides other tints: a flickering ember glow.
                 if (field(z, "burn_timer") > 0.0) {
                     const float fl = 0.7f + 0.3f * std::sin(static_cast<float>(simTime) * 24.0f +

@@ -2979,13 +2979,13 @@ int main() {
         CHECK(leaper->x() < x0);                             // closed the gap (moved toward the origin)
     }
 
-    // Warper (kind 13): a teleporter that blinks a big chunk of the way to the survivor in a single
-    // instant when its cooldown is ready and there's real ground to cover — closing a gap no walker
+    // Warper (kind 13): a teleporter that telegraphs a blink (a brief rooted wind-up shimmer) then
+    // phases a big chunk of the way to the survivor in a single instant — closing a gap no walker
     // could. With the cooldown still running it only shambles, barely moving.
     {
         std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
 
-        // Blink case: cooldown ready, 40 units out — one tick teleports it to roughly the midpoint.
+        // Blink case: cooldown ready, 40 units out. First it winds up (rooted), then it phases in.
         SceneTree t1;
         SceneNode* surv1 = zomboid::buildScene(t1);
         surv1->setPosition(0.0, 0.0);
@@ -2998,8 +2998,11 @@ int main() {
         CHECK((int)sField(w1, "kind")->number == 13);
         sField(w1, "warp_cd")->number = 0.0;              // ready to blink
         vm1.callOn(wz1, "_process", dt);
+        CHECK(sField(w1, "warp_warn")->number > 0.0);      // telegraphing — charging the blink...
+        CHECK(w1->x() > 39.0);                             // ...and rooted during the tell, no teleport
+        for (int i = 0; i < 25; ++i) { vm1.callOn(wz1, "_process", dt); }   // wind-up elapses, it phases
         CHECK(w1->x() < 25.0);                             // teleported way in from 40...
-        CHECK(w1->x() > 15.0);                             // ...to about the halfway point
+        CHECK(w1->x() > 12.0);                             // ...to about the halfway point (then walks a bit)
         CHECK(sField(w1, "warp_cd")->number > 2.0);        // blink put the cooldown back on
 
         // No-blink case: cooldown not ready — the same warper only shambles a hair this tick.
