@@ -1291,6 +1291,75 @@ int main() {
         CHECK(sField(survivor, "sentries")->number == stock1 + 1.0);
     }
 
+    // Sentry threat-priority targeting: a sentry's magazine is scarce, so it focus-fires the highest-
+    // threat zombie in range (via threat_of) rather than whatever body is merely nearest — a summoner or
+    // healer outranks a walker even when the walker is closer. Among equal-threat targets, the nearest is
+    // taken first. This locks in threat_of's hand-maintained priority table and the tie-break, the
+    // sentry's headline behavior, which the range/lifetime test above does not exercise.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        Value sv = survivor->script();
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        std::vector<Value> none;
+        vm.callOn(sv, "place_sentry", none);
+        SceneNode* sen = tree.findNode("Sentry0");
+        Value senv = sen->script();
+        sen->setPosition(0.0, 0.0);
+        std::vector<Value> dtv = {Value::fromNum(1.0 / 60.0)};
+
+        // A low-threat walker (kind 0) parked CLOSE, and a high-threat summoner (kind 7) parked FARTHER —
+        // both well inside the sentry's 16-unit range.
+        SceneNode* nearWalker = tree.findNode("Zombie0");
+        SceneNode* farSummoner = tree.findNode("Zombie1");
+        Value nwS = nearWalker->script();
+        Value fsS = farSummoner->script();
+        std::vector<Value> nearAt = {Value::fromNum(4.0), Value::fromNum(0.0), Value::fromNum(500.0),
+                                     Value::fromNum(0.0)};
+        std::vector<Value> farAt = {Value::fromNum(11.0), Value::fromNum(0.0), Value::fromNum(500.0),
+                                    Value::fromNum(0.0)};
+        vm.callOn(nwS, "spawn_at", nearAt);
+        vm.callOn(fsS, "spawn_at", farAt);
+        sField(nearWalker, "kind")->number = 0.0;   // walker  — threat 10
+        sField(farSummoner, "kind")->number = 7.0;  // summoner — threat 80
+        const double nearHp0 = sField(nearWalker, "health")->number;
+        const double farHp0 = sField(farSummoner, "health")->number;
+
+        for (int i = 0; i < 60; ++i) vm.callOn(senv, "_process", dtv);
+        // The far summoner is bleeding despite the walker being closer; the near walker is untouched.
+        CHECK(sField(farSummoner, "health")->number < farHp0);
+        CHECK(sField(nearWalker, "health")->number == nearHp0);
+
+        // Tie-break: with two EQUAL-threat walkers in range, the nearer one is shot first.
+        SceneTree t2;
+        SceneNode* surv2 = zomboid::buildScene(t2);
+        Value sv2 = surv2->script();
+        surv2->setPosition(0.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        vm2.callOn(sv2, "place_sentry", none);
+        SceneNode* sen2 = t2.findNode("Sentry0");
+        Value sen2v = sen2->script();
+        sen2->setPosition(0.0, 0.0);
+        SceneNode* nearW = t2.findNode("Zombie0");
+        SceneNode* farW = t2.findNode("Zombie1");
+        Value nwv = nearW->script();
+        Value fwv = farW->script();
+        std::vector<Value> nAt = {Value::fromNum(4.0), Value::fromNum(0.0), Value::fromNum(500.0),
+                                  Value::fromNum(0.0)};
+        std::vector<Value> fAt = {Value::fromNum(11.0), Value::fromNum(0.0), Value::fromNum(500.0),
+                                  Value::fromNum(0.0)};
+        vm2.callOn(nwv, "spawn_at", nAt);
+        vm2.callOn(fwv, "spawn_at", fAt);
+        sField(nearW, "kind")->number = 0.0;   // both plain walkers — identical threat
+        sField(farW, "kind")->number = 0.0;
+        const double nW0 = sField(nearW, "health")->number;
+        const double fW0 = sField(farW, "health")->number;
+        for (int i = 0; i < 60; ++i) vm2.callOn(sen2v, "_process", dtv);
+        CHECK(sField(nearW, "health")->number < nW0);   // nearer of the like pair takes fire
+        CHECK(sField(farW, "health")->number == fW0);   // farther like target waits its turn
+    }
+
     // Burning status: an ignited zombie takes fire damage over time, then the fire burns out.
     {
         SceneTree tree;

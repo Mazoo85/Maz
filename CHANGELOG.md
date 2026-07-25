@@ -8,6 +8,15 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — locked in the auto-turret's "shoot the biggest threat, not the nearest body" behavior with a test.**
+  The deployable sentry is supposed to spend its scarce magazine wisely: it focus-fires the most dangerous
+  zombie in range (a summoner that spawns reinforcements, a healer that undoes your damage, a boss) rather
+  than plinking whatever walker happens to be closest — and among equally-dangerous targets it takes the
+  nearest first. That prioritization runs through a hand-maintained 14-entry threat table, and the existing
+  sentry test only checked range and lifetime, never the targeting itself. Added a regression test: with a
+  low-threat walker parked close and a high-threat summoner farther away (both in range), the sentry must
+  hit the summoner and leave the walker untouched; and with two identical walkers, the nearer is shot first.
+  Test-only change — the game is unchanged; full suite, headless smoke, and the 3600-frame run all pass.
 - **ZOMBOID — the armor plate's shatter burst now fires reliably on the hit that spends it.**
   When your body-armor plate breaks it throws off a concussive burst that shoves and staggers nearby
   zombies — a defensive payoff for wearing a plate into the crush. But there was a gap: if a hit landed
