@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — regression-test the flamethrower's ground-fire trail + throttle.** Firing the flamethrower
+  doesn't just cone-burn what's in front — it also lays a lingering fire patch ahead of the survivor on a
+  short throttle, so sweeping the stream paints burning ground that keeps denying the lane after the stream
+  stops. The cone test pins the direct burn; this pins the trail: one shot drops a patch and arms the
+  throttle, and an immediate second shot lays no new patch until the throttle clears. Test-only change — no
+  gameplay logic altered.
 - **ZOMBOID — pin the ultimate's cryo-lock-the-survivors branch.** The overcharge ultimate (`detonate`)
   hammers every zombie for 500, but anything too tough to one-shot — a boss, a shielded bulwark, a beefy
   elite — is left deep-frozen instead, which (since a chilled caster is silenced) shuts the back line down

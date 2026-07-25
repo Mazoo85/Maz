@@ -3306,6 +3306,37 @@ int main() {
         CHECK(sField(offAxis, "burn_timer")->number == 0.0);
     }
 
+    // Flamethrower ground-fire trail: firing lays a lingering fire patch ahead of the survivor on a short
+    // throttle (flame_cd), so sweeping the stream paints burning ground that keeps denying the lane after
+    // it stops. The cone test above pins the direct burn; this pins the trail and its throttle — one shot
+    // drops a patch and arms the throttle, and an immediate second shot lays no new patch until it clears.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+        setWeapon(tree, survivor, 4);                     // flamethrower
+        sField(survivor, "aim_x")->number = 1.0;          // aim +x
+        sField(survivor, "aim_y")->number = 0.0;
+        sField(survivor, "flame_cd")->number = 0.0;       // trail ready to lay a patch
+        auto activeFires = [](SceneTree& t) {
+            int c = 0;
+            for (SceneNode* f : t.nodesInGroup("fires"))
+                if (sField(f, "active")->boolean) ++c;
+            return c;
+        };
+        CHECK(activeFires(tree) == 0);
+
+        std::vector<Value> none;
+        vm.callOn(sv, "do_shoot", none);
+        CHECK(activeFires(tree) == 1);                     // a fire patch dropped ahead
+        CHECK(sField(survivor, "flame_cd")->number > 0.0); // ...and the throttle is armed
+
+        vm.callOn(sv, "do_shoot", none);                   // fire again immediately
+        CHECK(activeFires(tree) == 1);                     // throttle still up → no second patch yet
+    }
+
     // Wave scaling: the endless-mode difficulty curve rests on enemy HP growing with the wave number
     // (health = base + wave * k). Spawn representative kinds at an early and a late wave and confirm the
     // late spawn is strictly tougher — a guard against anyone dropping the wave term and flattening the
