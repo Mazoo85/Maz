@@ -2317,9 +2317,12 @@ class Zombie {
         if (dur > self.slow_timer) { self.slow_timer = dur; }
     }
 
-    # Whip this zombie into a frenzy (a screamer's shriek): it surges faster for `dur` seconds.
+    # Whip this zombie into a frenzy (a screamer's shriek): it surges faster for `dur` seconds. The boss
+    # is immune — it's a self-contained fight tuned by its own enrage phase, so a screamer can't stack a
+    # frenzy on top of enrage into an uncatchable speed. Same boss exemption as stagger/gib/overkill/heal.
     func apply_frenzy(dur) {
         if (self.alive == false) { return; }
+        if (self.kind == 3) { return; }
         if (dur > self.frenzy_timer) { self.frenzy_timer = dur; }
     }
 

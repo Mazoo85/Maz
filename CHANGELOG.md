@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — a screamer can't frenzy the boss.** A screamer's shriek whips nearby zombies into a speed
+  frenzy — and it used to catch the boss too, stacking on top of the boss's own enrage into a nearly
+  uncatchable wave leader. The boss is now immune to frenzy (it's a self-contained fight tuned by its
+  enrage phase), matching the way it's already exempt from stagger, gib, overkill, the Volatile mutator,
+  and healer mends. Screamers still frenzy the rest of the pack. Headless-tested: a shriek leaves the boss
+  un-frenzied while a nearby walker is whipped up.
 - **ZOMBOID — new wave mutator: the Relentless Horde.** A seventh random wave modifier joins Feral,
   Hulking, Frenzied, Bulwark, Volatile, and Regenerator. A **Relentless** wave plants its feet: the whole
   horde **ignores knockback** — your melee shove, dash-strike, mine blasts, and shotgun push all stop

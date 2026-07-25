@@ -3278,6 +3278,31 @@ int main() {
         CHECK(fzMoved > czMoved);   // the frenzied one covered more ground
     }
 
+    // Boss is immune to frenzy: a screamer's shriek can't stack a speed frenzy on the wave leader (which
+    // is tuned by its own enrage), but a normal zombie is still whipped up.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        std::vector<Value> fren = {Value::fromNum(2.0)};
+
+        SceneNode* boss = tree.findNode("Zombie0");
+        Value bvv = boss->script();
+        std::vector<Value> bs = {Value::fromNum(20.0), Value::fromNum(0.0),
+                                 Value::fromNum(3.0), Value::fromNum(5.0)}; // boss (kind 3)
+        vm.callOn(bvv, "spawn", bs);
+        vm.callOn(bvv, "apply_frenzy", fren);
+        CHECK(sField(boss, "frenzy_timer")->number == 0.0);   // boss shrugs off the frenzy
+
+        SceneNode* walker = tree.findNode("Zombie1");
+        Value wv2 = walker->script();
+        std::vector<Value> ws = {Value::fromNum(20.0), Value::fromNum(0.0), Value::fromNum(100.0),
+                                 Value::fromNum(0.0)};   // spawn_at → walker
+        vm.callOn(wv2, "spawn_at", ws);
+        vm.callOn(wv2, "apply_frenzy", fren);
+        CHECK(sField(walker, "frenzy_timer")->number > 0.0); // a normal body is frenzied
+    }
+
     // Healer (kind 12): a back-line medic that, on a cooldown, mends every wounded zombie inside a
     // radius by a chunk of their max health — capped at full, never past it — while a far zombie is
     // left to bleed. It never heals itself and never top-heals a zombie already at full.
