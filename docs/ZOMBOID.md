@@ -25,7 +25,7 @@ Run it: `./bin/zomboid` (or `./bin/zomboid --demo` to watch the autopilot show o
 | Lay proximity mine | **T** |
 | Deploy auto-sentry | **Y** |
 | Overcharge ultimate | **Q** (when the meter is full) |
-| Eat a ration | **E** |
+| Eat a ration | **E** (declined with no waste if you're not actually hungry) |
 | **Shop** — buy field kit ($70: mine + sentry + molotov) | **0** |
 | **Shop** — buy ammo ($50) | **6** |
 | **Shop** — buy grenade ($40) | **7** |

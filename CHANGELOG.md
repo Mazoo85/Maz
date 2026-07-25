@@ -8,6 +8,15 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — eating a ration when you're not hungry no longer wastes it.**
+  The game is careful never to squander a resource — the shop declines a heal at full health or a fresh
+  plate over an untouched one without charging you, and the auto-feed only eats at max hunger. But the
+  manual **eat** key had a gap: pressing it while not hungry (hunger already at zero) still burned a whole
+  ration for nothing (the meal's hunger relief just clamped back to zero). Now a manual eat is declined
+  and the ration is kept when there's no hunger to satisfy, matching the same "no wasted resource" rule
+  the rest of the game follows — a mistimed key press can't throw a meal away. The auto-feed (which only
+  ever fires at max hunger) is unaffected. Verified with a new test alongside the existing eat test; full
+  suite, headless smoke, and the 3600-frame run all pass.
 - **ZOMBOID — documented the Vampiric power-up, which was missing from the player guide entirely.**
   The guide's power-up list had eight entries but the game has nine: the **Vampiric** lifesteal buff
   (every hit leeches a little health back, more from the railgun beam) was in the game and fully tested,

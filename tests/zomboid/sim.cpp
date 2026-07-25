@@ -305,6 +305,29 @@ int main() {
         CHECK(sField(survivor, "food")->number == food0 - 1);
     }
 
+    // Rations aren't squandered: eating while not hungry (hunger 0) is declined without spending a ration,
+    // the same "no wasted resource" rule the shop applies to a heal at full health. A mistimed E-press
+    // can't throw a meal away for zero benefit.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        Value self = survivor->script();
+        std::vector<Value> none;
+        sField(survivor, "hunger")->number = 0.0;   // freshly fed / not hungry
+        sField(survivor, "food")->number = 3.0;
+        Value r = tree.scripts().vm().callOn(self, "eat", none);
+        CHECK(r.boolean == false);                          // declined
+        CHECK(sField(survivor, "food")->number == 3.0);     // ...and the ration is kept
+        CHECK(sField(survivor, "hunger")->number == 0.0);
+
+        // But once genuinely hungry, the same press feeds normally and consumes one ration.
+        sField(survivor, "hunger")->number = 60.0;
+        Value r2 = tree.scripts().vm().callOn(self, "eat", none);
+        CHECK(r2.boolean == true);
+        CHECK(sField(survivor, "food")->number == 2.0);
+        CHECK(sField(survivor, "hunger")->number == 20.0);  // 60 - 40
+    }
+
     // Loot pickup collects exactly once.
     {
         SceneTree tree;

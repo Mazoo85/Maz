@@ -933,12 +933,19 @@ class Survivor {
         return false;
     }
 
+    # Eat a ration: drops hunger by a chunk. A ration is never squandered on a body that isn't hungry —
+    # eating at zero hunger would spend the food for nothing (the -40 just clamps straight back to 0), so
+    # decline it and keep the ration, the same "no wasted resource" rule the shop applies to a heal bought
+    # at full health. Returns true only if a ration was actually consumed. (The auto-feed at max hunger
+    # only ever calls this with hunger pegged at 100, so the guard changes nothing there; it just stops a
+    # mistimed manual E-press from throwing a meal away.)
     func eat() {
-        if (self.food > 0) {
-            self.food = self.food - 1;
-            self.hunger = self.hunger - 40;
-            if (self.hunger < 0) { self.hunger = 0; }
-        }
+        if (self.food <= 0) { return false; }
+        if (self.hunger <= 0) { return false; }
+        self.food = self.food - 1;
+        self.hunger = self.hunger - 40;
+        if (self.hunger < 0) { self.hunger = 0; }
+        return true;
     }
 
     # Restore health from a medkit, capped at the current max.
