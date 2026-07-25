@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — a stagger now interrupts caster wind-ups (summoner, screamer, healer).** The support
+  enemies' telegraphed abilities could previously only be fizzled mid-cast by a **chill** — a **stagger**
+  (a melee shove, a dash-strike, a heavy staggering hit) rooted them but let the cast finish. Now a stagger
+  landed during the wind-up cancels the ability outright, exactly as it already breaks a leaper's coil and
+  a warper's blink. This makes the melee shove and dash-strike a consistent, universal interrupt against
+  *every* telegraphed enemy ability, so you can shove a summoner out of its reinforcement call, a screamer
+  out of its frenzy shriek, or a healer out of its mend pulse. Headless-tested: a summoner staggered
+  mid-tell spends no reinforcement, while an undisturbed one completes the call.
 - **ZOMBOID — proximity mines now wait for a worthwhile catch.** A mine's blast radius (6) is twice its
   trigger ring (3), so popping for the first lone straggler to clip the edge threw away most of the blast.
   The trigger is now cluster-aware: a mine detonates the instant **two or more** zombies are inside the

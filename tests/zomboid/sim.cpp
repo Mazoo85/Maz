@@ -1952,6 +1952,53 @@ int main() {
         CHECK(blinked);
     }
 
+    // Summoner interrupt: a stagger during the call wind-up fizzles the reinforcement — matching the way a
+    // stagger already breaks a leaper's coil and a warper's blink. Previously only a chill could interrupt
+    // a caster; a melee shove / dash-strike now works too. An undisturbed summoner completes the call.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        const_cast<Value*>(vm.getGlobal("g_phase"))->number = 0.0;
+        SceneNode* summoner = tree.findNode("Zombie0");
+        Value sv = summoner->script();
+        std::vector<Value> sp = {Value::fromNum(60.0), Value::fromNum(0.0),
+                                 Value::fromNum(7.0), Value::fromNum(5.0)}; // spawn(x,y,kind=7,wave=5)
+        vm.callOn(sv, "spawn", sp);
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+
+        // Drive until it starts a call (summon_warn > 0), before the reinforcement lands.
+        for (int i = 0; i < 900 && sField(summoner, "summon_warn")->number <= 0.0; ++i)
+            vm.callOn(sv, "_process", dt);
+        CHECK(sField(summoner, "summon_warn")->number > 0.0);      // telegraphing a call
+        const double budget0 = sField(summoner, "summon_budget")->number;
+
+        // Stagger it mid-tell, then step once: the call fizzles and no reinforcement is spent.
+        std::vector<Value> stag = {Value::fromNum(0.5)};
+        vm.callOn(sv, "stagger", stag);
+        vm.callOn(sv, "_process", dt);
+        CHECK(sField(summoner, "summon_warn")->number == 0.0);     // call cancelled
+        CHECK(sField(summoner, "summon_budget")->number == budget0); // nothing summoned
+
+        // Control: an undisturbed summoner completes a call (spends a reinforcement from its budget).
+        SceneTree t2;
+        SceneNode* surv2 = zomboid::buildScene(t2);
+        surv2->setPosition(0.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        const_cast<Value*>(vm2.getGlobal("g_phase"))->number = 0.0;
+        SceneNode* s2 = t2.findNode("Zombie0");
+        Value s2v = s2->script();
+        vm2.callOn(s2v, "spawn", sp);
+        const double budget2 = sField(s2, "summon_budget")->number;
+        bool summoned = false;
+        for (int i = 0; i < 900 && !summoned; ++i) {
+            vm2.callOn(s2v, "_process", dt);
+            if (sField(s2, "summon_budget")->number < budget2) summoned = true;
+        }
+        CHECK(summoned);   // left undisturbed, the call goes through
+    }
+
     // Flamethrower (weapon 4): a short cone of fire in front of the survivor — every live zombie inside
     // the cone takes a little direct damage and is set alight; bodies behind, out of range, or off the
     // cone axis are spared. One do_shoot, then assert who burned.

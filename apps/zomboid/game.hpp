@@ -2856,14 +2856,15 @@ class Zombie {
             if (self.health > self.max_health) { self.health = self.max_health; }
         }
         # Summoner (kind 7): periodically calls a reinforcement until its budget runs out — now with a
-        # telegraph wind-up first, so you get a window to burst the back-liner (or chill it) before the
-        # reinforcement lands. A chilled caster is silenced (cryo shuts down the whole back line), and a
-        # chill during the wind-up fizzles the call.
+        # telegraph wind-up first, so you get a window to burst the back-liner (or chill/stagger it) before
+        # the reinforcement lands. A chilled caster is silenced (cryo shuts down the whole back line), and a
+        # chill OR a stagger during the wind-up fizzles the call — a melee shove or dash-strike interrupts
+        # the cast just like it breaks a leaper's coil.
         if (self.kind == 7 and self.summon_budget > 0) {
             if (self.summon_warn > 0) {
                 self.summon_warn = self.summon_warn - dt;
-                if (self.slow_timer > 0) {
-                    self.summon_warn = 0;   # chilled mid-wind-up → the call fizzles
+                if (self.slow_timer > 0 or self.stagger_timer > 0) {
+                    self.summon_warn = 0;   # chilled OR staggered mid-wind-up → the call fizzles
                 } else {
                     if (self.summon_warn <= 0) {
                         if (self.summon(1) > 0) {
@@ -2889,8 +2890,8 @@ class Zombie {
                 # burst the fragile screamer down or chill it — either cuts the shriek off entirely
                 # (kill it and _process never runs; a chill mid-tell makes it fizzle).
                 self.scream_warn = self.scream_warn - dt;
-                if (self.slow_timer > 0) {
-                    self.scream_warn = 0;   # chilled mid-wind-up → the shriek fizzles, no frenzy
+                if (self.slow_timer > 0 or self.stagger_timer > 0) {
+                    self.scream_warn = 0;   # chilled OR staggered mid-wind-up → the shriek fizzles
                 } else {
                     if (self.scream_warn <= 0) {
                         var si = 0;
@@ -2924,8 +2925,8 @@ class Zombie {
                 # Winding up a mend: a telegraph beat before the heal pulse lands, so you get a window to
                 # kill the fragile healer (or chill it) before it undoes your chip damage on the pack.
                 self.mend_warn = self.mend_warn - dt;
-                if (self.slow_timer > 0) {
-                    self.mend_warn = 0;   # chilled mid-wind-up → the mend fizzles
+                if (self.slow_timer > 0 or self.stagger_timer > 0) {
+                    self.mend_warn = 0;   # chilled OR staggered mid-wind-up → the mend fizzles
                 } else {
                     if (self.mend_warn <= 0) {
                         var mended = 0;
