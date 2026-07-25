@@ -1547,6 +1547,42 @@ int main() {
         CHECK(sField(survivor, "sentries")->number == stock1 + 1.0);
     }
 
+    // Sentry farewell blast: when a sentry powers down (self_destruct) it isn't a silent switch-off — it
+    // detonates, dealing 50 damage and a stagger to every zombie within radius 6, and goes inactive. The
+    // lifetime test above only checks that it deactivates; this pins the parting explosion. A tanky zombie
+    // inside the radius loses exactly 50 HP and is staggered; one parked outside is untouched.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        Value sv = survivor->script();
+        survivor->setPosition(0.0, 0.0);
+
+        std::vector<Value> none;
+        CHECK(tree.scripts().vm().callOn(sv, "place_sentry", none).boolean);
+        SceneNode* sen = tree.findNode("Sentry0");
+        sen->setPosition(0.0, 0.0);
+        Value senv = sen->script();
+
+        // Inside the blast (distance 5 < radius 6) and outside (distance 20). Speed 0 so they stay put; we
+        // call self_destruct directly, so the sentry never fires at them first.
+        Value zinS = tree.findNode("Zombie0")->script();
+        Value zoutS = tree.findNode("Zombie1")->script();
+        std::vector<Value> atIn = {Value::fromNum(5.0), Value::fromNum(0.0),
+                                   Value::fromNum(500.0), Value::fromNum(0.0)};
+        std::vector<Value> atOut = {Value::fromNum(20.0), Value::fromNum(0.0),
+                                    Value::fromNum(500.0), Value::fromNum(0.0)};
+        tree.scripts().vm().callOn(zinS, "spawn_at", atIn);
+        tree.scripts().vm().callOn(zoutS, "spawn_at", atOut);
+        const double inHp0 = sField(tree.findNode("Zombie0"), "health")->number;
+        const double outHp0 = sField(tree.findNode("Zombie1"), "health")->number;
+
+        tree.scripts().vm().callOn(senv, "self_destruct", none);
+        CHECK(!sField(sen, "active")->boolean);                                          // powered down
+        CHECK(std::abs(sField(tree.findNode("Zombie0"), "health")->number - (inHp0 - 50.0)) < 1e-6);
+        CHECK(sField(tree.findNode("Zombie0"), "stagger_timer")->number > 0.0);          // and flinched
+        CHECK(sField(tree.findNode("Zombie1"), "health")->number == outHp0);             // outside: untouched
+    }
+
     // threat_of priority table: the sentry (and any threat-ranked targeting) focus-fires by a hand-maintained
     // per-kind danger score. The sentry test below locks the behavior for ONE pair via outcome (walker vs
     // summoner); this pins the FULL 14-kind ranking directly, so a reorder (e.g. bumping the exploder above

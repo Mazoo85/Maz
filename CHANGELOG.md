@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — regression-test the sentry's farewell blast.** When an auto-turret sentry powers down
+  (`self_destruct`) it doesn't switch off silently — it detonates, dealing 50 damage and a stagger to every
+  zombie within radius 6 (and cooks off barrels / combusts acid it overlaps, staying friendly to the
+  survivor). The lifetime test only checked deactivation; this pins the parting explosion: a tanky zombie
+  inside the radius loses exactly 50 HP and is staggered, one parked outside is untouched. Test-only change
+  — no gameplay logic altered.
 - **ZOMBOID — regression-test the dash's once-per-body strike guard.** A dash lasts ~13 frames and a zombie
   sitting in the path overlaps the survivor across several of them; `dash_struck()` dedups so the body takes
   exactly one dash strike (40 dmg) for the whole dash, not one per overlapping frame (which would delete it
