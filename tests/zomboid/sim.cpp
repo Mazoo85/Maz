@@ -3682,6 +3682,42 @@ int main() {
         const double wounded3 = sField(z3, "health")->number;
         for (int i = 0; i < 30; ++i) { vm3.callOn(zv3, "_process", dt); }  // 0.5s, still chilled
         CHECK(sField(z3, "health")->number == wounded3);   // frozen → no regen
+
+        // Burning counter: a burning body can't knit its wounds — regen halts entirely, so even a LIGHT
+        // burn (4 dps) beats the regen on a tanky wave-10 body (~6.3 hp/s of regen), which the old
+        // out-damage-only rule couldn't. Health strictly falls while it cooks.
+        std::vector<Value> bigSp = {Value::fromNum(30.0), Value::fromNum(0.0),
+                                    Value::fromNum(0.0), Value::fromNum(10.0)};  // wave-10 walker (~105 hp)
+        std::vector<Value> wound20 = {Value::fromNum(20.0)};
+        std::vector<Value> lightBurn = {Value::fromNum(2.0), Value::fromNum(4.0)};  // ignite(dur, dps)
+        SceneTree t4;
+        zomboid::buildScene(t4);
+        auto& vm4 = t4.scripts().vm();
+        const_cast<Value*>(vm4.getGlobal("g_mutator"))->number = 6.0;
+        SceneNode* z4 = t4.findNode("Zombie0");
+        Value zv4 = z4->script();
+        vm4.callOn(zv4, "spawn", bigSp);
+        vm4.callOn(zv4, "take_damage", wound20);
+        vm4.callOn(zv4, "ignite", lightBurn);
+        const double wounded4 = sField(z4, "health")->number;
+        for (int i = 0; i < 60; ++i) { vm4.callOn(zv4, "_process", dt); }  // 1s, still burning
+        CHECK(sField(z4, "health")->number < wounded4);    // burning → regen off, net loss
+
+        // Bleeding counter: same story for a single laceration stack (2.5 hp/s) on the tanky body —
+        // regen halts while the wound is open, so health falls rather than climbing back.
+        std::vector<Value> oneStack = {Value::fromNum(1.0)};
+        SceneTree t5;
+        zomboid::buildScene(t5);
+        auto& vm5 = t5.scripts().vm();
+        const_cast<Value*>(vm5.getGlobal("g_mutator"))->number = 6.0;
+        SceneNode* z5 = t5.findNode("Zombie0");
+        Value zv5 = z5->script();
+        vm5.callOn(zv5, "spawn", bigSp);
+        vm5.callOn(zv5, "take_damage", wound20);
+        vm5.callOn(zv5, "apply_bleed", oneStack);
+        const double wounded5 = sField(z5, "health")->number;
+        for (int i = 0; i < 60; ++i) { vm5.callOn(zv5, "_process", dt); }  // 1s, still bleeding
+        CHECK(sField(z5, "health")->number < wounded5);    // bleeding → regen off, net loss
     }
 
     // Fire ignites acid: a molotov's fire patch (or the flamethrower cone) touching a caustic puddle

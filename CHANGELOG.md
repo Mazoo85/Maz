@@ -8,6 +8,16 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — fire and bleed now reliably counter the Regenerator Horde.** A Regenerator wave heals every
+  body back up over time (6% of max health per second), and the game bills fire, bleed, and cold as the
+  answers. But only *cold* actually halted the regen — fire and bleed merely had to *out-damage* it, and
+  because the heal is a percentage of max health, a tanky late-wave regenerator healed ~6+ HP/s, faster
+  than a light burn or a single bleed stack could chip. So "burn it to stop it healing" quietly stopped
+  working the deeper you got. Now a body that's **burning or bleeding can't knit its wounds at all** —
+  regen halts entirely while any damage-over-time is ticking (just like a chill already did), so fire and
+  laceration are dependable hard counters at every wave. Headless-tested: a tanky wave-10 regenerator
+  loses health under a light burn and under a single bleed stack (cases where the old out-damage-only rule
+  would have let it heal through).
 - **ZOMBOID — the Frost Field now actually freezes, not just slows (bug fix).** The Frost Field power-up
   is billed as a sustained cryo aura and "a hard answer to support-heavy waves" — freezing casters so a
   Summoner can't call, a Healer can't mend, a Warper can't blink, etc. In practice it only **halved

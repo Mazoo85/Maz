@@ -2994,10 +2994,12 @@ class Zombie {
         }
         # Regenerator horde (mutator 6): every body knits its wounds back shut over time (6% of its
         # max health per second), so chip damage bleeds away and you must commit real burst to a kill
-        # rather than poking. Two hard counters remain: a burning or bleeding body loses health faster
-        # than it heals, and a chilled body's metabolism is frozen — regen halts while it's slowed, so
-        # a Cryo Nova / Frost Field shuts the healing off. Bosses are exempt (they already enrage-heal).
-        if (g_mutator == 6 and self.kind != 3 and self.slow_timer <= 0 and self.health < self.max_health) {
+        # rather than poking. But an actively-harmed body can't close its wounds: regen halts entirely
+        # while the zombie is burning, bleeding, OR chilled — so fire, lacerating fire, and cryo are all
+        # reliable hard counters at ANY wave (previously only a chill stopped it, and a light burn/bleed
+        # had to out-damage a flat 6%/s that scales with the body's health — so it couldn't reliably beat
+        # regen on a tanky late-wave body). Bosses are exempt (they already enrage-heal).
+        if (g_mutator == 6 and self.kind != 3 and self.slow_timer <= 0 and self.burn_timer <= 0 and self.bleed_stacks <= 0 and self.health < self.max_health) {
             self.health = self.health + self.max_health * 0.06 * dt;
             if (self.health > self.max_health) { self.health = self.max_health; }
         }

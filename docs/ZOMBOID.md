@@ -244,9 +244,11 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
   behind damage-absorbing shields — break them down with heavy hits), **Volatile** (every body
   ruptures into a caustic acid pool where it falls, so the arena fills with hazard and camping a
   kill-zone poisons the ground under your feet — keep moving), or **Regenerator** (every body slowly
-  knits its wounds back shut, so chip damage bleeds away — you must commit real burst to a kill, and
-  fire or cold are your answers: a burning body loses health faster than it heals, and a chilled body's
-  regen is frozen off), or **Relentless** (the whole horde ignores knockback — your shove, dash-strike,
+  knits its wounds back shut, so chip damage bleeds away — you must commit real burst to a kill. Its hard
+  counters are **damage-over-time and cold**: a body that's **burning, bleeding, or chilled can't heal at
+  all** — regen halts entirely while any of those is on it, so a molotov, lacerating fire, or a cryo
+  effect reliably shuts the self-heal off no matter how tanky the body), or **Relentless** (the whole
+  horde ignores knockback — your shove, dash-strike,
   mine blasts, and shotgun push stop moving them, so positioning-by-knockback is off the table and you
   lean on damage, chills, staggers, and kiting instead). No two runs feel the same.
 
