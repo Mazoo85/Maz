@@ -5330,6 +5330,69 @@ int main() {
 
     }
 
+    // Caster stagger-cancel: the screamer's shriek and the healer's mend both fizzle if the caster is
+    // STAGGERED mid-wind-up, not just chilled. The docs promise "stagger it (a melee shove or dash-strike)
+    // during the wind-up" cancels both casts, and the fizzle guard is `slow_timer > 0 OR stagger_timer > 0`
+    // — but the telegraph tests above only exercised the chill (slow) half of that OR. These lock in the
+    // stagger half, so dropping the `stagger_timer` term (and silently breaking documented shove/dash-strike
+    // counterplay against the two back-line casters) can't slip through. (The summoner, leaper, and warper
+    // stagger-interrupts are already covered elsewhere; this closes the gap for the screamer and healer.)
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        std::vector<Value> stag = {Value::fromNum(0.5)};   // a melee-shove-strength flinch
+
+        // Screamer: a stagger landed during the shriek tell fizzles it — the neighbour is never frenzied.
+        {
+            std::vector<Value> screamSp = {Value::fromNum(0.0), Value::fromNum(0.0),
+                                           Value::fromNum(11.0), Value::fromNum(5.0)};  // screamer at origin
+            std::vector<Value> walkSp = {Value::fromNum(5.0), Value::fromNum(0.0),
+                                         Value::fromNum(0.0), Value::fromNum(5.0)};     // walker in radius 15
+            SceneTree t;
+            SceneNode* p = zomboid::buildScene(t);
+            p->setPosition(200.0, 200.0);                  // survivor parked far away, out of the picture
+            auto& vm = t.scripts().vm();
+            Value scr = t.findNode("Zombie0")->script();
+            vm.callOn(scr, "spawn", screamSp);
+            sField(t.findNode("Zombie0"), "speed")->number = 0.0;     // pin it so distances stay fixed
+            sField(t.findNode("Zombie0"), "cooldown")->number = 0.0;  // ready to shriek
+            Value wk = t.findNode("Zombie1")->script();
+            vm.callOn(wk, "spawn", walkSp);
+            vm.callOn(scr, "_process", dt);                           // enters the wind-up
+            CHECK(sField(t.findNode("Zombie0"), "scream_warn")->number > 0.0);   // telegraphing
+            vm.callOn(scr, "stagger", stag);                          // shove it mid-tell (not a chill)
+            CHECK(sField(t.findNode("Zombie0"), "stagger_timer")->number > 0.0);
+            for (int i = 0; i < 50; ++i) { vm.callOn(scr, "_process", dt); }     // let time pass
+            CHECK(sField(t.findNode("Zombie1"), "frenzy_timer")->number == 0.0); // shriek fizzled — no frenzy
+        }
+
+        // Healer: a stagger landed during the mend tell fizzles it — the wounded neighbour stays hurt.
+        {
+            std::vector<Value> healSp = {Value::fromNum(0.0), Value::fromNum(0.0),
+                                         Value::fromNum(12.0), Value::fromNum(5.0)};  // healer at origin
+            std::vector<Value> woundSp = {Value::fromNum(5.0), Value::fromNum(0.0),
+                                          Value::fromNum(2.0), Value::fromNum(5.0)};  // brute in radius 14
+            std::vector<Value> wound = {Value::fromNum(50.0)};
+            SceneTree t;
+            SceneNode* p = zomboid::buildScene(t);
+            p->setPosition(200.0, 200.0);
+            auto& vm = t.scripts().vm();
+            Value h = t.findNode("Zombie0")->script();
+            vm.callOn(h, "spawn", healSp);
+            sField(t.findNode("Zombie0"), "speed")->number = 0.0;
+            sField(t.findNode("Zombie0"), "cooldown")->number = 0.0;
+            Value wnd = t.findNode("Zombie1")->script();
+            vm.callOn(wnd, "spawn", woundSp);
+            vm.callOn(wnd, "take_damage", wound);
+            const double hurt = sField(t.findNode("Zombie1"), "health")->number;
+            vm.callOn(h, "_process", dt);                            // enters the wind-up
+            CHECK(sField(t.findNode("Zombie0"), "mend_warn")->number > 0.0);
+            vm.callOn(h, "stagger", stag);                           // shove it mid-tell (not a chill)
+            CHECK(sField(t.findNode("Zombie0"), "stagger_timer")->number > 0.0);
+            for (int i = 0; i < 50; ++i) { vm.callOn(h, "_process", dt); }
+            CHECK(sField(t.findNode("Zombie1"), "health")->number == hurt);   // mend fizzled — still wounded
+        }
+    }
+
     // Flamethrower ground-fire trail: firing the flamethrower lays a lingering fire patch mid-cone, on
     // a throttle so it doesn't spam. First shot lights a patch; an immediate second shot (throttle still
     // up) lays no new one.

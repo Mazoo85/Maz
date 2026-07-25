@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — regression-test the stagger-cancel counterplay against the Screamer and Healer.** The two
+  back-line casters fizzle their cast if they're chilled *or* staggered mid-wind-up (the guard is
+  `slow_timer > 0 or stagger_timer > 0`), and the manual documents "stagger it (a melee shove or dash-strike)
+  during the wind-up" as counterplay — but the telegraph tests only ever exercised the *chill* half of that
+  OR. A refactor dropping the `stagger_timer` term would silently break the documented shove/dash-strike
+  cancel for the Screamer and Healer with nothing to catch it (the Summoner, Leaper, and Warper
+  stagger-interrupts were already covered). Added two tests that shove each caster mid-tell and confirm the
+  shriek and mend never land — closing the coverage asymmetry. Test-only change — no gameplay logic changed.
 - **Engine — make the 2D polygon-manifold build deterministic (build-robustness fix surfaced by the ZOMBOID
   full-suite verification).** Running the whole project build+test to re-verify ZOMBOID intermittently tripped
   GCC's `-Werror=maybe-uninitialized` on the `na, nb, va, vb` scratch vectors in `Physics2D.hpp`'s
