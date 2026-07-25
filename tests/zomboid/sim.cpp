@@ -3235,6 +3235,46 @@ int main() {
         CHECK(sField(farZ, "health")->number == 20.0);       // out of range — untouched
     }
 
+    // Healer never mends the boss: the wave leader is exempt (like stagger/gib/overkill/Volatile), so a
+    // healer beside a wounded boss can't refund its huge health bar — but it still mends a nearby walker.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+
+        SceneNode* healer = tree.findNode("Zombie0");
+        Value hv = healer->script();
+        std::vector<Value> hs = {Value::fromNum(30.0), Value::fromNum(0.0),
+                                 Value::fromNum(12.0), Value::fromNum(5.0)};
+        vm.callOn(hv, "spawn", hs);
+        sField(healer, "speed")->number = 0.0;
+
+        // A wounded boss parked next to the healer (dist 6, inside radius 14).
+        SceneNode* boss = tree.findNode("Zombie1");
+        Value bvv = boss->script();
+        std::vector<Value> bs = {Value::fromNum(36.0), Value::fromNum(0.0),
+                                 Value::fromNum(3.0), Value::fromNum(5.0)}; // boss (kind 3)
+        vm.callOn(bvv, "spawn", bs);
+        sField(boss, "speed")->number = 0.0;   // pin it so it stays in range
+        const double bossMax = sField(boss, "max_health")->number;
+        sField(boss, "health")->number = bossMax - 200.0;   // clearly wounded
+
+        // A wounded walker also parked next to the healer (control — it does get mended).
+        SceneNode* walker = tree.findNode("Zombie2");
+        Value wv2 = walker->script();
+        std::vector<Value> ws = {Value::fromNum(24.0), Value::fromNum(0.0),
+                                 Value::fromNum(100.0), Value::fromNum(0.0)}; // spawn_at → walker, full 100
+        vm.callOn(wv2, "spawn_at", ws);
+        sField(walker, "health")->number = 20.0;
+
+        for (int i = 0; i < 60; ++i) { vm.callOn(hv, "_process", dt); }
+
+        CHECK(sField(boss, "health")->number == bossMax - 200.0);  // boss NOT mended — exempt
+        CHECK(sField(walker, "health")->number > 20.0);            // the walker was mended
+    }
+
     // Cryo silences the back line: a chilled healer can't mend — a frozen caster can't work its
     // ability, so cryo shuts it down until the chill wears off (same rule for screamer/summoner).
     {

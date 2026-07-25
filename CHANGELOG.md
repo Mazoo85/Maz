@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — a healer can no longer top up the boss.** The healer zombie's mend pulse restored 25% of a
+  target's max health, and it applied to *any* wounded zombie in range — including the boss. On the
+  bullet-sponge boss that meant a single pulse could refund a huge slice of the health bar you'd been
+  grinding down, undercutting the whole boss duel. The boss is now exempt from the mend (it still heals the
+  surrounding pack), matching the way the boss is already exempt from stagger, gib, overkill, and the
+  Volatile mutator. Headless-tested: a wounded boss parked next to a healer takes no heal while a nearby
+  walker is still mended.
 - **ZOMBOID — an exploding zombie now sets off the environment too.** The exploder's incendiary death blast
   already chained through other exploders and ignited nearby zombies, but — unlike the player's mines,
   grenades, and barrels — it didn't touch the surroundings. Now it **cooks off explosive barrels** and

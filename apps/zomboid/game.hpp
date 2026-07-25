@@ -2980,7 +2980,12 @@ class Zombie {
                         var hn = len(g_zombies);
                         while (hi < hn) {
                             var hz = g_zombies[hi];
-                            if (hz.alive and hz != self and hz.health < hz.max_health) {
+                            # The mend never touches the boss (kind 3): the wave leader is a self-contained
+                            # fight with its own huge health bar and enrage phase, so letting a healer refund
+                            # 25% of that pool would undo a hard-won grind and undercut the designed boss
+                            # duel. The boss is exempt here just as it is from stagger, gib, overkill, and
+                            # the Volatile mutator — a healer can still mend the surrounding pack, not the boss.
+                            if (hz.alive and hz != self and hz.kind != 3 and hz.health < hz.max_health) {
                                 var hdx = hz.node.x - self.node.x;
                                 var hdy = hz.node.y - self.node.y;
                                 if (hdx * hdx + hdy * hdy <= 196.0) {   # radius 14
