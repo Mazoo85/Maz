@@ -26,6 +26,7 @@ Run it: `./bin/zomboid` (or `./bin/zomboid --demo` to watch the autopilot show o
 | Deploy auto-sentry | **Y** |
 | Overcharge ultimate | **Q** (when the meter is full) |
 | Eat a ration | **E** |
+| **Shop** — buy field kit ($70: mine + sentry + molotov) | **5** |
 | **Shop** — buy ammo ($50) | **6** |
 | **Shop** — buy grenade ($40) | **7** |
 | **Shop** — buy heal ($60) | **8** |
@@ -80,8 +81,8 @@ often *and* harder as the run goes on.
 
 ## The salvage economy
 
-Every kill banks **cash**. Spend it mid-fight without pausing at the shop hotkeys (**6–9**): ammo,
-grenades, a heal, or an armor plate. Hoard for a panic heal, or stay stocked on offense — your call.
+Every kill banks **cash**. Spend it mid-fight without pausing at the shop hotkeys (**5–9**): a field
+kit (a mine + sentry + molotov in one buy), ammo, grenades, a heal, or an armor plate. Hoard for a panic heal, or stay stocked on offense — your call.
 Salvage **scales with your combo multiplier**, too: kills landed on a hot streak pay out far more
 (up to +200% at ×5), so keeping the chain alive fills your wallet as well as your score. And when you
 **clear a wave**, any medkits or power-ups still lying on the field are swept straight to you — so a

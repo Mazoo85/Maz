@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — new shop item: the field kit ($70, key 5).** The salvage shop now sells a **field kit**
+  that restocks the tactical gadgets in one buy — a **mine, a sentry, and a molotov** — giving the
+  placement tools a reliable cash source between supply crates instead of relying on crate luck. Joins
+  the existing ammo/grenade/heal/armor slots on the shop hotkey row. Headless-tested: buying it spends
+  70 cash and adds exactly one mine, one sentry, and one molotov.
 - **ZOMBOID — cryo silences the whole back line.** Extending the Warper cryo-counter to the other
   ability users: a **chilled Summoner, Screamer, or Healer can't use its ability** either — no calling
   reinforcements, no frenzy shriek, no mending — until the chill wears off. Cryo (a Cryo Nova or Frost

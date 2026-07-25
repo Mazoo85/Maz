@@ -2137,6 +2137,19 @@ int main() {
         CHECK(ok.boolean);
         CHECK(glob(tree, "g_cash") == 20.0);                    // 100 - 80
         CHECK(sField(survivor, "armor")->number == sField(survivor, "armor_max")->number);
+
+        // Buying a field kit (kind 4, cost 70) restocks one mine, one sentry, and one molotov.
+        cash->number = 100.0;
+        const double mines0 = sField(survivor, "mines")->number;
+        const double sentries0 = sField(survivor, "sentries")->number;
+        const double molotovs0 = sField(survivor, "molotovs")->number;
+        std::vector<Value> buyKit = {Value::fromNum(4.0)};
+        Value kitOk = vm.callOn(sv, "buy", buyKit);
+        CHECK(kitOk.boolean);
+        CHECK(glob(tree, "g_cash") == 30.0);                    // 100 - 70
+        CHECK(sField(survivor, "mines")->number == mines0 + 1.0);
+        CHECK(sField(survivor, "sentries")->number == sentries0 + 1.0);
+        CHECK(sField(survivor, "molotovs")->number == molotovs0 + 1.0);
     }
 
     // Salvage economy: kills bank cash, and buy() spends it on ammo/grenades/heals — succeeding when

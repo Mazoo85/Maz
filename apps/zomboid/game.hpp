@@ -839,12 +839,20 @@ class Survivor {
         if (kind == 1) { cost = 40; }
         if (kind == 2) { cost = 60; }
         if (kind == 3) { cost = 80; }
+        if (kind == 4) { cost = 70; }
         if (g_cash < cost) { return false; }
         g_cash = g_cash - cost;
         if (kind == 0) { self.collect_ammo(); }
         if (kind == 1) { self.grenades = self.grenades + 1; }
         if (kind == 2) { self.heal(40); }
         if (kind == 3) { self.armor = self.armor_max; }   # strap on a fresh armor plate
+        # Field kit: restocks the tactical gadgets in one buy — a mine, a sentry, and a molotov — so
+        # the placement tools have a cash source between supply crates, not just crate luck.
+        if (kind == 4) {
+            self.mines = self.mines + 1;
+            self.sentries = self.sentries + 1;
+            self.molotovs = self.molotovs + 1;
+        }
         emit(self.node.x, self.node.y, 8, 0);
         return true;
     }
