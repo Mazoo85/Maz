@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_653 headers across 20 subsystems._
+_654 headers across 20 subsystems._
 
 ## Contents
 
@@ -3675,6 +3675,18 @@ maz::render SIGNED DISTANCE FIELD bake — sample the signed distance to a close
 - `inline math::vec3 closestOnTriangle(const math::vec3& p, const math::vec3& a, const math::vec3& b,`
 - `inline MeshSdf bakeMeshSdf(const shapes::MeshData& mesh, int resolution, float padding)`
 - `inline float sampleMeshSdf(const MeshSdf& sdf, const math::vec3& p)`
+
+### `MeshSelfIntersect`
+<sub>`engine/include/maz/render/MeshSelfIntersect.hpp`</sub>
+
+maz::render MESH SELF-INTERSECTION DETECTION — find faces of a mesh that poke through OTHER faces of the same mesh, the "select self-intersecting" mesh-repair pass in Blender/Godot. Self-intersections are a common defect that breaks 3D printing (non-manifold solid), boolean/CSG operations, physics collision, and clean shading; a modeller wants them flagged. Built on the M549 Möller triangle-triangle test: for every pair of triangles that do NOT share a vertex (edge/vertex-adjacent faces legitimately touch and must be excluded), quick-reject by their axis-aligned boxes, then run the exact tri-tri test and record the crossing pair. Reports pairs with triA < triB, in ascending order, so the output is deterministic. Pure CPU, header-only, headless.  Scope note (honest): brute-force O(triangles^2) with an AABB reject — ideal for the offline QA of props and modest meshes; for a very large mesh, front it with a broadphase (a sweep or the M547 BVH boxes) to avoid the quadratic pair loop, the documented follow-up. "Adjacent" means sharing a vertex INDEX, so an UNWELDED mesh with duplicate coincident vertices can report touching faces as intersecting — run MeshWeld first. Touching (a graze) counts as intersecting, matching the underlying tri-tri test.
+
+**Types:** `SelfIntersection`
+
+**Functions:**
+
+- `inline std::vector<SelfIntersection> findSelfIntersections(const shapes::MeshData& mesh)`
+- `inline bool hasSelfIntersection(const shapes::MeshData& mesh)`
 
 ### `MeshSharpEdges`
 <sub>`engine/include/maz/render/MeshSharpEdges.hpp`</sub>

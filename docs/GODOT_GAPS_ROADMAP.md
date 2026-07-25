@@ -3699,6 +3699,18 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   triangle, and does it with 214× fewer triangle intersections (2,389 vs 512,000); rays pointing away miss, rays
   from inside hit the far wall, occluded() matches brute any-hit and honors the distance cutoff, maxDist clips a
   far hit to a miss, empty meshes are safe, and build + queries are deterministic. [VERIFIABLE HERE]
+- [x] **Mesh self-intersection detection** (`render::findSelfIntersections` / `hasSelfIntersection`) — DONE
+  (M550); find faces of a mesh that poke through OTHER faces of the same mesh — the "select self-intersecting"
+  mesh-repair pass in Blender/Godot. Self-intersections break 3D printing (non-manifold solid), boolean/CSG,
+  physics collision, and clean shading, so a modeller wants them flagged. Built on the M549 tri-tri test: for
+  every pair of triangles that do NOT share a vertex (edge/vertex-adjacent faces legitimately touch and are
+  excluded), quick-reject by their AABBs then run the exact test; reports the crossing pairs with triA < triB in
+  ascending order (deterministic). `hasSelfIntersection` is the early-out boolean form. Verified (`ctest -R
+  mesh_self_intersect`): an edge-adjacent flat quad is clean; adding a triangle that stabs through it reports
+  exactly that crossing (every pair involves the piercer, ordered); a closed convex icosphere (~320 tris) is
+  clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
+  O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
+  INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
 - [x] **Triangle-triangle intersection** (`math::trianglesIntersect`) — DONE (M549); the narrowphase primitive the
   math library was missing — it had ray/triangle (Möller-Trumbore), segment/triangle, and closest-point-on-triangle
   but no triangle-vs-triangle. Do two triangles in 3D touch or cross? Tomas Möller's "A Fast Triangle-Triangle

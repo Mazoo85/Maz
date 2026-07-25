@@ -182,6 +182,11 @@ target_link_libraries(maz_meshraybvh_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_ray_bvh COMMAND maz_meshraybvh_tests)
 set_tests_properties(mesh_ray_bvh PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshselfintersect_tests render/meshselfintersect.cpp)
+target_link_libraries(maz_meshselfintersect_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_self_intersect COMMAND maz_meshselfintersect_tests)
+set_tests_properties(mesh_self_intersect PROPERTIES TIMEOUT 30)
+
 add_executable(maz_overdraw_tests render/overdraw.cpp)
 target_link_libraries(maz_overdraw_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME overdraw_optimize COMMAND maz_overdraw_tests)
