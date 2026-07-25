@@ -699,6 +699,20 @@ int main(int argc, char** argv) {
                     const float vp = 0.6f + 0.4f * std::sin(static_cast<float>(simTime) * 42.0f);
                     tint = render::Color{0.8f * vp + 0.2f, 0.4f * vp, 1.0f, 1.0f};
                 }
+                // Screamer shriek wind-up: a pulsing magenta flash as it charges the frenzy shriek, so the
+                // tell reads on-screen (like the boss slam / leaper coil / warper blink) — burst, chill, or
+                // stagger it now to cut the shriek off before it whips the pack up.
+                if (field(z, "scream_warn") > 0.0) {
+                    const float sp = 0.6f + 0.4f * std::sin(static_cast<float>(simTime) * 36.0f);
+                    tint = render::Color{1.0f, 0.35f * sp, 0.9f * sp + 0.1f, 1.0f};
+                }
+                // Healer mend wind-up: a pulsing medic-green flash as it charges its heal pulse, so the tell
+                // reads on-screen too — burst, chill, or stagger it now to deny the mend before it patches
+                // the pack back up.
+                if (field(z, "mend_warn") > 0.0) {
+                    const float mp = 0.6f + 0.4f * std::sin(static_cast<float>(simTime) * 30.0f);
+                    tint = render::Color{0.2f * mp, 1.0f, 0.4f * mp + 0.2f, 1.0f};
+                }
                 // Burning overrides other tints: a flickering ember glow.
                 if (field(z, "burn_timer") > 0.0) {
                     const float fl = 0.7f + 0.3f * std::sin(static_cast<float>(simTime) * 24.0f +

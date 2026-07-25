@@ -8,6 +8,16 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — give the Screamer and Healer a visible wind-up telegraph, matching the boss/leaper/warper.**
+  The renderer flashes a distinct sustained tint on a zombie mid-cast so the player can *read* the tell the
+  manual promises — the boss slam pulses white, the leaper's coil flashes lime, the warper's blink shimmers
+  violet. But the Screamer's shriek and the Healer's mend had no such on-screen tell: only a one-shot
+  particle puff at the very start of the wind-up, after which the caster looked identical to any other body
+  during the ~0.6 s window when it can actually be interrupted. Their documented counterplay (burst / chill /
+  stagger the caster mid-wind-up) was there but hard to time because the wind-up was invisible. Added a
+  pulsing magenta flash while a Screamer charges its shriek and a pulsing medic-green flash while a Healer
+  charges its mend, so both tells read at a glance like every other caster's. Presentation/readability change
+  in the host render layer only — no game logic altered; the headless soak run confirms no regression.
 - **ZOMBOID — regression-test per-weapon magazine independence across weapon switches.** Each of the five
   weapons keeps its own loaded magazine and spare reserve (the `mags[]`/`reserves[]` arrays); switching only
   re-points the HUD mirror (`cur_ammo`/`cur_reserve`) at the active weapon's counts, it never refills, clears,
