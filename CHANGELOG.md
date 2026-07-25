@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — documented the Vampiric power-up, which was missing from the player guide entirely.**
+  The guide's power-up list had eight entries but the game has nine: the **Vampiric** lifesteal buff
+  (every hit leeches a little health back, more from the railgun beam) was in the game and fully tested,
+  just never written up for players. Added its entry in the list, in order, so all nine power-ups are now
+  documented. Docs-only change; the game and its tests are unchanged and still pass.
 - **ZOMBOID — locked in cryo as the warper's hard counter with regression tests.**
   The warper is the teleporting zombie: it blinks half the distance to you in an instant. Its documented
   counterplay is that cold shuts it down — a chill landed while it's winding up a blink cancels the
