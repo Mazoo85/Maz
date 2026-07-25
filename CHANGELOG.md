@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — deployable sentries now focus-fire the biggest threat.** The auto-turret used to shoot
+  whatever zombie was simply *nearest*, so it would happily empty its scarce magazine into slow walkers
+  while a boss strolled past. It now ranks targets in range by kind-threat (boss > summoner > healer >
+  brute > screamer > armored > spitter > … > runner > walker) and fires on the most dangerous one, using
+  nearest only to break ties between equal threats. A sentry planted in a mixed pack now spends its bolts
+  where they count. Headless-tested: with a walker nearer than a boss, the sentry's bolt lands on the boss
+  and the walker is left untouched.
 - **ZOMBOID — grenades and barrels now flash over acid puddles.** A frag grenade or an exploding barrel
   whose blast overlaps a spitter's caustic pool now combusts that acid on the spot (the same volatile
   flash-over that a naked flame or a mine already triggered), completing the "any hard blast sets off

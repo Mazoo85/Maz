@@ -3490,6 +3490,34 @@ int main() {
         CHECK(sField(tree.findNode("Zombie1"), "health")->number == farHp0);    // far zombie untouched
     }
 
+    // Sentry threat targeting: with a scarce magazine the turret focus-fires the biggest threat in range
+    // (a boss) even when a lesser one (a walker) is closer, rather than plinking the nearest body.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+
+        Value zwalk = tree.findNode("Zombie0")->script();
+        std::vector<Value> wsp = {Value::fromNum(5.0), Value::fromNum(0.0),
+                                  Value::fromNum(0.0), Value::fromNum(1.0)};   // walker at (5,0) — nearer
+        vm.callOn(zwalk, "spawn", wsp);
+        Value zboss = tree.findNode("Zombie1")->script();
+        std::vector<Value> bsp = {Value::fromNum(10.0), Value::fromNum(0.0),
+                                  Value::fromNum(3.0), Value::fromNum(1.0)};   // boss at (10,0) — farther
+        vm.callOn(zboss, "spawn", bsp);
+        const double walkMax = sField(tree.findNode("Zombie0"), "max_health")->number;
+        const double bossHp0 = sField(tree.findNode("Zombie1"), "health")->number;
+
+        Value sentry = tree.findNode("Sentry0")->script();
+        std::vector<Value> at = {Value::fromNum(0.0), Value::fromNum(0.0)};    // both in range 16
+        vm.callOn(sentry, "deploy", at);
+        vm.callOn(sentry, "_process", dt);                                     // fires one bolt
+
+        CHECK(sField(tree.findNode("Zombie1"), "health")->number < bossHp0);   // boss got the bolt
+        CHECK(sField(tree.findNode("Zombie0"), "health")->number == walkMax);  // nearer walker ignored
+    }
+
     // Active reload: tapping reload again during the tail window snaps the reload shut instantly and
     // grants a brief +30% damage surge. Tapping too early does nothing (no penalty). The surge lifts
     // shot damage while it lasts.

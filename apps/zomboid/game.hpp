@@ -1818,9 +1818,31 @@ class Mine {
     }
 }
 
+# Threat weight for a zombie of the given kind — higher means more dangerous / more worth spending a
+# scarce shot on. Used by the sentry to focus-fire the target that matters instead of the nearest body:
+# a boss or a summoner (which spawns endless reinforcements) or a healer (which undoes your damage)
+# outranks a slow walker even when the walker is closer.
+func threat_of(kind) {
+    var t = 10;             # 0 walker / default — least dangerous
+    if (kind == 1) { t = 15; }    # runner
+    if (kind == 9) { t = 20; }    # leaper
+    if (kind == 6) { t = 25; }    # splitter
+    if (kind == 4) { t = 30; }    # exploder
+    if (kind == 10) { t = 35; }   # bloater
+    if (kind == 13) { t = 40; }   # warper
+    if (kind == 5) { t = 45; }    # spitter (the horde's one ranged attacker)
+    if (kind == 8) { t = 50; }    # armored
+    if (kind == 11) { t = 55; }   # screamer (frenzies the pack)
+    if (kind == 2) { t = 60; }    # brute
+    if (kind == 12) { t = 75; }   # healer (undoes your damage)
+    if (kind == 7) { t = 80; }    # summoner (calls endless reinforcements)
+    if (kind == 3) { t = 100; }   # boss
+    return t;
+}
+
 # A pooled auto-turret sentry. Dormant until the survivor deploys it; then it auto-fires a hitscan bolt
-# at the nearest live zombie in range on a cadence, for a limited lifetime, before powering down. A
-# stationary ally that thins a lane while the survivor handles another.
+# at the highest-threat live zombie in range on a cadence (nearest breaks ties), for a limited lifetime,
+# before powering down. A stationary ally that thins a lane while the survivor handles another.
 class Sentry {
     var active = false;
     var life = 0;
@@ -1874,9 +1896,14 @@ class Sentry {
         if (self.life <= 0) { self.self_destruct(); return; }
         self.fire_cd = self.fire_cd - dt;
         if (self.fire_cd > 0) { return; }
-        # Acquire the nearest live zombie in range and shoot it.
-        var best = self.range * self.range;
+        # Acquire the highest-threat live zombie in range and shoot it. A sentry's magazine is scarce, so
+        # it focus-fires what matters (a boss, a summoner, a healer) rather than plinking whatever body is
+        # merely nearest; among targets of equal threat it picks the closest, so it still finishes the
+        # nearest of a like pack first.
+        var r2 = self.range * self.range;
         var target = nil;
+        var best_threat = -1;
+        var best_d2 = 0;
         var i = 0;
         var n = len(g_zombies);
         while (i < n) {
@@ -1885,7 +1912,16 @@ class Sentry {
                 var dx = z.node.x - self.node.x;
                 var dy = z.node.y - self.node.y;
                 var d2 = dx * dx + dy * dy;
-                if (d2 <= best) { best = d2; target = z; }
+                if (d2 <= r2) {
+                    var th = threat_of(z.kind);
+                    if (th > best_threat) {
+                        best_threat = th; best_d2 = d2; target = z;
+                    } else {
+                        if (th == best_threat) {
+                            if (d2 < best_d2) { best_d2 = d2; target = z; }
+                        }
+                    }
+                }
             }
             i = i + 1;
         }

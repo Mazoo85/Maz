@@ -86,10 +86,13 @@ back sooner and sooner, so the deeper you get, the more often you can bail out o
   grenade also **concusses** — anything that survives the blast is briefly **stunned in place**, and a
   staggered body takes the weak-point bonus, so a frag lobbed into a pack sets up your follow-up fire.
 - **Mine (T)** / **Sentry (Y)** — a proximity mine, and a stationary auto-turret that thins a lane. The
-  sentry has a limited magazine and a lifetime, so place it where it'll earn its bolts — and when it
-  finally powers down (empty or expired) it **self-destructs in a blast** that damages and staggers the
-  zombies around it, so planting it deep in the horde earns a farewell explosion (safe for you — it only
-  hits zombies). A mine's blast
+  sentry has a limited magazine and a lifetime, so place it where it'll earn its bolts. It's a **smart
+  turret**: instead of plinking whatever body is merely nearest, it **focus-fires the biggest threat in
+  range** — a boss, a summoner (which calls reinforcements), or a healer (which undoes your damage) all
+  outrank a slow walker — so its scarce bolts land where they count (nearest only breaks ties between
+  equal threats). When it finally powers down (empty or expired) it **self-destructs in a blast** that
+  damages and staggers the zombies around it, so planting it deep in the horde earns a farewell explosion
+  (safe for you — it only hits zombies). A mine's blast
   **cooks off explosive barrels**, **daisy-chains through exploder packs**, and **flashes over caustic
   acid puddles** in range (acid is volatile — a hard blast sets it off just like fire), so rigging one
   beside a barrel, a nest of exploders, or a spitter's puddle sets up a massive environmental chain
