@@ -2523,6 +2523,50 @@ int main() {
         CHECK(blinked);
     }
 
+    // Warper cryo counter: chill is a HARD counter to the warper (docs call it out). It works two ways —
+    // a chill landed DURING the blink tell cancels the teleport outright (same as a stagger), and a
+    // chilled warper off-cooldown cannot even BEGIN to charge a blink. Only the stagger interrupt was
+    // covered above; this pins both chill paths.
+    {
+        // (a) Chill mid-tell cancels the blink.
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        const_cast<Value*>(vm.getGlobal("g_phase"))->number = 0.0;
+        SceneNode* warper = tree.findNode("Zombie0");
+        Value wv = warper->script();
+        std::vector<Value> sp = {Value::fromNum(40.0), Value::fromNum(0.0),
+                                 Value::fromNum(13.0), Value::fromNum(5.0)};
+        vm.callOn(wv, "spawn", sp);
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        for (int i = 0; i < 900 && sField(warper, "warp_warn")->number <= 0.0; ++i)
+            vm.callOn(wv, "_process", dt);
+        CHECK(sField(warper, "warp_warn")->number > 0.0);   // charging a blink
+        const double xBefore = warper->x();
+        sField(warper, "slow_timer")->number = 3.0;         // cryo lands on the shimmer
+        vm.callOn(wv, "_process", dt);
+        CHECK(sField(warper, "warp_warn")->number == 0.0);  // blink cancelled by the chill
+        CHECK(warper->x() > xBefore - 2.0);                 // did NOT jump ~half the distance inward
+
+        // (b) A chilled warper off-cooldown never even starts a tell — it's pinned in place.
+        SceneTree t2;
+        SceneNode* surv2 = zomboid::buildScene(t2);
+        surv2->setPosition(0.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        const_cast<Value*>(vm2.getGlobal("g_phase"))->number = 0.0;
+        SceneNode* w2 = t2.findNode("Zombie0");
+        Value w2v = w2->script();
+        vm2.callOn(w2v, "spawn", sp);   // spawns at x=40, far enough to want to blink
+        bool everCharged = false;
+        for (int i = 0; i < 300; ++i) {
+            sField(w2, "slow_timer")->number = 1.0;   // keep it frozen every frame
+            vm2.callOn(w2v, "_process", dt);
+            if (sField(w2, "warp_warn")->number > 0.0) everCharged = true;
+        }
+        CHECK(!everCharged);   // frozen the whole time → never charged a blink
+    }
+
     // Summoner interrupt: a stagger during the call wind-up fizzles the reinforcement — matching the way a
     // stagger already breaks a leaper's coil and a warper's blink. Previously only a chill could interrupt
     // a caster; a melee shove / dash-strike now works too. An undisturbed summoner completes the call.

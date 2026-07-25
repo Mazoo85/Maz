@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — locked in cryo as the warper's hard counter with regression tests.**
+  The warper is the teleporting zombie: it blinks half the distance to you in an instant. Its documented
+  counterplay is that cold shuts it down — a chill landed while it's winding up a blink cancels the
+  teleport outright, and a frozen warper can't even begin to charge one, pinning it in place. The
+  existing warper test only covered the *stagger* interrupt (a shove/dash), never the *cryo* path, even
+  though the docs call cryo a "hard counter." Added tests for both: a chill mid-wind-up cancels the blink
+  (no jump), and a warper kept frozen never starts a blink at all. Test-only change — the game is
+  unchanged; full suite, headless smoke, and the 3600-frame run all pass.
 - **ZOMBOID — locked in the auto-turret's "shoot the biggest threat, not the nearest body" behavior with a test.**
   The deployable sentry is supposed to spend its scarce magazine wisely: it focus-fires the most dangerous
   zombie in range (a summoner that spawns reinforcements, a healer that undoes your damage, a boss) rather
