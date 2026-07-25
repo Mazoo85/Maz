@@ -4792,6 +4792,21 @@ int main() {
         CHECK(sField(s2, "reloading")->boolean);                  // still reloading
         CHECK(sField(s2, "perfect_timer")->number == 0.0);        // no surge
 
+        // Too late: a tap in the final sliver (below the window's 12% lower bound) also misses — no
+        // instant finish, no surge. This pins the window's LATE edge, the counterpart to the early one:
+        // a mistap right before the reload completes doesn't sneak a free surge.
+        SceneTree t2b;
+        SceneNode* s2b = zomboid::buildScene(t2b);
+        auto& vm2b = t2b.scripts().vm();
+        Value sv2b = s2b->script();
+        sField(s2b, "weapon")->number = 0.0;                      // pistol → 1.2s reload
+        (*sField(s2b, "mags")->array)[0].number = 0.0;
+        vm2b.callOn(sv2b, "reload", none);
+        sField(s2b, "reload_t")->number = 0.05;                   // ~4% remaining — past the window's low end
+        vm2b.callOn(sv2b, "reload", none);
+        CHECK(sField(s2b, "reloading")->boolean);                 // still reloading (no instant snap)
+        CHECK(sField(s2b, "perfect_timer")->number == 0.0);       // no surge for a too-late tap
+
         // The surge lifts shot damage ~30% (crit forced off for a deterministic read).
         SceneTree t3;
         SceneNode* s3 = zomboid::buildScene(t3);

@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — pinned the "too-late" edge of the active-reload timing window with a test.**
+  Tapping reload again during the tail of a reload triggers an *active reload* — it snaps shut instantly
+  and grants a brief damage surge, but only inside a timing window (roughly the 12%–40%-remaining sweet
+  spot). The test already proved an in-window tap rewards you and a too-*early* tap does nothing, but the
+  window's *late* edge — a tap in the final sliver, after the sweet spot — was unverified. Added that
+  case: a too-late tap gets no instant finish and no surge, so both edges of the window are now locked
+  against regression. Test-only change — the game is unchanged; full suite, headless smoke, and the
+  3600-frame run all pass.
 - **ZOMBOID — fully pinned the boss's "can't heal while hurt" rule with tests for bleed and cold, not just fire.**
   During its enrage phase the boss slowly heals itself, and the key counter is that keeping damage-over-time
   or cold on it shuts that self-heal off — burning, **bleeding**, or **chilled**, it can't knit its wounds.
