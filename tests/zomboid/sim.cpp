@@ -1756,6 +1756,30 @@ int main() {
         CHECK(sField(survivor, "molotovs")->number == stock1 + 1.0);
     }
 
+    // Fire-pool exhaustion: light_fire() draws a patch from a fixed pool (kFirePool) and returns true, or
+    // false once every patch is already burning — the pooled-resource contract that keeps a molotov/
+    // flamethrower spam from overflowing the pool. Fire tests exercise light_fire only indirectly and never
+    // fill the pool, so the false-return-when-full path was untested. Light the whole pool, then confirm one
+    // more request is refused cleanly (returns false, spawns nothing, live count stays capped).
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        auto liveFires = [&]() {
+            int c = 0;
+            for (SceneNode* f : tree.nodesInGroup("fires"))
+                if (sField(f, "active")->boolean) ++c;
+            return c;
+        };
+        std::vector<Value> at = {Value::fromNum(0.0), Value::fromNum(0.0)};
+        for (int i = 0; i < zomboid::kFirePool; ++i) {
+            CHECK(vm.call("light_fire", at).boolean);           // a free patch was lit
+        }
+        CHECK(liveFires() == zomboid::kFirePool);               // whole pool now burning
+        CHECK(!vm.call("light_fire", at).boolean);              // pool exhausted → refused
+        CHECK(liveFires() == zomboid::kFirePool);               // ...and nothing overflowed the cap
+    }
+
     // Summoner (kind 7): a support zombie that periodically calls reinforcement walkers, bounded by a
     // finite budget so it can't spawn forever. Killing it stops the reinforcements.
     {

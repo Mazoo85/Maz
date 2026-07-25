@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — regression-test the fire-pool exhaustion contract.** `light_fire()` draws a ground-fire patch
+  from a fixed pool and returns true, or false once every patch is already burning — the pooled-resource
+  guard that stops molotov/flamethrower spam from overflowing the pool. The fire tests only reach `light_fire`
+  indirectly and never fill the pool, so the false-return-when-full path had no coverage. Added a test that
+  lights the whole pool, then confirms one more request is refused cleanly (returns false, spawns nothing,
+  the live count stays capped). Test-only change — no gameplay logic altered.
 - **ZOMBOID — pin the full `threat_of` sentry-targeting priority table.** The auto-turret focus-fires the
   highest-threat zombie via a hand-maintained per-kind danger score (boss 100 … walker 10). The sentry test
   only locked one pair (walker vs summoner) via firing outcome, so a reorder of the table — e.g. bumping the
