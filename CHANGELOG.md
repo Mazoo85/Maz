@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — explosive barrels replenish between waves.** Barrels were a finite, non-renewable resource:
+  the arena started with a handful and, once each was popped, they were gone for the rest of the run. So
+  the whole "lure the horde onto a barrel and detonate it" playstyle quietly died out a few waves in,
+  leaving the endless mode with a bare arena. The Director now restores a couple of spent barrels at fresh
+  positions around the survivor at the start of each wave (from wave 2 on), so there's always a live barrel
+  or two to set up an environmental kill — the same "keep the supply flowing" idea as the ration fix and
+  the crate/gadget refills. Headless-tested: after detonating every barrel, starting a new wave brings two
+  back.
 - **ZOMBOID — supply crates now restock rations, so starvation is escapable.** The survivor's hunger clock
   is answered by eating rations, but food had only one source — three one-time ration pickups scattered on
   the map. Once those were gone there was *no* way to get more (crates, zombie drops, and the shop all gave

@@ -1538,6 +1538,36 @@ int main() {
         CHECK(z->script().instance->findField("burn_timer")->number > 0.0);
     }
 
+    // Barrels replenish between waves: pop every barrel, then start a new wave — a couple are restored so
+    // the environmental-kill playstyle stays alive through an endless run instead of drying up for good.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+
+        // Detonate every barrel — the arena is now bare.
+        std::vector<Value> lethal = {Value::fromNum(999.0)};
+        for (SceneNode* b : tree.nodesInGroup("barrels")) {
+            Value bv = b->script();
+            vm.callOn(bv, "take_damage", lethal);
+        }
+        int liveAfterClear = 0;
+        for (SceneNode* b : tree.nodesInGroup("barrels"))
+            if (sField(b, "active")->boolean) ++liveAfterClear;
+        CHECK(liveAfterClear == 0);   // all spent
+
+        // Start a new wave (wave 3): the Director restores a couple of barrels.
+        SceneNode* dir = tree.findNode("Director");
+        Value ds = dir->script();
+        std::vector<Value> w3 = {Value::fromNum(3.0)};
+        vm.callOn(ds, "start_wave", w3);
+        int liveAfterWave = 0;
+        for (SceneNode* b : tree.nodesInGroup("barrels"))
+            if (sField(b, "active")->boolean) ++liveAfterWave;
+        CHECK(liveAfterWave == 2);   // two barrels replenished for the new wave
+    }
+
     // Armored zombie (kind 8): a shield soaks damage before health; only overflow past a broken
     // shield bleeds through, so it must be worn down before it can be killed.
     {

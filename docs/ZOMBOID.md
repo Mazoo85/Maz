@@ -229,7 +229,9 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
   them off** too — a molotov thrown onto a barrel, or the flamethrower's cone sweeping over it, pops it
   — and a **grenade** or another barrel's blast will chain-detonate one as well. A popped barrel also
   **leaves a lingering fire patch** where it stood, so the blast keeps denying that ground (and, being
-  fire, flashes over any acid puddle it overlaps) for a few seconds after the bang.
+  fire, flashes over any acid puddle it overlaps) for a few seconds after the bang. Barrels aren't a
+  one-time resource, either: a couple are **replenished around you at the start of each wave**, so there's
+  always a live barrel or two to work with no matter how deep into the endless run you are.
 
 ## The siege
 

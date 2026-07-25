@@ -3382,6 +3382,25 @@ class Director {
         var cx = 0;
         var cy = 0;
         if (g_player != nil) { cx = g_player.node.x; cy = g_player.node.y; }
+        # Replenish the arena's explosive barrels: from wave 2 on, a couple of spent barrels are restored
+        # each wave at fresh ring positions around the survivor, so the "lure the horde onto a barrel"
+        # playstyle stays viable through an endless run instead of drying up once the starting barrels are
+        # all popped. Mirrors how supply crates keep gadgets, ammo, and rations flowing.
+        if (w >= 2) {
+            var restored = 0;
+            var rbi = 0;
+            var rbn = len(g_barrels);
+            while (rbi < rbn and restored < 2) {
+                var rb = g_barrels[rbi];
+                if (rb.active == false) {
+                    var bang = randf_range(0, 6.2831853);
+                    var brad = 16.0 + randf_range(0, 10.0);
+                    rb.place(cx + cos(bang) * brad, cy + sin(bang) * brad);
+                    restored = restored + 1;
+                }
+                rbi = rbi + 1;
+            }
+        }
         var boss = 0;
         if (w % 5 == 0) { boss = 1; }
         var i = 0;
