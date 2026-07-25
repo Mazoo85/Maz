@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — pin the ultimate's cryo-lock-the-survivors branch.** The overcharge ultimate (`detonate`)
+  hammers every zombie for 500, but anything too tough to one-shot — a boss, a shielded bulwark, a beefy
+  elite — is left deep-frozen instead, which (since a chilled caster is silenced) shuts the back line down
+  while you regroup. The existing ult tests one-shot fragile zombies; this pins the survivor-slow branch: a
+  5000-HP body survives the blast, takes the damage, and comes out with a slow timer running. Test-only
+  change — no gameplay logic altered.
 - **ZOMBOID — pin the combo streak's widening grace window.** A kill-streak's decay window isn't fixed: it
   grows with the multiplier (base 2.5s, +0.5s per step), so a hard-won streak survives a gap between kills
   that would break a fresh one — the "worth pushing for" resilience the design promises. The existing combo

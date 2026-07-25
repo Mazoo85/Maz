@@ -7152,6 +7152,26 @@ int main() {
         sField(surv2, "ult_ready")->boolean = false;
         vm2.callOn(s2v, "detonate", none);
         CHECK(sField(surv2, "iframes")->number == 0.0);      // no charge → no free i-frames
+
+        // The overcharge also cryo-locks anything too tough to one-shot: a body that survives the 500
+        // blast (a boss, a beefy elite) is left deep-frozen (slow_timer set) — which, since a chilled
+        // caster is silenced, shuts the back line down while you regroup. The tests above one-shot fragile
+        // zombies; this pins the survivor-slow branch documented on detonate().
+        SceneTree t3;
+        SceneNode* surv3 = zomboid::buildScene(t3);
+        auto& vm3 = t3.scripts().vm();
+        SceneNode* tank = t3.findNode("Zombie0");
+        Value tv = tank->script();
+        std::vector<Value> big = {Value::fromNum(5.0), Value::fromNum(0.0),
+                                  Value::fromNum(5000.0), Value::fromNum(0.0)};   // 5000 hp — survives 500
+        vm3.callOn(tv, "spawn_at", big);
+        const double tankHp0 = sField(tank, "health")->number;
+        Value s3v = surv3->script();
+        sField(surv3, "ult_ready")->boolean = true;
+        vm3.callOn(s3v, "detonate", none);
+        CHECK(sField(tank, "alive")->boolean);                        // too tough to one-shot — still up
+        CHECK(sField(tank, "health")->number < tankHp0);              // but took the blast
+        CHECK(sField(tank, "slow_timer")->number > 0.0);              // ...and is left cryo-locked
     }
 
     // Overflow power-up (kind 6): while active, holding fire spends no ammo and never reloads — the
