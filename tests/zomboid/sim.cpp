@@ -2818,9 +2818,19 @@ int main() {
         CHECK(!sField(dormant, "alive")->boolean);
 
         Value sv = survivor->script();
+        // Give the survivor a sustained buff first (Berserk = 8), then grab the one-shot Cryo Nova.
+        std::vector<Value> berserk = {Value::fromNum(8.0)};
+        vm.callOn(sv, "grant_powerup", berserk);
+        CHECK((int)sField(survivor, "buff_kind")->number == 8);
+        const double berserkFr = sField(survivor, "buff_fr")->number;
+        CHECK(berserkFr > 1.0);                                   // Berserk raised the fire-rate multiplier
+
         std::vector<Value> pk = {Value::fromNum(4.0)};
         vm.callOn(sv, "grant_powerup", pk);
-        CHECK((int)sField(survivor, "buff_kind")->number == 4);
+        // Cryo Nova is a ONE-SHOT: it chills the field but must NOT occupy the buff slot, so the active
+        // Berserk survives untouched (previously the pickup overwrote buff_kind to 4 and wiped Berserk).
+        CHECK((int)sField(survivor, "buff_kind")->number == 8);   // Berserk still active, not cancelled
+        CHECK(sField(survivor, "buff_fr")->number == berserkFr);  // ...its multiplier intact
         for (int i = 0; i < 3; ++i)
             CHECK(sField(zs[i], "slow_timer")->number > 0.0);    // whole field chilled, any distance
         CHECK(sField(dormant, "slow_timer")->number == 0.0);     // a dormant slot is left alone

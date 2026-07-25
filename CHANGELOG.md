@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — grabbing a Cryo Nova no longer cancels your active power-up.** The Cryo Nova is documented as
+  a one-shot panic button ("not a sustained buff"), but picking one up actually overwrote the sustained-buff
+  slot — resetting `buff_kind`/`buff_timer` and the fire-rate/damage multipliers — so snagging a Cryo Nova
+  mid-Rapid-Fire/Berserk/Overflow **wiped that buff** and parked you in an 8-second do-nothing "cryo" state
+  (which the new HUD readout would have shown as a phantom countdown). Cryo Nova now fires its field-wide
+  chill and returns without touching the buff slot, so it truly is a one-shot and leaves your active buff
+  intact. Headless-tested: with Berserk active, grabbing a Cryo Nova keeps Berserk (and its multiplier)
+  running while still chilling the whole field.
 - **ZOMBOID — the HUD now names your active power-up and counts it down.** An active buff was communicated
   only by a subtle tint on the survivor's body — unreadable across nine different power-ups, and with no
   way to tell when Rapid Fire / Berserk / Overflow / etc. was about to run out. The HUD now shows the

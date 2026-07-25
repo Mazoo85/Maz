@@ -181,7 +181,9 @@ its **name and a live countdown**, so you always know which buff is up and when 
 - **Double Damage** — doubles damage.
 - **Shield** — brief total immunity.
 - **Piercing Rounds** — your bullets punch through several zombies.
-- **Cryo Nova** — instantly chills *every* zombie on the field — a panic button when swarmed.
+- **Cryo Nova** — instantly chills *every* zombie on the field — a panic button when swarmed. It's a pure
+  one-shot: grabbing it fires the chill and nothing more, so it **never overwrites a buff you already have**
+  (snag one mid-Berserk and your Berserk keeps running).
 - **Overflow** — infinite ammo and no reloads for a while — hose down a wave without pausing.
 - **Frost Field** — a lingering cold aura that **chills *every* zombie on the field** for its duration
   (unlike the one-shot Cryo Nova). It's a full chill, not just a slow: bodies crawl, turn **brittle**

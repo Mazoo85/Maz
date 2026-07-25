@@ -521,6 +521,23 @@ class Survivor {
 
     # Activate a timed power-up buff picked up from the field. A new pickup refreshes the timer.
     func grant_powerup(kind) {
+        # Cryo Nova (kind 4) is a ONE-SHOT panic button, not a sustained buff: fire the field-wide chill
+        # immediately and RETURN without touching the buff slot. So grabbing a Cryo Nova never cancels an
+        # active sustained buff (Rapid Fire, Berserk, Overflow, ...) the way it used to — the pickup used to
+        # overwrite buff_kind/buff_timer and reset the fire-rate/damage multipliers, wiping your real buff
+        # and parking you in an 8s do-nothing "cryo" state. (That phantom state also showed a bogus HUD
+        # countdown.) The instant chill is the whole effect; the sustained cold aura is Frost Field (kind 7).
+        if (kind == 4) {
+            var i = 0;
+            var n = len(g_zombies);
+            while (i < n) {
+                var z = g_zombies[i];
+                if (z.alive) { z.apply_slow(4.0); }
+                i = i + 1;
+            }
+            emit(self.node.x, self.node.y, 24, 0);   # frost burst
+            return;
+        }
         self.buff_kind = kind;
         self.buff_timer = 8.0;
         self.buff_fr = 1.0;
@@ -532,18 +549,6 @@ class Survivor {
         # Berserk (kind 8): a combined offensive surge — fire rate AND damage both jump at once, so
         # it's the "go loud" button (rapid boosts only rate, double-damage only damage; this is both).
         if (kind == 8) { self.buff_fr = 1.7; self.buff_dmg = 1.7; }
-        # Cryo nova (kind 4): an instant panic button — chills every zombie on the field so a swarm
-        # crawls while you reposition. One-shot on pickup rather than a sustained buff.
-        if (kind == 4) {
-            var i = 0;
-            var n = len(g_zombies);
-            while (i < n) {
-                var z = g_zombies[i];
-                if (z.alive) { z.apply_slow(4.0); }
-                i = i + 1;
-            }
-            emit(self.node.x, self.node.y, 24, 0);   # frost burst
-        }
         # Vampiric (kind 5): a sustained buff — no instant effect. While it lasts, each kinetic hit
         # (bullet / railgun beam) siphons a little health back, handled where those hits land.
         # Overflow (kind 6): infinite ammo / no reloads while active. Cancel any in-progress reload so
