@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the wave-clear vacuum now sweeps up ammo boxes too.** Clearing a wave auto-collects any
+  medkits and power-ups still lying on the field so a hard-won drop is never stranded during the
+  between-wave lull — but ammo boxes (the same kind of small, expiring zombie drop) were being skipped, so
+  a box that fell late in a wave just quietly expired unclaimed. The vacuum now also gathers active ammo
+  boxes, topping up your reserves on the clear — the same courtesy already extended to medkits and
+  power-ups. (Supply crates are intentionally left out — they're a big care package you walk to, not a
+  small drop.) Headless-tested: clearing a wave with a medkit, a power-up, and an ammo box all out of reach
+  sweeps up all three and refills the active weapon's reserve.
 - **ZOMBOID — explosive barrels replenish between waves.** Barrels were a finite, non-renewable resource:
   the arena started with a handful and, once each was popped, they were gone for the rest of the run. So
   the whole "lure the horde onto a barrel and detonate it" playstyle quietly died out a few waves in,

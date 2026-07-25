@@ -4573,8 +4573,16 @@ int main() {
         std::vector<Value> pp = {Value::fromNum(100.0), Value::fromNum(100.0),
                                  Value::fromNum(0.0)};    // kind 0 = rapid fire
         vm.callOn(pv, "place", pp);
+        // ...and an ammo box, likewise out of reach — it should be swept up too, not left to expire.
+        setWeapon(tree, survivor, 1);   // shotgun equipped so an ammo refill isn't a pistol no-op
+        SceneNode* box = tree.findNode("Ammo0");
+        Value av = box->script();
+        std::vector<Value> ap = {Value::fromNum(-100.0), Value::fromNum(100.0)};
+        vm.callOn(av, "place", ap);
+        const double res1before = (*sField(survivor, "reserves")->array)[1].number;
         CHECK(sField(kit, "active")->boolean);
         CHECK(sField(pow, "active")->boolean);
+        CHECK(sField(box, "active")->boolean);
 
         // Kill the whole wave, then step once so the Director registers the clear and vacuums.
         for (SceneNode* z : tree.nodesInGroup("zombies")) {
@@ -4588,8 +4596,10 @@ int main() {
 
         CHECK(!sField(kit, "active")->boolean);           // medkit swept up
         CHECK(!sField(pow, "active")->boolean);           // power-up swept up
+        CHECK(!sField(box, "active")->boolean);           // ammo box swept up
         CHECK(sField(survivor, "health")->number > 50.0); // medkit healed on the way in
         CHECK(sField(survivor, "buff_timer")->number > 0.0); // power-up buff granted
+        CHECK((*sField(survivor, "reserves")->array)[1].number > res1before); // ammo refilled on sweep
     }
 
     // Boss slam knockback: the boss's ground slam physically hurls a nearby survivor away from it, so

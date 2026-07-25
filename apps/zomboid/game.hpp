@@ -1689,8 +1689,10 @@ func drop_powerup(x, y, k) {
     }
 }
 
-# Wave-clear vacuum: sweep up every pickup still lying on the field so clearing a wave never strands a
-# medkit or power-up during the lull before the next one. Returns how many were collected.
+# Wave-clear vacuum: sweep up every small drop still lying on the field so clearing a wave never strands a
+# medkit, power-up, or ammo box during the lull before the next one. Returns how many were collected.
+# (Supply crates are deliberately NOT vacuumed — they're a large care package you walk to, not a small
+# drop that would otherwise expire unclaimed.)
 func vacuum_pickups() {
     var collected = 0;
     if (g_player == nil) { return collected; }
@@ -1718,6 +1720,20 @@ func vacuum_pickups() {
             collected = collected + 1;
         }
         j = j + 1;
+    }
+    # Ammo boxes are small zombie drops too, so sweep them up on the clear rather than letting a box that
+    # dropped late in the wave expire unclaimed during the lull — the same courtesy as medkits/power-ups.
+    var a = 0;
+    var an = len(g_ammo);
+    while (a < an) {
+        var ab = g_ammo[a];
+        if (ab.active) {
+            g_player.collect_ammo();
+            ab.active = false;
+            emit(ab.node.x, ab.node.y, 4, 0);
+            collected = collected + 1;
+        }
+        a = a + 1;
     }
     return collected;
 }

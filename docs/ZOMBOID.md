@@ -139,8 +139,8 @@ Every kill banks **cash**. Spend it mid-fight without pausing at the shop hotkey
 kit (a mine + sentry + molotov in one buy), ammo, grenades, a heal, or an armor plate. Hoard for a panic heal, or stay stocked on offense — your call. The shop **won't let you waste salvage**: a heal at full health, a fresh plate when your armor is untouched, or an ammo refill while you're holding the pistol (its reserve is bottomless, so a refill does nothing) is declined and costs nothing, so a mistimed buy never throws money away. Switch to a power weapon before buying ammo.
 Salvage **scales with your combo multiplier**, too: kills landed on a hot streak pay out far more
 (up to +200% at ×5), so keeping the chain alive fills your wallet as well as your score. And when you
-**clear a wave**, any medkits or power-ups still lying on the field are swept straight to you — so a
-drop you couldn't reach in the chaos is never wasted.
+**clear a wave**, any medkits, power-ups, or ammo boxes still lying on the field are swept straight to
+you — so a drop you couldn't reach in the chaos is never wasted.
 
 ---
 
