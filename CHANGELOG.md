@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — a mine's blast now flashes over caustic acid puddles.** Acid is volatile: a naked flame
+  already combusts it (molotov / flamethrower / barrel-fire), and now a **hard explosion does too** —
+  a proximity mine's detonation ignites any spitter puddle (or Volatile-horde pool) in its blast radius,
+  chaining the trap into a fiery flash-over that also sets the surrounding pack alight. It joins the
+  mine's existing barrel-cook and exploder-daisy-chain, so rigging a mine on the hazards already
+  downrange sets up a bigger environmental chain reaction. Headless-tested: a puddle inside the blast
+  radius combusts while one outside is untouched.
 - **ZOMBOID — caustic acid puddles now corrode the horde, not just you.** A spitter's acid puddle (and
   a Volatile-horde pool) still eats your health and bogs you down — but now **any zombie standing in it
   is slowed too**, refreshed for as long as they wade through it. It deals the horde no bonus damage

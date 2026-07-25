@@ -868,6 +868,35 @@ int main() {
         CHECK(sField(survivor, "mines")->number == stock1 + 1.0);
     }
 
+    // A mine's blast is volatile enough to flash over caustic acid, just like a naked flame: a puddle
+    // caught in the mine's blast radius combusts, while one well outside the radius is left untouched.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(100.0, 100.0);   // keep the survivor clear of the blast
+        auto& vm = tree.scripts().vm();
+        SceneNode* mine = tree.findNode("Mine0");
+        Value mv = mine->script();
+        std::vector<Value> origin = {Value::fromNum(0.0), Value::fromNum(0.0)};
+        vm.callOn(mv, "arm", origin);                       // places the mine at the origin
+
+        SceneNode* nearAcid = tree.findNode("Acid0");
+        SceneNode* farAcid = tree.findNode("Acid1");
+        Value nav = nearAcid->script();
+        Value fav = farAcid->script();
+        std::vector<Value> near = {Value::fromNum(3.0), Value::fromNum(0.0)};    // inside blast radius 6
+        std::vector<Value> far = {Value::fromNum(30.0), Value::fromNum(0.0)};    // well outside
+        vm.callOn(nav, "splat_at", near);
+        vm.callOn(fav, "splat_at", far);
+        CHECK(sField(nearAcid, "active")->boolean);
+        CHECK(sField(farAcid, "active")->boolean);
+
+        std::vector<Value> noargs;
+        vm.callOn(mv, "detonate", noargs);              // set off the mine
+        CHECK(!sField(nearAcid, "active")->boolean);    // flashed over by the blast
+        CHECK(sField(farAcid, "active")->boolean);      // out of range — still a puddle
+    }
+
     // Second wind: lethal damage is cancelled while a revive charge remains — the survivor bursts back
     // with half health, i-frames, and a crowd-clearing nova. Only the final (chargeless) hit is fatal.
     {

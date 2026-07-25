@@ -1682,6 +1682,21 @@ class Mine {
             }
             bi = bi + 1;
         }
+        # Acid is volatile — a naked flame flashes it over, and so does a hard blast. The mine's
+        # detonation combusts any caustic puddle in range (a spitter's acid or a Volatile-horde pool),
+        # so rigging a mine beside a puddle chains the trap into a bigger fiery flash-over that also
+        # sets the surrounding pack alight. Rewards deliberate placement on the hazards already downrange.
+        var ai = 0;
+        var an = len(g_acid);
+        while (ai < an) {
+            var a = g_acid[ai];
+            if (a.active) {
+                var adx = a.node.x - self.node.x;
+                var ady = a.node.y - self.node.y;
+                if (adx * adx + ady * ady <= self.blast_radius * self.blast_radius) { a.combust(); }
+            }
+            ai = ai + 1;
+        }
         emit(self.node.x, self.node.y, 28, 1);
         g_shake = g_shake + 2.2;
         if (g_shake > 3.0) { g_shake = 3.0; }

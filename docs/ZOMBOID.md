@@ -85,8 +85,10 @@ better at kiting the horde and slipping out of hazards the deeper you get.
   finally powers down (empty or expired) it **self-destructs in a blast** that damages and staggers the
   zombies around it, so planting it deep in the horde earns a farewell explosion (safe for you — it only
   hits zombies). A mine's blast
-  **cooks off explosive barrels** and **daisy-chains through exploder packs**, so rigging one beside a
-  barrel — or in a nest of exploders — sets up a massive environmental chain reaction.
+  **cooks off explosive barrels**, **daisy-chains through exploder packs**, and **flashes over caustic
+  acid puddles** in range (acid is volatile — a hard blast sets it off just like fire), so rigging one
+  beside a barrel, a nest of exploders, or a spitter's puddle sets up a massive environmental chain
+  reaction.
 - **Overcharge (Q)** — a screen-wide ultimate blast that also grants a brief **invulnerability window**,
   so it's a true panic button. Kills charge the meter; unleash it when full. Kills landed **on a hot combo
   streak charge it faster** — up to 3× the meter per kill at ×5 — so keeping a chain alive earns the
