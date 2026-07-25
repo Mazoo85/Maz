@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — add an end-to-end firing-loop soak test.**
+  The suite pokes each piece of the combat pipeline in isolation (fire spawns a bullet, a bullet kills a
+  parked zombie, a kill scores), but nothing exercised the whole real-time loop as a unit. Added a soak
+  test that parks several walkers around the survivor, then each frame auto-aims at the nearest live one
+  and holds fire while stepping the entire tree — confirming zombie approach, bullet flight/collision,
+  death, and scoring all work together over time until the field is cleared. The survivor is given a huge
+  health pool so the outcome is deterministic. Test-only change — no gameplay logic changed.
 - **ZOMBOID — regression-test the flawless-streak cash cap.**
   The no-hit streak reward climbs 25, 40, 55, … but is clamped at 100 (the docs promise "up to 100"). The
   existing streak test only covered the first few rungs; the clamp itself was untested, so a refactor

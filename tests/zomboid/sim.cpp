@@ -261,6 +261,44 @@ int main() {
         CHECK(glob(tree, "g_score") > 0.0);
     }
 
+    // End-to-end firing loop: park several walkers around the survivor, then each frame auto-aim at the
+    // nearest live one and hold fire while stepping the WHOLE tree. Exercises the real-time pipeline as a
+    // unit — zombie approach, bullet spawn/flight/collision, death, and scoring together over time — where
+    // the tests above each poke one piece in isolation. The survivor is given a huge health pool so the
+    // outcome is deterministic (we're testing the kill loop, not survival).
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        sField(survivor, "health")->number = 1.0e6;      // can't die — isolate the kill pipeline
+        sField(survivor, "max_health")->number = 1.0e6;
+        auto& vm = tree.scripts().vm();
+        const char* names[3] = {"Zombie0", "Zombie1", "Zombie2"};
+        for (int i = 0; i < 3; ++i) {
+            SceneNode* z = tree.findNode(names[i]);
+            Value zv = z->script();
+            std::vector<Value> sp = {Value::fromNum(8.0 + i * 2.0), Value::fromNum(0.0),
+                                     Value::fromNum(0.0), Value::fromNum(1.0)};  // walker, wave 1
+            vm.callOn(zv, "spawn", sp);
+        }
+        const double kills0 = glob(tree, "g_kills");
+        for (int f = 0; f < 1800 && aliveZombies(tree) > 0; ++f) {
+            double bestD = 1.0e18, ax = 1.0, ay = 0.0;
+            for (SceneNode* z : tree.nodesInGroup("zombies")) {
+                if (!sField(z, "alive")->boolean) continue;
+                const double dx = z->x() - survivor->x(), dy = z->y() - survivor->y();
+                const double d2 = dx * dx + dy * dy;
+                if (d2 < bestD) { bestD = d2; ax = dx; ay = dy; }
+            }
+            sField(survivor, "aim_x")->number = ax;
+            sField(survivor, "aim_y")->number = ay;
+            sField(survivor, "firing")->boolean = true;
+            tree.process(1.0 / 60.0);
+        }
+        CHECK(aliveZombies(tree) == 0);              // the survivor cleared them all via real bullets
+        CHECK(glob(tree, "g_kills") >= kills0 + 3.0); // all three kills scored through the full pipeline
+    }
+
     // A cleared wave escalates to a bigger wave 2.
     {
         SceneTree tree;
