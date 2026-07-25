@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — give the Summoner a visible wind-up telegraph too, completing the back-line caster set.**
+  Follow-up to the Screamer/Healer telegraph fix: the Summoner is the third back-line caster whose call
+  "winds up with a tell first" per the manual, but it had the same problem — no sustained on-screen tell, only
+  a one-shot puff — so its documented burst/chill/stagger counterplay was just as hard to time. Added a
+  pulsing necromantic-cyan flash while a Summoner charges a reinforcement, so all three casters (Summoner,
+  Screamer, Healer) now telegraph on-screen like the boss slam / leaper coil / warper blink. Host render
+  layer only — no game logic altered; the headless soak run confirms no regression. Docs updated with the tell color.
 - **ZOMBOID — give the Screamer and Healer a visible wind-up telegraph, matching the boss/leaper/warper.**
   The renderer flashes a distinct sustained tint on a zombie mid-cast so the player can *read* the tell the
   manual promises — the boss slam pulses white, the leaper's coil flashes lime, the warper's blink shimmers

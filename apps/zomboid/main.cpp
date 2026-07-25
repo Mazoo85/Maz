@@ -713,6 +713,13 @@ int main(int argc, char** argv) {
                     const float mp = 0.6f + 0.4f * std::sin(static_cast<float>(simTime) * 30.0f);
                     tint = render::Color{0.2f * mp, 1.0f, 0.4f * mp + 0.2f, 1.0f};
                 }
+                // Summoner call wind-up: a pulsing necromantic cyan flash as it charges a reinforcement, so
+                // this back-line caster's tell reads on-screen like the others — burst, chill, or stagger it
+                // now to cancel the summon before the reinforcement lands.
+                if (field(z, "summon_warn") > 0.0) {
+                    const float up = 0.6f + 0.4f * std::sin(static_cast<float>(simTime) * 34.0f);
+                    tint = render::Color{0.2f * up, 0.9f * up + 0.1f, 1.0f, 1.0f};
+                }
                 // Burning overrides other tints: a flickering ember glow.
                 if (field(z, "burn_timer") > 0.0) {
                     const float fl = 0.7f + 0.3f * std::sin(static_cast<float>(simTime) * 24.0f +
