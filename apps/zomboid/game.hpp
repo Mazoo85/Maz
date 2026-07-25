@@ -2596,7 +2596,9 @@ class Zombie {
         # top of you. It only blinks while there's real ground to cover, then walks the last stretch.
         if (self.kind == 13 and self.stagger_timer <= 0) {
             self.warp_cd = self.warp_cd - dt;
-            if (self.warp_cd <= 0 and dist > 8.0) {
+            # A chilled warper is locked down — a frozen body can't phase, so cryo (a Cryo Nova or a
+            # Frost Field) is a hard counter that pins it in place until the chill wears off.
+            if (self.warp_cd <= 0 and dist > 8.0 and self.slow_timer <= 0) {
                 self.node.x = self.node.x + (dx / dist) * (dist * 0.5);
                 self.node.y = self.node.y + (dy / dist) * (dist * 0.5);
                 self.warp_cd = 2.5;

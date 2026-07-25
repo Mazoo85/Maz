@@ -2972,6 +2972,19 @@ int main() {
         sField(w2, "warp_cd")->number = 5.0;              // still on cooldown, no blink
         vm2.callOn(wz2, "_process", dt);
         CHECK(w2->x() > 39.0);                             // barely moved — a slow walk, no teleport
+
+        // Chilled case: even with the cooldown ready, a frozen warper can't phase — cryo pins it.
+        SceneTree t3;
+        SceneNode* surv3 = zomboid::buildScene(t3);
+        surv3->setPosition(0.0, 0.0);
+        auto& vm3 = t3.scripts().vm();
+        SceneNode* w3 = t3.findNode("Zombie0");
+        Value wz3 = w3->script();
+        vm3.callOn(wz3, "spawn", sp);
+        sField(w3, "warp_cd")->number = 0.0;              // blink is off cooldown...
+        sField(w3, "slow_timer")->number = 2.0;          // ...but it's chilled, so it can't phase
+        vm3.callOn(wz3, "_process", dt);
+        CHECK(w3->x() > 39.0);                             // stayed put — cryo hard-counters the blink
     }
 
     // Molotov fire cooks off barrels: an explosive barrel sitting in a burning patch is chipped by the

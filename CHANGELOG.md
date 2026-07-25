@@ -8,6 +8,10 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — cryo hard-counters the Warper.** The new teleporting Warper can't phase while chilled:
+  a **Cryo Nova or Frost Field now pins it in place** until the chill wears off (a frozen body can't
+  blink), giving those cold power-ups a clear tactical use against the game's slipperiest enemy.
+  Headless-tested: a chilled Warper with its blink off cooldown stays put instead of teleporting in.
 - **ZOMBOID — 14th enemy type: the Warper (kind 13).** A fragile teleporter that shambles slowly
   between blinks, then **teleports half the way to the survivor in a single instant** (on a ~2.5s
   cooldown, only while there's real ground to cover) — erasing a gap a walker never could and
