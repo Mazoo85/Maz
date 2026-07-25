@@ -2533,6 +2533,34 @@ int main() {
         CHECK(sField(farZ, "health")->number == 20.0);       // out of range — untouched
     }
 
+    // Cryo silences the back line: a chilled healer can't mend — a frozen caster can't work its
+    // ability, so cryo shuts it down until the chill wears off (same rule for screamer/summoner).
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        SceneNode* healer = tree.findNode("Zombie0");
+        SceneNode* patient = tree.findNode("Zombie1");    // 6 units away, wounded
+
+        Value hv = healer->script();
+        std::vector<Value> hs = {Value::fromNum(30.0), Value::fromNum(0.0),
+                                 Value::fromNum(12.0), Value::fromNum(5.0)};
+        vm.callOn(hv, "spawn", hs);
+        sField(healer, "speed")->number = 0.0;            // pin it in place
+        sField(healer, "slow_timer")->number = 2.0;       // ...and chill it — heal is silenced
+
+        Value pv = patient->script();
+        std::vector<Value> ps = {Value::fromNum(24.0), Value::fromNum(0.0),
+                                 Value::fromNum(100.0), Value::fromNum(0.0)};
+        vm.callOn(pv, "spawn_at", ps);
+        sField(patient, "health")->number = 20.0;         // badly wounded
+
+        for (int i = 0; i < 10; ++i) { vm.callOn(hv, "_process", dt); }
+        CHECK(sField(patient, "health")->number == 20.0); // no mend landed — the chill silenced it
+    }
+
     // Combo-scaled salvage: cash per kill grows with the streak multiplier — the same zombie pays
     // more killed on a hot streak (×3) than cold (×1), rewarding sustained aggression.
     {

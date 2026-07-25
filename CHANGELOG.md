@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — cryo silences the whole back line.** Extending the Warper cryo-counter to the other
+  ability users: a **chilled Summoner, Screamer, or Healer can't use its ability** either — no calling
+  reinforcements, no frenzy shriek, no mending — until the chill wears off. Cryo (a Cryo Nova or Frost
+  Field) is now a consistent, tactical answer to a support-heavy pack, not just crowd control.
+  Headless-tested: a chilled healer parked next to a wounded zombie lands no mend across ten frames.
 - **ZOMBOID — cryo hard-counters the Warper.** The new teleporting Warper can't phase while chilled:
   a **Cryo Nova or Frost Field now pins it in place** until the chill wears off (a frozen body can't
   blink), giving those cold power-ups a clear tactical use against the game's slipperiest enemy.

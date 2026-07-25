@@ -2402,7 +2402,9 @@ class Zombie {
         # Summoner (kind 7): periodically calls a reinforcement until its budget runs out.
         if (self.kind == 7 and self.summon_budget > 0) {
             self.summon_cd = self.summon_cd - dt;
-            if (self.summon_cd <= 0) {
+            # A chilled caster is silenced — a frozen body can't work its ability, so cryo shuts down
+            # the whole back line (summoner, screamer, healer) until the chill wears off.
+            if (self.summon_cd <= 0 and self.slow_timer <= 0) {
                 self.summon_cd = 4.0;
                 if (self.summon(1) > 0) {
                     self.summon_budget = self.summon_budget - 1;
@@ -2414,7 +2416,7 @@ class Zombie {
         # frenzy. It's fragile, so silencing it early keeps the horde from surging — a priority target.
         if (self.kind == 11) {
             self.cooldown = self.cooldown - dt;
-            if (self.cooldown <= 0) {
+            if (self.cooldown <= 0 and self.slow_timer <= 0) {   # a chilled screamer can't shriek
                 self.cooldown = 5.0;
                 var si = 0;
                 var sn = len(g_zombies);
@@ -2435,7 +2437,7 @@ class Zombie {
         # your work. It never heals itself, keeping it a body you can burn down.
         if (self.kind == 12) {
             self.cooldown = self.cooldown - dt;
-            if (self.cooldown <= 0) {
+            if (self.cooldown <= 0 and self.slow_timer <= 0) {   # a chilled healer can't mend
                 self.cooldown = 4.0;
                 var mended = 0;
                 var hi = 0;

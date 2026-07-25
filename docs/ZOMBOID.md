@@ -137,8 +137,10 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
   burst — so a point-blank shotgun, a railgun line, or a double-damage crit landed deep in a crowd
   throws a far deadlier chain than a hit that only just tips a body over. (Exploders, bosses, and
   splitters have their own death behaviour and don't gib.)
-- **Chilled = brittle** — frozen zombies take extra damage, and killing one while it's frozen
-  **shatters** it into a spreading freeze.
+- **Chilled = brittle (and silenced)** — frozen zombies take extra damage, and killing one while it's
+  frozen **shatters** it into a spreading freeze. Cold also **silences the back line**: a chilled
+  Summoner, Screamer, Healer, or Warper can't work its ability (call, shriek, mend, or blink) until
+  the chill wears off — so a Cryo Nova or Frost Field is a hard answer to a support-heavy pack.
 - **Stagger = weak point** — a zombie flinching from a stagger (a melee shove or dash-strike) takes
   **40% more damage** while it reels, so the combo is: knock it off balance, then pour fire in. It
   stacks with the chill bonus.
