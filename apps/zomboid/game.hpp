@@ -1008,9 +1008,14 @@ class Survivor {
         return true;
     }
 
-    # Grab a supply-crate care package: a big refill of ammo, grenades, and health.
+    # Grab a supply-crate care package: a big refill of ammo, grenades, health — and rations. The crate is
+    # the only RENEWABLE food source (the map's scattered ration pickups are one-time), so it's what keeps
+    # the hunger clock answerable on a long run: without it, food would inevitably run dry and starvation
+    # became an unavoidable death regardless of skill. A periodic care package includes a couple of rations,
+    # turning hunger into a sustainable pressure (keep grabbing crates) rather than a slow guaranteed loss.
     func collect_crate() {
         self.heal(50);
+        self.food = self.food + 2;
         self.grenades = self.grenades + 2;
         self.mines = self.mines + 1;
         self.sentries = self.sentries + 1;

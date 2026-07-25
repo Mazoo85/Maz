@@ -128,7 +128,10 @@ back sooner and sooner, so the deeper you get, the more often you can bail out o
   still have a ration, you **auto-eat one** rather than take damage — so starvation only hurts once your
   food is genuinely gone. You still **can't heal on an empty stomach**: while you're starving (out of
   food), the passive out-of-combat regen is switched off, so you can't just stand still and shrug the
-  hunger off — grab more rations from loot to stop the bleed and start recovering again.
+  hunger off — grab more rations to stop the bleed and start recovering again. Rations come from the
+  scattered ration pickups **and from every supply-crate care package** (each crate includes two), so the
+  crates that drop through the fight are your renewable food supply — keep grabbing them and you'll never
+  starve out on a long run.
 
 ## The salvage economy
 

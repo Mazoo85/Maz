@@ -845,6 +845,7 @@ int main() {
         sField(survivor, "health")->number = 50.0;
         const double nades0 = sField(survivor, "grenades")->number;
         const double res0 = (*sField(survivor, "reserves")->array)[0].number;
+        const double food0 = sField(survivor, "food")->number;
 
         std::vector<Value> at = {Value::fromNum(0.0), Value::fromNum(0.0)};
         tree.scripts().vm().call("drop_crate", at);
@@ -857,6 +858,9 @@ int main() {
         CHECK(sField(survivor, "grenades")->number == nades0 + 2);              // +2 grenades
         CHECK((*sField(survivor, "reserves")->array)[0].number > res0);         // ammo refilled
         CHECK(sField(survivor, "health")->number > 50.0);                       // healed
+        CHECK(sField(survivor, "food")->number == food0 + 2.0);                 // +2 rations — the only
+                                                                               // renewable food source, so
+                                                                               // hunger stays answerable
     }
 
     // Dodge-roll: bursts the survivor in a direction, grants i-frame invulnerability, then cools

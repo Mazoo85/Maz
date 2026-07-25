@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — supply crates now restock rations, so starvation is escapable.** The survivor's hunger clock
+  is answered by eating rations, but food had only one source — three one-time ration pickups scattered on
+  the map. Once those were gone there was *no* way to get more (crates, zombie drops, and the shop all gave
+  everything except food), so any run long enough to burn through six rations slid into unavoidable
+  starvation damage no matter how well you played. Periodic supply-crate care packages now include **two
+  rations**, making the crate the renewable food source the hunger system needs: grab crates and hunger
+  stays a manageable pressure; ignore them and it bites. Headless-tested: collecting a crate raises the
+  ration count by two (alongside its existing ammo/grenade/heal refill).
 - **ZOMBOID — the enraged boss now heals — and damage-over-time shuts it off.** The code justified the
   boss's immunity to healer mends and the Regenerator mutator by saying it "already enrage-heals," but no
   such mechanic existed — the boss never regained health. That's now real: once the boss enters its
