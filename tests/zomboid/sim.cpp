@@ -4931,6 +4931,43 @@ int main() {
         sField(surv3, "buff_timer")->number = 0.0;                 // force the buff expired
         Value active = vm3.callOn(s3v, "lifesteal_active", none);
         CHECK(!active.boolean);
+
+        // Vampiric railgun line-leech: the beam leeches per BODY (heal 1.0 each), so tagging a whole line
+        // at once heals more than a single bullet — the documented reason the piercing beam is a strong
+        // sustain tool. Three tanky bodies strung along the beam → exactly three leech ticks; a lone body →
+        // one. (Damage per body varies with crit, but the leech is a flat 1.0, so the heal is deterministic.)
+        SceneTree t4;
+        SceneNode* surv4 = zomboid::buildScene(t4);
+        surv4->setPosition(0.0, 0.0);
+        auto& vm4 = t4.scripts().vm();
+        Value s4v = surv4->script();
+        vm4.callOn(s4v, "grant_powerup", vamp);                    // Vampiric on
+        sField(surv4, "health")->number = 50.0;
+        SceneNode* row[3] = {t4.findNode("Zombie0"), t4.findNode("Zombie1"), t4.findNode("Zombie2")};
+        for (int i = 0; i < 3; ++i) {
+            Value rzv = row[i]->script();
+            std::vector<Value> sp3 = {Value::fromNum(3.0 + i * 3.0), Value::fromNum(0.0),
+                                      Value::fromNum(9999.0), Value::fromNum(0.0)};  // tanky, on the +x beam
+            vm4.callOn(rzv, "spawn_at", sp3);
+        }
+        std::vector<Value> aim = {Value::fromNum(1.0), Value::fromNum(0.0)};
+        vm4.callOn(s4v, "railgun_fire", aim);
+        CHECK(std::abs(sField(surv4, "health")->number - 53.0) < 1e-6);   // 3 bodies × 1.0 leeched
+
+        // Control: a single body on the beam leeches only 1.0.
+        SceneTree t5;
+        SceneNode* surv5 = zomboid::buildScene(t5);
+        surv5->setPosition(0.0, 0.0);
+        auto& vm5 = t5.scripts().vm();
+        Value s5v = surv5->script();
+        vm5.callOn(s5v, "grant_powerup", vamp);
+        sField(surv5, "health")->number = 50.0;
+        Value z0 = t5.findNode("Zombie0")->script();
+        std::vector<Value> sp1 = {Value::fromNum(3.0), Value::fromNum(0.0),
+                                  Value::fromNum(9999.0), Value::fromNum(0.0)};
+        vm5.callOn(z0, "spawn_at", sp1);
+        vm5.callOn(s5v, "railgun_fire", aim);
+        CHECK(std::abs(sField(surv5, "health")->number - 51.0) < 1e-6);   // 1 body × 1.0
     }
 
     // Field Medic power-up (kind 9): a sustained heal-over-time. While active it steadily mends the

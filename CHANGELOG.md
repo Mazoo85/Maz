@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — pin the Vampiric railgun's per-body line-leech.** The railgun beam leeches health per BODY
+  it tags (a flat amount each), so raking it down a whole line of zombies heals far more than a single
+  bullet would — the documented reason the piercing beam is such a strong sustain tool while Vampiric is up.
+  The existing Vampiric test covers a single bullet hit; this pins the line scaling: three tanky bodies on
+  the beam leech exactly three ticks, a lone body only one. Test-only change — no gameplay logic altered.
 - **ZOMBOID — regression-test the flamethrower's ground-fire trail + throttle.** Firing the flamethrower
   doesn't just cone-burn what's in front — it also lays a lingering fire patch ahead of the survivor on a
   short throttle, so sweeping the stream paints burning ground that keeps denying the lane after the stream
