@@ -1121,7 +1121,13 @@ class Grenade {
                 var d2 = dx * dx + dy * dy;
                 var cr = self.blast_radius + 2.0;    # chill reaches a bit past the kill radius
                 if (d2 <= cr * cr) { z.apply_slow(2.5); }
-                if (d2 <= self.blast_radius * self.blast_radius) { z.take_damage(self.blast_dmg); }
+                if (d2 <= self.blast_radius * self.blast_radius) {
+                    z.take_damage(self.blast_dmg);
+                    # Concussive stun: the blast briefly roots survivors of it, so the grenade is crowd
+                    # control as well as damage — and a staggered body takes the weak-point bonus, so
+                    # follow-up fire into the reeling pack bites harder.
+                    z.stagger(0.5);
+                }
             }
             i = i + 1;
         }

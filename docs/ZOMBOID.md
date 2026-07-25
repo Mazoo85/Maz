@@ -65,7 +65,9 @@ often *and* harder as the run goes on.
   pack to shove-execute stragglers is a real *sustain* button, and chaining finishers both cleans up
   and patches you up.
 - **Grenade (G)** / **Molotov (X)** — a thrown frag / a lingering fire patch that both burns *and*
-  **slows** anything standing in it, so it holds a lane as area denial, not just chip damage.
+  **slows** anything standing in it, so it holds a lane as area denial, not just chip damage. The
+  grenade also **concusses** — anything that survives the blast is briefly **stunned in place**, and a
+  staggered body takes the weak-point bonus, so a frag lobbed into a pack sets up your follow-up fire.
 - **Mine (T)** / **Sentry (Y)** — a proximity mine, and a stationary auto-turret that thins a lane. The
   sentry has a limited magazine and a lifetime, so place it where it'll earn its bolts.
 - **Overcharge (Q)** — a screen-wide ultimate blast that also grants a brief **invulnerability window**,

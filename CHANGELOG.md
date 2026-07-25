@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — grenades now concuss (stun) the pack.** A grenade blast already chilled and damaged
+  everything in range; now anything that **survives** it is also briefly **staggered — rooted in
+  place** — giving the frag a genuine crowd-control identity. Because a staggered body takes the
+  weak-point bonus, a grenade lobbed into a tanky pack sets up your follow-up fire to hit 40% harder.
+  Headless-tested: a 500-hp zombie tanks the blast but is left with an active stagger timer.
 - **ZOMBOID — the Warper now telegraphs its blink.** The teleporting Warper used to phase in with zero
   warning; now it **shimmers violet and roots itself for a brief wind-up** before the blink actually
   fires (matching the boss slam and leaper pounce tells), so the teleport is a readable, reactable

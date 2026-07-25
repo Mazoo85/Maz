@@ -469,6 +469,27 @@ int main() {
         CHECK(glob(tree, "g_kills") >= kills0 + 3.0);
     }
 
+    // Grenade concussive stun: a zombie that survives the blast is briefly staggered (rooted), so the
+    // frag is crowd control as well as damage — a tanky body caught in it reels where it stands.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        SceneNode* g0 = tree.findNode("Grenade0");
+        g0->setPosition(50.0, 0.0);
+        SceneNode* tank = tree.findNode("Zombie0");
+        Value zs = tank->script();
+        std::vector<Value> sa = {Value::fromNum(50.0), Value::fromNum(0.0),
+                                 Value::fromNum(500.0), Value::fromNum(0.0)};  // 500 hp — survives
+        vm.callOn(zs, "spawn_at", sa);
+        CHECK(sField(tank, "stagger_timer")->number == 0.0);   // steady before the blast
+        std::vector<Value> none;
+        Value gv = g0->script();
+        vm.callOn(gv, "explode", none);
+        CHECK(sField(tank, "alive")->boolean);                 // tanked the blast...
+        CHECK(sField(tank, "stagger_timer")->number > 0.0);    // ...but got concussed (rooted)
+    }
+
     // Out of grenades: throwing does nothing.
     {
         SceneTree tree;
