@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — pin the day/night boundary in `is_night()`.** This one predicate is the day/night switch:
+  it flips exactly at the half-day mark (`g_phase >= g_day_len / 2`) and gates the +50% night salvage bonus
+  as well as feeding the horde danger ramp. Added a boundary test that confirms it reads false through the
+  daylit first half (including the last instant before dusk) and true from dusk onward, so a stray `>` vs
+  `>=` or a changed divisor can't silently move when night falls. Test-only change — no gameplay logic altered.
 - **ZOMBOID — regression-test the fire-pool exhaustion contract.** `light_fire()` draws a ground-fire patch
   from a fixed pool and returns true, or false once every patch is already burning — the pooled-resource
   guard that stops molotov/flamethrower spam from overflowing the pool. The fire tests only reach `light_fire`

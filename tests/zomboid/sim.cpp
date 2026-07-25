@@ -1953,6 +1953,30 @@ int main() {
         phase->number = 0.0;                        // restore
     }
 
+    // is_night() boundary. This single predicate is the day/night switch: it flips exactly at the
+    // half-day mark (g_phase >= g_day_len / 2) and gates the +50% night salvage bonus (see the night-loot
+    // test) as well as feeding the danger ramp above. Pin the transition so a stray '>' vs '>=' or a
+    // changed divisor can't silently move dusk. The daylit first half is false; dusk onward is true.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        const double dayLen = glob(tree, "g_day_len");
+        const double half = dayLen / 2.0;
+        Value* phase = const_cast<Value*>(vm.getGlobal("g_phase"));
+        std::vector<Value> none;
+
+        phase->number = 0.0;                         // dawn
+        CHECK(!vm.call("is_night", none).boolean);
+        phase->number = half - 0.001;                // the last instant of daylight
+        CHECK(!vm.call("is_night", none).boolean);
+        phase->number = half;                        // dusk: the switch flips on the boundary itself
+        CHECK(vm.call("is_night", none).boolean);
+        phase->number = dayLen * 0.99;               // deep night
+        CHECK(vm.call("is_night", none).boolean);
+        phase->number = 0.0;                         // restore
+    }
+
     // Explosive barrels: live from the start, they detonate when shot (or chipped to zero hull),
     // blasting + igniting nearby zombies, and chain-react to neighbouring barrels.
     {
