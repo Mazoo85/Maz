@@ -605,13 +605,15 @@ int main() {
         CHECK(sField(survivor, "health")->number > 50.0);  // healed
         CHECK(activeMedkits(tree) == 0);                    // consumed
 
-        // Heal is capped at max health.
+        // Heal is capped at max health — but the surplus is banked as bonus armor, never wasted.
         sField(survivor, "health")->number = sField(survivor, "max_health")->number - 5.0;
+        sField(survivor, "armor")->number = 0.0;
         const double cap = sField(survivor, "max_health")->number;
         std::vector<Value> at2 = {Value::fromNum(survivor->x()), Value::fromNum(survivor->y())};
         tree.scripts().vm().call("drop_medkit", at2);
         tree.process(0.016);
         CHECK(sField(survivor, "health")->number == cap); // not over max
+        CHECK(sField(survivor, "armor")->number == 35.0); // the 40-heal kit: 5 filled health, 35 -> armor
 
         // An ignored medkit expires. Drive the kit's own _process in isolation so the assertion is
         // about its lifetime alone, not the surrounding sim (which can drop fresh kits over 15 s).

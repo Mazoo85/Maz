@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — medkits are never wasted (overflow banks as armor).** Picking up a medkit heals as
+  before, but any healing past full health is now **converted to bonus body armor** (up to the plate
+  cap) instead of being thrown away — so grabbing a kit while already topped up still pays off. Applies
+  to both walking over a kit and the wave-clear vacuum sweep. Headless-tested: a full-health survivor
+  who grabs a 40-heal kit at 5-below-max ends at full health with +35 armor.
 - **ZOMBOID — the Overcharge ultimate now cryo-locks survivors.** The screen-wide ultimate blast hits
   every zombie for 500 and grants brief invulnerability; now anything **too tough to be one-shot** (a
   boss, a Bulwark shield, a beefy elite) is **left deep-frozen** by it — and since a chilled caster is

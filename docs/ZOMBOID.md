@@ -115,6 +115,9 @@ Fourteen zombie types join the horde as the waves climb:
 | 12 | **Healer** | A back-line medic that periodically **mends** nearby wounded zombies, undoing your chip damage. Fragile and never heals itself — cull it before it patches the pack back up. |
 | 13 | **Warper** | A fragile teleporter that shambles slowly, then **blinks a big chunk of the way to you in a single instant** — but it **shimmers violet and roots itself for a beat as it charges the blink**, so read the tell and shoot it or reposition before it phases in. Drop it fast — or **chill it** (Cryo Nova / Frost Field): a frozen Warper can't phase, so cryo pins it in place. |
 
+Grabbing a **medkit** heals you, and any surplus past full health is **banked as bonus armor** (up to
+the plate cap) rather than wasted — so scooping up a kit while already topped up is never a waste.
+
 Some zombies spawn as **elites** — bigger, tankier, worth far more, and they always drop a medkit.
 Killing one releases a **shockwave** that knocks back and wounds the surrounding crowd, so felling an
 elite in the middle of a pack thins the pack and clears space around the medkit it leaves.

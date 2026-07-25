@@ -815,6 +815,18 @@ class Survivor {
         if (self.health > self.max_health) { self.health = self.max_health; }
     }
 
+    # Grabbing a medkit heals, and any surplus past full health is banked as bonus armor (up to the
+    # plate cap) instead of being thrown away — so a kit scooped up at high health is never wasted.
+    func take_medkit(amount) {
+        self.health = self.health + amount;
+        if (self.health > self.max_health) {
+            var overflow = self.health - self.max_health;
+            self.health = self.max_health;
+            self.armor = self.armor + overflow;
+            if (self.armor > self.armor_max) { self.armor = self.armor_max; }
+        }
+    }
+
     func collect(kind) {
         self.food = self.food + 1;
         self.loot_collected = self.loot_collected + 1;
@@ -1302,7 +1314,7 @@ class Medkit {
         var dy = g_player.node.y - self.node.y;
         var d2 = dx * dx + dy * dy;
         if (d2 <= self.pickup_range * self.pickup_range) {
-            g_player.heal(self.heal);
+            g_player.take_medkit(self.heal);
             self.active = false;
         } else {
             # Magnetism: within a short radius the kit drifts toward the survivor.
@@ -1449,7 +1461,7 @@ func vacuum_pickups() {
     while (i < mn) {
         var m = g_medkits[i];
         if (m.active) {
-            g_player.heal(m.heal);
+            g_player.take_medkit(m.heal);
             m.active = false;
             emit(m.node.x, m.node.y, 4, 0);
             collected = collected + 1;
