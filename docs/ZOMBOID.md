@@ -91,7 +91,7 @@ drop you couldn't reach in the chaos is never wasted.
 
 ## The enemies
 
-Thirteen zombie types join the horde as the waves climb:
+Fourteen zombie types join the horde as the waves climb:
 
 | Kind | Enemy | Behaviour |
 |---|---|---|
@@ -108,6 +108,7 @@ Thirteen zombie types join the horde as the waves climb:
 | 10 | **Bloater** | Fat, slow, tanky; ruptures into a **toxic cloud** on death — kill it at range. |
 | 11 | **Screamer** | Fragile back-line support; periodically **shrieks**, whipping nearby zombies into a speed frenzy. Silence it first. |
 | 12 | **Healer** | A back-line medic that periodically **mends** nearby wounded zombies, undoing your chip damage. Fragile and never heals itself — cull it before it patches the pack back up. |
+| 13 | **Warper** | A fragile teleporter that shambles slowly, then **blinks a big chunk of the way to you in a single instant** — erasing a gap you thought was safe and appearing right in your lap. Drop it fast before it ports in. |
 
 Some zombies spawn as **elites** — bigger, tankier, worth far more, and they always drop a medkit.
 Killing one releases a **shockwave** that knocks back and wounds the surrounding crowd, so felling an

@@ -126,6 +126,7 @@ int main(int argc, char** argv) {
     render::TextureHandle texBloater = renderer->createTexture(16, 16, makeSquare(90, 140, 60).data());
     render::TextureHandle texScreamer = renderer->createTexture(16, 16, makeSquare(230, 150, 40).data());
     render::TextureHandle texHealer = renderer->createTexture(16, 16, makeSquare(90, 220, 130).data());
+    render::TextureHandle texWarper = renderer->createTexture(16, 16, makeSquare(150, 90, 235).data());
     render::TextureHandle texSpit = renderer->createTexture(16, 16, makeSquare(180, 230, 60).data());
     render::TextureHandle texPowRapid = renderer->createTexture(16, 16, makeSquare(255, 200, 40).data());
     render::TextureHandle texPowDamage = renderer->createTexture(16, 16, makeSquare(255, 70, 70).data());
@@ -632,6 +633,7 @@ int main(int argc, char** argv) {
                 else if (zk == 10) ztex = texBloater;
                 else if (zk == 11) ztex = texScreamer;
                 else if (zk == 12) ztex = texHealer;
+                else if (zk == 13) ztex = texWarper;
                 const float size = static_cast<float>(field(z, "radius")) * 2.4f;
                 const double hp = field(z, "health"), mhp = field(z, "max_health");
                 const float f = mhp > 0.0 ? static_cast<float>(hp / mhp) : 1.0f;

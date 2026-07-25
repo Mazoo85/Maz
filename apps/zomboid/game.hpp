@@ -1862,6 +1862,7 @@ class Zombie {
     var leap_wind = 0;     # leaper: coil/telegraph timer — it crouches briefly before the pounce fires
     var leap_vx = 0;       # leaper: stored pounce velocity locked in at the start of the lunge
     var leap_vy = 0;
+    var warp_cd = 0;       # warper (kind 13): cooldown between blinks toward the survivor
     var bleed_stacks = 0;  # laceration stacks from kinetic rounds — each ticks damage over time
     var bleed_timer = 0;   # while > 0 the wound is open and bleeding; refreshed by fresh hits
     var bleed_tick = 0;    # accumulator so bleed damage lands in periodic ticks, not every frame
@@ -2147,12 +2148,26 @@ class Zombie {
                                                 self.attack_range = 1.3;
                                                 self.score_value = 40;
                                             } else {
+                                            if (k == 13) {
+                                                # Warper: fragile teleporter that shambles slowly, then
+                                                # blinks a big chunk of the way to the survivor — closing
+                                                # gaps you thought were safe. Kill it fast before it ports
+                                                # into your lap.
+                                                self.health = 22 + w * 5;
+                                                self.speed = 9;
+                                                self.damage = 7;
+                                                self.radius = 1.05;
+                                                self.attack_range = 1.2;
+                                                self.score_value = 26;
+                                                self.warp_cd = 2.0;
+                                            } else {
                                                 self.health = 25 + w * 8;
                                                 self.speed = 13 + w;
                                                 self.damage = 6;
                                                 self.radius = 1.0;
                                                 self.attack_range = 1.2;
                                                 self.score_value = 10;
+                                            }
                                             }
                                             }
                                             }
@@ -2576,6 +2591,18 @@ class Zombie {
             }
             return;
         }
+        # Warper (kind 13): between slow shambles it teleports, on a cooldown, half the way to the
+        # survivor in a single instant — erasing distance a walker never could and appearing right on
+        # top of you. It only blinks while there's real ground to cover, then walks the last stretch.
+        if (self.kind == 13 and self.stagger_timer <= 0) {
+            self.warp_cd = self.warp_cd - dt;
+            if (self.warp_cd <= 0 and dist > 8.0) {
+                self.node.x = self.node.x + (dx / dist) * (dist * 0.5);
+                self.node.y = self.node.y + (dy / dist) * (dist * 0.5);
+                self.warp_cd = 2.5;
+                emit(self.node.x, self.node.y, 12, 0);   # blink shimmer at the arrival point
+            }
+        }
         if (dist > self.attack_range) {
             self.node.x = self.node.x + (dx / dist) * self.speed * aggro * sm * dt;
             self.node.y = self.node.y + (dy / dist) * self.speed * aggro * sm * dt;
@@ -2664,6 +2691,9 @@ class Director {
                     if (i % 17 == 0 and w >= 9) {
                         k = 12;
                     } else {
+                        if (i % 15 == 0 and w >= 8) {
+                            k = 13;
+                        } else {
                         if (i % 6 == 0 and w >= 5) {
                             k = 5;
                         } else {
@@ -2677,6 +2707,7 @@ class Director {
                                 }
                             }
                         }
+                    }
                     }
                     }
                     }

@@ -2938,6 +2938,42 @@ int main() {
         CHECK(leaper->x() < x0);                             // closed the gap (moved toward the origin)
     }
 
+    // Warper (kind 13): a teleporter that blinks a big chunk of the way to the survivor in a single
+    // instant when its cooldown is ready and there's real ground to cover — closing a gap no walker
+    // could. With the cooldown still running it only shambles, barely moving.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+
+        // Blink case: cooldown ready, 40 units out — one tick teleports it to roughly the midpoint.
+        SceneTree t1;
+        SceneNode* surv1 = zomboid::buildScene(t1);
+        surv1->setPosition(0.0, 0.0);
+        auto& vm1 = t1.scripts().vm();
+        SceneNode* w1 = t1.findNode("Zombie0");
+        Value wz1 = w1->script();
+        std::vector<Value> sp = {Value::fromNum(40.0), Value::fromNum(0.0),
+                                 Value::fromNum(13.0), Value::fromNum(8.0)};   // warper (kind 13), wave 8
+        vm1.callOn(wz1, "spawn", sp);
+        CHECK((int)sField(w1, "kind")->number == 13);
+        sField(w1, "warp_cd")->number = 0.0;              // ready to blink
+        vm1.callOn(wz1, "_process", dt);
+        CHECK(w1->x() < 25.0);                             // teleported way in from 40...
+        CHECK(w1->x() > 15.0);                             // ...to about the halfway point
+        CHECK(sField(w1, "warp_cd")->number > 2.0);        // blink put the cooldown back on
+
+        // No-blink case: cooldown not ready — the same warper only shambles a hair this tick.
+        SceneTree t2;
+        SceneNode* surv2 = zomboid::buildScene(t2);
+        surv2->setPosition(0.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        SceneNode* w2 = t2.findNode("Zombie0");
+        Value wz2 = w2->script();
+        vm2.callOn(wz2, "spawn", sp);
+        sField(w2, "warp_cd")->number = 5.0;              // still on cooldown, no blink
+        vm2.callOn(wz2, "_process", dt);
+        CHECK(w2->x() > 39.0);                             // barely moved — a slow walk, no teleport
+    }
+
     // Molotov fire cooks off barrels: an explosive barrel sitting in a burning patch is chipped by the
     // flames until it detonates, while a barrel well clear of the fire is left intact.
     {

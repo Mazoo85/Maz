@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — 14th enemy type: the Warper (kind 13).** A fragile teleporter that shambles slowly
+  between blinks, then **teleports half the way to the survivor in a single instant** (on a ~2.5s
+  cooldown, only while there's real ground to cover) — erasing a gap a walker never could and
+  appearing right on top of you. It joins the horde from wave 8 and drops the usual salvage; kill it
+  fast before it ports in. Rendered as a violet body. Headless-tested: a warper 40 units out with its
+  cooldown ready teleports to ~20 in a single tick, while one still on cooldown only shambles a hair.
 - **ZOMBOID — dodge roll cleanses the acid slow.** A spitter's caustic puddle bogs the survivor to
   half speed while they stand in it; now a **dodge roll clears that slow instantly** — the burst of
   speed shakes it off — so a well-timed roll is a real escape from a puddle instead of a slow slog.
