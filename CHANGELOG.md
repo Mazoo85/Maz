@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — a burning bloater erupts into fire instead of a toxic cloud.** A bloater normally ruptures on
+  death into a lingering caustic pool (poison ground you must route around). Now *how* it dies matters: a
+  bloater killed while **on fire** has its volatile gas ignite, so it bursts into a **fire patch** instead
+  of a poison cloud — converting the enemy hazard into one that cooks the horde. This gives the flamethrower
+  and molotov a defined job against bloaters (torch them to deny the poison and leave a blaze), mirroring
+  how fire flashes acid over and how burning already denies a splitter its runners. Headless-tested: a
+  burning bloater's death leaves a fire patch and no acid, while a normal kill still leaves a toxic cloud.
 - **ZOMBOID — a stagger now interrupts caster wind-ups (summoner, screamer, healer).** The support
   enemies' telegraphed abilities could previously only be fizzled mid-cast by a **chill** — a **stagger**
   (a melee shove, a dash-strike, a heavy staggering hit) rooted them but let the cast finish. Now a stagger

@@ -2702,10 +2702,18 @@ class Zombie {
                 self.split_off(2);
                 emit(self.node.x, self.node.y, 12, 1);
             }
-            # A bloater ruptures on death into a lingering toxic cloud (reusing the acid hazard), so a
-            # careless close-range kill leaves you standing in poison.
+            # A bloater ruptures on death — but WHAT it ruptures into depends on how it died. Normally its
+            # gas-bag body bursts into a lingering toxic cloud (reusing the acid hazard), so a careless
+            # close-range kill leaves you standing in poison. But if it dies BURNING, that volatile gas is
+            # already alight: instead of a poison cloud it erupts into a fire patch, converting the enemy
+            # hazard into one that cooks the horde. So torching a bloater denies its poison and hands you a
+            # blaze instead — a clear job for the flamethrower / molotov, mirroring how fire flashes acid over.
             if (self.kind == 10) {
-                leave_acid(self.node.x, self.node.y);
+                if (self.burn_timer > 0) {
+                    light_fire(self.node.x, self.node.y);
+                } else {
+                    leave_acid(self.node.x, self.node.y);
+                }
                 emit(self.node.x, self.node.y, 20, 1);
             }
             # Volatile Horde mutator: every body ruptures into a caustic pool where it falls, so the

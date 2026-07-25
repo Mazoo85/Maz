@@ -2714,6 +2714,38 @@ int main() {
         CHECK(activeAcid(tree) >= 1);                             // ...and left a toxic cloud behind
     }
 
+    // Bloater killed while burning: its volatile gas is already alight, so it erupts into a FIRE patch
+    // instead of a toxic cloud — torching a bloater denies its poison and hands you a blaze. (A non-burning
+    // bloater still leaves acid, covered above.)
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        SceneNode* bloater = tree.findNode("Zombie0");
+        Value bv = bloater->script();
+        std::vector<Value> sp = {Value::fromNum(20.0), Value::fromNum(0.0),
+                                 Value::fromNum(10.0), Value::fromNum(3.0)}; // spawn(x,y,kind=10,wave=3)
+        vm.callOn(bv, "spawn", sp);
+        std::vector<Value> ign = {Value::fromNum(3.0), Value::fromNum(10.0)};  // ignite(dur, dps)
+        vm.callOn(bv, "ignite", ign);
+        CHECK(sField(bloater, "burn_timer")->number > 0.0);       // on fire when it dies
+
+        auto activeFires = [](SceneTree& t) {
+            int c = 0;
+            for (SceneNode* f : t.nodesInGroup("fires"))
+                if (f->script().instance->findField("active")->boolean) ++c;
+            return c;
+        };
+        CHECK(activeFires(tree) == 0);
+        CHECK(activeAcid(tree) == 0);
+
+        std::vector<Value> lethal = {Value::fromNum(9999.0)};
+        vm.callOn(bv, "take_damage", lethal);
+        CHECK(!sField(bloater, "alive")->boolean);                // it died burning
+        CHECK(activeFires(tree) >= 1);                            // gas ignited → a fire patch, not poison
+        CHECK(activeAcid(tree) == 0);                             // no toxic cloud when it burns
+    }
+
     // Acid puddles: a spitter's glob leaves a caustic patch where it lands, and the survivor loses health
     // while standing in it — but is safe just outside the radius. Also: a spitter's spit spawns a puddle.
     {
