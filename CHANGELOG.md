@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — Field Medic now tints the survivor green while active, completing its visual set.**
+  Every active power-up recolors the survivor's body so you can read your current buff at a glance, but
+  the switch only covered kinds 0–8 — a Field Medic gave *no* body tint, the only buff that looked
+  inactive while running. Added a soft-green survivor tint for kind 9, matching its green pickup icon and
+  HUD label. Field Medic now has a consistent identity across pickup icon, HUD name/countdown, and body
+  tint. Presentation-only change; the game logic and tests are unchanged, and the build, headless smoke,
+  and 3600-frame run all pass.
 - **ZOMBOID — gave the new Field Medic power-up its own pickup icon.**
   The last change added the Field Medic power-up but the on-ground pickup rendering only had icons for
   kinds 0–8, so a dropped Field Medic fell through to the *rapid-fire* icon — misreading as the wrong

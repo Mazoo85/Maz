@@ -760,6 +760,7 @@ int main(int argc, char** argv) {
                     else if (bk == 6) body = render::Color{1.0f, 0.85f, 0.4f, 1.0f};  // overflow ammo
                     else if (bk == 7) body = render::Color{0.6f, 0.95f, 1.0f, 1.0f};  // frost field
                     else if (bk == 8) body = render::Color{1.0f, 0.45f, 0.2f, 1.0f};  // berserk surge
+                    else if (bk == 9) body = render::Color{0.5f, 0.95f, 0.65f, 1.0f}; // field medic (green)
                 } else if (fieldBool(survivor, "adrenaline")) {
                     // Last-stand: pulse red-hot while critically wounded.
                     const float pulse = 0.6f + 0.4f * std::sin(static_cast<float>(simTime) * 14.0f);
