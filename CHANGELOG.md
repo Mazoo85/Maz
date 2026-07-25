@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — locked in a regression test so buying and weapon-switching can never bleed into each other again.**
+  The recent key-5 fix stopped a shop purchase and a weapon switch from firing on the same press, but that bug
+  lived in host input dispatch (not something the automated tests could catch). This adds a headless test that
+  drives the underlying game commands directly: buying a field kit must not change your equipped weapon, and
+  switching weapons must not spend any cash. If a future change ever re-couples the two, this test fails
+  immediately. Test-only change — the game itself is unchanged; full test suite, headless smoke, and the
+  3600-frame run all pass.
 - **ZOMBOID — fixed a key collision: buying a field kit and switching to the flamethrower were both on key 5.**
   Keys 1–5 switch weapons (5 = flamethrower) and keys 6–9 buy shop items, but the field-kit buy was also
   bound to 5 — so a single press of 5 fired *both* actions: switching to the flamethrower silently spent

@@ -3292,6 +3292,22 @@ int main() {
         sField(survivor, "health")->number = 10.0;
         CHECK(vm.callOn(sv, "buy", buyHeal).boolean);            // a real heal goes through
         CHECK(glob(tree, "g_cash") == 40.0);                     // 100 - 60 (heal cost)
+
+        // Buying and weapon-switching are INDEPENDENT operations. (The field-kit buy and the flamethrower
+        // switch once shared key 5 in the host input layer, so one press did both; the keys are now split.
+        // This locks the underlying invariant so no future change re-entangles them.) Buying a field kit
+        // must not change the equipped weapon, and switching weapons must not spend cash.
+        cash->number = 500.0;
+        std::vector<Value> pistol = {Value::fromNum(0.0)};
+        vm.callOn(sv, "set_weapon", pistol);
+        CHECK((int)sField(survivor, "weapon")->number == 0);
+        vm.callOn(sv, "buy", buyKit);                            // buy field kit (kind 4)
+        CHECK((int)sField(survivor, "weapon")->number == 0);    // ...weapon unchanged by a shop purchase
+        const double cashPreSwitch = glob(tree, "g_cash");
+        std::vector<Value> flamer = {Value::fromNum(4.0)};
+        vm.callOn(sv, "set_weapon", flamer);                     // switch to flamethrower (weapon 4)
+        CHECK((int)sField(survivor, "weapon")->number == 4);
+        CHECK(glob(tree, "g_cash") == cashPreSwitch);           // ...switching weapons spends no cash
     }
 
     // Salvage economy: kills bank cash, and buy() spends it on ammo/grenades/heals — succeeding when
