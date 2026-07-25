@@ -1679,10 +1679,35 @@ class Sentry {
         self.active = true;
     }
 
+    # When a sentry powers down — lifetime expired or magazine dry — it doesn't just wink out: it
+    # self-destructs in a final blast, damaging and staggering the zombies around it. So a sentry
+    # planted deep in the horde earns a farewell explosion, rewarding aggressive placement. Friendly to
+    # the survivor (zombie-only blast), unlike an explosive barrel.
+    func self_destruct() {
+        self.active = false;
+        var i = 0;
+        var n = len(g_zombies);
+        while (i < n) {
+            var z = g_zombies[i];
+            if (z.alive) {
+                var dx = z.node.x - self.node.x;
+                var dy = z.node.y - self.node.y;
+                if (dx * dx + dy * dy <= 36.0) {   # radius 6
+                    z.take_damage(50);
+                    z.stagger(0.4);
+                }
+            }
+            i = i + 1;
+        }
+        emit(self.node.x, self.node.y, 20, 1);   # blast burst
+        g_shake = g_shake + 1.2;
+        if (g_shake > 3.0) { g_shake = 3.0; }
+    }
+
     func _process(dt) {
         if (self.active == false) { return; }
         self.life = self.life - dt;
-        if (self.life <= 0) { self.active = false; return; }
+        if (self.life <= 0) { self.self_destruct(); return; }
         self.fire_cd = self.fire_cd - dt;
         if (self.fire_cd > 0) { return; }
         # Acquire the nearest live zombie in range and shoot it.
@@ -1706,8 +1731,7 @@ class Sentry {
             self.fire_cd = 1.0 / self.fire_rate;
             self.ammo = self.ammo - 1;                   # spend a bolt; it dies when the magazine is dry
             if (self.ammo <= 0) {
-                self.active = false;
-                emit(self.node.x, self.node.y, 8, 0);    # spark-out puff when the sentry runs dry
+                self.self_destruct();                    # runs dry → goes out with a bang
             }
         }
     }

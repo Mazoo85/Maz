@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the auto-sentry now self-destructs in a blast when it powers down.** When a deployed sentry
+  runs out of bolts or its lifetime expires, it no longer just winks out — it **detonates in a final
+  blast** (50 damage + a brief stagger to every zombie within ~6 units), rewarding planting it deep in
+  the horde. The blast is friendly to the survivor (zombie-only, unlike an explosive barrel). Headless-
+  tested: an expiring sentry damages a zombie beside it while one well clear is untouched.
 - **ZOMBOID — proximity mines now cook off explosive barrels.** A mine's blast detonates any explosive
   barrel in range, so rigging a mine beside a barrel sets up a huge combined blast (and the barrel's own
   blast chains on to more barrels). Mines already daisy-chain through exploder packs — their 120-damage

@@ -3048,6 +3048,36 @@ int main() {
         CHECK(sField(tree.findNode("Barrel1"), "active")->boolean);   // far barrel survives
     }
 
+    // Sentry self-destruct: when a sentry powers down (lifetime expired), it goes out with a blast that
+    // damages the zombies around it — rewarding aggressive placement. A zombie well clear is untouched.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+
+        Value znear = tree.findNode("Zombie0")->script();
+        std::vector<Value> nsp = {Value::fromNum(62.0), Value::fromNum(0.0),
+                                  Value::fromNum(2.0), Value::fromNum(5.0)};  // brute at (62,0)
+        vm.callOn(znear, "spawn", nsp);
+        Value zfar = tree.findNode("Zombie1")->script();
+        std::vector<Value> fsp = {Value::fromNum(80.0), Value::fromNum(0.0),
+                                  Value::fromNum(2.0), Value::fromNum(5.0)};  // brute at (80,0), clear
+        vm.callOn(zfar, "spawn", fsp);
+        const double nearMax = sField(tree.findNode("Zombie0"), "max_health")->number;
+        const double farHp0 = sField(tree.findNode("Zombie1"), "health")->number;
+
+        Value sentry = tree.findNode("Sentry0")->script();
+        std::vector<Value> at = {Value::fromNum(60.0), Value::fromNum(0.0)};
+        vm.callOn(sentry, "deploy", at);
+        sField(tree.findNode("Sentry0"), "life")->number = 0.0001;   // about to expire
+        vm.callOn(sentry, "_process", dt);                           // ...triggers the self-destruct
+
+        CHECK(!sField(tree.findNode("Sentry0"), "active")->boolean);            // powered down
+        CHECK(sField(tree.findNode("Zombie0"), "health")->number < nearMax);    // caught in the blast
+        CHECK(sField(tree.findNode("Zombie1"), "health")->number == farHp0);    // far zombie untouched
+    }
+
     // Railgun armor-piercing: the beam shears any shield clean off before biting into health, so it's
     // the counter to armored zombies and Bulwark waves. A zombie off the beam keeps its shield.
     {
@@ -3742,10 +3772,11 @@ int main() {
         CHECK(ammoMax > 0);
         CHECK(sField(sentry, "active")->boolean);
 
-        // One fat target parked in range: it's always the pick, and it survives every bolt.
+        // One fat target parked in firing range but OUTSIDE the sentry's self-destruct blast radius
+        // (6 units), so only the bolts count against it — the farewell blast doesn't skew the tally.
         SceneNode* dummy = tree.findNode("Zombie0");
         Value dv = dummy->script();
-        std::vector<Value> sp = {Value::fromNum(4.0), Value::fromNum(0.0),
+        std::vector<Value> sp = {Value::fromNum(10.0), Value::fromNum(0.0),
                                  Value::fromNum(100000.0), Value::fromNum(0.0)};
         vm.callOn(dv, "spawn_at", sp);
         const double dmg = sField(sentry, "damage")->number;
