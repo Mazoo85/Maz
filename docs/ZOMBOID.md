@@ -269,7 +269,10 @@ its **name and a live countdown**, so you always know which buff is up and when 
   lean on damage, chills, staggers, and kiting instead), or **Savage** (the whole horde **bites 60%
   harder** — no faster, no tougher, but every body that reaches you hurts far more, so one leak past your
   fire can gut your health bar; even the Exploder's detonation lands 60% harder, so keep the pack at range
-  and never let a Savage wave crowd you). No two runs feel the same.
+  and never let a Savage wave crowd you), or **Bloodthirsty** (every bite **heals the zombie that lands
+  it** — the horde siphons life from you on contact, so you can't win by trading hits and tanking damage;
+  a Bloodthirsty wave forces you to actually *not get bitten* — kite, chill, knock back, and thin the pack
+  before it closes, because every hit you eat patches the biter back up). No two runs feel the same.
 
 At the end of a run you're graded (**D** through **S**) on wave reached, kills, and accuracy, and your
 best wave + score persist between sessions.

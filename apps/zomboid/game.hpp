@@ -55,7 +55,9 @@ var g_wave_clean = true;
 
 # Wave mutator: from wave 3 on, each wave rolls a random modifier that reshapes the whole horde for
 # that wave, for run-to-run variety. 0 none, 1 feral (faster), 2 hulking (tougher), 3 frenzy (more of
-# them). Applied to every zombie as it spawns; the survivor sees the active modifier on the HUD.
+# them), 4 bulwark (shielded), 5 volatile (corpses leave acid), 6 regenerator (bodies self-heal),
+# 7 relentless (no knockback), 8 savage (harder bites), 9 bloodthirsty (bites heal the biter).
+# Applied to every zombie as it spawns / on contact; the survivor sees the active modifier on the HUD.
 var g_mutator = 0;
 
 # Kill-streak combo: fast, unbroken kills build a score multiplier that decays if you stop killing.
@@ -3418,6 +3420,17 @@ class Zombie {
             # the adjacent survivor.
             if (self.kind == 4) { self.take_damage(9999); return; }
             g_player.take_damage(self.damage * aggro);
+            # Bloodthirsty Horde (mutator 9): a bite doesn't just wound you — the zombie SIPHONS life from
+            # it, healing itself on contact. So letting the horde touch you actively repairs it: you can't
+            # win a Bloodthirsty wave by trading hits, you have to not get bitten (kite, chill, knock back).
+            # The boss is exempt, like every other horde-wide modifier (its duel is self-contained). A
+            # shielded bite still heals — the shield gates YOUR damage, not the zombie's own leech. Capped
+            # at the biter's max health.
+            if (g_mutator == 9 and self.kind != 3) {
+                self.health = self.health + 8;
+                if (self.health > self.max_health) { self.health = self.max_health; }
+                emit(self.node.x, self.node.y, 4, 1);   # a small crimson leech flourish
+            }
             # A Brute (kind 2) doesn't just bite — its heavy blow HURLS the survivor back, wrecking your
             # position and your aim. So a brute that reaches you is a real spacing threat, not just a
             # damage tick — you get thrown clear (maybe into the rest of the horde). A dodging survivor
@@ -3461,8 +3474,8 @@ class Director {
         g_wave_clean = true;   # a fresh wave starts flawless until the survivor takes a hit
         # Roll this wave's mutator (from wave 3 on): a random modifier that reshapes the whole horde.
         g_mutator = 0;
-        if (w >= 3) { g_mutator = int(randf_range(1, 9)); }
-        if (g_mutator > 8) { g_mutator = 8; }
+        if (w >= 3) { g_mutator = int(randf_range(1, 10)); }
+        if (g_mutator > 9) { g_mutator = 9; }
         var pool = len(g_zombies);
         var count = self.base + w * 2;
         # Frenzy mutator throws a bigger horde at the survivor.
@@ -3664,10 +3677,10 @@ inline const char* runRankLetter(int tier) {
     return "S";
 }
 
-// One-line plain-language effect for each wave mutator (1-8), shown under its codename on the HUD so a
+// One-line plain-language effect for each wave mutator (1-9), shown under its codename on the HUD so a
 // player learns what "SAVAGE HORDE" (etc.) actually does instead of guessing. Kept in lockstep with the
 // mutator logic in start_wave()/spawn(): 1 feral, 2 hulking, 3 frenzy, 4 bulwark, 5 volatile,
-// 6 regenerator, 7 relentless, 8 savage. Index 0 (no mutator) and out-of-range return "".
+// 6 regenerator, 7 relentless, 8 savage, 9 bloodthirsty. Index 0 (no mutator) and out-of-range return "".
 inline const char* mutatorEffect(int m) {
     if (m == 1) return "faster zombies";
     if (m == 2) return "tougher zombies";
@@ -3677,6 +3690,7 @@ inline const char* mutatorEffect(int m) {
     if (m == 6) return "zombies self-heal";
     if (m == 7) return "no knockback";
     if (m == 8) return "harder-hitting bites";
+    if (m == 9) return "bites heal the horde";
     return "";
 }
 

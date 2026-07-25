@@ -719,17 +719,17 @@ int main() {
         CHECK(std::string(zomboid::runRankLetter(2)) == "B");
         CHECK(std::string(zomboid::runRankLetter(4)) == "S");
 
-        // Mutator HUD effect lines: every active mutator (1-8) has a non-empty, distinct plain-language
+        // Mutator HUD effect lines: every active mutator (1-9) has a non-empty, distinct plain-language
         // effect string (shown under its codename), and "no mutator" / out-of-range map to empty.
-        CHECK(std::string(zomboid::mutatorEffect(0)).empty());   // no mutator → no line
-        CHECK(std::string(zomboid::mutatorEffect(9)).empty());   // out of range → no line
+        CHECK(std::string(zomboid::mutatorEffect(0)).empty());    // no mutator → no line
+        CHECK(std::string(zomboid::mutatorEffect(10)).empty());   // out of range → no line
         std::set<std::string> effects;
-        for (int m = 1; m <= 8; ++m) {
+        for (int m = 1; m <= 9; ++m) {
             std::string e = zomboid::mutatorEffect(m);
             CHECK(!e.empty());               // every real mutator explains itself
             effects.insert(e);
         }
-        CHECK(effects.size() == 8);          // all eight effect lines are distinct
+        CHECK(effects.size() == 9);          // all nine effect lines are distinct
 
         // Power-up HUD names: every buff_kind (0-8) has a non-empty, distinct display name (shown with its
         // countdown on the HUD), while the idle state (-1) and out-of-range map to empty.
@@ -1880,6 +1880,49 @@ int main() {
         mut->number = 0.0;
     }
 
+    // Bloodthirsty Horde (mutator 9): a zombie that bites the survivor SIPHONS life from the wound,
+    // healing itself — so you can't win a Bloodthirsty wave by trading hits. Verify a wounded biter
+    // gains health on a bite while the mutator is on, and a control with the mutator off does not.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        Value* mut = const_cast<Value*>(vm.getGlobal("g_mutator"));
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zv = z->script();
+        std::vector<Value> at = {Value::fromNum(1.0), Value::fromNum(0.0), Value::fromNum(100.0),
+                                 Value::fromNum(0.0)};   // a plain walker 1 unit away — inside bite range 1.2
+        vm.callOn(zv, "spawn_at", at);
+        sField(z, "kind")->number = 0.0;      // walker: no telegraph, bites on contact
+        sField(z, "health")->number = 50.0;   // wounded, so a heal is visible (max stays 100)
+        sField(z, "cooldown")->number = 0.0;   // ready to bite this frame
+
+        mut->number = 9.0;                     // Bloodthirsty
+        const double survHp0 = sField(survivor, "health")->number;
+        vm.callOn(zv, "_process", dt);         // it bites
+        CHECK(sField(survivor, "health")->number < survHp0);   // the bite still wounds the survivor
+        CHECK(sField(z, "health")->number > 50.0);             // ...and the biter leeched health back
+
+        // Control: mutator off → a bite heals the biter nothing.
+        SceneTree t2;
+        SceneNode* surv2 = zomboid::buildScene(t2);
+        surv2->setPosition(0.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        const_cast<Value*>(vm2.getGlobal("g_mutator"))->number = 0.0;
+        SceneNode* z2 = t2.findNode("Zombie0");
+        Value z2v = z2->script();
+        vm2.callOn(z2v, "spawn_at", at);
+        sField(z2, "kind")->number = 0.0;
+        sField(z2, "health")->number = 50.0;
+        sField(z2, "cooldown")->number = 0.0;
+        vm2.callOn(z2v, "_process", dt);
+        CHECK(sField(z2, "health")->number == 50.0);   // no mutator → no leech
+        mut->number = 0.0;
+    }
+
     // Spitter (kind 5): a ranged zombie that halts at distance and lobs acid globs.
     {
         SceneTree tree;
@@ -2756,14 +2799,15 @@ int main() {
 
         mut->number = 0.0;                                 // reset so later logic is unaffected
 
-        // The director's roll now reaches the savage band (8) — confirm the clamp allows it.
+        // The director's roll spans the full mutator band (1..9, now including bloodthirsty) — confirm
+        // every roll from wave 3 on lands in range and the clamp never emits an out-of-band value.
         SceneNode* dir = tree.findNode("Director");
         Value ds = dir->script();
         for (int w = 3; w <= 40; ++w) {
             std::vector<Value> wv = {Value::fromNum((double)w)};
             vm.callOn(ds, "start_wave", wv);
             const int m = (int)glob(tree, "g_mutator");
-            CHECK(m >= 1 && m <= 8);                        // every roll lands in the valid 1..8 range
+            CHECK(m >= 1 && m <= 9);                        // every roll lands in the valid 1..9 range
         }
     }
 

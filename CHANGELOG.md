@@ -8,6 +8,16 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — new wave mutator: the Bloodthirsty Horde (bites heal the zombie that lands them).**
+  Added a ninth wave modifier to the random pool that rolls from wave 3 on. Under a **Bloodthirsty
+  Horde**, every zombie that bites you **siphons life from the wound and heals itself**, so you can't
+  win the wave by trading hits and tanking damage — each bite you take patches the biter back up. It
+  forces genuinely different play: kite, chill, knock back, and thin the pack at range instead of
+  face-tanking. Consistent with the other horde-wide modifiers, the boss is exempt and the leech is
+  capped at the biter's max health. The HUD names it ("BLOODTHIRSTY HORDE") with its one-line effect,
+  and it's woven into the director's roll and clamp. Verified with a new headless test (a wounded biter
+  gains health under the mutator, none without it) plus updated mutator-range/roll tests; full suite,
+  headless smoke, and the 3600-frame run all pass.
 - **ZOMBOID — completed the elite-zombie stat coverage (the "faster" part was untested).**
   Elite ("champion") zombies are tankier, worth far more points, and faster, and always drop a medkit.
   The test already verified the health and score boosts and the guaranteed medkit drop, but the speed

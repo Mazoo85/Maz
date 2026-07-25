@@ -955,10 +955,10 @@ int main(int argc, char** argv) {
             // Active wave mutator, under the best readout (only when one is in effect).
             const int mut = static_cast<int>(globalNum(tree, "g_mutator"));
             if (mut > 0) {
-                const char* kMutNames[9] = {"", "FERAL HORDE", "HULKING HORDE", "FRENZIED HORDE",
-                                            "BULWARK HORDE", "VOLATILE HORDE", "REGENERATOR HORDE",
-                                            "RELENTLESS HORDE", "SAVAGE HORDE"};
-                const char* mutName = (mut >= 0 && mut < 9) ? kMutNames[mut] : "";
+                const char* kMutNames[10] = {"", "FERAL HORDE", "HULKING HORDE", "FRENZIED HORDE",
+                                             "BULWARK HORDE", "VOLATILE HORDE", "REGENERATOR HORDE",
+                                             "RELENTLESS HORDE", "SAVAGE HORDE", "BLOODTHIRSTY HORDE"};
+                const char* mutName = (mut >= 0 && mut < 10) ? kMutNames[mut] : "";
                 font.drawText(*renderer, sw - 300.0f, 68.0f, mutName,
                               render::Color{1.0f, 0.55f, 0.85f, 1.0f}, 0.5f);
                 // A plain-language effect line under the codename, so the modifier reads at a glance.
