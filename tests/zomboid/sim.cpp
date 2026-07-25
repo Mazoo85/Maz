@@ -2322,6 +2322,27 @@ int main() {
         CHECK(aliveCount(t2) == 2);     // burst into two runners
     }
 
+    // Exploder is a suicide bomber: on reaching the survivor it detonates on contact (killing itself and
+    // hurting the adjacent player) instead of a harmless bite.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        sField(survivor, "health")->number = 500.0;   // tanky enough to survive the blast for the assert
+        auto& vm = tree.scripts().vm();
+        const_cast<Value*>(vm.getGlobal("g_phase"))->number = 0.0;
+        SceneNode* ex = tree.findNode("Zombie0");
+        Value exv = ex->script();
+        std::vector<Value> sp = {Value::fromNum(0.5), Value::fromNum(0.0),
+                                 Value::fromNum(4.0), Value::fromNum(3.0)}; // spawn(x,y,kind=4,wave=3) on top of the survivor
+        vm.callOn(exv, "spawn", sp);
+        const double h0 = sField(survivor, "health")->number;
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        for (int i = 0; i < 5 && sField(ex, "alive")->boolean; ++i) vm.callOn(exv, "_process", dt);
+        CHECK(!sField(ex, "alive")->boolean);                    // detonated on contact (didn't just bite)
+        CHECK(sField(survivor, "health")->number < h0);          // the blast caught the adjacent survivor
+    }
+
     // Melee execute: a melee swing finishes a badly-wounded (<30% health) non-boss outright and refunds
     // most of its cooldown; a healthy target takes only the normal swing and no refund.
     {

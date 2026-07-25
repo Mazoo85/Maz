@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the Exploder is now a true suicide bomber (detonates on contact).** Previously an exploder
+  only blew up when killed, so you could safely walk up and melee or tank it point-blank. Now the instant
+  it reaches the survivor it **detonates on contact** — killing itself and catching the adjacent player in
+  the blast — so exploders are a genuine "keep your distance and pop it from range" threat instead of a
+  free melee target. (Its death/contact blast still chain-detonates other exploders.) Headless-tested: an
+  exploder that reaches the survivor detonates (dies) and damages the adjacent player, rather than a
+  harmless bite.
 - **ZOMBOID — burning a Splitter now prevents its split.** A splitter normally bursts into two fast
   runners when killed. Now, if it dies **while on fire**, it's incinerated before it can rupture and
   spawns nothing — giving fire (a molotov, the flamethrower, or a spreading blaze) a specific job:

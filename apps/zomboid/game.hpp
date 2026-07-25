@@ -3062,6 +3062,11 @@ class Zombie {
         }
         self.cooldown = self.cooldown - dt;
         if (dist <= self.attack_range and self.cooldown <= 0) {
+            # An exploder is a suicide bomber: the moment it reaches the survivor it detonates ON CONTACT
+            # instead of biting, so you can't just tank or melee it point-blank — keep your distance and
+            # pop it from range. take_damage(9999) kills it, triggering its own death blast, which catches
+            # the adjacent survivor.
+            if (self.kind == 4) { self.take_damage(9999); return; }
             g_player.take_damage(self.damage * aggro);
             # A Brute (kind 2) doesn't just bite — its heavy blow HURLS the survivor back, wrecking your
             # position and your aim. So a brute that reaches you is a real spacing threat, not just a
