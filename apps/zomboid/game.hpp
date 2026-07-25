@@ -3298,6 +3298,25 @@ class Zombie {
             }
             return;
         }
+        # Screamer (11) and Healer (12): fragile BACK-LINE support, so like the summoner they hold their
+        # distance — backing away when the survivor closes rather than shambling into melee — which forces
+        # you to push through the horde (or pick them off at range) to silence them, matching their designed
+        # role. Their shriek/mend works on the surrounding pack, not the survivor, so they never need to
+        # close in. (Previously they walked straight into melee, making a "back-line" support trivial to
+        # reach.) Their cast wind-up above still roots them; this only governs their between-cast movement.
+        if (self.kind == 11 or self.kind == 12) {
+            var bkeep = 12.0;
+            if (dist < bkeep and dist > 0.01) {
+                self.node.x = self.node.x - (dx / dist) * self.speed * sm * dt;   # retreat
+                self.node.y = self.node.y - (dy / dist) * self.speed * sm * dt;
+            } else {
+                if (dist > bkeep + 4.0) {
+                    self.node.x = self.node.x + (dx / dist) * self.speed * 0.5 * sm * dt; # drift in slowly
+                    self.node.y = self.node.y + (dy / dist) * self.speed * 0.5 * sm * dt;
+                }
+            }
+            return;
+        }
         # Interrupt the blink: a stagger (a shove/dash/grenade concussion) or a chill landed during the
         # warper's shimmer tell cancels the teleport OUTRIGHT and puts it on cooldown — the same readable
         # counterplay the leaper's coil has. Without this the stagger only paused the tell (it resumed and

@@ -3447,6 +3447,41 @@ int main() {
         const double czMoved = cx0 - cz->x();
         CHECK(fzMoved > czMoved);   // the frenzied one covered more ground
     }
+    // Back-line retreat: a Screamer and a Healer hold their distance — they back away from an approaching
+    // survivor rather than shambling into melee, matching their documented back-line support role (like the
+    // summoner). Cast cooldown is set high so we observe pure movement, not a rooted wind-up.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        // Screamer close to the survivor retreats: its x grows, moving away from the origin.
+        SceneTree t1;
+        SceneNode* s1 = zomboid::buildScene(t1);
+        s1->setPosition(0.0, 0.0);
+        auto& vm1 = t1.scripts().vm();
+        SceneNode* scr = t1.findNode("Zombie0");
+        Value scv = scr->script();
+        std::vector<Value> sp11 = {Value::fromNum(5.0), Value::fromNum(0.0),
+                                   Value::fromNum(11.0), Value::fromNum(5.0)};
+        vm1.callOn(scv, "spawn", sp11);
+        sField(scr, "cooldown")->number = 10.0;   // suppress a shriek wind-up so movement is pure retreat
+        const double sx0 = scr->x();
+        for (int i = 0; i < 30; ++i) { vm1.callOn(scv, "_process", dt); }
+        CHECK(scr->x() > sx0);   // backed away from the survivor at the origin
+
+        // Healer likewise holds its distance.
+        SceneTree t2;
+        SceneNode* s2 = zomboid::buildScene(t2);
+        s2->setPosition(0.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        SceneNode* heal = t2.findNode("Zombie0");
+        Value hv = heal->script();
+        std::vector<Value> sp12 = {Value::fromNum(5.0), Value::fromNum(0.0),
+                                   Value::fromNum(12.0), Value::fromNum(5.0)};
+        vm2.callOn(hv, "spawn", sp12);
+        sField(heal, "cooldown")->number = 10.0;   // suppress a mend wind-up
+        const double hx0 = heal->x();
+        for (int i = 0; i < 30; ++i) { vm2.callOn(hv, "_process", dt); }
+        CHECK(heal->x() > hx0);   // backed away
+    }
 
     // Boss is immune to frenzy: a screamer's shriek can't stack a speed frenzy on the wave leader (which
     // is tuned by its own enrage), but a normal zombie is still whipped up.

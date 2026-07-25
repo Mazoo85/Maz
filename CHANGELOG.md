@@ -8,6 +8,16 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — Screamers and Healers now actually hold the back line.** Both are described as fragile
+  "back-line support" — the Screamer whips the pack into a frenzy, the Healer mends its wounds — and the
+  Summoner already backs away from you to stay protected. But Screamers and Healers had no such behaviour:
+  they shambled straight into melee like ordinary walkers, so a "back-line" support unit walked right up to
+  you and died instantly, undercutting its whole design. They now keep their distance like the Summoner —
+  retreating when you close in and drifting back only when you're far — so you have to push through the
+  horde or pick them off at range to silence them, making them the genuine priority targets they're meant
+  to be. Their shriek/mend still works on the surrounding pack (not on you), so hanging back costs them
+  nothing. Headless-tested: a Screamer and a Healer both back away from an approaching survivor instead of
+  closing in.
 - **ZOMBOID — the wave-clear vacuum now sweeps up ammo boxes too.** Clearing a wave auto-collects any
   medkits and power-ups still lying on the field so a hard-won drop is never stranded during the
   between-wave lull — but ammo boxes (the same kind of small, expiring zombie drop) were being skipped, so
