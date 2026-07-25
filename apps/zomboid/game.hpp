@@ -772,16 +772,9 @@ class Survivor {
         ay = ay / m;
         var tx = self.node.x + ax * 9.0;   # landing point ahead of the survivor
         var ty = self.node.y + ay * 9.0;
-        var i = 0;
-        var n = len(g_fires);
-        while (i < n) {
-            var f = g_fires[i];
-            if (f.active == false) {
-                f.ignite_ground(tx, ty);
-                self.molotovs = self.molotovs - 1;
-                return true;
-            }
-            i = i + 1;
+        if (light_fire(tx, ty)) {
+            self.molotovs = self.molotovs - 1;
+            return true;
         }
         return false;
     }
@@ -1847,6 +1840,21 @@ func leave_acid(x, y) {
     }
 }
 
+# Activate a dormant fire patch from the pool at (x, y). Returns true if a free patch was lit.
+func light_fire(x, y) {
+    var i = 0;
+    var n = len(g_fires);
+    while (i < n) {
+        var f = g_fires[i];
+        if (f.active == false) {
+            f.ignite_ground(x, y);
+            return true;
+        }
+        i = i + 1;
+    }
+    return false;
+}
+
 # A pooled explosive barrel scattered around the arena. Shoot it to pop it: a hefty blast that damages,
 # knocks back and ignites every zombie nearby, and chain-reacts to other barrels in range. A one-shot
 # environmental trap the survivor lures the horde onto.
@@ -1918,6 +1926,10 @@ class Barrel {
             }
             bi = bi + 1;
         }
+        # The ruptured barrel spills burning fuel: it leaves a lingering fire patch where it stood, so a
+        # popped barrel keeps denying that ground (and cooking anything that walks in) for a few seconds
+        # after the blast — and, like any fire, it flashes over a caustic puddle it happens to overlap.
+        light_fire(self.node.x, self.node.y);
         emit(self.node.x, self.node.y, 30, 1);
         g_shake = g_shake + 2.5;
         if (g_shake > 3.0) { g_shake = 3.0; }

@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — exploded barrels leave a lingering fire patch.** Popping an explosive barrel now spills
+  burning fuel: the blast leaves a **fire patch** where the barrel stood, so a detonated barrel keeps
+  denying that ground (and cooking anything that walks through) for a few seconds after the bang — and,
+  being fire, it **flashes over any acid puddle it overlaps** (pairs with the new fire-ignites-acid).
+  Turns a one-shot trap into brief lasting area control. Headless-tested: popping a barrel leaves an
+  active fire patch, while no fire burns at rest or from merely placing a barrel. (Refactored the
+  molotov's fire-lighting into a shared `light_fire` helper.)
 - **ZOMBOID — fire ignites acid pools (caustic flash-over).** Caustic ground is now flammable: when a
   molotov's fire patch — or the flamethrower's cone — touches a spitter's acid puddle (or a Volatile-horde
   pool), it **flashes over in one violent combustion**, dealing a burst of damage and setting alight every

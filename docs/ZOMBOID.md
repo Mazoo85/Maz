@@ -164,7 +164,9 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
   and lure the horde onto them. The blast is **double-edged** — caught in it yourself you take half
   the damage and get flung clear, so detonate them at a distance, never in your own face. **Fire cooks
   them off** too — a molotov thrown onto a barrel, or the flamethrower's cone sweeping over it, pops it
-  — and a **grenade** or another barrel's blast will chain-detonate one as well.
+  — and a **grenade** or another barrel's blast will chain-detonate one as well. A popped barrel also
+  **leaves a lingering fire patch** where it stood, so the blast keeps denying that ground (and, being
+  fire, flashes over any acid puddle it overlaps) for a few seconds after the bang.
 
 ## The siege
 

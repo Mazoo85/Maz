@@ -2827,6 +2827,33 @@ int main() {
         CHECK(sField(z2, "health")->number == hp2);               // zombie unharmed
     }
 
+    // Barrel leaves fire: a popped explosive barrel spills burning fuel, leaving a lingering fire patch
+    // where it stood — lasting area denial (and, being fire, it flashes over any acid it overlaps). No
+    // fire burns at rest or from merely placing a barrel; only the blast lights one.
+    {
+        std::vector<Value> lethal = {Value::fromNum(999.0)};
+        std::vector<Value> at = {Value::fromNum(40.0), Value::fromNum(0.0)};
+
+        auto activeFires = [](SceneTree& t) {
+            int c = 0;
+            for (SceneNode* f : t.nodesInGroup("fires")) {
+                if (f->script().instance->findField("active")->boolean) { c = c + 1; }
+            }
+            return c;
+        };
+
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        CHECK(activeFires(tree) == 0);                 // no ground fire at rest
+        Value barrel = tree.findNode("Barrel0")->script();
+        vm.callOn(barrel, "place", at);
+        CHECK(activeFires(tree) == 0);                 // placing a barrel lights nothing
+        vm.callOn(barrel, "take_damage", lethal);      // pop it
+        CHECK(!sField(tree.findNode("Barrel0"), "active")->boolean);  // barrel is spent
+        CHECK(activeFires(tree) >= 1);                 // ...and its rupture left a burning patch
+    }
+
     // Railgun armor-piercing: the beam shears any shield clean off before biting into health, so it's
     // the counter to armored zombies and Bulwark waves. A zombie off the beam keeps its shield.
     {
