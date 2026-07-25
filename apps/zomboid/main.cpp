@@ -929,6 +929,15 @@ int main(int argc, char** argv) {
             const int food = static_cast<int>(field(survivor, "food"));
 
             const float bx = 16.0f, by = sh - 80.0f, bw2 = 240.0f, bhh = 16.0f;
+            // Last-stand surge callout: while critically wounded (<25% health) the survivor's adrenaline
+            // kicks in — faster fire, +damage, and reduced damage taken. Until now that powerful comeback
+            // window was signalled only by a subtle body tint; a pulsing banner above the health bar tells
+            // the player plainly that they're in it (and should press the fight, not just flee).
+            if (fieldBool(survivor, "adrenaline")) {
+                const float ap = 0.55f + 0.45f * std::sin(static_cast<float>(simTime) * 10.0f);
+                font.drawText(*renderer, bx, by - 46.0f, "LAST STAND",
+                              render::Color{1.0f, 0.35f * ap + 0.15f, 0.2f, 1.0f}, 0.5f);
+            }
             font.drawText(*renderer, bx, by - 24.0f, "HEALTH", kWhite, 0.5f);
             rect(bx - 2, by - 2, bw2 + 4, bhh + 4, render::Color{0, 0, 0, 0.55f});
             rect(bx, by, bw2, bhh, render::Color{0.15f, 0.15f, 0.18f, 1});

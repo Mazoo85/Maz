@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — added a LAST STAND HUD callout for the last-stand surge.**
+  Dropping below 25% health triggers the adrenaline surge — faster fire, +damage, reduced damage taken,
+  and a quicker dodge recharge — a powerful comeback window. Until now the only on-screen signal was a
+  subtle survivor body tint, easy to miss in a crowded fight. Added a pulsing red **LAST STAND** banner
+  above the health bar while the surge is active, so the player plainly knows they're in it and should
+  press the attack rather than only flee. Presentation-only change (the adrenaline state is existing,
+  already-tested game logic); the build, headless smoke, and 3600-frame run all pass.
 - **ZOMBOID — regression-test the medkit overflow-to-armor rule.**
   A grabbed medkit (`take_medkit`, called by boss and crate drops) heals, and any surplus past full
   health is banked as bonus armor up to the plate cap instead of being wasted — so a kit scooped up at

@@ -117,7 +117,8 @@ back sooner and sooner, so the deeper you get, the more often you can bail out o
   back (roll, reposition, roll again) rather than a death spiral. It also **draws medkits to you from
   twice as far** and pulls them in faster, so the one lifeline you're desperate for reaches you in the
   scramble instead of sitting just out of reach behind the horde (medkits only — ammo and power-ups keep
-  their normal pull).
+  their normal pull). While it's active a pulsing **LAST STAND** banner flashes above your health bar, so
+  you know at a glance you're in the surge and should press the fight.
 - **Second Wind** — a stored revive: lethal damage is cancelled once, bursting you back to half health
   with a crowd-clearing nova. Earned again every 50 kills.
 - **Body armor** — a bought plate that soaks damage before your health; buy a fresh one with **9**. When
