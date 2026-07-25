@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — fixed the on-screen controls hint listing the wrong weapon keys.**
+  The top-left controls reminder read "1-4 GUN", but the game has five weapons on keys 1–5 (pistol,
+  shotgun, SMG, railgun, flamethrower) — so a player reading the hint would never learn the flamethrower
+  is on key 5. Corrected the hint to "1-5 GUN" to match the actual bindings (and the docs Controls table,
+  which was already right). Presentation-only fix; build, headless smoke, and 3600-frame run all pass.
 - **ZOMBOID — removed a dead cryo body-tint branch from the survivor renderer.**
   The survivor body-tint switch had a `buff_kind == 4` (Cryo Nova) case, but that case is unreachable:
   Cryo Nova is a one-shot panic button — `grant_powerup(4)` fires the field-wide chill and returns
