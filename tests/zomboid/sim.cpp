@@ -488,6 +488,30 @@ int main() {
         CHECK((*sField(s, "mags")->array)[0].number > 0.0 || sField(s, "is_reloading")->boolean);
     }
 
+    // Partial reload: when the reserve holds fewer rounds than the magazine needs, finish_reload moves
+    // ALL of the reserve into the mag (a partial top-up) and leaves the reserve empty — rounds are never
+    // conjured or lost. The full-reload and empty-reserve-no-reload branches were covered; this in-between
+    // partial case (take = min(need, reserve) with reserve < need) was not.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+        std::vector<Value> none;
+        // SMG (weapon 2): empty magazine, and a reserve smaller than the magazine's capacity.
+        sField(survivor, "weapon")->number = 2.0;
+        const double magCap = (*sField(survivor, "mag_sizes")->array)[2].number;
+        (*sField(survivor, "mags")->array)[2] = Value::fromNum(0.0);
+        (*sField(survivor, "reserves")->array)[2] = Value::fromNum(3.0);
+        CHECK(3.0 < magCap);                                             // the reserve is a partial load
+        vm.callOn(sv, "start_reload", none);
+        CHECK(sField(survivor, "reloading")->boolean);                  // begins (reserve > 0, mag not full)
+        vm.callOn(sv, "finish_reload", none);
+        CHECK((*sField(survivor, "mags")->array)[2].number == 3.0);     // only the 3 available were loaded
+        CHECK((*sField(survivor, "reserves")->array)[2].number == 0.0); // reserve fully drained, nothing lost
+        CHECK(!sField(survivor, "reloading")->boolean);                 // reload ended
+    }
+
     // Loot is an ammo crate: collecting it tops up the reserve.
     {
         SceneTree tree;

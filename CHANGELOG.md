@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — regression-test the partial-reserve reload.**
+  When a weapon's reserve holds fewer rounds than the magazine needs, a reload moves all of the reserve
+  into the mag (a partial top-up) and leaves the reserve empty — no rounds conjured, none lost. The
+  full-reload and empty-reserve-no-reload branches were tested, but this in-between partial case was not.
+  Added a test: an SMG with an empty mag and a 3-round reserve reloads to exactly 3 in the mag and 0 in
+  reserve. Test-only change — no gameplay logic changed.
 - **ZOMBOID — added a LAST STAND HUD callout for the last-stand surge.**
   Dropping below 25% health triggers the adrenaline surge — faster fire, +damage, reduced damage taken,
   and a quicker dodge recharge — a powerful comeback window. Until now the only on-screen signal was a
