@@ -2436,6 +2436,15 @@ class Zombie {
             }
             if (self.bleed_timer <= 0) { self.bleed_timer = 0; self.bleed_stacks = 0; }
         }
+        # Regenerator horde (mutator 6): every body knits its wounds back shut over time (6% of its
+        # max health per second), so chip damage bleeds away and you must commit real burst to a kill
+        # rather than poking. Two hard counters remain: a burning or bleeding body loses health faster
+        # than it heals, and a chilled body's metabolism is frozen — regen halts while it's slowed, so
+        # a Cryo Nova / Frost Field shuts the healing off. Bosses are exempt (they already enrage-heal).
+        if (g_mutator == 6 and self.kind != 3 and self.slow_timer <= 0 and self.health < self.max_health) {
+            self.health = self.health + self.max_health * 0.06 * dt;
+            if (self.health > self.max_health) { self.health = self.max_health; }
+        }
         # Summoner (kind 7): periodically calls a reinforcement until its budget runs out.
         if (self.kind == 7 and self.summon_budget > 0) {
             self.summon_cd = self.summon_cd - dt;
@@ -2698,8 +2707,8 @@ class Director {
         g_wave_clean = true;   # a fresh wave starts flawless until the survivor takes a hit
         # Roll this wave's mutator (from wave 3 on): a random modifier that reshapes the whole horde.
         g_mutator = 0;
-        if (w >= 3) { g_mutator = int(randf_range(1, 6)); }
-        if (g_mutator > 5) { g_mutator = 5; }
+        if (w >= 3) { g_mutator = int(randf_range(1, 7)); }
+        if (g_mutator > 6) { g_mutator = 6; }
         var pool = len(g_zombies);
         var count = self.base + w * 2;
         # Frenzy mutator throws a bigger horde at the survivor.

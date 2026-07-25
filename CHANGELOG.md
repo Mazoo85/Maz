@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — new Regenerator Horde wave mutator.** A sixth wave modifier joins the roll (from wave 3):
+  under **Regenerator Horde** every body slowly **knits its wounds back shut** (6% of its max health
+  per second), so chip damage bleeds away and you must commit real burst to a kill rather than poking
+  at the pack. Two hard counters keep it fair: a **burning or bleeding** body loses health faster than
+  it heals, and a **chilled** body's regen is silenced — a Cryo Nova or Frost Field freezes the healing
+  off. Bosses are exempt (they already have their enrage self-heal). Headless-tested: a wounded walker
+  recovers health over a second under the mutator, stays flat with the mutator off, and stays flat
+  while frozen.
 - **ZOMBOID — new Berserk power-up (a combined offensive surge).** A ninth power-up joins the drop
   pool: **Berserk** lifts **both** your fire-rate *and* your damage at once (each ×1.7), where Rapid
   Fire boosts only rate and Double Damage only damage — so it's the "go loud" button, the biggest

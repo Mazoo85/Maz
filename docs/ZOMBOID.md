@@ -174,9 +174,12 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
   **50% more salvage cash**, so braving the dark hours pays off.
 - **Wave mutators** — from wave 3, each wave rolls a random modifier shown on the HUD: **Feral**
   (faster), **Hulking** (tougher), **Frenzied** (more of them), **Bulwark** (the whole horde spawns
-  behind damage-absorbing shields — break them down with heavy hits), or **Volatile** (every body
+  behind damage-absorbing shields — break them down with heavy hits), **Volatile** (every body
   ruptures into a caustic acid pool where it falls, so the arena fills with hazard and camping a
-  kill-zone poisons the ground under your feet — keep moving). No two runs feel the same.
+  kill-zone poisons the ground under your feet — keep moving), or **Regenerator** (every body slowly
+  knits its wounds back shut, so chip damage bleeds away — you must commit real burst to a kill, and
+  fire or cold are your answers: a burning body loses health faster than it heals, and a chilled body's
+  regen is frozen off). No two runs feel the same.
 
 At the end of a run you're graded (**D** through **S**) on wave reached, kills, and accuracy, and your
 best wave + score persist between sessions.

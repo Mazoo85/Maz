@@ -2724,6 +2724,62 @@ int main() {
         CHECK(activeAcid(t2) == 0);                     // a plain walker leaves no hazard
     }
 
+    // Regenerator Horde mutator (g_mutator == 6): every body knits its wounds back over time, so chip
+    // damage bleeds away and you must commit real burst to a kill. Two hard counters: the regen halts
+    // while the body is chilled (slowed), and it's exempt for bosses. Verify a wounded walker recovers
+    // health under the mutator, stays flat with the mutator off, and stays flat while frozen.
+    {
+        std::vector<Value> sp = {Value::fromNum(30.0), Value::fromNum(0.0),
+                                 Value::fromNum(0.0), Value::fromNum(3.0)};  // walker at (30,0), wave 3
+        std::vector<Value> hurt = {Value::fromNum(10.0)};
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        std::vector<Value> chill = {Value::fromNum(4.0)};
+
+        // Regenerator on: a wounded walker heals over a second of ticks (but not past its max).
+        SceneTree t1;
+        zomboid::buildScene(t1);
+        auto& vm1 = t1.scripts().vm();
+        const_cast<Value*>(vm1.getGlobal("g_mutator"))->number = 6.0;
+        SceneNode* z1 = t1.findNode("Zombie0");
+        Value zv1 = z1->script();
+        vm1.callOn(zv1, "spawn", sp);
+        vm1.callOn(zv1, "take_damage", hurt);
+        const double wounded = sField(z1, "health")->number;
+        const double maxh = sField(z1, "max_health")->number;
+        CHECK(wounded < maxh);                          // actually took a wound
+        for (int i = 0; i < 60; ++i) { vm1.callOn(zv1, "_process", dt); }
+        const double healed = sField(z1, "health")->number;
+        CHECK(healed > wounded);                        // regenerated some health back
+        CHECK(healed <= maxh + 0.001);                  // but never above its max
+
+        // Regenerator off: the same wound never closes.
+        SceneTree t2;
+        zomboid::buildScene(t2);
+        auto& vm2 = t2.scripts().vm();
+        const_cast<Value*>(vm2.getGlobal("g_mutator"))->number = 0.0;
+        SceneNode* z2 = t2.findNode("Zombie0");
+        Value zv2 = z2->script();
+        vm2.callOn(zv2, "spawn", sp);
+        vm2.callOn(zv2, "take_damage", hurt);
+        const double wounded2 = sField(z2, "health")->number;
+        for (int i = 0; i < 60; ++i) { vm2.callOn(zv2, "_process", dt); }
+        CHECK(sField(z2, "health")->number == wounded2);   // no mutator → no self-heal
+
+        // Chilled counter: under the mutator, a frozen body's regen is silenced — health stays flat.
+        SceneTree t3;
+        zomboid::buildScene(t3);
+        auto& vm3 = t3.scripts().vm();
+        const_cast<Value*>(vm3.getGlobal("g_mutator"))->number = 6.0;
+        SceneNode* z3 = t3.findNode("Zombie0");
+        Value zv3 = z3->script();
+        vm3.callOn(zv3, "spawn", sp);
+        vm3.callOn(zv3, "take_damage", hurt);
+        vm3.callOn(zv3, "apply_slow", chill);              // freeze it
+        const double wounded3 = sField(z3, "health")->number;
+        for (int i = 0; i < 30; ++i) { vm3.callOn(zv3, "_process", dt); }  // 0.5s, still chilled
+        CHECK(sField(z3, "health")->number == wounded3);   // frozen → no regen
+    }
+
     // Railgun armor-piercing: the beam shears any shield clean off before biting into health, so it's
     // the counter to armored zombies and Bulwark waves. A zombie off the beam keeps its shield.
     {
