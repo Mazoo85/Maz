@@ -3169,6 +3169,40 @@ int main() {
         CHECK(glob(t2, "g_cash") - c0b == 0.0);          // no cash reward
     }
 
+    // Flawless streak: consecutive no-hit waves pay escalating cash (25, 40, 55, ...), and taking a
+    // hit on any wave resets the streak to zero. Driven straight through the director's clear logic.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        SceneNode* dir = tree.findNode("Director");
+        Value dv = dir->script();
+        Value* clean = const_cast<Value*>(vm.getGlobal("g_wave_clean"));
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+
+        // Clear a flawless wave `w` (with `w-1` already paid) and return the cash it awarded.
+        auto flawlessClear = [&](int w, bool noHit) {
+            sField(dir, "wave")->number = static_cast<double>(w);
+            sField(dir, "bonus_wave")->number = static_cast<double>(w - 1);
+            sField(dir, "break_timer")->number = 3.0;   // keep the wave from advancing this step
+            clean->boolean = noHit;
+            const double before = glob(tree, "g_cash");
+            vm.callOn(dv, "_process", dt);
+            return glob(tree, "g_cash") - before;
+        };
+
+        CHECK(flawlessClear(1, true) == 25.0);            // 1st flawless: 25
+        CHECK((int)sField(dir, "clean_streak")->number == 1);
+        CHECK(flawlessClear(2, true) == 40.0);            // 2nd in a row: 40
+        CHECK((int)sField(dir, "clean_streak")->number == 2);
+        CHECK(flawlessClear(3, true) == 55.0);            // 3rd in a row: 55
+        CHECK((int)sField(dir, "clean_streak")->number == 3);
+        CHECK(flawlessClear(4, false) == 0.0);            // took a hit: no cash, streak resets
+        CHECK((int)sField(dir, "clean_streak")->number == 0);
+        CHECK(flawlessClear(5, true) == 25.0);            // streak restarts at the base reward
+        CHECK((int)sField(dir, "clean_streak")->number == 1);
+    }
+
     // Summoner (kind 7) kiting: it keeps its distance — backing away when the survivor closes in
     // rather than shambling into melee, and drifting in only when far away.
     {

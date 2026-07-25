@@ -150,6 +150,10 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
 
 - **Endless waves** — a Director spawns each wave larger and tougher, on a ring around you. Clear a
   wave for a score bonus and a permanent upgrade.
+- **Flawless streak** — clear a wave without taking a single hit and you bank a **doubled score bonus,
+  a health patch-up, and a cash reward** — and the cash escalates the longer your no-hit streak runs
+  (25, then 40, 55, … up to 100), so stringing perfect waves together is a real high-skill payout.
+  One hit resets the streak.
 - **Day / night** — a smooth threat ramp: the horde hunts faster and bites harder toward midnight,
   easing at dawn. Watch the **THREAT** readout. Night is also more lucrative — kills after dusk bank
   **50% more salvage cash**, so braving the dark hours pays off.

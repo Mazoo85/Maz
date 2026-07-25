@@ -2596,6 +2596,7 @@ class Director {
     var bonus_wave = 0;     # highest wave already awarded a clear bonus (avoids double-paying)
     var last_bonus = 0;     # the most recent clear bonus (for the HUD banner)
     var last_clean = false; # whether the most recent cleared wave was flawless (for the HUD banner)
+    var clean_streak = 0;   # consecutive flawless waves — the cash reward escalates with the streak
 
     func _ready() { g_director = self; }
 
@@ -2712,8 +2713,15 @@ class Director {
                     var fb = self.wave * 50;
                     g_score = g_score + fb;
                     self.last_bonus = self.last_bonus + fb;
-                    g_cash = g_cash + 25;
+                    # Flawless streak: each unbroken no-hit wave pays more cash than the last (25, 40,
+                    # 55, ... capped at 100), so stringing perfect waves together is worth chasing.
+                    self.clean_streak = self.clean_streak + 1;
+                    var reward = 25 + (self.clean_streak - 1) * 15;
+                    if (reward > 100) { reward = 100; }
+                    g_cash = g_cash + reward;
                     if (g_player != nil) { g_player.heal(10.0); }
+                } else {
+                    self.clean_streak = 0;   # taking a hit this wave breaks the flawless streak
                 }
             }
             self.break_timer = self.break_timer - dt;

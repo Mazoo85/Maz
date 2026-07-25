@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — escalating flawless-wave streak.** Clearing a wave without taking a hit already paid a
+  doubled score bonus, cash, and a heal; now the **cash reward escalates with an unbroken no-hit
+  streak** — 25 for the first flawless wave, then 40, 55, … up to a 100 cap — and taking a single hit
+  resets the streak to zero. Stringing perfect waves together is now a genuine high-skill payout.
+  Headless-tested: three flawless waves in a row pay 25/40/55, a hit resets to 0, and the next
+  flawless wave restarts at the 25 base.
 - **ZOMBOID — boss bounty (guaranteed care package on a boss kill).** Felling a boss — the wave leader
   that heads every 5th wave — now **always drops a medkit AND a power-up** where it falls, on top of
   the big score and cash, instead of leaving the same rare dice-roll drops as a common zombie. Grinding
