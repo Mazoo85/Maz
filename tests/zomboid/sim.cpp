@@ -318,36 +318,54 @@ int main() {
         CHECK(glob(tree, "g_shake") < 0.01);
     }
 
-    // Ammo: firing drains the magazine, then an auto-reload refills it from reserve.
+    // Ammo: firing drains the magazine, then an auto-reload refills it from reserve. Shown on the SMG (a
+    // depletable weapon); the pistol's reserve is infinite and is validated in its own test below.
     {
         SceneTree tree;
         SceneNode* s = zomboid::buildScene(tree);
-        CHECK(sField(s, "cur_ammo")->number == 12.0);   // pistol magazine
-        const double res0 = (*sField(s, "reserves")->array)[0].number; // 48 spare
+        setWeapon(tree, s, 2);                          // SMG
+        CHECK(sField(s, "cur_ammo")->number == 30.0);   // SMG magazine
+        const double res0 = (*sField(s, "reserves")->array)[2].number; // 90 spare
         sField(s, "firing")->boolean = true;
         bool sawReload = false;
-        for (int i = 0; i < 180; ++i) { // 3 s of held fire — drains the mag and starts a reload
+        for (int i = 0; i < 300; ++i) { // held fire — drains the mag and starts a reload
             tree.process(1.0 / 60.0);
             if (sField(s, "is_reloading")->boolean) sawReload = true;
         }
         CHECK(sawReload);                                // an empty mag triggered a reload
         sField(s, "firing")->boolean = false;
         for (int i = 0; i < 200; ++i) tree.process(1.0 / 60.0); // let it finish
-        CHECK(sField(s, "cur_ammo")->number == 12.0);    // magazine refilled
-        CHECK((*sField(s, "reserves")->array)[0].number < res0); // reserve was consumed
+        CHECK(sField(s, "cur_ammo")->number > 0.0);      // magazine refilled from reserve
+        CHECK((*sField(s, "reserves")->array)[2].number < res0); // reserve was consumed
     }
 
-    // Dry weapon: with an empty magazine AND empty reserve, exactly the last round fires and no more.
+    // Dry weapon: a NON-pistol with an empty magazine AND empty reserve fires exactly its last round and
+    // no more. (The pistol is exempt — it has an infinite reserve; see the next test.)
     {
         SceneTree tree;
         SceneNode* s = zomboid::buildScene(tree);
-        (*sField(s, "mags")->array)[0] = Value::fromNum(1.0);     // one round chambered
-        (*sField(s, "reserves")->array)[0] = Value::fromNum(0.0); // nothing to reload
+        setWeapon(tree, s, 2);                                     // SMG: a depletable weapon
+        (*sField(s, "mags")->array)[2] = Value::fromNum(1.0);     // one round chambered
+        (*sField(s, "reserves")->array)[2] = Value::fromNum(0.0); // nothing to reload
         sField(s, "firing")->boolean = true;
         for (int i = 0; i < 120; ++i) tree.process(1.0 / 60.0);
         CHECK(sField(s, "shots")->number == 1.0);        // fired once, then dry
         CHECK(sField(s, "cur_ammo")->number == 0.0);
         CHECK(sField(s, "is_reloading")->boolean == false); // can't reload from an empty reserve
+    }
+
+    // Infinite-reserve sidearm: the pistol (weapon 0) reloads even from an empty reserve, so it can never
+    // be left permanently dry — firing its last round auto-reloads and it keeps shooting.
+    {
+        SceneTree tree;
+        SceneNode* s = zomboid::buildScene(tree);            // weapon 0 (pistol) is the default
+        (*sField(s, "mags")->array)[0] = Value::fromNum(1.0);     // one round chambered
+        (*sField(s, "reserves")->array)[0] = Value::fromNum(0.0); // reserve empty — pistol ignores it
+        sField(s, "firing")->boolean = true;
+        for (int i = 0; i < 240; ++i) tree.process(1.0 / 60.0);  // ~4s: fire, auto-reload, fire again
+        CHECK(sField(s, "shots")->number > 1.0);                 // kept firing past the last chambered round
+        // Never stranded: either rounds are chambered or a reload is mid-flight — never a dead weapon.
+        CHECK((*sField(s, "mags")->array)[0].number > 0.0 || sField(s, "is_reloading")->boolean);
     }
 
     // Loot is an ammo crate: collecting it tops up the reserve.

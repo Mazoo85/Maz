@@ -804,6 +804,10 @@ int main(int argc, char** argv) {
             char ammoBuf[64];
             if (fieldBool(survivor, "is_reloading")) {
                 std::snprintf(ammoBuf, sizeof(ammoBuf), "RELOADING...");
+            } else if (static_cast<int>(field(survivor, "weapon")) == 0) {
+                // The pistol has a bottomless reserve — show it as infinite so the fallback reads clearly.
+                std::snprintf(ammoBuf, sizeof(ammoBuf), "AMMO %d / --",
+                              static_cast<int>(field(survivor, "cur_ammo")));
             } else {
                 std::snprintf(ammoBuf, sizeof(ammoBuf), "AMMO %d / %d",
                               static_cast<int>(field(survivor, "cur_ammo")),

@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the pistol is now an infinite-reserve sidearm (never left disarmed).** Previously the
+  starting pistol could run bone-dry — empty magazine *and* empty reserve — leaving you unable to fire or
+  reload until you scrounged ammo or cash, a genuine dead-end (worst in the early game). The pistol now
+  has a **bottomless reserve**: it still has to reload when the mag empties, but it can never be
+  exhausted, so it's the reliable fallback when the power weapons (shotgun / SMG / railgun / flamethrower)
+  burn through their ammo. Those weapons keep their scarcity unchanged. The HUD shows the pistol as
+  `AMMO n / --`. Headless-tested: firing the pistol's last round with an empty reserve auto-reloads and
+  keeps firing, while a non-pistol with an empty reserve still goes dry after its last shot.
 - **ZOMBOID — fire now spreads through a burning horde.** The offensive mirror of frost shatter: a zombie
   that **dies while on fire** passes the flames on, igniting every nearby zombie (within radius 4.5, at
   the intensity it was burning). So torching one body in a tight crowd can **cascade into the whole pack

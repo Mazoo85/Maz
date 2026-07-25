@@ -38,7 +38,9 @@ Run it: `./bin/zomboid` (or `./bin/zomboid --demo` to watch the autopilot show o
 
 ## Weapons
 
-- **Pistol** — accurate, reliable, unlimited-ish reserve. Your default.
+- **Pistol** — accurate, reliable, and its reserve is **infinite** (the HUD shows `AMMO n / --`). It
+  still has to reload when the mag runs out, but it can never run dry — so it's the fallback that
+  guarantees you're **never left disarmed** when the power weapons burn through their ammo. Your default.
 - **Shotgun** — a spread of pellets that hit hardest **point-blank** and lose damage with distance;
   devastating in a zombie's face, weak across the arena. Up close it also **bodily knocks zombies back**
   — a face-full flings the target away and buys you breathing room — and that shove fades with range just

@@ -758,7 +758,10 @@ class Survivor {
     func start_reload() {
         if (self.reloading) { return; }
         var w = self.weapon;
-        if (self.reserves[w] <= 0) { return; }
+        # The sidearm pistol (weapon 0) has an infinite reserve, so it can always reload — every other
+        # weapon needs rounds in reserve. This guarantees the survivor is never left fully disarmed when
+        # the power weapons run dry: fall back to the pistol and you always have something that fires.
+        if (w != 0 and self.reserves[w] <= 0) { return; }
         if (self.mags[w] >= self.mag_sizes[w]) { return; }
         self.reloading = true;
         self.reload_t = self.reload_times[w];
@@ -767,6 +770,13 @@ class Survivor {
     # Move rounds from reserve into the magazine (up to capacity) and end the reload.
     func finish_reload() {
         var w = self.weapon;
+        # The pistol's reserve is bottomless — a reload always tops the mag back to full without drawing
+        # any pool down, so it can never be exhausted (only the reload time gates it).
+        if (w == 0) {
+            self.mags[w] = self.mag_sizes[w];
+            self.reloading = false;
+            return;
+        }
         var need = self.mag_sizes[w] - self.mags[w];
         var take = need;
         if (take > self.reserves[w]) { take = self.reserves[w]; }
