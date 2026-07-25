@@ -89,6 +89,37 @@ int main() {
         CHECK(aliveZombies(tree) > 0);
     }
 
+    // Director.alive_count() is the wave-clear gate — the director advances the run only when it reads 0.
+    // It must track the true number of live pooled zombies exactly: a miscount would either strand the run
+    // on a "cleared" wave that still has zombies, or skip a wave that's actually clear. Pin it at 0 on a
+    // dormant pool, at N after spawning N, and dropping by one as bodies die (matching the ground-truth
+    // helper throughout).
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value dir = tree.findNode("Director")->script();
+        std::vector<Value> none;
+
+        CHECK(vm.callOn(dir, "alive_count", none).number == 0.0);   // dormant pool at scene start
+
+        SceneNode* zs[3] = {tree.findNode("Zombie0"), tree.findNode("Zombie1"), tree.findNode("Zombie2")};
+        for (int i = 0; i < 3; ++i) {
+            Value zv = zs[i]->script();
+            std::vector<Value> at = {Value::fromNum(static_cast<double>(i * 4)), Value::fromNum(0.0),
+                                     Value::fromNum(100.0), Value::fromNum(0.0)};
+            vm.callOn(zv, "spawn_at", at);
+        }
+        CHECK(vm.callOn(dir, "alive_count", none).number == 3.0);   // exactly the three just spawned
+        CHECK((int)vm.callOn(dir, "alive_count", none).number == aliveZombies(tree));  // agrees with truth
+
+        sField(zs[0], "alive")->boolean = false;                    // one falls
+        CHECK(vm.callOn(dir, "alive_count", none).number == 2.0);
+        sField(zs[1], "alive")->boolean = false;
+        sField(zs[2], "alive")->boolean = false;                    // pack wiped
+        CHECK(vm.callOn(dir, "alive_count", none).number == 0.0);   // reads clear — the gate the director trips on
+    }
+
     // Shooting: aiming + firing pulls a bullet from the pool (pistol default).
     {
         SceneTree tree;

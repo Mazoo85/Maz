@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — pin `Director.alive_count()`, the wave-clear gate.** The wave director advances the run (and
+  pays the clear bonus) only when this count reads 0, so it must track the true number of live pooled
+  zombies exactly — a miscount would either strand the run on a "cleared" wave that still has zombies or
+  skip a wave that's actually clear. The new test pins it at 0 on a dormant pool, at N after spawning N
+  (cross-checked against the ground-truth helper), and dropping to 0 as the pack is wiped. Test-only change
+  — no gameplay logic altered.
 - **ZOMBOID — pin the piercing bullet's once-per-body strike guard (`not_hit`/`hit_list`).** A piercing
   round punches through multiple zombies, but each BODY must be struck only once — not once per frame it
   overlaps. The existing pierce test flies through three separated zombies (each naturally hit once); this
