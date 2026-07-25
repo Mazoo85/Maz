@@ -3711,6 +3711,17 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Ray-sphere intersection** (`math::intersectRaySphere`) — DONE (M555); the sphere had a segment test
+  (segmentIntersectsSphere, returning a point) but no RAY form returning an entry distance — the pick / raycast
+  test for a spherical collider (clicking a planet/ball, a projectile or line-of-sight ray vs a sphere trigger).
+  Solves the quadratic |origin + t·dir − centre|² = radius² and returns the first forward surface crossing t in
+  [0, tMax] (in units of |dir|, so a unit dir gives world distance), taking the far root when the near one is
+  behind so a ray starting inside returns its exit distance. Rounds out the ray-vs-primitive set beside
+  Aabb3/Obb::intersectRay and Plane::intersectRay. Verified (`ctest -R ray_sphere`): a head-on ray hits at the
+  analytic near-surface distance; a ray pointing away or offset beyond the radius misses; a tangent ray grazes
+  once at the expected t; a ray from inside returns the exit distance; tMax clips a far hit to a miss; a non-unit
+  direction reports t in units of |dir|; a zero-length direction is a safe miss; and a shifted sphere matches.
+  [VERIFIABLE HERE]
 - [x] **Sphere-AABB overlap + point-box distance** (`math::Aabb3::intersectsSphere` / `distanceSquared`) — DONE
   (M554); the axis-aligned box had ray/box, box/box, and plane tests, and the OBB had sphere overlap, but the
   AABB had no sphere test — the single most common broadphase / trigger-volume query (a ball vs a static block,

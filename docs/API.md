@@ -1423,13 +1423,13 @@ maz::math::Geometry3D — the first-class 3D primitive types every engine leans 
 - `inline std::optional<vec3> rayIntersectsTriangle(const vec3& from, const vec3& dir, const vec3& a,`
 - `inline std::optional<vec3> segmentIntersectsTriangle(const vec3& from, const vec3& to, const vec3& a,`
 - `inline std::optional<vec3> segmentIntersectsSphere(const vec3& from, const vec3& to,`
+- `inline std::optional<float> intersectRaySphere(const vec3& origin, const vec3& dir, const vec3& center,`
 - `inline std::optional<vec3> segmentIntersectsCylinder(const vec3& from, const vec3& to, float height,`
 - `inline std::vector<Plane> buildBoxPlanes(const vec3& extents, const vec3& center = vec3(0.0f))`
 - `inline std::vector<Plane> buildCylinderPlanes(float radius, float height, int sides, int axis = 2)`
 - `inline std::vector<Plane> buildCapsulePlanes(float radius, float height, int sides, int rings,`
 - `inline vec3 closestPointOnTriangle(const vec3& p, const vec3& a, const vec3& b, const vec3& c)`
-- `inline vec3 barycentric(const vec3& p, const vec3& a, const vec3& b, const vec3& c)`
-- _…and 8 more_
+- _…and 9 more_
 
 ### `GjkDistance`
 <sub>`engine/include/maz/math/GjkDistance.hpp`</sub>

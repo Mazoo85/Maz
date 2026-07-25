@@ -578,6 +578,36 @@ inline std::optional<vec3> segmentIntersectsSphere(const vec3& from, const vec3&
     return from + d * t;
 }
 
+// Ray/sphere intersection: origin + t*dir, t >= 0. Returns the distance t to the first surface crossing in the
+// forward direction within [0, tMax] (in units of |dir|, so pass a unit dir for world-space distance), or
+// nullopt on a miss. A ray starting inside the sphere returns the exit-point distance (its first forward
+// crossing). The ray counterpart of segmentIntersectsSphere — the pick/raycast test for a spherical collider.
+inline std::optional<float> intersectRaySphere(const vec3& origin, const vec3& dir, const vec3& center,
+                                               float radius,
+                                               float tMax = std::numeric_limits<float>::infinity()) {
+    const vec3 m = origin - center;
+    const float a = dot(dir, dir);
+    if (a < 1e-12f) {
+        return std::nullopt; // zero-length direction
+    }
+    const float b = 2.0f * dot(m, dir);
+    const float c = dot(m, m) - radius * radius;
+    const float disc = b * b - 4.0f * a * c;
+    if (disc < 0.0f) {
+        return std::nullopt; // ray misses the sphere entirely
+    }
+    const float sq = std::sqrt(disc);
+    const float inv2a = 1.0f / (2.0f * a);
+    float t = (-b - sq) * inv2a; // near root
+    if (t < 0.0f) {
+        t = (-b + sq) * inv2a; // origin is inside (or the near hit is behind) -> take the far root
+    }
+    if (t < 0.0f || t > tMax) {
+        return std::nullopt;
+    }
+    return t;
+}
+
 // First surface point where segment [from,to] meets a finite cylinder — Godot's
 // Geometry3D.segment_intersects_cylinder. The cylinder is centred at the origin, aligned to the Y
 // axis, spans y in [-height/2, +height/2] and has the given radius. Returns the entry crossing;
