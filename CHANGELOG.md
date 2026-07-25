@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — regression-test the `emit()` particle pool + exhaustion guard (the last of four pools).**
+  `emit()` draws impact/blood particles from the shared pool (kParticlePool), spawning up to `count` per
+  call and naturally fewer once the pool is drained, so the juice system can never overflow. The kill test
+  already shows particles fly; this pins the count and the exhaustion cap directly. With this, all four of
+  ZOMBOID's object pools — fire, acid, spit, and particles — have explicit no-overflow coverage. Test-only
+  change — no gameplay logic altered.
 - **ZOMBOID — regression-test the `launch_spit()` pooled spawner + exhaustion guard.** A spitter lobs its
   glob through this top-level helper, which draws a dormant Spit from the fixed pool (kSpitPool) and launches
   it toward the target, or does nothing once every glob is already airborne. The spitter tests exercise the

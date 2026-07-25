@@ -507,6 +507,32 @@ int main() {
         CHECK(glob(tree, "g_shake") < 0.01);
     }
 
+    // emit() pooled spawner + exhaustion — the fourth and last object pool (impact/blood particles). It
+    // spawns up to `count` particles from the shared pool (kParticlePool) per call, and naturally fewer
+    // once the pool is drained, so the juice system can never overflow. The kill test above shows particles
+    // fly; this pins the count and the exhaustion cap directly, matching the guards already locked in for
+    // the fire, acid, and spit pools.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        CHECK(activeParticles(tree) == 0);                          // none active at scene start
+
+        std::vector<Value> five = {Value::fromNum(0.0), Value::fromNum(0.0),
+                                   Value::fromNum(5.0), Value::fromNum(0.0)};   // emit(x,y,count,kind)
+        vm.call("emit", five);
+        CHECK(activeParticles(tree) == 5);                          // exactly five while the pool has room
+
+        // Ask for far more than the pool holds: it fills to the cap and no further, never overflowing.
+        std::vector<Value> lots = {Value::fromNum(0.0), Value::fromNum(0.0),
+                                   Value::fromNum(static_cast<double>(zomboid::kParticlePool * 2)),
+                                   Value::fromNum(1.0)};
+        vm.call("emit", lots);
+        CHECK(activeParticles(tree) == zomboid::kParticlePool);     // capped at the pool size
+        vm.call("emit", lots);                                      // pool already full
+        CHECK(activeParticles(tree) == zomboid::kParticlePool);     // still capped — clean no-op
+    }
+
     // Ammo: firing drains the magazine, then an auto-reload refills it from reserve. Shown on the SMG (a
     // depletable weapon); the pistol's reserve is infinite and is validated in its own test below.
     {
