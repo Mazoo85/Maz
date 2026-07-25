@@ -155,6 +155,11 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
 - **Stagger = weak point** — a zombie flinching from a stagger (a melee shove or dash-strike) takes
   **40% more damage** while it reels, so the combo is: knock it off balance, then pour fire in. It
   stacks with the chill bonus.
+- **Fire ignites acid** — a spitter's caustic puddle (or a Volatile-horde acid pool) is **flammable**:
+  sweep it with the flamethrower's cone or drop a molotov on it and it **flashes over** in one violent
+  combustion — a burst of damage that sets alight every zombie caught in it, and the puddle is spent in
+  the blast. So the ground a spitter poisons under a pack isn't just something to route around — torch it
+  and it becomes a fireball on the horde.
 - **Explosive barrels** — rusty barrels are scattered around the arena; shoot one to pop a big blast,
   and lure the horde onto them. The blast is **double-edged** — caught in it yourself you take half
   the damage and get flung clear, so detonate them at a distance, never in your own face. **Fire cooks

@@ -2780,6 +2780,53 @@ int main() {
         CHECK(sField(z3, "health")->number == wounded3);   // frozen → no regen
     }
 
+    // Fire ignites acid: a molotov's fire patch (or the flamethrower cone) touching a caustic puddle
+    // flashes it over in one violent combustion — the puddle is consumed and any zombie in it takes a
+    // burst of damage. Turns an enemy hazard (a spitter's acid, a Volatile-horde pool) into an offensive
+    // tool. Verify overlapping fire combusts the pool and hurts a zombie standing in it; fire placed far
+    // away leaves the pool untouched.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        std::vector<Value> at = {Value::fromNum(30.0), Value::fromNum(0.0)};
+        // wave-8 walker so it survives the 30-damage flash and we can read the wound cleanly.
+        std::vector<Value> sp = {Value::fromNum(31.0), Value::fromNum(0.0),
+                                 Value::fromNum(0.0), Value::fromNum(8.0)};
+
+        // Overlapping fire: the puddle combusts and the zombie in it is burned.
+        SceneTree t1;
+        zomboid::buildScene(t1);
+        auto& vm1 = t1.scripts().vm();
+        Value acid1 = t1.findNode("Acid0")->script();
+        vm1.callOn(acid1, "splat_at", at);
+        CHECK(sField(t1.findNode("Acid0"), "active")->boolean);   // puddle is live
+        SceneNode* z1 = t1.findNode("Zombie0");
+        Value zv1 = z1->script();
+        vm1.callOn(zv1, "spawn", sp);
+        const double hp1 = sField(z1, "health")->number;
+        Value fire1 = t1.findNode("Fire0")->script();
+        vm1.callOn(fire1, "ignite_ground", at);                   // fire right on the puddle
+        vm1.callOn(fire1, "_process", dt);
+        CHECK(!sField(t1.findNode("Acid0"), "active")->boolean);  // ...flashed over (consumed)
+        CHECK(sField(z1, "health")->number < hp1);                // the zombie took the burst
+
+        // Fire far from the puddle: no combustion, no harm.
+        SceneTree t2;
+        zomboid::buildScene(t2);
+        auto& vm2 = t2.scripts().vm();
+        Value acid2 = t2.findNode("Acid0")->script();
+        vm2.callOn(acid2, "splat_at", at);
+        SceneNode* z2 = t2.findNode("Zombie0");
+        Value zv2 = z2->script();
+        vm2.callOn(zv2, "spawn", sp);
+        const double hp2 = sField(z2, "health")->number;
+        std::vector<Value> farAway = {Value::fromNum(90.0), Value::fromNum(90.0)};
+        Value fire2 = t2.findNode("Fire0")->script();
+        vm2.callOn(fire2, "ignite_ground", farAway);
+        vm2.callOn(fire2, "_process", dt);
+        CHECK(sField(t2.findNode("Acid0"), "active")->boolean);   // untouched puddle
+        CHECK(sField(z2, "health")->number == hp2);               // zombie unharmed
+    }
+
     // Railgun armor-piercing: the beam shears any shield clean off before biting into health, so it's
     // the counter to armored zombies and Bulwark waves. A zombie off the beam keeps its shield.
     {

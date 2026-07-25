@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — fire ignites acid pools (caustic flash-over).** Caustic ground is now flammable: when a
+  molotov's fire patch — or the flamethrower's cone — touches a spitter's acid puddle (or a Volatile-horde
+  pool), it **flashes over in one violent combustion**, dealing a burst of damage and setting alight every
+  zombie caught in it, and the puddle is spent in the blast. It turns a hazard you normally have to route
+  *around* into an offensive tool: torch the acid a spitter leaves under a pack to convert it into a
+  fireball. Headless-tested: a fire patch overlapping a puddle consumes it and wounds a zombie standing in
+  it, while a fire placed far away leaves the puddle and the zombie untouched.
 - **ZOMBOID — new Regenerator Horde wave mutator.** A sixth wave modifier joins the roll (from wave 3):
   under **Regenerator Horde** every body slowly **knits its wounds back shut** (6% of its max health
   per second), so chip damage bleeds away and you must commit real burst to a kill rather than poking

@@ -670,6 +670,24 @@ class Survivor {
             }
             fbi = fbi + 1;
         }
+        # The cone also flashes over any caustic puddle it sweeps across — same combustion a molotov's
+        # fire triggers — so the flamethrower can weaponise a spitter's acid or a Volatile-horde pool.
+        var fai = 0;
+        var fan = len(g_acid);
+        while (fai < fan) {
+            var fa = g_acid[fai];
+            if (fa.active) {
+                var farx = fa.node.x - self.node.x;
+                var fary = fa.node.y - self.node.y;
+                var fad = sqrt(farx * farx + fary * fary);
+                if (fad <= range) {
+                    var fadot = 1.0;
+                    if (fad > 0.01) { fadot = (farx * ax + fary * ay) / fad; }
+                    if (fadot > 0.6) { fa.combust(); }
+                }
+            }
+            fai = fai + 1;
+        }
         emit(self.node.x + ax * 3.0, self.node.y + ay * 3.0, 4, 2);   # flame lick at the nozzle
         self.shots = self.shots + 1;
     }
@@ -1720,6 +1738,22 @@ class FirePool {
             }
             bi = bi + 1;
         }
+        # Flame touching a caustic puddle flashes it over: an acid pool overlapping the fire combusts in
+        # a violent burst (see AcidPool.combust). So a molotov thrown onto a spitter's acid — or onto a
+        # Volatile-horde pool — converts that enemy hazard into a damaging fireball instead of terrain
+        # you have to route around.
+        var ai = 0;
+        var an = len(g_acid);
+        while (ai < an) {
+            var a = g_acid[ai];
+            if (a.active) {
+                var adx = a.node.x - self.node.x;
+                var ady = a.node.y - self.node.y;
+                var rr = self.radius + a.radius;
+                if (adx * adx + ady * ady <= rr * rr) { a.combust(); }
+            }
+            ai = ai + 1;
+        }
         self.puff = self.puff - dt;
         if (self.puff <= 0) { self.puff = 0.3; emit(self.node.x, self.node.y, 3, 1); }
     }
@@ -1771,6 +1805,31 @@ class AcidPool {
         }
         self.puff = self.puff - dt;
         if (self.puff <= 0) { self.puff = 0.4; emit(self.node.x, self.node.y, 2, 1); }
+    }
+
+    # The caustic sludge is volatile: touch a naked flame to it and it flashes over in a single violent
+    # combustion. Any zombie caught in (or near) the pool takes a burst of damage and is set alight, and
+    # the puddle is spent in the flash. This turns a hazard the survivor normally has to avoid into an
+    # offensive tool — molotov or flame-cone a spitter's puddle (or a Volatile-horde pool) to weaponise it.
+    func combust() {
+        if (self.active == false) { return; }
+        self.active = false;
+        emit(self.node.x, self.node.y, 18, 1);   # fiery flash-over
+        var r = self.radius + 2.0;
+        var i = 0;
+        var n = len(g_zombies);
+        while (i < n) {
+            var z = g_zombies[i];
+            if (z.alive) {
+                var dx = z.node.x - self.node.x;
+                var dy = z.node.y - self.node.y;
+                if (dx * dx + dy * dy <= r * r) {
+                    z.take_damage(30);
+                    if (z.alive) { z.ignite(2.0, 12); }
+                }
+            }
+            i = i + 1;
+        }
     }
 }
 
