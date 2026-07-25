@@ -3087,7 +3087,13 @@ class Zombie {
                             # 25% of that pool would undo a hard-won grind and undercut the designed boss
                             # duel. The boss is exempt here just as it is from stagger, gib, overkill, and
                             # the Volatile mutator — a healer can still mend the surrounding pack, not the boss.
-                            if (hz.alive and hz != self and hz.kind != 3 and hz.health < hz.max_health) {
+                            # A wound that's actively burning or bleeding can't be patched either: damage
+                            # over time holds the wound open against ALL healing, so a healer can't top up a
+                            # body you've set alight or lacerated — the same rule that stops a Regenerator
+                            # body knitting itself shut. So torching the pack (molotov / flamethrower) or
+                            # raking it with kinetic fire also shuts the healer's mend off, not just its own
+                            # regen, giving damage-over-time a unified anti-heal role.
+                            if (hz.alive and hz != self and hz.kind != 3 and hz.burn_timer <= 0 and hz.bleed_stacks <= 0 and hz.health < hz.max_health) {
                                 var hdx = hz.node.x - self.node.x;
                                 var hdy = hz.node.y - self.node.y;
                                 if (hdx * hdx + hdy * hdy <= 196.0) {   # radius 14

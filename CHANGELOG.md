@@ -8,6 +8,15 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — a Healer can't mend a burning or bleeding zombie.** Building on the rule that a body taking
+  damage-over-time can't knit its own wounds (the Regenerator fix), a Healer's mend pulse now also skips
+  any zombie that's actively on fire or bleeding — a wound held open by DoT can't be patched by an outside
+  medic either. This gives fire and laceration a unified anti-heal role: torching a pack (molotov or the
+  flamethrower cone) or raking it with kinetic fire shuts the Healer down, not just the enemy's own regen,
+  so DoT is now the clean, consistent answer to *every* heal source in the game. Healers still mend the
+  clean-wounded rest of the pack, so they're not defanged — you just have to keep the burn on them.
+  Headless-tested: a mend pulse patches a clean-wounded neighbour but leaves a burning one and a bleeding
+  one untouched.
 - **ZOMBOID — fire and bleed now reliably counter the Regenerator Horde.** A Regenerator wave heals every
   body back up over time (6% of max health per second), and the game bills fire, bleed, and cold as the
   answers. But only *cold* actually halted the regen — fire and bleed merely had to *out-damage* it, and
