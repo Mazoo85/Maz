@@ -995,6 +995,37 @@ int main(int argc, char** argv) {
                         fill = render::Color{1.0f, 0.25f * rp, 0.30f * rp, 1.0f};   // enraged: pulsing red
                     }
                     rect(bbx, bby, bbw * (bf < 0.0f ? 0.0f : bf), bbh, fill);
+
+                    // Off-screen boss pointer: when you've kited far enough that the boss is outside the
+                    // viewport, pin a pulsing magenta marker to the screen edge in its direction, so the
+                    // wave leader is never lost off-screen. The marker's edge position IS the direction
+                    // cue. Screen mapping mirrors the mouse->world code above: screen = center + (world -
+                    // survivor) * zoom, same axis orientation (no y-flip), so the direction is exact.
+                    if (survivor) {
+                        const float cx = sw * 0.5f, cy = sh * 0.5f;
+                        const float bsx = cx + static_cast<float>(boss->x() - survivor->x()) * worldToPx;
+                        const float bsy = cy + static_cast<float>(boss->y() - survivor->y()) * worldToPx;
+                        const float margin = 28.0f;
+                        const bool off = bsx < margin || bsx > sw - margin ||
+                                         bsy < margin || bsy > sh - margin;
+                        float dx = bsx - cx, dy = bsy - cy;
+                        const float dl = std::sqrt(dx * dx + dy * dy);
+                        if (off && dl > 1e-3f) {
+                            dx /= dl;
+                            dy /= dl;
+                            const float ehx = cx - margin, ehy = cy - margin;
+                            float t = 1e9f;
+                            if (std::fabs(dx) > 1e-4f) t = std::min(t, ehx / std::fabs(dx));
+                            if (std::fabs(dy) > 1e-4f) t = std::min(t, ehy / std::fabs(dy));
+                            const float ex = cx + dx * t, ey = cy + dy * t;
+                            const float pulse = 0.6f + 0.4f * std::sin(static_cast<float>(simTime) * 8.0f);
+                            const float ms = 20.0f;
+                            rect(ex - ms * 0.5f - 2.0f, ey - ms * 0.5f - 2.0f, ms + 4.0f, ms + 4.0f,
+                                 render::Color{0, 0, 0, 0.6f});
+                            rect(ex - ms * 0.5f, ey - ms * 0.5f, ms, ms,
+                                 render::Color{1.0f, 0.30f + 0.25f * pulse, 0.9f, 1.0f});
+                        }
+                    }
                 }
             }
 

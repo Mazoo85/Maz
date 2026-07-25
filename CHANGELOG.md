@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — added an off-screen boss direction marker.**
+  The camera follows the survivor, so kiting away from a boss can scroll it right off the screen — and
+  with no on-screen cue, you could lose track of the wave leader entirely. Added a pulsing magenta marker
+  that pins to the screen edge in the boss's direction whenever the boss is outside the viewport, so it's
+  never lost off-screen; it clears the moment the boss is back in view. The marker's edge position is the
+  direction cue (screen mapping mirrors the game's own mouse-aim math, so it points exactly at the boss).
+  Pairs with the new boss health bar — you can now always tell both how much boss is left and where it is.
+  Presentation-only change; the build, headless smoke, and 3600-frame run all pass.
 - **ZOMBOID — added a top-of-screen boss health bar.**
   The boss is each wave-5 milestone's marquee fight — a huge health pool with an enrage phase — but its
   only on-screen health readout was the same wounded-red tint every zombie gets below 40%, giving no
