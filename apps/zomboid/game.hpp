@@ -3299,8 +3299,13 @@ class Zombie {
                 self.leap_wind = self.leap_wind - dt;
                 if (self.leap_wind <= 0) {
                     var lw = 32.0;   # pounce burst speed
-                    self.leap_vx = (dx / dist) * lw;
-                    self.leap_vy = (dy / dist) * lw;
+                    # Guard the exact-overlap case: if the survivor walked onto the coiled (rooted) leaper
+                    # so distance is ~0, dividing by it would make the lunge vector NaN and corrupt the
+                    # leaper's position. Floor the distance like every other division in this file does.
+                    var ld = dist;
+                    if (ld < 0.01) { ld = 0.01; }
+                    self.leap_vx = (dx / ld) * lw;
+                    self.leap_vy = (dy / ld) * lw;
                     self.leaping = 0.32;
                     self.leap_cd = 3.0;
                     emit(self.node.x, self.node.y, 6, 0);   # dust puff on take-off

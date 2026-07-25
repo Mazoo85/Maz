@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — hardened the Leaper's pounce against a divide-by-zero (NaN-safety).** Every other `dx/dist`
+  movement division in the game floors the distance before dividing, but the Leaper's pounce-vector
+  computation didn't — so if the survivor stood exactly on top of a coiled (rooted) Leaper the instant its
+  wind-up finished, distance was zero and the lunge vector became NaN, corrupting the Leaper's position.
+  The rare trigger means this was defensive rather than a bug players routinely hit, but the omission was
+  inconsistent with the codebase's own convention; the pounce now floors the distance like every other
+  division. Headless-tested: a Leaper whose coil completes at exactly zero range keeps a finite lunge
+  velocity and position throughout the pounce.
 - **ZOMBOID — your BEST WAVE now always records your deepest run (persistence bug fix).** The end screen
   shows best wave and best score as two independent stats, but saving both was gated on a single
   score-primary "beats the best" check — so a run that reached a new deepest wave with a lower score than

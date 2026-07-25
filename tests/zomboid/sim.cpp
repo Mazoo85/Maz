@@ -2090,6 +2090,32 @@ int main() {
         CHECK(survivor->x() == 0.0);                          // no knockback either — rode it out
     }
 
+    // Leaper pounce-vector is divide-by-zero safe: if the survivor is standing exactly on the coiled
+    // (rooted) leaper when its wind-up completes, distance is zero. Without a floor, (dx/dist) would be
+    // NaN and blow the leaper's position/velocity to NaN. Drive the coil to completion at zero range and
+    // confirm the leaper's leap velocity and position stay finite.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        SceneNode* leaper = tree.findNode("Zombie0");
+        Value lv = leaper->script();
+        std::vector<Value> sp = {Value::fromNum(0.0), Value::fromNum(0.0), Value::fromNum(9.0),
+                                 Value::fromNum(3.0)}; // leaper (kind 9) spawned ON the survivor
+        vm.callOn(lv, "spawn", sp);
+        leaper->setPosition(0.0, 0.0);               // exact overlap → zero distance to the survivor
+        sField(leaper, "leap_wind")->number = 0.001; // one tick from committing the pounce
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        vm.callOn(lv, "_process", dt);               // wind-up completes → pounce vector computed at dist 0
+        CHECK(std::isfinite(sField(leaper, "leap_vx")->number));  // not NaN/inf
+        CHECK(std::isfinite(sField(leaper, "leap_vy")->number));
+        // Fly out the whole pounce; the leaper's position must stay finite the entire time.
+        for (int i = 0; i < 30; ++i) { vm.callOn(lv, "_process", dt); }
+        CHECK(std::isfinite(leaper->x()));
+        CHECK(std::isfinite(leaper->y()));
+    }
+
     // Overcharge ultimate: kills fill the meter; a detonate wipes the field and resets the charge.
     {
         SceneTree tree;
