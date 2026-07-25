@@ -117,10 +117,11 @@ back sooner and sooner, so the deeper you get, the more often you can bail out o
   a hit finally **breaks** the plate it **shatters**, throwing off a concussive burst that shoves and
   staggers the zombies around you — so a plate isn't just a buffer, it hands you a moment of space at the
   exact instant it fails. Wearing one into the crush pays off twice.
-- **Hunger** — you slowly get hungry; eat a ration (**E**) before it starts costing you health. And you
-  **can't heal on an empty stomach**: while you're starving, the passive out-of-combat regen is switched
-  off, so you can't just stand still and shrug the hunger off — a ration is the only way to stop the
-  bleed and start recovering again.
+- **Hunger** — you slowly get hungry; eat a ration (**E**) to keep it down. If hunger maxes out while you
+  still have a ration, you **auto-eat one** rather than take damage — so starvation only hurts once your
+  food is genuinely gone. You still **can't heal on an empty stomach**: while you're starving (out of
+  food), the passive out-of-combat regen is switched off, so you can't just stand still and shrug the
+  hunger off — grab more rations from loot to stop the bleed and start recovering again.
 
 ## The salvage economy
 

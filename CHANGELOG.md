@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — you no longer starve to death with rations in your pack.** At max hunger the survivor used to
+  simply lose health, even while carrying food. Now, when hunger hits the top, you **auto-eat a ration**
+  instead of taking starvation damage — the drain only bites once your food is genuinely gone. Eating drops
+  hunger by a chunk, so it won't re-trigger until hunger climbs back to max: a self-paced auto-feed that
+  stretches your rations, in keeping with how the shop and pickups already refuse to squander a resource.
+  Headless-tested: a starving survivor with rations spends one and takes no damage; a survivor with no food
+  still takes the starve drain (existing test).
 - **ZOMBOID — the shop won't sell a wasted ammo refill on the pistol.** The pistol's reserve is bottomless
   (it never runs dry), so buying an ammo refill while it's equipped spent 50 salvage on a pool that's never
   drawn down. The shop now declines that buy for free — the same "never throw away hard-won salvage" guard

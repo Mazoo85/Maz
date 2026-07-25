@@ -380,10 +380,17 @@ class Survivor {
             if (self.health > self.max_health) { self.health = self.max_health; }
         }
 
-        # Survival pressure: hunger creeps up; at max hunger, health drains.
+        # Survival pressure: hunger creeps up; at max hunger, health drains — UNLESS you're carrying a
+        # ration, in which case you instinctively eat one rather than waste away. So starvation damage only
+        # bites when your food is actually gone, not while a meal sits unused in your pack. (Eating drops
+        # hunger by a chunk, so it won't re-trigger until hunger climbs back to max — a self-paced auto-feed
+        # that stretches your rations, matching how the shop and pickups never squander a resource.)
         self.hunger = self.hunger + dt * 1.5;
         if (self.hunger > 100) { self.hunger = 100; }
-        if (self.hunger >= 100) { self.health = self.health - dt * 3; }
+        if (self.hunger >= 100) {
+            if (self.food > 0) { self.eat(); }
+            else { self.health = self.health - dt * 3; }
+        }
 
         # Flamethrower ground-fire trail throttle ticks down (bounds how often it lays a fire patch).
         if (self.flame_cd > 0) {

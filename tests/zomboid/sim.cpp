@@ -2567,9 +2567,10 @@ int main() {
         Value sv = survivor->script();
         std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
 
-        // Starving + wounded + out of combat: no regen — the starve drain wins, health falls.
+        // Starving + wounded + out of combat + NO rations left: no regen — the starve drain wins.
         sField(survivor, "health")->number = 50.0;
         sField(survivor, "hunger")->number = 100.0;
+        sField(survivor, "food")->number = 0.0;           // out of rations → true starvation
         sField(survivor, "regen_timer")->number = 10.0;   // already past the 5s out-of-combat window
         const double hStarve0 = sField(survivor, "health")->number;
         for (int i = 0; i < 30; ++i) vm.callOn(sv, "_process", dt);
@@ -2586,6 +2587,28 @@ int main() {
         const double hFed0 = sField(s2, "health")->number;
         for (int i = 0; i < 30; ++i) vm2.callOn(s2v, "_process", dt);
         CHECK(sField(s2, "health")->number > hFed0);            // fed + out of combat: regen ticks up
+    }
+
+    // Starvation auto-feed: at max hunger you instinctively eat a carried ration rather than take
+    // starvation damage — so the drain only bites once your food is truly gone. A ration is spent and
+    // hunger drops; a survivor with no food takes the drain instead (covered above).
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+
+        sField(survivor, "health")->number = 50.0;
+        sField(survivor, "hunger")->number = 100.0;
+        sField(survivor, "food")->number = 2.0;            // rations in the pack
+        sField(survivor, "regen_timer")->number = 0.0;     // keep out-of-combat regen out of the picture
+        const double h0 = sField(survivor, "health")->number;
+
+        vm.callOn(sv, "_process", dt);                     // one starving frame with food on hand
+        CHECK(sField(survivor, "food")->number == 1.0);    // ate a ration instead of starving
+        CHECK(sField(survivor, "hunger")->number < 100.0); // hunger relieved by the meal
+        CHECK(sField(survivor, "health")->number == h0);   // no starvation damage taken
     }
 
     // Body armor: a depletable plate takes the hit first, and only the overflow past a spent plate
