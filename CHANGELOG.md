@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — active reload (skill-timed instant reload + damage surge).** Tapping **R** again during the
+  tail end of a reload now triggers an **active reload**: the reload snaps shut instantly *and* grants a
+  brief **+30% damage surge**. Miss the window (tap too early) and nothing happens — no penalty, the
+  normal reload just carries on — so it's pure upside for skilled timing, adding depth to the moment-to-
+  moment gunplay. The surge glows gold on the survivor. Headless-tested: a tap inside the window finishes
+  the reload and arms the surge (which lifts shot damage ~30%), while a too-early tap leaves the reload
+  running with no surge.
 - **ZOMBOID — the auto-sentry now self-destructs in a blast when it powers down.** When a deployed sentry
   runs out of bolts or its lifetime expires, it no longer just winks out — it **detonates in a final
   blast** (50 damage + a brief stagger to every zombie within ~6 units), rewarding planting it deep in

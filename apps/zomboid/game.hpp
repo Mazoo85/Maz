@@ -156,6 +156,7 @@ class Survivor {
     var reload_times = [1.2, 1.8, 2.0, 2.5, 2.2];
     var reloading = false;
     var reload_t = 0;
+    var perfect_timer = 0;   # active-reload reward: brief +30% damage after a perfectly-timed reload
     var cur_ammo = 12;       # convenience mirrors of the active weapon for the HUD
     var cur_reserve = 48;
     var is_reloading = false;
@@ -373,6 +374,11 @@ class Survivor {
         if (self.hunger > 100) { self.hunger = 100; }
         if (self.hunger >= 100) { self.health = self.health - dt * 3; }
 
+        # Active-reload damage surge ticks down.
+        if (self.perfect_timer > 0) {
+            self.perfect_timer = self.perfect_timer - dt;
+            if (self.perfect_timer < 0) { self.perfect_timer = 0; }
+        }
         # Weapon cadence + ammo + reload.
         self.fire_cd = self.fire_cd - dt;
         if (self.reloading) {
@@ -477,6 +483,8 @@ class Survivor {
         var out = self.damage;
         if (randf() < self.crit_chance) { out = self.damage * self.crit_mult; }
         if (self.adrenaline) { out = out * 1.3; }
+        # Active-reload surge: shots fired in the window after a perfectly-timed reload bite 30% harder.
+        if (self.perfect_timer > 0) { out = out * 1.3; }
         return out;
     }
 
@@ -747,8 +755,23 @@ class Survivor {
         self.reloading = false;
     }
 
-    # Manual reload (bound to R in the app).
-    func reload() { self.start_reload(); }
+    # Manual reload (bound to R in the app). Tapping R while already reloading is an ACTIVE RELOAD: hit
+    # the tail-end timing window and the reload snaps shut instantly AND grants a brief +30% damage surge
+    # (see shot_damage). Tap too early and nothing happens — no penalty, the normal reload just continues.
+    func reload() {
+        if (self.reloading) {
+            var w = self.weapon;
+            var full = self.reload_times[w];
+            # The window is the last stretch of the reload (12%–40% of the timer remaining).
+            if (self.reload_t <= full * 0.4 and self.reload_t >= full * 0.12) {
+                self.finish_reload();
+                self.perfect_timer = 4.0;
+                emit(self.node.x, self.node.y, 8, 1);   # snap-reload flourish
+            }
+            return;
+        }
+        self.start_reload();
+    }
 
     # Throw a grenade along the aim vector, if any are left.
     func throw_grenade() {

@@ -755,6 +755,8 @@ int main(int argc, char** argv) {
                     // Last-stand: pulse red-hot while critically wounded.
                     const float pulse = 0.6f + 0.4f * std::sin(static_cast<float>(simTime) * 14.0f);
                     body = render::Color{1.0f, 0.3f * pulse, 0.2f * pulse, 1.0f};
+                } else if (field(survivor, "perfect_timer") > 0.0) {
+                    body = render::Color{1.0f, 0.85f, 0.35f, 1.0f};  // active-reload damage surge glow
                 } else if (field(survivor, "armor") > 0.0) {
                     body = render::Color{0.7f, 0.75f, 0.8f, 1.0f};   // steel plate sheen
                 }

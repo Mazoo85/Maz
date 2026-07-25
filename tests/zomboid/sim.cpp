@@ -3078,6 +3078,54 @@ int main() {
         CHECK(sField(tree.findNode("Zombie1"), "health")->number == farHp0);    // far zombie untouched
     }
 
+    // Active reload: tapping reload again during the tail window snaps the reload shut instantly and
+    // grants a brief +30% damage surge. Tapping too early does nothing (no penalty). The surge lifts
+    // shot damage while it lasts.
+    {
+        std::vector<Value> none;
+
+        // Perfect timing: a second reload in the window finishes instantly + arms the damage surge.
+        SceneTree t1;
+        SceneNode* s1 = zomboid::buildScene(t1);
+        auto& vm1 = t1.scripts().vm();
+        Value sv1 = s1->script();
+        sField(s1, "weapon")->number = 0.0;                       // pistol
+        (*sField(s1, "mags")->array)[0].number = 0.0;             // empty magazine → reload is allowed
+        vm1.callOn(sv1, "reload", none);                          // begin the reload
+        CHECK(sField(s1, "reloading")->boolean);
+        sField(s1, "reload_t")->number = 0.3;                     // 1.2s reload → 0.3 is in the window
+        vm1.callOn(sv1, "reload", none);                          // active-reload tap
+        CHECK(!sField(s1, "reloading")->boolean);                 // snapped shut instantly
+        CHECK(sField(s1, "perfect_timer")->number > 0.0);         // surge armed
+        CHECK((*sField(s1, "mags")->array)[0].number > 0.0);      // magazine refilled
+
+        // Too early: a tap outside the window leaves the reload running and grants no surge.
+        SceneTree t2;
+        SceneNode* s2 = zomboid::buildScene(t2);
+        auto& vm2 = t2.scripts().vm();
+        Value sv2 = s2->script();
+        sField(s2, "weapon")->number = 0.0;
+        (*sField(s2, "mags")->array)[0].number = 0.0;
+        vm2.callOn(sv2, "reload", none);
+        sField(s2, "reload_t")->number = 1.0;                     // well before the window
+        vm2.callOn(sv2, "reload", none);
+        CHECK(sField(s2, "reloading")->boolean);                  // still reloading
+        CHECK(sField(s2, "perfect_timer")->number == 0.0);        // no surge
+
+        // The surge lifts shot damage ~30% (crit forced off for a deterministic read).
+        SceneTree t3;
+        SceneNode* s3 = zomboid::buildScene(t3);
+        auto& vm3 = t3.scripts().vm();
+        Value sv3 = s3->script();
+        sField(s3, "crit_chance")->number = 0.0;
+        sField(s3, "perfect_timer")->number = 0.0;
+        const double baseDmg = vm3.callOn(sv3, "shot_damage", none).number;
+        sField(s3, "perfect_timer")->number = 4.0;
+        const double surgeDmg = vm3.callOn(sv3, "shot_damage", none).number;
+        CHECK(surgeDmg > baseDmg);
+        CHECK(std::abs(surgeDmg - baseDmg * 1.3) < 1e-6);
+    }
+
     // Railgun armor-piercing: the beam shears any shield clean off before biting into health, so it's
     // the counter to armored zombies and Bulwark waves. A zombie off the beam keeps its shield.
     {

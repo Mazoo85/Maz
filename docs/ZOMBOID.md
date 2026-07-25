@@ -49,7 +49,10 @@ Run it: `./bin/zomboid` (or `./bin/zomboid --demo` to watch the autopilot show o
 - **Flamethrower** — no bullets; a short **cone of fire** that sets everything in it alight. Melts
   close packs, useless at distance.
 
-Each weapon has its own magazine and reserve ammo; firing spends the magazine, **R** reloads it.
+Each weapon has its own magazine and reserve ammo; firing spends the magazine, **R** reloads it. Time it:
+tap **R** *again* during the tail end of a reload for an **active reload** — the reload snaps shut
+instantly and you get a brief **+30% damage surge** (you glow gold). Miss the window and nothing happens
+— no penalty — so it's free power for good timing.
 Between waves you earn permanent upgrades (+damage, +fire-rate, +max-health, +ammo, +crit-chance,
 +crit-damage, +move-speed), cycling automatically — the two crit upgrades stack, so a crit build lands
 *both* more often *and* harder as the run goes on, and the move-speed picks make you steadily fleeter,
