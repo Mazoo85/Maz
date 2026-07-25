@@ -1086,6 +1086,30 @@ class Survivor {
             if (self.armor >= 0) { return; }        # fully absorbed
             d = 0 - self.armor;                     # remainder past the broken plate
             self.armor = 0;
+            # The plate doesn't fail quietly — it SHATTERS: as it breaks it throws off a concussive
+            # burst that shoves and staggers the surrounding horde, buying a breath of space at the exact
+            # moment the survivor's armor gives out. A defensive payoff for having worn a plate into the
+            # crush (fires only on the break, not on every hit the plate soaks).
+            var ai = 0;
+            var an = len(g_zombies);
+            while (ai < an) {
+                var az = g_zombies[ai];
+                if (az.alive) {
+                    var adx = az.node.x - self.node.x;
+                    var ady = az.node.y - self.node.y;
+                    var ad2 = adx * adx + ady * ady;
+                    if (ad2 <= 25.0) {   # radius 5
+                        var am = sqrt(ad2);
+                        if (am < 0.01) { am = 0.01; }
+                        az.hit_knockback(adx / am, ady / am, 5.0);
+                        az.stagger(0.4);
+                    }
+                }
+                ai = ai + 1;
+            }
+            emit(self.node.x, self.node.y, 16, 0);   # plate-shatter burst
+            g_shake = g_shake + 1.0;
+            if (g_shake > 3.0) { g_shake = 3.0; }
         }
         self.health = self.health - d;
         if (self.health <= 0) {

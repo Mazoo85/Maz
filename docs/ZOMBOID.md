@@ -105,7 +105,10 @@ better at kiting the horde and slipping out of hazards the deeper you get.
   survivability — a real chance to claw a fight back rather than a death spiral.
 - **Second Wind** — a stored revive: lethal damage is cancelled once, bursting you back to half health
   with a crowd-clearing nova. Earned again every 50 kills.
-- **Body armor** — a bought plate that soaks damage before your health; buy a fresh one with **9**.
+- **Body armor** — a bought plate that soaks damage before your health; buy a fresh one with **9**. When
+  a hit finally **breaks** the plate it **shatters**, throwing off a concussive burst that shoves and
+  staggers the zombies around you — so a plate isn't just a buffer, it hands you a moment of space at the
+  exact instant it fails. Wearing one into the crush pays off twice.
 - **Hunger** — you slowly get hungry; eat a ration (**E**) before it starts costing you health.
 
 ## The salvage economy

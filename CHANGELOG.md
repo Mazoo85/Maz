@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — body armor now shatters into a shove when it breaks.** A plate used to just soak damage and
+  quietly deplete. Now the hit that **breaks** the plate throws off a concussive burst that knocks back
+  and staggers every zombie within radius 5 — buying the survivor a breath of space at the exact moment
+  their armor gives out. It fires only on the break (not on hits the plate merely soaks), so wearing a
+  plate into a crush pays off twice: it eats a hit, then clears room as it fails. Headless-tested: a hit
+  that spends the plate flings a nearby zombie back and staggers it, while a hit the plate merely soaks
+  leaves the zombie undisturbed.
 - **ZOMBOID — the shop no longer lets you waste salvage on a no-op buy.** Buying a heal at full health,
   or an armor plate when the current one is still full, previously charged the cash and did nothing. Both
   are now **declined without charging** (the buy returns false and the wallet is untouched), so a

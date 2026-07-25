@@ -2351,6 +2351,36 @@ int main() {
         CHECK(sField(z0, "stagger_timer")->number > 0.0);   // and briefly flinched by the shoulder-check
     }
 
+    // Armor shatter: when a hit BREAKS the plate, it throws off a concussive burst that shoves and
+    // staggers nearby zombies — but a hit the plate merely soaks (no break) does not.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zs = z->script();
+        std::vector<Value> at = {Value::fromNum(2.0), Value::fromNum(0.0), Value::fromNum(100.0),
+                                 Value::fromNum(0.0)};   // a light walker 2 units away (radius-5 burst)
+        vm.callOn(zs, "spawn_at", at);
+
+        // Soak case: a big plate eats a small hit without breaking — no shatter, zombie undisturbed.
+        sField(survivor, "armor")->number = 100.0;
+        std::vector<Value> small = {Value::fromNum(10.0)};
+        vm.callOn(sv, "take_damage", small);
+        CHECK(z->x() == 2.0);                                 // not shoved — the plate held
+        CHECK(sField(z, "stagger_timer")->number == 0.0);
+
+        // Break case: a hit that spends the plate detonates the shatter — zombie knocked back + staggered.
+        sField(survivor, "armor")->number = 5.0;
+        std::vector<Value> big = {Value::fromNum(50.0)};
+        vm.callOn(sv, "take_damage", big);
+        CHECK(sField(survivor, "armor")->number == 0.0);     // plate broke
+        CHECK(z->x() > 2.0);                                  // flung outward by the shatter burst
+        CHECK(sField(z, "stagger_timer")->number > 0.0);     // and staggered
+    }
+
     // Body armor: a depletable plate takes the hit first, and only the overflow past a spent plate
     // reaches health. Bought from the shop (kind 3) for cash.
     {
