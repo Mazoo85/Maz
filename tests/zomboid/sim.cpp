@@ -2590,6 +2590,37 @@ int main() {
         CHECK(z->x() > rx0 + 1.0);  // shoved along +x again
     }
 
+    // Swift (mutator 1) and Tough (mutator 2) are spawn-time horde modifiers: Swift multiplies a fresh
+    // zombie's speed by 1.35, Tough multiplies its health by 1.5. Same kind + wave, mutator off vs on, so
+    // the ratio isolates the modifier. The HUD-string and wave-gating tests cover naming/rolling; this pins
+    // the two stat effects directly, matching the Bulwark/Volatile/Savage/Bloodthirsty effect tests.
+    {
+        auto spawnStat = [](int mut, const char* field) {
+            SceneTree tree;
+            zomboid::buildScene(tree);
+            auto& vm = tree.scripts().vm();
+            const_cast<Value*>(vm.getGlobal("g_mutator"))->number = static_cast<double>(mut);
+            SceneNode* z = tree.findNode("Zombie0");
+            Value zv = z->script();
+            std::vector<Value> sp = {Value::fromNum(20.0), Value::fromNum(0.0),
+                                     Value::fromNum(0.0), Value::fromNum(1.0)};  // walker (kind 0), wave 1
+            vm.callOn(zv, "spawn", sp);
+            return sField(z, field)->number;
+        };
+
+        // Swift: a wave-1 walker's speed is well under the 30 cap, so the ×1.35 lands cleanly.
+        const double spd0 = spawnStat(0, "speed");
+        const double spd1 = spawnStat(1, "speed");
+        CHECK(spd0 > 0.0);
+        CHECK(std::abs(spd1 - spd0 * 1.35) < 1e-6);   // Swift: ×1.35 speed
+
+        // Tough: the same walker spawns with 1.5× the health.
+        const double hp0 = spawnStat(0, "health");
+        const double hp2 = spawnStat(2, "health");
+        CHECK(hp0 > 0.0);
+        CHECK(std::abs(hp2 - hp0 * 1.5) < 1e-6);       // Tough: ×1.5 health
+    }
+
     // Chill/slow: a slowed zombie crawls toward the survivor far less per tick than an unimpaired one.
     {
         SceneTree tree;

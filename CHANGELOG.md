@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — pin the Swift and Tough wave-mutator stat effects.** Swift (mutator 1) multiplies a fresh
+  zombie's speed by 1.35; Tough (mutator 2) multiplies its health by 1.5 — both applied at spawn. The
+  HUD-string and wave-gating tests already cover naming and rolling, and the other mutators (Bulwark,
+  Volatile, Savage, Bloodthirsty, Relentless, Regenerator) have direct effect tests; this fills the last
+  two, spawning the same walker with the mutator off vs on so the ratio isolates each multiplier. Test-only
+  change — no gameplay logic altered.
 - **ZOMBOID — pin the Vampiric railgun's per-body line-leech.** The railgun beam leeches health per BODY
   it tags (a flat amount each), so raking it down a whole line of zombies heals far more than a single
   bullet would — the documented reason the piercing beam is such a strong sustain tool while Vampiric is up.
