@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — pin the overkill burst's growing radius.** A massive overkill throws not just a heavier gib
+  shockwave but a wider one — the burst reaches radius 4 at the threshold and grows to ~5.83 on a capped
+  monster hit. The existing tests pin the damage scaling; this pins the reach: a neighbour parked at
+  distance 5 sits in the gap between the two radii, so a threshold kill leaves it untouched while a monster
+  kill catches it. Guards the radius formula against silently flattening. Test-only change — no gameplay
+  logic altered.
 - **ZOMBOID — regression-test the second-wind clearing nova.** Reviving isn't only a state reset: it fires
   a blast that knocks back and deals 150 damage to every zombie within radius 10, so you don't pop back to
   life surrounded and get re-killed on the same frame. The existing revive test pins the survivor's state

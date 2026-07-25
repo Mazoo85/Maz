@@ -3269,6 +3269,34 @@ int main() {
         CHECK(strong > weak);                                 // heavier hit → deadlier chain
     }
 
+    // Overkill radius scales with force too, not just damage: the burst reaches rad 4 at the threshold and
+    // grows to ~5.83 on a capped monster hit (rad2 16 → 34). A neighbour parked at distance 5 sits in that
+    // gap — outside the small burst, inside the big one — so a threshold kill leaves it untouched while a
+    // monster kill catches it. Pins the growing reach so the radius formula can't silently flatten.
+    {
+        auto neighbourAt5Hit = [](double killDamage) {
+            SceneTree tree;
+            zomboid::buildScene(tree);
+            SceneNode* target = tree.findNode("Zombie0");
+            SceneNode* nb = tree.findNode("Zombie1");
+            auto place = [&](SceneNode* z, double x, double hp) {
+                Value zv = z->script();
+                std::vector<Value> a = {Value::fromNum(x), Value::fromNum(0.0),
+                                        Value::fromNum(hp), Value::fromNum(0.0)};
+                tree.scripts().vm().callOn(zv, "spawn_at", a);
+            };
+            place(target, 0.0, 20.0);                          // 20-hp body
+            place(nb, 5.0, 100.0);                             // distance 5: between rad 4 and ~5.83
+            Value tv = target->script();
+            std::vector<Value> hit = {Value::fromNum(killDamage)};
+            tree.scripts().vm().callOn(tv, "take_damage", hit);
+            return sField(nb, "health")->number < 100.0;       // did the burst reach it?
+        };
+
+        CHECK(!neighbourAt5Hit(30.0));    // threshold burst (radius 4) can't reach distance 5
+        CHECK(neighbourAt5Hit(100.0));    // monster burst (radius ~5.83) does
+    }
+
     // Boss enrage: a boss dropped below 35% health flips into a permanent rage — it speeds up (once),
     // and the flag latches so a second frame doesn't compound the speed boost.
     {
