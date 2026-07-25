@@ -353,6 +353,14 @@ class Survivor {
         # Power-up buff countdown: when it lapses, strip the temporary multipliers.
         if (self.buff_kind >= 0) {
             self.buff_timer = self.buff_timer - dt;
+            # Field Medic (kind 9): a sustained heal-over-time. It steadily mends the survivor for the
+            # whole duration — even mid-combat, unlike the passive out-of-combat regen that any hit resets
+            # and starvation suppresses. Distinct from Vampiric (heal only on landed hits) and the instant
+            # medkit: this is reliable trickle sustain you can rely on while still fighting. Capped at full.
+            if (self.buff_kind == 9 and self.buff_timer > 0 and self.health < self.max_health) {
+                self.health = self.health + 6.0 * dt;
+                if (self.health > self.max_health) { self.health = self.max_health; }
+            }
             if (self.buff_timer <= 0) {
                 self.buff_kind = -1;
                 self.buff_timer = 0;
@@ -562,6 +570,8 @@ class Survivor {
             self.reloading = false;
             self.mags[self.weapon] = self.mag_sizes[self.weapon];
         }
+        # Field Medic (kind 9): a sustained buff with no instant effect — the heal-over-time is applied
+        # each frame in the buff countdown (see _process). Nothing to set up here beyond the timer above.
         self.apply_mults();
     }
 
@@ -2957,8 +2967,8 @@ class Zombie {
             # A just reward for grinding down the hardest target on the field.
             if (self.kind == 3) {
                 drop_medkit(self.node.x, self.node.y);
-                var bpk = int(randf_range(0, 9));
-                if (bpk > 8) { bpk = 8; }
+                var bpk = int(randf_range(0, 10));
+                if (bpk > 9) { bpk = 9; }
                 drop_powerup(self.node.x - 2.0, self.node.y, bpk);
                 emit(self.node.x, self.node.y, 24, 1);   # triumphant burst
             }
@@ -2990,10 +3000,10 @@ class Zombie {
                 if (randf() < 0.12) { drop_medkit(self.node.x, self.node.y); }
             }
             # Rarely it drops a power-up instead (rapid-fire, damage, shield, piercing, cryo, vampiric,
-            # overflow, frost field, berserk).
+            # overflow, frost field, berserk, field medic).
             if (randf() < 0.05) {
-                var pk = int(randf_range(0, 9));
-                if (pk > 8) { pk = 8; }
+                var pk = int(randf_range(0, 10));
+                if (pk > 9) { pk = 9; }
                 drop_powerup(self.node.x, self.node.y, pk);
             }
             # And sometimes an ammo box, to keep reserves topped up between crates.
@@ -3696,10 +3706,10 @@ inline const char* mutatorEffect(int m) {
     return "";
 }
 
-// Display name for an active power-up buff (buff_kind 0-8), shown on the HUD with its countdown so the
+// Display name for an active power-up buff (buff_kind 0-9), shown on the HUD with its countdown so the
 // player knows which buff is up — and when it's about to lapse — instead of reading it off a body tint.
 // Matches grant_powerup(): 0 rapid fire, 1 double damage, 2 shield, 3 piercing, 4 cryo nova, 5 vampiric,
-// 6 overflow, 7 frost field, 8 berserk. The idle state (buff_kind -1) and out-of-range return "".
+// 6 overflow, 7 frost field, 8 berserk, 9 field medic. The idle state (buff_kind -1) and out-of-range "".
 inline const char* powerupName(int b) {
     if (b == 0) return "RAPID FIRE";
     if (b == 1) return "DOUBLE DAMAGE";
@@ -3710,6 +3720,7 @@ inline const char* powerupName(int b) {
     if (b == 6) return "OVERFLOW";
     if (b == 7) return "FROST FIELD";
     if (b == 8) return "BERSERK";
+    if (b == 9) return "FIELD MEDIC";
     return "";
 }
 

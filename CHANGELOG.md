@@ -8,6 +8,15 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — new power-up: Field Medic (a sustained heal-over-time).**
+  Added a tenth power-up to the drop pool. **Field Medic** steadily mends the survivor for its duration —
+  even mid-combat — filling the one niche the power-up roster lacked: there was no pure sustain buff
+  (Vampiric only heals on landed hits; the passive regen any hit resets and starvation suppresses; the
+  medkit is instant). It's wired into both power-up drop rolls (a random kill drop and the boss's
+  guaranteed drop), the HUD names it "FIELD MEDIC" with its countdown, and it caps at full health so it
+  never overheals. Verified with a new headless test (health trickles up under the buff, never past full,
+  and stops once it lapses) plus updated power-up-name tests; full suite, headless smoke, and the
+  3600-frame run all pass.
 - **ZOMBOID — new wave mutator: the Bloodthirsty Horde (bites heal the zombie that lands them).**
   Added a ninth wave modifier to the random pool that rolls from wave 3 on. Under a **Bloodthirsty
   Horde**, every zombie that bites you **siphons life from the wound and heals itself**, so you can't

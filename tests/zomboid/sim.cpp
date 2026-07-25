@@ -731,17 +731,17 @@ int main() {
         }
         CHECK(effects.size() == 9);          // all nine effect lines are distinct
 
-        // Power-up HUD names: every buff_kind (0-8) has a non-empty, distinct display name (shown with its
+        // Power-up HUD names: every buff_kind (0-9) has a non-empty, distinct display name (shown with its
         // countdown on the HUD), while the idle state (-1) and out-of-range map to empty.
-        CHECK(std::string(zomboid::powerupName(-1)).empty());  // no buff → no label
-        CHECK(std::string(zomboid::powerupName(9)).empty());   // out of range → no label
+        CHECK(std::string(zomboid::powerupName(-1)).empty());   // no buff → no label
+        CHECK(std::string(zomboid::powerupName(10)).empty());   // out of range → no label
         std::set<std::string> buffs;
-        for (int b = 0; b <= 8; ++b) {
+        for (int b = 0; b <= 9; ++b) {
             std::string nm = zomboid::powerupName(b);
             CHECK(!nm.empty());              // every buff names itself
             buffs.insert(nm);
         }
-        CHECK(buffs.size() == 9);            // all nine buff names are distinct
+        CHECK(buffs.size() == 10);           // all ten buff names are distinct
 
         const char* path = "zomboid_hs_test.ini";
         {
@@ -3967,6 +3967,49 @@ int main() {
         sField(surv3, "buff_timer")->number = 0.0;                 // force the buff expired
         Value active = vm3.callOn(s3v, "lifesteal_active", none);
         CHECK(!active.boolean);
+    }
+
+    // Field Medic power-up (kind 9): a sustained heal-over-time. While active it steadily mends the
+    // survivor (capped at full), even with no combat happening — distinct from Vampiric (heal on hit)
+    // and the passive out-of-combat regen. Once the buff lapses, the trickle stops.
+    {
+        std::vector<Value> none;
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(5000.0, 5000.0);   // far from any zombie — isolate the heal-over-time
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+        sField(survivor, "health")->number = 40.0;    // wounded (max 100)
+        std::vector<Value> medic = {Value::fromNum(9.0)};
+        vm.callOn(sv, "grant_powerup", medic);
+        CHECK((int)sField(survivor, "buff_kind")->number == 9);
+        const double h0 = sField(survivor, "health")->number;
+        for (int i = 0; i < 60; ++i) vm.callOn(sv, "_process", dt);   // ~1s of Field Medic
+        const double h1 = sField(survivor, "health")->number;
+        CHECK(h1 > h0);                                // it steadily mended the survivor
+        CHECK(h1 <= 100.0);                            // ...never past full
+
+        // Never overheals: at full health the trickle adds nothing.
+        sField(survivor, "health")->number = 100.0;
+        sField(survivor, "buff_timer")->number = 5.0;   // keep the buff alive
+        for (int i = 0; i < 30; ++i) vm.callOn(sv, "_process", dt);
+        CHECK(sField(survivor, "health")->number == 100.0);
+
+        // Expiry: once the buff lapses, the heal-over-time stops (a wounded survivor stays wounded).
+        SceneTree t2;
+        SceneNode* surv2 = zomboid::buildScene(t2);
+        surv2->setPosition(5000.0, 5000.0);
+        auto& vm2 = t2.scripts().vm();
+        Value sv2 = surv2->script();
+        sField(surv2, "health")->number = 40.0;
+        sField(surv2, "hunger")->number = 100.0;   // starving + no rations suppresses the out-of-combat
+        sField(surv2, "food")->number = 0.0;       // regen, so only the (expired) buff could raise health
+        vm2.callOn(sv2, "grant_powerup", medic);
+        sField(surv2, "buff_timer")->number = 0.0;   // force expired
+        const double e0 = sField(surv2, "health")->number;
+        for (int i = 0; i < 60; ++i) vm2.callOn(sv2, "_process", dt);
+        CHECK(sField(surv2, "health")->number <= e0);   // no buff → no heal-over-time (never rises)
     }
 
     // Screamer (kind 11): a fragile support zombie that periodically shrieks, whipping nearby zombies

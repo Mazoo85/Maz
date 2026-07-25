@@ -196,6 +196,10 @@ its **name and a live countdown**, so you always know which buff is up and when 
 - **Berserk** — a combined offensive surge: fire rate **and** damage both jump at once (where Rapid
   Fire boosts only rate and Double Damage only damage), so it's the "go loud" button — your biggest
   all-round burst of firepower from a single pickup.
+- **Field Medic** — a sustained heal-over-time: for its duration your health steadily trickles back up
+  (capped at full), **even mid-fight**. Unlike the passive out-of-combat regen — which any hit resets and
+  starvation shuts off — Field Medic keeps mending while you're taking fire, and unlike Vampiric it needs
+  no hits to land. The reliable "stay in the fight while you recover" pick.
 
 ## Combat systems worth knowing
 
