@@ -257,8 +257,8 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
   mine blasts, and shotgun push stop moving them, so positioning-by-knockback is off the table and you
   lean on damage, chills, staggers, and kiting instead), or **Savage** (the whole horde **bites 60%
   harder** — no faster, no tougher, but every body that reaches you hurts far more, so one leak past your
-  fire can gut your health bar; keep the pack at range and never let a Savage wave crowd you). No two runs
-  feel the same.
+  fire can gut your health bar; even the Exploder's detonation lands 60% harder, so keep the pack at range
+  and never let a Savage wave crowd you). No two runs feel the same.
 
 At the end of a run you're graded (**D** through **S**) on wave reached, kills, and accuracy, and your
 best wave + score persist between sessions.

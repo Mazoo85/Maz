@@ -1637,6 +1637,46 @@ int main() {
         CHECK(sField(survivor, "health")->number == hpBefore);              // out of blast range
     }
 
+    // Savage Horde (mutator 8) makes the exploder's blast hit 60% harder too. The exploder detonates for
+    // a flat amount rather than biting for its (Savage-scaled) contact damage, so without this it would be
+    // the one enemy a Savage wave left untouched. Measure the survivor's health drop from a point-blank
+    // detonation with the mutator off vs on: the Savage blast must be 1.6x the baseline.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        Value* mut = const_cast<Value*>(vm.getGlobal("g_mutator"));
+
+        std::vector<Value> spawn = {Value::fromNum(2.0), Value::fromNum(0.0), Value::fromNum(4.0),
+                                    Value::fromNum(1.0)}; // exploder at (2,0), in blast range of the origin
+        std::vector<Value> kill = {Value::fromNum(999.0)};
+
+        // Baseline: no mutator.
+        SceneNode* ez = tree.findNode("Zombie0");
+        Value ezs = ez->script();
+        mut->number = 0.0;
+        vm.callOn(ezs, "spawn", spawn);
+        sField(survivor, "health")->number = 100.0;
+        sField(survivor, "iframes")->number = 0.0;
+        vm.callOn(ezs, "take_damage", kill);
+        const double baseHit = 100.0 - sField(survivor, "health")->number;   // == 35
+        CHECK(baseHit > 0.0);
+
+        // Savage: same setup, mutator on.
+        SceneNode* ez2 = tree.findNode("Zombie1");
+        Value ez2s = ez2->script();
+        mut->number = 8.0;
+        vm.callOn(ez2s, "spawn", spawn);
+        sField(survivor, "health")->number = 100.0;
+        sField(survivor, "iframes")->number = 0.0;
+        vm.callOn(ez2s, "take_damage", kill);
+        const double savageHit = 100.0 - sField(survivor, "health")->number; // == 56
+
+        CHECK(std::abs(savageHit - baseHit * 1.6) < 1e-6);   // Savage blast is exactly 1.6x the baseline
+        mut->number = 0.0;
+    }
+
     // Spitter (kind 5): a ranged zombie that halts at distance and lobs acid globs.
     {
         SceneTree tree;

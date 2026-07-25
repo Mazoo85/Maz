@@ -2792,7 +2792,13 @@ class Zombie {
                     if (g_player.alive) {
                         var ex = g_player.node.x - self.node.x;
                         var ey = g_player.node.y - self.node.y;
-                        if (ex * ex + ey * ey <= 25.0) { g_player.take_damage(35); }
+                        # The exploder's "bite" is its detonation, so a Savage horde (mutator 8) makes it
+                        # blast 60% harder too — otherwise the exploder would be the one enemy a Savage wave
+                        # left untouched, since it detonates for a flat amount rather than biting for its
+                        # (Savage-scaled) contact damage like every other kind.
+                        var eblast = 35.0;
+                        if (g_mutator == 8) { eblast = eblast * 1.6; }
+                        if (ex * ex + ey * ey <= 25.0) { g_player.take_damage(eblast); }
                     }
                 }
                 # The blast also catches nearby zombies, so an exploder shot inside a pack takes the pack

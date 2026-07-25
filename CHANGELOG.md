@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the Savage Horde mutator now also boosts the Exploder's blast.** The Savage mutator scales
+  every zombie's contact damage by 1.6, but the Exploder doesn't bite — it detonates for a flat 35 — so it
+  was the one enemy a Savage wave left exactly as dangerous as normal, quietly breaking the "the whole
+  horde hits 60% harder" promise. Its contact detonation now scales with the mutator too (35 → 56 on a
+  Savage wave). Headless-tested: the survivor's health drop from a point-blank exploder detonation is
+  exactly 1.6x larger on a Savage wave than without the mutator.
 - **ZOMBOID — a chilled body can no longer be healed by a Healer (the anti-heal rule is now truly
   unified).** The game's rule is that a body which is **burning, bleeding, or chilled can't heal at all** —
   and the Regenerator mutator and the boss's enrage-heal already honored all three. But the Healer's mend
