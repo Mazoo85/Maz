@@ -17,9 +17,10 @@
 // asserting an occluded vertex is darker than an exposed one. Pure CPU, header-only, headless.
 //
 // Scope note (honest): brute-force O(verts · rays · tris) against the mesh's own geometry — fine for the
-// offline bake of props and levels; a BVH acceleration (game::Bvh exists) and multi-bounce colour bleed are
-// the documented follow-ups. Normals are computed area-weighted from the triangles, so the input needs no
-// pre-baked normals.
+// offline bake of props and levels. The BVH acceleration this note used to list as a follow-up now exists as
+// render::MeshRayBvh (M547) — build one over the mesh and call occluded() per ray to cut the tris tested per
+// ray from all-of-them to ~O(log tris); multi-bounce colour bleed remains the other documented follow-up.
+// Normals are computed area-weighted from the triangles, so the input needs no pre-baked normals.
 namespace maz::render {
 
 namespace detail {

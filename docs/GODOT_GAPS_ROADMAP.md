@@ -3685,6 +3685,20 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   set is symmetric across the plane; Y-axis mirroring works; empty safe. Honest scope: welds only along the
   mirror seam (not interior duplicates or the two halves elsewhere) — run MeshCleanup/MeshWeld after if needed;
   vertices on the far side are still mirrored, so clip to a half first if you need a strict one. [VERIFIABLE HERE]
+- [x] **Mesh-triangle ray BVH** (`render::MeshRayBvh`, `MeshRayHit`) — DONE (M547); a bounding-volume hierarchy
+  built over ONE mesh's own triangles so a ray query resolves in ~O(log tris) node visits instead of testing every
+  triangle. This is the acceleration structure the MeshAmbientOcclusion (M533) bake named as its documented
+  follow-up (it shoots a hemisphere of rays per vertex brute-force O(verts·rays·tris)), and the same fast path the
+  brute-force ray-parity in MeshContainment (M546) / MeshSdf (M534) / MeshVoxelize (M540) can index against.
+  `intersect` returns the nearest forward hit (distance, triangle index, barycentrics, point); `occluded` is the
+  any-hit early-out a shadow/AO ray wants. Median-split on the longest centroid axis with front-to-back child
+  ordering so the nearest hit prunes far subtrees; both queries take an optional triangle-test counter so the
+  pruning is measurable. Distinct from game::Bvh, which indexes a whole LEVEL's boxes for broadphase — this indexes
+  a single mesh's triangles for exact ray casts against it. Verified (`ctest -R mesh_ray_bvh`): across 400 rays the
+  BVH's nearest hit matches a brute-force reference (same intersection math) EXACTLY in hit/miss, distance, and
+  triangle, and does it with 214× fewer triangle intersections (2,389 vs 512,000); rays pointing away miss, rays
+  from inside hit the far wall, occluded() matches brute any-hit and honors the distance cutoff, maxDist clips a
+  far hit to a miss, empty meshes are safe, and build + queries are deterministic. [VERIFIABLE HERE]
 - [x] **Point-in-mesh containment** (`render::containsPoint` / `containsPoints`) — DONE (M546); is a point INSIDE
   a closed triangle mesh? For each query point cast one ray to infinity and count triangle crossings — odd =
   inside, even = outside (the Jordan-curve / ray-parity test), reusing the M533 Möller–Trumbore ray/triangle (the

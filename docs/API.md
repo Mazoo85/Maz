@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_651 headers across 20 subsystems._
+_652 headers across 20 subsystems._
 
 ## Contents
 
@@ -3197,7 +3197,7 @@ maz::render median filter — remove "salt-and-pepper" speckle while keeping edg
 ### `MeshAmbientOcclusion`
 <sub>`engine/include/maz/render/MeshAmbientOcclusion.hpp`</sub>
 
-maz::render PER-VERTEX AMBIENT OCCLUSION bake — the offline "bake AO into the mesh" step that darkens crevices, contact points, and interiors so a scene reads with depth even under flat ambient light, exactly what Godot's LightmapGI / the classic "vertex bake" does but stored per vertex. For each vertex it shoots a deterministic fan of rays over the hemisphere around the vertex normal and measures how many are blocked by the mesh's own triangles within a distance: fully open -> 0, deep in a cavity -> approaching 1. Ray/triangle tests use Möller–Trumbore. Fully deterministic (a golden-angle hemisphere set, no RNG) so it unit-tests by asserting an occluded vertex is darker than an exposed one. Pure CPU, header-only, headless.  Scope note (honest): brute-force O(verts · rays · tris) against the mesh's own geometry — fine for the offline bake of props and levels; a BVH acceleration (game::Bvh exists) and multi-bounce colour bleed are the documented follow-ups. Normals are computed area-weighted from the triangles, so the input needs no pre-baked normals.
+maz::render PER-VERTEX AMBIENT OCCLUSION bake — the offline "bake AO into the mesh" step that darkens crevices, contact points, and interiors so a scene reads with depth even under flat ambient light, exactly what Godot's LightmapGI / the classic "vertex bake" does but stored per vertex. For each vertex it shoots a deterministic fan of rays over the hemisphere around the vertex normal and measures how many are blocked by the mesh's own triangles within a distance: fully open -> 0, deep in a cavity -> approaching 1. Ray/triangle tests use Möller–Trumbore. Fully deterministic (a golden-angle hemisphere set, no RNG) so it unit-tests by asserting an occluded vertex is darker than an exposed one. Pure CPU, header-only, headless.  Scope note (honest): brute-force O(verts · rays · tris) against the mesh's own geometry — fine for the offline bake of props and levels. The BVH acceleration this note used to list as a follow-up now exists as render::MeshRayBvh (M547) — build one over the mesh and call occluded() per ray to cut the tris tested per ray from all-of-them to ~O(log tris); multi-bounce colour bleed remains the other documented follow-up. Normals are computed area-weighted from the triangles, so the input needs no pre-baked normals.
 
 **Functions:**
 
@@ -3595,6 +3595,17 @@ maz::render MESH VERTEX QUANTIZATION — the lossy-but-bounded attribute compres
 - `inline float dequantChannel(std::uint32_t q, float mn, float extent, std::uint32_t maxLevel)`
 - `inline QuantizedMesh quantizeMesh(const shapes::MeshData& mesh, int bits)`
 - `inline shapes::MeshData dequantizeMesh(const QuantizedMesh& q)`
+
+### `MeshRayBvh`
+<sub>`engine/include/maz/render/MeshRayBvh.hpp`</sub>
+
+maz::render MESH-TRIANGLE RAY BVH — a bounding-volume hierarchy built over ONE mesh's own triangles so a ray query resolves in ~O(log tris) node visits instead of testing every triangle. This is the acceleration structure every offline baker, picker, and CPU ray path wants: MeshAmbientOcclusion (M533) shoots a hemisphere of rays per vertex brute-force O(verts · rays · tris) and names "a BVH acceleration" as its documented follow-up; MeshContainment (M546), MeshSdf (M534), and MeshVoxelize (M540) all ray-parity against the full triangle list. This is that follow-up: build once, then `intersect` (nearest forward hit, with barycentrics) and `occluded` (any hit up to a distance — the early-out a shadow/AO ray needs) walk only the boxes the ray pierces. Distinct from game::Bvh, which indexes a whole LEVEL's boxes/triangles for broadphase; this indexes a single mesh's triangles for exact ray casts against it. Median-split on the longest centroid axis, front-to-back child ordering so the nearest hit is found early and far subtrees prune. Pure CPU, header-only, headless.  Both queries take an optional `trianglesTested` out-param — the count of Möller–Trumbore tests the query did, so callers (and the unit tests) can measure the pruning directly against the brute-force triangle count.
+
+**Types:** `MeshRayHit`, `MeshRayBvh`
+
+**Functions:**
+
+- `inline bool bvhRayTri(const math::vec3& o, const math::vec3& d, const math::vec3& a, const math::vec3& b,`
 
 ### `MeshRecenter`
 <sub>`engine/include/maz/render/MeshRecenter.hpp`</sub>

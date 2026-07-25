@@ -177,6 +177,11 @@ target_link_libraries(maz_meshsimplifyquadric_tests PRIVATE maz::maz maz_warning
 add_test(NAME mesh_simplify_quadric COMMAND maz_meshsimplifyquadric_tests)
 set_tests_properties(mesh_simplify_quadric PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshraybvh_tests render/meshraybvh.cpp)
+target_link_libraries(maz_meshraybvh_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_ray_bvh COMMAND maz_meshraybvh_tests)
+set_tests_properties(mesh_ray_bvh PROPERTIES TIMEOUT 30)
+
 add_executable(maz_overdraw_tests render/overdraw.cpp)
 target_link_libraries(maz_overdraw_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME overdraw_optimize COMMAND maz_overdraw_tests)
