@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — caustic acid puddles now corrode the horde, not just you.** A spitter's acid puddle (and
+  a Volatile-horde pool) still eats your health and bogs you down — but now **any zombie standing in it
+  is slowed too**, refreshed for as long as they wade through it. It deals the horde no bonus damage
+  (already-dead flesh doesn't bleed — to actually hurt the pack you still **burn** the pool, which
+  flashes it over), so the puddle becomes a double-edged battlefield: it punishes you for holding a spot,
+  but you can **kite the swarm through it** to slow the whole pack. Spitters are now a threat that cuts
+  both ways. Headless-tested: a zombie inside the pool radius is slowed after one caustic tick while one
+  just outside is untouched.
 - **ZOMBOID — the Summoner now telegraphs its call (back-line trio complete).** Completing the readable
   back line, the Summoner no longer calls reinforcements the instant its cooldown is up — it **winds up
   with a tell first**, so you get a window to burst the fragile caster (or **chill it**) before the

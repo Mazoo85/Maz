@@ -2297,6 +2297,36 @@ int main() {
         CHECK(activeAcid(t3) >= 1);                                  // the glob landed and left acid
     }
 
+    // Acid corrodes the horde too: a zombie standing in a caustic puddle is bogged down (slowed),
+    // refreshed each tick, while a zombie just outside the radius is untouched. This makes a spitter's
+    // own puddle a double-edged battlefield the survivor can kite the swarm through.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(100.0, 100.0);   // park the survivor well clear of the pool
+        auto& vm = tree.scripts().vm();
+        SceneNode* inside = tree.findNode("Zombie0");   // 2.0 units — inside the radius-3.2 pool
+        SceneNode* outside = tree.findNode("Zombie1");  // 20.0 units — well outside
+        auto place = [&](SceneNode* z, double x) {
+            Value zv = z->script();
+            std::vector<Value> a = {Value::fromNum(x), Value::fromNum(0.0),
+                                    Value::fromNum(100.0), Value::fromNum(0.0)};
+            tree.scripts().vm().callOn(zv, "spawn_at", a);
+        };
+        place(inside, 2.0);
+        place(outside, 20.0);
+        SceneNode* acid = tree.findNode("Acid0");
+        Value av = acid->script();
+        std::vector<Value> at = {Value::fromNum(0.0), Value::fromNum(0.0)};
+        vm.callOn(av, "splat_at", at);
+        CHECK(sField(inside, "slow_timer")->number == 0.0);    // neither bogged down yet
+        CHECK(sField(outside, "slow_timer")->number == 0.0);
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        for (int i = 0; i < 5; ++i) vm.callOn(av, "_process", dt);   // enough to land one caustic tick
+        CHECK(sField(inside, "slow_timer")->number > 0.0);     // corroded — bogged down by the sludge
+        CHECK(sField(outside, "slow_timer")->number == 0.0);   // clear of the pool — unaffected
+    }
+
     // Bleed / laceration: kinetic rounds open a bleeding wound that ticks damage over time. Stacks
     // build with sustained fire, cap at 5, and a body left alone keeps hemorrhaging until the wound
     // closes. A zombie that was never hit takes no bleed damage.

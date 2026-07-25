@@ -1918,6 +1918,24 @@ class AcidPool {
                     }
                 }
             }
+            # The sludge is caustic to the horde too: any zombie standing in it is bogged down and
+            # crawls (the same chill-slow the cryo tools inflict), refreshed each tick so it lasts as
+            # long as they wade through it. It deals them no bonus damage — already-dead flesh doesn't
+            # bleed, so to actually HURT the pack you still have to burn the pool (combust). This turns
+            # a spitter's own puddle into a double-edged battlefield: it punishes you for holding a
+            # spot, but you can also kite the swarm through it to slow the whole pack — so spitters are
+            # a threat that cuts both ways.
+            var zi = 0;
+            var zn = len(g_zombies);
+            while (zi < zn) {
+                var z = g_zombies[zi];
+                if (z.alive) {
+                    var zx = z.node.x - self.node.x;
+                    var zy = z.node.y - self.node.y;
+                    if (zx * zx + zy * zy <= self.radius * self.radius) { z.apply_slow(0.6); }
+                }
+                zi = zi + 1;
+            }
         }
         self.puff = self.puff - dt;
         if (self.puff <= 0) { self.puff = 0.4; emit(self.node.x, self.node.y, 2, 1); }
