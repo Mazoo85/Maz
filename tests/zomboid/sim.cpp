@@ -2891,6 +2891,12 @@ int main() {
         vm1.callOn(a1, "_process", dt);                  // first tick lands the caustic burn
         CHECK(sField(s1, "acid_slow")->number > 0.0);    // now bogged down
 
+        // Dodge-roll cleanse: a dash bursts the survivor free of the caustic bog, clearing the slow.
+        Value s1v = s1->script();
+        std::vector<Value> dir = {Value::fromNum(1.0), Value::fromNum(0.0)};
+        CHECK(vm1.callOn(s1v, "dash", dir).boolean);     // the dash fires
+        CHECK(sField(s1, "acid_slow")->number == 0.0);   // ...and shakes off the acid slow
+
         // Clear case: survivor well outside the puddle is untouched.
         SceneTree t2;
         SceneNode* s2 = zomboid::buildScene(t2);

@@ -55,7 +55,8 @@ often *and* harder as the run goes on.
 
 - **Dodge roll (Space)** — a fast dash with brief **invincibility**. It's also *offensive*: you
   shoulder-check zombies you roll through, knocking them back and hurting them — dash *into* a pinch to
-  bulldoze free.
+  bulldoze free. The burst of speed also **shakes off a spitter's acid slow**, so a well-timed roll is
+  your escape from a caustic puddle instead of slogging out at half speed.
 - **Melee (F)** — a free heavy shove on a short cooldown. It knocks back and **briefly staggers** any
   non-boss it hits — even a brute — so it's a reliable *create-space* button when you're pinned. It also
   **executes** any badly-wounded (<30% health) non-boss outright, and an execute refunds most of the

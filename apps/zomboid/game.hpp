@@ -876,6 +876,7 @@ class Survivor {
         self.iframes = 0.35;
         self.dash_cd = self.dash_cd_max;
         self.dash_hits = [];   # fresh strike list for this dash
+        self.acid_slow = 0;    # the burst of speed shakes the survivor free of a spitter's caustic bog
         return true;
     }
 

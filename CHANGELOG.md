@@ -8,6 +8,10 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — dodge roll cleanses the acid slow.** A spitter's caustic puddle bogs the survivor to
+  half speed while they stand in it; now a **dodge roll clears that slow instantly** — the burst of
+  speed shakes it off — so a well-timed roll is a real escape from a puddle instead of a slow slog.
+  Headless-tested: a survivor bogged in acid has the slow reset to zero the moment a dash fires.
 - **ZOMBOID — escalating flawless-wave streak.** Clearing a wave without taking a hit already paid a
   doubled score bonus, cash, and a heal; now the **cash reward escalates with an unbroken no-hit
   streak** — 25 for the first flawless wave, then 40, 55, … up to a 100 cap — and taking a single hit
