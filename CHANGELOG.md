@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — a chilled or staggered spitter can't lob acid.** The spitter — the horde's one ranged
+  attacker — could keep sniping you even while frozen solid or staggered mid-flinch, unlike the back-line
+  casters (which a chill silences and a stagger interrupts). Its acid throw is now gated the same way: a
+  **Cryo Nova / Frost Field** (or the ultimate's cryo-lock) silences a spitter just like a summoner, and a
+  **melee shove / dash-strike** that reaches it roots the throw. Control effects now shut down *every*
+  enemy attack consistently — movement, telegraphed abilities, and the spitter's ranged glob alike.
+  Headless-tested: a chilled spitter lobs nothing until it thaws, and a staggered one can't throw either.
 - **ZOMBOID — you no longer starve to death with rations in your pack.** At max hunger the survivor used to
   simply lose health, even while carrying food. Now, when hunger hits the top, you **auto-eat a ration**
   instead of taking starvation damage — the drain only bites once your food is genuinely gone. Eating drops

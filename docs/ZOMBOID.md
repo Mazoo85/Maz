@@ -145,7 +145,7 @@ Fourteen zombie types join the horde as the waves climb:
 | 2 | **Brute** | Slow, tanky, and its heavy blow doesn't just hurt — it **hurls you back**, wrecking your position and aim (and can fling you into the rest of the horde), so a brute that reaches you is a real spacing threat. Time a **dodge roll** through its swing and the i-frames let you ride it out untouched. |
 | 3 | **Boss** | Huge bullet-sponge that leads every 5th wave; **ground-slams** for heavy damage *and* hurls you back — but it **flashes a warning as it winds up**, so dash clear of the ring to dodge it. **Enrages** below 35% health — faster, slams twice as often, and calls in waves of runners. Felling one always drops a **full care package — a guaranteed medkit *and* a guaranteed power-up** — so grinding the wave leader down pays off big. |
 | 4 | **Exploder** | A suicide bomber: it detonates on death *and* **on contact** — the instant it reaches you it blows up in your face, so you can't tank or melee it. **Keep your distance and pop it from range.** Its blast also **chain-detonates other exploders** nearby, so a cluster daisy-chains into a string of blasts: lure them together and pop one to wipe the group — just don't be standing in it. |
-| 5 | **Spitter** | Hangs back and lobs acid that leaves a caustic **puddle** on the ground — it eats your health *and* **slows you to half speed** while you stand in it, so slog clear rather than tanking it. But the sludge **corrodes the horde too**: any zombie wading through it gets **bogged down** (slowed), so a spitter's own puddle is a double-edged zone — **kite the swarm through it** to slow the pack (torch it to actually hurt them). |
+| 5 | **Spitter** | Hangs back and lobs acid that leaves a caustic **puddle** on the ground — it eats your health *and* **slows you to half speed** while you stand in it, so slog clear rather than tanking it. **Chill it or stagger it and it can't lob** — a Cryo Nova / Frost Field silences it like the casters, and a melee shove or dash-strike roots the throw. But the sludge **corrodes the horde too**: any zombie wading through it gets **bogged down** (slowed), so a spitter's own puddle is a double-edged zone — **kite the swarm through it** to slow the pack (torch it to actually hurt them). |
 | 6 | **Splitter** | Bursts into two runners when killed — *unless* it dies **on fire**: a burning splitter is incinerated before it can rupture, so it spawns nothing. **Burn splitters** (molotov, flamethrower, or a spreading blaze) to stop them multiplying instead of shooting them and doubling the problem. |
 | 7 | **Summoner** | A back-line necromancer that **keeps its distance** — retreats when you close in while it calls reinforcements. Each call **winds up with a tell first**, so you get a beat to burst it, **chill it**, or **stagger it** (a melee shove or dash-strike) to cancel the summon mid-cast. Chase it down. |
 | 8 | **Armored** | Modest health behind a heavy damage-absorbing **shield** — break it down first. |
@@ -190,8 +190,9 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
   splitters have their own death behaviour and don't gib.)
 - **Chilled = brittle (and silenced)** — frozen zombies take extra damage, and killing one while it's
   frozen **shatters** it into a spreading freeze. Cold also **silences the back line**: a chilled
-  Summoner, Screamer, Healer, or Warper can't work its ability (call, shriek, mend, or blink) until
-  the chill wears off — so a Cryo Nova or Frost Field is a hard answer to a support-heavy pack.
+  Summoner, Screamer, Healer, Warper, or Spitter can't work its ability (call, shriek, mend, blink, or
+  acid lob) until the chill wears off — so a Cryo Nova or Frost Field is a hard answer to a support-heavy
+  pack. A stagger (melee shove / dash-strike) roots those same abilities mid-action too.
 - **Fire spreads** — the offensive mirror of frost shatter: a zombie that **dies while burning** passes
   the flames on, setting every nearby zombie alight. So torching one body in a tight crowd can **cascade
   into the whole pack catching fire** — light the front of a horde and let the blaze chain back through it.

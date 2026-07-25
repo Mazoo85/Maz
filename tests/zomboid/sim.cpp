@@ -1464,6 +1464,41 @@ int main() {
         CHECK(sField(survivor, "health")->number < 100.0); // the acid hit landed
     }
 
+    // Spitter silenced by control: a chilled spitter can't lob a glob (frozen back-liners are silenced
+    // like the casters), and neither can a staggered one — but once the effect clears it spits again.
+    {
+        // Chill case.
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zs = z->script();
+        std::vector<Value> spawn = {Value::fromNum(10.0), Value::fromNum(0.0), Value::fromNum(5.0),
+                                    Value::fromNum(1.0)};
+        vm.callOn(zs, "spawn", spawn);
+        std::vector<Value> chill = {Value::fromNum(3.0)};
+        vm.callOn(zs, "apply_slow", chill);      // freeze it before it can lob
+        for (int i = 0; i < 10; ++i) tree.process(1.0 / 60.0);
+        CHECK(activeSpits(tree) == 0);           // chilled → silenced, no glob
+        sField(z, "slow_timer")->number = 0.0;   // thaw
+        tree.process(0.05);
+        CHECK(activeSpits(tree) >= 1);           // spits again once the chill clears
+
+        // Stagger case (fresh scene).
+        SceneTree t2;
+        SceneNode* surv2 = zomboid::buildScene(t2);
+        surv2->setPosition(0.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        SceneNode* z2 = t2.findNode("Zombie0");
+        Value z2s = z2->script();
+        vm2.callOn(z2s, "spawn", spawn);
+        std::vector<Value> stag = {Value::fromNum(0.5)};
+        vm2.callOn(z2s, "stagger", stag);        // root it mid-throw
+        t2.process(1.0 / 60.0);
+        CHECK(activeSpits(t2) == 0);             // staggered → can't lob
+    }
+
     // The Director mixes exploders into later waves (wave 4+).
     {
         SceneTree tree;

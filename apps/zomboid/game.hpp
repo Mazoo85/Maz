@@ -3054,7 +3054,11 @@ class Zombie {
                 self.node.y = self.node.y + (dy / dist) * self.speed * aggro * sm * dt;
             }
             self.cooldown = self.cooldown - dt;
-            if (dist <= self.attack_range and self.cooldown <= 0) {
+            # A chilled or staggered spitter can't lob — a frozen back-liner is silenced just like the
+            # casters, and a flinching (rooted) one can't wind up a throw. So a Cryo Nova / Frost Field, or
+            # a melee shove / dash-strike that reaches it, shuts the horde's one ranged attacker up too.
+            if (dist <= self.attack_range and self.cooldown <= 0 and self.slow_timer <= 0
+                and self.stagger_timer <= 0) {
                 launch_spit(self.node.x, self.node.y, g_player.node.x, g_player.node.y);
                 self.cooldown = 2.2;
             }
