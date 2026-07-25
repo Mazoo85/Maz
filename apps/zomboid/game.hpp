@@ -3421,12 +3421,14 @@ class Zombie {
             if (self.kind == 4) { self.take_damage(9999); return; }
             g_player.take_damage(self.damage * aggro);
             # Bloodthirsty Horde (mutator 9): a bite doesn't just wound you — the zombie SIPHONS life from
-            # it, healing itself on contact. So letting the horde touch you actively repairs it: you can't
-            # win a Bloodthirsty wave by trading hits, you have to not get bitten (kite, chill, knock back).
-            # The boss is exempt, like every other horde-wide modifier (its duel is self-contained). A
-            # shielded bite still heals — the shield gates YOUR damage, not the zombie's own leech. Capped
-            # at the biter's max health.
-            if (g_mutator == 9 and self.kind != 3) {
+            # the wound, healing itself. So letting the horde touch you actively repairs it: you can't win a
+            # Bloodthirsty wave by trading hits, you have to not get bitten (kite, chill, knock back). The
+            # leech only lands if the bite actually drew blood, so a bite you DODGE (i-frames) or SOAK on a
+            # Shield power-up feeds the horde nothing — the same two conditions take_damage no-ops on. That
+            # keeps dodge/shield as real counterplay instead of a leak that still heals the pack. The boss
+            # is exempt like every other horde-wide modifier; capped at the biter's max health.
+            var bit_home = g_player.iframes <= 0 and (g_player.buff_kind != 2 or g_player.buff_timer <= 0);
+            if (g_mutator == 9 and self.kind != 3 and bit_home) {
                 self.health = self.health + 8;
                 if (self.health > self.max_health) { self.health = self.max_health; }
                 emit(self.node.x, self.node.y, 4, 1);   # a small crimson leech flourish

@@ -272,7 +272,9 @@ its **name and a live countdown**, so you always know which buff is up and when 
   and never let a Savage wave crowd you), or **Bloodthirsty** (every bite **heals the zombie that lands
   it** — the horde siphons life from you on contact, so you can't win by trading hits and tanking damage;
   a Bloodthirsty wave forces you to actually *not get bitten* — kite, chill, knock back, and thin the pack
-  before it closes, because every hit you eat patches the biter back up). No two runs feel the same.
+  before it closes, because every hit you eat patches the biter back up. A bite you **dodge-roll through**
+  (i-frames) or **soak on a Shield** draws no blood, so it feeds the horde nothing — dodging is a full
+  denial, not just a damage skip). No two runs feel the same.
 
 At the end of a run you're graded (**D** through **S**) on wave reached, kills, and accuracy, and your
 best wave + score persist between sessions.

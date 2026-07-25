@@ -1921,6 +1921,25 @@ int main() {
         vm2.callOn(z2v, "_process", dt);
         CHECK(sField(z2, "health")->number == 50.0);   // no mutator → no leech
         mut->number = 0.0;
+
+        // Dodge denies the leech: a bite the survivor DODGES (i-frames up) draws no blood, so under
+        // Bloodthirsty the biter heals nothing — dodge stays real counterplay, not a leak that still feeds
+        // the horde. (Same for a Shield power-up soaking the bite; both are the take_damage no-op cases.)
+        SceneTree t3;
+        SceneNode* surv3 = zomboid::buildScene(t3);
+        surv3->setPosition(0.0, 0.0);
+        auto& vm3 = t3.scripts().vm();
+        const_cast<Value*>(vm3.getGlobal("g_mutator"))->number = 9.0;
+        SceneNode* z3 = t3.findNode("Zombie0");
+        Value z3v = z3->script();
+        vm3.callOn(z3v, "spawn_at", at);
+        sField(z3, "kind")->number = 0.0;
+        sField(z3, "health")->number = 50.0;
+        sField(z3, "cooldown")->number = 0.0;
+        sField(surv3, "iframes")->number = 1.0;   // mid dodge-roll — untouchable
+        vm3.callOn(z3v, "_process", dt);
+        CHECK(sField(z3, "health")->number == 50.0);   // dodged bite drew no blood → no leech
+        const_cast<Value*>(vm3.getGlobal("g_mutator"))->number = 0.0;
     }
 
     // Spitter (kind 5): a ranged zombie that halts at distance and lobs acid globs.
