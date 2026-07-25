@@ -164,6 +164,7 @@ class Survivor {
     var mines = 2;           # deployable proximity-mine stock
     var sentries = 1;        # deployable auto-turret stock
     var molotovs = 2;        # thrown firebomb stock
+    var flame_cd = 0;        # throttle for the flamethrower's lingering ground-fire trail
     # Overcharge ultimate: kills fill the meter; when full, detonate wipes the field.
     var ult = 0;
     var ult_max = 25;
@@ -381,6 +382,11 @@ class Survivor {
         if (self.hunger > 100) { self.hunger = 100; }
         if (self.hunger >= 100) { self.health = self.health - dt * 3; }
 
+        # Flamethrower ground-fire trail throttle ticks down (bounds how often it lays a fire patch).
+        if (self.flame_cd > 0) {
+            self.flame_cd = self.flame_cd - dt;
+            if (self.flame_cd < 0) { self.flame_cd = 0; }
+        }
         # Active-reload damage surge ticks down.
         if (self.perfect_timer > 0) {
             self.perfect_timer = self.perfect_timer - dt;
@@ -714,6 +720,13 @@ class Survivor {
                 }
             }
             fai = fai + 1;
+        }
+        # The flamethrower also lays a lingering ground-fire trail: on a short throttle it drops a fire
+        # patch mid-cone, so sweeping the flamethrower paints burning ground that keeps denying the lane
+        # after the stream stops (and, being fire, flashes over any acid it touches). Throttled so a
+        # single free fire slot is enough and it doesn't starve the molotov pool.
+        if (self.flame_cd <= 0) {
+            if (light_fire(self.node.x + ax * 6.0, self.node.y + ay * 6.0)) { self.flame_cd = 0.6; }
         }
         emit(self.node.x + ax * 3.0, self.node.y + ay * 3.0, 4, 2);   # flame lick at the nozzle
         self.shots = self.shots + 1;

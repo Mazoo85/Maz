@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the flamethrower now lays a lingering ground-fire trail.** Sweeping the flamethrower now
+  paints **burning ground** mid-cone (on a short throttle), so the flames keep denying a lane for a few
+  seconds after you stop firing — and, being fire, the trail **flashes over any acid it touches** (pairs
+  with fire-ignites-acid). It gives the flamethrower real area-denial on top of its point-blank cone,
+  without starving the shared fire pool (throttled to one patch at a time). Headless-tested: the first
+  flamethrower shot lights a ground-fire patch and arms the throttle; an immediate second shot lays none.
 - **ZOMBOID — the Healer now telegraphs its mend (readable counterplay).** Like the Screamer, the Healer
   no longer mends the wounded pack the instant its cooldown is up — it **winds up with a tell first**,
   giving you a window to kill the fragile back-liner (or **chill it**) before it undoes your chip damage.

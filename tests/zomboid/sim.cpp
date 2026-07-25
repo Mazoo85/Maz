@@ -3276,6 +3276,33 @@ int main() {
 
     }
 
+    // Flamethrower ground-fire trail: firing the flamethrower lays a lingering fire patch mid-cone, on
+    // a throttle so it doesn't spam. First shot lights a patch; an immediate second shot (throttle still
+    // up) lays no new one.
+    {
+        std::vector<Value> fire = {Value::fromNum(1.0), Value::fromNum(0.0)};   // aim +x
+        auto activeFires = [](SceneTree& t) {
+            int c = 0;
+            for (SceneNode* f : t.nodesInGroup("fires")) {
+                if (f->script().instance->findField("active")->boolean) { c = c + 1; }
+            }
+            return c;
+        };
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+        sField(survivor, "flame_cd")->number = 0.0;             // trail ready
+
+        CHECK(activeFires(tree) == 0);                          // no ground fire at rest
+        vm.callOn(sv, "flamethrower_fire", fire);
+        CHECK(activeFires(tree) == 1);                          // laid one patch mid-cone
+        CHECK(sField(survivor, "flame_cd")->number > 0.0);      // throttle now armed
+        vm.callOn(sv, "flamethrower_fire", fire);
+        CHECK(activeFires(tree) == 1);                          // throttled — no second patch yet
+    }
+
     // Railgun armor-piercing: the beam shears any shield clean off before biting into health, so it's
     // the counter to armored zombies and Bulwark waves. A zombie off the beam keeps its shield.
     {

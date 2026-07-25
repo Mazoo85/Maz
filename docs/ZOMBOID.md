@@ -47,7 +47,9 @@ Run it: `./bin/zomboid` (or `./bin/zomboid --demo` to watch the autopilot show o
 - **Railgun** — slow, high-damage hitscan beam that **pierces a whole line** of zombies in one shot,
   and **shears straight through shields** — your go-to answer to armored zombies and Bulwark waves.
 - **Flamethrower** — no bullets; a short **cone of fire** that sets everything in it alight. Melts
-  close packs, useless at distance.
+  close packs, useless at distance. Sweeping it also **paints a lingering ground-fire trail** that keeps
+  burning the lane for a few seconds after you stop — and, being fire, it flashes over any acid puddle it
+  crosses — so it doubles as area denial, not just a burst cone.
 
 Each weapon has its own magazine and reserve ammo; firing spends the magazine, **R** reloads it. Time it:
 tap **R** *again* during the tail end of a reload for an **active reload** — the reload snaps shut
