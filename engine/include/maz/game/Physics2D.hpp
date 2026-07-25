@@ -803,7 +803,9 @@ inline Manifold polyManifold1(const std::vector<math::vec2>& A, const std::vecto
     if (A.size() < 3 || B.size() < 3) {
         return m;
     }
-    math::vec2 na, nb, va, vb;
+    // Zero-initialized so GCC's -Werror=maybe-uninitialized stays quiet under
+    // heavy parallel builds; maxSeparationV always writes these out-params.
+    math::vec2 na(0.0f, 0.0f), nb(0.0f, 0.0f), va(0.0f, 0.0f), vb(0.0f, 0.0f);
     const float sa = maxSeparationV(A, B, na, va);
     if (sa > 0.0f) {
         return m;
@@ -1246,7 +1248,9 @@ inline Contact2 polyManifold(const std::vector<math::vec2>& A, const std::vector
     if (A.size() < 3 || B.size() < 3) {
         return m;
     }
-    math::vec2 na, nb, va, vb;
+    // Zero-initialized so GCC's -Werror=maybe-uninitialized stays quiet under
+    // heavy parallel builds; maxSeparationV always writes these out-params.
+    math::vec2 na(0.0f, 0.0f), nb(0.0f, 0.0f), va(0.0f, 0.0f), vb(0.0f, 0.0f);
     const float sa = maxSeparationV(A, B, na, va);
     if (sa > 0.0f) {
         return m;

@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **Engine — make the 2D polygon-manifold build deterministic (build-robustness fix surfaced by the ZOMBOID
+  full-suite verification).** Running the whole project build+test to re-verify ZOMBOID intermittently tripped
+  GCC's `-Werror=maybe-uninitialized` on the `na, nb, va, vb` scratch vectors in `Physics2D.hpp`'s
+  `polyManifold1`/`polyManifold` — a flaky diagnostic that only appeared under heavy parallel load (the
+  out-params are always written by `maxSeparationV`). Zero-initialized the four vectors at both sites so the
+  full build is deterministically clean regardless of build parallelism. Engine-level fix, no behavioral or
+  gameplay change; all ZOMBOID tests remain green.
 - **ZOMBOID — register the autopilot demo run as a permanent CI smoke test.**
   The existing headless smoke test runs only 30 frames and never enables the demo AI, so the autopilot
   path (aim / fire / dodge / weapon-cycle / gadget use over a full run) had no automated gate — the
