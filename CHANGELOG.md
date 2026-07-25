@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — regression-test the wave difficulty scaling.**
+  The whole endless-mode curve rests on enemy stats growing with the wave number (`health = base +
+  wave * k`, and the armored/Bulwark shields likewise), but nothing guarded that invariant — a
+  refactor could silently drop the wave term and flatten the curve so a wave-20 spawn was no tougher
+  than a wave-1 one. Added a test that spawns representative kinds (walker, boss, armored) at an early
+  and a late wave and asserts the late spawn is strictly tougher, plus that the armored shield thickens
+  with the wave. Test-only change — no gameplay logic changed.
 - **ZOMBOID — stop the off-screen boss marker pulsing on the game-over screen.**
   The off-screen boss direction marker is a live navigation cue (it computes a screen-edge pointer from
   the survivor's position toward an off-screen boss), so — like the reticle and aim tracer, which are

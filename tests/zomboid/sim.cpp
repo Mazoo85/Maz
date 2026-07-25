@@ -2853,6 +2853,40 @@ int main() {
         CHECK(sField(offAxis, "burn_timer")->number == 0.0);
     }
 
+    // Wave scaling: the endless-mode difficulty curve rests on enemy HP growing with the wave number
+    // (health = base + wave * k). Spawn representative kinds at an early and a late wave and confirm the
+    // late spawn is strictly tougher — a guard against anyone dropping the wave term and flattening the
+    // curve so wave 20 spawns are no tougher than wave 1.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        const_cast<Value*>(vm.getGlobal("g_mutator"))->number = 0.0;   // isolate base scaling
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zv = z->script();
+        // Fodder walker (0), the marquee boss (3), and a shielded armored unit (8).
+        const int kinds[3] = {0, 3, 8};
+        for (int i = 0; i < 3; ++i) {
+            std::vector<Value> early = {Value::fromNum(0.0), Value::fromNum(0.0),
+                                        Value::fromNum(static_cast<double>(kinds[i])), Value::fromNum(2.0)};
+            vm.callOn(zv, "spawn", early);
+            const double hpEarly = sField(z, "health")->number;
+            std::vector<Value> late = {Value::fromNum(0.0), Value::fromNum(0.0),
+                                       Value::fromNum(static_cast<double>(kinds[i])), Value::fromNum(12.0)};
+            vm.callOn(zv, "spawn", late);
+            CHECK(sField(z, "health")->number > hpEarly);   // a later-wave spawn is strictly tougher
+        }
+        // The armored kind's damage-absorbing shield also scales with the wave (50 + w*8).
+        std::vector<Value> a2 = {Value::fromNum(0.0), Value::fromNum(0.0),
+                                 Value::fromNum(8.0), Value::fromNum(2.0)};
+        vm.callOn(zv, "spawn", a2);
+        const double shield2 = sField(z, "shield")->number;
+        std::vector<Value> a12 = {Value::fromNum(0.0), Value::fromNum(0.0),
+                                  Value::fromNum(8.0), Value::fromNum(12.0)};
+        vm.callOn(zv, "spawn", a12);
+        CHECK(sField(z, "shield")->number > shield2);       // a later-wave shield is thicker too
+    }
+
     // Wave mutator: an active modifier reshapes the whole horde as it spawns — feral (1) is faster,
     // hulking (2) is tougher — measured against an unmutated baseline of the same kind and wave.
     {
