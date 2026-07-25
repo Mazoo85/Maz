@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — regression-test the dodge-cooldown upgrade floor.** The between-wave upgrade wheel's k==7 pick
+  trims the dodge-roll cooldown by 0.3s each cycle, clamped so it never drops below a 0.6s floor — without
+  that clamp, a long enough run would drive the cooldown to zero (then negative), giving a permanent
+  no-downtime escape roll. The existing upgrade tests only run two cycles (one such pick each), nowhere near
+  the ~12 picks needed to reach the floor, so the clamp was unguarded. Added a test that hammers the upgrade
+  wheel well past the floor and confirms the cooldown settles at exactly 0.6s and never dips below.
+  Test-only change — no gameplay logic altered.
 - **ZOMBOID — regression-test the wave-mutator gating rule.** The director rolls a wave-wide modifier only
   from wave 3 on, so the first two waves are a clean, mutator-free introduction and every wave from 3 up
   carries exactly one of the nine mutators. The existing mutator tests all set `g_mutator` by hand to isolate

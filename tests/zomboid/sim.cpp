@@ -4947,6 +4947,25 @@ int main() {
         CHECK(std::abs(sField(survivor, "move_mult")->number - 1.16) < 1e-9);
     }
 
+    // Dodge-cooldown upgrade floor: the k==7 pick trims dash_cd_max by 0.3 each cycle but is clamped so it
+    // never drops below 0.6s — otherwise a long enough run would drive the dodge cooldown to zero (and then
+    // negative), handing the survivor a permanent get-out-of-jail roll with no downtime. The existing cycle
+    // tests only run two cycles (one k7 pick each), far short of the ~12 needed to reach the floor, so the
+    // clamp itself was unguarded. Hammer the upgrade wheel well past the floor and confirm it settles at
+    // exactly 0.6 and never dips under.
+    {
+        std::vector<Value> none;
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+        CHECK(sField(survivor, "dash_cd_max")->number == 4.0);   // 4.0s at the start
+        // 120 picks = 15 k7 hits (one per 8), comfortably past the ~12 that reach the 0.6 floor.
+        for (int i = 0; i < 120; ++i) { vm.callOn(sv, "apply_upgrade", none); }
+        CHECK(std::abs(sField(survivor, "dash_cd_max")->number - 0.6) < 1e-9); // clamped at the floor
+        CHECK(sField(survivor, "dash_cd_max")->number >= 0.6);                 // never below it
+    }
+
     // Shotgun point-blank knockback: a shotgun pellet (falloff) lands a heavy shove that fades with
     // travel, where a plain round gives only a light nudge — the shotgun's crowd-control identity.
     {
