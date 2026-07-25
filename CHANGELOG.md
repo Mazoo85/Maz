@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — starving now actually bites: no healing on an empty stomach.** The passive out-of-combat
+  regen (+4/s) previously ran even while starving, quietly out-healing the hunger drain (−3/s) — so
+  hunger applied *no* real pressure if you stood still. Regen is now **suppressed while starving** (hunger
+  maxed), so an empty stomach genuinely drains you and a ration is the only way to stop the bleed and
+  start recovering. Eating (which lowers hunger) re-enables regen as before. Headless-tested: a starving,
+  out-of-combat survivor loses health, while a fed one in the same window regenerates.
 - **ZOMBOID — body armor now shatters into a shove when it breaks.** A plate used to just soak damage and
   quietly deplete. Now the hit that **breaks** the plate throws off a concussive burst that knocks back
   and staggers every zombie within radius 5 — buying the survivor a breath of space at the exact moment

@@ -2381,6 +2381,36 @@ int main() {
         CHECK(sField(z, "stagger_timer")->number > 0.0);     // and staggered
     }
 
+    // Hunger pressure: while starving (hunger maxed), out-of-combat regen is SUPPRESSED, so health
+    // drains and you must eat. Fed (hunger low), the same out-of-combat window heals instead.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+
+        // Starving + wounded + out of combat: no regen — the starve drain wins, health falls.
+        sField(survivor, "health")->number = 50.0;
+        sField(survivor, "hunger")->number = 100.0;
+        sField(survivor, "regen_timer")->number = 10.0;   // already past the 5s out-of-combat window
+        const double hStarve0 = sField(survivor, "health")->number;
+        for (int i = 0; i < 30; ++i) vm.callOn(sv, "_process", dt);
+        CHECK(sField(survivor, "health")->number < hStarve0);   // starving: drained, not healed
+
+        // Fed + wounded + out of combat: the same window regenerates health.
+        SceneTree t2;
+        SceneNode* s2 = zomboid::buildScene(t2);
+        auto& vm2 = t2.scripts().vm();
+        Value s2v = s2->script();
+        sField(s2, "health")->number = 50.0;
+        sField(s2, "hunger")->number = 0.0;
+        sField(s2, "regen_timer")->number = 10.0;
+        const double hFed0 = sField(s2, "health")->number;
+        for (int i = 0; i < 30; ++i) vm2.callOn(s2v, "_process", dt);
+        CHECK(sField(s2, "health")->number > hFed0);            // fed + out of combat: regen ticks up
+    }
+
     // Body armor: a depletable plate takes the hit first, and only the overflow past a spent plate
     // reaches health. Bought from the shop (kind 3) for cash.
     {

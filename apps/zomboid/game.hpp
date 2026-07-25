@@ -370,9 +370,12 @@ class Survivor {
             drop_crate(self.node.x + cos(cang) * crad, self.node.y + sin(cang) * crad);
         }
 
-        # Out-of-combat regeneration: stay unharmed for a few seconds and health slowly recovers.
+        # Out-of-combat regeneration: stay unharmed for a few seconds and health slowly recovers — but
+        # NOT on an empty stomach. While starving (hunger maxed) the regen is suppressed, so the hunger
+        # drain is real pressure you must answer with a ration instead of just out-healing it by standing
+        # still (previously the +4/s regen quietly cancelled the -3/s starve drain, nullifying hunger).
         self.regen_timer = self.regen_timer + dt;
-        if (self.regen_timer > 5.0 and self.health < self.max_health) {
+        if (self.regen_timer > 5.0 and self.health < self.max_health and self.hunger < 100) {
             self.health = self.health + dt * 4.0;
             if (self.health > self.max_health) { self.health = self.max_health; }
         }
