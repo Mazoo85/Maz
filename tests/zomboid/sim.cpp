@@ -2574,9 +2574,10 @@ int main() {
         park(nearHigh, 36.0, 90.0);   // 6 from the healer, near full
         park(farZ, -20.0, 20.0);      // 50 from the healer
 
-        // Drive only the healer: its cooldown starts at 0, so it mends on the first frame and then
-        // sits on its 4 s cooldown. The parked patients don't move, keeping distances fixed.
-        for (int i = 0; i < 10; ++i) { vm.callOn(hv, "_process", dt); }
+        // Drive only the healer: its cooldown starts at 0, so it begins a mend wind-up on the first
+        // frame; ~0.6 s of telegraph later the heal pulse lands, then it sits on its 4 s cooldown. Run
+        // 60 frames (1 s) so exactly one mend resolves. The parked patients don't move.
+        for (int i = 0; i < 60; ++i) { vm.callOn(hv, "_process", dt); }
 
         CHECK(sField(nearLow, "health")->number == 45.0);    // 20 + 25% of 100
         CHECK(sField(nearHigh, "health")->number == 100.0);  // 90 + 25 clamped to max, not 115
@@ -3221,6 +3222,58 @@ int main() {
         sField(survivor, "dash_cd")->number = 0.1;
         vm.callOn(sv, "on_kill", none);
         CHECK(sField(survivor, "dash_cd")->number == 0.0);      // clamped, not negative
+    }
+
+    // Healer telegraph: the healer now winds up with a tell before its mend pulse, so you get a window
+    // to kill or chill it before it undoes your chip damage. Verify the wind-up delays the mend, that
+    // the mend lands after it, and that a chill during the wind-up fizzles it.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        std::vector<Value> healSp = {Value::fromNum(0.0), Value::fromNum(0.0),
+                                     Value::fromNum(12.0), Value::fromNum(5.0)};  // healer at origin
+        std::vector<Value> woundSp = {Value::fromNum(5.0), Value::fromNum(0.0),
+                                      Value::fromNum(2.0), Value::fromNum(5.0)};  // brute in radius 14
+        std::vector<Value> wound = {Value::fromNum(50.0)};
+        std::vector<Value> chill = {Value::fromNum(4.0)};
+
+        // Wind-up then mend: the wounded neighbour isn't healed on the tell tick, but is once it lands.
+        SceneTree t1;
+        SceneNode* p1 = zomboid::buildScene(t1);
+        p1->setPosition(200.0, 200.0);
+        auto& vm1 = t1.scripts().vm();
+        Value h1 = t1.findNode("Zombie0")->script();
+        vm1.callOn(h1, "spawn", healSp);
+        sField(t1.findNode("Zombie0"), "speed")->number = 0.0;
+        sField(t1.findNode("Zombie0"), "cooldown")->number = 0.0;
+        Value wnd1 = t1.findNode("Zombie1")->script();
+        vm1.callOn(wnd1, "spawn", woundSp);
+        vm1.callOn(wnd1, "take_damage", wound);
+        const double hurt1 = sField(t1.findNode("Zombie1"), "health")->number;
+        vm1.callOn(h1, "_process", dt);                          // enters the wind-up
+        CHECK(sField(t1.findNode("Zombie0"), "mend_warn")->number > 0.0);
+        CHECK(sField(t1.findNode("Zombie1"), "health")->number == hurt1);   // not healed yet
+        for (int i = 0; i < 50; ++i) { vm1.callOn(h1, "_process", dt); }
+        CHECK(sField(t1.findNode("Zombie1"), "health")->number > hurt1);    // mend landed
+
+        // Chill during the wind-up fizzles the mend: the neighbour stays wounded.
+        SceneTree t2;
+        SceneNode* p2 = zomboid::buildScene(t2);
+        p2->setPosition(200.0, 200.0);
+        auto& vm2 = t2.scripts().vm();
+        Value h2 = t2.findNode("Zombie0")->script();
+        vm2.callOn(h2, "spawn", healSp);
+        sField(t2.findNode("Zombie0"), "speed")->number = 0.0;
+        sField(t2.findNode("Zombie0"), "cooldown")->number = 0.0;
+        Value wnd2 = t2.findNode("Zombie1")->script();
+        vm2.callOn(wnd2, "spawn", woundSp);
+        vm2.callOn(wnd2, "take_damage", wound);
+        const double hurt2 = sField(t2.findNode("Zombie1"), "health")->number;
+        vm2.callOn(h2, "_process", dt);                          // enters the wind-up
+        CHECK(sField(t2.findNode("Zombie0"), "mend_warn")->number > 0.0);
+        vm2.callOn(h2, "apply_slow", chill);                     // chill it mid-tell
+        for (int i = 0; i < 50; ++i) { vm2.callOn(h2, "_process", dt); }
+        CHECK(sField(t2.findNode("Zombie1"), "health")->number == hurt2);   // mend fizzled
+
     }
 
     // Railgun armor-piercing: the beam shears any shield clean off before biting into health, so it's

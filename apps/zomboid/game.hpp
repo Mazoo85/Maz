@@ -2087,6 +2087,7 @@ class Zombie {
     var stagger_cd = 0;    # cooldown after a flinch so it can't be perpetually stun-locked
     var frenzy_timer = 0;  # while > 0 the zombie is whipped into a screamer's frenzy — moves faster
     var scream_warn = 0;   # screamer (kind 11) shriek wind-up: telegraph beat before the shriek lands
+    var mend_warn = 0;     # healer (kind 12) mend wind-up: telegraph beat before the heal pulse lands
 
     func _ready() { g_zombies.append(self); }
 
@@ -2690,26 +2691,40 @@ class Zombie {
         # health back (never past their max). Force-multiplying but fragile, so cull it before it undoes
         # your work. It never heals itself, keeping it a body you can burn down.
         if (self.kind == 12) {
-            self.cooldown = self.cooldown - dt;
-            if (self.cooldown <= 0 and self.slow_timer <= 0) {   # a chilled healer can't mend
-                self.cooldown = 4.0;
-                var mended = 0;
-                var hi = 0;
-                var hn = len(g_zombies);
-                while (hi < hn) {
-                    var hz = g_zombies[hi];
-                    if (hz.alive and hz != self and hz.health < hz.max_health) {
-                        var hdx = hz.node.x - self.node.x;
-                        var hdy = hz.node.y - self.node.y;
-                        if (hdx * hdx + hdy * hdy <= 196.0) {   # radius 14
-                            hz.health = hz.health + hz.max_health * 0.25;
-                            if (hz.health > hz.max_health) { hz.health = hz.max_health; }
-                            mended = mended + 1;
+            if (self.mend_warn > 0) {
+                # Winding up a mend: a telegraph beat before the heal pulse lands, so you get a window to
+                # kill the fragile healer (or chill it) before it undoes your chip damage on the pack.
+                self.mend_warn = self.mend_warn - dt;
+                if (self.slow_timer > 0) {
+                    self.mend_warn = 0;   # chilled mid-wind-up → the mend fizzles
+                } else {
+                    if (self.mend_warn <= 0) {
+                        var mended = 0;
+                        var hi = 0;
+                        var hn = len(g_zombies);
+                        while (hi < hn) {
+                            var hz = g_zombies[hi];
+                            if (hz.alive and hz != self and hz.health < hz.max_health) {
+                                var hdx = hz.node.x - self.node.x;
+                                var hdy = hz.node.y - self.node.y;
+                                if (hdx * hdx + hdy * hdy <= 196.0) {   # radius 14
+                                    hz.health = hz.health + hz.max_health * 0.25;
+                                    if (hz.health > hz.max_health) { hz.health = hz.max_health; }
+                                    mended = mended + 1;
+                                }
+                            }
+                            hi = hi + 1;
                         }
+                        if (mended > 0) { emit(self.node.x, self.node.y, 10, 0); }   # heal pulse (sparks)
                     }
-                    hi = hi + 1;
                 }
-                if (mended > 0) { emit(self.node.x, self.node.y, 10, 0); }   # heal pulse (sparks)
+            } else {
+                self.cooldown = self.cooldown - dt;
+                if (self.cooldown <= 0 and self.slow_timer <= 0) {   # a chilled healer can't wind up
+                    self.mend_warn = 0.6;                            # start the telegraph
+                    self.cooldown = 4.0;                             # reset now so it won't retrigger mid-tell
+                    emit(self.node.x, self.node.y, 2, 1);            # tell puff — a mend is coming
+                }
             }
         }
         # Chill status: while slowed, the zombie crawls at 40% speed.

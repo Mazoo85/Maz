@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the Healer now telegraphs its mend (readable counterplay).** Like the Screamer, the Healer
+  no longer mends the wounded pack the instant its cooldown is up — it **winds up with a tell first**,
+  giving you a window to kill the fragile back-liner (or **chill it**) before it undoes your chip damage.
+  Killing it during the wind-up cancels the mend; a chill mid-tell makes it fizzle. Headless-tested: a
+  wounded neighbour isn't healed on the tell tick but is once the mend lands, and chilling the healer
+  during the wind-up prevents the heal entirely.
 - **ZOMBOID — kills now shave the dodge-roll cooldown (aggression sustains mobility).** Every kill trims
   **0.3s off the dodge cooldown**, so staying on the offensive keeps your escape ready — chaining kills
   in a tight spot can refresh a dodge right when you need it, tying aggression to defense. The refund
