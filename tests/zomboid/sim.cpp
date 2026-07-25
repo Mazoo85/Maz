@@ -2850,6 +2850,63 @@ int main() {
         CHECK(sField(zn[2], "health")->number == 200.0); // third untouched
     }
 
+    // A piercing bullet strikes each BODY once, not once per overlapping frame (not_hit / hit_list dedup).
+    // The line test above passes three separated zombies; this isolates the guard on a single wide body the
+    // bullet overlaps for many consecutive frames. Without the dedup the round would re-hit it every frame,
+    // burning all its pierces and multiplying the damage on one zombie. One extra-wide body proves it: after
+    // the first strike, more frames spent still overlapping land no further damage and spend no more pierce.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+        sField(survivor, "aim_x")->number = 1.0;   // fire straight along +x
+        sField(survivor, "aim_y")->number = 0.0;
+        sField(survivor, "crit_chance")->number = 0.0;  // deterministic per-shot damage
+
+        std::vector<Value> pk = {Value::fromNum(3.0)};
+        vm.callOn(sv, "grant_powerup", pk);             // piercing power-up
+        CHECK(sField(survivor, "pierce_shots")->boolean);
+
+        // One very wide, tanky body straddling the bullet's path, so the round overlaps it for many frames.
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zv = z->script();
+        std::vector<Value> at = {Value::fromNum(8.0), Value::fromNum(0.0),
+                                 Value::fromNum(5000.0), Value::fromNum(0.0)};
+        vm.callOn(zv, "spawn_at", at);
+        sField(z, "radius")->number = 12.0;             // wide hit envelope → long overlap window
+
+        std::vector<Value> none;
+        vm.callOn(sv, "do_shoot", none);
+        SceneNode* bullet = nullptr;
+        for (SceneNode* b : tree.nodesInGroup("bullets"))
+            if (sField(b, "active")->boolean) { bullet = b; break; }
+        CHECK(bullet != nullptr);
+        CHECK((int)sField(bullet, "pierce_left")->number == 2);
+        Value bv = bullet->script();
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+
+        // Step until the first strike lands, capturing the health drop and pierce spend for that ONE hit.
+        double hpAfterFirst = 5000.0;
+        int pierceAfterFirst = 2;
+        for (int i = 0; i < 30; ++i) {
+            vm.callOn(bv, "_process", dt);
+            if (sField(z, "health")->number < 5000.0) {
+                hpAfterFirst = sField(z, "health")->number;
+                pierceAfterFirst = (int)sField(bullet, "pierce_left")->number;
+                break;
+            }
+        }
+        CHECK(hpAfterFirst < 5000.0);            // it did strike
+        CHECK(pierceAfterFirst == 1);            // exactly one pierce spent on this body
+
+        // Keep flying while still overlapping the wide body: no further damage, no further pierce spent.
+        for (int i = 0; i < 20; ++i) vm.callOn(bv, "_process", dt);
+        CHECK(sField(z, "health")->number == hpAfterFirst);   // struck once, never re-hit per frame
+        CHECK((int)sField(bullet, "pierce_left")->number == 1);  // still one — not drained on one zombie
+    }
+
     // Leaper (kind 9): between pounces it walks, but on a ready cooldown at mid-range it lunges — a
     // fast burst that covers far more ground per frame than its walk. Player parked at the origin and
     // only the leaper is stepped, so the motion is deterministic and one-dimensional (both stay on y=0).

@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — pin the piercing bullet's once-per-body strike guard (`not_hit`/`hit_list`).** A piercing
+  round punches through multiple zombies, but each BODY must be struck only once — not once per frame it
+  overlaps. The existing pierce test flies through three separated zombies (each naturally hit once); this
+  isolates the guard on a single extra-wide body the bullet overlaps for many consecutive frames: after the
+  first strike, further frames spent still overlapping land no extra damage and spend no more pierce.
+  Without the dedup the round would drain all its pierces and multiply damage on one zombie. Test-only
+  change — no gameplay logic altered.
 - **ZOMBOID — pin `apply_mults()`, the upgrade/buff/adrenaline stat-folding.** This one method is the core
   of the progression economy: it multiplies every source onto the live weapon stats —
   `fire_rate = base_fr * rate_mult * buff_fr * (adrenaline ? 1.5 : 1.0)` and
