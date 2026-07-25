@@ -1542,11 +1542,20 @@ class Medkit {
             g_player.take_medkit(self.heal);
             self.active = false;
         } else {
-            # Magnetism: within a short radius the kit drifts toward the survivor.
-            if (d2 <= 36.0) {
+            # Magnetism: within a short radius the kit drifts toward the survivor. When the survivor is
+            # critically wounded (last-stand adrenaline, under 25% health) the kit reaches out from twice
+            # as far and drifts in faster — the one lifeline you're desperate for finds you in the
+            # scramble, extending the adrenaline comeback the game already grants (faster fire, +30%
+            # shot damage, quicker dodge, damage reduction) with a fifth desperation perk. Only medkits
+            # get this reach; ammo and power-ups keep their normal pull, so it's a survival lifeline, not
+            # a blanket loot magnet.
+            var mag = 36.0;      # normal pull radius (6 units)
+            var pull = 12.0;
+            if (g_player.adrenaline) { mag = 144.0; pull = 20.0; }   # 12-unit reach, faster drift
+            if (d2 <= mag) {
                 var d = sqrt(d2);
-                self.node.x = self.node.x + (dx / d) * 12.0 * dt;
-                self.node.y = self.node.y + (dy / d) * 12.0 * dt;
+                self.node.x = self.node.x + (dx / d) * pull * dt;
+                self.node.y = self.node.y + (dy / d) * pull * dt;
             }
         }
     }

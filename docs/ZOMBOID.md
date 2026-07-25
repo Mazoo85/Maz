@@ -112,7 +112,10 @@ back sooner and sooner, so the deeper you get, the more often you can bail out o
   faster, hit 30% harder, shrug off a quarter of all incoming damage, and your dodge-roll recharges 60%
   faster** until you recover. Being cornered is dangerous, but the surge turns it into your biggest damage
   window, buys you extra survivability, *and* keeps your escape roll ready — a real chance to claw a fight
-  back (roll, reposition, roll again) rather than a death spiral.
+  back (roll, reposition, roll again) rather than a death spiral. It also **draws medkits to you from
+  twice as far** and pulls them in faster, so the one lifeline you're desperate for reaches you in the
+  scramble instead of sitting just out of reach behind the horde (medkits only — ammo and power-ups keep
+  their normal pull).
 - **Second Wind** — a stored revive: lethal damage is cancelled once, bursting you back to half health
   with a crowd-clearing nova. Earned again every 50 kills.
 - **Body armor** — a bought plate that soaks damage before your health; buy a fresh one with **9**. When

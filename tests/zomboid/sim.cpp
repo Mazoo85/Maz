@@ -715,6 +715,41 @@ int main() {
         tree.process(1.0 / 60.0);
         CHECK(kit->x() == fx0); // stayed put — no magnet at 20 units
     }
+    // Adrenaline medkit reach: a critically wounded survivor (last-stand adrenaline) pulls in a medkit
+    // from twice the normal magnet range — the lifeline finds you in the scramble. A healthy survivor
+    // leaves the same kit lying just outside the normal 6-unit magnet.
+    {
+        // Wounded case: kit at 9 units (outside the normal 6-unit magnet, inside the 12-unit adrenaline
+        // reach) drifts toward a survivor under 25% health.
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        sField(survivor, "health")->number = 15.0;      // 15/100 → critically wounded
+        sField(survivor, "adrenaline")->boolean = true; // last-stand surge engaged
+        std::vector<Value> at = {Value::fromNum(9.0), Value::fromNum(0.0)};
+        tree.scripts().vm().call("drop_medkit", at);
+        SceneNode* kit = nullptr;
+        for (SceneNode* m : tree.nodesInGroup("medkits"))
+            if (m->script().instance->findField("active")->boolean) kit = m;
+        const double x0 = kit->x();
+        tree.process(1.0 / 60.0);
+        CHECK(sField(kit, "active")->boolean);   // not yet picked up at 9 units
+        CHECK(kit->x() < x0);                     // the adrenaline reach pulled it in
+    }
+    {
+        // Control: a full-health survivor leaves the same 9-unit kit untouched (normal magnet is 6).
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);   // full health, no adrenaline
+        std::vector<Value> at = {Value::fromNum(9.0), Value::fromNum(0.0)};
+        tree.scripts().vm().call("drop_medkit", at);
+        SceneNode* kit = nullptr;
+        for (SceneNode* m : tree.nodesInGroup("medkits"))
+            if (m->script().instance->findField("active")->boolean) kit = m;
+        const double x0 = kit->x();
+        tree.process(1.0 / 60.0);
+        CHECK(kit->x() == x0);   // stayed put — outside the normal magnet, no adrenaline reach
+    }
 
     // Power-ups: rare pooled pickups grant a timed buff that reverts when it lapses.
     {

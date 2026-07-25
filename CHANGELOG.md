@@ -8,6 +8,16 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — medkits reach out to a dying survivor.** Dropped health kits already drift toward you once
+  you're within a short magnet radius. Now, while you're **critically wounded** (the last-stand
+  *adrenaline* state, under 25% health), a kit reaches out from **twice as far** and drifts in **faster**
+  — the one lifeline you're desperate for finds you in the scramble instead of sitting just out of reach
+  behind the horde. It's a fifth desperation perk on top of adrenaline's existing faster fire, +30% shot
+  damage, quicker dodge-recharge, and damage reduction, turning a sub-25% panic into a real comeback
+  window. The extra reach is medkit-only — ammo and power-ups keep their normal pull — so it stays a
+  survival lifeline, not a blanket loot magnet, and it reverts the instant you heal back above the line.
+  Headless-tested: a wounded survivor pulls in a kit sitting 9 units away (past the normal 6-unit magnet)
+  while a healthy one leaves the same kit untouched.
 - **ZOMBOID — lighting a caustic puddle now sets off a barrel underneath it.** A spitter's acid pool
   flashes over into a violent fireball when a naked flame or blast touches it — that flash already burned
   the horde, but it ignored any explosive barrel sitting in it. Now the flash-over cooks off a barrel it
