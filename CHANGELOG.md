@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — regression-test the wave-mutator gating rule.** The director rolls a wave-wide modifier only
+  from wave 3 on, so the first two waves are a clean, mutator-free introduction and every wave from 3 up
+  carries exactly one of the nine mutators. The existing mutator tests all set `g_mutator` by hand to isolate
+  each effect, so nothing exercised the director's actual assignment rule — the `w >= 3` gate that eases new
+  players in could be moved (or start returning "none") and no test would catch it. Added a test that drives
+  `start_wave` across waves 1–14 and confirms waves 1–2 stay mutator-free while waves 3+ always land a real
+  mutator in [1,9]. Test-only change — no gameplay logic altered.
 - **ZOMBOID — pin the end-of-run rank thresholds and complete the grade-letter coverage.** The death screen
   grades each run S/A/B/C/D via `runRank(wave, kills, accuracy)`, whose four point cutoffs (400/800/1300/1900)
   decide what a run earns. The existing test hit D/B/S and monotonicity but never pinned the exact cutoffs or

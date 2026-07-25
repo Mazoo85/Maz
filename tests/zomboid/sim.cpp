@@ -869,6 +869,31 @@ int main() {
         std::remove(path);
     }
 
+    // Wave mutator gating: the director rolls a wave-wide modifier only from wave 3 on, so the first two
+    // waves are always a clean introduction (no mutator) and every wave from 3 up carries exactly one of the
+    // nine mutators (never "none"). The other mutator tests set g_mutator by hand to isolate each effect;
+    // this is the only check on the director's actual assignment RULE — the `w >= 3` gate that eases new
+    // players in, which a refactor could silently move without any of the effect tests noticing.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value ds = tree.findNode("Director")->script();
+        auto startWave = [&](double w) {
+            std::vector<Value> a = {Value::fromNum(w)};
+            vm.callOn(ds, "start_wave", a);
+            return static_cast<int>(glob(tree, "g_mutator"));
+        };
+        CHECK(startWave(1.0) == 0);   // wave 1 — no mutator (clean intro)
+        CHECK(startWave(2.0) == 0);   // wave 2 — still mutator-free
+        // From wave 3 up, every wave carries a real mutator in [1,9], never 0. Sweep a run of waves so a
+        // "sometimes rolls 0" or off-by-one gate regression can't hide behind one lucky roll.
+        for (int w = 3; w <= 14; ++w) {
+            const int m = startWave(static_cast<double>(w));
+            CHECK(m >= 1 && m <= 9);
+        }
+    }
+
     // Medkits: a dropped kit activates, heals the survivor on pickup (capped), and expires if ignored.
     auto activeMedkits = [](SceneTree& t) {
         int c = 0;
