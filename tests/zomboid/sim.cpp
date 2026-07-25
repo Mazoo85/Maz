@@ -380,7 +380,7 @@ int main() {
     }
 
     // Upgrades: each apply_upgrade cycles a distinct boost (+dmg, +rate, +max health, +ammo,
-    // +crit chance, +crit damage) on a six-step loop.
+    // +crit chance, +crit damage, +move speed, -dodge cooldown) on an eight-step loop.
     {
         SceneTree tree;
         SceneNode* s = zomboid::buildScene(tree);
@@ -412,10 +412,14 @@ int main() {
         tree.scripts().vm().callOn(self, "apply_upgrade", none); // k6: +move speed
         CHECK(sField(s, "move_mult")->number > move6);
         CHECK((int)sField(s, "upgrades")->number == 7);
-        // The cycle wraps at seven: the eighth upgrade rolls back to +damage (k0).
-        const double dmgMult7 = sField(s, "dmg_mult")->number;
+        const double dashCd7 = sField(s, "dash_cd_max")->number; // 4.0 by default
+        tree.scripts().vm().callOn(self, "apply_upgrade", none); // k7: -dodge cooldown
+        CHECK(sField(s, "dash_cd_max")->number < dashCd7);
+        CHECK((int)sField(s, "upgrades")->number == 8);
+        // The cycle wraps at eight: the ninth upgrade rolls back to +damage (k0).
+        const double dmgMult8 = sField(s, "dmg_mult")->number;
         tree.scripts().vm().callOn(self, "apply_upgrade", none); // k0 again: +damage
-        CHECK(sField(s, "dmg_mult")->number > dmgMult7);
+        CHECK(sField(s, "dmg_mult")->number > dmgMult8);
     }
 
     // Critical hits: a shot rolls for bonus damage; forcing the odds proves both branches.
@@ -3248,15 +3252,15 @@ int main() {
         CHECK(sField(survivor, "move_mult")->number == 1.0);   // starts at base walk speed
         const double dmg0 = sField(survivor, "dmg_mult")->number;
         const double crit0 = sField(survivor, "crit_mult")->number;
-        for (int i = 0; i < 7; ++i) { vm.callOn(sv, "apply_upgrade", none); }
-        // One full cycle: the move-speed pick landed once (+0.08), and the older picks still fire.
+        for (int i = 0; i < 8; ++i) { vm.callOn(sv, "apply_upgrade", none); }
+        // One full cycle (eight picks): the move-speed pick landed once (+0.08), and the others fire too.
         CHECK(sField(survivor, "move_mult")->number > 1.0);
         CHECK(std::abs(sField(survivor, "move_mult")->number - 1.08) < 1e-9);
         CHECK(sField(survivor, "dmg_mult")->number > dmg0);    // +damage pick still applied
         CHECK(sField(survivor, "crit_mult")->number > crit0);  // +crit-damage pick still applied
 
         // A second full cycle stacks another speed increment.
-        for (int i = 0; i < 7; ++i) { vm.callOn(sv, "apply_upgrade", none); }
+        for (int i = 0; i < 8; ++i) { vm.callOn(sv, "apply_upgrade", none); }
         CHECK(std::abs(sField(survivor, "move_mult")->number - 1.16) < 1e-9);
     }
 

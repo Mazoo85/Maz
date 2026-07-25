@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — new between-wave upgrade: shorter dodge-roll cooldown.** The permanent upgrade cycle grows
+  from seven picks to eight, adding a **-dodge-cooldown** upgrade that trims the dodge-roll's recharge
+  (down to a 0.6s floor) so your escape roll — and its i-frames — comes back sooner the deeper you get. A
+  defensive/mobility pick distinct from the existing +move-speed one, giving survivability builds another
+  lever. Headless-tested: the eighth upgrade lowers dodge cooldown and the cycle now wraps at eight.
 - **ZOMBOID — the Exploder is now a true suicide bomber (detonates on contact).** Previously an exploder
   only blew up when killed, so you could safely walk up and melee or tank it point-blank. Now the instant
   it reaches the survivor it **detonates on contact** — killing itself and catching the adjacent player in

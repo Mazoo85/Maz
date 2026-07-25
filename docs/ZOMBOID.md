@@ -58,9 +58,10 @@ tap **R** *again* during the tail end of a reload for an **active reload** — t
 instantly and you get a brief **+30% damage surge** (you glow gold). Miss the window and nothing happens
 — no penalty — so it's free power for good timing.
 Between waves you earn permanent upgrades (+damage, +fire-rate, +max-health, +ammo, +crit-chance,
-+crit-damage, +move-speed), cycling automatically — the two crit upgrades stack, so a crit build lands
-*both* more often *and* harder as the run goes on, and the move-speed picks make you steadily fleeter,
-better at kiting the horde and slipping out of hazards the deeper you get.
++crit-damage, +move-speed, and **shorter dodge-roll cooldown**), cycling automatically — the two crit
+upgrades stack, so a crit build lands *both* more often *and* harder as the run goes on; the move-speed
+picks make you steadily fleeter; and the dodge-cooldown picks bring your escape roll (and its i-frames)
+back sooner and sooner, so the deeper you get, the more often you can bail out of a bad spot.
 
 ## The survivor's kit
 

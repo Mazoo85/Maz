@@ -560,7 +560,7 @@ class Survivor {
     # Apply the next between-wave upgrade, cycling: +damage, +fire rate, +max health (heal), +ammo,
     # +crit chance, +crit damage, +move speed.
     func apply_upgrade() {
-        var k = self.upgrades % 7;
+        var k = self.upgrades % 8;
         if (k == 0) {
             self.dmg_mult = self.dmg_mult + 0.2;
         } else {
@@ -586,10 +586,18 @@ class Survivor {
                                 # upgrades keep paying off with bigger spikes, not just more-frequent ones.
                                 self.crit_mult = self.crit_mult + 0.25;
                             } else {
-                                # k == 6: fleeter feet — a permanent walk-speed boost. Mobility is king in
-                                # a twin-stick survival game, so a faster survivor kites the horde, reaches
-                                # loot, and repositions out of hazards more easily as the run deepens.
-                                self.move_mult = self.move_mult + 0.08;
+                                if (k == 6) {
+                                    # k == 6: fleeter feet — a permanent walk-speed boost. Mobility is king
+                                    # in a twin-stick survival game, so a faster survivor kites the horde,
+                                    # reaches loot, and repositions out of hazards more easily.
+                                    self.move_mult = self.move_mult + 0.08;
+                                } else {
+                                    # k == 7: quicker recovery — trims the dodge-roll cooldown (down to a
+                                    # 0.6s floor), so the escape roll and its i-frames come back sooner. A
+                                    # defensive/mobility pick distinct from raw walk speed.
+                                    self.dash_cd_max = self.dash_cd_max - 0.3;
+                                    if (self.dash_cd_max < 0.6) { self.dash_cd_max = 0.6; }
+                                }
                             }
                         }
                     }
