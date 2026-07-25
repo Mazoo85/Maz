@@ -74,7 +74,9 @@ better at kiting the horde and slipping out of hazards the deeper you get.
 - **Mine (T)** / **Sentry (Y)** — a proximity mine, and a stationary auto-turret that thins a lane. The
   sentry has a limited magazine and a lifetime, so place it where it'll earn its bolts.
 - **Overcharge (Q)** — a screen-wide ultimate blast that also grants a brief **invulnerability window**,
-  so it's a true panic button. Kills charge the meter; unleash it when full. Anything too tough to be
+  so it's a true panic button. Kills charge the meter; unleash it when full. Kills landed **on a hot combo
+  streak charge it faster** — up to 3× the meter per kill at ×5 — so keeping a chain alive earns the
+  ultimate far more often, and the combo system feeds straight into your panic button. Anything too tough to be
   one-shot — a boss, a Bulwark shield, a beefy elite — is left **deep-frozen** by the blast (and a
   chilled caster is silenced), so the ultimate also cryo-locks the survivors while you regroup.
 - **Last-stand adrenaline** — drop below 25% health and a desperation surge kicks in: you **fire

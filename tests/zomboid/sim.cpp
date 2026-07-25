@@ -2933,6 +2933,28 @@ int main() {
         CHECK(shotgunPush > pistolPush * 3.0);   // but the point-blank pellet shoves far harder
     }
 
+    // Combo charges the ultimate faster: a kill landed on a hot combo streak banks more Overcharge
+    // meter than a kill at base multiplier (1x at ×1–2, 2x at ×3–4, 3x at ×5) — so chain-killing earns
+    // the ultimate more often.
+    {
+        std::vector<Value> none;
+        auto ultGainAtMult = [&](double mult) {
+            SceneTree tree;
+            SceneNode* survivor = zomboid::buildScene(tree);
+            auto& vm = tree.scripts().vm();
+            const_cast<Value*>(vm.getGlobal("g_mult"))->number = mult;
+            sField(survivor, "ult")->number = 0.0;
+            sField(survivor, "ult_ready")->boolean = false;
+            Value sv = survivor->script();
+            vm.callOn(sv, "on_kill", none);
+            return sField(survivor, "ult")->number;
+        };
+        CHECK(ultGainAtMult(1.0) == 1.0);   // base streak: one charge
+        CHECK(ultGainAtMult(3.0) == 2.0);   // mid streak: double
+        CHECK(ultGainAtMult(5.0) == 3.0);   // max streak: triple
+        CHECK(ultGainAtMult(5.0) > ultGainAtMult(1.0));
+    }
+
     // Railgun armor-piercing: the beam shears any shield clean off before biting into health, so it's
     // the counter to armored zombies and Bulwark waves. A zombie off the beam keeps its shield.
     {

@@ -8,6 +8,11 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — combo streaks now charge the Overcharge ultimate faster.** Kills landed on a hot combo
+  streak bank **more ultimate meter** each (1× at ×1–2, 2× at ×3–4, 3× at ×5) instead of a flat one per
+  kill. Keeping a chain alive now earns the screen-clearing panic button far more often, so the combo
+  system feeds the ultimate — aggression and clean play compound. Headless-tested: a single kill banks
+  1 charge at ×1, 2 at ×3, and 3 at ×5.
 - **ZOMBOID — the shotgun now bodily knocks zombies back point-blank.** A shotgun pellet at close range
   lands a **heavy shove** (not just heavy damage), and that shove **fades with travel** on the same ramp
   as its damage falloff — so a blast to the face flings a zombie back and buys you space, while pellets

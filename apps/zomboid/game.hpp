@@ -196,7 +196,11 @@ class Survivor {
     # Called once per zombie kill: charges the ultimate and hands out milestone rewards.
     func on_kill() {
         self.kills = self.kills + 1;
-        self.add_ult(1);
+        # A kill charges the ultimate — and kills landed on a hot combo streak charge it FASTER: the
+        # higher the score multiplier, the more meter each kill banks (1x at ×1–2, 2x at ×3–4, 3x at ×5).
+        # So keeping a chain alive earns the panic-button ultimate far more often — aggression pays off.
+        var gain = 1 + int((g_mult - 1) * 0.5);
+        self.add_ult(gain);
         if (self.kills >= self.next_bonus) {
             self.next_bonus = self.next_bonus + self.bonus_step;
             self.grenades = self.grenades + 1;
