@@ -1142,6 +1142,48 @@ int main() {
         CHECK(nb->script().instance->findField("burn_timer")->number > 0.0); // neighbour set alight
     }
 
+    // Exploder blast sets off the environment: a dying exploder cooks off a barrel and flashes over a
+    // caustic puddle in range — the same hard-blast chain the player's mines/grenades/barrels trigger —
+    // while ones out of range are untouched.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(100.0, 100.0);   // keep the survivor clear of the blast
+        auto& vm = tree.scripts().vm();
+
+        SceneNode* ex = tree.findNode("Zombie0");
+        Value exs = ex->script();
+        std::vector<Value> espawn = {Value::fromNum(0.0), Value::fromNum(0.0), Value::fromNum(4.0),
+                                     Value::fromNum(1.0)}; // exploder (kind 4) at the origin
+        vm.callOn(exs, "spawn", espawn);
+
+        SceneNode* nearBarrel = tree.findNode("Barrel0");
+        SceneNode* farBarrel = tree.findNode("Barrel1");
+        Value nbv = nearBarrel->script();
+        Value fbv = farBarrel->script();
+        std::vector<Value> nbAt = {Value::fromNum(3.0), Value::fromNum(0.0)};   // inside blast radius 5
+        std::vector<Value> fbAt = {Value::fromNum(60.0), Value::fromNum(0.0)};  // well outside
+        vm.callOn(nbv, "place", nbAt);
+        vm.callOn(fbv, "place", fbAt);
+        SceneNode* nearAcid = tree.findNode("Acid0");
+        SceneNode* farAcid = tree.findNode("Acid1");
+        Value nav = nearAcid->script();
+        Value fav = farAcid->script();
+        std::vector<Value> naAt = {Value::fromNum(0.0), Value::fromNum(3.0)};   // inside blast radius
+        std::vector<Value> faAt = {Value::fromNum(0.0), Value::fromNum(60.0)};  // well outside
+        vm.callOn(nav, "splat_at", naAt);
+        vm.callOn(fav, "splat_at", faAt);
+        CHECK(sField(nearBarrel, "active")->boolean);
+        CHECK(sField(nearAcid, "active")->boolean);
+
+        std::vector<Value> lethal = {Value::fromNum(9999.0)};
+        vm.callOn(exs, "take_damage", lethal);                     // detonate the exploder
+        CHECK(!sField(nearBarrel, "active")->boolean);             // barrel cooked off
+        CHECK(sField(farBarrel, "active")->boolean);               // out of range — intact
+        CHECK(!sField(nearAcid, "active")->boolean);               // puddle flashed over
+        CHECK(sField(farAcid, "active")->boolean);                 // out of range — still a puddle
+    }
+
     // Molotov: thrown ahead of the survivor, it leaves a burning patch that ignites zombies standing
     // in it. Consumes one from the stock; a supply crate replenishes it.
     {

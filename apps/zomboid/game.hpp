@@ -2703,6 +2703,33 @@ class Zombie {
                     }
                     bi = bi + 1;
                 }
+                # The exploder's blast is a hard, incendiary one — so, like a mine, grenade, or barrel, it
+                # cooks off any explosive barrel in range (chaining into the barrel's own detonation)...
+                var ebi = 0;
+                var ebn = len(g_barrels);
+                while (ebi < ebn) {
+                    var eb = g_barrels[ebi];
+                    if (eb.active) {
+                        var ebx = eb.node.x - self.node.x;
+                        var eby = eb.node.y - self.node.y;
+                        if (ebx * ebx + eby * eby <= 25.0) { eb.take_damage(999); }
+                    }
+                    ebi = ebi + 1;
+                }
+                # ...and flashes over any caustic puddle it overlaps (acid is volatile — any hard blast sets
+                # it off), so an exploder popped on a spitter's pool or beside a barrel sets up the same
+                # environmental chain reaction the player's own explosives do.
+                var eai = 0;
+                var ean = len(g_acid);
+                while (eai < ean) {
+                    var ea = g_acid[eai];
+                    if (ea.active) {
+                        var eax = ea.node.x - self.node.x;
+                        var eay = ea.node.y - self.node.y;
+                        if (eax * eax + eay * eay <= 25.0) { ea.combust(); }
+                    }
+                    eai = eai + 1;
+                }
                 emit(self.node.x, self.node.y, 20, 1); # blast burst
             }
             # A splitter bursts into two fast runners at its position — UNLESS it died burning: a body

@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — an exploding zombie now sets off the environment too.** The exploder's incendiary death blast
+  already chained through other exploders and ignited nearby zombies, but — unlike the player's mines,
+  grenades, and barrels — it didn't touch the surroundings. Now it **cooks off explosive barrels** and
+  **flashes over caustic acid puddles** in its radius, completing the "any hard blast sets off volatile
+  hazards" rule for the last blast type that lacked it. Popping an exploder on a spitter's pool, or beside
+  a barrel, now sets up the same big environmental chain reaction your own explosives do (and, as ever, the
+  blast cuts both ways). Headless-tested: a dying exploder detonates a barrel and combusts a puddle in
+  range while ones outside it are untouched.
 - **ZOMBOID — a chilled or staggered spitter can't lob acid.** The spitter — the horde's one ranged
   attacker — could keep sniping you even while frozen solid or staggered mid-flinch, unlike the back-line
   casters (which a chill silences and a stagger interrupts). Its acid throw is now gated the same way: a
