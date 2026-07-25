@@ -1514,6 +1514,31 @@ int main() {
         CHECK(sField(survivor, "sentries")->number == stock1 + 1.0);
     }
 
+    // threat_of priority table: the sentry (and any threat-ranked targeting) focus-fires by a hand-maintained
+    // per-kind danger score. The sentry test below locks the behavior for ONE pair via outcome (walker vs
+    // summoner); this pins the FULL 14-kind ranking directly, so a reorder (e.g. bumping the exploder above
+    // the summoner) is caught even though the sentry test would still pass. Bosses top the list, walkers sit
+    // at the floor, and the disruptive support casters (healer, summoner) outrank raw bruisers.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        auto threat = [&](double kind) {
+            std::vector<Value> a = {Value::fromNum(kind)};
+            return vm.call("threat_of", a).number;
+        };
+        // Kinds in the intended order of increasing danger; threat_of must rank them strictly ascending.
+        const int order[14] = {0, 1, 9, 6, 4, 10, 13, 5, 8, 11, 2, 12, 7, 3};
+        for (int i = 1; i < 14; ++i) {
+            CHECK(threat(static_cast<double>(order[i])) > threat(static_cast<double>(order[i - 1])));
+        }
+        CHECK(threat(3.0) == 100.0);        // boss — top priority
+        CHECK(threat(0.0) == 10.0);         // walker — the floor
+        CHECK(threat(7.0) > threat(2.0));   // summoner (endless reinforcements) outranks a brute
+        CHECK(threat(12.0) > threat(8.0));  // healer (undoes your damage) outranks an armored body
+        CHECK(threat(99.0) == 10.0);        // unknown kind → walker-tier default, never a spurious high rank
+    }
+
     // Sentry threat-priority targeting: a sentry's magazine is scarce, so it focus-fires the highest-
     // threat zombie in range (via threat_of) rather than whatever body is merely nearest — a summoner or
     // healer outranks a walker even when the walker is closer. Among equal-threat targets, the nearest is

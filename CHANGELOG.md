@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — pin the full `threat_of` sentry-targeting priority table.** The auto-turret focus-fires the
+  highest-threat zombie via a hand-maintained per-kind danger score (boss 100 … walker 10). The sentry test
+  only locked one pair (walker vs summoner) via firing outcome, so a reorder of the table — e.g. bumping the
+  exploder above the summoner — would change targeting yet still pass. Added a direct test asserting the full
+  14-kind ranking is strictly ascending in the intended danger order, boss tops it, walker floors it, the
+  support casters (healer/summoner) outrank raw bruisers, and an unknown kind falls back to the walker tier.
+  Test-only change — no gameplay logic altered.
 - **ZOMBOID — regression-test the loot-collection economy (scattered loot, ammo box, supply crate).** The
   three renewable-resource pickups — `collect` (scattered loot: +food, +grenade, and a top-up to every
   weapon's reserve), `collect_ammo` (a dropped ammo box: 2 mags to the active weapon, a little to the rest),
