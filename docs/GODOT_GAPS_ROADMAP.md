@@ -3711,6 +3711,17 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Ray / oriented-box intersection** (`math::Obb::intersectRay`) — DONE (M552); the OBB was the one core
+  shape with a `contains` and box-box `intersects` but no ray test, while Aabb3 had `intersectRay` — so a
+  rotated collider or prop could not be picked or raycast against exactly. This is the mouse-pick / line-of-sight
+  / projectile query for an oriented box: transform the ray into the box's own frame (project origin and
+  direction onto the box axes, where the OBB becomes an axis-aligned box [-half, half] at the origin) and run
+  the standard slab test, returning the entry distance in world units (the axes are orthonormal). Verified
+  (`ctest -R ray_obb`) on a box rotated 45° about Y: a ray at a rotated face hits at the analytic entry distance
+  (5 - sqrt2); the discriminating case — a diagonal ray that crosses the box's world-AABB corner but misses the
+  rotated box itself — returns no hit (an AABB-only test would wrongly report a hit); a ray pointing away misses;
+  a ray starting inside enters at t = 0; tMax clips a far hit to a miss; and with identity rotation it agrees
+  exactly with Aabb3::intersectRay. [VERIFIABLE HERE]
 - [x] **Triangle-AABB overlap** (`math::triangleIntersectsAabb`) — DONE (M551); does a triangle touch an
   axis-aligned box? The classic Akenine-Möller "Fast 3D Triangle-Box Overlap Testing" — the primitive behind
   CONSERVATIVE voxelization (flag every cell a triangle grazes, not just where a ray samples it, unlike the

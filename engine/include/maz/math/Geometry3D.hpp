@@ -329,6 +329,35 @@ struct Obb {
         return true;
     }
 
+    // Slab ray/box test in the box's own frame: transform the ray into local coordinates (where the OBB is an
+    // axis-aligned box [-half, half] at the origin) and run the standard slab test. Returns the entry distance t
+    // in [0, tMax] (world units, since the axes are orthonormal) if the ray enters the box. This is the exact
+    // pick/raycast test for a rotated collider — the oriented counterpart of Aabb3::intersectRay.
+    std::optional<float> intersectRay(const vec3& origin, const vec3& dir,
+                                      float tMax = std::numeric_limits<float>::infinity()) const {
+        const vec3 d = origin - center;
+        // Ray in local space: component along each box axis.
+        const vec3 lo(dot(d, axis(0)), dot(d, axis(1)), dot(d, axis(2)));
+        const vec3 ld(dot(dir, axis(0)), dot(dir, axis(1)), dot(dir, axis(2)));
+        float tmin = 0.0f, tmax = tMax;
+        for (int a = 0; a < 3; ++a) {
+            if (std::fabs(ld[a]) < 1e-9f) {
+                if (lo[a] < -half[a] || lo[a] > half[a])
+                    return std::nullopt; // parallel to slab and outside it
+            } else {
+                const float inv = 1.0f / ld[a];
+                float t1 = (-half[a] - lo[a]) * inv, t2 = (half[a] - lo[a]) * inv;
+                if (t1 > t2)
+                    std::swap(t1, t2);
+                tmin = std::max(tmin, t1);
+                tmax = std::min(tmax, t2);
+                if (tmin > tmax)
+                    return std::nullopt;
+            }
+        }
+        return tmin;
+    }
+
     Aabb3 aabb() const {
         // Extent of the box projected onto each world axis.
         const vec3 e(half.x * std::fabs(axes[0][0]) + half.y * std::fabs(axes[1][0]) +
