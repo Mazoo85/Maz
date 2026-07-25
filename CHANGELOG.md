@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — register the autopilot demo run as a permanent CI smoke test.**
+  The existing headless smoke test runs only 30 frames and never enables the demo AI, so the autopilot
+  path (aim / fire / dodge / weapon-cycle / gadget use over a full run) had no automated gate — the
+  3600-frame demo run was only ever performed by hand each change. Registered it as a proper ctest
+  (`zomboid_headless_demo_soak`) so CI drives the whole game loop under AI control on every build and
+  fails on any crash or hang. Test-infrastructure change only — no game code touched.
 - **ZOMBOID — add an end-to-end firing-loop soak test.**
   The suite pokes each piece of the combat pipeline in isolation (fire spawns a bullet, a bullet kills a
   parked zombie, a kill scores), but nothing exercised the whole real-time loop as a unit. Added a soak

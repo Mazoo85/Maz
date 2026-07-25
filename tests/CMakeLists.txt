@@ -2248,6 +2248,18 @@ set_tests_properties(zomboid_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+# Autopilot soak: the plain smoke above never drives the demo AI (aim/fire/dodge/weapon-cycle), so a
+# regression in the autopilot path would slip through. Run the demo headless for a long stretch and
+# require a clean exit — a permanent, automated gate on the whole game loop under AI control (until now
+# this run was only performed by hand).
+add_test(
+    NAME zomboid_headless_demo_soak
+    COMMAND zomboid --demo --headless --frames 3600)
+
+set_tests_properties(zomboid_headless_demo_soak PROPERTIES
+    TIMEOUT 120
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 add_test(
     NAME streaming_headless_smoke
     COMMAND streaming --headless --frames 30)
