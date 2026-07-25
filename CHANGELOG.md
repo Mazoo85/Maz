@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — pin `heal()` as the discard-overflow mend (opposite of `take_medkit`).** `heal()` is the
+  plain clamp-to-max heal behind regen, the Vampiric leech, the combo-milestone bonus, and the medkit
+  power-up: it tops health up to max and throws any surplus away, never touching armor. `take_medkit`, by
+  contrast, banks the overflow as bonus armor. The new test pins that distinction so a refactor routing a
+  lifesteal tick through `take_medkit` couldn't silently hand out free armor from leeching. Test-only change
+  — no gameplay logic altered.
 - **ZOMBOID — regression-test the `leave_acid()` pooled spawner + exhaustion guard.** A spitter's glob
   spawns its caustic ground puddle through this top-level helper, which draws a dormant patch from the fixed
   pool (kAcidPool) and splats it at the requested spot. The effect tests drive puddles via `splat_at`

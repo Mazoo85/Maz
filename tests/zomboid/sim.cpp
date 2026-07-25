@@ -4225,6 +4225,32 @@ int main() {
         CHECK(std::abs(sField(survivor, "armor")->number - armorMax) < 1e-6);  // capped, not exceeded
     }
 
+    // heal() is the plain clamp-to-max mend — the OPPOSITE of take_medkit on overflow. It backs regen, the
+    // Vampiric leech, the combo-milestone bonus, and the medkit power-up: it tops health up to max and
+    // DISCARDS any surplus (no armor banked). Pinning this keeps the two heal paths distinct — a refactor
+    // that routed a lifesteal tick through take_medkit would silently hand out free armor from leeching.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+        const double maxHp = sField(survivor, "max_health")->number;
+
+        // Wounded: a partial heal just adds health, no clamp, armor untouched.
+        sField(survivor, "health")->number = maxHp - 10.0;
+        sField(survivor, "armor")->number = 25.0;
+        std::vector<Value> h4 = {Value::fromNum(4.0)};
+        vm.callOn(sv, "heal", h4);
+        CHECK(std::abs(sField(survivor, "health")->number - (maxHp - 6.0)) < 1e-6);
+        CHECK(sField(survivor, "armor")->number == 25.0);           // heal never touches armor
+
+        // Overheal: fills exactly to max and throws the surplus away — armor stays put (unlike take_medkit).
+        std::vector<Value> h100 = {Value::fromNum(100.0)};
+        vm.callOn(sv, "heal", h100);
+        CHECK(std::abs(sField(survivor, "health")->number - maxHp) < 1e-6);  // clamped to max
+        CHECK(sField(survivor, "armor")->number == 25.0);          // surplus discarded, NOT banked as armor
+    }
+
     // Salvage economy: kills bank cash, and buy() spends it on ammo/grenades/heals — succeeding when
     // the survivor can afford it, rejected (with no effect) when they can't.
     {
