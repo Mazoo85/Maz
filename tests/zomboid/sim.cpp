@@ -708,6 +708,18 @@ int main() {
         }
         CHECK(effects.size() == 8);          // all eight effect lines are distinct
 
+        // Power-up HUD names: every buff_kind (0-8) has a non-empty, distinct display name (shown with its
+        // countdown on the HUD), while the idle state (-1) and out-of-range map to empty.
+        CHECK(std::string(zomboid::powerupName(-1)).empty());  // no buff → no label
+        CHECK(std::string(zomboid::powerupName(9)).empty());   // out of range → no label
+        std::set<std::string> buffs;
+        for (int b = 0; b <= 8; ++b) {
+            std::string nm = zomboid::powerupName(b);
+            CHECK(!nm.empty());              // every buff names itself
+            buffs.insert(nm);
+        }
+        CHECK(buffs.size() == 9);            // all nine buff names are distinct
+
         const char* path = "zomboid_hs_test.ini";
         {
             maz::core::KeyValueStore w;

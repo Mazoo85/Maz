@@ -174,7 +174,8 @@ elite in the middle of a pack thins the pack and clears space around the medkit 
 
 ## Power-ups
 
-Rarely dropped by the slain, grabbed off the ground for a short buff:
+Rarely dropped by the slain, grabbed off the ground for a short buff. While one is active the HUD shows
+its **name and a live countdown**, so you always know which buff is up and when it's about to lapse:
 
 - **Rapid Fire** — doubles fire rate.
 - **Double Damage** — doubles damage.

@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the HUD now names your active power-up and counts it down.** An active buff was communicated
+  only by a subtle tint on the survivor's body — unreadable across nine different power-ups, and with no
+  way to tell when Rapid Fire / Berserk / Overflow / etc. was about to run out. The HUD now shows the
+  buff's name and a live seconds-remaining countdown (e.g. "BERSERK 5s"), so you can plan around it. Added
+  a tested `powerupName()` mapping (all nine buffs return a distinct non-empty name; idle -1 and
+  out-of-range return empty) and wired it into the HUD alongside the existing body-tint cue.
 - **ZOMBOID — the HUD now explains the active wave mutator, not just its codename.** With eight wave
   modifiers, a bare label like "SAVAGE HORDE" or "BULWARK HORDE" told a new player nothing about what
   actually changed. The mutator readout now shows a one-line plain-language effect under the codename

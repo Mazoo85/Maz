@@ -3663,6 +3663,23 @@ inline const char* mutatorEffect(int m) {
     return "";
 }
 
+// Display name for an active power-up buff (buff_kind 0-8), shown on the HUD with its countdown so the
+// player knows which buff is up — and when it's about to lapse — instead of reading it off a body tint.
+// Matches grant_powerup(): 0 rapid fire, 1 double damage, 2 shield, 3 piercing, 4 cryo nova, 5 vampiric,
+// 6 overflow, 7 frost field, 8 berserk. The idle state (buff_kind -1) and out-of-range return "".
+inline const char* powerupName(int b) {
+    if (b == 0) return "RAPID FIRE";
+    if (b == 1) return "DOUBLE DAMAGE";
+    if (b == 2) return "SHIELD";
+    if (b == 3) return "PIERCING";
+    if (b == 4) return "CRYO NOVA";
+    if (b == 5) return "VAMPIRIC";
+    if (b == 6) return "OVERFLOW";
+    if (b == 7) return "FROST FIELD";
+    if (b == 8) return "BERSERK";
+    return "";
+}
+
 // Pool / scene sizes. Public so the app and tests agree on how many sprites to expect.
 constexpr int kBulletPool = 64;
 constexpr int kZombiePool = 40;

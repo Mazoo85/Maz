@@ -901,6 +901,19 @@ int main(int argc, char** argv) {
                 font.drawText(*renderer, sw * 0.5f - 130.0f, 74.0f, cbuf,
                               render::Color{1.0f, 0.85f * pulse, 0.2f, 1.0f}, 0.6f);
             }
+            // Active power-up readout: name + countdown, so the player knows which buff is up and when it
+            // lapses (previously communicated only by a subtle body tint, unreadable across nine buffs).
+            {
+                const int bkHud = static_cast<int>(field(survivor, "buff_kind"));
+                const double btHud = field(survivor, "buff_timer");
+                if (bkHud >= 0 && btHud > 0.0) {
+                    char pbuf[48];
+                    std::snprintf(pbuf, sizeof(pbuf), "%s  %.0fs",
+                                  zomboid::powerupName(bkHud), std::ceil(btHud));
+                    font.drawText(*renderer, sw * 0.5f - 130.0f, 96.0f, pbuf,
+                                  render::Color{0.7f, 1.0f, 0.9f, 1.0f}, 0.5f);
+                }
+            }
 
             const float health = static_cast<float>(field(survivor, "health"));
             const float hunger = static_cast<float>(field(survivor, "hunger"));
