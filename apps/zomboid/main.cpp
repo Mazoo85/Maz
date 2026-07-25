@@ -755,7 +755,9 @@ int main(int argc, char** argv) {
                     else if (bk == 1) body = render::Color{1.0f, 0.6f, 0.6f, 1.0f};  // damage
                     else if (bk == 0) body = render::Color{1.0f, 0.95f, 0.5f, 1.0f}; // rapid fire
                     else if (bk == 3) body = render::Color{0.8f, 0.5f, 1.0f, 1.0f};  // piercing rounds
-                    else if (bk == 4) body = render::Color{0.6f, 0.9f, 1.0f, 1.0f};  // cryo nova
+                    // (No bk == 4 case: Cryo Nova is a one-shot — grant_powerup(4) fires the field-wide
+                    // chill and returns WITHOUT ever setting buff_kind, so the survivor never holds a
+                    // "cryo" buff. A bk == 4 tint here was dead code and is intentionally omitted.)
                     else if (bk == 5) body = render::Color{0.85f, 0.3f, 0.45f, 1.0f}; // vampiric leech
                     else if (bk == 6) body = render::Color{1.0f, 0.85f, 0.4f, 1.0f};  // overflow ammo
                     else if (bk == 7) body = render::Color{0.6f, 0.95f, 1.0f, 1.0f};  // frost field

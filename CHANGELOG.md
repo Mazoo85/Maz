@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — removed a dead cryo body-tint branch from the survivor renderer.**
+  The survivor body-tint switch had a `buff_kind == 4` (Cryo Nova) case, but that case is unreachable:
+  Cryo Nova is a one-shot panic button — `grant_powerup(4)` fires the field-wide chill and returns
+  *without* ever setting `buff_kind`, so the survivor never holds a "cryo" buff. Replaced the dead branch
+  with a comment explaining why no such case exists, so the tint list no longer implies a buff state that
+  can't occur. Code-cleanup only, no behavior change; build, headless smoke, and 3600-frame run all pass.
 - **ZOMBOID — regression-test the wave-clear pickup sweep.**
   When a wave is cleared, `vacuum_pickups` auto-collects any medkit, power-up, or ammo box still on the
   ground, so a drop that landed late in the wave isn't wasted during the lull. This convenience had no
