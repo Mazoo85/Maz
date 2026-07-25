@@ -3977,6 +3977,38 @@ int main() {
         CHECK(sField(tree.findNode("Zombie0"), "health")->number < nearMax);    // caught in the blast
         CHECK(sField(tree.findNode("Zombie1"), "health")->number == farHp0);    // far zombie untouched
     }
+    // Sentry blast sets off the environment: a sentry powering down cooks off an explosive barrel in its
+    // self-destruct radius (and flashes over a caustic puddle), while a barrel well clear is untouched —
+    // the same hard-blast chain barrels/mines/grenades/exploders trigger.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+
+        Value nearBarrel = tree.findNode("Barrel0")->script();
+        std::vector<Value> nb = {Value::fromNum(63.0), Value::fromNum(0.0)};  // 3 units from the sentry
+        vm.callOn(nearBarrel, "place", nb);
+        Value farBarrel = tree.findNode("Barrel1")->script();
+        std::vector<Value> fb = {Value::fromNum(80.0), Value::fromNum(0.0)};  // 20 units — well clear
+        vm.callOn(farBarrel, "place", fb);
+        Value acid = tree.findNode("Acid0")->script();
+        std::vector<Value> ac = {Value::fromNum(62.0), Value::fromNum(0.0)};  // puddle in blast range
+        vm.callOn(acid, "splat_at", ac);
+        CHECK(sField(tree.findNode("Barrel0"), "active")->boolean);
+        CHECK(sField(tree.findNode("Barrel1"), "active")->boolean);
+        CHECK(sField(tree.findNode("Acid0"), "active")->boolean);
+
+        Value sentry = tree.findNode("Sentry0")->script();
+        std::vector<Value> at = {Value::fromNum(60.0), Value::fromNum(0.0)};
+        vm.callOn(sentry, "deploy", at);
+        sField(tree.findNode("Sentry0"), "life")->number = 0.0001;   // about to expire
+        vm.callOn(sentry, "_process", dt);                           // ...triggers the self-destruct
+
+        CHECK(!sField(tree.findNode("Barrel0"), "active")->boolean);   // cooked off by the sentry blast
+        CHECK(sField(tree.findNode("Barrel1"), "active")->boolean);    // out of range — intact
+        CHECK(!sField(tree.findNode("Acid0"), "active")->boolean);     // puddle flashed over
+    }
 
     // Sentry threat targeting: with a scarce magazine the turret focus-fires the biggest threat in range
     // (a boss) even when a lesser one (a walker) is closer, rather than plinking the nearest body.

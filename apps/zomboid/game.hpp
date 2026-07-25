@@ -1941,6 +1941,35 @@ class Sentry {
             }
             i = i + 1;
         }
+        # The farewell blast is a real explosion, so — like a barrel, mine, grenade, or exploder death —
+        # it cooks off any explosive barrel in range and flashes over any caustic puddle it overlaps. The
+        # blast itself stays friendly to the survivor (it never damages the player directly); planting a
+        # sentry next to a barrel just means its power-down chains into the barrel's own (double-edged)
+        # blast. Completes the "every hard blast sets off volatile hazards" rule for the last explosion
+        # that skipped it.
+        var bi = 0;
+        var bn = len(g_barrels);
+        while (bi < bn) {
+            var b = g_barrels[bi];
+            if (b.active) {
+                var bx = b.node.x - self.node.x;
+                var by = b.node.y - self.node.y;
+                if (bx * bx + by * by <= 36.0) { b.take_damage(999); }
+            }
+            bi = bi + 1;
+        }
+        var ai = 0;
+        var an = len(g_acid);
+        while (ai < an) {
+            var a = g_acid[ai];
+            if (a.active) {
+                var ax = a.node.x - self.node.x;
+                var ay = a.node.y - self.node.y;
+                var rr = 6.0 + a.radius;
+                if (ax * ax + ay * ay <= rr * rr) { a.combust(); }
+            }
+            ai = ai + 1;
+        }
         emit(self.node.x, self.node.y, 20, 1);   # blast burst
         g_shake = g_shake + 1.2;
         if (g_shake > 3.0) { g_shake = 3.0; }

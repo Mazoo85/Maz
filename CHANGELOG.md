@@ -8,6 +8,15 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — a sentry's farewell blast now sets off nearby barrels and acid.** When an auto-turret
+  sentry powers down (lifetime up or magazine dry) it self-destructs in a blast that damages and staggers
+  the surrounding horde. That blast is a real explosion, yet it was the one in the game that ignored
+  explosive barrels and caustic puddles — barrels, mines, grenades, and exploder deaths all cook off a
+  barrel and flash over acid in range. The sentry blast now does too, so planting a turret beside a
+  barrel turns its power-down into a chained explosion (the sentry blast stays friendly to you; the
+  barrel it lights is the barrel's own double-edged blast). Completes the "every hard blast sets off
+  volatile hazards" rule for the last explosion that skipped it. Headless-tested: a self-destructing
+  sentry pops a barrel and flashes over a puddle in range while a barrel well clear survives.
 - **ZOMBOID — medkits reach out to a dying survivor.** Dropped health kits already drift toward you once
   you're within a short magnet radius. Now, while you're **critically wounded** (the last-stand
   *adrenaline* state, under 25% health), a kit reaches out from **twice as far** and drifts in **faster**
