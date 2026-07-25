@@ -4391,6 +4391,37 @@ int main() {
         CHECK(activeAcid(t3) >= 1);                                  // the glob landed and left acid
     }
 
+    // leave_acid() pooled spawner + exhaustion. This top-level helper draws a dormant AcidPool from the
+    // fixed pool (kAcidPool) and splats it at (x,y). The effect tests above drive puddles via splat_at
+    // directly; this pins the spawner itself: it activates one puddle at the requested spot, and once every
+    // puddle in the pool is already active a further request is a clean no-op — the pool can't overflow.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        CHECK(activeAcid(tree) == 0);                                // none active at scene start
+
+        std::vector<Value> at = {Value::fromNum(3.0), Value::fromNum(-2.0)};
+        vm.call("leave_acid", at);
+        CHECK(activeAcid(tree) == 1);                                // one puddle splatted
+        bool landedWhereAsked = false;
+        for (SceneNode* a : tree.nodesInGroup("acid")) {
+            if (sField(a, "active")->boolean) {
+                CHECK(a->x() == 3.0);
+                CHECK(a->y() == -2.0);
+                landedWhereAsked = true;
+            }
+        }
+        CHECK(landedWhereAsked);
+
+        // Fill the rest of the pool, then confirm one more request overflows nothing.
+        std::vector<Value> at0 = {Value::fromNum(0.0), Value::fromNum(0.0)};
+        for (int i = 1; i < zomboid::kAcidPool; ++i) vm.call("leave_acid", at0);
+        CHECK(activeAcid(tree) == zomboid::kAcidPool);               // whole pool now active
+        vm.call("leave_acid", at0);                                  // pool exhausted
+        CHECK(activeAcid(tree) == zomboid::kAcidPool);               // still capped — clean no-op
+    }
+
     // Acid corrodes the horde too: a zombie standing in a caustic puddle is bogged down (slowed),
     // refreshed each tick, while a zombie just outside the radius is untouched. This makes a spitter's
     // own puddle a double-edged battlefield the survivor can kite the swarm through.

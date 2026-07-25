@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — regression-test the `leave_acid()` pooled spawner + exhaustion guard.** A spitter's glob
+  spawns its caustic ground puddle through this top-level helper, which draws a dormant patch from the fixed
+  pool (kAcidPool) and splats it at the requested spot. The effect tests drive puddles via `splat_at`
+  directly; this pins the spawner itself: it activates one puddle where asked, and once every patch in the
+  pool is already active a further request is a clean no-op so the pool can't overflow. Test-only change —
+  no gameplay logic altered.
 - **ZOMBOID — regression-test the sentry's farewell blast.** When an auto-turret sentry powers down
   (`self_destruct`) it doesn't switch off silently — it detonates, dealing 50 damage and a stagger to every
   zombie within radius 6 (and cooks off barrels / combusts acid it overlaps, staying friendly to the
