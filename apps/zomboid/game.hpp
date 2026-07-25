@@ -3647,6 +3647,22 @@ inline const char* runRankLetter(int tier) {
     return "S";
 }
 
+// One-line plain-language effect for each wave mutator (1-8), shown under its codename on the HUD so a
+// player learns what "SAVAGE HORDE" (etc.) actually does instead of guessing. Kept in lockstep with the
+// mutator logic in start_wave()/spawn(): 1 feral, 2 hulking, 3 frenzy, 4 bulwark, 5 volatile,
+// 6 regenerator, 7 relentless, 8 savage. Index 0 (no mutator) and out-of-range return "".
+inline const char* mutatorEffect(int m) {
+    if (m == 1) return "faster zombies";
+    if (m == 2) return "tougher zombies";
+    if (m == 3) return "a bigger horde";
+    if (m == 4) return "shielded zombies";
+    if (m == 5) return "corpses leave acid";
+    if (m == 6) return "zombies self-heal";
+    if (m == 7) return "no knockback";
+    if (m == 8) return "harder-hitting bites";
+    return "";
+}
+
 // Pool / scene sizes. Public so the app and tests agree on how many sprites to expect.
 constexpr int kBulletPool = 64;
 constexpr int kZombiePool = 40;

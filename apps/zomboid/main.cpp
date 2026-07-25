@@ -947,6 +947,9 @@ int main(int argc, char** argv) {
                 const char* mutName = (mut >= 0 && mut < 9) ? kMutNames[mut] : "";
                 font.drawText(*renderer, sw - 300.0f, 68.0f, mutName,
                               render::Color{1.0f, 0.55f, 0.85f, 1.0f}, 0.5f);
+                // A plain-language effect line under the codename, so the modifier reads at a glance.
+                font.drawText(*renderer, sw - 300.0f, 84.0f, zomboid::mutatorEffect(mut),
+                              render::Color{0.85f, 0.5f, 0.75f, 0.9f}, 0.4f);
             }
 
             // Reticle at the mouse (crosshair) when playing.

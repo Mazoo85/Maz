@@ -246,7 +246,8 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
 - **Day / night** — a smooth threat ramp: the horde hunts faster and bites harder toward midnight,
   easing at dawn. Watch the **THREAT** readout. Night is also more lucrative — kills after dusk bank
   **50% more salvage cash**, so braving the dark hours pays off.
-- **Wave mutators** — from wave 3, each wave rolls a random modifier shown on the HUD: **Feral**
+- **Wave mutators** — from wave 3, each wave rolls a random modifier shown on the HUD (with a one-line
+  plain-language reminder of its effect under the codename, so you always know what you're up against): **Feral**
   (faster), **Hulking** (tougher), **Frenzied** (more of them), **Bulwark** (the whole horde spawns
   behind damage-absorbing shields — break them down with heavy hits), **Volatile** (every body
   ruptures into a caustic acid pool where it falls, so the arena fills with hazard and camping a

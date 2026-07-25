@@ -9,6 +9,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -694,6 +695,18 @@ int main() {
         CHECK(std::string(zomboid::runRankLetter(0)) == "D");
         CHECK(std::string(zomboid::runRankLetter(2)) == "B");
         CHECK(std::string(zomboid::runRankLetter(4)) == "S");
+
+        // Mutator HUD effect lines: every active mutator (1-8) has a non-empty, distinct plain-language
+        // effect string (shown under its codename), and "no mutator" / out-of-range map to empty.
+        CHECK(std::string(zomboid::mutatorEffect(0)).empty());   // no mutator → no line
+        CHECK(std::string(zomboid::mutatorEffect(9)).empty());   // out of range → no line
+        std::set<std::string> effects;
+        for (int m = 1; m <= 8; ++m) {
+            std::string e = zomboid::mutatorEffect(m);
+            CHECK(!e.empty());               // every real mutator explains itself
+            effects.insert(e);
+        }
+        CHECK(effects.size() == 8);          // all eight effect lines are distinct
 
         const char* path = "zomboid_hs_test.ini";
         {

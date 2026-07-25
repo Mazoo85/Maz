@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the HUD now explains the active wave mutator, not just its codename.** With eight wave
+  modifiers, a bare label like "SAVAGE HORDE" or "BULWARK HORDE" told a new player nothing about what
+  actually changed. The mutator readout now shows a one-line plain-language effect under the codename
+  (e.g. "harder-hitting bites", "shielded zombies", "corpses leave acid"), so the threat reads at a glance.
+  Added a tested `mutatorEffect()` mapping (all eight modifiers return a distinct non-empty line; "no
+  mutator" and out-of-range return empty) and wired it into the HUD.
 - **ZOMBOID — added spawn-table regression coverage (all 14 enemy kinds verified reachable).** The
   Director assigns each spawn's kind through a hand-tuned modulo priority chain; a careless reorder or a
   wrong wave-gate could silently shadow a kind so it never spawns, with no test to catch it. Added a test
