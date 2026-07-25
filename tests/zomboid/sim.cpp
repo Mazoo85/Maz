@@ -2395,6 +2395,24 @@ int main() {
         CHECK(sField(survivor, "mines")->number == mines0 + 1.0);
         CHECK(sField(survivor, "sentries")->number == sentries0 + 1.0);
         CHECK(sField(survivor, "molotovs")->number == molotovs0 + 1.0);
+
+        // No wasted salvage: a heal at full health and a plate when armor is already full are both
+        // refused WITHOUT charging (return false, cash untouched). A genuine gain still goes through.
+        cash->number = 100.0;
+        sField(survivor, "health")->number = sField(survivor, "max_health")->number; // full HP
+        std::vector<Value> buyHeal = {Value::fromNum(2.0)};
+        CHECK(vm.callOn(sv, "buy", buyHeal).boolean == false);   // refused
+        CHECK(glob(tree, "g_cash") == 100.0);                    // no charge
+
+        sField(survivor, "armor")->number = sField(survivor, "armor_max")->number; // full plate
+        std::vector<Value> buyArmor2 = {Value::fromNum(3.0)};
+        CHECK(vm.callOn(sv, "buy", buyArmor2).boolean == false); // refused
+        CHECK(glob(tree, "g_cash") == 100.0);                    // no charge
+
+        // Control: a heal that actually restores health still costs cash.
+        sField(survivor, "health")->number = 10.0;
+        CHECK(vm.callOn(sv, "buy", buyHeal).boolean);            // a real heal goes through
+        CHECK(glob(tree, "g_cash") == 40.0);                     // 100 - 60 (heal cost)
     }
 
     // Salvage economy: kills bank cash, and buy() spends it on ammo/grenades/heals — succeeding when

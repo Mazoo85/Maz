@@ -111,7 +111,7 @@ better at kiting the horde and slipping out of hazards the deeper you get.
 ## The salvage economy
 
 Every kill banks **cash**. Spend it mid-fight without pausing at the shop hotkeys (**5–9**): a field
-kit (a mine + sentry + molotov in one buy), ammo, grenades, a heal, or an armor plate. Hoard for a panic heal, or stay stocked on offense — your call.
+kit (a mine + sentry + molotov in one buy), ammo, grenades, a heal, or an armor plate. Hoard for a panic heal, or stay stocked on offense — your call. The shop **won't let you waste salvage**: a heal at full health or a fresh plate when your armor is untouched is declined and costs nothing, so a mistimed buy never throws money away.
 Salvage **scales with your combo multiplier**, too: kills landed on a hot streak pay out far more
 (up to +200% at ×5), so keeping the chain alive fills your wallet as well as your score. And when you
 **clear a wave**, any medkits or power-ups still lying on the field are swept straight to you — so a

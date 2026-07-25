@@ -937,6 +937,11 @@ class Survivor {
         if (kind == 2) { cost = 60; }
         if (kind == 3) { cost = 80; }
         if (kind == 4) { cost = 70; }
+        # Refuse a wasted buy so hard-won salvage is never thrown away on a no-op: a heal at full health,
+        # or a fresh plate when the current one isn't even scratched, is declined WITHOUT charging (the
+        # app can read the false return to keep the cash and flag the buy as unavailable).
+        if (kind == 2 and self.health >= self.max_health) { return false; }
+        if (kind == 3 and self.armor >= self.armor_max) { return false; }
         if (g_cash < cost) { return false; }
         g_cash = g_cash - cost;
         if (kind == 0) { self.collect_ammo(); }

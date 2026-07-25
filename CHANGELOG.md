@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the shop no longer lets you waste salvage on a no-op buy.** Buying a heal at full health,
+  or an armor plate when the current one is still full, previously charged the cash and did nothing. Both
+  are now **declined without charging** (the buy returns false and the wallet is untouched), so a
+  mistimed purchase in the heat of a fight never throws hard-won salvage away. Genuine buys (a heal that
+  actually restores health, a plate on scratched armor) still go through. Headless-tested: full-HP heal
+  and full-armor plate are both refused with no charge, while a real heal still costs its cash.
 - **ZOMBOID — a Warper's blink can now be interrupted mid-tell.** Like the Leaper's pounce, the Warper's
   teleport telegraphs with a rooted shimmer — but previously a stagger only *paused* it (it resumed and
   blinked the instant the flinch wore off). Now a **stagger** (shove / dash-strike / grenade concussion)
