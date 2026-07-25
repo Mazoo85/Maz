@@ -55,6 +55,30 @@ inline bool frustumIntersectsAabb(const FrustumPlanes& f, math::vec3 boxMin, mat
     return true;
 }
 
+// Frustum vs bounding sphere — the cheapest scene-cull test (one dot product per plane). Returns false only when
+// the sphere lies entirely outside a single plane (its centre is farther than `radius` behind that inward plane).
+// The sphere companion to frustumIntersectsAabb: extract the planes once (Camera3D::frustum) and cull many
+// bounding spheres against them without recomputing the frustum each time.
+inline bool frustumIntersectsSphere(const FrustumPlanes& f, math::vec3 center, float radius) {
+    for (const math::vec4& pl : f.planes) {
+        if (math::dot(math::vec3(pl), center) + pl.w < -radius) {
+            return false; // wholly outside this plane
+        }
+    }
+    return true;
+}
+
+// Frustum vs point — inside when the point is on the inward side of all six planes. The point companion to
+// frustumIntersectsAabb / frustumIntersectsSphere for the extract-once, test-many pattern.
+inline bool frustumContainsPoint(const FrustumPlanes& f, math::vec3 p) {
+    for (const math::vec4& pl : f.planes) {
+        if (math::dot(math::vec3(pl), p) + pl.w < 0.0f) {
+            return false;
+        }
+    }
+    return true;
+}
+
 class Camera3D {
 public:
     float viewportWidth = 1280.0f;
@@ -140,25 +164,11 @@ public:
         return f;
     }
 
-    bool isPointVisible(math::vec3 world) const {
-        const FrustumPlanes f = frustum();
-        for (const math::vec4& p : f.planes) {
-            if (math::dot(math::vec3(p), world) + p.w < 0.0f) {
-                return false;
-            }
-        }
-        return true;
-    }
+    bool isPointVisible(math::vec3 world) const { return frustumContainsPoint(frustum(), world); }
 
     // A sphere is visible unless it lies entirely outside any single plane.
     bool isSphereVisible(math::vec3 center, float radius) const {
-        const FrustumPlanes f = frustum();
-        for (const math::vec4& p : f.planes) {
-            if (math::dot(math::vec3(p), center) + p.w < -radius) {
-                return false;
-            }
-        }
-        return true;
+        return frustumIntersectsSphere(frustum(), center, radius);
     }
 
 private:

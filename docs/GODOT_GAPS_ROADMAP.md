@@ -3711,6 +3711,18 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Frustum sphere & point culling** (`render::frustumIntersectsSphere` / `frustumContainsPoint`) — DONE
+  (M553); the "extract the planes once, cull many objects" pattern already existed for boxes
+  (frustumIntersectsAabb) but not for bounding SPHERES — the cheapest scene-cull test, one dot product per
+  plane — nor for points. Camera3D::isSphereVisible/isPointVisible existed but recomputed all six planes on
+  every call, so culling a scene meant re-deriving the frustum per object; these free functions take a
+  pre-extracted FrustumPlanes and test thousands of objects without that per-call cost (the members now delegate
+  to them, so behaviour is unchanged and the duplicated plane loops are gone). Verified (`ctest -R frustum_cull`)
+  on a known perspective camera: a point dead-centre in front is inside while one behind the camera or far to
+  the side is out; the point / zero-radius-sphere / tiny-AABB plane tests agree; a sphere in front is visible
+  and one far behind is culled; a sphere centred behind the camera is culled when small but becomes visible once
+  its radius reaches the frustum (monotone); a huge enclosing sphere is visible; and the free functions match
+  Camera3D::isPointVisible/isSphereVisible across a spread of inputs. [VERIFIABLE HERE]
 - [x] **Ray / oriented-box intersection** (`math::Obb::intersectRay`) — DONE (M552); the OBB was the one core
   shape with a `contains` and box-box `intersects` but no ray test, while Aabb3 had `intersectRay` — so a
   rotated collider or prop could not be picked or raycast against exactly. This is the mouse-pick / line-of-sight

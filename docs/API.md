@@ -2633,6 +2633,8 @@ Camera3D — the projection helper behind Godot's Camera3D: it turns a view + pr
 **Functions:**
 
 - `inline bool frustumIntersectsAabb(const FrustumPlanes& f, math::vec3 boxMin, math::vec3 boxMax)`
+- `inline bool frustumIntersectsSphere(const FrustumPlanes& f, math::vec3 center, float radius)`
+- `inline bool frustumContainsPoint(const FrustumPlanes& f, math::vec3 p)`
 
 ### `CascadeSplits`
 <sub>`engine/include/maz/render/CascadeSplits.hpp`</sub>

@@ -187,6 +187,11 @@ target_link_libraries(maz_meshselfintersect_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_self_intersect COMMAND maz_meshselfintersect_tests)
 set_tests_properties(mesh_self_intersect PROPERTIES TIMEOUT 30)
 
+add_executable(maz_frustumcull_tests render/frustumcull.cpp)
+target_link_libraries(maz_frustumcull_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME frustum_cull COMMAND maz_frustumcull_tests)
+set_tests_properties(frustum_cull PROPERTIES TIMEOUT 30)
+
 add_executable(maz_overdraw_tests render/overdraw.cpp)
 target_link_libraries(maz_overdraw_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME overdraw_optimize COMMAND maz_overdraw_tests)
