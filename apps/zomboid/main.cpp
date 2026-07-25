@@ -247,7 +247,11 @@ int main(int argc, char** argv) {
             if (!savedThisDeath) {
                 const int w = static_cast<int>(globalNum(tree, "g_wave"));
                 const int sc = static_cast<int>(globalNum(tree, "g_score"));
-                if (zomboid::beatsBest(w, sc, bestWave, bestScore)) {
+                // Best wave and best score persist independently (the HUD shows them as two separate
+                // stats), so a run that reaches a new deepest wave saves it even if the score didn't beat
+                // the record — and vice-versa. (Previously gated on beatsBest, which is score-primary, so a
+                // deeper-but-lower-scoring run silently failed to update the best-wave stat.)
+                if (zomboid::newPersonalBest(w, sc, bestWave, bestScore)) {
                     if (w > bestWave) bestWave = w;
                     if (sc > bestScore) bestScore = sc;
                     store.set("best_wave", bestWave);

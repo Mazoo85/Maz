@@ -641,6 +641,19 @@ int main() {
         CHECK(!zomboid::beatsBest(2, 300, 3, 400));  // a worse run does not
         CHECK(!zomboid::beatsBest(2, 400, 2, 400));  // an identical run is not "better"
 
+        // newPersonalBest is the PERSISTENCE rule: best wave and best score save independently, so a run
+        // that improves EITHER axis is a new best. This is the fix for the stale-best-wave bug — a run
+        // that reaches a new deepest wave but scores below the all-time-best score still counts.
+        CHECK(zomboid::newPersonalBest(12, 400, 10, 600));  // deeper wave, LOWER score → still a new best
+        CHECK(zomboid::newPersonalBest(5, 700, 10, 600));   // shallower wave, higher score → new best
+        CHECK(zomboid::newPersonalBest(11, 601, 10, 600));  // both improved → new best
+        CHECK(!zomboid::newPersonalBest(10, 600, 10, 600)); // identical run → not a new best
+        CHECK(!zomboid::newPersonalBest(8, 500, 10, 600));  // worse on both axes → not a new best
+        // The bug this guards against: beatsBest (score-primary) would REJECT a new-deepest-wave run whose
+        // score trailed the record, so gating the save on it left best_wave stale — newPersonalBest fixes it.
+        CHECK(!zomboid::beatsBest(12, 400, 10, 600));       // (score-primary ranking says "not better"...)
+        CHECK(zomboid::newPersonalBest(12, 400, 10, 600));  // (...but it IS a new deepest wave to persist)
+
         // Run rank: a composite of wave + kills + accuracy graded S..D, monotonic in each input.
         CHECK(std::string(zomboid::runRankLetter(zomboid::runRank(1, 0, 0))) == "D");   // a quick death
         CHECK(std::string(zomboid::runRankLetter(zomboid::runRank(15, 200, 90))) == "S"); // a great run

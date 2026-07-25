@@ -3604,9 +3604,20 @@ class Loot {
 )MAZ";
 }
 
-// True when a run's (wave, score) beats the stored best — score is the primary key, wave breaks ties.
+// True when a run's (wave, score) beats the stored best as a single ranked pair — score is the primary
+// key, wave breaks ties. (Used to RANK one run against another, e.g. leaderboard ordering.)
 inline bool beatsBest(int wave, int score, int bestWave, int bestScore) {
     return score > bestScore || (score == bestScore && wave > bestWave);
+}
+
+// True when a finished run sets a new personal best on EITHER axis — a deeper wave OR a higher score.
+// Best wave and best score are PERSISTED independently (the HUD shows them as two separate stats:
+// "BEST WAVE n   SCORE n"), so reaching a new deepest wave counts as a new best even when the score
+// didn't beat the record, and vice-versa. This is the persistence/"NEW BEST!" rule; beatsBest above is
+// the single-pair ranking rule. Gating the save on beatsBest (score-primary) used to leave best_wave
+// stale — a run that reached a new deepest wave but scored below the all-time best never saved its wave.
+inline bool newPersonalBest(int wave, int score, int bestWave, int bestScore) {
+    return wave > bestWave || score > bestScore;
 }
 
 // Grade a finished run S/A/B/C/D from how far it got (wave), how much it cleared (kills), and how

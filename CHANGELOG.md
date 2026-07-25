@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — your BEST WAVE now always records your deepest run (persistence bug fix).** The end screen
+  shows best wave and best score as two independent stats, but saving both was gated on a single
+  score-primary "beats the best" check — so a run that reached a new deepest wave with a lower score than
+  your all-time-best score silently failed to update the best-wave stat, leaving it stale. Best wave and
+  best score now persist independently: a new deepest wave always saves, and a new high score always saves,
+  regardless of each other. Added `newPersonalBest()` as the persistence rule (alongside the existing
+  `beatsBest()` single-pair ranking) and headless-tested it, including the exact bug case (wave 12 / score
+  400 vs best wave 10 / score 600 is now correctly a new best).
 - **ZOMBOID — a dodge-roll now also fully rides out an exploding-barrel blast (knockback respects i-frames).**
   Same fix as the boss slam, one increment later: the barrel blast's damage already honored the dodge's
   i-frames — its own code comment even claimed the blast "respects dodge i-frames" — but the knockback fired
