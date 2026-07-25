@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — gave the new Field Medic power-up its own pickup icon.**
+  The last change added the Field Medic power-up but the on-ground pickup rendering only had icons for
+  kinds 0–8, so a dropped Field Medic fell through to the *rapid-fire* icon — misreading as the wrong
+  buff. Added a distinct green pickup sprite (no other power-up is green) and wired kind 9 to it, so a
+  Field Medic on the ground now looks like what it is. Presentation-only change; the game logic and tests
+  are unchanged, and the build, headless smoke, and 3600-frame run all pass.
 - **ZOMBOID — new power-up: Field Medic (a sustained heal-over-time).**
   Added a tenth power-up to the drop pool. **Field Medic** steadily mends the survivor for its duration —
   even mid-combat — filling the one niche the power-up roster lacked: there was no pure sustain buff

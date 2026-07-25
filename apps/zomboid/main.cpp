@@ -137,6 +137,7 @@ int main(int argc, char** argv) {
     render::TextureHandle texPowOverflow = renderer->createTexture(16, 16, makeSquare(255, 210, 90).data());
     render::TextureHandle texPowFrost = renderer->createTexture(16, 16, makeSquare(150, 240, 245).data());
     render::TextureHandle texPowBerserk = renderer->createTexture(16, 16, makeSquare(255, 90, 20).data());
+    render::TextureHandle texPowMedic = renderer->createTexture(16, 16, makeSquare(80, 230, 120).data());
     render::TextureHandle texCrate = renderer->createTexture(16, 16, makeSquare(200, 160, 90).data());
     render::TextureHandle texMine = renderer->createTexture(16, 16, makeSquare(150, 40, 40).data());
     render::TextureHandle texSentry = renderer->createTexture(16, 16, makeSquare(90, 150, 220).data());
@@ -594,7 +595,8 @@ int main(int argc, char** argv) {
                                                       : (pk == 5 ? texPowVamp
                                                          : (pk == 6 ? texPowOverflow
                                                             : (pk == 7 ? texPowFrost
-                                                               : (pk == 8 ? texPowBerserk : texPowRapid)))))));
+                                                               : (pk == 8 ? texPowBerserk
+                                                                  : (pk == 9 ? texPowMedic : texPowRapid))))))));
                 const float life = static_cast<float>(field(p, "life"));
                 const float blink = (life > 3.0f || std::sin(static_cast<float>(simTime) * 12.0f) > 0.0f)
                                         ? 1.0f
