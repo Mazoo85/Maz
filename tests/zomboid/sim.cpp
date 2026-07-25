@@ -2385,6 +2385,28 @@ int main() {
         CHECK(z->x() > x0);   // backpedaled away to reopen its firing gap
     }
 
+    // launch_spit() pooled spawner + exhaustion. A spitter's attack lobs its glob through this top-level
+    // helper, which draws a dormant Spit from the fixed pool (kSpitPool) and launches it toward the target,
+    // or does nothing once every glob in the pool is already airborne. The spitter tests above exercise the
+    // attack end-to-end; this pins the spawner itself: one call launches one glob, and a request past a
+    // full pool is a clean no-op so the pool can't overflow.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        CHECK(activeSpits(tree) == 0);                               // none airborne at scene start
+
+        std::vector<Value> shot = {Value::fromNum(0.0), Value::fromNum(0.0),
+                                   Value::fromNum(10.0), Value::fromNum(0.0)};  // launch_spit(x,y,tx,ty)
+        vm.call("launch_spit", shot);
+        CHECK(activeSpits(tree) == 1);                               // one glob launched
+
+        for (int i = 1; i < zomboid::kSpitPool; ++i) vm.call("launch_spit", shot);
+        CHECK(activeSpits(tree) == zomboid::kSpitPool);              // whole pool now airborne
+        vm.call("launch_spit", shot);                               // pool exhausted
+        CHECK(activeSpits(tree) == zomboid::kSpitPool);             // still capped — clean no-op
+    }
+
     // Spitter silenced by control: a chilled spitter can't lob a glob (frozen back-liners are silenced
     // like the casters), and neither can a staggered one — but once the effect clears it spits again.
     {

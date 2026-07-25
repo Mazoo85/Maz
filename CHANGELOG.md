@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — regression-test the `launch_spit()` pooled spawner + exhaustion guard.** A spitter lobs its
+  glob through this top-level helper, which draws a dormant Spit from the fixed pool (kSpitPool) and launches
+  it toward the target, or does nothing once every glob is already airborne. The spitter tests exercise the
+  attack end-to-end; this pins the spawner itself: one call launches one glob, and a request past a full
+  pool is a clean no-op so the pool can't overflow. Completes the pooled-spawner coverage trio alongside
+  `light_fire` and `leave_acid`. Test-only change — no gameplay logic altered.
 - **ZOMBOID — pin `Spit.splat()`, the glob's landing impact + puddle drop.** When a spitter's acid glob
   lands it does two things: a direct SPLASH hit for impact damage if it lands within its splash radius of
   the survivor (separate from the puddle's slow burn), and it always drops a caustic puddle where it lands,
