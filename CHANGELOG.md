@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — regression-test the medkit overflow-to-armor rule.**
+  A grabbed medkit (`take_medkit`, called by boss and crate drops) heals, and any surplus past full
+  health is banked as bonus armor up to the plate cap instead of being wasted — so a kit scooped up at
+  high health still pays off. This overflow rule had no direct test. Added one covering all three cases:
+  a wounded pickup just heals (no armor), a near-full pickup tops off health and banks the surplus as
+  armor, and a huge overflow is clamped at armor_max. Test-only change — no gameplay logic changed.
 - **ZOMBOID — regression-test the SECOND WIND revive mechanic.**
   The revive (`second_wind`) — a lethal hit is cancelled if the survivor has a banked charge, restoring
   half health with emergency i-frames and a crowd-clearing nova — was only ever exercised in-engine via

@@ -3658,6 +3658,41 @@ int main() {
         CHECK(sField(survivor, "health")->number == 0.0);
     }
 
+    // Medkit overflow -> armor: take_medkit heals, and any surplus past max health is banked as bonus
+    // armor (capped at armor_max) rather than wasted — so a kit grabbed at high health still pays off.
+    // Boss/crate drops call take_medkit; it previously carried no direct test.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+        const double maxHp = sField(survivor, "max_health")->number;
+        const double armorMax = sField(survivor, "armor_max")->number;   // 100
+
+        // (a) Wounded: a medkit just heals — no overflow, no armor gained.
+        sField(survivor, "health")->number = maxHp - 60.0;
+        sField(survivor, "armor")->number = 0.0;
+        std::vector<Value> kit40 = {Value::fromNum(40.0)};
+        vm.callOn(sv, "take_medkit", kit40);
+        CHECK(std::abs(sField(survivor, "health")->number - (maxHp - 20.0)) < 1e-6);
+        CHECK(sField(survivor, "armor")->number == 0.0);
+
+        // (b) Near full: fills to max, and the surplus becomes bonus armor.
+        sField(survivor, "health")->number = maxHp - 10.0;   // 10 below full
+        sField(survivor, "armor")->number = 0.0;
+        vm.callOn(sv, "take_medkit", kit40);                 // 10 heals, 30 overflows to armor
+        CHECK(std::abs(sField(survivor, "health")->number - maxHp) < 1e-6);
+        CHECK(std::abs(sField(survivor, "armor")->number - 30.0) < 1e-6);
+
+        // (c) Overflow armor is capped at armor_max — no stacking past the plate limit.
+        sField(survivor, "health")->number = maxHp - 5.0;
+        sField(survivor, "armor")->number = armorMax - 10.0; // near the plate cap
+        std::vector<Value> kit200 = {Value::fromNum(200.0)};
+        vm.callOn(sv, "take_medkit", kit200);
+        CHECK(std::abs(sField(survivor, "health")->number - maxHp) < 1e-6);
+        CHECK(std::abs(sField(survivor, "armor")->number - armorMax) < 1e-6);  // capped, not exceeded
+    }
+
     // Salvage economy: kills bank cash, and buy() spends it on ammo/grenades/heals — succeeding when
     // the survivor can afford it, rejected (with no effect) when they can't.
     {
