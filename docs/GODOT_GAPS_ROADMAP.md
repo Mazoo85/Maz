@@ -3699,6 +3699,19 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   triangle, and does it with 214× fewer triangle intersections (2,389 vs 512,000); rays pointing away miss, rays
   from inside hit the far wall, occluded() matches brute any-hit and honors the distance cutoff, maxDist clips a
   far hit to a miss, empty meshes are safe, and build + queries are deterministic. [VERIFIABLE HERE]
+- [x] **Triangle-triangle intersection** (`math::trianglesIntersect`) — DONE (M549); the narrowphase primitive the
+  math library was missing — it had ray/triangle (Möller-Trumbore), segment/triangle, and closest-point-on-triangle
+  but no triangle-vs-triangle. Do two triangles in 3D touch or cross? Tomas Möller's "A Fast Triangle-Triangle
+  Intersection Test": reject early when one triangle sits entirely on one side of the other's plane; otherwise the
+  two planes meet in a line, each triangle cuts an interval on it, and they intersect iff the intervals overlap;
+  the coplanar case falls back to a 2D convex overlap (SAT). It is the test behind mesh self-intersection QA
+  ("select self-intersecting faces"), mesh-vs-mesh overlap once a broadphase pairs candidate triangles, CSG/boolean
+  preconditions, and cloth/soft-body collision. Touching (shared edge/vertex or a graze) counts as intersecting
+  (matching Möller), so a self-intersection pass must skip adjacent pairs. Verified (`ctest -R triangle_intersect`):
+  a piercing triangle intersects and its pulled-apart / above-plane / outside-the-area variants do not; coplanar
+  overlapping / disjoint / nested / shared-edge cases resolve correctly; a vertex poking just through a face
+  intersects while one stopping just short does not; an interlocking perpendicular pair intersects; the result is
+  symmetric in its two arguments; and a degenerate (zero-area) triangle never intersects. [VERIFIABLE HERE]
 - [x] **BVH-accelerated closest point on mesh** (`render::MeshRayBvh::closestPoint`, `MeshPointHit`) — DONE
   (M548); the same triangle BVH also answers the "snap to surface / how deep am I" query — the nearest point ON
   the surface to an arbitrary point — pruned instead of brute-forced. It is the accelerated form of

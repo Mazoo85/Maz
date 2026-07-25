@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_652 headers across 20 subsystems._
+_653 headers across 20 subsystems._
 
 ## Contents
 
@@ -2382,6 +2382,19 @@ Transform2D — Godot's Transform2D: the 2x3 affine matrix behind every Node2D. 
 maz::math Transform3D — the core spatial transform Godot builds every 3D node on: a 3x3 `basis` (rotation + scale + shear, columns = the transformed X/Y/Z axes) plus a `vec3 origin`. The engine renders with GLM mat4s, but gameplay/tools code wants Godot's ergonomic API — xform / xform_inv, affine_inverse, compose with `*`, translated / rotated / scaled (global and _local variants), looking_at, and interpolate_with (translation lerp + rotation slerp + scale lerp). This is that type, semantics matched to Godot's Transform3D/Basis source. Header-only, pure, deterministic; convert to/from the renderer's mat4 with toMat4 / fromMat4. Unit-tested to the bit.  Convention note (matches Godot): looking_at aims the -Z axis at the target (Godot's "forward"), and xform_inv / inverse take the fast orthonormal path (transpose) — use affineInverse when the basis carries scale or shear.
 
 **Types:** `Transform3D`
+
+### `TriangleIntersect`
+<sub>`engine/include/maz/math/TriangleIntersect.hpp`</sub>
+
+maz::math TRIANGLE-TRIANGLE INTERSECTION — do two triangles in 3D touch or cross? This is the narrowphase primitive the engine was missing: it already has ray/triangle (Möller-Trumbore), segment/triangle, and closest-point-on-triangle, but not triangle-vs-triangle. It is the test behind mesh self-intersection QA ("select self-intersecting faces" in Blender/Godot mesh repair), mesh-vs-mesh overlap once a broadphase has paired candidate triangles, CSG/boolean preconditions, and cloth/soft-body collision. Uses Tomas Möller's "A Fast Triangle-Triangle Intersection Test" (1997): reject early when one triangle lies entirely on one side of the other's plane; otherwise the two planes meet in a line and each triangle cuts an interval on it — they intersect iff those intervals overlap. The coplanar case falls back to a 2D convex overlap (SAT). Touching (a shared edge or vertex, or one grazing the other) counts as intersecting, matching Möller — so callers doing self-intersection must skip edge/vertex-adjacent triangle pairs, which legitimately share geometry. Symmetric in its two arguments. Pure, header-only, headless.
+
+**Functions:**
+
+- `inline void triProject2(const float p[3][2], float ax, float ay, float& mn, float& mx)`
+- `inline bool triOverlap2(const float a[3][2], const float b[3][2])`
+- `inline bool coplanarTriTri(const vec3& n, const vec3& v0, const vec3& v1, const vec3& v2, const vec3& u0,`
+- `inline void triInterval(float VV0, float VV1, float VV2, float D0, float D1, float D2, float D0D1, float D0D2,`
+- `inline bool trianglesIntersect(const vec3& v0, const vec3& v1, const vec3& v2, const vec3& u0, const vec3& u1,`
 
 ### `Vector4`
 <sub>`engine/include/maz/math/Vector4.hpp`</sub>
