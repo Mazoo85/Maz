@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — moved the boss health bar to the bottom-centre to stop it clipping the wave readout.**
+  The boss bar was placed at top-centre, but that band is already dense (wave/score, upgrades, combo,
+  and power-up lines), so the bar and its label sat only a few pixels from the "WAVE n  SCORE n" line
+  and the "BOSS - ENRAGED" label overran it on common/narrow window widths. Relocated the whole bar to
+  the bottom-centre, which is clear — the health/hunger bars live bottom-LEFT and end well left of it.
+  Same bar, same enrage colouring, just a collision-free home. Presentation-only fix; the build,
+  headless smoke, and 3600-frame run all pass.
 - **ZOMBOID — fixed the SECOND WIND / OVERCHARGE HUD lines overlapping.**
   The left-column HUD runs on a ~24px line rhythm, but the banked-revive readout ("SECOND WIND x1") was
   drawn at y=140 — only 6px above the OVERCHARGE ultimate meter at y=146 — so whenever the player held a
