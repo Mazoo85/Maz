@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — pin the acid-vs-fire distinction: a caustic puddle slows the horde but deals it no damage.**
+  A spitter's acid pool bogs down any zombie wading through it (so you can kite the swarm through it) but
+  deals the pack no health damage — "already-dead flesh doesn't bleed," so to actually hurt them you must
+  *burn* the pool. The existing horde-corrosion test confirmed the slow but never asserted the no-damage half,
+  leaving the acid-vs-fire design distinction unguarded — a refactor that let acid damage zombies (turning a
+  crowd-control hazard into a free area kill) would slip by. Extended the test to confirm the in-puddle
+  zombie's health is untouched. Test-only change — no gameplay logic altered.
 - **ZOMBOID — regression-test the enraged boss's doubled slam cadence.** An enraged boss (below 35% health)
   gets four buffs: faster movement, a self-heal, reinforcement calls, and — per the manual — it "slams twice
   as often" (its ground-slam cooldown re-arms to 2.0s instead of 4.0s). The first three each had a test; the

@@ -4135,10 +4135,15 @@ int main() {
         vm.callOn(av, "splat_at", at);
         CHECK(sField(inside, "slow_timer")->number == 0.0);    // neither bogged down yet
         CHECK(sField(outside, "slow_timer")->number == 0.0);
+        const double insideHp0 = sField(inside, "health")->number;   // full health before wading in
         std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
         for (int i = 0; i < 5; ++i) vm.callOn(av, "_process", dt);   // enough to land one caustic tick
         CHECK(sField(inside, "slow_timer")->number > 0.0);     // corroded — bogged down by the sludge
         CHECK(sField(outside, "slow_timer")->number == 0.0);   // clear of the pool — unaffected
+        // ...but acid deals the horde NO damage (unlike fire): already-dead flesh doesn't bleed, so to
+        // actually hurt the pack you must BURN the pool (combust). This pins the acid-vs-fire distinction —
+        // acid is pure crowd control on zombies, a free kill only after you ignite it.
+        CHECK(sField(inside, "health")->number == insideHp0);  // slowed, not harmed
     }
 
     // Bleed / laceration: kinetic rounds open a bleeding wound that ticks damage over time. Stacks
