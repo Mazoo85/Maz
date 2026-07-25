@@ -4251,6 +4251,39 @@ int main() {
         CHECK(sField(survivor, "armor")->number == 25.0);          // surplus discarded, NOT banked as armor
     }
 
+    // apply_mults() folds the whole upgrade/buff/adrenaline stack onto the live weapon stats — the core of
+    // the progression economy. fire_rate = base_fr * rate_mult * buff_fr * (adrenaline ? 1.5 : 1.0), and
+    // damage = base_dmg * dmg_mult * buff_dmg. The individual sources (between-wave upgrades, the
+    // double-damage buff, last-stand adrenaline) are exercised elsewhere; this pins the multiplicative
+    // composition directly, so a stray '+' where a '*' belongs — or a dropped factor — can't slip through.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+        std::vector<Value> none;
+
+        sField(survivor, "base_fr")->number = 6.0;
+        sField(survivor, "base_dmg")->number = 25.0;
+        sField(survivor, "rate_mult")->number = 1.3;   // two between-wave upgrades' worth of fire rate
+        sField(survivor, "dmg_mult")->number = 1.4;    // ...and of damage
+        sField(survivor, "buff_fr")->number = 1.5;     // a rapid-fire power-up layered on top
+        sField(survivor, "buff_dmg")->number = 2.0;    // ...and a double-damage one
+
+        // Calm (no adrenaline): all four upgrade/buff factors compose multiplicatively.
+        sField(survivor, "adrenaline")->boolean = false;
+        vm.callOn(sv, "apply_mults", none);
+        CHECK(std::abs(sField(survivor, "fire_rate")->number - (6.0 * 1.3 * 1.5)) < 1e-6);   // 11.7
+        CHECK(std::abs(sField(survivor, "damage")->number - (25.0 * 1.4 * 2.0)) < 1e-6);     // 70
+
+        // Last-stand: adrenaline adds a x1.5 to fire rate only (its damage desperation bonus lives in
+        // shot_damage, applied per shot — not here), so damage is unchanged from the calm case.
+        sField(survivor, "adrenaline")->boolean = true;
+        vm.callOn(sv, "apply_mults", none);
+        CHECK(std::abs(sField(survivor, "fire_rate")->number - (6.0 * 1.3 * 1.5 * 1.5)) < 1e-6);  // 17.55
+        CHECK(std::abs(sField(survivor, "damage")->number - (25.0 * 1.4 * 2.0)) < 1e-6);          // unchanged
+    }
+
     // Salvage economy: kills bank cash, and buy() spends it on ammo/grenades/heals — succeeding when
     // the survivor can afford it, rejected (with no effect) when they can't.
     {

@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — pin `apply_mults()`, the upgrade/buff/adrenaline stat-folding.** This one method is the core
+  of the progression economy: it multiplies every source onto the live weapon stats —
+  `fire_rate = base_fr * rate_mult * buff_fr * (adrenaline ? 1.5 : 1.0)` and
+  `damage = base_dmg * dmg_mult * buff_dmg`. The individual sources (between-wave upgrades, the rapid-fire
+  and double-damage power-ups, last-stand adrenaline) are exercised elsewhere; this pins the multiplicative
+  composition directly, so a stray `+` where a `*` belongs or a dropped factor can't silently rescale the
+  whole game. Also confirms adrenaline's x1.5 lands on fire rate only (its damage bonus lives per-shot in
+  `shot_damage`). Test-only change — no gameplay logic altered.
 - **ZOMBOID — pin `heal()` as the discard-overflow mend (opposite of `take_medkit`).** `heal()` is the
   plain clamp-to-max heal behind regen, the Vampiric leech, the combo-milestone bonus, and the medkit
   power-up: it tops health up to max and throws any surplus away, never touching armor. `take_medkit`, by
