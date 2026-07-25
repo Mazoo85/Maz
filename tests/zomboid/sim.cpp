@@ -512,6 +512,38 @@ int main() {
         CHECK(!sField(survivor, "reloading")->boolean);                 // reload ended
     }
 
+    // Wave-clear sweep (vacuum_pickups): on clearing a wave, any medkit, power-up, or ammo box still on
+    // the ground is auto-collected so a late drop isn't wasted during the lull. Drop one of each far from
+    // the survivor (so the per-frame proximity pickup can't claim them first), then vacuum: all three are
+    // claimed at once and their effects applied. This wave-clear courtesy had no direct test.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        // Wounded, idle buff slot, a known ammo baseline — so each collected pickup is observable.
+        sField(survivor, "health")->number = 30.0;
+        sField(survivor, "buff_kind")->number = -1.0;
+        sField(survivor, "buff_timer")->number = 0.0;
+        const double reserve2Before = (*sField(survivor, "reserves")->array)[2].number;
+        const double healthBefore = sField(survivor, "health")->number;
+
+        // Drop one of each, far away so the per-frame proximity pickup can't claim them first.
+        std::vector<Value> far = {Value::fromNum(500.0), Value::fromNum(500.0)};
+        vm.call("drop_medkit", far);
+        std::vector<Value> farPow = {Value::fromNum(500.0), Value::fromNum(500.0), Value::fromNum(0.0)};
+        vm.call("drop_powerup", farPow);    // kind 0 = rapid fire
+        vm.call("drop_ammo", far);
+
+        std::vector<Value> none;
+        Value got = vm.call("vacuum_pickups", none);
+        CHECK(got.number >= 3.0);                                    // all three swept up at once
+
+        CHECK(sField(survivor, "health")->number > healthBefore);    // the medkit healed
+        CHECK((int)sField(survivor, "buff_kind")->number == 0);      // the power-up was granted (rapid fire)
+        CHECK(sField(survivor, "buff_timer")->number > 0.0);
+        CHECK((*sField(survivor, "reserves")->array)[2].number > reserve2Before); // ammo topped up
+    }
+
     // Loot is an ammo crate: collecting it tops up the reserve.
     {
         SceneTree tree;

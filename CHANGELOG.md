@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — regression-test the wave-clear pickup sweep.**
+  When a wave is cleared, `vacuum_pickups` auto-collects any medkit, power-up, or ammo box still on the
+  ground, so a drop that landed late in the wave isn't wasted during the lull. This convenience had no
+  direct test. Added one: drop a medkit, a power-up, and an ammo box far from the survivor, then sweep —
+  all three are claimed at once and their effects land (heal applied, buff granted, reserves topped up).
+  Test-only change — no gameplay logic changed.
 - **ZOMBOID — regression-test the partial-reserve reload.**
   When a weapon's reserve holds fewer rounds than the magazine needs, a reload moves all of the reserve
   into the mag (a partial top-up) and leaves the reserve empty — no rounds conjured, none lost. The
