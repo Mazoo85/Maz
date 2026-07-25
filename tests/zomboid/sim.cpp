@@ -1664,6 +1664,25 @@ int main() {
         CHECK(sField(survivor, "health")->number < 100.0); // the acid hit landed
     }
 
+    // Spitter maintains its firing distance: rushed to point-blank (well inside its ~7.8 hold band), it
+    // backpedals to reopen a gap rather than letting the survivor sit on top of it — the same
+    // hold-distance behaviour as the summoner and the rest of the back line.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zs = z->script();
+        std::vector<Value> spawn = {Value::fromNum(5.0), Value::fromNum(0.0), Value::fromNum(5.0),
+                                    Value::fromNum(1.0)}; // spitter 5 units away — inside the hold band
+        vm.callOn(zs, "spawn", spawn);
+        const double x0 = z->x();
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        for (int i = 0; i < 20; ++i) { vm.callOn(zs, "_process", dt); }
+        CHECK(z->x() > x0);   // backpedaled away to reopen its firing gap
+    }
+
     // Spitter silenced by control: a chilled spitter can't lob a glob (frozen back-liners are silenced
     // like the casters), and neither can a staggered one — but once the effect clears it spits again.
     {

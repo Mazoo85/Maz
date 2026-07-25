@@ -3220,10 +3220,21 @@ class Zombie {
             }
         }
         if (self.kind == 5) {
-            # Spitter: advance only until inside spitting range, then hold and lob acid on a cooldown.
+            # Spitter: a ranged artillery unit that MAINTAINS its firing distance — it advances only until
+            # inside spitting range, holds in the outer band, and backpedals if the survivor pushes well
+            # inside that range, so it keeps a firing gap rather than letting you stroll straight up to it
+            # (matching its "keeps its distance" role, like the summoner and the rest of the back line).
+            # It's still fragile (no melee bite) and silenced by chill/stagger, so cornering it or freezing
+            # it remains the counter — you just have to work past its kiting.
+            var hold = self.attack_range * 0.6;
             if (dist > self.attack_range) {
                 self.node.x = self.node.x + (dx / dist) * self.speed * aggro * sm * dt;
                 self.node.y = self.node.y + (dy / dist) * self.speed * aggro * sm * dt;
+            } else {
+                if (dist < hold and dist > 0.01) {
+                    self.node.x = self.node.x - (dx / dist) * self.speed * sm * dt;   # backpedal to keep range
+                    self.node.y = self.node.y - (dy / dist) * self.speed * sm * dt;
+                }
             }
             self.cooldown = self.cooldown - dt;
             # A chilled or staggered spitter can't lob — a frozen back-liner is silenced just like the

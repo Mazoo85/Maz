@@ -8,6 +8,15 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the Spitter now keeps its firing distance.** The Spitter is the horde's one ranged
+  attacker, described as an enemy that "keeps its distance" and lobs acid — but it only ever advanced to
+  spitting range and then stood still, so you could stroll right up and melee it down for free. Now, like
+  the summoner and the rest of the back line, it **backpedals to reopen a gap** when you push well inside
+  its range, holding a proper firing line instead of a passive stop. It stays fully counterable — it has no
+  melee bite, and a chill or a stagger still silences it outright — so cornering or freezing it is the
+  play; you just have to work past its kiting now. Completes the "ranged and support enemies actually hold
+  their distance" pattern across the whole roster. Headless-tested: a Spitter rushed to point-blank
+  backpedals away to restore its firing gap.
 - **ZOMBOID — Screamers and Healers now actually hold the back line.** Both are described as fragile
   "back-line support" — the Screamer whips the pack into a frenzy, the Healer mends its wounds — and the
   Summoner already backs away from you to stay protected. But Screamers and Healers had no such behaviour:
