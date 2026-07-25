@@ -1192,6 +1192,31 @@ class Bullet {
             }
             i = i + 1;
         }
+        # Spitter globs are shootable out of the air: a bullet that catches an in-flight acid glob
+        # destroys it clean (no puddle, like a well-timed melee swat), giving RANGED counterplay to the
+        # horde's one ranged threat — snipe the glob before it lands instead of only dodging or swatting
+        # it. A piercing round shears through and keeps going; a normal round is spent knocking it down.
+        var si = 0;
+        var sn = len(g_spits);
+        while (si < sn) {
+            var sp = g_spits[si];
+            if (sp.active) {
+                var sdx = sp.node.x - self.node.x;
+                var sdy = sp.node.y - self.node.y;
+                var srr = self.hit_radius + 1.0;   # glob is a small mid-air target
+                if (sdx * sdx + sdy * sdy <= srr * srr) {
+                    sp.active = false;                       # shot down — destroyed clean, no puddle
+                    emit(sp.node.x, sp.node.y, 5, 1);
+                    if (self.pierce_left > 0) {
+                        self.pierce_left = self.pierce_left - 1;
+                    } else {
+                        self.active = false;
+                        return;
+                    }
+                }
+            }
+            si = si + 1;
+        }
         # Explosive barrels are shootable too: a hit chips their hull and pops them at zero.
         var bi = 0;
         var bn = len(g_barrels);

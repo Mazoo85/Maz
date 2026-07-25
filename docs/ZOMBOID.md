@@ -77,7 +77,9 @@ better at kiting the horde and slipping out of hazards the deeper you get.
   pack to shove-execute stragglers is a real *sustain* button, and chaining finishers both cleans up
   and patches you up. A shove also **bats an incoming spitter acid glob out of the air** if one's in
   reach — a well-timed swing destroys the glob clean, leaving no puddle, so melee doubles as an active
-  *deflect* against ranged acid.
+  *deflect* against ranged acid. And you can **shoot globs out of the air too**: a bullet that catches an
+  in-flight glob destroys it clean (no puddle) — ranged counterplay so you can snipe a spitter's shot
+  down from across the arena, not only dodge or swat it up close.
 - **Grenade (G)** / **Molotov (X)** — a thrown frag / a lingering fire patch that both burns *and*
   **slows** anything standing in it, so it holds a lane as area denial, not just chip damage. The
   grenade also **concusses** — anything that survives the blast is briefly **stunned in place**, and a

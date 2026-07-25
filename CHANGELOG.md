@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — you can now shoot a spitter's acid glob out of the air.** A bullet that catches an
+  in-flight glob destroys it clean — no puddle left behind, exactly like a well-timed melee swat. This
+  adds **ranged** counterplay to the spitter's one ranged threat: snipe the glob down from across the
+  arena instead of only dodging it or swatting it at melee range. A piercing round shears through and
+  keeps going; a normal round is spent knocking it down. Headless-tested: a bullet fired into a hovering
+  glob deactivates it, the round is consumed, and no acid puddle is created.
 - **ZOMBOID — the pistol is now an infinite-reserve sidearm (never left disarmed).** Previously the
   starting pistol could run bone-dry — empty magazine *and* empty reserve — leaving you unable to fire or
   reload until you scrounged ammo or cash, a genuine dead-end (worst in the early game). The pistol now

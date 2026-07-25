@@ -2215,6 +2215,31 @@ int main() {
         CHECK(sField(nb2, "burn_timer")->number == 0.0);        // no fire spread
     }
 
+    // Shoot down a spitter glob: a bullet that catches an in-flight acid glob destroys it clean (no
+    // puddle) — ranged counterplay to the spitter's ranged threat.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(100.0, 100.0);   // keep the survivor clear
+        auto& vm = tree.scripts().vm();
+        SceneNode* spit = tree.findNode("Spit0");
+        spit->setPosition(10.0, 0.0);
+        sField(spit, "active")->boolean = true;      // an acid glob hanging in the air at (10,0)
+        CHECK(sField(spit, "active")->boolean);
+        CHECK(activeAcid(tree) == 0);
+
+        SceneNode* bullet = tree.findNode("Bullet0");
+        Value bv = bullet->script();
+        std::vector<Value> shot = {Value::fromNum(0.0), Value::fromNum(0.0), Value::fromNum(1.0),
+                                   Value::fromNum(0.0), Value::fromNum(70.0), Value::fromNum(25.0)};
+        vm.callOn(bv, "fire", shot);                 // fire toward +x, straight at the glob
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        for (int i = 0; i < 30 && sField(spit, "active")->boolean; ++i) vm.callOn(bv, "_process", dt);
+        CHECK(sField(spit, "active")->boolean == false);   // glob shot out of the air
+        CHECK(sField(bullet, "active")->boolean == false); // the round was spent knocking it down
+        CHECK(activeAcid(tree) == 0);                      // destroyed clean — no puddle left behind
+    }
+
     // Melee execute: a melee swing finishes a badly-wounded (<30% health) non-boss outright and refunds
     // most of its cooldown; a healthy target takes only the normal swing and no refund.
     {
