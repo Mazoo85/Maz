@@ -1602,10 +1602,20 @@ int main() {
                                     Value::fromNum(30.0), Value::fromNum(0.0)}; // spawn_at
             tree.scripts().vm().callOn(zv, "spawn_at", a);
         }
-        CHECK(aliveZombies(tree) >= 5);
+        // A too-tough body (2000 hp) survives the 500-damage blast — and is left deep-frozen by it.
+        SceneNode* tank = tree.findNode("Zombie5");
+        Value tv = tank->script();
+        std::vector<Value> ta = {Value::fromNum(6.0), Value::fromNum(0.0),
+                                 Value::fromNum(2000.0), Value::fromNum(0.0)};   // spawn_at, 2000 hp
+        tree.scripts().vm().callOn(tv, "spawn_at", ta);
+        CHECK(sField(tank, "slow_timer")->number == 0.0);    // not chilled before the blast
+
+        CHECK(aliveZombies(tree) >= 6);
         std::vector<Value> none;
         tree.scripts().vm().callOn(sv, "detonate", none);
-        CHECK(aliveZombies(tree) == 0);                      // field wiped
+        CHECK(aliveZombies(tree) == 1);                      // field wiped but the 2000-hp body survives
+        CHECK(sField(tank, "alive")->boolean);
+        CHECK(sField(tank, "slow_timer")->number > 0.0);     // ...left cryo-locked by the overcharge
         CHECK(!sField(survivor, "ult_ready")->boolean);      // charge consumed
         CHECK(sField(survivor, "ult")->number == 0.0);
     }

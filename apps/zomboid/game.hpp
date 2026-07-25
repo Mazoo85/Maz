@@ -253,7 +253,13 @@ class Survivor {
         var n = len(g_zombies);
         while (i < n) {
             var z = g_zombies[i];
-            if (z.alive) { z.take_damage(500); }
+            if (z.alive) {
+                z.take_damage(500);
+                # Anything too tough to be one-shot (a boss, a shielded bulwark, a beefy elite) is left
+                # deep-frozen by the overcharge — so the ultimate also cryo-locks the survivors (and,
+                # since a chilled caster is silenced, shuts their abilities down) while you regroup.
+                if (z.alive) { z.apply_slow(3.0); }
+            }
             i = i + 1;
         }
         emit(self.node.x, self.node.y, 40, 1);

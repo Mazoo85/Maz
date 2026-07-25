@@ -71,7 +71,9 @@ often *and* harder as the run goes on.
 - **Mine (T)** / **Sentry (Y)** — a proximity mine, and a stationary auto-turret that thins a lane. The
   sentry has a limited magazine and a lifetime, so place it where it'll earn its bolts.
 - **Overcharge (Q)** — a screen-wide ultimate blast that also grants a brief **invulnerability window**,
-  so it's a true panic button. Kills charge the meter; unleash it when full.
+  so it's a true panic button. Kills charge the meter; unleash it when full. Anything too tough to be
+  one-shot — a boss, a Bulwark shield, a beefy elite — is left **deep-frozen** by the blast (and a
+  chilled caster is silenced), so the ultimate also cryo-locks the survivors while you regroup.
 - **Last-stand adrenaline** — drop below 25% health and a desperation surge kicks in: you **fire
   faster, hit 30% harder, and shrug off a quarter of all incoming damage** until you recover. Being
   cornered is dangerous, but the surge turns it into your biggest damage window *and* buys you extra

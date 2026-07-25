@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the Overcharge ultimate now cryo-locks survivors.** The screen-wide ultimate blast hits
+  every zombie for 500 and grants brief invulnerability; now anything **too tough to be one-shot** (a
+  boss, a Bulwark shield, a beefy elite) is **left deep-frozen** by it — and since a chilled caster is
+  silenced, the ultimate also shuts their abilities down while you regroup. Extends the panic button
+  from "clear the trash" to "clear the trash *and* neutralise what's left." Headless-tested: a 2000-hp
+  body survives the blast but is left with an active chill timer.
 - **ZOMBOID — grenades now concuss (stun) the pack.** A grenade blast already chilled and damaged
   everything in range; now anything that **survives** it is also briefly **staggered — rooted in
   place** — giving the frag a genuine crowd-control identity. Because a staggered body takes the
