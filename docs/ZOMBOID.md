@@ -225,7 +225,9 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
   pops the barrel.
 - **Explosive barrels** — rusty barrels are scattered around the arena; shoot one to pop a big blast,
   and lure the horde onto them. The blast is **double-edged** — caught in it yourself you take half
-  the damage and get flung clear, so detonate them at a distance, never in your own face. **Fire cooks
+  the damage and get flung clear, so detonate them at a distance, never in your own face. (A **dodge-roll's
+  i-frames ride the blast out completely** — no damage *and* no fling — just like a boss slam, so a
+  well-timed roll is a clean escape if you're caught too near one.) **Fire cooks
   them off** too — a molotov thrown onto a barrel, or the flamethrower's cone sweeping over it, pops it
   — and a **grenade** or another barrel's blast will chain-detonate one as well. A popped barrel also
   **leaves a lingering fire patch** where it stood, so the blast keeps denying that ground (and, being

@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — a dodge-roll now also fully rides out an exploding-barrel blast (knockback respects i-frames).**
+  Same fix as the boss slam, one increment later: the barrel blast's damage already honored the dodge's
+  i-frames — its own code comment even claimed the blast "respects dodge i-frames" — but the knockback fired
+  unconditionally, so a perfectly-dodged survivor took no damage yet was still hurled clear. The fling now
+  checks i-frames too, so a well-timed roll rides the blast out completely (no damage, no knockback). With
+  this, all three player-knockback sources (brute, boss slam, barrel blast) consistently spare a dodging
+  survivor. Headless-tested: at a fixed range a no-i-frame survivor is both damaged and flung, while an
+  i-framed survivor keeps full health and stays exactly in place.
 - **ZOMBOID — a dodge-roll now fully rides out a boss ground-slam (no more knockback while invulnerable).**
   The slam's damage already respected the dodge's i-frames, but its knockback fired unconditionally, so a
   survivor who perfectly dodged a slam took no damage yet was still hurled 6 units across the arena —

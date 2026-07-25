@@ -197,6 +197,45 @@ int main() {
         CHECK(sField(offBeam, "active")->boolean);   // off-beam barrel intact
     }
 
+    // Barrel blast respects i-frames: a survivor mid-dodge rides the explosion out completely — no damage
+    // AND no knockback — matching the boss slam and brute. The blast's damage already honored i-frames, but
+    // its fling did not, so a perfectly-dodged survivor took no damage yet was still hurled clear. Two runs
+    // at a fixed range: without i-frames the blast both hurts and flings; with i-frames up neither lands.
+    {
+        // Baseline — no i-frames: the blast damages and flings the survivor.
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        sField(survivor, "health")->number = 100.0;
+        sField(survivor, "iframes")->number = 0.0;
+        auto& vm = tree.scripts().vm();
+        SceneNode* barrel = tree.findNode("Barrel0");
+        Value bv = barrel->script();
+        std::vector<Value> place = {Value::fromNum(3.0), Value::fromNum(0.0)};
+        vm.callOn(bv, "place", place);                 // barrel 3 units away, inside blast_radius 7
+        std::vector<Value> none;
+        vm.callOn(bv, "explode", none);
+        CHECK(sField(survivor, "health")->number < 100.0);   // took the half-damage blast
+        CHECK(survivor->x() < -1.0);                          // flung away from the barrel (toward -x)
+    }
+    {
+        // Dodging — i-frames up: the blast is fully ridden out.
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        sField(survivor, "health")->number = 100.0;
+        sField(survivor, "iframes")->number = 5.0;     // mid-dodge invulnerability
+        auto& vm = tree.scripts().vm();
+        SceneNode* barrel = tree.findNode("Barrel0");
+        Value bv = barrel->script();
+        std::vector<Value> place = {Value::fromNum(3.0), Value::fromNum(0.0)};
+        vm.callOn(bv, "place", place);
+        std::vector<Value> none;
+        vm.callOn(bv, "explode", none);
+        CHECK(sField(survivor, "health")->number == 100.0);  // no damage — untouchable mid-roll
+        CHECK(survivor->x() == 0.0);                          // no knockback either — rode it out
+    }
+
     // A bullet kills a zombie: park one live zombie in the line of fire and shoot it.
     {
         SceneTree tree;

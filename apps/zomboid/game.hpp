@@ -2304,6 +2304,10 @@ class Barrel {
         }
         # The blast is double-edged: a survivor caught in it takes half damage (still respecting dodge
         # i-frames, shield and armor) and is flung clear — so lure the horde onto a barrel, don't hug it.
+        # A survivor mid-dodge (i-frames up) rides the blast out completely — no damage AND no fling —
+        # just like a boss slam or a brute's blow; without the i-frame gate the knockback flung a
+        # perfectly-dodged survivor even though take_damage had already spared them, contradicting the
+        # "respecting dodge i-frames" promise right here in this comment.
         if (g_player != nil and g_player.alive) {
             var pdx = g_player.node.x - self.node.x;
             var pdy = g_player.node.y - self.node.y;
@@ -2312,8 +2316,10 @@ class Barrel {
                 g_player.take_damage(self.blast_dmg * 0.5);
                 var pm = sqrt(pd2);
                 if (pm < 0.01) { pm = 0.01; }
-                g_player.node.x = g_player.node.x + (pdx / pm) * 5.0;
-                g_player.node.y = g_player.node.y + (pdy / pm) * 5.0;
+                if (g_player.iframes <= 0) {
+                    g_player.node.x = g_player.node.x + (pdx / pm) * 5.0;
+                    g_player.node.y = g_player.node.y + (pdy / pm) * 5.0;
+                }
             }
         }
         # Chain-react to other barrels in range (self is already inactive, so no infinite loop).
