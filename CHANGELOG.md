@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — added spawn-table regression coverage (all 14 enemy kinds verified reachable).** The
+  Director assigns each spawn's kind through a hand-tuned modulo priority chain; a careless reorder or a
+  wrong wave-gate could silently shadow a kind so it never spawns, with no test to catch it. Added a test
+  that forces a deep non-boss wave (9) — which gates every kind and spawns enough bodies to reach even the
+  sparse high-modulo slots — and asserts the full non-boss roster (walker, runner, brute, exploder,
+  spitter, splitter, summoner, armored, leaper, bloater, screamer, healer, warper) all appear while the
+  boss does not. Confirms the spawn table is correct today and guards it against future regressions.
 - **ZOMBOID — hardened the Leaper's pounce against a divide-by-zero (NaN-safety).** Every other `dx/dist`
   movement division in the game floors the distance before dividing, but the Leaper's pounce-vector
   computation didn't — so if the survivor stood exactly on top of a coiled (rooted) Leaper the instant its

@@ -347,6 +347,34 @@ int main() {
         CHECK(runnerSpd > walkerSpd);            // runners outrun walkers
     }
 
+    // Spawn-table coverage: the Director picks each spawn's kind through a hand-tuned modulo priority
+    // chain, so a careless reorder or a wrong wave-gate could silently SHADOW a kind and stop it ever
+    // spawning — with no test to catch it. Force a deep non-boss wave (9): it gates every kind (the
+    // Healer needs wave >= 9) and spawns enough bodies (base 4 + 9*2 = 22) to reach even the sparse
+    // high-modulo slots (Healer at index 17, Warper at 15). Confirm the FULL non-boss roster appears and
+    // the boss does not (bosses only lead every 5th wave).
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        SceneNode* dir = tree.findNode("Director");
+        Value ds = dir->script();
+        std::vector<Value> w9 = {Value::fromNum(9.0)};
+        tree.scripts().vm().callOn(ds, "start_wave", w9);
+
+        bool seen[14];
+        for (int k = 0; k < 14; ++k) seen[k] = false;
+        for (SceneNode* z : tree.nodesInGroup("zombies")) {
+            if (!sField(z, "alive")->boolean) continue;
+            const int k = (int)sField(z, "kind")->number;
+            if (k >= 0 && k < 14) seen[k] = true;
+        }
+        // walker 0, runner 1, brute 2, exploder 4, spitter 5, splitter 6, summoner 7, armored 8,
+        // leaper 9, bloater 10, screamer 11, healer 12, warper 13 — every non-boss kind is reachable.
+        const int expected[] = {0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13};
+        for (int e : expected) { CHECK(seen[e]); }
+        CHECK(!seen[3]);   // no boss on a non-multiple-of-5 wave
+    }
+
     // A brute soaks more damage than a walker before dying (per-kind health matters).
     {
         SceneTree tree;
