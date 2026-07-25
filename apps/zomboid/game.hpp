@@ -75,12 +75,15 @@ func is_night() {
     return g_phase >= (g_day_len / 2);
 }
 
-# Aggression multiplier driving horde speed + bite damage. Smoothly ramps from 1.0 at dawn/midday up
-# to 1.7 at midnight and back down, so tension builds through dusk and eases at first light instead of
-# snapping on at a hard boundary.
+# Aggression multiplier driving horde speed + bite damage. Holds at 1.0 through the daylit first half,
+# then climbs with the falling light across the night half up to 1.7 at the darkest hour before dawn,
+# so the threat tracks exactly what the screen shows: bright means calm, dark means deadly. (The old
+# cosine peaked at dusk while the screen was still fully bright and eased off as it got darkest — the
+# reverse of the intent — so it's replaced with the same night ramp the renderer darkens by.)
 func danger() {
     var t = g_phase / g_day_len;                     # 0..1 across a full day
-    var night = (1.0 - cos(t * 6.2831853)) / 2.0;    # 0 at midday/dawn, 1 at midnight
+    var night = 0.0;                                 # daylit first half: no aggression bonus
+    if (t >= 0.5) { night = (t - 0.5) * 2.0; }       # night half: 0 at dusk, climbing to 1 before dawn
     return 1.0 + 0.7 * night;
 }
 

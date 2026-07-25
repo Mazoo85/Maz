@@ -246,9 +246,11 @@ its **name and a live countdown**, so you always know which buff is up and when 
   a health patch-up, and a cash reward** — and the cash escalates the longer your no-hit streak runs
   (25, then 40, 55, … up to 100), so stringing perfect waves together is a real high-skill payout.
   One hit resets the streak.
-- **Day / night** — a smooth threat ramp: the horde hunts faster and bites harder toward midnight,
-  easing at dawn. Watch the **THREAT** readout. Night is also more lucrative — kills after dusk bank
-  **50% more salvage cash**, so braving the dark hours pays off.
+- **Day / night** — a smooth threat ramp tied to the light: the daylit first half of each cycle is calm
+  (THREAT x1.0), then as the screen darkens through the night the horde hunts faster and bites harder,
+  peaking at **THREAT x1.7** in the pitch-dark hour before dawn. Watch the **THREAT** readout — it now
+  matches exactly how dark the world looks. Night is also more lucrative — kills after dusk bank **50%
+  more salvage cash**, so braving the dark hours pays off.
 - **Wave mutators** — from wave 3, each wave rolls a random modifier shown on the HUD (with a one-line
   plain-language reminder of its effect under the codename, so you always know what you're up against): **Feral**
   (faster), **Hulking** (tougher), **Frenzied** (more of them), **Bulwark** (the whole horde spawns

@@ -941,11 +941,9 @@ int main(int argc, char** argv) {
             font.drawText(*renderer, bx + bw2 + 16.0f, by - 4.0f, buf, kWhite, 0.55f);
 
             const bool night = nightT > 0.001f;
-            // Threat multiplier tracks the smooth danger() ramp: 1.0 by day up to 1.7 at midnight.
-            const double phaseNow = globalNum(tree, "g_phase");
-            const double dayLenNow = globalNum(tree, "g_day_len");
-            const double threat =
-                1.0 + 0.7 * (1.0 - std::cos(phaseNow / dayLenNow * 6.2831853)) * 0.5;
+            // Threat multiplier mirrors the script's danger(): 1.0 by day, climbing with the on-screen
+            // darkness (nightT) to 1.7 at the darkest hour, so the number matches what the player sees.
+            const double threat = 1.0 + 0.7 * static_cast<double>(nightT);
             char threatBuf[48];
             std::snprintf(threatBuf, sizeof(threatBuf), "%s  THREAT x%.1f",
                           night ? "NIGHT" : "DAY", threat);

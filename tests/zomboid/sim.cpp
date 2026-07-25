@@ -1578,8 +1578,11 @@ int main() {
         CHECK(glob(tree, "g_score") == afterBonus);
     }
 
-    // Day/night danger ramp: aggression smoothly rises from 1.0 at dawn/midday to 1.7 at midnight and
-    // back, so night speeds up the horde and hardens its bite (danger() scales both).
+    // Day/night danger ramp. The horde's aggression must track the on-screen darkness: flat at 1.0
+    // through the daylit first half, then climbing across the night half to ~1.7 at the darkest hour
+    // before dawn (danger() scales both horde speed and bite). Regression guard: the original cosine
+    // peaked at dusk in full daylight and eased off as the screen got darkest — the exact reverse of
+    // the intent, which made deep night the SAFEST time. These checks pin the corrected ramp.
     {
         SceneTree tree;
         zomboid::buildScene(tree);
@@ -1588,22 +1591,25 @@ int main() {
         Value* phase = const_cast<Value*>(vm.getGlobal("g_phase"));
         std::vector<Value> none;
 
-        phase->number = 0.0;                       // dawn
-        const double dDawn = vm.call("danger", none).number;
-        phase->number = dayLen * 0.25;             // dusk
+        phase->number = 0.0;                       // midday / start of the daylit half
+        const double dMidday = vm.call("danger", none).number;
+        phase->number = dayLen * 0.25;             // still broad daylight
+        const double dDay = vm.call("danger", none).number;
+        phase->number = dayLen * 0.5;              // dusk: night is just beginning
         const double dDusk = vm.call("danger", none).number;
-        phase->number = dayLen * 0.5;              // midnight
-        const double dMid = vm.call("danger", none).number;
+        phase->number = dayLen * 0.75;             // deep night
+        const double dNight = vm.call("danger", none).number;
+        phase->number = dayLen * 0.99;             // the darkest hour, right before dawn
+        const double dDark = vm.call("danger", none).number;
 
-        CHECK(dDawn > 0.99 && dDawn < 1.01);       // ~1.0 by day
-        CHECK(dMid > 1.69 && dMid < 1.71);         // ~1.7 at deep night
-        CHECK(dDusk > dDawn && dDusk < dMid);      // smoothly ramping through dusk
-
-        // Symmetry: the pre-dawn small hours ease back toward day.
-        phase->number = dayLen * 0.75;
-        const double dPre = vm.call("danger", none).number;
-        CHECK(dPre > dDawn && dPre < dMid);
-        phase->number = 0.0;                       // restore
+        CHECK(dMidday > 0.99 && dMidday < 1.01);   // ~1.0 by day
+        CHECK(dDay > 0.99 && dDay < 1.01);         // the entire first half stays calm daylight
+        CHECK(dDusk > 0.99 && dDusk < 1.01);       // aggression only starts to climb once night falls
+        CHECK(dNight > dDusk);                      // ...then rises monotonically through the night
+        CHECK(dDark > dNight);
+        CHECK(dDark > 1.68 && dDark < 1.71);       // ~1.7 at the darkest hour
+        CHECK(dDark > dMidday);                     // core fix: the dead of night is deadlier than noon
+        phase->number = 0.0;                        // restore
     }
 
     // Explosive barrels: live from the start, they detonate when shot (or chipped to zero hull),

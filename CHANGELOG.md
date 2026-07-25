@@ -8,6 +8,16 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — fixed the day/night threat so darkness is genuinely deadlier, not safer.**
+  The whole point of the night cycle is that the horde gets more dangerous as it gets dark. But the
+  aggression curve was mis-timed: it actually *peaked at dusk while the screen was still fully bright*
+  and then *eased back to its calmest exactly when the world was pitch black* — the reverse of the
+  intent, quietly making the dead of night the safest time to fight. Rewrote the threat ramp so it now
+  tracks the on-screen darkness directly: calm (x1.0) through the daylit half, then climbing to x1.7 at
+  the darkest hour before dawn. The HUD's THREAT number and "DAY/NIGHT" label, the screen dimming, and
+  the actual horde speed/bite are all driven by one consistent curve now, so what you see matches what
+  you fight. Verified: builds clean and the full test suite (with an updated day/night ramp test that
+  pins the corrected behavior), headless smoke, and the 3600-frame run all pass.
 - **ZOMBOID — locked in a regression test so buying and weapon-switching can never bleed into each other again.**
   The recent key-5 fix stopped a shop purchase and a weapon switch from firing on the same press, but that bug
   lived in host input dispatch (not something the automated tests could catch). This adds a headless test that
