@@ -953,6 +953,10 @@ class Survivor {
         # app can read the false return to keep the cash and flag the buy as unavailable).
         if (kind == 2 and self.health >= self.max_health) { return false; }
         if (kind == 3 and self.armor >= self.armor_max) { return false; }
+        # An ammo refill is a no-op while the pistol (weapon 0) is equipped — its reserve is bottomless, so
+        # a purchased refill would just top up a pool that's never drawn down. Decline it without charging;
+        # switch to a power weapon before restocking. (Every other weapon has a finite reserve worth refilling.)
+        if (kind == 0 and self.weapon == 0) { return false; }
         if (g_cash < cost) { return false; }
         g_cash = g_cash - cost;
         if (kind == 0) { self.collect_ammo(); }

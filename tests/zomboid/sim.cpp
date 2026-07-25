@@ -2692,6 +2692,32 @@ int main() {
         CHECK(sField(survivor, "health")->number == hp0);      // no heal applied
     }
 
+    // Shop no-waste on ammo: an ammo refill (kind 0) is declined for free while the pistol is equipped
+    // (its reserve is bottomless, so the refill would do nothing), but goes through on a power weapon.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value* cash = const_cast<Value*>(vm.getGlobal("g_cash"));
+        Value sv = survivor->script();
+        std::vector<Value> buyAmmo = {Value::fromNum(0.0)};
+
+        // Pistol equipped: the buy is refused without charging.
+        setWeapon(tree, survivor, 0);
+        cash->number = 100.0;
+        Value onPistol = vm.callOn(sv, "buy", buyAmmo);
+        CHECK(!onPistol.boolean);                               // declined — pistol reserve is infinite
+        CHECK(glob(tree, "g_cash") == 100.0);                  // no salvage spent
+
+        // SMG equipped: the buy lands, spending cash and topping up that weapon's reserve.
+        setWeapon(tree, survivor, 2);
+        const double res0 = (*sField(survivor, "reserves")->array)[2].number;
+        Value onSmg = vm.callOn(sv, "buy", buyAmmo);
+        CHECK(onSmg.boolean);                                   // a finite reserve is worth refilling
+        CHECK(glob(tree, "g_cash") == 50.0);                  // 100 - 50
+        CHECK((*sField(survivor, "reserves")->array)[2].number > res0);  // reserve grew
+    }
+
     // Bloater (kind 10): a slow, tanky zombie that bursts into a lingering toxic cloud (an acid puddle)
     // when it dies — so a careless point-blank kill leaves the survivor standing in poison.
     {

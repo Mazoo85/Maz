@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the shop won't sell a wasted ammo refill on the pistol.** The pistol's reserve is bottomless
+  (it never runs dry), so buying an ammo refill while it's equipped spent 50 salvage on a pool that's never
+  drawn down. The shop now declines that buy for free — the same "never throw away hard-won salvage" guard
+  that already blocks a heal at full health or a fresh armor plate over an untouched one — and the refill
+  still lands normally on any power weapon (which has a finite reserve worth topping up). Headless-tested:
+  an ammo buy on the pistol is refused with no cash spent, while the same buy on the SMG spends the cash
+  and grows its reserve.
 - **ZOMBOID — a burning bloater erupts into fire instead of a toxic cloud.** A bloater normally ruptures on
   death into a lingering caustic pool (poison ground you must route around). Now *how* it dies matters: a
   bloater killed while **on fire** has its volatile gas ignite, so it bursts into a **fire patch** instead
