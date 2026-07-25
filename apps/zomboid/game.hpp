@@ -2101,6 +2101,7 @@ class Zombie {
     var frenzy_timer = 0;  # while > 0 the zombie is whipped into a screamer's frenzy — moves faster
     var scream_warn = 0;   # screamer (kind 11) shriek wind-up: telegraph beat before the shriek lands
     var mend_warn = 0;     # healer (kind 12) mend wind-up: telegraph beat before the heal pulse lands
+    var summon_warn = 0;   # summoner (kind 7) call wind-up: telegraph beat before reinforcements arrive
 
     func _ready() { g_zombies.append(self); }
 
@@ -2652,16 +2653,29 @@ class Zombie {
             self.health = self.health + self.max_health * 0.06 * dt;
             if (self.health > self.max_health) { self.health = self.max_health; }
         }
-        # Summoner (kind 7): periodically calls a reinforcement until its budget runs out.
+        # Summoner (kind 7): periodically calls a reinforcement until its budget runs out — now with a
+        # telegraph wind-up first, so you get a window to burst the back-liner (or chill it) before the
+        # reinforcement lands. A chilled caster is silenced (cryo shuts down the whole back line), and a
+        # chill during the wind-up fizzles the call.
         if (self.kind == 7 and self.summon_budget > 0) {
-            self.summon_cd = self.summon_cd - dt;
-            # A chilled caster is silenced — a frozen body can't work its ability, so cryo shuts down
-            # the whole back line (summoner, screamer, healer) until the chill wears off.
-            if (self.summon_cd <= 0 and self.slow_timer <= 0) {
-                self.summon_cd = 4.0;
-                if (self.summon(1) > 0) {
-                    self.summon_budget = self.summon_budget - 1;
-                    emit(self.node.x, self.node.y, 8, 1);
+            if (self.summon_warn > 0) {
+                self.summon_warn = self.summon_warn - dt;
+                if (self.slow_timer > 0) {
+                    self.summon_warn = 0;   # chilled mid-wind-up → the call fizzles
+                } else {
+                    if (self.summon_warn <= 0) {
+                        if (self.summon(1) > 0) {
+                            self.summon_budget = self.summon_budget - 1;
+                            emit(self.node.x, self.node.y, 8, 1);
+                        }
+                    }
+                }
+            } else {
+                self.summon_cd = self.summon_cd - dt;
+                if (self.summon_cd <= 0 and self.slow_timer <= 0) {
+                    self.summon_warn = 0.6;                       # start the telegraph
+                    self.summon_cd = 4.0;                         # reset now so it won't retrigger mid-tell
+                    emit(self.node.x, self.node.y, 2, 1);         # tell puff — reinforcements incoming
                 }
             }
         }

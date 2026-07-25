@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the Summoner now telegraphs its call (back-line trio complete).** Completing the readable
+  back line, the Summoner no longer calls reinforcements the instant its cooldown is up — it **winds up
+  with a tell first**, so you get a window to burst the fragile caster (or **chill it**) before the
+  reinforcement arrives. Killing it during the wind-up cancels the call; a chill mid-tell fizzles it.
+  Now all three back-liners (Summoner, Screamer, Healer) telegraph their abilities, so target-priority is
+  a reaction you can see. Headless-tested: no reinforcement on the tell tick but one arrives once the
+  call lands, and chilling the summoner during the wind-up prevents it.
 - **ZOMBOID — the flamethrower now lays a lingering ground-fire trail.** Sweeping the flamethrower now
   paints **burning ground** mid-cone (on a short throttle), so the flames keep denying a lane for a few
   seconds after you stop firing — and, being fire, the trail **flashes over any acid it touches** (pairs

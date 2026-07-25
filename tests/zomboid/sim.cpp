@@ -3303,6 +3303,56 @@ int main() {
         CHECK(activeFires(tree) == 1);                          // throttled — no second patch yet
     }
 
+    // Summoner telegraph: the summoner now winds up with a tell before calling a reinforcement, so you
+    // get a window to burst or chill it first. Verify the wind-up delays the summon, that the summon
+    // lands after it, and that a chill during the wind-up fizzles it.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        std::vector<Value> sumSp = {Value::fromNum(0.0), Value::fromNum(0.0),
+                                    Value::fromNum(7.0), Value::fromNum(5.0)};   // summoner at origin
+        std::vector<Value> chill = {Value::fromNum(4.0)};
+        auto aliveZombies = [](SceneTree& t) {
+            int c = 0;
+            for (SceneNode* z : t.nodesInGroup("zombies")) {
+                if (z->script().instance->findField("alive")->boolean) { c = c + 1; }
+            }
+            return c;
+        };
+
+        // Wind-up then summon: no reinforcement on the tell tick, but one arrives once it lands.
+        SceneTree t1;
+        SceneNode* p1 = zomboid::buildScene(t1);
+        p1->setPosition(200.0, 200.0);
+        auto& vm1 = t1.scripts().vm();
+        Value s1 = t1.findNode("Zombie0")->script();
+        vm1.callOn(s1, "spawn", sumSp);
+        sField(t1.findNode("Zombie0"), "speed")->number = 0.0;
+        sField(t1.findNode("Zombie0"), "summon_cd")->number = 0.0;
+        const int before1 = aliveZombies(t1);
+        vm1.callOn(s1, "_process", dt);                          // enters the wind-up
+        CHECK(sField(t1.findNode("Zombie0"), "summon_warn")->number > 0.0);
+        CHECK(aliveZombies(t1) == before1);                      // no reinforcement yet
+        for (int i = 0; i < 50; ++i) { vm1.callOn(s1, "_process", dt); }
+        CHECK(aliveZombies(t1) > before1);                       // reinforcement arrived
+
+        // Chill during the wind-up fizzles the call: no reinforcement.
+        SceneTree t2;
+        SceneNode* p2 = zomboid::buildScene(t2);
+        p2->setPosition(200.0, 200.0);
+        auto& vm2 = t2.scripts().vm();
+        Value s2 = t2.findNode("Zombie0")->script();
+        vm2.callOn(s2, "spawn", sumSp);
+        sField(t2.findNode("Zombie0"), "speed")->number = 0.0;
+        sField(t2.findNode("Zombie0"), "summon_cd")->number = 0.0;
+        const int before2 = aliveZombies(t2);
+        vm2.callOn(s2, "_process", dt);
+        CHECK(sField(t2.findNode("Zombie0"), "summon_warn")->number > 0.0);
+        vm2.callOn(s2, "apply_slow", chill);
+        for (int i = 0; i < 50; ++i) { vm2.callOn(s2, "_process", dt); }
+        CHECK(aliveZombies(t2) == before2);                      // fizzled — no reinforcement
+
+    }
+
     // Railgun armor-piercing: the beam shears any shield clean off before biting into health, so it's
     // the counter to armored zombies and Bulwark waves. A zombie off the beam keeps its shield.
     {

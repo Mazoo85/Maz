@@ -126,7 +126,7 @@ Fourteen zombie types join the horde as the waves climb:
 | 4 | **Exploder** | Detonates on death — shoot it from a distance. Its blast now **chain-detonates other exploders** in range, so a cluster daisy-chains into a string of blasts: lure them together and pop one to wipe the group, but don't be standing in it yourself. |
 | 5 | **Spitter** | Hangs back and lobs acid that leaves a caustic **puddle** on the ground — it eats your health *and* **slows you to half speed** while you stand in it, so slog clear rather than tanking it. |
 | 6 | **Splitter** | Bursts into two runners when killed. |
-| 7 | **Summoner** | A back-line necromancer that **keeps its distance** — retreats when you close in while it calls reinforcements. Chase it down. |
+| 7 | **Summoner** | A back-line necromancer that **keeps its distance** — retreats when you close in while it calls reinforcements. Each call **winds up with a tell first**, so you get a beat to burst it or **chill it** to cancel the summon. Chase it down. |
 | 8 | **Armored** | Modest health behind a heavy damage-absorbing **shield** — break it down first. |
 | 9 | **Leaper** | Light and quick; closes the gap in sudden **pounces** — but it **crouches and flashes** as it coils, so read the tell and juke sideways to dodge the lunge. |
 | 10 | **Bloater** | Fat, slow, tanky; ruptures into a **toxic cloud** on death — kill it at range. |
