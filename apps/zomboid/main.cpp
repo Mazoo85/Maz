@@ -917,7 +917,10 @@ int main(int argc, char** argv) {
             {
                 const int bkHud = static_cast<int>(field(survivor, "buff_kind"));
                 const double btHud = field(survivor, "buff_timer");
-                if (bkHud >= 0 && btHud > 0.0) {
+                // Gate on `alive`: buff_timer stops ticking when the survivor's _process early-returns on
+                // death, so a buff active at the moment of death would otherwise freeze its countdown and
+                // linger on the game-over screen (same reason the LAST STAND banner is alive-gated).
+                if (alive && bkHud >= 0 && btHud > 0.0) {
                     char pbuf[48];
                     std::snprintf(pbuf, sizeof(pbuf), "%s  %.0fs",
                                   zomboid::powerupName(bkHud), std::ceil(btHud));

@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — stop a frozen power-up countdown lingering on the game-over screen.**
+  Same class of fix as the LAST STAND gating: the active-power-up readout (name + countdown) drew
+  unconditionally, but `buff_timer` stops ticking once the survivor's per-frame update early-returns on
+  death — so a buff still up at the moment of death would freeze its countdown (e.g. "RAPID FIRE 3s") and
+  sit on the "YOU DIED" screen indefinitely. Gated the readout on the survivor being alive. Presentation-
+  only fix; build, headless smoke, and 3600-frame run all pass.
 - **ZOMBOID — stop the LAST STAND banner lingering on the game-over screen.**
   The new LAST STAND callout keys off the survivor's `adrenaline` flag, but the survivor's per-frame
   update early-returns on death *before* that flag is recomputed — so a survivor who died while
