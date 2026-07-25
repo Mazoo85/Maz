@@ -828,7 +828,7 @@ int main(int argc, char** argv) {
             const render::Color kDim{0.75f, 0.8f, 0.85f, 1};
             font.drawText(*renderer, 16.0f, 12.0f, "ZOMBOID", kWhite, 0.8f);
             font.drawText(*renderer, 16.0f, 46.0f,
-                          autopilot ? "AUTOPILOT" : "WASD  AIM  FIRE  1-5 GUN  SPACE DODGE  F MELEE  T MINE  G NADE  E EAT",
+                          autopilot ? "AUTOPILOT" : "WASD  AIM  FIRE  1-5 GUN  R RELOAD  SPACE DODGE  F MELEE  T MINE  G NADE  E EAT",
                           kDim, 0.45f);
             // Active weapon name.
             const char* kWeaponNames[5] = {"PISTOL", "SHOTGUN", "SMG", "RAILGUN", "FLAME"};

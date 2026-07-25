@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — surface the RELOAD key in the on-screen controls hint.** The controls one-liner listed most
+  actions (move / aim / fire / weapons / dodge / melee / mine / grenade / eat) but omitted **R (reload)** —
+  the one referenced key not shown anywhere else on the HUD (the gadget keys appear on the gadget line, the
+  ultimate on its meter, the shop buys on the cash line). Reload is automatic when a mag empties, but the
+  *active reload* — tapping R in the timing window for a +30% damage surge — is a real skill mechanic that
+  was undiscoverable in-game without the external manual. Added `R RELOAD` to the hint. Host HUD text only —
+  no game logic altered; the headless soak run confirms no regression.
 - **ZOMBOID — tint the survivor while bogged in acid, closing the last status-without-feedback gap.** Every
   status the survivor can be in tints the player sprite so its effect reads at a glance — power-up buffs, the
   last-stand adrenaline pulse, the active-reload surge glow, the armor-plate sheen, and the dodge i-frame
