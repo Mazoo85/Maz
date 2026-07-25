@@ -2592,6 +2592,37 @@ int main() {
         CHECK(leaped2);   // left undisturbed, the pounce fires
     }
 
+    // Leaper interrupt — chill variant: the coil-break at game.hpp is `stagger OR chill`, and the
+    // stagger half is covered above. A chill (slow_timer) landed DURING the coil must break the pounce
+    // just the same — freezing a coiled leaper uncoils it harmlessly, denying the leap. This exercises
+    // the slow_timer half of that OR, a distinct code path from the stagger test.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        const_cast<Value*>(vm.getGlobal("g_phase"))->number = 0.0;
+        SceneNode* leaper = tree.findNode("Zombie0");
+        Value lv = leaper->script();
+        std::vector<Value> sp = {Value::fromNum(30.0), Value::fromNum(0.0),
+                                 Value::fromNum(9.0), Value::fromNum(5.0)}; // spawn(x,y,kind=9,wave=5)
+        vm.callOn(lv, "spawn", sp);
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+
+        // Drive until it enters the coil (leap_wind > 0), before any pounce fires.
+        for (int i = 0; i < 900 && sField(leaper, "leap_wind")->number <= 0.0; ++i)
+            vm.callOn(lv, "_process", dt);
+        CHECK(sField(leaper, "leap_wind")->number > 0.0);   // coiled and telegraphing
+        CHECK(sField(leaper, "leaping")->number == 0.0);    // not yet airborne
+
+        // Chill it mid-coil, then step once: the pounce is interrupted, not merely delayed.
+        std::vector<Value> chill = {Value::fromNum(0.5)};
+        vm.callOn(lv, "apply_slow", chill);
+        vm.callOn(lv, "_process", dt);
+        CHECK(sField(leaper, "leap_wind")->number == 0.0);  // coil broken by the chill
+        CHECK(sField(leaper, "leaping")->number == 0.0);    // never left the ground
+    }
+
     // Warper interrupt: a stagger during the blink tell cancels the teleport outright (warp_warn resets,
     // no blink). An uninterrupted warper does blink toward the survivor (control).
     {

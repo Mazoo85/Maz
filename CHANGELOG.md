@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — regression-test the leaper's chill interrupt (the frozen-mid-coil case).**
+  A leaper's pounce can be broken during its wind-up by *either* a stagger *or* a chill, but only the
+  stagger half of that was covered by a test. Added a regression test for the chill variant: freeze a
+  leaper mid-coil and confirm the pounce is cancelled outright (it uncoils without ever leaving the
+  ground). Test-only change — no gameplay logic changed — locking in the promise that freezing a coiled
+  leaper denies the leap, just like staggering it does.
 - **ZOMBOID — Field Medic now tints the survivor green while active, completing its visual set.**
   Every active power-up recolors the survivor's body so you can read your current buff at a glance, but
   the switch only covered kinds 0–8 — a Field Medic gave *no* body tint, the only buff that looked
