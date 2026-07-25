@@ -2283,6 +2283,45 @@ int main() {
         CHECK(activeAcid(tree) == 0);                      // destroyed clean — no puddle left behind
     }
 
+    // Fire denies the split: a splitter (kind 6) killed while burning is incinerated and spawns no
+    // runners, while an unlit splitter bursts into two.
+    {
+        auto aliveCount = [](SceneTree& t) {
+            int c = 0;
+            for (SceneNode* z : t.nodesInGroup("zombies"))
+                if (sField(z, "alive")->boolean) ++c;
+            return c;
+        };
+        std::vector<Value> spawn6 = {Value::fromNum(0.0), Value::fromNum(0.0), Value::fromNum(6.0),
+                                     Value::fromNum(3.0)}; // spawn(x,y,kind=6,wave=3)
+        std::vector<Value> lethal = {Value::fromNum(9999.0)};
+
+        // Burning splitter: incinerated, no split.
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        SceneNode* sp = tree.findNode("Zombie0");
+        Value spv = sp->script();
+        vm.callOn(spv, "spawn", spawn6);
+        CHECK(aliveCount(tree) == 1);
+        std::vector<Value> torch = {Value::fromNum(2.0), Value::fromNum(12.0)};
+        vm.callOn(spv, "ignite", torch);
+        vm.callOn(spv, "take_damage", lethal);
+        CHECK(!sField(sp, "alive")->boolean);
+        CHECK(aliveCount(tree) == 0);   // burned before it could rupture — no runners
+
+        // Control: an unlit splitter bursts into two runners.
+        SceneTree t2;
+        zomboid::buildScene(t2);
+        auto& vm2 = t2.scripts().vm();
+        SceneNode* sp2 = t2.findNode("Zombie0");
+        Value sp2v = sp2->script();
+        vm2.callOn(sp2v, "spawn", spawn6);
+        vm2.callOn(sp2v, "take_damage", lethal);
+        CHECK(!sField(sp2, "alive")->boolean);
+        CHECK(aliveCount(t2) == 2);     // burst into two runners
+    }
+
     // Melee execute: a melee swing finishes a badly-wounded (<30% health) non-boss outright and refunds
     // most of its cooldown; a healthy target takes only the normal swing and no refund.
     {

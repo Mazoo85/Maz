@@ -2613,8 +2613,11 @@ class Zombie {
                 }
                 emit(self.node.x, self.node.y, 20, 1); # blast burst
             }
-            # A splitter bursts into two fast runners at its position.
-            if (self.kind == 6) {
+            # A splitter bursts into two fast runners at its position — UNLESS it died burning: a body
+            # cooking in fire is incinerated before it can rupture, so it spawns nothing. That gives fire
+            # (a molotov, the flamethrower, or a spreading blaze) a specific job — burn the splitters to
+            # stop them multiplying, rather than shooting them and doubling the problem.
+            if (self.kind == 6 and self.burn_timer <= 0) {
                 self.split_off(2);
                 emit(self.node.x, self.node.y, 12, 1);
             }

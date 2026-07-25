@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — burning a Splitter now prevents its split.** A splitter normally bursts into two fast
+  runners when killed. Now, if it dies **while on fire**, it's incinerated before it can rupture and
+  spawns nothing — giving fire (a molotov, the flamethrower, or a spreading blaze) a specific job:
+  **burn splitters to stop them multiplying** instead of shooting them and doubling the threat. A clean,
+  discoverable counterplay that ties into the fire systems. Headless-tested: a burning splitter killed
+  leaves zero new zombies, while an unlit one bursts into two.
 - **ZOMBOID — starving now actually bites: no healing on an empty stomach.** The passive out-of-combat
   regen (+4/s) previously ran even while starving, quietly out-healing the hunger drain (−3/s) — so
   hunger applied *no* real pressure if you stood still. Regen is now **suppressed while starving** (hunger
