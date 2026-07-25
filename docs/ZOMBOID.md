@@ -179,8 +179,11 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
 - **Piercing Rounds** — your bullets punch through several zombies.
 - **Cryo Nova** — instantly chills *every* zombie on the field — a panic button when swarmed.
 - **Overflow** — infinite ammo and no reloads for a while — hose down a wave without pausing.
-- **Frost Field** — a lingering cold aura that keeps *every* zombie crawling at half speed for its
-  duration (unlike the one-shot Cryo Nova), so you can reposition or thin a swarm at your leisure.
+- **Frost Field** — a lingering cold aura that **chills *every* zombie on the field** for its duration
+  (unlike the one-shot Cryo Nova). It's a full chill, not just a slow: bodies crawl, turn **brittle**
+  (extra shatter damage), **frost-shatter** on death, and the **back line is silenced** — a Summoner,
+  Healer, Warper, Screamer, or Spitter can't work its ability while the field is up. A sustained hard
+  answer to a support-heavy wave, letting you reposition or dismantle it at your leisure.
 - **Berserk** — a combined offensive surge: fire rate **and** damage both jump at once (where Rapid
   Fire boosts only rate and Double Damage only damage), so it's the "go loud" button — your biggest
   all-round burst of firepower from a single pickup.

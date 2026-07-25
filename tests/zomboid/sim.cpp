@@ -4842,6 +4842,39 @@ int main() {
         CHECK(moved2 < moved1);                // frosted crawls less ground
         CHECK(moved2 < moved1 * 0.6);          // roughly half speed (with margin)
     }
+    // Frost Field confers the chill STATUS, not just a movement slow: while the aura is up every zombie's
+    // slow_timer is refreshed, so bodies turn brittle, frost-shatter on death, and casters are shut off
+    // exactly like a cryo nova — the behaviour the field is documented to have. Without the field the same
+    // walker is never chilled by merely existing.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        std::vector<Value> sp = {Value::fromNum(20.0), Value::fromNum(0.0),
+                                 Value::fromNum(100.0), Value::fromNum(10.0)};  // walker
+
+        // Frosted: the survivor holds a Frost Field, so the walker gains the chill status.
+        SceneTree t1;
+        SceneNode* s1 = zomboid::buildScene(t1);
+        s1->setPosition(0.0, 0.0);
+        auto& vm1 = t1.scripts().vm();
+        Value s1v = s1->script();
+        std::vector<Value> grant = {Value::fromNum(7.0)};
+        vm1.callOn(s1v, "grant_powerup", grant);
+        Value z1 = t1.findNode("Zombie0")->script();
+        vm1.callOn(z1, "spawn_at", sp);
+        CHECK(sField(t1.findNode("Zombie0"), "slow_timer")->number == 0.0);  // not chilled at spawn
+        vm1.callOn(z1, "_process", dt);
+        CHECK(sField(t1.findNode("Zombie0"), "slow_timer")->number > 0.0);   // the field applied the chill
+
+        // Control: no Frost Field — the walker is never chilled just by being processed.
+        SceneTree t2;
+        SceneNode* s2 = zomboid::buildScene(t2);
+        s2->setPosition(0.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        Value z2 = t2.findNode("Zombie0")->script();
+        vm2.callOn(z2, "spawn_at", sp);
+        vm2.callOn(z2, "_process", dt);
+        CHECK(sField(t2.findNode("Zombie0"), "slow_timer")->number == 0.0);  // no field → no chill
+    }
 
     // Flawless-wave bonus: clearing a wave without taking a hit doubles the clear bonus, pays cash,
     // and patches the survivor up; taking any hit during the wave forfeits all of that.

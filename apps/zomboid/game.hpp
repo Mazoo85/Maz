@@ -2962,6 +2962,13 @@ class Zombie {
         var dx = g_player.node.x - self.node.x;
         var dy = g_player.node.y - self.node.y;
         var dist = sqrt(dx * dx + dy * dy);
+        # A sustained Frost Field aura chills every zombie on the field: refresh the standard chill STATUS
+        # each frame it's up, not just a movement slow. That makes the field confer everything the chill
+        # status does — bodies turn brittle (+50% shatter damage), frost-shatter on death, and every
+        # ability that a chill shuts off (summoner call, screamer shriek, healer mend, warper blink,
+        # leaper coil, spitter spit) is denied — exactly as the field is documented. (It used to only halve
+        # movement, so the "hard answer to support-heavy waves" it advertises never actually fired.)
+        if (g_player.frost_active()) { self.apply_slow(0.2); }
         # Burning status: fire deals damage in periodic ticks (bounded so it doesn't spam per frame).
         if (self.burn_timer > 0) {
             self.burn_timer = self.burn_timer - dt;
@@ -3116,7 +3123,8 @@ class Zombie {
         var sm = 1.0;
         if (self.slow_timer > 0) { sm = 0.4; }
         if (self.frenzy_timer > 0) { sm = sm * 1.6; }   # whipped into a frenzy — surges faster
-        if (g_player != nil and g_player.frost_active()) { sm = sm * 0.5; }   # Frost Field aura
+        # (The Frost Field's movement slow now comes through the chill status above — set once per frame at
+        # the top of _process via apply_slow — so it's no longer applied separately here.)
         if (self.stagger_timer > 0) { sm = 0.0; }   # flinching — rooted where it stands
         if (self.kind == 3) {
             # Boss enrage: once badly wounded (below 35% health) it flies into a rage for a climactic

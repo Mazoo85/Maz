@@ -8,6 +8,16 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the Frost Field now actually freezes, not just slows (bug fix).** The Frost Field power-up
+  is billed as a sustained cryo aura and "a hard answer to support-heavy waves" — freezing casters so a
+  Summoner can't call, a Healer can't mend, a Warper can't blink, etc. In practice it only **halved
+  movement**: it never applied the *chill status* the rest of the game keys off, so under a Frost Field
+  bodies weren't brittle, didn't frost-shatter on death, and — worst of all — **back-line casters kept
+  casting** (they don't need to move, so a movement-only slow did nothing to them). The field now refreshes
+  the real chill status on every zombie each frame it's up, so it confers the full package a Cryo Nova
+  does: +50% shatter damage, frost-shatter chains, and a hard shutdown of Summoner / Screamer / Healer /
+  Warper / leaper / Spitter abilities — finally matching what it advertises. Headless-tested: a zombie
+  gains the chill status while a Frost Field is active and stays un-chilled without one.
 - **ZOMBOID — a sentry's farewell blast now sets off nearby barrels and acid.** When an auto-turret
   sentry powers down (lifetime up or magazine dry) it self-destructs in a blast that damages and staggers
   the surrounding horde. That blast is a real explosion, yet it was the one in the game that ignored
