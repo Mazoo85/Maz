@@ -2150,6 +2150,53 @@ int main() {
         CHECK(sField(nb2, "slow_timer")->number == 0.0);        // no chain freeze
     }
 
+    // Fire contagion: a zombie that dies while burning sets in-range neighbours alight (radius 4.5), but
+    // a far one is untouched — and a target killed while NOT burning spreads no fire. The offensive
+    // mirror of frost shatter.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        SceneNode* target = tree.findNode("Zombie0");
+        SceneNode* near_ = tree.findNode("Zombie1");   // 3 units — inside the radius-4.5 spread
+        SceneNode* farZ = tree.findNode("Zombie2");    // 12 units — outside
+        auto place = [&](SceneNode* z, double x, double hp) {
+            Value zv = z->script();
+            std::vector<Value> a = {Value::fromNum(x), Value::fromNum(0.0),
+                                    Value::fromNum(hp), Value::fromNum(0.0)};
+            tree.scripts().vm().callOn(zv, "spawn_at", a);
+        };
+        place(target, 0.0, 20.0);
+        place(near_, 3.0, 100.0);
+        place(farZ, 12.0, 100.0);
+        Value tv = target->script();
+        std::vector<Value> torch = {Value::fromNum(2.0), Value::fromNum(12.0)};  // ignite(dur, dps)
+        vm.callOn(tv, "ignite", torch);                // set the target alight before it dies
+        CHECK(sField(near_, "burn_timer")->number == 0.0);
+        std::vector<Value> lethal = {Value::fromNum(9999.0)};
+        vm.callOn(tv, "take_damage", lethal);
+        CHECK(!sField(target, "alive")->boolean);
+        CHECK(sField(near_, "burn_timer")->number > 0.0);   // caught the spreading fire
+        CHECK(sField(farZ, "burn_timer")->number == 0.0);   // out of range — never lit
+
+        // Control: a target killed while NOT burning spreads no fire.
+        SceneTree t2;
+        zomboid::buildScene(t2);
+        SceneNode* tgt2 = t2.findNode("Zombie0");
+        SceneNode* nb2 = t2.findNode("Zombie1");
+        auto place2 = [&](SceneNode* z, double x, double hp) {
+            Value zv = z->script();
+            std::vector<Value> a = {Value::fromNum(x), Value::fromNum(0.0),
+                                    Value::fromNum(hp), Value::fromNum(0.0)};
+            t2.scripts().vm().callOn(zv, "spawn_at", a);
+        };
+        place2(tgt2, 0.0, 20.0);
+        place2(nb2, 3.0, 100.0);
+        Value t2v = tgt2->script();
+        t2.scripts().vm().callOn(t2v, "take_damage", lethal);   // killed unlit
+        CHECK(sField(nb2, "burn_timer")->number == 0.0);        // no fire spread
+    }
+
     // Melee execute: a melee swing finishes a badly-wounded (<30% health) non-boss outright and refunds
     // most of its cooldown; a healthy target takes only the normal swing and no refund.
     {

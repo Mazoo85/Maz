@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — fire now spreads through a burning horde.** The offensive mirror of frost shatter: a zombie
+  that **dies while on fire** passes the flames on, igniting every nearby zombie (within radius 4.5, at
+  the intensity it was burning). So torching one body in a tight crowd can **cascade into the whole pack
+  catching fire** — light the front of a horde and let the blaze chain back through it, the way killing a
+  frozen body already spreads a freeze. Headless-tested: a burning zombie killed sets an in-range
+  neighbour alight while a far one stays cold, and a zombie killed unlit spreads nothing.
 - **ZOMBOID — a Leaper's pounce can now be interrupted mid-coil.** The Leaper telegraphs its lunge by
   crouching and coiling for a beat — previously you could only juke sideways from it. Now a **stagger**
   (a melee shove, a dash-strike, or a grenade's concussion) or a **chill** landed during that wind-up

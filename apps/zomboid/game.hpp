@@ -2587,6 +2587,24 @@ class Zombie {
                 }
                 emit(self.node.x, self.node.y, 12, 0);
             }
+            # Fire contagion: a body that dies while burning passes the flames on — every nearby zombie
+            # is set alight (at the same intensity it was burning), so fire chains through a packed horde
+            # the way frost shatter chains a freeze. Torch one zombie in a tight crowd and the blaze can
+            # cascade across the whole pack — the offensive mirror of the defensive frost spread.
+            if (self.burn_timer > 0) {
+                var yi = 0;
+                var yn = len(g_zombies);
+                while (yi < yn) {
+                    var yz = g_zombies[yi];
+                    if (yz.alive and yz != self) {
+                        var ydx = yz.node.x - self.node.x;
+                        var ydy = yz.node.y - self.node.y;
+                        if (ydx * ydx + ydy * ydy <= 20.25) { yz.ignite(1.5, self.burn_dps); }  # radius 4.5
+                    }
+                    yi = yi + 1;
+                }
+                emit(self.node.x, self.node.y, 10, 1);
+            }
             g_shake = g_shake + s;
             if (g_shake > 3.0) { g_shake = 3.0; }
             # Felling a boss — the wave leader — is a landmark kill, so it always drops a full care

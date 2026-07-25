@@ -173,6 +173,9 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
   frozen **shatters** it into a spreading freeze. Cold also **silences the back line**: a chilled
   Summoner, Screamer, Healer, or Warper can't work its ability (call, shriek, mend, or blink) until
   the chill wears off — so a Cryo Nova or Frost Field is a hard answer to a support-heavy pack.
+- **Fire spreads** — the offensive mirror of frost shatter: a zombie that **dies while burning** passes
+  the flames on, setting every nearby zombie alight. So torching one body in a tight crowd can **cascade
+  into the whole pack catching fire** — light the front of a horde and let the blaze chain back through it.
 - **Stagger = weak point** — a zombie flinching from a stagger (a melee shove or dash-strike) takes
   **40% more damage** while it reels, so the combo is: knock it off balance, then pour fire in. It
   stacks with the chill bonus.
