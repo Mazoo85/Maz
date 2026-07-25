@@ -996,7 +996,12 @@ set_tests_properties(float_quant PROPERTIES TIMEOUT 30)
 # skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
 # GPU-less CI. Requires an up-to-date build/bin.
 add_test(NAME golden_images COMMAND ${CMAKE_SOURCE_DIR}/tools/golden.sh check)
-set_tests_properties(golden_images PROPERTIES TIMEOUT 360)
+# The golden suite has grown to ~155 scenes, each with a 2-4.5s settle time; their combined settle time
+# alone (~350s+) plus per-scene launch/render/ImageMagick-diff overhead pushes an honest full run past the
+# old 360s ceiling (measured ~406s on a software-render box), so CTest was killing the harness mid-run
+# before it could report a real pass/fail. Raised to 900s to leave headroom for the current scene count and
+# further growth. (Widening the timeout does not weaken any per-scene RMSE check.)
+set_tests_properties(golden_images PROPERTIES TIMEOUT 900)
 
 # API-docs generator stays runnable: regenerate docs/API.md from the headers and require exit 0.
 # Self-skips when python3 is unavailable so it never breaks a minimal CI.
