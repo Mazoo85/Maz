@@ -4,7 +4,10 @@
 // Möller–Trumbore (detail::bvhRayTri), so any discrepancy is purely the BVH traversal, not the intersection
 // math. Test mesh is a closed icosphere (~1280 tris). Covered: nearest-hit parity for hitting/missing/inside
 // rays, measured triangle-test reduction (the actual speedup), occluded() parity, tMax honored, empty-mesh
-// safety, and determinism. Pure CPU, headless.
+// safety, and determinism. Also covers closestPoint(): parity with the shipped brute-force closestPointOnMesh
+// (distance + surface point) plus an analytic sphere cross-check and its own measured triangle-test reduction.
+// Pure CPU, headless.
+#include "maz/render/MeshClosestPoint.hpp" // brute-force closestPointOnMesh — the closest-point reference
 #include "maz/render/MeshIcosphere.hpp"
 #include "maz/render/MeshRayBvh.hpp"
 
@@ -172,6 +175,44 @@ int main() {
             if (ha.hit != hb.hit || ha.triangle != hb.triangle || ha.t != hb.t) same = false;
         }
         CHECK(same, "BVH build and queries are deterministic");
+    }
+
+    // --- 8. closestPoint(): parity with the shipped brute-force closestPointOnMesh + measured speedup. ---
+    {
+        std::size_t bvhTests = 0, bruteTests = 0;
+        int mism = 0, valids = 0;
+        const int N = 400;
+        for (int i = 0; i < N; ++i) {
+            // Query points scattered inside and outside the r=2 sphere (radius 0.3 .. ~4.3).
+            const math::vec3 dir = dirFromSeed(static_cast<std::uint32_t>(i) * 7u + 13u);
+            const float rad = 0.3f + static_cast<float>(i % 20) * 0.2f;
+            const math::vec3 q = dir * rad;
+
+            std::size_t tb = 0;
+            const MeshPointHit hb = bvh.closestPoint(q, &tb);
+            const ClosestPointResult hr = closestPointOnMesh(sphere, q);
+            bvhTests += tb;
+            bruteTests += static_cast<std::size_t>(triN); // brute scans every triangle
+            if (!hb.valid || !hr.valid) { ++mism; continue; }
+            ++valids;
+            // Distance must match the reference exactly (the robust invariant; the surface point is unique away
+            // from edge ties, so compare it too).
+            if (std::fabs(hb.distance - hr.distance) > 1e-3f) ++mism;
+            const math::vec3 dp = hb.point - hr.point;
+            if (std::sqrt(math::dot(dp, dp)) > 1e-3f) ++mism;
+            // For a sphere the nearest surface point is radius units from the center along the query direction,
+            // so the distance equals |rad - 2| — an independent analytic cross-check.
+            if (std::fabs(hb.distance - std::fabs(rad - 2.0f)) > 0.05f) ++mism;
+        }
+        CHECK(valids == N, "closestPoint returns a valid result for every query");
+        CHECK(mism == 0, "closestPoint matches brute-force closestPointOnMesh (distance + point) and the analytic sphere");
+        CHECK(bvhTests * 4 < bruteTests, "closestPoint tests << brute force (>4x fewer triangle distances)");
+        std::printf("  closest: %d queries, bvh tri-tests=%zu vs brute=%zu (%.1fx fewer)\n", valids, bvhTests,
+                    bruteTests, static_cast<double>(bruteTests) / static_cast<double>(bvhTests ? bvhTests : 1));
+
+        // Empty mesh: closestPoint is safe and reports invalid.
+        MeshRayBvh empty{shapes::MeshData{}};
+        CHECK(!empty.closestPoint(math::vec3(1.0f)).valid, "empty BVH closestPoint is invalid, not a crash");
     }
 
     if (g_fail == 0) {

@@ -23,8 +23,10 @@
 // single mesh's triangles for exact ray casts against it. Median-split on the longest centroid axis, front-to-back
 // child ordering so the nearest hit is found early and far subtrees prune. Pure CPU, header-only, headless.
 //
-// Both queries take an optional `trianglesTested` out-param — the count of Möller–Trumbore tests the query did,
-// so callers (and the unit tests) can measure the pruning directly against the brute-force triangle count.
+// The same tree also answers `closestPoint` (M548) — the nearest point ON the surface to an arbitrary query,
+// the accelerated form of render::closestPointOnMesh — by pruning any node box already farther than the best
+// point found. All queries take an optional `trianglesTested` out-param — the count of per-triangle tests the
+// query did — so callers (and the unit tests) can measure the pruning directly against the brute-force count.
 namespace maz::render {
 
 namespace detail {
@@ -57,6 +59,15 @@ struct MeshRayHit {
     std::uint32_t triangle = 0;   // triangle index (indices[3*triangle .. +2]) that was hit
     float u = 0.0f, v = 0.0f;     // barycentrics; the third weight is 1 - u - v
     math::vec3 point{0.0f};       // world-space hit point (origin + t * dir)
+};
+
+// Result of a closest-point query. `valid` false means the mesh had no triangles.
+struct MeshPointHit {
+    bool valid = false;
+    math::vec3 point{0.0f};       // nearest point on the mesh surface
+    float distance = 0.0f;        // unsigned distance from the query to that point
+    std::uint32_t triangle = 0;   // index of the winning triangle
+    math::vec3 normal{0.0f};      // that triangle's unit geometric normal (zero if degenerate)
 };
 
 class MeshRayBvh {
@@ -189,7 +200,67 @@ public:
         return blocked;
     }
 
+    // Closest point ON the mesh surface to `query` — the "snap to surface / how deep am I" query, the same
+    // answer as render::closestPointOnMesh but pruned through the BVH: a node whose box is already farther than
+    // the best point found is skipped whole. Best-first (nearer child visited first) so the bound tightens early.
+    // Returns the surface point, unsigned distance, winning triangle, and that triangle's face normal.
+    MeshPointHit closestPoint(const math::vec3& query, std::size_t* trianglesTested = nullptr) const {
+        MeshPointHit best;
+        float bestD2 = std::numeric_limits<float>::infinity();
+        std::size_t tested = 0;
+        if (!nodes_.empty()) {
+            std::uint32_t stack[64];
+            int sp = 0;
+            stack[sp++] = 0;
+            while (sp > 0) {
+                const Node& n = nodes_[stack[--sp]];
+                if (aabbDist2(n.bmin, n.bmax, query) >= bestD2) continue; // whole box is farther than best
+                if (n.count > 0) {                                        // leaf
+                    for (std::uint32_t k = 0; k < n.count; ++k) {
+                        const std::uint32_t tri = order_[n.start + k];
+                        ++tested;
+                        const math::vec3 cp =
+                            math::closestPointOnTriangle(query, triA_[tri], triB_[tri], triC_[tri]);
+                        const math::vec3 d = cp - query;
+                        const float d2 = math::dot(d, d);
+                        if (d2 < bestD2) {
+                            bestD2 = d2;
+                            best.valid = true;
+                            best.point = cp;
+                            best.triangle = tri;
+                        }
+                    }
+                } else { // internal: visit the nearer child first so the bound tightens before the farther one
+                    const float dl = aabbDist2(nodes_[n.left].bmin, nodes_[n.left].bmax, query);
+                    const float dr = aabbDist2(nodes_[n.right].bmin, nodes_[n.right].bmax, query);
+                    if (dl <= dr) { stack[sp++] = n.right; stack[sp++] = n.left; }
+                    else { stack[sp++] = n.left; stack[sp++] = n.right; }
+                }
+            }
+        }
+        if (trianglesTested) *trianglesTested = tested;
+        if (best.valid) {
+            best.distance = std::sqrt(bestD2);
+            const math::vec3 nrm =
+                math::cross(triB_[best.triangle] - triA_[best.triangle], triC_[best.triangle] - triA_[best.triangle]);
+            const float l = std::sqrt(math::dot(nrm, nrm));
+            best.normal = l > 1e-20f ? nrm / l : math::vec3(0.0f);
+        }
+        return best;
+    }
+
 private:
+    // Squared distance from `q` to the axis-aligned box [lo, hi] (0 if inside).
+    static float aabbDist2(const math::vec3& lo, const math::vec3& hi, const math::vec3& q) {
+        float s = 0.0f;
+        for (int a = 0; a < 3; ++a) {
+            const float v = q[a];
+            if (v < lo[a]) { const float e = lo[a] - v; s += e * e; }
+            else if (v > hi[a]) { const float e = v - hi[a]; s += e * e; }
+        }
+        return s;
+    }
+
     struct Node {
         math::vec3 bmin{0.0f};
         math::vec3 bmax{0.0f};

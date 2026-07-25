@@ -17,7 +17,8 @@
 // won and that triangle's facing normal (handy for orienting a decal). Header-only, deterministic, headless.
 //
 // Scope note (honest): this is a brute-force scan over all triangles — O(triangles) per query, ideal for one-off
-// queries and small/medium meshes; for many queries against a big mesh, put a BVH (game::Bvh / TriMesh3D) in front.
+// queries and small/medium meshes; for many queries against a big mesh, build a render::MeshRayBvh (M548) once and
+// call its closestPoint(), which prunes to ~O(log triangles) and returns the same surface point and distance.
 // It returns the closest point on the SURFACE and an UNSIGNED distance — it does not say inside vs outside (use the
 // M556 containment / M551 SDF tools for a signed result). `normal` is the hit triangle's geometric face normal
 // (normalized; zero for a degenerate triangle). An empty mesh yields `valid == false`.

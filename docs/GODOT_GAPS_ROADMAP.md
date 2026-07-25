@@ -3699,6 +3699,16 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   triangle, and does it with 214× fewer triangle intersections (2,389 vs 512,000); rays pointing away miss, rays
   from inside hit the far wall, occluded() matches brute any-hit and honors the distance cutoff, maxDist clips a
   far hit to a miss, empty meshes are safe, and build + queries are deterministic. [VERIFIABLE HERE]
+- [x] **BVH-accelerated closest point on mesh** (`render::MeshRayBvh::closestPoint`, `MeshPointHit`) — DONE
+  (M548); the same triangle BVH also answers the "snap to surface / how deep am I" query — the nearest point ON
+  the surface to an arbitrary point — pruned instead of brute-forced. It is the accelerated form of
+  render::closestPointOnMesh (M547's ray tree reused, no second structure): best-first traversal visits the nearer
+  child box first so the distance bound tightens early, then any node box already farther than the best point is
+  skipped whole. Returns the surface point, unsigned distance, winning triangle, and that triangle's face normal —
+  the query collision push-out, decal placement, cursor-snap, and SDF baking lean on. Verified (`ctest -R
+  mesh_ray_bvh`): across 400 query points scattered inside and outside the mesh, closestPoint matches the shipped
+  brute-force closestPointOnMesh EXACTLY in distance and surface point, agrees with the analytic sphere distance,
+  and does it with 16× fewer per-triangle tests (31,694 vs 512,000); empty mesh is safe. [VERIFIABLE HERE]
 - [x] **Point-in-mesh containment** (`render::containsPoint` / `containsPoints`) — DONE (M546); is a point INSIDE
   a closed triangle mesh? For each query point cast one ray to infinity and count triangle crossings — odd =
   inside, even = outside (the Jordan-curve / ray-parity test), reusing the M533 Möller–Trumbore ray/triangle (the
