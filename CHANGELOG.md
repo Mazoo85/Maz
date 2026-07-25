@@ -8,6 +8,15 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the enraged boss now heals — and damage-over-time shuts it off.** The code justified the
+  boss's immunity to healer mends and the Regenerator mutator by saying it "already enrage-heals," but no
+  such mechanic existed — the boss never regained health. That's now real: once the boss enters its
+  sub-35%-health enrage phase, it slowly knits its wounds (2% of its health bar per second), so the climax
+  rewards sustained pressure instead of a leisurely plink. Crucially it obeys the very rule the last two
+  updates established — a boss that's **burning, bleeding, or chilled can't heal** — so fire, laceration,
+  or cold shut the enrage-heal off completely, making the boss the ultimate showcase of "damage-over-time
+  beats healing." Keep the burn on it and it can't recover; let up and it claws HP back. Headless-tested:
+  an enraged boss regenerates over a clean second, but a burning one never gains health.
 - **ZOMBOID — a Healer can't mend a burning or bleeding zombie.** Building on the rule that a body taking
   damage-over-time can't knit its own wounds (the Regenerator fix), a Healer's mend pulse now also skips
   any zombie that's actively on fire or bleeding — a wound held open by DoT can't be patched by an outside

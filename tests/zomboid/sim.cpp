@@ -2420,6 +2420,45 @@ int main() {
         vm.callOn(bv, "_process", dt);
         CHECK(sField(boss, "speed")->number == rageSpeed);
     }
+    // Boss enrage-heal: once enraged, the boss slowly knits its wounds (2%/s) — but a burning, bleeding,
+    // or chilled boss can't, so damage-over-time and cold shut the self-heal off, the same rule that
+    // governs the Regenerator mutator and the Healer's mend.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+        // Enraged and clean: it regenerates over a second of frames.
+        SceneTree t1;
+        SceneNode* s1 = zomboid::buildScene(t1);
+        s1->setPosition(0.0, 0.0);
+        auto& vm1 = t1.scripts().vm();
+        SceneNode* b1 = t1.findNode("Zombie0");
+        Value b1v = b1->script();
+        std::vector<Value> sp = {Value::fromNum(40.0), Value::fromNum(0.0),
+                                 Value::fromNum(3.0), Value::fromNum(1.0)};
+        vm1.callOn(b1v, "spawn", sp);
+        sField(b1, "health")->number = sField(b1, "max_health")->number * 0.3;  // below the 35% threshold
+        vm1.callOn(b1v, "_process", dt);   // enrages this frame
+        const double healed0 = sField(b1, "health")->number;
+        for (int i = 0; i < 60; ++i) { vm1.callOn(b1v, "_process", dt); }  // 1s clean
+        CHECK(sField(b1, "health")->number > healed0);   // enrage-heal knits wounds
+
+        // Enraged but burning: the self-heal is shut off, so health does not climb.
+        SceneTree t2;
+        SceneNode* s2 = zomboid::buildScene(t2);
+        s2->setPosition(0.0, 0.0);
+        auto& vm2 = t2.scripts().vm();
+        SceneNode* b2 = t2.findNode("Zombie0");
+        Value b2v = b2->script();
+        vm2.callOn(b2v, "spawn", sp);
+        sField(b2, "health")->number = sField(b2, "max_health")->number * 0.3;
+        vm2.callOn(b2v, "_process", dt);   // enrages
+        const double burnBase = sField(b2, "health")->number;
+        sField(b2, "burn_timer")->number = 5.0;   // keep it alight across the run
+        for (int i = 0; i < 60; ++i) {
+            sField(b2, "burn_timer")->number = 5.0;   // sustain the burn each frame (it ticks down/deals dmg)
+            vm2.callOn(b2v, "_process", dt);
+        }
+        CHECK(sField(b2, "health")->number <= burnBase);   // burning → no enrage-heal (it only loses HP)
+    }
 
     // Boss bounty: felling a boss (the wave leader) always drops a full care package — a guaranteed
     // medkit AND a guaranteed power-up — unlike an ordinary zombie whose drops are a rare dice roll.

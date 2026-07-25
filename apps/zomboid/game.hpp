@@ -3145,6 +3145,16 @@ class Zombie {
                 emit(self.node.x, self.node.y, 30, 1);   # rage burst
                 g_shake = 3.0;
             }
+            # Enrage regeneration: in its second phase the boss's fury knits its wounds — it slowly heals
+            # (2% of its huge health bar per second) so the climax rewards sustained pressure, not a leisurely
+            # plink. But it obeys the same DoT/chill rule everything else does: a boss that's burning,
+            # bleeding, or chilled can't heal, so keeping fire, laceration, or cold on it shuts the enrage-heal
+            # off entirely. This is why a healer/Regenerator can't top the boss up either — its self-heal is
+            # the boss's own affair, and DoT is the counter. Never past its max.
+            if (self.enraged and self.burn_timer <= 0 and self.bleed_stacks <= 0 and self.slow_timer <= 0 and self.health < self.max_health) {
+                self.health = self.health + self.max_health * 0.02 * dt;
+                if (self.health > self.max_health) { self.health = self.max_health; }
+            }
             # Enraged second phase: the boss periodically bellows and calls the horde, spawning a pair
             # of runners until its reinforcement budget runs dry — the climax becomes a real scramble.
             if (self.enraged and self.summon_budget > 0) {
