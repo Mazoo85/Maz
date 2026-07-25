@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — regression-test the flawless-streak cash cap.**
+  The no-hit streak reward climbs 25, 40, 55, … but is clamped at 100 (the docs promise "up to 100"). The
+  existing streak test only covered the first few rungs; the clamp itself was untested, so a refactor
+  could let the reward run away unbounded with nothing catching it. Extended the test to push the streak
+  to the cap and confirm the payout holds at exactly 100 (not 115+). Test-only change — no gameplay logic
+  changed.
 - **ZOMBOID — regression-test the wave difficulty scaling.**
   The whole endless-mode curve rests on enemy stats growing with the wave number (`health = base +
   wave * k`, and the armored/Bulwark shields likewise), but nothing guarded that invariant — a

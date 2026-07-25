@@ -6021,6 +6021,16 @@ int main() {
         CHECK((int)sField(dir, "clean_streak")->number == 0);
         CHECK(flawlessClear(5, true) == 25.0);            // streak restarts at the base reward
         CHECK((int)sField(dir, "clean_streak")->number == 1);
+
+        // Push the streak to the cap: the reward climbs 40, 55, 70, 85, 100, then HOLDS at 100 instead of
+        // continuing to 115+ — the payout is clamped, matching the "up to 100" design. Guards the clamp.
+        CHECK(flawlessClear(6, true) == 40.0);            // streak 2
+        CHECK(flawlessClear(7, true) == 55.0);            // streak 3
+        CHECK(flawlessClear(8, true) == 70.0);            // streak 4
+        CHECK(flawlessClear(9, true) == 85.0);            // streak 5
+        CHECK(flawlessClear(10, true) == 100.0);          // streak 6 → 25 + 5*15 = 100 (at the cap)
+        CHECK(flawlessClear(11, true) == 100.0);          // streak 7 → would be 115, clamped to 100
+        CHECK(flawlessClear(12, true) == 100.0);          // streak 8 → still clamped, never exceeds 100
     }
 
     // Summoner (kind 7) kiting: it keeps its distance — backing away when the survivor closes in
