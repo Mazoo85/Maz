@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — the dodge recharges faster in a last stand.** The critical-health surge (**adrenaline**,
+  under 25% health) already lends faster fire, +30% shot damage, and damage reduction — now it also
+  recharges the **dodge-roll 60% faster**, so your escape roll and its i-frames come back sooner exactly
+  when you're desperate. It turns the sub-25% scramble into a real comeback window (roll → reposition →
+  roll again) rather than a slow death, and reverts the moment you heal back above the threshold.
+  Headless-tested: over the same elapsed time a critically wounded survivor's dodge cooldown drops further
+  than a healthy one's.
 - **ZOMBOID — summoner reinforcements scale with the run.** A summoner used to call plain **walkers** no
   matter how deep you were, so a late-game summoner just trickled in fodder you easily outran — no longer a
   real reason to prioritise it. From the mid-game on (wave 5+) it now calls faster **runners** instead, so

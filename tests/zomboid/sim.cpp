@@ -743,6 +743,35 @@ int main() {
         CHECK(fr > baseRate - 0.01 && fr < baseRate + 0.01);         // back to base
     }
 
+    // Last-stand dodge recharge: while critically wounded (adrenaline), the dodge cooldown recharges
+    // faster, so the same elapsed time leaves a critical survivor with a readier roll than a healthy one.
+    {
+        std::vector<Value> dt = {Value::fromNum(1.0 / 60.0)};
+
+        // Critical survivor: adrenaline on → the dodge cools down faster.
+        SceneTree tLow;
+        SceneNode* sLow = zomboid::buildScene(tLow);
+        auto& vmL = tLow.scripts().vm();
+        Value svL = sLow->script();
+        sField(sLow, "health")->number = sField(sLow, "max_health")->number * 0.1;  // critically wounded
+        sField(sLow, "dash_cd")->number = 4.0;
+        for (int i = 0; i < 30; ++i) vmL.callOn(svL, "_process", dt);
+        const double lowCd = sField(sLow, "dash_cd")->number;
+        CHECK(sField(sLow, "adrenaline")->boolean);   // last-stand active
+
+        // Healthy survivor: same starting cooldown, same frames, normal recharge.
+        SceneTree tHi;
+        SceneNode* sHi = zomboid::buildScene(tHi);
+        auto& vmH = tHi.scripts().vm();
+        Value svH = sHi->script();
+        sField(sHi, "dash_cd")->number = 4.0;
+        for (int i = 0; i < 30; ++i) vmH.callOn(svH, "_process", dt);
+        const double hiCd = sField(sHi, "dash_cd")->number;
+        CHECK(!sField(sHi, "adrenaline")->boolean);
+
+        CHECK(lowCd < hiCd);   // the critical survivor's dodge recharged faster
+    }
+
     // Supply crate: a dropped care package refills ammo + grenades and heals when collected.
     {
         SceneTree tree;

@@ -302,7 +302,15 @@ class Survivor {
 
         # Dodge-roll timers: cooldown recharges, i-frames tick down, and an active
         # dodge carries the survivor in a short burst.
-        if (self.dash_cd > 0) { self.dash_cd = self.dash_cd - dt; }
+        # Last-stand mobility: while critically wounded (adrenaline active) the dodge-roll recharges 60%
+        # faster, so your escape roll — and its i-frames — comes back sooner exactly when you're desperate.
+        # It stacks with adrenaline's existing faster fire, +damage, and damage reduction, making the
+        # sub-25%-health scramble a real comeback window rather than a slow death.
+        if (self.dash_cd > 0) {
+            var drecover = dt;
+            if (self.adrenaline) { drecover = dt * 1.6; }
+            self.dash_cd = self.dash_cd - drecover;
+        }
         if (self.melee_cd > 0) { self.melee_cd = self.melee_cd - dt; }
         if (self.iframes > 0) { self.iframes = self.iframes - dt; }
         if (self.acid_slow > 0) { self.acid_slow = self.acid_slow - dt; }

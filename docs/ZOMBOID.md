@@ -108,9 +108,10 @@ back sooner and sooner, so the deeper you get, the more often you can bail out o
   one-shot — a boss, a Bulwark shield, a beefy elite — is left **deep-frozen** by the blast (and a
   chilled caster is silenced), so the ultimate also cryo-locks the survivors while you regroup.
 - **Last-stand adrenaline** — drop below 25% health and a desperation surge kicks in: you **fire
-  faster, hit 30% harder, and shrug off a quarter of all incoming damage** until you recover. Being
-  cornered is dangerous, but the surge turns it into your biggest damage window *and* buys you extra
-  survivability — a real chance to claw a fight back rather than a death spiral.
+  faster, hit 30% harder, shrug off a quarter of all incoming damage, and your dodge-roll recharges 60%
+  faster** until you recover. Being cornered is dangerous, but the surge turns it into your biggest damage
+  window, buys you extra survivability, *and* keeps your escape roll ready — a real chance to claw a fight
+  back (roll, reposition, roll again) rather than a death spiral.
 - **Second Wind** — a stored revive: lethal damage is cancelled once, bursting you back to half health
   with a crowd-clearing nova. Earned again every 50 kills.
 - **Body armor** — a bought plate that soaks damage before your health; buy a fresh one with **9**. When
