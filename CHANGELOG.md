@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — completed the elite-zombie stat coverage (the "faster" part was untested).**
+  Elite ("champion") zombies are tankier, worth far more points, and faster, and always drop a medkit.
+  The test already verified the health and score boosts and the guaranteed medkit drop, but the speed
+  boost — and its 30-unit speed cap — had no assertion. Added both, so all three of an elite's documented
+  stat changes are now pinned. Test-only change — the game is unchanged; full suite, headless smoke, and
+  the 3600-frame run all pass.
 - **ZOMBOID — pinned the "too-late" edge of the active-reload timing window with a test.**
   Tapping reload again during the tail of a reload triggers an *active reload* — it snaps shut instantly
   and grants a brief damage surge, but only inside a timing window (roughly the 12%–40%-remaining sweet

@@ -2117,12 +2117,15 @@ int main() {
         tree.scripts().vm().callOn(zv, "spawn", sp);
         const double baseHp = z->script().instance->findField("health")->number;
         const double baseScore = z->script().instance->findField("score_value")->number;
+        const double baseSpeed = z->script().instance->findField("speed")->number;
 
         std::vector<Value> none;
         tree.scripts().vm().callOn(zv, "make_elite", none);
         CHECK(z->script().instance->findField("elite")->boolean);
-        CHECK(z->script().instance->findField("health")->number > baseHp * 2.0);
-        CHECK(z->script().instance->findField("score_value")->number > baseScore * 2.0);
+        CHECK(z->script().instance->findField("health")->number > baseHp * 2.0);      // tankier
+        CHECK(z->script().instance->findField("score_value")->number > baseScore * 2.0); // worth more
+        CHECK(z->script().instance->findField("speed")->number > baseSpeed);          // and faster
+        CHECK(z->script().instance->findField("speed")->number <= 30.0);              // ...but speed-capped
 
         // Killing an elite always drops a medkit.
         CHECK(activeMedkits(tree) == 0);
