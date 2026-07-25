@@ -4049,6 +4049,50 @@ int main() {
         CHECK(sField(survivor, "health")->number == 0.0);
     }
 
+    // Second-wind clearing nova: reviving isn't just a state reset — it fires a blast that knocks back and
+    // deals 150 damage to every zombie within radius 10, so you don't pop back to life surrounded and get
+    // re-killed on the same frame. The revive test above pins the survivor's state; this pins the nova's
+    // effect on the horde. A tanky zombie placed inside the radius must lose exactly 150 HP and be shoved
+    // outward; one parked well outside the radius must be untouched.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        auto& vm = tree.scripts().vm();
+        Value sv = survivor->script();
+
+        // Inside the nova (distance 5 < radius 10): a 500-HP body that survives the 150 so we can measure it.
+        Value zNear = tree.findNode("Zombie0")->script();
+        std::vector<Value> spNear = {Value::fromNum(5.0), Value::fromNum(0.0),
+                                     Value::fromNum(500.0), Value::fromNum(10.0)};
+        vm.callOn(zNear, "spawn_at", spNear);
+        const double nearHp0 = sField(tree.findNode("Zombie0"), "health")->number;
+        const double nearX0 = tree.findNode("Zombie0")->x();
+
+        // Outside the nova (distance 40 > radius 10): must be left completely alone.
+        Value zFar = tree.findNode("Zombie1")->script();
+        std::vector<Value> spFar = {Value::fromNum(40.0), Value::fromNum(0.0),
+                                    Value::fromNum(500.0), Value::fromNum(10.0)};
+        vm.callOn(zFar, "spawn_at", spFar);
+        const double farHp0 = sField(tree.findNode("Zombie1"), "health")->number;
+        const double farX0 = tree.findNode("Zombie1")->x();
+
+        // Bank a revive and take a lethal hit → second_wind() fires the nova.
+        sField(survivor, "revives")->number = 1.0;
+        sField(survivor, "armor")->number = 0.0;
+        sField(survivor, "iframes")->number = 0.0;
+        std::vector<Value> lethal = {Value::fromNum(9999.0)};
+        vm.callOn(sv, "take_damage", lethal);
+        CHECK(sField(survivor, "alive")->boolean);               // revived
+
+        // Inside: exactly 150 damage and shoved outward (+x, away from the survivor at the origin).
+        CHECK(std::abs(sField(tree.findNode("Zombie0"), "health")->number - (nearHp0 - 150.0)) < 1e-6);
+        CHECK(tree.findNode("Zombie0")->x() > nearX0);
+        // Outside: untouched — same health, same position.
+        CHECK(sField(tree.findNode("Zombie1"), "health")->number == farHp0);
+        CHECK(tree.findNode("Zombie1")->x() == farX0);
+    }
+
     // Medkit overflow -> armor: take_medkit heals, and any surplus past max health is banked as bonus
     // armor (capped at armor_max) rather than wasted — so a kit grabbed at high health still pays off.
     // Boss/crate drops call take_medkit; it previously carried no direct test.

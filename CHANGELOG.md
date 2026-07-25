@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — regression-test the second-wind clearing nova.** Reviving isn't only a state reset: it fires
+  a blast that knocks back and deals 150 damage to every zombie within radius 10, so you don't pop back to
+  life surrounded and get re-killed on the same frame. The existing revive test pins the survivor's state
+  (half HP, i-frames, hunger relieved, charge spent); the new test pins the nova's effect on the horde — a
+  tanky zombie inside the radius loses exactly 150 HP and is shoved outward, while one parked outside is
+  left untouched. Test-only change — no gameplay logic altered.
 - **ZOMBOID — pin the two-condition gate in `frost_active()`.** The Frost Field power-up's sustained
   half-speed chill aura is driven by this predicate, which is true only when BOTH the held buff is the Frost
   Field (kind 7) AND its timer hasn't expired. The existing movement test proves the aura slows zombies
