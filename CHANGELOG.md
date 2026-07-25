@@ -8,6 +8,12 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — stop the LAST STAND banner lingering on the game-over screen.**
+  The new LAST STAND callout keys off the survivor's `adrenaline` flag, but the survivor's per-frame
+  update early-returns on death *before* that flag is recomputed — so a survivor who died while
+  critically wounded keeps `adrenaline == true`, and the banner kept pulsing over the "YOU DIED" screen.
+  Gated the banner on the survivor still being alive, so it only shows during an actual live surge.
+  Presentation-only fix; build, headless smoke, and 3600-frame run all pass.
 - **ZOMBOID — fixed the on-screen controls hint listing the wrong weapon keys.**
   The top-left controls reminder read "1-4 GUN", but the game has five weapons on keys 1–5 (pistol,
   shotgun, SMG, railgun, flamethrower) — so a player reading the hint would never learn the flamethrower

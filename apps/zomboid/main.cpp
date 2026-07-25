@@ -935,7 +935,11 @@ int main(int argc, char** argv) {
             // kicks in — faster fire, +damage, and reduced damage taken. Until now that powerful comeback
             // window was signalled only by a subtle body tint; a pulsing banner above the health bar tells
             // the player plainly that they're in it (and should press the fight, not just flee).
-            if (fieldBool(survivor, "adrenaline")) {
+            // Gate on `alive`: the survivor's _process early-returns on death BEFORE clearing the
+            // adrenaline flag, so a survivor who died while critically wounded keeps adrenaline == true.
+            // Without this guard the banner would pulse "LAST STAND" over the game-over screen next to
+            // "YOU DIED" — contradictory. Only show it while actually alive and in the surge.
+            if (alive && fieldBool(survivor, "adrenaline")) {
                 const float ap = 0.55f + 0.45f * std::sin(static_cast<float>(simTime) * 10.0f);
                 font.drawText(*renderer, bx, by - 46.0f, "LAST STAND",
                               render::Color{1.0f, 0.35f * ap + 0.15f, 0.2f, 1.0f}, 0.5f);
