@@ -2342,6 +2342,10 @@ class Zombie {
 
     # Shove this zombie along (dirx, diry) when shot. Heavy bodies (brutes/bosses) mostly resist it.
     func hit_knockback(dirx, diry, amount) {
+        # Relentless horde (mutator 7): the whole wave plants its feet — no knockback at all. Your shoves,
+        # dash-strikes, mine blasts, and shotgun push all stop moving them, so positioning-by-knockback is
+        # off the table that wave and you must lean on damage, chills, staggers, and kiting instead.
+        if (g_mutator == 7) { return; }
         var k = amount;
         if (self.radius > 1.5) { k = amount * 0.25; }
         self.node.x = self.node.x + dirx * k;
@@ -3262,8 +3266,8 @@ class Director {
         g_wave_clean = true;   # a fresh wave starts flawless until the survivor takes a hit
         # Roll this wave's mutator (from wave 3 on): a random modifier that reshapes the whole horde.
         g_mutator = 0;
-        if (w >= 3) { g_mutator = int(randf_range(1, 7)); }
-        if (g_mutator > 6) { g_mutator = 6; }
+        if (w >= 3) { g_mutator = int(randf_range(1, 8)); }
+        if (g_mutator > 7) { g_mutator = 7; }
         var pool = len(g_zombies);
         var count = self.base + w * 2;
         # Frenzy mutator throws a bigger horde at the survivor.

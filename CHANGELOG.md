@@ -8,6 +8,13 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — new wave mutator: the Relentless Horde.** A seventh random wave modifier joins Feral,
+  Hulking, Frenzied, Bulwark, Volatile, and Regenerator. A **Relentless** wave plants its feet: the whole
+  horde **ignores knockback** — your melee shove, dash-strike, mine blasts, and shotgun push all stop
+  moving them. Positioning-by-knockback is off the table that wave, so you lean on raw damage, chills,
+  staggers, and kiting instead — a fresh tactical wrinkle that rewards a different toolset. Shows up on the
+  HUD as **RELENTLESS HORDE** like the other mutators. Headless-tested: a shove that moves a normal walker
+  leaves a Relentless one planted, and clearing the mutator restores normal knockback.
 - **ZOMBOID — the dodge recharges faster in a last stand.** The critical-health surge (**adrenaline**,
   under 25% health) already lends faster fire, +30% shot damage, and damage reduction — now it also
   recharges the **dodge-roll 60% faster**, so your escape roll and its i-frames come back sooner exactly

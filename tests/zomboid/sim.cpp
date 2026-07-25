@@ -1666,6 +1666,32 @@ int main() {
         CHECK(zb->x() - bx0 < 0.3);  // heavy body resists
     }
 
+    // Relentless mutator (7): the whole horde ignores knockback — a shove that would move a normal walker
+    // leaves a Relentless one planted. Clearing the mutator restores normal knockback.
+    {
+        SceneTree tree;
+        zomboid::buildScene(tree);
+        auto& vm = tree.scripts().vm();
+        Value* mut = const_cast<Value*>(vm.getGlobal("g_mutator"));
+        SceneNode* z = tree.findNode("Zombie0");
+        Value zs = z->script();
+        std::vector<Value> park = {Value::fromNum(10.0), Value::fromNum(0.0), Value::fromNum(200.0),
+                                   Value::fromNum(0.0)}; // walker
+        vm.callOn(zs, "spawn_at", park);
+        std::vector<Value> kb = {Value::fromNum(1.0), Value::fromNum(0.0), Value::fromNum(6.0)};
+
+        // Relentless: the shove does nothing.
+        mut->number = 7.0;
+        const double rx0 = z->x();
+        vm.callOn(zs, "hit_knockback", kb);
+        CHECK(z->x() == rx0);       // planted — no knockback
+
+        // Cleared: the same shove moves it.
+        mut->number = 0.0;
+        vm.callOn(zs, "hit_knockback", kb);
+        CHECK(z->x() > rx0 + 1.0);  // shoved along +x again
+    }
+
     // Chill/slow: a slowed zombie crawls toward the survivor far less per tick than an unimpaired one.
     {
         SceneTree tree;

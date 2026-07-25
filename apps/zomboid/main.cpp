@@ -937,8 +937,9 @@ int main(int argc, char** argv) {
             // Active wave mutator, under the best readout (only when one is in effect).
             const int mut = static_cast<int>(globalNum(tree, "g_mutator"));
             if (mut > 0) {
-                const char* kMutNames[7] = {"", "FERAL HORDE", "HULKING HORDE", "FRENZIED HORDE",
-                                            "BULWARK HORDE", "VOLATILE HORDE", "REGENERATOR HORDE"};
+                const char* kMutNames[8] = {"", "FERAL HORDE", "HULKING HORDE", "FRENZIED HORDE",
+                                            "BULWARK HORDE", "VOLATILE HORDE", "REGENERATOR HORDE",
+                                            "RELENTLESS HORDE"};
                 font.drawText(*renderer, sw - 300.0f, 68.0f, kMutNames[mut],
                               render::Color{1.0f, 0.55f, 0.85f, 1.0f}, 0.5f);
             }

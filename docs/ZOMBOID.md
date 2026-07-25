@@ -234,7 +234,9 @@ Rarely dropped by the slain, grabbed off the ground for a short buff:
   kill-zone poisons the ground under your feet — keep moving), or **Regenerator** (every body slowly
   knits its wounds back shut, so chip damage bleeds away — you must commit real burst to a kill, and
   fire or cold are your answers: a burning body loses health faster than it heals, and a chilled body's
-  regen is frozen off). No two runs feel the same.
+  regen is frozen off), or **Relentless** (the whole horde ignores knockback — your shove, dash-strike,
+  mine blasts, and shotgun push stop moving them, so positioning-by-knockback is off the table and you
+  lean on damage, chills, staggers, and kiting instead). No two runs feel the same.
 
 At the end of a run you're graded (**D** through **S**) on wave reached, kills, and accuracy, and your
 best wave + score persist between sessions.
