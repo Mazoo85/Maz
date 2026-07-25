@@ -7378,6 +7378,55 @@ int main() {
         CHECK(sField(survivor, "fire_rate")->number == baseFr);              // fire rate unchanged
     }
 
+    // Stability soak: drive the whole game headless for ~30 s of simulated time (1800 frames) with the
+    // survivor firing and kept alive, so waves spawn, zombies chase/attack/die, hazards spill and pickups
+    // drop continuously. Assert the global invariants hold every step — every object pool stays within its
+    // fixed cap, the score/combo/wave counters stay non-negative, and no active body ever drifts to a
+    // NaN/infinite or absurd position. This is the emergent-bug net that per-feature unit tests can't cast:
+    // a pool leak, an unclamped spawn, or a divide-by-zero in the movement/AI code would surface here over
+    // thousands of frames even though every isolated test still passes.
+    {
+        SceneTree tree;
+        SceneNode* survivor = zomboid::buildScene(tree);
+        survivor->setPosition(0.0, 0.0);
+        sField(survivor, "aim_x")->number = 1.0;
+        sField(survivor, "aim_y")->number = 0.0;
+        sField(survivor, "firing")->boolean = true;
+        auto activeFires = [](SceneTree& t) {
+            int c = 0;
+            for (SceneNode* f : t.nodesInGroup("fires"))
+                if (sField(f, "active")->boolean) ++c;
+            return c;
+        };
+        bool ok = true;
+        for (int i = 0; i < 1800 && ok; ++i) {
+            // Keep the survivor in the fight so the sim keeps advancing rather than parking on a death screen.
+            if (sField(survivor, "health")->number < 20.0) sField(survivor, "health")->number = 100.0;
+            sField(survivor, "hunger")->number = 0.0;
+            tree.process(1.0 / 60.0);
+
+            // Object pools never overflow their fixed caps.
+            if (aliveZombies(tree) > zomboid::kZombiePool) ok = false;
+            if (activeParticles(tree) > zomboid::kParticlePool) ok = false;
+            if (activeAcid(tree) > zomboid::kAcidPool) ok = false;
+            if (activeSpits(tree) > zomboid::kSpitPool) ok = false;
+            if (activeBullets(tree) > zomboid::kBulletPool) ok = false;
+            if (activeFires(tree) > zomboid::kFirePool) ok = false;
+            // Score/combo/wave counters stay sane.
+            if (glob(tree, "g_score") < 0.0) ok = false;
+            if (glob(tree, "g_combo") < 0.0) ok = false;
+            if (glob(tree, "g_wave") < 1.0) ok = false;
+            // No active zombie drifts to a non-finite or absurd position.
+            for (SceneNode* z : tree.nodesInGroup("zombies")) {
+                if (!sField(z, "alive")->boolean) continue;
+                if (!std::isfinite(z->x()) || !std::isfinite(z->y())) { ok = false; break; }
+                if (std::abs(z->x()) > 1.0e5 || std::abs(z->y()) > 1.0e5) { ok = false; break; }
+            }
+        }
+        CHECK(ok);                                            // every invariant held across the whole soak
+        CHECK(sField(survivor, "shots")->number > 0.0);       // ...and the run was genuinely active (fired)
+    }
+
     if (g_fail == 0) {
         std::printf("zomboid_sim: OK — pools, waves, twin-stick fire, weapons, enemy variety, "
                     "impact juice, ammo + reload, grenades, wave upgrades, combo multiplier, "

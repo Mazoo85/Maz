@@ -8,6 +8,14 @@ All notable changes to the Maz Engine are recorded here. The format follows
 ## [Unreleased]
 
 ### Flagship game
+- **ZOMBOID — add a whole-game stability soak with global invariant checks.** Drives the game headless for
+  ~30 s of simulated time (1800 frames) with the survivor firing and kept alive, so waves spawn, zombies
+  chase/attack/die, hazards spill and pickups drop continuously — then asserts the global invariants hold
+  every single step: every object pool (zombies, particles, acid, spits, bullets, fires) stays within its
+  fixed cap, the score/combo/wave counters never go negative, and no active body ever drifts to a
+  NaN/infinite or absurd position. This is the emergent-bug net that per-feature unit tests can't cast — a
+  pool leak, unclamped spawn, or divide-by-zero in the movement/AI code would surface here over thousands of
+  frames. Test-only change — no gameplay logic altered.
 - **ZOMBOID — pin the Swift and Tough wave-mutator stat effects.** Swift (mutator 1) multiplies a fresh
   zombie's speed by 1.35; Tough (mutator 2) multiplies its health by 1.5 — both applied at spawn. The
   HUD-string and wave-gating tests already cover naming and rolling, and the other mutators (Bulwark,
