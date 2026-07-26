@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_664 headers across 20 subsystems._
+_665 headers across 20 subsystems._
 
 ## Contents
 
@@ -5079,6 +5079,17 @@ maz::game thermal erosion — weather a procedural heightmap so it looks geologi
 **Functions:**
 
 - `inline void thermalErosion(std::vector<float>& height, int width, int height_, float talus,`
+
+### `ExposureMap`
+<sub>`engine/include/maz/game/ExposureMap.hpp`</sub>
+
+maz::game cover / exposure map — for every open tile, HOW MANY threats can see it. Given a set of threat positions (enemy eyes, turrets, guards) and the walls, this shoots a tile line of sight from each threat to each cell and counts the ones that reach: the result is a tactical field the AI reads to pick COVER (a cell no threat can see), to grade how exposed a position is, or to weight a "safest route" search away from sniped ground. A wall casts a SHADOW of zero-exposure cells behind it — exactly the cover a player ducks into. Reads its blockers through the same `blocked(cell)` predicate the rest of the grid AI uses and reuses the engine's Bresenham `lineOfSight`.  Distinct from the engine's neighbours: FieldOfView computes ONE viewer's visible set (shadowcasting), Visibility2D builds a polygon from segment occluders, InfluenceMap is a smooth diffusion with no line-of-sight, and DijkstraMap is travel DISTANCE — none answers "how many of these threats have a clear shot at this tile?" over the whole grid. Deterministic, header-only. Godot leaves tactical maps to the game.
+
+**Types:** `ExposureMap`
+
+**Functions:**
+
+- `inline ExposureMap buildExposureMap(int width, int height, const std::vector<ExposureCell>& threats,`
 
 ### `FieldOfView`
 <sub>`engine/include/maz/game/FieldOfView.hpp`</sub>

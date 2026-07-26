@@ -3711,6 +3711,20 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Cover / exposure map** (`game::buildExposureMap`, `ExposureMap`, `ExposureCell`) — DONE (M567); for
+  every open tile, HOW MANY threats can see it. Given a set of threat positions (enemy eyes, turrets, guards)
+  and the walls, it shoots a tile line of sight from each threat to each cell and counts the ones that reach —
+  a tactical field the AI reads to pick COVER (a cell no threat can see), grade how exposed a position is, or
+  weight a "safest route" search away from sniped ground. A wall casts a SHADOW of zero-exposure cells behind
+  it — exactly the cover a player ducks into. Reuses the engine's Bresenham `lineOfSight` and the same
+  `blocked(cell)` predicate the rest of the grid AI uses. Distinct from its neighbours: FieldOfView computes
+  ONE viewer's visible set, Visibility2D builds a polygon from segment occluders, InfluenceMap is a smooth
+  diffusion with no line of sight, and DijkstraMap is travel DISTANCE — none answers "how many of these threats
+  have a clear shot at this tile?" over the whole grid. Verified (`ctest -R exposuremap`): an open grid exposes
+  every cell exactly once; a wall shadows the cells directly behind it (0) while off-line cells stay exposed
+  and the wall cell itself is 0; two threats seeing a cell give 2; threats on a wall or off-grid are skipped;
+  empty grid / no-threats are safe; isCovered reflects zero exposure. Header-only, deterministic. [VERIFIABLE
+  HERE]
 - [x] **Even arc-length polyline resampling** (`math::resamplePolyline`, `math::resamplePolylineBySpacing`) —
   DONE (M566); redistribute the points of a discrete polyline so they are EVENLY spaced by arc length. A
   hand-drawn stroke, GPS/replay track, traced outline, or flattened spline has clumped, unevenly-spaced
