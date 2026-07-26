@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_662 headers across 20 subsystems._
+_663 headers across 20 subsystems._
 
 ## Contents
 
@@ -1807,6 +1807,18 @@ maz::math oriented 2D rectangle (OBB2) — a rectangle with a rotation, and the 
 **Functions:**
 
 - `inline bool orientedRectsOverlap(const OrientedRect2& a, const OrientedRect2& b)`
+
+### `OrthonormalBasis`
+<sub>`engine/include/maz/math/OrthonormalBasis.hpp`</sub>
+
+maz::math orthonormal basis from a single direction — given a unit normal, build a full right-handed frame (tangent, bitangent, normal) with no branches and no trig. This is the glue between the engine's sampling warps (Sampling.hpp emits directions in a +Z-up LOCAL frame — cosine/uniform hemisphere, disk, sphere) and the WORLD: to scatter AO/GI rays over a surface, jitter a disk light, orient a decal or an impostor billboard, or spawn particles across a face, you need a consistent tangent frame around that surface's normal, and `fromLocal` rotates a local sample into it. Uses Duff, Cigolle, Tokuyoshi, Harada & Genk's 2017 "Building an Orthonormal Basis, Revisited" — numerically stable across the whole sphere (the naive cross-with-a-fixed-axis method degenerates when the normal nears that axis). Header-only, deterministic.
+
+**Types:** `Basis3`
+
+**Functions:**
+
+- `inline Basis3 orthonormalBasis(const vec3& n)`
+- `inline vec3 fromLocal(const Basis3& b, const vec3& local)`
 
 ### `PackNorm`
 <sub>`engine/include/maz/math/PackNorm.hpp`</sub>

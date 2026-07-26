@@ -3711,6 +3711,19 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Orthonormal basis from a normal** (`math::orthonormalBasis`, `math::fromLocal`, `Basis3`) — DONE
+  (M565); given a unit normal, build a full right-handed tangent frame (tangent, bitangent, normal) with no
+  branches or trig — Duff et al.'s 2017 "Building an Orthonormal Basis, Revisited". This is the glue between
+  the engine's Sampling.hpp warps (which emit directions in a +Z-up LOCAL frame — cosine/uniform hemisphere,
+  disk, sphere) and the WORLD: to scatter AO/GI rays over a surface, jitter a disk light, orient a decal or an
+  impostor, or spawn particles across a face you need a consistent tangent frame around the surface normal, and
+  `fromLocal` rotates a local sample into it. Numerically stable across the whole sphere, unlike the naive
+  cross-with-a-fixed-axis method that degenerates when the normal nears that axis (the z=-1 case). Verified
+  (`ctest -R orthonormal_basis`) over axis-aligned normals (incl. the z=-1 danger case) and a 500-normal random
+  sweep: the three axes are mutually orthogonal and unit length and form a right-handed frame
+  (cross(tangent,bitangent)==normal); fromLocal maps local +Z to the normal and +X to the tangent and preserves
+  length; a zero normal falls back to the canonical frame; and 2000 cosine-hemisphere samples oriented by the
+  basis all land in the normal's hemisphere. Header-only, deterministic. [VERIFIABLE HERE]
 - [x] **Utility AI — score-based decision making** (`game::UtilityAction`, `Consideration`, `ResponseCurve`,
   `game::selectBestAction`) — DONE (M564); Dave Mark's "Infinite Axis Utility System", the AI paradigm behind
   The Sims and many modern shooters. Instead of a fixed tree or plan, every candidate ACTION is scored each
