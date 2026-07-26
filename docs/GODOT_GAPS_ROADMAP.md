@@ -3711,6 +3711,23 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Fighting-game input sequencer** (`game::InputSequencer`) — DONE (M576); the motion-input /
+  special-move detector: register moves as ordered sequences of input tokens (the game encodes directions
+  and buttons however it likes — e.g. down, down-forward, forward, punch for a quarter-circle fireball),
+  feed the player's inputs as they happen, and it fires the move id the instant the recent inputs end-match
+  a registered sequence WITHIN that move's timing window (the "execute the combo before the window closes"
+  mechanic of Street Fighter, Tekken, Smash). Deliberately distinct from `game::ComboMeter`, which counts a
+  STREAK of hits for a score multiplier and never looks at input order or motion — here the ORDER and
+  TIMING of raw inputs are the whole point. Detection prefers the LONGEST matching sequence (a 4-input
+  super beats a 3-input special sharing its tail), consumes the match so the same inputs cannot re-trigger,
+  and ages stale inputs out of the buffer so an old direction cannot complete a motion later. Time is driven
+  by `tick(dt)` (no wall clock), so it is fully deterministic. Godot ships no motion-input matcher. Verified
+  (`ctest -R input_sequencer`): a full motion fires and consumes the buffer; the same motion stretched past
+  its window does not; in-window across ticks fires; the longest match wins over a shorter tail match while
+  a bare token still fires its single-token move; reversed order never matches; an expired lead input cannot
+  complete the motion while a fresh one still can; a consumed match will not refire until the motion is
+  re-entered; reset clears; empty sequences / non-positive windows are rejected. Header-only, std-only,
+  deterministic. [VERIFIABLE HERE]
 - [x] **Waypoint patrol route** (`game::PatrolRoute`, `Waypoint`, `PatrolMode`) — DONE (M575); the discrete
   waypoint patrol every guard, sentry and roaming enemy walks: a list of points, each with an optional DWELL
   time, traversed at a set speed in one of three modes (Once, Loop, PingPong). It owns the mover's position,

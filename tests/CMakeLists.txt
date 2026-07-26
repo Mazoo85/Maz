@@ -817,6 +817,11 @@ target_link_libraries(maz_patrolroute_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME patrol_route COMMAND maz_patrolroute_tests)
 set_tests_properties(patrol_route PROPERTIES TIMEOUT 30)
 
+add_executable(maz_inputsequencer_tests game/inputsequencer.cpp)
+target_link_libraries(maz_inputsequencer_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME input_sequencer COMMAND maz_inputsequencer_tests)
+set_tests_properties(input_sequencer PROPERTIES TIMEOUT 30)
+
 add_executable(maz_utilityai_tests game/utilityai.cpp)
 target_link_libraries(maz_utilityai_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME utilityai COMMAND maz_utilityai_tests)

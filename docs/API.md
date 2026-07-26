@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_672 headers across 20 subsystems._
+_673 headers across 20 subsystems._
 
 ## Contents
 
@@ -5309,6 +5309,13 @@ maz::game hex A* pathfinding — shortest path across a hexagonal grid, built on
 maz::game::InfluenceMap — a tactical-AI grid where "influence" spreads outward from sources and decays, the standard tool for spatial reasoning in strategy and shooter AI. Drop POSITIVE influence at your own units and NEGATIVE at enemies, then propagate: each cell blends toward its neighbours' average and loses a fraction each step, so influence bleeds across the map and fades with distance. Reading the result answers questions no single query can: where is it SAFE vs DANGEROUS (sign and magnitude), where is the FRONT LINE (near-zero contour between opposing armies), and which way should a unit FLEE or ADVANCE (the gradient points toward higher influence). This is distinct from pathfinding (a route), flow fields (a movement vector field toward one goal), and noise (unstructured): an influence map is a decaying diffusion of gameplay meaning. Deterministic, header-only, std-only. Godot ships no influence map.
 
 **Types:** `InfluenceMap`
+
+### `InputSequencer`
+<sub>`engine/include/maz/game/InputSequencer.hpp`</sub>
+
+maz::game input sequencer — the fighting-game "motion input" / special-move detector: register moves as ordered sequences of input tokens (the game encodes directions and buttons however it likes — e.g. down, down-forward, forward, punch for a quarter-circle fireball), feed the player's inputs as they happen, and it fires the move id the instant the recent inputs end-match a registered sequence WITHIN that move's timing window. This is the "execute the combo before the window closes" mechanic of Street Fighter, Tekken, Smash, and every beat-'em-up.  This is deliberately distinct from `game::ComboMeter`, which counts a STREAK of hits for a score multiplier — it never looks at input order or motion. Here the ORDER and TIMING of raw inputs is the whole point. Detection prefers the LONGEST matching sequence (so a 4-input super beats the 3-input special sharing its prefix-tail), the match is consumed so the same inputs cannot re-trigger, and stale inputs age out of the buffer so an old direction cannot complete a motion minutes later. Time is driven by `tick(dt)` (no wall clock), so detection is fully deterministic. Godot ships no motion-input matcher. Header-only, std-only.
+
+**Types:** `InputSequencer`
 
 ### `InterceptAim`
 <sub>`engine/include/maz/game/InterceptAim.hpp`</sub>
