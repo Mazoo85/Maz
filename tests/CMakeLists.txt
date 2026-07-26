@@ -777,6 +777,11 @@ target_link_libraries(maz_soundpropagation_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME soundpropagation COMMAND maz_soundpropagation_tests)
 set_tests_properties(soundpropagation PROPERTIES TIMEOUT 30)
 
+add_executable(maz_firespread_tests game/firespread.cpp)
+target_link_libraries(maz_firespread_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME firespread COMMAND maz_firespread_tests)
+set_tests_properties(firespread PROPERTIES TIMEOUT 30)
+
 add_executable(maz_objectpool_tests core/objectpool.cpp)
 target_link_libraries(maz_objectpool_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME object_pool COMMAND maz_objectpool_tests)

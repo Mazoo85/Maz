@@ -3711,6 +3711,21 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Fire / contagion spread simulation** (`game::FireGrid`, `FireCell`, `FireParams`, `BurnState`) — DONE
+  (M562); the grid cellular automaton behind wildfires, a building burning down, or an infection creeping
+  through a population — the kind of emergent hazard a survival game (ZOMBOID) leans on. Each cell holds FUEL
+  and a burn STATE (unburnt → burning → burnt); each tick a burning cell consumes its fuel and radiates HEAT
+  to its neighbours, and an unburnt fuelled cell IGNITES once accumulated heat crosses a threshold — so more
+  burning neighbours ignite it faster, zero-fuel cells act as FIREBREAKS, and a WIND vector biases the heat so
+  the front runs downwind faster than upwind. Fully DETERMINISTIC (heat accumulation, no RNG). Distinct from
+  the engine's other grid fields — InfluenceMap is smooth two-way DIFFUSION, DijkstraMap an integer DISTANCE
+  field, ReactionDiffusion a Turing-pattern PDE, FloodFill an instantaneous region flood, and `game::Spread`
+  is weapon-cone scatter — none models a self-consuming, fuel-limited, wind-driven advancing FRONT. Verified
+  (`ctest -R firespread`): a lit source spreads by Manhattan distance (distance-k cells burning after exactly
+  k steps); a zero-fuel cell blocks the front; a burning cell burns out after fuel/burnRate ticks; a source
+  that burns out first leaves a high-threshold neighbour unignited; wind ignites the downwind cell while the
+  upwind and cross-wind cells stay cold in the same step; deterministic across identical runs; degenerate
+  inputs safe. Header-only, std-only. [VERIFIABLE HERE]
 - [x] **Capsule-vs-AABB overlap** (`math::capsuleIntersectsAabb`, `math::squaredDistanceSegmentAabb`) — DONE
   (M561); the sibling of capsule-vs-triangle (M559) for the OTHER world representation — tile / voxel / block
   worlds and simple prop colliders are axis-aligned BOXES, so a character controller walking such a world needs

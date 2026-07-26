@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_660 headers across 20 subsystems._
+_661 headers across 20 subsystems._
 
 ## Contents
 
@@ -5075,6 +5075,13 @@ maz::game::fillDepressions — priority-flood depression filling for heightfield
 **Functions:**
 
 - `inline std::vector<float> fillDepressions(int width, int height, const std::vector<float>& elev)`
+
+### `FireSpread`
+<sub>`engine/include/maz/game/FireSpread.hpp`</sub>
+
+maz::game fire / contagion spread — the grid cellular-automaton behind wildfires, a building burning down, or an infection creeping through a population, exactly the kind of emergent hazard a survival game (ZOMBOID) leans on. Each cell holds FUEL (how much is left to burn) and a burn STATE (unburnt → burning → burnt). Each tick a burning cell consumes its own fuel and radiates HEAT into its neighbours; an unburnt fuelled cell accumulates that heat and IGNITES once it crosses an ignition threshold — so more burning neighbours ignite it faster, cells with no fuel act as FIREBREAKS the fire cannot cross, and a WIND vector biases the heat so the front runs downwind faster than upwind. The model is fully DETERMINISTIC (heat accumulation, no RNG), so a lit source spreads at a predictable, unit-testable rate.  This is distinct from the engine's other grid fields: InfluenceMap is a smooth two-way DIFFUSION, DijkstraMap an integer DISTANCE field, ReactionDiffusion a chemical Turing-pattern PDE, FloodFill an instantaneous region flood, and game::Spread is weapon-cone scatter — none models a self-consuming, fuel-limited, wind-driven advancing FRONT. Header-only, std-only. Godot ships no fire/contagion sim.
+
+**Types:** `FireCell`, `FireParams`, `FireGrid`
 
 ### `FloodFill`
 <sub>`engine/include/maz/game/FloodFill.hpp`</sub>
