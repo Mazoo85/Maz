@@ -812,6 +812,11 @@ target_link_libraries(maz_timecontrol_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME time_control COMMAND maz_timecontrol_tests)
 set_tests_properties(time_control PROPERTIES TIMEOUT 30)
 
+add_executable(maz_patrolroute_tests game/patrolroute.cpp)
+target_link_libraries(maz_patrolroute_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME patrol_route COMMAND maz_patrolroute_tests)
+set_tests_properties(patrol_route PROPERTIES TIMEOUT 30)
+
 add_executable(maz_utilityai_tests game/utilityai.cpp)
 target_link_libraries(maz_utilityai_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME utilityai COMMAND maz_utilityai_tests)

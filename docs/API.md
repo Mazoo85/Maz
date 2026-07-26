@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_671 headers across 20 subsystems._
+_672 headers across 20 subsystems._
 
 ## Contents
 
@@ -5526,6 +5526,13 @@ maz::game PathFollow2D — Godot's PathFollow2D node: something that travels ALO
 maz::game Path3D / PathFollow3D — Godot's 3D path nodes, the twin of Path2D/PathFollow2D (M221). A Path3D holds a Curve3D; a PathFollow3D walks it at a *progress* measured in arc length, so something advances along it at constant speed. Exposes loop (wrap vs clamp) and reports the position + the forward tangent at that progress (the caller builds an orientation from it). Pure, header-only, deterministic. Honest scope: Godot's PathFollow3D rotation modes (Y/XY/XYZ/ORIENTED) and per-point tilt/up-vector banking are not modelled — this returns the forward tangent for the caller to use.
 
 **Types:** `PathSample3D`, `Path3D`, `PathFollow3D`
+
+### `PatrolRoute`
+<sub>`engine/include/maz/game/PatrolRoute.hpp`</sub>
+
+maz::game patrol route — the discrete waypoint patrol every guard, sentry and roaming enemy walks: a list of points, each with an optional DWELL time, traversed at a set speed in one of three modes (Once, Loop, PingPong). It owns the mover's position, walks it toward the current waypoint, PAUSES there for the waypoint's dwell on arrival, then advances to the next per the mode. It reports the target index, whether it is dwelling, whether the route has finished (Once), and a one-frame "just arrived" pulse to hang events on (play an animation, sweep a view cone, bark a line).  This is deliberately distinct from `game::PathFollow2D`, which slides CONTINUOUSLY along a baked Curve2D by an arc-length offset with a single wrap flag — no discrete waypoints, no per-point pause, no ping-pong, no arrival event. A patrol is a stop-and-go tour of specific spots, which is what stealth/AI code wants (and pairs naturally with the M571 DetectionMeter for a guard that patrols until it spots you). Godot ships neither a patrol node nor dwell/ping-pong traversal. Header-only, std-only, deterministic.
+
+**Types:** `Waypoint`, `PatrolRoute`
 
 ### `Physics2D`
 <sub>`engine/include/maz/game/Physics2D.hpp`</sub>

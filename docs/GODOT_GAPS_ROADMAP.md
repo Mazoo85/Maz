@@ -3711,6 +3711,21 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Waypoint patrol route** (`game::PatrolRoute`, `Waypoint`, `PatrolMode`) — DONE (M575); the discrete
+  waypoint patrol every guard, sentry and roaming enemy walks: a list of points, each with an optional DWELL
+  time, traversed at a set speed in one of three modes (Once, Loop, PingPong). It owns the mover's position,
+  walks it toward the current waypoint, PAUSES there for the waypoint's dwell on arrival, then advances per
+  the mode. It reports the target index, whether it is dwelling, whether the route has finished (Once), and
+  a one-frame `arrivedThisUpdate` pulse to hang events on (play an anim, sweep a view cone, bark a line).
+  Deliberately distinct from `game::PathFollow2D`, which slides CONTINUOUSLY along a baked Curve2D by an
+  arc-length offset with a single wrap flag — no discrete waypoints, no per-point pause, no ping-pong, no
+  arrival event. A patrol is a stop-and-go tour of specific spots (and pairs naturally with the M571
+  DetectionMeter for a guard that patrols until it spots you). Godot ships neither a patrol node nor
+  dwell/ping-pong traversal. Verified (`ctest -R patrol_route`): starts on wp0 heading to wp1; moves at
+  constant speed and snaps onto a waypoint with the arrival pulse (one frame only); a dwell holds position
+  for its full duration then resumes; Loop wraps, Once finishes and then no-ops, PingPong bounces
+  0->1->2->1->0->1 at both ends; reset returns to the start; empty/single-point routes and zero speed/dt are
+  safe no-ops. Header-only, std-only, deterministic. [VERIFIABLE HERE]
 - [x] **Fixed-timestep accumulator** (`core::FixedTimestep`) — DONE (M574); the classic "Fix Your Timestep"
   game-loop driver (Glenn Fiedler). Simulation wants a CONSTANT dt so physics and gameplay are deterministic
   and stable, but real frames arrive at a variable, display-driven rate. It accumulates the variable frame
