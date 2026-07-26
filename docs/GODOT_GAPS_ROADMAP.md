@@ -3711,6 +3711,26 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Stealth detection meter** (`game::DetectionMeter`, `DetectionParams`, `Awareness`) — DONE (M571);
+  the awareness system every stealth game runs on but Godot ships nothing for. Given a per-frame EXPOSURE
+  signal in [0,1] (how visible the target is this frame — the caller computes it from a ViewCone/
+  FieldOfView test, distance falloff, lighting, movement), it integrates that signal over TIME into a 0..1
+  meter and classifies it Unaware -> Suspicious -> Alerted (Metal Gear's "?"/"!", Splinter Cell, Assassin's
+  Creed, Dishonored). This is deliberately the temporal layer ON TOP of the engine's existing geometry:
+  ViewCone/FieldOfView answer "can the guard see that spot RIGHT NOW?", SoundPropagation answers "how loud
+  is it here?", and AggroTable answers "who do I attack once combat started?" — none remember a partial
+  sighting, ramp suspicion while you linger in view, hold it briefly after you break line of sight, then
+  slowly forget. That fill / linger / decay behaviour plus hysteresis (so the state does not flip-flop on
+  the threshold) is what makes stealth feel fair. Model: while exposed the meter rises at fillRate*exposure
+  (a distant glimpse ramps slower than being caught in the open); when exposure hits zero it HOLDS for
+  lingerTime then decays at decayRate; you must fill to alertAt (1.0 = fully spotted) to alert and fall
+  below relaxAt to leave it, cross suspiciousAt to rouse and drain to calmAt to forget. `forceAlert`
+  (body found / alarm) and `reset` round it out. Verified (`ctest -R detection_meter`): fills at the
+  hand-computed rate and crosses the thresholds; fill scales with exposure; the meter holds through the
+  linger window then decays; the full spot->lose->forget lifecycle walks Alerted -> (hysteresis hold) ->
+  Suspicious -> Unaware at the exact computed meter levels; clamps at 0 and 1; exposure and dt are clamped
+  (dt<=0 is a no-op); a high fillRate gives near-instant detection. Header-only, std-only, deterministic.
+  [VERIFIABLE HERE]
 - [x] **Frame-rate-independent exponential smoothing** (`math::damp`, `dampAngle`, `dampFactor`) — DONE
   (M570); the correct way to make a value smoothly "chase" a target a little each frame. The tempting
   one-liner `x = lerp(x, target, 0.1)` is a classic bug: its speed is tied to the frame rate, so the same

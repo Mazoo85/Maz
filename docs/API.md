@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_667 headers across 20 subsystems._
+_668 headers across 20 subsystems._
 
 ## Contents
 
@@ -5031,6 +5031,13 @@ maz::game combat damage resolver — the "how much damage actually lands" math b
 maz::game day/night cycle — a looping time-of-day clock for open-world lighting, shop hours, and spawn schedules. One in-game day spans `dayLength` real seconds; `update(dt)` advances the clock, wraps it at midnight, and ticks a day counter. It reports the normalized time-of-day [0,1), the in-game hour [0,24), a DayPhase (Night / Dawn / Day / Dusk) from configurable thresholds, and a sun elevation in [-1,1] (-1 at midnight, 0 at sunrise/sunset, +1 at noon) the renderer can feed straight into a directional light. Godot ships no day/night system — games hand-roll it every time — so this is a beyond-Godot gameplay utility. Header-only, std-only, deterministic.
 
 **Types:** `DayNightCycle`
+
+### `DetectionMeter`
+<sub>`engine/include/maz/game/DetectionMeter.hpp`</sub>
+
+maz::game stealth detection meter — the awareness system every stealth game runs on but Godot ships nothing for: given a per-frame EXPOSURE signal (0 = the target is fully hidden, 1 = in plain sight, which the caller computes from a ViewCone/FieldOfView test, distance falloff, lighting, movement, etc.), it integrates that signal over TIME into a 0..1 awareness meter and classifies it into the classic Unaware -> Suspicious -> Alerted states (Metal Gear's "!"/"?", Splinter Cell, Assassin's Creed, Dishonored).  This is deliberately the temporal layer ON TOP of the engine's existing geometry: ViewCone / FieldOfView answer "can the guard see that spot RIGHT NOW?", SoundPropagation answers "how loud is it here?", and AggroTable answers "who do I attack once combat has started?" — none of them remember a partial sighting, ramp suspicion while you linger in view, hold that suspicion briefly after you break line of sight, then slowly forget. That fill / linger / decay behaviour, plus hysteresis so the state does not flip-flop on the threshold, is what makes stealth feel fair, and it is exactly what this provides.  Model: while exposed, awareness rises at `fillRate * exposure` per second (so a distant glimpse ramps slower than being caught in the open) and the linger timer is topped up. When exposure drops to zero the meter first HOLDS for `lingerTime` seconds (the guard keeps looking), then decays at `decayRate` per second. State thresholds have hysteresis: you must fill to `alertAt` (1.0 by default — fully spotted) to become Alerted and then fall below `relaxAt` to leave it; you cross `suspiciousAt` to rouse suspicion and must drain to `calmAt` to forget entirely. Header-only, std-only, deterministic — exactly unit-testable.
+
+**Types:** `DetectionParams`, `DetectionMeter`
 
 ### `Dialogue`
 <sub>`engine/include/maz/game/Dialogue.hpp`</sub>

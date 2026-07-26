@@ -792,6 +792,11 @@ target_link_libraries(maz_chargepool_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME chargepool COMMAND maz_chargepool_tests)
 set_tests_properties(chargepool PROPERTIES TIMEOUT 30)
 
+add_executable(maz_detectionmeter_tests game/detectionmeter.cpp)
+target_link_libraries(maz_detectionmeter_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME detection_meter COMMAND maz_detectionmeter_tests)
+set_tests_properties(detection_meter PROPERTIES TIMEOUT 30)
+
 add_executable(maz_utilityai_tests game/utilityai.cpp)
 target_link_libraries(maz_utilityai_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME utilityai COMMAND maz_utilityai_tests)
