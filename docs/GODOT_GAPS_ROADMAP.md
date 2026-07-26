@@ -3711,6 +3711,18 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Multi-charge ability pool** (`game::ChargePool`) — DONE (M568); an ability with SEVERAL stored uses
+  that recharge one at a time — the "2 dashes / 3 grenades / 4 blinks" mechanic from Overwatch, MOBAs, and
+  modern action games. It is the step up from the single on/off `CooldownManager` timer: the pool holds up to
+  `maxCharges`, each `tryUse` spends one, and a shared recharge clock refills them one by one; spending a
+  charge mid-recharge does NOT reset the in-progress timer (the next charge keeps ticking in), which is exactly
+  how these systems feel to play. `charges`/`max`/`fraction`/`isFull` drive the pip counter and the radial
+  fill on the button. Distinct from CooldownManager (a binary ready/not-ready gate keyed by id) — this is a
+  counted resource. Verified (`ctest -R chargepool`): starts full; tryUse spends down and fails at zero; the
+  clock refills one charge per interval with fraction tracking progress; spending mid-recharge preserves the
+  elapsed time; a big dt restores several charges without banking leftover time; zero recharge time refills
+  instantly; add/refill/drain clamp; max=0 is safe. Header-only, deterministic. Godot ships Timer nodes but no
+  charge abstraction. [VERIFIABLE HERE]
 - [x] **Cover / exposure map** (`game::buildExposureMap`, `ExposureMap`, `ExposureCell`) — DONE (M567); for
   every open tile, HOW MANY threats can see it. Given a set of threat positions (enemy eyes, turrets, guards)
   and the walls, it shoots a tile line of sight from each threat to each cell and counts the ones that reach —

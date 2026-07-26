@@ -787,6 +787,11 @@ target_link_libraries(maz_exposuremap_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME exposuremap COMMAND maz_exposuremap_tests)
 set_tests_properties(exposuremap PROPERTIES TIMEOUT 30)
 
+add_executable(maz_chargepool_tests game/chargepool.cpp)
+target_link_libraries(maz_chargepool_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME chargepool COMMAND maz_chargepool_tests)
+set_tests_properties(chargepool PROPERTIES TIMEOUT 30)
+
 add_executable(maz_utilityai_tests game/utilityai.cpp)
 target_link_libraries(maz_utilityai_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME utilityai COMMAND maz_utilityai_tests)

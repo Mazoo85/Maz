@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_665 headers across 20 subsystems._
+_666 headers across 20 subsystems._
 
 ## Contents
 
@@ -4871,6 +4871,13 @@ maz::game::Bvh — a bounding-volume hierarchy over 3D AABBs, the acceleration s
 A 2D follow camera: the controller every 2D game needs but the engine only had the pieces for (a raw Camera2D data struct + a separate Shake). It tracks a target with three standard behaviors layered together: * Deadzone — a box around the current focus the target can move within WITHOUT scrolling the camera; only when the target leaves the box does the camera move (to put it back on the edge). Kills jitter from tiny target motion. * Smoothing — the camera eases toward its desired focus with a frame-rate-independent exponential approach (higher = snappier), so scrolling feels weighty instead of locked. * World bounds — the visible rectangle is clamped inside the level so the camera never shows past the edges; if the world is smaller than the view on an axis, that axis is centered. A shake offset can be added on top without feeding back into the follow position. This is math-only (no renderer dependency): the app reads center()/zoom() to fill a render::Camera2D. Header-only.
 
 **Types:** `CameraController2D`
+
+### `ChargePool`
+<sub>`engine/include/maz/game/ChargePool.hpp`</sub>
+
+maz::game charge pool — an ability with MULTIPLE stored uses that recharge one at a time, the "2 dashes / 3 grenades / 4 blinks" mechanic from Overwatch, MOBAs, and modern action games. It is the step up from a single on/off `CooldownManager` timer: a pool holds up to `maxCharges`, each `tryUse` spends one, and a shared recharge clock refills them back one by one. Spending a charge while others are still recharging does NOT reset the in-progress timer — the next charge keeps ticking in — which is exactly how these systems feel to play. Drives the pip counter and the radial fill on the ability button (`charges` / `fraction`). Deterministic, header-only, std-only. Godot ships Timer nodes but no charge abstraction.
+
+**Types:** `ChargePool`
 
 ### `ChunkStreamer`
 <sub>`engine/include/maz/game/ChunkStreamer.hpp`</sub>
