@@ -3711,6 +3711,15 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Uniform solid-ball sampling** (`math::sampleUniformBall`) — DONE (M556); the Sampling.hpp warps covered
+  disk, triangle, cosine/uniform hemisphere, and the sphere SURFACE, but not a uniform point INSIDE the solid
+  ball — the warp volumetric particle emission (spawn in a spherical volume), a random offset within a radius,
+  or sampling a spherical light's volume needs. Warps a uniform surface direction by radius = cbrt(u3); the
+  cube-root is the correctness subtlety — density is uniform per unit VOLUME, whereas a naive radius = u3 clumps
+  points near the centre (a shell at radius r has area ~ r²). Verified (`ctest -R sampling`, 400k samples): all
+  samples lie inside the unit sphere; the fraction within radius 1/2 is 1/8 (the volume-uniform signature; a
+  naive warp would give ~1/2); the mean is centred at the origin; u3=0 maps to the centre and u3=1 to the
+  surface; and it is deterministic. [VERIFIABLE HERE]
 - [x] **Ray-sphere intersection** (`math::intersectRaySphere`) — DONE (M555); the sphere had a segment test
   (segmentIntersectsSphere, returning a point) but no RAY form returning an entry distance — the pick / raycast
   test for a spherical collider (clicking a planet/ball, a projectile or line-of-sight ray vs a sphere trigger).

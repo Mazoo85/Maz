@@ -71,4 +71,12 @@ inline vec3 sampleUniformSphere(float u1, float u2) {
     return vec3(r * std::cos(phi), r * std::sin(phi), z);
 }
 
+// Uniform point INSIDE the unit ball (solid sphere) — for volumetric emission (spawn particles in a spherical
+// volume), a random offset within a radius, or sampling a spherical light's volume. Warps a uniform surface
+// direction by radius = cbrt(u3): the cube-root makes the density uniform per unit VOLUME (a naive radius = u3
+// clumps points near the centre, since a thin shell at radius r has area ~ r^2). `u1`,`u2`,`u3` in [0,1).
+inline vec3 sampleUniformBall(float u1, float u2, float u3) {
+    return sampleUniformSphere(u1, u2) * std::cbrt(u3);
+}
+
 } // namespace maz::math

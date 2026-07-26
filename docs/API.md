@@ -2119,6 +2119,7 @@ maz::math Monte-Carlo sampling warps — map a pair of uniform [0,1) random numb
 - `inline vec3 sampleCosineHemisphere(float u1, float u2)`
 - `inline vec3 sampleUniformHemisphere(float u1, float u2)`
 - `inline vec3 sampleUniformSphere(float u1, float u2)`
+- `inline vec3 sampleUniformBall(float u1, float u2, float u3)`
 
 ### `SavitzkyGolay`
 <sub>`engine/include/maz/math/SavitzkyGolay.hpp`</sub>

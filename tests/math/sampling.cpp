@@ -5,7 +5,9 @@
 //   * UNIFORMITY (airtight, known expectations): a uniform disk has E[r]=2/3 and half its area within
 //     radius 1/sqrt(2); a uniform triangle has E[b0]=E[b1]=1/3; a uniform sphere has E[z]=0; a uniform
 //     hemisphere has E[z]=1/2; a cosine-weighted hemisphere has E[z]=2/3 (the diffuse importance weight);
-//   * CONCENTRIC map corners land on the disk rim and the centre stays centred.
+//   * CONCENTRIC map corners land on the disk rim and the centre stays centred;
+//   * BALL (solid sphere) samples stay inside the unit sphere, are VOLUME-uniform (1/8 within radius 1/2, the
+//     cube-root-warp signature that a naive radius=u would fail), centred, and deterministic.
 #include "maz/math/Sampling.hpp"
 
 #include <cmath>
@@ -129,8 +131,39 @@ int main() {
         CHECK(std::fabs(sSph / N) < 5e-3, "uniform-sphere E[z] is 0");
     }
 
+    // --- 6. Uniform ball (solid sphere interior): domain, volume-uniformity, centred mean, determinism. ---
+    {
+        Lcg rng{0xBA11u};
+        double sumX = 0.0, sumY = 0.0, sumZ = 0.0;
+        int worstOut = 0, withinHalf = 0;
+        for (int i = 0; i < N; ++i) {
+            const vec3 p = sampleUniformBall(rng.unit(), rng.unit(), rng.unit());
+            const float r = len3(p);
+            if (r > 1.0f + 1e-4f) {
+                ++worstOut;
+            }
+            if (r <= 0.5f) { // fraction within radius 1/2 should be (1/2)^3 = 1/8 for a VOLUME-uniform ball
+                ++withinHalf;
+            }
+            sumX += static_cast<double>(p.x);
+            sumY += static_cast<double>(p.y);
+            sumZ += static_cast<double>(p.z);
+        }
+        CHECK(worstOut == 0, "all ball samples lie inside the unit sphere");
+        // The discriminator: a naive radius=u warp would put ~1/2 of points within r=1/2; the cbrt warp puts 1/8.
+        CHECK(std::fabs(static_cast<double>(withinHalf) / N - 0.125) < 5e-3, "ball is volume-uniform (1/8 within r=1/2)");
+        CHECK(std::fabs(sumX / N) < 5e-3 && std::fabs(sumY / N) < 5e-3 && std::fabs(sumZ / N) < 5e-3,
+              "uniform ball is centred at the origin");
+        // Endpoints and determinism.
+        CHECK(len3(sampleUniformBall(0.5f, 0.5f, 0.0f)) < 1e-4f, "u3=0 maps to the centre");
+        CHECK(std::fabs(len3(sampleUniformBall(0.3f, 0.7f, 1.0f)) - 1.0f) < 1e-4f, "u3=1 maps to the surface");
+        const vec3 a = sampleUniformBall(0.11f, 0.22f, 0.33f);
+        const vec3 b = sampleUniformBall(0.11f, 0.22f, 0.33f);
+        CHECK(a.x == b.x && a.y == b.y && a.z == b.z, "sampleUniformBall is deterministic");
+    }
+
     if (g_fail == 0) {
-        std::printf("sampling: OK — disk domain/uniformity, triangle, cosine/uniform hemisphere, sphere.\n");
+        std::printf("sampling: OK — disk/triangle/hemisphere/sphere warps + volume-uniform ball.\n");
         return 0;
     }
     std::printf("sampling: %d failure(s).\n", g_fail);
