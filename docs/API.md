@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_656 headers across 20 subsystems._
+_657 headers across 20 subsystems._
 
 ## Contents
 
@@ -358,6 +358,13 @@ maz::core Kalman filters — the statistically-optimal recursive estimator that 
 maz::core 2D k-d tree — a balanced spatial index for point sets that answers nearest-neighbour, k-nearest, and radius queries fast. Maz already has broadphase structures (grid / quadtree / octree / BVH / sweep-and-prune) tuned for boxes and ray casts; a k-d tree is the standard choice for POINT proximity: "which N points are nearest this one" drives boids/flocking neighbour lists, RVO agents, nav waypoint snapping, and photon/sample gathering. Median-split build (O(n log n)); queries prune by splitting-plane distance so they stay ~O(log n) on balanced data. Header-only, deterministic; unit- tested against brute force.
 
 **Types:** `KdTree2D`
+
+### `KdTree3D`
+<sub>`engine/include/maz/core/KdTree3D.hpp`</sub>
+
+maz::core 3D k-d tree — the volumetric companion to KdTree2D: a balanced spatial index for 3D point sets that answers nearest-neighbour, k-nearest, and radius queries fast. Maz's other 3D structures (Octree, BVH, sweep-and-prune) are tuned for BOXES and ray casts; a k-d tree is the standard choice for POINT proximity in 3D — "which N points are nearest this one" drives 3D boids/flocking neighbour lists, particle/photon gathering, mesh-vertex welding & dedup, point-cloud registration, and nav-waypoint snapping in space. Median-split build (O(n log n), cycling through x/y/z split axes); queries prune by splitting-plane distance so they stay ~O(log n) on balanced data. Header-only, deterministic; unit-tested against brute force.
+
+**Types:** `KdTree3D`
 
 ### `KeyValueStore`
 <sub>`engine/include/maz/core/KeyValueStore.hpp`</sub>

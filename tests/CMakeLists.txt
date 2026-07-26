@@ -782,6 +782,11 @@ target_link_libraries(maz_objectpool_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME object_pool COMMAND maz_objectpool_tests)
 set_tests_properties(object_pool PROPERTIES TIMEOUT 30)
 
+add_executable(maz_kdtree3d_tests core/kdtree3d.cpp)
+target_link_libraries(maz_kdtree3d_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME kdtree3d COMMAND maz_kdtree3d_tests)
+set_tests_properties(kdtree3d PROPERTIES TIMEOUT 30)
+
 add_executable(maz_gridsample_tests math/gridsample.cpp)
 target_link_libraries(maz_gridsample_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME grid_sample COMMAND maz_gridsample_tests)

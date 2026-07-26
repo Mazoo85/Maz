@@ -3711,6 +3711,19 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **3D k-d tree for point proximity** (`core::KdTree3D`) — DONE (M558); the volumetric companion to the
+  existing 2D `core::KdTree2D`: a balanced spatial index over a 3D point set answering nearest-neighbour
+  (`nearest`), k-nearest (`kNearest`, sorted nearest-first), and radius (`radius`) queries. Maz's other 3D
+  structures — Octree, Bvh, sweep-and-prune — are tuned for BOXES and ray casts and do box/sphere RANGE
+  queries; none does best-first k-NEAREST-neighbour on points, which is the query 3D boids/flocking neighbour
+  lists, particle/photon gathering, mesh-vertex welding & dedup, point-cloud registration, and in-space
+  waypoint snapping actually need. Median-split build (O(n log n), cycling x/y/z split axes); queries prune by
+  splitting-plane distance to stay ~O(log n) on balanced data. Verified (`ctest -R kdtree3d`) against BRUTE
+  FORCE over a 400-point deterministic cloud: nearest matches the true argmin across 300 random queries plus
+  queries landing exactly on a stored point and far outside the cloud; kNearest returns exactly the k closest
+  in nondecreasing order with a k-th distance equal to the brute-force k-th smallest; radius matches the true
+  in-radius set; empty-tree / k<=0 / single-point / k>n edge cases are safe. Header-only, deterministic.
+  [VERIFIABLE HERE]
 - [x] **Obstacle-aware sound propagation** (`game::propagateSound`, `SoundField`, `SoundCell`) — DONE (M557); the
   "how loud is the gunshot HERE, after it has travelled around the walls?" query that drives stealth and
   zombie-attraction AI. A single noise source emits a loudness; sound spreads across a grid and is ATTENUATED as
