@@ -3711,6 +3711,21 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Capsule-vs-triangle overlap** (`math::capsuleIntersectsTriangle`, `math::squaredDistanceSegmentTriangle`)
+  — DONE (M559); the narrowphase test behind a 3D CHARACTER CONTROLLER: does a capsule (a segment swept with a
+  radius — the standard player/enemy body) touch a triangle of the level mesh? The engine already had the
+  pieces — point↔triangle (`closestPointOnTriangle`), segment↔segment (`closestBetweenSegments` +
+  `capsulesOverlap`), ray↔capsule, and sphere/box/OBB overlaps — but not the capsule↔triangle pair that
+  walking a capsule over arbitrary mesh geometry needs. Computes the exact minimum distance from the capsule's
+  axis segment to the filled triangle and compares it to the radius: 0 when the segment pierces the triangle
+  (explicit Möller–Trumbore segment/triangle test), otherwise the min over the two endpoints projected onto the
+  triangle and the segment against each of the three triangle edges. Verified (`ctest -R capsule_triangle`)
+  against hand-computed values on a z=0 triangle: a piercing segment reads distance 0; a hovering capsule
+  overlaps iff its radius reaches the plane (discriminating just-under/just-over the exact gap); a segment
+  parallel above the interior gives the perpendicular gap; a segment beside an edge gives the edge distance; a
+  far capsule misses; a zero-length capsule degenerates to sphere-vs-triangle; distance is symmetric in the
+  endpoints; negative radius clamps to touch-only. Header-only, deterministic. Godot leaves capsule-vs-mesh to
+  its physics server; this is the CPU primitive. [VERIFIABLE HERE]
 - [x] **3D k-d tree for point proximity** (`core::KdTree3D`) — DONE (M558); the volumetric companion to the
   existing 2D `core::KdTree2D`: a balanced spatial index over a 3D point set answering nearest-neighbour
   (`nearest`), k-nearest (`kNearest`, sorted nearest-first), and radius (`radius`) queries. Maz's other 3D

@@ -2790,6 +2790,11 @@ target_link_libraries(maz_raysphere_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME ray_sphere COMMAND maz_raysphere_tests)
 set_tests_properties(ray_sphere PROPERTIES TIMEOUT 30)
 
+add_executable(maz_capsuletriangle_tests math/capsuletriangle.cpp)
+target_link_libraries(maz_capsuletriangle_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME capsule_triangle COMMAND maz_capsuletriangle_tests)
+set_tests_properties(capsule_triangle PROPERTIES TIMEOUT 30)
+
 add_executable(maz_reuleaux_tests math/reuleaux.cpp)
 target_link_libraries(maz_reuleaux_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME reuleaux COMMAND maz_reuleaux_tests)

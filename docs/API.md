@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_657 headers across 20 subsystems._
+_658 headers across 20 subsystems._
 
 ## Contents
 
@@ -1053,6 +1053,17 @@ A 3D sphere (centre + radius).
 - `inline DSphere sphere3(const vec3& a, const vec3& b, const vec3& c)`
 - `inline DSphere sphere4(const vec3& a, const vec3& b, const vec3& c, const vec3& d)`
 - `inline Sphere boundingSphere(const std::vector<vec3>& points)`
+
+### `CapsuleTriangle`
+<sub>`engine/include/maz/math/CapsuleTriangle.hpp`</sub>
+
+maz::math capsule-vs-triangle — the workhorse narrowphase test behind a 3D CHARACTER CONTROLLER: does a capsule (a segment `p0..p1` swept with radius `r` — the standard player/enemy body shape) touch a triangle of the level mesh? The engine already had the pieces for point↔triangle (`closestPointOnTriangle`), segment↔segment (`closestBetweenSegments`, and `capsulesOverlap` on top of it), ray↔capsule, and sphere/box/OBB overlaps — but not the capsule↔triangle pair that walking a capsule over arbitrary mesh geometry needs. This computes the exact minimum distance from the capsule's axis segment to the (filled) triangle and compares it to the radius. The hard part is the segment-vs-triangle distance: it is 0 when the segment pierces the triangle (handled by an explicit segment/triangle intersection test), otherwise the minimum over the two segment endpoints projected onto the triangle and the segment against each of the triangle's three edges. Pure vec3 math, header-only, deterministic — exactly unit-testable against hand-built configurations. Godot leaves capsule-vs-mesh to its physics server; this is the CPU primitive.
+
+**Functions:**
+
+- `inline bool segmentPiercesTriangle(const vec3& p0, const vec3& p1, const vec3& a, const vec3& b,`
+- `inline float squaredDistanceSegmentTriangle(const vec3& p0, const vec3& p1, const vec3& a, const vec3& b,`
+- `inline bool capsuleIntersectsTriangle(const vec3& p0, const vec3& p1, float r, const vec3& a, const vec3& b,`
 
 ### `Catenary`
 <sub>`engine/include/maz/math/Catenary.hpp`</sub>
