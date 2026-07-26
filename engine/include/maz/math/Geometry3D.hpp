@@ -186,6 +186,22 @@ struct Aabb3 {
     }
     Aabb3 merge(const Aabb3& o) const { return Aabb3(glm::min(min, o.min), glm::max(max, o.max)); }
 
+    // Tight axis-aligned box enclosing this box after transforming by `m` — Arvo's method: transform the
+    // centre, then bound each new half-extent by the sum of the absolute contributions of the matrix's linear
+    // part. Handles rotation, non-uniform scale, shear and translation. This is the "keep an object's
+    // world-space bounds up to date after it moves/rotates" op used for scene culling and broadphase —
+    // Godot's `AABB * Transform3D`. (A rotated box's tight AABB is larger than the original, as expected.)
+    Aabb3 transformed(const mat4& m) const {
+        const vec3 c = (min + max) * 0.5f;
+        const vec3 h = (max - min) * 0.5f;
+        const vec3 nc(m * vec4(c, 1.0f));
+        vec3 nh(0.0f);
+        for (int i = 0; i < 3; ++i) {
+            nh[i] = std::fabs(m[0][i]) * h.x + std::fabs(m[1][i]) * h.y + std::fabs(m[2][i]) * h.z;
+        }
+        return Aabb3(nc - nh, nc + nh);
+    }
+
     // Corner farthest along +dir (support mapping — the building block of GJK/SAT).
     vec3 support(const vec3& dir) const {
         return vec3(dir.x >= 0 ? max.x : min.x, dir.y >= 0 ? max.y : min.y,

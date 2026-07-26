@@ -2835,6 +2835,11 @@ target_link_libraries(maz_orthonormalbasis_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME orthonormal_basis COMMAND maz_orthonormalbasis_tests)
 set_tests_properties(orthonormal_basis PROPERTIES TIMEOUT 30)
 
+add_executable(maz_aabbtransform_tests math/aabbtransform.cpp)
+target_link_libraries(maz_aabbtransform_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME aabb_transform COMMAND maz_aabbtransform_tests)
+set_tests_properties(aabb_transform PROPERTIES TIMEOUT 30)
+
 add_executable(maz_resamplepolyline_tests math/resamplepolyline.cpp)
 target_link_libraries(maz_resamplepolyline_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME resample_polyline COMMAND maz_resamplepolyline_tests)

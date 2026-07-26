@@ -3711,6 +3711,20 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **AABB matrix transform** (`math::Aabb3::transformed`) — DONE (M569); the tight axis-aligned box that
+  encloses an existing AABB after it is moved, rotated, scaled or sheared by a 4x4 matrix — Godot's `AABB *
+  Transform3D`. This is the workhorse of scene culling and broadphase: an object's local bounds are fixed, but
+  every frame it moves, so its WORLD bounds must be recomputed cheaply without touching the actual geometry.
+  Uses Arvo's method — transform the box centre, then bound each new half-extent by the sum of the absolute
+  contributions of the matrix's linear part — which is exact and branch-light (no need to transform all 8
+  corners and re-merge). A rotated box's enclosing AABB is correctly LARGER than the original (the box no
+  longer lines up with the axes), which is the expected, conservative behaviour for culling. Distinct from the
+  existing `merge`/`grow`/`expand`/`encloses` (which combine or pad boxes in a fixed frame) — this is the only
+  op that carries a box through a transform. Verified (`ctest -R aabb_transform`): identity leaves the box
+  unchanged; pure translation shifts min/max; non-uniform scale scales the half-extents; a 90-degree rotation
+  swaps the corresponding extents exactly; a 45-degree rotation of a unit cube grows its in-plane extents to
+  sqrt(2); a rotation about the box's own centre keeps the centre fixed. Header-only, deterministic. [VERIFIABLE
+  HERE]
 - [x] **Multi-charge ability pool** (`game::ChargePool`) — DONE (M568); an ability with SEVERAL stored uses
   that recharge one at a time — the "2 dashes / 3 grenades / 4 blinks" mechanic from Overwatch, MOBAs, and
   modern action games. It is the step up from the single on/off `CooldownManager` timer: the pool holds up to
