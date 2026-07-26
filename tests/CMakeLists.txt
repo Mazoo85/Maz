@@ -797,6 +797,11 @@ target_link_libraries(maz_detectionmeter_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME detection_meter COMMAND maz_detectionmeter_tests)
 set_tests_properties(detection_meter PROPERTIES TIMEOUT 30)
 
+add_executable(maz_magazine_tests game/magazine.cpp)
+target_link_libraries(maz_magazine_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME magazine COMMAND maz_magazine_tests)
+set_tests_properties(magazine PROPERTIES TIMEOUT 30)
+
 add_executable(maz_utilityai_tests game/utilityai.cpp)
 target_link_libraries(maz_utilityai_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME utilityai COMMAND maz_utilityai_tests)

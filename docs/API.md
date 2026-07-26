@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_668 headers across 20 subsystems._
+_669 headers across 20 subsystems._
 
 ## Contents
 
@@ -5386,6 +5386,13 @@ maz::game experience / leveling system — the character-progression backbone be
 maz::game weighted loot table — the drop system behind chests, defeated enemies, and treasure rolls. A LootTable is a list of entries, each an item id with a relative weight and a quantity range; rolling picks ONE entry with probability proportional to its weight and yields a random count within that entry's [minCount, maxCount]. Weights are relative (a weight-3 entry is three times as likely as a weight-1 one), so designers never have to make them sum to 1. An entry with item id < 0 models a "nothing dropped" outcome (a blank on the wheel): it can win the roll, and the resulting drop reports empty(). Rolls are driven by the engine's deterministic core::Pcg32, so a given seed reproduces the exact same loot — essential for replays and shareable seeds. Godot ships no loot-table resource — games hand-roll weighted drops every time — so this is a beyond-Godot gameplay utility. Header-only, std-only.
 
 **Types:** `LootEntry`, `LootDrop`, `LootTable`
+
+### `Magazine`
+<sub>`engine/include/maz/game/Magazine.hpp`</sub>
+
+maz::game weapon magazine — the ammo model every shooter needs: a current MAGAZINE (rounds loaded and ready to fire), a RESERVE pool of spare ammo, and a timed RELOAD that refills the magazine from the reserve. Firing consumes one round; when the magazine runs dry (or on a manual "tactical" reload of a partial magazine) `reload` starts a timer during which the weapon cannot fire, and when it completes it transfers as many rounds as fit from the reserve into the magazine. This is deliberately distinct from the engine's other resource gates: `CooldownManager` is a binary ready/not-ready timer keyed by id, and `ChargePool` is N interchangeable charges on a shared auto-recharge clock — a magazine instead has TWO coupled pools (loaded vs reserve) and an explicit, interruptible reload step, which is what makes gun ammo feel like gun ammo. Godot ships no ammo abstraction; games hand-roll it every time. Reserve can be made effectively infinite for arcade weapons. Header-only, std-only, deterministic.
+
+**Types:** `Magazine`
 
 ### `MarkovName`
 <sub>`engine/include/maz/game/MarkovName.hpp`</sub>

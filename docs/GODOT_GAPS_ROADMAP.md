@@ -3711,6 +3711,24 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Weapon magazine / ammo reload** (`game::Magazine`) — DONE (M572); the ammo model every shooter
+  needs: a current MAGAZINE (rounds loaded and ready), a RESERVE of spare ammo, and a timed RELOAD that
+  refills the magazine from the reserve. `tryFire` consumes a round; when the magazine runs dry (or on a
+  manual "tactical" reload of a partial mag) `reload` starts a timer during which the weapon cannot fire,
+  and on completion transfers `min(space, reserve)` rounds from reserve into the magazine. This is
+  deliberately distinct from the engine's other resource gates: `CooldownManager` is a binary
+  ready/not-ready timer keyed by id and `ChargePool` is N interchangeable charges on a shared auto-recharge
+  clock — a magazine instead has TWO coupled pools (loaded vs reserve) and an explicit, INTERRUPTIBLE
+  reload step, which is what makes gun ammo feel like gun ammo. `canFire`/`count`/`capacity`/`reserve`/
+  `fraction`/`reloadProgress` drive the ammo counter and reload bar; `cancelReload` aborts (interrupted to
+  fire/swap) without loading; `addReserve` is an ammo pickup; `setInfiniteReserve` makes an arcade weapon
+  whose reloads always top to full. Godot ships no ammo abstraction. Verified (`ctest -R magazine`): starts
+  full; firing decrements and stops at empty (empty click, never negative); cannot fire mid-reload; a 2s
+  reload is half done at 1s and loads exactly the free space; a partial reserve tops up only partway and
+  drains to zero; reload is refused when full or reserve-empty; cancel loads nothing and resets progress; a
+  huge dt or zero reload time completes at once; infinite reserve always fills and reports the sentinel
+  total; addReserve/fraction; tick without a reload and non-positive dt are no-ops. Header-only, std-only,
+  deterministic. [VERIFIABLE HERE]
 - [x] **Stealth detection meter** (`game::DetectionMeter`, `DetectionParams`, `Awareness`) — DONE (M571);
   the awareness system every stealth game runs on but Godot ships nothing for. Given a per-frame EXPOSURE
   signal in [0,1] (how visible the target is this frame — the caller computes it from a ViewCone/
