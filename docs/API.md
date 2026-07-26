@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_655 headers across 20 subsystems._
+_656 headers across 20 subsystems._
 
 ## Contents
 
@@ -5570,6 +5570,17 @@ maz::game soft bodies — Godot's SoftBody3D (cloth, rope, jelly). Rather than a
 - `inline bool lineBlocked(math::vec2 a, math::vec2 b, const std::vector<Segment2>& occluders)`
 - `inline std::vector<math::vec2> diskSamples(math::vec2 center, float radius, int count)`
 - `inline float softVisibility(math::vec2 p, math::vec2 lightCenter, float lightRadius,`
+
+### `SoundPropagation`
+<sub>`engine/include/maz/game/SoundPropagation.hpp`</sub>
+
+maz::game sound propagation — the "how loud is the gunshot HERE, after it has travelled around the walls?" query that drives stealth and zombie-attraction AI. A single noise source (a footstep, a smashed window, a gunshot) emits a loudness; sound spreads outward across a grid and is ATTENUATED as it travels — a little per open tile, a lot through a thick wall — so the loudness heard at any cell is the source loudness minus the CHEAPEST accumulated attenuation along a path to it. Because it is a least-cost search (weighted Dijkstra with a min-heap), sound correctly ROUTES AROUND obstacles: a zombie behind a wall hears the shot only as loud as the go-around path allows, not the straight line through the wall. Cells whose best path drops below the audible floor are silent (0).  This is deliberately distinct from the engine's neighbours: DijkstraMap (M?) is UNIT-COST integer BFS (pure step distance, no per-tile weighting); InfluenceMap is an iterative DIFFUSION that only approximates falloff and never gives a path-exact, wall-attenuated loudness. Sound propagation is the float-weighted, obstacle-aware field a survival game actually reads to decide who heard what. Godot ships no equivalent — games hand-roll it. Deterministic, header-only, std-only.
+
+**Types:** `SoundField`
+
+**Functions:**
+
+- `inline SoundField propagateSound(int width, int height, SoundCell source, float sourceLoudness,`
 
 ### `SpanningTree`
 <sub>`engine/include/maz/game/SpanningTree.hpp`</sub>

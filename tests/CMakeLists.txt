@@ -772,6 +772,11 @@ target_link_libraries(maz_formation_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME formation COMMAND maz_formation_tests)
 set_tests_properties(formation PROPERTIES TIMEOUT 30)
 
+add_executable(maz_soundpropagation_tests game/soundpropagation.cpp)
+target_link_libraries(maz_soundpropagation_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME soundpropagation COMMAND maz_soundpropagation_tests)
+set_tests_properties(soundpropagation PROPERTIES TIMEOUT 30)
+
 add_executable(maz_objectpool_tests core/objectpool.cpp)
 target_link_libraries(maz_objectpool_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME object_pool COMMAND maz_objectpool_tests)

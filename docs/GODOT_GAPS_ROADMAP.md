@@ -3711,6 +3711,21 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Obstacle-aware sound propagation** (`game::propagateSound`, `SoundField`, `SoundCell`) — DONE (M557); the
+  "how loud is the gunshot HERE, after it has travelled around the walls?" query that drives stealth and
+  zombie-attraction AI. A single noise source emits a loudness; sound spreads across a grid and is ATTENUATED as
+  it travels — a little per open tile, a lot through a wall — so the loudness heard at any cell is the source
+  loudness minus the CHEAPEST accumulated attenuation along a path to it. Because it is a least-cost search
+  (weighted Dijkstra with a min-heap), sound correctly ROUTES AROUND obstacles: a zombie behind a wall hears the
+  shot only as loud as the go-around path allows, not the straight line through the wall. Distinct from the
+  engine's neighbours — DijkstraMap is UNIT-COST integer BFS (pure step distance, no per-tile weighting) and
+  InfluenceMap is an iterative DIFFUSION that only approximates falloff and never gives a path-exact,
+  wall-attenuated loudness. Verified (`ctest -R soundpropagation`): the source hears full loudness; on a uniform
+  open grid loudness falls off by Manhattan distance × attenuation (hand-computed field); the audible floor
+  silences distant cells; the discriminating case — a wall with a gap forces the field to route around it, so a
+  cell behind the wall reads 92 (the go-around path) not the 94 a wall-ignorant straight line predicts, and the
+  sealed wall tiles stay silent; diagonals cost √2; deterministic; degenerate inputs safe. Godot ships no
+  equivalent. [VERIFIABLE HERE]
 - [x] **Uniform solid-ball sampling** (`math::sampleUniformBall`) — DONE (M556); the Sampling.hpp warps covered
   disk, triangle, cosine/uniform hemisphere, and the sphere SURFACE, but not a uniform point INSIDE the solid
   ball — the warp volumetric particle emission (spawn in a spherical volume), a random offset within a radius,
