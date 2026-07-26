@@ -3711,6 +3711,24 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Gameplay time control — slow-mo ramp + hit-stop** (`game::TimeControl`) — DONE (M573); the single
+  authority that answers "what time step does GAMEPLAY get this frame?" given the real frame delta. It
+  layers the two effects action games lean on and that Godot's flat `Engine.time_scale` cannot express: a
+  SMOOTHLY RAMPED global time scale (ease into bullet-time / slow-mo / fast-forward / a soft pause and ease
+  back out) and transient HIT-STOP freezes (the few-frame full stop on a heavy impact that sells the hit in
+  fighting and action games). You call `advance(realDt)` once per frame with the unscaled delta; it updates
+  the timers and returns the scaled delta to drive gameplay, physics and animation. Distinct from
+  `core::GameClock`, which accumulates seconds at a FIXED scale for a day/night clock — no ramp, no
+  hit-stop, no per-frame delta. Design: hit-stop is measured in REAL time (a freeze lasts the same
+  wall-clock duration regardless of current slow-mo), overrides everything to a full stop while active, a
+  new request extends but never shortens an ongoing freeze (takes the max), and a freeze pauses the ramp so
+  bullet-time resumes exactly where it left off; a frame that begins inside a freeze is frozen whole. Verified
+  (`ctest -R time_control`): normal scale passes dt through; fixed scales multiply it; setScale clamps
+  negatives; the ramp steps toward the target at a constant real-time rate and clamps without overshoot;
+  rate-0 ramp snaps; hit-stop returns 0 for the frame and counts down by real dt then resumes; a shorter
+  request is ignored while a longer one extends; a freeze pauses the ramp and it resumes at the same value;
+  the freeze uses real (not scaled) time; non-positive dt is a no-op. Header-only, std-only, deterministic.
+  [VERIFIABLE HERE]
 - [x] **Weapon magazine / ammo reload** (`game::Magazine`) — DONE (M572); the ammo model every shooter
   needs: a current MAGAZINE (rounds loaded and ready), a RESERVE of spare ammo, and a timed RELOAD that
   refills the magazine from the reserve. `tryFire` consumes a round; when the magazine runs dry (or on a

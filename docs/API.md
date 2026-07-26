@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_669 headers across 20 subsystems._
+_670 headers across 20 subsystems._
 
 ## Contents
 
@@ -5816,6 +5816,13 @@ TileSet — Godot's TileSet resource. A Tilemap holds a grid of tile IDs; a Tile
 <sub>`engine/include/maz/game/Tilemap.hpp`</sub>
 
 **Types:** `Tilemap`
+
+### `TimeControl`
+<sub>`engine/include/maz/game/TimeControl.hpp`</sub>
+
+maz::game time control — the single authority that answers "what time step does GAMEPLAY get this frame?" given the real frame delta. It layers the two effects action games lean on and that Godot's flat Engine.time_scale cannot express: a SMOOTHLY RAMPED global time scale (ease into bullet-time / slow-mo / fast-forward / a soft pause, and ease back out) and transient HIT-STOP freezes (the few-frame full stop on a heavy impact that sells the hit in fighting and action games). You call `advance(realDt)` once per frame with the unscaled delta; it updates the internal timers and RETURNS the scaled delta to drive all gameplay, physics, and animation.  This is distinct from `core::GameClock`, which just accumulates seconds at a FIXED scale for a day/night style clock — it has no ramp, no hit-stop, and does not hand back a per-frame delta. Hit-stop is measured in REAL time (so a freeze lasts the same wall-clock duration no matter the current slow-mo), overrides everything to a full stop while active, and a new request extends but never shortens an ongoing freeze (it takes the max). A freeze pauses the ramp too, so bullet-time resumes exactly where it left off. Model note: a frame that begins inside a freeze is frozen whole (returns 0) — hit-stop is a handful of frames, so this is the standard, deterministic choice. Header-only, std-only, deterministic.
+
+**Types:** `TimeControl`
 
 ### `Timer`
 <sub>`engine/include/maz/game/Timer.hpp`</sub>
