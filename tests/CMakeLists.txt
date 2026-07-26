@@ -712,6 +712,11 @@ target_link_libraries(maz_spring_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME spring COMMAND maz_spring_tests)
 set_tests_properties(spring PROPERTIES TIMEOUT 30)
 
+add_executable(maz_fixedtimestep_tests core/fixedtimestep.cpp)
+target_link_libraries(maz_fixedtimestep_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME fixed_timestep COMMAND maz_fixedtimestep_tests)
+set_tests_properties(fixed_timestep PROPERTIES TIMEOUT 30)
+
 add_executable(maz_spread_tests game/spread.cpp)
 target_link_libraries(maz_spread_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME spread COMMAND maz_spread_tests)

@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_670 headers across 20 subsystems._
+_671 headers across 20 subsystems._
 
 ## Contents
 
@@ -206,6 +206,13 @@ maz::core::FenwickTree — a Binary Indexed Tree: a mutable integer array that a
 maz::core::Fixed — a Q16.16 fixed-point number for DETERMINISTIC simulation. Floating point gives slightly different results on different CPUs/compilers/optimisation levels, which silently desyncs lockstep multiplayer, replays, and cross-platform physics. Fixed point is pure integer arithmetic: the same inputs give bit-identical outputs everywhere, so a lockstep netcode game (or a deterministic replay) can run the simulation in Fixed and trust every client agrees. Value = raw / 65536; 16 bits of integer range (±32767) and 16 bits of fraction (~1.5e-5 resolution). Multiply/divide use 64-bit intermediates so they don't overflow. Header-only, no floats on the runtime path (float is used only for authoring conversions). Godot has no fixed-point type, so this is a genuinely-useful utility.
 
 **Types:** `Fixed`
+
+### `FixedTimestep`
+<sub>`engine/include/maz/core/FixedTimestep.hpp`</sub>
+
+maz::core fixed-timestep accumulator — the classic "Fix Your Timestep" game-loop driver (Glenn Fiedler). Simulation wants a CONSTANT dt so physics and gameplay are deterministic and stable, but real frames arrive at a variable, display-driven rate. This accumulates the variable frame time and hands back how many fixed steps to run this frame, keeping the leftover as an interpolation ALPHA for smooth rendering.  It is the missing driver for the engine's `core::Interpolated<T>` (whose own docs say "push once per fixed step, sample(alpha) once per render frame" but which ships no way to compute that step count or alpha): a frame does `for (int i = 0, n = ts.advance(dt); i < n; ++i) simulate(ts.step()); render(ts.alpha());`. Distinct from `core::GameClock` (accumulates scaled seconds, no fixed decomposition), `core::Scheduler` (fires callbacks at times) and `game::TimeControl` (produces a scaled delta) — this turns one variable delta into a whole number of fixed steps plus a blend fraction.  Spiral-of-death protection: if a frame stalls (a huge dt — a breakpoint, a slow load), running every backlogged step would make the next frame even slower, forever. So the accumulator is capped at maxSteps * step: at most maxSteps run per frame and the excess real time is DROPPED (simulation time slows rather than the game freezing). Header-only, std-only, deterministic.
+
+**Types:** `FixedTimestep`
 
 ### `FuzzyMatch`
 <sub>`engine/include/maz/core/FuzzyMatch.hpp`</sub>

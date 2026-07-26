@@ -3711,6 +3711,24 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Fixed-timestep accumulator** (`core::FixedTimestep`) — DONE (M574); the classic "Fix Your Timestep"
+  game-loop driver (Glenn Fiedler). Simulation wants a CONSTANT dt so physics and gameplay are deterministic
+  and stable, but real frames arrive at a variable, display-driven rate. It accumulates the variable frame
+  time and hands back how many fixed steps to run this frame, keeping the leftover as an interpolation ALPHA
+  for smooth rendering: a frame does `for (int i=0,n=ts.advance(dt); i<n; ++i) simulate(ts.step());
+  render(ts.alpha());`. This is the missing DRIVER for the engine's `core::Interpolated<T>` (M151) — whose
+  own docs say "push once per fixed step, sample(alpha) once per render frame" but which shipped no way to
+  compute that step count or alpha. Distinct from `core::GameClock` (accumulates scaled seconds, no fixed
+  decomposition), `core::Scheduler` (fires callbacks at times) and `game::TimeControl` (produces a scaled
+  delta) — this turns one variable delta into a whole number of fixed steps plus a blend fraction.
+  Spiral-of-death protection: the accumulator is capped at maxSteps*step, so a stalled frame (huge dt) runs
+  at most maxSteps and DROPS the excess (simulation slows rather than freezing forever). Verified (`ctest -R
+  fixed_timestep`): a sub-step delta runs 0 steps with the right fractional alpha; crossing the boundary
+  runs exactly one and carries the remainder; 0.25 over a 0.1 step runs 2 with alpha 0.5; the 1:1 case runs
+  one per frame; small frames accumulate until a step fires; a 10s delta caps to maxSteps with no runaway
+  backlog; non-positive dt is a no-op; alpha stays in [0,1) across a mixed delta sequence; reset/setStep
+  clear leftover; the constructor clamps a bad step/maxSteps. Header-only, std-only, deterministic.
+  [VERIFIABLE HERE]
 - [x] **Gameplay time control — slow-mo ramp + hit-stop** (`game::TimeControl`) — DONE (M573); the single
   authority that answers "what time step does GAMEPLAY get this frame?" given the real frame delta. It
   layers the two effects action games lean on and that Godot's flat `Engine.time_scale` cannot express: a
