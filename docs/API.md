@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_658 headers across 20 subsystems._
+_659 headers across 20 subsystems._
 
 ## Contents
 
@@ -2334,6 +2334,17 @@ maz::math superquadric (superellipsoid) — the 3D family of shapes that morph b
 - `inline vec3 superellipsoidPoint(float a, float b, float c, float e1, float e2, float u, float v)`
 - `inline float superquadricInsideOutside(float a, float b, float c, float e1, float e2, const vec3& p)`
 - `inline vec3 superquadricNormal(float a, float b, float c, float e1, float e2, const vec3& p)`
+
+### `SweptAabb`
+<sub>`engine/include/maz/math/SweptAabb.hpp`</sub>
+
+maz::math swept AABB vs AABB — CONTINUOUS collision of a MOVING axis-aligned box against a STATIC one over one time step, the workhorse behind a tunnelling-free platformer / block-world character controller. A fast body stepped discretely can pass straight THROUGH a thin wall between frames ("tunnelling"); this finds the exact fraction of the step `t` in [0,1] at which the moving box first touches the static box, plus the contact face normal, so the mover can be advanced to the contact and slid along the surface. It is the box analogue of the engine's ray/AABB slab test and its 2D circle `game::ShapeCast2D` / conservative `game::sphereCast`: a per-axis entry/exit-time intersection (the Minkowski-sum / relative-motion form). Pure vec3 math, header-only, deterministic — exactly unit-testable against hand-computed contact times.  Semantics: the boxes are assumed SEPARATED at t=0 and the mover travels by displacement `d` (velocity × dt). Returns hit=false when they never touch during the step, when the mover moves away, or when the contact would happen beyond t=1. Boxes already overlapping at t=0 report hit=false (there is no *first* contact to find in the step) — use a static overlap test (`Aabb3::intersects`) for that case.
+
+**Types:** `SweptAabbHit`
+
+**Functions:**
+
+- `inline SweptAabbHit sweptAabbAabb(const Aabb3& mover, const vec3& d, const Aabb3& stat)`
 
 ### `SweptSphere`
 <sub>`engine/include/maz/math/SweptSphere.hpp`</sub>

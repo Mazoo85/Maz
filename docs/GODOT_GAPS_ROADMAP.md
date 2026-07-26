@@ -3711,6 +3711,19 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Swept AABB-vs-AABB continuous collision** (`math::sweptAabbAabb`, `SweptAabbHit`) — DONE (M560); the
+  tunnelling-free CONTINUOUS collision test behind a platformer / block-world character controller: a fast box
+  stepped discretely can pass straight THROUGH a thin wall between frames, so this finds the exact fraction of
+  the step `t` in [0,1] at which a MOVING axis-aligned box first touches a STATIC one, plus the contact face
+  normal, so the mover can be stopped at the contact and slid along it. It is the box analogue of the engine's
+  ray/AABB slab test and its 2D circle `game::ShapeCast2D` / conservative `game::sphereCast` — a per-axis
+  entry/exit-time (Minkowski/relative-motion) intersection, none of which covered the swept box-vs-box case.
+  Verified (`ctest -R swept_aabb`) against hand-computed contact times: a head-on approach hits at t = gap/speed
+  with the face normal opposing travel; a contact landing exactly at t=1 hits while just-short misses; moving
+  away misses; a glancing pass separated on a non-motion axis misses; a diagonal approach hits at the shared
+  entry time; a -x approach yields a +x normal; boxes already overlapping at t=0 report no hit (documented
+  semantics — use a static overlap test there); zero motion with separation misses. Header-only, deterministic.
+  [VERIFIABLE HERE]
 - [x] **Capsule-vs-triangle overlap** (`math::capsuleIntersectsTriangle`, `math::squaredDistanceSegmentTriangle`)
   — DONE (M559); the narrowphase test behind a 3D CHARACTER CONTROLLER: does a capsule (a segment swept with a
   radius — the standard player/enemy body) touch a triangle of the level mesh? The engine already had the
