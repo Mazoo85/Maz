@@ -3711,6 +3711,21 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Utility AI — score-based decision making** (`game::UtilityAction`, `Consideration`, `ResponseCurve`,
+  `game::selectBestAction`) — DONE (M564); Dave Mark's "Infinite Axis Utility System", the AI paradigm behind
+  The Sims and many modern shooters. Instead of a fixed tree or plan, every candidate ACTION is scored each
+  tick and the highest scorer wins, so behaviour emerges from the situation and scales to many actions without
+  hand-wiring transitions. An action's score is its base weight times the product of its CONSIDERATIONS — each
+  a normalized game input (hunger/100, distance/range, ammo fraction…) run through a RESPONSE CURVE (linear,
+  polynomial, logistic, step, constant) into a [0,1] factor. Multiplying factors means any single unmet
+  consideration (≈0) VETOES the action (the "don't reload with a zombie biting you" behaviour); an optional
+  make-up compensation counteracts the shrink of multiplying many sub-one factors. Distinct from the engine's
+  other AI — BehaviorTree (fixed structure), GOAP (goal planner), StateMachine (explicit states), Minimax
+  (adversarial). Verified (`ctest -R utilityai`): every response curve matches hand-computed values and clamps
+  to [0,1]; considerations clamp their input; an action's score equals weight × (compensated) product; a veto
+  consideration zeroes a high-weight action and it loses to a modest all-satisfied one; selectBestAction
+  returns the top scorer, breaks ties toward the lowest index, reports the winning score, and returns -1 on an
+  empty list. Header-only, deterministic. Godot ships no utility-AI system. [VERIFIABLE HERE]
 - [x] **Capped-rate direction turning** (`math::rotateToward`, vec2 & vec3) — DONE (M563); the smooth
   turret / homing-missile / AI look-at turn: rotate the DIRECTION of `from` toward `to` by at most `maxRadians`
   along the shortest arc, never overshooting, PRESERVING `from`'s length — Godot's Vector2/Vector3.rotate_toward.

@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_661 headers across 20 subsystems._
+_662 headers across 20 subsystems._
 
 ## Contents
 
@@ -5769,6 +5769,18 @@ maz::game concave trimesh collider — Godot's ConcavePolygonShape3D: an arbitra
 maz::game turn-order scheduler — the initiative queue behind tactics and JRPG combat, where each combatant acts in order of a speed / initiative score, highest first, and play loops round after round. Combatants are added with an initiative value; `start` opens round 1 by sorting them (ties broken by id so the order is deterministic), `current` names whose turn it is, and `advance` steps to the next combatant, rolling into a fresh round (re-sorting to pick up any initiative changes) once everyone has acted. Combatants can be removed mid-battle (a defeated enemy is skipped immediately, passing the turn on) and added between rounds (a summon joins the next round). Godot ships no turn/initiative system — games hand-roll it every time — so this is a beyond-Godot gameplay utility. Header-only, std-only, deterministic.
 
 **Types:** `TurnOrder`
+
+### `UtilityAI`
+<sub>`engine/include/maz/game/UtilityAI.hpp`</sub>
+
+maz::game utility AI — score-based decision making (Dave Mark's "Infinite Axis Utility System"), the AI paradigm behind The Sims and many modern shooters. Instead of a fixed tree or plan, every candidate ACTION is scored each think-tick and the highest scorer wins, so behaviour emerges smoothly from the situation and scales to dozens of actions without hand-wiring transitions. Each action's score is the product of its CONSIDERATIONS: a consideration takes a normalized game input (hunger/100, distance/range, ammo fraction, … all in [0,1]) and runs it through a RESPONSE CURVE (linear, polynomial, logistic, step, constant) to a factor in [0,1]. Multiplying the factors means any single unmet consideration (≈0) VETOES the action, which is exactly the desired "don't reload while a zombie is biting you" behaviour; an optional make-up compensation counteracts the natural shrink of multiplying many sub-one factors so richer actions aren't unfairly penalised.  This complements — and is distinct from — the engine's other AI: BehaviorTree (fixed priority/sequence structure), GOAP (plans a sequence toward a goal), StateMachine (explicit states/transitions), and Minimax (adversarial game tree). Utility AI is the fuzzy, reactive "what's the most appropriate thing to do right now?" scorer. Deterministic, header-only, std-only. Godot ships no utility-AI system.
+
+**Types:** `ResponseCurveType`, `ResponseCurve`, `Consideration`, `UtilityAction`
+
+**Functions:**
+
+- `inline float utilClamp01(float x)`
+- `inline int selectBestAction(const std::vector<UtilityAction>& actions, float* outScore = nullptr)`
 
 ### `ViewCone`
 <sub>`engine/include/maz/game/ViewCone.hpp`</sub>

@@ -782,6 +782,11 @@ target_link_libraries(maz_firespread_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME firespread COMMAND maz_firespread_tests)
 set_tests_properties(firespread PROPERTIES TIMEOUT 30)
 
+add_executable(maz_utilityai_tests game/utilityai.cpp)
+target_link_libraries(maz_utilityai_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME utilityai COMMAND maz_utilityai_tests)
+set_tests_properties(utilityai PROPERTIES TIMEOUT 30)
+
 add_executable(maz_objectpool_tests core/objectpool.cpp)
 target_link_libraries(maz_objectpool_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME object_pool COMMAND maz_objectpool_tests)
