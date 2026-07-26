@@ -21,9 +21,11 @@ game/
       Font.hpp         5x7 bitmap font + drawText (HUD/labels)
       SoftRenderer.hpp software reference rasterizer: renderScene() + renderWorldMap()
   src/           World.cpp · Items.cpp · Sim.cpp · Save.cpp · SoftRenderer.cpp
-apps/zomboid/    headless autopilot driver; --render (PNG, Png.hpp) · --save/--load
+apps/zomboid/    headless autopilot driver; --render (PNG, Png.hpp) · --save/--load · --screen
+apps/zomboid-tui/ PLAYABLE terminal front-end: keyboard -> zb::Input, framebuffer
+                 rendered as truecolor half-block ANSI + text HUD (POSIX/termios)
 tests/           zomboid_tests.cpp (worldgen, determinism, needs, combat, loot,
-                 save/load, render, day/night)
+                 save/load, render, day/night) + zomboid-tui --once smoke
 ```
 
 The `zomboid` library is **deliberately free of SDL3/Vulkan/GLM**: the whole simulation
@@ -81,6 +83,17 @@ PNG encoder (`apps/zomboid/Png.hpp`), so you can *see* the port with no GPU:
 
 This is deterministic and unit-tested, and doubles as the seed for golden-image render tests
 (Phase 12). It also defines the exact draw intent the Vulkan sprite batch will reproduce on the GPU.
+
+## Play it (terminal)
+
+`apps/zomboid-tui` is the first *playable* build: it puts the terminal in raw mode, maps the
+keyboard into `zb::Input`, runs the Sim in a real-time fixed-step loop, and draws each frame as
+truecolor half-block ANSI (two pixels per character cell) with a text HUD — no GPU or window.
+
+```
+./build/bin/zomboid-tui          # play: WASD move, SPACE attack, E loot, 1-8 use, F light, N new, Q quit
+./build/bin/zomboid-tui --once   # headless: render one autopilot frame and exit (CI smoke)
+```
 
 ## What's next
 

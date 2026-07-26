@@ -167,8 +167,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       port is visually verifiable headless (and seeds Phase 12 golden-image tests). **Next:** bridge
       the same draw intent to the Vulkan sprite/tilemap renderer + SDL input + audio so it's playable
       in a window. Versioned **save/load** (`Sim::saveState`/`loadState`) is also done — bit-exact and
-      continuation-deterministic (a loaded game continues identically to one never saved).
-      See `docs/ZOMBOID_PORT.md`.
+      continuation-deterministic (a loaded game continues identically to one never saved). The port
+      is already **playable in a terminal** (`apps/zomboid-tui`) — keyboard input into the sim, each
+      frame drawn as truecolor half-block ANSI + a text HUD, no GPU. See `docs/ZOMBOID_PORT.md`.
 
 ---
 

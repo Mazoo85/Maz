@@ -14,3 +14,9 @@ target_link_libraries(zomboid_tests PRIVATE maz::zomboid maz_warnings)
 
 add_test(NAME zomboid_sim_tests COMMAND zomboid_tests)
 set_tests_properties(zomboid_sim_tests PROPERTIES TIMEOUT 60)
+
+# TUI headless smoke: render an autopilot frame and exit cleanly (no TTY needed).
+if(NOT WIN32)
+    add_test(NAME zomboid_tui_smoke COMMAND zomboid-tui --once --frames 30)
+    set_tests_properties(zomboid_tui_smoke PROPERTIES TIMEOUT 30)
+endif()

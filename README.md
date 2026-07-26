@@ -37,9 +37,14 @@ needs, combat, zombie hordes, day/night — seeded-reproducible and unit-tested 
 A windowed renderer/input/audio bridge onto this same `Sim` is next. See
 **[`docs/ZOMBOID_PORT.md`](docs/ZOMBOID_PORT.md)**.
 
+It's already **playable in a terminal** (`apps/zomboid-tui`): the sim runs in real time and each
+frame is drawn as truecolor half-block ANSI with a text HUD — no GPU or window.
+
 ```
-./build/bin/zomboid --ticks 3600 --seed 7   # headless autopilot, prints a run summary
-ctest --test-dir build -R zomboid            # sim unit tests
+./build/bin/zomboid-tui                      # PLAY in the terminal (WASD move, SPACE attack, ...)
+./build/bin/zomboid --ticks 3600 --seed 7    # headless autopilot, prints a run summary
+./build/bin/zomboid --seed 7 --render f.png  # render a PNG frame (world + HUD + FX, no GPU)
+ctest --test-dir build -R zomboid            # sim + render + save/load unit tests
 ```
 
 ---
