@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_674 headers across 20 subsystems._
+_675 headers across 20 subsystems._
 
 ## Contents
 
@@ -4771,6 +4771,17 @@ maz::game achievement system — the unlock tracker behind "Achievement Unlocked
 <sub>`engine/include/maz/game/AggroTable.hpp`</sub>
 
 **Types:** `AggroTable`
+
+### `AimAssist`
+<sub>`engine/include/maz/game/AimAssist.hpp`</sub>
+
+maz::game aim assist (target magnetism) — the "sticky aim" that makes shooting with a thumbstick feel good on a controller: gently rotate the player's aim toward the nearest target that falls inside a magnetism CONE, by at most a per-call cap so it nudges rather than snaps. Pick the closest target by ANGLE (not distance — what matters is how far the reticle must swing), close a `strength` fraction of that gap, and clamp the correction to `maxCorrection` radians so the assist can never yank the aim or overshoot the target.  This is deliberately distinct from `game::InterceptAim`, which is a FIRING SOLUTION — where to aim a fixed-speed projectile to hit a mover (lead). Aim assist does not lead anything; it is an INPUT-assist that biases the player's own aim toward whatever they are roughly pointing at. Godot ships no aim assist. Pure vec2 math, header-only, deterministic.
+
+**Types:** `AimAssistResult`
+
+**Functions:**
+
+- `inline AimAssistResult aimAssist(const math::vec2& shooter, const math::vec2& aimDir,`
 
 ### `AllPairsShortestPath`
 <sub>`engine/include/maz/game/AllPairsShortestPath.hpp`</sub>

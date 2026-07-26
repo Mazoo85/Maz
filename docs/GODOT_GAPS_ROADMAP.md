@@ -3711,6 +3711,20 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Aim assist / target magnetism** (`game::aimAssist`, `AimAssistResult`) — DONE (M578); the "sticky
+  aim" that makes shooting with a thumbstick feel good on a controller: gently rotate the player's aim
+  toward the nearest target that falls inside a magnetism CONE, by at most a per-call cap so it nudges
+  rather than snaps. It picks the closest target by ANGLE (not distance — what matters is how far the
+  reticle must swing), closes a `strength` fraction of that gap, and clamps the correction to
+  `maxCorrection` radians so it can never yank the aim or overshoot. Deliberately distinct from
+  `game::InterceptAim`, which is a FIRING SOLUTION (where to aim a fixed-speed projectile to hit a mover —
+  lead); aim assist leads nothing, it biases the player's OWN aim toward whatever they are roughly pointing
+  at. Godot ships no aim assist. Verified (`ctest -R aim_assist`): with no targets the aim is unchanged and
+  nothing locks; a 30deg-off target with full strength and a big cap aligns the aim exactly onto it; a small
+  cap limits the swing to maxCorrection; half strength closes half the gap; a target outside the cone is
+  ignored; the nearest-by-angle target wins among several; a target below rotates the aim downward (correct
+  sign); an on-axis target locks with no rotation; degenerate aim, zero cone/cap/strength and a
+  shooter-coincident target are safe no-locks. Pure vec2 math, header-only, deterministic. [VERIFIABLE HERE]
 - [x] **Poise / posture super-armor** (`game::Poise`, `PoiseParams`) — DONE (M577); the stagger mechanic of
   Dark Souls, Sekiro and Elden Ring: a SECOND resource, separate from health, that governs whether a hit
   INTERRUPTS you. Each hit drains poise; while you have poise left you shrug off the stagger and keep your
