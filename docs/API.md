@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_659 headers across 20 subsystems._
+_660 headers across 20 subsystems._
 
 ## Contents
 
@@ -1053,6 +1053,16 @@ A 3D sphere (centre + radius).
 - `inline DSphere sphere3(const vec3& a, const vec3& b, const vec3& c)`
 - `inline DSphere sphere4(const vec3& a, const vec3& b, const vec3& c, const vec3& d)`
 - `inline Sphere boundingSphere(const std::vector<vec3>& points)`
+
+### `CapsuleAabb`
+<sub>`engine/include/maz/math/CapsuleAabb.hpp`</sub>
+
+maz::math capsule-vs-AABB — the sibling of capsule-vs-triangle (M559) for the OTHER world representation: does a capsule (a segment `p0..p1` swept with radius `r` — the standard player/enemy body) touch an axis-aligned box? Tile/voxel/block worlds and simple prop colliders are AABBs, so a character controller walking such a world needs capsule↔AABB just as a mesh-level one needs capsule↔triangle. The engine had point↔AABB (`Aabb3::distanceSquared`), segment↔AABB pierce (`Aabb3::intersectsSegment`), sphere↔AABB (`Aabb3::intersectsSphere`) and segment↔segment (`closestBetweenSegments`) — but not the capsule↔AABB pair. This computes the exact minimum distance from the capsule's axis segment to the box and compares it to the radius: 0 when the segment pierces the box, otherwise the min over the two segment endpoints projected onto the box and the segment against each of the box's twelve edges (which, as in the triangle case, also captures a segment running parallel above a face). Pure vec3 math, header-only, deterministic.
+
+**Functions:**
+
+- `inline float squaredDistanceSegmentAabb(const vec3& p0, const vec3& p1, const Aabb3& box)`
+- `inline bool capsuleIntersectsAabb(const vec3& p0, const vec3& p1, float r, const Aabb3& box)`
 
 ### `CapsuleTriangle`
 <sub>`engine/include/maz/math/CapsuleTriangle.hpp`</sub>

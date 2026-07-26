@@ -2800,6 +2800,11 @@ target_link_libraries(maz_sweptaabb_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME swept_aabb COMMAND maz_sweptaabb_tests)
 set_tests_properties(swept_aabb PROPERTIES TIMEOUT 30)
 
+add_executable(maz_capsuleaabb_tests math/capsuleaabb.cpp)
+target_link_libraries(maz_capsuleaabb_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME capsule_aabb COMMAND maz_capsuleaabb_tests)
+set_tests_properties(capsule_aabb PROPERTIES TIMEOUT 30)
+
 add_executable(maz_reuleaux_tests math/reuleaux.cpp)
 target_link_libraries(maz_reuleaux_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME reuleaux COMMAND maz_reuleaux_tests)

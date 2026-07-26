@@ -3711,6 +3711,21 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Capsule-vs-AABB overlap** (`math::capsuleIntersectsAabb`, `math::squaredDistanceSegmentAabb`) — DONE
+  (M561); the sibling of capsule-vs-triangle (M559) for the OTHER world representation — tile / voxel / block
+  worlds and simple prop colliders are axis-aligned BOXES, so a character controller walking such a world needs
+  capsule↔AABB just as a mesh-level one needs capsule↔triangle. The engine had point↔AABB
+  (`Aabb3::distanceSquared`), segment↔AABB pierce (`Aabb3::intersectsSegment`), sphere↔AABB
+  (`Aabb3::intersectsSphere`) and segment↔segment (`closestBetweenSegments`) — but not the capsule↔AABB pair.
+  Computes the exact minimum distance from the capsule's axis segment to the box and compares it to the radius:
+  0 when the segment pierces the box, otherwise the min over the two endpoints projected onto the box and the
+  segment against each of the box's twelve edges (which also captures a segment running parallel above a face).
+  Verified (`ctest -R capsule_aabb`) on a unit box against hand-computed gaps: a piercing segment reads 0; a
+  hovering capsule overlaps iff its radius reaches the face (discriminating just-under/just-over the exact gap);
+  a parallel-above-face segment gives the perpendicular gap; a beside-face segment gives the side gap; a
+  near-corner segment gives the diagonal (√3) corner gap; a far capsule misses; a zero-length capsule matches
+  `Aabb3::intersectsSphere`; distance is symmetric in the endpoints; negative radius clamps to touch-only.
+  Header-only, deterministic. [VERIFIABLE HERE]
 - [x] **Swept AABB-vs-AABB continuous collision** (`math::sweptAabbAabb`, `SweptAabbHit`) — DONE (M560); the
   tunnelling-free CONTINUOUS collision test behind a platformer / block-world character controller: a fast box
   stepped discretely can pass straight THROUGH a thin wall between frames, so this finds the exact fraction of
