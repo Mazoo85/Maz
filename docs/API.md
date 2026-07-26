@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_666 headers across 20 subsystems._
+_667 headers across 20 subsystems._
 
 ## Contents
 
@@ -1227,6 +1227,19 @@ Cubic Bézier path — Godot's Curve2D / the spline a Path2D holds and a PathFol
 **Functions:**
 
 - `inline vec3 cubicBezier(const vec3& p0, const vec3& p1, const vec3& p2, const vec3& p3, float t)`
+
+### `Damp`
+<sub>`engine/include/maz/math/Damp.hpp`</sub>
+
+maz::math frame-rate-independent exponential smoothing — the correct way to make a value "chase" a target a little bit each frame. The tempting one-liner `x = lerp(x, target, 0.1f)` is the classic game-code bug: its speed depends on the frame rate, so the same code eases faster at 120 fps than at 30 fps and behaves differently on every machine. `damp` fixes that by using the exact closed-form solution of exponential decay, x(t) = target + (x0 - target) * 2^(-dt / halfLife), which composes perfectly across sub-steps: one step of dt gives BIT-FOR-BIT the same result as two steps of dt/2.  The knob is the HALF-LIFE: how long (in seconds) it takes to close half the remaining gap — an intuitive, designer-facing number ("snappy" ~0.05s, "floaty" ~0.5s). This is deliberately different from the engine's other smoothers: core::smoothDamp is a critically-damped spring that needs a persistent velocity and a max-speed clamp (Unity's SmoothDamp), core::Spring is a full physical spring, and math::moveToward / rotateToward move at a CONSTANT rate. `damp` is the stateless, unconditionally-stable, overshoot-free exponential ease that camera/UI/audio code reaches for most often — and which the engine previously open-coded inline (e.g. CameraController2D). Pure, header-only, deterministic.
+
+**Functions:**
+
+- `inline float dampFactor(float halfLife, float dt)`
+- `inline float damp(float current, float target, float halfLife, float dt)`
+- `inline vec2 damp(const vec2& current, const vec2& target, float halfLife, float dt)`
+- `inline vec3 damp(const vec3& current, const vec3& target, float halfLife, float dt)`
+- `inline float dampAngle(float current, float target, float halfLife, float dt)`
 
 ### `Delaunay`
 <sub>`engine/include/maz/math/Delaunay.hpp`</sub>

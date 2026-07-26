@@ -3711,6 +3711,25 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Frame-rate-independent exponential smoothing** (`math::damp`, `dampAngle`, `dampFactor`) — DONE
+  (M570); the correct way to make a value smoothly "chase" a target a little each frame. The tempting
+  one-liner `x = lerp(x, target, 0.1)` is a classic bug: its speed is tied to the frame rate, so the same
+  code eases faster at 120fps than at 30fps and behaves differently on every machine. `damp` uses the exact
+  closed-form of exponential decay, `x = target + (x - target) * 2^(-dt/halfLife)`, which composes perfectly
+  across sub-steps — one step of dt gives bit-for-bit the same result as two steps of dt/2 — so motion is
+  identical regardless of frame rate, and it is unconditionally stable and never overshoots for any dt. The
+  knob is the intuitive, designer-facing HALF-LIFE (seconds to close half the gap): ~0.05 snappy, ~0.5
+  floaty. Scalar + vec2 + vec3 overloads share one decay factor (`dampFactor`); `dampAngle` eases the SHORT
+  way around the circle (350deg -> 10deg crosses 0). Deliberately distinct from the engine's other
+  smoothers: `core::smoothDamp` is a critically-damped spring needing persistent velocity + max-speed
+  (Unity's SmoothDamp), `core::Spring` is a full physical spring, and `math::moveToward`/`rotateToward`
+  move at a CONSTANT rate — `damp` is the stateless exponential ease camera/UI/audio code reaches for most,
+  which the engine previously open-coded inline (e.g. CameraController2D). Verified (`ctest -R damp`): one
+  half-life halves the gap and two quarter it (hand-computed); halfLife<=0 snaps and dt<=0 is a no-op; one
+  big step equals n sub-steps (frame-rate independence) while a naive lerp with the same split visibly
+  diverges (control case); it stays monotone and never overshoots across 200 steps and even for a 1e6-second
+  dt; vec2/vec3 decay component-wise; dampAngle crosses the 0/2pi seam the short way and matches plain damp
+  when no wrap is needed. Header-only, deterministic. [VERIFIABLE HERE]
 - [x] **AABB matrix transform** (`math::Aabb3::transformed`) — DONE (M569); the tight axis-aligned box that
   encloses an existing AABB after it is moved, rotated, scaled or sheared by a 4x4 matrix — Godot's `AABB *
   Transform3D`. This is the workhorse of scene culling and broadphase: an object's local bounds are fixed, but

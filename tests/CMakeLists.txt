@@ -2840,6 +2840,11 @@ target_link_libraries(maz_aabbtransform_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME aabb_transform COMMAND maz_aabbtransform_tests)
 set_tests_properties(aabb_transform PROPERTIES TIMEOUT 30)
 
+add_executable(maz_damp_tests math/damp.cpp)
+target_link_libraries(maz_damp_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME damp COMMAND maz_damp_tests)
+set_tests_properties(damp PROPERTIES TIMEOUT 30)
+
 add_executable(maz_resamplepolyline_tests math/resamplepolyline.cpp)
 target_link_libraries(maz_resamplepolyline_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME resample_polyline COMMAND maz_resamplepolyline_tests)
