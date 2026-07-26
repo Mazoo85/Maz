@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_663 headers across 20 subsystems._
+_664 headers across 20 subsystems._
 
 ## Contents
 
@@ -2100,6 +2100,17 @@ Rect2 — Godot's Rect2. An axis-aligned rectangle given by `position` (the min 
 Rect2i — Godot's Rect2i: an axis-aligned rectangle in INTEGER coordinates (position = min corner + size), the whole-number companion to Rect2. Tile regions, texture-atlas sub-rects, pixel windows, and grid selections are all naturally integer, so this keeps them exact (no float drift on edges). Same API as Rect2 — hasPoint / intersects / intersection / merge / encloses / grow / expand / abs — with Godot's half-open convention (left/top inclusive, right/bottom exclusive). Header-only, pure.
 
 **Types:** `Rect2i`
+
+### `ResamplePolyline`
+<sub>`engine/include/maz/math/ResamplePolyline.hpp`</sub>
+
+maz::math polyline resampling — redistribute the points of a discrete polyline so they are EVENLY SPACED by arc length. A hand-drawn stroke, a GPS/replay track, a traced outline, or a spline flattened to points has clumped, unevenly-spaced vertices; this walks the path and drops new points at equal distances so you can place fence posts / trees / footprints along a route, draw a dashed or dotted line, emit uniform trail segments, or space patrol waypoints. Two forms: `resamplePolyline` gives exactly N points (endpoints preserved), `resamplePolylineBySpacing` gives a point every `spacing` units from the start. Distinct from the engine's other polyline tools — SimplifyPolyline THROWS AWAY points (Douglas–Peucker), PolylineStroke THICKENS a path into a fillable outline, and ArcLength reparameterizes a PARAMETRIC curve; this evenly re-spaces an existing point list. Works on vec2 or vec3. Header-only, deterministic.
+
+**Functions:**
+
+- `inline float polyLen(const V& d)`
+- `inline std::vector<V> resamplePolyline(const std::vector<V>& pts, int count)`
+- `inline std::vector<V> resamplePolylineBySpacing(const std::vector<V>& pts, float spacing)`
 
 ### `Reuleaux`
 <sub>`engine/include/maz/math/Reuleaux.hpp`</sub>

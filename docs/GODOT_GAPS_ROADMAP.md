@@ -3711,6 +3711,19 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Even arc-length polyline resampling** (`math::resamplePolyline`, `math::resamplePolylineBySpacing`) —
+  DONE (M566); redistribute the points of a discrete polyline so they are EVENLY spaced by arc length. A
+  hand-drawn stroke, GPS/replay track, traced outline, or flattened spline has clumped, unevenly-spaced
+  vertices; this walks the path and drops points at equal distances so you can place fence posts / trees /
+  footprints along a route, draw a dashed or dotted line, emit uniform trail segments, or space patrol
+  waypoints. `resamplePolyline` gives exactly N points (endpoints preserved); `resamplePolylineBySpacing`
+  gives a point every `spacing` units from the start. Works on vec2 or vec3. Distinct from the engine's other
+  polyline tools — SimplifyPolyline THROWS AWAY points (Douglas–Peucker), PolylineStroke THICKENS a path into
+  an outline, and ArcLength reparameterizes a PARAMETRIC curve; this evenly re-spaces an existing point list.
+  Verified (`ctest -R resample_polyline`): a straight line resamples to exactly evenly spaced points with
+  endpoints preserved; an L-shaped path resamples across the corner at the correct arc positions; by-spacing
+  emits points at 0, spacing, 2·spacing…; count<2, empty, and zero-length paths are handled; the 3D overload
+  works. Header-only, deterministic. [VERIFIABLE HERE]
 - [x] **Orthonormal basis from a normal** (`math::orthonormalBasis`, `math::fromLocal`, `Basis3`) — DONE
   (M565); given a unit normal, build a full right-handed tangent frame (tangent, bitangent, normal) with no
   branches or trig — Duff et al.'s 2017 "Building an Orthonormal Basis, Revisited". This is the glue between

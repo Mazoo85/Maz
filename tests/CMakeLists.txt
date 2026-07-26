@@ -2825,6 +2825,11 @@ target_link_libraries(maz_orthonormalbasis_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME orthonormal_basis COMMAND maz_orthonormalbasis_tests)
 set_tests_properties(orthonormal_basis PROPERTIES TIMEOUT 30)
 
+add_executable(maz_resamplepolyline_tests math/resamplepolyline.cpp)
+target_link_libraries(maz_resamplepolyline_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME resample_polyline COMMAND maz_resamplepolyline_tests)
+set_tests_properties(resample_polyline PROPERTIES TIMEOUT 30)
+
 add_executable(maz_reuleaux_tests math/reuleaux.cpp)
 target_link_libraries(maz_reuleaux_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME reuleaux COMMAND maz_reuleaux_tests)
