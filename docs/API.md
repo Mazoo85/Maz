@@ -2489,7 +2489,7 @@ maz::math vector helpers — the everyday Vector2 / Vector3 methods Godot game c
 - `inline float snappedf(float x, float step)`
 - `inline T cubicInterpolate(const T& from, const T& to, const T& pre, const T& post, float w)`
 - `inline T cubicInterpolateInTime(const T& from, const T& to, const T& pre, const T& post, float w,`
-- _…and 64 more_
+- _…and 66 more_
 
 ### `Voronoi`
 <sub>`engine/include/maz/math/Voronoi.hpp`</sub>

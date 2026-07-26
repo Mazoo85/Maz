@@ -214,6 +214,20 @@ inline vec2 limitLength(const vec2& v, float maxLen = 1.0f) {
     return v;
 }
 
+// Rotate the DIRECTION of `from` toward the direction of `to` by at most `maxRadians`, never overshooting;
+// `from`'s length is preserved. This is the capped-rate turn a turret, homing missile, or AI uses to face a
+// target smoothly — Godot's Vector2.rotate_toward. Unlike `moveToward` (a straight-line translation) it turns
+// along an arc, and unlike `rotated` (a fixed angle) it stops exactly on the target heading. A negative
+// `maxRadians` turns AWAY. Zero-length `from` or `to` returns `from` unchanged (no direction to rotate).
+inline vec2 rotateToward(const vec2& from, const vec2& to, float maxRadians) {
+    if (dot(from, from) < 1e-24f || dot(to, to) < 1e-24f) {
+        return from;
+    }
+    const float ang = angleTo(from, to); // signed shortest angle, in (-pi, pi]
+    const float step = ang < -maxRadians ? -maxRadians : (ang > maxRadians ? maxRadians : ang);
+    return rotated(from, step);
+}
+
 // Unit vector pointing from `a` to `b` — Godot's Vector2.direction_to.
 inline vec2 directionTo(const vec2& a, const vec2& b) {
     return normalize(b - a);
@@ -303,6 +317,33 @@ inline vec3 limitLength(const vec3& v, float maxLen = 1.0f) {
 
 inline vec3 directionTo(const vec3& a, const vec3& b) {
     return normalize(b - a);
+}
+
+// Rotate the DIRECTION of `from` toward the direction of `to` by at most `maxRadians`, never overshooting;
+// `from`'s length is preserved. The 3D turret / homing / look-at-over-time turn — Godot's Vector3.rotate_toward.
+// Turns along the shortest arc (about the axis `from x to`). When the two directions are already within
+// `maxRadians` it snaps exactly onto `to`'s heading; a negative `maxRadians` turns away. Antiparallel inputs
+// pick an arbitrary perpendicular axis so the turn is still well-defined; a zero-length `from`/`to` returns
+// `from` unchanged.
+inline vec3 rotateToward(const vec3& from, const vec3& to, float maxRadians) {
+    const float fl = std::sqrt(dot(from, from));
+    if (fl < 1e-12f || dot(to, to) < 1e-24f) {
+        return from;
+    }
+    const vec3 nf = from / fl;
+    const vec3 nt = normalize(to);
+    float d = dot(nf, nt);
+    d = d < -1.0f ? -1.0f : (d > 1.0f ? 1.0f : d);
+    const float ang = std::acos(d);
+    if (std::fabs(maxRadians) >= ang) {
+        return nt * fl; // reached (or overshoots) the target heading
+    }
+    vec3 axis = cross(nf, nt);
+    if (dot(axis, axis) < 1e-14f) {
+        // Parallel (ang ~ 0, handled above) or antiparallel: choose any perpendicular axis.
+        axis = std::fabs(nf.x) < 0.9f ? cross(nf, vec3(1.0f, 0.0f, 0.0f)) : cross(nf, vec3(0.0f, 1.0f, 0.0f));
+    }
+    return rotated(from, axis, maxRadians);
 }
 
 // Squared length / distance / lerp for vec3 — Godot's Vector3.length_squared / distance_to /

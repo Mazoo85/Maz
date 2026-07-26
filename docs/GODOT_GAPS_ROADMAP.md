@@ -3711,6 +3711,18 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Capped-rate direction turning** (`math::rotateToward`, vec2 & vec3) — DONE (M563); the smooth
+  turret / homing-missile / AI look-at turn: rotate the DIRECTION of `from` toward `to` by at most `maxRadians`
+  along the shortest arc, never overshooting, PRESERVING `from`'s length — Godot's Vector2/Vector3.rotate_toward.
+  The engine already had `moveToward` (straight-line translation), `limitLength`, and `rotated` (a fixed
+  angle), but not the toward-a-target angular version every tracking behaviour needs — a fixed-fraction slerp
+  overshoots or lags a moving target, whereas this caps the turn RATE. Snaps exactly onto the target heading
+  once within range; a negative rate turns away; the 3D antiparallel case picks a well-defined perpendicular
+  axis so it never NaNs; zero-length inputs pass through. Added next to `moveToward`/`limitLength` in
+  VectorOps.hpp. Verified (`ctest -R rotate_toward`): a partial turn advances exactly the requested angle and
+  preserves length; a turn ≥ the gap snaps to the target heading with the source length; a negative rate turns
+  away; the 3D partial turn provably reduces the angle to the target; antiparallel stays finite and turns
+  exactly 90°; zero inputs unchanged. Header-only, deterministic. [VERIFIABLE HERE]
 - [x] **Fire / contagion spread simulation** (`game::FireGrid`, `FireCell`, `FireParams`, `BurnState`) — DONE
   (M562); the grid cellular automaton behind wildfires, a building burning down, or an infection creeping
   through a population — the kind of emergent hazard a survival game (ZOMBOID) leans on. Each cell holds FUEL

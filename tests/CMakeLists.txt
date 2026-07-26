@@ -2810,6 +2810,11 @@ target_link_libraries(maz_capsuleaabb_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME capsule_aabb COMMAND maz_capsuleaabb_tests)
 set_tests_properties(capsule_aabb PROPERTIES TIMEOUT 30)
 
+add_executable(maz_rotatetoward_tests math/rotatetoward.cpp)
+target_link_libraries(maz_rotatetoward_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME rotate_toward COMMAND maz_rotatetoward_tests)
+set_tests_properties(rotate_toward PROPERTIES TIMEOUT 30)
+
 add_executable(maz_reuleaux_tests math/reuleaux.cpp)
 target_link_libraries(maz_reuleaux_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME reuleaux COMMAND maz_reuleaux_tests)
