@@ -822,6 +822,11 @@ target_link_libraries(maz_inputsequencer_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME input_sequencer COMMAND maz_inputsequencer_tests)
 set_tests_properties(input_sequencer PROPERTIES TIMEOUT 30)
 
+add_executable(maz_poise_tests game/poise.cpp)
+target_link_libraries(maz_poise_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME poise COMMAND maz_poise_tests)
+set_tests_properties(poise PROPERTIES TIMEOUT 30)
+
 add_executable(maz_utilityai_tests game/utilityai.cpp)
 target_link_libraries(maz_utilityai_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME utilityai COMMAND maz_utilityai_tests)

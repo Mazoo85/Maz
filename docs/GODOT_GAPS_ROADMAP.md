@@ -3711,6 +3711,22 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   clean; results are deterministic; empty / single-triangle meshes are safe. Honest scope: brute-force
   O(triangles^2) with an AABB reject — front it with a broadphase for very large meshes; adjacency is by vertex
   INDEX, so weld an unwelded mesh first. [VERIFIABLE HERE]
+- [x] **Poise / posture super-armor** (`game::Poise`, `PoiseParams`) — DONE (M577); the stagger mechanic of
+  Dark Souls, Sekiro and Elden Ring: a SECOND resource, separate from health, that governs whether a hit
+  INTERRUPTS you. Each hit drains poise; while you have poise left you shrug off the stagger and keep your
+  action (super-armor); when poise hits zero it BREAKS — you are staggered (open to a critical/riposte) for
+  a fixed time, then recover to full. Poise regenerates on its own, but only after a brief lull since the
+  last hit, so sustained pressure grinds it down (Sekiro's posture) while trading blows slowly lets it
+  recover. `takeStagger` returns true only on the frame it breaks (to open the riposte window / play the
+  animation); `fraction`/`isBroken`/`staggerRemaining` drive the posture bar. Deliberately distinct from
+  `game::Health` (hit points, death, i-frames, HP regen) and `game::StatusEffect` (timed buffs/debuffs):
+  poise is not damage and never kills — it decides interruptibility, a separate axis Godot ships nothing
+  for. Verified (`ctest -R poise`): a sub-threshold hit drains without breaking; the emptying hit breaks
+  exactly once and further hits while broken are absorbed; the stagger lasts its configured time then
+  recovers to full; poise regenerates only after the post-hit lull, at the configured rate, clamped to max;
+  a fresh hit re-arms the lull so sustained pressure blocks regen; reset restores full poise; non-positive
+  dt / zero stagger are no-ops; a zero-max params object is clamped so the fraction stays finite.
+  Header-only, std-only, deterministic. [VERIFIABLE HERE]
 - [x] **Fighting-game input sequencer** (`game::InputSequencer`) — DONE (M576); the motion-input /
   special-move detector: register moves as ordered sequences of input tokens (the game encodes directions
   and buttons however it likes — e.g. down, down-forward, forward, punch for a quarter-circle fireball),

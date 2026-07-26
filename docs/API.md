@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_673 headers across 20 subsystems._
+_674 headers across 20 subsystems._
 
 ## Contents
 
@@ -5602,6 +5602,13 @@ Impulse-based 3D rigid-body dynamics — the 3D sibling of Physics2D. This modul
 - `inline RayHit2D queryRay(const math::vec2& origin, const math::vec2& dir,`
 - `inline RayHit2D querySegment(const math::vec2& a, const math::vec2& b,`
 - `inline std::vector<int> queryPoint(const math::vec2& p, const std::vector<QueryShape2D>& shapes,`
+
+### `Poise`
+<sub>`engine/include/maz/game/Poise.hpp`</sub>
+
+maz::game poise / posture (super-armor) — the stagger mechanic of Dark Souls, Sekiro, Elden Ring and most modern action games: a SECOND resource, separate from health, that governs whether a hit INTERRUPTS you. Each hit drains poise; while you have poise left you shrug off the stagger and keep your action (super-armor); when poise hits zero it BREAKS — you are staggered (open to a critical/riposte) for a fixed time, then recover. Poise regenerates on its own, but only after a brief lull since the last hit, so sustained pressure grinds it down (Sekiro's posture) while trading blows slowly lets it recover.  This is deliberately distinct from `game::Health` (hit points, death, post-hit invulnerability frames, passive HP regen) and `game::StatusEffect` (timed buffs/debuffs): poise is not damage and never kills — it decides interruptibility, which is a separate axis every action game tracks and Godot ships nothing for. Purely time-driven, no rendering. Header-only, std-only, deterministic.
+
+**Types:** `PoiseParams`, `Poise`
 
 ### `Quadtree`
 <sub>`engine/include/maz/game/Quadtree.hpp`</sub>
