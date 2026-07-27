@@ -244,10 +244,11 @@
   let state = State.START;
 
   const player = {
-    x: 0, y: 0, r: 16, speed: 250, angle: 0,
+    x: 0, y: 0, r: 18, speed: 250, angle: 0,
     hp: 100, maxHp: 100, invuln: 0,
     weapon: 'pistol', owned: { pistol: true },
     ammo: {}, reloadT: 0, fireCd: 0,
+    walkPhase: 0, moveMag: 0, muzzle: 0,
   };
 
   // Global upgrade modifiers.
@@ -432,6 +433,7 @@
                      life: 0.9, r: 4, dmg, pierce: wp.pierce + mods.pierce, len: wp.len, crit: isCrit, hitIds: 0 });
     }
     spawnSparks(player.x + Math.cos(player.angle) * player.r, player.y + Math.sin(player.angle) * player.r, player.angle, '#ffd76a', 4, 240);
+    player.muzzle = 0.05;
     Sound[wp.sfx]();
     shake = Math.min(shake + (wp.pellets > 1 ? 6 : 2.2), 11);
     if (player.ammo[player.weapon] <= 0) startReload();
@@ -500,6 +502,7 @@
     player.x = 0; player.y = 0; player.hp = 100; player.maxHp = 100; player.angle = 0;
     player.invuln = 0; player.weapon = 'pistol'; player.owned = { pistol: true };
     player.reloadT = 0; player.fireCd = 0; player.speed = 250;
+    player.walkPhase = 0; player.moveMag = 0; player.muzzle = 0;
     mods = { dmg: 1, rate: 1, reload: 1, speed: 1, pierce: 0, multishot: 0, crit: 0, lifesteal: 0, magMul: 1 };
     player.ammo = { pistol: magSize('pistol') };
     bullets = []; enemyBullets = []; zombies = []; particles = []; pickups = []; floaters = []; bloodDecals = [];
@@ -572,6 +575,9 @@
     player.y += my * player.speed * dt;
     player.x = clamp(player.x, -WORLD, WORLD);
     player.y = clamp(player.y, -WORLD, WORLD);
+    player.moveMag = Math.hypot(mx, my);
+    player.walkPhase += dt * (player.moveMag > 0.06 ? 12 : 0);
+    if (player.muzzle > 0) player.muzzle -= dt;
 
     // Aim + fire
     let firing = false, aimAngle = player.angle;
@@ -873,29 +879,130 @@
     ctx.stroke();
   }
 
+  // Top-down weapon silhouettes (drawn pointing +X, in the rotated player frame).
+  function gunLength(type, r) {
+    return { pistol: r * 1.85, smg: r * 2.2, shotgun: r * 2.15, rifle: r * 2.95 }[type] || r * 1.85;
+  }
+  function drawGun(type, r) {
+    const metal = '#3a3a42', dark = '#17171b', hi = '#565662';
+    ctx.lineJoin = 'round';
+    if (type === 'pistol') {
+      ctx.fillStyle = metal; roundRect(r * 0.55, -r * 0.15, r * 1.1, r * 0.3, r * 0.06); ctx.fill();
+      ctx.fillStyle = dark;  roundRect(r * 1.45, -r * 0.1, r * 0.35, r * 0.2, r * 0.05); ctx.fill();
+    } else if (type === 'smg') {
+      ctx.fillStyle = dark;  roundRect(r * 0.12, -r * 0.11, r * 0.5, r * 0.22, r * 0.05); ctx.fill(); // stock
+      ctx.fillStyle = metal; roundRect(r * 0.5, -r * 0.18, r * 1.25, r * 0.36, r * 0.07); ctx.fill();  // body
+      ctx.fillStyle = dark;  roundRect(r * 0.82, r * 0.16, r * 0.22, r * 0.55, r * 0.05); ctx.fill();  // mag
+      ctx.fillStyle = dark;  roundRect(r * 1.65, -r * 0.08, r * 0.55, r * 0.16, r * 0.04); ctx.fill(); // barrel
+    } else if (type === 'shotgun') {
+      ctx.fillStyle = '#5a3a22'; roundRect(r * 0.18, -r * 0.14, r * 0.62, r * 0.28, r * 0.06); ctx.fill(); // wood stock
+      ctx.fillStyle = metal; roundRect(r * 0.6, -r * 0.2, r * 1.5, r * 0.4, r * 0.07); ctx.fill();          // body
+      ctx.fillStyle = dark;  roundRect(r * 1.1, -r * 0.24, r * 0.36, r * 0.48, r * 0.06); ctx.fill();        // pump
+      ctx.fillStyle = hi;    roundRect(r * 0.6, -r * 0.02, r * 1.5, r * 0.05, r * 0.02); ctx.fill();          // barrel seam
+    } else { // rifle
+      ctx.fillStyle = dark;  roundRect(r * 0.04, -r * 0.12, r * 0.46, r * 0.24, r * 0.05); ctx.fill();       // stock
+      ctx.fillStyle = metal; roundRect(r * 0.4, -r * 0.15, r * 1.75, r * 0.3, r * 0.06); ctx.fill();          // body
+      ctx.fillStyle = dark;  roundRect(r * 1.0, r * 0.13, r * 0.22, r * 0.5, r * 0.05); ctx.fill();           // mag
+      ctx.fillStyle = dark;  roundRect(r * 2.1, -r * 0.07, r * 0.85, r * 0.14, r * 0.04); ctx.fill();         // long barrel
+      ctx.fillStyle = hi;    roundRect(r * 0.85, -r * 0.26, r * 0.5, r * 0.16, r * 0.05); ctx.fill();         // scope
+    }
+  }
+
   function drawPlayer(ox, oy) {
-    const px = player.x + ox, py = player.y + oy;
+    const px = player.x + ox, py = player.y + oy, r = player.r;
+    const moving = player.moveMag > 0.06;
+    const hurt = player.invuln > 0 && Math.floor(player.invuln * 20) % 2 === 0;
+    const skin = hurt ? '#ff9e8a' : '#c98d5a';
+    const vest = hurt ? '#7a2a2a' : '#232b22';
+    const vestHi = hurt ? '#9a3a3a' : '#33402f';
+    const sleeve = hurt ? '#6a2525' : '#1a2019';
+    const band = hurt ? '#ff7a7a' : '#b7302f';
+
     ctx.save(); ctx.translate(px, py);
-    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(0, 4, player.r, player.r * 0.7, 0, 0, TAU); ctx.fill();
+
+    // ground shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.42)';
+    ctx.beginPath(); ctx.ellipse(0, 6, r * 1.15, r * 0.72, 0, 0, TAU); ctx.fill();
+
     ctx.rotate(player.angle);
-    ctx.fillStyle = '#333'; ctx.fillRect(player.r - 2, -3.5, currentWeapon().len + 4, 7);
-    const flash = player.invuln > 0 && Math.floor(player.invuln * 20) % 2 === 0;
-    ctx.fillStyle = flash ? '#ff8080' : '#4aa3d6';
-    ctx.beginPath(); ctx.arc(0, 0, player.r, 0, TAU); ctx.fill();
-    ctx.strokeStyle = '#dff0ff'; ctx.lineWidth = 3; ctx.stroke();
-    ctx.fillStyle = '#eaffff'; ctx.beginPath(); ctx.arc(player.r * 0.45, 0, 3.5, 0, TAU); ctx.fill();
+    const step = moving ? Math.sin(player.walkPhase) * r * 0.5 : 0;
+
+    // legs / combat boots (behind the torso, stepping along the facing axis)
+    const boot = (side, s) => {
+      ctx.save(); ctx.translate(-r * 0.2 + s, side * r * 0.46);
+      ctx.fillStyle = '#14140f'; roundRect(-r * 0.3, -r * 0.24, r * 0.72, r * 0.48, r * 0.16); ctx.fill();
+      ctx.restore();
+    };
+    boot(-1, step); boot(1, -step);
+
+    // torso — tactical vest
+    ctx.fillStyle = vest;
+    ctx.beginPath(); ctx.ellipse(0, 0, r * 0.94, r * 0.82, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = vestHi; roundRect(-r * 0.5, -r * 0.44, r * 0.66, r * 0.88, r * 0.14); ctx.fill(); // chest plate
+    ctx.strokeStyle = '#0d0d0a'; ctx.lineWidth = r * 0.11; ctx.lineCap = 'round';                     // rig strap
+    ctx.beginPath(); ctx.moveTo(-r * 0.12, -r * 0.62); ctx.lineTo(-r * 0.12, r * 0.62); ctx.stroke();
+    // shoulder pads
+    ctx.fillStyle = vestHi;
+    ctx.beginPath(); ctx.arc(-r * 0.08, -r * 0.8, r * 0.32, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(-r * 0.08, r * 0.8, r * 0.32, 0, TAU); ctx.fill();
+
+    // weapon (with a touch of recoil kick when firing)
+    ctx.save();
+    if (player.muzzle > 0) ctx.translate(-r * 0.18, 0);
+    drawGun(player.weapon, r);
+    ctx.restore();
+
+    // arms/sleeves gripping the weapon
+    ctx.strokeStyle = sleeve; ctx.lineWidth = r * 0.34; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(r * 0.15, -r * 0.5); ctx.lineTo(r * 0.98, -r * 0.14);
+    ctx.moveTo(r * 0.15, r * 0.5);  ctx.lineTo(r * 1.02, r * 0.12);
+    ctx.stroke();
+    // gloved hands
+    ctx.fillStyle = '#111';
+    ctx.beginPath(); ctx.arc(r * 1.0, -r * 0.14, r * 0.16, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(r * 1.02, r * 0.12, r * 0.16, 0, TAU); ctx.fill();
+
+    // head + red bandana with trailing tails
+    ctx.fillStyle = band;                                      // tails (drawn first, behind head)
+    ctx.strokeStyle = band; ctx.lineWidth = r * 0.12; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(r * 0.1, -r * 0.34); ctx.lineTo(-r * 0.55, -r * 0.66 + step * 0.3);
+    ctx.moveTo(r * 0.1, r * 0.34);  ctx.lineTo(-r * 0.62, r * 0.56 - step * 0.3);
+    ctx.stroke();
+    ctx.fillStyle = skin;                                      // head
+    ctx.beginPath(); ctx.arc(r * 0.26, 0, r * 0.46, 0, TAU); ctx.fill();
+    ctx.fillStyle = band;                                      // bandana across the crown
+    roundRect(r * 0.02, -r * 0.5, r * 0.3, r, r * 0.08); ctx.fill();
+    ctx.fillStyle = '#0f0f13';                                 // dark goggles/visor at the brow
+    roundRect(r * 0.44, -r * 0.32, r * 0.18, r * 0.64, r * 0.07); ctx.fill();
+
+    // muzzle flash
+    if (player.muzzle > 0) {
+      const gl = gunLength(player.weapon, r);
+      ctx.save(); ctx.translate(gl, 0);
+      ctx.globalAlpha = clamp(player.muzzle / 0.05, 0, 1);
+      ctx.fillStyle = '#fff2a0';
+      ctx.beginPath();
+      for (let k = 0; k < 10; k++) { const a = k / 10 * TAU; const rr = (k % 2 ? r * 0.22 : r * 0.62); ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#ffb54a'; ctx.beginPath(); ctx.arc(0, 0, r * 0.26, 0, TAU); ctx.fill();
+      ctx.globalAlpha = 1; ctx.restore();
+    }
+
     ctx.restore();
 
     // health ring
-    ctx.beginPath(); ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 4; ctx.arc(px, py, player.r + 9, 0, TAU); ctx.stroke();
+    ctx.beginPath(); ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 4; ctx.arc(px, py, r + 10, 0, TAU); ctx.stroke();
     ctx.beginPath(); ctx.strokeStyle = player.hp > player.maxHp * 0.4 ? '#59d95a' : '#ff5555'; ctx.lineWidth = 4;
-    ctx.arc(px, py, player.r + 9, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(player.hp / player.maxHp, 0, 1)); ctx.stroke();
+    ctx.arc(px, py, r + 10, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(player.hp / player.maxHp, 0, 1)); ctx.stroke();
 
     // reload arc
     if (player.reloadT > 0) {
       const frac = 1 - player.reloadT / (currentWeapon().reload * mods.reload);
       ctx.beginPath(); ctx.strokeStyle = '#ffd76a'; ctx.lineWidth = 3;
-      ctx.arc(px, py, player.r + 15, -Math.PI / 2, -Math.PI / 2 + TAU * frac); ctx.stroke();
+      ctx.arc(px, py, r + 16, -Math.PI / 2, -Math.PI / 2 + TAU * frac); ctx.stroke();
     }
   }
 
