@@ -908,75 +908,108 @@
     }
   }
 
+  // A tapered/round-capped limb segment.
+  function limb(x1, y1, x2, y2, w, color) {
+    ctx.strokeStyle = color; ctx.lineWidth = w; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  }
+
   function drawPlayer(ox, oy) {
     const px = player.x + ox, py = player.y + oy, r = player.r;
     const moving = player.moveMag > 0.06;
     const hurt = player.invuln > 0 && Math.floor(player.invuln * 20) % 2 === 0;
     const skin = hurt ? '#ff9e8a' : '#c98d5a';
-    const vest = hurt ? '#7a2a2a' : '#232b22';
-    const vestHi = hurt ? '#9a3a3a' : '#33402f';
-    const sleeve = hurt ? '#6a2525' : '#1a2019';
+    const skinSh = hurt ? '#d47a68' : '#a9713f';
+    const vest = hurt ? '#7a2a2a' : '#28311f';
+    const vestHi = hurt ? '#9a3a3a' : '#3c4b2d';
+    const vestSh = hurt ? '#4a1616' : '#161c12';
+    const sleeve = hurt ? '#6a2525' : '#1c231a';
     const band = hurt ? '#ff7a7a' : '#b7302f';
 
     ctx.save(); ctx.translate(px, py);
 
     // ground shadow
     ctx.fillStyle = 'rgba(0,0,0,0.42)';
-    ctx.beginPath(); ctx.ellipse(0, 6, r * 1.15, r * 0.72, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0, 7, r * 1.1, r * 0.68, 0, 0, TAU); ctx.fill();
 
     ctx.rotate(player.angle);
     const step = moving ? Math.sin(player.walkPhase) * r * 0.5 : 0;
 
-    // legs / combat boots (behind the torso, stepping along the facing axis)
-    const boot = (side, s) => {
-      ctx.save(); ctx.translate(-r * 0.2 + s, side * r * 0.46);
-      ctx.fillStyle = '#14140f'; roundRect(-r * 0.3, -r * 0.24, r * 0.72, r * 0.48, r * 0.16); ctx.fill();
+    // legs — thigh + combat boot, striding along the facing axis (behind the torso)
+    const leg = (side, s) => {
+      limb(-r * 0.1, side * r * 0.34, -r * 0.05 + s, side * r * 0.5, r * 0.34, '#20281c');
+      ctx.save(); ctx.translate(r * 0.05 + s, side * r * 0.52);
+      ctx.fillStyle = '#141410'; roundRect(-r * 0.34, -r * 0.19, r * 0.82, r * 0.38, r * 0.13); ctx.fill();
+      ctx.fillStyle = '#0b0b08'; roundRect(r * 0.28, -r * 0.19, r * 0.2, r * 0.38, r * 0.1); ctx.fill(); // toe
       ctx.restore();
     };
-    boot(-1, step); boot(1, -step);
+    leg(-1, step); leg(1, -step);
 
-    // torso — tactical vest
-    ctx.fillStyle = vest;
-    ctx.beginPath(); ctx.ellipse(0, 0, r * 0.94, r * 0.82, 0, 0, TAU); ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 2; ctx.stroke();
-    ctx.fillStyle = vestHi; roundRect(-r * 0.5, -r * 0.44, r * 0.66, r * 0.88, r * 0.14); ctx.fill(); // chest plate
-    ctx.strokeStyle = '#0d0d0a'; ctx.lineWidth = r * 0.11; ctx.lineCap = 'round';                     // rig strap
-    ctx.beginPath(); ctx.moveTo(-r * 0.12, -r * 0.62); ctx.lineTo(-r * 0.12, r * 0.62); ctx.stroke();
-    // shoulder pads
+    // TORSO — tapered "shield" shape: broad at the shoulders, narrowing front & back, top-lit.
+    ctx.beginPath();
+    ctx.moveTo(r * 0.7, 0);
+    ctx.quadraticCurveTo(r * 0.6, -r * 0.86, r * 0.12, -r * 1.0);   // right shoulder
+    ctx.quadraticCurveTo(-r * 0.5, -r * 0.9, -r * 0.82, -r * 0.4);  // right back
+    ctx.quadraticCurveTo(-r * 0.98, 0, -r * 0.82, r * 0.4);         // back
+    ctx.quadraticCurveTo(-r * 0.5, r * 0.9, r * 0.12, r * 1.0);     // left back → shoulder
+    ctx.quadraticCurveTo(r * 0.6, r * 0.86, r * 0.7, 0);            // left shoulder → front
+    ctx.closePath();
+    const g = ctx.createLinearGradient(0, -r, 0, r);
+    g.addColorStop(0, vestHi); g.addColorStop(0.5, vest); g.addColorStop(1, vestSh);
+    ctx.fillStyle = g; ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+    // chest rig: plate, cross-straps, pouches
+    ctx.fillStyle = vestSh; roundRect(-r * 0.02, -r * 0.42, r * 0.52, r * 0.84, r * 0.12); ctx.fill();
+    ctx.strokeStyle = '#0e120b'; ctx.lineWidth = r * 0.1; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(r * 0.34, -r * 0.56); ctx.lineTo(-r * 0.12, -r * 0.18);
+    ctx.moveTo(r * 0.34, r * 0.56); ctx.lineTo(-r * 0.12, r * 0.18); ctx.stroke();
     ctx.fillStyle = vestHi;
-    ctx.beginPath(); ctx.arc(-r * 0.08, -r * 0.8, r * 0.32, 0, TAU); ctx.fill();
-    ctx.beginPath(); ctx.arc(-r * 0.08, r * 0.8, r * 0.32, 0, TAU); ctx.fill();
+    roundRect(-r * 0.18, -r * 0.52, r * 0.26, r * 0.28, r * 0.06); ctx.fill();
+    roundRect(-r * 0.18, r * 0.24, r * 0.26, r * 0.28, r * 0.06); ctx.fill();
 
-    // weapon (with a touch of recoil kick when firing)
+    // WEAPON (with a recoil kick when firing)
     ctx.save();
     if (player.muzzle > 0) ctx.translate(-r * 0.18, 0);
     drawGun(player.weapon, r);
     ctx.restore();
 
-    // arms/sleeves gripping the weapon
-    ctx.strokeStyle = sleeve; ctx.lineWidth = r * 0.34; ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(r * 0.15, -r * 0.5); ctx.lineTo(r * 0.98, -r * 0.14);
-    ctx.moveTo(r * 0.15, r * 0.5);  ctx.lineTo(r * 1.02, r * 0.12);
-    ctx.stroke();
-    // gloved hands
-    ctx.fillStyle = '#111';
-    ctx.beginPath(); ctx.arc(r * 1.0, -r * 0.14, r * 0.16, 0, TAU); ctx.fill();
-    ctx.beginPath(); ctx.arc(r * 1.02, r * 0.12, r * 0.16, 0, TAU); ctx.fill();
+    // ARMS — bent at the elbow: upper arm out to the shoulder, forearm forward to the grip.
+    const arm = (side) => {
+      const shx = r * 0.18, shy = side * r * 0.82;   // shoulder
+      const elx = r * 0.56, ely = side * r * 0.66;   // elbow
+      const hnx = r * 1.0,  hny = side * r * 0.13;    // hand at grip
+      limb(shx, shy, elx, ely, r * 0.32, sleeve);
+      limb(elx, ely, hnx, hny, r * 0.27, sleeve);
+      ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(hnx, hny, r * 0.16, 0, TAU); ctx.fill();
+    };
+    arm(-1); arm(1);
 
-    // head + red bandana with trailing tails
-    ctx.fillStyle = band;                                      // tails (drawn first, behind head)
-    ctx.strokeStyle = band; ctx.lineWidth = r * 0.12; ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(r * 0.1, -r * 0.34); ctx.lineTo(-r * 0.55, -r * 0.66 + step * 0.3);
-    ctx.moveTo(r * 0.1, r * 0.34);  ctx.lineTo(-r * 0.62, r * 0.56 - step * 0.3);
-    ctx.stroke();
-    ctx.fillStyle = skin;                                      // head
-    ctx.beginPath(); ctx.arc(r * 0.26, 0, r * 0.46, 0, TAU); ctx.fill();
-    ctx.fillStyle = band;                                      // bandana across the crown
-    roundRect(r * 0.02, -r * 0.5, r * 0.3, r, r * 0.08); ctx.fill();
-    ctx.fillStyle = '#0f0f13';                                 // dark goggles/visor at the brow
-    roundRect(r * 0.44, -r * 0.32, r * 0.18, r * 0.64, r * 0.07); ctx.fill();
+    // NECK + HEAD
+    ctx.fillStyle = skinSh; roundRect(r * 0.05, -r * 0.15, r * 0.34, r * 0.3, r * 0.1); ctx.fill(); // neck
+    const HCx = r * 0.42, hr = r * 0.44;
+    ctx.fillStyle = skin;                                          // full head
+    ctx.beginPath(); ctx.arc(HCx, 0, hr, 0, TAU); ctx.fill();
+    ctx.strokeStyle = skinSh; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.fillStyle = skinSh; ctx.beginPath(); ctx.arc(HCx + hr * 0.85, 0, r * 0.09, 0, TAU); ctx.fill(); // nose
+
+    // BANDANA — do-rag covering the back/crown of the skull (face left bare at the front),
+    // with a single knot and one tail centered on the BACK of the head.
+    ctx.save();
+    ctx.beginPath(); ctx.arc(HCx, 0, hr, 0, TAU); ctx.clip();      // clip to the head
+    ctx.fillStyle = band; ctx.fillRect(HCx - hr, -hr, hr * 1.15, hr * 2); // covers back portion
+    ctx.restore();
+    ctx.strokeStyle = hurt ? '#e05a5a' : '#8f2422'; ctx.lineWidth = 1.5;   // band edge
+    ctx.beginPath(); ctx.moveTo(HCx + hr * 0.15, -hr * 0.96); ctx.lineTo(HCx + hr * 0.15, hr * 0.96); ctx.stroke();
+    const bx = HCx - hr * 0.9;                                     // knot at back-center
+    ctx.fillStyle = band; ctx.beginPath(); ctx.arc(bx, 0, r * 0.13, 0, TAU); ctx.fill();
+    const tw = Math.sin(player.walkPhase * 0.7) * r * 0.14;        // single centered tail, trailing back
+    ctx.strokeStyle = band; ctx.lineWidth = r * 0.15; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(bx, 0); ctx.quadraticCurveTo(bx - r * 0.45, tw * 0.6, bx - r * 0.9, tw); ctx.stroke();
+
+    // visor / goggles across the eyes at the front
+    ctx.fillStyle = '#0f0f13'; roundRect(HCx + hr * 0.35, -r * 0.3, r * 0.15, r * 0.6, r * 0.06); ctx.fill();
 
     // muzzle flash
     if (player.muzzle > 0) {
