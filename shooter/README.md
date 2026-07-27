@@ -21,13 +21,25 @@ Desktop fallback for testing: **WASD / arrows** to move, **mouse** to aim, and
 
 ## Gameplay
 
-- Endless escalating **waves** — clear the horde to advance.
-- Three zombie types: **walkers** (basic), **runners** (fast, fragile), and
-  **brutes** (slow, tanky, big hits).
-- Health ring around the player; **health packs** drop from kills.
-- Score, kill count, and a **persistent best score** (saved in `localStorage`).
-- Juice: blood particles, muzzle flash, hit flashes, blood decals, screen shake,
-  and a hurt vignette.
+- Endless escalating **waves** — clear the horde to advance, with a **boss every
+  5th wave** (big health bar, bullet-ring attack, drops loot on death).
+- Six enemy types: **walkers** (basic), **runners** (fast, fragile), **brutes**
+  (tanky), **spitters** (ranged, keep their distance), **exploders** (rush and
+  blow up), and **bosses**.
+- **Four weapons** — pistol, SMG, shotgun, rifle — each with its own damage,
+  fire rate, magazine, reload, spread, and pierce. Auto-reload when empty; tap
+  the weapon button (or `Q`) to switch between unlocked guns.
+- **Between-wave upgrades:** pick 1 of 3 cards — more damage, fire rate, reload
+  speed, magazine, move speed, max health, crit chance, pierce, multishot,
+  lifesteal, or **unlock a new weapon**.
+- **Combo scoring:** chained kills build a multiplier for bigger score.
+- **Minimap** (enemies, pickups, boss), **ammo/reload** readout, and a **pause**
+  button. Health drops and ammo drops from kills; a **persistent best score**
+  (`localStorage`).
+- **Synthesized audio** (Web Audio API — no files): weapon SFX, hits, deaths,
+  boss stinger, pickups, plus a tension music loop. Mute button included.
+- Juice: blood particles/decals, muzzle sparks, hit flashes, floating damage
+  numbers, explosions, screen shake, and a hurt vignette.
 
 ## Tech
 
