@@ -518,6 +518,15 @@ function drawZombie(sx,sy,ang,z){
   const sway=Math.sin(G.t*7 + (z.phase||0));
 
   if(z.kind===3){ // BOSS
+    // menacing pulsing red aura (additive, drawn behind the body)
+    { const pulse=0.55+0.45*Math.sin(G.t*4); const ar=rad*2.4;
+      ctx.save(); ctx.globalCompositeOperation='lighter';
+      const ag=ctx.createRadialGradient(0,0,rad*0.5,0,0,ar);
+      ag.addColorStop(0,`rgba(255,45,30,${0.34*pulse})`);
+      ag.addColorStop(0.5,`rgba(200,20,15,${0.16*pulse})`);
+      ag.addColorStop(1,'rgba(120,0,0,0)');
+      ctx.fillStyle=ag; ctx.beginPath(); ctx.arc(0,0,ar,0,TAU); ctx.fill();
+      ctx.restore(); }
     ctx.fillStyle=flash?'#fff':shadeCol(z.col,-0.3);
     for(let i=0;i<11;i++){ ctx.save(); ctx.rotate(i/11*TAU);
       ctx.beginPath(); ctx.moveTo(rad*0.85,-rad*0.16); ctx.lineTo(rad*1.35,0); ctx.lineTo(rad*0.85,rad*0.16);
