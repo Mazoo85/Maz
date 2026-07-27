@@ -1,6 +1,6 @@
 # Maz
 
-This repo holds three things:
+This repo holds four things:
 
 1. **Maz Engine** — a native **C++20 + Vulkan + SDL3** game engine, 2D-first but architected so
    3D drops in later. See **[`docs/ROADMAP.md`](docs/ROADMAP.md)** for the full build plan (the
@@ -11,6 +11,9 @@ This repo holds three things:
    **[`madlibs/`](madlibs/)** that randomly forges story ideas (broken into
    scene beats) to seed storyboards and scripts. See
    **[`madlibs/README.md`](madlibs/README.md)**.
+4. **DEAD SECTOR** — a phone-first, top-down twin-stick **zombie shooter** in a
+   single self-contained HTML file. Dual touch joysticks, escalating waves, three
+   zombie types. See **[`shooter/README.md`](shooter/README.md)**.
 
 > **Codebase memory:** this repo is set up with a
 > [codebase-memory MCP server](docs/CODEBASE_MEMORY.md) that gives Claude persistent,
