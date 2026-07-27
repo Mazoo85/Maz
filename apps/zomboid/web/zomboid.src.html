@@ -693,6 +693,15 @@ function draw(){
   ctx.restore();
 
   const t=G.phase/G.dayLen; const night=t>=0.5?(t-0.5)*2:0;
+  // day/night ambient colour grade — a full-screen tint that shifts through the cycle
+  { const STOPS=[[0.00,255,150,80,0.15],[0.15,255,236,205,0.05],[0.42,255,120,45,0.20],
+      [0.52,120,70,140,0.20],[0.72,25,35,85,0.26],[1.00,35,45,95,0.22]];
+    let a=STOPS[0], b=STOPS[STOPS.length-1];
+    for(let i=0;i<STOPS.length-1;i++){ if(t>=STOPS[i][0]&&t<=STOPS[i+1][0]){ a=STOPS[i]; b=STOPS[i+1]; break; } }
+    const span=(b[0]-a[0])||1, f=clamp((t-a[0])/span,0,1);
+    const cr=Math.round(a[1]+(b[1]-a[1])*f), cg=Math.round(a[2]+(b[2]-a[2])*f),
+          cb=Math.round(a[3]+(b[3]-a[3])*f), ca=a[4]+(b[4]-a[4])*f;
+    ctx.fillStyle=`rgba(${cr},${cg},${cb},${ca})`; ctx.fillRect(0,0,W,H); }
   if(night>0){ const g=ctx.createRadialGradient(W/2,H/2,H*0.25,W/2,H/2,W*0.62);
     g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,`rgba(0,0,10,${0.55*night})`);
     ctx.fillStyle=g; ctx.fillRect(0,0,W,H); }
