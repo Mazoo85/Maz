@@ -37,6 +37,15 @@ target_link_libraries(maz_unit_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME unit_camera COMMAND maz_unit_tests)
 set_tests_properties(unit_camera PROPERTIES TIMEOUT 30)
 
+# Unit tests: DEAD SECTOR gameplay simulation (waves, combat, death/restart). Pure logic — the sim
+# is engine-independent, so this compiles the shooter's Sim.cpp directly with no GPU/display.
+add_executable(maz_shooter_tests unit_shooter.cpp ${CMAKE_SOURCE_DIR}/apps/shooter/Sim.cpp)
+target_include_directories(maz_shooter_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/shooter)
+target_link_libraries(maz_shooter_tests PRIVATE maz_warnings)
+
+add_test(NAME unit_shooter COMMAND maz_shooter_tests)
+set_tests_properties(unit_shooter PROPERTIES TIMEOUT 30)
+
 # Unit tests: scene model + .mazscene save/load round-trip.
 add_executable(maz_scene_tests unit_scene.cpp)
 target_link_libraries(maz_scene_tests PRIVATE maz::maz maz_warnings)
@@ -110,3 +119,13 @@ set_tests_properties(sprite_probe PROPERTIES
     TIMEOUT 120
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
     PASS_REGULAR_EXPRESSION "sprite probe: PASS")
+
+# DEAD SECTOR: run the shooter app headless for a few frames and require a clean exit. Exercises
+# texture upload + the full draw path wiring (no-op draws with no GPU) and the sim advancing.
+add_test(
+    NAME shooter_headless_smoke
+    COMMAND shooter --headless --frames 20)
+set_tests_properties(shooter_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+    PASS_REGULAR_EXPRESSION "DEAD SECTOR shutting down")

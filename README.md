@@ -11,9 +11,13 @@ This repo holds four things:
    **[`madlibs/`](madlibs/)** that randomly forges story ideas (broken into
    scene beats) to seed storyboards and scripts. See
    **[`madlibs/README.md`](madlibs/README.md)**.
-4. **DEAD SECTOR** — a phone-first, top-down twin-stick **zombie shooter** in a
-   single self-contained HTML file. Dual touch joysticks, escalating waves, three
-   zombie types. See **[`shooter/README.md`](shooter/README.md)**.
+4. **DEAD SECTOR** — a top-down twin-stick **zombie shooter** with escalating waves
+   and three zombie types, in two implementations:
+   - **[`shooter/`](shooter/README.md)** — a phone-first, single-file HTML/canvas
+     build with dual touch joysticks (open the URL on your phone and play).
+   - **[`apps/shooter/`](apps/shooter/README.md)** — a **native Maz Engine** port
+     (C++/Vulkan/SDL3) that drives the engine's 2D sprite renderer. Desktop,
+     keyboard + mouse. The gameplay simulation is engine-independent and unit-tested.
 
 > **Codebase memory:** this repo is set up with a
 > [codebase-memory MCP server](docs/CODEBASE_MEMORY.md) that gives Claude persistent,
