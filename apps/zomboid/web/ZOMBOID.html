@@ -109,7 +109,7 @@ const ZTYPE = {
   3:{hp:1400,spd:11, dmg:26, r:3.4, score:400,col:'#c76a3a'},
 };
 
-const bullets=[], zombies=[], parts=[], loot=[], nades=[], decals=[];
+const bullets=[], zombies=[], parts=[], loot=[], nades=[], decals=[], flashes=[];
 const MAXDECALS=90;
 function getFree(pool, make){ for(const o of pool) if(!o.active) return o; const o=make(); pool.push(o); return o; }
 
@@ -185,6 +185,19 @@ function emitGore(x,y,r){ const scale=clamp(r,0.8,3.4);
     p.active=true; p.x=x; p.y=y; p.vx=Math.cos(a)*s; p.vy=Math.sin(a)*s;
     p.life=p.max=rnd(.5,1.05); p.kind=3; p.r=rnd(2.5,5.5); }
 }
+// bullet impact: back-spraying sparks + a blood puff + a brief additive flash pop
+function impact(x,y,vx,vy){ const ang=Math.atan2(vy,vx);
+  for(let i=0;i<5;i++){ const p=getFree(parts,()=>({active:false}));
+    const a=ang+Math.PI+rnd(-0.9,0.9), s=rnd(30,85);
+    p.active=true; p.x=x; p.y=y; p.vx=Math.cos(a)*s; p.vy=Math.sin(a)*s;
+    p.life=p.max=rnd(.1,.26); p.kind=0; p.r=rnd(1,2.2); }
+  for(let i=0;i<3;i++){ const p=getFree(parts,()=>({active:false}));
+    const a=ang+rnd(-0.7,0.7), s=rnd(12,42);
+    p.active=true; p.x=x; p.y=y; p.vx=Math.cos(a)*s; p.vy=Math.sin(a)*s;
+    p.life=p.max=rnd(.18,.4); p.kind=1; p.r=rnd(1.2,2.6); }
+  const fl=getFree(flashes,()=>({active:false}));
+  fl.active=true; fl.x=x; fl.y=y; fl.life=fl.max=0.1; fl.r=rnd(13,19);
+}
 
 let G;
 function newGame(){
@@ -200,7 +213,7 @@ function newGame(){
         meleeCd:0, grenades:3, ult:0, ultMax:25, ultReady:false, nextBonus:25,
         muzzle:0, recoil:0, walk:0 },
   };
-  bullets.length=zombies.length=parts.length=loot.length=nades.length=decals.length=0;
+  bullets.length=zombies.length=parts.length=loot.length=nades.length=decals.length=flashes.length=0;
   startWave(1);
 }
 function danger(){ const t=G.phase/G.dayLen; const night = t>=0.5 ? (t-0.5)*2 : 0; return 1+0.7*night; }
@@ -374,7 +387,7 @@ function update(dt){
   for(const b of bullets){ if(!b.active) continue; b.life-=dt; if(b.life<=0){ b.active=false; continue; }
     b.x+=b.vx*dt; b.y+=b.vy*dt;
     for(const z of zombies){ if(!z.active||!z.alive) continue;
-      if(Math.hypot(z.x-b.x,z.y-b.y)<z.r+0.6){ damageZombie(z,b.dmg); emit(b.x,b.y,2,0); b.active=false; break; } } }
+      if(Math.hypot(z.x-b.x,z.y-b.y)<z.r+0.6){ damageZombie(z,b.dmg); impact(b.x,b.y,b.vx,b.vy); b.active=false; break; } } }
 
   // grenades
   for(const g of nades){ if(!g.active) continue; g.t-=dt; g.fuse-=dt;
@@ -400,6 +413,7 @@ function update(dt){
   // particles
   for(const pt of parts){ if(!pt.active) continue; pt.life-=dt; if(pt.life<=0){ pt.active=false; continue; }
     pt.x+=pt.vx*dt; pt.y+=pt.vy*dt; pt.vx*=0.9; pt.vy*=0.9; if(pt.kind===2) pt.vy-=6*dt; }
+  for(const fl of flashes){ if(!fl.active) continue; fl.life-=dt; if(fl.life<=0) fl.active=false; }
 
   // loot
   for(const l of loot){ if(!l.active) continue; l.t-=dt; if(l.t<=0){ l.active=false; continue; }
@@ -601,6 +615,13 @@ function draw(){
     ctx.strokeStyle='rgba(255,225,150,0.9)'; ctx.lineWidth=2.4; ctx.lineCap='round';
     ctx.beginPath(); ctx.moveTo(s.x-tx,s.y-ty); ctx.lineTo(s.x,s.y); ctx.stroke();
     ctx.fillStyle='rgba(255,245,210,0.9)'; ctx.beginPath(); ctx.arc(s.x,s.y,1.6,0,TAU); ctx.fill(); }
+  // bullet-impact flash pops
+  for(const fl of flashes){ if(!fl.active) continue; const s=w2s(fl.x,fl.y);
+    const f=clamp(fl.life/fl.max,0,1), rr=fl.r*(1.4-0.4*f);
+    const rg=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,rr);
+    rg.addColorStop(0,`rgba(255,240,190,${0.85*f})`); rg.addColorStop(0.5,`rgba(255,180,90,${0.4*f})`);
+    rg.addColorStop(1,'rgba(255,150,60,0)');
+    ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(s.x,s.y,rr,0,TAU); ctx.fill(); }
   ctx.restore(); ctx.lineCap='butt';
 
   for(const pt of parts){ if(!pt.active) continue; const s=w2s(pt.x,pt.y); const a=clamp(pt.life/pt.max,0,1);
