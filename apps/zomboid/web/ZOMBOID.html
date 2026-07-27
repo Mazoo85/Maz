@@ -174,6 +174,17 @@ function emit(x,y,n,kind){ // 0 spark 1 blood 2 smoke
     p.life=p.max=rnd(.25,.6); p.kind=kind; p.r=rnd(1.2,3.0);
   }
 }
+// visceral death burst: fast blood spray + slower dark gib chunks (kind 3)
+function emitGore(x,y,r){ const scale=clamp(r,0.8,3.4);
+  for(let i=0;i<Math.round(16*scale);i++){ const p=getFree(parts,()=>({active:false}));
+    const a=rnd(0,TAU), s=rnd(24,80);
+    p.active=true; p.x=x; p.y=y; p.vx=Math.cos(a)*s; p.vy=Math.sin(a)*s;
+    p.life=p.max=rnd(.3,.75); p.kind=1; p.r=rnd(1.5,3.6*scale*0.7+1.5); }
+  for(let i=0;i<Math.round(6*scale);i++){ const p=getFree(parts,()=>({active:false}));
+    const a=rnd(0,TAU), s=rnd(10,44);
+    p.active=true; p.x=x; p.y=y; p.vx=Math.cos(a)*s; p.vy=Math.sin(a)*s;
+    p.life=p.max=rnd(.5,1.05); p.kind=3; p.r=rnd(2.5,5.5); }
+}
 
 let G;
 function newGame(){
@@ -285,8 +296,14 @@ function detonate(){ const p=G.p; if(!p.ultReady) return; p.ult=0; p.ultReady=fa
 function eat(){ const p=G.p; if(p.food<=0||p.hunger<=0) return; p.food--; p.hunger=Math.max(0,p.hunger-40); }
 
 function damageZombie(z,dmg){ if(!z.alive) return; z.hp-=dmg; z.hitFlash=0.08; emit(z.x,z.y,3,1);
-  if(z.hp<=0){ z.alive=false; z.active=false; onKill(z); } }
+  if(z.hp<=0){ z.alive=false; z.hitFlash=0;   // clear kill-flash so the corpse fades in its own colour
+    // enter a short dying state (fading corpse) — kept active until the timer runs out
+    z.death=0.4; z.deathAng=Math.atan2(G.p.y-z.y, G.p.x-z.x);
+    const kb=Math.atan2(z.y-G.p.y, z.x-G.p.x); const s=z.kind===2?10:18;   // knocked away from player
+    z.ddx=Math.cos(kb)*s; z.ddy=Math.sin(kb)*s;
+    onKill(z); } }
 function onKill(z){ const p=G.p;
+  emitGore(z.x, z.y, z.r);
   addDecal(z.x, z.y, z.r*0.7);
   G.kills++;
   if(G.comboT<=(2.5+(G.mult-1)*0.5)) G.combo++; else G.combo=1; G.comboT=0;
@@ -365,7 +382,10 @@ function update(dt){
     if(g.fuse<=0) detonateNade(g); }
 
   // zombies
-  for(const z of zombies){ if(!z.active||!z.alive) continue;
+  for(const z of zombies){ if(!z.active) continue;
+    if(!z.alive){ // fading corpse — slide from death knockback, then despawn
+      z.death-=dt; z.x+=z.ddx*dt; z.y+=z.ddy*dt; z.ddx*=0.86; z.ddy*=0.86;
+      if(z.death<=0) z.active=false; continue; }
     if(z.hitFlash>0) z.hitFlash-=dt; if(z.stun>0){ z.stun-=dt; continue; }
     let dx=p.x-z.x, dy=p.y-z.y; const d=Math.hypot(dx,dy)||1; dx/=d; dy/=d;
     const sp=z.spd*(z.kind===1?danger():1);
@@ -563,8 +583,12 @@ function draw(){
     ctx.fillStyle='#c9d17a'; ctx.beginPath(); ctx.arc(s.x,s.y,4,0,TAU); ctx.fill();
     if(Math.sin(G.t*30)>0){ ctx.fillStyle='#ff5a4a'; ctx.beginPath(); ctx.arc(s.x,s.y-6,1.8,0,TAU); ctx.fill(); } }
 
-  // zombies
-  for(const z of zombies){ if(!z.active||!z.alive) continue; const s=w2s(z.x,z.y);
+  // zombies (living + fading corpses)
+  for(const z of zombies){ if(!z.active) continue; const s=w2s(z.x,z.y);
+    if(!z.alive){ const f=clamp(z.death/0.4,0,1);            // 1 -> 0 as it dies
+      ctx.save(); ctx.globalAlpha=f*0.9;
+      const sc=0.55+0.45*f; ctx.translate(s.x,s.y); ctx.scale(sc,sc); ctx.translate(-s.x,-s.y);
+      drawZombie(s.x,s.y, z.deathAng||0, z); ctx.restore(); ctx.globalAlpha=1; continue; }
     drawZombie(s.x,s.y, Math.atan2(p.y-z.y, p.x-z.x), z);
     if(z.kind===3){ const rad=z.r*SCALE*1.35, bw=rad*2.2, hpf=clamp(z.hp/z.maxhp,0,1);
       ctx.fillStyle='#000'; ctx.fillRect(s.x-bw/2,s.y-rad-14,bw,6);
@@ -580,8 +604,11 @@ function draw(){
   ctx.restore(); ctx.lineCap='butt';
 
   for(const pt of parts){ if(!pt.active) continue; const s=w2s(pt.x,pt.y); const a=clamp(pt.life/pt.max,0,1);
-    ctx.globalAlpha=a; ctx.fillStyle= pt.kind===1?'#c0392b':(pt.kind===2?'#8a8f9e':'#f2c94c');
-    ctx.beginPath(); ctx.arc(s.x,s.y,pt.r,0,TAU); ctx.fill(); }
+    ctx.globalAlpha=a;
+    ctx.fillStyle= pt.kind===1?'#c0392b':(pt.kind===2?'#8a8f9e':(pt.kind===3?'#6e1210':'#f2c94c'));
+    if(pt.kind===3){ ctx.beginPath(); ctx.arc(s.x,s.y,pt.r,0,TAU); ctx.fill();
+      ctx.fillStyle='rgba(40,6,6,0.6)'; ctx.beginPath(); ctx.arc(s.x+pt.r*0.3,s.y+pt.r*0.3,pt.r*0.5,0,TAU); ctx.fill(); }
+    else { ctx.beginPath(); ctx.arc(s.x,s.y,pt.r,0,TAU); ctx.fill(); } }
   ctx.globalAlpha=1;
 
   // muzzle-flash light pool (additive) at the player when firing
