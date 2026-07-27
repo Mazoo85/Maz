@@ -109,7 +109,7 @@ const ZTYPE = {
   3:{hp:1400,spd:11, dmg:26, r:3.4, score:400,col:'#c76a3a'},
 };
 
-const bullets=[], zombies=[], parts=[], loot=[], nades=[], decals=[], flashes=[], shocks=[];
+const bullets=[], zombies=[], parts=[], loot=[], nades=[], decals=[], flashes=[], shocks=[], ghosts=[];
 const MAXDECALS=90;
 function getFree(pool, make){ for(const o of pool) if(!o.active) return o; const o=make(); pool.push(o); return o; }
 
@@ -213,7 +213,7 @@ function newGame(){
         meleeCd:0, grenades:3, ult:0, ultMax:25, ultReady:false, nextBonus:25,
         muzzle:0, recoil:0, walk:0 },
   };
-  bullets.length=zombies.length=parts.length=loot.length=nades.length=decals.length=flashes.length=shocks.length=0;
+  bullets.length=zombies.length=parts.length=loot.length=nades.length=decals.length=flashes.length=shocks.length=ghosts.length=0;
   startWave(1);
 }
 function danger(){ const t=G.phase/G.dayLen; const night = t>=0.5 ? (t-0.5)*2 : 0; return 1+0.7*night; }
@@ -363,6 +363,10 @@ function update(dt){
   // movement (dash overrides)
   let speed=22;
   if(p.dashT>0){ p.dashT-=dt; const ds=95; p.x+=p.dvx*ds*dt; p.y+=p.dvy*ds*dt; p.walk+=dt*20;
+    // shed fading after-images along the dash path
+    p.ghostT=(p.ghostT||0)-dt;
+    if(p.ghostT<=0){ p.ghostT=0.025; const a=aim(); const g=getFree(ghosts,()=>({active:false}));
+      g.active=true; g.x=p.x; g.y=p.y; g.ang=Math.atan2(a.y,a.x); g.life=g.max=0.26; }
     // dash damages zombies passed through
     for(const z of zombies){ if(!z.active||!z.alive||p.dashHits.has(z)) continue;
       if(Math.hypot(z.x-p.x,z.y-p.y)<z.r+2){ p.dashHits.add(z); damageZombie(z,20); } }
@@ -420,6 +424,7 @@ function update(dt){
     pt.x+=pt.vx*dt; pt.y+=pt.vy*dt; pt.vx*=0.9; pt.vy*=0.9; if(pt.kind===2) pt.vy-=6*dt; }
   for(const fl of flashes){ if(!fl.active) continue; fl.life-=dt; if(fl.life<=0) fl.active=false; }
   for(const s of shocks){ if(!s.active) continue; s.life-=dt; if(s.life<=0) s.active=false; }
+  for(const g of ghosts){ if(!g.active) continue; g.life-=dt; if(g.life<=0) g.active=false; }
 
   // loot
   for(const l of loot){ if(!l.active) continue; l.t-=dt; if(l.t<=0){ l.active=false; continue; }
@@ -669,6 +674,14 @@ function draw(){
     const rg=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,rr);
     rg.addColorStop(0,`rgba(255,210,130,${0.5*f})`); rg.addColorStop(1,'rgba(255,180,90,0)');
     ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(s.x,s.y,rr,0,TAU); ctx.fill(); ctx.restore(); }
+
+  // dash after-images: faded cyan-tinted survivor silhouettes trailing the hero
+  for(const g of ghosts){ if(!g.active) continue; const gs=w2s(g.x,g.y); const f=clamp(g.life/g.max,0,1);
+    ctx.save(); ctx.globalAlpha=0.42*f; drawSurvivor(gs.x,gs.y,g.ang);
+    ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=0.18*f;
+    ctx.fillStyle='#7ad4ff'; ctx.beginPath(); ctx.arc(gs.x,gs.y,13,0,TAU); ctx.fill();
+    ctx.restore(); }
+  ctx.globalAlpha=1;
 
   { const s=w2s(p.x,p.y); const a=aim(); drawSurvivor(s.x,s.y,Math.atan2(a.y,a.x)); }
 
