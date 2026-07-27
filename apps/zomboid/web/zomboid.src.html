@@ -109,7 +109,7 @@ const ZTYPE = {
   3:{hp:1400,spd:11, dmg:26, r:3.4, score:400,col:'#c76a3a'},
 };
 
-const bullets=[], zombies=[], parts=[], loot=[], nades=[], decals=[], flashes=[];
+const bullets=[], zombies=[], parts=[], loot=[], nades=[], decals=[], flashes=[], shocks=[];
 const MAXDECALS=90;
 function getFree(pool, make){ for(const o of pool) if(!o.active) return o; const o=make(); pool.push(o); return o; }
 
@@ -213,7 +213,7 @@ function newGame(){
         meleeCd:0, grenades:3, ult:0, ultMax:25, ultReady:false, nextBonus:25,
         muzzle:0, recoil:0, walk:0 },
   };
-  bullets.length=zombies.length=parts.length=loot.length=nades.length=decals.length=flashes.length=0;
+  bullets.length=zombies.length=parts.length=loot.length=nades.length=decals.length=flashes.length=shocks.length=0;
   startWave(1);
 }
 function danger(){ const t=G.phase/G.dayLen; const night = t>=0.5 ? (t-0.5)*2 : 0; return 1+0.7*night; }
@@ -298,13 +298,18 @@ function melee(){ const p=G.p; if(p.meleeCd>0) return; p.meleeCd=0.6; G.shake=Ma
 function throwNade(){ const p=G.p; if(p.grenades<=0) return; p.grenades--;
   const a=aim(); const g=getFree(nades,()=>({active:false}));
   g.active=true; g.x=p.x; g.y=p.y; g.vx=a.x*46; g.vy=a.y*46; g.t=0.9; g.fuse=1.1; }
+// expanding shockwave ring + core flash (world-space radius rmax); warm=orange, cool=cyan
+function boom(x,y,rmax,cool){ const s=getFree(shocks,()=>({active:false}));
+  s.active=true; s.x=x; s.y=y; s.rmax=rmax; s.life=s.max=0.4; s.cool=!!cool; }
+
 function detonateNade(g){ g.active=false; G.shake=3; emit(g.x,g.y,40,0); emit(g.x,g.y,16,2);
+  boom(g.x,g.y,18,false);
   for(const z of zombies){ if(!z.active||!z.alive) continue;
     const d=Math.hypot(z.x-g.x,z.y-g.y); if(d<18){ damageZombie(z, 180*(1-d/18)+40);
       const za=Math.atan2(z.y-g.y,z.x-g.x); z.x+=Math.cos(za)*6; z.y+=Math.sin(za)*6; } } addDecal(g.x,g.y,1.4); }
 
 function detonate(){ const p=G.p; if(!p.ultReady) return; p.ult=0; p.ultReady=false; p.iframes=Math.max(p.iframes,1);
-  G.shake=3; emit(p.x,p.y,60,0);
+  G.shake=3; emit(p.x,p.y,60,0); boom(p.x,p.y,46,true);
   for(const z of zombies){ if(z.active&&z.alive) damageZombie(z,500); } }
 function eat(){ const p=G.p; if(p.food<=0||p.hunger<=0) return; p.food--; p.hunger=Math.max(0,p.hunger-40); }
 
@@ -414,6 +419,7 @@ function update(dt){
   for(const pt of parts){ if(!pt.active) continue; pt.life-=dt; if(pt.life<=0){ pt.active=false; continue; }
     pt.x+=pt.vx*dt; pt.y+=pt.vy*dt; pt.vx*=0.9; pt.vy*=0.9; if(pt.kind===2) pt.vy-=6*dt; }
   for(const fl of flashes){ if(!fl.active) continue; fl.life-=dt; if(fl.life<=0) fl.active=false; }
+  for(const s of shocks){ if(!s.active) continue; s.life-=dt; if(s.life<=0) s.active=false; }
 
   // loot
   for(const l of loot){ if(!l.active) continue; l.t-=dt; if(l.t<=0){ l.active=false; continue; }
@@ -631,6 +637,21 @@ function draw(){
     rg.addColorStop(0,`rgba(255,240,190,${0.85*f})`); rg.addColorStop(0.5,`rgba(255,180,90,${0.4*f})`);
     rg.addColorStop(1,'rgba(255,150,60,0)');
     ctx.fillStyle=rg; ctx.beginPath(); ctx.arc(s.x,s.y,rr,0,TAU); ctx.fill(); }
+  // explosion shockwaves: expanding ring + core light flash
+  for(const sh of shocks){ if(!sh.active) continue; const s=w2s(sh.x,sh.y);
+    const t=1-clamp(sh.life/sh.max,0,1);            // 0 -> 1 over its life
+    const ease=1-(1-t)*(1-t);                        // ease-out expansion
+    const rad=sh.rmax*SCALE*ease, a=(1-t);
+    const c1=sh.cool?'120,220,255':'255,180,90', c2=sh.cool?'80,160,255':'255,120,40';
+    // ring
+    ctx.lineWidth=(sh.cool?7:5)*(1-t)+1.5; ctx.strokeStyle=`rgba(${c1},${0.8*a})`;
+    ctx.beginPath(); ctx.arc(s.x,s.y,rad,0,TAU); ctx.stroke();
+    // core flash (bright early, fades fast)
+    const cf=clamp(sh.life/sh.max*1.6,0,1), cr=sh.rmax*SCALE*0.6*cf;
+    const rg2=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,Math.max(cr,1));
+    rg2.addColorStop(0,`rgba(255,245,210,${0.7*cf})`); rg2.addColorStop(0.5,`rgba(${c2},${0.35*cf})`);
+    rg2.addColorStop(1,`rgba(${c2},0)`);
+    ctx.fillStyle=rg2; ctx.beginPath(); ctx.arc(s.x,s.y,Math.max(cr,1),0,TAU); ctx.fill(); }
   ctx.restore(); ctx.lineCap='butt';
 
   for(const pt of parts){ if(!pt.active) continue; const s=w2s(pt.x,pt.y); const a=clamp(pt.life/pt.max,0,1);
