@@ -51,6 +51,45 @@ int main() {
         CHECK(hb.suspendCount() == 2, "second suspend counted");
     }
 
+    // --- 2b. Game-facing suspend/resume hooks fire once per edge (autosave on background). ---
+    {
+        HeadlessBackend hb;
+        int saves = 0, resumes = 0;
+        hb.setOnSuspend([&] { ++saves; });
+        hb.setOnResume([&] { ++resumes; });
+        hb.init(); // Created -> Running: not a resume-from-suspend, so onResume must NOT fire
+        CHECK(saves == 0 && resumes == 0, "no hook fires on the initial Created->Running boot");
+
+        hb.transition(LifecycleState::Suspended);
+        CHECK(saves == 1, "onSuspend fires on the edge into Suspended");
+        hb.transition(LifecycleState::Suspended); // already suspended: edge-guarded, no re-save
+        CHECK(saves == 1, "a repeated Suspended does not double-fire onSuspend");
+
+        hb.transition(LifecycleState::Running);
+        CHECK(resumes == 1, "onResume fires on the edge back to Running");
+        hb.transition(LifecycleState::Running); // already running: no re-fire
+        CHECK(resumes == 1, "a repeated Running does not double-fire onResume");
+
+        hb.transition(LifecycleState::Suspended);
+        hb.transition(LifecycleState::Running);
+        CHECK(saves == 2 && resumes == 2, "a second suspend/resume cycle fires each hook once more");
+    }
+
+    // --- 2c. DesktopBackend minimize/restore drives the same hooks (the desktop autosave path). ---
+    {
+        DesktopBackend db("MazEngine", "HookTest");
+        int saves = 0;
+        db.setOnSuspend([&] { ++saves; });
+        db.init();
+        db.syncLifecycle(true);  // minimized -> Suspended
+        CHECK(saves == 1, "minimizing drives onSuspend via syncLifecycle");
+        db.syncLifecycle(true);  // still minimized: no re-save
+        CHECK(saves == 1, "staying minimized does not re-save");
+        db.syncLifecycle(false); // restored -> Running
+        db.syncLifecycle(true);  // minimize again -> a second save
+        CHECK(saves == 2, "a second minimize saves again");
+    }
+
     // --- 3. Registry selects a backend by id; absent backends (console/VR/mobile SDKs) return null. ---
     {
         PlatformRegistry reg = defaultRegistry();

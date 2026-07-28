@@ -22,6 +22,7 @@ well-scoped.
 | OS-owned loop | `platform::runMainLoop(step, user)` (apps use it; see `apps/_template/`) | ✅ done |
 | Backend seam | `platform::PlatformBackend` + `DesktopBackend` as the worked example | ✅ done |
 | Asset/save routing | `io::VirtualFileSystem` `res://`/`user://`, mounted by the backend at boot | ✅ done |
+| Autosave on background | `PlatformBackend::setOnSuspend/​setOnResume` — fired on the lifecycle edge (see `apps/_template/`) | ✅ done |
 | Vulkan portability | `VK_KHR_portability_enumeration` + `_subset` opt-in in `VulkanContext` | ✅ done |
 | Push-constant limit | sky push constant is 128 bytes (mobile floor) | ✅ done |
 | Lighter frame graph | `RenderTier::Mobile` (`--mobile`): MSAA off, bloom blur passes skipped, SSAO off | ✅ done |

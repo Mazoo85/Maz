@@ -12,6 +12,7 @@
 // --headless / --frames N run the loop with no window (CI); ESC quits on desktop.
 
 #include "maz/Engine.hpp"
+#include "maz/core/KeyValueStore.hpp"
 #include "maz/input/VirtualControls.hpp"
 #include "maz/io/VirtualFileSystem.hpp"
 #include "maz/platform/DesktopBackend.hpp"
@@ -92,6 +93,25 @@ int main(int argc, char** argv) {
     int flashes = 0;    // action-button presses (a trivial bit of gameplay to prove the button works)
     float flashT = 0.0f;
     int rendered = 0;
+
+    // Auto-save on suspend: restore the mover from user:// at boot, then register a suspend hook that persists
+    // it the moment the OS backgrounds the app. On desktop this fires when the window is minimized (driven by
+    // syncLifecycle in the frame below); on iOS/Android the backend fires it on didEnterBackground/onPause —
+    // exactly when a mobile game must save, because a backgrounded app can be killed without another chance.
+    core::KeyValueStore save;
+    if (desktop) {
+        const std::string savePath = desktop->directory(platform::DirKind::UserData) + "mover.ini";
+        save.load(savePath); // records the path for save(); empty if none yet
+        posX = save.getFloat("x", 0.0f);
+        posY = save.getFloat("y", 0.0f);
+        backend->setOnSuspend([&] {
+            save.set("x", posX);
+            save.set("y", posY);
+            save.save();
+            MAZ_LOG_INFO("_template: autosaved on suspend (x=%.1f y=%.1f)", posX, posY);
+        });
+        backend->setOnResume([] { MAZ_LOG_INFO("_template: resumed from background"); });
+    }
 
     auto frame = [&]() -> bool {
         window.pumpEvents(input);

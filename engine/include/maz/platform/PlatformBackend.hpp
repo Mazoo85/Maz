@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 // maz::platform per-target backend seam — the single abstraction an engine crosses to reach a NEW platform
@@ -77,13 +78,32 @@ public:
     // backend react (e.g. drop the GPU surface on Suspended).
     LifecycleState lifecycle() const { return m_lifecycle; }
     void transition(LifecycleState s) {
+        const LifecycleState prev = m_lifecycle;
         m_lifecycle = s;
         onLifecycle(s);
+        // Game-facing lifecycle edges. The suspend hook fires the moment the OS backgrounds the app (edge INTO
+        // Suspended) — the place to persist progress, since a backgrounded mobile app may be killed without
+        // further notice; the resume hook fires when it returns to the foreground. Edge-guarded so a repeated
+        // Suspended (e.g. DesktopBackend::syncLifecycle(true) while already minimized) never double-saves.
+        if (s == LifecycleState::Suspended && prev != LifecycleState::Suspended) {
+            if (m_onSuspend) m_onSuspend();
+        } else if (s == LifecycleState::Running && prev == LifecycleState::Suspended) {
+            if (m_onResume) m_onResume();
+        }
     }
+
+    // Register a game callback fired once on each lifecycle edge. onSuspend is where a mobile game persists
+    // its state (autosave); onResume is where it reacquires anything it released. Backend-agnostic — every
+    // backend routes lifecycle changes through transition(), so this works on desktop (window minimize/restore
+    // via DesktopBackend::syncLifecycle) and on the future Android/iOS backends (onPause / didEnterBackground).
+    void setOnSuspend(std::function<void()> fn) { m_onSuspend = std::move(fn); }
+    void setOnResume(std::function<void()> fn) { m_onResume = std::move(fn); }
 
 protected:
     virtual void onLifecycle(LifecycleState /*s*/) {}
     LifecycleState m_lifecycle = LifecycleState::Created;
+    std::function<void()> m_onSuspend;
+    std::function<void()> m_onResume;
 };
 
 // The reference backend that runs anywhere: no window, no GPU, deterministic directories. It exists both for
