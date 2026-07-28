@@ -652,10 +652,15 @@ function draw(){
     ctx.restore(); }
   ctx.globalAlpha=1;
 
-  // arena perimeter — glowing hazard ring
-  const c=w2s(0,0); ctx.save(); ctx.setLineDash([14,10]); ctx.lineWidth=2.5;
-  ctx.strokeStyle='rgba(224,87,74,0.5)'; ctx.shadowColor='rgba(224,87,74,0.5)'; ctx.shadowBlur=12;
-  ctx.beginPath(); ctx.arc(c.x,c.y,ARENA*SCALE,0,TAU); ctx.stroke(); ctx.restore();
+  // arena perimeter — live hazard boundary: pulsing glow band + drifting dashed ring
+  const c=w2s(0,0), AR=ARENA*SCALE, apul=0.5+0.5*Math.sin(G.t*2.2);
+  ctx.save();
+  ctx.strokeStyle=`rgba(224,60,50,${0.10+0.10*apul})`; ctx.lineWidth=26;
+  ctx.beginPath(); ctx.arc(c.x,c.y,AR-11,0,TAU); ctx.stroke();
+  ctx.setLineDash([16,12]); ctx.lineDashOffset=-(G.t*22)%28; ctx.lineWidth=2.5;
+  ctx.strokeStyle=`rgba(240,95,80,${0.55+0.25*apul})`;
+  ctx.shadowColor='rgba(224,87,74,0.6)'; ctx.shadowBlur=14;
+  ctx.beginPath(); ctx.arc(c.x,c.y,AR,0,TAU); ctx.stroke(); ctx.restore();
 
   // survivor flashlight cone — warm additive wedge cast toward the aim, dim by day, bright at night
   { const ps=w2s(p.x,p.y), a=aim(), ca=Math.atan2(a.y,a.x);
