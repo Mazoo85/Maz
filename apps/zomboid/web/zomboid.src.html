@@ -801,8 +801,18 @@ function draw(){
 
 function label(txt,x,y,size,col,align){ ctx.fillStyle=col; ctx.font=`600 ${size}px ui-sans-serif,system-ui,sans-serif`;
   ctx.textAlign=align||'left'; ctx.textBaseline='alphabetic'; ctx.fillText(txt,x,y); }
-function bar(x,y,w,h,frac,col,track){ ctx.fillStyle=track||'#4a4e60'; ctx.fillRect(x,y,w,h);
-  ctx.fillStyle=col; ctx.fillRect(x,y,w*clamp(frac,0,1),h); }
+function rrect(x,y,w,h,r){ r=Math.min(r,w/2,h/2); ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function bar(x,y,w,h,frac,col,track){ const r=h/2;
+  ctx.fillStyle=track||'rgba(16,18,26,0.72)'; rrect(x,y,w,h,r); ctx.fill();
+  const fw=w*clamp(frac,0,1);
+  if(fw>0){ const fwc=Math.max(fw,h); ctx.save(); rrect(x,y,fwc,h,r); ctx.clip();
+    ctx.fillStyle=col; ctx.fillRect(x,y,fwc,h);
+    ctx.fillStyle='rgba(255,255,255,0.22)'; ctx.fillRect(x,y,fwc,h*0.42);
+    ctx.fillStyle='rgba(0,0,0,0.20)'; ctx.fillRect(x,y+h*0.72,fwc,h*0.28);
+    ctx.restore(); }
+  ctx.strokeStyle='rgba(0,0,0,0.45)'; ctx.lineWidth=1; rrect(x+0.5,y+0.5,w-1,h-1,r); ctx.stroke(); }
 
 function drawHUD(){
   const p=G.p, w=WEAPONS[p.weapon];
@@ -815,6 +825,11 @@ function drawHUD(){
     ctx.globalAlpha=a; label(G.waveBanner,W/2,H/2-90,44,'#f2c94c','center'); ctx.globalAlpha=1; ctx.textAlign='left'; }
 
   const bx=24, by=H-96;
+  // soft backing panels so the stat and weapon clusters read against any ground
+  ctx.save();
+  ctx.fillStyle='rgba(10,12,18,0.34)'; rrect(bx-12,by-44,300,138,12); ctx.fill();
+  ctx.fillStyle='rgba(10,12,18,0.34)'; rrect(W-232,H-92,224,84,12); ctx.fill();
+  ctx.restore();
   label('HEALTH',bx,by-6,13,'#9aa0b4');
   bar(bx,by,240,14,p.hp/p.maxhp,'#8fe39a');
   label(Math.ceil(p.hp)+' / '+p.maxhp, bx+250, by+12, 13, '#e8e8ef');
