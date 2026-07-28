@@ -405,6 +405,24 @@ void BloomChain::record(VkCommandBuffer cmd) {
     doPass(cmd, m_b.fbo, m_blur, m_setA, pV);
 }
 
+void BloomChain::primeSkip(VkCommandBuffer cmd) {
+    if (m_pass == VK_NULL_HANDLE || m_b.fbo == VK_NULL_HANDLE) {
+        return;
+    }
+    // Begin + immediately end the bloom render pass on the output target (m_b), with no draws. The pass's
+    // finalLayout (SHADER_READ_ONLY_OPTIMAL) transition still happens, so bloomView() is validly laid out
+    // for the composite's sampler — but none of the bright-pass/blur fragment work runs. The mobile
+    // composite multiplies bloom by 0, so the untouched (DONT_CARE) contents are never used.
+    VkRenderPassBeginInfo rp{};
+    rp.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    rp.renderPass = m_pass;
+    rp.framebuffer = m_b.fbo;
+    rp.renderArea.extent = m_halfExtent;
+    rp.clearValueCount = 0;
+    vkCmdBeginRenderPass(cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdEndRenderPass(cmd);
+}
+
 void BloomChain::destroyTargets(VulkanContext& ctx) {
     VkDevice d = ctx.device();
     Target* targets[2] = {&m_a, &m_b};

@@ -28,6 +28,15 @@ public:
     // SHADER_READ), before the composite pass.
     void record(VkCommandBuffer cmd);
 
+    // Mobile/low tier: skip the three blur passes but still leave the bloom target (bloomView()) in a
+    // valid SHADER_READ_ONLY layout for the composite's sampler. This begins+ends the bloom render pass on
+    // the output target with no draws — the pass's finalLayout transition happens, but none of the
+    // half-res bright-pass/blur fragment work runs, so it costs a single empty half-res pass instead of
+    // three full ones. Safe because the mobile composite multiplies bloom by 0, so the (unwritten,
+    // DONT_CARE) contents are never used — only the layout matters. Handles resize implicitly (re-run
+    // every frame). Call in place of record() on the mobile tier.
+    void primeSkip(VkCommandBuffer cmd);
+
     // The blurred bloom result and a sampler for it, for the composite descriptor.
     VkImageView bloomView() const { return m_viewB; }
     VkSampler sampler() const { return m_sampler; }

@@ -24,7 +24,7 @@ well-scoped.
 | Asset/save routing | `io::VirtualFileSystem` `res://`/`user://`, mounted by the backend at boot | ✅ done |
 | Vulkan portability | `VK_KHR_portability_enumeration` + `_subset` opt-in in `VulkanContext` | ✅ done |
 | Push-constant limit | sky push constant is 128 bytes (mobile floor) | ✅ done |
-| Lighter frame graph | `RenderTier::Mobile` (`--mobile`): MSAA off, no bloom/SSAO | ✅ done |
+| Lighter frame graph | `RenderTier::Mobile` (`--mobile`): MSAA off, bloom blur passes skipped, SSAO off | ✅ done |
 
 The one thing every mobile backend must provide is `nativeWindowHandle()`; the rest of `PlatformBackend`
 (caps, directories, lifecycle) is filled exactly like `DesktopBackend` (`engine/src/platform/DesktopBackend.cpp`).

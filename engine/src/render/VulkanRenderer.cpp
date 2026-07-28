@@ -118,6 +118,7 @@ private:
     uint32_t m_currentFrame = 0;
     uint32_t m_imageIndex = 0;
     bool m_active = false;
+    bool m_skipBloom = false; // mobile tier: prime the bloom target's layout but skip the blur passes
     TextureHandle m_whiteTex = kInvalidTexture; // 1x1 white, for flat polygon fills
 };
 
@@ -214,6 +215,7 @@ bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
         m_post.setBloom(0.0f, 1.0f); // composite adds no bloom
         m_ssao.setEnabled(false);
         m_post.setSsaoStrength(0.0f);
+        m_skipBloom = true; // skip the three blur passes; only prime the target's layout each frame
         MAZ_LOG_INFO("render tier: mobile (MSAA off, bloom + SSAO disabled)");
     }
 
@@ -386,11 +388,15 @@ void VulkanRenderer::endFrame() {
     vkCmdEndRenderPass(cmd);
 
     // 3) Bloom chain — bright-pass + separable blur of sceneColor into a half-res target. On the mobile tier
-    // the composite discards its output (bloom strength 0), but the pass still runs to keep the bloom target
-    // in a defined (SHADER_READ_ONLY) layout for the composite's sampler — skipping it would sample an
-    // undefined-layout image, which is UB on a real mobile driver. The bandwidth saved by a true skip needs
-    // a transition-only path in BloomChain (noted in docs/MOBILE_BUILD.md as a further optimization).
-    m_bloom.record(cmd);
+    // we skip the three blur passes entirely: primeSkip() runs a single empty render pass that only leaves
+    // the bloom target in a defined (SHADER_READ_ONLY) layout for the composite's sampler — the composite
+    // discards bloom (strength 0) there, so its contents are never used. This is the real bandwidth win over
+    // recording the full chain just to throw it away.
+    if (m_skipBloom) {
+        m_bloom.primeSkip(cmd);
+    } else {
+        m_bloom.record(cmd);
+    }
 
     // 4) Composite pass — add bloom + tonemap sceneColor into the swapchain image.
     m_post.record(cmd, m_swapchain.compositeFramebuffer(m_imageIndex), m_swapchain.extent());
