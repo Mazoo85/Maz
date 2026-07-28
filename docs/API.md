@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_677 headers across 20 subsystems._
+_679 headers across 20 subsystems._
 
 ## Contents
 
@@ -7039,6 +7039,23 @@ maz::io::MessagePack — the MessagePack binary serialization format (https://ms
 - `inline bool msgpackDecode(const std::uint8_t* data, std::size_t size, MsgValue& out)`
 - _…and 1 more_
 
+### `MobileBundlePlan`
+<sub>`engine/include/maz/io/MobileBundlePlan.hpp`</sub>
+
+maz::io mobile export bundle planner — the Android/iOS analogue of io::planBundle. A phone build is NOT a flat folder with a launcher script: Android wants the game as a shared library under lib/<abi>/, its assets under assets/, and an AndroidManifest.xml; iOS wants everything inside a <App>.app bundle with the binary at the root, dylibs under Frameworks/, and an Info.plist. This planner computes that COMPLETE layout deterministically — where every file lands and the exact manifest/plist text — so the on-device build (Gradle / Xcode, see docs/MOBILE_BUILD.md) is a mechanical "copy the planned files + drop in the generated manifest" step. Pure string/size logic, no filesystem, so it unit-tests headlessly exactly like the desktop planner. The concrete APK/IPA assembly still needs the owner's SDK/toolchain; this is the decision layer that makes it turnkey.
+
+**Types:** `MobileBundlePlan`
+
+**Functions:**
+
+- `inline std::string mobileOsName(MobileOs os)`
+- `inline std::string appIdSegment(const std::string& appName)`
+- `inline std::string bundleId(const std::string& appName)`
+- `inline std::string androidManifest(const std::string& appName, const std::string& version)`
+- `inline std::string iosInfoPlist(const std::string& appName, const std::string& version)`
+- `inline MobileBundlePlan planMobileBundle(const std::string& appName, const std::string& version, MobileOs os,`
+- `inline const BundleFile* findMobileDest(const MobileBundlePlan& plan, const std::string& dest)`
+
 ### `MoveToFront`
 <sub>`engine/include/maz/io/MoveToFront.hpp`</sub>
 
@@ -7174,6 +7191,13 @@ Analog-stick conditioning — Godot's `Input.get_vector` / `get_axis` deadzone m
 - `inline float sanitizeDeadzone(float deadzone)`
 - `inline float applyDeadzone(float value, float deadzone)`
 - `inline math::vec2 analogVector(math::vec2 raw, float deadzone = 0.2f)`
+
+### `GestureDetector`
+<sub>`engine/include/maz/input/GestureDetector.hpp`</sub>
+
+Touch gesture recognition — the layer above raw touch points (platform::Input, WS1) that every mobile game wants: tap, double-tap, long-press, swipe/fling, and the two-finger pinch-zoom / rotate / pan. It is a pure per-frame state machine over the active contacts: update(input, dt) advances it, and one-frame edge queries (tapped(), swiped(), ...) report gestures the moment they complete. Deterministic and SDL-free — timing comes from the dt the caller passes, not a wall clock — so it unit-tests headlessly with synthetic touch sequences, exactly like input::VirtualControls. Coordinates are the same drawable pixels Input uses.
+
+**Types:** `GestureConfig`, `GestureDetector`
 
 ### `VirtualControls`
 <sub>`engine/include/maz/input/VirtualControls.hpp`</sub>
