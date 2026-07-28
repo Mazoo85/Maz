@@ -6,6 +6,7 @@ add_library(maz STATIC
     src/platform/Window.cpp
     src/platform/Input.cpp
     src/platform/Paths.cpp
+    src/platform/DesktopBackend.cpp
     src/render/VulkanContext.cpp
     src/render/VulkanSwapchain.cpp
     src/render/TextureStore.cpp

@@ -13,6 +13,9 @@
 
 #include "maz/Engine.hpp"
 #include "maz/input/VirtualControls.hpp"
+#include "maz/io/VirtualFileSystem.hpp"
+#include "maz/platform/DesktopBackend.hpp"
+#include "maz/platform/PlatformBackend.hpp"
 #include "maz/platform/WebLoop.hpp"
 
 #include <SDL3/SDL_scancode.h>
@@ -43,6 +46,24 @@ int main(int argc, char** argv) {
     auto renderer = render::createVulkanRenderer();
     if (!renderer->init(window, rc)) {
         return 1;
+    }
+
+    // Platform backend: pick the host's backend from the registry (DesktopBackend here; an AndroidBackend /
+    // IOSBackend slots into the same seam on device), attach the window, boot it, and mount res:// -> assets
+    // and user:// -> the per-user save dir. Games then do all file I/O through schemes, so packaging into an
+    // APK/app bundle is a one-line mount change — no game-code paths to touch.
+    platform::PlatformRegistry registry = platform::defaultRegistry();
+    std::unique_ptr<platform::PlatformBackend> backend =
+        registry.create(platform::DesktopBackend::hostDesktopId());
+    io::VirtualFileSystem vfs;
+    auto* desktop = dynamic_cast<platform::DesktopBackend*>(backend.get());
+    if (desktop) {
+        desktop->attachWindow(window.sdl());
+        desktop->init();
+        desktop->mountStandard(vfs);
+        MAZ_LOG_INFO("_template: %s backend up; res://->%s user://->%s", desktop->name(),
+                     desktop->directory(platform::DirKind::Assets).c_str(),
+                     desktop->directory(platform::DirKind::UserData).c_str());
     }
 
     platform::Input input;
@@ -77,6 +98,9 @@ int main(int argc, char** argv) {
         if (input.keyPressed(SDL_SCANCODE_ESCAPE)) {
             window.requestClose();
         }
+        // Drive the platform lifecycle from OS focus/minimize — on mobile this is where you'd pause the sim
+        // and release the GPU surface when the app is backgrounded.
+        if (desktop) desktop->syncLifecycle(window.isMinimized());
         controls.update(input);
 
         // Combine keyboard and virtual-stick movement into one intent vector.
@@ -144,6 +168,7 @@ int main(int argc, char** argv) {
 
     MAZ_LOG_INFO("_template shutting down after %d frames (%d flashes, renderer %s)", rendered, flashes,
                  renderer->isActive() ? "active" : "inactive");
+    if (desktop) desktop->shutdown();
     renderer->shutdown();
     window.shutdown();
     return 0;

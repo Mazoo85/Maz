@@ -152,11 +152,9 @@ private:
     std::unordered_map<PlatformId, Factory> m_factories;
 };
 
-// Convenience: a registry preloaded with the backends this build actually has (always includes headless).
-inline PlatformRegistry defaultRegistry() {
-    PlatformRegistry reg;
-    reg.registerBackend(PlatformId::Headless, [] { return std::make_unique<HeadlessBackend>(); });
-    return reg;
-}
+// Convenience: a registry preloaded with the backends this build actually has (always includes headless, and
+// the desktop backend for the host OS). Defined in DesktopBackend.cpp so this header stays dependency-light;
+// declared here as the single entry point the engine calls to pick a backend.
+PlatformRegistry defaultRegistry();
 
 } // namespace maz::platform
