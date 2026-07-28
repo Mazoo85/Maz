@@ -119,6 +119,14 @@ target_link_libraries(maz_input_virtualcontrols_tests PRIVATE maz::maz maz_warni
 add_test(NAME input_virtualcontrols COMMAND maz_input_virtualcontrols_tests)
 set_tests_properties(input_virtualcontrols PROPERTIES TIMEOUT 30)
 
+# Touch gesture recognizer (input::GestureDetector) — tap / double-tap / long-press / swipe / pinch on top of
+# the WS1 touch points. Pure CPU, deterministic (dt-driven): synthetic finger sequences exercise each gesture
+# and the negative cases (slow drag is neither tap nor swipe; taps far apart in time aren't a double-tap).
+add_executable(maz_input_gestures_tests input/gestures.cpp)
+target_link_libraries(maz_input_gestures_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME input_gestures COMMAND maz_input_gestures_tests)
+set_tests_properties(input_gestures PROPERTIES TIMEOUT 30)
+
 # QOA (Quite OK Audio) codec (audio::encodeQoa / decodeQoa) — a full spec-accurate encoder + decoder,
 # verified headlessly by an encode->decode round-trip (mono + stereo) that checks header/metadata/sample
 # count, bounded lossy error, and that the stream is smaller than 16-bit PCM. No external reference file.
