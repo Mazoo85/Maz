@@ -817,6 +817,23 @@ function draw(){
     g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,`rgba(150,10,10,${0.4*k*(0.7+0.3*Math.sin(G.t*6))})`);
     ctx.fillStyle=g; ctx.fillRect(0,0,W,H); }
 
+  // off-screen threat indicators — edge chevrons pointing to zombies outside the view
+  { const cx=W/2, cy=H/2, mgn=44, hw=W/2-mgn, hh=H/2-mgn;
+    for(const z of zombies){ if(!z.active||!z.alive) continue;
+      const s=w2s(z.x,z.y);
+      if(s.x>=-16&&s.x<=W+16&&s.y>=-16&&s.y<=H+16) continue;
+      let dx=s.x-cx, dy=s.y-cy; const d=Math.hypot(dx,dy)||1; dx/=d; dy/=d;
+      const t=Math.min(hw/(Math.abs(dx)||1e-3), hh/(Math.abs(dy)||1e-3));
+      const ax=cx+dx*t, ay=cy+dy*t;
+      const col = z.kind===3?'#ff2d20':(z.kind===1?'#ff9a5a':'#e0574a');
+      ctx.save(); ctx.translate(ax,ay); ctx.rotate(Math.atan2(dy,dx));
+      ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.beginPath();
+      ctx.moveTo(11,0); ctx.lineTo(-6,-7); ctx.lineTo(-6,7); ctx.closePath(); ctx.fill();
+      ctx.fillStyle=col; ctx.globalAlpha=0.9; ctx.beginPath();
+      ctx.moveTo(9,0); ctx.lineTo(-5,-5.5); ctx.lineTo(-5,5.5); ctx.closePath(); ctx.fill();
+      ctx.restore(); }
+    ctx.globalAlpha=1; }
+
   drawHUD();
 }
 
