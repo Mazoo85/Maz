@@ -859,8 +859,22 @@ function drawHUD(){
   label('WAVE '+G.wave,W/2,40,24,'#e8e8ef','center');
   label('SCORE '+G.score+'   KILLS '+G.kills,W/2,66,15,'#9aa0b4','center');
   if(G.mult>1){ label('×'+G.mult+' COMBO',W/2,90,16,'#f2c94c','center'); }
-  if(G.waveBannerT>0){ const a=clamp(G.waveBannerT,0,1);
-    ctx.globalAlpha=a; label(G.waveBanner,W/2,H/2-90,44,'#f2c94c','center'); ctx.globalAlpha=1; ctx.textAlign='left'; }
+  if(G.waveBannerT>0){ const bt=G.waveBannerT;
+    const fin=clamp((2.4-bt)/0.3,0,1), fout=clamp(bt/0.8,0,1), a=Math.min(fin,fout);
+    const cy=H/2-96 - (1-fin)*16, bw=Math.min(560,W*0.72), bh=90;
+    ctx.save(); ctx.globalAlpha=a;
+    const bg=ctx.createLinearGradient(W/2-bw/2,0,W/2+bw/2,0);
+    bg.addColorStop(0,'rgba(10,12,18,0)'); bg.addColorStop(0.5,'rgba(10,12,18,0.62)'); bg.addColorStop(1,'rgba(10,12,18,0)');
+    ctx.fillStyle=bg; ctx.fillRect(W/2-bw/2,cy-bh/2,bw,bh);
+    ctx.strokeStyle='rgba(242,201,76,0.7)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(W/2-bw/2+34,cy-bh/2); ctx.lineTo(W/2+bw/2-34,cy-bh/2);
+    ctx.moveTo(W/2-bw/2+34,cy+bh/2); ctx.lineTo(W/2+bw/2-34,cy+bh/2); ctx.stroke();
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='#f2c94c'; ctx.font='800 40px ui-sans-serif,system-ui,sans-serif'; ctx.letterSpacing='7px';
+    ctx.fillText(G.waveBanner, W/2-3, cy-8);
+    ctx.fillStyle='#cfd3e0'; ctx.font='600 13px ui-sans-serif,system-ui,sans-serif'; ctx.letterSpacing='4px';
+    ctx.fillText(isNight()?'NIGHT FALLS · THEY HUNGER':'HOLD THE LINE', W/2-2, cy+26);
+    ctx.letterSpacing='0px'; ctx.textAlign='left'; ctx.textBaseline='alphabetic'; ctx.restore(); }
 
   const bx=24, by=H-96;
   // soft backing panels so the stat and weapon clusters read against any ground
