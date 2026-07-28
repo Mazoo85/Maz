@@ -628,10 +628,26 @@ function draw(){
     ctx.restore(); }
 
   for(const l of loot){ if(!l.active) continue; const s=w2s(l.x,l.y);
-    ctx.globalAlpha=l.t<3?clamp(l.t/3,0,1):1;
-    ctx.fillStyle=l.kind==='ration'?'#d977c0':'#5ad2e6';
-    ctx.fillRect(s.x-6,s.y-6,12,12); ctx.globalAlpha=1;
-    ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.strokeRect(s.x-6,s.y-6,12,12); }
+    const fade=l.t<3?clamp(l.t/3,0,1):1;
+    const col=l.kind==='ration'?[217,119,192]:[90,210,230];
+    const pulse=0.5+0.5*Math.sin(G.t*4+l.x*0.05), bob=Math.sin(G.t*3+l.x*0.1)*2, cy=s.y+bob;
+    // pickup beacon — additive glow halo + a faint rising light column so loot reads from afar
+    ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=fade;
+    const R=20+7*pulse, hg=ctx.createRadialGradient(s.x,cy,2,s.x,cy,R);
+    hg.addColorStop(0,`rgba(${col[0]},${col[1]},${col[2]},0.5)`);
+    hg.addColorStop(1,`rgba(${col[0]},${col[1]},${col[2]},0)`);
+    ctx.fillStyle=hg; ctx.beginPath(); ctx.arc(s.x,cy,R,0,TAU); ctx.fill();
+    const bm=ctx.createLinearGradient(s.x,cy-42,s.x,cy);
+    bm.addColorStop(0,`rgba(${col[0]},${col[1]},${col[2]},0)`);
+    bm.addColorStop(1,`rgba(${col[0]},${col[1]},${col[2]},${0.20*pulse})`);
+    ctx.fillStyle=bm; ctx.fillRect(s.x-3,cy-42,6,42);
+    ctx.restore();
+    // bobbing, gently rocking crate with a lit top edge
+    ctx.save(); ctx.globalAlpha=fade; ctx.translate(s.x,cy); ctx.rotate(Math.sin(G.t*2+l.x)*0.14);
+    ctx.fillStyle=`rgb(${col[0]},${col[1]},${col[2]})`; ctx.fillRect(-6,-6,12,12);
+    ctx.fillStyle='rgba(255,255,255,.5)'; ctx.fillRect(-6,-6,12,3);
+    ctx.strokeStyle='rgba(255,255,255,.6)'; ctx.lineWidth=1.5; ctx.strokeRect(-6,-6,12,12);
+    ctx.restore(); ctx.globalAlpha=1; }
   for(const g of nades){ if(!g.active) continue; const s=w2s(g.x,g.y);
     ctx.fillStyle='#c9d17a'; ctx.beginPath(); ctx.arc(s.x,s.y,4,0,TAU); ctx.fill();
     if(Math.sin(G.t*30)>0){ ctx.fillStyle='#ff5a4a'; ctx.beginPath(); ctx.arc(s.x,s.y-6,1.8,0,TAU); ctx.fill(); } }
