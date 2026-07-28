@@ -879,7 +879,20 @@ function drawHUD(){
   label(isNight()?'NIGHT':'DAY',W-24,40,20,isNight()?'#8ea0e0':'#f2c94c','right');
   label('WAVE '+G.wave,W/2,40,24,'#e8e8ef','center');
   label('SCORE '+G.score+'   KILLS '+G.kills,W/2,66,15,'#9aa0b4','center');
-  if(G.mult>1){ label('×'+G.mult+' COMBO',W/2,90,16,'#f2c94c','center'); }
+  if(G.mult>1){ const mx=W/2, my=95, m=clamp(G.mult,2,5);
+    const tiers={2:'#f2c94c',3:'#ffb03a',4:'#ff7a45',5:'#ff466a'}, col=tiers[m];
+    const txt='×'+G.mult+'  COMBO';
+    ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font='800 16px ui-sans-serif,system-ui,sans-serif';
+    const pw=ctx.measureText(txt).width+26, ph=24, pulse=1+0.05*Math.sin(G.t*10);
+    ctx.translate(mx,my); ctx.scale(pulse,pulse);
+    ctx.fillStyle='rgba(10,12,18,0.55)'; rrect(-pw/2,-ph/2,pw,ph,ph/2); ctx.fill();
+    ctx.strokeStyle=col; ctx.lineWidth=1.5; rrect(-pw/2,-ph/2,pw,ph,ph/2); ctx.stroke();
+    ctx.fillStyle=col; ctx.fillText(txt,0,-1);
+    const rem=clamp(1-G.comboT/3.5,0,1), bw=pw-10;
+    ctx.fillStyle='rgba(255,255,255,0.12)'; rrect(-bw/2,ph/2+3,bw,3,1.5); ctx.fill();
+    ctx.fillStyle=col; rrect(-bw/2,ph/2+3,bw*rem,3,1.5); ctx.fill();
+    ctx.restore(); ctx.textAlign='left'; ctx.textBaseline='alphabetic'; }
   if(G.waveBannerT>0){ const bt=G.waveBannerT;
     const fin=clamp((2.4-bt)/0.3,0,1), fout=clamp(bt/0.8,0,1), a=Math.min(fin,fout);
     const cy=H/2-96 - (1-fin)*16, bw=Math.min(560,W*0.72), bh=90;
