@@ -768,10 +768,16 @@ function draw(){
 
   { const s=w2s(p.x,p.y); const a=aim(); drawSurvivor(s.x,s.y,Math.atan2(a.y,a.x)); }
 
-  { ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.lineWidth=1.5;
-    ctx.beginPath(); ctx.arc(mouse.x,mouse.y,9,0,TAU); ctx.moveTo(mouse.x-14,mouse.y); ctx.lineTo(mouse.x-4,mouse.y);
-    ctx.moveTo(mouse.x+14,mouse.y); ctx.lineTo(mouse.x+4,mouse.y); ctx.moveTo(mouse.x,mouse.y-14); ctx.lineTo(mouse.x,mouse.y-4);
-    ctx.moveTo(mouse.x,mouse.y+14); ctx.lineTo(mouse.x,mouse.y+4); ctx.stroke(); }
+  // tactical reticle — blooms with recoil, dark outline for readability, center dot
+  { const mx=mouse.x,my=mouse.y, R=8+p.recoil*6, g=6+p.recoil*4;
+    const path=()=>{ ctx.beginPath(); ctx.arc(mx,my,R,0,TAU);
+      ctx.moveTo(mx-R-g,my); ctx.lineTo(mx-R+1,my); ctx.moveTo(mx+R+g,my); ctx.lineTo(mx+R-1,my);
+      ctx.moveTo(mx,my-R-g); ctx.lineTo(mx,my-R+1); ctx.moveTo(mx,my+R+g); ctx.lineTo(mx,my+R-1); };
+    ctx.save(); ctx.lineCap='round';
+    ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=3.4; path(); ctx.stroke();
+    ctx.strokeStyle='rgba(255,86,74,.92)'; ctx.lineWidth=1.6; path(); ctx.stroke();
+    ctx.fillStyle='rgba(255,86,74,.95)'; ctx.beginPath(); ctx.arc(mx,my,1.6,0,TAU); ctx.fill();
+    ctx.restore(); }
 
   ctx.restore();
 
