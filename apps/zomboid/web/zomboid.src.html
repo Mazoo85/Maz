@@ -781,6 +781,12 @@ function draw(){
     ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=3.4; path(); ctx.stroke();
     ctx.strokeStyle='rgba(255,86,74,.92)'; ctx.lineWidth=1.6; path(); ctx.stroke();
     ctx.fillStyle='rgba(255,86,74,.95)'; ctx.beginPath(); ctx.arc(mx,my,1.6,0,TAU); ctx.fill();
+    // reload progress ring — fills clockwise as the magazine reloads
+    if(p.reloading){ const w=WEAPONS[p.weapon], prog=clamp(1-p.reloadT/w.reload,0,1), rr=R+g+6;
+      ctx.lineCap='butt';
+      ctx.strokeStyle='rgba(0,0,0,0.45)'; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(mx,my,rr,0,TAU); ctx.stroke();
+      ctx.strokeStyle='rgba(242,201,76,0.55)'; ctx.lineWidth=3.5; ctx.beginPath(); ctx.arc(mx,my,rr,0,TAU); ctx.stroke();
+      ctx.strokeStyle='#f2c94c'; ctx.lineWidth=3.5; ctx.beginPath(); ctx.arc(mx,my,rr,-Math.PI/2,-Math.PI/2+prog*TAU); ctx.stroke(); }
     ctx.restore(); }
 
   ctx.restore();
