@@ -109,7 +109,7 @@ const ZTYPE = {
   3:{hp:1400,spd:11, dmg:26, r:3.4, score:400,col:'#c76a3a'},
 };
 
-const bullets=[], zombies=[], parts=[], loot=[], nades=[], decals=[], flashes=[], shocks=[], ghosts=[];
+const bullets=[], zombies=[], parts=[], loot=[], nades=[], decals=[], flashes=[], shocks=[], ghosts=[], floats=[];
 const MAXDECALS=90;
 function getFree(pool, make){ for(const o of pool) if(!o.active) return o; const o=make(); pool.push(o); return o; }
 
@@ -223,7 +223,7 @@ function newGame(){
         meleeCd:0, grenades:3, ult:0, ultMax:25, ultReady:false, nextBonus:25,
         muzzle:0, recoil:0, walk:0 },
   };
-  bullets.length=zombies.length=parts.length=loot.length=nades.length=decals.length=flashes.length=shocks.length=ghosts.length=0;
+  bullets.length=zombies.length=parts.length=loot.length=nades.length=decals.length=flashes.length=shocks.length=ghosts.length=floats.length=0;
   startWave(1);
 }
 function danger(){ const t=G.phase/G.dayLen; const night = t>=0.5 ? (t-0.5)*2 : 0; return 1+0.7*night; }
@@ -330,13 +330,17 @@ function damageZombie(z,dmg){ if(!z.alive) return; z.hp-=dmg; z.hitFlash=0.08; e
     const kb=Math.atan2(z.y-G.p.y, z.x-G.p.x); const s=z.kind===2?10:18;   // knocked away from player
     z.ddx=Math.cos(kb)*s; z.ddy=Math.sin(kb)*s;
     onKill(z); } }
+function spawnFloat(x,y,txt,big){ const f=getFree(floats,()=>({active:false}));
+  f.active=true; f.x=x; f.y=y; f.txt=txt; f.t0=G.t; f.big=!!big; }
 function onKill(z){ const p=G.p;
   emitGore(z.x, z.y, z.r);
   addDecal(z.x, z.y, z.r*0.7);
   G.kills++;
   if(G.comboT<=(2.5+(G.mult-1)*0.5)) G.combo++; else G.combo=1; G.comboT=0;
   G.mult=clamp(1+Math.floor(G.combo/5),1,5);
-  G.score += Math.round(z.score*G.mult);
+  const gained=Math.round(z.score*G.mult);
+  G.score += gained;
+  spawnFloat(z.x, z.y - z.r*0.6, '+'+gained, G.mult>1);
   emit(z.x,z.y,12,1);
   if(!p.ultReady){ p.ult+=1+Math.floor((G.mult-1)*0.5); if(p.ult>=p.ultMax){p.ult=p.ultMax;p.ultReady=true;} }
   if(p.dashCd>0) p.dashCd=Math.max(0,p.dashCd-0.3);
@@ -833,6 +837,17 @@ function draw(){
       ctx.moveTo(9,0); ctx.lineTo(-5,-5.5); ctx.lineTo(-5,5.5); ctx.closePath(); ctx.fill();
       ctx.restore(); }
     ctx.globalAlpha=1; }
+
+  // floating score popups — rise and fade from each kill
+  { const LIFE=0.9; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+    for(const f of floats){ if(!f.active) continue; const age=G.t-f.t0;
+      if(age<0||age>=LIFE){ f.active=false; continue; }
+      const s=w2s(f.x,f.y), rise=age*40, a=1-age/LIFE;
+      ctx.globalAlpha=clamp(a,0,1);
+      ctx.font=(f.big?'800 21px':'700 15px')+' ui-sans-serif,system-ui,sans-serif';
+      ctx.lineWidth=3.2; ctx.strokeStyle='rgba(0,0,0,0.6)'; ctx.strokeText(f.txt, s.x, s.y-rise);
+      ctx.fillStyle=f.big?'#ffd54a':'#eef0f6'; ctx.fillText(f.txt, s.x, s.y-rise); }
+    ctx.globalAlpha=1; ctx.textAlign='left'; }
 
   drawHUD();
 }
