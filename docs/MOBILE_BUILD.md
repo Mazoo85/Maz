@@ -28,6 +28,7 @@ well-scoped.
 | Push-constant limit | sky push constant is 128 bytes (mobile floor) | ✅ done |
 | Lighter frame graph | `RenderTier::Mobile` (`--mobile`): MSAA off, bloom blur passes skipped, SSAO off | ✅ done |
 | Dynamic resolution | `render::DynamicResolution` — adaptive render-scale policy (frametime→scale, hysteresis); GPU target-resize is the on-device wire-up | ✅ policy done |
+| Frame-rate cap / battery saver | `core::FramePacer` — target-fps sleep budget + lower idle cap (menu/pause), drift-corrected; the caller does the sleep | ✅ done |
 
 The one thing every mobile backend must provide is `nativeWindowHandle()`; the rest of `PlatformBackend`
 (caps, directories, lifecycle, and `safeAreaInsets()` from the OS) is filled exactly like `DesktopBackend`

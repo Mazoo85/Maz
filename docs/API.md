@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_681 headers across 20 subsystems._
+_682 headers across 20 subsystems._
 
 ## Contents
 
@@ -213,6 +213,13 @@ maz::core::Fixed — a Q16.16 fixed-point number for DETERMINISTIC simulation. F
 maz::core fixed-timestep accumulator — the classic "Fix Your Timestep" game-loop driver (Glenn Fiedler). Simulation wants a CONSTANT dt so physics and gameplay are deterministic and stable, but real frames arrive at a variable, display-driven rate. This accumulates the variable frame time and hands back how many fixed steps to run this frame, keeping the leftover as an interpolation ALPHA for smooth rendering.  It is the missing driver for the engine's `core::Interpolated<T>` (whose own docs say "push once per fixed step, sample(alpha) once per render frame" but which ships no way to compute that step count or alpha): a frame does `for (int i = 0, n = ts.advance(dt); i < n; ++i) simulate(ts.step()); render(ts.alpha());`. Distinct from `core::GameClock` (accumulates scaled seconds, no fixed decomposition), `core::Scheduler` (fires callbacks at times) and `game::TimeControl` (produces a scaled delta) — this turns one variable delta into a whole number of fixed steps plus a blend fraction.  Spiral-of-death protection: if a frame stalls (a huge dt — a breakpoint, a slow load), running every backlogged step would make the next frame even slower, forever. So the accumulator is capped at maxSteps * step: at most maxSteps run per frame and the excess real time is DROPPED (simulation time slows rather than the game freezing). Header-only, std-only, deterministic.
 
 **Types:** `FixedTimestep`
+
+### `FramePacer`
+<sub>`engine/include/maz/core/FramePacer.hpp`</sub>
+
+maz::core frame-rate cap / power-save pacer — the CPU/GPU-and-battery counterpart to dynamic resolution. On a phone, running the loop as fast as the hardware allows drains the battery and cooks the SoC into a thermal throttle for no benefit past the display's refresh rate; and while the player sits on a menu or the app is backgrounded, there is no reason to render 60 fps at all. A pacer caps the loop to a target frame rate by telling the caller how long to sleep after each frame's work, and drops to a lower "idle" cap when the game isn't actively playing — exactly Godot's `Engine.max_fps` plus `low_processor_usage_mode`.  This is the pure, deterministic policy (no real sleeping, no clock here — the caller measures its own frame-work time and does the sleep): feed the seconds spent updating+rendering this frame and get back the seconds to sleep to land on the target period. Heavy frames that blow the budget sleep zero and, with drift correction on, are paid back by slightly shorter sleeps afterward so the AVERAGE frame rate stays on target instead of drifting under. Header-only, std-only, unit-tested.
+
+**Types:** `FramePacerConfig`, `FramePacer`
 
 ### `FuzzyMatch`
 <sub>`engine/include/maz/core/FuzzyMatch.hpp`</sub>

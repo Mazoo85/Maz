@@ -761,6 +761,15 @@ target_link_libraries(maz_fixedtimestep_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME fixed_timestep COMMAND maz_fixedtimestep_tests)
 set_tests_properties(fixed_timestep PROPERTIES TIMEOUT 30)
 
+# Frame-rate cap / power-save pacer (core::FramePacer) — caps the loop to a target fps so a mobile game
+# doesn't drain the battery running past the display refresh, with a lower idle cap for menus/pause. Pure
+# deterministic policy (no clock/sleep): budget-minus-work sleep, uncapped/over-budget zero, drift
+# correction (paid-back heavy frames, bounded debt), idle swap, expected fps, and sanitizing are verified.
+add_executable(maz_framepacer_tests core/framepacer.cpp)
+target_link_libraries(maz_framepacer_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME frame_pacer COMMAND maz_framepacer_tests)
+set_tests_properties(frame_pacer PROPERTIES TIMEOUT 30)
+
 add_executable(maz_spread_tests game/spread.cpp)
 target_link_libraries(maz_spread_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME spread COMMAND maz_spread_tests)
