@@ -920,6 +920,14 @@ target_link_libraries(maz_bundleplan_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME bundle_plan COMMAND maz_bundleplan_tests)
 set_tests_properties(bundle_plan PROPERTIES TIMEOUT 30)
 
+# Mobile export bundle planner (io::planMobileBundle) — the Android APK / iOS .app layout + generated
+# AndroidManifest.xml / Info.plist. Pure string/size logic (the decision layer docs/MOBILE_BUILD.md's device
+# build executes): shared-lib/assets placement, .app bundle structure, manifest text, and preset filtering.
+add_executable(maz_mobilebundleplan_tests io/mobilebundleplan.cpp)
+target_link_libraries(maz_mobilebundleplan_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mobile_bundle_plan COMMAND maz_mobilebundleplan_tests)
+set_tests_properties(mobile_bundle_plan PROPERTIES TIMEOUT 30)
+
 add_executable(maz_mp3_tests audio/mp3.cpp)
 target_link_libraries(maz_mp3_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mp3_frames COMMAND maz_mp3_tests)
