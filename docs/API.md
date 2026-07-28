@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_675 headers across 20 subsystems._
+_677 headers across 20 subsystems._
 
 ## Contents
 
@@ -2606,6 +2606,11 @@ maz::platform::CrashHandler — a last-resort crash reporter, Maz's answer to Go
 - `inline std::vector<std::string> captureBacktrace(int maxFrames = 64, int skip = 1)`
 - `inline std::string formatCrashBanner(const std::string& appName, const std::string& version,`
 
+### `DesktopBackend`
+<sub>`engine/include/maz/platform/DesktopBackend.hpp`</sub>
+
+**Types:** `DesktopBackend`
+
 ### `DisplayScale`
 <sub>`engine/include/maz/platform/DisplayScale.hpp`</sub>
 
@@ -2639,7 +2644,7 @@ maz::platform multi-monitor helpers — the pure geometry behind "which display 
 
 Gamepad axis/button ids. Values match SDL_GamepadAxis / SDL_GamepadButton ordering, so gameplay code can name inputs semantically without including SDL headers.
 
-**Types:** `Input`
+**Types:** `Touch`, `Input`
 
 ### `Paths`
 <sub>`engine/include/maz/platform/Paths.hpp`</sub>
@@ -2652,10 +2657,6 @@ A writable, per-user, per-application directory with `file` appended (created if
 maz::platform per-target backend seam — the single abstraction an engine crosses to reach a NEW platform (a console, a VR headset, a phone) without touching game or renderer code. Every target differs in exactly the same handful of ways: how it boots and tears down, what native surface handle the GPU renderer binds to, where its readable (bundled assets) and writable (save data) directories live, which input sources exist, and whether the OS can suspend/resume the app under you (mobile/console) versus running uninterrupted (desktop). `PlatformBackend` names that seam; a concrete backend implements it for one target. The engine talks only to the interface, so porting to a new platform is "write one backend", which is how Godot/Unity keep one codebase across a dozen devices.  This box can implement + unit-test the HEADLESS backend (pure CPU, no device) and the registry that selects a backend by id — that is verified here. The console/VR/mobile backends are stubs behind the same interface plus the exact human/hardware step to finish each (NDA SDK, physical headset, device + paid dev account), documented in docs/PLATFORMS.md — those can never be marked 100% from this environment.
 
 **Types:** `PlatformId`, `PlatformCaps`, `PlatformBackend`, `HeadlessBackend`, `PlatformRegistry`
-
-**Functions:**
-
-- `inline PlatformRegistry defaultRegistry()`
 
 ### `WebLoop`
 <sub>`engine/include/maz/platform/WebLoop.hpp`</sub>
@@ -4353,7 +4354,7 @@ maz::render reflection probe influence + box projection — the CPU math behind 
 ### `Renderer`
 <sub>`engine/include/maz/render/Renderer.hpp`</sub>
 
-**Types:** `RendererConfig`, `Color`, `BlendMode`, `SpriteDesc`, `Point2`, `PolyVertex`, `Camera2D`, `MeshVertex`, `RenderStats`, `SceneLighting`, `Renderer`
+**Types:** `RenderTier`, `RendererConfig`, `Color`, `BlendMode`, `SpriteDesc`, `Point2`, `PolyVertex`, `Camera2D`, `MeshVertex`, `RenderStats`, `SceneLighting`, `Renderer`
 
 ### `ScreenSpaceIndirectLight`
 <sub>`engine/include/maz/render/ScreenSpaceIndirectLight.hpp`</sub>
@@ -7173,6 +7174,13 @@ Analog-stick conditioning — Godot's `Input.get_vector` / `get_axis` deadzone m
 - `inline float sanitizeDeadzone(float deadzone)`
 - `inline float applyDeadzone(float value, float deadzone)`
 - `inline math::vec2 analogVector(math::vec2 raw, float deadzone = 0.2f)`
+
+### `VirtualControls`
+<sub>`engine/include/maz/input/VirtualControls.hpp`</sub>
+
+On-screen virtual controls — the touch equivalent of a gamepad, so a phone/tablet build of a game that was designed around a stick+buttons plays without any physical controller. Two widget kinds:  * VirtualStick — a thumb region that yields a normalized [-1,1] vector, conditioned with the same radial deadzone maths as a real thumbstick (input::analogVector). Two placement modes matching every mobile twin-stick shipping today: - Fixed:    the base sits at a set screen position; the vector is (touch - base) / radius. - Floating: the base recenters to wherever the thumb first lands inside an activation zone, so the player never has to find a printed ring. This is the default for movement sticks. * VirtualButton — a circular hit region yielding held / pressed (edge down) / released (edge up), matching platform::Input's button edge semantics so gameplay reads it like pad::Button.  The whole thing is a thin consumer of platform::Input's touch points (WS1): update() walks the active contacts once per frame, claims one finger per stick/button by id (so multi-touch — move with the left thumb while the right thumb aims — just works), and computes edges from the previous frame's claim. It is render-free: the game draws the rings/buttons with its own 2D renderer using the exposed base/knob positions. Coordinates are screen-space PIXELS, exactly what Input's touch points and mouse use, so a desktop build can drive the same controls with a synthesized touch for testing. Header-only, std + math.
+
+**Types:** `StickState`, `VirtualStick`, `VirtualButton`, `VirtualControls`
 
 
 <a name="editor"></a>
