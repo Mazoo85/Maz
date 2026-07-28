@@ -1,5 +1,6 @@
 #include "maz/platform/Input.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 
@@ -14,6 +15,19 @@ void Input::newFrame() {
     m_wheel = 0.0f;
     m_textInput.clear();
     m_droppedFiles.clear();
+
+    // Touch edge detection: remember which contacts were down entering this frame, clear last frame's
+    // releases, and zero the per-contact motion deltas so Move events accumulate cleanly.
+    m_touchPrevIds.clear();
+    m_touchPrevIds.reserve(m_touches.size());
+    for (const auto& t : m_touches) {
+        m_touchPrevIds.push_back(t.id);
+    }
+    m_touchReleased.clear();
+    for (auto& t : m_touches) {
+        t.dx = 0.0f;
+        t.dy = 0.0f;
+    }
 }
 
 void Input::onTextInput(const char* utf8) {
@@ -48,6 +62,79 @@ void Input::onMouseMotion(float x, float y, float dx, float dy) {
 }
 
 void Input::onMouseWheel(float dy) { m_wheel += dy; }
+
+void Input::onTouch(int64_t id, float x, float y, float dx, float dy, TouchPhase phase) {
+    const auto it =
+        std::find_if(m_touches.begin(), m_touches.end(), [id](const Touch& t) { return t.id == id; });
+    switch (phase) {
+    case TouchPhase::Down:
+        if (it == m_touches.end()) {
+            if (static_cast<int>(m_touches.size()) >= kMaxTouches) {
+                return; // ignore contacts beyond the tracked maximum
+            }
+            m_touches.push_back(Touch{id, x, y, 0.0f, 0.0f});
+        } else {
+            it->x = x;
+            it->y = y;
+        }
+        break;
+    case TouchPhase::Move:
+        if (it == m_touches.end()) {
+            // Motion for a finger we never saw go down (rare, e.g. focus change) — start tracking it.
+            if (static_cast<int>(m_touches.size()) >= kMaxTouches) {
+                return;
+            }
+            m_touches.push_back(Touch{id, x, y, dx, dy});
+        } else {
+            it->x = x;
+            it->y = y;
+            it->dx += dx;
+            it->dy += dy;
+        }
+        break;
+    case TouchPhase::Up:
+        if (it != m_touches.end()) {
+            Touch done = *it;
+            done.x = x;
+            done.y = y;
+            m_touchReleased.push_back(done);
+            m_touches.erase(it);
+        } else {
+            m_touchReleased.push_back(Touch{id, x, y, 0.0f, 0.0f});
+        }
+        break;
+    }
+}
+
+const Touch& Input::touch(int i) const {
+    static const Touch kNone{};
+    if (i < 0 || i >= static_cast<int>(m_touches.size())) {
+        return kNone;
+    }
+    return m_touches[static_cast<size_t>(i)];
+}
+
+const Touch* Input::touchById(int64_t id) const {
+    for (const auto& t : m_touches) {
+        if (t.id == id) {
+            return &t;
+        }
+    }
+    return nullptr;
+}
+
+bool Input::touchPressed(int i) const {
+    if (i < 0 || i >= static_cast<int>(m_touches.size())) {
+        return false;
+    }
+    const int64_t id = m_touches[static_cast<size_t>(i)].id;
+    for (const int64_t prev : m_touchPrevIds) {
+        if (prev == id) {
+            return false; // was already down last frame
+        }
+    }
+    return true;
+}
 
 bool Input::keyDown(int scancode) const {
     return scancode >= 0 && scancode < kMaxScancodes && m_keys[static_cast<size_t>(scancode)];

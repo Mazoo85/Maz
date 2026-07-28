@@ -18,7 +18,18 @@ enum Button {
 };
 } // namespace pad
 
-// Keyboard + mouse + gamepad state with edge detection. Scancodes are SDL scancodes
+// A single active touch point. Coordinates are in window drawable PIXELS (top-left origin), matching
+// mouse coordinates, so touch and mouse feed the same screen-space logic. `dx/dy` accumulate this frame.
+struct Touch {
+    int64_t id = -1;   // stable per-finger id for the lifetime of the contact (SDL fingerID)
+    float x = 0.0f, y = 0.0f;
+    float dx = 0.0f, dy = 0.0f;
+};
+
+// Lifecycle of a touch event as delivered by the platform pump.
+enum class TouchPhase { Down, Move, Up };
+
+// Keyboard + mouse + gamepad + touch state with edge detection. Scancodes are SDL scancodes
 // (SDL_SCANCODE_*), kept as plain ints here so gameplay code needn't include SDL headers.
 class Input {
 public:
@@ -39,6 +50,9 @@ public:
     void onTextInput(const char* utf8);
     // A file dropped onto the window this frame — accumulated, cleared each newFrame.
     void onDropFile(const char* path);
+    // A touch/finger event this frame. `x/y` in drawable pixels; `dx/dy` motion delta (Move only).
+    // Down starts tracking a contact, Move updates it, Up ends it (moved to releasedTouches() for this frame).
+    void onTouch(int64_t id, float x, float y, float dx, float dy, TouchPhase phase);
 
     // --- queries (called by gameplay) ---
     bool keyDown(int scancode) const;
@@ -60,6 +74,20 @@ public:
     float gamepadAxis(int axis) const;
     bool gamepadButtonDown(int button) const;
     bool gamepadButtonPressed(int button) const; // just went down this frame
+
+    // --- touch (multi-touch; screen-space pixels) ---
+    static constexpr int kMaxTouches = 10;
+    // Number of contacts currently held down.
+    int touchCount() const { return static_cast<int>(m_touches.size()); }
+    // Active touch by index [0, touchCount()); returns an inert Touch{id:-1} if out of range.
+    const Touch& touch(int i) const;
+    // Active touch by finger id, or nullptr if that finger is not currently down.
+    const Touch* touchById(int64_t id) const;
+    // True if the touch at index `i` began this frame (its id was not down last frame).
+    bool touchPressed(int i) const;
+    // Contacts that were released this frame (final position at lift), for one-frame edge handling.
+    const std::vector<Touch>& releasedTouches() const { return m_touchReleased; }
+    bool anyTouch() const { return !m_touches.empty(); }
 
     // --- text input + drag-and-drop (this frame; cleared by newFrame) ---
     // UTF-8 characters typed this frame — feed into a focused text field. Empty when nothing typed.
@@ -83,6 +111,10 @@ private:
 
     std::string m_textInput;                  // UTF-8 typed this frame
     std::vector<std::string> m_droppedFiles;  // files dropped this frame
+
+    std::vector<Touch> m_touches;         // contacts currently down (updated live during pump)
+    std::vector<int64_t> m_touchPrevIds;  // ids that were down at the start of this frame (edge detection)
+    std::vector<Touch> m_touchReleased;   // contacts lifted this frame (cleared by newFrame)
 };
 
 } // namespace maz::platform

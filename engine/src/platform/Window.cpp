@@ -133,6 +133,25 @@ void Window::pumpEvents(Input& input) {
         case SDL_EVENT_MOUSE_WHEEL:
             input.onMouseWheel(e.wheel.y);
             break;
+        // Touch: SDL delivers finger coords normalized to [0,1]; convert to drawable pixels so touch and
+        // mouse share the same screen-space coordinate system.
+        case SDL_EVENT_FINGER_DOWN:
+            input.onTouch(static_cast<int64_t>(e.tfinger.fingerID),
+                          e.tfinger.x * static_cast<float>(m_width),
+                          e.tfinger.y * static_cast<float>(m_height), 0.0f, 0.0f, TouchPhase::Down);
+            break;
+        case SDL_EVENT_FINGER_MOTION:
+            input.onTouch(static_cast<int64_t>(e.tfinger.fingerID),
+                          e.tfinger.x * static_cast<float>(m_width),
+                          e.tfinger.y * static_cast<float>(m_height),
+                          e.tfinger.dx * static_cast<float>(m_width),
+                          e.tfinger.dy * static_cast<float>(m_height), TouchPhase::Move);
+            break;
+        case SDL_EVENT_FINGER_UP:
+            input.onTouch(static_cast<int64_t>(e.tfinger.fingerID),
+                          e.tfinger.x * static_cast<float>(m_width),
+                          e.tfinger.y * static_cast<float>(m_height), 0.0f, 0.0f, TouchPhase::Up);
+            break;
         case SDL_EVENT_GAMEPAD_ADDED:
             if (!m_gamepad) {
                 m_gamepad = SDL_OpenGamepad(e.gdevice.which);

@@ -101,6 +101,15 @@ target_link_libraries(maz_platform_backend_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME platform_backend COMMAND maz_platform_backend_tests)
 set_tests_properties(platform_backend PROPERTIES TIMEOUT 30)
 
+# Multi-touch input model (platform::Input touch points). Touch is the primary input on mobile, so the engine
+# tracks several contacts at once with the same per-frame edge detection keys/buttons use. Pure CPU (onTouch()
+# driven directly, as Window::pumpEvents does from SDL finger events): press/move/release lifecycle, stable
+# per-finger ids, motion-delta accumulation, pressed/released edges, and multi-touch capacity are verified here.
+add_executable(maz_platform_touch_tests platform/touch.cpp)
+target_link_libraries(maz_platform_touch_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME platform_touch COMMAND maz_platform_touch_tests)
+set_tests_properties(platform_touch PROPERTIES TIMEOUT 30)
+
 # QOA (Quite OK Audio) codec (audio::encodeQoa / decodeQoa) — a full spec-accurate encoder + decoder,
 # verified headlessly by an encode->decode round-trip (mono + stereo) that checks header/metadata/sample
 # count, bounded lossy error, and that the stream is smaller than 16-bit PCM. No external reference file.
