@@ -454,9 +454,12 @@ function bgColor(){
 // ---- the hero: top-down tactical commando. local +x = forward (aim) ----
 function drawSurvivor(sx,sy,ang){
   const p=G.p; const rec=p.recoil*3; const step=Math.sin(p.walk);
-  // drop shadow
-  ctx.save(); ctx.globalAlpha=0.28; ctx.fillStyle='#000';
-  ctx.beginPath(); ctx.ellipse(sx,sy+6, 15, 9, 0,0,TAU); ctx.fill(); ctx.restore();
+  // drop shadow — soft radial falloff so the survivor sits in the ground, not on it
+  ctx.save(); ctx.translate(sx,sy+7); ctx.scale(1,0.6);
+  { const g=ctx.createRadialGradient(0,0,1,0,0,18);
+    g.addColorStop(0,'rgba(0,0,0,0.38)'); g.addColorStop(0.65,'rgba(0,0,0,0.20)'); g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,18,0,TAU); ctx.fill(); }
+  ctx.restore();
 
   ctx.save(); ctx.translate(sx,sy); ctx.rotate(ang);
   ctx.lineJoin='round'; ctx.lineCap='round';
@@ -521,8 +524,11 @@ function drawSurvivor(sx,sy,ang){
 function drawZombie(sx,sy,ang,z){
   const rad=z.r*SCALE*1.35, flash=z.hitFlash>0;
   const base=flash?'#ffffff':z.col;
-  ctx.save(); ctx.globalAlpha=0.26; ctx.fillStyle='#000';
-  ctx.beginPath(); ctx.ellipse(sx,sy+rad*0.55, rad*1.4, rad*0.85,0,0,TAU); ctx.fill(); ctx.restore();
+  ctx.save(); ctx.translate(sx,sy+rad*0.55); ctx.scale(1,0.6);
+  { const R=rad*1.6; const g=ctx.createRadialGradient(0,0,1,0,0,R);
+    g.addColorStop(0,'rgba(0,0,0,0.34)'); g.addColorStop(0.62,'rgba(0,0,0,0.18)'); g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,R,0,TAU); ctx.fill(); }
+  ctx.restore();
 
   ctx.save(); ctx.translate(sx,sy); ctx.rotate(ang);
   ctx.lineJoin='round'; ctx.lineCap='round';
