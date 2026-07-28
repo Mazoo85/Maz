@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_679 headers across 20 subsystems._
+_680 headers across 20 subsystems._
 
 ## Contents
 
@@ -2656,7 +2656,20 @@ A writable, per-user, per-application directory with `file` appended (created if
 
 maz::platform per-target backend seam — the single abstraction an engine crosses to reach a NEW platform (a console, a VR headset, a phone) without touching game or renderer code. Every target differs in exactly the same handful of ways: how it boots and tears down, what native surface handle the GPU renderer binds to, where its readable (bundled assets) and writable (save data) directories live, which input sources exist, and whether the OS can suspend/resume the app under you (mobile/console) versus running uninterrupted (desktop). `PlatformBackend` names that seam; a concrete backend implements it for one target. The engine talks only to the interface, so porting to a new platform is "write one backend", which is how Godot/Unity keep one codebase across a dozen devices.  This box can implement + unit-test the HEADLESS backend (pure CPU, no device) and the registry that selects a backend by id — that is verified here. The console/VR/mobile backends are stubs behind the same interface plus the exact human/hardware step to finish each (NDA SDK, physical headset, device + paid dev account), documented in docs/PLATFORMS.md — those can never be marked 100% from this environment.
 
-**Types:** `PlatformId`, `PlatformCaps`, `PlatformBackend`, `HeadlessBackend`, `PlatformRegistry`
+**Types:** `PlatformId`, `PlatformCaps`, `SafeAreaInsets`, `PlatformBackend`, `HeadlessBackend`, `PlatformRegistry`
+
+### `SafeArea`
+<sub>`engine/include/maz/platform/SafeArea.hpp`</sub>
+
+maz::platform safe-area geometry — the pure math for keeping UI clear of a phone/tablet's display intrusions: the notch / camera cutout, the rounded screen corners, the status bar up top, and the home-indicator / gesture bar along the bottom. The OS reports these as four inset thicknesses (in PHYSICAL pixels) eating into each edge of the drawable; the "safe area" is the rectangle that remains. A game that anchors its virtual joystick, action buttons, and HUD to the raw screen edges will put them UNDER the notch or the home bar on a real device — this is exactly what Godot's `DisplayServer.get_display_safe_area()` and CSS `env(safe-area-inset-*)` exist to prevent.  The live inset values come from the platform (iOS `UIView.safeAreaInsets`, Android `WindowInsets.getDisplayCutout()` + system bars) via `PlatformBackend::safeAreaInsets()`; desktop and headless report zero, so on those targets every helper here is a harmless no-op that leaves layout untouched. This header is the deterministic, unit-tested consumer of those numbers — the same split as DisplayScale.hpp (pure math) vs. Window::contentScale() (the live query).
+
+**Functions:**
+
+- `inline SafeAreaInsets sanitizeInsets(SafeAreaInsets in, int displayW, int displayH)`
+- `inline math::Rect2 safeAreaRect(int displayW, int displayH, SafeAreaInsets in)`
+- `inline math::vec2 clampPointToSafeArea(math::vec2 p, const math::Rect2& safe)`
+- `inline math::Rect2 fitRectInSafeArea(const math::Rect2& r, const math::Rect2& safe)`
+- `inline SafeAreaInsets rotateInsets(SafeAreaInsets in, int quarterTurnsCW)`
 
 ### `WebLoop`
 <sub>`engine/include/maz/platform/WebLoop.hpp`</sub>
