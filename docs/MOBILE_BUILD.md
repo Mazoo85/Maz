@@ -23,12 +23,14 @@ well-scoped.
 | Backend seam | `platform::PlatformBackend` + `DesktopBackend` as the worked example | ✅ done |
 | Asset/save routing | `io::VirtualFileSystem` `res://`/`user://`, mounted by the backend at boot | ✅ done |
 | Autosave on background | `PlatformBackend::setOnSuspend/​setOnResume` — fired on the lifecycle edge (see `apps/_template/`) | ✅ done |
+| Notch / safe area | `platform::SafeArea` (`safeAreaRect`/`clampPointToSafeArea`/`fitRectInSafeArea`) + `PlatformBackend::safeAreaInsets()`; `apps/_template` anchors controls inside it | ✅ done |
 | Vulkan portability | `VK_KHR_portability_enumeration` + `_subset` opt-in in `VulkanContext` | ✅ done |
 | Push-constant limit | sky push constant is 128 bytes (mobile floor) | ✅ done |
 | Lighter frame graph | `RenderTier::Mobile` (`--mobile`): MSAA off, bloom blur passes skipped, SSAO off | ✅ done |
 
 The one thing every mobile backend must provide is `nativeWindowHandle()`; the rest of `PlatformBackend`
-(caps, directories, lifecycle) is filled exactly like `DesktopBackend` (`engine/src/platform/DesktopBackend.cpp`).
+(caps, directories, lifecycle, and `safeAreaInsets()` from the OS) is filled exactly like `DesktopBackend`
+(`engine/src/platform/DesktopBackend.cpp`).
 
 ---
 

@@ -17,6 +17,7 @@
 #include "maz/io/VirtualFileSystem.hpp"
 #include "maz/platform/DesktopBackend.hpp"
 #include "maz/platform/PlatformBackend.hpp"
+#include "maz/platform/SafeArea.hpp"
 #include "maz/platform/WebLoop.hpp"
 
 #include <SDL3/SDL_scancode.h>
@@ -80,11 +81,20 @@ int main(int argc, char** argv) {
     if (dw == 0) { dw = cfg.width; dh = cfg.height; }
     const float bw = static_cast<float>(dw);
     const float bh = static_cast<float>(dh);
+
+    // Safe area: on a phone the notch / rounded corners / home-indicator eat into the drawable, so anchor
+    // the controls inside the OS-reported safe rectangle instead of the raw screen edges (a stick pinned to
+    // the very bottom-left would sit under the gesture bar). On desktop/headless the insets are zero, so the
+    // safe rect is the whole drawable and every position below is unchanged — the code is identical on both.
+    math::Rect2 safe(0.0f, 0.0f, bw, bh);
+    if (backend) safe = platform::safeAreaRect(static_cast<int>(dw), static_cast<int>(dh), backend->safeAreaInsets());
+    const float sx = safe.left(), sy = safe.top(), sw = safe.size.x, sh = safe.size.y;
+
     input::VirtualControls controls;
     controls.moveStick =
-        input::VirtualStick(math::vec2(bw * 0.18f, bh * 0.75f), bh * 0.14f, /*floating=*/true);
+        input::VirtualStick(math::vec2(sx + sw * 0.18f, sy + sh * 0.75f), sh * 0.14f, /*floating=*/true);
     controls.moveStick.setActivationRadius(bw * 0.5f); // left half of the screen grabs the move stick
-    controls.buttons.push_back(input::VirtualButton(math::vec2(bw * 0.85f, bh * 0.78f), bh * 0.09f));
+    controls.buttons.push_back(input::VirtualButton(math::vec2(sx + sw * 0.85f, sy + sh * 0.78f), sh * 0.09f));
 
     // The one piece of game state: a mover, in scene units, centered on screen.
     float posX = 0.0f, posY = 0.0f;

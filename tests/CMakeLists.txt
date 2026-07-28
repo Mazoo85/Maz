@@ -105,6 +105,15 @@ set_tests_properties(platform_backend PROPERTIES TIMEOUT 30)
 # tracks several contacts at once with the same per-frame edge detection keys/buttons use. Pure CPU (onTouch()
 # driven directly, as Window::pumpEvents does from SDL finger events): press/move/release lifecycle, stable
 # per-finger ids, motion-delta accumulation, pressed/released edges, and multi-touch capacity are verified here.
+# Display safe-area geometry (platform::SafeArea) — keeps virtual controls + HUD clear of the phone notch,
+# rounded corners, status bar, and home indicator. Pure deterministic math (the live inset values come from
+# the mobile backend): inset sanitize, the usable safe rectangle, point-clamp / rect-fit, orientation
+# rotation, and the PlatformBackend::safeAreaInsets() zero default on desktop are verified here.
+add_executable(maz_platform_safearea_tests platform/safearea.cpp)
+target_link_libraries(maz_platform_safearea_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME platform_safearea COMMAND maz_platform_safearea_tests)
+set_tests_properties(platform_safearea PROPERTIES TIMEOUT 30)
+
 add_executable(maz_platform_touch_tests platform/touch.cpp)
 target_link_libraries(maz_platform_touch_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME platform_touch COMMAND maz_platform_touch_tests)

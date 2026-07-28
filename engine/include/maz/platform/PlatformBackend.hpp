@@ -51,6 +51,18 @@ struct PlatformCaps {
 // Directory categories a platform must resolve. Assets is read-only bundled content; the rest are writable.
 enum class DirKind { Assets, UserData, Cache, Temp };
 
+// Display safe-area insets in PHYSICAL pixels — the thickness the OS reports as unusable on each edge of
+// the drawable because of a notch/cutout, rounded corners, the status bar, or the home-indicator/gesture
+// bar. Desktop/headless report all-zero. The geometry that turns these into a usable rectangle lives in
+// SafeArea.hpp (kept out of this header so PlatformBackend stays dependency-light); mobile backends fill
+// them from UIView.safeAreaInsets (iOS) / WindowInsets (Android).
+struct SafeAreaInsets {
+    float left = 0.0f;
+    float top = 0.0f;
+    float right = 0.0f;
+    float bottom = 0.0f;
+};
+
 // Lifecycle states the OS can drive. Desktop stays Running; mobile/console push Suspended/Resumed as the
 // user backgrounds the app, which the engine must honor (pause audio, release the GPU surface, save state).
 enum class LifecycleState { Created, Running, Suspended, Stopped };
@@ -70,6 +82,11 @@ public:
     // Opaque native handles the renderer needs for surface creation. Null when not applicable (headless).
     virtual void* nativeWindowHandle() const { return nullptr; }
     virtual void* nativeDisplayHandle() const { return nullptr; }
+
+    // Display safe-area insets (physical pixels). Zero by default — the honest answer for desktop/headless,
+    // which have no notch or home bar. Mobile backends override this from the OS so games can lay virtual
+    // controls and HUD inside the safe rectangle (see SafeArea.hpp for the geometry helpers).
+    virtual SafeAreaInsets safeAreaInsets() const { return {}; }
 
     // Absolute root directory for a file category on this platform.
     virtual std::string directory(DirKind kind) const = 0;
