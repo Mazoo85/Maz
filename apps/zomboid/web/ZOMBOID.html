@@ -575,16 +575,23 @@ function drawZombie(sx,sy,ang,z){
   ctx.moveTo(rad*0.15,-rad*0.7); ctx.lineTo(rad*(1.35+lean*0.1), -rad*0.55 + sway*rad*0.35);
   ctx.moveTo(rad*0.15, rad*0.7); ctx.lineTo(rad*(1.35+lean*0.1),  rad*0.55 - sway*rad*0.35);
   ctx.stroke();
-  // torso (brutes bulkier)
+  // torso (brutes bulkier) — volumetric shading: lit upper-left, shadowed at the base
   const bw = z.kind===2 ? rad*1.25 : rad*1.02;
   const bh = z.kind===1 ? rad*0.95 : rad*1.12;
-  ctx.fillStyle=base; ctx.beginPath(); ctx.ellipse(-rad*0.1+lean,0, bw, bh, 0,0,TAU); ctx.fill();
+  if(flash){ ctx.fillStyle='#fff'; }
+  else { const bg=ctx.createRadialGradient(-rad*0.1+lean-bw*0.3,-bh*0.4,bh*0.12,-rad*0.1+lean,0,bw*1.15);
+    bg.addColorStop(0,shadeCol(z.col,0.18)); bg.addColorStop(0.62,z.col); bg.addColorStop(1,shadeCol(z.col,-0.24));
+    ctx.fillStyle=bg; }
+  ctx.beginPath(); ctx.ellipse(-rad*0.1+lean,0, bw, bh, 0,0,TAU); ctx.fill();
   // rotting patch
   if(!flash){ ctx.fillStyle=shadeCol(z.col,-0.4);
     ctx.beginPath(); ctx.ellipse(-rad*0.35, rad*0.35, rad*0.4, rad*0.34,0,0,TAU); ctx.fill(); }
   // head
   ctx.fillStyle=flash?'#fff':shadeCol(z.col,0.14);
   ctx.beginPath(); ctx.arc(rad*(0.55+lean*0.15),0, rad*0.55,0,TAU); ctx.fill();
+  // glossy highlight so the head reads as rounded
+  if(!flash){ ctx.fillStyle='rgba(255,255,255,0.16)';
+    ctx.beginPath(); ctx.ellipse(rad*(0.42+lean*0.15),-rad*0.2, rad*0.22, rad*0.14, -0.5,0,TAU); ctx.fill(); }
   // sunken eyes
   if(!flash){ ctx.fillStyle='#141410';
     const hx=rad*(0.8+lean*0.15);
