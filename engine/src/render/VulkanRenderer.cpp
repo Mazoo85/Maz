@@ -145,6 +145,8 @@ bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
 
     uint32_t w = 0, h = 0;
     window.drawableSize(w, h);
+    // Mobile tier: force MSAA off in the swapchain before it chooses a sample count.
+    m_swapchain.setForceSingleSample(cfg.tier == RenderTier::Mobile);
     if (!m_swapchain.create(m_ctx, w, h, cfg.vsync)) {
         return false;
     }
@@ -202,6 +204,17 @@ bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
     {
         const uint8_t white[4] = {255, 255, 255, 255};
         m_whiteTex = m_textureStore.createFromPixels(m_ctx, 1, 1, white);
+    }
+
+    // Mobile tier: MSAA is already off (swapchain, above). Here we drop the two post effects — SSAO (its
+    // whole depth-prepass + AO passes are skipped, gated by m_ssao.enabled()) and bloom (composited at
+    // strength 0). These are the heaviest bandwidth users on a tiler. The scene still tonemaps through the
+    // composite pass, so colors stay correct — just without the post-process bloom/AO.
+    if (cfg.tier == RenderTier::Mobile) {
+        m_post.setBloom(0.0f, 1.0f); // composite adds no bloom
+        m_ssao.setEnabled(false);
+        m_post.setSsaoStrength(0.0f);
+        MAZ_LOG_INFO("render tier: mobile (MSAA off, bloom + SSAO disabled)");
     }
 
     m_active = true;
@@ -372,7 +385,11 @@ void VulkanRenderer::endFrame() {
     m_sprites.flush(cmd, m_currentFrame); // then the 2D layer on top
     vkCmdEndRenderPass(cmd);
 
-    // 3) Bloom chain — bright-pass + separable blur of sceneColor into a half-res target.
+    // 3) Bloom chain — bright-pass + separable blur of sceneColor into a half-res target. On the mobile tier
+    // the composite discards its output (bloom strength 0), but the pass still runs to keep the bloom target
+    // in a defined (SHADER_READ_ONLY) layout for the composite's sampler — skipping it would sample an
+    // undefined-layout image, which is UB on a real mobile driver. The bandwidth saved by a true skip needs
+    // a transition-only path in BloomChain (noted in docs/MOBILE_BUILD.md as a further optimization).
     m_bloom.record(cmd);
 
     // 4) Composite pass — add bloom + tonemap sceneColor into the swapchain image.

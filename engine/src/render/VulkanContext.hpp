@@ -22,6 +22,12 @@ public:
     bool hasSurface() const { return m_surface != VK_NULL_HANDLE; }
     bool wireframeSupported() const { return m_fillModeNonSolid; }
 
+    // Device limits queried at selection time (see pickPhysicalDevice). maxPushConstantsSize() is the hard
+    // cap a pipeline's push-constant block must fit in (128 bytes on many mobile tilers); maxUsableSampleCount
+    // is the highest MSAA level the framebuffer supports (mobile tiers clamp MSAA to this or force 1x).
+    uint32_t maxPushConstantsSize() const { return m_maxPushConstants; }
+    VkSampleCountFlagBits maxUsableSampleCount() const { return m_maxColorSamples; }
+
     VkInstance instance() const { return m_instance; }
     VkPhysicalDevice physicalDevice() const { return m_physical; }
     VkDevice device() const { return m_device; }
@@ -49,6 +55,8 @@ private:
     VkPhysicalDevice m_physical = VK_NULL_HANDLE;
     VkDevice m_device = VK_NULL_HANDLE;
     bool m_fillModeNonSolid = false;
+    uint32_t m_maxPushConstants = 128;                          // conservative floor until a device is picked
+    VkSampleCountFlagBits m_maxColorSamples = VK_SAMPLE_COUNT_1_BIT;
     VkQueue m_graphicsQueue = VK_NULL_HANDLE;
     VkQueue m_presentQueue = VK_NULL_HANDLE;
     VkCommandPool m_transientPool = VK_NULL_HANDLE;

@@ -254,6 +254,13 @@ bool VulkanSwapchain::createCompositePass(VulkanContext& ctx) {
 }
 
 void VulkanSwapchain::chooseSampleCount(VulkanContext& ctx) {
+    if (m_forceSingleSample) {
+        // Mobile tier: MSAA off. On a tiler the 4x multisample color+depth targets plus the resolve are a
+        // large slice of the frame's bandwidth; 1x drops them entirely (the 1x path skips the resolve pass).
+        m_samples = VK_SAMPLE_COUNT_1_BIT;
+        MAZ_LOG_INFO("MSAA sample count: 1x (mobile tier)");
+        return;
+    }
     VkPhysicalDeviceProperties props{};
     vkGetPhysicalDeviceProperties(ctx.physicalDevice(), &props);
     const VkSampleCountFlags counts =

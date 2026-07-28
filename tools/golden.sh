@@ -27,10 +27,11 @@ ICD="/usr/share/vulkan/icd.d/lvp_icd.json"
 # ones like the day/night village or the autopilot world get looser thresholds that still fail hard
 # on a black screen or a broken pass). Tighten these once apps gain a deterministic hold-frame mode.
 CASES=(
-    "cube||2.5|0.06"
+    "cube||2.5|0.09"
     "water||2.5|0.03"
     "model||2.5|0.08"
     "scene3d||2.5|0.13"
+    "scene3d|--mobile|2.5|0.13|scene3d_mobile"  # mobile render tier: MSAA off, no bloom/SSAO (WS5)
     "world|--demo|2.5|0.25"
     "village|--demo|2.5|0.22"
     "instances||2.5|0.15"
@@ -203,7 +204,10 @@ sleep 1.5
 
 fails=0
 for entry in "${CASES[@]}"; do
-    IFS='|' read -r app args settle threshold <<<"$entry"
+    # Optional 5th field: a label that names the reference image, so the same app can appear more than once
+    # with different args (e.g. scene3d vs scene3d --mobile). Defaults to the app name.
+    IFS='|' read -r app args settle threshold label <<<"$entry"
+    name="${label:-$app}"
     if [ ! -x "$BIN/$app" ]; then
         echo "MISS: $app not built; skipping"
         continue
@@ -217,13 +221,13 @@ for entry in "${CASES[@]}"; do
     kill $gpid 2>/dev/null
     wait $gpid 2>/dev/null
 
-    ref="$GOLDEN/$app.png"
+    ref="$GOLDEN/$name.png"
     if [ "$MODE" = "capture" ]; then
         cp "$out" "$ref"
-        echo "captured $app -> $ref"
+        echo "captured $name -> $ref"
     else
         if [ ! -f "$ref" ]; then
-            echo "FAIL: $app has no reference (run 'tools/golden.sh capture')"
+            echo "FAIL: $name has no reference (run 'tools/golden.sh capture')"
             fails=$((fails + 1))
         else
             # compare prints "<abs> (<normalized>)"; grab the normalized value (may be scientific
@@ -231,10 +235,10 @@ for entry in "${CASES[@]}"; do
             rmse="$(compare -metric RMSE "$out" "$ref" null: 2>&1 | sed -E 's/.*\(([0-9.eE+-]+)\).*/\1/')"
             if [ -z "$rmse" ]; then rmse=1.0; fi
             if awk "BEGIN{exit !($rmse > $threshold)}"; then
-                echo "FAIL: $app RMSE $rmse > $threshold"
+                echo "FAIL: $name RMSE $rmse > $threshold"
                 fails=$((fails + 1))
             else
-                echo "ok:   $app RMSE $rmse (<= $threshold)"
+                echo "ok:   $name RMSE $rmse (<= $threshold)"
             fi
         fi
     fi

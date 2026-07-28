@@ -9,12 +9,24 @@ class Window;
 
 namespace maz::render {
 
+// Rendering quality tier. Standard is the full desktop frame graph (MSAA + bloom + SSAO + HDR/tonemap).
+// Mobile is the lighter path for phones/tablets and other bandwidth-limited GPUs (tilers): it forces MSAA
+// off, and skips the bloom and SSAO passes — the biggest per-frame bandwidth costs on a mobile GPU. The
+// scene still renders through the HDR target and the tonemap composite (a single fullscreen pass); dropping
+// that to a direct-LDR path is a further optimization noted in docs/MOBILE_BUILD.md.
+enum class RenderTier {
+    Standard,
+    Mobile,
+};
+
 struct RendererConfig {
     bool vsync = true;
     bool enableValidation = false;   // Vulkan validation layers (debug builds)
     // When true the renderer may run without a presentable surface / GPU and simply no-ops.
     // Used for headless CI so the rest of the engine can still be exercised.
     bool allowHeadless = false;
+    // Quality tier. Set Mobile on phones/tablets (or any low-power GPU) for the lighter frame graph.
+    RenderTier tier = RenderTier::Standard;
 };
 
 struct Color {

@@ -73,6 +73,7 @@ int main(int argc, char** argv) {
     render::RendererConfig rc;
     rc.vsync = cfg.vsync;
     rc.allowHeadless = cfg.headless;
+    rc.tier = cfg.mobile ? render::RenderTier::Mobile : render::RenderTier::Standard; // --mobile: lighter tier
     auto renderer = render::createVulkanRenderer();
     if (!renderer->init(window, rc)) {
         return 1;

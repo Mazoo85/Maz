@@ -43,18 +43,39 @@ bool hasLayer(const char* name) {
     return false;
 }
 
-bool deviceHasSwapchainExt(VkPhysicalDevice dev) {
+bool deviceHasExtension(VkPhysicalDevice dev, const char* name) {
     uint32_t count = 0;
     vkEnumerateDeviceExtensionProperties(dev, nullptr, &count, nullptr);
     std::vector<VkExtensionProperties> exts(count);
     vkEnumerateDeviceExtensionProperties(dev, nullptr, &count, exts.data());
     for (const auto& e : exts) {
-        if (std::strcmp(e.extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0) {
+        if (std::strcmp(e.extensionName, name) == 0) {
             return true;
         }
     }
     return false;
 }
+
+bool deviceHasSwapchainExt(VkPhysicalDevice dev) {
+    return deviceHasExtension(dev, VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+}
+
+bool hasInstanceExtension(const char* name) {
+    uint32_t count = 0;
+    vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr);
+    std::vector<VkExtensionProperties> exts(count);
+    vkEnumerateInstanceExtensionProperties(nullptr, &count, exts.data());
+    for (const auto& e : exts) {
+        if (std::strcmp(e.extensionName, name) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// The device extension MoltenVK requires every portability (Metal-backed) device to enable. Kept as a string
+// literal so the header needn't define VK_ENABLE_BETA_EXTENSIONS (the macro lives in vulkan_beta.h).
+constexpr const char* kPortabilitySubsetExt = "VK_KHR_portability_subset";
 
 } // namespace
 
@@ -107,8 +128,21 @@ bool VulkanContext::createInstance(platform::Window& window, bool wantSurface,
         extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
 
+    // MoltenVK / portability: a Vulkan-on-Metal ICD (iOS/macOS) exposes the GPU as a "portability" device
+    // that vkEnumeratePhysicalDevices will NOT return unless we opt in with VK_KHR_portability_enumeration
+    // plus the enumerate-portability instance flag. The extension is advertised ONLY where such an ICD is
+    // present, so on desktop Linux/Windows and lavapipe this branch never runs — the portability path is a
+    // compile-in no-op here and the exact line that lets the same build enumerate a GPU on an iPhone.
+    VkInstanceCreateFlags instanceFlags = 0;
+    if (hasInstanceExtension(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)) {
+        extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+        instanceFlags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+        MAZ_LOG_INFO("Vulkan portability enumeration enabled (MoltenVK/portability ICD present)");
+    }
+
     VkInstanceCreateInfo ci{};
     ci.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    ci.flags = instanceFlags;
     ci.pApplicationInfo = &app;
     ci.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     ci.ppEnabledExtensionNames = extensions.empty() ? nullptr : extensions.data();
@@ -211,6 +245,22 @@ bool VulkanContext::pickPhysicalDevice(bool wantSurface) {
     VkPhysicalDeviceProperties props{};
     vkGetPhysicalDeviceProperties(best, &props);
     MAZ_LOG_INFO("selected GPU: %s", props.deviceName);
+
+    // Query the limits the renderer must respect on this GPU instead of assuming desktop-class values.
+    // Mobile tilers commonly floor maxPushConstantsSize at 128 bytes and offer fewer MSAA sample counts —
+    // reading them here lets the pipelines size push constants and clamp MSAA to what the device supports.
+    m_maxPushConstants = props.limits.maxPushConstantsSize;
+    const VkSampleCountFlags counts =
+        props.limits.framebufferColorSampleCounts & props.limits.framebufferDepthSampleCounts;
+    m_maxColorSamples = VK_SAMPLE_COUNT_1_BIT;
+    for (VkSampleCountFlagBits bit : {VK_SAMPLE_COUNT_8_BIT, VK_SAMPLE_COUNT_4_BIT, VK_SAMPLE_COUNT_2_BIT}) {
+        if (counts & bit) {
+            m_maxColorSamples = bit;
+            break;
+        }
+    }
+    MAZ_LOG_INFO("GPU limits: maxPushConstantsSize=%u bytes, maxUsableMSAA=%ux", m_maxPushConstants,
+                 static_cast<uint32_t>(m_maxColorSamples));
     return true;
 }
 
@@ -234,6 +284,14 @@ bool VulkanContext::createLogicalDevice(bool wantSurface) {
     std::vector<const char*> deviceExts;
     if (wantSurface) {
         deviceExts.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+    }
+
+    // MoltenVK requires VK_KHR_portability_subset to be enabled on ANY device that advertises it — it
+    // declares the subset of Vulkan the Metal translation implements, and vkCreateDevice fails without it.
+    // Desktop drivers never advertise it, so this adds nothing there; on iOS/macOS it is mandatory.
+    if (deviceHasExtension(m_physical, kPortabilitySubsetExt)) {
+        deviceExts.push_back(kPortabilitySubsetExt);
+        MAZ_LOG_INFO("enabling %s (portability device)", kPortabilitySubsetExt);
     }
 
     // Enable optional features we use where supported (wireframe needs fillModeNonSolid).

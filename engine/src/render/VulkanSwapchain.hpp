@@ -18,6 +18,10 @@ public:
     bool create(VulkanContext& ctx, uint32_t width, uint32_t height, bool vsync);
     void destroy(VulkanContext& ctx);
 
+    // Force MSAA off (mobile render tier). Call before create()/resize; chooseSampleCount then pins 1x
+    // instead of the best supported count, dropping the multisample color/depth targets and the resolve.
+    void setForceSingleSample(bool force) { m_forceSingleSample = force; }
+
     VkSwapchainKHR handle() const { return m_swapchain; }
     // The scene render pass (what SpriteRenderer/MeshRenderer pipelines target).
     VkRenderPass renderPass() const { return m_renderPass; }
@@ -53,6 +57,7 @@ private:
     VkFormat m_sceneFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
     VkFormat m_depthFormat = VK_FORMAT_D32_SFLOAT;
     VkSampleCountFlagBits m_samples = VK_SAMPLE_COUNT_1_BIT;
+    bool m_forceSingleSample = false; // mobile tier: pin MSAA to 1x
     VkExtent2D m_extent{};
     std::vector<VkImage> m_images;
     std::vector<VkImageView> m_views;

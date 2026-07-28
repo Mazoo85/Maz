@@ -249,7 +249,10 @@ bool MeshRenderer::createSkyPipeline(VulkanContext& ctx, VkRenderPass renderPass
     VkPushConstantRange push{};
     push.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     push.offset = 0;
-    push.size = sizeof(float) * 36; // invViewProj + zenith/horizon/ground/sunDir/sunColor
+    // 32 floats = 128 bytes, the guaranteed mobile/MoltenVK maxPushConstantsSize floor. sunColor.rgb is
+    // packed into the w channels of zenith/horizon/ground (see sky.frag) rather than a 5th vec4, which would
+    // make the block 144 bytes and fail pipeline creation on GPUs that cap push constants at 128.
+    push.size = sizeof(float) * 32; // invViewProj(16) + zenith/horizon/ground(w=sunColor)/sunDir
     VkPipelineLayoutCreateInfo pl{};
     pl.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pl.pushConstantRangeCount = 1;
@@ -299,21 +302,25 @@ void MeshRenderer::renderSky(VkCommandBuffer cmd) {
     scissor.extent = {m_viewportW, m_viewportH};
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-    // Push: invViewProj (16) + zenith/horizon/ground/sunDir/sunColor as vec4s (20).
-    float push[36] = {0};
+    // Push: invViewProj (16) + zenith/horizon/ground (rgb, w=sunColor.rgb) + sunDir (xyz) = 32 floats =
+    // 128 bytes. Packing sunColor into the three w lanes keeps the block at the mobile push-constant floor
+    // (see sky.frag + the push-range comment above); a separate sunColor vec4 would overflow to 144 bytes.
+    float push[32] = {0};
     const glm::mat4 invVP = glm::inverse(glm::make_mat4(m_viewProj));
     std::memcpy(push, glm::value_ptr(invVP), sizeof(float) * 16);
-    auto putVec3 = [&](int base, const float* v) {
-        push[base] = v[0];
-        push[base + 1] = v[1];
-        push[base + 2] = v[2];
-        push[base + 3] = 1.0f;
+    auto putColorW = [&](int base, const float* rgb, float w) {
+        push[base] = rgb[0];
+        push[base + 1] = rgb[1];
+        push[base + 2] = rgb[2];
+        push[base + 3] = w;
     };
-    putVec3(16, m_skyZenith);
-    putVec3(20, m_skyHorizon);
-    putVec3(24, m_skyGround);
-    putVec3(28, m_sunDir);
-    putVec3(32, m_sunColor);
+    putColorW(16, m_skyZenith, m_sunColor[0]);
+    putColorW(20, m_skyHorizon, m_sunColor[1]);
+    putColorW(24, m_skyGround, m_sunColor[2]);
+    push[28] = m_sunDir[0];
+    push[29] = m_sunDir[1];
+    push[30] = m_sunDir[2];
+    push[31] = 0.0f;
     vkCmdPushConstants(cmd, m_skyLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(push), push);
     vkCmdDraw(cmd, 3, 1, 0, 0);
 }

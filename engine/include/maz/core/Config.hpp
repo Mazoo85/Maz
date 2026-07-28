@@ -13,6 +13,7 @@ struct AppConfig {
     bool vsync = true;       // --no-vsync to disable
     bool demo = false;       // --demo : autopilot for offscreen capture (no keyboard)
     int frames = -1;         // --frames N : quit after N frames (<0 = run until closed)
+    bool mobile = false;     // --mobile : request the lighter mobile render tier (MSAA off, no bloom/SSAO)
 };
 
 // Parse argv into an AppConfig. Unknown flags are logged and ignored.
