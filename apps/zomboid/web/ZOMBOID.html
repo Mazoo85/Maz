@@ -486,8 +486,11 @@ function drawSurvivor(sx,sy,ang){
   ctx.beginPath(); ctx.moveTo(-2,-6); ctx.lineTo(-2+step*4,-11);
   ctx.moveTo(-2, 6); ctx.lineTo(-2-step*4, 11); ctx.stroke();
 
-  // torso (tactical vest)
-  ctx.fillStyle='#3c4a30'; ctx.beginPath(); ctx.ellipse(0,0, 11, 9, 0,0,TAU); ctx.fill();
+  // torso (tactical vest) — volumetric shading to match the enemies
+  { const bg=ctx.createRadialGradient(-3.5,-3.2,1.5,0,0,13);
+    bg.addColorStop(0,'#596a44'); bg.addColorStop(0.6,'#3c4a30'); bg.addColorStop(1,'#27311e');
+    ctx.fillStyle=bg; }
+  ctx.beginPath(); ctx.ellipse(0,0, 11, 9, 0,0,TAU); ctx.fill();
   ctx.fillStyle='#2c3626'; ctx.beginPath(); ctx.ellipse(-1,0, 7.5, 7.5, 0,0,TAU); ctx.fill();
   // crossed amber straps
   ctx.strokeStyle='#c8922f'; ctx.lineWidth=2;
