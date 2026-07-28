@@ -110,6 +110,15 @@ target_link_libraries(maz_platform_touch_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME platform_touch COMMAND maz_platform_touch_tests)
 set_tests_properties(platform_touch PROPERTIES TIMEOUT 30)
 
+# On-screen virtual controls (input::VirtualStick / VirtualButton / VirtualControls) — the touch equivalent of
+# a gamepad so phone/tablet builds play a stick+buttons game without a physical controller. Pure CPU (a
+# platform::Input driven with synthetic touch points): fixed-stick offset->vector with screen-Y inverted,
+# floating-stick recenter, button held/pressed/released edges, and multi-touch one-claim-per-widget are here.
+add_executable(maz_input_virtualcontrols_tests input/virtualcontrols.cpp)
+target_link_libraries(maz_input_virtualcontrols_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME input_virtualcontrols COMMAND maz_input_virtualcontrols_tests)
+set_tests_properties(input_virtualcontrols PROPERTIES TIMEOUT 30)
+
 # QOA (Quite OK Audio) codec (audio::encodeQoa / decodeQoa) — a full spec-accurate encoder + decoder,
 # verified headlessly by an encode->decode round-trip (mono + stereo) that checks header/metadata/sample
 # count, bounded lossy error, and that the stream is smaller than 16-bit PCM. No external reference file.
