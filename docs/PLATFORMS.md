@@ -14,14 +14,39 @@ the OS can suspend/resume the app.
 | **Headless** | `HeadlessBackend` | ✅ Implemented + unit-tested (`ctest -R platform_backend`) | — |
 | **Desktop (Linux/Win/Mac)** | SDL3 + Vulkan | ✅ Shipping (the native path the samples/editor use) | — |
 | **Web / WASM** | Emscripten + WebGL2 | ⚙️ Build path + main-loop done ([WEB_BUILD.md](WEB_BUILD.md)); needs Emscripten to emit `.wasm` | Install emsdk, run `tools/build_web.sh` |
-| **Android** | `PlatformId::Android` | 🔩 Seam defined; backend not implementable here | **Human step** below |
-| **iOS** | `PlatformId::iOS` | 🔩 Seam defined | **Human step** below |
+| **Android** | `PlatformId::Android` | 🧱 **Engine-side foundation done** (touch, virtual controls, callback loop, backend seam, MoltenVK-safe renderer + mobile tier); backend `.cpp` + APK build not possible here | **Device step** — [MOBILE_BUILD.md](MOBILE_BUILD.md) |
+| **iOS** | `PlatformId::iOS` | 🧱 **Engine-side foundation done** (same as Android; renderer is now MoltenVK/portability-safe) | **Device step** — [MOBILE_BUILD.md](MOBILE_BUILD.md) |
 | **VR (OpenXR)** | `PlatformId::VrOpenXR` | 🔩 Seam defined | **Human step** below |
 | **Consoles** | `PlatformId::ConsoleA/B/C` | 🔩 Seam defined; SDKs are under NDA | **Human step** below |
 
 These are deliberately **not** marked "100%": each needs hardware, a toolchain, and/or an account this
 cloud environment cannot have. The engine-side seam is done and tested; the remaining work is a
 per-platform backend that only you, on the right machine with the right access, can build and sign.
+
+## Mobile foundation (delivered — desktop-verified)
+
+The shared, engine-side work that makes Maz mobile-shaped is done and verified on this Linux box
+(software Vulkan + `ctest`), so the remaining iOS/Android work is a clean, documented device build
+([MOBILE_BUILD.md](MOBILE_BUILD.md)). What shipped:
+
+- **Touch input** in the core input path — `platform::Input` tracks multi-touch contacts with the same
+  edge detection keys/buttons use, fed from `Window::pumpEvents` via SDL finger events
+  (`ctest -R platform_touch`).
+- **On-screen virtual controls** — `input::VirtualControls` (twin-stick + buttons) turns touch into
+  gamepad-shaped input, so a stick+buttons game plays with thumbs and no controller
+  (`ctest -R input_virtualcontrols`).
+- **Callback-driven main loop** — apps run through `platform::runMainLoop(step, user)` instead of a
+  blocking `while`, which iOS/Android/web require (they own the loop). See `apps/_template/` for the
+  copy-me starting point and ZOMBOID for the flagship.
+- **`DesktopBackend` + VFS mounts** — the first real `PlatformBackend` fills the seam the future
+  `AndroidBackend`/`IOSBackend` mirror (caps, native handle, `directory(DirKind)`, minimize→suspend
+  lifecycle); on boot it mounts `res://`→assets and `user://`→save dir so packaging is a mount remap
+  (`ctest -R platform_backend`).
+- **MoltenVK/portability-safe renderer + a mobile render tier** — the Vulkan context opts into
+  `VK_KHR_portability_enumeration`/`_subset` when present (no-op on desktop, required on iOS/macOS via
+  Metal), the sky push constant fits the 128-byte mobile floor, and `RenderTier::Mobile` (the
+  `--mobile` flag) forces MSAA off and drops bloom/SSAO for tilers (verified by the `scene3d_mobile`
+  golden).
 
 ## The exact human/hardware step per platform
 

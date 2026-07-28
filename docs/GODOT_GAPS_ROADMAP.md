@@ -143,8 +143,19 @@ only be written blind, the docs say exactly that.
   asset/user directories, input caps, OS suspend/resume lifecycle). The headless backend + registry are
   unit-tested here (`ctest -R platform_backend`); console/VR/mobile are backends behind this same seam with
   the exact human step documented in [PLATFORMS.md](PLATFORMS.md). [VERIFIABLE HERE]
-- [ ] **Android / iOS backend** — an `AndroidBackend`/`IOSBackend` against the seam above. [NEEDS YOUR
-  HARDWARE/TOOLCHAIN] (Android SDK/NDK, Xcode, devices, dev accounts — see PLATFORMS.md)
+- [x] **Mobile foundation (iOS + Android), engine-side** — DONE (mobile WS1–WS6, desktop-verified). The
+  shared work that makes Maz mobile-shaped: multi-touch in `platform::Input` fed from `Window::pumpEvents`
+  (`ctest -R platform_touch`); on-screen twin-stick controls `input::VirtualControls`
+  (`ctest -R input_virtualcontrols`); the callback-driven main loop wired into ZOMBOID + a copy-me
+  `apps/_template/`; the first real backend `DesktopBackend` filling the seam only `HeadlessBackend` filled
+  (native handle, `directory(DirKind)`, minimize→suspend lifecycle) + `res://`/`user://` VFS mounts on boot
+  (`ctest -R platform_backend`); and a MoltenVK/portability-safe renderer (`VK_KHR_portability_enumeration`/
+  `_subset` opt-in, 128-byte sky push constant) with a `RenderTier::Mobile` (`--mobile`) tier that forces
+  MSAA off + drops bloom/SSAO (verified by the `scene3d_mobile` golden). [VERIFIABLE HERE]
+- [ ] **Android / iOS backend + device build** — the concrete `AndroidBackend`/`IOSBackend` `.cpp` (skeletons
+  fully specified) + the Gradle/Xcode project, packaging, signing, and on-device run. The foundation above
+  makes this turnkey — the step-by-step is in [MOBILE_BUILD.md](MOBILE_BUILD.md). [NEEDS YOUR
+  HARDWARE/TOOLCHAIN] (Android SDK/NDK, a Mac + Xcode + MoltenVK, devices, dev accounts)
 - [ ] **Console backend** — behind the seam. [NEEDS YOUR HARDWARE/TOOLCHAIN] (NDA SDKs; not in a public repo)
 - [ ] **XR/OpenXR backend** — behind the seam (`caps().immersiveVr`). [NEEDS YOUR HARDWARE/TOOLCHAIN] (headset)
 
