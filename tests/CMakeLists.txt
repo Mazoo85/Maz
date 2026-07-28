@@ -2384,6 +2384,16 @@ set_tests_properties(pong_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+# The mobile-ready starter app: exercises the callback-driven main loop (platform::runMainLoop) and the
+# unified touch/keyboard input path (input::VirtualControls) end-to-end, headless.
+add_test(
+    NAME app_template_headless_smoke
+    COMMAND app_template --headless --frames 30)
+
+set_tests_properties(app_template_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 add_test(
     NAME platformer_headless_smoke
     COMMAND platformer --headless --frames 30)

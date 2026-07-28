@@ -12,6 +12,7 @@
 // --headless / --frames N run the render loop with no window (CI); --demo autopilots the survivor.
 
 #include "maz/Engine.hpp"
+#include "maz/platform/WebLoop.hpp"
 
 #include "game.hpp"
 
@@ -234,7 +235,12 @@ int main(int argc, char** argv) {
         simTime += dt;
     };
 
-    while (!window.shouldClose()) {
+    // Callback-driven main loop: the per-frame body is packaged as a `step` returning true-to-continue and
+    // handed to platform::runMainLoop. On desktop that runs an ordinary blocking `while(step){}` (identical
+    // behavior to the old hand-written loop); on iOS/Android/web the OS owns the loop and calls step once per
+    // frame, where a blocking C++ while() would deadlock. Writing the frame once, driven either way, is what
+    // makes this game buildable for mobile.
+    auto frame = [&]() -> bool {
         window.pumpEvents(input);
         if (input.keyPressed(SDL_SCANCODE_ESCAPE)) {
             window.requestClose();
@@ -1139,7 +1145,14 @@ int main(int argc, char** argv) {
         if (cfg.frames >= 0 && rendered >= cfg.frames) {
             window.requestClose();
         }
-    }
+        return !window.shouldClose();
+    };
+
+    // A non-capturing lambda converts to the MainStepFn function pointer; it thunks through to the capturing
+    // `frame` via the user pointer, so runMainLoop stays free of std::function while the body keeps its
+    // by-reference access to all the local game state.
+    using FrameFn = decltype(frame);
+    platform::runMainLoop([](void* u) -> bool { return (*static_cast<FrameFn*>(u))(); }, &frame);
 
     MAZ_LOG_INFO("ZOMBOID shutting down after %d frames (%.2fs, renderer %s) — wave %d, %d kills, score %d",
                  rendered, simTime, renderer->isActive() ? "active" : "inactive",
