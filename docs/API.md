@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_680 headers across 20 subsystems._
+_681 headers across 20 subsystems._
 
 ## Contents
 
@@ -2926,6 +2926,13 @@ maz::render dithering — reduce a grayscale image to a few brightness levels wh
 - `inline std::vector<int> bayerMatrix(int level)`
 - `inline std::vector<std::uint8_t> orderedDitherGray(const std::vector<std::uint8_t>& px, int w, int h,`
 - `inline std::vector<std::uint8_t> floydSteinbergGray(const std::vector<std::uint8_t>& px, int w, int h,`
+
+### `DynamicResolution`
+<sub>`engine/include/maz/render/DynamicResolution.hpp`</sub>
+
+maz::render dynamic-resolution scaling (DRS) — the single biggest frame-rate lever on a mobile GPU. When the scene gets heavy the GPU misses the frame budget and the game stutters; instead of dropping whole effects, DRS renders the 3D scene to a SMALLER offscreen target and upscales it to the display, which cuts fragment/bandwidth cost roughly with the square of the scale while the UI stays crisp at native resolution. This is exactly what console/mobile engines (and Godot's `scaling_3d` / `rendering/scaling_3d/mode`) do to hold 60 fps on constrained hardware.  This class is the pure, deterministic controller: feed it each frame's measured time and it returns a linear render-scale factor in [minScale, maxScale]. It smooths the input with an EMA (so a single spike doesn't drop resolution), only adjusts after a cooldown (so it doesn't oscillate frame-to-frame), and separates the scale-up and scale-down thresholds into a deadband (hysteresis) around the target. The actual offscreen-target resize is the renderer's job on device; the policy — when and how far to scale — is here, header-only and unit-tested, with no GPU dependency.
+
+**Types:** `DynamicResolutionConfig`, `RenderSize`, `DynamicResolution`
 
 ### `Equirect`
 <sub>`engine/include/maz/render/Equirect.hpp`</sub>

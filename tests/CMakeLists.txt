@@ -547,6 +547,15 @@ target_link_libraries(maz_meshinset_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_inset COMMAND maz_meshinset_tests)
 set_tests_properties(mesh_inset PROPERTIES TIMEOUT 30)
 
+# Dynamic-resolution scaling (render::DynamicResolution) — the adaptive render-scale controller that trades
+# resolution for frame rate on constrained mobile GPUs. Pure deterministic policy (no GPU): scale down when
+# the smoothed frame time misses the budget, up when there's headroom, hold in the deadband, respect the
+# [min,max] clamp + cooldown, and map a scale onto a floored pixel size — all verified here.
+add_executable(maz_dynamicresolution_tests render/dynamicresolution.cpp)
+target_link_libraries(maz_dynamicresolution_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME dynamic_resolution COMMAND maz_dynamicresolution_tests)
+set_tests_properties(dynamic_resolution PROPERTIES TIMEOUT 30)
+
 add_executable(maz_meshcurvaturecolor_tests render/meshcurvaturecolor.cpp)
 target_link_libraries(maz_meshcurvaturecolor_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_curvature_color COMMAND maz_meshcurvaturecolor_tests)
