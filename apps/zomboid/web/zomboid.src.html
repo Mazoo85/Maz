@@ -912,6 +912,27 @@ function drawHUD(){
   // ultimate meter
   label('ULT', bx, by-30, 13, p.ultReady?'#f2c94c':'#9aa0b4');
   bar(bx,by-24,240,7,p.ult/p.ultMax,p.ultReady?'#f2c94c':'#6a6f85');
+
+  // radar — player-centric mini-map of nearby zombies
+  { const rr=52, cx=W-rr-22, cy=rr+58, RANGE=58, sc=rr/RANGE;
+    ctx.save();
+    ctx.fillStyle='rgba(8,10,15,0.5)'; ctx.beginPath(); ctx.arc(cx,cy,rr,0,TAU); ctx.fill();
+    ctx.strokeStyle='rgba(242,201,76,0.35)'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,rr-1,0,TAU); ctx.clip();
+    ctx.strokeStyle='rgba(255,255,255,0.07)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(cx-rr,cy); ctx.lineTo(cx+rr,cy); ctx.moveTo(cx,cy-rr); ctx.lineTo(cx,cy+rr); ctx.stroke();
+    for(const z of zombies){ if(!z.active||!z.alive) continue;
+      const dx=(z.x-p.x)*sc, dy=(z.y-p.y)*sc; if(dx*dx+dy*dy>(rr-2)*(rr-2)) continue;
+      ctx.fillStyle=z.kind===3?'#ff2d20':(z.kind===1?'#ff9a5a':'#e0574a');
+      ctx.beginPath(); ctx.arc(cx+dx,cy+dy, z.kind===3?3.4:2, 0,TAU); ctx.fill(); }
+    ctx.restore();
+    const av=aim(), al=Math.hypot(av.x,av.y)||1;
+    ctx.strokeStyle='rgba(143,227,154,0.9)'; ctx.lineWidth=1.6;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+av.x/al*11, cy+av.y/al*11); ctx.stroke();
+    ctx.fillStyle='#8fe39a'; ctx.beginPath(); ctx.arc(cx,cy,2.6,0,TAU); ctx.fill();
+    ctx.restore();
+    label('RADAR', cx, cy+rr+13, 10, '#7a8090','center'); }
+
   ctx.textAlign='left';
 }
 
