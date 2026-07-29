@@ -97,6 +97,29 @@ tools/build_web.sh
 
 ---
 
+## 6. Mobile (Android / iOS) — the phone bundle 📱 needs your device toolchain
+
+**Status:** The engine-side of a phone build is done and tested on the cloud box — touch + gestures,
+on-screen virtual controls, the callback-driven main loop, the backend's device seams (safe area,
+orientation, power/thermal, haptics, soft keyboard, network), a battery-aware frame pacer, and
+autosave-when-backgrounded. The packager stages a **complete** bundle here — the game's shared library
+per ABI, assets (loose or a single `game.pck`), and the generated `AndroidManifest.xml` / `Info.plist` —
+and preflights that tree. What only your machine can do is turn that staged tree into an installable
+`.apk` / `.ipa`: that needs the **Android SDK+NDK (Gradle)** or **Xcode on a Mac**, a signing account,
+and a physical device or emulator.
+
+**Stage + preflight the bundle here (works on this box):**
+```
+tools/package_mobile.sh zomboid 1.0.0 --os android --abi arm64-v8a,armeabi-v7a --pack
+tools/package_mobile.sh zomboid 1.0.0 --os android --abi arm64-v8a,armeabi-v7a --preflight
+```
+**You then:** implement the small `AndroidBackend`/`IOSBackend` (the exact per-OS calls are listed in
+[MOBILE_BUILD.md](MOBILE_BUILD.md) and [PLATFORMS.md](PLATFORMS.md)), assemble the staged tree with
+Gradle/Xcode, sign it, and install on a phone. **You should see:** the game running with touch controls,
+laid out inside the safe area, on the device.
+
+---
+
 ## The short version
 
 | Part | Written & compiles here | What only your PC can do |
@@ -106,6 +129,7 @@ tools/build_web.sh
 | Editor app | ✅ (builds to `bin/editor`) | see the editor window |
 | SSIL / GPU effects | ✅ (math tested) | see the effect on screen |
 | Web/WASM + video | ✅ (build script + demuxer) | install Emscripten; run in a browser |
+| Mobile (Android/iOS) | ✅ (seams + bundle staging + preflight) | Gradle/Xcode build; install on a phone |
 
 Nothing here is blocked or broken — it's all built. These are just the steps that, by their
 nature, happen on a real machine with a screen and a speaker.

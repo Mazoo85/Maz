@@ -52,7 +52,9 @@ but that is a limitation of the *build box*, not of the engine.
 
 ## 2. Platforms & export — Maz ships to nothing yet
 
-Godot's defining strength is one-click export to many platforms. Maz has **none** of this.
+Godot's defining strength is **one-click** export to many platforms. Maz has the export *machinery* —
+desktop bundling works and the mobile/web foundations are in place — but not Godot's breadth of
+turnkey, in-editor, cross-platform output.
 
 - **Desktop export already works** — `tools/package.sh` bundles a built game (executable + its libraries
   + compiled shaders + assets + a launcher + README) into a single self-contained archive a player can
@@ -60,7 +62,14 @@ Godot's defining strength is one-click export to many platforms. Maz has **none*
   directory. Verified producing `dist/zomboid-1.0.0-linux-x86_64.tar.gz`. The remaining gap vs Godot is
   cross-OS output (making Windows/macOS bundles from one machine) and a one-click **Export** button inside
   the editor rather than a command line.
-- **No mobile** — Godot exports to Android and iOS (touch input, sensors, store packaging). Maz has none.
+- **Mobile: engine-side foundation done, device build remains** — the shared work is in place and unit-
+  tested here: touch + gestures, on-screen virtual controls, the callback-driven main loop, and the
+  `PlatformBackend` device seams a phone game reads (safe area, orientation, power/thermal, haptics, soft
+  keyboard, network) with a battery-aware frame pacer + dynamic resolution and autosave-on-suspend; plus a
+  MoltenVK-safe renderer, a mobile render tier, and `tools/package_mobile.sh` staging a complete
+  multi-ABI/`.pck` Android/iOS bundle that `io::preflightMobileBundle` validates. What's left vs Godot is the
+  concrete `AndroidBackend`/`IOSBackend` wiring those seams to OS calls, the APK/IPA build (Gradle/Xcode +
+  signing), sensors, and store packaging — all needing the owner's device toolchain ([MOBILE_BUILD.md](MOBILE_BUILD.md)).
 - **No web/HTML5 export** — Godot compiles games to run in a browser (WebAssembly). Maz cannot.
 - **No console support** — Godot has (third-party) paths to Switch/PlayStation/Xbox. Maz has none.
 - **No XR/VR** — Godot has OpenXR (VR/AR headsets, controllers, passthrough). Maz has none.
