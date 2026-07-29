@@ -38,15 +38,17 @@ APP="$1"; shift
 VERSION="0.1.0"
 OS="android"
 ABI="arm64-v8a"
+PACK=""
 
-# First positional after the app that isn't a flag is the version; the rest are --os/--abi flags.
+# First positional after the app that isn't a flag is the version; the rest are --os/--abi/--pack flags.
 if [ "${1:-}" != "" ] && [ "${1#--}" = "${1:-}" ]; then
     VERSION="$1"; shift
 fi
 while [ "${1:-}" != "" ]; do
     case "$1" in
-        --os)  OS="${2:?--os needs a value}"; shift 2 ;;
-        --abi) ABI="${2:?--abi needs a value}"; shift 2 ;;
+        --os)   OS="${2:?--os needs a value}"; shift 2 ;;
+        --abi)  ABI="${2:?--abi needs a value}"; shift 2 ;;
+        --pack) PACK="--pack"; shift ;;
         *) echo "error: unknown option '$1'" >&2; exit 2 ;;
     esac
 done
@@ -71,8 +73,8 @@ if [ "$OS" = "android" ]; then
 fi
 OUT="$DIST/$APP-$VERSION-$SUFFIX"
 
-echo "==> Staging mobile bundle: $APP v$VERSION ($OS${ABI:+, $ABI when android})"
-"$MOBILEPACK" --app "$APP" --version "$VERSION" --os "$OS" --abi "$ABI" --from "$BIN" --out "$OUT"
+echo "==> Staging mobile bundle: $APP v$VERSION ($OS${ABI:+, $ABI when android})${PACK:+ [packed]}"
+"$MOBILEPACK" --app "$APP" --version "$VERSION" --os "$OS" --abi "$ABI" $PACK --from "$BIN" --out "$OUT"
 
 echo "==> Bundle tree:"
 if command -v find >/dev/null 2>&1; then

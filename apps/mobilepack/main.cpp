@@ -13,14 +13,17 @@
 //   mobilepack --selftest        # synthesize a tiny build tree in a temp dir, stage + verify it, exit 0 (CI)
 
 #include "maz/io/MobileBundlePlan.hpp"
+#include "maz/io/ResourcePack.hpp"
 
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <map>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace fs = std::filesystem;
@@ -166,6 +169,80 @@ int stageAndVerify(const MergedPlan& plan, const std::unordered_map<std::string,
     return mismatches;
 }
 
+std::vector<std::uint8_t> readFileBytes(const std::string& path) {
+    std::ifstream in(path, std::ios::binary);
+    return std::vector<std::uint8_t>((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+}
+
+// The single-archive destination for packed resources: under assets/ on Android, the .app root on iOS.
+std::string packDestFor(MobileOs os, const std::string& app) {
+    return os == MobileOs::Android ? "assets/game.pck" : app + ".app/game.pck";
+}
+
+// Drop the loose shader/asset files from a plan — when packing, they ship inside the single .pck instead,
+// so only the executable, libraries, and the manifest stage as loose files.
+MergedPlan withoutResources(const MergedPlan& plan, const std::vector<SourceFile>& sources) {
+    std::unordered_set<std::string> resourceLogicals;
+    for (const SourceFile& s : sources)
+        if (s.kind == FileKind::Shader || s.kind == FileKind::Asset) resourceLogicals.insert(s.path);
+
+    MergedPlan out;
+    out.manifest = plan.manifest;
+    out.manifestDest = plan.manifestDest;
+    out.bundleId = plan.bundleId;
+    for (const BundleFile& f : plan.files) {
+        if (f.source != "<generated>" && resourceLogicals.count(f.source)) continue; // packed instead
+        out.files.push_back(f);
+        out.totalSize += f.size;
+        out.listing += std::to_string(f.size) + "\t" + f.dest + "\n";
+    }
+    return out;
+}
+
+// Pack every shader+asset source into one archive (io::ResourcePack — the engine's .pck format), write it
+// to outDir/packDest, and verify it round-trips (reloads with the same entry count and matching blobs).
+// Returns 0 on success. This is Godot's packed-export idea: one file the mobile filesystem opens once
+// instead of hundreds of loose reads. The mobile backend mounts the .pck and resolves res:// against it.
+int writeAndVerifyPack(const std::vector<SourceFile>& sources,
+                       const std::unordered_map<std::string, std::string>& absByLogical,
+                       const std::string& packDest, const fs::path& outDir) {
+    std::vector<PackEntry> entries;
+    for (const SourceFile& s : sources) {
+        if (s.kind != FileKind::Shader && s.kind != FileKind::Asset) continue;
+        const auto it = absByLogical.find(s.path);
+        if (it == absByLogical.end()) {
+            std::fprintf(stderr, "error: no source on disk for %s\n", s.path.c_str());
+            return 1;
+        }
+        entries.push_back({s.path, readFileBytes(it->second)});
+    }
+    const std::vector<std::uint8_t> bytes = packResources(entries);
+
+    const fs::path dest = outDir / packDest;
+    std::error_code ec;
+    fs::create_directories(dest.parent_path(), ec);
+    {
+        std::ofstream o(dest, std::ios::binary | std::ios::trunc);
+        o.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+    }
+
+    ResourcePack rp;
+    if (!rp.load(bytes) || rp.count() != entries.size()) {
+        std::fprintf(stderr, "error: packed archive failed to round-trip\n");
+        return 1;
+    }
+    for (const PackEntry& e : entries) {
+        const std::vector<std::uint8_t>* b = rp.get(e.path);
+        if (!b || *b != e.data) {
+            std::fprintf(stderr, "  PACK MISMATCH: %s\n", e.path.c_str());
+            return 1;
+        }
+    }
+    std::printf("    packed:    %zu resources -> %s (%llu bytes)\n", entries.size(), packDest.c_str(),
+                static_cast<unsigned long long>(bytes.size()));
+    return 0;
+}
+
 int runSelfTest() {
     const fs::path tmp = fs::temp_directory_path() / "maz_mobilepack_selftest";
     std::error_code ec;
@@ -223,9 +300,31 @@ int runSelfTest() {
         if (libCount != 3) { std::fprintf(stderr, "selftest: expected 3 per-ABI libs, got %d\n", libCount); ++fails; }
     }
 
+    // Packed (.pck) Android bundle: resources ship inside one archive, not as loose files.
+    {
+        const MergedPlan full = planBundleMulti("TestGame", "1.2.3", MobileOs::Android, sources, {"arm64-v8a"});
+        const MergedPlan loose = withoutResources(full, sources);
+        const fs::path out = tmp / "stage-android-pck";
+        if (stageAndVerify(loose, absByLogical, out) != 0) ++fails;
+        if (writeAndVerifyPack(sources, absByLogical, packDestFor(MobileOs::Android, "TestGame"), out) != 0) ++fails;
+        // The single archive exists; the loose asset does NOT (it moved into the pack).
+        if (!fs::exists(out / "assets/game.pck")) { std::fprintf(stderr, "selftest: missing game.pck\n"); ++fails; }
+        if (fs::exists(out / "assets/fonts/font.ttf")) { std::fprintf(stderr, "selftest: loose asset present despite --pack\n"); ++fails; }
+        // The game .so + manifest still stage loose.
+        if (!fs::exists(out / "lib/arm64-v8a/libTestGame.so")) { std::fprintf(stderr, "selftest: missing lib under pack\n"); ++fails; }
+        if (!fs::exists(out / "AndroidManifest.xml")) { std::fprintf(stderr, "selftest: missing manifest under pack\n"); ++fails; }
+        // Load the written pack from disk and confirm both a shader and an asset round-trip by content.
+        ResourcePack rp;
+        if (!rp.load(readFileBytes((out / "assets/game.pck").string())) ||
+            rp.getString("fonts/font.ttf") != "ttf-bytes" || rp.getString("shaders/sky.vert.spv") != "spv-bytes") {
+            std::fprintf(stderr, "selftest: game.pck did not round-trip from disk\n");
+            ++fails;
+        }
+    }
+
     fs::remove_all(tmp, ec);
     if (fails == 0) {
-        std::printf("mobilepack selftest: OK — ios + android fat (multi-ABI) bundles staged and verified.\n");
+        std::printf("mobilepack selftest: OK — ios + android fat (multi-ABI) + packed (.pck) bundles verified.\n");
         return 0;
     }
     return 1;
@@ -235,16 +334,19 @@ void usage() {
     std::printf(
         "mobilepack — stage a mobile (Android/iOS) bundle from a desktop build tree.\n"
         "usage: mobilepack --app NAME [--version V] [--os android|ios]\n"
-        "                  [--abi ABI[,ABI...]] [--from DIR] [--out DIR]\n"
+        "                  [--abi ABI[,ABI...]] [--pack] [--from DIR] [--out DIR]\n"
         "       mobilepack --selftest\n"
         "  --abi accepts a comma-separated list on Android for a fat bundle, e.g.\n"
-        "        --abi arm64-v8a,armeabi-v7a,x86_64  (ignored on iOS)\n");
+        "        --abi arm64-v8a,armeabi-v7a,x86_64  (ignored on iOS)\n"
+        "  --pack bundles all shaders+assets into one game.pck (io::ResourcePack)\n"
+        "        instead of staging them as loose files.\n");
 }
 
 } // namespace
 
 int main(int argc, char** argv) {
     std::string app, version = "0.1.0", osArg = "android", abiArg = "arm64-v8a", from = "build/bin", out;
+    bool pack = false;
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
         auto val = [&](const char* def) -> std::string { return (i + 1 < argc) ? std::string(argv[++i]) : std::string(def); };
@@ -255,6 +357,7 @@ int main(int argc, char** argv) {
         else if (a == "--abi") abiArg = val("arm64-v8a");
         else if (a == "--from") from = val("build/bin");
         else if (a == "--out") out = val("");
+        else if (a == "--pack") pack = true;
         else if (a == "--help" || a == "-h") { usage(); return 0; }
         else { std::fprintf(stderr, "unknown argument: %s\n", a.c_str()); usage(); return 2; }
     }
@@ -288,9 +391,15 @@ int main(int argc, char** argv) {
     std::printf("    files:     %zu, total %llu bytes\n", plan.files.size(),
                 static_cast<unsigned long long>(plan.totalSize));
 
-    const int mismatches = stageAndVerify(plan, absByLogical, outDir);
+    // With --pack, the shader/asset files ship inside one .pck instead of loose: stage everything else, then
+    // write + verify the archive. Otherwise stage the whole plan as loose files (the default).
+    const MergedPlan staged = pack ? withoutResources(plan, sources) : plan;
+    int mismatches = stageAndVerify(staged, absByLogical, outDir);
+    if (pack && mismatches == 0) {
+        mismatches += writeAndVerifyPack(sources, absByLogical, packDestFor(os, app), outDir);
+    }
 
-    { std::ofstream m(outDir / "MANIFEST.txt", std::ios::binary | std::ios::trunc); m << plan.listing; }
+    { std::ofstream m(outDir / "MANIFEST.txt", std::ios::binary | std::ios::trunc); m << staged.listing; }
 
     if (mismatches != 0) {
         std::fprintf(stderr, "==> FAILED: %d file(s) did not stage as planned.\n", mismatches);

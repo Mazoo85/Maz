@@ -31,6 +31,7 @@ well-scoped.
 | Frame-rate cap / battery saver | `core::FramePacer` — target-fps sleep budget + lower idle cap (menu/pause), drift-corrected; the caller does the sleep | ✅ done |
 | Bundle staging | `tools/package_mobile.sh` + the `mobilepack` CLI drive `io::planMobileBundle` to stage `dist/<app>-<ver>-<os>[-<abi>]/` (game `.so`/`.app`, assets, manifest) and verify it | ✅ done |
 | Multi-ABI (fat) Android | `mobilepack --abi arm64-v8a,armeabi-v7a,x86_64` stages a `lib/<abi>/` tree per ABI with assets + manifest written once | ✅ done |
+| Packed assets (.pck) | `mobilepack --pack` bundles all shaders+assets into one `game.pck` (`io::ResourcePack`) instead of loose files, verified by round-trip | ✅ done |
 
 The one thing every mobile backend must provide is `nativeWindowHandle()`; the rest of `PlatformBackend`
 (caps, directories, lifecycle, and `safeAreaInsets()` from the OS) is filled exactly like `DesktopBackend`
