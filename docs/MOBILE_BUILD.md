@@ -24,6 +24,7 @@ well-scoped.
 | Asset/save routing | `io::VirtualFileSystem` `res://`/`user://`, mounted by the backend at boot | ✅ done |
 | Autosave on background | `PlatformBackend::setOnSuspend/​setOnResume` — fired on the lifecycle edge (see `apps/_template/`) | ✅ done |
 | Notch / safe area | `platform::SafeArea` (`safeAreaRect`/`clampPointToSafeArea`/`fitRectInSafeArea`) + `PlatformBackend::safeAreaInsets()`; `apps/_template` anchors controls inside it | ✅ done |
+| Touch-target sizing | `platform::TouchTarget` (`recommendedTouchTargetPx`/`meetsTouchTarget`/`expandToTouchTarget`/`dpiFromDiagonal`) sizes tappable controls to the ~9mm/48dp accessibility floor across any DPI | ✅ done |
 | Screen orientation | `PlatformBackend::orientation()` + `platform::Orientation` (`isPortrait`/`quarterTurnsFromPortrait`/`orientedInsets`) re-derives safe-area insets per device rotation | ✅ done |
 | Haptic feedback | `PlatformBackend::triggerHaptic(HapticFeedback)` (selection/impact/notification kinds) + `platform::Haptics` helpers; no-op on desktop, OS motor on mobile | ✅ seam done |
 | Soft keyboard / text entry | `PlatformBackend::show/hideSoftKeyboard(SoftKeyboardType)` + `isSoftKeyboardVisible()`; tracks state on desktop, raises the OS IME on mobile | ✅ seam done |
@@ -69,6 +70,8 @@ using namespace platform;
 SafeAreaInsets insets = orientedInsets(backend->safeAreaInsets(), backend->orientation()); // Orientation.hpp
 math::Rect2 safe = safeAreaRect(drawableW, drawableH, insets);                              // SafeArea.hpp
 // place the stick/buttons within [safe.left()..safe.right()] × [safe.top()..safe.bottom()]
+// size each button to a comfortable physical target for the display's DPI (TouchTarget.hpp):
+float btnPx = recommendedTouchTargetPx(displayDpi);   // ~9mm/48dp floor; button = btnPx × btnPx
 ```
 
 **3 — Input: touch = keyboard.** `input::VirtualControls` (sticks+buttons) fed by multi-touch, unified with
