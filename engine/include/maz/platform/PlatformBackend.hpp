@@ -116,6 +116,18 @@ enum class SoftKeyboardType { Default, Number, Email, Phone, Url };
 // the isOnline()/isMetered() policy helpers.
 enum class NetworkReachability { Unknown, Offline, Cellular, Wifi, Ethernet };
 
+// A snapshot of the device's motion sensors — the accelerometer and gyroscope a phone/tablet game reads for
+// tilt steering (a racing game's wheel, a marble-maze), shake gestures, and orientation-aware effects. Axes
+// are the device's own frame: +x points right along the screen, +y up the screen, +z out of the glass toward
+// the player. The accelerometer is in m/s^2 and INCLUDES gravity, so a device lying flat face-up reads ~+9.81
+// on z; the gyroscope is angular velocity in rad/s about each axis. Desktop/headless have no IMU and report
+// all-zero (the honest "no reading"); mobile backends fill it from the OS (iOS CoreMotion, Android
+// SensorManager TYPE_ACCELEROMETER / TYPE_GYROSCOPE). See Motion.hpp for the tilt/shake/level policy helpers.
+struct MotionState {
+    float accelX = 0.0f, accelY = 0.0f, accelZ = 0.0f; // m/s^2, gravity included
+    float gyroX = 0.0f, gyroY = 0.0f, gyroZ = 0.0f;    // rad/s
+};
+
 // Lifecycle states the OS can drive. Desktop stays Running; mobile/console push Suspended/Resumed as the
 // user backgrounds the app, which the engine must honor (pause audio, release the GPU surface, save state).
 enum class LifecycleState { Created, Running, Suspended, Stopped };
@@ -155,6 +167,11 @@ public:
     // type so a game can hold large downloads for Wi-Fi and avoid metered cellular data. See Network.hpp for
     // the isOnline()/isMetered() policy helpers.
     virtual NetworkReachability reachability() const { return NetworkReachability::Unknown; }
+
+    // Motion-sensor (accelerometer + gyroscope) snapshot. All-zero by default — desktop/headless have no IMU;
+    // mobile backends override it from the OS so a game can steer by tilt or detect a shake. Poll it once per
+    // frame. See Motion.hpp for the tiltVector()/isShaking()/deviceIsFlat() policy helpers.
+    virtual MotionState motionState() const { return {}; }
 
     // Request a haptic buzz. A no-op on desktop/headless (no vibration motor); mobile backends override
     // onHaptic() to drive the OS haptic API. Safe to call unconditionally from game code — it simply does

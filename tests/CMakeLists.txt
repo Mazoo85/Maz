@@ -154,6 +154,14 @@ target_link_libraries(maz_platform_network_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME platform_network COMMAND maz_platform_network_tests)
 set_tests_properties(platform_network PROPERTIES TIMEOUT 30)
 
+# Motion sensors (platform::Motion) — turns a raw accelerometer/gyroscope MotionState into a tilt steering
+# vector, a shake gesture, a flat-device test, and a low-pass smoother, with the desktop all-zero (no IMU)
+# default. Pure deterministic math, verified headlessly; the live reading comes from a mobile backend.
+add_executable(maz_platform_motion_tests platform/motion.cpp)
+target_link_libraries(maz_platform_motion_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME platform_motion COMMAND maz_platform_motion_tests)
+set_tests_properties(platform_motion PROPERTIES TIMEOUT 30)
+
 add_executable(maz_platform_touch_tests platform/touch.cpp)
 target_link_libraries(maz_platform_touch_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME platform_touch COMMAND maz_platform_touch_tests)
