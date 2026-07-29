@@ -105,6 +105,11 @@ enum class HapticFeedback {
     Error,         // a negative notification pattern
 };
 
+// The kind of on-screen keyboard to raise, so the OS shows the right key layout — a number pad for a score
+// entry, an email layout with '@', etc. Maps onto iOS UIKeyboardType and Android inputType. Default is the
+// full text keyboard.
+enum class SoftKeyboardType { Default, Number, Email, Phone, Url };
+
 // Lifecycle states the OS can drive. Desktop stays Running; mobile/console push Suspended/Resumed as the
 // user backgrounds the app, which the engine must honor (pause audio, release the GPU surface, save state).
 enum class LifecycleState { Created, Running, Suspended, Stopped };
@@ -145,6 +150,23 @@ public:
     // nothing where there is no hardware. See Haptics.hpp for hapticName()/hapticIntensity() helpers.
     void triggerHaptic(HapticFeedback fb) { onHaptic(fb); }
 
+    // On-screen (soft) keyboard control. A phone has no hardware keyboard, so a game must ASK the OS to raise
+    // the IME when a text field gains focus and dismiss it otherwise; `type` picks the key layout. The base
+    // tracks the requested state (isSoftKeyboardVisible/softKeyboardType) so game logic is uniform; a mobile
+    // backend overrides onSoftKeyboard() to actually show/hide the OS keyboard. On desktop this is a logical
+    // no-op — there is a hardware keyboard — so the flag is informational.
+    void showSoftKeyboard(SoftKeyboardType type = SoftKeyboardType::Default) {
+        m_softKeyboardVisible = true;
+        m_softKeyboardType = type;
+        onSoftKeyboard(true, type);
+    }
+    void hideSoftKeyboard() {
+        m_softKeyboardVisible = false;
+        onSoftKeyboard(false, m_softKeyboardType);
+    }
+    bool isSoftKeyboardVisible() const { return m_softKeyboardVisible; }
+    SoftKeyboardType softKeyboardType() const { return m_softKeyboardType; }
+
     // Absolute root directory for a file category on this platform.
     virtual std::string directory(DirKind kind) const = 0;
 
@@ -178,9 +200,14 @@ protected:
     // Backend hook for a haptic request. Default no-op (desktop/headless have no motor); a mobile backend
     // overrides this to fire the OS API. Called by triggerHaptic().
     virtual void onHaptic(HapticFeedback /*fb*/) {}
+    // Backend hook for a soft-keyboard show/hide request. Default no-op (desktop has a hardware keyboard); a
+    // mobile backend overrides this to raise/dismiss the OS IME. Called by show/hideSoftKeyboard().
+    virtual void onSoftKeyboard(bool /*visible*/, SoftKeyboardType /*type*/) {}
     LifecycleState m_lifecycle = LifecycleState::Created;
     std::function<void()> m_onSuspend;
     std::function<void()> m_onResume;
+    bool m_softKeyboardVisible = false;
+    SoftKeyboardType m_softKeyboardType = SoftKeyboardType::Default;
 };
 
 // The reference backend that runs anywhere: no window, no GPU, deterministic directories. It exists both for
@@ -219,6 +246,9 @@ public:
     int hapticCount() const { return m_haptics; }
     HapticFeedback lastHaptic() const { return m_lastHaptic; }
 
+    // Test/inspection hook: how many soft-keyboard SHOW requests this backend has seen.
+    int softKeyboardShows() const { return m_softShows; }
+
 protected:
     void onLifecycle(LifecycleState s) override {
         if (s == LifecycleState::Suspended) ++m_suspends;
@@ -227,11 +257,15 @@ protected:
         ++m_haptics;
         m_lastHaptic = fb;
     }
+    void onSoftKeyboard(bool visible, SoftKeyboardType /*type*/) override {
+        if (visible) ++m_softShows;
+    }
 
 private:
     int m_suspends = 0;
     int m_haptics = 0;
     HapticFeedback m_lastHaptic = HapticFeedback::Selection;
+    int m_softShows = 0;
 };
 
 // Selects a backend by PlatformId. Real backends register a factory (a shared library, a console SDK module,

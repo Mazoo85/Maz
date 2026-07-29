@@ -138,6 +138,14 @@ target_link_libraries(maz_platform_haptics_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME platform_haptics COMMAND maz_platform_haptics_tests)
 set_tests_properties(platform_haptics PROPERTIES TIMEOUT 30)
 
+# On-screen (soft) keyboard seam (PlatformBackend::show/hideSoftKeyboard + platform::SoftKeyboard) — the IME
+# control a mobile game needs for text entry. Pure/headless: HeadlessBackend records show requests + tracks
+# visibility/type, DesktopBackend tracks the logical state, and softKeyboardTypeName() is verified here.
+add_executable(maz_platform_softkeyboard_tests platform/softkeyboard.cpp)
+target_link_libraries(maz_platform_softkeyboard_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME platform_softkeyboard COMMAND maz_platform_softkeyboard_tests)
+set_tests_properties(platform_softkeyboard PROPERTIES TIMEOUT 30)
+
 add_executable(maz_platform_touch_tests platform/touch.cpp)
 target_link_libraries(maz_platform_touch_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME platform_touch COMMAND maz_platform_touch_tests)

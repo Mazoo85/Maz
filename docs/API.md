@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_685 headers across 20 subsystems._
+_686 headers across 20 subsystems._
 
 ## Contents
 
@@ -2712,6 +2712,15 @@ maz::platform safe-area geometry — the pure math for keeping UI clear of a pho
 - `inline math::vec2 clampPointToSafeArea(math::vec2 p, const math::Rect2& safe)`
 - `inline math::Rect2 fitRectInSafeArea(const math::Rect2& r, const math::Rect2& safe)`
 - `inline SafeAreaInsets rotateInsets(SafeAreaInsets in, int quarterTurnsCW)`
+
+### `SoftKeyboard`
+<sub>`engine/include/maz/platform/SoftKeyboard.hpp`</sub>
+
+maz::platform soft-keyboard helper — a name for each on-screen keyboard layout kind, for logging/config. The show/hide/visibility control lives on PlatformBackend (no-op on desktop, the OS IME on mobile); this is just the pure label. Header-only.
+
+**Functions:**
+
+- `inline const char* softKeyboardTypeName(SoftKeyboardType t)`
 
 ### `WebLoop`
 <sub>`engine/include/maz/platform/WebLoop.hpp`</sub>
