@@ -2437,6 +2437,13 @@ set_tests_properties(app_template_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
+# The mobile exporter CLI: --selftest synthesizes a tiny build tree in a temp dir, stages an Android and an
+# iOS bundle through io::planMobileBundle, and verifies every planned file landed at its planned size.
+add_test(
+    NAME mobilepack_selftest
+    COMMAND mobilepack --selftest)
+set_tests_properties(mobilepack_selftest PROPERTIES TIMEOUT 60)
+
 add_test(
     NAME platformer_headless_smoke
     COMMAND platformer --headless --frames 30)

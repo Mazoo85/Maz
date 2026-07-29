@@ -29,6 +29,7 @@ well-scoped.
 | Lighter frame graph | `RenderTier::Mobile` (`--mobile`): MSAA off, bloom blur passes skipped, SSAO off | ✅ done |
 | Dynamic resolution | `render::DynamicResolution` — adaptive render-scale policy (frametime→scale, hysteresis); GPU target-resize is the on-device wire-up | ✅ policy done |
 | Frame-rate cap / battery saver | `core::FramePacer` — target-fps sleep budget + lower idle cap (menu/pause), drift-corrected; the caller does the sleep | ✅ done |
+| Bundle staging | `tools/package_mobile.sh` + the `mobilepack` CLI drive `io::planMobileBundle` to stage `dist/<app>-<ver>-<os>[-<abi>]/` (game `.so`/`.app`, assets, manifest) and verify it | ✅ done |
 
 The one thing every mobile backend must provide is `nativeWindowHandle()`; the rest of `PlatformBackend`
 (caps, directories, lifecycle, and `safeAreaInsets()` from the OS) is filled exactly like `DesktopBackend`
@@ -108,7 +109,8 @@ These are intentionally **not** done here because they require the Mac/Android t
 
 - The concrete `AndroidBackend.cpp` / `IOSBackend.cpp` (skeletons specified above).
 - Gradle / Xcode project generation and signing config.
-- A mobile `io::BundlePlan` target and `.pck` packaging into the APK/app bundle.
+- Assembling the staged tree (`tools/package_mobile.sh`) into a signed `.apk`/`.ipa` (needs Gradle+NDK / Xcode).
+  The layout + manifest staging itself is done; `.pck` packing of assets is a further optional step.
 - Any on-device or emulator run.
 
 Everything the engine can do without those toolchains — touch, virtual controls, the callback loop, the
