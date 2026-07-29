@@ -11,7 +11,8 @@
 # signing (see docs/MOBILE_BUILD.md); this makes "lay out the files + drop in the manifest" one command.
 #
 # Usage:
-#   tools/package_mobile.sh <app> [version] [--os android|ios] [--abi ARCH]
+#   tools/package_mobile.sh <app> [version] [--os android|ios] [--abi ARCH] [--pack]
+#   tools/package_mobile.sh <app> [version] [--os ...] [--abi ...] --preflight   # validate an existing bundle
 #   tools/package_mobile.sh --list       # list built apps that can be staged
 #
 # Requires an existing build in build/bin (run: cmake -S . -B build && cmake --build build).
@@ -39,6 +40,7 @@ VERSION="0.1.0"
 OS="android"
 ABI="arm64-v8a"
 PACK=""
+PREFLIGHT=""
 
 # First positional after the app that isn't a flag is the version; the rest are --os/--abi/--pack flags.
 if [ "${1:-}" != "" ] && [ "${1#--}" = "${1:-}" ]; then
@@ -49,6 +51,7 @@ while [ "${1:-}" != "" ]; do
         --os)   OS="${2:?--os needs a value}"; shift 2 ;;
         --abi)  ABI="${2:?--abi needs a value}"; shift 2 ;;
         --pack) PACK="--pack"; shift ;;
+        --preflight) PREFLIGHT="1"; shift ;;
         *) echo "error: unknown option '$1'" >&2; exit 2 ;;
     esac
 done
@@ -72,6 +75,18 @@ if [ "$OS" = "android" ]; then
     esac
 fi
 OUT="$DIST/$APP-$VERSION-$SUFFIX"
+
+# --preflight: don't stage; validate the already-produced bundle tree at $OUT (non-destructive) and exit
+# with mobilepack's verdict (non-zero on any preflight error).
+if [ -n "$PREFLIGHT" ]; then
+    if [ ! -d "$OUT" ]; then
+        echo "error: no staged bundle to preflight at $OUT" >&2
+        echo "       stage it first: tools/package_mobile.sh $APP $VERSION --os $OS --abi $ABI" >&2
+        exit 1
+    fi
+    echo "==> Preflighting existing bundle: $OUT"
+    exec "$MOBILEPACK" --app "$APP" --version "$VERSION" --os "$OS" --abi "$ABI" --from "$BIN" --preflight "$OUT"
+fi
 
 echo "==> Staging mobile bundle: $APP v$VERSION ($OS${ABI:+, $ABI when android})${PACK:+ [packed]}"
 "$MOBILEPACK" --app "$APP" --version "$VERSION" --os "$OS" --abi "$ABI" $PACK --from "$BIN" --out "$OUT"

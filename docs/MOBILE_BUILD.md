@@ -35,6 +35,7 @@ well-scoped.
 | Frame-rate cap / battery saver | `core::FramePacer` — target-fps sleep budget + lower idle cap (menu/pause), drift-corrected; the caller does the sleep | ✅ done |
 | Power/thermal awareness | `PlatformBackend::powerState()` + `platform::PowerState` helpers (`recommendsPowerSave`/`recommendedFps`/`powerBudgetScale`) drive FramePacer on low battery / low-power mode / thermal throttle | ✅ policy done |
 | Bundle staging | `tools/package_mobile.sh` + the `mobilepack` CLI drive `io::planMobileBundle` to stage `dist/<app>-<ver>-<os>[-<abi>]/` (game `.so`/`.app`, assets, manifest) and verify it | ✅ done |
+| Bundle preflight | `io::preflightMobileBundle` validates a staged tree against its plan (missing binary/manifest/files = errors; no shaders/`.pck` or stale files = warnings); runs as `mobilepack`'s final gate and standalone via `--preflight` | ✅ done |
 | Multi-ABI (fat) Android | `mobilepack --abi arm64-v8a,armeabi-v7a,x86_64` stages a `lib/<abi>/` tree per ABI with assets + manifest written once | ✅ done |
 | Packed assets (.pck) | `mobilepack --pack` bundles all shaders+assets into one `game.pck` (`io::ResourcePack`) instead of loose files, verified by round-trip | ✅ done |
 
@@ -101,6 +102,13 @@ float budget = platform::powerBudgetScale(backend->powerState());     // 0..1 fo
 **9 — Package.** `tools/package_mobile.sh <app> <ver> --os android --abi arm64-v8a,armeabi-v7a --pack`
 stages the bundle (fat `lib/<abi>/`, one `game.pck`, generated manifest) and verifies it; hand that tree to
 Gradle/Xcode below.
+
+**10 — Preflight (before you hand it off).** `tools/package_mobile.sh <app> <ver> --os android --abi
+arm64-v8a,armeabi-v7a --preflight` re-validates an already-staged tree non-destructively — the game binary
+and manifest are present, every planned file landed, resources ship (loose `.spv` or a `.pck`), and no stale
+leftovers linger. It's the same `io::preflightMobileBundle` gate `mobilepack` runs at the end of staging, but
+callable on its own so you can re-check a tree a Gradle step (or a manual edit) has since touched. Errors mean
+"won't run" and exit non-zero; warnings are advisory.
 
 ---
 
