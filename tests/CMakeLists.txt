@@ -146,6 +146,14 @@ target_link_libraries(maz_platform_softkeyboard_tests PRIVATE maz::maz maz_warni
 add_test(NAME platform_softkeyboard COMMAND maz_platform_softkeyboard_tests)
 set_tests_properties(platform_softkeyboard PROPERTIES TIMEOUT 30)
 
+# Network reachability policy (PlatformBackend::reachability + platform::Network) — the connection-type gate a
+# mobile game uses to hold large downloads for Wi-Fi and avoid metered cellular data. Pure deterministic
+# decisions (isOnline/isMetered/isUnmeteredOnline) + names + the desktop Unknown default, verified here.
+add_executable(maz_platform_network_tests platform/network.cpp)
+target_link_libraries(maz_platform_network_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME platform_network COMMAND maz_platform_network_tests)
+set_tests_properties(platform_network PROPERTIES TIMEOUT 30)
+
 add_executable(maz_platform_touch_tests platform/touch.cpp)
 target_link_libraries(maz_platform_touch_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME platform_touch COMMAND maz_platform_touch_tests)

@@ -110,6 +110,12 @@ enum class HapticFeedback {
 // full text keyboard.
 enum class SoftKeyboardType { Default, Number, Email, Phone, Url };
 
+// How the device is connected to the network — what a game consults before a download/update so it can hold
+// large transfers for Wi-Fi and not burn a player's cellular data plan. Unknown when not yet queried; a
+// mobile backend fills it from the OS (Android ConnectivityManager, iOS NWPathMonitor). See Network.hpp for
+// the isOnline()/isMetered() policy helpers.
+enum class NetworkReachability { Unknown, Offline, Cellular, Wifi, Ethernet };
+
 // Lifecycle states the OS can drive. Desktop stays Running; mobile/console push Suspended/Resumed as the
 // user backgrounds the app, which the engine must honor (pause audio, release the GPU surface, save state).
 enum class LifecycleState { Created, Running, Suspended, Stopped };
@@ -144,6 +150,11 @@ public:
     // backends override it from the OS so a game can re-orient its safe-area insets and layout. See
     // Orientation.hpp for the isPortrait()/quarterTurnsFromPortrait()/orientedInsets() helpers.
     virtual ScreenOrientation orientation() const { return ScreenOrientation::Unknown; }
+
+    // Network reachability. Unknown by default (not queried here); mobile backends report the live connection
+    // type so a game can hold large downloads for Wi-Fi and avoid metered cellular data. See Network.hpp for
+    // the isOnline()/isMetered() policy helpers.
+    virtual NetworkReachability reachability() const { return NetworkReachability::Unknown; }
 
     // Request a haptic buzz. A no-op on desktop/headless (no vibration motor); mobile backends override
     // onHaptic() to drive the OS haptic API. Safe to call unconditionally from game code — it simply does

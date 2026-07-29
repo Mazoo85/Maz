@@ -27,6 +27,7 @@ well-scoped.
 | Screen orientation | `PlatformBackend::orientation()` + `platform::Orientation` (`isPortrait`/`quarterTurnsFromPortrait`/`orientedInsets`) re-derives safe-area insets per device rotation | ✅ done |
 | Haptic feedback | `PlatformBackend::triggerHaptic(HapticFeedback)` (selection/impact/notification kinds) + `platform::Haptics` helpers; no-op on desktop, OS motor on mobile | ✅ seam done |
 | Soft keyboard / text entry | `PlatformBackend::show/hideSoftKeyboard(SoftKeyboardType)` + `isSoftKeyboardVisible()`; tracks state on desktop, raises the OS IME on mobile | ✅ seam done |
+| Network reachability | `PlatformBackend::reachability()` (Wifi/Cellular/Ethernet/Offline) + `platform::Network` (`isOnline`/`isMetered`/`isUnmeteredOnline`) to gate downloads off cellular data | ✅ seam done |
 | Vulkan portability | `VK_KHR_portability_enumeration` + `_subset` opt-in in `VulkanContext` | ✅ done |
 | Push-constant limit | sky push constant is 128 bytes (mobile floor) | ✅ done |
 | Lighter frame graph | `RenderTier::Mobile` (`--mobile`): MSAA off, bloom blur passes skipped, SSAO off | ✅ done |

@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_686 headers across 20 subsystems._
+_687 headers across 20 subsystems._
 
 ## Contents
 
@@ -2663,6 +2663,18 @@ maz::platform haptics helpers — small pure utilities around the HapticFeedback
 Gamepad axis/button ids. Values match SDL_GamepadAxis / SDL_GamepadButton ordering, so gameplay code can name inputs semantically without including SDL headers.
 
 **Types:** `Touch`, `Input`
+
+### `Network`
+<sub>`engine/include/maz/platform/Network.hpp`</sub>
+
+maz::platform network-reachability policy — the pure decisions a game makes from a NetworkReachability snapshot. PlatformBackend::reachability() reports HOW the device is connected; these free functions turn that into WHAT TO DO: are we online at all, and is the link metered (so we should hold big downloads or warn before spending the player's cellular data). Kept out of the backend so the policy is deterministic and tunable, and a no-op-safe default where reachability is Unknown. Header-only.
+
+**Functions:**
+
+- `inline bool isOnline(NetworkReachability r)`
+- `inline bool isMetered(NetworkReachability r)`
+- `inline bool isUnmeteredOnline(NetworkReachability r)`
+- `inline const char* reachabilityName(NetworkReachability r)`
 
 ### `Orientation`
 <sub>`engine/include/maz/platform/Orientation.hpp`</sub>
