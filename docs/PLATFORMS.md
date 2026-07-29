@@ -14,8 +14,8 @@ the OS can suspend/resume the app.
 | **Headless** | `HeadlessBackend` | ✅ Implemented + unit-tested (`ctest -R platform_backend`) | — |
 | **Desktop (Linux/Win/Mac)** | SDL3 + Vulkan | ✅ Shipping (the native path the samples/editor use) | — |
 | **Web / WASM** | Emscripten + WebGL2 | ⚙️ Build path + main-loop done ([WEB_BUILD.md](WEB_BUILD.md)); needs Emscripten to emit `.wasm` | Install emsdk, run `tools/build_web.sh` |
-| **Android** | `PlatformId::Android` | 🧱 **Engine-side foundation done** (touch, virtual controls, callback loop, backend seam, MoltenVK-safe renderer + mobile tier); backend `.cpp` + APK build not possible here | **Device step** — [MOBILE_BUILD.md](MOBILE_BUILD.md) |
-| **iOS** | `PlatformId::iOS` | 🧱 **Engine-side foundation done** (same as Android; renderer is now MoltenVK/portability-safe) | **Device step** — [MOBILE_BUILD.md](MOBILE_BUILD.md) |
+| **Android** | `PlatformId::Android` | 🧱 **Engine-side foundation done** (touch + gestures, virtual controls, callback loop, the backend seam and its device seams — safe area, orientation, power/thermal, haptics, soft keyboard, network — autosave-on-suspend, frame pacer + dynamic resolution, MoltenVK-safe renderer + mobile tier, and bundle staging + preflight); backend `.cpp` + APK build not possible here | **Device step** — [MOBILE_BUILD.md](MOBILE_BUILD.md) |
+| **iOS** | `PlatformId::iOS` | 🧱 **Engine-side foundation done** (same as Android; renderer is MoltenVK/portability-safe) | **Device step** — [MOBILE_BUILD.md](MOBILE_BUILD.md) |
 | **VR (OpenXR)** | `PlatformId::VrOpenXR` | 🔩 Seam defined | **Human step** below |
 | **Consoles** | `PlatformId::ConsoleA/B/C` | 🔩 Seam defined; SDKs are under NDA | **Human step** below |
 
@@ -47,6 +47,21 @@ The shared, engine-side work that makes Maz mobile-shaped is done and verified o
   Metal), the sky push constant fits the 128-byte mobile floor, and `RenderTier::Mobile` (the
   `--mobile` flag) forces MSAA off and drops bloom/SSAO for tilers (verified by the `scene3d_mobile`
   golden).
+- **Device seams on the backend** — the `PlatformBackend` interface grew neutral-defaulted virtuals for
+  everything a phone game reads, each paired with a pure-policy helper header and recorded by
+  `HeadlessBackend` for unit tests: safe-area insets (`SafeArea.hpp` → `safeAreaRect`), screen
+  orientation (`Orientation.hpp` → `orientedInsets`/`quarterTurnsFromPortrait`), power/thermal state
+  (`PowerState.hpp` → `recommendedFps`/`powerBudgetScale`), haptics (`Haptics.hpp`), soft keyboard
+  (`SoftKeyboard.hpp`), and network reachability (`Network.hpp` → `isUnmeteredOnline`). Desktop/headless
+  are unaffected; a mobile backend overrides each with its OS call (`ctest -R platform_`).
+- **Battery-aware loop + autosave** — `core::FramePacer` caps the frame rate and follows
+  `recommendedFps(powerState())`; `render::DynamicResolution` scales GPU cost; the backend's
+  `onSuspend`/`onResume` callbacks let a game persist on the lifecycle edge (a backgrounded app can be
+  killed with no further notice). `apps/_template/` wires all of this as the copy-me showcase.
+- **Bundle staging + preflight** — `tools/package_mobile.sh` + the `mobilepack` CLI drive
+  `io::planMobileBundle` to stage a complete Android/iOS bundle (fat multi-ABI `lib/<abi>/`, optional
+  single `game.pck`, generated `AndroidManifest.xml`/`Info.plist`), and `io::preflightMobileBundle`
+  validates the staged tree before Gradle/Xcode runs (`ctest -R "mobile_bundle|mobilepack"`).
 
 ## The exact human/hardware step per platform
 
@@ -55,14 +70,23 @@ The shared, engine-side work that makes Maz mobile-shaped is done and verified o
 2. Implement an `AndroidBackend : PlatformBackend`: `nativeWindowHandle()` returns the `ANativeWindow*`
    from the `android_app`; `directory(Assets)` maps to the APK asset manager, `UserData` to the app's
    internal storage; `caps().hasTouch/canSuspend = true`; forward `onPause`/`onResume` to
-   `transition(Suspended/Running)`.
+   `transition(Suspended/Running)`. Fill the device seams from the OS: `safeAreaInsets()` from
+   `WindowInsets`, `orientation()` from the display rotation, `powerState()` from `BatteryManager` +
+   `PowerManager`, `reachability()` from `ConnectivityManager`, and route `triggerHaptic`/soft-keyboard
+   calls to `Vibrator`/`InputMethodManager` — the engine side and its policy helpers are already done
+   and tested; only these per-OS calls remain.
 3. Build the Vulkan-for-Android surface, package an APK (Gradle), and deploy to a **physical device or
    emulator**. Publishing needs a **Google Play developer account**.
 
 ### iOS
 1. Install **Xcode** on a Mac; you need an **Apple Developer account** to sign.
 2. Implement an `IOSBackend`: `nativeWindowHandle()` → the `CAMetalLayer`/`UIView`; wire
-   `applicationDidEnterBackground`/`willEnterForeground` to the lifecycle transitions.
+   `applicationDidEnterBackground`/`willEnterForeground` to the lifecycle transitions. Fill the device
+   seams from UIKit: `safeAreaInsets()` from `UIView.safeAreaInsets`, `orientation()` from
+   `UIDevice.orientation`, `powerState()` from `UIDevice.batteryState`/`isLowPowerModeEnabled` +
+   `ProcessInfo.thermalState`, `reachability()` from `NWPathMonitor`, and route haptics to
+   `UIFeedbackGenerator` and the soft keyboard to a `UITextField` first responder — again, only the
+   per-OS calls; the engine side is done.
 3. Build with MoltenVK (Vulkan-on-Metal), sign, and deploy to a **physical device** via Xcode.
 
 ### VR (OpenXR)
