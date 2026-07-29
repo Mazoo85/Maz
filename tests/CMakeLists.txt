@@ -169,6 +169,13 @@ target_link_libraries(maz_platform_touchtarget_tests PRIVATE maz::maz maz_warnin
 add_test(NAME platform_touchtarget COMMAND maz_platform_touchtarget_tests)
 set_tests_properties(platform_touchtarget PROPERTIES TIMEOUT 30)
 
+# Thumb-zone control placement (platform::ThumbZone) — puts a movement stick + action cluster in the natural
+# bottom thumb zones inside the safe area (right/left-handed), with size clamping and thumb-reach helpers.
+add_executable(maz_platform_thumbzone_tests platform/thumbzone.cpp)
+target_link_libraries(maz_platform_thumbzone_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME platform_thumbzone COMMAND maz_platform_thumbzone_tests)
+set_tests_properties(platform_thumbzone PROPERTIES TIMEOUT 30)
+
 add_executable(maz_platform_touch_tests platform/touch.cpp)
 target_link_libraries(maz_platform_touch_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME platform_touch COMMAND maz_platform_touch_tests)
