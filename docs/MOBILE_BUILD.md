@@ -44,6 +44,66 @@ The one thing every mobile backend must provide is `nativeWindowHandle()`; the r
 
 ---
 
+## Using the mobile features in your game (quickstart)
+
+Every API below is desktop-safe — the seams return neutral values and the helpers no-op on desktop, so you
+write the code once and it comes alive on device. `apps/_template/main.cpp` is the full worked example; this
+is the tour, in the order a frame touches them.
+
+**1 — Boot: backend + file routing.** Pick the host backend, mount the schemes, and do all I/O through
+`res://` (bundled, read-only) and `user://` (writable save dir) so packaging never changes a game path:
+
+```cpp
+auto backend = platform::defaultRegistry().create(platform::DesktopBackend::hostDesktopId());
+io::VirtualFileSystem vfs;
+if (auto* d = dynamic_cast<platform::DesktopBackend*>(backend.get())) { d->attachWindow(win.sdl()); d->init(); d->mountStandard(vfs); }
+```
+
+**2 — Layout inside the safe area, per orientation.** Anchor HUD/controls to the usable rectangle so nothing
+lands under the notch or home bar; re-derive it when the device rotates:
+
+```cpp
+using namespace platform;
+SafeAreaInsets insets = orientedInsets(backend->safeAreaInsets(), backend->orientation()); // Orientation.hpp
+math::Rect2 safe = safeAreaRect(drawableW, drawableH, insets);                              // SafeArea.hpp
+// place the stick/buttons within [safe.left()..safe.right()] × [safe.top()..safe.bottom()]
+```
+
+**3 — Input: touch = keyboard.** `input::VirtualControls` (sticks+buttons) fed by multi-touch, unified with
+the keyboard; `input::GestureDetector` adds tap/double-tap/long-press/swipe and two-finger pinch/rotate/pan.
+
+**4 — Save the instant you're backgrounded.** A backgrounded mobile app can be killed with no further
+notice, so persist on the lifecycle edge — not on a timer:
+
+```cpp
+backend->setOnSuspend([&]{ save.set("x", posX); save.save(); });   // fires on didEnterBackground / onPause
+backend->setOnResume([]{ /* reacquire anything released */ });
+```
+
+**5 — Don't cook the battery.** Cap the loop with `core::FramePacer`, and let the cap follow the
+power/thermal state; scale GPU cost with `render::DynamicResolution` and the `--mobile` render tier:
+
+```cpp
+core::FramePacer pacer;
+pacer.setActiveFps(platform::recommendedFps(backend->powerState()));  // 60 → 30 on low battery / thermal
+double sleepS = pacer.sleepFor(frameWorkSeconds);                     // you perform the sleep
+float budget = platform::powerBudgetScale(backend->powerState());     // 0..1 for particle/shadow counts
+```
+
+**6 — Game feel.** `backend->triggerHaptic(platform::HapticFeedback::ImpactMedium);` on a hit/confirm.
+
+**7 — Text entry.** `backend->showSoftKeyboard(platform::SoftKeyboardType::Email);` when a field focuses,
+`hideSoftKeyboard()` when it blurs; gate UI on `isSoftKeyboardVisible()`.
+
+**8 — Respect the data plan.** Before a big download: `if (platform::isUnmeteredOnline(backend->reachability()))`
+— true only on Wi-Fi/Ethernet, so cellular players aren't charged for it (fails safe when unknown).
+
+**9 — Package.** `tools/package_mobile.sh <app> <ver> --os android --abi arm64-v8a,armeabi-v7a --pack`
+stages the bundle (fat `lib/<abi>/`, one `game.pck`, generated manifest) and verifies it; hand that tree to
+Gradle/Xcode below.
+
+---
+
 ## Android
 
 **You need:** Android Studio + the **Android SDK & NDK** (`ANDROID_NDK_HOME` set), a device or emulator
@@ -114,11 +174,15 @@ lock/unlock suspends/resumes cleanly.
 
 These are intentionally **not** done here because they require the Mac/Android toolchains:
 
-- The concrete `AndroidBackend.cpp` / `IOSBackend.cpp` (skeletons specified above).
+- The concrete `AndroidBackend.cpp` / `IOSBackend.cpp` (skeletons specified above), including wiring the OS
+  values into the seams (`safeAreaInsets` / `orientation` / `powerState` / `reachability` / `onHaptic` /
+  `onSoftKeyboard`) — the engine side is done and tested; only the per-OS calls remain.
 - Gradle / Xcode project generation and signing config.
-- Assembling the staged tree (`tools/package_mobile.sh`) into a signed `.apk`/`.ipa` (needs Gradle+NDK / Xcode).
-  The layout + manifest staging itself is done; `.pck` packing of assets is a further optional step.
+- Assembling the staged tree (`tools/package_mobile.sh`, which already does multi-ABI + `.pck` packing) into
+  a signed `.apk`/`.ipa` — that final packaging step needs Gradle+NDK / Xcode.
 - Any on-device or emulator run.
 
-Everything the engine can do without those toolchains — touch, virtual controls, the callback loop, the
-backend seam, the MoltenVK-safe renderer, and the mobile render tier — is done, tested, and on `main`.
+Everything the engine can do without those toolchains — touch + gestures, virtual controls, the callback
+loop, the backend seam and its device seams (safe area, orientation, power, haptics, soft keyboard, network),
+autosave-on-suspend, the frame pacer + dynamic resolution, the MoltenVK-safe renderer + mobile render tier,
+and the bundle staging (`mobilepack`) — is done, tested (500+ ctests), and on `main`.
