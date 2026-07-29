@@ -28,6 +28,7 @@ well-scoped.
 | Haptic feedback | `PlatformBackend::triggerHaptic(HapticFeedback)` (selection/impact/notification kinds) + `platform::Haptics` helpers; no-op on desktop, OS motor on mobile | ✅ seam done |
 | Soft keyboard / text entry | `PlatformBackend::show/hideSoftKeyboard(SoftKeyboardType)` + `isSoftKeyboardVisible()`; tracks state on desktop, raises the OS IME on mobile | ✅ seam done |
 | Network reachability | `PlatformBackend::reachability()` (Wifi/Cellular/Ethernet/Offline) + `platform::Network` (`isOnline`/`isMetered`/`isUnmeteredOnline`) to gate downloads off cellular data | ✅ seam done |
+| Motion sensors | `PlatformBackend::motionState()` (accelerometer + gyroscope) + `platform::Motion` (`tiltVector`/`isShaking`/`deviceIsFlat`/`lowPassFilter`) for tilt steering + shake gestures | ✅ seam done |
 | Vulkan portability | `VK_KHR_portability_enumeration` + `_subset` opt-in in `VulkanContext` | ✅ done |
 | Push-constant limit | sky push constant is 128 bytes (mobile floor) | ✅ done |
 | Lighter frame graph | `RenderTier::Mobile` (`--mobile`): MSAA off, bloom blur passes skipped, SSAO off | ✅ done |
@@ -72,6 +73,13 @@ math::Rect2 safe = safeAreaRect(drawableW, drawableH, insets);                  
 
 **3 — Input: touch = keyboard.** `input::VirtualControls` (sticks+buttons) fed by multi-touch, unified with
 the keyboard; `input::GestureDetector` adds tap/double-tap/long-press/swipe and two-finger pinch/rotate/pan.
+For tilt/shake controls, read the motion sensors:
+
+```cpp
+using namespace platform;
+math::vec2 steer = tiltVector(backend->motionState());   // Motion.hpp — [-1,1] from device tilt
+if (isShaking(backend->motionState())) { /* shake-to-reset */ }
+```
 
 **4 — Save the instant you're backgrounded.** A backgrounded mobile app can be killed with no further
 notice, so persist on the lifecycle edge — not on a timer:

@@ -65,11 +65,12 @@ turnkey, in-editor, cross-platform output.
 - **Mobile: engine-side foundation done, device build remains** — the shared work is in place and unit-
   tested here: touch + gestures, on-screen virtual controls, the callback-driven main loop, and the
   `PlatformBackend` device seams a phone game reads (safe area, orientation, power/thermal, haptics, soft
-  keyboard, network) with a battery-aware frame pacer + dynamic resolution and autosave-on-suspend; plus a
-  MoltenVK-safe renderer, a mobile render tier, and `tools/package_mobile.sh` staging a complete
-  multi-ABI/`.pck` Android/iOS bundle that `io::preflightMobileBundle` validates. What's left vs Godot is the
-  concrete `AndroidBackend`/`IOSBackend` wiring those seams to OS calls, the APK/IPA build (Gradle/Xcode +
-  signing), sensors, and store packaging — all needing the owner's device toolchain ([MOBILE_BUILD.md](MOBILE_BUILD.md)).
+  keyboard, network, and the accelerometer/gyroscope motion sensors for tilt + shake) with a battery-aware
+  frame pacer + dynamic resolution and autosave-on-suspend; plus a MoltenVK-safe renderer, a mobile render
+  tier, and `tools/package_mobile.sh` staging a complete multi-ABI/`.pck` Android/iOS bundle that
+  `io::preflightMobileBundle` validates. What's left vs Godot is the concrete `AndroidBackend`/`IOSBackend`
+  wiring those seams (including the sensors) to OS calls, the APK/IPA build (Gradle/Xcode + signing), and
+  store packaging — all needing the owner's device toolchain ([MOBILE_BUILD.md](MOBILE_BUILD.md)).
 - **No web/HTML5 export** — Godot compiles games to run in a browser (WebAssembly). Maz cannot.
 - **No console support** — Godot has (third-party) paths to Switch/PlayStation/Xbox. Maz has none.
 - **No XR/VR** — Godot has OpenXR (VR/AR headsets, controllers, passthrough). Maz has none.
