@@ -3,11 +3,13 @@
 // build/bin) and stages a complete Android or iOS bundle layout on disk: the game as lib/<abi>/lib<App>.so
 // (Android) or the Mach-O at the <App>.app root (iOS), assets under assets/ (Android) or the .app root
 // (iOS), and the generated AndroidManifest.xml / Info.plist — every destination decided by the single
-// source of truth, io::planMobileBundle. It then re-checks that every planned file actually landed at its
-// planned size. The concrete APK/IPA assembly still needs the owner's Gradle/Xcode toolchain (see
-// docs/MOBILE_BUILD.md); this makes the "lay out the files + drop in the manifest" half a one-command run.
+// source of truth, io::planMobileBundle. On Android it can stage MULTIPLE ABIs into one "fat" bundle
+// (a lib/<abi>/ tree per ABI, with the shared assets + manifest written once). It then re-checks that
+// every planned file actually landed at its planned size. The concrete APK/IPA assembly still needs the
+// owner's Gradle/Xcode toolchain (see docs/MOBILE_BUILD.md); this makes the "lay out the files + drop in
+// the manifest" half a one-command run.
 //
-//   mobilepack --app ZOMBOID --version 1.0.0 --os android --abi arm64-v8a --from build/bin --out dist/zomboid-android
+//   mobilepack --app ZOMBOID --version 1.0.0 --os android --abi arm64-v8a,armeabi-v7a,x86_64 --from build/bin
 //   mobilepack --selftest        # synthesize a tiny build tree in a temp dir, stage + verify it, exit 0 (CI)
 
 #include "maz/io/MobileBundlePlan.hpp"
@@ -16,6 +18,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -27,6 +30,18 @@ namespace {
 
 FileKind classify(const fs::path& p) {
     return p.extension() == ".spv" ? FileKind::Shader : FileKind::Asset;
+}
+
+// Split a comma-separated list ("arm64-v8a,armeabi-v7a") into its non-empty parts.
+std::vector<std::string> splitCsv(const std::string& s) {
+    std::vector<std::string> out;
+    std::string cur;
+    for (char c : s) {
+        if (c == ',') { if (!cur.empty()) out.push_back(cur); cur.clear(); }
+        else cur += c;
+    }
+    if (!cur.empty()) out.push_back(cur);
+    return out;
 }
 
 // Scan a desktop build tree (`from`) into the planner's source list: the game exe, any libSDL3.so*, every
@@ -75,9 +90,41 @@ bool collectSources(const fs::path& from, const std::string& app, std::vector<So
     return true;
 }
 
-// Stage the plan into `outDir`: copy each real source to its planned destination, and write the generated
-// manifest/plist. Then verify every planned file exists at its planned size. Returns the mismatch count (0 = OK).
-int stageAndVerify(const MobileBundlePlan& plan, const std::unordered_map<std::string, std::string>& absByLogical,
+// A merged plan across one or more ABIs. On Android each ABI contributes its own lib/<abi>/ files; the
+// shared assets and the manifest have identical destinations across ABIs and are deduped to one copy. On
+// iOS there is a single (ABI-less) plan. Files are keyed by destination so the listing is deterministic.
+struct MergedPlan {
+    std::vector<BundleFile> files;
+    std::string manifest, manifestDest, bundleId, listing;
+    uint64_t totalSize = 0;
+};
+
+MergedPlan planBundleMulti(const std::string& app, const std::string& version, MobileOs os,
+                           const std::vector<SourceFile>& sources, const std::vector<std::string>& abis) {
+    std::map<std::string, BundleFile> byDest; // dedupe + sorted-by-dest order
+    MergedPlan mp;
+    const std::vector<std::string> abiList = (os == MobileOs::iOS) ? std::vector<std::string>{""} : abis;
+    for (const std::string& abi : abiList) {
+        const MobileBundlePlan p =
+            planMobileBundle(app, version, os, sources, abi.empty() ? "arm64-v8a" : abi);
+        if (mp.manifest.empty()) {
+            mp.manifest = p.manifest;
+            mp.manifestDest = p.manifestDest;
+            mp.bundleId = p.bundleId;
+        }
+        for (const BundleFile& f : p.files) byDest[f.dest] = f;
+    }
+    for (const auto& kv : byDest) {
+        mp.files.push_back(kv.second);
+        mp.totalSize += kv.second.size;
+        mp.listing += std::to_string(kv.second.size) + "\t" + kv.second.dest + "\n";
+    }
+    return mp;
+}
+
+// Stage a merged plan into `outDir`: copy each real source to its planned destination, and write the
+// generated manifest/plist. Then verify every planned file exists at its planned size. Returns mismatches.
+int stageAndVerify(const MergedPlan& plan, const std::unordered_map<std::string, std::string>& absByLogical,
                    const fs::path& outDir) {
     std::error_code ec;
     fs::remove_all(outDir, ec);
@@ -104,7 +151,6 @@ int stageAndVerify(const MobileBundlePlan& plan, const std::unordered_map<std::s
         }
     }
 
-    // Verify: each planned file present with the planned byte size.
     int mismatches = 0;
     for (const BundleFile& f : plan.files) {
         const fs::path dest = outDir / f.dest;
@@ -121,7 +167,6 @@ int stageAndVerify(const MobileBundlePlan& plan, const std::unordered_map<std::s
 }
 
 int runSelfTest() {
-    // Build a tiny synthetic desktop tree in a temp dir, then stage + verify a bundle from it.
     const fs::path tmp = fs::temp_directory_path() / "maz_mobilepack_selftest";
     std::error_code ec;
     fs::remove_all(tmp, ec);
@@ -142,26 +187,45 @@ int runSelfTest() {
     if (!collectSources(from, "TestGame", sources, absByLogical)) return 1;
 
     int fails = 0;
-    for (MobileOs os : {MobileOs::Android, MobileOs::iOS}) {
-        const MobileBundlePlan plan = planMobileBundle("TestGame", "1.2.3", os, sources, "arm64-v8a");
-        const fs::path out = tmp / ("stage-" + mobileOsName(os));
-        const int m = stageAndVerify(plan, absByLogical, out);
-        if (m != 0) {
-            std::fprintf(stderr, "selftest: %s staging had %d mismatch(es)\n", mobileOsName(os).c_str(), m);
-            ++fails;
-            continue;
-        }
-        // Spot-check the OS-specific destinations exist.
-        const fs::path exeDest =
-            os == MobileOs::Android ? out / "lib/arm64-v8a/libTestGame.so" : out / "TestGame.app/TestGame";
-        const fs::path manifestDest =
-            os == MobileOs::Android ? out / "AndroidManifest.xml" : out / "TestGame.app/Info.plist";
-        if (!fs::exists(exeDest)) { std::fprintf(stderr, "selftest: missing exe dest %s\n", exeDest.string().c_str()); ++fails; }
-        if (!fs::exists(manifestDest)) { std::fprintf(stderr, "selftest: missing manifest %s\n", manifestDest.string().c_str()); ++fails; }
+
+    // iOS single bundle.
+    {
+        const MergedPlan plan = planBundleMulti("TestGame", "1.2.3", MobileOs::iOS, sources, {});
+        const fs::path out = tmp / "stage-ios";
+        if (stageAndVerify(plan, absByLogical, out) != 0) ++fails;
+        if (!fs::exists(out / "TestGame.app/TestGame")) { std::fprintf(stderr, "selftest: missing ios exe\n"); ++fails; }
+        if (!fs::exists(out / "TestGame.app/Info.plist")) { std::fprintf(stderr, "selftest: missing ios plist\n"); ++fails; }
     }
+
+    // Android FAT bundle across three ABIs: each gets its own lib/<abi>/libTestGame.so, but the shared
+    // assets and the single AndroidManifest.xml are written once (deduped).
+    {
+        const std::vector<std::string> abis = {"arm64-v8a", "armeabi-v7a", "x86_64"};
+        const MergedPlan plan = planBundleMulti("TestGame", "1.2.3", MobileOs::Android, sources, abis);
+        const fs::path out = tmp / "stage-android-fat";
+        if (stageAndVerify(plan, absByLogical, out) != 0) ++fails;
+        for (const std::string& abi : abis) {
+            if (!fs::exists(out / ("lib/" + abi + "/libTestGame.so"))) {
+                std::fprintf(stderr, "selftest: missing lib for abi %s\n", abi.c_str());
+                ++fails;
+            }
+        }
+        // The manifest and a shared asset must appear exactly once regardless of ABI count.
+        if (!fs::exists(out / "AndroidManifest.xml")) { std::fprintf(stderr, "selftest: missing manifest\n"); ++fails; }
+        if (!fs::exists(out / "assets/fonts/font.ttf")) { std::fprintf(stderr, "selftest: missing asset\n"); ++fails; }
+        // Exactly one <uses-feature vulkan> manifest, and no per-ABI asset duplication: the plan lists the
+        // font once even though three ABIs were planned.
+        int fontCount = 0;
+        for (const BundleFile& f : plan.files) if (f.dest == "assets/fonts/font.ttf") ++fontCount;
+        if (fontCount != 1) { std::fprintf(stderr, "selftest: shared asset duplicated %d times\n", fontCount); ++fails; }
+        int libCount = 0;
+        for (const BundleFile& f : plan.files) if (f.dest.rfind("lib/", 0) == 0 && f.dest.find("libTestGame.so") != std::string::npos) ++libCount;
+        if (libCount != 3) { std::fprintf(stderr, "selftest: expected 3 per-ABI libs, got %d\n", libCount); ++fails; }
+    }
+
     fs::remove_all(tmp, ec);
     if (fails == 0) {
-        std::printf("mobilepack selftest: OK — android + ios bundles staged and verified.\n");
+        std::printf("mobilepack selftest: OK — ios + android fat (multi-ABI) bundles staged and verified.\n");
         return 0;
     }
     return 1;
@@ -170,15 +234,17 @@ int runSelfTest() {
 void usage() {
     std::printf(
         "mobilepack — stage a mobile (Android/iOS) bundle from a desktop build tree.\n"
-        "usage: mobilepack --app NAME [--version V] [--os android|ios] [--abi ABI]\n"
-        "                  [--from DIR] [--out DIR]\n"
-        "       mobilepack --selftest\n");
+        "usage: mobilepack --app NAME [--version V] [--os android|ios]\n"
+        "                  [--abi ABI[,ABI...]] [--from DIR] [--out DIR]\n"
+        "       mobilepack --selftest\n"
+        "  --abi accepts a comma-separated list on Android for a fat bundle, e.g.\n"
+        "        --abi arm64-v8a,armeabi-v7a,x86_64  (ignored on iOS)\n");
 }
 
 } // namespace
 
 int main(int argc, char** argv) {
-    std::string app, version = "0.1.0", osArg = "android", abi = "arm64-v8a", from = "build/bin", out;
+    std::string app, version = "0.1.0", osArg = "android", abiArg = "arm64-v8a", from = "build/bin", out;
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
         auto val = [&](const char* def) -> std::string { return (i + 1 < argc) ? std::string(argv[++i]) : std::string(def); };
@@ -186,7 +252,7 @@ int main(int argc, char** argv) {
         else if (a == "--app") app = val("");
         else if (a == "--version") version = val("0.1.0");
         else if (a == "--os") osArg = val("android");
-        else if (a == "--abi") abi = val("arm64-v8a");
+        else if (a == "--abi") abiArg = val("arm64-v8a");
         else if (a == "--from") from = val("build/bin");
         else if (a == "--out") out = val("");
         else if (a == "--help" || a == "-h") { usage(); return 0; }
@@ -199,18 +265,24 @@ int main(int argc, char** argv) {
     }
     const MobileOs os = (osArg == "ios") ? MobileOs::iOS : MobileOs::Android;
 
+    std::vector<std::string> abis = splitCsv(abiArg);
+    if (abis.empty()) abis = {"arm64-v8a"};
+
     std::vector<SourceFile> sources;
     std::unordered_map<std::string, std::string> absByLogical;
     if (!collectSources(fs::path(from), app, sources, absByLogical)) return 1;
 
-    const MobileBundlePlan plan = planMobileBundle(app, version, os, sources, abi);
+    const MergedPlan plan = planBundleMulti(app, version, os, sources, abis);
 
-    fs::path outDir = out.empty()
-        ? fs::path("dist") / (app + "-" + version + "-" + mobileOsName(os) + (os == MobileOs::Android ? "-" + abi : ""))
-        : fs::path(out);
+    // Default output dir names the ABI when there is exactly one, or "fat" for a multi-ABI Android bundle.
+    std::string suffix = mobileOsName(os);
+    if (os == MobileOs::Android) suffix += (abis.size() == 1) ? ("-" + abis[0]) : "-fat";
+    fs::path outDir = out.empty() ? fs::path("dist") / (app + "-" + version + "-" + suffix) : fs::path(out);
 
+    std::string abiLabel;
+    for (size_t i = 0; i < abis.size(); ++i) abiLabel += (i ? "+" : "") + abis[i];
     std::printf("==> mobilepack '%s' v%s for %s%s\n", app.c_str(), version.c_str(), mobileOsName(os).c_str(),
-                os == MobileOs::Android ? (" (" + abi + ")").c_str() : "");
+                os == MobileOs::Android ? (" [" + abiLabel + "]").c_str() : "");
     std::printf("    bundle id: %s\n", plan.bundleId.c_str());
     std::printf("    manifest:  %s\n", plan.manifestDest.c_str());
     std::printf("    files:     %zu, total %llu bytes\n", plan.files.size(),
@@ -218,7 +290,6 @@ int main(int argc, char** argv) {
 
     const int mismatches = stageAndVerify(plan, absByLogical, outDir);
 
-    // Write the deterministic file listing next to the bundle for auditing.
     { std::ofstream m(outDir / "MANIFEST.txt", std::ios::binary | std::ios::trunc); m << plan.listing; }
 
     if (mismatches != 0) {

@@ -62,7 +62,13 @@ if [ ! -x "$BIN/$APP" ]; then
 fi
 
 SUFFIX="$OS"
-[ "$OS" = "android" ] && SUFFIX="$OS-$ABI"
+if [ "$OS" = "android" ]; then
+    # A comma-separated ABI list ("arm64-v8a,armeabi-v7a") stages a fat bundle -> name it "-fat".
+    case "$ABI" in
+        *,*) SUFFIX="$OS-fat" ;;
+        *)   SUFFIX="$OS-$ABI" ;;
+    esac
+fi
 OUT="$DIST/$APP-$VERSION-$SUFFIX"
 
 echo "==> Staging mobile bundle: $APP v$VERSION ($OS${ABI:+, $ABI when android})"
