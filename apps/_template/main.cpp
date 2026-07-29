@@ -3,24 +3,36 @@
 // (keyboard), rendered each frame as a square. Copy this directory, rename the target, and grow your game
 // from here.
 //
-// What makes it mobile-shaped — the two things every phone/tablet build needs and desktop games usually skip:
+// What makes it mobile-shaped — the pieces every phone/tablet build needs and desktop games usually skip, all
+// wired here so this doubles as the mobile-API showcase (each is a no-op on desktop, so the same code runs both):
 //   1. The frame body is a `step` handed to platform::runMainLoop, so the OS can own the loop on iOS/Android/
 //      web (a blocking while() there deadlocks). See WS3.
 //   2. Input comes from input::VirtualControls (touch) unified with the keyboard, so the same build plays with
 //      a thumb or a keyboard. See WS1/WS2.
+//   3. Controls anchor inside the display safe area (platform::SafeArea) so they clear the notch/home bar.
+//   4. Progress auto-saves the moment the app is backgrounded (PlatformBackend::setOnSuspend).
+//   5. The loop is frame-capped by core::FramePacer, and the cap follows the battery/thermal state
+//      (platform::PowerState) so a low phone doesn't burn power running flat out.
+//   6. The action button fires a haptic buzz (PlatformBackend::triggerHaptic) for game feel.
+//   Device orientation (PlatformBackend::orientation) is logged at boot; on a phone you'd re-anchor UI per turn.
 //
 // --headless / --frames N run the loop with no window (CI); ESC quits on desktop.
 
 #include "maz/Engine.hpp"
+#include "maz/core/FramePacer.hpp"
 #include "maz/core/KeyValueStore.hpp"
 #include "maz/input/VirtualControls.hpp"
 #include "maz/io/VirtualFileSystem.hpp"
 #include "maz/platform/DesktopBackend.hpp"
+#include "maz/platform/Haptics.hpp"
+#include "maz/platform/Orientation.hpp"
 #include "maz/platform/PlatformBackend.hpp"
+#include "maz/platform/PowerState.hpp"
 #include "maz/platform/SafeArea.hpp"
 #include "maz/platform/WebLoop.hpp"
 
 #include <SDL3/SDL_scancode.h>
+#include <SDL3/SDL_timer.h>
 
 #include <cmath>
 #include <cstdint>
@@ -70,6 +82,19 @@ int main(int argc, char** argv) {
 
     platform::Input input;
     core::Clock clock(1.0 / 60.0);
+
+    // Power-aware frame pacing: cap the loop to a target fps so a phone doesn't burn battery running past the
+    // display, and drop that cap automatically on low battery / low-power mode / thermal throttle. On desktop
+    // the backend reports "plenty of power", so the cap stays at 60 and nothing changes. The pacer computes
+    // how long to sleep after each frame's work; a real windowed build performs that sleep (below). See
+    // core::FramePacer + platform::PowerState.
+    core::FramePacer pacer;
+    if (backend) {
+        const double fpsCap = platform::recommendedFps(backend->powerState());
+        pacer.setActiveFps(fpsCap);
+        MAZ_LOG_INFO("_template: orientation=%s, fps cap=%.0f (power-adaptive)",
+                     platform::orientationName(backend->orientation()), fpsCap);
+    }
 
     const uint8_t white[4] = {255, 255, 255, 255};
     render::TextureHandle whiteTex = renderer->createTexture(1, 1, white);
@@ -124,6 +149,7 @@ int main(int argc, char** argv) {
     }
 
     auto frame = [&]() -> bool {
+        const uint64_t frameStartNs = SDL_GetTicksNS(); // for power-aware frame pacing (below)
         window.pumpEvents(input);
         if (input.keyPressed(SDL_SCANCODE_ESCAPE)) {
             window.requestClose();
@@ -142,9 +168,14 @@ int main(int argc, char** argv) {
         float mlen = std::sqrt(mv.x * mv.x + mv.y * mv.y);
         if (mlen > 1.0f) { mv.x /= mlen; mv.y /= mlen; } // never faster than full tilt
 
-        // Action: the virtual button or SPACE triggers a brief flash.
+        // Action: the virtual button or SPACE triggers a brief flash — and a haptic buzz for game feel. On a
+        // phone that vibrates the device; on desktop triggerHaptic is a no-op, so the same call is safe here.
         const bool act = controls.buttons[0].pressed() || input.keyPressed(SDL_SCANCODE_SPACE);
-        if (act) { ++flashes; flashT = 0.4f; }
+        if (act) {
+            ++flashes;
+            flashT = 0.4f;
+            if (backend) backend->triggerHaptic(platform::HapticFeedback::ImpactMedium);
+        }
 
         const float dt = 1.0f / 60.0f;
         posX += mv.x * speed * dt;
@@ -188,6 +219,17 @@ int main(int argc, char** argv) {
         ++rendered;
         if (cfg.frames >= 0 && rendered >= cfg.frames) {
             window.requestClose();
+        }
+
+        // Power-aware frame cap: re-read the recommended fps each frame (so a low-battery / thermal event
+        // lowers it automatically) and sleep off the remainder of the budget after this frame's work. The
+        // pacer's drift correction keeps the average on target. Headless CI skips the physical sleep so the
+        // smoke test stays fast; a real windowed/mobile build performs it to save battery.
+        if (backend) pacer.setActiveFps(platform::recommendedFps(backend->powerState()));
+        const double workS = static_cast<double>(SDL_GetTicksNS() - frameStartNs) * 1e-9;
+        const double sleepS = pacer.sleepFor(workS);
+        if (sleepS > 0.0 && !cfg.headless) {
+            SDL_DelayNS(static_cast<Uint64>(sleepS * 1e9));
         }
         return !window.shouldClose();
     };
