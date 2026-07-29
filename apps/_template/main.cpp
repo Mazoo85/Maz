@@ -14,6 +14,8 @@
 //   5. The loop is frame-capped by core::FramePacer, and the cap follows the battery/thermal state
 //      (platform::PowerState) so a low phone doesn't burn power running flat out.
 //   6. The action button fires a haptic buzz (PlatformBackend::triggerHaptic) for game feel.
+//   7. The motion sensors (PlatformBackend::motionState + platform::Motion) add tilt steering and a
+//      shake-to-act gesture — a no-op on desktop (all-zero IMU), live on a phone. See WS4.
 //   Device orientation (PlatformBackend::orientation) is logged at boot; on a phone you'd re-anchor UI per turn.
 //
 // --headless / --frames N run the loop with no window (CI); ESC quits on desktop.
@@ -25,6 +27,7 @@
 #include "maz/io/VirtualFileSystem.hpp"
 #include "maz/platform/DesktopBackend.hpp"
 #include "maz/platform/Haptics.hpp"
+#include "maz/platform/Motion.hpp"
 #include "maz/platform/Orientation.hpp"
 #include "maz/platform/PlatformBackend.hpp"
 #include "maz/platform/PowerState.hpp"
@@ -127,6 +130,7 @@ int main(int argc, char** argv) {
     const float worldToPx = 12.0f;
     int flashes = 0;    // action-button presses (a trivial bit of gameplay to prove the button works)
     float flashT = 0.0f;
+    bool shakePrev = false; // edge-detect a shake gesture so it fires the action once, not every frame
     int rendered = 0;
 
     // Auto-save on suspend: restore the mover from user:// at boot, then register a suspend hook that persists
@@ -165,12 +169,25 @@ int main(int argc, char** argv) {
         if (input.keyDown(SDL_SCANCODE_D) || input.keyDown(SDL_SCANCODE_RIGHT)) mv.x += 1.0f;
         if (input.keyDown(SDL_SCANCODE_W) || input.keyDown(SDL_SCANCODE_UP)) mv.y += 1.0f;   // up = +Y
         if (input.keyDown(SDL_SCANCODE_S) || input.keyDown(SDL_SCANCODE_DOWN)) mv.y -= 1.0f;
+        // Tilt steering: the accelerometer's in-plane gravity becomes a [-1,1] steer that adds to the stick.
+        // On a phone this lets you lean the device to move; on desktop motionState() is all-zero so this is a
+        // no-op and the same build still plays with the keyboard. (Screen +Y is up, so negate the sensor Y.)
+        if (backend) {
+            const math::vec2 tilt = platform::tiltVector(backend->motionState());
+            mv.x += tilt.x;
+            mv.y -= tilt.y;
+        }
         float mlen = std::sqrt(mv.x * mv.x + mv.y * mv.y);
         if (mlen > 1.0f) { mv.x /= mlen; mv.y /= mlen; } // never faster than full tilt
 
-        // Action: the virtual button or SPACE triggers a brief flash — and a haptic buzz for game feel. On a
-        // phone that vibrates the device; on desktop triggerHaptic is a no-op, so the same call is safe here.
-        const bool act = controls.buttons[0].pressed() || input.keyPressed(SDL_SCANCODE_SPACE);
+        // Action: the virtual button, SPACE, or a physical SHAKE of the device triggers a brief flash — and a
+        // haptic buzz for game feel. The shake is edge-detected (isShaking rises false->true) so one shake is
+        // one action; on desktop motionState() is all-zero so isShaking() is always false and only the button
+        // fires. triggerHaptic is a no-op on desktop too, so the same call is safe here.
+        const bool shaking = backend && platform::isShaking(backend->motionState());
+        const bool shakeEdge = shaking && !shakePrev;
+        shakePrev = shaking;
+        const bool act = controls.buttons[0].pressed() || input.keyPressed(SDL_SCANCODE_SPACE) || shakeEdge;
         if (act) {
             ++flashes;
             flashT = 0.4f;
