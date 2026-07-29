@@ -25,6 +25,7 @@ well-scoped.
 | Autosave on background | `PlatformBackend::setOnSuspend/​setOnResume` — fired on the lifecycle edge (see `apps/_template/`) | ✅ done |
 | Notch / safe area | `platform::SafeArea` (`safeAreaRect`/`clampPointToSafeArea`/`fitRectInSafeArea`) + `PlatformBackend::safeAreaInsets()`; `apps/_template` anchors controls inside it | ✅ done |
 | Touch-target sizing | `platform::TouchTarget` (`recommendedTouchTargetPx`/`meetsTouchTarget`/`expandToTouchTarget`/`dpiFromDiagonal`) sizes tappable controls to the ~9mm/48dp accessibility floor across any DPI | ✅ done |
+| Control placement | `platform::ThumbZone` (`thumbControlLayout`/`bottomLeftZone`/`bottomRightZone`/`thumbReachRadius`) puts the move stick + action cluster in the natural bottom thumb zones inside the safe area (right/left-handed) | ✅ done |
 | Screen orientation | `PlatformBackend::orientation()` + `platform::Orientation` (`isPortrait`/`quarterTurnsFromPortrait`/`orientedInsets`) re-derives safe-area insets per device rotation | ✅ done |
 | Haptic feedback | `PlatformBackend::triggerHaptic(HapticFeedback)` (selection/impact/notification kinds) + `platform::Haptics` helpers; no-op on desktop, OS motor on mobile | ✅ seam done |
 | Soft keyboard / text entry | `PlatformBackend::show/hideSoftKeyboard(SoftKeyboardType)` + `isSoftKeyboardVisible()`; tracks state on desktop, raises the OS IME on mobile | ✅ seam done |
@@ -72,6 +73,9 @@ math::Rect2 safe = safeAreaRect(drawableW, drawableH, insets);                  
 // place the stick/buttons within [safe.left()..safe.right()] × [safe.top()..safe.bottom()]
 // size each button to a comfortable physical target for the display's DPI (TouchTarget.hpp):
 float btnPx = recommendedTouchTargetPx(displayDpi);   // ~9mm/48dp floor; button = btnPx × btnPx
+// or let ThumbZone.hpp place the whole control set in the natural bottom thumb zones for you:
+TouchControlLayout ctl = thumbControlLayout(safe, /*stickPx*/220.f, /*clusterPx*/200.f, /*margin*/24.f);
+// ctl.moveStick (bottom-left) and ctl.actionCluster (bottom-right); pass Handedness::LeftHanded to swap.
 ```
 
 **3 — Input: touch = keyboard.** `input::VirtualControls` (sticks+buttons) fed by multi-touch, unified with
