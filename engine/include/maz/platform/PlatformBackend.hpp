@@ -63,6 +63,21 @@ struct SafeAreaInsets {
     float bottom = 0.0f;
 };
 
+// Where the device draws power. Unknown on desktop/headless (no battery API queried here).
+enum class PowerSource { Unknown, Battery, PluggedIn };
+
+// A snapshot of the device's power/thermal situation — what a mobile game consults to decide whether to ease
+// off (cap frame rate, drop resolution, dim effects) to spare the battery or a throttling SoC. Desktop and
+// headless report the neutral "plenty of power" default (Unknown source, full battery, no saver/throttle),
+// so the recommendation helpers in PowerState.hpp are a harmless no-op there. Mobile backends fill it from
+// the OS (Android BatteryManager, iOS UIDevice.batteryLevel / ProcessInfo.isLowPowerModeEnabled / thermalState).
+struct PowerState {
+    PowerSource source = PowerSource::Unknown;
+    float batteryLevel = 1.0f;      // 0..1 charge fraction; 1.0 (full) when unknown
+    bool lowPowerMode = false;      // the OS-level battery saver the user toggled on
+    bool thermalThrottling = false; // the device is hot and the OS is throttling
+};
+
 // Lifecycle states the OS can drive. Desktop stays Running; mobile/console push Suspended/Resumed as the
 // user backgrounds the app, which the engine must honor (pause audio, release the GPU surface, save state).
 enum class LifecycleState { Created, Running, Suspended, Stopped };
@@ -87,6 +102,11 @@ public:
     // which have no notch or home bar. Mobile backends override this from the OS so games can lay virtual
     // controls and HUD inside the safe rectangle (see SafeArea.hpp for the geometry helpers).
     virtual SafeAreaInsets safeAreaInsets() const { return {}; }
+
+    // Device power/thermal snapshot. The neutral "plenty of power" default suits desktop/headless; mobile
+    // backends override it so games can throttle on low battery / low-power mode / thermal pressure. See
+    // PowerState.hpp for the recommendsPowerSave() / recommendedFps() policy helpers.
+    virtual PowerState powerState() const { return {}; }
 
     // Absolute root directory for a file category on this platform.
     virtual std::string directory(DirKind kind) const = 0;

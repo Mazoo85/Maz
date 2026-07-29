@@ -114,6 +114,14 @@ target_link_libraries(maz_platform_safearea_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME platform_safearea COMMAND maz_platform_safearea_tests)
 set_tests_properties(platform_safearea PROPERTIES TIMEOUT 30)
 
+# Power-aware policy (platform::PowerState) — the battery/thermal snapshot a mobile game consults to ease off
+# (cap fps, shrink budgets) plus the recommendsPowerSave / recommendedFps / powerBudgetScale helpers and the
+# PlatformBackend::powerState() neutral default on desktop. Pure deterministic decisions, verified here.
+add_executable(maz_platform_powerstate_tests platform/powerstate.cpp)
+target_link_libraries(maz_platform_powerstate_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME platform_powerstate COMMAND maz_platform_powerstate_tests)
+set_tests_properties(platform_powerstate PROPERTIES TIMEOUT 30)
+
 add_executable(maz_platform_touch_tests platform/touch.cpp)
 target_link_libraries(maz_platform_touch_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME platform_touch COMMAND maz_platform_touch_tests)

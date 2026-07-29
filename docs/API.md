@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_682 headers across 20 subsystems._
+_683 headers across 20 subsystems._
 
 ## Contents
 
@@ -2663,7 +2663,18 @@ A writable, per-user, per-application directory with `file` appended (created if
 
 maz::platform per-target backend seam — the single abstraction an engine crosses to reach a NEW platform (a console, a VR headset, a phone) without touching game or renderer code. Every target differs in exactly the same handful of ways: how it boots and tears down, what native surface handle the GPU renderer binds to, where its readable (bundled assets) and writable (save data) directories live, which input sources exist, and whether the OS can suspend/resume the app under you (mobile/console) versus running uninterrupted (desktop). `PlatformBackend` names that seam; a concrete backend implements it for one target. The engine talks only to the interface, so porting to a new platform is "write one backend", which is how Godot/Unity keep one codebase across a dozen devices.  This box can implement + unit-test the HEADLESS backend (pure CPU, no device) and the registry that selects a backend by id — that is verified here. The console/VR/mobile backends are stubs behind the same interface plus the exact human/hardware step to finish each (NDA SDK, physical headset, device + paid dev account), documented in docs/PLATFORMS.md — those can never be marked 100% from this environment.
 
-**Types:** `PlatformId`, `PlatformCaps`, `SafeAreaInsets`, `PlatformBackend`, `HeadlessBackend`, `PlatformRegistry`
+**Types:** `PlatformId`, `PlatformCaps`, `SafeAreaInsets`, `PowerState`, `PlatformBackend`, `HeadlessBackend`, `PlatformRegistry`
+
+### `PowerState`
+<sub>`engine/include/maz/platform/PowerState.hpp`</sub>
+
+maz::platform power-aware policy — the pure decisions a mobile game makes from a PowerState snapshot. PlatformBackend::powerState() reports WHAT the device's power/thermal situation is; these free functions turn that into WHAT TO DO about it (should we enter battery-saver pacing? what frame-rate cap fits?), kept out of the backend so the policy is deterministic and unit-testable and the numbers stay tunable by the game. The natural pairing is with core::FramePacer: each frame (or on a power-change event) do `pacer.setActiveFps(recommendedFps(backend->powerState()))`, and the loop eases off exactly when the phone needs it to. On desktop/headless the state is neutral, so every helper returns the full-power answer — no behavior change.
+
+**Functions:**
+
+- `inline bool recommendsPowerSave(const PowerState& p, float lowThreshold = 0.20f)`
+- `inline double recommendedFps(const PowerState& p, double activeFps = 60.0, double saverFps = 30.0,`
+- `inline float powerBudgetScale(const PowerState& p, float floor = 0.5f)`
 
 ### `SafeArea`
 <sub>`engine/include/maz/platform/SafeArea.hpp`</sub>

@@ -29,6 +29,7 @@ well-scoped.
 | Lighter frame graph | `RenderTier::Mobile` (`--mobile`): MSAA off, bloom blur passes skipped, SSAO off | ✅ done |
 | Dynamic resolution | `render::DynamicResolution` — adaptive render-scale policy (frametime→scale, hysteresis); GPU target-resize is the on-device wire-up | ✅ policy done |
 | Frame-rate cap / battery saver | `core::FramePacer` — target-fps sleep budget + lower idle cap (menu/pause), drift-corrected; the caller does the sleep | ✅ done |
+| Power/thermal awareness | `PlatformBackend::powerState()` + `platform::PowerState` helpers (`recommendsPowerSave`/`recommendedFps`/`powerBudgetScale`) drive FramePacer on low battery / low-power mode / thermal throttle | ✅ policy done |
 | Bundle staging | `tools/package_mobile.sh` + the `mobilepack` CLI drive `io::planMobileBundle` to stage `dist/<app>-<ver>-<os>[-<abi>]/` (game `.so`/`.app`, assets, manifest) and verify it | ✅ done |
 | Multi-ABI (fat) Android | `mobilepack --abi arm64-v8a,armeabi-v7a,x86_64` stages a `lib/<abi>/` tree per ABI with assets + manifest written once | ✅ done |
 | Packed assets (.pck) | `mobilepack --pack` bundles all shaders+assets into one `game.pck` (`io::ResourcePack`) instead of loose files, verified by round-trip | ✅ done |
