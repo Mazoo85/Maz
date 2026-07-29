@@ -130,6 +130,14 @@ target_link_libraries(maz_platform_orientation_tests PRIVATE maz::maz maz_warnin
 add_test(NAME platform_orientation COMMAND maz_platform_orientation_tests)
 set_tests_properties(platform_orientation PROPERTIES TIMEOUT 30)
 
+# Haptic feedback seam (PlatformBackend::triggerHaptic + platform::Haptics) — the vibration-request API a
+# mobile game calls for game feel. Pure/headless: HeadlessBackend records dispatches, DesktopBackend no-ops,
+# and the hapticName / hapticIntensity / isImpact helpers are verified here (real buzz is the mobile backend).
+add_executable(maz_platform_haptics_tests platform/haptics.cpp)
+target_link_libraries(maz_platform_haptics_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME platform_haptics COMMAND maz_platform_haptics_tests)
+set_tests_properties(platform_haptics PROPERTIES TIMEOUT 30)
+
 add_executable(maz_platform_touch_tests platform/touch.cpp)
 target_link_libraries(maz_platform_touch_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME platform_touch COMMAND maz_platform_touch_tests)

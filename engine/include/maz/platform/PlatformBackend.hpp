@@ -91,6 +91,20 @@ enum class ScreenOrientation {
     LandscapeRight, // rotated 270° clockwise (90° counter-clockwise)
 };
 
+// Haptic feedback kinds a game can request — the canonical set maps 1:1 onto iOS UIFeedbackGenerator
+// (UISelectionFeedbackGenerator, UIImpactFeedbackGenerator light/medium/heavy, UINotificationFeedbackGenerator
+// success/warning/error) and onto Android VibrationEffect predefined effects. Desktop/headless have no
+// vibration motor, so triggerHaptic() is a no-op there; mobile backends override onHaptic() to fire the OS API.
+enum class HapticFeedback {
+    Selection,     // a light tick as a value changes (picker, slider notch)
+    ImpactLight,   // a soft collision / light UI tap
+    ImpactMedium,  // a medium collision / confirm
+    ImpactHeavy,   // a hard collision / big event
+    Success,       // a positive notification pattern
+    Warning,       // a cautionary notification pattern
+    Error,         // a negative notification pattern
+};
+
 // Lifecycle states the OS can drive. Desktop stays Running; mobile/console push Suspended/Resumed as the
 // user backgrounds the app, which the engine must honor (pause audio, release the GPU surface, save state).
 enum class LifecycleState { Created, Running, Suspended, Stopped };
@@ -126,6 +140,11 @@ public:
     // Orientation.hpp for the isPortrait()/quarterTurnsFromPortrait()/orientedInsets() helpers.
     virtual ScreenOrientation orientation() const { return ScreenOrientation::Unknown; }
 
+    // Request a haptic buzz. A no-op on desktop/headless (no vibration motor); mobile backends override
+    // onHaptic() to drive the OS haptic API. Safe to call unconditionally from game code — it simply does
+    // nothing where there is no hardware. See Haptics.hpp for hapticName()/hapticIntensity() helpers.
+    void triggerHaptic(HapticFeedback fb) { onHaptic(fb); }
+
     // Absolute root directory for a file category on this platform.
     virtual std::string directory(DirKind kind) const = 0;
 
@@ -156,6 +175,9 @@ public:
 
 protected:
     virtual void onLifecycle(LifecycleState /*s*/) {}
+    // Backend hook for a haptic request. Default no-op (desktop/headless have no motor); a mobile backend
+    // overrides this to fire the OS API. Called by triggerHaptic().
+    virtual void onHaptic(HapticFeedback /*fb*/) {}
     LifecycleState m_lifecycle = LifecycleState::Created;
     std::function<void()> m_onSuspend;
     std::function<void()> m_onResume;
@@ -192,13 +214,24 @@ public:
     // Test/inspection hook: how many suspend transitions this backend has seen.
     int suspendCount() const { return m_suspends; }
 
+    // Test/inspection hooks: how many haptics were requested and the most recent kind (records instead of
+    // buzzing, since there is no motor — lets the seam be exercised headlessly like suspendCount).
+    int hapticCount() const { return m_haptics; }
+    HapticFeedback lastHaptic() const { return m_lastHaptic; }
+
 protected:
     void onLifecycle(LifecycleState s) override {
         if (s == LifecycleState::Suspended) ++m_suspends;
     }
+    void onHaptic(HapticFeedback fb) override {
+        ++m_haptics;
+        m_lastHaptic = fb;
+    }
 
 private:
     int m_suspends = 0;
+    int m_haptics = 0;
+    HapticFeedback m_lastHaptic = HapticFeedback::Selection;
 };
 
 // Selects a backend by PlatformId. Real backends register a factory (a shared library, a console SDK module,

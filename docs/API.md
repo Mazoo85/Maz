@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_684 headers across 20 subsystems._
+_685 headers across 20 subsystems._
 
 ## Contents
 
@@ -2646,6 +2646,17 @@ maz::platform multi-monitor helpers — the pure geometry behind "which display 
 - `inline int displayForRect(const std::vector<DisplayInfo>& displays, int x, int y, int w, int h)`
 - `inline Point2i centerRectOnDisplay(const DisplayInfo& d, int w, int h)`
 
+### `Haptics`
+<sub>`engine/include/maz/platform/Haptics.hpp`</sub>
+
+maz::platform haptics helpers — small pure utilities around the HapticFeedback kinds a game requests via PlatformBackend::triggerHaptic(). The trigger itself lives on the backend (no-op on desktop, the OS haptic API on mobile); these are the tunable/loggable bits: a stable name for each kind, and a 0..1 intensity hint a backend can scale its vibration amplitude by (iOS's generators are categorical, but Android's VibrationEffect takes an amplitude, so a numeric hint is useful). Deterministic and header-only.
+
+**Functions:**
+
+- `inline const char* hapticName(HapticFeedback fb)`
+- `inline float hapticIntensity(HapticFeedback fb)`
+- `inline bool isImpact(HapticFeedback fb)`
+
 ### `Input`
 <sub>`engine/include/maz/platform/Input.hpp`</sub>
 
@@ -2676,7 +2687,7 @@ A writable, per-user, per-application directory with `file` appended (created if
 
 maz::platform per-target backend seam — the single abstraction an engine crosses to reach a NEW platform (a console, a VR headset, a phone) without touching game or renderer code. Every target differs in exactly the same handful of ways: how it boots and tears down, what native surface handle the GPU renderer binds to, where its readable (bundled assets) and writable (save data) directories live, which input sources exist, and whether the OS can suspend/resume the app under you (mobile/console) versus running uninterrupted (desktop). `PlatformBackend` names that seam; a concrete backend implements it for one target. The engine talks only to the interface, so porting to a new platform is "write one backend", which is how Godot/Unity keep one codebase across a dozen devices.  This box can implement + unit-test the HEADLESS backend (pure CPU, no device) and the registry that selects a backend by id — that is verified here. The console/VR/mobile backends are stubs behind the same interface plus the exact human/hardware step to finish each (NDA SDK, physical headset, device + paid dev account), documented in docs/PLATFORMS.md — those can never be marked 100% from this environment.
 
-**Types:** `PlatformId`, `PlatformCaps`, `SafeAreaInsets`, `PowerState`, `ScreenOrientation`, `PlatformBackend`, `HeadlessBackend`, `PlatformRegistry`
+**Types:** `PlatformId`, `PlatformCaps`, `SafeAreaInsets`, `PowerState`, `ScreenOrientation`, `HapticFeedback`, `PlatformBackend`, `HeadlessBackend`, `PlatformRegistry`
 
 ### `PowerState`
 <sub>`engine/include/maz/platform/PowerState.hpp`</sub>
