@@ -162,6 +162,13 @@ target_link_libraries(maz_platform_motion_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME platform_motion COMMAND maz_platform_motion_tests)
 set_tests_properties(platform_motion PROPERTIES TIMEOUT 30)
 
+# Touch-target sizing (platform::TouchTarget) — converts a comfortable physical touch size (mm) to pixels
+# across DPIs, with meets/expand accessibility helpers and dpi-from-diagonal. Pure deterministic math.
+add_executable(maz_platform_touchtarget_tests platform/touchtarget.cpp)
+target_link_libraries(maz_platform_touchtarget_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME platform_touchtarget COMMAND maz_platform_touchtarget_tests)
+set_tests_properties(platform_touchtarget PROPERTIES TIMEOUT 30)
+
 add_executable(maz_platform_touch_tests platform/touch.cpp)
 target_link_libraries(maz_platform_touch_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME platform_touch COMMAND maz_platform_touch_tests)
