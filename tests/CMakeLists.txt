@@ -122,6 +122,14 @@ target_link_libraries(maz_platform_powerstate_tests PRIVATE maz::maz maz_warning
 add_test(NAME platform_powerstate COMMAND maz_platform_powerstate_tests)
 set_tests_properties(platform_powerstate PROPERTIES TIMEOUT 30)
 
+# Screen orientation (platform::Orientation) — classify portrait/landscape, map a ScreenOrientation to the
+# quarter-turns SafeArea::rotateInsets consumes, and re-derive safe-area insets for the current orientation
+# from portrait-authored values; plus the PlatformBackend::orientation() Unknown default on desktop.
+add_executable(maz_platform_orientation_tests platform/orientation.cpp)
+target_link_libraries(maz_platform_orientation_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME platform_orientation COMMAND maz_platform_orientation_tests)
+set_tests_properties(platform_orientation PROPERTIES TIMEOUT 30)
+
 add_executable(maz_platform_touch_tests platform/touch.cpp)
 target_link_libraries(maz_platform_touch_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME platform_touch COMMAND maz_platform_touch_tests)

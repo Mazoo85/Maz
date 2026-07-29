@@ -78,6 +78,19 @@ struct PowerState {
     bool thermalThrottling = false; // the device is hot and the OS is throttling
 };
 
+// Screen orientation, as a device rotation relative to the display's NATIVE portrait. The four concrete
+// values are the engine's canonical set (a backend maps the OS enum — iOS UIInterfaceOrientation, Android
+// Surface.ROTATION_* — onto them); Unknown is the honest desktop/headless answer where there is no device
+// orientation. `quarterTurnsFromPortrait` in Orientation.hpp turns this into the rotation the SafeArea and
+// layout helpers consume, so a game caches its portrait-authored insets once and re-derives them per turn.
+enum class ScreenOrientation {
+    Unknown,        // no device orientation (desktop/headless)
+    Portrait,       // native upright (0°)
+    LandscapeLeft,  // rotated 90° clockwise from portrait
+    PortraitFlipped,// upside down (180°)
+    LandscapeRight, // rotated 270° clockwise (90° counter-clockwise)
+};
+
 // Lifecycle states the OS can drive. Desktop stays Running; mobile/console push Suspended/Resumed as the
 // user backgrounds the app, which the engine must honor (pause audio, release the GPU surface, save state).
 enum class LifecycleState { Created, Running, Suspended, Stopped };
@@ -107,6 +120,11 @@ public:
     // backends override it so games can throttle on low battery / low-power mode / thermal pressure. See
     // PowerState.hpp for the recommendsPowerSave() / recommendedFps() policy helpers.
     virtual PowerState powerState() const { return {}; }
+
+    // Current screen orientation. Unknown by default (desktop/headless have no device rotation); mobile
+    // backends override it from the OS so a game can re-orient its safe-area insets and layout. See
+    // Orientation.hpp for the isPortrait()/quarterTurnsFromPortrait()/orientedInsets() helpers.
+    virtual ScreenOrientation orientation() const { return ScreenOrientation::Unknown; }
 
     // Absolute root directory for a file category on this platform.
     virtual std::string directory(DirKind kind) const = 0;

@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_683 headers across 20 subsystems._
+_684 headers across 20 subsystems._
 
 ## Contents
 
@@ -2653,6 +2653,19 @@ Gamepad axis/button ids. Values match SDL_GamepadAxis / SDL_GamepadButton orderi
 
 **Types:** `Touch`, `Input`
 
+### `Orientation`
+<sub>`engine/include/maz/platform/Orientation.hpp`</sub>
+
+maz::platform orientation helpers — the pure logic a game uses to react to a device rotating between portrait and landscape. PlatformBackend::orientation() reports WHICH way the screen is turned; these free functions classify it and, crucially, re-derive the safe-area insets for the current orientation from the insets you authored once in portrait. On a phone the notch/home-bar move to different edges as the device rotates, so a game that hard-codes portrait insets would put its HUD under the cutout in landscape; feed `orientedInsets(portraitInsets, backend->orientation())` into safeAreaRect instead and it follows the turn. Deterministic and header-only; on desktop the orientation is Unknown so everything is a no-op.
+
+**Functions:**
+
+- `inline bool isPortrait(ScreenOrientation o)`
+- `inline bool isLandscape(ScreenOrientation o)`
+- `inline int quarterTurnsFromPortrait(ScreenOrientation o)`
+- `inline const char* orientationName(ScreenOrientation o)`
+- `inline SafeAreaInsets orientedInsets(SafeAreaInsets portraitInsets, ScreenOrientation o)`
+
 ### `Paths`
 <sub>`engine/include/maz/platform/Paths.hpp`</sub>
 
@@ -2663,7 +2676,7 @@ A writable, per-user, per-application directory with `file` appended (created if
 
 maz::platform per-target backend seam — the single abstraction an engine crosses to reach a NEW platform (a console, a VR headset, a phone) without touching game or renderer code. Every target differs in exactly the same handful of ways: how it boots and tears down, what native surface handle the GPU renderer binds to, where its readable (bundled assets) and writable (save data) directories live, which input sources exist, and whether the OS can suspend/resume the app under you (mobile/console) versus running uninterrupted (desktop). `PlatformBackend` names that seam; a concrete backend implements it for one target. The engine talks only to the interface, so porting to a new platform is "write one backend", which is how Godot/Unity keep one codebase across a dozen devices.  This box can implement + unit-test the HEADLESS backend (pure CPU, no device) and the registry that selects a backend by id — that is verified here. The console/VR/mobile backends are stubs behind the same interface plus the exact human/hardware step to finish each (NDA SDK, physical headset, device + paid dev account), documented in docs/PLATFORMS.md — those can never be marked 100% from this environment.
 
-**Types:** `PlatformId`, `PlatformCaps`, `SafeAreaInsets`, `PowerState`, `PlatformBackend`, `HeadlessBackend`, `PlatformRegistry`
+**Types:** `PlatformId`, `PlatformCaps`, `SafeAreaInsets`, `PowerState`, `ScreenOrientation`, `PlatformBackend`, `HeadlessBackend`, `PlatformRegistry`
 
 ### `PowerState`
 <sub>`engine/include/maz/platform/PowerState.hpp`</sub>
