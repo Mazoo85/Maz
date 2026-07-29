@@ -13,6 +13,7 @@
 //   mobilepack --selftest        # synthesize a tiny build tree in a temp dir, stage + verify it, exit 0 (CI)
 
 #include "maz/io/MobileBundlePlan.hpp"
+#include "maz/io/MobileBundlePreflight.hpp"
 #include "maz/io/ResourcePack.hpp"
 
 #include <cstdint>
@@ -169,6 +170,48 @@ int stageAndVerify(const MergedPlan& plan, const std::unordered_map<std::string,
     return mismatches;
 }
 
+std::string packDestFor(MobileOs os, const std::string& app); // defined below
+
+// Walk a staged bundle root and collect every file as a bundle-relative (generic '/') path — the on-disk
+// listing io::preflightStagedTree validates against the plan.
+std::vector<std::string> walkStaged(const fs::path& outDir) {
+    std::vector<std::string> paths;
+    std::error_code ec;
+    for (const auto& e : fs::recursive_directory_iterator(outDir, ec)) {
+        if (fs::is_regular_file(e.path())) {
+            paths.push_back(fs::relative(e.path(), outDir, ec).generic_string());
+        }
+    }
+    return paths;
+}
+
+// Bundle-relative destination of the game binary for a merged (possibly multi-ABI) plan: the primary ABI's
+// .so on Android, the .app-root Mach-O on iOS. Preflight only needs one guaranteed-present binary.
+std::string mergedExecutableDest(MobileOs os, const std::string& app, const std::string& primaryAbi) {
+    if (os == MobileOs::Android) {
+        return "lib/" + primaryAbi + "/lib" + app + ".so";
+    }
+    return app + ".app/" + app;
+}
+
+// Run io::preflightStagedTree over what actually landed under outDir. MANIFEST.txt is mobilepack's own
+// listing (not a planned bundle file), so it is excluded from the "unexpected file" check. Returns the report.
+PreflightReport preflightStaged(const MergedPlan& plan, MobileOs os, const std::string& app,
+                                const std::string& primaryAbi, const fs::path& outDir) {
+    std::vector<std::string> planned;
+    for (const BundleFile& f : plan.files) planned.push_back(f.dest);
+    // A packed bundle stages game.pck (not a plan file); include it so it is not flagged as unexpected.
+    for (const std::string& extraDest : {packDestFor(os, app)}) {
+        if (fs::exists(outDir / extraDest)) planned.push_back(extraDest);
+    }
+    std::vector<std::string> staged;
+    for (const std::string& p : walkStaged(outDir)) {
+        if (p == "MANIFEST.txt") continue; // mobilepack's own listing, not part of the bundle
+        staged.push_back(p);
+    }
+    return preflightStagedTree(planned, mergedExecutableDest(os, app, primaryAbi), plan.manifestDest, staged);
+}
+
 std::vector<std::uint8_t> readFileBytes(const std::string& path) {
     std::ifstream in(path, std::ios::binary);
     return std::vector<std::uint8_t>((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
@@ -298,6 +341,9 @@ int runSelfTest() {
         int libCount = 0;
         for (const BundleFile& f : plan.files) if (f.dest.rfind("lib/", 0) == 0 && f.dest.find("libTestGame.so") != std::string::npos) ++libCount;
         if (libCount != 3) { std::fprintf(stderr, "selftest: expected 3 per-ABI libs, got %d\n", libCount); ++fails; }
+        // The staged fat tree must be preflight-clean (binary + manifest present, a shader ships, nothing stale).
+        const PreflightReport pf = preflightStaged(plan, MobileOs::Android, "TestGame", "arm64-v8a", out);
+        if (!pf.ok()) { std::fprintf(stderr, "selftest: fat bundle failed preflight:\n%s", pf.report().c_str()); ++fails; }
     }
 
     // Packed (.pck) Android bundle: resources ship inside one archive, not as loose files.
@@ -320,6 +366,9 @@ int runSelfTest() {
             std::fprintf(stderr, "selftest: game.pck did not round-trip from disk\n");
             ++fails;
         }
+        // Preflight the packed tree: the .pck must satisfy the "ships resources" check even with no loose .spv.
+        const PreflightReport pf = preflightStaged(loose, MobileOs::Android, "TestGame", "arm64-v8a", out);
+        if (!pf.ok()) { std::fprintf(stderr, "selftest: packed bundle failed preflight:\n%s", pf.report().c_str()); ++fails; }
     }
 
     fs::remove_all(tmp, ec);
@@ -405,6 +454,21 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "==> FAILED: %d file(s) did not stage as planned.\n", mismatches);
         return 1;
     }
-    std::printf("==> OK: staged + verified at %s\n", outDir.string().c_str());
+
+    // Final gate: preflight the tree that actually landed on disk (catches gaps a size-check cannot — a
+    // shader-less bundle, an unexpected leftover file, a manifest that never wrote). Errors block; warnings
+    // are printed but still exit 0.
+    const PreflightReport pf = preflightStaged(staged, os, app, abis.front(), outDir);
+    for (const auto& i : pf.issues) {
+        std::fprintf(i.severity == PreflightSeverity::Error ? stderr : stdout, "    %s%s\n",
+                     i.severity == PreflightSeverity::Error ? "PREFLIGHT ERROR: " : "preflight warning: ",
+                     i.message.c_str());
+    }
+    if (!pf.ok()) {
+        std::fprintf(stderr, "==> FAILED: preflight found %zu error(s).\n", pf.errorCount());
+        return 1;
+    }
+
+    std::printf("==> OK: staged + verified + preflight-clean at %s\n", outDir.string().c_str());
     return 0;
 }

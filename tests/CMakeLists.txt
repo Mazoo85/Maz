@@ -1003,6 +1003,14 @@ target_link_libraries(maz_mobilebundleplan_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mobile_bundle_plan COMMAND maz_mobilebundleplan_tests)
 set_tests_properties(mobile_bundle_plan PROPERTIES TIMEOUT 30)
 
+# Mobile bundle preflight (io::preflightMobileBundle) — validates a staged bundle tree against its plan
+# before Gradle/Xcode runs: missing planned files / manifest and a plan with no game binary are errors;
+# a shader-less bundle and stale/unexpected staged files are warnings. Pure set logic, headless.
+add_executable(maz_mobilebundlepreflight_tests io/mobilebundlepreflight.cpp)
+target_link_libraries(maz_mobilebundlepreflight_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mobile_bundle_preflight COMMAND maz_mobilebundlepreflight_tests)
+set_tests_properties(mobile_bundle_preflight PROPERTIES TIMEOUT 30)
+
 add_executable(maz_mp3_tests audio/mp3.cpp)
 target_link_libraries(maz_mp3_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mp3_frames COMMAND maz_mp3_tests)
