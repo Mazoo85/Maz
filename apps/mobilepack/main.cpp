@@ -171,6 +171,8 @@ int stageAndVerify(const MergedPlan& plan, const std::unordered_map<std::string,
 }
 
 std::string packDestFor(MobileOs os, const std::string& app); // defined below
+int runPreflightOnly(const std::string& app, const std::string& version, MobileOs os,
+                     const std::vector<std::string>& abis, const std::string& from, const fs::path& dir);
 
 // Walk a staged bundle root and collect every file as a bundle-relative (generic '/') path — the on-disk
 // listing io::preflightStagedTree validates against the plan.
@@ -371,6 +373,21 @@ int runSelfTest() {
         if (!pf.ok()) { std::fprintf(stderr, "selftest: packed bundle failed preflight:\n%s", pf.report().c_str()); ++fails; }
     }
 
+    // Standalone --preflight path: stage a loose Android tree, then validate it non-destructively against a
+    // freshly-computed plan (clean pass), and confirm that deleting the binary makes preflight fail.
+    {
+        const MergedPlan plan = planBundleMulti("TestGame", "1.2.3", MobileOs::Android, sources, {"arm64-v8a"});
+        const fs::path out = tmp / "stage-preflight";
+        if (stageAndVerify(plan, absByLogical, out) != 0) ++fails;
+        if (runPreflightOnly("TestGame", "1.2.3", MobileOs::Android, {"arm64-v8a"}, from.string(), out) != 0) {
+            std::fprintf(stderr, "selftest: --preflight rejected a clean tree\n"); ++fails;
+        }
+        fs::remove(out / "lib/arm64-v8a/libTestGame.so", ec); // break it
+        if (runPreflightOnly("TestGame", "1.2.3", MobileOs::Android, {"arm64-v8a"}, from.string(), out) == 0) {
+            std::fprintf(stderr, "selftest: --preflight accepted a tree missing its binary\n"); ++fails;
+        }
+    }
+
     fs::remove_all(tmp, ec);
     if (fails == 0) {
         std::printf("mobilepack selftest: OK — ios + android fat (multi-ABI) + packed (.pck) bundles verified.\n");
@@ -384,17 +401,48 @@ void usage() {
         "mobilepack — stage a mobile (Android/iOS) bundle from a desktop build tree.\n"
         "usage: mobilepack --app NAME [--version V] [--os android|ios]\n"
         "                  [--abi ABI[,ABI...]] [--pack] [--from DIR] [--out DIR]\n"
+        "       mobilepack --app NAME [--os ...] [--abi ...] --from DIR --preflight STAGED_DIR\n"
         "       mobilepack --selftest\n"
         "  --abi accepts a comma-separated list on Android for a fat bundle, e.g.\n"
         "        --abi arm64-v8a,armeabi-v7a,x86_64  (ignored on iOS)\n"
         "  --pack bundles all shaders+assets into one game.pck (io::ResourcePack)\n"
-        "        instead of staging them as loose files.\n");
+        "        instead of staging them as loose files.\n"
+        "  --preflight validates an ALREADY-staged tree (from Gradle, a prior run, or a hand\n"
+        "        assembly) against a freshly-computed plan, without staging anything. Non-\n"
+        "        destructive; exits non-zero on any preflight error.\n");
+}
+
+// Non-destructively preflight an existing staged tree at `dir` against the plan computed from `from`. Detects
+// whether the tree was packed (a game.pck present) and validates against the matching plan variant. Returns 0
+// when preflight passes (warnings allowed), non-zero on any error or on a bad build tree.
+int runPreflightOnly(const std::string& app, const std::string& version, MobileOs os,
+                     const std::vector<std::string>& abis, const std::string& from, const fs::path& dir) {
+    if (!fs::is_directory(dir)) {
+        std::fprintf(stderr, "error: --preflight dir does not exist: %s\n", dir.string().c_str());
+        return 2;
+    }
+    std::vector<SourceFile> sources;
+    std::unordered_map<std::string, std::string> absByLogical;
+    if (!collectSources(fs::path(from), app, sources, absByLogical)) return 1;
+
+    const MergedPlan full = planBundleMulti(app, version, os, sources, abis);
+    // A game.pck in the tree means resources were packed, so validate against the loose (exe+libs+manifest)
+    // plan variant; the .pck itself is tolerated by preflightStaged's resource check.
+    const bool packed = fs::exists(dir / packDestFor(os, app));
+    const MergedPlan plan = packed ? withoutResources(full, sources) : full;
+
+    std::printf("==> preflight '%s' v%s for %s (%s tree) against %s\n", app.c_str(), version.c_str(),
+                mobileOsName(os).c_str(), packed ? "packed" : "loose", dir.string().c_str());
+    const PreflightReport pf = preflightStaged(plan, os, app, abis.front(), dir);
+    std::printf("%s", pf.report().c_str());
+    return pf.ok() ? 0 : 1;
 }
 
 } // namespace
 
 int main(int argc, char** argv) {
-    std::string app, version = "0.1.0", osArg = "android", abiArg = "arm64-v8a", from = "build/bin", out;
+    std::string app, version = "0.1.0", osArg = "android", abiArg = "arm64-v8a", from = "build/bin", out,
+                preflightDir;
     bool pack = false;
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
@@ -406,6 +454,7 @@ int main(int argc, char** argv) {
         else if (a == "--abi") abiArg = val("arm64-v8a");
         else if (a == "--from") from = val("build/bin");
         else if (a == "--out") out = val("");
+        else if (a == "--preflight") preflightDir = val("");
         else if (a == "--pack") pack = true;
         else if (a == "--help" || a == "-h") { usage(); return 0; }
         else { std::fprintf(stderr, "unknown argument: %s\n", a.c_str()); usage(); return 2; }
@@ -419,6 +468,11 @@ int main(int argc, char** argv) {
 
     std::vector<std::string> abis = splitCsv(abiArg);
     if (abis.empty()) abis = {"arm64-v8a"};
+
+    // --preflight: validate an existing staged tree without staging anything, then exit.
+    if (!preflightDir.empty()) {
+        return runPreflightOnly(app, version, os, abis, from, fs::path(preflightDir));
+    }
 
     std::vector<SourceFile> sources;
     std::unordered_map<std::string, std::string> absByLogical;
