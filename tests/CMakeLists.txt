@@ -262,6 +262,17 @@ target_link_libraries(maz_websocketfuzz_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME websocket_fuzz COMMAND maz_websocketfuzz_tests)
 set_tests_properties(websocket_fuzz PROPERTIES TIMEOUT 120)
 
+# Malformed-input robustness fuzz for the scripting VM's recursive-descent parser (script::Vm::run), which a
+# shipping game runs on untrusted third-party MOD scripts — a highly exposed surface. Feeds deep-nesting
+# structural stressors (parens/brackets/blocks/if/type params that overflow the native stack), plus
+# truncations/mutations of valid programs and random buffers. The ASan/UBSan job catches stack overflow +
+# OOB + UB. Found (and now guards) a stack-overflow DoS: unbounded recursion in Parser::primary()/
+# expression()/statement(), fixed with a parse-depth guard mirroring the JSON parser.
+add_executable(maz_scriptparserfuzz_tests script/scriptparserfuzz.cpp)
+target_link_libraries(maz_scriptparserfuzz_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME scriptparser_fuzz COMMAND maz_scriptparserfuzz_tests)
+set_tests_properties(scriptparser_fuzz PROPERTIES TIMEOUT 120)
+
 # Reflection-probe / cubemap CAPTURE matrices (render::cubeFaceView / cubeFaceProjection). Verified for
 # self-consistency with the Cubemap.hpp sampler: each face's look axis maps back to that face and projects
 # to the face center, the projection is a true 90-degree FOV, and the six frustums tile the sphere. Pure

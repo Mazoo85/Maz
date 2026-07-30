@@ -598,8 +598,29 @@ private:
         return advance();
     }
 
+    // Bound recursive-descent depth. Every nested parenthesis, array/dict literal, type parameter, and
+    // nested `if`/block/func adds one native stack frame chain; a hostile or accidentally pathological
+    // script (thousands of nested `(((`, `[[[`, or `if(1)if(1)...`, e.g. loaded from an untrusted mod)
+    // would otherwise recurse until the process stack overflows and crashes — an unrecoverable DoS. Each
+    // recursive parse entry point opens a DepthGuard, which fails with a clean ScriptError past the cap
+    // and restores the counter on every return/throw path via RAII. Mirrors the JSON parser's depth guard.
+    // The cap sits far above any legitimate source nesting while staying well under the native limit.
+    static constexpr int kMaxParseDepth = 500;
+    int m_depth = 0;
+    struct DepthGuard {
+        Parser& p;
+        explicit DepthGuard(Parser& parser) : p(parser) {
+            if (++p.m_depth > kMaxParseDepth) {
+                --p.m_depth; // constructor throws => destructor won't run; keep the counter consistent
+                p.error("maximum nesting depth exceeded");
+            }
+        }
+        ~DepthGuard() { --p.m_depth; }
+    };
+
     // ---- statements ----
     std::unique_ptr<Stmt> declaration() {
+        DepthGuard guard(*this);
         if (match(Tok::Var)) {
             return varDecl();
         }
@@ -679,6 +700,7 @@ private:
     // A type name: an identifier, optionally a container element type like `Array[int]` (parsed and
     // recorded as e.g. "Array[int]"; the checker treats the outer type as the primary constraint).
     std::string parseTypeName() {
+        DepthGuard guard(*this);
         std::string t = expect(Tok::Ident, "expected type name").text;
         if (match(Tok::LBracket)) {
             std::string inner = parseTypeName();
@@ -710,6 +732,7 @@ private:
     }
 
     std::unique_ptr<Stmt> statement() {
+        DepthGuard guard(*this);
         if (match(Tok::If)) {
             return ifStmt();
         }
@@ -880,7 +903,10 @@ private:
     }
 
     // ---- expressions ----
-    std::unique_ptr<Expr> expression() { return assignment(); }
+    std::unique_ptr<Expr> expression() {
+        DepthGuard guard(*this);
+        return assignment();
+    }
 
     std::unique_ptr<Expr> assignment() {
         auto lhs = logicOr();
