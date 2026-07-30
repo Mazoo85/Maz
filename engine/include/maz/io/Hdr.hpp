@@ -121,6 +121,22 @@ inline HdrImage decodeHdr(const uint8_t* data, std::size_t size) {
     if (w <= 0 || h <= 0) {
         return img;
     }
+    // A hostile header can declare enormous dimensions (e.g. "-Y 100000 +X 100000") that make the img.rgb
+    // and scan allocations below attempt tens of gigabytes and OOM-crash the process on a tiny file (and a
+    // huge w would also overflow the `w * 4` int loop bound in the raw-scanline path). HDR's per-channel RLE
+    // compresses only modestly (a run covers <=127 samples of one channel), so a real W*H image always ships
+    // far more than pixels/64 bytes. Reject implausible dimensions: cap each axis, cap the total pixel count
+    // to an absolute ceiling (defeats a large-file bomb), and require it to stay within a generous multiple
+    // of the input size (defeats a tiny-file/huge-dimensions bomb).
+    constexpr int kMaxDim = 1 << 15;               // 32768 per axis — beyond any real HDR skybox/IBL
+    if (w > kMaxDim || h > kMaxDim) {
+        return img;
+    }
+    const std::uint64_t pixels = static_cast<std::uint64_t>(w) * static_cast<std::uint64_t>(h);
+    constexpr std::uint64_t kMaxPixels = 1u << 28; // ~268M px (16384^2) — covers any real HDR
+    if (pixels > kMaxPixels || pixels > static_cast<std::uint64_t>(size) * 64u) {
+        return img;
+    }
 
     img.width = w;
     img.height = h;

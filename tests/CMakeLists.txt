@@ -304,6 +304,16 @@ target_link_libraries(maz_savefilefuzz_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME savefile_fuzz COMMAND maz_savefilefuzz_tests)
 set_tests_properties(savefile_fuzz PROPERTIES TIMEOUT 120)
 
+# Malformed-input robustness fuzz for the HDR image decoder (io::decodeHdr) and the .tres-style prefab text
+# loader (io::loadPrefabText) — both consume untrusted asset files (an .hdr skybox/IBL, a prefab resource).
+# Feeds absurd resolution headers, truncations/mutations of valid seeds, and random buffers. The ASan/UBSan
+# job catches OOB + OOM + UB. Found (and now guards) an OOM DoS: decodeHdr allocated width*height*3 floats
+# straight from the resolution line, so a tiny "-Y 100000 +X 100000" file forced a ~120 GB allocation.
+add_executable(maz_hdrfuzz_tests io/hdrfuzz.cpp)
+target_link_libraries(maz_hdrfuzz_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME hdr_fuzz COMMAND maz_hdrfuzz_tests)
+set_tests_properties(hdr_fuzz PROPERTIES TIMEOUT 120)
+
 # Reflection-probe / cubemap CAPTURE matrices (render::cubeFaceView / cubeFaceProjection). Verified for
 # self-consistency with the Cubemap.hpp sampler: each face's look axis maps back to that face and projects
 # to the face center, the projection is a true 90-degree FOV, and the six frustums tile the sphere. Pure
