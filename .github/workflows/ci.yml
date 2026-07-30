@@ -88,13 +88,13 @@ jobs:
         # float->int conversion of an out-of-range/NaN value (e.g. a hostile FBX polygon index) is caught.
         run: cmake -S . -B build-san -G Ninja -DCMAKE_BUILD_TYPE=Debug -DMAZ_SANITIZE=address,undefined,float-cast-overflow
       - name: Build unit tests
-        run: cmake --build build-san --target maz_unit_tests maz_imagecodecfuzz_tests maz_audiocontainerfuzz_tests maz_textparserfuzz_tests maz_resourcepackfuzz_tests maz_websocketfuzz_tests maz_scriptparserfuzz_tests maz_codecfuzz_tests maz_modelparserfuzz_tests maz_savefilefuzz_tests maz_hdrfuzz_tests --parallel
+        run: cmake --build build-san --target maz_unit_tests maz_imagecodecfuzz_tests maz_audiocontainerfuzz_tests maz_textparserfuzz_tests maz_resourcepackfuzz_tests maz_websocketfuzz_tests maz_scriptparserfuzz_tests maz_codecfuzz_tests maz_modelparserfuzz_tests maz_savefilefuzz_tests maz_hdrfuzz_tests maz_binarydifffuzz_tests --parallel
       - name: Run unit tests under sanitizers
         env:
           ASAN_OPTIONS: detect_leaks=1
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
           SDL_VIDEODRIVER: dummy
-        run: ctest --test-dir build-san --output-on-failure -R 'unit_tests|imagecodec_fuzz|audiocontainer_fuzz|textparser_fuzz|resourcepack_fuzz|websocket_fuzz|scriptparser_fuzz|codec_fuzz|modelparser_fuzz|savefile_fuzz|hdr_fuzz'
+        run: ctest --test-dir build-san --output-on-failure -R 'unit_tests|imagecodec_fuzz|audiocontainer_fuzz|textparser_fuzz|resourcepack_fuzz|websocket_fuzz|scriptparser_fuzz|codec_fuzz|modelparser_fuzz|savefile_fuzz|hdr_fuzz|binarydiff_fuzz'
 
   # ---- ThreadSanitizer: unit suite under TSan (data-race detection on the JobSystem + LogSinks) ----
   # The ASan/UBSan job above cannot see data races; this one instruments the first-party concurrent

@@ -115,7 +115,11 @@ inline bool binaryPatch(const std::uint8_t* src, std::size_t srcLen,
             if (!readVarint(patch, patchLen, off, srcOff) || !readVarint(patch, patchLen, off, len)) {
                 return false;
             }
-            if (srcOff + len > srcLen || srcOff > srcLen) {
+            // Overflow-safe bounds check: srcOff and len are full 64-bit varint fields, so `srcOff + len`
+            // can wrap past srcLen and slip a huge len through, after which the insert() below reads far out
+            // of bounds (and OOM-grows `out`) from a malicious patch. Check srcOff first, then len against
+            // the true remaining source length.
+            if (srcOff > srcLen || len > srcLen - srcOff) {
                 return false;
             }
             out.insert(out.end(), src + srcOff, src + srcOff + len);
@@ -124,11 +128,14 @@ inline bool binaryPatch(const std::uint8_t* src, std::size_t srcLen,
             if (!readVarint(patch, patchLen, off, len)) {
                 return false;
             }
-            if (off + len > patchLen) {
+            // Overflow-safe: `off + len` can wrap (len is a full 64-bit varint), slipping a huge len past a
+            // naive check and reading out of bounds from the patch. off <= patchLen here (readVarint stops
+            // within the buffer), so compare len against the true remaining patch length.
+            if (len > patchLen - off) {
                 return false;
             }
             out.insert(out.end(), patch + off, patch + off + len);
-            off += len;
+            off += static_cast<std::size_t>(len);
         } else {
             return false; // unknown op
         }

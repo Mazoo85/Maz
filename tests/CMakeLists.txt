@@ -314,6 +314,16 @@ target_link_libraries(maz_hdrfuzz_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME hdr_fuzz COMMAND maz_hdrfuzz_tests)
 set_tests_properties(hdr_fuzz PROPERTIES TIMEOUT 120)
 
+# Malformed-input robustness fuzz for the binary patch applier (io::binaryPatch), which reconstructs a target
+# from a base + a delta patch a game applies to update assets/saves (patch can come from a download/mod).
+# Feeds COPY/ADD length varints near UINT64_MAX, truncations/mutations of valid patches, and random buffers.
+# The ASan/UBSan job catches OOB + UB. Found (and now guards) an OOB: `srcOff + len` / `off + len` overflowed,
+# slipping a huge length past the bounds check into an out-of-range insert().
+add_executable(maz_binarydifffuzz_tests io/binarydifffuzz.cpp)
+target_link_libraries(maz_binarydifffuzz_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME binarydiff_fuzz COMMAND maz_binarydifffuzz_tests)
+set_tests_properties(binarydiff_fuzz PROPERTIES TIMEOUT 120)
+
 # Reflection-probe / cubemap CAPTURE matrices (render::cubeFaceView / cubeFaceProjection). Verified for
 # self-consistency with the Cubemap.hpp sampler: each face's look axis maps back to that face and projects
 # to the face center, the projection is a true 90-degree FOV, and the six frustums tile the sphere. Pure
