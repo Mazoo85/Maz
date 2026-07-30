@@ -94,6 +94,38 @@ jobs:
           SDL_VIDEODRIVER: dummy
         run: ctest --test-dir build-san --output-on-failure -R unit_tests
 
+  # ---- ThreadSanitizer: unit suite under TSan (data-race detection on the JobSystem + LogSinks) ----
+  # The ASan/UBSan job above cannot see data races; this one instruments the first-party concurrent
+  # code (core::JobSystem's thread pool + parallelFor/parallelRanges, the multi-threaded LogSinks
+  # fan-out) with ThreadSanitizer and fails on any race. Verified clean at introduction (0 warnings
+  # across the full unit suite); this job keeps it that way as the concurrency code evolves.
+  sanitizers-thread:
+    name: Sanitizers (ThreadSanitizer)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake ninja-build \
+            libvulkan-dev glslang-tools \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev \
+            libxss-dev libwayland-dev libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
+            libasound2-dev libpulse-dev libudev-dev
+      - name: Configure with ThreadSanitizer
+        run: cmake -S . -B build-tsan -G Ninja -DCMAKE_BUILD_TYPE=Debug -DMAZ_SANITIZE=thread
+      - name: Build unit tests
+        run: cmake --build build-tsan --target maz_unit_tests --parallel
+      - name: Run unit tests under ThreadSanitizer
+        # Run the instrumented binary directly rather than through ctest: TSan's instrumentation makes
+        # the suite take ~2 min, which overshoots the unit_tests ctest per-test TIMEOUT. halt_on_error=1
+        # makes any detected data race a non-zero exit and fails the job.
+        env:
+          TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
+          SDL_VIDEODRIVER: dummy
+        run: ./build-tsan/bin/maz_unit_tests
+
   # ---- macOS / Windows: build + GPU-free unit tests (cross-platform compile coverage) -------------
   crossbuild:
     name: ${{ matrix.os }} (build + unit tests)

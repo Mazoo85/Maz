@@ -146,7 +146,11 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
   set (bugprone/performance/portability/misc + a curated readability/modernize slice), scoped to
   first-party headers via HeaderFilterRegex and strict in CI (`WarningsAsErrors '*'`). A new CI
   `tidy` job runs it over every `engine/src/**/*.cpp` on push/PR; a companion `sanitizers` job builds
-  the unit suite with `-DMAZ_SANITIZE=address,undefined` and runs it under ASan+UBSan+LeakSanitizer.
+  the unit suite with `-DMAZ_SANITIZE=address,undefined` and runs it under ASan+UBSan+LeakSanitizer,
+  and a `sanitizers-thread` job builds it with `-DMAZ_SANITIZE=thread` and runs it under
+  ThreadSanitizer to guard the concurrent code (the `core::JobSystem` thread pool + `parallelFor`/
+  `parallelRanges`, the multi-threaded `LogSinks` fan-out) against data races — verified clean
+  (0 warnings across the full unit suite) at introduction.
   Verified locally: clang-tidy reports **zero diagnostics** across all engine sources after fixing
   the genuine finds it surfaced — dead `using`, a cloned switch branch, a misplaced-const handle, an
   int→size_t sign conversion, and a redundant boolean return.)
