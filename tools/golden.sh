@@ -202,6 +202,41 @@ XPID=$!
 trap 'kill $XPID 2>/dev/null' EXIT
 sleep 1.5
 
+# Launch a scene under the running Xvfb, let it settle, and screenshot the root window into $1.
+render_scene() {
+    local dest="$1" rapp="$2" rargs="$3" rsettle="$4" rpid
+    # shellcheck disable=SC2086
+    DISPLAY=:98 "$BIN/$rapp" $rargs >/dev/null 2>&1 &
+    rpid=$!
+    sleep "$rsettle"
+    DISPLAY=:98 import -window root "$dest" 2>/dev/null || true
+    kill $rpid 2>/dev/null
+    wait $rpid 2>/dev/null
+}
+
+# Normalized RMSE of a render ($1) vs its reference ($2); 1.0 if compare emits nothing.
+rmse_of() {
+    local v
+    v="$(compare -metric RMSE "$1" "$2" null: 2>&1 | sed -E 's/.*\(([0-9.eE+-]+)\).*/\1/')"
+    [ -z "$v" ] && v=1.0
+    printf '%s' "$v"
+}
+
+# Warm-up (check only): the FIRST app launched after Xvfb starts frequently loses a race to present its
+# Vulkan surface within the settle window on the software (lavapipe) renderer, so the root capture comes
+# back black and an unchanged scene fails with a huge RMSE (measured: cube 0.75 cold vs 0.06 warm). Do one
+# throwaway render up front so no real scene pays that cold-start cost.
+if [ "$MODE" = "check" ]; then
+    for warmup_entry in "${CASES[@]}"; do
+        IFS='|' read -r w_app w_args w_settle _w_thr _w_lbl <<<"$warmup_entry"
+        [ -x "$BIN/$w_app" ] || continue
+        warm_png="$(mktemp --suffix=.png)"
+        render_scene "$warm_png" "$w_app" "$w_args" "$w_settle"
+        rm -f "$warm_png"
+        break
+    done
+fi
+
 fails=0
 for entry in "${CASES[@]}"; do
     # Optional 5th field: a label that names the reference image, so the same app can appear more than once
@@ -213,13 +248,7 @@ for entry in "${CASES[@]}"; do
         continue
     fi
     out="$(mktemp --suffix=.png)"
-    # shellcheck disable=SC2086
-    DISPLAY=:98 "$BIN/$app" $args >/dev/null 2>&1 &
-    gpid=$!
-    sleep "$settle"
-    DISPLAY=:98 import -window root "$out" 2>/dev/null || true
-    kill $gpid 2>/dev/null
-    wait $gpid 2>/dev/null
+    render_scene "$out" "$app" "$args" "$settle"
 
     ref="$GOLDEN/$name.png"
     if [ "$MODE" = "capture" ]; then
@@ -230,13 +259,19 @@ for entry in "${CASES[@]}"; do
             echo "FAIL: $name has no reference (run 'tools/golden.sh capture')"
             fails=$((fails + 1))
         else
-            # compare prints "<abs> (<normalized>)"; grab the normalized value (may be scientific
-            # notation like 7.8e-06, so allow e/E/+/- in the capture).
-            rmse="$(compare -metric RMSE "$out" "$ref" null: 2>&1 | sed -E 's/.*\(([0-9.eE+-]+)\).*/\1/')"
-            if [ -z "$rmse" ]; then rmse=1.0; fi
+            # compare prints "<abs> (<normalized>)"; rmse_of grabs the normalized value.
+            rmse="$(rmse_of "$out" "$ref")"
             if awk "BEGIN{exit !($rmse > $threshold)}"; then
-                echo "FAIL: $name RMSE $rmse > $threshold"
-                fails=$((fails + 1))
+                # Retry once: a single black/partial frame from a transient surface-present race would
+                # otherwise fail an unchanged scene. A real regression still exceeds the threshold twice.
+                render_scene "$out" "$app" "$args" "$settle"
+                rmse2="$(rmse_of "$out" "$ref")"
+                if awk "BEGIN{exit !($rmse2 > $threshold)}"; then
+                    echo "FAIL: $name RMSE $rmse2 > $threshold (retried; first was $rmse)"
+                    fails=$((fails + 1))
+                else
+                    echo "ok:   $name RMSE $rmse2 (<= $threshold, on retry; first was $rmse)"
+                fi
             else
                 echo "ok:   $name RMSE $rmse (<= $threshold)"
             fi
