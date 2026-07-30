@@ -2477,6 +2477,18 @@ All of these need a live GPU to *see*, but the CPU-side data structures, bakers,
   analytic Beer-Lambert + exponential height falloff, fully VERIFIABLE HERE (GPU froxel raymarch is separate).
 - [x] **Occlusion culling** — ALREADY PRESENT (`render::Occlusion.hpp`, screen-space coverage buffer).
 - [x] **Mesh LOD selection** — ALREADY PRESENT (`render::MeshLod.hpp`, `LodChain::select` by projected pixels).
+- [x] **Mesh LOD-ladder builder** (`render::buildMeshLods` → `MeshLodSet`) — DONE (M819); the one-call import
+  step that turns a single authored mesh into a full LOD set, the equivalent of Godot's
+  `ImporterMesh.generate_lods()`. It ties the two halves that already existed separately — the QEM decimator
+  `simplifyQuadric` (M526) that GENERATES one lower-poly mesh, and the `LodChain` selector (above) that PICKS a
+  level from on-screen pixel size — into a ready-to-draw ladder: it runs the decimator at a geometric sequence
+  of triangle budgets (each level from the ORIGINAL mesh so error never compounds) and fills a `LodChain` with a
+  descending pixel threshold per level, index-aligned so the selected index is a direct index into `meshes`. The
+  ladder stops at `minTriangles`, when a level fails to shrink, or at `maxLevels`. Verified
+  (`ctest -R mesh_lod_builder`): level 0 is the source verbatim, triangle counts strictly decrease, every level
+  is a valid mesh, thresholds descend, a big on-screen object selects the finest / a tiny one the coarsest, a
+  nearer object uses an equal-or-finer LOD than a distant one, it is deterministic, and degenerate inputs
+  (`maxLevels<=1`, empty mesh, a high triangle floor) collapse to a short/single ladder. [VERIFIABLE HERE]
 - [x] **Mesh simplification / decimation** (`render::simplifyClustering`) — DONE (M524); the load-time
   vertex-clustering decimation that GENERATES lower-poly LODs and collision hulls from a dense mesh (M-selection
   above only picks which LOD to draw; this makes them). Overlays a uniform grid, averages each cell's vertices

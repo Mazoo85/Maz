@@ -122,7 +122,10 @@ for at all:
 - **Heightmap terrain** authoring and rendering.
 - A full **3D navigation server** with runtime navmesh baking and dynamic obstacles (Maz has 2D nav
   and navmesh *math*, not a baked 3D nav server).
-- Mesh **LOD** generation and **visibility ranges**.
+- ~~Mesh **LOD** generation and **visibility ranges**~~ — CPU side now present: `render::buildMeshLods`
+  generates the LOD ladder (quadric decimation, Godot `ImporterMesh.generate_lods` equivalent) and
+  `render::LodChain` selects/culls by projected pixel size with bias + hysteresis (visibility ranges). The
+  residual vs Godot is the automatic in-editor import pipeline and GPU-side driving, not the algorithm.
 
 ---
 

@@ -274,6 +274,11 @@ target_link_libraries(maz_meshsimplifyquadric_tests PRIVATE maz::maz maz_warning
 add_test(NAME mesh_simplify_quadric COMMAND maz_meshsimplifyquadric_tests)
 set_tests_properties(mesh_simplify_quadric PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshlodbuilder_tests render/meshlodbuilder.cpp)
+target_link_libraries(maz_meshlodbuilder_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_lod_builder COMMAND maz_meshlodbuilder_tests)
+set_tests_properties(mesh_lod_builder PROPERTIES TIMEOUT 30)
+
 add_executable(maz_meshraybvh_tests render/meshraybvh.cpp)
 target_link_libraries(maz_meshraybvh_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_ray_bvh COMMAND maz_meshraybvh_tests)
