@@ -1033,6 +1033,13 @@ target_link_libraries(maz_mobilebundlepreflight_tests PRIVATE maz::maz maz_warni
 add_test(NAME mobile_bundle_preflight COMMAND maz_mobilebundlepreflight_tests)
 set_tests_properties(mobile_bundle_preflight PROPERTIES TIMEOUT 30)
 
+# Generated Android Gradle files (io::androidBuildGradle / androidSettingsGradle) — turns mobilepack's
+# staged bundle into a buildable Gradle project (prebuilt jniLibs + assets, abiFilters, reverse-DNS id).
+add_executable(maz_androidgradle_tests io/androidgradle.cpp)
+target_link_libraries(maz_androidgradle_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME android_gradle COMMAND maz_androidgradle_tests)
+set_tests_properties(android_gradle PROPERTIES TIMEOUT 30)
+
 add_executable(maz_mp3_tests audio/mp3.cpp)
 target_link_libraries(maz_mp3_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mp3_frames COMMAND maz_mp3_tests)

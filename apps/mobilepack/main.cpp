@@ -202,8 +202,10 @@ PreflightReport preflightStaged(const MergedPlan& plan, MobileOs os, const std::
                                 const std::string& primaryAbi, const fs::path& outDir) {
     std::vector<std::string> planned;
     for (const BundleFile& f : plan.files) planned.push_back(f.dest);
-    // A packed bundle stages game.pck (not a plan file); include it so it is not flagged as unexpected.
-    for (const std::string& extraDest : {packDestFor(os, app)}) {
+    // Files staged next to the bundle that are not plan entries (a packed game.pck, the generated Gradle
+    // project files); include any that exist so they are not flagged as unexpected leftovers.
+    for (const std::string& extraDest : {packDestFor(os, app), std::string("build.gradle"),
+                                         std::string("settings.gradle")}) {
         if (fs::exists(outDir / extraDest)) planned.push_back(extraDest);
     }
     std::vector<std::string> staged;
@@ -503,6 +505,17 @@ int main(int argc, char** argv) {
     }
 
     { std::ofstream m(outDir / "MANIFEST.txt", std::ios::binary | std::ios::trunc); m << staged.listing; }
+
+    // Android: drop in the generated Gradle project so the staged tree is `gradle assembleRelease`-ready —
+    // the owner adds the SDL3 module and signing, no hand-authored build.gradle. (iOS's Xcode project is
+    // not generated here; see docs/MOBILE_BUILD.md.)
+    if (os == MobileOs::Android && mismatches == 0) {
+        std::ofstream(outDir / "build.gradle", std::ios::binary | std::ios::trunc)
+            << androidBuildGradle(app, version, abis);
+        std::ofstream(outDir / "settings.gradle", std::ios::binary | std::ios::trunc)
+            << androidSettingsGradle(app);
+        std::printf("    gradle:    build.gradle + settings.gradle (prebuilt jniLibs + assets)\n");
+    }
 
     if (mismatches != 0) {
         std::fprintf(stderr, "==> FAILED: %d file(s) did not stage as planned.\n", mismatches);
