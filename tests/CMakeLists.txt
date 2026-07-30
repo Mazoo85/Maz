@@ -206,6 +206,16 @@ target_link_libraries(maz_qoa_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME qoa_codec COMMAND maz_qoa_tests)
 set_tests_properties(qoa_codec PROPERTIES TIMEOUT 30)
 
+# Malformed-input robustness fuzz for the binary audio + container decoders (decodeWav/decodeQoa/
+# decodeImaAdpcm/parseGlb): truncations, mutations, random buffers, and a large declared sample count vs a
+# short data block. In the Release gate it catches crashes/hangs/OOM on corrupt assets; under the ASan/UBSan
+# job it also catches out-of-bounds reads and integer UB. Found (and this now guards) two real QOA bugs: a
+# signed-overflow in the encoder's qoaDiv and an unbounded allocation in decodeQoa on a hostile header.
+add_executable(maz_audiocontainerfuzz_tests audio/audiocontainerfuzz.cpp)
+target_link_libraries(maz_audiocontainerfuzz_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME audiocontainer_fuzz COMMAND maz_audiocontainerfuzz_tests)
+set_tests_properties(audiocontainer_fuzz PROPERTIES TIMEOUT 120)
+
 # G.711 mu-law / A-law companding codec (audio::encodeMuLaw / decodeMuLaw / encodeALaw / decodeALaw) — the
 # ITU-T telephony/VoIP audio format (a common .wav payload). Verified against spec anchors (mu-law silence ->
 # 0xFF), sign + monotonicity, and a 2:1 encode->decode round-trip with bounded log-quantization error.

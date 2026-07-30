@@ -75,7 +75,9 @@ inline int qoaClamp(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi :
 inline int qoaClampS16(int v) { return qoaClamp(v, -32768, 32767); }
 inline int qoaDiv(int v, int scalefactor) {
     const int reciprocal = kQoaReciprocalTab[scalefactor];
-    int n = (v * reciprocal + (1 << 15)) >> 16;
+    // v (a residual up to ±65535) times reciprocal (up to 65536) overflows int — signed-overflow UB. The
+    // quotient after the >>16 is small, so widen the product to 64 bits and narrow the result back.
+    int n = static_cast<int>((static_cast<std::int64_t>(v) * reciprocal + (1 << 15)) >> 16);
     n = n + ((v > 0) - (v < 0)) - ((n > 0) - (n < 0)); // round away from zero
     return n;
 }
@@ -217,7 +219,14 @@ inline WavData decodeQoa(const std::uint8_t* d, std::size_t n) {
         if (channels == 0) {
             channels = static_cast<std::uint16_t>(ch);
             sampleRate = sr;
-            pcm.assign(static_cast<std::size_t>(total) * static_cast<std::size_t>(ch), 0);
+            // Guard against a corrupt/hostile header declaring an enormous sample count: QOA packs at most
+            // 20 samples per channel into each 8-byte slice, so the decoded interleaved length can never
+            // exceed ~2.5x the input byte count. Reject anything wildly larger rather than attempting a
+            // multi-gigabyte allocation (which would OOM-crash the process on a malicious .qoa file).
+            const std::uint64_t claimed =
+                static_cast<std::uint64_t>(total) * static_cast<std::uint64_t>(ch);
+            if (claimed > static_cast<std::uint64_t>(n) * 3u) return WavData();
+            pcm.assign(static_cast<std::size_t>(claimed), 0);
         }
         p += 8;
 
