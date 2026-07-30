@@ -279,6 +279,15 @@ target_link_libraries(maz_meshlodbuilder_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_lod_builder COMMAND maz_meshlodbuilder_tests)
 set_tests_properties(mesh_lod_builder PROPERTIES TIMEOUT 30)
 
+# Malformed-input robustness fuzz for the hand-written image decoders (BMP/TGA/GIF/PNM/DDS/PNG): feeds
+# truncated, mutated, and random byte buffers to each decode* entry point. In the plain Release gate it
+# catches crashes/hangs on corrupt assets; under the ASan/UBSan sanitizer job it also catches out-of-bounds
+# reads and integer UB (that job builds + runs this target too). Verified clean at introduction.
+add_executable(maz_imagecodecfuzz_tests render/imagecodecfuzz.cpp)
+target_link_libraries(maz_imagecodecfuzz_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME imagecodec_fuzz COMMAND maz_imagecodecfuzz_tests)
+set_tests_properties(imagecodec_fuzz PROPERTIES TIMEOUT 120)
+
 add_executable(maz_meshraybvh_tests render/meshraybvh.cpp)
 target_link_libraries(maz_meshraybvh_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_ray_bvh COMMAND maz_meshraybvh_tests)
