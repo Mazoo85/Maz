@@ -62,8 +62,9 @@ The shared, engine-side work that makes Maz mobile-shaped is done and verified o
   killed with no further notice). `apps/_template/` wires all of this as the copy-me showcase.
 - **Bundle staging + preflight** — `tools/package_mobile.sh` + the `mobilepack` CLI drive
   `io::planMobileBundle` to stage a complete Android/iOS bundle (fat multi-ABI `lib/<abi>/`, optional
-  single `game.pck`, generated `AndroidManifest.xml`/`Info.plist`), and `io::preflightMobileBundle`
-  validates the staged tree before Gradle/Xcode runs (`ctest -R "mobile_bundle|mobilepack"`).
+  single `game.pck`, generated `AndroidManifest.xml`/`Info.plist`, and on Android a ready-to-build
+  `build.gradle`/`settings.gradle` via `io::androidBuildGradle`), and `io::preflightMobileBundle`
+  validates the staged tree before Gradle/Xcode runs (`ctest -R "mobile_bundle|mobilepack|android_gradle"`).
 
 ## The exact human/hardware step per platform
 
