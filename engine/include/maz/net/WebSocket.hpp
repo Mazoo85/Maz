@@ -131,7 +131,11 @@ inline std::optional<WsFrame> wsDecodeFrame(const std::uint8_t* data, std::size_
         for (int i = 0; i < 4; ++i) mask[i] = data[p + static_cast<std::size_t>(i)];
         p += 4;
     }
-    if (n < p + len) return std::nullopt; // payload not fully arrived
+    // Overflow-safe length check: `len` is a full 64-bit field from the frame, so a value near UINT64_MAX
+    // would make `p + len` wrap and slip past a naive `n < p + len`, after which resize(len) throws
+    // std::length_error and crashes the process — a remote DoS from a single malicious frame. `p <= n` holds
+    // here, so compare `len` against the true remaining byte count instead of forming `p + len`.
+    if (len > static_cast<std::uint64_t>(n - p)) return std::nullopt; // payload not fully arrived (or absurd)
 
     WsFrame f;
     f.fin = fin;

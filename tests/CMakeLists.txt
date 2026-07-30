@@ -252,6 +252,16 @@ target_link_libraries(maz_websocket_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME websocket COMMAND maz_websocket_tests)
 set_tests_properties(websocket PROPERTIES TIMEOUT 30)
 
+# Malformed-input robustness fuzz for the WebSocket frame decoder (net::wsDecodeFrame), the parser a Maz
+# server runs on every byte a remote browser client sends — the most exposed untrusted surface. Feeds the
+# length-field overflow that crashed it, truncations/mutations of valid frames, and random buffers. Release
+# gate catches crashes/hangs; the ASan/UBSan job catches OOB + UB. Found (and now guards) a remote DoS: a
+# 64-bit frame length near UINT64_MAX overflowed the bounds check and threw std::length_error out of resize.
+add_executable(maz_websocketfuzz_tests net/websocketfuzz.cpp)
+target_link_libraries(maz_websocketfuzz_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME websocket_fuzz COMMAND maz_websocketfuzz_tests)
+set_tests_properties(websocket_fuzz PROPERTIES TIMEOUT 120)
+
 # Reflection-probe / cubemap CAPTURE matrices (render::cubeFaceView / cubeFaceProjection). Verified for
 # self-consistency with the Cubemap.hpp sampler: each face's look axis maps back to that face and projects
 # to the face center, the projection is a true 90-degree FOV, and the six frustums tile the sphere. Pure
