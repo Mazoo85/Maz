@@ -294,6 +294,16 @@ target_link_libraries(maz_modelparserfuzz_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME modelparser_fuzz COMMAND maz_modelparserfuzz_tests)
 set_tests_properties(modelparser_fuzz PROPERTIES TIMEOUT 120)
 
+# Malformed-input robustness fuzz for the binary save-file deserializers a game loads from untrusted bytes:
+# the input-replay reader (core::Replay<T>::load), the checkpoint save-file reader (core::Checkpoints::loadFile),
+# and the move-to-front inverse (io::mtfDecode). Feeds absurd count/length headers, truncations/mutations of
+# valid seeds, and random buffers. The ASan/UBSan job catches OOB + OOM + UB. Found (and now guards) an OOM
+# DoS: Replay::load reserve()d frameCount frames from a hostile 4-byte header and expanded runs unboundedly.
+add_executable(maz_savefilefuzz_tests core/savefilefuzz.cpp)
+target_link_libraries(maz_savefilefuzz_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME savefile_fuzz COMMAND maz_savefilefuzz_tests)
+set_tests_properties(savefile_fuzz PROPERTIES TIMEOUT 120)
+
 # Reflection-probe / cubemap CAPTURE matrices (render::cubeFaceView / cubeFaceProjection). Verified for
 # self-consistency with the Cubemap.hpp sampler: each face's look axis maps back to that face and projects
 # to the face center, the projection is a true 90-degree FOV, and the six frustums tile the sphere. Pure

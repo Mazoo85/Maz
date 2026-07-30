@@ -94,13 +94,30 @@ template <typename T> class Replay {
         if (version != kVersion || frameSize != sizeof(T)) {
             return false;
         }
-        m_frames.reserve(frameCount);
+        // Guard against a hostile header. frameCount and each run's count are untrusted u32s (up to ~4.29e9);
+        // trusting frameCount, reserve(frameCount) alone attempts a multi-gigabyte allocation and OOM-crashes
+        // the process on a tiny replay file, and a single run with a huge count would then push_back billions
+        // of frames. RLE means the frame total can legitimately exceed the byte count, so bound it by a
+        // generous absolute ceiling (far beyond any real input replay) rather than by input size, cap the
+        // up-front reservation, and reject any run that would overrun the declared total.
+        constexpr size_t kMaxFrames = 1u << 24; // ~16.7M frames (~77 h at 60 Hz) — far above real use
+        if (frameCount > kMaxFrames) {
+            return false;
+        }
+        m_frames.reserve(frameCount < (1u << 20) ? frameCount : (1u << 20));
         for (uint32_t r = 0; r < runCount; ++r) {
             if (off + 4 + sizeof(T) > bytes.size()) {
                 clear();
                 return false;
             }
             const uint32_t count = getU32(bytes, off);
+            // A run whose count would push the total past the declared frameCount (and thus the cap) is
+            // corrupt; reject rather than expand unboundedly. m_frames.size() <= frameCount holds here, so
+            // the subtraction cannot underflow.
+            if (count > frameCount - m_frames.size()) {
+                clear();
+                return false;
+            }
             T value{};
             std::memcpy(&value, bytes.data() + off, sizeof(T));
             off += sizeof(T);
