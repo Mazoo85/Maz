@@ -237,6 +237,13 @@ inline bool parsePly(const std::string& bytes, shapes::MeshData& out, const PlyL
         }
     }
     if (vertexCount < 0 || faceCount < 0 || vprops.empty()) return false;
+    // Guard against a corrupt/hostile header declaring an enormous element count: each vertex or face needs
+    // at least one byte of payload, so a count larger than the whole input can never be legitimate. Reject
+    // it rather than reserve()-ing gigabytes and OOM-crashing on a malicious .ply.
+    if (static_cast<std::size_t>(vertexCount) > bytes.size() ||
+        static_cast<std::size_t>(faceCount) > bytes.size()) {
+        return false;
+    }
 
     // --- Read the data. ---
     PlyReader rd;

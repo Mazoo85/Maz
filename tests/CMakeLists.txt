@@ -216,6 +216,16 @@ target_link_libraries(maz_audiocontainerfuzz_tests PRIVATE maz::maz maz_warnings
 add_test(NAME audiocontainer_fuzz COMMAND maz_audiocontainerfuzz_tests)
 set_tests_properties(audiocontainer_fuzz PROPERTIES TIMEOUT 120)
 
+# Malformed-input robustness fuzz for the text/structured parsers (parseJson/XmlParser/base64Decode/
+# parsePly/parseObj/parseMtl): random buffers, truncations/mutations, and structural stressors (deeply
+# nested JSON, an absurd PLY element count). Release gate catches crashes/hangs/OOM; ASan/UBSan job catches
+# OOB + UB. Found (and now guards) two real bugs: unbounded JSON recursion (stack overflow) and an unbounded
+# PLY reserve (OOM), both fixable only under adversarial input the valid-input tests never reach.
+add_executable(maz_textparserfuzz_tests io/textparserfuzz.cpp)
+target_link_libraries(maz_textparserfuzz_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME textparser_fuzz COMMAND maz_textparserfuzz_tests)
+set_tests_properties(textparser_fuzz PROPERTIES TIMEOUT 120)
+
 # G.711 mu-law / A-law companding codec (audio::encodeMuLaw / decodeMuLaw / encodeALaw / decodeALaw) — the
 # ITU-T telephony/VoIP audio format (a common .wav payload). Verified against spec anchors (mu-law silence ->
 # 0xFF), sign + monotonicity, and a 2:1 encode->decode round-trip with bounded log-quantization error.

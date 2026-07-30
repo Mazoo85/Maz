@@ -301,6 +301,18 @@ private:
     std::string m_error;
     int m_errLine = 0;
     int m_errCol = 0;
+    int m_depth = 0;
+    // Cap nesting so a hostile/corrupt document of deeply nested arrays/objects (e.g. thousands of '[')
+    // cannot overflow the native stack via unbounded recursion. Real game data is nowhere near this deep.
+    static constexpr int kMaxDepth = 512;
+
+    // RAII depth counter: increments on construction, decrements on every return path from parseValue.
+    struct DepthGuard {
+        int& d;
+        bool ok;
+        explicit DepthGuard(int& depth) : d(depth), ok(++depth <= kMaxDepth) {}
+        ~DepthGuard() { --d; }
+    };
 
     bool eof() const { return m_pos >= m_text.size(); }
     char peek() const { return m_text[m_pos]; }
@@ -336,6 +348,8 @@ private:
     }
 
     bool parseValue(JsonValue& out) {
+        DepthGuard guard(m_depth);
+        if (!guard.ok) return fail("maximum nesting depth exceeded");
         if (eof()) return fail("unexpected end of input");
         char c = peek();
         switch (c) {
