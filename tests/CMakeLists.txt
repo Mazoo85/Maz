@@ -283,6 +283,17 @@ target_link_libraries(maz_codecfuzz_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME codec_fuzz COMMAND maz_codecfuzz_tests)
 set_tests_properties(codec_fuzz PROPERTIES TIMEOUT 120)
 
+# Malformed-input robustness fuzz for the 3D-asset container/model parsers a game imports from untrusted
+# files: the ASCII FBX geometry importer (render::parseFbxAscii), the GLB binary container splitter
+# (render::parseGlb), and the MP3 frame scanner (audio::scanMp3). Feeds absurd length/count fields,
+# truncations/mutations of valid seeds, and random buffers. The ASan/UBSan job catches OOB + OOM + UB (with
+# float-cast-overflow enabled). Found (and now guards) a UB: parseFbxAscii static_cast<int>'d a polygon index
+# parsed from text, so a NaN / out-of-int-range value in PolygonVertexIndex was undefined behavior.
+add_executable(maz_modelparserfuzz_tests render/modelparserfuzz.cpp)
+target_link_libraries(maz_modelparserfuzz_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME modelparser_fuzz COMMAND maz_modelparserfuzz_tests)
+set_tests_properties(modelparser_fuzz PROPERTIES TIMEOUT 120)
+
 # Reflection-probe / cubemap CAPTURE matrices (render::cubeFaceView / cubeFaceProjection). Verified for
 # self-consistency with the Cubemap.hpp sampler: each face's look axis maps back to that face and projects
 # to the face center, the projection is a true 90-degree FOV, and the six frustums tile the sphere. Pure

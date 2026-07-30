@@ -131,6 +131,12 @@ inline bool parseFbxAscii(const std::string& text, shapes::MeshData& out,
     // so accumulate a polygon then fan-triangulate it.
     std::vector<int> poly;
     for (double d : polyIdx) {
+        // Guard the double->int conversion. `d` comes from strtod over untrusted FBX text, so a hostile or
+        // corrupt file can supply a NaN or an out-of-int-range magnitude (e.g. 1e300); static_cast<int> of
+        // either is undefined behavior. Accept only a value strictly inside the int range — the strict lower
+        // bound also excludes INT_MIN, whose `-idx` negation below would overflow. NaN fails both comparisons
+        // and is skipped. A real polygon index never approaches these bounds.
+        if (!(d > -2147483648.0 && d < 2147483648.0)) continue;
         int idx = static_cast<int>(d);
         bool last = false;
         if (idx < 0) { idx = -idx - 1; last = true; } // ~idx == -idx-1
