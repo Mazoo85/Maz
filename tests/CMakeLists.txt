@@ -226,6 +226,15 @@ target_link_libraries(maz_textparserfuzz_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME textparser_fuzz COMMAND maz_textparserfuzz_tests)
 set_tests_properties(textparser_fuzz PROPERTIES TIMEOUT 120)
 
+# Malformed-input robustness fuzz for the binary resource-pack archive (io::ResourcePack::load), the .pck a
+# shipping/mobile game loads every asset from: truncations, mutations, random buffers, and a header with an
+# absurd entry count. Release gate catches crashes/hangs/OOM; the ASan/UBSan job catches OOB + UB. Found (and
+# now guards) an unbounded dir.reserve(count) that OOM-crashed on a hostile header.
+add_executable(maz_resourcepackfuzz_tests io/resourcepackfuzz.cpp)
+target_link_libraries(maz_resourcepackfuzz_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME resourcepack_fuzz COMMAND maz_resourcepackfuzz_tests)
+set_tests_properties(resourcepack_fuzz PROPERTIES TIMEOUT 120)
+
 # G.711 mu-law / A-law companding codec (audio::encodeMuLaw / decodeMuLaw / encodeALaw / decodeALaw) — the
 # ITU-T telephony/VoIP audio format (a common .wav payload). Verified against spec anchors (mu-law silence ->
 # 0xFF), sign + monotonicity, and a 2:1 encode->decode round-trip with bounded log-quantization error.

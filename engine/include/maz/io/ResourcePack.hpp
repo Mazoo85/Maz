@@ -73,7 +73,14 @@ public:
             std::uint32_t size;
         };
         std::vector<Dir> dir;
-        dir.reserve(count);
+        // A hostile/corrupt header can claim a huge entry count; each real entry occupies at least a 4-byte
+        // string-length prefix plus the 4-byte offset and 4-byte size (>=12 bytes), so never reserve for more
+        // entries than the remaining bytes could possibly hold — otherwise reserve() alone would attempt a
+        // multi-gigabyte allocation and OOM-crash the process on a malicious .pck. The read loop below still
+        // bounds-checks every field, so this only caps the up-front reservation, not correctness.
+        const std::size_t reserveCap = r.remaining() / 12u + 1u;
+        dir.reserve(static_cast<std::size_t>(count) < reserveCap ? static_cast<std::size_t>(count)
+                                                                 : reserveCap);
         for (std::uint32_t i = 0; i < count; ++i) {
             Dir d;
             d.path = r.readString();
