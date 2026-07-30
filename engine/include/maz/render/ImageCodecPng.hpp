@@ -133,6 +133,17 @@ inline Image decodePng(const std::uint8_t* data, std::size_t size) {
         return rec;
     };
 
+    // Guard against a hostile IHDR declaring enormous dimensions: Image(width,height) plus the per-scanline
+    // unfilter buffer would otherwise attempt tens of gigabytes and OOM-crash the process (IHDR is not
+    // cross-checked against the file size the way the uncompressed codecs are, and the CRC is not verified).
+    // Every pixel's samples must be present in the inflated stream — width*height*bpp bytes, filter bytes
+    // extra — so a dimension product that exceeds what `raw` holds is corrupt. The division form avoids
+    // overflow; height >= 1 and bpp >= 1 here, so the divisor is non-zero.
+    if (static_cast<std::uint64_t>(width) >
+        static_cast<std::uint64_t>(raw.size()) / (static_cast<std::uint64_t>(height) * bpp)) {
+        return Image{};
+    }
+
     Image img(width, height);
 
     // Expand one sub-image sample (at rec[s]) to RGBA and write it to (dx, dy).

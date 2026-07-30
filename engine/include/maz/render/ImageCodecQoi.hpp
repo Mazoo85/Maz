@@ -127,6 +127,19 @@ inline Image decodeQoi(const std::uint8_t* d, std::size_t size) {
     if (w == 0 || h == 0 || (channels != 3 && channels != 4)) {
         return Image{};
     }
+    // A hostile 14-byte header can declare enormous dimensions (e.g. 100000x100000); the Image(w,h)
+    // allocation below would then attempt tens of gigabytes and OOM-crash the process on a tiny file (and a
+    // width past INT_MAX would make the static_cast<int> below negative). QOI encodes at most 62 pixels per
+    // byte (a QOI_OP_RUN), so a real WxH image always ships far more than pixels/62 bytes. Reject implausible
+    // dimensions: cap each axis, cap total pixels to an absolute ceiling (defeats a large-file bomb), and
+    // require the pixel count to stay within a generous multiple of the input size (defeats a tiny-file one).
+    constexpr std::uint64_t kMaxDim = 1u << 16;    // 65536 per axis — beyond any real QOI texture
+    constexpr std::uint64_t kMaxPixels = 1u << 28; // ~268M px (16384^2) — covers any real image
+    const std::uint64_t pixels = static_cast<std::uint64_t>(w) * static_cast<std::uint64_t>(h);
+    if (w > kMaxDim || h > kMaxDim || pixels > kMaxPixels ||
+        pixels > static_cast<std::uint64_t>(size) * 64u) {
+        return Image{};
+    }
     Image img(static_cast<int>(w), static_cast<int>(h));
     std::uint8_t ir[64] = {0}, ig[64] = {0}, ib[64] = {0}, ia[64] = {0};
     std::uint8_t pr = 0, pg = 0, pb = 0, pa = 255;
