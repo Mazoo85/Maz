@@ -91,6 +91,18 @@ inline std::vector<std::uint32_t> rangeDecode(const std::vector<std::uint8_t>& d
                             (static_cast<std::uint32_t>(data[1]) << 8) |
                             (static_cast<std::uint32_t>(data[2]) << 16) |
                             (static_cast<std::uint32_t>(data[3]) << 24);
+    // Guard against a hostile symbol-count header. `n` is 4 untrusted bytes (up to ~4.29e9); trusting it,
+    // the reserve(n) below alone attempts a ~17 GB allocation and OOM-crashes the process on a few-byte
+    // input, and the decode loop would then run billions of iterations. A range coder cannot legitimately
+    // emit more than a bounded number of symbols per compressed byte (even the most skewed model with
+    // total <= kRangeBot stays far under this), so reject a count that exceeds a generous multiple of the
+    // input size or an absolute sanity ceiling, and cap the up-front reservation regardless.
+    constexpr std::uint64_t kMaxSymbolsPerByte = 4096;
+    constexpr std::uint64_t kMaxSymbols = 1u << 28; // ~268M symbols (~1 GB) — far above this coder's use
+    if (static_cast<std::uint64_t>(n) > static_cast<std::uint64_t>(data.size()) * kMaxSymbolsPerByte ||
+        static_cast<std::uint64_t>(n) > kMaxSymbols) {
+        return out;
+    }
     std::size_t pos = 4;
     auto nextByte = [&]() -> std::uint32_t { return pos < data.size() ? data[pos++] : 0u; };
 
@@ -98,7 +110,7 @@ inline std::vector<std::uint32_t> rangeDecode(const std::vector<std::uint8_t>& d
     for (int i = 0; i < 4; ++i) {
         code = (code << 8) | nextByte();
     }
-    out.reserve(n);
+    out.reserve(n < (1u << 20) ? n : (1u << 20)); // bounded up-front; push_back grows the rest if needed
     for (std::uint32_t k = 0; k < n; ++k) {
         range /= total;
         const std::uint32_t value = (code - low) / range;

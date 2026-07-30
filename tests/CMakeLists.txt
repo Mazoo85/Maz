@@ -273,6 +273,16 @@ target_link_libraries(maz_scriptparserfuzz_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME scriptparser_fuzz COMMAND maz_scriptparserfuzz_tests)
 set_tests_properties(scriptparser_fuzz PROPERTIES TIMEOUT 120)
 
+# Malformed-input robustness fuzz for the compression / entropy / binary-serialization decoders a game runs on
+# untrusted assets, saves, and downloaded content: inflate/zlib, gzip, LZW, Huffman, LZ77, BWT inverse, the
+# range (arithmetic) coder, MessagePack, and varints. Feeds absurd length/count headers, truncations/mutations
+# of valid seeds, and random buffers. The ASan/UBSan job catches OOB + OOM + UB. Found (and now guards) an OOM
+# DoS: rangeDecode reserve()d ~17 GB from a hostile 4-byte symbol-count header.
+add_executable(maz_codecfuzz_tests io/codecfuzz.cpp)
+target_link_libraries(maz_codecfuzz_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME codec_fuzz COMMAND maz_codecfuzz_tests)
+set_tests_properties(codec_fuzz PROPERTIES TIMEOUT 120)
+
 # Reflection-probe / cubemap CAPTURE matrices (render::cubeFaceView / cubeFaceProjection). Verified for
 # self-consistency with the Cubemap.hpp sampler: each face's look axis maps back to that face and projects
 # to the face center, the projection is a true 90-degree FOV, and the six frustums tile the sphere. Pure
