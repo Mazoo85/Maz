@@ -202,8 +202,9 @@ void Sim::attack() {
         b.life = base.range / 22.0f * 1.4f;
         m_bullets.push_back(b);
         if (m_player.weapon == "shotgun") {
+            // Reference fires 5 spread pellets across s = -2..2 *inclusive of 0*
+            // (in addition to the main slug pushed above) — 6 projectiles total.
             for (int s = -2; s <= 2; s++) {
-                if (s == 0) continue;
                 const float a2 = ang + static_cast<float>(s) * 0.12f;
                 Bullet p;
                 p.pos = m_player.pos;

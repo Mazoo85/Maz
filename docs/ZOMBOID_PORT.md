@@ -113,6 +113,15 @@ writes them:
 
 A real-time audio device (SDL/miniaudio, Phase 7) can stream these same recipes later.
 
+## Fidelity
+
+The `Sim` was audited line-by-line against `js/game.js`. Inventory, needs decay + consequences,
+melee/ranged combat, weapon durability, zombie sight/wander/knockback AI, bullets, collision,
+day/night, wave spawning, and looting all match the reference. One divergence was found and fixed:
+the shotgun's spread loop is `s = -2..2` **inclusive of 0**, so a blast is the main slug plus 5
+pellets (6 projectiles) — pinned by `testWeapons`. Purely-cosmetic frame post-fx (CRT/scanline) and
+the boot SEGA-jingle flash are the only reference details left out of the sim.
+
 ## What's next
 
 1. **Vulkan render bridge** — a `Camera2D` + sprite/tilemap batch on the Vulkan renderer (Phase 3)

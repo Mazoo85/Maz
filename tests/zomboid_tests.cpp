@@ -167,6 +167,48 @@ void testCombat() {
     CHECK(s.kills() > killsStart); // eventually killed at least one zombie
 }
 
+// ---- ranged weapons fire the right projectile counts (fidelity to reference) ----
+void testWeapons() {
+    std::printf("[weapons]\n");
+    auto equip = [](zb::Sim& s, const std::string& id) {
+        for (int i = 0; i < static_cast<int>(s.player().inv.size()); i++)
+            if (s.player().inv[static_cast<size_t>(i)].id == id) {
+                s.useSlot(i);
+                return;
+            }
+    };
+
+    // Pistol: one bullet per shot.
+    {
+        zb::Sim s(1);
+        s.newGame();
+        s.addItem("pistol", 1);
+        s.addItem("ammo9", 10);
+        equip(s, "pistol");
+        s.attack();
+        CHECK(s.bullets().size() == 1u);
+    }
+    // Shotgun: main slug + 5 spread pellets = 6 projectiles (reference s=-2..2 incl. 0).
+    {
+        zb::Sim s(1);
+        s.newGame();
+        s.addItem("shotgun", 1);
+        s.addItem("shells", 10);
+        equip(s, "shotgun");
+        s.attack();
+        CHECK(s.bullets().size() == 6u);
+    }
+    // No ammo -> no bullets, short cooldown.
+    {
+        zb::Sim s(1);
+        s.newGame();
+        s.addItem("pistol", 1);
+        equip(s, "pistol");
+        s.attack();
+        CHECK(s.bullets().empty());
+    }
+}
+
 // ---- loot rolls are non-empty and stackable ammo comes in bundles ----
 void testLoot() {
     std::printf("[loot]\n");
@@ -363,6 +405,7 @@ int main() {
     testNeedsDecay();
     testConsumables();
     testCombat();
+    testWeapons();
     testLoot();
     testSaveLoad();
     testRender();
