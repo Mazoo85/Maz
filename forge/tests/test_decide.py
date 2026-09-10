@@ -149,6 +149,27 @@ def test_read_tonight_ignores_non_dict_json(tmp_path):
     assert read_tonight(tmp_path, cfg) == {}
 
 
+def test_candidate_with_non_string_path_element_is_skipped_not_fatal():
+    """A hand-edited or partially-corrupted pulse.json can smuggle a `null`
+    into a candidate's `paths` list. `candidate_from_dict` has no reason to
+    reject it (it just builds a tuple), so it reaches `zone_for` as a
+    non-string element. That must not crash `decide()` and end the whole
+    night — it must skip the one bad candidate and still pick a healthy one
+    from the same pulse."""
+    bad_pulse = {
+        "generated_at": "2026-09-10T00:00:00Z",
+        "sources": {},
+        "candidates": [
+            {"task": "corrupted", "source": "todo:docs/x.md:3", "kind": "todo",
+             "paths": ["docs/x.md", None], "detail": "recent"},
+            candidate_to_dict(MUSIC),
+        ],
+    }
+    record = decide(bad_pulse, ForgeConfig())
+    assert record["chosen"]["candidate"]["source"] == "ci:music-ci"
+    assert record["skipped"]["outside_zone"] == 1
+
+
 def test_missing_weight_is_skipped_not_fatal():
     """A user-edited forge.json can leave `config.weights` missing a key that
     `score_one` looks up unconditionally. `decide()` must not let one

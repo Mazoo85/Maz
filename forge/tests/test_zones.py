@@ -111,3 +111,52 @@ def test_dots_in_ordinary_filenames_are_not_treated_as_traversal():
     assert zone_for(("docs/a..b.md",), cfg) == "docs/"
     assert is_no_touch(("docs/v1.2..3/notes.md",), cfg) is False
     assert zone_for(("docs/v1.2..3/notes.md",), cfg) == "docs/"
+
+
+# --- Fifth instance: a non-string element is the most unparseable shape ---
+#
+# `is_no_touch`/`zone_for` already fail closed on path *shapes* they cannot
+# reason about (".." traversal, absolute paths, backslashes, empty strings).
+# They never checked that each element *is* a string, so `_normalise`'s
+# `.startswith("./")` and `_is_suspicious`'s `.split("/")` crash on anything
+# else. This is the guard-on-a-container-not-its-elements bug, fifth time.
+
+
+NON_STRING_ELEMENTS = (None, 123, {"a": 1}, ["x"], b"docs/x.md")
+
+
+def test_non_string_elements_are_no_touch_and_no_zone():
+    cfg = ForgeConfig()
+    for bad in NON_STRING_ELEMENTS:
+        assert is_no_touch((bad,), cfg) is True, f"is_no_touch should reject {bad!r}"
+        assert zone_for((bad,), cfg) is None, f"zone_for should reject {bad!r}"
+
+
+def test_mixed_tuple_with_one_valid_path_and_one_non_string_is_rejected():
+    # The case that matters most: a guard that only checked the first
+    # element would pass this (the valid path leads) and still be wrong.
+    cfg = ForgeConfig()
+    for bad in NON_STRING_ELEMENTS:
+        paths = ("docs/x.md", bad)
+        assert is_no_touch(paths, cfg) is True, f"is_no_touch should reject {paths!r}"
+        assert zone_for(paths, cfg) is None, f"zone_for should reject {paths!r}"
+
+        # And order must not matter either.
+        paths_reversed = (bad, "docs/x.md")
+        assert is_no_touch(paths_reversed, cfg) is True
+        assert zone_for(paths_reversed, cfg) is None
+
+
+def test_risk_keys_for_does_not_raise_on_non_string_elements():
+    for bad in NON_STRING_ELEMENTS:
+        risk_keys_for((bad,))
+        risk_keys_for(("docs/x.md", bad))
+        risk_keys_for((bad, "CMakeLists.txt"))
+
+
+def test_valid_path_still_resolves_to_its_zone_after_the_fix():
+    # Pin that the non-string guard is not over-broad: an ordinary valid
+    # path must behave exactly as before.
+    cfg = ForgeConfig()
+    assert zone_for(("docs/x.md",), cfg) == "docs/"
+    assert is_no_touch(("docs/x.md",), cfg) is False

@@ -13,7 +13,9 @@ with no notion of `..`, symlinks, or a real filesystem underneath it. The
 safety guarantee this module provides is therefore a guarantee for a Linux /
 case-sensitive-filesystem checkout, and paths shaped in ways this simple
 comparison cannot trust (a `..` segment, an absolute path, a backslash, an
-empty path) are rejected outright rather than resolved — see `_is_suspicious`.
+empty path, or an element that is not even a `str` — the most unparseable
+shape there is) are rejected outright rather than resolved — see
+`_is_suspicious`.
 """
 
 from __future__ import annotations
@@ -43,13 +45,17 @@ def _normalise(path: str) -> str:
     would lose its leading dot and become "github/workflows/ci.yml" — no
     longer matching the ".github/workflows/" no-touch prefix. That silently
     loosens the leash on exactly the path it must never loosen on.
+
+    Callers must run `_is_suspicious` (which checks `isinstance(path, str)`
+    first) before calling this: `.startswith` below assumes a string, and a
+    non-string reaching this point crashes instead of failing closed.
     """
     while path.startswith("./"):
         path = path[2:]
     return path
 
 
-def _is_suspicious(path: str) -> bool:
+def _is_suspicious(path: object) -> bool:
     """True for a path shape this module cannot safely reason about.
 
     Matching here is pure `str.startswith` against literal prefixes — it has
@@ -63,6 +69,18 @@ def _is_suspicious(path: str) -> bool:
     refuses is never touched, whatever it would have resolved to.
 
     Caught here:
+      - not a `str` at all (a `None`, an `int`, a `dict`, a `list`, a
+        `bytes` — anything a hand-edited or partially-corrupted pulse.json
+        can smuggle into a `paths` list, since JSON decodes cleanly into
+        every one of those). This check must run before any of the ones
+        below, which all call `str` methods (`.strip`, `.startswith`,
+        `.split`) that would themselves raise on a non-string. A type this
+        module cannot even parse as a path is the most unparseable shape
+        there is, so it belongs in this same fail-closed category rather
+        than a separate mechanism — do not "simplify" this check away by
+        assuming callers already validated element types upstream; they are
+        not required to, and the crash this line prevents is exactly what
+        happens when they don't.
       - a `..` path *segment* (not merely two dots in a filename — "a..b/c.py"
         is an ordinary name and must be admitted normally)
       - an absolute path (leading "/")
@@ -73,8 +91,11 @@ def _is_suspicious(path: str) -> bool:
 
     Real candidate paths come from `git ls-files` / `git diff --name-only`,
     which never emit any of these shapes, so rejecting them costs nothing in
-    practice — only a hand-crafted or already-malicious path pays for it.
+    practice — only a hand-crafted, already-malicious, or corrupted-data path
+    pays for it.
     """
+    if not isinstance(path, str):
+        return True
     if not path.strip():
         return True
     if path.startswith("/"):
@@ -98,6 +119,12 @@ def is_no_touch(paths: tuple[str, ...], config: ForgeConfig) -> bool:
     understand — is a false negative on the one guarantee this module
     exists to provide. Do not simplify this back to a plain prefix check.
 
+    That includes an element that is not even a `str` — a `None`, an `int`,
+    a `dict`, whatever a corrupted `pulse.json` decoded into. It is not a
+    new category: it is simply the most unparseable path shape there is, so
+    it fails closed exactly like `..` traversal or an absolute path does,
+    for the same reason (`_is_suspicious` above says why).
+
     Matching is a plain `str.startswith` over literal prefixes, so it is
     case-sensitive: this is a Linux / case-sensitive-filesystem guarantee.
     On a case-insensitive filesystem "FORGE/decide.py" would not match the
@@ -105,9 +132,12 @@ def is_no_touch(paths: tuple[str, ...], config: ForgeConfig) -> bool:
     say it is safe.
     """
     for path in paths:
-        p = _normalise(path)
-        if _is_suspicious(p):
+        # Suspicion (including the type check) must run on the raw element,
+        # before `_normalise` touches it: `_normalise` calls `.startswith`
+        # unconditionally and has no fallback for a non-string.
+        if _is_suspicious(path):
             return True
+        p = _normalise(path)
         if any(p.startswith(prefix) for prefix in config.no_touch):
             return True
     return False
@@ -119,7 +149,11 @@ def zone_for(paths: tuple[str, ...], config: ForgeConfig) -> str | None:
     Returns None for an empty path tuple: a candidate whose files are unknown
     cannot be proven safe, and the Forge does not work blind. Also returns
     None for any path `is_no_touch` flags as suspicious (see `_is_suspicious`)
-    — an unparseable path is never "covered" by a safe zone.
+    — an unparseable path is never "covered" by a safe zone. That includes a
+    non-string element (a `None`, an `int`, ...): `is_no_touch` rejects the
+    whole tuple before this function's own loop ever calls a string method
+    on one of its elements, so a single bad element here costs the candidate
+    its zone, not a crash.
     """
     if not paths:
         return None
@@ -138,9 +172,25 @@ def zone_for(paths: tuple[str, ...], config: ForgeConfig) -> str | None:
 
 
 def risk_keys_for(paths: tuple[str, ...]) -> tuple[str, ...]:
-    """Which risk weights apply to a change touching these paths."""
+    """Which risk weights apply to a change touching these paths.
+
+    In practice every caller (`decide.score_one`) only reaches this after
+    `zone_for` has already accepted the candidate's paths, which means every
+    element is already a well-formed string — `zone_for` fails the whole
+    candidate closed before this function ever sees a suspicious or
+    non-string element. But this function is public and callable on its own
+    (directly, in tests, or by a future caller that does not route through
+    `zone_for` first), so it must not assume that and must not crash on a
+    `None`, an `int`, or any other non-string element: `.startswith` inside
+    `_normalise` has no fallback for one. A non-string element simply
+    contributes no risk key, the same as a path that matches none of
+    `RISK_PATHS` — this function only ever adds risk, so silently skipping
+    an element it cannot parse cannot cause it to *under*-count risk.
+    """
     keys: list[str] = []
     for path in paths:
+        if not isinstance(path, str):
+            continue
         p = _normalise(path)
         for prefix, key in RISK_PATHS:
             if p.startswith(prefix) and key not in keys:
