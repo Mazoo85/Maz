@@ -171,17 +171,48 @@
     return { heroRole: heroRole, otherRole: otherRole };
   }
 
+  /* How many genres claim each keyword. "attic" belongs to horror alone;
+   * "brother" is in half the lists. The rare one should decide the film. */
+  var KEYWORD_OWNERS = null;
+  function keywordOwners() {
+    if (KEYWORD_OWNERS) return KEYWORD_OWNERS;
+    KEYWORD_OWNERS = {};
+    Object.keys(LEX.GENRES).forEach(function (g) {
+      LEX.GENRES[g].keywords.forEach(function (k) {
+        KEYWORD_OWNERS[k] = (KEYWORD_OWNERS[k] || 0) + 1;
+      });
+    });
+    return KEYWORD_OWNERS;
+  }
+
   function scoreGenres(hay) {
+    var owners = keywordOwners();
     var scores = {};
+    var hits = {};
     var best = 'drama';
     var bestScore = 0;
     Object.keys(LEX.GENRES).forEach(function (g) {
-      var n = 0;
-      LEX.GENRES[g].keywords.forEach(function (k) { if (has(hay, k)) n++; });
-      scores[g] = n;
-      if (n > bestScore) { bestScore = n; best = g; }
+      var score = 0;
+      var found = 0;
+      LEX.GENRES[g].keywords.forEach(function (k) {
+        if (!has(hay, k)) return;
+        found++;
+        // A word nobody else uses is worth half a hit more than a shared one.
+        var weight = owners[k] <= 1 ? 1.5 : 1 / owners[k] + 0.5;
+        // A word that is also a job or a relationship has already told us who
+        // is in the film, not what kind of film it is.
+        if (LEX.ROLES[k]) weight *= 0.4;
+        // A word that is also a place is the strongest signal there is: it is
+        // the world the film gets shot in. An attic is a horror film; a vault
+        // is a heist; a saloon is a western.
+        if (LEX.PLACES[k]) weight *= 1.3;
+        score += weight;
+      });
+      scores[g] = score;
+      hits[g] = found;
+      if (score > bestScore) { bestScore = score; best = g; }
     });
-    return { genre: best, score: bestScore, scores: scores };
+    return { genre: best, score: hits[best], weight: bestScore, scores: scores };
   }
 
   var TIME_WORDS = [
@@ -354,12 +385,20 @@
     return premise;
   }
 
+  // "a wire cutters" is not English: a plural object takes no article at all.
+  function withArticle(noun) {
+    var word = String(noun);
+    var plural = /s$/.test(word) && !/ss$/.test(word) && !/^(?:gas|bus|glass|dress)$/.test(word);
+    return plural ? word : article(word) + ' ' + word;
+  }
+
   function makeLogline(p) {
+    var role = p.hero.role;
     var who = p.heroNamed
-      ? titleCase(p.hero.name.toLowerCase()) + ', ' + article(p.hero.role) + ' ' + p.hero.role + ','
-      : 'A ' + p.hero.role;
+      ? titleCase(p.hero.name.toLowerCase()) + ', ' + withArticle(role) + ','
+      : withArticle(role).charAt(0).toUpperCase() + withArticle(role).slice(1);
     var where = p.places[0].word.toLowerCase();
-    return who + ' finds ' + article(p.object) + ' ' + p.object + ' in a ' + where +
+    return who + ' finds ' + withArticle(p.object) + ' in ' + withArticle(where) +
       ', and has one ' + p.time.toLowerCase() + ' to ' + p.want + '.';
   }
 
@@ -368,6 +407,7 @@
     makeRng: makeRng,
     hashText: hashText,
     article: article,
+    withArticle: withArticle,
     titleCase: titleCase
   };
 

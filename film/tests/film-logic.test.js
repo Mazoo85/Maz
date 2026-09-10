@@ -64,6 +64,47 @@ test('genre is read from the words', () => {
   eq(Parse.parse('an android on a ship learns it has a memory it was not given').genre, 'scifi');
 });
 
+test('the genre a sentence lands on', () => {
+  // A word only one genre claims outweighs a word four of them share; a word
+  // that is also a *place* outweighs both, because it is the world the film is
+  // shot in; and a word that is also a job or relationship counts for less,
+  // because it has already told us who is in the film rather than what kind of
+  // film it is.
+  const cases = [
+    ['A kid hears his missing brother on a walkie-talkie in the attic at midnight.', 'horror'],
+    ['a ghost in the basement of a haunted house', 'horror'],
+    ['two sisters rob a bank vault with a crew', 'heist'],
+    ['an android on a ship learns it has a memory it was not given', 'scifi'],
+    ['a detective works a cold case with no alibi', 'mystery'],
+    ['my boss makes me babysit his dog before the wedding', 'comedy'],
+    ['a woman visits her father in the hospital and cannot say goodbye', 'drama'],
+    ['a stalker follows her home and the phone is dead', 'thriller'],
+    ['a witch in the forest trades a locket for a memory', 'fantasy'],
+    ['a sheriff rides into a saloon in the desert', 'western'],
+    ['two exes meet again at a wedding and dance', 'romance']
+  ];
+  cases.forEach(([idea, want]) => eq(Parse.parse(idea).genre, want, '"' + idea.slice(0, 34) + '…"'));
+});
+
+test('the logline is written in English', () => {
+  // "in a attic", "A android" and "a wire cutters" were all real output once.
+  eq(Parse.withArticle('attic'), 'an attic');
+  eq(Parse.withArticle('android'), 'an android');
+  eq(Parse.withArticle('radio'), 'a radio');
+  eq(Parse.withArticle('wire cutters'), 'wire cutters', 'a plural takes no article');
+  eq(Parse.withArticle('glass'), 'a glass', 'a word merely ending in s is not plural');
+
+  [ 'a kid in the attic', 'an android on a ship', 'a thief with wire cutters',
+    'a lighthouse keeper finds a radio', ''
+  ].forEach((idea) => {
+    const line = Parse.parse(idea).logline;
+    assert(!/\b(?:a) [aeiou]/i.test(line), 'wrong article in: ' + line);
+    assert(!/\ban [^aeiou]/i.test(line), 'wrong article in: ' + line);
+    assert(/^[A-Z]/.test(line), 'logline does not start with a capital: ' + line);
+    assert(/\.$/.test(line), 'logline does not end in a full stop: ' + line);
+  });
+});
+
 test('a chosen genre overrides the guess', () => {
   const p = Parse.parse('a haunted basement', { genre: 'comedy' });
   eq(p.genre, 'comedy');
