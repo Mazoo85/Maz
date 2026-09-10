@@ -8,3 +8,4 @@ Tasks listed complete here are DONE — do not re-dispatch them.
 
 Task 1: complete (commits e23bb67..f5b3487, review clean; Minor: film-score.js doc comment could note the Score/Conductor binding collision)
 Task 2: complete (commits ccdc171..261302c, review clean; Minors: dead `cuts.length ||` disjunct in cutTimes guard; chooseBpm range defaults use a falsy check so a literal 0 bound would fall through)
+Task 3: complete (commits 3d9757f..7929881, review clean; no findings)
