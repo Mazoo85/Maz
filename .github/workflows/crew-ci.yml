@@ -14,6 +14,7 @@ on:
     paths:
       - "crew/**"
       - ".github/workflows/crew-ci.yml"
+  workflow_call:
 
 concurrency:
   group: crew-ci-${{ github.ref }}

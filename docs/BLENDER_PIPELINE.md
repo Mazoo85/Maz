@@ -1,3 +1,5 @@
+<!-- Part of MAZ ARCADE — see the repo root README for every project. -->
+
 # Blender → Maz Engine pipeline
 
 This is the pathway for getting 3D models made in **Blender** into the **Maz Engine**.
@@ -92,3 +94,7 @@ Prints the mesh count, vertex/triangle totals, and bounds — no GPU or display 
   normals/UVs default to zero; indices are generated when a primitive omits them.
 - **Test asset:** `assets/models/cube.gltf` — a unit cube (24 verts, 12 tris) with an
   embedded buffer, so the repo needs no binary blobs to run the test.
+
+---
+
+← Back to the [**MAZ ARCADE hub**](../index.html) · [repository README](../README.md)

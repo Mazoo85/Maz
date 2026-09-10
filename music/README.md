@@ -1,3 +1,5 @@
+<!-- Part of MAZ ARCADE — see the repo root README for every project. -->
+
 # SONG FORGE
 
 A generative music maker that **writes and plays complete songs** in your browser.
@@ -119,3 +121,7 @@ peak, RMS and crest factor — so problems you can only hear cannot pass
 silently. It has already caught three real defects: a modal that covered the
 page invisibly, a master bus that clipped on every genre, and an instrument
 saturation curve with 20 dB of hidden gain that flattened the mix.
+
+---
+
+← Back to the [**MAZ ARCADE hub**](../index.html) · [repository README](../README.md) · [play/open this one](../music/)

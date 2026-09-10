@@ -1,3 +1,5 @@
+<!-- Part of MAZ ARCADE — see the repo root README for every project. -->
+
 # maz-scrape
 
 A general-purpose, **recipe-driven scraper for static HTML pages**. Point it at a
@@ -114,3 +116,7 @@ and local HTML fixtures, so it never touches the network.
 
 v1 handles **static HTML** only. JS-rendered sites (Playwright/Chromium) are a
 natural next step behind the same recipe interface.
+
+---
+
+← Back to the [**MAZ ARCADE hub**](../index.html) · [repository README](../README.md)

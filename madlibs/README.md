@@ -1,3 +1,5 @@
+<!-- Part of MAZ ARCADE — see the repo root README for every project. -->
+
 # MadLibs Story Forge
 
 A zero-dependency browser app that **randomly forges story ideas** — each one
@@ -87,3 +89,7 @@ G.toMarkdown(story);                 // -> Markdown string
 
 Generation is driven by a small seeded RNG, so a `seed` reproduces a story
 exactly — handy for sharing or regenerating a specific idea.
+
+---
+
+← Back to the [**MAZ ARCADE hub**](../index.html) · [repository README](../README.md) · [play/open this one](../madlibs/)

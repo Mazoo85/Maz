@@ -1,28 +1,83 @@
-# Maz
+# MAZ ARCADE
 
-This repo holds five things:
+Everything in this repository, connected. The front door is
+**[`index.html`](index.html)** — the MAZ ARCADE hub — which lists and links every
+project below. Live on GitHub Pages:
 
-1. **Maz Engine** — a native **C++20 + Vulkan + SDL3** game engine, 2D-first but architected so
-   3D drops in later. See **[`docs/ROADMAP.md`](docs/ROADMAP.md)** for the full build plan (the
-   "massive list") and **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** for the design.
-2. **ZOMBOID: ANCHORAGE** — the browser game below, which is both a design reference and the
-   engine's eventual flagship port target (roadmap Phase 13).
-3. **MadLibs Story Forge** — a zero-dependency browser app in
-   **[`madlibs/`](madlibs/)** that randomly forges story ideas (broken into
-   scene beats) to seed storyboards and scripts. See
-   **[`madlibs/README.md`](madlibs/README.md)**.
-4. **DEAD SECTOR** — a phone-first, top-down twin-stick **zombie shooter** in a
-   single self-contained HTML file. Dual touch joysticks, escalating waves, three
-   zombie types. See **[`shooter/README.md`](shooter/README.md)**.
-5. **SONG FORGE** — a generative **AI music maker** in **[`music/`](music/)** that
-   writes and plays complete songs in the browser: chords, bass, drums, arpeggio
-   and melody, arranged into verses and choruses across 8 genres, with WAV and
-   MIDI export. No install, no API key, works offline. See
-   **[`music/README.md`](music/README.md)**.
+### ▶ **https://mazoo85.github.io/Maz/**
 
-> **Codebase memory:** this repo is set up with a
-> [codebase-memory MCP server](docs/CODEBASE_MEMORY.md) that gives Claude persistent,
-> cross-session memory about the project. It starts automatically in Claude Code — no setup needed.
+Every browser project also carries a small **MAZ pill in its top-left corner**:
+tap it to jump straight to any other project, or back to the hub. Nothing here
+is a dead end.
+
+---
+
+## What's inside
+
+| | Project | What it is | Open it |
+|---|---|---|---|
+| 🎮 | **ZOMBOID: ANCHORAGE** | Open-world zombie survival across a tile-built replica of downtown Anchorage, drawn as a 1990s SEGA arcade title. Five decaying needs, day/night hordes, looting, firearms. | [play](zomboid/) · [docs](zomboid/README.md) |
+| 🎮 | **DEAD SECTOR** | Phone-first, top-down twin-stick zombie shooter in one self-contained HTML file. Dual touch joysticks, escalating waves. | [play](shooter/) · [docs](shooter/README.md) |
+| 🎵 | **SONG FORGE** | Generative AI music maker: writes and plays complete songs — chords, bass, drums, arpeggio, melody — across 8 genres, with WAV and MIDI export. Offline, no API key. | [open](music/) · [docs](music/README.md) |
+| ✍️ | **MADLIBS STORY FORGE** | Randomly forges story ideas broken into scene beats, ready to seed a storyboard or script. | [open](madlibs/) · [docs](madlibs/README.md) |
+| ⚙️ | **Maz Engine** | Native **C++20 + Vulkan + SDL3** game engine, 2D-first but architected so 3D drops in later. | [roadmap](docs/ROADMAP.md) · [architecture](docs/ARCHITECTURE.md) |
+| 🕸️ | **maz-scrape** | Recipe-driven scraper for static HTML — point it at a YAML recipe, get JSONL/CSV/SQLite. | [docs](scraper/README.md) |
+| 🤝 | **Maz Crew** | Runs a coding task through planner → coder → reviewer → tester, with human checkpoints. | [docs](crew/README.md) |
+
+The list lives in **[`shared/projects.js`](shared/projects.js)** — one file, read by
+both the hub and the in-app nav. Add a project there and it appears everywhere.
+
+---
+
+## How it's wired together
+
+```
+index.html              # the MAZ ARCADE hub — links to everything
+shared/projects.js      # THE list of projects (hub + nav both read this)
+shared/maz-nav.js       # the in-app nav pill, one <script> line per app
+zomboid/  shooter/  music/  madlibs/     # the browser projects
+engine/   apps/  tests/  docs/           # Maz Engine (C++)
+scraper/  crew/                          # Python tools
+scripts/check-links.mjs # proves every link in the repo resolves
+scripts/smoke-site.cjs  # drives the hub and every app in a real browser
+```
+
+Adding a project is three steps: drop its folder in, add an entry to
+`shared/projects.js`, and put this one line before `</body>` in its HTML —
+
+```html
+<script src="../shared/maz-nav.js" data-current="your-project-id" defer></script>
+```
+
+`scripts/check-links.mjs` fails the build if you forget the last one.
+
+---
+
+## Checking it still hangs together
+
+```
+node scripts/check-links.mjs     # every link + the project manifest (no deps, instant)
+node scripts/smoke-site.cjs      # boots the hub and all four apps in Chromium
+```
+
+The second one needs Playwright once: `npm --prefix music/tests install`.
+
+Both run automatically in **[Site CI](.github/workflows/site-ci.yml)** on every
+push. **[All Checks](.github/workflows/all-checks.yml)** is the one button in the
+Actions tab that runs every suite in the repo — engine, site, music, scraper and
+crew — together.
+
+| Workflow | Covers |
+|---|---|
+| [`ci.yml`](.github/workflows/ci.yml) | Maz Engine: builds under `-Werror`, headless ctest |
+| [`site-ci.yml`](.github/workflows/site-ci.yml) | Links, the project manifest, hub + every app in Chromium |
+| [`music-ci.yml`](.github/workflows/music-ci.yml) | SONG FORGE composition logic + real-audio browser tests |
+| [`scraper-ci.yml`](.github/workflows/scraper-ci.yml) | maz-scrape, offline (mocked transport) |
+| [`crew-ci.yml`](.github/workflows/crew-ci.yml) | Maz Crew, offline (fake client) |
+| [`pages.yml`](.github/workflows/pages.yml) | Publishes the whole site to GitHub Pages |
+| [`all-checks.yml`](.github/workflows/all-checks.yml) | All of the above, on demand |
+
+---
 
 ## Building Maz Engine
 
@@ -39,113 +94,24 @@ ctest --test-dir build              # headless smoke test
 
 The current milestone is **M0** — the walking skeleton: a window, a fixed-timestep loop, a
 Vulkan clear-screen renderer, and clean shutdown. It degrades gracefully with no GPU/display so
-it runs in CI.
+it runs in CI. See **[`docs/ROADMAP.md`](docs/ROADMAP.md)** for the full build plan and
+**[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** for the design.
+
+ZOMBOID: ANCHORAGE doubles as the engine's eventual flagship port target
+(roadmap Phase 13).
 
 ---
 
-# ZOMBOID: ANCHORAGE
+## Running the browser projects locally
 
-A browser-playable, **Project Zomboid–style** open-world zombie survival game,
-rendered as a **1990s SEGA 16-bit arcade title** and drenched in **neon**. The
-map is a tile-built replica of **downtown & midtown Anchorage, Alaska** — real
-avenues, real streets, and real building names.
-
-No build step, no dependencies. It's pure HTML5 Canvas + vanilla JavaScript.
+No build step, no dependencies. From the repo root:
 
 ```
-open index.html        # double-click it, or:
-python3 -m http.server  # then visit http://localhost:8000
+python3 -m http.server        # then open http://localhost:8000
 ```
 
----
+That serves the hub, and every project is one click from there.
 
-## The vibe
-
-- **SEGA-90s presentation** — a "NEON GENESIS ARCADE presents" boot screen with a
-  faux "SEEE-GAAA" jingle, a synthwave **PRESS START** title with neon sun and
-  perspective grid, chunky 16-bit drop-shadow logotype.
-- **Neon everything** — hot-pink / cyan / purple / acid-green HUD bars, glowing
-  doorways, neon zombie eyes, muzzle flashes, scanlines + CRT vignette overlay.
-- **Chiptune audio** — WebAudio square/triangle/saw blips and a looping
-  Genesis-style bassline. Toggle with **L**.
-
-## Survival (the Zomboid part)
-
-Five decaying needs drive everything:
-
-| Stat | Drains from | Fix it with |
-|------|-------------|-------------|
-| **Health**   | bites, starvation, dehydration, infection | bandages, painkillers, first-aid kits |
-| **Fed**      | time | canned salmon, moose jerky, Moose's Tooth pizza, chips |
-| **Hydro**    | time (fastest) | bottled water, soda, Kaladi coffee |
-| **Energy**   | running, time | coffee, energy drinks |
-| **Mood**     | exhaustion, low health | eating well, surviving |
-
-- **Bites can infect you.** Infection climbs, drains health, and is only cured by
-  **antibiotics** (loot the hospitals).
-- **Day/night cycle.** Nights go dark (use **F** for the flashlight) and spawn
-  faster, denser hordes — including **neon-pink sprinters**.
-- **Loot** the glowing orange crates inside buildings with **E**. Loot tables are
-  themed: police stations have guns & ammo, hospitals have meds, hardware stores
-  have axes & crowbars, groceries have food.
-- **8-slot hotbar inventory**, melee weapons with durability, and two firearms
-  (M9 pistol, Mossberg 500) with ammo.
-
-## Controls
-
-| Key | Action |
-|-----|--------|
-| **WASD / Arrows** | Move |
-| **Mouse** | Aim |
-| **Left-click / Space** | Attack / fire |
-| **E** | Loot crate / interact |
-| **1–8** | Use / equip hotbar slot |
-| **R** | Reload firearm |
-| **Tab** | Inventory |
-| **M** | Anchorage tactical map |
-| **F** | Flashlight |
-| **P** | Pause |
-| **L** | Mute / unmute audio |
-
-## The Anchorage map
-
-A 160×140 tile grid. **Cook Inlet** to the west, the **Chugach** treeline to the
-east, **Ship Creek** and the **Alaska Railroad Depot** along the north.
-
-**Avenues (E–W):** Ship Creek · 1st · 3rd · 4th · 5th · 6th · 9th · Delaney Park
-Strip · 15th · Northern Lights Blvd · Benson Blvd · Tudor Rd.
-
-**Streets (N–S):** L · K · I · G · E · C · A · Cordova · Gambell · Ingra · Lake
-Otis Pkwy · Boniface Pkwy.
-
-**Named buildings include:** Hotel Captain Cook · 4th Avenue Theatre · Egan
-Convention Center · Dena'ina Center · Alaska Center for the Performing Arts ·
-Anchorage Museum · Z.J. Loussac Library · Snow City Cafe · Glacier Brewhouse ·
-49th State Brewing · Nordstrom (5th Ave Mall) · Carrs · Fred Meyer · Title Wave
-Books · REI · Sullivan Arena · Merrill Field · Providence & Alaska Native &
-Alaska Regional Hospitals · Moose's Tooth · Bear Tooth · Chilkoot Charlie's ·
-Spenard Builders Supply · Dimond Center · University of Alaska Anchorage ·
-Anchorage Police Dept · and more. You spawn at **Town Square Park (5th & C)**.
-
-## Project layout
-
-```
-index.html        # shell + script load order
-css/style.css     # arcade-cabinet styling, scanlines
-js/world.js       # Anchorage data: avenues, streets, named buildings
-js/worldgen.js    # bakes data into a tile grid + loot containers
-js/items.js       # item definitions + themed loot tables
-js/audio.js       # WebAudio chiptune SFX + music
-js/game.js        # engine: states, input, sim, combat, rendering, HUD
-```
-
-> A note on "exact replica": this is an affectionate, playable homage built from
-> scratch — original code and art, with Anchorage's real geography and place
-> names recreated as a game world. It is not Project Zomboid's code or assets.
-
-## Tools
-
-- [`scraper/`](scraper) — **maz-scrape**, a general-purpose, recipe-driven scraper
-  for static HTML pages. Point it at a YAML recipe (field → CSS selector); it
-  crawls (following pagination/links), extracts records, and writes JSONL/CSV/SQLite,
-  politely by default. See [scraper/README.md](scraper/README.md).
+> **Codebase memory:** this repo is set up with a
+> [codebase-memory MCP server](docs/CODEBASE_MEMORY.md) that gives Claude persistent,
+> cross-session memory about the project. It starts automatically in Claude Code — no setup needed.

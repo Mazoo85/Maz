@@ -2,29 +2,231 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>ZOMBOID: ANCHORAGE — 16-bit Neon Survival Horror</title>
-  <link rel="stylesheet" href="css/style.css" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23ff2d95'/><rect x='4' y='4' width='3' height='3' fill='%2339ff14'/><rect x='9' y='4' width='3' height='3' fill='%2339ff14'/></svg>" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0714" />
+  <meta name="description" content="MAZ ARCADE — every game, app and tool in the Maz repository, in one place." />
+  <title>MAZ ARCADE</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230b0714'/><path d='M2 12V4l3 4 3-4v8' stroke='%23ff2d95' stroke-width='1.6' fill='none'/><path d='M10 4h4l-4 8h4' stroke='%2300e5ff' stroke-width='1.6' fill='none'/></svg>" />
+  <style>
+    :root {
+      --bg: #0b0714;
+      --ink: #ece6f7;
+      --muted: #9b91b4;
+      --pink: #ff2d95;
+      --cyan: #00e5ff;
+      --green: #39ff14;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'Trebuchet MS', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      line-height: 1.5;
+      overflow-x: hidden;
+      background-image:
+        radial-gradient(ellipse 80% 55% at 50% -10%, rgba(255,45,149,.22), transparent 70%),
+        radial-gradient(ellipse 70% 50% at 90% 15%, rgba(0,229,255,.14), transparent 70%);
+      background-attachment: fixed;
+    }
+    /* CRT scanlines, matching the arcade-cabinet look of the games */
+    body::after {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 100;
+      background: repeating-linear-gradient(
+        rgba(0,0,0,0) 0 2px, rgba(0,0,0,.16) 2px 4px);
+      mix-blend-mode: multiply;
+    }
+    .wrap { max-width: 1120px; margin: 0 auto; padding-block: 34px 56px; padding-left: 20px; padding-right: 20px; }
+
+    /* ---------------- header ---------------- */
+    .hero { text-align: center; margin-bottom: 34px; }
+    .kicker {
+      font-size: 10.5px; letter-spacing: 5px; text-transform: uppercase;
+      color: var(--green); opacity: .85;
+    }
+    .logo {
+      margin-top: 8px;
+      font-size: clamp(38px, 12vw, 84px); font-weight: 900; letter-spacing: 6px; line-height: 1;
+      color: #fff;
+      text-shadow: 0 0 22px rgba(255,45,149,.85), 0 4px 0 #6b0d3d, 0 8px 26px rgba(0,0,0,.6);
+    }
+    .logo em { font-style: normal; color: var(--cyan); text-shadow: 0 0 22px rgba(0,229,255,.85), 0 4px 0 #084a58; }
+    .sub { margin-top: 12px; color: var(--muted); font-size: clamp(13px, 3.2vw, 16px); }
+    .rule {
+      width: min(420px, 80%); height: 2px; margin: 22px auto 0;
+      background: linear-gradient(90deg, transparent, var(--pink), var(--cyan), transparent);
+    }
+
+    /* ---------------- sections ---------------- */
+    .section-title {
+      display: flex; align-items: center; gap: 12px;
+      margin: 34px 0 14px;
+      font-size: 11px; letter-spacing: 4px; text-transform: uppercase; color: var(--muted);
+    }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,.12); }
+
+    .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+
+    .card {
+      position: relative; display: flex; flex-direction: column;
+      padding: 18px 18px 16px; border-radius: 14px; text-decoration: none; color: inherit;
+      background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.015));
+      border: 1px solid rgba(255,255,255,.12);
+      border-top: 3px solid var(--accent, var(--pink));
+      transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+      overflow: hidden;
+    }
+    .card:hover, .card:focus-visible {
+      transform: translateY(-3px); outline: none;
+      border-color: var(--accent, var(--pink));
+      box-shadow: 0 10px 30px rgba(0,0,0,.5), 0 0 22px -6px var(--accent, var(--pink));
+    }
+    .card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+    .card h2 { font-size: clamp(16px, 4vw, 20px); font-weight: 900; letter-spacing: 1.2px; color: #fff; }
+    .card .go {
+      flex: none; font-size: 10px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;
+      color: var(--accent, var(--pink)); border: 1px solid currentColor;
+      border-radius: 999px; padding: 3px 9px;
+    }
+    .card .tag {
+      margin-top: 4px; font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+      color: var(--accent, var(--pink)); opacity: .85;
+    }
+    .card p { margin-top: 10px; font-size: 13.5px; color: #c9c1dd; }
+    .badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+    .badge {
+      font-size: 10px; letter-spacing: .6px; padding: 3px 8px; border-radius: 6px;
+      background: rgba(255,255,255,.07); color: var(--muted); border: 1px solid rgba(255,255,255,.08);
+    }
+
+    /* ---------------- footer ---------------- */
+    .foot {
+      margin-top: 46px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,.1);
+      display: flex; flex-wrap: wrap; gap: 10px 20px; justify-content: center;
+      font-size: 12.5px; color: var(--muted); text-align: center;
+    }
+    .foot a { color: var(--cyan); text-decoration: none; border-bottom: 1px solid rgba(0,229,255,.35); }
+    .foot a:hover { color: #fff; border-color: #fff; }
+
+    .noscript-note {
+      margin-bottom: 16px; padding: 12px 14px; border-radius: 10px;
+      border: 1px solid rgba(255,45,149,.5); background: rgba(255,45,149,.08); font-size: 13px;
+    }
+    .noscript-note ul { margin: 8px 0 0 18px; }
+    .noscript-note a { color: var(--cyan); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .card { transition: none; }
+      .card:hover { transform: none; }
+    }
+  </style>
 </head>
 <body>
-  <div id="frame">
-    <canvas id="game"></canvas>
-    <div id="loading">BOOTING NEON GENESIS ARCADE...</div>
+  <div class="wrap">
+
+    <header class="hero">
+      <div class="kicker">Neon Genesis Arcade presents</div>
+      <h1 class="logo">MAZ <em>ARCADE</em></h1>
+      <p class="sub">Every game, app and tool in this repository — in one place.<br />No installs. The browser ones run straight from this page.</p>
+      <div class="rule"></div>
+    </header>
+
+    <noscript>
+      <div class="noscript-note">
+        <strong>JavaScript is off,</strong> so the menu below can't build itself. Here are the direct links:
+        <ul>
+          <li><a href="zomboid/">ZOMBOID: ANCHORAGE</a></li>
+          <li><a href="shooter/">DEAD SECTOR</a></li>
+          <li><a href="music/">SONG FORGE</a></li>
+          <li><a href="madlibs/">MADLIBS STORY FORGE</a></li>
+          <li><a href="docs/ROADMAP.md">MAZ ENGINE</a></li>
+          <li><a href="scraper/README.md">MAZ-SCRAPE</a></li>
+          <li><a href="crew/README.md">MAZ CREW</a></li>
+        </ul>
+      </div>
+    </noscript>
+
+    <main id="sections"></main>
+
+    <footer class="foot">
+      <span>Built in the open · <a href="https://github.com/Mazoo85/Maz">source on GitHub</a></span>
+      <span><a href="README.md">Repository README</a></span>
+      <span><a href="docs/ARCHITECTURE.md">Engine architecture</a></span>
+      <span><a href="docs/ROADMAP.md">Roadmap</a></span>
+    </footer>
+
   </div>
 
-  <!-- engine -->
-  <script src="js/world.js"></script>
-  <script src="js/worldgen.js"></script>
-  <script src="js/items.js"></script>
-  <script src="js/audio.js"></script>
-  <script src="js/game.js"></script>
+  <script src="shared/projects.js"></script>
   <script>
-    // hide the loading splash once the first frame paints
-    window.addEventListener('load', () => {
-      const l = document.getElementById('loading');
-      setTimeout(() => { if (l) l.style.display = 'none'; }, 300);
-    });
+    (function () {
+      'use strict';
+
+      var GROUPS = [
+        { key: 'play', label: 'Games — play now' },
+        { key: 'app',  label: 'Apps — make something' },
+        { key: 'code', label: 'Code & docs' }
+      ];
+      var GO = { play: 'Play', app: 'Open', code: 'Read' };
+
+      var host = document.getElementById('sections');
+      var projects = window.MAZ_PROJECTS || [];
+
+      GROUPS.forEach(function (group) {
+        var members = projects.filter(function (p) { return p.kind === group.key; });
+        if (!members.length) return;
+
+        var title = document.createElement('h2');
+        title.className = 'section-title';
+        title.textContent = group.label;
+        host.appendChild(title);
+
+        var grid = document.createElement('div');
+        grid.className = 'grid';
+
+        members.forEach(function (p) {
+          var card = document.createElement('a');
+          card.className = 'card';
+          card.href = p.path;
+          card.style.setProperty('--accent', p.accent);
+
+          var top = document.createElement('div');
+          top.className = 'card-top';
+          var h = document.createElement('h2');
+          h.textContent = p.name;
+          var go = document.createElement('span');
+          go.className = 'go';
+          go.textContent = GO[p.kind] || 'Open';
+          top.appendChild(h);
+          top.appendChild(go);
+
+          var tag = document.createElement('div');
+          tag.className = 'tag';
+          tag.textContent = p.tag;
+
+          var blurb = document.createElement('p');
+          blurb.textContent = p.blurb;
+
+          var badges = document.createElement('div');
+          badges.className = 'badges';
+          (p.badges || []).forEach(function (b) {
+            var el = document.createElement('span');
+            el.className = 'badge';
+            el.textContent = b;
+            badges.appendChild(el);
+          });
+
+          card.appendChild(top);
+          card.appendChild(tag);
+          card.appendChild(blurb);
+          card.appendChild(badges);
+          grid.appendChild(card);
+        });
+
+        host.appendChild(grid);
+      });
+    })();
   </script>
 </body>
 </html>

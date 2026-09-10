@@ -1,3 +1,5 @@
+<!-- Part of MAZ ARCADE — see the repo root README for every project. -->
+
 # Maz Engine — Architecture
 
 ## Design principles
@@ -76,3 +78,7 @@ smoke test validates wiring, lifetime, and shutdown without a GPU.
 - Namespace everything in `maz::` (sub-namespaces `maz::core`, `maz::render`, `maz::math`).
 - Headers `.hpp`, sources `.cpp`. Public headers under `engine/include/maz/`.
 - `.clang-format` (LLVM-based, 4-space indent, 100 col) is the source of truth.
+
+---
+
+← Back to the [**MAZ ARCADE hub**](../index.html) · [repository README](../README.md)
