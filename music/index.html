@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0714" />
+  <meta name="description" content="SONG FORGE — a generative AI music maker that composes and plays complete tracks in your browser. No install, no account, no cloud." />
+  <title>SONG FORGE — AI Music Maker</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230b0714'/><rect x='3' y='9' width='3' height='4' fill='%23ff2d95'/><rect x='5' y='3' width='2' height='8' fill='%23ff2d95'/><rect x='10' y='7' width='3' height='6' fill='%2300e5ff'/><rect x='12' y='2' width='2' height='10' fill='%2300e5ff'/></svg>" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">SONG<span class="logo-alt">FORGE</span></span>
+    <span class="tagline">generative music, made in your browser</span>
+  </div>
+  <button id="helpBtn" class="ghost-btn" type="button" aria-label="How it works">?</button>
+</header>
+
+<main>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section class="panel" id="setupPanel">
+    <h2 class="panel-title">1 · Pick a sound</h2>
+
+    <div class="field">
+      <label class="field-label">Genre</label>
+      <div class="chips" id="genreChips" role="radiogroup" aria-label="Genre"></div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Mood</label>
+      <div class="chips" id="moodChips" role="radiogroup" aria-label="Mood"></div>
+    </div>
+
+    <details class="advanced">
+      <summary>More options</summary>
+      <div class="adv-grid">
+        <div class="adv-item">
+          <label class="field-label" for="keySelect">Key</label>
+          <select id="keySelect"></select>
+        </div>
+        <div class="adv-item">
+          <label class="field-label" for="lengthSelect">Length</label>
+          <select id="lengthSelect">
+            <option value="short">Short (~1 min)</option>
+            <option value="medium" selected>Medium (~2 min)</option>
+            <option value="long">Long (~3 min)</option>
+          </select>
+        </div>
+        <div class="adv-item">
+          <label class="field-label" for="tempoInput">
+            Tempo <span class="hint" id="tempoLabel">auto</span>
+          </label>
+          <input type="range" id="tempoInput" min="50" max="180" value="0" step="1" />
+          <button type="button" class="mini-btn" id="tempoAuto">Auto</button>
+        </div>
+        <div class="adv-item">
+          <label class="field-label" for="seedInput">Seed</label>
+          <input type="text" id="seedInput" placeholder="leave blank for a new one" autocomplete="off" spellcheck="false" />
+        </div>
+      </div>
+    </details>
+
+    <button id="generateBtn" class="big-btn" type="button">
+      <span class="big-btn-main">Compose a song</span>
+      <span class="big-btn-sub">writes a new track and plays it</span>
+    </button>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section class="panel song-panel" id="songPanel" hidden>
+    <div class="song-head">
+      <div>
+        <h2 class="song-title" id="songTitle">—</h2>
+        <p class="song-meta" id="songMeta">—</p>
+      </div>
+      <div class="song-actions">
+        <button type="button" class="mini-btn" id="saveBtn" title="Save to this device">♥ Save</button>
+        <button type="button" class="mini-btn" id="shareBtn" title="Copy a link that recreates this exact song">Copy link</button>
+      </div>
+    </div>
+
+    <div class="chordstrip" id="chordStrip" aria-label="Chord progression"></div>
+
+    <canvas id="roll" class="roll" aria-label="Note timeline"></canvas>
+
+    <div class="transport">
+      <button type="button" class="play-btn" id="playBtn" aria-label="Play">
+        <span id="playIcon">▶</span>
+      </button>
+      <div class="seekwrap">
+        <input type="range" id="seek" min="0" max="1000" value="0" aria-label="Position" />
+        <div class="times"><span id="timeNow">0:00</span><span id="timeTotal">0:00</span></div>
+      </div>
+      <button type="button" class="mini-btn toggle on" id="loopBtn" title="Loop the song">Loop</button>
+    </div>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section class="panel" id="mixPanel" hidden>
+    <h2 class="panel-title">2 · Shape the mix</h2>
+    <p class="panel-hint">Re-roll rewrites just that one part and keeps everything else.</p>
+    <div class="mixer" id="mixer"></div>
+    <button type="button" class="wide-btn" id="rerollAllBtn">🎲 Re-roll every part</button>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section class="panel" id="exportPanel" hidden>
+    <h2 class="panel-title">3 · Take it with you</h2>
+    <div class="export-row">
+      <button type="button" class="wide-btn" id="wavBtn">⬇ Download audio (.wav)</button>
+      <button type="button" class="wide-btn" id="midiBtn">⬇ Download MIDI (.mid)</button>
+    </div>
+    <p class="panel-hint">
+      The WAV is the finished track. The MIDI holds every note on separate tracks, so you can
+      open it in GarageBand, Ableton, FL Studio, Logic or MuseScore and change anything.
+    </p>
+    <div class="progress" id="exportProgress" hidden><div class="progress-bar" id="exportBar"></div></div>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section class="panel" id="libraryPanel" hidden>
+    <h2 class="panel-title">Saved songs</h2>
+    <div class="library" id="library"></div>
+  </section>
+
+</main>
+
+<div class="modal" id="helpModal" hidden>
+  <div class="modal-card">
+    <button type="button" class="modal-close" id="helpClose" aria-label="Close">×</button>
+    <h3>How this works</h3>
+    <p>
+      SONG FORGE composes music the way a songwriter does, one decision at a time. It picks a
+      key and a scale, writes a chord progression, then builds a bassline, a drum groove, an
+      arpeggio and a melody that all fit those chords — and arranges them into an intro,
+      verses, a chorus, a bridge and an outro.
+    </p>
+    <p>
+      Every instrument is synthesised live in your browser. Nothing is uploaded, nothing is
+      downloaded, and it works with the internet switched off.
+    </p>
+    <h3>Seeds</h3>
+    <p>
+      Every song has a <strong>seed</strong> — a short code like <code>VELVET-7318</code>. The
+      same seed with the same settings always produces the same song, so <em>Copy link</em>
+      gives someone the exact track you are hearing.
+    </p>
+    <h3>Tips</h3>
+    <ul>
+      <li>If one part bothers you, hit <strong>Re-roll</strong> on just that row.</li>
+      <li>Mute the drums for a version you can talk over.</li>
+      <li>Download the MIDI to keep writing in real music software.</li>
+    </ul>
+  </div>
+</div>
+
+<footer class="foot">
+  <span id="statusLine">Ready.</span>
+</footer>
+
+<script src="js/theory.js"></script>
+<script src="js/genres.js"></script>
+<script src="js/composer.js"></script>
+<script src="js/synth.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/export.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

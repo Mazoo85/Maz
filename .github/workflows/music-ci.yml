@@ -1,0 +1,50 @@
+name: Music CI
+
+# Tests SONG FORGE. The composition suite is pure logic and runs in a bare Node
+# sandbox, so it is fast and needs nothing installed. The browser suite drives a
+# real Chromium: it renders every genre offline and measures the waveform, which
+# is the only way to catch "the app runs but makes no sound".
+
+on:
+  push:
+    paths:
+      - "music/**"
+      - ".github/workflows/music-ci.yml"
+  pull_request:
+    paths:
+      - "music/**"
+      - ".github/workflows/music-ci.yml"
+
+concurrency:
+  group: music-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  logic:
+    name: Composition tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Compose every genre, mood and length
+        run: node music/tests/music-logic.test.js
+
+  browser:
+    name: Browser & audio tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Playwright
+        working-directory: music/tests
+        run: npm install --no-audit --no-fund
+      - name: Install Chromium
+        working-directory: music/tests
+        run: npx playwright install --with-deps chromium
+      - name: Run browser suite
+        working-directory: music/tests
+        run: node music-browser.test.js
