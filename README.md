@@ -44,7 +44,8 @@ frame is drawn as truecolor half-block ANSI with a text HUD — no GPU or window
 ./build/bin/zomboid-tui                      # PLAY in the terminal (WASD move, SPACE attack, ...)
 ./build/bin/zomboid --ticks 3600 --seed 7    # headless autopilot, prints a run summary
 ./build/bin/zomboid --seed 7 --render f.png  # render a PNG frame (world + HUD + FX, no GPU)
-ctest --test-dir build -R zomboid            # sim + render + save/load unit tests
+./build/bin/zomboid-audio --demo demo.wav    # render the chiptune SFX + music to WAV (no device)
+ctest --test-dir build -R zomboid            # sim + render + audio + save/load unit tests
 ```
 
 ---

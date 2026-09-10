@@ -10,6 +10,7 @@ game/
   include/zomboid/
     Math.hpp     Vec2 + clamp/lerp/dist/normAngle (engine-agnostic, no GLM)
     Rng.hpp      PCG32 deterministic RNG (replaces JS Math.random())
+    audio/Audio.hpp  headless chiptune synth: SFX + music -> WAV
     Tiles.hpp    Tile enum + isSolidTile
     World.hpp    Anchorage data (avenues/streets/buildings) + World + generateWorld()
     Items.hpp    ItemDef DB + themed loot tables + rollLoot()
@@ -20,8 +21,9 @@ game/
       Framebuffer.hpp  CPU RGB framebuffer (fill/blend/outline/circle/line)
       Font.hpp         5x7 bitmap font + drawText (HUD/labels)
       SoftRenderer.hpp software reference rasterizer: renderScene() + renderWorldMap()
-  src/           World.cpp · Items.cpp · Sim.cpp · Save.cpp · SoftRenderer.cpp
+  src/           World.cpp · Items.cpp · Sim.cpp · Save.cpp · Audio.cpp · SoftRenderer.cpp
 apps/zomboid/    headless autopilot driver; --render (PNG, Png.hpp) · --save/--load · --screen
+apps/zomboid-audio/ renders chiptune SFX / music / demo to WAV (headless)
 apps/zomboid-tui/ PLAYABLE terminal front-end: keyboard -> zb::Input, framebuffer
                  rendered as truecolor half-block ANSI + text HUD (POSIX/termios)
 tests/           zomboid_tests.cpp (worldgen, determinism, needs, combat, loot,
@@ -95,12 +97,29 @@ truecolor half-block ANSI (two pixels per character cell) with a text HUD — no
 ./build/bin/zomboid-tui --once   # headless: render one autopilot frame and exit (CI smoke)
 ```
 
+## Sound (done, headless)
+
+`zomboid/audio/Audio.hpp` ports the reference WebAudio chiptune: oscillator blips (square /
+triangle / saw / sine) with an attack-decay envelope and pitch slide, plus filtered noise bursts.
+All 14 SFX and the looping bass+lead city music render into PCM buffers with no audio device and out
+to WAV, deterministically (seeded RNG), so the sound layer is testable in CI. `apps/zomboid-audio`
+writes them:
+
+```
+./build/bin/zomboid-audio --sfx gun gun.wav      # one effect
+./build/bin/zomboid-audio --music 40 city.wav    # the loop
+./build/bin/zomboid-audio --demo demo.wav        # every SFX over the music bed
+```
+
+A real-time audio device (SDL/miniaudio, Phase 7) can stream these same recipes later.
+
 ## What's next
 
 1. **Vulkan render bridge** — a `Camera2D` + sprite/tilemap batch on the Vulkan renderer (Phase 3)
    reproducing the software rasterizer's draw intent on the GPU, plus a HUD and text rendering.
 2. **Input bridge** — map SDL keyboard/mouse (Phase 1 action-mapping) into `zb::Input`.
-3. **Audio** — chiptune SFX/music via the Phase 7 audio module.
+3. **Real-time audio** — stream the (already ported) SFX/music recipes through the Phase 7 audio
+   device (SDL/miniaudio); the synthesis itself is done (see Sound above).
 
 ## Save / load (done)
 

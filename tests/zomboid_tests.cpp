@@ -7,6 +7,7 @@
 
 #include "zomboid/Sim.hpp"
 #include "zomboid/World.hpp"
+#include "zomboid/audio/Audio.hpp"
 #include "zomboid/render/SoftRenderer.hpp"
 
 namespace {
@@ -298,6 +299,51 @@ void testRender() {
     CHECK(deathVaried);
 }
 
+// ---- audio synth: non-silent, deterministic, valid WAV ----
+void testAudio() {
+    std::printf("[audio]\n");
+    auto peakAbs = [](const zb::audio::Clip& c) {
+        float m = 0.0f;
+        for (float v : c.samples()) m = std::max(m, std::fabs(v));
+        return m;
+    };
+
+    zb::Rng r1(5), r2(5), r3(9);
+    zb::audio::Clip gun1 = zb::audio::renderSfx(zb::audio::Sfx::Gun, r1);
+    zb::audio::Clip gun2 = zb::audio::renderSfx(zb::audio::Sfx::Gun, r2);
+    CHECK(!gun1.samples().empty());
+    CHECK(peakAbs(gun1) > 0.01f);          // audible
+    CHECK(gun1.samples() == gun2.samples()); // same seed -> identical audio
+    zb::audio::Clip gun3 = zb::audio::renderSfx(zb::audio::Sfx::Gun, r3);
+    CHECK(gun1.samples() != gun3.samples()); // noise differs by seed
+
+    // A pure-tone SFX (no noise) is seed-independent.
+    zb::Rng ra(1), rb(999);
+    CHECK(zb::audio::renderSfx(zb::audio::Sfx::Select, ra).samples() ==
+          zb::audio::renderSfx(zb::audio::Sfx::Select, rb).samples());
+
+    // Music renders audible samples.
+    zb::Rng rm(1);
+    zb::audio::Clip music = zb::audio::renderMusic(16, rm);
+    CHECK(peakAbs(music) > 0.01f);
+
+    // Name lookup.
+    zb::audio::Sfx s;
+    CHECK(zb::audio::sfxFromName("shotgun", s));
+    CHECK(!zb::audio::sfxFromName("nope", s));
+
+    // WAV header is well-formed (RIFF/WAVE/PCM mono 44100, data size matches).
+    const std::vector<uint8_t> wav = zb::audio::encodeWav(gun1);
+    CHECK(wav.size() == 44u + gun1.samples().size() * 2u);
+    CHECK(wav[0] == 'R' && wav[1] == 'I' && wav[2] == 'F' && wav[3] == 'F');
+    CHECK(wav[8] == 'W' && wav[9] == 'A' && wav[10] == 'V' && wav[11] == 'E');
+    const uint32_t sr = static_cast<uint32_t>(wav[24]) | (static_cast<uint32_t>(wav[25]) << 8) |
+                        (static_cast<uint32_t>(wav[26]) << 16) |
+                        (static_cast<uint32_t>(wav[27]) << 24);
+    CHECK(sr == 44100u);
+    CHECK(wav[22] == 1); // mono
+}
+
 // ---- day/night: darkness peaks at night, zero at midday ----
 void testDayNight() {
     std::printf("[day-night]\n");
@@ -320,6 +366,7 @@ int main() {
     testLoot();
     testSaveLoad();
     testRender();
+    testAudio();
     testDayNight();
     std::printf("=== %d checks, %d failures ===\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;

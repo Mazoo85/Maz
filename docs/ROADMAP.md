@@ -107,7 +107,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 
 ## Phase 7 — Audio
 - [ ] Audio device + mixer (SDL audio / miniaudio / OpenAL)
-- [ ] Sound instances, buses / categories, volume / pitch / loop
+- [~] Sound instances, buses / categories, volume / pitch / loop — a headless chiptune synth
+      (`zb::audio`) renders the Zomboid SFX + music to PCM/WAV deterministically; a real-time device
+      to stream them is still todo
 - [ ] Streaming music vs one-shot SFX
 - [ ] 2D panning + 3D spatialization, attenuation, doppler
 - [ ] DSP effects (reverb, filter), ducking
@@ -169,7 +171,9 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       in a window. Versioned **save/load** (`Sim::saveState`/`loadState`) is also done — bit-exact and
       continuation-deterministic (a loaded game continues identically to one never saved). The port
       is already **playable in a terminal** (`apps/zomboid-tui`) — keyboard input into the sim, each
-      frame drawn as truecolor half-block ANSI + a text HUD, no GPU. See `docs/ZOMBOID_PORT.md`.
+      frame drawn as truecolor half-block ANSI + a text HUD, no GPU. The chiptune **audio** is ported
+      too (`zb::audio` renders all SFX + music to WAV headless; `apps/zomboid-audio`). See
+      `docs/ZOMBOID_PORT.md`.
 
 ---
 
