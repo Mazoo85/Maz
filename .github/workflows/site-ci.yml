@@ -27,6 +27,10 @@ jobs:
       # No dependencies — pure Node, so this job is seconds long.
       - name: Check every local link resolves
         run: node scripts/check-links.mjs
+      # SCRIPT FORGE's reader/writer/exporters are plain modules, so they can be
+      # checked here without a browser — seconds, no dependencies.
+      - name: SCRIPT FORGE logic tests
+        run: node film/tests/film-logic.test.js
 
   browser:
     name: Site smoke test (Chromium)
@@ -44,3 +48,5 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Drive the hub and every app
         run: node scripts/smoke-site.cjs
+      - name: SCRIPT FORGE end to end (write, export, save)
+        run: node film/tests/film-browser.test.js

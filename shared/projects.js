@@ -67,6 +67,20 @@
       docs: 'madlibs/README.md'
     },
     {
+      id: 'film',
+      name: 'SCRIPT FORGE',
+      kind: 'app',
+      path: 'film/',
+      tag: 'idea → short film script',
+      accent: '#ffb300',
+      blurb:
+        'Type what your film is about and get a formatted short-film screenplay back — ' +
+        'scenes, action, dialogue, a shot list and a runtime. Exports to Fountain, ' +
+        'Final Draft and plain text.',
+      badges: ['Phone + desktop', 'Fountain / FDX export', 'Zero deps'],
+      docs: 'film/README.md'
+    },
+    {
       id: 'engine',
       name: 'MAZ ENGINE',
       kind: 'code',

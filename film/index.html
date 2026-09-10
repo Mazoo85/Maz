@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b0714" />
+  <meta name="description" content="SCRIPT FORGE — type what your film is about and get a formatted short-film screenplay, shot list and Final Draft export." />
+  <title>SCRIPT FORGE — Idea to Short Film Script</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23120a24'/><rect x='2' y='2' width='12' height='12' rx='1' fill='none' stroke='%23ffb300' stroke-width='1.4'/><rect x='4' y='5' width='8' height='1.4' fill='%23ffb300'/><rect x='4' y='8' width='5' height='1.4' fill='%2300e5ff'/><rect x='4' y='11' width='7' height='1.4' fill='%23ff2d95'/></svg>" />
+</head>
+<body>
+  <div id="app">
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">▶</span>
+        <h1>SCRIPT <span class="brand-alt">FORGE</span></h1>
+      </div>
+      <p class="tagline">Type what your film is. Get a shootable short-film script back.</p>
+    </header>
+
+    <!-- ------------------------------------------------------------ input -->
+    <section class="panel">
+      <label class="field-label" for="idea">What is your film about?</label>
+      <textarea id="idea" rows="3" spellcheck="true"
+        placeholder="A lonely lighthouse keeper finds a radio that plays tomorrow's news."></textarea>
+
+      <div class="examples" id="examples" aria-label="Example ideas"></div>
+
+      <div class="controls">
+        <div class="control">
+          <label for="length">Length</label>
+          <select id="length">
+            <option value="micro">Micro — 3 scenes (~2 min)</option>
+            <option value="short" selected>Short — 5 scenes (~3 min)</option>
+            <option value="festival">Festival — 7 scenes (~5 min)</option>
+          </select>
+        </div>
+        <div class="control">
+          <label for="genre">Genre</label>
+          <select id="genre"><option value="auto">Auto — read my idea</option></select>
+        </div>
+        <div class="control">
+          <label for="titleInput">Title <span class="opt">(optional)</span></label>
+          <input id="titleInput" type="text" placeholder="leave blank and I'll name it" maxlength="60" />
+        </div>
+      </div>
+
+      <div class="buttons">
+        <button id="write" class="primary">✍ Write the script</button>
+        <button id="reroll" title="Same idea, a different take on it">🎲 Another take</button>
+      </div>
+      <p class="hint">Everything runs in your browser. Nothing is uploaded, no account, no key.</p>
+    </section>
+
+    <!-- ----------------------------------------------------------- output -->
+    <main>
+      <div id="placeholder" class="empty">
+        <p>Type an idea above — a sentence is plenty — and press <strong>Write the script</strong>.</p>
+      </div>
+
+      <article id="result" class="result hidden">
+        <div class="result-head">
+          <h2 id="scriptTitle"></h2>
+          <p id="scriptLogline" class="logline"></p>
+          <div class="chips">
+            <span class="chip" id="chipGenre"></span>
+            <span class="chip" id="chipScenes"></span>
+            <span class="chip" id="chipRuntime"></span>
+            <span class="chip ghost" id="chipSeed" title="The number this exact draft came from"></span>
+          </div>
+        </div>
+
+        <div class="tabs" role="tablist">
+          <button class="tab is-on" id="tabScript" role="tab" aria-selected="true" aria-controls="viewScript">Screenplay</button>
+          <button class="tab" id="tabShots" role="tab" aria-selected="false" aria-controls="viewShots">Shot list</button>
+        </div>
+
+        <div id="viewScript" class="page" role="tabpanel" aria-labelledby="tabScript"></div>
+        <div id="viewShots" class="shots hidden" role="tabpanel" aria-labelledby="tabShots"></div>
+
+        <div class="result-actions no-print">
+          <button id="copy">📋 Copy</button>
+          <button id="dlFountain" title="Opens in Final Draft, Highland, Slugline, Celtx, WriterDuet">⬇ .fountain</button>
+          <button id="dlFdx" title="Final Draft">⬇ .fdx</button>
+          <button id="dlText">⬇ .txt</button>
+          <button id="dlShots">⬇ shot list</button>
+          <button id="print">🖨 Print / PDF</button>
+          <button id="save" class="accent">★ Save</button>
+        </div>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+      </article>
+    </main>
+
+    <!-- ---------------------------------------------------------- library -->
+    <section class="library no-print">
+      <div class="library-head">
+        <h3>Saved scripts <span id="libCount" class="count">0</span></h3>
+        <button id="clearLib" class="link">clear all</button>
+      </div>
+      <ul id="libraryList" class="library-list"></ul>
+      <p id="libEmpty" class="muted">Nothing saved yet. Write one you like and press <strong>Save</strong>.</p>
+    </section>
+
+    <footer class="foot no-print">
+      Reads your idea for characters, place, genre and stakes, then builds it on a
+      seven-beat short-film spine. Exports to Fountain, Final Draft, plain text and
+      a shot list. Runs entirely in your browser.
+    </footer>
+  </div>
+
+  <!-- data + engine + ui -->
+  <script src="js/lexicon.js"></script>
+  <script src="js/dialogue.js"></script>
+  <script src="js/parse.js"></script>
+  <script src="js/screenplay.js"></script>
+  <script src="js/format.js"></script>
+  <script src="js/app.js"></script>
+
+<!-- shared MAZ ARCADE nav: back to the hub + jump to any other project -->
+<script src="../shared/maz-nav.js" data-current="film" defer></script>
+</body>
+</html>
