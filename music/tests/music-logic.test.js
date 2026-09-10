@@ -166,6 +166,27 @@ Object.keys(Genres.GENRES).forEach(function (gid) {
   check(checkedOne, gid + ': has a build into a chorus to check');
 });
 
+/* --- melodies breathe: every second phrase clears its last beat --- */
+['synthwave', 'lofi', 'cinematic', 'house'].forEach(function (gid) {
+  const song = Composer.compose({ seed: 'PHRASE-' + gid, genre: gid, length: 'medium' });
+  const lead = song.tracks.lead;
+  if (!lead.length) return;
+
+  let closed = 0, total = 0;
+  song.sections.forEach(function (sec) {
+    if (!sec.parts.lead) return;
+    for (let ph = 1; ph < Math.floor(sec.bars / 2); ph += 2) {
+      const end = (sec.startBar + (ph + 1) * 2) * 4;
+      total++;
+      // Nothing should start in the last three quarters of a closing phrase.
+      const inBreath = lead.filter(function (e) { return e.t > end - 0.7 && e.t < end - 0.05; });
+      if (!inBreath.length) closed++;
+    }
+  });
+  check(total === 0 || closed / total > 0.8,
+    gid + ': closing phrases leave room to breathe (' + closed + '/' + total + ')');
+});
+
 /* --- styles that should never do that, do not --- */
 ['lofi', 'ambient', 'chiptune'].forEach(function (gid) {
   const song = Composer.compose({ seed: 'NOBUILD-' + gid, genre: gid, length: 'medium' });

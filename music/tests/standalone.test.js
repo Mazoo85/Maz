@@ -213,6 +213,65 @@ function launchOptions() {
   await page.click('#editTracks .chip[data-id="lead"]');
   await page.waitForTimeout(120);
 
+  console.log('\n— undo —');
+  const undoState = await page.evaluate(function () {
+    return { before: window.__song.tracks.lead.length,
+             canUndo: window.__editor.canUndo() };
+  });
+  await clickGrid(360, 170);
+  await clickGrid(420, 200);
+  const drawnTwo = await page.evaluate(function () { return window.__song.tracks.lead.length; });
+  check(drawnTwo === undoState.before + 2, 'two more notes drawn (' + drawnTwo + ')');
+  check(await page.evaluate(function () {
+    return !document.getElementById('undoBtn').disabled;
+  }), 'undo becomes available once there is something to undo');
+
+  await page.click('#undoBtn');
+  await page.waitForTimeout(120);
+  const afterUndo = await page.evaluate(function () { return window.__song.tracks.lead.length; });
+  check(afterUndo === drawnTwo - 1, 'undo takes back one note (' + drawnTwo + ' → ' + afterUndo + ')');
+
+  await page.click('#undoBtn');
+  await page.waitForTimeout(120);
+  check(await page.evaluate(function () { return window.__song.tracks.lead.length; }) === undoState.before,
+    'undo again returns to where we started');
+
+  await page.click('#redoBtn');
+  await page.waitForTimeout(120);
+  check(await page.evaluate(function () { return window.__song.tracks.lead.length; }) === undoState.before + 1,
+    'redo puts one back');
+
+  // Clearing a whole part must be recoverable — that is the worst thing to lose.
+  await page.click('#clearTrackBtn');
+  await page.waitForTimeout(120);
+  check(await page.evaluate(function () { return window.__song.tracks.lead.length; }) === 0,
+    'clear empties the part');
+  await page.click('#undoBtn');
+  await page.waitForTimeout(120);
+  check(await page.evaluate(function () { return window.__song.tracks.lead.length; }) > 0,
+    'and undo brings the whole part back');
+
+  console.log('\n— swapping a sound —');
+  const swap = await page.evaluate(async function () {
+    const song = window.__song;
+    const P = window.Genres.PRESETS;
+    const before = window.Engine.presetFor(song, 'lead');
+    song.presetOverride = { lead: 'bell' };
+    const after = window.Engine.presetFor(song, 'lead');
+    delete song.presetOverride.lead;
+    return {
+      defaultName: window.Engine.defaultPresetName(song, 'lead'),
+      changed: before !== after,
+      isBell: after === P.bell,
+      options: Object.keys(window.Genres.PRESET_GROUPS).length
+    };
+  });
+  check(swap.changed && swap.isBell, 'an override actually changes which instrument plays');
+  check(swap.options === 5, 'every melodic part has a sound list');
+  check(await page.evaluate(function () {
+    return document.querySelectorAll('#soundSelect option').length > 3;
+  }), 'the picker is populated for the current part');
+
   console.log('\n— the loop: what you draw teaches the generator —');
   const developed = await page.evaluate(function () {
     const song = window.__song;
@@ -280,6 +339,47 @@ function launchOptions() {
   check(ex.midiTag === 'MThd', 'MIDI still writes a valid header');
   check(ex.zipSig, 'zip writer produces a real PK archive');
   check(ex.zipSize > ex.midiSize, 'zip contains the file (' + ex.zipSize + ' ≥ ' + ex.midiSize + ')');
+
+  console.log('\n— stems —');
+  const stems = await page.evaluate(async function () {
+    const song = window.Composer.compose({ seed: 'STEMS', genre: 'house', length: 'short' });
+    // Four bars is plenty to prove separation without six long renders.
+    Object.keys(song.tracks).forEach(function (k) {
+      song.tracks[k] = song.tracks[k].filter(function (e) { return e.t < 16; });
+    });
+    song.totalBeats = 16;
+    const mix = {};
+    window.Engine.TRACKS.forEach(function (t) { mix[t] = { volume: 1, muted: false }; });
+    const rendered = await window.Engine.renderStems(song, mix);
+
+    function rms(buf) {
+      const ch = buf.getChannelData(0);
+      let s2 = 0;
+      for (let i = 0; i < ch.length; i++) s2 += ch[i] * ch[i];
+      return Math.sqrt(s2 / ch.length);
+    }
+    const files = rendered.map(function (st) {
+      return { name: st.name, blob: window.Exporter.encodeWav(st.buffer), rms: rms(st.buffer) };
+    });
+    const entries = await Promise.all(files.map(async function (f) {
+      return { name: f.name + '.wav', bytes: new Uint8Array(await f.blob.arrayBuffer()) };
+    }));
+    const zip = window.Exporter.makeZip(entries);
+    const head = new Uint8Array(await zip.slice(0, 4).arrayBuffer());
+    return {
+      names: files.map(function (f) { return f.name; }),
+      allAudible: files.every(function (f) { return f.rms > 0.001; }),
+      quietest: Math.min.apply(null, files.map(function (f) { return f.rms; })),
+      zipOk: head[0] === 0x50 && head[1] === 0x4b,
+      zipSize: zip.size,
+      sumSize: entries.reduce(function (a, e) { return a + e.bytes.length; }, 0)
+    };
+  });
+  check(stems.names.length >= 4, 'a stem per part that plays (' + stems.names.join(', ') + ')');
+  check(stems.allAudible, 'every stem has sound in it (quietest rms ' + stems.quietest.toFixed(4) + ')');
+  check(stems.zipOk, 'the stems zip is a real archive');
+  check(stems.zipSize > stems.sumSize, 'and it contains all of them (' +
+    (stems.zipSize / 1048576).toFixed(1) + ' MB)');
 
   console.log('\n— phone —');
   const phone = await browser.newPage({ viewport: { width: 390, height: 780 }, isMobile: true, hasTouch: true });

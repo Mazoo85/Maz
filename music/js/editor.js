@@ -52,8 +52,55 @@
     this.h = 0;
     this._drag = null;
     this._painted = null;
+    this._undo = [];
+    this._redo = [];
     this._bind();
   }
+
+  /* ------------------------------------------------------------------ *
+   * Undo
+   *
+   * Snapshots of one track's notes, taken before each gesture. Editing without
+   * undo means one careless drag can lose an idea, which is the fastest way to
+   * stop trusting a tool.
+   * ------------------------------------------------------------------ */
+
+  const HISTORY_MAX = 60;
+
+  function snapshot(song, track) {
+    return { track: track, events: JSON.parse(JSON.stringify(song.tracks[track] || [])) };
+  }
+
+  Editor.prototype.pushHistory = function (track) {
+    const song = this.getSong();
+    if (!song) return;
+    this._undo.push(snapshot(song, track || this.track));
+    if (this._undo.length > HISTORY_MAX) this._undo.shift();
+    this._redo.length = 0;
+  };
+
+  Editor.prototype.canUndo = function () { return this._undo.length > 0; };
+  Editor.prototype.canRedo = function () { return this._redo.length > 0; };
+
+  Editor.prototype._restore = function (from, to) {
+    const song = this.getSong();
+    if (!song || !from.length) return false;
+    const snap = from.pop();
+    to.push(snapshot(song, snap.track));
+    song.tracks[snap.track] = snap.events;
+    if (snap.track !== this.track) this.setTrack(snap.track);
+    else this.refit();
+    this.onChange();
+    return true;
+  };
+
+  Editor.prototype.undo = function () { return this._restore(this._undo, this._redo); };
+  Editor.prototype.redo = function () { return this._restore(this._redo, this._undo); };
+
+  Editor.prototype.clearHistory = function () {
+    this._undo.length = 0;
+    this._redo.length = 0;
+  };
 
   /* ------------------------------------------------------------------ *
    * Geometry
@@ -352,6 +399,7 @@
         if (self.onFollowOff) self.onFollowOff();
       }
       self.canvas.setPointerCapture(e.pointerId);
+      self.pushHistory();
       self._painted = {};
       if (self.isDrums()) self._drumDown(p);
       else self._noteDown(p);
@@ -401,6 +449,7 @@
     const ev = { t: t, d: this.noteLen, p: this.snapPitch(pitch), v: 0.8 };
     this.getSong().tracks[this.track].push(ev);
     this._drag = { mode: 'resize', ev: ev };
+    this.audition(ev.p);
   };
 
   Editor.prototype._noteMove = function (p) {
@@ -411,7 +460,10 @@
       d.ev.d = Math.max(this.snap, this.quantize(beat - d.ev.t + this.snap * 0.5));
     } else {
       const row = this.rowOfY(p.y);
-      if (row >= 0 && row < this.rows) d.ev.p = this.snapPitch(this.pitchOfRow(row));
+      if (row >= 0 && row < this.rows) {
+        const next = this.snapPitch(this.pitchOfRow(row));
+        if (next !== d.ev.p) { d.ev.p = next; this.audition(next); }
+      }
       d.ev.t = this.quantize(beat - d.grabBeat);
     }
     const total = this.getSong().totalBeats;
@@ -439,6 +491,7 @@
       arr.splice(arr.indexOf(hit), 1);      // tap an existing hit to clear it
     } else {
       this.getSong().tracks.drums.push({ t: beat, d: 0.25, p: 60, v: 0.85, inst: inst });
+      this.audition(60, inst);
     }
   };
 
@@ -457,6 +510,7 @@
       if (hit) arr.splice(arr.indexOf(hit), 1);
     } else if (!hit) {
       arr.push({ t: beat, d: 0.25, p: 60, v: 0.85, inst: inst });
+      this.audition(60, inst);
     }
   };
 
@@ -484,7 +538,14 @@
     return false;
   };
 
+  /** Sound a note as it is drawn — but not over the top of playback. */
+  Editor.prototype.audition = function (pitch, inst) {
+    if (this.player.playing) return;
+    if (this.player.audition) this.player.audition(this.track, pitch, inst);
+  };
+
   Editor.prototype.clearTrack = function () {
+    this.pushHistory();
     const arr = this.getSong().tracks[this.track];
     arr.length = 0;
     this.onChange();

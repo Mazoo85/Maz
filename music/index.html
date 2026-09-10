@@ -136,6 +136,13 @@
       </label>
       <button type="button" class="mini-btn toggle on" id="inKeyBtn" title="Snap what you draw to the song's key">♪ In key</button>
       <button type="button" class="mini-btn toggle on" id="followBtn" title="Scroll along with the music">Follow</button>
+      <div class="tool-group" role="group" aria-label="Undo">
+        <button type="button" class="mini-btn" id="undoBtn" title="Undo (Ctrl+Z)" disabled>↶ Undo</button>
+        <button type="button" class="mini-btn" id="redoBtn" title="Redo (Ctrl+Shift+Z)" disabled>↷ Redo</button>
+      </div>
+      <label class="tool-field" for="soundSelect"><span>Sound</span>
+        <select id="soundSelect"></select>
+      </label>
     </div>
 
     <canvas id="editor" class="editor" aria-label="Note editor"></canvas>
@@ -179,10 +186,12 @@
     <div class="export-row">
       <button type="button" class="wide-btn" id="wavBtn">⬇ Download audio (.wav)</button>
       <button type="button" class="wide-btn" id="midiBtn">⬇ Download MIDI (.mid)</button>
+      <button type="button" class="wide-btn" id="stemsBtn">⬇ Download stems (.zip)</button>
     </div>
     <p class="panel-hint" id="exportNote">
       The WAV is the finished track. The MIDI holds every note on separate tracks, so you can
       open it in GarageBand, Ableton, FL Studio, Logic or MuseScore and change anything.
+      <strong>Stems</strong> gives you each part as its own audio file, to mix by hand elsewhere.
     </p>
     <div class="progress" id="exportProgress" hidden><div class="progress-bar" id="exportBar"></div></div>
   </section>

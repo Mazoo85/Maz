@@ -27,17 +27,24 @@
      scheduled as gain automation exactly where the kick lands. */
   const DUCK_TARGETS = ['bass', 'chords', 'pad', 'arp'];
 
-  function presetFor(song, track) {
+  function defaultPresetName(song, track) {
     const g = song.genre;
-    const P = global.Genres.PRESETS;
     switch (track) {
-      case 'bass':   return P[g.bass.preset];
-      case 'chords': return P[g.chords.preset];
-      case 'arp':    return P[g.arp.preset];
-      case 'lead':   return P[g.lead.preset];
-      case 'pad':    return P[g.pad.preset];
+      case 'bass':   return g.bass.preset;
+      case 'chords': return g.chords.preset;
+      case 'arp':    return g.arp.preset;
+      case 'lead':   return g.lead.preset;
+      case 'pad':    return g.pad.preset;
       default:       return null;
     }
+  }
+
+  function presetFor(song, track) {
+    const P = global.Genres.PRESETS;
+    const chosen = song.presetOverride && song.presetOverride[track];
+    if (chosen && P[chosen]) return P[chosen];
+    const name = defaultPresetName(song, track);
+    return name ? P[name] : null;
   }
 
   /* ------------------------------------------------------------------ *
@@ -282,9 +289,38 @@
 
   Player.prototype._buildGraph = function () {
     this.graph = buildGraph(this.ctx, this.song, this.mix, true);
-    if (this.graph.vinyl) {
-      try { this.graph.vinyl.start(this.ctx.currentTime); } catch (e) { /* already started */ }
+    this._vinylStarted = false;
+  };
+
+  /** The tape bed belongs to playback, not to a single auditioned note. */
+  Player.prototype._startVinyl = function () {
+    if (!this.graph || !this.graph.vinyl || this._vinylStarted) return;
+    try {
+      this.graph.vinyl.start(this.ctx.currentTime);
+      this._vinylStarted = true;
+    } catch (e) { /* already started */ }
+  };
+
+  /**
+   * Play a single note or hit right now, through its own track, so drawing in
+   * the editor makes a sound instead of leaving you guessing until playback.
+   */
+  Player.prototype.audition = function (track, pitch, inst) {
+    if (!this.song) return;
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    if (!this.graph) this._buildGraph();
+    const bus = this.graph.tracks[track];
+    if (!bus) return;
+    const when = ctx.currentTime + 0.012;
+    if (track === 'drums') {
+      Synth.playDrum(ctx, bus, when, inst, 0.85, this.song.genre.drums.kit, 0.6);
+      return;
     }
+    const preset = presetFor(this.song, track);
+    if (!preset) return;
+    Synth.playNote(ctx, bus, when, 0.4, global.Theory.midiToFreq(pitch), preset, 0.8,
+      { brightness: this._brightness() });
   };
 
   Player.prototype._indexForBeat = function (beat) {
@@ -309,6 +345,7 @@
     this._pass = 0;
     this._index = this._indexForBeat(startBeat);
     this._originTime = ctx.currentTime + 0.08 - startBeat * spb;
+    this._startVinyl();
     this.playing = true;
 
     const self = this;
@@ -463,11 +500,43 @@
     return ctx.startRendering();
   }
 
+  /**
+   * Render each part on its own — one pass per track with everything else
+   * muted. Web Audio gives an offline context a single output, so separate
+   * stems mean separate renders; the cost is time, and the payoff is a folder
+   * you can open in any other music program and mix by hand.
+   */
+  function renderStems(song, mix, onProgress) {
+    const parts = TRACKS.filter(function (t) { return (song.tracks[t] || []).length > 0; });
+    const out = [];
+    let i = 0;
+
+    function next() {
+      if (i >= parts.length) return Promise.resolve(out);
+      const name = parts[i];
+      const solo = {};
+      TRACKS.forEach(function (t) {
+        const m = (mix && mix[t]) || { volume: 1, muted: false };
+        solo[t] = { volume: m.volume, muted: t !== name };
+      });
+      if (onProgress) onProgress(i / parts.length, name);
+      return renderOffline(song, solo).then(function (buf) {
+        out.push({ name: name, buffer: buf });
+        i++;
+        return next();
+      });
+    }
+    return next();
+  }
+
   global.Engine = {
     Player: Player,
     renderOffline: renderOffline,
+    renderStems: renderStems,
     buildGraph: buildGraph,
     flatten: flatten,
+    presetFor: presetFor,
+    defaultPresetName: defaultPresetName,
     TRACKS: TRACKS
   };
 })(window);

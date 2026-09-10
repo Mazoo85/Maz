@@ -39,9 +39,12 @@ python3 -m http.server         # or serve the folder: http://localhost:8000/musi
 - **Re-roll any single part.** Don't like the melody? Rewrite just the melody
   over the same chords. Everything else stays exactly as it was.
 - **Lock a part** you like, and a re-roll of everything writes around it.
+- **Undo** everything, including a re-roll or a cleared part (Ctrl+Z).
+- **Hear notes as you draw them**, and **swap the instrument** on any part.
 - **Mixer** — mute or rebalance drums, bass, chords, arp, lead and pad.
-- **Export** — download the finished track as a **.wav**, or the notes as a
-  **.mid** you can open in GarageBand, Ableton, FL Studio, Logic or MuseScore.
+- **Export** — the finished track as a **.wav**, the notes as a **.mid**, or
+  **stems**: every part as its own audio file, to mix by hand in GarageBand,
+  Ableton, FL Studio, Logic or MuseScore.
 - **Seeds** — every song has a short code like `VELVET-7318`. The same seed and
   settings always produce the same song, so *Copy link* hands someone the exact
   track you are hearing.
@@ -83,7 +86,13 @@ Each song is built in this order:
    opening and change the ending (the classic question-and-answer shape). Notes
    on strong beats snap to chord tones; notes in between are free to pass
    through the scale.
-6. **Performance.** Swing pushes offbeats late, and every note is nudged a few
+6. **Phrasing.** Every second phrase closes: the last beat is cleared and the
+   final note leans onto a chord tone and holds. A melody that never stops for
+   breath reads as a stream of notes rather than a line.
+7. **Arrangement.** Where a style calls for it, the bar before a chorus empties
+   out — the kit stops, a snare roll climbs, a riser sweeps — and the chorus
+   lands on an impact. Taking things away is what makes the next bar hit.
+8. **Performance.** Swing pushes offbeats late, and every note is nudged a few
    milliseconds and a little louder or quieter, so nothing sits perfectly on the
    grid.
 
@@ -91,6 +100,14 @@ Then `synth.js` builds every sound from oscillators and filtered noise —
 subtractive synth voices, FM bells, Rhodes-style electric piano, 808s, and drum
 kits made from pitch-swept sines and shaped noise. There are no audio files
 anywhere in this app.
+
+`engine.js` mixes it: each part has a place in the stereo field, velocity opens
+filters as well as raising level, pads drift under slow LFOs, and — where the
+style calls for it — **the kick ducks the sustained parts**. Web Audio
+compressors have no sidechain input, but the kick times are already in the
+score, so the duck is scheduled as gain automation exactly where the kick lands.
+That pump is most of what makes house, synthwave and trap sound like themselves;
+ambient and chiptune have none.
 
 ---
 

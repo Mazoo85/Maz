@@ -133,6 +133,25 @@
     piano: { kind: 'epiano', gain: 0.34, amp: { a: 0.003, d: 1.1, s: 0.0, r: 0.35 }, send: { rev: 0.4, del: 0.12 }, tone: 0.8 }
   };
 
+  /* Human names for the presets, and which ones suit which part. A bass patch
+     on the lead is a legitimate choice; a pad on the bass is just mud. */
+  const PRESET_LABEL = {
+    lofiBass: 'Soft bass', synthBass: 'Synth bass', houseBass: 'Sub bass',
+    softBass: 'Sine bass', eight08: '808', reese: 'Reese growl', pulseBass: 'Chip bass',
+    rhodes: 'Electric piano', warmPad: 'Warm pad', glassPad: 'Glass pad',
+    stab: 'Stab', strings: 'Strings', chipChord: 'Chip chords', piano: 'Piano',
+    softLead: 'Soft lead', sawLead: 'Saw lead', bell: 'Bell', pluck: 'Pluck',
+    chipLead: 'Chip lead'
+  };
+
+  const PRESET_GROUPS = {
+    bass:   ['lofiBass', 'synthBass', 'houseBass', 'softBass', 'eight08', 'reese', 'pulseBass'],
+    chords: ['rhodes', 'piano', 'warmPad', 'glassPad', 'stab', 'strings', 'chipChord', 'pluck'],
+    arp:    ['pluck', 'bell', 'chipChord', 'chipLead', 'piano', 'softLead', 'rhodes'],
+    lead:   ['softLead', 'sawLead', 'bell', 'pluck', 'chipLead', 'piano', 'rhodes'],
+    pad:    ['warmPad', 'glassPad', 'strings', 'chipChord', 'rhodes']
+  };
+
   /*
    * Chord progressions are scale-degree indices (0 = tonic). The same numbers
    * read as I-vi-IV-V in a major scale and i-VI-iv-v in a minor one, which is
@@ -342,6 +361,8 @@
     GENRES: GENRES,
     MOODS: MOODS,
     PRESETS: PRESETS,
+    PRESET_LABEL: PRESET_LABEL,
+    PRESET_GROUPS: PRESET_GROUPS,
     list: function () { return Object.keys(GENRES).map(function (k) { return GENRES[k]; }); },
     moodList: function () { return Object.keys(MOODS).map(function (k) { return Object.assign({ id: k }, MOODS[k]); }); }
   };

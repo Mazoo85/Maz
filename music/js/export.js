@@ -319,6 +319,32 @@
     });
   }
 
+  /**
+   * Hand over several files at once, always as a zip — a folder of stems is a
+   * folder either way, and one prompt beats six.
+   */
+  function deliverMany(files, zipName) {
+    const reads = files.map(function (f) {
+      return f.blob.arrayBuffer().then(function (buf) {
+        return { name: f.name, bytes: new Uint8Array(buf) };
+      });
+    });
+    return Promise.all(reads).then(function (entries) {
+      const zip = makeZip(entries);
+      return saver().then(function (downloads) {
+        if (!downloads) { download(zip, zipName); return 'saved'; }
+        return downloads.save({ filename: zipName, data: zip })
+          .then(function () { return 'saved'; })
+          .catch(function (err) {
+            const code = err && err.code;
+            if (code === 'declined') return 'declined';
+            if (code === 'rate_limited') return 'busy';
+            return 'unavailable';
+          });
+      });
+    });
+  }
+
   /** True once we know the page must route downloads through the host. */
   function hostedSave() {
     return saver().then(function (d) { return !!d; });
@@ -330,6 +356,7 @@
     makeZip: makeZip,
     download: download,
     deliver: deliver,
+    deliverMany: deliverMany,
     hostedSave: hostedSave,
     safeName: safeName
   };

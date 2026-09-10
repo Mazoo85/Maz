@@ -573,6 +573,25 @@
     return out;
   }
 
+  /**
+   * Let a phrase land. A melody that never stops for breath reads as a stream
+   * of notes rather than a line: this clears the last beat, then leans the
+   * final note onto a chord tone and holds it, which is what a cadence is.
+   */
+  function cadence(song, phraseEvents, endBeat) {
+    if (!phraseEvents.length) return phraseEvents;
+    const breath = endBeat - 0.75;
+    let kept = phraseEvents.filter(function (e) { return e.t < breath; });
+    if (!kept.length) kept = [phraseEvents[0]];
+
+    const last = kept[kept.length - 1];
+    const chord = chordAt(song, last.t);
+    last.p = T.nearestChordTone(last.p, chord.pitches);
+    last.d = Math.max(last.d, Math.min(1.5, breath - last.t));
+    last.v = Math.min(1, last.v * 1.05);
+    return kept;
+  }
+
   function composeLead(song, rng, opts) {
     const genre = song.genre;
     const octave = genre.lead.octave;
@@ -606,6 +625,7 @@
         else motif = baseMotif;
 
         const phraseBeat = (sec.startBar + ph * motifBars) * BEATS_PER_BAR;
+        const phraseEvents = [];
 
         for (let i = 0; i < motif.length; i++) {
           const n = motif[i];
@@ -625,13 +645,18 @@
           while (pitch > T.midi(song.rootPc, octave) + 16) pitch -= 12;
           while (pitch < T.midi(song.rootPc, octave) - 8) pitch += 12;
 
-          events.push({
+          phraseEvents.push({
             t: t,
             d: Math.max(0.2, n.dur * STEP_BEATS * 0.95),
             p: pitch,
             v: (0.55 + sec.energy * 0.3) * (strong ? 1 : 0.85)
           });
         }
+
+        // Every second phrase closes: four bars of line, then room to breathe.
+        const phraseEnd = phraseBeat + motifBars * BEATS_PER_BAR;
+        const finished = (ph % 2 === 1) ? cadence(song, phraseEvents, phraseEnd) : phraseEvents;
+        Array.prototype.push.apply(events, finished);
       }
     }
     return applyFeel(events, song, rng, 0.5);

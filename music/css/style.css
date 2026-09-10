@@ -305,6 +305,8 @@ input[type="range"]::-moz-range-thumb {
   white-space: nowrap;
 }
 .mini-btn:hover { color: var(--ink); border-color: rgba(255, 255, 255, 0.28); }
+.mini-btn[disabled] { opacity: 0.4; cursor: default; }
+.mini-btn[disabled]:hover { color: var(--ink-dim); border-color: var(--panel-edge); }
 .mini-btn.toggle.on { color: var(--lime); border-color: var(--lime); background: rgba(107, 255, 143, 0.1); }
 
 /* ---------------- song panel ---------------- */

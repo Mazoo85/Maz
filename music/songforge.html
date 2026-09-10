@@ -320,6 +320,8 @@ input[type="range"]::-moz-range-thumb {
   white-space: nowrap;
 }
 .mini-btn:hover { color: var(--ink); border-color: rgba(255, 255, 255, 0.28); }
+.mini-btn[disabled] { opacity: 0.4; cursor: default; }
+.mini-btn[disabled]:hover { color: var(--ink-dim); border-color: var(--panel-edge); }
 .mini-btn.toggle.on { color: var(--lime); border-color: var(--lime); background: rgba(107, 255, 143, 0.1); }
 
 /* ---------------- song panel ---------------- */
@@ -790,6 +792,13 @@ input[type="range"]::-moz-range-thumb {
       </label>
       <button type="button" class="mini-btn toggle on" id="inKeyBtn" title="Snap what you draw to the song's key">♪ In key</button>
       <button type="button" class="mini-btn toggle on" id="followBtn" title="Scroll along with the music">Follow</button>
+      <div class="tool-group" role="group" aria-label="Undo">
+        <button type="button" class="mini-btn" id="undoBtn" title="Undo (Ctrl+Z)" disabled>↶ Undo</button>
+        <button type="button" class="mini-btn" id="redoBtn" title="Redo (Ctrl+Shift+Z)" disabled>↷ Redo</button>
+      </div>
+      <label class="tool-field" for="soundSelect"><span>Sound</span>
+        <select id="soundSelect"></select>
+      </label>
     </div>
 
     <canvas id="editor" class="editor" aria-label="Note editor"></canvas>
@@ -833,10 +842,12 @@ input[type="range"]::-moz-range-thumb {
     <div class="export-row">
       <button type="button" class="wide-btn" id="wavBtn">⬇ Download audio (.wav)</button>
       <button type="button" class="wide-btn" id="midiBtn">⬇ Download MIDI (.mid)</button>
+      <button type="button" class="wide-btn" id="stemsBtn">⬇ Download stems (.zip)</button>
     </div>
     <p class="panel-hint" id="exportNote">
       The WAV is the finished track. The MIDI holds every note on separate tracks, so you can
       open it in GarageBand, Ableton, FL Studio, Logic or MuseScore and change anything.
+      <strong>Stems</strong> gives you each part as its own audio file, to mix by hand elsewhere.
     </p>
     <div class="progress" id="exportProgress" hidden><div class="progress-bar" id="exportBar"></div></div>
   </section>
@@ -1324,6 +1335,25 @@ input[type="range"]::-moz-range-thumb {
     piano: { kind: 'epiano', gain: 0.34, amp: { a: 0.003, d: 1.1, s: 0.0, r: 0.35 }, send: { rev: 0.4, del: 0.12 }, tone: 0.8 }
   };
 
+  /* Human names for the presets, and which ones suit which part. A bass patch
+     on the lead is a legitimate choice; a pad on the bass is just mud. */
+  const PRESET_LABEL = {
+    lofiBass: 'Soft bass', synthBass: 'Synth bass', houseBass: 'Sub bass',
+    softBass: 'Sine bass', eight08: '808', reese: 'Reese growl', pulseBass: 'Chip bass',
+    rhodes: 'Electric piano', warmPad: 'Warm pad', glassPad: 'Glass pad',
+    stab: 'Stab', strings: 'Strings', chipChord: 'Chip chords', piano: 'Piano',
+    softLead: 'Soft lead', sawLead: 'Saw lead', bell: 'Bell', pluck: 'Pluck',
+    chipLead: 'Chip lead'
+  };
+
+  const PRESET_GROUPS = {
+    bass:   ['lofiBass', 'synthBass', 'houseBass', 'softBass', 'eight08', 'reese', 'pulseBass'],
+    chords: ['rhodes', 'piano', 'warmPad', 'glassPad', 'stab', 'strings', 'chipChord', 'pluck'],
+    arp:    ['pluck', 'bell', 'chipChord', 'chipLead', 'piano', 'softLead', 'rhodes'],
+    lead:   ['softLead', 'sawLead', 'bell', 'pluck', 'chipLead', 'piano', 'rhodes'],
+    pad:    ['warmPad', 'glassPad', 'strings', 'chipChord', 'rhodes']
+  };
+
   /*
    * Chord progressions are scale-degree indices (0 = tonic). The same numbers
    * read as I-vi-IV-V in a major scale and i-VI-iv-v in a minor one, which is
@@ -1533,6 +1563,8 @@ input[type="range"]::-moz-range-thumb {
     GENRES: GENRES,
     MOODS: MOODS,
     PRESETS: PRESETS,
+    PRESET_LABEL: PRESET_LABEL,
+    PRESET_GROUPS: PRESET_GROUPS,
     list: function () { return Object.keys(GENRES).map(function (k) { return GENRES[k]; }); },
     moodList: function () { return Object.keys(MOODS).map(function (k) { return Object.assign({ id: k }, MOODS[k]); }); }
   };
@@ -2115,6 +2147,25 @@ input[type="range"]::-moz-range-thumb {
     return out;
   }
 
+  /**
+   * Let a phrase land. A melody that never stops for breath reads as a stream
+   * of notes rather than a line: this clears the last beat, then leans the
+   * final note onto a chord tone and holds it, which is what a cadence is.
+   */
+  function cadence(song, phraseEvents, endBeat) {
+    if (!phraseEvents.length) return phraseEvents;
+    const breath = endBeat - 0.75;
+    let kept = phraseEvents.filter(function (e) { return e.t < breath; });
+    if (!kept.length) kept = [phraseEvents[0]];
+
+    const last = kept[kept.length - 1];
+    const chord = chordAt(song, last.t);
+    last.p = T.nearestChordTone(last.p, chord.pitches);
+    last.d = Math.max(last.d, Math.min(1.5, breath - last.t));
+    last.v = Math.min(1, last.v * 1.05);
+    return kept;
+  }
+
   function composeLead(song, rng, opts) {
     const genre = song.genre;
     const octave = genre.lead.octave;
@@ -2148,6 +2199,7 @@ input[type="range"]::-moz-range-thumb {
         else motif = baseMotif;
 
         const phraseBeat = (sec.startBar + ph * motifBars) * BEATS_PER_BAR;
+        const phraseEvents = [];
 
         for (let i = 0; i < motif.length; i++) {
           const n = motif[i];
@@ -2167,13 +2219,18 @@ input[type="range"]::-moz-range-thumb {
           while (pitch > T.midi(song.rootPc, octave) + 16) pitch -= 12;
           while (pitch < T.midi(song.rootPc, octave) - 8) pitch += 12;
 
-          events.push({
+          phraseEvents.push({
             t: t,
             d: Math.max(0.2, n.dur * STEP_BEATS * 0.95),
             p: pitch,
             v: (0.55 + sec.energy * 0.3) * (strong ? 1 : 0.85)
           });
         }
+
+        // Every second phrase closes: four bars of line, then room to breathe.
+        const phraseEnd = phraseBeat + motifBars * BEATS_PER_BAR;
+        const finished = (ph % 2 === 1) ? cadence(song, phraseEvents, phraseEnd) : phraseEvents;
+        Array.prototype.push.apply(events, finished);
       }
     }
     return applyFeel(events, song, rng, 0.5);
@@ -3065,17 +3122,24 @@ input[type="range"]::-moz-range-thumb {
      scheduled as gain automation exactly where the kick lands. */
   const DUCK_TARGETS = ['bass', 'chords', 'pad', 'arp'];
 
-  function presetFor(song, track) {
+  function defaultPresetName(song, track) {
     const g = song.genre;
-    const P = global.Genres.PRESETS;
     switch (track) {
-      case 'bass':   return P[g.bass.preset];
-      case 'chords': return P[g.chords.preset];
-      case 'arp':    return P[g.arp.preset];
-      case 'lead':   return P[g.lead.preset];
-      case 'pad':    return P[g.pad.preset];
+      case 'bass':   return g.bass.preset;
+      case 'chords': return g.chords.preset;
+      case 'arp':    return g.arp.preset;
+      case 'lead':   return g.lead.preset;
+      case 'pad':    return g.pad.preset;
       default:       return null;
     }
+  }
+
+  function presetFor(song, track) {
+    const P = global.Genres.PRESETS;
+    const chosen = song.presetOverride && song.presetOverride[track];
+    if (chosen && P[chosen]) return P[chosen];
+    const name = defaultPresetName(song, track);
+    return name ? P[name] : null;
   }
 
   /* ------------------------------------------------------------------ *
@@ -3320,9 +3384,38 @@ input[type="range"]::-moz-range-thumb {
 
   Player.prototype._buildGraph = function () {
     this.graph = buildGraph(this.ctx, this.song, this.mix, true);
-    if (this.graph.vinyl) {
-      try { this.graph.vinyl.start(this.ctx.currentTime); } catch (e) { /* already started */ }
+    this._vinylStarted = false;
+  };
+
+  /** The tape bed belongs to playback, not to a single auditioned note. */
+  Player.prototype._startVinyl = function () {
+    if (!this.graph || !this.graph.vinyl || this._vinylStarted) return;
+    try {
+      this.graph.vinyl.start(this.ctx.currentTime);
+      this._vinylStarted = true;
+    } catch (e) { /* already started */ }
+  };
+
+  /**
+   * Play a single note or hit right now, through its own track, so drawing in
+   * the editor makes a sound instead of leaving you guessing until playback.
+   */
+  Player.prototype.audition = function (track, pitch, inst) {
+    if (!this.song) return;
+    const ctx = this.ensureContext();
+    if (!ctx) return;
+    if (!this.graph) this._buildGraph();
+    const bus = this.graph.tracks[track];
+    if (!bus) return;
+    const when = ctx.currentTime + 0.012;
+    if (track === 'drums') {
+      Synth.playDrum(ctx, bus, when, inst, 0.85, this.song.genre.drums.kit, 0.6);
+      return;
     }
+    const preset = presetFor(this.song, track);
+    if (!preset) return;
+    Synth.playNote(ctx, bus, when, 0.4, global.Theory.midiToFreq(pitch), preset, 0.8,
+      { brightness: this._brightness() });
   };
 
   Player.prototype._indexForBeat = function (beat) {
@@ -3347,6 +3440,7 @@ input[type="range"]::-moz-range-thumb {
     this._pass = 0;
     this._index = this._indexForBeat(startBeat);
     this._originTime = ctx.currentTime + 0.08 - startBeat * spb;
+    this._startVinyl();
     this.playing = true;
 
     const self = this;
@@ -3501,11 +3595,43 @@ input[type="range"]::-moz-range-thumb {
     return ctx.startRendering();
   }
 
+  /**
+   * Render each part on its own — one pass per track with everything else
+   * muted. Web Audio gives an offline context a single output, so separate
+   * stems mean separate renders; the cost is time, and the payoff is a folder
+   * you can open in any other music program and mix by hand.
+   */
+  function renderStems(song, mix, onProgress) {
+    const parts = TRACKS.filter(function (t) { return (song.tracks[t] || []).length > 0; });
+    const out = [];
+    let i = 0;
+
+    function next() {
+      if (i >= parts.length) return Promise.resolve(out);
+      const name = parts[i];
+      const solo = {};
+      TRACKS.forEach(function (t) {
+        const m = (mix && mix[t]) || { volume: 1, muted: false };
+        solo[t] = { volume: m.volume, muted: t !== name };
+      });
+      if (onProgress) onProgress(i / parts.length, name);
+      return renderOffline(song, solo).then(function (buf) {
+        out.push({ name: name, buffer: buf });
+        i++;
+        return next();
+      });
+    }
+    return next();
+  }
+
   global.Engine = {
     Player: Player,
     renderOffline: renderOffline,
+    renderStems: renderStems,
     buildGraph: buildGraph,
     flatten: flatten,
+    presetFor: presetFor,
+    defaultPresetName: defaultPresetName,
     TRACKS: TRACKS
   };
 })(window);
@@ -3833,6 +3959,32 @@ input[type="range"]::-moz-range-thumb {
     });
   }
 
+  /**
+   * Hand over several files at once, always as a zip — a folder of stems is a
+   * folder either way, and one prompt beats six.
+   */
+  function deliverMany(files, zipName) {
+    const reads = files.map(function (f) {
+      return f.blob.arrayBuffer().then(function (buf) {
+        return { name: f.name, bytes: new Uint8Array(buf) };
+      });
+    });
+    return Promise.all(reads).then(function (entries) {
+      const zip = makeZip(entries);
+      return saver().then(function (downloads) {
+        if (!downloads) { download(zip, zipName); return 'saved'; }
+        return downloads.save({ filename: zipName, data: zip })
+          .then(function () { return 'saved'; })
+          .catch(function (err) {
+            const code = err && err.code;
+            if (code === 'declined') return 'declined';
+            if (code === 'rate_limited') return 'busy';
+            return 'unavailable';
+          });
+      });
+    });
+  }
+
   /** True once we know the page must route downloads through the host. */
   function hostedSave() {
     return saver().then(function (d) { return !!d; });
@@ -3844,6 +3996,7 @@ input[type="range"]::-moz-range-thumb {
     makeZip: makeZip,
     download: download,
     deliver: deliver,
+    deliverMany: deliverMany,
     hostedSave: hostedSave,
     safeName: safeName
   };
@@ -3905,8 +4058,55 @@ input[type="range"]::-moz-range-thumb {
     this.h = 0;
     this._drag = null;
     this._painted = null;
+    this._undo = [];
+    this._redo = [];
     this._bind();
   }
+
+  /* ------------------------------------------------------------------ *
+   * Undo
+   *
+   * Snapshots of one track's notes, taken before each gesture. Editing without
+   * undo means one careless drag can lose an idea, which is the fastest way to
+   * stop trusting a tool.
+   * ------------------------------------------------------------------ */
+
+  const HISTORY_MAX = 60;
+
+  function snapshot(song, track) {
+    return { track: track, events: JSON.parse(JSON.stringify(song.tracks[track] || [])) };
+  }
+
+  Editor.prototype.pushHistory = function (track) {
+    const song = this.getSong();
+    if (!song) return;
+    this._undo.push(snapshot(song, track || this.track));
+    if (this._undo.length > HISTORY_MAX) this._undo.shift();
+    this._redo.length = 0;
+  };
+
+  Editor.prototype.canUndo = function () { return this._undo.length > 0; };
+  Editor.prototype.canRedo = function () { return this._redo.length > 0; };
+
+  Editor.prototype._restore = function (from, to) {
+    const song = this.getSong();
+    if (!song || !from.length) return false;
+    const snap = from.pop();
+    to.push(snapshot(song, snap.track));
+    song.tracks[snap.track] = snap.events;
+    if (snap.track !== this.track) this.setTrack(snap.track);
+    else this.refit();
+    this.onChange();
+    return true;
+  };
+
+  Editor.prototype.undo = function () { return this._restore(this._undo, this._redo); };
+  Editor.prototype.redo = function () { return this._restore(this._redo, this._undo); };
+
+  Editor.prototype.clearHistory = function () {
+    this._undo.length = 0;
+    this._redo.length = 0;
+  };
 
   /* ------------------------------------------------------------------ *
    * Geometry
@@ -4205,6 +4405,7 @@ input[type="range"]::-moz-range-thumb {
         if (self.onFollowOff) self.onFollowOff();
       }
       self.canvas.setPointerCapture(e.pointerId);
+      self.pushHistory();
       self._painted = {};
       if (self.isDrums()) self._drumDown(p);
       else self._noteDown(p);
@@ -4254,6 +4455,7 @@ input[type="range"]::-moz-range-thumb {
     const ev = { t: t, d: this.noteLen, p: this.snapPitch(pitch), v: 0.8 };
     this.getSong().tracks[this.track].push(ev);
     this._drag = { mode: 'resize', ev: ev };
+    this.audition(ev.p);
   };
 
   Editor.prototype._noteMove = function (p) {
@@ -4264,7 +4466,10 @@ input[type="range"]::-moz-range-thumb {
       d.ev.d = Math.max(this.snap, this.quantize(beat - d.ev.t + this.snap * 0.5));
     } else {
       const row = this.rowOfY(p.y);
-      if (row >= 0 && row < this.rows) d.ev.p = this.snapPitch(this.pitchOfRow(row));
+      if (row >= 0 && row < this.rows) {
+        const next = this.snapPitch(this.pitchOfRow(row));
+        if (next !== d.ev.p) { d.ev.p = next; this.audition(next); }
+      }
       d.ev.t = this.quantize(beat - d.grabBeat);
     }
     const total = this.getSong().totalBeats;
@@ -4292,6 +4497,7 @@ input[type="range"]::-moz-range-thumb {
       arr.splice(arr.indexOf(hit), 1);      // tap an existing hit to clear it
     } else {
       this.getSong().tracks.drums.push({ t: beat, d: 0.25, p: 60, v: 0.85, inst: inst });
+      this.audition(60, inst);
     }
   };
 
@@ -4310,6 +4516,7 @@ input[type="range"]::-moz-range-thumb {
       if (hit) arr.splice(arr.indexOf(hit), 1);
     } else if (!hit) {
       arr.push({ t: beat, d: 0.25, p: 60, v: 0.85, inst: inst });
+      this.audition(60, inst);
     }
   };
 
@@ -4337,7 +4544,14 @@ input[type="range"]::-moz-range-thumb {
     return false;
   };
 
+  /** Sound a note as it is drawn — but not over the top of playback. */
+  Editor.prototype.audition = function (pitch, inst) {
+    if (this.player.playing) return;
+    if (this.player.audition) this.player.audition(this.track, pitch, inst);
+  };
+
   Editor.prototype.clearTrack = function () {
+    this.pushHistory();
     const arr = this.getSong().tracks[this.track];
     arr.length = 0;
     this.onChange();
@@ -4530,8 +4744,10 @@ input[type="range"]::-moz-range-thumb {
     buildMixer();
     if (editor) {
       editor.startBar = 0;
+      editor.clearHistory();
       editor.setTrack(editor.track);
       editor.resize();
+      if (editorSoundPicker) editorSoundPicker();
       syncEditUI();
     }
     updateHash();
@@ -4643,6 +4859,7 @@ input[type="range"]::-moz-range-thumb {
       reroll.title = 'Re-roll the ' + meta.label.toLowerCase();
       reroll.setAttribute('aria-label', 'Re-roll ' + meta.label);
       reroll.addEventListener('click', function () {
+        if (editor) editor.pushHistory(meta.id);
         C.rerollPart(state.song, meta.id);
         state.edited[meta.id] = false;
         player.refresh();
@@ -4696,6 +4913,7 @@ input[type="range"]::-moz-range-thumb {
         ';box-shadow:0 0 8px ' + meta.color + '"></span>' + meta.label;
       b.addEventListener('click', function () {
         editor.setTrack(meta.id);
+        if (editorSoundPicker) editorSoundPicker();
         syncEditUI();
         status('Editing ' + meta.label.toLowerCase() +
           (meta.id === 'drums' ? ' — tap the grid to add or remove hits.'
@@ -4745,6 +4963,49 @@ input[type="range"]::-moz-range-thumb {
       syncEditUI();
     });
 
+    function buildSoundPicker() {
+      const sel = el('soundSelect');
+      sel.innerHTML = '';
+      const track = editor.track;
+      if (track === 'drums' || !state.song) {
+        sel.disabled = true;
+        const o = document.createElement('option');
+        o.textContent = 'Drum kit';
+        sel.appendChild(o);
+        return;
+      }
+      sel.disabled = false;
+      const names = G.PRESET_GROUPS[track] || [];
+      const fallback = E.defaultPresetName(state.song, track);
+      const auto = document.createElement('option');
+      auto.value = '';
+      auto.textContent = 'Default (' + (G.PRESET_LABEL[fallback] || fallback) + ')';
+      sel.appendChild(auto);
+      names.forEach(function (n) {
+        const o = document.createElement('option');
+        o.value = n;
+        o.textContent = G.PRESET_LABEL[n] || n;
+        sel.appendChild(o);
+      });
+      sel.value = (state.song.presetOverride && state.song.presetOverride[track]) || '';
+    }
+    el('soundSelect').addEventListener('change', function () {
+      if (!state.song) return;
+      state.song.presetOverride = state.song.presetOverride || {};
+      if (this.value) state.song.presetOverride[editor.track] = this.value;
+      else delete state.song.presetOverride[editor.track];
+      status(colorLabel(editor.track) + ' now plays ' +
+        (this.value ? (G.PRESET_LABEL[this.value] || this.value) : 'its default sound') + '.');
+    });
+    editorSoundPicker = buildSoundPicker;
+
+    el('undoBtn').addEventListener('click', function () {
+      if (!editor.undo()) status('Nothing left to undo.');
+    });
+    el('redoBtn').addEventListener('click', function () {
+      if (!editor.redo()) status('Nothing to redo.');
+    });
+
     el('clearTrackBtn').addEventListener('click', function () {
       if (!state.song) return;
       const label = colorLabel(editor.track);
@@ -4759,6 +5020,7 @@ input[type="range"]::-moz-range-thumb {
         status('Develop works on the melodic parts — try it on the lead, bass or arp.', true);
         return;
       }
+      editor.pushHistory();
       const ok = C.developPart(state.song, editor.track);
       if (!ok) {
         status('Draw a few more notes first — it needs an idea to develop.', true);
@@ -4776,6 +5038,8 @@ input[type="range"]::-moz-range-thumb {
     editor.resize();
   }
 
+  let editorSoundPicker = null;
+
   function colorLabel(id) {
     for (let i = 0; i < TRACK_META.length; i++) if (TRACK_META[i].id === id) return TRACK_META[i].label;
     return id;
@@ -4792,6 +5056,8 @@ input[type="range"]::-moz-range-thumb {
     scroll.max = String(editor.maxStartBar());
     scroll.value = String(editor.startBar);
     el('developBtn').disabled = editor.track === 'drums';
+    el('undoBtn').disabled = !editor.canUndo();
+    el('redoBtn').disabled = !editor.canRedo();
     // The mixer shows which parts have been touched by hand.
     Array.prototype.forEach.call(el('mixer').children, function (row) {
       row.classList.toggle('edited', !!state.edited[row.dataset.id]);
@@ -4857,6 +5123,12 @@ input[type="range"]::-moz-range-thumb {
       if (e.target && /input|select|textarea/i.test(e.target.tagName)) return;
       if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
       if (e.key === 'g' || e.key === 'G') generate();
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault();
+        if (!editor) return;
+        const did = e.shiftKey ? editor.redo() : editor.undo();
+        if (!did) status(e.shiftKey ? 'Nothing to redo.' : 'Nothing left to undo.');
+      }
     });
   }
 
@@ -5082,6 +5354,44 @@ input[type="range"]::-moz-range-thumb {
       }, 40);
     });
 
+    el('stemsBtn').addEventListener('click', function () {
+      if (!state.song) return;
+      const btn = this;
+      const label = btn.textContent;
+      btn.disabled = true;
+      el('exportProgress').hidden = false;
+      el('exportBar').style.width = '3%';
+      status('Rendering each part on its own — this takes longer than one mix.', true);
+
+      setTimeout(function () {
+        E.renderStems(state.song, player.mix, function (frac, name) {
+          btn.textContent = 'Rendering ' + name + '…';
+          el('exportBar').style.width = Math.round(3 + frac * 80) + '%';
+        }).then(function (stems) {
+          const base = X.safeName(state.song.title);
+          const files = stems.map(function (st) {
+            return { name: base + '-' + st.name + '.wav', blob: X.encodeWav(st.buffer) };
+          });
+          el('exportBar').style.width = '92%';
+          return X.deliverMany(files, base + '-stems.zip');
+        }).then(function (r) {
+          status(r === 'declined' ? 'Download cancelled.'
+            : r === 'busy' ? 'Another download is still open — try again in a moment.'
+            : r === 'unavailable' ? 'This browser would not accept the file.'
+            : 'Stems saved — one audio file per part.');
+        }).catch(function (err) {
+          status('Could not render the stems: ' + err.message, true);
+        }).then(function () {
+          btn.disabled = false;
+          btn.textContent = label;
+          setTimeout(function () {
+            el('exportProgress').hidden = true;
+            el('exportBar').style.width = '0';
+          }, 800);
+        });
+      }, 40);
+    });
+
     el('midiBtn').addEventListener('click', function () {
       if (!state.song) return;
       const blob = X.buildMidi(state.song);
@@ -5250,6 +5560,7 @@ input[type="range"]::-moz-range-thumb {
     bindHelp();
     bindRollSeek();
     buildEditor();
+    if (editorSoundPicker) editorSoundPicker();
     renderLibrary();
 
     el('generateBtn').addEventListener('click', function () {

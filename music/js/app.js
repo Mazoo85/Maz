@@ -179,8 +179,10 @@
     buildMixer();
     if (editor) {
       editor.startBar = 0;
+      editor.clearHistory();
       editor.setTrack(editor.track);
       editor.resize();
+      if (editorSoundPicker) editorSoundPicker();
       syncEditUI();
     }
     updateHash();
@@ -292,6 +294,7 @@
       reroll.title = 'Re-roll the ' + meta.label.toLowerCase();
       reroll.setAttribute('aria-label', 'Re-roll ' + meta.label);
       reroll.addEventListener('click', function () {
+        if (editor) editor.pushHistory(meta.id);
         C.rerollPart(state.song, meta.id);
         state.edited[meta.id] = false;
         player.refresh();
@@ -345,6 +348,7 @@
         ';box-shadow:0 0 8px ' + meta.color + '"></span>' + meta.label;
       b.addEventListener('click', function () {
         editor.setTrack(meta.id);
+        if (editorSoundPicker) editorSoundPicker();
         syncEditUI();
         status('Editing ' + meta.label.toLowerCase() +
           (meta.id === 'drums' ? ' — tap the grid to add or remove hits.'
@@ -394,6 +398,49 @@
       syncEditUI();
     });
 
+    function buildSoundPicker() {
+      const sel = el('soundSelect');
+      sel.innerHTML = '';
+      const track = editor.track;
+      if (track === 'drums' || !state.song) {
+        sel.disabled = true;
+        const o = document.createElement('option');
+        o.textContent = 'Drum kit';
+        sel.appendChild(o);
+        return;
+      }
+      sel.disabled = false;
+      const names = G.PRESET_GROUPS[track] || [];
+      const fallback = E.defaultPresetName(state.song, track);
+      const auto = document.createElement('option');
+      auto.value = '';
+      auto.textContent = 'Default (' + (G.PRESET_LABEL[fallback] || fallback) + ')';
+      sel.appendChild(auto);
+      names.forEach(function (n) {
+        const o = document.createElement('option');
+        o.value = n;
+        o.textContent = G.PRESET_LABEL[n] || n;
+        sel.appendChild(o);
+      });
+      sel.value = (state.song.presetOverride && state.song.presetOverride[track]) || '';
+    }
+    el('soundSelect').addEventListener('change', function () {
+      if (!state.song) return;
+      state.song.presetOverride = state.song.presetOverride || {};
+      if (this.value) state.song.presetOverride[editor.track] = this.value;
+      else delete state.song.presetOverride[editor.track];
+      status(colorLabel(editor.track) + ' now plays ' +
+        (this.value ? (G.PRESET_LABEL[this.value] || this.value) : 'its default sound') + '.');
+    });
+    editorSoundPicker = buildSoundPicker;
+
+    el('undoBtn').addEventListener('click', function () {
+      if (!editor.undo()) status('Nothing left to undo.');
+    });
+    el('redoBtn').addEventListener('click', function () {
+      if (!editor.redo()) status('Nothing to redo.');
+    });
+
     el('clearTrackBtn').addEventListener('click', function () {
       if (!state.song) return;
       const label = colorLabel(editor.track);
@@ -408,6 +455,7 @@
         status('Develop works on the melodic parts — try it on the lead, bass or arp.', true);
         return;
       }
+      editor.pushHistory();
       const ok = C.developPart(state.song, editor.track);
       if (!ok) {
         status('Draw a few more notes first — it needs an idea to develop.', true);
@@ -425,6 +473,8 @@
     editor.resize();
   }
 
+  let editorSoundPicker = null;
+
   function colorLabel(id) {
     for (let i = 0; i < TRACK_META.length; i++) if (TRACK_META[i].id === id) return TRACK_META[i].label;
     return id;
@@ -441,6 +491,8 @@
     scroll.max = String(editor.maxStartBar());
     scroll.value = String(editor.startBar);
     el('developBtn').disabled = editor.track === 'drums';
+    el('undoBtn').disabled = !editor.canUndo();
+    el('redoBtn').disabled = !editor.canRedo();
     // The mixer shows which parts have been touched by hand.
     Array.prototype.forEach.call(el('mixer').children, function (row) {
       row.classList.toggle('edited', !!state.edited[row.dataset.id]);
@@ -506,6 +558,12 @@
       if (e.target && /input|select|textarea/i.test(e.target.tagName)) return;
       if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
       if (e.key === 'g' || e.key === 'G') generate();
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault();
+        if (!editor) return;
+        const did = e.shiftKey ? editor.redo() : editor.undo();
+        if (!did) status(e.shiftKey ? 'Nothing to redo.' : 'Nothing left to undo.');
+      }
     });
   }
 
@@ -731,6 +789,44 @@
       }, 40);
     });
 
+    el('stemsBtn').addEventListener('click', function () {
+      if (!state.song) return;
+      const btn = this;
+      const label = btn.textContent;
+      btn.disabled = true;
+      el('exportProgress').hidden = false;
+      el('exportBar').style.width = '3%';
+      status('Rendering each part on its own — this takes longer than one mix.', true);
+
+      setTimeout(function () {
+        E.renderStems(state.song, player.mix, function (frac, name) {
+          btn.textContent = 'Rendering ' + name + '…';
+          el('exportBar').style.width = Math.round(3 + frac * 80) + '%';
+        }).then(function (stems) {
+          const base = X.safeName(state.song.title);
+          const files = stems.map(function (st) {
+            return { name: base + '-' + st.name + '.wav', blob: X.encodeWav(st.buffer) };
+          });
+          el('exportBar').style.width = '92%';
+          return X.deliverMany(files, base + '-stems.zip');
+        }).then(function (r) {
+          status(r === 'declined' ? 'Download cancelled.'
+            : r === 'busy' ? 'Another download is still open — try again in a moment.'
+            : r === 'unavailable' ? 'This browser would not accept the file.'
+            : 'Stems saved — one audio file per part.');
+        }).catch(function (err) {
+          status('Could not render the stems: ' + err.message, true);
+        }).then(function () {
+          btn.disabled = false;
+          btn.textContent = label;
+          setTimeout(function () {
+            el('exportProgress').hidden = true;
+            el('exportBar').style.width = '0';
+          }, 800);
+        });
+      }, 40);
+    });
+
     el('midiBtn').addEventListener('click', function () {
       if (!state.song) return;
       const blob = X.buildMidi(state.song);
@@ -899,6 +995,7 @@
     bindHelp();
     bindRollSeek();
     buildEditor();
+    if (editorSoundPicker) editorSoundPicker();
     renderLibrary();
 
     el('generateBtn').addEventListener('click', function () {
