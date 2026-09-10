@@ -1,21 +1,25 @@
 # Score to picture — SONG FORGE scores a SCRIPT FORGE film
 
 **Date:** 2026-09-10
-**Status:** approved, ready to plan
+**Status:** approved, ready to plan — revised 2026-09-10 after measurement (see
+*Revision: why the score plays live*)
 **Sub-project:** 1 of 3 in the combined movie maker (see *Where this sits*, below)
 
 ## The goal
 
 A film made in SCRIPT FORGE currently plays over a four-note chord bed written
 inside `film/js/film-audio.js`. It is a placeholder. SONG FORGE, in the same
-repository, composes complete songs and renders them offline faster than real
-time.
+repository, composes complete songs and plays them.
 
 This joins them: every film gets a real composed score, fitted to its exact
 length, whose sections turn over with the scenes and whose instruments follow
 the tension the reel already tracks — sparse under the opening, full band at
 the crisis, resolving at the end — ducked under the dialogue and baked into the
 downloaded video.
+
+The score **plays live** through the film's own audio graph rather than being
+rendered to a buffer first. That decision is measured, not assumed; see
+*Revision*, below.
 
 ## Where this sits
 
@@ -47,7 +51,9 @@ existing app keeps working standalone and keeps its current tests.
 your idea → premise → script → reel ──┐
                                        ├→ score request → SONG FORGE composes
                      scene tension ────┘                        ↓
-                                               Engine.renderOffline (AudioBuffer)
+                                          Engine.Player, live, in the film's
+                                          own AudioContext, following the
+                                          film's play / pause / seek / stop
                                                                 ↓
                                              music bus (ducked under dialogue)
                                                                 ↓
@@ -81,6 +87,16 @@ FilmScore.duckEnvelope(reel) → [ { t: 12.4, gain: 1 },
                                  { t: 12.65, gain: 0.35 }, ... ]
 ```
 
+### Changed: `music/js/engine.js` — play somewhere other than the speakers
+
+Two optional, backwards-compatible additions:
+
+- `buildGraph(ctx, song, mix, withAnalyser, destination)` — connect the output
+  to a supplied node instead of the hard-wired `ctx.destination`
+  (`music/js/engine.js:69`). Omit it and nothing changes.
+- `Player` may be given an existing `AudioContext` to run in, so the score
+  shares the film's graph and reaches the recorder.
+
 ### Changed: `music/js/composer.js` — optional scoring inputs
 
 `compose(opts)` gains three optional inputs. **Passing none of them leaves
@@ -98,8 +114,9 @@ behaviour identical**, so SONG FORGE the app and its test suite are untouched:
 
 The synthesised chord bed is removed. What remains splits in two:
 
-- **music bus** — an `AudioBufferSourceNode` playing the rendered score, with
-  the duck envelope applied as gain automation.
+- **music bus** — SONG FORGE's `Player`, running in the film's own audio
+  context and connected to this bus, with the duck envelope applied to the bus
+  as gain automation.
 - **effects bus** — the existing cut hits and character voices, which become
   sound design over a real score rather than the whole soundtrack. Hit level
   drops to about 0.6 now that they are not carrying the film alone.
@@ -187,21 +204,26 @@ line is spoken: the music bus ramps to about a third over a quarter-second
 before a line, and back to full after it. It is a sorted list of time and level
 points, computed with no audio involved and tested as data.
 
-## Lifecycle and failure
+## Transport and failure
 
-The score is composed and rendered **before** the film plays, with a brief
-**"Scoring…"** state on the film tab, and cached against the film's seed so
-play, replay and record all reuse one render. Recording is unaffected in
-duration: the render happens before it starts.
+The score is a live player, so it follows the film rather than being prepared
+in advance. There is no render step, no cache, no progress state and no
+timeout:
+
+| Film does | Score does |
+|---|---|
+| play from the start | `player.play(0)` |
+| pause | `player.pause()` |
+| resume | `player.play(beatAtCurrentTime)` |
+| scrub to a moment | `player.seek(beatAtThatTime)` |
+| stop / reach the end | `player.stop()` |
+
+Beat and film time convert through the song's tempo: `beat = seconds × bpm / 60`.
 
 Music must never stop a film being watched. If the browser has no
-`OfflineAudioContext`, or composing or rendering throws, or the render runs past
-**15 seconds**, the film falls back to the existing simple bed and the note on
-the film tab says so plainly — the same posture as the video-format warning. A
-slow phone gets a film with modest music, not a hang.
-
-The cache is invalidated when the script changes (new seed, new length, new
-idea).
+`AudioContext`, or composing throws, or SONG FORGE is unavailable, the film
+falls back to the existing simple bed and the note on the film tab says so
+plainly — the same posture as the video-format warning.
 
 ## Testing
 
@@ -220,23 +242,46 @@ idea).
 
 **Browser (`film/tests/film-browser.test.js`):**
 
-- a film plays with a rendered score whose buffer is at least as long as the
-  picture
+- a film plays with a live score: the music player is running while the picture
+  runs, and stops when the film stops
+- pausing and scrubbing move the score with the picture rather than leaving it
+  playing over a still frame
 - the recorded file carries audio (already checked; the assertion stays)
-- with `OfflineAudioContext` stubbed out in the page, the film still plays and
-  the note explains the fallback
+- with the score forced to fail in the page, the film still plays and the note
+  explains the fallback
 
 **SONG FORGE's own suites must still pass unchanged**, proving the new options
 are genuinely optional.
 
+## Revision: why the score plays live
+
+The first draft of this spec had the score rendered offline before playback,
+on the assumption — stated in SONG FORGE's own docs — that offline rendering
+is faster than real time. Measured in a headless Chromium before any code was
+written:
+
+| Song | Length | Offline render took |
+|---|---|---|
+| Cinematic, dark | 2:14 | **2:25 — slower than real time** |
+| Ambient, dark | 3:28 | 1:24 (2.5× faster) |
+| Drum & Bass, driving | 2:16 | did not finish within 8 minutes |
+
+Cinematic is the genre most films get. A first play would have stalled longer
+than the film runs, and the 15-second timeout would have quietly handed back
+the placeholder music instead. That machine is slower than a laptop, but the
+design cannot rest on "probably faster on your machine".
+
+Playing live removes the problem rather than mitigating it, and deletes three
+mechanisms — the offline render, the cache and the timeout — along with the
+"Scoring…" state. The remaining risk moves to CPU during recording, below.
+
 ## Risks
 
-- **Render time is unmeasured.** Two and a half minutes of offline audio may
-  take longer than is comfortable at press-play. Mitigations in the design are
-  the cache and the 15-second timeout; if it proves slow, the fix is to start
-  rendering when the script is written rather than when play is pressed, since
-  the user is reading the script by then. **Measure this first, before building
-  anything else.**
+- **Live audio during recording.** Music scheduling, canvas drawing and video
+  encoding now share a machine in real time. The film already synthesises its
+  hits and voices live and records clean, so this is expected to hold — but if
+  a recording ever comes back glitched, the fix is a "render before recording"
+  option, which is the design this spec started with.
 - **Section boundaries are quantised**, so a cut can miss its musical change by
   up to a bar. The tempo search reduces this; it does not eliminate it. Accepted.
 - **Micro films are short.** A three-scene film must still produce a valid song;
@@ -244,13 +289,15 @@ are genuinely optional.
 
 ## Build order
 
-1. Measure `Engine.renderOffline` time for a 2–3 minute song. Decide render
-   timing on the result.
+1. ~~Measure `Engine.renderOffline`~~ — done, see *Revision*. The score plays
+   live.
 2. `film-score.js` with its logic tests: request, sections, energy, duck
    envelope, tempo choice.
 3. The optional `seconds` / `sections` / `parts` inputs in `composer.js`, with
    SONG FORGE's suites proving nothing changed by default.
-4. Rewire `film-audio.js` to the two buses; delete the chord bed.
-5. The "Scoring…" state, the cache, the timeout and the fallback note.
-6. Browser tests, including the stubbed-out fallback path.
-7. Update `film/README.md` and the hub blurb.
+4. The optional `destination` and external context in `engine.js`, likewise.
+5. Rewire `film-audio.js` to the two buses; delete the chord bed; drive the
+   live player from the film's transport.
+6. The fallback note when a score cannot be made.
+7. Browser tests, including the forced-failure fallback path.
+8. Update `film/README.md` and the hub blurb.
