@@ -79,3 +79,46 @@ def test_closing_comment_with_empty_body_is_dropped():
     cands = scan_text("file.py", "# TODO: handle a/b*\n", recent=True)
     assert len(cands) == 1
     assert "handle a/b" in cands[0].task
+
+
+def _collect_over(tmp_path: Path, files: dict[str, str]):
+    """Write `files` under tmp_path and run collect() with a matching fake runner."""
+    for rel, content in files.items():
+        p = tmp_path / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(content)
+
+    def runner(args):
+        if args[:2] == ["ls-files", "-z"]:
+            return "".join(f"{p}\x00" for p in files)
+        if args and args[0] == "log":
+            return ""
+        return ""
+
+    return collect(tmp_path, runner=runner)
+
+
+def test_collect_skips_forge_github_docs_superpowers_and_claude(tmp_path):
+    files = {
+        "forge/anything.py": "# TODO: fix the scanner\n",
+        ".github/workflows/x.yml": "# TODO: pin the action version\n",
+        "docs/superpowers/plans/p.md": "TODO: illustrative example only\n",
+        ".claude/skills/s.md": "TODO: illustrative skill fixture\n",
+        "music/js/a.js": "// TODO: real outstanding work\n",
+        "docs/ARCHITECTURE.md": "TODO: document the real architecture\n",
+    }
+    cands = _collect_over(tmp_path, files)
+    paths = {c.paths[0] for c in cands}
+    assert paths == {"music/js/a.js", "docs/ARCHITECTURE.md"}
+
+
+def test_skip_dirs_are_segment_aware_not_substring(tmp_path):
+    files = {
+        "sub/build/x.js": "// TODO: nested build dir must be skipped\n",
+        "pkg/node_modules/y.js": "// TODO: nested node_modules must be skipped\n",
+        "builds/x.js": "// TODO: builds is not build, keep it\n",
+        "node_modules_old/y.js": "// TODO: not node_modules, keep it\n",
+    }
+    cands = _collect_over(tmp_path, files)
+    paths = {c.paths[0] for c in cands}
+    assert paths == {"builds/x.js", "node_modules_old/y.js"}
