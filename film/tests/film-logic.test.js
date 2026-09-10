@@ -704,6 +704,20 @@ test('the band grows with the tension and stands down at the end', () => {
   const crisis = Conductor.partsFor(0.88, false);
   eq(crisis.drums && crisis.bass && crisis.lead && crisis.arp, true, 'the crisis gets the full band');
 
+  // Boundary assertions for bass at >= 0.3
+  eq(Conductor.partsFor(0.29999, false).bass, false, 'bass must not engage below 0.3');
+  eq(Conductor.partsFor(0.3, false).bass, true, 'bass must engage at exactly 0.3');
+
+  // Boundary assertions for drums at >= 0.5
+  eq(Conductor.partsFor(0.49999, false).drums, false, 'drums must not engage below 0.5');
+  eq(Conductor.partsFor(0.5, false).drums, true, 'drums must engage at exactly 0.5');
+
+  // Boundary assertions for arp and lead at > 0.7
+  eq(Conductor.partsFor(0.7, false).arp, false, 'arp must not engage at 0.7');
+  eq(Conductor.partsFor(0.7, false).lead, false, 'lead must not engage at 0.7');
+  eq(Conductor.partsFor(0.70001, false).arp, true, 'arp must engage above 0.7');
+  eq(Conductor.partsFor(0.70001, false).lead, true, 'lead must engage above 0.7');
+
   // The last scene resolves regardless of its own tension — a micro film ends
   // on the choice at 0.5 and must still land rather than stop.
   const ending = Conductor.partsFor(0.5, true);
