@@ -10,12 +10,19 @@
  * file. Pages that are not one level below the repo root override the path with
  * a data-root attribute, e.g. data-root="../../".
  *
- * Design constraints, because two of the hosts are full-screen games:
- *   - collapsed to a small corner pill, so it covers as little canvas as possible
- *   - it dims itself once you start playing and wakes on hover/tap
- *   - pointer events are confined to the pill and, while open, the backdrop
- *   - key events are swallowed only while the menu is open, so game input is
- *     untouched the rest of the time
+ * Two modes, because the hosts are not alike:
+ *
+ *   data-mode="inline" (the default) — a slim sticky strip inserted at the top
+ *     of the document. It takes part in layout, so it pushes the page down and
+ *     can never cover a heading or a control. Right for ordinary scrolling apps.
+ *
+ *   data-mode="overlay" — a small floating pill in the corner, for full-screen
+ *     canvas games where there is no document flow to sit in. It covers as
+ *     little canvas as possible and dims itself once play starts.
+ *
+ * In both modes pointer events are confined to the nav itself and, while open,
+ * the backdrop; key events are swallowed only while the menu is open, so game
+ * input is untouched the rest of the time.
  */
 (function () {
   'use strict';
@@ -39,6 +46,9 @@
   // The page announces which project it is so the menu can mark it current.
   var currentId = (script && script.getAttribute('data-current')) || '';
 
+  // Default to inline: it is the mode that cannot obscure anything.
+  var mode = (script && script.getAttribute('data-mode')) === 'overlay' ? 'overlay' : 'inline';
+
   function loadProjects(done) {
     if (window.MAZ_PROJECTS) return done(window.MAZ_PROJECTS);
     var s = document.createElement('script');
@@ -54,9 +64,18 @@
 
   function injectStyles() {
     var css = [
-      '.mazNav{position:fixed;top:0;left:0;z-index:2147483000;font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;pointer-events:none;}',
+      '.mazNav{z-index:2147483000;font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;}',
       '.mazNav *{box-sizing:border-box;}',
-      '.mazNav-pill{pointer-events:auto;display:inline-flex;align-items:center;gap:6px;margin:8px;padding:5px 10px;',
+      // Overlay: floats above a full-screen canvas, click-through except the pill.
+      '.mazNav--overlay{position:fixed;top:0;left:0;pointer-events:none;}',
+      // Inline: a real strip in the document, so it displaces content instead of hiding it.
+      '.mazNav--inline{position:sticky;top:0;display:block;padding:5px 6px;',
+      'background:rgba(11,7,20,.94);border-bottom:1px solid rgba(255,255,255,.09);',
+      'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);}',
+      '.mazNav--inline .mazNav-pill{margin:0;}',
+      // min-height keeps it a real touch target (>=28px) without making it bulky.
+      '.mazNav-pill{pointer-events:auto;display:inline-flex;align-items:center;gap:6px;margin:8px;',
+      'padding:5px 11px;min-height:30px;',
       'border:1px solid rgba(255,45,149,.55);border-radius:999px;background:rgba(10,6,20,.72);color:#ffd9ef;',
       'font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;',
       'backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);box-shadow:0 0 12px rgba(255,45,149,.35);',
@@ -102,7 +121,7 @@
     injectStyles();
 
     var wrap = document.createElement('div');
-    wrap.className = 'mazNav';
+    wrap.className = 'mazNav mazNav--' + mode;
 
     var pill = document.createElement('button');
     pill.type = 'button';
@@ -176,7 +195,14 @@
     wrap.appendChild(pill);
     wrap.appendChild(backdrop);
     wrap.appendChild(panel);
-    document.body.appendChild(wrap);
+
+    if (mode === 'inline') {
+      // First in the document, so the strip pushes the page down rather than
+      // sitting on top of whatever the app draws in its own top-left corner.
+      document.body.insertBefore(wrap, document.body.firstChild);
+    } else {
+      document.body.appendChild(wrap);
+    }
 
     // --- open / close -----------------------------------------------------
     var open = false;
@@ -199,7 +225,7 @@
             panel.hidden = true;
           }
         }, 220);
-        scheduleDim();
+        if (mode === 'overlay') scheduleDim();
       }
     }
 
@@ -238,19 +264,13 @@
         if (!open) wrap.classList.add('is-dim');
       }, 5000);
     }
-    ['pointerdown', 'keydown', 'pointermove'].forEach(function (evt) {
-      window.addEventListener(
-        evt,
-        function () {
-          if (!open) scheduleDim();
-        },
-        { passive: true, capture: true }
-      );
-    });
-    pill.addEventListener('pointerenter', function () {
-      wrap.classList.remove('is-dim');
-    });
-    scheduleDim();
+    // Only the overlay covers anything, so only the overlay needs to fade.
+    //
+    // Deliberately *not* reset by activity: aiming in ZOMBOID is a constant
+    // stream of pointermove, so an activity-reset timer would keep the pill at
+    // full brightness for the whole session — the opposite of getting out of
+    // the way. It fades on a fixed delay; :hover brings it straight back.
+    if (mode === 'overlay') scheduleDim();
   }
 
   function start() {

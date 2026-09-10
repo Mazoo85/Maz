@@ -96,10 +96,10 @@ function watch(page) {
 }
 
 const APPS = [
-  { id: 'zomboid', url: '/zomboid/', name: 'ZOMBOID: ANCHORAGE' },
-  { id: 'shooter', url: '/shooter/', name: 'DEAD SECTOR' },
-  { id: 'music', url: '/music/', name: 'SONG FORGE' },
-  { id: 'madlibs', url: '/madlibs/', name: 'MADLIBS STORY FORGE' }
+  { id: 'zomboid', url: '/zomboid/', name: 'ZOMBOID: ANCHORAGE', mode: 'overlay' },
+  { id: 'shooter', url: '/shooter/', name: 'DEAD SECTOR', mode: 'overlay' },
+  { id: 'music', url: '/music/', name: 'SONG FORGE', mode: 'inline' },
+  { id: 'madlibs', url: '/madlibs/', name: 'MADLIBS STORY FORGE', mode: 'inline' }
 ];
 
 (async () => {
@@ -158,6 +158,39 @@ const APPS = [
         continue;
       }
 
+      // Measured with the menu closed: an inline nav must sit *in* the layout,
+      // with nothing of the app underneath it. This is what stops it covering a
+      // logo or a button, the way a floating pill would.
+      const covering = await page.evaluate(() => {
+        const p = document.querySelector('.mazNav-pill');
+        const r = p.getBoundingClientRect();
+        const pts = [
+          [r.left + 2, r.top + 2],
+          [r.left + r.width / 2, r.top + r.height / 2],
+          [r.right - 2, r.bottom - 2]
+        ];
+        const hits = new Set();
+        for (const [x, y] of pts) {
+          for (const el of document.elementsFromPoint(x, y)) {
+            if (el.closest('.mazNav')) continue;
+            if (el === document.body || el === document.documentElement) continue;
+            hits.add(el.tagName.toLowerCase() + (el.id ? '#' + el.id : ''));
+          }
+        }
+        return [...hits];
+      });
+      if (app.mode === 'inline') {
+        check(
+          covering.length === 0,
+          'inline nav covers no app content' + (covering.length ? ' — over: ' + covering.join(', ') : '')
+        );
+      } else {
+        check(
+          await page.$eval('.mazNav', (e) => e.classList.contains('mazNav--overlay')),
+          'full-screen game uses the floating overlay nav'
+        );
+      }
+
       await pill.click();
       await page.waitForTimeout(300);
 
@@ -178,6 +211,33 @@ const APPS = [
       await page.waitForLoadState('load');
       check((await page.title()) === 'MAZ ARCADE', 'nav really returns to the hub');
 
+      await page.close();
+    }
+
+    /* ---------------------------- the pill must fade out of the way */
+    {
+      console.log('\nDIM  /zomboid/');
+      const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+      await page.goto(base + '/zomboid/', { waitUntil: 'load' });
+      await page.waitForTimeout(400);
+      check(
+        !(await page.$eval('.mazNav', (e) => e.classList.contains('is-dim'))),
+        'pill starts fully visible'
+      );
+      // Aim the mouse the whole time, the way a player would: the fade must not
+      // be reset by activity, or it would never happen during a game.
+      for (let i = 0; i < 14; i++) {
+        await page.mouse.move(300 + i * 20, 400 + i * 10);
+        await page.waitForTimeout(500);
+      }
+      check(
+        await page.$eval('.mazNav', (e) => e.classList.contains('is-dim')),
+        'pill dims during play, even with the mouse moving'
+      );
+      await page.hover('.mazNav-pill');
+      await page.waitForTimeout(200);
+      const opacity = await page.$eval('.mazNav-pill', (e) => getComputedStyle(e).opacity);
+      check(parseFloat(opacity) > 0.9, 'pill returns to full opacity on hover');
       await page.close();
     }
 
