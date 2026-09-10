@@ -140,6 +140,42 @@
     return plan;
   }
 
+  var DUCK_GAIN = 0.35;    // how far the music drops under a line
+  var DUCK_LEAD = 0.25;    // seconds before the line it starts dropping
+  var DUCK_TAIL = 0.20;    // seconds after the line before it comes back
+
+  /* The reel knows exactly when every line is spoken, so the ducking is
+   * arithmetic rather than a side-chain: a sorted list of level changes. */
+  function duckEnvelope(reel) {
+    var spans = [];
+    reel.shots.forEach(function (shot) {
+      if (shot.kind !== 'line') return;
+      spans.push({
+        from: Math.max(0, shot.start - DUCK_LEAD),
+        to: shot.start + shot.duration + DUCK_TAIL
+      });
+    });
+    spans.sort(function (a, b) { return a.from - b.from; });
+
+    // Lines that run into each other stay down rather than pumping between them.
+    var merged = [];
+    spans.forEach(function (span) {
+      var last = merged[merged.length - 1];
+      if (last && span.from <= last.to) {
+        if (span.to > last.to) last.to = span.to;
+      } else {
+        merged.push({ from: span.from, to: span.to });
+      }
+    });
+
+    var points = [{ t: 0, gain: 1 }];
+    merged.forEach(function (span) {
+      points.push({ t: span.from, gain: DUCK_GAIN });
+      points.push({ t: span.to, gain: 1 });
+    });
+    return points;
+  }
+
   var DEFAULT_BPM_RANGE = [72, 108];
 
   /* Assemble everything above into the one object SONG FORGE composes from. */
@@ -171,7 +207,11 @@
     partsFor: partsFor,
     sectionPlan: sectionPlan,
     DEFAULT_BPM_RANGE: DEFAULT_BPM_RANGE,
-    request: request
+    request: request,
+    duckEnvelope: duckEnvelope,
+    DUCK_GAIN: DUCK_GAIN,
+    DUCK_LEAD: DUCK_LEAD,
+    DUCK_TAIL: DUCK_TAIL
   };
 
   if (typeof module === 'object' && module.exports) module.exports = API;

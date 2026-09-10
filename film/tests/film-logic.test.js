@@ -796,6 +796,40 @@ test('a reel with an unknown genre falls back to drama', () => {
   assert(musicSeconds >= unknownReel.duration - 1e-6, 'the score is shorter than the film');
 });
 
+test('the music ducks for every line and comes back up', () => {
+  const reel = Reel.build(sample);
+  const env = Conductor.duckEnvelope(reel);
+  const lines = reel.shots.filter((s) => s.kind === 'line');
+
+  eq(env[0].t, 0, 'the envelope must start at the top of the film');
+  eq(env[0].gain, 1, 'the film must start at full music');
+
+  for (let i = 1; i < env.length; i++) {
+    assert(env[i].t >= env[i - 1].t, 'envelope points are out of order');
+    assert(env[i].gain === 1 || env[i].gain === Conductor.DUCK_GAIN,
+      'unexpected gain ' + env[i].gain);
+    assert(env[i].t >= 0 && env[i].t <= reel.duration + 1, 'envelope point outside the film');
+  }
+
+  const ducks = env.filter((p) => p.gain === Conductor.DUCK_GAIN).length;
+  assert(ducks >= 1 && ducks <= lines.length,
+    `${ducks} ducks for ${lines.length} lines — expected at most one per line`);
+  eq(env[env.length - 1].gain, 1, 'the music must come back up before the end');
+});
+
+test('lines close together stay ducked rather than pumping', () => {
+  const reel = {
+    duration: 20, genre: 'drama', seed: 1,
+    shots: [
+      { kind: 'line', start: 5, duration: 2, scene: 1 },
+      { kind: 'line', start: 7.1, duration: 2, scene: 1 }
+    ]
+  };
+  const env = Conductor.duckEnvelope(reel);
+  const ducks = env.filter((p) => p.gain === Conductor.DUCK_GAIN).length;
+  eq(ducks, 1, 'two lines a fifth of a second apart should be one duck, not two');
+});
+
 /* ------------------------------------------------------------------ report */
 console.log('');
 if (failures.length) {
