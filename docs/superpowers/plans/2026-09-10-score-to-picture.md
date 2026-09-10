@@ -348,12 +348,15 @@ Expected: FAIL — `Score.sectionPlan is not a function`
 
     var plan = scenes.map(function (scene, index) {
       var blocks = Math.max(1, Math.round((scene.end - scene.start) / (barSeconds * BLOCK_BARS)));
+      var energy = Math.max(0, Math.min(1, scene.mood));
+      var isFinal = index === scenes.length - 1;
       return {
         type: SECTION_TYPE[scene.beat] || 'verse',
         bars: blocks * BLOCK_BARS,
-        energy: Math.max(0, Math.min(1, scene.mood)),
+        energy: energy,
         scene: scene.scene,
-        last: index === scenes.length - 1
+        last: isFinal,
+        parts: partsFor(energy, isFinal)
       };
     });
 
@@ -457,15 +460,8 @@ Expected: FAIL — `Score.partsFor is not a function`
   }
 ```
 
-and in `sectionPlan`, set them when each entry is built:
-
-```js
-        scene: scene.scene,
-        last: index === scenes.length - 1,
-        parts: partsFor(Math.max(0, Math.min(1, scene.mood)), index === scenes.length - 1)
-```
-
-Export `partsFor`.
+`sectionPlan` (Task 3) already calls `partsFor(energy, isFinal)` when it builds
+each entry, so nothing there changes. Export `partsFor`.
 
 - [ ] **Step 4: Run it and watch it pass**
 
@@ -886,13 +882,21 @@ Expected: `✓ everything is connected` — it verifies these paths resolve.
 
 - [ ] **Step 2: Split the buses and delete the bed**
 
-In `film/js/film-audio.js`, in the `Score` constructor, replace the pad creation (`this.padGain`, `this.filter`, `this.oscs`) with two buses:
+In `film/js/film-audio.js`, add a module constant beside the existing ones —
+the level the score sits at against the voices, named once because both the bus
+and the ducking need it:
+
+```js
+  var MUSIC_LEVEL = 0.55;   // where the score sits under the dialogue
+```
+
+Then in the `Score` constructor, replace the pad creation (`this.padGain`, `this.filter`, `this.oscs`) with two buses:
 
 ```js
     // Two buses: the score, and everything the film makes itself. Both feed the
     // master, which already reaches the speakers and the recorder.
     this.musicBus = this.ctx.createGain();
-    this.musicBus.gain.value = 0.55;
+    this.musicBus.gain.value = MUSIC_LEVEL;
     this.musicBus.connect(this.master);
 
     this.effectsBus = this.ctx.createGain();
@@ -962,7 +966,7 @@ Add to `film-audio.js`:
   Score.prototype.applyDuck = function (fromFilmSeconds) {
     if (!this.duckPoints) return;
     var bus = this.musicBus.gain;
-    var base = 0.55;
+    var base = MUSIC_LEVEL;
     var now = this.ctx.currentTime;
     var offset = fromFilmSeconds || 0;
 
@@ -1058,9 +1062,27 @@ In `film/js/app.js`, inside `makePlayer()` after the `Score` is constructed:
 ```js
       if (score) {
         var scored = score.startScore(reel);
+        // The panel carries what it has: which kind of score, and what the
+        // music is doing. The film note and the tests both read it.
+        el.viewFilm.dataset.score = scored ? 'real' : 'fallback';
+        el.viewFilm.dataset.sections = scored && score.player && score.player.song
+          ? String(score.player.song.sections.length) : '0';
         if (!scored) say('Could not compose a score in this browser — using simple music.');
       }
 ```
+
+and set the music's state from the same hooks that already drive the film's,
+in the `hooks` object passed to `PlayerLib.Player`:
+
+```js
+      onPlay: function () { el.viewFilm.dataset.music = 'playing'; },
+      onPause: function () { el.viewFilm.dataset.music = 'paused'; ... },
+      onStop: function () { el.viewFilm.dataset.music = 'stopped'; ... },
+```
+
+(merge these lines into the existing `onPause`/`onStop` handlers rather than
+replacing them, and add `onPlay` — `film-player.js` already calls
+`hooks.onPlay()` when playback starts.)
 
 - [ ] **Step 4: Check nothing regressed**
 
@@ -1091,26 +1113,25 @@ In `film/tests/film-browser.test.js`, after the existing `stop returns to the st
 ```js
     console.log('\nTHE SCORE');
     const scoreState = () => page.evaluate(() => {
-      const s = window.__filmScore || null;
-      return s ? { real: s.usingRealScore, playing: !!(s.player && s.player.playing),
-                   bpm: s.player && s.player.song ? s.player.song.bpm : 0,
-                   sections: s.player && s.player.song ? s.player.song.sections.length : 0 } : null;
+      const panel = document.getElementById('viewFilm');
+      return { score: panel.dataset.score || '', music: panel.dataset.music || '',
+               sections: parseInt(panel.dataset.sections || '0', 10) };
     });
 
     await page.click('#playFilm');
     await page.waitForTimeout(2500);
     const playing = await scoreState();
-    check(playing && playing.real, 'a real composed score is playing, not the fallback');
-    check(playing && playing.playing, 'the music is running while the picture runs');
-    check(playing && playing.sections >= 3, `the score has a section per scene (${playing && playing.sections})`);
+    check(playing.score === 'real', `a real composed score is playing, not the fallback (${playing.score})`);
+    check(playing.music === 'playing', 'the music is running while the picture runs');
+    check(playing.sections >= 3, `the score has a section per scene (${playing.sections})`);
 
     await page.click('#playFilm'); // pause
     await page.waitForTimeout(300);
-    check(!(await scoreState()).playing, 'pausing the film pauses the music');
+    check((await scoreState()).music === 'paused', 'pausing the film pauses the music');
 
     await page.click('#stopFilm');
     await page.waitForTimeout(300);
-    check(!(await scoreState()).playing, 'stopping the film stops the music');
+    check((await scoreState()).music === 'stopped', 'stopping the film stops the music');
 
     // A page where SONG FORGE is missing: the film must still play, and say why.
     const bare = await context.newPage();
@@ -1127,32 +1148,34 @@ In `film/tests/film-browser.test.js`, after the existing `stop returns to the st
     await bare.waitForTimeout(1500);
 
     const withoutForge = await bare.evaluate(() => ({
-      playing: !!(window.__filmPlayer && window.__filmPlayer.playing),
-      real: !!(window.__filmScore && window.__filmScore.usingRealScore),
+      music: document.getElementById('viewFilm').dataset.music || '',
+      score: document.getElementById('viewFilm').dataset.score || '',
+      clock: document.getElementById('filmClock').textContent,
       status: document.getElementById('status').textContent
     }));
-    check(withoutForge.playing, 'the film still plays with SONG FORGE missing');
-    check(!withoutForge.real, 'it knows it is not using a real score');
+    check(/0:0[1-9]|0:[1-9]/.test(withoutForge.clock),
+      `the film still plays with SONG FORGE missing (clock ${withoutForge.clock})`);
+    check(withoutForge.score === 'fallback', 'it knows it is not using a real score');
     check(/simple music/i.test(withoutForge.status),
       `it says so plainly (status: "${withoutForge.status}")`);
     await bare.close();
 ```
 
-> `window.__filmScore` does not exist yet — Step 2 exposes it. Keep the assignment to one line in `app.js` and comment it as a test seam.
+> The checks read `#viewFilm`'s `data-score` and `data-music` attributes, which
+> Task 10 sets. They are ordinary UI state — the panel knows whether it has a
+> real score and whether the music is running — not test-only globals, so
+> nothing here exists purely for the tests.
 
 - [ ] **Step 2: Run it and watch it fail**
 
 Run: `node film/tests/film-browser.test.js`
 Expected: FAIL — `a real composed score is playing` (the seam is missing).
 
-- [ ] **Step 3: Add the test seam and make the checks pass**
+- [ ] **Step 3: Confirm the state attributes are being published**
 
-In `film/js/app.js`, in `makePlayer()` after the score is created:
-
-```js
-      window.__filmScore = score;     // seams the browser tests read; harmless in use
-      window.__filmPlayer = player;
-```
+Nothing to add — Task 10 already publishes this state on the film panel as
+`data-score` and `data-music`. If the checks fail here, the bug is in Task 10's
+attribute updates, not in a missing seam.
 
 - [ ] **Step 4: Run the full browser suite**
 
