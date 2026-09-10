@@ -95,7 +95,8 @@ Create `film/js/film-score.js`:
  * Pure logic: a reel goes in, plain data comes out. No audio and no DOM, so the
  * musical shape of a film is checkable in Node the way its edit already is.
  *
- * Exposed as window.FilmScore (and module.exports for the tests).
+ * Exposed as window.FilmConductor (and module.exports for the tests) — NOT
+ * FilmScore, which film-audio.js already occupies.
  */
 (function (root) {
   'use strict';
@@ -117,7 +118,7 @@ Create `film/js/film-score.js`:
   var API = { MUSIC_FOR: MUSIC_FOR };
 
   if (typeof module === 'object' && module.exports) module.exports = API;
-  root.FilmScore = API;
+  root.FilmConductor = API;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
 ```
 
@@ -863,7 +864,7 @@ git commit -m "Let a song play into a supplied audio context and destination"
 
 **Interfaces:**
 - Consumes: `FilmConductor.request()`, `FilmConductor.duckEnvelope()` (Tasks 5–6); `Composer.compose()`, `Engine.Player` (Tasks 7–8).
-- Produces: `Score` (in `film-audio.js`) gains `musicBus` and `effectsBus`, plus `startScore(reel)`, `scoreTransport()` and `usingRealScore` (boolean, false when it fell back).
+- Produces: `Score` (in `film-audio.js`) gains `musicBus` and `effectsBus`, plus `startScore(reel)`, `applyDuck(fromFilmSeconds)`, `duckPoints`, `player` and `usingRealScore` (boolean, false when it fell back). (An earlier draft also named `scoreTransport()`; no step ever defined it and nothing calls it — the transport lives in Task 10, driven from `film-player.js`.)
 
 - [ ] **Step 1: Load the music modules in the film page**
 
@@ -937,7 +938,7 @@ Add to `film-audio.js`:
    * music bus. Returns true if a real score is playing, false if the film is
    * carrying on without one. */
   Score.prototype.startScore = function (reel) {
-    var Forge = root.Composer, Play = root.Engine, Conductor = root.FilmScore;
+    var Forge = root.Composer, Play = root.Engine, Conductor = root.FilmConductor;
     if (!Forge || !Play || !Conductor) return false;
 
     try {
