@@ -690,6 +690,38 @@ test('sections take their type and energy from the beat they cover', () => {
     'the film ends on more energy than its peak');
 });
 
+test('the band grows with the tension and stands down at the end', () => {
+  const quiet = Conductor.partsFor(0.15, false);
+  eq(quiet.drums, false, 'drums under the opening');
+  eq(quiet.bass, false, 'bass under the opening');
+  eq(quiet.pad && quiet.chords, true, 'the opening still needs pad and chords');
+
+  eq(Conductor.partsFor(0.4, false).bass, true, 'bass joins in the middle band');
+  eq(Conductor.partsFor(0.4, false).drums, false, 'drums are too early at 0.4');
+  eq(Conductor.partsFor(0.6, false).drums, true, 'drums join by 0.6');
+  eq(Conductor.partsFor(0.6, false).lead, false, 'the lead is not out yet at 0.6');
+
+  const crisis = Conductor.partsFor(0.88, false);
+  eq(crisis.drums && crisis.bass && crisis.lead && crisis.arp, true, 'the crisis gets the full band');
+
+  // The last scene resolves regardless of its own tension — a micro film ends
+  // on the choice at 0.5 and must still land rather than stop.
+  const ending = Conductor.partsFor(0.5, true);
+  eq(ending.drums, false, 'the closing scene still had drums');
+  eq(ending.pad && ending.chords, true, 'the closing scene needs pad and chords');
+});
+
+test('every section carries its instruments', () => {
+  const reel = Reel.build(sample);
+  const plan = Conductor.sectionPlan(reel, Conductor.chooseBpm(reel, [70, 110]));
+  plan.forEach((section) => {
+    ['drums', 'bass', 'chords', 'arp', 'lead', 'pad'].forEach((part) => {
+      eq(typeof section.parts[part], 'boolean', 'section is missing ' + part);
+    });
+  });
+  eq(plan[plan.length - 1].parts.drums, false, 'the film ends on drums');
+});
+
 /* ------------------------------------------------------------------ report */
 console.log('');
 if (failures.length) {

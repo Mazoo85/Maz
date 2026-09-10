@@ -94,6 +94,22 @@
     return scenes;
   }
 
+  /* The difference between a song playing under a film and a score: the band
+   * arrives as the story tightens, and stands down for the ending. */
+  function partsFor(energy, isFinal) {
+    if (isFinal) {
+      return { drums: false, bass: false, chords: true, arp: false, lead: false, pad: true };
+    }
+    return {
+      pad: true,
+      chords: true,
+      bass: energy >= 0.3,
+      drums: energy >= 0.5,
+      arp: energy > 0.7,
+      lead: energy > 0.7
+    };
+  }
+
   function sectionPlan(reel, bpm) {
     var barSeconds = (BEATS_PER_BAR * 60) / bpm;
     var scenes = scenesOf(reel);
@@ -107,7 +123,8 @@
         bars: blocks * BLOCK_BARS,
         energy: energy,
         scene: scene.scene,
-        last: isFinal
+        last: isFinal,
+        parts: partsFor(energy, isFinal)
       };
     });
 
@@ -132,6 +149,7 @@
     chooseBpm: chooseBpm,
     SECTION_TYPE: SECTION_TYPE,
     scenesOf: scenesOf,
+    partsFor: partsFor,
     sectionPlan: sectionPlan
   };
 
