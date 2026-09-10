@@ -336,9 +336,14 @@
     el.recordFilm.textContent = '● Recording…';
 
     var p = makePlayer();
-    var big = el.filmCanvas.height >= 1080;
 
-    PlayerLib.record(p, { fps: 30, videoBitrate: big ? 6000000 : 2500000 })
+    // Drawn art is flat colour and hard edges, so it needs far less bitrate
+    // than camera footage at the same size. These are set where the picture
+    // stops improving, which keeps the files small enough to actually send.
+    var height = el.filmCanvas.height;
+    var bitrate = height >= 1080 ? 6000000 : height >= 720 ? 2200000 : 1100000;
+
+    PlayerLib.record(p, { fps: 30, videoBitrate: bitrate })
       .then(function (result) {
         // The recorder cannot know the length while it is still recording, so
         // write it into the file afterwards — otherwise players show no

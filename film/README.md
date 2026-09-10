@@ -86,7 +86,10 @@ a phone.
   SCRIPT FORGE writes the duration into the file afterwards, which the browser
   itself does not do. To jump around, use the scrub bar in the app, which draws
   any frame on demand.
-- **File size** is roughly 2 MB per 10 seconds at 720p, four times that at 1080p.
+- **File size** is roughly 1.4 MB per 10 seconds at 540p, 2.7 MB at 720p and
+  7.5 MB at 1080p. Drawn art is flat colour and hard edges, so 540p holds up far
+  better than camera footage would at the same size — pick it when you need to
+  send the film somewhere with a size limit.
 
 There is also a **read the lines aloud** option, which uses your browser's own
 speech voice while the film plays. It is a live extra only: browsers do not let
