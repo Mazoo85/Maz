@@ -7,7 +7,10 @@
  * Pure logic: a reel goes in, plain data comes out. No audio and no DOM, so the
  * musical shape of a film is checkable in Node the way its edit already is.
  *
- * Exposed as window.FilmScore (and module.exports for the tests).
+ * Exposed as window.FilmConductor (and module.exports for the tests) —
+ * not window.FilmScore, which film-audio.js's *audio* Score already claims
+ * for its own API; sharing that name would silently clobber whichever of the
+ * two loads second.
  */
 (function (root) {
   'use strict';
@@ -215,5 +218,5 @@
   };
 
   if (typeof module === 'object' && module.exports) module.exports = API;
-  root.FilmScore = API;
+  root.FilmConductor = API;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
