@@ -62,3 +62,20 @@ def test_collect_survives_a_failing_runner(tmp_path):
         raise OSError("git not found")
 
     assert collect(tmp_path, runner=runner) == []
+
+
+def test_closing_comment_with_empty_body_is_dropped():
+    # rstrip("*/") strips a trailing run of '*' and '/' characters, not the
+    # two-character suffix "*/". A closing-comment line like /* TODO: */ or
+    # // TODO: */ reduces to an empty body after rstrip("*/"), and the
+    # if not body: continue guard prevents emitting a contentless candidate.
+    # This regression test pins that guard — without it, such lines emit
+    # candidates with no task text, a garbage shape.
+    assert scan_text("file.c", "/* TODO: */", recent=True) == []
+    assert scan_text("file.js", "// TODO: */", recent=True) == []
+
+    # A marker whose text legitimately ends in * or / must still be kept.
+    # The trailing * is a cosmetic strip by rstrip, not a sign of an empty body.
+    cands = scan_text("file.py", "# TODO: handle a/b*\n", recent=True)
+    assert len(cands) == 1
+    assert "handle a/b" in cands[0].task
