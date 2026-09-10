@@ -1,6 +1,6 @@
 # Maz
 
-This repo holds four things:
+This repo holds five things:
 
 1. **Maz Engine** — a native **C++20 + Vulkan + SDL3** game engine, 2D-first but architected so
    3D drops in later. See **[`docs/ROADMAP.md`](docs/ROADMAP.md)** for the full build plan (the
@@ -14,6 +14,11 @@ This repo holds four things:
 4. **DEAD SECTOR** — a phone-first, top-down twin-stick **zombie shooter** in a
    single self-contained HTML file. Dual touch joysticks, escalating waves, three
    zombie types. See **[`shooter/README.md`](shooter/README.md)**.
+5. **SONG FORGE** — a generative **AI music maker** in **[`music/`](music/)** that
+   writes and plays complete songs in the browser: chords, bass, drums, arpeggio
+   and melody, arranged into verses and choruses across 8 genres, with WAV and
+   MIDI export. No install, no API key, works offline. See
+   **[`music/README.md`](music/README.md)**.
 
 > **Codebase memory:** this repo is set up with a
 > [codebase-memory MCP server](docs/CODEBASE_MEMORY.md) that gives Claude persistent,
