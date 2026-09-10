@@ -179,6 +179,52 @@ test('dialogue always follows a character cue', () => {
   });
 });
 
+test('characters are the age of the part they are playing', () => {
+  // "ALEX (40s), a kid" was real output. So was a grandmother in her 30s.
+  const ageOf = (idea, role) => {
+    for (let seed = 0; seed < 25; seed++) {
+      const script = Writer.write(Parse.parse(idea, { seed }), { length: 'short', seed });
+      const intro = script.elements.find((e) => e.type === 'action' && e.text.indexOf(role) !== -1
+        && /\((?:[0-9]+|[a-z ]*[0-9]+s)\)/.test(e.text));
+      if (!intro) continue;
+      const age = intro.text.match(/\(([^)]+)\)/)[1];
+      const years = parseInt(age.replace(/[^0-9]/g, ''), 10);
+      assert(!isNaN(years), 'unreadable age "' + age + '" in: ' + intro.text);
+      return { age, years, intro: intro.text };
+    }
+    return null;
+  };
+
+  const kid = ageOf('a kid alone in the attic at midnight', 'kid');
+  assert(kid, 'no kid was introduced');
+  assert(kid.years <= 17, 'a kid is ' + kid.age + ': ' + kid.intro);
+
+  const gran = ageOf('a grandmother finds a recipe card', 'grandmother');
+  assert(gran, 'no grandmother was introduced');
+  assert(gran.years >= 60, 'a grandmother is ' + gran.age + ': ' + gran.intro);
+});
+
+test('an introduction reads as English', () => {
+  const script = Writer.write(Parse.parse('an android on a ship finds a recording'), { length: 'short' });
+  script.elements.filter((e) => e.type === 'action').forEach((e) => {
+    assert(!/\ba [aeiou]/i.test(e.text), 'wrong article: ' + e.text);
+    assert(!/\ban [^aeiou]/i.test(e.text), 'wrong article: ' + e.text);
+  });
+});
+
+test('a film does not use the same sound cue twice running', () => {
+  ['micro', 'short', 'festival'].forEach((length) => {
+    for (let seed = 0; seed < 8; seed++) {
+      const script = Writer.write(Parse.parse('a ghost in the attic', { seed }), { length, seed });
+      const cues = (script.elements.map((e) => e.text).join(' ')
+        .match(/From somewhere close: ([^.]+)\./g) || []);
+      for (let i = 1; i < cues.length; i++) {
+        assert(cues[i] !== cues[i - 1], 'the same sound twice running: ' + cues[i]);
+      }
+    }
+  });
+});
+
 test('the same idea rebuilds the same script', () => {
   const a = Writer.write(Parse.parse('a heist at a bank'), { length: 'short' });
   const b = Writer.write(Parse.parse('a heist at a bank'), { length: 'short' });

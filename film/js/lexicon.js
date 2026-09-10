@@ -592,13 +592,24 @@
     'Somebody should say something. Nobody does.'
   ];
 
+  /* Same reasoning as the details: a genre's own four sounds get used up long
+   * before a five-scene film is over, and then you hear the same hymn twice in
+   * a minute. */
+  var NEUTRAL_SOUNDS = [
+    'a door two rooms away', 'a floorboard settling', 'wind finding a gap',
+    'a clock with a loud second hand', 'water in a pipe', 'someone else\'s music',
+    'a car that does not stop', 'the fridge cutting out'
+  ];
+
   Object.keys(GENRES).forEach(function (key) {
     GENRES[key].details = GENRES[key].details.concat(NEUTRAL_DETAILS);
+    GENRES[key].sounds = GENRES[key].sounds.concat(NEUTRAL_SOUNDS);
   });
 
   var LEX = {
     GENRES: GENRES,
     NEUTRAL_DETAILS: NEUTRAL_DETAILS,
+    NEUTRAL_SOUNDS: NEUTRAL_SOUNDS,
     PLACES: PLACES,
     ROLES: ROLES,
     OBJECTS: OBJECTS,

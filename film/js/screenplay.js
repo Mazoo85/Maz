@@ -20,7 +20,19 @@
   var DLG = root.FILM_DIALOGUE || (typeof require !== 'undefined' ? require('./dialogue.js') : {});
   var PARSE = root.FilmParse || (typeof require !== 'undefined' ? require('./parse.js') : {});
 
-  var AGES = ['late 20s', '30s', 'late 30s', '40s', '50s', '60s'];
+  /* Ages have to match the part. A script that introduces "ALEX (40s), a kid"
+   * has told the reader nothing and lost them at the same time. */
+  var AGES = ['late 20s', '30s', 'late 30s', '40s', '50s'];
+  var YOUNG_AGES = ['9', '11', '12', '14', '16', '17'];
+  var OLD_AGES = ['60s', 'late 60s', '70s', 'late 70s'];
+  var YOUNG_ROLES = /\b(?:kid|boy|girl|teenager|student|babysitter|son|daughter|intern|twin)\b/;
+  var OLD_ROLES = /\b(?:grandmother|grandfather|old man|old woman|widow|widower|veteran|retired)\b/;
+
+  function ageFor(role, rng) {
+    if (YOUNG_ROLES.test(role)) return pick(YOUNG_AGES, rng);
+    if (OLD_ROLES.test(role)) return pick(OLD_AGES, rng);
+    return pick(AGES, rng);
+  }
 
   var INTROS = [
     'who has stopped expecting company',
@@ -58,6 +70,11 @@
    * that ended rather than a night that repeated. */
   var NEXT_TIME = { NIGHT: 'DAWN', DAWN: 'DAY', DAY: 'DUSK', DUSK: 'NIGHT' };
 
+  /* The pool draws are functions, not values, because String.replace evaluates
+   * its arguments whether or not the pattern matches: passing ctx.nextDetail()
+   * directly spent a detail and two sounds on *every* line in the film, which
+   * emptied banks that hold a dozen entries and put the same sound cue on
+   * screen twice in a row. */
   function fill(text, ctx) {
     return String(text)
       .replace(/\{HERO\}/g, ctx.hero.name)
@@ -67,9 +84,9 @@
       .replace(/\{WANT\}/g, ctx.want)
       .replace(/\{TONIGHT\}/g, ctx.tonight)
       .replace(/\{DETAIL_SHOT\}/g, 'the ' + ctx.object)
-      .replace(/\{DETAIL\}/g, ctx.nextDetail())
-      .replace(/\{SOUND_CUE\}/g, 'From somewhere close: ' + ctx.nextSound() + '.')
-      .replace(/\{SOUND\}/g, ctx.nextSound());
+      .replace(/\{DETAIL\}/g, function () { return ctx.nextDetail(); })
+      .replace(/\{SOUND_CUE\}/g, function () { return 'From somewhere close: ' + ctx.nextSound() + '.'; })
+      .replace(/\{SOUND\}/g, function () { return ctx.nextSound(); });
   }
 
   /* Which of the premise's locations each beat plays in. The film opens and
@@ -145,8 +162,8 @@
         introduced[premise.hero.name] = true;
         sceneElements.push({
           type: 'action',
-          text: premise.hero.name + ' (' + pick(AGES, rng) + '), ' +
-            PARSE.article(premise.hero.role) + ' ' + premise.hero.role + ' ' +
+          text: premise.hero.name + ' (' + ageFor(premise.hero.role, rng) + '), ' +
+            PARSE.withArticle(premise.hero.role) + ' ' +
             pick(INTROS, rng) + ', is here and has been for a while.'
         });
       }
@@ -164,8 +181,8 @@
           introduced[premise.other.name] = true;
           sceneElements.push({
             type: 'action',
-            text: premise.other.name + ' (' + pick(AGES, rng) + '), ' +
-              PARSE.article(premise.other.role) + ' ' + premise.other.role +
+            text: premise.other.name + ' (' + ageFor(premise.other.role, rng) + '), ' +
+              PARSE.withArticle(premise.other.role) +
               ', comes in without knocking. They have never had to.'
           });
         }
