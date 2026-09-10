@@ -32,8 +32,12 @@
     bpm: 0,           // 0 = auto
     song: null,
     seekDragging: false,
-    seedEdited: false     // true once the user types their own seed
+    seedEdited: false,    // true once the user types their own seed
+    locked: {},           // parts protected from "re-roll every part"
+    edited: {}            // parts the user has drawn on
   };
+
+  let editor = null;
 
   const player = new E.Player();
 
@@ -160,14 +164,24 @@
     }
 
     state.song = song;
+    window.__song = song;          // handle for the test suites
+    state.locked = {};
+    state.edited = {};
     player.load(song);
 
     el('songPanel').hidden = false;
+    el('editPanel').hidden = false;
     el('mixPanel').hidden = false;
     el('exportPanel').hidden = false;
 
     renderSong();
     buildMixer();
+    if (editor) {
+      editor.startBar = 0;
+      editor.setTrack(editor.track);
+      editor.resize();
+      syncEditUI();
+    }
     updateHash();
 
     if (opts.autoplay !== false) {
@@ -220,12 +234,29 @@
       const events = state.song.tracks[meta.id] || [];
       const row = document.createElement('div');
       row.className = 'track' + (events.length ? '' : ' silent');
+      row.dataset.id = meta.id;
 
       const name = document.createElement('div');
       name.className = 'track-name';
       name.innerHTML = '<span class="dot" style="background:' + meta.color +
         ';box-shadow:0 0 8px ' + meta.color + '"></span>' + meta.label;
       row.appendChild(name);
+
+      const lock = document.createElement('button');
+      lock.type = 'button';
+      lock.className = 'lock-btn' + (state.locked[meta.id] ? ' on' : '');
+      lock.textContent = state.locked[meta.id] ? '🔒' : '🔓';
+      lock.title = 'Protect ' + meta.label.toLowerCase() + ' from a re-roll of everything';
+      lock.setAttribute('aria-label', 'Lock ' + meta.label);
+      lock.addEventListener('click', function () {
+        const next = !state.locked[meta.id];
+        state.locked[meta.id] = next;
+        lock.textContent = next ? '🔒' : '🔓';
+        lock.classList.toggle('on', next);
+        status(meta.label + (next ? ' locked — a re-roll of everything will leave it alone.'
+                                  : ' unlocked.'));
+      });
+      row.appendChild(lock);
 
       const mute = document.createElement('button');
       mute.type = 'button';
@@ -261,14 +292,153 @@
       reroll.setAttribute('aria-label', 'Re-roll ' + meta.label);
       reroll.addEventListener('click', function () {
         C.rerollPart(state.song, meta.id);
+        state.edited[meta.id] = false;
         player.refresh();
         markRollDirty();
+        if (editor && editor.track === meta.id) editor.refit();
         row.classList.toggle('silent', (state.song.tracks[meta.id] || []).length === 0);
+        syncEditUI();
         status('New ' + meta.label.toLowerCase() + ' written.');
       });
       row.appendChild(reroll);
 
       box.appendChild(row);
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Note editor
+   * ------------------------------------------------------------------ */
+
+  function colorFor(id) {
+    for (let i = 0; i < TRACK_META.length; i++) if (TRACK_META[i].id === id) return TRACK_META[i].color;
+    return '#00e5ff';
+  }
+
+  function buildEditor() {
+    editor = new window.Editor({
+      canvas: el('editor'),
+      getSong: function () { return state.song; },
+      player: player,
+      colorFor: colorFor,
+      onChange: function () {
+        state.edited[editor.track] = true;
+        player.refresh();
+        markRollDirty();
+        syncEditUI();
+      }
+    });
+
+    const chips = el('editTracks');
+    TRACK_META.forEach(function (meta) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip' + (meta.id === editor.track ? ' on' : '');
+      b.dataset.id = meta.id;
+      b.setAttribute('role', 'radio');
+      b.innerHTML = '<span class="dot" style="background:' + meta.color +
+        ';box-shadow:0 0 8px ' + meta.color + '"></span>' + meta.label;
+      b.addEventListener('click', function () {
+        editor.setTrack(meta.id);
+        syncEditUI();
+        status('Editing ' + meta.label.toLowerCase() +
+          (meta.id === 'drums' ? ' — tap the grid to add or remove hits.'
+                               : ' — draw notes, drag the right edge to lengthen.'));
+      });
+      chips.appendChild(b);
+    });
+
+    function setTool(t) {
+      editor.tool = t;
+      el('toolDraw').classList.toggle('on', t === 'draw');
+      el('toolErase').classList.toggle('on', t === 'erase');
+      el('editor').classList.toggle('erasing', t === 'erase');
+    }
+    el('toolDraw').addEventListener('click', function () { setTool('draw'); });
+    el('toolErase').addEventListener('click', function () { setTool('erase'); });
+
+    el('snapSelect').addEventListener('change', function () { editor.snap = parseFloat(this.value); });
+    el('lenSelect').addEventListener('change', function () { editor.noteLen = parseFloat(this.value); });
+
+    el('inKeyBtn').addEventListener('click', function () {
+      editor.inKey = !editor.inKey;
+      this.classList.toggle('on', editor.inKey);
+      status(editor.inKey ? 'Notes you draw will fit the key.' : 'Free drawing — any note, in key or not.');
+    });
+    el('followBtn').addEventListener('click', function () {
+      editor.follow = !editor.follow;
+      this.classList.toggle('on', editor.follow);
+    });
+
+    el('barPrev').addEventListener('click', function () {
+      editor.scrollTo(editor.startBar - editor.bars);
+      syncEditUI();
+    });
+    el('barNext').addEventListener('click', function () {
+      editor.scrollTo(editor.startBar + editor.bars);
+      syncEditUI();
+    });
+    el('barScroll').addEventListener('input', function () {
+      editor.follow = false;
+      el('followBtn').classList.remove('on');
+      editor.scrollTo(parseInt(this.value, 10));
+    });
+    el('zoomSelect').addEventListener('change', function () {
+      editor.bars = parseInt(this.value, 10);
+      editor.scrollTo(editor.startBar);
+      syncEditUI();
+    });
+
+    el('clearTrackBtn').addEventListener('click', function () {
+      if (!state.song) return;
+      const label = colorLabel(editor.track);
+      editor.clearTrack();
+      status(label + ' cleared — draw your own, or re-roll it in the mixer.');
+    });
+
+    el('developBtn').addEventListener('click', function () {
+      if (!state.song) return;
+      const label = colorLabel(editor.track);
+      if (editor.track === 'drums') {
+        status('Develop works on the melodic parts — try it on the lead, bass or arp.', true);
+        return;
+      }
+      const ok = C.developPart(state.song, editor.track);
+      if (!ok) {
+        status('Draw a few more notes first — it needs an idea to develop.', true);
+        return;
+      }
+      state.edited[editor.track] = true;
+      player.refresh();
+      markRollDirty();
+      syncEditUI();
+      status('Your idea now runs through the whole song\u2019s ' + label.toLowerCase() + '.');
+    });
+
+    window.__editor = editor;      // handle for the test suites
+    window.addEventListener('resize', function () { editor.resize(); });
+    editor.resize();
+  }
+
+  function colorLabel(id) {
+    for (let i = 0; i < TRACK_META.length; i++) if (TRACK_META[i].id === id) return TRACK_META[i].label;
+    return id;
+  }
+
+  function syncEditUI() {
+    if (!editor || !state.song) return;
+    Array.prototype.forEach.call(el('editTracks').children, function (b) {
+      const on = b.dataset.id === editor.track;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+    const scroll = el('barScroll');
+    scroll.max = String(editor.maxStartBar());
+    scroll.value = String(editor.startBar);
+    el('developBtn').disabled = editor.track === 'drums';
+    // The mixer shows which parts have been touched by hand.
+    Array.prototype.forEach.call(el('mixer').children, function (row) {
+      row.classList.toggle('edited', !!state.edited[row.dataset.id]);
     });
   }
 
@@ -505,6 +675,11 @@
         }
       }
       drawRoll();
+
+      if (editor) {
+        if (editor.followPlayhead()) el('barScroll').value = String(editor.startBar);
+        editor.draw();
+      }
     }
     requestAnimationFrame(frame);
   }
@@ -718,6 +893,7 @@
     bindSongActions();
     bindHelp();
     bindRollSeek();
+    buildEditor();
     renderLibrary();
 
     el('generateBtn').addEventListener('click', function () {
@@ -725,10 +901,19 @@
     });
     el('rerollAllBtn').addEventListener('click', function () {
       if (!state.song) { generate(); return; }
-      E.TRACKS.forEach(function (t) { C.rerollPart(state.song, t); });
+      const kept = [];
+      E.TRACKS.forEach(function (t) {
+        if (state.locked[t]) { kept.push(colorLabel(t).toLowerCase()); return; }
+        C.rerollPart(state.song, t);
+        state.edited[t] = false;
+      });
       player.refresh();
       markRollDirty();
-      status('Every part rewritten — same chords, new performance.');
+      if (editor) editor.refit();
+      syncEditUI();
+      status(kept.length
+        ? 'Rewritten around your locked ' + kept.join(' and ') + '.'
+        : 'Every part rewritten — same chords, new performance.');
     });
 
     window.addEventListener('resize', function () { resizeRoll(); });

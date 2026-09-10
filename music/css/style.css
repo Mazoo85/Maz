@@ -406,13 +406,70 @@ input[type="range"]::-moz-range-thumb {
   margin-top: -4px;
 }
 
+/* ---------------- note editor ---------------- */
+
+.edit-tracks { margin-bottom: 10px; }
+.edit-tracks .chip { padding: 8px 13px; min-height: 40px; font-size: 13px; }
+.edit-tracks .chip.on {
+  border-color: var(--cyan);
+  background: rgba(0, 229, 255, 0.14);
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.26);
+}
+.edit-tracks .chip .dot { margin-right: 7px; }
+
+.edit-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.tool-group { display: flex; gap: 6px; }
+.tool-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.tool-field select {
+  width: auto;
+  min-height: 38px;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.editor {
+  display: block;
+  width: 100%;
+  height: 300px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--panel-edge);
+  touch-action: none;          /* the grid handles its own drags */
+  cursor: crosshair;
+}
+.editor.erasing { cursor: not-allowed; }
+
+.edit-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+}
+.edit-nav input[type="range"] { flex: 1 1 auto; min-width: 0; }
+.edit-nav select { width: auto; min-height: 38px; padding: 4px 8px; font-size: 13px; }
+
 /* ---------------- mixer ---------------- */
 
 .mixer { display: flex; flex-direction: column; gap: 8px; }
 
 .track {
   display: grid;
-  grid-template-columns: 84px 44px 1fr auto;
+  grid-template-columns: 84px 44px 44px 1fr auto;
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
@@ -443,6 +500,25 @@ input[type="range"]::-moz-range-thumb {
   font-size: 15px;
 }
 .mute-btn.off { color: var(--pink); border-color: var(--pink); }
+
+.lock-btn {
+  width: 40px; height: 38px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-edge);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink-dim);
+  cursor: pointer;
+  font-size: 14px;
+}
+.lock-btn.on { color: var(--amber); border-color: var(--amber); background: rgba(255, 200, 87, 0.12); }
+.track.edited .track-name::after {
+  content: "edited";
+  font-family: var(--font-data);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--amber);
+  margin-left: 6px;
+}
 .track-empty { font-size: 12px; color: var(--ink-dim); font-style: italic; }
 
 /* ---------------- export ---------------- */
@@ -554,12 +630,18 @@ input[type="range"]::-moz-range-thumb {
 
 @media (min-width: 760px) {
   .roll { height: 240px; }
-  .track { grid-template-columns: 110px 44px 1fr auto; }
+  .editor { height: 380px; }
+  .track { grid-template-columns: 110px 44px 44px 1fr auto; }
 }
 
 @media (max-width: 420px) {
-  .track { grid-template-columns: 1fr auto auto; grid-template-areas: "name mute roll" "vol vol vol"; }
+  .editor { height: 260px; }
+  .track {
+    grid-template-columns: 1fr auto auto auto;
+    grid-template-areas: "name lock mute roll" "vol vol vol vol";
+  }
   .track-name { grid-area: name; }
+  .lock-btn { grid-area: lock; }
   .mute-btn { grid-area: mute; }
   .track .reroll { grid-area: roll; }
   .track .vol { grid-area: vol; }

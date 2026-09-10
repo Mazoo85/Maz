@@ -131,6 +131,101 @@ function launchOptions() {
   check(audio.clipped === 0, 'no clipped samples');
   check(audio.peak / audio.rms > 2.5, 'dynamics intact (crest ' + (audio.peak / audio.rms).toFixed(1) + ')');
 
+  console.log('\n— the editor —');
+  check(await page.locator('#editPanel').isVisible(), 'edit panel appears with a song');
+  check(await page.locator('#editTracks .chip').count() === 6, 'a chip for every part');
+
+  const grid = page.locator('#editor');
+
+  /* Click through the element itself so Playwright scrolls it into view and
+     uses element-relative coordinates — the editor sits well below the fold. */
+  async function clickGrid(x, y) {
+    await grid.click({ position: { x: x, y: y } });
+    await page.waitForTimeout(120);
+  }
+  const leadBefore = await page.evaluate(function () { return window.__song.tracks.lead.length; });
+  await clickGrid(300, 150);
+  const leadAfter = await page.evaluate(function () { return window.__song.tracks.lead.length; });
+  check(leadAfter === leadBefore + 1, 'clicking the grid draws a note (' + leadBefore + ' → ' + leadAfter + ')');
+
+  const drawn = await page.evaluate(function () {
+    const song = window.__song, ed = window.__editor;
+    const e = song.tracks.lead[song.tracks.lead.length - 1];
+    const rel = ((e.p - window.Theory.midi(song.rootPc, 4)) % 12 + 12) % 12;
+    // Where that note actually sits, so the erase click can find it.
+    const row = ed.rowOfPitch(Math.round(e.p));
+    return {
+      inKey: song.scaleSteps.indexOf(rel) >= 0,
+      y: ed.yOfRow(row) + ed.rowH() / 2,
+      x: ed.xOfBeat(e.t + e.d / 2)
+    };
+  });
+  check(drawn.inKey, 'the drawn note lands in the song\u2019s key');
+
+  await page.click('#toolErase');
+  await clickGrid(drawn.x, drawn.y);
+  const erased = await page.evaluate(function () { return window.__song.tracks.lead.length; });
+  check(erased === leadBefore, 'erase removes it again (' + leadAfter + ' → ' + erased + ')');
+  await page.click('#toolDraw');
+
+  await page.click('#editTracks .chip[data-id="drums"]');
+  await page.waitForTimeout(150);
+  const drumsBefore = await page.evaluate(function () { return window.__song.tracks.drums.length; });
+  const drumY = await page.evaluate(function () {
+    const ed = window.__editor;
+    return ed.yOfRow(0) + ed.rowH() / 2;      // the kick row
+  });
+  await clickGrid(300, drumY);
+  const drumsAfter = await page.evaluate(function () { return window.__song.tracks.drums.length; });
+  check(drumsAfter !== drumsBefore, 'tapping the drum grid changes the pattern (' +
+    drumsBefore + ' → ' + drumsAfter + ')');
+  await page.click('#editTracks .chip[data-id="lead"]');
+  await page.waitForTimeout(120);
+
+  console.log('\n— the loop: what you draw teaches the generator —');
+  const developed = await page.evaluate(function () {
+    const song = window.__song;
+    // A deliberate four-note idea, drawn by hand.
+    song.tracks.lead = [
+      { t: 0,    d: 0.5, p: 72, v: 0.8 },
+      { t: 0.5,  d: 0.5, p: 74, v: 0.8 },
+      { t: 1.5,  d: 0.5, p: 77, v: 0.8 },
+      { t: 2.5,  d: 1.0, p: 76, v: 0.8 }
+    ];
+    const motif = window.Composer.motifFromEvents(song, song.tracks.lead);
+    const ok = window.Composer.developPart(song, 'lead');
+    return {
+      motifLength: motif ? motif.length : 0,
+      contour: motif ? motif.map(function (m) { return m.contour; }) : [],
+      ok: ok,
+      notesAfter: song.tracks.lead.length,
+      spread: song.tracks.lead.length
+        ? Math.max.apply(null, song.tracks.lead.map(function (e) { return e.t; })) : 0
+    };
+  });
+  check(developed.motifLength === 4, 'it reads the four notes as a motif');
+  const c = developed.contour;
+  check(c[0] === 0 && c[1] > c[0] && c[2] > c[1] && c[3] < c[2],
+    'the shape survives — up, up, then down (' + c.join(',') + ')');
+  check(developed.ok, 'develop accepts the idea');
+  check(developed.notesAfter > 20, 'the idea is spread across the song (' + developed.notesAfter + ' notes)');
+  check(developed.spread > 40, 'and reaches the far end of it (last note at beat ' +
+    developed.spread.toFixed(0) + ')');
+
+  console.log('\n— locks —');
+  const locks = await page.evaluate(function () {
+    const song = window.__song;
+    const before = JSON.stringify(song.tracks.lead);
+    return { before: before };
+  });
+  await page.click('#mixer .track[data-id="lead"] .lock-btn');
+  await page.click('#rerollAllBtn');
+  await page.waitForTimeout(250);
+  const kept = await page.evaluate(function () { return JSON.stringify(window.__song.tracks.lead); });
+  check(kept === locks.before, 'a locked part survives a re-roll of everything');
+  const others = await page.evaluate(function () { return window.__song.tracks.bass.length > 0; });
+  check(others, 'the unlocked parts were still rewritten');
+
   console.log('\n— exports —');
   const ex = await page.evaluate(async function () {
     const song = window.Composer.compose({ seed: 'ZIPTEST', genre: 'lofi', length: 'short' });

@@ -421,13 +421,70 @@ input[type="range"]::-moz-range-thumb {
   margin-top: -4px;
 }
 
+/* ---------------- note editor ---------------- */
+
+.edit-tracks { margin-bottom: 10px; }
+.edit-tracks .chip { padding: 8px 13px; min-height: 40px; font-size: 13px; }
+.edit-tracks .chip.on {
+  border-color: var(--cyan);
+  background: rgba(0, 229, 255, 0.14);
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.26);
+}
+.edit-tracks .chip .dot { margin-right: 7px; }
+
+.edit-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.tool-group { display: flex; gap: 6px; }
+.tool-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.tool-field select {
+  width: auto;
+  min-height: 38px;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.editor {
+  display: block;
+  width: 100%;
+  height: 300px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--panel-edge);
+  touch-action: none;          /* the grid handles its own drags */
+  cursor: crosshair;
+}
+.editor.erasing { cursor: not-allowed; }
+
+.edit-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+}
+.edit-nav input[type="range"] { flex: 1 1 auto; min-width: 0; }
+.edit-nav select { width: auto; min-height: 38px; padding: 4px 8px; font-size: 13px; }
+
 /* ---------------- mixer ---------------- */
 
 .mixer { display: flex; flex-direction: column; gap: 8px; }
 
 .track {
   display: grid;
-  grid-template-columns: 84px 44px 1fr auto;
+  grid-template-columns: 84px 44px 44px 1fr auto;
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
@@ -458,6 +515,25 @@ input[type="range"]::-moz-range-thumb {
   font-size: 15px;
 }
 .mute-btn.off { color: var(--pink); border-color: var(--pink); }
+
+.lock-btn {
+  width: 40px; height: 38px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-edge);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink-dim);
+  cursor: pointer;
+  font-size: 14px;
+}
+.lock-btn.on { color: var(--amber); border-color: var(--amber); background: rgba(255, 200, 87, 0.12); }
+.track.edited .track-name::after {
+  content: "edited";
+  font-family: var(--font-data);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--amber);
+  margin-left: 6px;
+}
 .track-empty { font-size: 12px; color: var(--ink-dim); font-style: italic; }
 
 /* ---------------- export ---------------- */
@@ -569,12 +645,18 @@ input[type="range"]::-moz-range-thumb {
 
 @media (min-width: 760px) {
   .roll { height: 240px; }
-  .track { grid-template-columns: 110px 44px 1fr auto; }
+  .editor { height: 380px; }
+  .track { grid-template-columns: 110px 44px 44px 1fr auto; }
 }
 
 @media (max-width: 420px) {
-  .track { grid-template-columns: 1fr auto auto; grid-template-areas: "name mute roll" "vol vol vol"; }
+  .editor { height: 260px; }
+  .track {
+    grid-template-columns: 1fr auto auto auto;
+    grid-template-areas: "name lock mute roll" "vol vol vol vol";
+  }
   .track-name { grid-area: name; }
+  .lock-btn { grid-area: lock; }
   .mute-btn { grid-area: mute; }
   .track .reroll { grid-area: roll; }
   .track .vol { grid-area: vol; }
@@ -676,16 +758,78 @@ input[type="range"]::-moz-range-thumb {
   </section>
 
   <!-- ---------------------------------------------------------------- -->
+  <section class="panel" id="editPanel" hidden>
+    <h2 class="panel-title">2 · Edit the notes</h2>
+    <p class="panel-hint">
+      Draw on the grid to change the song. Rows that belong to the song's key are lit up, and
+      with <strong>In key</strong> on, anything you draw lands on a note that fits.
+    </p>
+
+    <div class="chips edit-tracks" id="editTracks" role="radiogroup" aria-label="Part to edit"></div>
+
+    <div class="edit-tools">
+      <div class="tool-group" role="group" aria-label="Tool">
+        <button type="button" class="mini-btn toggle on" id="toolDraw">✎ Draw</button>
+        <button type="button" class="mini-btn toggle" id="toolErase">⌫ Erase</button>
+      </div>
+      <label class="tool-field" for="snapSelect"><span>Snap</span>
+        <select id="snapSelect">
+          <option value="1">1/4</option>
+          <option value="0.5">1/8</option>
+          <option value="0.25" selected>1/16</option>
+        </select>
+      </label>
+      <label class="tool-field" for="lenSelect"><span>Length</span>
+        <select id="lenSelect">
+          <option value="0.25">1/16</option>
+          <option value="0.5">1/8</option>
+          <option value="1" selected>1/4</option>
+          <option value="2">1/2</option>
+          <option value="4">Bar</option>
+        </select>
+      </label>
+      <button type="button" class="mini-btn toggle on" id="inKeyBtn" title="Snap what you draw to the song's key">♪ In key</button>
+      <button type="button" class="mini-btn toggle on" id="followBtn" title="Scroll along with the music">Follow</button>
+    </div>
+
+    <canvas id="editor" class="editor" aria-label="Note editor"></canvas>
+
+    <div class="edit-nav">
+      <button type="button" class="mini-btn" id="barPrev" aria-label="Earlier bars">◀</button>
+      <input type="range" id="barScroll" min="0" max="0" value="0" step="1" aria-label="Position in bars" />
+      <button type="button" class="mini-btn" id="barNext" aria-label="Later bars">▶</button>
+      <select id="zoomSelect" aria-label="Bars shown">
+        <option value="2">2 bars</option>
+        <option value="4" selected>4 bars</option>
+        <option value="8">8 bars</option>
+      </select>
+    </div>
+
+    <div class="export-row">
+      <button type="button" class="wide-btn" id="developBtn">✨ Develop my idea</button>
+      <button type="button" class="wide-btn" id="clearTrackBtn">Clear this part</button>
+    </div>
+    <p class="panel-hint">
+      <strong>Develop my idea</strong> reads the notes you drew, then rewrites this part across the
+      whole song from them — repeating your idea, answering it, turning it upside down. It is how
+      what you play teaches the generator.
+    </p>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
   <section class="panel" id="mixPanel" hidden>
-    <h2 class="panel-title">2 · Shape the mix</h2>
-    <p class="panel-hint">Re-roll rewrites just that one part and keeps everything else.</p>
+    <h2 class="panel-title">3 · Shape the mix</h2>
+    <p class="panel-hint">
+      Re-roll rewrites just that one part and keeps everything else. Lock a part
+      (🔓) to protect it — locked parts survive a re-roll of everything.
+    </p>
     <div class="mixer" id="mixer"></div>
     <button type="button" class="wide-btn" id="rerollAllBtn">🎲 Re-roll every part</button>
   </section>
 
   <!-- ---------------------------------------------------------------- -->
   <section class="panel" id="exportPanel" hidden>
-    <h2 class="panel-title">3 · Take it with you</h2>
+    <h2 class="panel-title">4 · Take it with you</h2>
     <div class="export-row">
       <button type="button" class="wide-btn" id="wavBtn">⬇ Download audio (.wav)</button>
       <button type="button" class="wide-btn" id="midiBtn">⬇ Download MIDI (.mid)</button>
@@ -728,6 +872,9 @@ input[type="range"]::-moz-range-thumb {
     <h3>Tips</h3>
     <ul>
       <li>If one part bothers you, hit <strong>Re-roll</strong> on just that row.</li>
+      <li>Draw your own notes in <strong>Edit the notes</strong>, then press
+          <strong>Develop my idea</strong> and the generator builds the song around what you wrote.</li>
+      <li><strong>Lock</strong> a part you like so re-rolling everything leaves it alone.</li>
       <li>Mute the drums for a version you can talk over.</li>
       <li>Download the MIDI to keep writing in real music software.</li>
     </ul>
@@ -1918,14 +2065,21 @@ input[type="range"]::-moz-range-thumb {
     return out;
   }
 
-  function composeLead(song, rng) {
+  function composeLead(song, rng, opts) {
     const genre = song.genre;
     const octave = genre.lead.octave;
     const density = Math.max(0.15, Math.min(0.95, genre.lead.density + song.mood.density));
     const events = [];
     const motifBars = 2;
 
-    const motifs = {
+    // A motif handed in came from notes the user drew: develop that idea
+    // everywhere instead of inventing three of our own.
+    const given = opts && opts.motif;
+    const motifs = given ? {
+      verse: given,
+      chorus: transformMotif(rng, given, 'transpose'),
+      bridge: transformMotif(rng, given, 'invert')
+    } : {
       verse: makeMotif(rng, density * 0.85, motifBars),
       chorus: makeMotif(rng, density, motifBars),
       bridge: makeMotif(rng, density * 0.7, motifBars)
@@ -1973,6 +2127,66 @@ input[type="range"]::-moz-range-thumb {
       }
     }
     return applyFeel(events, song, rng, 0.5);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Learning from the person using it
+   *
+   * This is the loop that makes the editor and the composer one program
+   * rather than two: notes someone drew by hand come back in as a motif, and
+   * the composer develops that idea across the whole song the same way it
+   * develops one of its own.
+   * ------------------------------------------------------------------ */
+
+  /** Nearest scale-degree index for a pitch, counting octaves (so 7 = an octave up). */
+  function pitchToDegree(song, pitch) {
+    const steps = song.scaleSteps;
+    const rootMidi = T.midi(song.rootPc, 4);
+    const rel = pitch - rootMidi;
+    const oct = Math.floor(rel / 12);
+    const pc = ((rel % 12) + 12) % 12;
+    let best = 0, bestD = 99;
+    for (let i = 0; i < steps.length; i++) {
+      const d = Math.abs(steps[i] - pc);
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    return oct * steps.length + best;
+  }
+
+  /**
+   * Turn hand-drawn notes into a motif: their rhythm, and the shape of the
+   * line as scale steps away from its first note. Returns null when there is
+   * not enough to work with.
+   */
+  function motifFromEvents(song, events, bars) {
+    bars = bars || 2;
+    if (!events || events.length < 2) return null;
+    const span = bars * BEATS_PER_BAR;
+
+    // Take the busiest window of `bars` bars — that is where the idea is.
+    let bestStart = 0, bestCount = 0;
+    for (let b = 0; b * BEATS_PER_BAR < song.totalBeats; b += bars) {
+      const start = b * BEATS_PER_BAR;
+      let n = 0;
+      for (let i = 0; i < events.length; i++) {
+        if (events[i].t >= start && events[i].t < start + span) n++;
+      }
+      if (n > bestCount) { bestCount = n; bestStart = start; }
+    }
+    if (bestCount < 2) return null;
+
+    const win = events
+      .filter(function (e) { return e.t >= bestStart && e.t < bestStart + span; })
+      .sort(function (a, b) { return a.t - b.t; });
+
+    const base = pitchToDegree(song, win[0].p);
+    return win.map(function (e) {
+      return {
+        step: Math.max(0, Math.round((e.t - bestStart) / STEP_BEATS)),
+        dur: Math.max(1, Math.round(e.d / STEP_BEATS)),
+        contour: pitchToDegree(song, e.p) - base
+      };
+    });
   }
 
   /* ------------------------------------------------------------------ *
@@ -2076,23 +2290,38 @@ input[type="range"]::-moz-range-thumb {
     arp: composeArp, lead: composeLead, pad: composePad
   };
 
-  function generatePart(song, part, seed) {
+  function generatePart(song, part, seed, opts) {
     const rng = new T.Rng(seed);
-    return PART_FN[part](song, rng);
+    return PART_FN[part](song, rng, opts);
   }
 
   /** Re-roll a single part with a fresh sub-seed, leaving the rest of the song intact. */
-  function rerollPart(song, part) {
+  function rerollPart(song, part, opts) {
     const nonce = Math.floor(Math.random() * 1e6);
     song.partSeeds[part] = song.seed + ':' + part + ':' + nonce;
-    song.tracks[part] = generatePart(song, part, song.partSeeds[part]);
+    song.tracks[part] = generatePart(song, part, song.partSeeds[part], opts);
     return song.tracks[part];
+  }
+
+  /**
+   * Develop what the user drew: read a motif out of the part's current notes,
+   * then rewrite the part across the whole song from that idea. Returns false
+   * when there is not enough drawn to learn from.
+   */
+  function developPart(song, part) {
+    const motif = motifFromEvents(song, song.tracks[part] || []);
+    if (!motif) return false;
+    rerollPart(song, part, { motif: motif });
+    return true;
   }
 
   global.Composer = {
     compose: compose,
     rerollPart: rerollPart,
+    developPart: developPart,
     generatePart: generatePart,
+    motifFromEvents: motifFromEvents,
+    pitchToDegree: pitchToDegree,
     chordAt: chordAt,
     sectionOf: sectionOf,
     BEATS_PER_BAR: BEATS_PER_BAR,
@@ -3403,6 +3632,495 @@ input[type="range"]::-moz-range-thumb {
 })(window);
 
 
+/* ==== editor.js ==== */
+/*
+ * editor.js — the hands-on half of the program.
+ *
+ * A piano roll for the melodic parts and a step grid for the drums, drawn on
+ * one canvas. You edit `song.tracks[...]` directly — the same arrays the
+ * composer writes and the player reads — so a note you draw plays, renders and
+ * exports exactly like a note the composer wrote. There is no separate
+ * "user data" model to keep in sync, which is the whole reason the two halves
+ * fit together.
+ *
+ * The grid helps rather than judges: rows in the song's key are shaded, and
+ * with "In key" on, a note you draw lands on the nearest note that fits.
+ */
+(function (global) {
+  'use strict';
+
+  const T = global.Theory;
+  const BEATS_PER_BAR = 4;
+  const STEP_BEATS = 0.25;
+  const LABEL_W = 52;
+  const MIN_ROWS = 15;
+  const MAX_ROWS = 34;
+
+  const DRUM_ROWS = ['kick', 'snare', 'clap', 'hh', 'oh', 'tom', 'perc', 'shaker', 'crash'];
+  const DRUM_LABEL = {
+    kick: 'Kick', snare: 'Snare', clap: 'Clap', hh: 'Hat', oh: 'Open hat',
+    tom: 'Tom', perc: 'Perc', shaker: 'Shaker', crash: 'Crash'
+  };
+
+  function Editor(opts) {
+    this.canvas = opts.canvas;
+    this.cx = this.canvas.getContext('2d');
+    this.getSong = opts.getSong;
+    this.player = opts.player;
+    this.onChange = opts.onChange || function () {};
+    this.colorFor = opts.colorFor || function () { return '#00e5ff'; };
+
+    this.track = 'lead';
+    this.tool = 'draw';        // draw | erase
+    this.snap = 0.25;          // beats
+    this.noteLen = 1;          // beats
+    this.inKey = true;
+    this.startBar = 0;
+    this.bars = 4;
+    this.follow = true;
+
+    this.low = 48;
+    this.rows = 25;
+    this.w = 0;
+    this.h = 0;
+    this._drag = null;
+    this._painted = null;
+    this._bind();
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Geometry
+   * ------------------------------------------------------------------ */
+
+  Editor.prototype.isDrums = function () { return this.track === 'drums'; };
+
+  Editor.prototype.resize = function () {
+    const dpr = global.devicePixelRatio || 1;
+    const rect = this.canvas.getBoundingClientRect();
+    this.w = Math.max(1, Math.floor(rect.width));
+    this.h = Math.max(1, Math.floor(rect.height));
+    this.canvas.width = Math.floor(this.w * dpr);
+    this.canvas.height = Math.floor(this.h * dpr);
+    this.cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+
+  Editor.prototype.drumRows = function () {
+    const song = this.getSong();
+    const used = {};
+    const evs = song.tracks.drums || [];
+    for (let i = 0; i < evs.length; i++) used[evs[i].inst] = true;
+    // Always offer the core pieces so there is something to draw on.
+    ['kick', 'snare', 'hh'].forEach(function (k) { used[k] = true; });
+    return DRUM_ROWS.filter(function (k) { return used[k]; });
+  };
+
+  /** Recompute the visible pitch window for the current track. */
+  Editor.prototype.refit = function () {
+    const song = this.getSong();
+    if (!song || this.isDrums()) return;
+    const evs = song.tracks[this.track] || [];
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i < evs.length; i++) {
+      if (evs[i].p < lo) lo = evs[i].p;
+      if (evs[i].p > hi) hi = evs[i].p;
+    }
+    if (!isFinite(lo)) {
+      const oct = (song.genre[this.track] && song.genre[this.track].octave) || 4;
+      lo = T.midi(song.rootPc, oct);
+      hi = lo + 12;
+    }
+    let rows = Math.max(MIN_ROWS, Math.min(MAX_ROWS, (hi - lo) + 5));
+    const mid = Math.round((lo + hi) / 2);
+    let low = mid - Math.floor(rows / 2);
+    if (low > lo - 1) low = lo - 1;
+    if (low + rows < hi + 2) rows = Math.min(MAX_ROWS, hi + 2 - low);
+    this.low = Math.max(12, low);
+    this.rows = rows;
+  };
+
+  Editor.prototype.startBeat = function () { return this.startBar * BEATS_PER_BAR; };
+  Editor.prototype.spanBeats = function () { return this.bars * BEATS_PER_BAR; };
+
+  Editor.prototype.xOfBeat = function (b) {
+    return LABEL_W + ((b - this.startBeat()) / this.spanBeats()) * (this.w - LABEL_W);
+  };
+  Editor.prototype.beatOfX = function (x) {
+    return this.startBeat() + ((x - LABEL_W) / (this.w - LABEL_W)) * this.spanBeats();
+  };
+  Editor.prototype.rowH = function () {
+    const n = this.isDrums() ? this.drumRows().length : this.rows;
+    return (this.h - 16) / Math.max(1, n);
+  };
+  Editor.prototype.yOfRow = function (r) { return 16 + r * this.rowH(); };
+  Editor.prototype.rowOfY = function (y) { return Math.floor((y - 16) / this.rowH()); };
+
+  /** Melodic: row 0 is the top (highest pitch). */
+  Editor.prototype.pitchOfRow = function (r) { return this.low + (this.rows - 1 - r); };
+  Editor.prototype.rowOfPitch = function (p) { return (this.rows - 1) - (p - this.low); };
+
+  Editor.prototype.maxStartBar = function () {
+    const song = this.getSong();
+    return Math.max(0, song.bars - this.bars);
+  };
+
+  /* ------------------------------------------------------------------ *
+   * Musical helpers
+   * ------------------------------------------------------------------ */
+
+  Editor.prototype.inScale = function (pitch) {
+    const song = this.getSong();
+    const rel = ((pitch - T.midi(song.rootPc, 4)) % 12 + 12) % 12;
+    return song.scaleSteps.indexOf(rel) >= 0;
+  };
+
+  Editor.prototype.snapPitch = function (pitch) {
+    if (!this.inKey) return pitch;
+    const song = this.getSong();
+    return T.snapToScale(pitch, song.scaleSteps, T.midi(song.rootPc, 4));
+  };
+
+  Editor.prototype.quantize = function (beat) {
+    return Math.max(0, Math.round(beat / this.snap) * this.snap);
+  };
+
+  /* ------------------------------------------------------------------ *
+   * Drawing
+   * ------------------------------------------------------------------ */
+
+  Editor.prototype.draw = function () {
+    const song = this.getSong();
+    if (!song || !this.w) return;
+    const cx = this.cx;
+    const W = this.w, H = this.h;
+    cx.clearRect(0, 0, W, H);
+
+    const gridW = W - LABEL_W;
+    const beats = this.spanBeats();
+    const start = this.startBeat();
+    const rowH = this.rowH();
+    const color = this.colorFor(this.track);
+
+    cx.fillStyle = 'rgba(0,0,0,0.32)';
+    cx.fillRect(LABEL_W, 16, gridW, H - 16);
+
+    if (this.isDrums()) this._drawDrumRows(rowH);
+    else this._drawPitchRows(rowH, color);
+
+    // Beat and bar lines
+    for (let b = 0; b <= beats; b += this.snap) {
+      const x = this.xOfBeat(start + b);
+      const onBar = Math.abs((b % BEATS_PER_BAR)) < 1e-6;
+      const onBeat = Math.abs((b % 1)) < 1e-6;
+      if (!onBeat && this.snap >= 0.5) continue;
+      cx.strokeStyle = onBar ? 'rgba(255,255,255,0.30)'
+        : onBeat ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.055)';
+      cx.lineWidth = 1;
+      cx.beginPath();
+      cx.moveTo(Math.round(x) + 0.5, 16);
+      cx.lineTo(Math.round(x) + 0.5, H);
+      cx.stroke();
+    }
+
+    // Bar numbers and the section this window sits in
+    cx.font = '10px ui-monospace, monospace';
+    cx.textAlign = 'left';
+    for (let b = 0; b < this.bars; b++) {
+      const x = this.xOfBeat(start + b * BEATS_PER_BAR);
+      cx.fillStyle = 'rgba(200,190,225,0.75)';
+      cx.fillText(String(this.startBar + b + 1), x + 4, 11);
+    }
+    const sec = global.Composer.sectionOf(song, start);
+    if (sec) {
+      cx.textAlign = 'right';
+      cx.fillStyle = 'rgba(255,200,87,0.85)';
+      cx.fillText(sec.name.toUpperCase(), W - 6, 11);
+      cx.textAlign = 'left';
+    }
+
+    if (this.isDrums()) this._drawDrumHits(rowH);
+    else this._drawNotes(rowH, color);
+
+    // Playhead
+    const beat = this.player.currentBeat();
+    if (beat >= start && beat <= start + beats) {
+      const px = this.xOfBeat(beat);
+      cx.strokeStyle = '#ffffff';
+      cx.lineWidth = 1.4;
+      cx.beginPath();
+      cx.moveTo(px, 16); cx.lineTo(px, H);
+      cx.stroke();
+    }
+  };
+
+  Editor.prototype._drawPitchRows = function (rowH, color) {
+    const cx = this.cx;
+    const W = this.w;
+    cx.font = '9px ui-monospace, monospace';
+    for (let r = 0; r < this.rows; r++) {
+      const pitch = this.pitchOfRow(r);
+      const y = this.yOfRow(r);
+      const inKey = this.inScale(pitch);
+      const isRoot = ((pitch % 12) + 12) % 12 === this.getSong().rootPc;
+      if (isRoot) cx.fillStyle = 'rgba(255,255,255,0.085)';
+      else if (inKey) cx.fillStyle = 'rgba(255,255,255,0.038)';
+      else cx.fillStyle = 'rgba(0,0,0,0.22)';
+      cx.fillRect(LABEL_W, y, W - LABEL_W, rowH - 0.5);
+
+      if (rowH >= 9 && (isRoot || rowH >= 14)) {
+        cx.fillStyle = isRoot ? 'rgba(255,255,255,0.8)' : 'rgba(162,151,196,0.75)';
+        cx.textAlign = 'right';
+        cx.fillText(T.midiToName(pitch), LABEL_W - 6, y + rowH * 0.72);
+        cx.textAlign = 'left';
+      }
+    }
+  };
+
+  Editor.prototype._drawDrumRows = function (rowH) {
+    const cx = this.cx;
+    const rows = this.drumRows();
+    cx.font = '10px ui-monospace, monospace';
+    for (let r = 0; r < rows.length; r++) {
+      const y = this.yOfRow(r);
+      cx.fillStyle = r % 2 ? 'rgba(255,255,255,0.028)' : 'rgba(255,255,255,0.055)';
+      cx.fillRect(LABEL_W, y, this.w - LABEL_W, rowH - 0.5);
+      cx.fillStyle = 'rgba(200,190,225,0.85)';
+      cx.textAlign = 'right';
+      cx.fillText(DRUM_LABEL[rows[r]] || rows[r], LABEL_W - 6, y + rowH * 0.68);
+      cx.textAlign = 'left';
+    }
+  };
+
+  Editor.prototype._drawNotes = function (rowH, color) {
+    const cx = this.cx;
+    const song = this.getSong();
+    const evs = song.tracks[this.track] || [];
+    const start = this.startBeat(), end = start + this.spanBeats();
+    for (let i = 0; i < evs.length; i++) {
+      const e = evs[i];
+      if (e.t + e.d < start || e.t > end) continue;
+      const row = this.rowOfPitch(Math.round(e.p));
+      if (row < 0 || row >= this.rows) continue;
+      const x = this.xOfBeat(Math.max(e.t, start));
+      const x2 = this.xOfBeat(Math.min(e.t + e.d, end));
+      const y = this.yOfRow(row);
+      const h = Math.max(3, rowH - 2);
+      cx.fillStyle = color;
+      cx.globalAlpha = 0.35 + 0.55 * Math.min(1, e.v);
+      cx.fillRect(x, y + 1, Math.max(3, x2 - x), h);
+      cx.globalAlpha = 1;
+      cx.strokeStyle = 'rgba(0,0,0,0.5)';
+      cx.lineWidth = 1;
+      cx.strokeRect(Math.round(x) + 0.5, Math.round(y + 1) + 0.5, Math.max(3, x2 - x) - 1, h - 1);
+    }
+  };
+
+  Editor.prototype._drawDrumHits = function (rowH) {
+    const cx = this.cx;
+    const song = this.getSong();
+    const rows = this.drumRows();
+    const evs = song.tracks.drums || [];
+    const start = this.startBeat(), end = start + this.spanBeats();
+    const stepW = (this.w - LABEL_W) / (this.spanBeats() / STEP_BEATS);
+    for (let i = 0; i < evs.length; i++) {
+      const e = evs[i];
+      if (e.t < start || e.t >= end) continue;
+      const r = rows.indexOf(e.inst);
+      if (r < 0) continue;
+      const x = this.xOfBeat(e.t);
+      const y = this.yOfRow(r);
+      cx.fillStyle = e.inst === 'kick' ? '#ff2d95' : e.inst === 'snare' || e.inst === 'clap' ? '#ff7ac0' : '#c76bd8';
+      cx.globalAlpha = 0.4 + 0.6 * Math.min(1, e.v);
+      cx.fillRect(x + 1, y + 2, Math.max(3, stepW - 2), Math.max(3, rowH - 4));
+      cx.globalAlpha = 1;
+    }
+  };
+
+  /* ------------------------------------------------------------------ *
+   * Editing
+   * ------------------------------------------------------------------ */
+
+  Editor.prototype.noteAt = function (beat, pitch) {
+    const evs = this.getSong().tracks[this.track] || [];
+    for (let i = evs.length - 1; i >= 0; i--) {
+      const e = evs[i];
+      if (Math.round(e.p) === pitch && beat >= e.t - 0.02 && beat <= e.t + e.d) return e;
+    }
+    return null;
+  };
+
+  Editor.prototype.drumAt = function (beat, inst) {
+    const evs = this.getSong().tracks.drums || [];
+    const half = STEP_BEATS / 2;
+    for (let i = 0; i < evs.length; i++) {
+      if (evs[i].inst === inst && Math.abs(evs[i].t - beat) < half) return evs[i];
+    }
+    return null;
+  };
+
+  Editor.prototype.remove = function (ev) {
+    const arr = this.getSong().tracks[this.track];
+    const i = arr.indexOf(ev);
+    if (i >= 0) arr.splice(i, 1);
+  };
+
+  Editor.prototype._pos = function (e) {
+    const rect = this.canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
+
+  Editor.prototype._bind = function () {
+    const self = this;
+
+    this.canvas.addEventListener('pointerdown', function (e) {
+      const song = self.getSong();
+      if (!song) return;
+      e.preventDefault();
+      const p = self._pos(e);
+      if (p.x < LABEL_W) return;
+      self.canvas.setPointerCapture(e.pointerId);
+      self._painted = {};
+      if (self.isDrums()) self._drumDown(p);
+      else self._noteDown(p);
+      self.draw();
+    });
+
+    this.canvas.addEventListener('pointermove', function (e) {
+      if (!self._drag && !self._painted) return;
+      const p = self._pos(e);
+      if (self.isDrums()) self._drumMove(p);
+      else self._noteMove(p);
+      self.draw();
+    });
+
+    function end(e) {
+      if (self._drag || self._painted) {
+        self._drag = null;
+        self._painted = null;
+        self.onChange();
+      }
+      try { self.canvas.releasePointerCapture(e.pointerId); } catch (err) { /* already gone */ }
+    }
+    this.canvas.addEventListener('pointerup', end);
+    this.canvas.addEventListener('pointercancel', end);
+  };
+
+  Editor.prototype._noteDown = function (p) {
+    const beat = this.beatOfX(p.x);
+    const row = this.rowOfY(p.y);
+    if (row < 0 || row >= this.rows) return;
+    const pitch = this.pitchOfRow(row);
+    const hit = this.noteAt(beat, pitch);
+
+    if (this.tool === 'erase') {
+      if (hit) this.remove(hit);
+      return;
+    }
+    if (hit) {
+      // Near the right edge means resize, anywhere else means move.
+      const rightEdge = this.xOfBeat(hit.t + hit.d);
+      this._drag = (p.x > rightEdge - 10)
+        ? { mode: 'resize', ev: hit }
+        : { mode: 'move', ev: hit, grabBeat: beat - hit.t };
+      return;
+    }
+    const t = this.quantize(beat);
+    const ev = { t: t, d: this.noteLen, p: this.snapPitch(pitch), v: 0.8 };
+    this.getSong().tracks[this.track].push(ev);
+    this._drag = { mode: 'resize', ev: ev };
+  };
+
+  Editor.prototype._noteMove = function (p) {
+    const d = this._drag;
+    if (!d) return;
+    const beat = this.beatOfX(p.x);
+    if (d.mode === 'resize') {
+      d.ev.d = Math.max(this.snap, this.quantize(beat - d.ev.t + this.snap * 0.5));
+    } else {
+      const row = this.rowOfY(p.y);
+      if (row >= 0 && row < this.rows) d.ev.p = this.snapPitch(this.pitchOfRow(row));
+      d.ev.t = this.quantize(beat - d.grabBeat);
+    }
+    const total = this.getSong().totalBeats;
+    if (d.ev.t + d.ev.d > total) d.ev.t = Math.max(0, total - d.ev.d);
+  };
+
+  Editor.prototype._drumDown = function (p) {
+    const rows = this.drumRows();
+    const r = this.rowOfY(p.y);
+    if (r < 0 || r >= rows.length) return;
+    const inst = rows[r];
+    const beat = Math.round(this.beatOfX(p.x) / STEP_BEATS) * STEP_BEATS;
+    const key = inst + '@' + beat;
+    this._painted[key] = true;
+    const hit = this.drumAt(beat, inst);
+    if (this.tool === 'erase') {
+      if (hit) {
+        const arr = this.getSong().tracks.drums;
+        arr.splice(arr.indexOf(hit), 1);
+      }
+      return;
+    }
+    if (hit) {
+      const arr = this.getSong().tracks.drums;
+      arr.splice(arr.indexOf(hit), 1);      // tap an existing hit to clear it
+    } else {
+      this.getSong().tracks.drums.push({ t: beat, d: 0.25, p: 60, v: 0.85, inst: inst });
+    }
+  };
+
+  Editor.prototype._drumMove = function (p) {
+    const rows = this.drumRows();
+    const r = this.rowOfY(p.y);
+    if (r < 0 || r >= rows.length) return;
+    const inst = rows[r];
+    const beat = Math.round(this.beatOfX(p.x) / STEP_BEATS) * STEP_BEATS;
+    const key = inst + '@' + beat;
+    if (this._painted[key]) return;         // dragging paints each cell once
+    this._painted[key] = true;
+    const hit = this.drumAt(beat, inst);
+    const arr = this.getSong().tracks.drums;
+    if (this.tool === 'erase') {
+      if (hit) arr.splice(arr.indexOf(hit), 1);
+    } else if (!hit) {
+      arr.push({ t: beat, d: 0.25, p: 60, v: 0.85, inst: inst });
+    }
+  };
+
+  /* ------------------------------------------------------------------ *
+   * Navigation
+   * ------------------------------------------------------------------ */
+
+  Editor.prototype.setTrack = function (name) {
+    this.track = name;
+    this.refit();
+  };
+
+  Editor.prototype.scrollTo = function (bar) {
+    this.startBar = Math.max(0, Math.min(this.maxStartBar(), Math.round(bar)));
+  };
+
+  /** Keep the playhead in view while the song plays. */
+  Editor.prototype.followPlayhead = function () {
+    if (!this.follow || !this.player.playing) return;
+    const bar = Math.floor(this.player.currentBeat() / BEATS_PER_BAR);
+    if (bar < this.startBar || bar >= this.startBar + this.bars) {
+      this.scrollTo(Math.floor(bar / this.bars) * this.bars);
+      return true;
+    }
+    return false;
+  };
+
+  Editor.prototype.clearTrack = function () {
+    const arr = this.getSong().tracks[this.track];
+    arr.length = 0;
+    this.onChange();
+  };
+
+  global.Editor = Editor;
+  global.Editor.DRUM_ROWS = DRUM_ROWS;
+})(window);
+
+
 /* ==== app.js ==== */
 /*
  * app.js — the interface: settings, transport, mixer, the scrolling note
@@ -3438,8 +4156,12 @@ input[type="range"]::-moz-range-thumb {
     bpm: 0,           // 0 = auto
     song: null,
     seekDragging: false,
-    seedEdited: false     // true once the user types their own seed
+    seedEdited: false,    // true once the user types their own seed
+    locked: {},           // parts protected from "re-roll every part"
+    edited: {}            // parts the user has drawn on
   };
+
+  let editor = null;
 
   const player = new E.Player();
 
@@ -3566,14 +4288,24 @@ input[type="range"]::-moz-range-thumb {
     }
 
     state.song = song;
+    window.__song = song;          // handle for the test suites
+    state.locked = {};
+    state.edited = {};
     player.load(song);
 
     el('songPanel').hidden = false;
+    el('editPanel').hidden = false;
     el('mixPanel').hidden = false;
     el('exportPanel').hidden = false;
 
     renderSong();
     buildMixer();
+    if (editor) {
+      editor.startBar = 0;
+      editor.setTrack(editor.track);
+      editor.resize();
+      syncEditUI();
+    }
     updateHash();
 
     if (opts.autoplay !== false) {
@@ -3626,12 +4358,29 @@ input[type="range"]::-moz-range-thumb {
       const events = state.song.tracks[meta.id] || [];
       const row = document.createElement('div');
       row.className = 'track' + (events.length ? '' : ' silent');
+      row.dataset.id = meta.id;
 
       const name = document.createElement('div');
       name.className = 'track-name';
       name.innerHTML = '<span class="dot" style="background:' + meta.color +
         ';box-shadow:0 0 8px ' + meta.color + '"></span>' + meta.label;
       row.appendChild(name);
+
+      const lock = document.createElement('button');
+      lock.type = 'button';
+      lock.className = 'lock-btn' + (state.locked[meta.id] ? ' on' : '');
+      lock.textContent = state.locked[meta.id] ? '🔒' : '🔓';
+      lock.title = 'Protect ' + meta.label.toLowerCase() + ' from a re-roll of everything';
+      lock.setAttribute('aria-label', 'Lock ' + meta.label);
+      lock.addEventListener('click', function () {
+        const next = !state.locked[meta.id];
+        state.locked[meta.id] = next;
+        lock.textContent = next ? '🔒' : '🔓';
+        lock.classList.toggle('on', next);
+        status(meta.label + (next ? ' locked — a re-roll of everything will leave it alone.'
+                                  : ' unlocked.'));
+      });
+      row.appendChild(lock);
 
       const mute = document.createElement('button');
       mute.type = 'button';
@@ -3667,14 +4416,153 @@ input[type="range"]::-moz-range-thumb {
       reroll.setAttribute('aria-label', 'Re-roll ' + meta.label);
       reroll.addEventListener('click', function () {
         C.rerollPart(state.song, meta.id);
+        state.edited[meta.id] = false;
         player.refresh();
         markRollDirty();
+        if (editor && editor.track === meta.id) editor.refit();
         row.classList.toggle('silent', (state.song.tracks[meta.id] || []).length === 0);
+        syncEditUI();
         status('New ' + meta.label.toLowerCase() + ' written.');
       });
       row.appendChild(reroll);
 
       box.appendChild(row);
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Note editor
+   * ------------------------------------------------------------------ */
+
+  function colorFor(id) {
+    for (let i = 0; i < TRACK_META.length; i++) if (TRACK_META[i].id === id) return TRACK_META[i].color;
+    return '#00e5ff';
+  }
+
+  function buildEditor() {
+    editor = new window.Editor({
+      canvas: el('editor'),
+      getSong: function () { return state.song; },
+      player: player,
+      colorFor: colorFor,
+      onChange: function () {
+        state.edited[editor.track] = true;
+        player.refresh();
+        markRollDirty();
+        syncEditUI();
+      }
+    });
+
+    const chips = el('editTracks');
+    TRACK_META.forEach(function (meta) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chip' + (meta.id === editor.track ? ' on' : '');
+      b.dataset.id = meta.id;
+      b.setAttribute('role', 'radio');
+      b.innerHTML = '<span class="dot" style="background:' + meta.color +
+        ';box-shadow:0 0 8px ' + meta.color + '"></span>' + meta.label;
+      b.addEventListener('click', function () {
+        editor.setTrack(meta.id);
+        syncEditUI();
+        status('Editing ' + meta.label.toLowerCase() +
+          (meta.id === 'drums' ? ' — tap the grid to add or remove hits.'
+                               : ' — draw notes, drag the right edge to lengthen.'));
+      });
+      chips.appendChild(b);
+    });
+
+    function setTool(t) {
+      editor.tool = t;
+      el('toolDraw').classList.toggle('on', t === 'draw');
+      el('toolErase').classList.toggle('on', t === 'erase');
+      el('editor').classList.toggle('erasing', t === 'erase');
+    }
+    el('toolDraw').addEventListener('click', function () { setTool('draw'); });
+    el('toolErase').addEventListener('click', function () { setTool('erase'); });
+
+    el('snapSelect').addEventListener('change', function () { editor.snap = parseFloat(this.value); });
+    el('lenSelect').addEventListener('change', function () { editor.noteLen = parseFloat(this.value); });
+
+    el('inKeyBtn').addEventListener('click', function () {
+      editor.inKey = !editor.inKey;
+      this.classList.toggle('on', editor.inKey);
+      status(editor.inKey ? 'Notes you draw will fit the key.' : 'Free drawing — any note, in key or not.');
+    });
+    el('followBtn').addEventListener('click', function () {
+      editor.follow = !editor.follow;
+      this.classList.toggle('on', editor.follow);
+    });
+
+    el('barPrev').addEventListener('click', function () {
+      editor.scrollTo(editor.startBar - editor.bars);
+      syncEditUI();
+    });
+    el('barNext').addEventListener('click', function () {
+      editor.scrollTo(editor.startBar + editor.bars);
+      syncEditUI();
+    });
+    el('barScroll').addEventListener('input', function () {
+      editor.follow = false;
+      el('followBtn').classList.remove('on');
+      editor.scrollTo(parseInt(this.value, 10));
+    });
+    el('zoomSelect').addEventListener('change', function () {
+      editor.bars = parseInt(this.value, 10);
+      editor.scrollTo(editor.startBar);
+      syncEditUI();
+    });
+
+    el('clearTrackBtn').addEventListener('click', function () {
+      if (!state.song) return;
+      const label = colorLabel(editor.track);
+      editor.clearTrack();
+      status(label + ' cleared — draw your own, or re-roll it in the mixer.');
+    });
+
+    el('developBtn').addEventListener('click', function () {
+      if (!state.song) return;
+      const label = colorLabel(editor.track);
+      if (editor.track === 'drums') {
+        status('Develop works on the melodic parts — try it on the lead, bass or arp.', true);
+        return;
+      }
+      const ok = C.developPart(state.song, editor.track);
+      if (!ok) {
+        status('Draw a few more notes first — it needs an idea to develop.', true);
+        return;
+      }
+      state.edited[editor.track] = true;
+      player.refresh();
+      markRollDirty();
+      syncEditUI();
+      status('Your idea now runs through the whole song\u2019s ' + label.toLowerCase() + '.');
+    });
+
+    window.__editor = editor;      // handle for the test suites
+    window.addEventListener('resize', function () { editor.resize(); });
+    editor.resize();
+  }
+
+  function colorLabel(id) {
+    for (let i = 0; i < TRACK_META.length; i++) if (TRACK_META[i].id === id) return TRACK_META[i].label;
+    return id;
+  }
+
+  function syncEditUI() {
+    if (!editor || !state.song) return;
+    Array.prototype.forEach.call(el('editTracks').children, function (b) {
+      const on = b.dataset.id === editor.track;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+    const scroll = el('barScroll');
+    scroll.max = String(editor.maxStartBar());
+    scroll.value = String(editor.startBar);
+    el('developBtn').disabled = editor.track === 'drums';
+    // The mixer shows which parts have been touched by hand.
+    Array.prototype.forEach.call(el('mixer').children, function (row) {
+      row.classList.toggle('edited', !!state.edited[row.dataset.id]);
     });
   }
 
@@ -3911,6 +4799,11 @@ input[type="range"]::-moz-range-thumb {
         }
       }
       drawRoll();
+
+      if (editor) {
+        if (editor.followPlayhead()) el('barScroll').value = String(editor.startBar);
+        editor.draw();
+      }
     }
     requestAnimationFrame(frame);
   }
@@ -4124,6 +5017,7 @@ input[type="range"]::-moz-range-thumb {
     bindSongActions();
     bindHelp();
     bindRollSeek();
+    buildEditor();
     renderLibrary();
 
     el('generateBtn').addEventListener('click', function () {
@@ -4131,10 +5025,19 @@ input[type="range"]::-moz-range-thumb {
     });
     el('rerollAllBtn').addEventListener('click', function () {
       if (!state.song) { generate(); return; }
-      E.TRACKS.forEach(function (t) { C.rerollPart(state.song, t); });
+      const kept = [];
+      E.TRACKS.forEach(function (t) {
+        if (state.locked[t]) { kept.push(colorLabel(t).toLowerCase()); return; }
+        C.rerollPart(state.song, t);
+        state.edited[t] = false;
+      });
       player.refresh();
       markRollDirty();
-      status('Every part rewritten — same chords, new performance.');
+      if (editor) editor.refit();
+      syncEditUI();
+      status(kept.length
+        ? 'Rewritten around your locked ' + kept.join(' and ') + '.'
+        : 'Every part rewritten — same chords, new performance.');
     });
 
     window.addEventListener('resize', function () { resizeRoll(); });

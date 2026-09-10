@@ -102,17 +102,80 @@
     </div>
   </section>
 
+
+  <!-- ---------------------------------------------------------------- -->
+  <section class="panel" id="editPanel" hidden>
+    <h2 class="panel-title">2 · Edit the notes</h2>
+    <p class="panel-hint">
+      Draw on the grid to change the song. Rows that belong to the song's key are lit up, and
+      with <strong>In key</strong> on, anything you draw lands on a note that fits.
+    </p>
+
+    <div class="chips edit-tracks" id="editTracks" role="radiogroup" aria-label="Part to edit"></div>
+
+    <div class="edit-tools">
+      <div class="tool-group" role="group" aria-label="Tool">
+        <button type="button" class="mini-btn toggle on" id="toolDraw">✎ Draw</button>
+        <button type="button" class="mini-btn toggle" id="toolErase">⌫ Erase</button>
+      </div>
+      <label class="tool-field" for="snapSelect"><span>Snap</span>
+        <select id="snapSelect">
+          <option value="1">1/4</option>
+          <option value="0.5">1/8</option>
+          <option value="0.25" selected>1/16</option>
+        </select>
+      </label>
+      <label class="tool-field" for="lenSelect"><span>Length</span>
+        <select id="lenSelect">
+          <option value="0.25">1/16</option>
+          <option value="0.5">1/8</option>
+          <option value="1" selected>1/4</option>
+          <option value="2">1/2</option>
+          <option value="4">Bar</option>
+        </select>
+      </label>
+      <button type="button" class="mini-btn toggle on" id="inKeyBtn" title="Snap what you draw to the song's key">♪ In key</button>
+      <button type="button" class="mini-btn toggle on" id="followBtn" title="Scroll along with the music">Follow</button>
+    </div>
+
+    <canvas id="editor" class="editor" aria-label="Note editor"></canvas>
+
+    <div class="edit-nav">
+      <button type="button" class="mini-btn" id="barPrev" aria-label="Earlier bars">◀</button>
+      <input type="range" id="barScroll" min="0" max="0" value="0" step="1" aria-label="Position in bars" />
+      <button type="button" class="mini-btn" id="barNext" aria-label="Later bars">▶</button>
+      <select id="zoomSelect" aria-label="Bars shown">
+        <option value="2">2 bars</option>
+        <option value="4" selected>4 bars</option>
+        <option value="8">8 bars</option>
+      </select>
+    </div>
+
+    <div class="export-row">
+      <button type="button" class="wide-btn" id="developBtn">✨ Develop my idea</button>
+      <button type="button" class="wide-btn" id="clearTrackBtn">Clear this part</button>
+    </div>
+    <p class="panel-hint">
+      <strong>Develop my idea</strong> reads the notes you drew, then rewrites this part across the
+      whole song from them — repeating your idea, answering it, turning it upside down. It is how
+      what you play teaches the generator.
+    </p>
+  </section>
+
   <!-- ---------------------------------------------------------------- -->
   <section class="panel" id="mixPanel" hidden>
-    <h2 class="panel-title">2 · Shape the mix</h2>
-    <p class="panel-hint">Re-roll rewrites just that one part and keeps everything else.</p>
+    <h2 class="panel-title">3 · Shape the mix</h2>
+    <p class="panel-hint">
+      Re-roll rewrites just that one part and keeps everything else. Lock a part
+      (🔓) to protect it — locked parts survive a re-roll of everything.
+    </p>
     <div class="mixer" id="mixer"></div>
     <button type="button" class="wide-btn" id="rerollAllBtn">🎲 Re-roll every part</button>
   </section>
 
   <!-- ---------------------------------------------------------------- -->
   <section class="panel" id="exportPanel" hidden>
-    <h2 class="panel-title">3 · Take it with you</h2>
+    <h2 class="panel-title">4 · Take it with you</h2>
     <div class="export-row">
       <button type="button" class="wide-btn" id="wavBtn">⬇ Download audio (.wav)</button>
       <button type="button" class="wide-btn" id="midiBtn">⬇ Download MIDI (.mid)</button>
@@ -155,6 +218,9 @@
     <h3>Tips</h3>
     <ul>
       <li>If one part bothers you, hit <strong>Re-roll</strong> on just that row.</li>
+      <li>Draw your own notes in <strong>Edit the notes</strong>, then press
+          <strong>Develop my idea</strong> and the generator builds the song around what you wrote.</li>
+      <li><strong>Lock</strong> a part you like so re-rolling everything leaves it alone.</li>
       <li>Mute the drums for a version you can talk over.</li>
       <li>Download the MIDI to keep writing in real music software.</li>
     </ul>
@@ -171,6 +237,7 @@
 <script src="js/synth.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/export.js"></script>
+<script src="js/editor.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

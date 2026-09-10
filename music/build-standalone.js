@@ -18,7 +18,8 @@ const fs = require('fs');
 const path = require('path');
 
 const DIR = __dirname;
-const JS_ORDER = ['theory.js', 'genres.js', 'composer.js', 'synth.js', 'engine.js', 'export.js', 'app.js'];
+const JS_ORDER = ['theory.js', 'genres.js', 'composer.js', 'synth.js', 'engine.js', 'export.js',
+                  'editor.js', 'app.js'];
 
 const FONTS =
   '<link rel="preconnect" href="https://fonts.googleapis.com" />\n' +

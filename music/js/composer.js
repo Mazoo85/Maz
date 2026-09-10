@@ -542,14 +542,21 @@
     return out;
   }
 
-  function composeLead(song, rng) {
+  function composeLead(song, rng, opts) {
     const genre = song.genre;
     const octave = genre.lead.octave;
     const density = Math.max(0.15, Math.min(0.95, genre.lead.density + song.mood.density));
     const events = [];
     const motifBars = 2;
 
-    const motifs = {
+    // A motif handed in came from notes the user drew: develop that idea
+    // everywhere instead of inventing three of our own.
+    const given = opts && opts.motif;
+    const motifs = given ? {
+      verse: given,
+      chorus: transformMotif(rng, given, 'transpose'),
+      bridge: transformMotif(rng, given, 'invert')
+    } : {
       verse: makeMotif(rng, density * 0.85, motifBars),
       chorus: makeMotif(rng, density, motifBars),
       bridge: makeMotif(rng, density * 0.7, motifBars)
@@ -597,6 +604,66 @@
       }
     }
     return applyFeel(events, song, rng, 0.5);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Learning from the person using it
+   *
+   * This is the loop that makes the editor and the composer one program
+   * rather than two: notes someone drew by hand come back in as a motif, and
+   * the composer develops that idea across the whole song the same way it
+   * develops one of its own.
+   * ------------------------------------------------------------------ */
+
+  /** Nearest scale-degree index for a pitch, counting octaves (so 7 = an octave up). */
+  function pitchToDegree(song, pitch) {
+    const steps = song.scaleSteps;
+    const rootMidi = T.midi(song.rootPc, 4);
+    const rel = pitch - rootMidi;
+    const oct = Math.floor(rel / 12);
+    const pc = ((rel % 12) + 12) % 12;
+    let best = 0, bestD = 99;
+    for (let i = 0; i < steps.length; i++) {
+      const d = Math.abs(steps[i] - pc);
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    return oct * steps.length + best;
+  }
+
+  /**
+   * Turn hand-drawn notes into a motif: their rhythm, and the shape of the
+   * line as scale steps away from its first note. Returns null when there is
+   * not enough to work with.
+   */
+  function motifFromEvents(song, events, bars) {
+    bars = bars || 2;
+    if (!events || events.length < 2) return null;
+    const span = bars * BEATS_PER_BAR;
+
+    // Take the busiest window of `bars` bars — that is where the idea is.
+    let bestStart = 0, bestCount = 0;
+    for (let b = 0; b * BEATS_PER_BAR < song.totalBeats; b += bars) {
+      const start = b * BEATS_PER_BAR;
+      let n = 0;
+      for (let i = 0; i < events.length; i++) {
+        if (events[i].t >= start && events[i].t < start + span) n++;
+      }
+      if (n > bestCount) { bestCount = n; bestStart = start; }
+    }
+    if (bestCount < 2) return null;
+
+    const win = events
+      .filter(function (e) { return e.t >= bestStart && e.t < bestStart + span; })
+      .sort(function (a, b) { return a.t - b.t; });
+
+    const base = pitchToDegree(song, win[0].p);
+    return win.map(function (e) {
+      return {
+        step: Math.max(0, Math.round((e.t - bestStart) / STEP_BEATS)),
+        dur: Math.max(1, Math.round(e.d / STEP_BEATS)),
+        contour: pitchToDegree(song, e.p) - base
+      };
+    });
   }
 
   /* ------------------------------------------------------------------ *
@@ -700,23 +767,38 @@
     arp: composeArp, lead: composeLead, pad: composePad
   };
 
-  function generatePart(song, part, seed) {
+  function generatePart(song, part, seed, opts) {
     const rng = new T.Rng(seed);
-    return PART_FN[part](song, rng);
+    return PART_FN[part](song, rng, opts);
   }
 
   /** Re-roll a single part with a fresh sub-seed, leaving the rest of the song intact. */
-  function rerollPart(song, part) {
+  function rerollPart(song, part, opts) {
     const nonce = Math.floor(Math.random() * 1e6);
     song.partSeeds[part] = song.seed + ':' + part + ':' + nonce;
-    song.tracks[part] = generatePart(song, part, song.partSeeds[part]);
+    song.tracks[part] = generatePart(song, part, song.partSeeds[part], opts);
     return song.tracks[part];
+  }
+
+  /**
+   * Develop what the user drew: read a motif out of the part's current notes,
+   * then rewrite the part across the whole song from that idea. Returns false
+   * when there is not enough drawn to learn from.
+   */
+  function developPart(song, part) {
+    const motif = motifFromEvents(song, song.tracks[part] || []);
+    if (!motif) return false;
+    rerollPart(song, part, { motif: motif });
+    return true;
   }
 
   global.Composer = {
     compose: compose,
     rerollPart: rerollPart,
+    developPart: developPart,
     generatePart: generatePart,
+    motifFromEvents: motifFromEvents,
+    pitchToDegree: pitchToDegree,
     chordAt: chordAt,
     sectionOf: sectionOf,
     BEATS_PER_BAR: BEATS_PER_BAR,

@@ -71,8 +71,27 @@ function launchOptions() {
   const page = await browser.newPage({ viewport: { width: 900, height: 1000 } });
 
   const errors = [];
-  page.on('pageerror', function (e) { errors.push('pageerror: ' + e.message); });
-  page.on('console', function (m) { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+  const offlineFonts = [];
+  /* The page pulls its display faces from Google Fonts and falls back cleanly
+     when they don't arrive. A failed request is tolerated only when it is one
+     of those font URLs; anything else is still an error. */
+  function isFontHost(url) {
+    return /^https:\/\/fonts\.(googleapis|gstatic)\.com\//.test(url);
+  }
+  function watch(p, label) {
+    p.on('pageerror', function (e) { errors.push(label + 'pageerror: ' + e.message); });
+    p.on('requestfailed', function (r) {
+      if (isFontHost(r.url())) offlineFonts.push(r.url());
+      else errors.push(label + 'request failed: ' + r.url());
+    });
+    p.on('console', function (m) {
+      if (m.type() !== 'error') return;
+      const text = m.text();
+      if (/Failed to load resource/.test(text)) return;   // covered by requestfailed
+      errors.push(label + 'console: ' + text);
+    });
+  }
+  watch(page, '');
 
   await page.goto(base, { waitUntil: 'networkidle' });
 
@@ -209,7 +228,7 @@ function launchOptions() {
 
   console.log('\n— phone viewport —');
   const phone = await browser.newPage({ viewport: { width: 390, height: 780 }, isMobile: true, hasTouch: true });
-  phone.on('pageerror', function (e) { errors.push('phone pageerror: ' + e.message); });
+  watch(phone, 'phone ');
   await phone.goto(base, { waitUntil: 'networkidle' });
   await phone.click('#generateBtn');
   await phone.waitForTimeout(700);
@@ -232,6 +251,10 @@ function launchOptions() {
   console.log('\n— console —');
   check(errors.length === 0, 'no page errors' +
     (errors.length ? ':\n    ' + errors.slice(0, 8).join('\n    ') : ''));
+  if (offlineFonts.length) {
+    console.log('  note   web fonts unreachable here (' + offlineFonts.length +
+      ' request(s)); the page fell back to its system stack');
+  }
 
   await browser.close();
   server.close();

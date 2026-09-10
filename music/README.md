@@ -29,8 +29,16 @@ python3 -m http.server         # or serve the folder: http://localhost:8000/musi
   brighter or darker scales, busier or sparser parts, more or less air.
 - **Real arrangement** — sections have different energy, so the chorus is
   fuller than the verse, the intro holds back, and fills land at section ends.
+- **Edit every note by hand.** A piano roll for the melodic parts and a step
+  grid for the drums. Draw, drag, lengthen, erase. Rows in the song's key are
+  lit, and with *In key* on, anything you draw fits.
+- **Develop my idea** — draw a few notes, press it, and the generator reads
+  your motif and builds the whole part around it: repeating it, answering it,
+  turning it upside down. This is the loop that makes the two halves one
+  program rather than two.
 - **Re-roll any single part.** Don't like the melody? Rewrite just the melody
   over the same chords. Everything else stays exactly as it was.
+- **Lock a part** you like, and a re-roll of everything writes around it.
 - **Mixer** — mute or rebalance drums, bass, chords, arp, lead and pad.
 - **Export** — download the finished track as a **.wav**, or the notes as a
   **.mid** you can open in GarageBand, Ableton, FL Studio, Logic or MuseScore.
@@ -97,6 +105,7 @@ music/js/composer.js  # writes the song — structure, harmony, and every part
 music/js/synth.js     # Web Audio instruments and drum kits, all synthesised
 music/js/engine.js    # mixer graph, look-ahead scheduler, offline render
 music/js/export.js    # .wav encoder and standard MIDI file writer
+music/js/editor.js    # the piano roll and drum grid you draw on
 music/js/app.js       # interface, transport, mixer, note timeline
 
 music/build-standalone.js  # folds all of the above into one file
@@ -111,6 +120,12 @@ sources, so the one you hand someone is always the one in the repo.
 score is plain data (`{ t, d, p, v }` in beats), which is why the same code path
 can play live, render an export, and write a MIDI file.
 
+The editor writes into those same arrays. A note you draw is indistinguishable
+from a note the composer wrote, so it plays, renders and exports with no special
+handling — and `Composer.motifFromEvents` can read your notes back out as a
+motif and develop them. That is the whole merge: one score, written from both
+ends.
+
 ## Tests
 
 Two suites live in `music/tests/`:
@@ -123,6 +138,11 @@ npx --prefix music/tests playwright install chromium
 node music/tests/music-browser.test.js     # real browser: UI, playback, audio, exports
 node music/tests/standalone.test.js       # the built single file, opened from disk
 ```
+
+The standalone suite also covers the editor: it clicks the grid to draw a note,
+checks the note lands in key, erases it again, taps the drum grid, feeds a
+hand-drawn motif through *Develop my idea* and checks the shape survives, and
+confirms a locked part outlives a re-roll of everything.
 
 The logic suite checks every genre × mood × length combination for gapless
 harmony, in-range pitches, chords that don't contradict themselves, and that a
