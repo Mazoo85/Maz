@@ -106,6 +106,13 @@
 
     <canvas id="roll" class="roll" aria-label="Note timeline"></canvas>
 
+    <div class="arrange-wrap">
+      <div class="arrange" id="arrange" aria-label="Arrangement"></div>
+      <p class="panel-hint arrange-hint">
+        Copy a chorus, drop a verse, or move a section — every part moves with it.
+      </p>
+    </div>
+
     <div class="transport">
       <button type="button" class="play-btn" id="playBtn" aria-label="Play">
         <span id="playIcon">▶</span>
@@ -158,6 +165,12 @@
       </div>
       <label class="tool-field" for="soundSelect"><span>Sound</span>
         <select id="soundSelect"></select>
+      </label>
+      <label class="tool-field send" for="revSend"><span>Reverb</span>
+        <input type="range" id="revSend" min="0" max="200" step="5" value="100" aria-label="Reverb for this part" />
+      </label>
+      <label class="tool-field send" for="delSend"><span>Delay</span>
+        <input type="range" id="delSend" min="0" max="200" step="5" value="100" aria-label="Delay for this part" />
       </label>
     </div>
 

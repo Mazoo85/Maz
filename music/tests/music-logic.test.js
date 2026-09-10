@@ -248,6 +248,130 @@ Object.keys(Genres.GENRES).forEach(function (gid) {
   check(song.bpm === 220, 'a silly fast one too (' + song.bpm + ')');
 })();
 
+/* --- changing a chord: harmony moves, rhythm does not --- */
+(function () {
+  const song = Composer.compose({ seed: 'CHORD-1', genre: 'lofi', length: 'medium' });
+  const idx = 2;
+  const chord = song.chords[idx];
+  const from = chord.startBeat - 0.05, to = chord.startBeat + chord.durBeats - 0.05;
+  function span(t) {
+    return song.tracks[t].filter(function (e) { return e.t >= from && e.t < to; });
+  }
+  const beforeName = chord.name;
+  const beforeTimes = {};
+  const beforeCounts = {};
+  ['chords', 'bass', 'arp', 'lead', 'pad'].forEach(function (t) {
+    beforeTimes[t] = span(t).map(function (e) { return e.t + ':' + e.d; }).join('|');
+    beforeCounts[t] = span(t).length;
+  });
+  const bassIntervals = span('bass').map(function (e) { return e.p - chord.rootPitch; });
+  const outsideBefore = song.tracks.lead
+    .filter(function (e) { return e.t < from; })
+    .map(function (e) { return e.p; }).join(',');
+
+  const newDegree = (chord.degree + 3) % 7;
+  check(Composer.setChordDegree(song, idx, newDegree), 'a chord can be changed');
+  check(song.chords[idx].name !== beforeName,
+    'the chord itself changes (' + beforeName + ' → ' + song.chords[idx].name + ')');
+  check(song.chords[idx].degree === newDegree, 'to the degree we asked for');
+
+  ['chords', 'bass', 'arp', 'lead', 'pad'].forEach(function (t) {
+    check(span(t).length === beforeCounts[t], t + ': no notes gained or lost');
+    check(span(t).map(function (e) { return e.t + ':' + e.d; }).join('|') === beforeTimes[t],
+      t + ': every rhythm is untouched');
+  });
+
+  const afterIntervals = span('bass').map(function (e) { return e.p - song.chords[idx].rootPitch; });
+  check(JSON.stringify(afterIntervals) === JSON.stringify(bassIntervals),
+    'the bass keeps its role against the new root');
+
+  check(song.tracks.lead.filter(function (e) { return e.t < from; })
+    .map(function (e) { return e.p; }).join(',') === outsideBefore,
+    'and nothing outside the chord moves at all');
+
+  // Whatever it lands on has to be a real chord.
+  const c = song.chords[idx];
+  const set = {};
+  c.pitches.forEach(function (x) { set[((x - c.pitches[0]) % 12 + 12) % 12] = true; });
+  check(!(set[6] && set[7]) && !(set[3] && set[4]), 'the new chord does not contradict itself');
+  check(Composer.setChordDegree(song, 999, 0) === false, 'a chord that is not there is refused');
+})();
+
+/* --- arranging: sections move as whole blocks, nothing is lost --- */
+(function () {
+  function totalNotes(song) {
+    return Object.keys(song.tracks).reduce(function (a, t) { return a + song.tracks[t].length; }, 0);
+  }
+  function tiles(song, label) {
+    // Every section must butt up against the next with no gap or overlap.
+    let bar = 0, ok = true;
+    song.sections.forEach(function (sec) {
+      if (sec.startBar !== bar) ok = false;
+      bar += sec.bars;
+    });
+    check(ok, label + ': sections tile the song with no gaps');
+    check(bar === song.bars, label + ': the bar count matches the sections (' + bar + ' vs ' + song.bars + ')');
+    check(Math.abs(song.totalBeats - song.bars * 4) < 1e-6, label + ': beats match bars');
+    let inRange = true;
+    Object.keys(song.tracks).forEach(function (t) {
+      song.tracks[t].forEach(function (e) { if (e.t < -0.1 || e.t >= song.totalBeats) inRange = false; });
+    });
+    check(inRange, label + ': every note lands inside the song');
+    let chordsTile = true, cursor = 0;
+    song.chords.forEach(function (c) {
+      if (Math.abs(c.startBeat - cursor) > 0.001) chordsTile = false;
+      cursor = c.startBeat + c.durBeats;
+    });
+    check(chordsTile && Math.abs(cursor - song.totalBeats) < 0.001,
+      label + ': the harmony still tiles the whole song');
+  }
+
+  const song = Composer.compose({ seed: 'ARRANGE-1', genre: 'synthwave', length: 'medium' });
+  const startSections = song.sections.length;
+  const startBars = song.bars;
+  const startNotes = totalNotes(song);
+  tiles(song, 'as composed');
+
+  // Duplicate a chorus.
+  const chorusAt = song.sections.findIndex(function (s2) { return s2.type === 'chorus'; });
+  const chorusBars = song.sections[chorusAt].bars;
+  const chorusNotes = Object.keys(song.tracks).reduce(function (a, t) {
+    const from = song.sections[chorusAt].startBar * 4;
+    return a + song.tracks[t].filter(function (e) {
+      return e.t >= from - 0.05 && e.t < from + chorusBars * 4 - 0.05;
+    }).length;
+  }, 0);
+  check(Composer.duplicateSection(song, chorusAt), 'a chorus can be duplicated');
+  check(song.sections.length === startSections + 1, 'the song gains a section');
+  check(song.bars === startBars + chorusBars, 'and gains its bars (' + startBars + ' → ' + song.bars + ')');
+  check(totalNotes(song) === startNotes + chorusNotes,
+    'the copy brings its notes with it (+' + chorusNotes + ')');
+  check(song.sections[chorusAt + 1].type === 'chorus', 'the copy lands right after the original');
+  tiles(song, 'after duplicating');
+
+  // Delete it again and we should be back where we started.
+  check(Composer.deleteSection(song, chorusAt + 1), 'and it can be deleted again');
+  check(song.bars === startBars, 'back to the original length');
+  check(totalNotes(song) === startNotes, 'and the original note count');
+  tiles(song, 'after deleting');
+
+  // Reorder.
+  const before2 = song.sections.map(function (s2) { return s2.type; }).join(',');
+  check(Composer.moveSection(song, 1, 1), 'a section can be moved');
+  const after2 = song.sections.map(function (s2) { return s2.type; }).join(',');
+  check(before2 !== after2, 'the running order changes (' + before2 + ' → ' + after2 + ')');
+  check(totalNotes(song) === startNotes, 'moving loses nothing');
+  tiles(song, 'after moving');
+
+  // Guard rails.
+  check(Composer.moveSection(song, 0, -1) === false, 'the first section cannot move up');
+  check(Composer.moveSection(song, song.sections.length - 1, 1) === false, 'nor the last one down');
+  const tiny = Composer.compose({ seed: 'ARRANGE-2', genre: 'lofi', length: 'short' });
+  while (tiny.sections.length > 1) Composer.deleteSection(tiny, 0);
+  check(Composer.deleteSection(tiny, 0) === false, 'a song cannot be emptied of every section');
+  check(tiny.bars > 0, 'and it still has bars left');
+})();
+
 /* --- re-rolling one part leaves the others alone --- */
 const s = Composer.compose({ seed: 'REROLL-1', genre: 'synthwave', mood: 'driving' });
 const beforeLead = JSON.stringify(s.tracks.lead);

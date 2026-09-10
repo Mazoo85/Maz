@@ -340,6 +340,70 @@ function launchOptions() {
   check(Math.abs(pump.ambient.on.ratio - pump.ambient.off.ratio) < 0.02,
     'and ambient is unchanged either way');
 
+  console.log('\n— per-track reverb and delay sends —');
+  const sends = await page.evaluate(async function () {
+    /* One part, one genre, three settings. If the send does nothing, all three
+       renders come back the same; if it works, the wet one is longer and louder
+       and the muted one is silent no matter how high the send is turned up. */
+    async function render(revAmt, muted) {
+      /* Cinematic: a long reverb and no tape-noise bed, so what comes out of
+         the master really is the pad and its sends and nothing else. */
+      const song = window.Composer.compose({ seed: 'SENDS-1', genre: 'cinematic', length: 'short' });
+      song.presetOverride = {};
+      // Short enough to render fast, long enough for a reverb tail to show.
+      Object.keys(song.tracks).forEach(function (k) {
+        song.tracks[k] = song.tracks[k].filter(function (e) { return e.t < 24; });
+      });
+      let lastEnd = 0;
+      song.tracks.pad.forEach(function (e) { lastEnd = Math.max(lastEnd, e.t + e.d); });
+      song.totalBeats = Math.ceil(lastEnd) + 1;   // so the render always covers the tail
+      const mix = {};
+      window.Engine.TRACKS.forEach(function (t) {
+        mix[t] = { volume: 1, muted: t !== 'pad', solo: false, rev: 1, del: 1 };
+      });
+      mix.pad.rev = revAmt;
+      if (muted) mix.pad.muted = true;
+      const buf = await window.Engine.renderOffline(song, mix);
+      const ch = buf.getChannelData(0);
+      const rate = buf.sampleRate;
+      let s2 = 0, peak = 0;
+      for (let i = 0; i < ch.length; i++) { s2 += ch[i] * ch[i]; if (Math.abs(ch[i]) > peak) peak = Math.abs(ch[i]); }
+
+      /* The tail is whatever is still ringing once the last note has stopped —
+         so measure from just after it, not at some fraction of the buffer: pick
+         the window too late and the reverb has already died and every setting
+         reads zero. */
+      const spb = 60 / song.bpm;
+      const a = Math.min(ch.length, Math.floor((lastEnd * spb + 0.05 + 0.25) * rate));
+      const b = Math.min(ch.length, Math.floor((lastEnd * spb + 0.05 + 1.60) * rate));
+      let t2 = 0;
+      for (let i = a; i < b; i++) t2 += ch[i] * ch[i];
+      return {
+        rms: Math.sqrt(s2 / ch.length),
+        peak: peak,
+        tailSamples: b - a,
+        tail: b > a ? Math.sqrt(t2 / (b - a)) : 0
+      };
+    }
+    return {
+      dry: await render(0, false),
+      normal: await render(1, false),
+      wet: await render(2, false),
+      mutedWet: await render(2, true)
+    };
+  });
+
+  check(sends.normal.rms > 1e-4, 'the pad renders on its own (rms ' + sends.normal.rms.toFixed(4) + ')');
+  check(sends.normal.tailSamples > 1000 && sends.normal.tail > 1e-4,
+    'there is a real tail to measure (' + sends.normal.tail.toFixed(5) + ')');
+  check(sends.dry.tail < sends.normal.tail,
+    'turning the reverb send down shortens the tail (' +
+    sends.normal.tail.toFixed(5) + ' → ' + sends.dry.tail.toFixed(5) + ')');
+  check(sends.wet.tail > sends.normal.tail,
+    'and turning it up lengthens it (' + sends.wet.tail.toFixed(5) + ')');
+  check(sends.mutedWet.peak < 1e-5,
+    'a muted part sends nothing, however high the send (peak ' + sends.mutedWet.peak.toExponential(1) + ')');
+
   console.log('\n— exports —');
   const ex = await page.evaluate(async function () {
     const song = window.Composer.compose({ seed: 'EXPORT-1', genre: 'house', length: 'short' });

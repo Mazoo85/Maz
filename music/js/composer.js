@@ -769,6 +769,237 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Changing a chord
+   *
+   * The hard part is not building the new chord — it is that four other parts
+   * were written against the old one. Regenerating them would throw away the
+   * rhythm, and any notes drawn by hand. So every part keeps its timing exactly
+   * and only its pitches are moved onto the new harmony: a bass note that was
+   * the fifth stays the fifth, the third note of a voicing stays the third, and
+   * a melody note that was leaning on a chord tone leans on the nearest new one.
+   * ------------------------------------------------------------------ */
+
+  function buildChordFor(song, degree, shape) {
+    const rootMidi = T.midi(song.rootPc, 4);
+    const candidates = [shape || 'triad', 'seventh', 'triad'];
+    for (let i = 0; i < candidates.length; i++) {
+      const p = T.sweetenChord(T.buildChord(song.scaleSteps, rootMidi, degree, candidates[i]));
+      if (T.chordIsSound(p)) return { pitches: p, shape: candidates[i] };
+    }
+    const r = T.degreePitch(song.scaleSteps, rootMidi, degree);
+    return { pitches: [r, r + 7], shape: 'power' };
+  }
+
+  /** Move `pitch` from one voicing onto the matching place in another. */
+  function remapByRank(pitch, from, to) {
+    if (!from.length || !to.length) return pitch;
+    let best = 0, bestD = 1e9;
+    for (let i = 0; i < from.length; i++) {
+      const d = Math.abs(from[i] - pitch);
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    const octave = Math.round((pitch - from[best]) / 12);
+    return to[Math.min(best, to.length - 1)] + octave * 12;
+  }
+
+  function setChordDegree(song, index, degree) {
+    const chord = song.chords[index];
+    if (!chord) return false;
+
+    const built = buildChordFor(song, degree, chord.shape);
+    const prev = index > 0 ? song.chords[index - 1].voicing : null;
+    const genre = song.genre;
+    const voicing = T.voiceChord(built.pitches, prev,
+      genre.chords.octaveLow, genre.chords.octaveHigh);
+
+    const oldPitches = chord.pitches.slice();
+    const oldVoicing = chord.voicing.slice();
+    const oldRoot = chord.rootPitch;
+
+    chord.degree = degree;
+    chord.shape = built.shape;
+    chord.pitches = built.pitches;
+    chord.voicing = voicing;
+    chord.rootPitch = built.pitches[0];
+    chord.name = T.chordName(built.pitches);
+    chord.roman = T.romanNumeral(song.scaleSteps, degree, built.pitches);
+
+    const from = chord.startBeat - 0.05;
+    const to = chord.startBeat + chord.durBeats - 0.05;
+    function inSpan(e) { return e.t >= from && e.t < to; }
+
+    // Chords and pad were written straight from the voicing.
+    ['chords', 'pad'].forEach(function (t) {
+      (song.tracks[t] || []).forEach(function (e) {
+        if (inSpan(e)) e.p = remapByRank(e.p, oldVoicing, voicing);
+      });
+    });
+
+    // Bass keeps its role: a fifth stays a fifth, an octave stays an octave.
+    (song.tracks.bass || []).forEach(function (e) {
+      if (!inSpan(e)) return;
+      e.p = e.p - oldRoot + chord.rootPitch;
+    });
+
+    // The arpeggio runs the chord tones, so move it tone for tone.
+    (song.tracks.arp || []).forEach(function (e) {
+      if (inSpan(e)) e.p = remapByRank(e.p, oldPitches, built.pitches);
+    });
+
+    /* The melody is the delicate one. A note that was sitting on a chord tone
+       moves to the nearest new one; a passing note belongs to the scale, which
+       has not changed, so it stays exactly where it was. */
+    (song.tracks.lead || []).forEach(function (e) {
+      if (!inSpan(e)) return;
+      const wasChordTone = oldPitches.some(function (p) {
+        return ((p - e.p) % 12 + 12) % 12 === 0;
+      });
+      if (wasChordTone) e.p = T.nearestChordTone(e.p, built.pitches);
+    });
+
+    return true;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Arranging
+   *
+   * Sections are just spans of beats, so rearranging a song is: lift each
+   * section's notes out with their times made relative, shuffle the blocks,
+   * and lay them back down. Every part moves together because every part is
+   * cut on the same boundaries.
+   * ------------------------------------------------------------------ */
+
+  function relabel(sections) {
+    const counts = {};
+    const totals = {};
+    sections.forEach(function (s) { totals[s.type] = (totals[s.type] || 0) + 1; });
+    sections.forEach(function (s) {
+      counts[s.type] = (counts[s.type] || 0) + 1;
+      const cap = s.type.charAt(0).toUpperCase() + s.type.slice(1);
+      s.name = totals[s.type] > 1 ? cap + ' ' + counts[s.type] : cap;
+    });
+  }
+
+  function extractBlocks(song) {
+    return song.sections.map(function (sec) {
+      const from = sec.startBar * BEATS_PER_BAR;
+      const to = from + sec.bars * BEATS_PER_BAR;
+      const tracks = {};
+      Object.keys(song.tracks).forEach(function (t) {
+        tracks[t] = song.tracks[t]
+          .filter(function (e) { return e.t >= from - 0.05 && e.t < to - 0.05; })
+          .map(function (e) {
+            const c = {};
+            for (const k in e) c[k] = e[k];
+            c.t = e.t - from;
+            return c;
+          });
+      });
+      const chords = song.chords
+        .filter(function (c) { return c.startBeat >= from - 0.05 && c.startBeat < to - 0.05; })
+        .map(function (c) {
+          const n = {};
+          for (const k in c) n[k] = c[k];
+          n.pitches = c.pitches.slice();
+          n.voicing = c.voicing.slice();
+          n.startBeat = c.startBeat - from;
+          return n;
+        });
+      return {
+        type: sec.type, bars: sec.bars, energy: sec.energy,
+        parts: sec.parts, tracks: tracks, chords: chords
+      };
+    });
+  }
+
+  function assemble(song, blocks) {
+    const tracks = {};
+    Object.keys(song.tracks).forEach(function (t) { tracks[t] = []; });
+    const chords = [];
+    const sections = [];
+    let bar = 0;
+
+    blocks.forEach(function (b) {
+      const offset = bar * BEATS_PER_BAR;
+      Object.keys(tracks).forEach(function (t) {
+        (b.tracks[t] || []).forEach(function (e) {
+          const c = {};
+          for (const k in e) c[k] = e[k];
+          c.t = e.t + offset;
+          tracks[t].push(c);
+        });
+      });
+      (b.chords || []).forEach(function (c) {
+        const n = {};
+        for (const k in c) n[k] = c[k];
+        n.pitches = c.pitches.slice();
+        n.voicing = c.voicing.slice();
+        n.startBeat = c.startBeat + offset;
+        n.bar = Math.round(n.startBeat / BEATS_PER_BAR);
+        chords.push(n);
+      });
+      sections.push({
+        type: b.type, bars: b.bars, energy: b.energy,
+        parts: b.parts, startBar: bar, chords: []
+      });
+      bar += b.bars;
+    });
+
+    Object.keys(tracks).forEach(function (t) {
+      tracks[t].sort(function (a, b2) { return a.t - b2.t; });
+    });
+    chords.sort(function (a, b2) { return a.startBeat - b2.startBeat; });
+
+    relabel(sections);
+    sections.forEach(function (sec) {
+      sec.name = sec.name;
+      sec.chords = chords.filter(function (c) {
+        return c.bar >= sec.startBar && c.bar < sec.startBar + sec.bars;
+      });
+      sec.chords.forEach(function (c) { c.section = sec.name; });
+    });
+
+    song.tracks = tracks;
+    song.chords = chords;
+    song.sections = sections;
+    song.bars = bar;
+    song.totalBeats = bar * BEATS_PER_BAR;
+    song.duration = song.totalBeats * (60 / song.bpm);
+    return song;
+  }
+
+  /** Copy a section and drop the copy in straight after it. */
+  function duplicateSection(song, index) {
+    const blocks = extractBlocks(song);
+    if (index < 0 || index >= blocks.length) return false;
+    const copy = JSON.parse(JSON.stringify(blocks[index]));
+    blocks.splice(index + 1, 0, copy);
+    assemble(song, blocks);
+    return true;
+  }
+
+  /** Remove a section. A song has to keep at least one. */
+  function deleteSection(song, index) {
+    const blocks = extractBlocks(song);
+    if (blocks.length <= 1 || index < 0 || index >= blocks.length) return false;
+    blocks.splice(index, 1);
+    assemble(song, blocks);
+    return true;
+  }
+
+  /** Swap a section with its neighbour. */
+  function moveSection(song, index, delta) {
+    const blocks = extractBlocks(song);
+    const to = index + delta;
+    if (index < 0 || index >= blocks.length || to < 0 || to >= blocks.length) return false;
+    const tmp = blocks[index];
+    blocks[index] = blocks[to];
+    blocks[to] = tmp;
+    assemble(song, blocks);
+    return true;
+  }
+
+  /* ------------------------------------------------------------------ *
    * Assembly
    * ------------------------------------------------------------------ */
 
@@ -919,6 +1150,11 @@
     developPart: developPart,
     transpose: transpose,
     setTempo: setTempo,
+    setChordDegree: setChordDegree,
+    duplicateSection: duplicateSection,
+    deleteSection: deleteSection,
+    moveSection: moveSection,
+    extractBlocks: extractBlocks,
     generatePart: generatePart,
     motifFromEvents: motifFromEvents,
     pitchToDegree: pitchToDegree,

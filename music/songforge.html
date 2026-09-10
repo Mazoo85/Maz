@@ -366,6 +366,8 @@ input[type="range"]::-moz-range-thumb {
 .chord-cell {
   flex: 0 0 auto;
   min-width: 66px;
+  font: inherit;
+  cursor: pointer;
   border: 1px solid var(--panel-edge);
   border-radius: 9px;
   padding: 7px 9px;
@@ -373,6 +375,7 @@ input[type="range"]::-moz-range-thumb {
   background: rgba(0, 0, 0, 0.25);
   transition: border-color 0.1s, background 0.1s;
 }
+.chord-cell:hover { border-color: var(--cyan); }
 .chord-cell.now {
   border-color: var(--amber);
   background: rgba(255, 200, 87, 0.15);
@@ -443,6 +446,113 @@ input[type="range"]::-moz-range-thumb {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---------------- chord picker ---------------- */
+
+.chord-menu {
+  position: absolute;
+  z-index: 40;
+  background: var(--bg2);
+  border: 1px solid var(--cyan);
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 168px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.chord-menu-head {
+  font-family: var(--font-data);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  padding: 4px 8px 6px;
+}
+.chord-opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 6px 10px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+.chord-opt:hover { background: rgba(0, 229, 255, 0.12); border-color: var(--cyan); }
+.chord-opt.on { border-color: var(--amber); color: var(--amber); }
+.opt-roman {
+  font-family: var(--font-data);
+  font-size: 12px;
+  color: var(--ink-dim);
+  min-width: 34px;
+}
+.chord-opt.on .opt-roman { color: var(--amber); }
+.opt-name { font-family: var(--font-data); font-size: 14px; font-weight: 500; }
+
+/* ---------------- arrangement ---------------- */
+
+.arrange-wrap { margin-top: 10px; }
+.arrange {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 2px 8px;
+  scrollbar-width: thin;
+}
+.arrange::-webkit-scrollbar { height: 6px; }
+.arrange::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 3px; }
+
+.sec-card {
+  flex: 0 0 auto;
+  min-width: 156px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.28);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sec-card.chorus { border-color: rgba(255, 45, 149, 0.5); background: rgba(255, 45, 149, 0.08); }
+.sec-card.playing { border-color: var(--amber); box-shadow: 0 0 14px rgba(255, 200, 87, 0.25); }
+.sec-name {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+}
+.sec-bars {
+  font-family: var(--font-data);
+  font-size: 10px;
+  color: var(--ink-dim);
+  letter-spacing: 0.08em;
+}
+.sec-btns { display: flex; gap: 4px; }
+.sec-btns button {
+  flex: 1 1 auto;
+  min-width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  border: 1px solid var(--panel-edge);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink-dim);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+}
+.sec-btns button:hover:not([disabled]) { color: var(--cyan); border-color: var(--cyan); }
+.sec-btns button[disabled] { opacity: 0.3; cursor: default; }
+.sec-btns .del:hover:not([disabled]) { color: var(--pink); border-color: var(--pink); }
+.arrange-hint { margin: 0; font-size: 12px; }
+
 /* ---------------- note editor ---------------- */
 
 .edit-tracks { margin-bottom: 10px; }
@@ -472,6 +582,8 @@ input[type="range"]::-moz-range-thumb {
   text-transform: uppercase;
   color: var(--ink-dim);
 }
+.tool-field.send { flex: 0 1 150px; }
+.tool-field.send input[type="range"] { flex: 1 1 auto; min-width: 60px; height: 30px; }
 .tool-field select {
   width: auto;
   min-height: 38px;
@@ -797,6 +909,13 @@ input[type="range"]::-moz-range-thumb {
 
     <canvas id="roll" class="roll" aria-label="Note timeline"></canvas>
 
+    <div class="arrange-wrap">
+      <div class="arrange" id="arrange" aria-label="Arrangement"></div>
+      <p class="panel-hint arrange-hint">
+        Copy a chorus, drop a verse, or move a section — every part moves with it.
+      </p>
+    </div>
+
     <div class="transport">
       <button type="button" class="play-btn" id="playBtn" aria-label="Play">
         <span id="playIcon">▶</span>
@@ -848,6 +967,12 @@ input[type="range"]::-moz-range-thumb {
       </div>
       <label class="tool-field" for="soundSelect"><span>Sound</span>
         <select id="soundSelect"></select>
+      </label>
+      <label class="tool-field send" for="revSend"><span>Reverb</span>
+        <input type="range" id="revSend" min="0" max="200" step="5" value="100" aria-label="Reverb for this part" />
+      </label>
+      <label class="tool-field send" for="delSend"><span>Delay</span>
+        <input type="range" id="delSend" min="0" max="200" step="5" value="100" aria-label="Delay for this part" />
       </label>
     </div>
 
@@ -2525,6 +2650,237 @@ input[type="range"]::-moz-range-thumb {
   }
 
   /* ------------------------------------------------------------------ *
+   * Changing a chord
+   *
+   * The hard part is not building the new chord — it is that four other parts
+   * were written against the old one. Regenerating them would throw away the
+   * rhythm, and any notes drawn by hand. So every part keeps its timing exactly
+   * and only its pitches are moved onto the new harmony: a bass note that was
+   * the fifth stays the fifth, the third note of a voicing stays the third, and
+   * a melody note that was leaning on a chord tone leans on the nearest new one.
+   * ------------------------------------------------------------------ */
+
+  function buildChordFor(song, degree, shape) {
+    const rootMidi = T.midi(song.rootPc, 4);
+    const candidates = [shape || 'triad', 'seventh', 'triad'];
+    for (let i = 0; i < candidates.length; i++) {
+      const p = T.sweetenChord(T.buildChord(song.scaleSteps, rootMidi, degree, candidates[i]));
+      if (T.chordIsSound(p)) return { pitches: p, shape: candidates[i] };
+    }
+    const r = T.degreePitch(song.scaleSteps, rootMidi, degree);
+    return { pitches: [r, r + 7], shape: 'power' };
+  }
+
+  /** Move `pitch` from one voicing onto the matching place in another. */
+  function remapByRank(pitch, from, to) {
+    if (!from.length || !to.length) return pitch;
+    let best = 0, bestD = 1e9;
+    for (let i = 0; i < from.length; i++) {
+      const d = Math.abs(from[i] - pitch);
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    const octave = Math.round((pitch - from[best]) / 12);
+    return to[Math.min(best, to.length - 1)] + octave * 12;
+  }
+
+  function setChordDegree(song, index, degree) {
+    const chord = song.chords[index];
+    if (!chord) return false;
+
+    const built = buildChordFor(song, degree, chord.shape);
+    const prev = index > 0 ? song.chords[index - 1].voicing : null;
+    const genre = song.genre;
+    const voicing = T.voiceChord(built.pitches, prev,
+      genre.chords.octaveLow, genre.chords.octaveHigh);
+
+    const oldPitches = chord.pitches.slice();
+    const oldVoicing = chord.voicing.slice();
+    const oldRoot = chord.rootPitch;
+
+    chord.degree = degree;
+    chord.shape = built.shape;
+    chord.pitches = built.pitches;
+    chord.voicing = voicing;
+    chord.rootPitch = built.pitches[0];
+    chord.name = T.chordName(built.pitches);
+    chord.roman = T.romanNumeral(song.scaleSteps, degree, built.pitches);
+
+    const from = chord.startBeat - 0.05;
+    const to = chord.startBeat + chord.durBeats - 0.05;
+    function inSpan(e) { return e.t >= from && e.t < to; }
+
+    // Chords and pad were written straight from the voicing.
+    ['chords', 'pad'].forEach(function (t) {
+      (song.tracks[t] || []).forEach(function (e) {
+        if (inSpan(e)) e.p = remapByRank(e.p, oldVoicing, voicing);
+      });
+    });
+
+    // Bass keeps its role: a fifth stays a fifth, an octave stays an octave.
+    (song.tracks.bass || []).forEach(function (e) {
+      if (!inSpan(e)) return;
+      e.p = e.p - oldRoot + chord.rootPitch;
+    });
+
+    // The arpeggio runs the chord tones, so move it tone for tone.
+    (song.tracks.arp || []).forEach(function (e) {
+      if (inSpan(e)) e.p = remapByRank(e.p, oldPitches, built.pitches);
+    });
+
+    /* The melody is the delicate one. A note that was sitting on a chord tone
+       moves to the nearest new one; a passing note belongs to the scale, which
+       has not changed, so it stays exactly where it was. */
+    (song.tracks.lead || []).forEach(function (e) {
+      if (!inSpan(e)) return;
+      const wasChordTone = oldPitches.some(function (p) {
+        return ((p - e.p) % 12 + 12) % 12 === 0;
+      });
+      if (wasChordTone) e.p = T.nearestChordTone(e.p, built.pitches);
+    });
+
+    return true;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Arranging
+   *
+   * Sections are just spans of beats, so rearranging a song is: lift each
+   * section's notes out with their times made relative, shuffle the blocks,
+   * and lay them back down. Every part moves together because every part is
+   * cut on the same boundaries.
+   * ------------------------------------------------------------------ */
+
+  function relabel(sections) {
+    const counts = {};
+    const totals = {};
+    sections.forEach(function (s) { totals[s.type] = (totals[s.type] || 0) + 1; });
+    sections.forEach(function (s) {
+      counts[s.type] = (counts[s.type] || 0) + 1;
+      const cap = s.type.charAt(0).toUpperCase() + s.type.slice(1);
+      s.name = totals[s.type] > 1 ? cap + ' ' + counts[s.type] : cap;
+    });
+  }
+
+  function extractBlocks(song) {
+    return song.sections.map(function (sec) {
+      const from = sec.startBar * BEATS_PER_BAR;
+      const to = from + sec.bars * BEATS_PER_BAR;
+      const tracks = {};
+      Object.keys(song.tracks).forEach(function (t) {
+        tracks[t] = song.tracks[t]
+          .filter(function (e) { return e.t >= from - 0.05 && e.t < to - 0.05; })
+          .map(function (e) {
+            const c = {};
+            for (const k in e) c[k] = e[k];
+            c.t = e.t - from;
+            return c;
+          });
+      });
+      const chords = song.chords
+        .filter(function (c) { return c.startBeat >= from - 0.05 && c.startBeat < to - 0.05; })
+        .map(function (c) {
+          const n = {};
+          for (const k in c) n[k] = c[k];
+          n.pitches = c.pitches.slice();
+          n.voicing = c.voicing.slice();
+          n.startBeat = c.startBeat - from;
+          return n;
+        });
+      return {
+        type: sec.type, bars: sec.bars, energy: sec.energy,
+        parts: sec.parts, tracks: tracks, chords: chords
+      };
+    });
+  }
+
+  function assemble(song, blocks) {
+    const tracks = {};
+    Object.keys(song.tracks).forEach(function (t) { tracks[t] = []; });
+    const chords = [];
+    const sections = [];
+    let bar = 0;
+
+    blocks.forEach(function (b) {
+      const offset = bar * BEATS_PER_BAR;
+      Object.keys(tracks).forEach(function (t) {
+        (b.tracks[t] || []).forEach(function (e) {
+          const c = {};
+          for (const k in e) c[k] = e[k];
+          c.t = e.t + offset;
+          tracks[t].push(c);
+        });
+      });
+      (b.chords || []).forEach(function (c) {
+        const n = {};
+        for (const k in c) n[k] = c[k];
+        n.pitches = c.pitches.slice();
+        n.voicing = c.voicing.slice();
+        n.startBeat = c.startBeat + offset;
+        n.bar = Math.round(n.startBeat / BEATS_PER_BAR);
+        chords.push(n);
+      });
+      sections.push({
+        type: b.type, bars: b.bars, energy: b.energy,
+        parts: b.parts, startBar: bar, chords: []
+      });
+      bar += b.bars;
+    });
+
+    Object.keys(tracks).forEach(function (t) {
+      tracks[t].sort(function (a, b2) { return a.t - b2.t; });
+    });
+    chords.sort(function (a, b2) { return a.startBeat - b2.startBeat; });
+
+    relabel(sections);
+    sections.forEach(function (sec) {
+      sec.name = sec.name;
+      sec.chords = chords.filter(function (c) {
+        return c.bar >= sec.startBar && c.bar < sec.startBar + sec.bars;
+      });
+      sec.chords.forEach(function (c) { c.section = sec.name; });
+    });
+
+    song.tracks = tracks;
+    song.chords = chords;
+    song.sections = sections;
+    song.bars = bar;
+    song.totalBeats = bar * BEATS_PER_BAR;
+    song.duration = song.totalBeats * (60 / song.bpm);
+    return song;
+  }
+
+  /** Copy a section and drop the copy in straight after it. */
+  function duplicateSection(song, index) {
+    const blocks = extractBlocks(song);
+    if (index < 0 || index >= blocks.length) return false;
+    const copy = JSON.parse(JSON.stringify(blocks[index]));
+    blocks.splice(index + 1, 0, copy);
+    assemble(song, blocks);
+    return true;
+  }
+
+  /** Remove a section. A song has to keep at least one. */
+  function deleteSection(song, index) {
+    const blocks = extractBlocks(song);
+    if (blocks.length <= 1 || index < 0 || index >= blocks.length) return false;
+    blocks.splice(index, 1);
+    assemble(song, blocks);
+    return true;
+  }
+
+  /** Swap a section with its neighbour. */
+  function moveSection(song, index, delta) {
+    const blocks = extractBlocks(song);
+    const to = index + delta;
+    if (index < 0 || index >= blocks.length || to < 0 || to >= blocks.length) return false;
+    const tmp = blocks[index];
+    blocks[index] = blocks[to];
+    blocks[to] = tmp;
+    assemble(song, blocks);
+    return true;
+  }
+
+  /* ------------------------------------------------------------------ *
    * Assembly
    * ------------------------------------------------------------------ */
 
@@ -2675,6 +3031,11 @@ input[type="range"]::-moz-range-thumb {
     developPart: developPart,
     transpose: transpose,
     setTempo: setTempo,
+    setChordDegree: setChordDegree,
+    duplicateSection: duplicateSection,
+    deleteSection: deleteSection,
+    moveSection: moveSection,
+    extractBlocks: extractBlocks,
     generatePart: generatePart,
     motifFromEvents: motifFromEvents,
     pitchToDegree: pitchToDegree,
@@ -3627,6 +3988,14 @@ input[type="range"]::-moz-range-thumb {
     return m.volume;
   }
 
+  /* Sends ride on top of the fader: a muted or un-soloed track sends nothing,
+     and the multiplier scales the amount each preset already asked for. */
+  function sendGain(mix, name, which) {
+    const m = (mix && mix[name]) || {};
+    const amt = m[which] === undefined ? 1 : m[which];
+    return gainFor(mix, name) * amt;
+  }
+
   function buildGraph(ctx, song, mix, withAnalyser, masterVolume) {
     const fx = song.genre.fx;
     const moodRev = song.mood.reverb || 1;
@@ -3722,10 +4091,9 @@ input[type="range"]::-moz-range-thumb {
       del.connect(delPre);
       const t = { dry: dry, rev: rev, del: del, duck: duck };
       tracks[name] = t;
-      const v = gainFor(mix, name);
-      dry.gain.value = v;
-      rev.gain.value = v;
-      del.gain.value = v;
+      dry.gain.value = gainFor(mix, name);
+      rev.gain.value = sendGain(mix, name, 'rev');
+      del.gain.value = sendGain(mix, name, 'del');
     });
 
     // Vinyl / tape bed
@@ -3821,7 +4189,9 @@ input[type="range"]::-moz-range-thumb {
     this.playing = false;
     this.loop = true;
     this.mix = {};
-    TRACKS.forEach(function (t) { this.mix[t] = { volume: 1, muted: false, solo: false }; }, this);
+    TRACKS.forEach(function (t) {
+      this.mix[t] = { volume: 1, muted: false, solo: false, rev: 1, del: 1 };
+    }, this);
     this.volume = 0.85;
     this._timer = null;
     this._index = 0;
@@ -4015,6 +4385,8 @@ input[type="range"]::-moz-range-thumb {
     if (opts.volume !== undefined) m.volume = opts.volume;
     if (opts.muted !== undefined) m.muted = opts.muted;
     if (opts.solo !== undefined) m.solo = opts.solo;
+    if (opts.rev !== undefined) m.rev = opts.rev;
+    if (opts.del !== undefined) m.del = opts.del;
     this.applyMix();
   };
 
@@ -4027,11 +4399,10 @@ input[type="range"]::-moz-range-thumb {
     TRACKS.forEach(function (name) {
       const bus = graph.tracks[name];
       if (!bus) return;
-      const v = gainFor(mix, name);
       // Only the fader nodes — `duck` carries its own automation.
-      ['dry', 'rev', 'del'].forEach(function (k) {
-        bus[k].gain.setTargetAtTime(v, t, 0.02);
-      });
+      bus.dry.gain.setTargetAtTime(gainFor(mix, name), t, 0.02);
+      bus.rev.gain.setTargetAtTime(sendGain(mix, name, 'rev'), t, 0.02);
+      bus.del.gain.setTargetAtTime(sendGain(mix, name, 'del'), t, 0.02);
     });
   };
 
@@ -4554,6 +4925,7 @@ input[type="range"]::-moz-range-thumb {
     this.getSong = opts.getSong;
     this.player = opts.player;
     this.onChange = opts.onChange || function () {};
+    this.onStructure = opts.onStructure || function () {};
     this.colorFor = opts.colorFor || function () { return '#00e5ff'; };
 
     this.track = 'lead';
@@ -4590,10 +4962,48 @@ input[type="range"]::-moz-range-thumb {
     return { track: track, events: JSON.parse(JSON.stringify(song.tracks[track] || [])) };
   }
 
+  /* Rearranging moves every note in the song, so it needs a snapshot of the
+     whole thing rather than one track. */
+  function snapshotSong(song) {
+    return {
+      full: true,
+      tracks: JSON.parse(JSON.stringify(song.tracks)),
+      sections: JSON.parse(JSON.stringify(song.sections)),
+      chords: JSON.parse(JSON.stringify(song.chords)),
+      bars: song.bars,
+      totalBeats: song.totalBeats,
+      duration: song.duration
+    };
+  }
+
+  function restoreSong(song, s) {
+    song.tracks = s.tracks;
+    song.sections = s.sections;
+    song.chords = s.chords;
+    song.bars = s.bars;
+    song.totalBeats = s.totalBeats;
+    song.duration = s.duration;
+    // Sections hold their own view of the harmony; re-link it to the restored one.
+    song.sections.forEach(function (sec) {
+      sec.chords = song.chords.filter(function (c) {
+        return c.bar >= sec.startBar && c.bar < sec.startBar + sec.bars;
+      });
+    });
+  }
+
   Editor.prototype.pushHistory = function (track) {
     const song = this.getSong();
     if (!song) return;
     this._undo.push(snapshot(song, track || this.track));
+    if (this._undo.length > HISTORY_MAX) this._undo.shift();
+    this._redo.length = 0;
+  };
+
+  /** Snapshot the whole song — for arranging, which no single track describes. */
+  Editor.prototype.pushSongHistory = function () {
+    const song = this.getSong();
+    if (!song) return;
+    this._undo.push(snapshotSong(song));
     if (this._undo.length > HISTORY_MAX) this._undo.shift();
     this._redo.length = 0;
   };
@@ -4605,6 +5015,16 @@ input[type="range"]::-moz-range-thumb {
     const song = this.getSong();
     if (!song || !from.length) return false;
     const snap = from.pop();
+
+    if (snap.full) {
+      to.push(snapshotSong(song));
+      restoreSong(song, snap);
+      this.scrollTo(this.startBar);
+      this.refit();
+      this.onStructure();
+      return true;
+    }
+
     to.push(snapshot(song, snap.track));
     song.tracks[snap.track] = snap.events;
     if (snap.track !== this.track) this.setTrack(snap.track);
@@ -5261,6 +5681,7 @@ input[type="range"]::-moz-range-thumb {
       editor.setTrack(editor.track);
       editor.resize();
       if (editorSoundPicker) editorSoundPicker();
+      if (editorSends) editorSends();
       syncEditUI();
     }
     updateHash();
@@ -5289,24 +5710,90 @@ input[type="range"]::-moz-range-thumb {
     el('seedInput').value = s.seed;
     state.seedEdited = false;
     buildChordStrip();
+    buildArrange();
     syncSongControls();
     resizeRoll();
   }
+
+  const ROMAN_PICK = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
 
   function buildChordStrip() {
     const strip = el('chordStrip');
     strip.innerHTML = '';
     const s = state.song;
-    // Show one cycle of the harmony rather than every repeat.
-    const shown = s.chords.slice(0, Math.min(16, s.chords.length));
-    shown.forEach(function (ch, i) {
-      const d = document.createElement('div');
+    // Every chord in the song, so every one of them can be changed.
+    s.chords.forEach(function (ch, i) {
+      const d = document.createElement('button');
+      d.type = 'button';
       d.className = 'chord-cell';
       d.dataset.index = String(i);
-      d.innerHTML = '<div class="chord-name">' + ch.name + '</div>' +
-                    '<div class="chord-roman">' + ch.roman + '</div>';
+      d.title = 'Change this chord';
+      d.innerHTML = '<div class="chord-name">' + escapeHtml(ch.name) + '</div>' +
+                    '<div class="chord-roman">' + escapeHtml(ch.roman) + '</div>';
+      d.addEventListener('click', function () { openChordPicker(i, d); });
       strip.appendChild(d);
     });
+  }
+
+  /** A little menu of the seven chords in this key, showing what each becomes. */
+  function openChordPicker(index, anchor) {
+    closeChordPicker();
+    const song = state.song;
+    const chord = song.chords[index];
+    const menu = document.createElement('div');
+    menu.className = 'chord-menu';
+    menu.id = 'chordMenu';
+
+    const head = document.createElement('div');
+    head.className = 'chord-menu-head';
+    head.textContent = 'Bar ' + (chord.bar + 1) + ' · ' + chord.name;
+    menu.appendChild(head);
+
+    const degrees = song.scaleSteps.length;
+    for (let deg = 0; deg < degrees; deg++) {
+      const built = T.sweetenChord(T.buildChord(song.scaleSteps, T.midi(song.rootPc, 4), deg, chord.shape));
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chord-opt' + (deg === chord.degree ? ' on' : '');
+      b.innerHTML = '<span class="opt-roman">' + (ROMAN_PICK[deg] || (deg + 1)) + '</span>' +
+                    '<span class="opt-name">' + escapeHtml(T.chordName(built)) + '</span>';
+      (function (d) {
+        b.addEventListener('click', function () {
+          if (editor) editor.pushSongHistory();
+          if (C.setChordDegree(song, index, d)) {
+            player.refresh();
+            markRollDirty();
+            buildChordStrip();
+            status('Bar ' + (chord.bar + 1) + ' is now ' + song.chords[index].name +
+              ' — the parts moved with it.');
+          }
+          closeChordPicker();
+        });
+      })(deg);
+      menu.appendChild(b);
+    }
+
+    document.body.appendChild(menu);
+    const r = anchor.getBoundingClientRect();
+    const top = r.bottom + window.scrollY + 6;
+    const left = Math.max(8, Math.min(window.innerWidth - menu.offsetWidth - 8, r.left + window.scrollX));
+    menu.style.top = top + 'px';
+    menu.style.left = left + 'px';
+
+    setTimeout(function () {
+      document.addEventListener('pointerdown', chordMenuOutside);
+    }, 0);
+  }
+
+  function chordMenuOutside(e) {
+    const menu = el('chordMenu');
+    if (menu && !menu.contains(e.target)) closeChordPicker();
+  }
+
+  function closeChordPicker() {
+    const menu = el('chordMenu');
+    if (menu) menu.remove();
+    document.removeEventListener('pointerdown', chordMenuOutside);
   }
 
   /* ------------------------------------------------------------------ *
@@ -5422,6 +5909,9 @@ input[type="range"]::-moz-range-thumb {
       getSong: function () { return state.song; },
       player: player,
       colorFor: colorFor,
+      onStructure: function () {
+        structureChanged('Arrangement restored.');
+      },
       onFollowOff: function () {
         el('followBtn').classList.remove('on');
         status('Follow off while you edit — turn it back on to scroll with the music.');
@@ -5446,6 +5936,7 @@ input[type="range"]::-moz-range-thumb {
       b.addEventListener('click', function () {
         editor.setTrack(meta.id);
         if (editorSoundPicker) editorSoundPicker();
+        if (editorSends) editorSends();
         syncEditUI();
         status('Editing ' + meta.label.toLowerCase() +
           (meta.id === 'drums' ? ' — tap the grid to add or remove hits.'
@@ -5531,6 +6022,24 @@ input[type="range"]::-moz-range-thumb {
     });
     editorSoundPicker = buildSoundPicker;
 
+    function syncSends() {
+      const m = player.mix[editor.track] || {};
+      el('revSend').value = String(Math.round((m.rev === undefined ? 1 : m.rev) * 100));
+      el('delSend').value = String(Math.round((m.del === undefined ? 1 : m.del) * 100));
+    }
+    editorSends = syncSends;
+    [['revSend', 'rev', 'Reverb'], ['delSend', 'del', 'Delay']].forEach(function (spec) {
+      el(spec[0]).addEventListener('input', function () {
+        player.setTrack(editor.track, (function (o) {
+          o[spec[1]] = parseInt(this.value, 10) / 100;
+          return o;
+        }).call(this, {}));
+      });
+      el(spec[0]).addEventListener('change', function () {
+        status(spec[2] + ' on the ' + colorLabel(editor.track).toLowerCase() + ': ' + this.value + '%.');
+      });
+    });
+
     el('undoBtn').addEventListener('click', function () {
       if (!editor.undo()) status('Nothing left to undo.');
     });
@@ -5571,6 +6080,7 @@ input[type="range"]::-moz-range-thumb {
   }
 
   let editorSoundPicker = null;
+  let editorSends = null;
 
   function colorLabel(id) {
     for (let i = 0; i < TRACK_META.length; i++) if (TRACK_META[i].id === id) return TRACK_META[i].label;
@@ -5593,6 +6103,85 @@ input[type="range"]::-moz-range-thumb {
     // The mixer shows which parts have been touched by hand.
     Array.prototype.forEach.call(el('mixer').children, function (row) {
       row.classList.toggle('edited', !!state.edited[row.dataset.id]);
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Arranging
+   * ------------------------------------------------------------------ */
+
+  /** Everything that has to catch up after the song's shape changes. */
+  function structureChanged(msg) {
+    player.refresh();
+    markRollDirty();
+    if (editor) {
+      editor.scrollTo(Math.min(editor.startBar, editor.maxStartBar()));
+      editor.refit();
+    }
+    if (player.playing) player.seek(Math.min(player.currentBeat(), state.song.totalBeats - 0.01));
+    buildChordStrip();
+    buildArrange();
+    syncEditUI();
+    el('songMeta').textContent = songMetaText();
+    el('timeTotal').textContent = fmtTime(state.song.duration);
+    if (msg) status(msg);
+  }
+
+  function buildArrange() {
+    const box = el('arrange');
+    if (!box || !state.song) return;
+    box.innerHTML = '';
+    const secs = state.song.sections;
+
+    secs.forEach(function (sec, i) {
+      const card = document.createElement('div');
+      card.className = 'sec-card' + (sec.type === 'chorus' ? ' chorus' : '');
+      card.dataset.index = String(i);
+
+      const name = document.createElement('div');
+      name.className = 'sec-name';
+      name.textContent = sec.name;
+      card.appendChild(name);
+
+      const bars = document.createElement('div');
+      bars.className = 'sec-bars';
+      bars.textContent = sec.bars + ' BARS';
+      card.appendChild(bars);
+
+      const btns = document.createElement('div');
+      btns.className = 'sec-btns';
+
+      function button(label, title, cls, disabled, run) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = label;
+        b.title = title;
+        b.setAttribute('aria-label', title);
+        if (cls) b.className = cls;
+        b.disabled = !!disabled;
+        b.addEventListener('click', function () {
+          if (editor) editor.pushSongHistory();
+          run();
+        });
+        btns.appendChild(b);
+      }
+
+      button('◀', 'Move ' + sec.name + ' earlier', '', i === 0, function () {
+        if (C.moveSection(state.song, i, -1)) structureChanged(sec.name + ' moved earlier.');
+      });
+      button('⧉', 'Duplicate ' + sec.name, '', false, function () {
+        if (C.duplicateSection(state.song, i)) structureChanged(sec.name + ' duplicated.');
+      });
+      button('✕', 'Delete ' + sec.name, 'del', secs.length <= 1, function () {
+        if (C.deleteSection(state.song, i)) structureChanged(sec.name + ' deleted.');
+        else status('A song needs at least one section.');
+      });
+      button('▶', 'Move ' + sec.name + ' later', '', i === secs.length - 1, function () {
+        if (C.moveSection(state.song, i, 1)) structureChanged(sec.name + ' moved later.');
+      });
+
+      card.appendChild(btns);
+      box.appendChild(card);
     });
   }
 
@@ -5870,6 +6459,7 @@ input[type="range"]::-moz-range-thumb {
    * ------------------------------------------------------------------ */
 
   let lastChordIndex = -1;
+  let lastSection = null;
 
   function frame() {
     if (state.song) {
@@ -5879,6 +6469,14 @@ input[type="range"]::-moz-range-thumb {
       if (!state.seekDragging) {
         el('seek').value = String(Math.round((beat / state.song.totalBeats) * 1000));
         el('timeNow').textContent = fmtTime(beat * spb);
+      }
+
+      const playingSec = C.sectionOf(state.song, beat);
+      if (playingSec !== lastSection) {
+        lastSection = playingSec;
+        Array.prototype.forEach.call(el('arrange').children, function (card, i) {
+          card.classList.toggle('playing', state.song.sections[i] === playingSec);
+        });
       }
 
       const chord = C.chordAt(state.song, beat);
@@ -6131,7 +6729,7 @@ input[type="range"]::-moz-range-thumb {
       if (e.target === this) this.hidden = true;
     });
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') el('helpModal').hidden = true;
+      if (e.key === 'Escape') { el('helpModal').hidden = true; closeChordPicker(); }
     });
   }
 
@@ -6151,6 +6749,7 @@ input[type="range"]::-moz-range-thumb {
     bindRollSeek();
     buildEditor();
     if (editorSoundPicker) editorSoundPicker();
+    if (editorSends) editorSends();
     renderLibrary();
 
     el('generateBtn').addEventListener('click', function () {

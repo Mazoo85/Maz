@@ -48,7 +48,17 @@ python3 -m http.server         # or serve the folder: http://localhost:8000/musi
   semitone, set the volume. The score is beats and pitches, so retiming and
   transposing keep the song and change nothing else. No need to throw away a
   track you liked and roll the dice again.
-- **Mixer** — mute, solo or rebalance drums, bass, chords, arp, lead and pad.
+- **Swap any chord.** Tap a chord in the strip and pick a different one. Every
+  part re-pitches onto the new chord — bass to the new root, arp and pad to the
+  new tones, and only the melody notes that were sitting on a chord tone move —
+  but nothing changes rhythm. The groove you had is the groove you keep.
+- **Arrange the song by hand.** Every section is a card: duplicate it, delete
+  it, or shove it left and right. Want two choruses back to back, or the bridge
+  moved earlier? Drag the form around and the whole track re-times behind you.
+  Ctrl+Z puts it back.
+- **Mixer** — mute, solo or rebalance drums, bass, chords, arp, lead and pad,
+  and set **how much reverb and delay each part gets** on its own. Push the pad
+  far back and keep the lead dry and up front.
 - **Export** — the finished track as a **.wav**, the notes as a **.mid**, or
   **stems**: every part as its own audio file, to mix by hand in GarageBand,
   Ableton, FL Studio, Logic or MuseScore.
@@ -120,8 +130,10 @@ Each style also keeps a list of alternate instruments that suit it, and draws
 from them per song — so two lo-fi tracks are not the same four sounds twice.
 
 `engine.js` mixes it: each part has a place in the stereo field, velocity opens
-filters as well as raising level, pads drift under slow LFOs, and — where the
-style calls for it — **the kick ducks the sustained parts**. Web Audio
+filters as well as raising level, pads drift under slow LFOs, each part feeds
+the reverb and delay by its own adjustable amount (and a muted part feeds them
+nothing, so muting really is silence), and — where the style calls for it —
+**the kick ducks the sustained parts**. Web Audio
 compressors have no sidechain input, but the kick times are already in the
 score, so the duck is scheduled as gain automation exactly where the kick lands.
 That pump is most of what makes house, synthwave and trap sound like themselves;
@@ -177,7 +189,11 @@ node music/tests/standalone.test.js       # the built single file, opened from d
 The standalone suite also covers the editor: it clicks the grid to draw a note,
 checks the note lands in key, erases it again, taps the drum grid, feeds a
 hand-drawn motif through *Develop my idea* and checks the shape survives, and
-confirms a locked part outlives a re-roll of everything.
+confirms a locked part outlives a re-roll of everything. It also swaps a chord
+and checks the bass rhythm under it is untouched, duplicates, moves and deletes
+sections and checks the form and note positions follow, and moves a part's
+reverb send and checks the slider still shows the right value after switching
+parts and back.
 
 The logic suite checks every genre × mood × length combination for gapless
 harmony, in-range pitches, chords that don't contradict themselves, and that a
@@ -189,6 +205,7 @@ quietly: a lost script, a stray closing tag, a stylesheet that never applied.
 
 The browser suite renders every genre offline and *measures the waveform* —
 peak, RMS and crest factor — so problems you can only hear cannot pass
-silently. It has already caught three real defects: a modal that covered the
-page invisibly, a master bus that clipped on every genre, and an instrument
-saturation curve with 20 dB of hidden gain that flattened the mix.
+silently. It has already caught four real defects: a modal that covered the
+page invisibly, a master bus that clipped on every genre, an instrument
+saturation curve with 20 dB of hidden gain that flattened the mix, and arrange
+and send controls too small to hit with a thumb on a phone.

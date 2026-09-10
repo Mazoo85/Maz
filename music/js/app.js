@@ -183,6 +183,7 @@
       editor.setTrack(editor.track);
       editor.resize();
       if (editorSoundPicker) editorSoundPicker();
+      if (editorSends) editorSends();
       syncEditUI();
     }
     updateHash();
@@ -211,24 +212,90 @@
     el('seedInput').value = s.seed;
     state.seedEdited = false;
     buildChordStrip();
+    buildArrange();
     syncSongControls();
     resizeRoll();
   }
+
+  const ROMAN_PICK = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
 
   function buildChordStrip() {
     const strip = el('chordStrip');
     strip.innerHTML = '';
     const s = state.song;
-    // Show one cycle of the harmony rather than every repeat.
-    const shown = s.chords.slice(0, Math.min(16, s.chords.length));
-    shown.forEach(function (ch, i) {
-      const d = document.createElement('div');
+    // Every chord in the song, so every one of them can be changed.
+    s.chords.forEach(function (ch, i) {
+      const d = document.createElement('button');
+      d.type = 'button';
       d.className = 'chord-cell';
       d.dataset.index = String(i);
-      d.innerHTML = '<div class="chord-name">' + ch.name + '</div>' +
-                    '<div class="chord-roman">' + ch.roman + '</div>';
+      d.title = 'Change this chord';
+      d.innerHTML = '<div class="chord-name">' + escapeHtml(ch.name) + '</div>' +
+                    '<div class="chord-roman">' + escapeHtml(ch.roman) + '</div>';
+      d.addEventListener('click', function () { openChordPicker(i, d); });
       strip.appendChild(d);
     });
+  }
+
+  /** A little menu of the seven chords in this key, showing what each becomes. */
+  function openChordPicker(index, anchor) {
+    closeChordPicker();
+    const song = state.song;
+    const chord = song.chords[index];
+    const menu = document.createElement('div');
+    menu.className = 'chord-menu';
+    menu.id = 'chordMenu';
+
+    const head = document.createElement('div');
+    head.className = 'chord-menu-head';
+    head.textContent = 'Bar ' + (chord.bar + 1) + ' · ' + chord.name;
+    menu.appendChild(head);
+
+    const degrees = song.scaleSteps.length;
+    for (let deg = 0; deg < degrees; deg++) {
+      const built = T.sweetenChord(T.buildChord(song.scaleSteps, T.midi(song.rootPc, 4), deg, chord.shape));
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'chord-opt' + (deg === chord.degree ? ' on' : '');
+      b.innerHTML = '<span class="opt-roman">' + (ROMAN_PICK[deg] || (deg + 1)) + '</span>' +
+                    '<span class="opt-name">' + escapeHtml(T.chordName(built)) + '</span>';
+      (function (d) {
+        b.addEventListener('click', function () {
+          if (editor) editor.pushSongHistory();
+          if (C.setChordDegree(song, index, d)) {
+            player.refresh();
+            markRollDirty();
+            buildChordStrip();
+            status('Bar ' + (chord.bar + 1) + ' is now ' + song.chords[index].name +
+              ' — the parts moved with it.');
+          }
+          closeChordPicker();
+        });
+      })(deg);
+      menu.appendChild(b);
+    }
+
+    document.body.appendChild(menu);
+    const r = anchor.getBoundingClientRect();
+    const top = r.bottom + window.scrollY + 6;
+    const left = Math.max(8, Math.min(window.innerWidth - menu.offsetWidth - 8, r.left + window.scrollX));
+    menu.style.top = top + 'px';
+    menu.style.left = left + 'px';
+
+    setTimeout(function () {
+      document.addEventListener('pointerdown', chordMenuOutside);
+    }, 0);
+  }
+
+  function chordMenuOutside(e) {
+    const menu = el('chordMenu');
+    if (menu && !menu.contains(e.target)) closeChordPicker();
+  }
+
+  function closeChordPicker() {
+    const menu = el('chordMenu');
+    if (menu) menu.remove();
+    document.removeEventListener('pointerdown', chordMenuOutside);
   }
 
   /* ------------------------------------------------------------------ *
@@ -344,6 +411,9 @@
       getSong: function () { return state.song; },
       player: player,
       colorFor: colorFor,
+      onStructure: function () {
+        structureChanged('Arrangement restored.');
+      },
       onFollowOff: function () {
         el('followBtn').classList.remove('on');
         status('Follow off while you edit — turn it back on to scroll with the music.');
@@ -368,6 +438,7 @@
       b.addEventListener('click', function () {
         editor.setTrack(meta.id);
         if (editorSoundPicker) editorSoundPicker();
+        if (editorSends) editorSends();
         syncEditUI();
         status('Editing ' + meta.label.toLowerCase() +
           (meta.id === 'drums' ? ' — tap the grid to add or remove hits.'
@@ -453,6 +524,24 @@
     });
     editorSoundPicker = buildSoundPicker;
 
+    function syncSends() {
+      const m = player.mix[editor.track] || {};
+      el('revSend').value = String(Math.round((m.rev === undefined ? 1 : m.rev) * 100));
+      el('delSend').value = String(Math.round((m.del === undefined ? 1 : m.del) * 100));
+    }
+    editorSends = syncSends;
+    [['revSend', 'rev', 'Reverb'], ['delSend', 'del', 'Delay']].forEach(function (spec) {
+      el(spec[0]).addEventListener('input', function () {
+        player.setTrack(editor.track, (function (o) {
+          o[spec[1]] = parseInt(this.value, 10) / 100;
+          return o;
+        }).call(this, {}));
+      });
+      el(spec[0]).addEventListener('change', function () {
+        status(spec[2] + ' on the ' + colorLabel(editor.track).toLowerCase() + ': ' + this.value + '%.');
+      });
+    });
+
     el('undoBtn').addEventListener('click', function () {
       if (!editor.undo()) status('Nothing left to undo.');
     });
@@ -493,6 +582,7 @@
   }
 
   let editorSoundPicker = null;
+  let editorSends = null;
 
   function colorLabel(id) {
     for (let i = 0; i < TRACK_META.length; i++) if (TRACK_META[i].id === id) return TRACK_META[i].label;
@@ -515,6 +605,85 @@
     // The mixer shows which parts have been touched by hand.
     Array.prototype.forEach.call(el('mixer').children, function (row) {
       row.classList.toggle('edited', !!state.edited[row.dataset.id]);
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Arranging
+   * ------------------------------------------------------------------ */
+
+  /** Everything that has to catch up after the song's shape changes. */
+  function structureChanged(msg) {
+    player.refresh();
+    markRollDirty();
+    if (editor) {
+      editor.scrollTo(Math.min(editor.startBar, editor.maxStartBar()));
+      editor.refit();
+    }
+    if (player.playing) player.seek(Math.min(player.currentBeat(), state.song.totalBeats - 0.01));
+    buildChordStrip();
+    buildArrange();
+    syncEditUI();
+    el('songMeta').textContent = songMetaText();
+    el('timeTotal').textContent = fmtTime(state.song.duration);
+    if (msg) status(msg);
+  }
+
+  function buildArrange() {
+    const box = el('arrange');
+    if (!box || !state.song) return;
+    box.innerHTML = '';
+    const secs = state.song.sections;
+
+    secs.forEach(function (sec, i) {
+      const card = document.createElement('div');
+      card.className = 'sec-card' + (sec.type === 'chorus' ? ' chorus' : '');
+      card.dataset.index = String(i);
+
+      const name = document.createElement('div');
+      name.className = 'sec-name';
+      name.textContent = sec.name;
+      card.appendChild(name);
+
+      const bars = document.createElement('div');
+      bars.className = 'sec-bars';
+      bars.textContent = sec.bars + ' BARS';
+      card.appendChild(bars);
+
+      const btns = document.createElement('div');
+      btns.className = 'sec-btns';
+
+      function button(label, title, cls, disabled, run) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = label;
+        b.title = title;
+        b.setAttribute('aria-label', title);
+        if (cls) b.className = cls;
+        b.disabled = !!disabled;
+        b.addEventListener('click', function () {
+          if (editor) editor.pushSongHistory();
+          run();
+        });
+        btns.appendChild(b);
+      }
+
+      button('◀', 'Move ' + sec.name + ' earlier', '', i === 0, function () {
+        if (C.moveSection(state.song, i, -1)) structureChanged(sec.name + ' moved earlier.');
+      });
+      button('⧉', 'Duplicate ' + sec.name, '', false, function () {
+        if (C.duplicateSection(state.song, i)) structureChanged(sec.name + ' duplicated.');
+      });
+      button('✕', 'Delete ' + sec.name, 'del', secs.length <= 1, function () {
+        if (C.deleteSection(state.song, i)) structureChanged(sec.name + ' deleted.');
+        else status('A song needs at least one section.');
+      });
+      button('▶', 'Move ' + sec.name + ' later', '', i === secs.length - 1, function () {
+        if (C.moveSection(state.song, i, 1)) structureChanged(sec.name + ' moved later.');
+      });
+
+      card.appendChild(btns);
+      box.appendChild(card);
     });
   }
 
@@ -792,6 +961,7 @@
    * ------------------------------------------------------------------ */
 
   let lastChordIndex = -1;
+  let lastSection = null;
 
   function frame() {
     if (state.song) {
@@ -801,6 +971,14 @@
       if (!state.seekDragging) {
         el('seek').value = String(Math.round((beat / state.song.totalBeats) * 1000));
         el('timeNow').textContent = fmtTime(beat * spb);
+      }
+
+      const playingSec = C.sectionOf(state.song, beat);
+      if (playingSec !== lastSection) {
+        lastSection = playingSec;
+        Array.prototype.forEach.call(el('arrange').children, function (card, i) {
+          card.classList.toggle('playing', state.song.sections[i] === playingSec);
+        });
       }
 
       const chord = C.chordAt(state.song, beat);
@@ -1053,7 +1231,7 @@
       if (e.target === this) this.hidden = true;
     });
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') el('helpModal').hidden = true;
+      if (e.key === 'Escape') { el('helpModal').hidden = true; closeChordPicker(); }
     });
   }
 
@@ -1073,6 +1251,7 @@
     bindRollSeek();
     buildEditor();
     if (editorSoundPicker) editorSoundPicker();
+    if (editorSends) editorSends();
     renderLibrary();
 
     el('generateBtn').addEventListener('click', function () {

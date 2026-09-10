@@ -36,6 +36,7 @@
     this.getSong = opts.getSong;
     this.player = opts.player;
     this.onChange = opts.onChange || function () {};
+    this.onStructure = opts.onStructure || function () {};
     this.colorFor = opts.colorFor || function () { return '#00e5ff'; };
 
     this.track = 'lead';
@@ -72,10 +73,48 @@
     return { track: track, events: JSON.parse(JSON.stringify(song.tracks[track] || [])) };
   }
 
+  /* Rearranging moves every note in the song, so it needs a snapshot of the
+     whole thing rather than one track. */
+  function snapshotSong(song) {
+    return {
+      full: true,
+      tracks: JSON.parse(JSON.stringify(song.tracks)),
+      sections: JSON.parse(JSON.stringify(song.sections)),
+      chords: JSON.parse(JSON.stringify(song.chords)),
+      bars: song.bars,
+      totalBeats: song.totalBeats,
+      duration: song.duration
+    };
+  }
+
+  function restoreSong(song, s) {
+    song.tracks = s.tracks;
+    song.sections = s.sections;
+    song.chords = s.chords;
+    song.bars = s.bars;
+    song.totalBeats = s.totalBeats;
+    song.duration = s.duration;
+    // Sections hold their own view of the harmony; re-link it to the restored one.
+    song.sections.forEach(function (sec) {
+      sec.chords = song.chords.filter(function (c) {
+        return c.bar >= sec.startBar && c.bar < sec.startBar + sec.bars;
+      });
+    });
+  }
+
   Editor.prototype.pushHistory = function (track) {
     const song = this.getSong();
     if (!song) return;
     this._undo.push(snapshot(song, track || this.track));
+    if (this._undo.length > HISTORY_MAX) this._undo.shift();
+    this._redo.length = 0;
+  };
+
+  /** Snapshot the whole song — for arranging, which no single track describes. */
+  Editor.prototype.pushSongHistory = function () {
+    const song = this.getSong();
+    if (!song) return;
+    this._undo.push(snapshotSong(song));
     if (this._undo.length > HISTORY_MAX) this._undo.shift();
     this._redo.length = 0;
   };
@@ -87,6 +126,16 @@
     const song = this.getSong();
     if (!song || !from.length) return false;
     const snap = from.pop();
+
+    if (snap.full) {
+      to.push(snapshotSong(song));
+      restoreSong(song, snap);
+      this.scrollTo(this.startBar);
+      this.refit();
+      this.onStructure();
+      return true;
+    }
+
     to.push(snapshot(song, snap.track));
     song.tracks[snap.track] = snap.events;
     if (snap.track !== this.track) this.setTrack(snap.track);

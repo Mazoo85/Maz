@@ -362,6 +362,139 @@ function launchOptions() {
   check(ex.zipSig, 'zip writer produces a real PK archive');
   check(ex.zipSize > ex.midiSize, 'zip contains the file (' + ex.zipSize + ' ≥ ' + ex.midiSize + ')');
 
+  console.log('\n— changing a chord —');
+  check(await page.evaluate(function () {
+    return document.querySelectorAll('.chord-cell').length === window.__song.chords.length;
+  }), 'every chord in the song is shown, not just the first cycle');
+
+  const chordBefore = await page.evaluate(function () {
+    const c = window.__song.chords[2];
+    const from = c.startBeat - 0.05, to = c.startBeat + c.durBeats - 0.05;
+    return {
+      name: c.name,
+      rhythm: window.__song.tracks.bass.filter(function (e) { return e.t >= from && e.t < to; })
+        .map(function (e) { return e.t + ':' + e.d; }).join('|')
+    };
+  });
+  await page.click('.chord-cell[data-index="2"]');
+  await page.waitForTimeout(150);
+  check(await page.locator('#chordMenu').isVisible(), 'clicking a chord opens the picker');
+  const opts = await page.locator('#chordMenu .chord-opt').count();
+  check(opts >= 5, 'the picker offers the chords of the key (' + opts + ')');
+
+  // Pick something that is not the current chord.
+  await page.evaluate(function () {
+    const menu = document.getElementById('chordMenu');
+    const opts2 = menu.querySelectorAll('.chord-opt');
+    for (let i = 0; i < opts2.length; i++) {
+      if (!opts2[i].classList.contains('on')) { opts2[i].click(); return; }
+    }
+  });
+  await page.waitForTimeout(200);
+  const chordAfter = await page.evaluate(function () {
+    const c = window.__song.chords[2];
+    const from = c.startBeat - 0.05, to = c.startBeat + c.durBeats - 0.05;
+    return {
+      name: c.name,
+      rhythm: window.__song.tracks.bass.filter(function (e) { return e.t >= from && e.t < to; })
+        .map(function (e) { return e.t + ':' + e.d; }).join('|'),
+      menuGone: !document.getElementById('chordMenu')
+    };
+  });
+  check(chordAfter.name !== chordBefore.name,
+    'the chord changes (' + chordBefore.name + ' → ' + chordAfter.name + ')');
+  check(chordAfter.rhythm === chordBefore.rhythm, 'and the bass rhythm underneath is untouched');
+  check(chordAfter.menuGone, 'the picker closes after choosing');
+
+  await page.click('#undoBtn');
+  await page.waitForTimeout(200);
+  check(await page.evaluate(function () { return window.__song.chords[2].name; }) === chordBefore.name,
+    'undo puts the original chord back');
+
+  console.log('\n— arranging —');
+  const arrBefore = await page.evaluate(function () {
+    return {
+      cards: document.querySelectorAll('#arrange .sec-card').length,
+      sections: window.__song.sections.length,
+      bars: window.__song.bars,
+      form: window.__song.sections.map(function (x) { return x.type; }).join(',')
+    };
+  });
+  check(arrBefore.cards === arrBefore.sections,
+    'a card for every section (' + arrBefore.cards + ')');
+
+  // Duplicate the second section.
+  await page.click('#arrange .sec-card[data-index="1"] .sec-btns button:nth-child(2)');
+  await page.waitForTimeout(200);
+  const dup = await page.evaluate(function () {
+    return { sections: window.__song.sections.length, bars: window.__song.bars,
+             cards: document.querySelectorAll('#arrange .sec-card').length };
+  });
+  check(dup.sections === arrBefore.sections + 1, 'duplicating adds a section');
+  check(dup.bars > arrBefore.bars, 'and the song gets longer (' + arrBefore.bars + ' → ' + dup.bars + ')');
+  check(dup.cards === dup.sections, 'the strip keeps up');
+
+  // Undo it.
+  await page.click('#undoBtn');
+  await page.waitForTimeout(250);
+  const undone = await page.evaluate(function () {
+    return { sections: window.__song.sections.length, bars: window.__song.bars,
+             form: window.__song.sections.map(function (x) { return x.type; }).join(',') };
+  });
+  check(undone.sections === arrBefore.sections && undone.bars === arrBefore.bars,
+    'undo puts the arrangement back');
+  check(undone.form === arrBefore.form, 'right down to the running order');
+
+  // Move a section and check the running order really changes.
+  await page.click('#arrange .sec-card[data-index="1"] .sec-btns button:nth-child(4)');
+  await page.waitForTimeout(200);
+  const moved2 = await page.evaluate(function () {
+    return { form: window.__song.sections.map(function (x) { return x.type; }).join(','),
+             bars: window.__song.bars };
+  });
+  check(moved2.form !== arrBefore.form, 'moving reorders the song (' + moved2.form + ')');
+  check(moved2.bars === arrBefore.bars, 'without changing its length');
+
+  // Delete one.
+  await page.click('#arrange .sec-card[data-index="0"] .sec-btns button:nth-child(3)');
+  await page.waitForTimeout(200);
+  const del = await page.evaluate(function () {
+    return { sections: window.__song.sections.length, bars: window.__song.bars,
+             notesInRange: Object.keys(window.__song.tracks).every(function (t) {
+               return window.__song.tracks[t].every(function (e) {
+                 return e.t >= -0.1 && e.t < window.__song.totalBeats;
+               });
+             }) };
+  });
+  check(del.sections === arrBefore.sections - 1, 'deleting removes a section');
+  check(del.notesInRange, 'and every remaining note is still inside the song');
+
+  console.log('\n— per-part reverb and delay —');
+  await page.click('#editTracks .chip[data-id="pad"]');
+  await page.waitForTimeout(120);
+  await page.evaluate(function () {
+    const s = document.getElementById('revSend');
+    s.value = '180';
+    s.dispatchEvent(new Event('input', { bubbles: true }));
+    s.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await page.waitForTimeout(120);
+  const sendState = await page.evaluate(function () {
+    return { pad: window.__editor.player.mix.pad.rev, lead: window.__editor.player.mix.lead.rev };
+  });
+  check(Math.abs(sendState.pad - 1.8) < 0.001, 'the reverb slider sets that part\'s send (' + sendState.pad + ')');
+  check(Math.abs(sendState.lead - 1) < 0.001, 'and leaves the other parts alone');
+
+  // Switch parts and back: the slider has to show what this part is actually set to.
+  await page.click('#editTracks .chip[data-id="lead"]');
+  await page.waitForTimeout(120);
+  const onLead = await page.evaluate(function () { return document.getElementById('revSend').value; });
+  await page.click('#editTracks .chip[data-id="pad"]');
+  await page.waitForTimeout(120);
+  const backOnPad = await page.evaluate(function () { return document.getElementById('revSend').value; });
+  check(onLead === '100', 'switching parts shows that part\'s own setting (' + onLead + '%)');
+  check(backOnPad === '180', 'and coming back remembers it (' + backOnPad + '%)');
+
   console.log('\n— solo, tempo and key —');
   await page.click('#mixer .track[data-id="bass"] .solo-btn');
   await page.waitForTimeout(120);

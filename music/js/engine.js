@@ -61,6 +61,14 @@
     return m.volume;
   }
 
+  /* Sends ride on top of the fader: a muted or un-soloed track sends nothing,
+     and the multiplier scales the amount each preset already asked for. */
+  function sendGain(mix, name, which) {
+    const m = (mix && mix[name]) || {};
+    const amt = m[which] === undefined ? 1 : m[which];
+    return gainFor(mix, name) * amt;
+  }
+
   function buildGraph(ctx, song, mix, withAnalyser, masterVolume) {
     const fx = song.genre.fx;
     const moodRev = song.mood.reverb || 1;
@@ -156,10 +164,9 @@
       del.connect(delPre);
       const t = { dry: dry, rev: rev, del: del, duck: duck };
       tracks[name] = t;
-      const v = gainFor(mix, name);
-      dry.gain.value = v;
-      rev.gain.value = v;
-      del.gain.value = v;
+      dry.gain.value = gainFor(mix, name);
+      rev.gain.value = sendGain(mix, name, 'rev');
+      del.gain.value = sendGain(mix, name, 'del');
     });
 
     // Vinyl / tape bed
@@ -255,7 +262,9 @@
     this.playing = false;
     this.loop = true;
     this.mix = {};
-    TRACKS.forEach(function (t) { this.mix[t] = { volume: 1, muted: false, solo: false }; }, this);
+    TRACKS.forEach(function (t) {
+      this.mix[t] = { volume: 1, muted: false, solo: false, rev: 1, del: 1 };
+    }, this);
     this.volume = 0.85;
     this._timer = null;
     this._index = 0;
@@ -449,6 +458,8 @@
     if (opts.volume !== undefined) m.volume = opts.volume;
     if (opts.muted !== undefined) m.muted = opts.muted;
     if (opts.solo !== undefined) m.solo = opts.solo;
+    if (opts.rev !== undefined) m.rev = opts.rev;
+    if (opts.del !== undefined) m.del = opts.del;
     this.applyMix();
   };
 
@@ -461,11 +472,10 @@
     TRACKS.forEach(function (name) {
       const bus = graph.tracks[name];
       if (!bus) return;
-      const v = gainFor(mix, name);
       // Only the fader nodes — `duck` carries its own automation.
-      ['dry', 'rev', 'del'].forEach(function (k) {
-        bus[k].gain.setTargetAtTime(v, t, 0.02);
-      });
+      bus.dry.gain.setTargetAtTime(gainFor(mix, name), t, 0.02);
+      bus.rev.gain.setTargetAtTime(sendGain(mix, name, 'rev'), t, 0.02);
+      bus.del.gain.setTargetAtTime(sendGain(mix, name, 'del'), t, 0.02);
     });
   };
 
