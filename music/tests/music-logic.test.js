@@ -164,6 +164,11 @@ const timed = Composer.compose({ genre: 'cinematic', mood: 'chill', seed: 'timed
 check(timed.duration >= 150, 'a song asked for 150s came back at ' + timed.duration.toFixed(1) + 's');
 check(timed.duration < 170, 'a song asked for 150s overshot to ' + timed.duration.toFixed(1) + 's');
 
+/* --- a fast genre must not clamp short of a long requested duration --- */
+const longTrap = Composer.compose({ genre: 'trap', mood: 'driving', seed: 'long-trap', seconds: 300 });
+check(longTrap.duration >= 300, 'a fast genre asked for 300s came back at ' + longTrap.duration.toFixed(1) + 's');
+check(longTrap.duration < 330, 'a fast genre asked for 300s overshot to ' + longTrap.duration.toFixed(1) + 's');
+
 const before = Composer.compose({ genre: 'lofi', mood: 'chill', length: 'short', seed: 'unchanged-99' });
 const after  = Composer.compose({ genre: 'lofi', mood: 'chill', length: 'short', seed: 'unchanged-99' });
 check(JSON.stringify(after.sections) === JSON.stringify(before.sections),

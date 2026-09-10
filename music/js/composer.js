@@ -682,7 +682,10 @@
     let bars = opts.seconds > 0
       ? Math.ceil(targetSec * barsPerSec / 4) * 4
       : Math.round(targetSec * barsPerSec / 4) * 4;
-    bars = Math.max(24, Math.min(112, bars));
+    // The 112-bar ceiling keeps SONG FORGE's own songs a sane UI length; it
+    // doesn't apply when a caller asked for an exact duration (opts.seconds)
+    // — that path must never come back shorter than asked.
+    bars = opts.seconds > 0 ? Math.max(24, bars) : Math.max(24, Math.min(112, bars));
 
     // A supplied plan is used as given — that is how a film scores to its own
     // cuts instead of to a pop-song pattern.
