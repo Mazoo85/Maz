@@ -28,7 +28,7 @@ WORKFLOW_SUBJECTS = {
 }
 
 MAIN_BRANCHES = ("main", "master")
-RUNS_TO_SCAN = 40
+RUNS_TO_SCAN = 40  # runs to scan, per branch (see collect())
 
 
 def _slug_from_path(path: str) -> str:
@@ -97,22 +97,42 @@ def from_runs(runs: list[dict]) -> list[Candidate]:
 
 
 def collect(root: Path, fetch=None, slug: str | None = None) -> list[Candidate]:
-    """Read recent workflow runs from GitHub. No token means no CI signals."""
+    """Read recent workflow runs from GitHub. No token means no CI signals.
+
+    The runs endpoint is queried once per name in MAIN_BRANCHES rather than
+    once unscoped. An unscoped `?per_page=N` query returns the N most recent
+    runs *across every branch* in the repo; on a repo with active
+    feature-branch work, main's own runs can be pushed out of that window
+    entirely, and from_runs()'s client-side branch filter would then have
+    nothing to find. That failure is silent and indistinguishable from "CI
+    is green" — collect() returns `[]` either way — which is worse than
+    loud, since a red main is the highest-value signal this module exists to
+    surface. Passing `branch=` lets GitHub do the filtering server-side, so
+    the window is N runs *of that branch*. A repo has one of main/master,
+    never both, so one of the two calls returns empty cheaply; that's
+    preferable to a third round trip to look up the repo's default branch.
+    """
     slug = slug or repo_slug(root)
     if not slug:
         return []
     getter = fetch or (lambda path: api(path))
-    try:
-        payload = getter(f"/repos/{slug}/actions/runs?per_page={RUNS_TO_SCAN}")
-    except Exception:  # noqa: BLE001
-        return []
-    # `fetch` is an explicitly documented injection point, so a payload that
-    # is not a dict (None, a list, ...) is reachable through this module's
-    # own public interface, not just a hypothetical. Guard it rather than
-    # assume `.get` exists.
-    if not isinstance(payload, dict):
-        return []
-    runs = payload.get("workflow_runs") or []
-    if not isinstance(runs, list):
-        return []
+    runs: list[dict] = []
+    for branch in MAIN_BRANCHES:
+        try:
+            payload = getter(
+                f"/repos/{slug}/actions/runs?per_page={RUNS_TO_SCAN}&branch={branch}"
+            )
+        except Exception:  # noqa: BLE001
+            continue
+        # `fetch` is an explicitly documented injection point, so a payload
+        # that is not a dict (None, a list, ...) is reachable through this
+        # module's own public interface, not just a hypothetical. A junk
+        # payload from one branch's query must not stop the other branch's
+        # valid results from being processed, so skip rather than return.
+        if not isinstance(payload, dict):
+            continue
+        branch_runs = payload.get("workflow_runs") or []
+        if not isinstance(branch_runs, list):
+            continue
+        runs.extend(branch_runs)
     return from_runs(runs)

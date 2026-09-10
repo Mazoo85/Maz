@@ -66,8 +66,16 @@ def test_collect_wires_a_real_fetch_into_from_runs(tmp_path):
     # The two tests above only ever hand collect() an empty payload, which
     # would pass even if collect() ignored its fetch function entirely and
     # always returned []. This exercises the actual wiring: a fetch that
-    # returns real workflow_runs must flow through from_runs() unchanged,
-    # and the requested path must carry the slug collect() was given.
+    # returns real workflow_runs must flow through from_runs() unchanged.
+    #
+    # This pins the branch-scoped design (Fix 7), not the old single-call
+    # one: collect() queries once per name in MAIN_BRANCHES, so two paths
+    # are recorded, each carrying the slug, and together they must cover
+    # both "main" and "master". The old assertion of exactly one call
+    # encoded the unscoped-query bug (every branch sharing one N-run
+    # window, which is what let main's runs fall out of it) — that was
+    # incidental to what this test verifies, not the behavior it exists to
+    # protect, so pinning the new count strengthens rather than weakens it.
     seen_paths = []
 
     def fetch(path):
@@ -76,8 +84,10 @@ def test_collect_wires_a_real_fetch_into_from_runs(tmp_path):
 
     result = collect(tmp_path, fetch=fetch, slug="Mazoo85/Maz")
     assert result == from_runs(RUNS)
-    assert len(seen_paths) == 1
-    assert "Mazoo85/Maz" in seen_paths[0]
+    assert len(seen_paths) == 2
+    assert all("Mazoo85/Maz" in p for p in seen_paths)
+    assert any("branch=main" in p for p in seen_paths)
+    assert any("branch=master" in p for p in seen_paths)
 
 
 def test_repo_slug_parses_https_and_ssh():
@@ -175,6 +185,88 @@ def test_from_runs_skips_none_elements():
 def test_collect_skips_none_elements_in_workflow_runs():
     """A None in workflow_runs should be skipped, not raise AttributeError."""
     assert collect(".", fetch=lambda path: {"workflow_runs": [None]}, slug="a/b") == []
+
+
+# --- Fix 7: collect() must scope the runs query to each MAIN_BRANCHES name -
+
+
+def test_collect_requests_a_branch_scoped_path_per_main_branch():
+    # The unscoped `/actions/runs?per_page=N` endpoint returns the N most
+    # recent runs across *every* branch. On a repo with heavy feature-branch
+    # traffic, main's runs fall out of that window entirely and collect()
+    # silently reports "no failures" instead of "I couldn't see". collect()
+    # must instead ask GitHub to filter server-side, once per name in
+    # MAIN_BRANCHES, so the window is N runs *of that branch*.
+    seen_paths = []
+
+    def fetch(path):
+        seen_paths.append(path)
+        return {"workflow_runs": []}
+
+    collect(".", fetch=fetch, slug="a/b")
+    assert len(seen_paths) == 2
+    assert any("branch=main" in p for p in seen_paths)
+    assert any("branch=master" in p for p in seen_paths)
+    assert all("a/b" in p for p in seen_paths)
+
+
+def test_collect_finds_failure_invisible_to_the_old_unscoped_query():
+    # Regression test for the real bug: a getter that only returns runs when
+    # asked for a specific branch (exactly what the GitHub API does when the
+    # `branch=` query param is used) and an empty payload otherwise. Under
+    # the old `?per_page=N` query (no branch param) this getter would return
+    # `{"workflow_runs": []}` and collect() would silently report zero
+    # candidates even though main has a real, currently-red workflow.
+    def fetch(path):
+        if "branch=main" in path:
+            return {"workflow_runs": RUNS}
+        return {"workflow_runs": []}
+
+    result = collect(".", fetch=fetch, slug="a/b")
+    assert result == from_runs(RUNS)
+    assert len(result) == 1
+    assert result[0].source == "ci:music-ci"
+
+
+def test_collect_merges_results_from_both_branch_queries():
+    # main and master each have their own independently-failing workflow;
+    # both must survive the merge, not just whichever query runs last.
+    main_runs = [
+        {"name": "Music CI", "conclusion": "failure", "head_branch": "main",
+         "path": ".github/workflows/music-ci.yml", "created_at": "2026-09-09T02:00:00Z",
+         "html_url": "https://github.com/a/b/actions/runs/10"},
+    ]
+    master_runs = [
+        {"name": "Scraper CI", "conclusion": "failure", "head_branch": "master",
+         "path": ".github/workflows/scraper-ci.yml", "created_at": "2026-09-09T02:00:00Z",
+         "html_url": "https://github.com/a/b/actions/runs/11"},
+    ]
+
+    def fetch(path):
+        if "branch=main" in path:
+            return {"workflow_runs": main_runs}
+        if "branch=master" in path:
+            return {"workflow_runs": master_runs}
+        return {"workflow_runs": []}
+
+    result = collect(".", fetch=fetch, slug="a/b")
+    sources = {c.source for c in result}
+    assert sources == {"ci:music-ci", "ci:scraper-ci"}
+
+
+def test_collect_survives_junk_payload_from_one_branch_query():
+    # If one branch's query returns a junk payload (None, a list, or a
+    # workflow_runs list containing a non-dict element), the other branch's
+    # valid results must still come through, and nothing may raise.
+    for junk in (None, [1, 2, 3], {"workflow_runs": [None]}):
+
+        def fetch(path, junk=junk):
+            if "branch=main" in path:
+                return {"workflow_runs": RUNS}
+            return junk
+
+        result = collect(".", fetch=fetch, slug="a/b")
+        assert result == from_runs(RUNS)
 
 
 def test_from_runs_preserves_valid_siblings_of_malformed_element():
