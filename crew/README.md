@@ -1,3 +1,5 @@
+<!-- Part of MAZ ARCADE — see the repo root README for every project. -->
+
 # Maz Crew
 
 A personal command-line tool that hands any coding task to a small **team of AI
@@ -153,3 +155,7 @@ and the test-verdict parser are all covered without hitting the API.
 
 The same four agents are mirrored as Markdown under `.claude/agents/` so you can
 also invoke them directly inside Claude Code.
+
+---
+
+← Back to the [**MAZ ARCADE hub**](../index.html) · [repository README](../README.md)

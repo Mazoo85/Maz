@@ -1,8 +1,9 @@
 name: Deploy Pages
 
-# Publishes the repo's browser games to GitHub Pages so they can be played from a
-# phone. The site root serves ZOMBOID: ANCHORAGE (index.html); DEAD SECTOR is at
-# /shooter/. Runs when the default branch changes, or on demand.
+# Publishes the whole repo to GitHub Pages so everything can be reached from a
+# phone. The site root is the MAZ ARCADE hub (index.html), which links to every
+# project: /zomboid/, /shooter/, /music/ and /madlibs/. Runs when the default
+# branch changes, or on demand.
 
 on:
   push:
@@ -39,8 +40,8 @@ jobs:
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Serve the whole repo root so index.html can reach css/ and js/,
-          # and /shooter/ resolves to the shooter game.
+          # Serve the whole repo root: the hub links into each project folder,
+          # and each project keeps its own css/ and js/ alongside its index.html.
           path: "."
 
       - name: Deploy to GitHub Pages

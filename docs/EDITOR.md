@@ -1,3 +1,5 @@
+<!-- Part of MAZ ARCADE — see the repo root README for every project. -->
+
 # Maz Editor
 
 The visual editor for the Maz Engine — a tool for arranging a scene (placing, rotating, and
@@ -117,3 +119,7 @@ part
 
 Both run headless as a no-op (no GPU/display needed for CI), so `sandbox --headless --scene …`
 exits cleanly after loading — which is what `ctest scene_load_headless` checks.
+
+---
+
+← Back to the [**MAZ ARCADE hub**](../index.html) · [repository README](../README.md)

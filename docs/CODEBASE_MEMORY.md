@@ -1,3 +1,5 @@
+<!-- Part of MAZ ARCADE — see the repo root README for every project. -->
+
 # Codebase Memory (MCP)
 
 This repo is wired up with a **codebase-memory MCP server** — a small helper that
@@ -64,3 +66,7 @@ The upstream memory server resolves a *relative* `MEMORY_FILE_PATH` against its 
 temporary `npx` install directory, not the project. `scripts/codebase-memory-server.sh`
 computes an **absolute** path anchored to this repo, guaranteeing the memory always
 lands at `.claude/codebase-memory.json` no matter where the server is launched from.
+
+---
+
+← Back to the [**MAZ ARCADE hub**](../index.html) · [repository README](../README.md)

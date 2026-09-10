@@ -1,3 +1,5 @@
+<!-- Part of MAZ ARCADE — see the repo root README for every project. -->
+
 # DEAD SECTOR — Top-Down Zombie Shooter
 
 A fast, arcade **twin-stick zombie shooter** built for **phone browsers**. One
@@ -36,3 +38,7 @@ Desktop fallback for testing: **WASD / arrows** to move, **mouse** to aim, and
 - Multi-touch handling with per-side touch identifiers so both sticks work at
   once. `touch-action: none` and locked viewport prevent scroll/zoom while
   playing.
+
+---
+
+← Back to the [**MAZ ARCADE hub**](../index.html) · [repository README](../README.md) · [play/open this one](../shooter/)

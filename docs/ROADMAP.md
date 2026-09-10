@@ -1,3 +1,5 @@
+<!-- Part of MAZ ARCADE — see the repo root README for every project. -->
+
 # Maz Engine — Roadmap ("the massive list")
 
 A native **C++20 + Vulkan + SDL3** game engine, built **2D-first but architected so 3D drops
@@ -191,3 +193,7 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 3. Then **Phase 5 assets** so you can load real textures/models.
 4. Everything after is genre-driven; the Zomboid port (Phase 13) is the forcing function that
    keeps the API honest.
+
+---
+
+← Back to the [**MAZ ARCADE hub**](../index.html) · [repository README](../README.md)

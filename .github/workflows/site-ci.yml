@@ -1,0 +1,46 @@
+name: Site CI
+
+# Verifies that the repo is actually wired together, which nothing else checks:
+# every link in every HTML and Markdown file resolves, the project manifest that
+# the hub and the in-app nav both read is intact, and — in a real Chromium — the
+# hub lists every project, each app boots clean, and the nav in each app leads
+# back to the hub. A broken cross-link is a bug here, not a documentation nit.
+
+on:
+  push:
+  pull_request:
+  workflow_call:
+
+concurrency:
+  group: site-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  links:
+    name: Link & manifest check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # No dependencies — pure Node, so this job is seconds long.
+      - name: Check every local link resolves
+        run: node scripts/check-links.mjs
+
+  browser:
+    name: Site smoke test (Chromium)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Playwright
+        working-directory: music/tests
+        run: npm install --no-audit --no-fund
+      - name: Install Chromium
+        working-directory: music/tests
+        run: npx playwright install --with-deps chromium
+      - name: Drive the hub and every app
+        run: node scripts/smoke-site.cjs

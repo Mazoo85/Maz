@@ -14,6 +14,7 @@ on:
     paths:
       - "scraper/**"
       - ".github/workflows/scraper-ci.yml"
+  workflow_call:
 
 concurrency:
   group: scraper-ci-${{ github.ref }}

@@ -1,0 +1,42 @@
+name: All Checks
+
+# One button that runs every suite in the repo — engine, site, music, scraper
+# and crew — in parallel. Each of those workflows still runs on its own triggers;
+# this one just gathers them so "is the whole repository healthy?" has a single
+# answer. Run it from the Actions tab, or on a schedule if you want a weekly pulse.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: all-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  engine:
+    name: Maz Engine
+    uses: ./.github/workflows/ci.yml
+
+  site:
+    name: Site (hub, links, apps)
+    uses: ./.github/workflows/site-ci.yml
+
+  music:
+    name: SONG FORGE
+    uses: ./.github/workflows/music-ci.yml
+
+  scraper:
+    name: maz-scrape
+    uses: ./.github/workflows/scraper-ci.yml
+
+  crew:
+    name: Maz Crew
+    uses: ./.github/workflows/crew-ci.yml
+
+  summary:
+    name: Everything green
+    needs: [engine, site, music, scraper, crew]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report
+        run: echo "All project suites passed."

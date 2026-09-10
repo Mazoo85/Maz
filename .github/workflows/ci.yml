@@ -9,6 +9,7 @@ on:
   push:
     branches: ["**"]
   pull_request:
+  workflow_call:
 
 # Cancel superseded runs on the same ref.
 concurrency:
