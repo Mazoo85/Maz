@@ -1,0 +1,42 @@
+name: Forge CI
+
+# The Forge's own test suite. Offline by design — every side effect (git, the
+# GitHub API, the Crew subprocess) is injected, so no token and no SDK are needed.
+
+on:
+  push:
+    paths:
+      - "forge/**"
+      - ".github/workflows/forge-ci.yml"
+  pull_request:
+    paths:
+      - "forge/**"
+      - ".github/workflows/forge-ci.yml"
+
+concurrency:
+  group: forge-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Forge tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: forge
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install test dependencies
+        run: python -m pip install --upgrade pip pytest rich typer
+
+      - name: Run tests
+        run: pytest -q

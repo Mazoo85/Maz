@@ -104,7 +104,7 @@ Non-negotiable for the initial build. Each can be loosened later, on evidence fr
 ### Files
 
 ```
-forge.toml                     leash: budget, safe zones, no-touch zones, scoring weights
+forge.json                     leash: budget, safe zones, no-touch zones, scoring weights
 forge/                         the brain (~400 lines of Python, sits beside crew/)
   cli.py                       forge sense | decide | do | verify | learn | run
   sense.py                     gathers signals into pulse.json
@@ -112,7 +112,7 @@ forge/                         the brain (~400 lines of Python, sits beside crew
   do.py                        invokes Maz Crew on a fresh branch
   verify.py                    runs checks, pushes, opens the draft PR
   learn.py                     appends the ledger line, updates roadmap + memory
-  config.py                    loads and validates forge.toml
+  config.py                    loads and validates forge.json
   signals/roadmap.py           parses ROADMAP.md checkboxes
   signals/ci.py                reads recent workflow conclusions
   signals/todos.py             scans tracked source for TODO/FIXME/HACK
@@ -180,7 +180,9 @@ Three modifiers on top:
 3. **A score floor** — if nothing clears it, the run records `no_task` and exits clean. A loop
    forced to produce output will produce garbage.
 
-All weights live in `forge.toml` so tuning never requires a code change.
+All weights live in `forge.json` so tuning never requires a code change. (JSON
+rather than TOML: Python 3.10 has no stdlib TOML reader, and `crew.json` already
+set the pattern for a committable, dependency-free config file.)
 
 ### Failure handling
 
@@ -239,6 +241,6 @@ alarm clock differs.
 ## Explicitly out of scope for P1
 
 - Any cross-project wiring, shared artifact formats, or hub page (that is P2).
-- Any learned or adaptive scoring (that is P3) — weights are hand-set in `forge.toml`.
+- Any learned or adaptive scoring (that is P3) — weights are hand-set in `forge.json`.
 - Auto-merge of any kind. Every change is a human-merged draft PR.
 - Multi-task runs, parallel branches, or the Forge modifying its own configuration.

@@ -24,3 +24,6 @@ unit_scene_*.mazscene
 # maz-scrape run state + default output directory
 .scraper/
 /scraped/
+
+# Forge run state (the ledger under forge/ledger/ IS committed)
+forge/state/
