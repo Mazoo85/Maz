@@ -2,7 +2,7 @@
 name = "maz-forge"
 version = "0.1.0"
 description = "The Forge: a nightly loop that reads the Maz repo's own state, does one useful thing, and records what happened."
-readme = "../docs/FORGE.md"
+readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "typer>=0.12.0",
