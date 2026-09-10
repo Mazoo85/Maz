@@ -13,3 +13,4 @@ Task 4: complete (commits 0e6e503..eaba99d, review clean after one Important fix
 Task 5: complete (commits 257c61b..8aed127, review clean after one Important fix — the genre fallback is now covered by a negative test)
 Task 6: complete (commits 599ace5..d3f49f2, review clean; Minor: a line at t=0 emits two coincident envelope points)
 Task 7: complete (commits 28abb44..f8c3e97, review clean after THREE Important fixes — brief's patch crashed on supplied sections lacking startBar; the 112-bar cap made exact-duration requests come back short on fast genres; removing that cap let seconds:Infinity hang the composer forever. Default preset path proven byte-identical across 120 songs against the pre-change commit.)
+Task 8: complete (commits 9835bb1..825745b, review clean; SONG FORGE's browser suite re-run by the controller — plays, exports WAV and MIDI, no page errors)
