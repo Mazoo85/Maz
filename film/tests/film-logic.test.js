@@ -592,6 +592,42 @@ test('variable-length integers round-trip', () => {
   });
 });
 
+/* ==================================================================== score
+ * The conductor is pure data in, pure data out, so the entire musical shape of
+ * a film is checkable here. SONG FORGE's own modules are browser files, so they
+ * load the way SONG FORGE's tests load them: in a vm sandbox with a fake window.
+ */
+const vm = require('vm');
+const fs = require('fs');
+const Conductor = require(path.join(__dirname, '..', 'js', 'film-score.js'));
+
+function loadSongForge() {
+  const sandbox = { console: console };
+  sandbox.window = sandbox;
+  vm.createContext(sandbox);
+  ['theory.js', 'genres.js', 'composer.js'].forEach((f) => {
+    vm.runInContext(
+      fs.readFileSync(path.join(__dirname, '..', '..', 'music', 'js', f), 'utf8'),
+      sandbox, { filename: f });
+  });
+  return sandbox;
+}
+
+console.log('\nSCORING THE FILM');
+
+test('every film genre maps to music SONG FORGE actually has', () => {
+  const forge = loadSongForge();
+  const genres = forge.Genres.GENRES;
+  const moods = forge.Genres.MOODS;
+
+  Object.keys(LEX.GENRES).forEach((filmGenre) => {
+    const pick = Conductor.MUSIC_FOR[filmGenre];
+    assert(pick, 'no music for film genre ' + filmGenre);
+    assert(genres[pick.genre], filmGenre + ' asks for genre "' + pick.genre + '", which SONG FORGE does not have');
+    assert(moods[pick.mood], filmGenre + ' asks for mood "' + pick.mood + '", which SONG FORGE does not have');
+  });
+});
+
 /* ------------------------------------------------------------------ report */
 console.log('');
 if (failures.length) {
