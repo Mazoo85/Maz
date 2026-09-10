@@ -147,6 +147,28 @@ const shortSong = Composer.compose({ seed: 'LEN', genre: 'lofi', length: 'short'
 const longSong = Composer.compose({ seed: 'LEN', genre: 'lofi', length: 'long' });
 check(longSong.bars > shortSong.bars, 'length setting has no effect');
 
+/* --- scoring to picture: an exact length and a supplied plan --- */
+const plan = [
+  { type: 'intro',  bars: 8,  energy: 0.15, parts: { pad: true, chords: true, bass: false, drums: false, arp: false, lead: false } },
+  { type: 'chorus', bars: 16, energy: 0.9,  parts: { pad: true, chords: true, bass: true,  drums: true,  arp: true,  lead: true } },
+  { type: 'outro',  bars: 8,  energy: 0.2,  parts: { pad: true, chords: true, bass: false, drums: false, arp: false, lead: false } }
+];
+const planned = Composer.compose({ genre: 'cinematic', mood: 'dark', seed: 'plan-7', bpm: 90, sections: plan });
+check(planned.sections.length === 3, 'a supplied plan must be used as given (got ' + planned.sections.length + ' sections)');
+check(planned.bars === 32, 'bar count must come from the plan (got ' + planned.bars + ')');
+check(planned.sections[0].parts.drums === false, 'the supplied intro must stay drumless');
+check(planned.sections[1].parts.lead === true, 'the supplied chorus must keep its lead');
+check(!!planned.tracks.drums, 'a planned song still needs a drum track object');
+
+const timed = Composer.compose({ genre: 'cinematic', mood: 'chill', seed: 'timed-11', seconds: 150 });
+check(timed.duration >= 150, 'a song asked for 150s came back at ' + timed.duration.toFixed(1) + 's');
+check(timed.duration < 170, 'a song asked for 150s overshot to ' + timed.duration.toFixed(1) + 's');
+
+const before = Composer.compose({ genre: 'lofi', mood: 'chill', length: 'short', seed: 'unchanged-99' });
+const after  = Composer.compose({ genre: 'lofi', mood: 'chill', length: 'short', seed: 'unchanged-99' });
+check(JSON.stringify(after.sections) === JSON.stringify(before.sections),
+  'composing without the new options must be unchanged');
+
 const demo = Composer.compose({ seed: 'VELVET-7318', genre: 'lofi', mood: 'chill' });
 console.log('sample : ' + demo.title + ' | ' + demo.keyName + ' | ' + demo.bpm + ' BPM | ' +
   demo.bars + ' bars | ' + Math.round(demo.duration) + 's');
