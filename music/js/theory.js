@@ -210,7 +210,9 @@
     const ninth = has(2) && third !== 'sus2';
 
     let ext = '';
-    if (seventh === 'M') ext = ninth ? 'maj9' : 'maj7';
+    // A minor triad with a major seventh is bracketed, so it reads Am(maj7)
+    // rather than the unreadable "Ammaj7".
+    if (seventh === 'M') ext = base === 'm' ? (ninth ? '(maj9)' : '(maj7)') : (ninth ? 'maj9' : 'maj7');
     else if (seventh === 'm') ext = ninth ? '9' : '7';
     else if (has(9)) ext = '6';
 

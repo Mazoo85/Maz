@@ -144,6 +144,11 @@
         const degree = prog[step % prog.length];
         // Simpler shapes in low-energy sections, richer in the chorus.
         let shape = shapeMain;
+        // A suspension is colour, not a harmony. Left as the song-wide shape it
+        // produces a progression that never resolves anywhere.
+        if (shape === 'sus2' || shape === 'sus4') {
+          shape = rng.chance(0.28) ? shapeMain : (rng.chance(0.5) ? 'triad' : 'seventh');
+        }
         if (sec.energy <= 0.4 && rng.chance(0.4)) shape = 'triad';
         if (sec.type === 'chorus' && rng.chance(mood.extBias)) {
           shape = shape === 'triad' ? 'seventh' : shape;
