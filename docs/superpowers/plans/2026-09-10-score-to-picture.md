@@ -30,7 +30,7 @@
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `FilmScore.MUSIC_FOR` — an object keyed by the ten film genre ids (`drama`, `thriller`, `horror`, `comedy`, `romance`, `scifi`, `mystery`, `fantasy`, `heist`, `western`), each `{ genre: string, mood: string }` naming a SONG FORGE genre id and mood id.
+- Produces: `FilmConductor.MUSIC_FOR` — an object keyed by the ten film genre ids (`drama`, `thriller`, `horror`, `comedy`, `romance`, `scifi`, `mystery`, `fantasy`, `heist`, `western`), each `{ genre: string, mood: string }` naming a SONG FORGE genre id and mood id.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -44,7 +44,9 @@ Append to `film/tests/film-logic.test.js`, after the existing `CHOOSING A VIDEO 
  */
 const vm = require('vm');
 const fs = require('fs');
-const Score = require(path.join(__dirname, '..', 'js', 'film-score.js'));
+// `Score` is already taken in this file by film-audio.js; the conductor binds
+// as `Conductor`, which is what its own doc comment calls it.
+const Conductor = require(path.join(__dirname, '..', 'js', 'film-score.js'));
 
 function loadSongForge() {
   const sandbox = { console: console };
@@ -66,7 +68,7 @@ test('every film genre maps to music SONG FORGE actually has', () => {
   const moods = forge.Genres.MOODS;
 
   Object.keys(LEX.GENRES).forEach((filmGenre) => {
-    const pick = Score.MUSIC_FOR[filmGenre];
+    const pick = Conductor.MUSIC_FOR[filmGenre];
     assert(pick, 'no music for film genre ' + filmGenre);
     assert(genres[pick.genre], filmGenre + ' asks for genre "' + pick.genre + '", which SONG FORGE does not have');
     assert(moods[pick.mood], filmGenre + ' asks for mood "' + pick.mood + '", which SONG FORGE does not have');
@@ -140,12 +142,12 @@ git commit -m "Map every film genre to a score SONG FORGE can play"
 - Test: `film/tests/film-logic.test.js`
 
 **Interfaces:**
-- Consumes: `FilmScore.MUSIC_FOR` (Task 1).
+- Consumes: `FilmConductor.MUSIC_FOR` (Task 1).
 - Produces:
-  - `FilmScore.BEATS_PER_BAR` = `4`, `FilmScore.BLOCK_BARS` = `4`
-  - `FilmScore.blockSeconds(bpm)` → seconds in one four-bar block
-  - `FilmScore.cutTimes(reel)` → `number[]`, the start time of every scene after the first
-  - `FilmScore.chooseBpm(reel, range)` → integer bpm; `range` is `[low, high]`
+  - `FilmConductor.BEATS_PER_BAR` = `4`, `FilmConductor.BLOCK_BARS` = `4`
+  - `FilmConductor.blockSeconds(bpm)` → seconds in one four-bar block
+  - `FilmConductor.cutTimes(reel)` → `number[]`, the start time of every scene after the first
+  - `FilmConductor.chooseBpm(reel, range)` → integer bpm; `range` is `[low, high]`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -153,26 +155,26 @@ git commit -m "Map every film genre to a score SONG FORGE can play"
 test('the tempo is chosen to land bars near the cuts', () => {
   const reel = Reel.build(sample);
   const range = [70, 110];
-  const bpm = Score.chooseBpm(reel, range);
+  const bpm = Conductor.chooseBpm(reel, range);
   assert(bpm >= range[0] && bpm <= range[1], 'bpm outside the genre range: ' + bpm);
   assert(bpm === Math.round(bpm), 'bpm is not a whole number: ' + bpm);
 
   // It must be no worse than the middle of the range, or choosing is pointless.
-  const error = (candidate) => Score.cutTimes(reel).reduce((total, cut) => {
-    const block = Score.blockSeconds(candidate);
+  const error = (candidate) => Conductor.cutTimes(reel).reduce((total, cut) => {
+    const block = Conductor.blockSeconds(candidate);
     return total + Math.abs(cut - Math.round(cut / block) * block);
   }, 0);
   const middle = Math.round((range[0] + range[1]) / 2);
   assert(error(bpm) <= error(middle) + 1e-9,
     `chosen ${bpm} (error ${error(bpm).toFixed(2)}s) is worse than ${middle} (${error(middle).toFixed(2)}s)`);
 
-  eq(Score.chooseBpm(reel, range), bpm, 'the same reel must choose the same tempo');
-  eq(Score.chooseBpm(reel, [96, 96]), 96, 'a single-value range must be honoured');
+  eq(Conductor.chooseBpm(reel, range), bpm, 'the same reel must choose the same tempo');
+  eq(Conductor.chooseBpm(reel, [96, 96]), 96, 'a single-value range must be honoured');
 });
 
 test('cut times are the scene starts after the first', () => {
   const reel = Reel.build(sample);
-  const cuts = Score.cutTimes(reel);
+  const cuts = Conductor.cutTimes(reel);
   eq(cuts.length, sample.scenes.length - 1, 'one cut between each pair of scenes');
   cuts.forEach((t, i) => {
     assert(t > 0 && t < reel.duration, 'cut outside the film: ' + t);
@@ -184,7 +186,7 @@ test('cut times are the scene starts after the first', () => {
 - [ ] **Step 2: Run it and watch it fail**
 
 Run: `node film/tests/film-logic.test.js`
-Expected: FAIL — `Score.chooseBpm is not a function`
+Expected: FAIL — `Conductor.chooseBpm is not a function`
 
 - [ ] **Step 3: Implement**
 
@@ -270,7 +272,7 @@ git commit -m "Choose the tempo that lands bars closest to the cuts"
 
 **Interfaces:**
 - Consumes: `blockSeconds`, `cutTimes` (Task 2).
-- Produces: `FilmScore.SECTION_TYPE` (beat id → SONG FORGE section type) and `FilmScore.sectionPlan(reel, bpm)` → array of `{ type, bars, energy, scene }`, in order, `bars` always a multiple of 4 and at least 4, together lasting at least the film's duration.
+- Produces: `FilmConductor.SECTION_TYPE` (beat id → SONG FORGE section type) and `FilmConductor.sectionPlan(reel, bpm)` → array of `{ type, bars, energy, scene }`, in order, `bars` always a multiple of 4 and at least 4, together lasting at least the film's duration.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -278,8 +280,8 @@ git commit -m "Choose the tempo that lands bars closest to the cuts"
 test('the section plan covers the whole film', () => {
   ['micro', 'short', 'festival'].forEach((length) => {
     const reel = Reel.build(Writer.write(Parse.parse('a ghost in the attic'), { length }));
-    const bpm = Score.chooseBpm(reel, [70, 110]);
-    const plan = Score.sectionPlan(reel, bpm);
+    const bpm = Conductor.chooseBpm(reel, [70, 110]);
+    const plan = Conductor.sectionPlan(reel, bpm);
 
     assert(plan.length >= 1, 'no sections for a ' + length + ' film');
     plan.forEach((section) => {
@@ -290,7 +292,7 @@ test('the section plan covers the whole film', () => {
     });
 
     const bars = plan.reduce((total, s) => total + s.bars, 0);
-    const seconds = (bars * Score.BEATS_PER_BAR * 60) / bpm;
+    const seconds = (bars * Conductor.BEATS_PER_BAR * 60) / bpm;
     assert(seconds >= reel.duration,
       `${length}: the music runs ${seconds.toFixed(1)}s but the film runs ${reel.duration.toFixed(1)}s`);
   });
@@ -298,7 +300,7 @@ test('the section plan covers the whole film', () => {
 
 test('sections take their type and energy from the beat they cover', () => {
   const reel = Reel.build(sample);
-  const plan = Score.sectionPlan(reel, Score.chooseBpm(reel, [70, 110]));
+  const plan = Conductor.sectionPlan(reel, Conductor.chooseBpm(reel, [70, 110]));
   eq(plan[0].type, 'intro', 'a film opens on an intro');
 
   const crisisOrClimax = plan.reduce((best, s) => (s.energy > best.energy ? s : best), plan[0]);
@@ -311,7 +313,7 @@ test('sections take their type and energy from the beat they cover', () => {
 - [ ] **Step 2: Run it and watch it fail**
 
 Run: `node film/tests/film-logic.test.js`
-Expected: FAIL — `Score.sectionPlan is not a function`
+Expected: FAIL — `Conductor.sectionPlan is not a function`
 
 - [ ] **Step 3: Implement**
 
@@ -397,35 +399,35 @@ git commit -m "Turn each scene into a section of the score"
 
 **Interfaces:**
 - Consumes: `sectionPlan` (Task 3).
-- Produces: `FilmScore.partsFor(energy, isFinal)` → `{ drums, bass, chords, arp, lead, pad }` of booleans. `sectionPlan` now sets `section.parts` on every entry.
+- Produces: `FilmConductor.partsFor(energy, isFinal)` → `{ drums, bass, chords, arp, lead, pad }` of booleans. `sectionPlan` now sets `section.parts` on every entry.
 
 - [ ] **Step 1: Write the failing test**
 
 ```js
 test('the band grows with the tension and stands down at the end', () => {
-  const quiet = Score.partsFor(0.15, false);
+  const quiet = Conductor.partsFor(0.15, false);
   eq(quiet.drums, false, 'drums under the opening');
   eq(quiet.bass, false, 'bass under the opening');
   eq(quiet.pad && quiet.chords, true, 'the opening still needs pad and chords');
 
-  eq(Score.partsFor(0.4, false).bass, true, 'bass joins in the middle band');
-  eq(Score.partsFor(0.4, false).drums, false, 'drums are too early at 0.4');
-  eq(Score.partsFor(0.6, false).drums, true, 'drums join by 0.6');
-  eq(Score.partsFor(0.6, false).lead, false, 'the lead is not out yet at 0.6');
+  eq(Conductor.partsFor(0.4, false).bass, true, 'bass joins in the middle band');
+  eq(Conductor.partsFor(0.4, false).drums, false, 'drums are too early at 0.4');
+  eq(Conductor.partsFor(0.6, false).drums, true, 'drums join by 0.6');
+  eq(Conductor.partsFor(0.6, false).lead, false, 'the lead is not out yet at 0.6');
 
-  const crisis = Score.partsFor(0.88, false);
+  const crisis = Conductor.partsFor(0.88, false);
   eq(crisis.drums && crisis.bass && crisis.lead && crisis.arp, true, 'the crisis gets the full band');
 
   // The last scene resolves regardless of its own tension — a micro film ends
   // on the choice at 0.5 and must still land rather than stop.
-  const ending = Score.partsFor(0.5, true);
+  const ending = Conductor.partsFor(0.5, true);
   eq(ending.drums, false, 'the closing scene still had drums');
   eq(ending.pad && ending.chords, true, 'the closing scene needs pad and chords');
 });
 
 test('every section carries its instruments', () => {
   const reel = Reel.build(sample);
-  const plan = Score.sectionPlan(reel, Score.chooseBpm(reel, [70, 110]));
+  const plan = Conductor.sectionPlan(reel, Conductor.chooseBpm(reel, [70, 110]));
   plan.forEach((section) => {
     ['drums', 'bass', 'chords', 'arp', 'lead', 'pad'].forEach((part) => {
       eq(typeof section.parts[part], 'boolean', 'section is missing ' + part);
@@ -438,7 +440,7 @@ test('every section carries its instruments', () => {
 - [ ] **Step 2: Run it and watch it fail**
 
 Run: `node film/tests/film-logic.test.js`
-Expected: FAIL — `Score.partsFor is not a function`
+Expected: FAIL — `Conductor.partsFor is not a function`
 
 - [ ] **Step 3: Implement**
 
@@ -485,7 +487,7 @@ git commit -m "Bring the band in as the story tightens, and stand it down to end
 
 **Interfaces:**
 - Consumes: everything above.
-- Produces: `FilmScore.request(reel, opts)` → `{ genre, mood, seed, seconds, bpm, sections }`. `opts.bpmRange` is `[low, high]` and defaults to `[72, 108]`.
+- Produces: `FilmConductor.request(reel, opts)` → `{ genre, mood, seed, seconds, bpm, sections }`. `opts.bpmRange` is `[low, high]` and defaults to `[72, 108]`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -493,8 +495,8 @@ git commit -m "Bring the band in as the story tightens, and stand it down to end
 test('a reel becomes a complete score request', () => {
   const reel = Reel.build(sample);
   const forge = loadSongForge();
-  const music = Score.MUSIC_FOR[reel.genre];
-  const req = Score.request(reel, { bpmRange: forge.Genres.GENRES[music.genre].bpm });
+  const music = Conductor.MUSIC_FOR[reel.genre];
+  const req = Conductor.request(reel, { bpmRange: forge.Genres.GENRES[music.genre].bpm });
 
   eq(req.genre, music.genre);
   eq(req.mood, music.mood);
@@ -503,7 +505,7 @@ test('a reel becomes a complete score request', () => {
   assert(req.seed !== reel.seed, 'the score seed must not be the film seed itself');
   assert(typeof req.seed === 'number' && isFinite(req.seed), 'bad seed: ' + req.seed);
 
-  const again = Score.request(reel, { bpmRange: forge.Genres.GENRES[music.genre].bpm });
+  const again = Conductor.request(reel, { bpmRange: forge.Genres.GENRES[music.genre].bpm });
   eq(JSON.stringify(again), JSON.stringify(req), 'the same film must ask for the same score');
 });
 
@@ -511,9 +513,9 @@ test('any film, any length, produces a usable request', () => {
   ['', 'robot', 'two sisters rob a bank at midnight', 'a ghost in the attic'].forEach((idea) => {
     ['micro', 'short', 'festival'].forEach((length) => {
       const reel = Reel.build(Writer.write(Parse.parse(idea, { seed: 3 }), { length, seed: 3 }));
-      const req = Score.request(reel);
+      const req = Conductor.request(reel);
       assert(req.bpm > 0 && req.sections.length > 0, 'unusable request for "' + idea.slice(0, 20) + '"');
-      const seconds = (req.sections.reduce((b, s) => b + s.bars, 0) * Score.BEATS_PER_BAR * 60) / req.bpm;
+      const seconds = (req.sections.reduce((b, s) => b + s.bars, 0) * Conductor.BEATS_PER_BAR * 60) / req.bpm;
       assert(seconds >= reel.duration - 1e-6, 'the score is shorter than the film');
     });
   });
@@ -523,7 +525,7 @@ test('any film, any length, produces a usable request', () => {
 - [ ] **Step 2: Run it and watch it fail**
 
 Run: `node film/tests/film-logic.test.js`
-Expected: FAIL — `Score.request is not a function`
+Expected: FAIL — `Conductor.request is not a function`
 
 - [ ] **Step 3: Implement**
 
@@ -571,14 +573,14 @@ git commit -m "Turn a reel into one complete score request"
 
 **Interfaces:**
 - Consumes: the reel's shots.
-- Produces: `FilmScore.duckEnvelope(reel)` → `[{ t, gain }]`, sorted by `t`, starting at `t: 0, gain: 1`, with `gain` either `1` or `FilmScore.DUCK_GAIN`.
+- Produces: `FilmConductor.duckEnvelope(reel)` → `[{ t, gain }]`, sorted by `t`, starting at `t: 0, gain: 1`, with `gain` either `1` or `FilmConductor.DUCK_GAIN`.
 
 - [ ] **Step 1: Write the failing test**
 
 ```js
 test('the music ducks for every line and comes back up', () => {
   const reel = Reel.build(sample);
-  const env = Score.duckEnvelope(reel);
+  const env = Conductor.duckEnvelope(reel);
   const lines = reel.shots.filter((s) => s.kind === 'line');
 
   eq(env[0].t, 0, 'the envelope must start at the top of the film');
@@ -586,12 +588,12 @@ test('the music ducks for every line and comes back up', () => {
 
   for (let i = 1; i < env.length; i++) {
     assert(env[i].t >= env[i - 1].t, 'envelope points are out of order');
-    assert(env[i].gain === 1 || env[i].gain === Score.DUCK_GAIN,
+    assert(env[i].gain === 1 || env[i].gain === Conductor.DUCK_GAIN,
       'unexpected gain ' + env[i].gain);
     assert(env[i].t >= 0 && env[i].t <= reel.duration + 1, 'envelope point outside the film');
   }
 
-  const ducks = env.filter((p) => p.gain === Score.DUCK_GAIN).length;
+  const ducks = env.filter((p) => p.gain === Conductor.DUCK_GAIN).length;
   assert(ducks >= 1 && ducks <= lines.length,
     `${ducks} ducks for ${lines.length} lines — expected at most one per line`);
   eq(env[env.length - 1].gain, 1, 'the music must come back up before the end');
@@ -605,8 +607,8 @@ test('lines close together stay ducked rather than pumping', () => {
       { kind: 'line', start: 7.1, duration: 2, scene: 1 }
     ]
   };
-  const env = Score.duckEnvelope(reel);
-  const ducks = env.filter((p) => p.gain === Score.DUCK_GAIN).length;
+  const env = Conductor.duckEnvelope(reel);
+  const ducks = env.filter((p) => p.gain === Conductor.DUCK_GAIN).length;
   eq(ducks, 1, 'two lines a fifth of a second apart should be one duck, not two');
 });
 ```
@@ -614,7 +616,7 @@ test('lines close together stay ducked rather than pumping', () => {
 - [ ] **Step 2: Run it and watch it fail**
 
 Run: `node film/tests/film-logic.test.js`
-Expected: FAIL — `Score.duckEnvelope is not a function`
+Expected: FAIL — `Conductor.duckEnvelope is not a function`
 
 - [ ] **Step 3: Implement**
 
@@ -679,7 +681,7 @@ git commit -m "Duck the music under every spoken line"
 - Test: `music/tests/music-logic.test.js`
 
 **Interfaces:**
-- Consumes: `FilmScore.request()` output (Task 5) as `compose()` input.
+- Consumes: `FilmConductor.request()` output (Task 5) as `compose()` input.
 - Produces: `compose(opts)` additionally accepting `opts.seconds` (number), `opts.sections` (`[{type, bars, energy, parts}]`) and `opts.bpm` (already supported). With none of them, output is byte-identical to today's for a given seed.
 
 - [ ] **Step 1: Write the failing test**
@@ -860,7 +862,7 @@ git commit -m "Let a song play into a supplied audio context and destination"
 - Test: covered by Task 11's browser test; `node film/tests/film-logic.test.js` must keep passing.
 
 **Interfaces:**
-- Consumes: `FilmScore.request()`, `FilmScore.duckEnvelope()` (Tasks 5–6); `Composer.compose()`, `Engine.Player` (Tasks 7–8).
+- Consumes: `FilmConductor.request()`, `FilmConductor.duckEnvelope()` (Tasks 5–6); `Composer.compose()`, `Engine.Player` (Tasks 7–8).
 - Produces: `Score` (in `film-audio.js`) gains `musicBus` and `effectsBus`, plus `startScore(reel)`, `scoreTransport()` and `usingRealScore` (boolean, false when it fell back).
 
 - [ ] **Step 1: Load the music modules in the film page**
