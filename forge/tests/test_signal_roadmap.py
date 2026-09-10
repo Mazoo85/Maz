@@ -63,7 +63,11 @@ def test_empty_document_yields_nothing():
 
 
 def test_malformed_lines_are_skipped_not_fatal():
-    assert parse("- [ ]\n- [ ] real item\n") == parse("- [ ] real item\n")
+    # A malformed line (only whitespace after the checkbox) should be skipped,
+    # but valid items before and after should be collected.
+    result = parse("## Phase 0\n- [ ] first task\n- [ ]  \n- [ ] second task\n")
+    tasks = [c.task for c in result]
+    assert tasks == ["first task", "second task"]
 
 
 def test_collect_never_raises_on_invalid_utf8(tmp_path):
