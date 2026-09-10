@@ -16,6 +16,17 @@
      this, measured so the styles sit at a comparable loudness. */
   const MASTER_TRIM = 0.42;
 
+  /* Where each part sits across the stereo field. Kick, snare and bass hold the
+     centre — everything low or structural does — and the rest opens out. */
+  const TRACK_PAN = { drums: 0, bass: 0, chords: -0.12, arp: -0.3, lead: 0.14, pad: 0.08 };
+
+  /* How hard the kick ducks each part. This pumping is most of what makes house,
+     synthwave and trap sound like themselves; it is barely there on lo-fi and
+     absent from ambient. Rather than a real sidechain (Web Audio compressors have
+     no sidechain input), the kick times are already in the score, so the duck is
+     scheduled as gain automation exactly where the kick lands. */
+  const DUCK_TARGETS = ['bass', 'chords', 'pad', 'arp'];
+
   function presetFor(song, track) {
     const g = song.genre;
     const P = global.Genres.PRESETS;
@@ -103,16 +114,30 @@
     delay.connect(damp).connect(fb).connect(delay);
     delay.connect(delReturn).connect(master);
 
-    // Per-track sends and faders
+    // Per-track sends, faders, placement and ducking
     const tracks = {};
+    const duckDepth = fx.sidechain === undefined ? 0 : fx.sidechain;
     TRACKS.forEach(function (name) {
       const dry = ctx.createGain();
       const rev = ctx.createGain();
       const del = ctx.createGain();
-      dry.connect(master);
+
+      // dry -> [duck] -> [pan] -> master
+      let tail = dry;
+      let duck = null;
+      if (duckDepth > 0 && DUCK_TARGETS.indexOf(name) >= 0) {
+        duck = ctx.createGain();
+        duck.gain.value = 1;
+        tail.connect(duck);
+        tail = duck;
+      }
+      const pan = Synth.panner(ctx, TRACK_PAN[name] || 0);
+      if (pan) { tail.connect(pan); tail = pan; }
+      tail.connect(master);
+
       rev.connect(revPre);
       del.connect(delPre);
-      const t = { dry: dry, rev: rev, del: del };
+      const t = { dry: dry, rev: rev, del: del, duck: duck };
       tracks[name] = t;
       const m = (mix && mix[name]) || { volume: 1, muted: false };
       const v = m.muted ? 0 : m.volume;
@@ -137,7 +162,8 @@
 
     return {
       master: master, limiter: limiter, analyser: analyser, tracks: tracks,
-      revReturn: revReturn, delReturn: delReturn, vinyl: vinyl, out: out
+      revReturn: revReturn, delReturn: delReturn, vinyl: vinyl, out: out,
+      duckDepth: duckDepth, duckRelease: Math.min(0.42, (60 / song.bpm) * 0.62)
     };
   }
 
@@ -171,6 +197,7 @@
     if (!bus) return;
     if (ev.track === 'drums') {
       Synth.playDrum(ctx, bus, when, ev.inst, ev.v, song.genre.drums.kit);
+      if (ev.inst === 'kick' && graph.duckDepth > 0) duck(graph, when, ev.v);
       return;
     }
     const preset = presetFor(song, ev.track);
@@ -180,6 +207,24 @@
     const extra = { brightness: brightness };
     if (ev.glideFrom) extra.glideFrom = global.Theory.midiToFreq(ev.glideFrom);
     Synth.playNote(ctx, bus, when, Math.max(0.05, ev.d * spb), freq, preset, ev.v, extra);
+  }
+
+  /**
+   * Duck the sustained parts under a kick: drop instantly, breathe back up.
+   * The recovery is tempo-relative, so the pump stays in time at any BPM.
+   */
+  function duck(graph, when, vel) {
+    const depth = graph.duckDepth * (0.65 + 0.35 * Math.min(1, vel === undefined ? 1 : vel));
+    const floor = Math.max(0.02, 1 - depth);
+    const release = graph.duckRelease;
+    for (let i = 0; i < DUCK_TARGETS.length; i++) {
+      const bus = graph.tracks[DUCK_TARGETS[i]];
+      if (!bus || !bus.duck) continue;
+      const g = bus.duck.gain;
+      g.cancelScheduledValues(when);
+      g.setValueAtTime(floor, when);
+      g.linearRampToValueAtTime(1, when + release);
+    }
   }
 
   /* ------------------------------------------------------------------ *
@@ -360,6 +405,7 @@
       const v = m.muted ? 0 : m.volume;
       const t = this.ctx.currentTime;
       const bus = this.graph.tracks[name];
+      // Only the fader nodes — `duck` carries its own automation.
       ['dry', 'rev', 'del'].forEach(function (k) {
         bus[k].gain.setTargetAtTime(v, t, 0.02);
       });

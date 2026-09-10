@@ -1199,6 +1199,10 @@ input[type="range"]::-moz-range-thumb {
  *
  * Drum patterns are 16 characters = one bar of sixteenth notes:
  *   X = accent   x = normal   o = soft / ghost   . = rest
+ *
+ * fx.sidechain is how hard the kick ducks the sustained parts. It is a genre
+ * signature, not a polish setting: house lives on it, ambient and chiptune have
+ * no such thing.
  */
 (function (global) {
   'use strict';
@@ -1248,7 +1252,8 @@ input[type="range"]::-moz-range-thumb {
       osc: [{ type: 'sawtooth', detune: -14, gain: 1, octave: 0 }, { type: 'sawtooth', detune: 12, gain: 1, octave: 0 },
             { type: 'square', detune: 0, gain: 0.5, octave: -1 }],
       filter: { type: 'lowpass', freq: 420, q: 8, env: 700, attack: 0.02, decay: 0.5, sustain: 0.5 },
-      amp: { a: 0.01, d: 0.3, s: 0.85, r: 0.15 }, drive: 0.4, gain: 0.55, send: { rev: 0.05, del: 0 }
+      amp: { a: 0.01, d: 0.3, s: 0.85, r: 0.15 }, drive: 0.4, gain: 0.55, send: { rev: 0.05, del: 0 },
+      width: 0.35, filterLfo: { rate: 0.9, depth: 180 }
     }),
     pulseBass: subtractive({
       osc: [{ type: 'square', detune: 0, gain: 1, octave: 0 }],
@@ -1265,23 +1270,27 @@ input[type="range"]::-moz-range-thumb {
       osc: [{ type: 'sawtooth', detune: -8, gain: 1, octave: 0 }, { type: 'sawtooth', detune: 9, gain: 1, octave: 0 },
             { type: 'triangle', detune: 0, gain: 0.5, octave: -1 }],
       filter: { type: 'lowpass', freq: 1100, q: 2, env: 700, attack: 0.6, decay: 1.5, sustain: 0.5 },
-      amp: { a: 0.7, d: 1.2, s: 0.75, r: 1.4 }, gain: 0.3, send: { rev: 0.55, del: 0.12 }
+      amp: { a: 0.7, d: 1.2, s: 0.75, r: 1.4 }, gain: 0.3, send: { rev: 0.55, del: 0.12 },
+      width: 0.55, filterLfo: { rate: 0.11, depth: 260 }
     }),
     glassPad: subtractive({
       osc: [{ type: 'triangle', detune: -5, gain: 1, octave: 0 }, { type: 'sine', detune: 6, gain: 0.8, octave: 1 }],
       filter: { type: 'lowpass', freq: 2200, q: 1, env: 600, attack: 1.2, decay: 2.5, sustain: 0.7 },
-      amp: { a: 1.4, d: 2.0, s: 0.8, r: 2.6 }, gain: 0.26, send: { rev: 0.75, del: 0.2 }
+      amp: { a: 1.4, d: 2.0, s: 0.8, r: 2.6 }, gain: 0.26, send: { rev: 0.75, del: 0.2 },
+      width: 0.7, filterLfo: { rate: 0.07, depth: 340 }
     }),
     stab: subtractive({
       osc: [{ type: 'sawtooth', detune: -5, gain: 1, octave: 0 }, { type: 'sawtooth', detune: 6, gain: 1, octave: 0 }],
       filter: { type: 'lowpass', freq: 900, q: 7, env: 2600, attack: 0.002, decay: 0.18, sustain: 0.0 },
-      amp: { a: 0.003, d: 0.22, s: 0.0, r: 0.14 }, gain: 0.34, send: { rev: 0.3, del: 0.16 }
+      amp: { a: 0.003, d: 0.22, s: 0.0, r: 0.14 }, gain: 0.34, send: { rev: 0.3, del: 0.16 },
+      width: 0.42
     }),
     strings: subtractive({
       osc: [{ type: 'sawtooth', detune: -11, gain: 1, octave: 0 }, { type: 'sawtooth', detune: 11, gain: 1, octave: 0 },
             { type: 'sawtooth', detune: 0, gain: 0.7, octave: 1 }],
       filter: { type: 'lowpass', freq: 1500, q: 1.5, env: 900, attack: 0.35, decay: 1.2, sustain: 0.6 },
-      amp: { a: 0.42, d: 0.9, s: 0.85, r: 0.9 }, gain: 0.28, send: { rev: 0.6, del: 0.08 }
+      amp: { a: 0.42, d: 0.9, s: 0.85, r: 0.9 }, gain: 0.28, send: { rev: 0.6, del: 0.08 },
+      width: 0.6, vibrato: { rate: 4.4, depth: 5, delay: 0.5 }
     }),
     chipChord: subtractive({
       osc: [{ type: 'square', detune: 0, gain: 1, octave: 0 }],
@@ -1293,12 +1302,14 @@ input[type="range"]::-moz-range-thumb {
     softLead: subtractive({
       osc: [{ type: 'triangle', detune: 0, gain: 1, octave: 0 }, { type: 'sine', detune: 4, gain: 0.5, octave: 1 }],
       filter: { type: 'lowpass', freq: 1800, q: 2, env: 900, attack: 0.02, decay: 0.4, sustain: 0.4 },
-      amp: { a: 0.02, d: 0.35, s: 0.6, r: 0.4 }, gain: 0.36, send: { rev: 0.4, del: 0.32 }
+      amp: { a: 0.02, d: 0.35, s: 0.6, r: 0.4 }, gain: 0.36, send: { rev: 0.4, del: 0.32 },
+      width: 0.18, vibrato: { rate: 5.0, depth: 8, delay: 0.28 }
     }),
     sawLead: subtractive({
       osc: [{ type: 'sawtooth', detune: -7, gain: 1, octave: 0 }, { type: 'sawtooth', detune: 8, gain: 0.9, octave: 0 }],
       filter: { type: 'lowpass', freq: 2400, q: 5, env: 2200, attack: 0.008, decay: 0.5, sustain: 0.45 },
-      amp: { a: 0.01, d: 0.3, s: 0.75, r: 0.35 }, drive: 0.2, gain: 0.34, send: { rev: 0.35, del: 0.35 }
+      amp: { a: 0.01, d: 0.3, s: 0.75, r: 0.35 }, drive: 0.2, gain: 0.34, send: { rev: 0.35, del: 0.35 },
+      width: 0.3, vibrato: { rate: 5.6, depth: 11, delay: 0.24 }
     }),
     bell: { kind: 'bell', gain: 0.3, amp: { a: 0.002, d: 2.2, s: 0, r: 0.8 }, send: { rev: 0.55, del: 0.3 } },
     pluck: {
@@ -1346,7 +1357,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x..x....x.x...x.', snare: '....x.......x..o', hh: 'xoxoxoxoxoxoxoxo', perc: '....o.......o...' },
         fill:   { kick: 'x.......x.......', snare: '........x.x.xxxx', hh: 'x.x.x.x.........' }
       },
-      fx: { reverb: 0.35, delay: 0.22, delayTime: 0.5, vinyl: 0.5, master: 1.15, brightness: 0.75 }
+      fx: { reverb: 0.35, delay: 0.22, delayTime: 0.5, vinyl: 0.5, master: 1.15, sidechain: 0.14, brightness: 0.75 }
     },
 
     synthwave: {
@@ -1367,7 +1378,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x...x...x...x..x', clap: '....x.......x...', hh: 'xoxoxoxoxoxoxoxo', oh: '......x.......x.', crash: 'x...............' },
         fill:   { kick: 'x...x...........', snare: '........x.x.xxxx', crash: '................' }
       },
-      fx: { reverb: 0.42, delay: 0.3, delayTime: 0.375, vinyl: 0, master: 0.94, brightness: 1.05 }
+      fx: { reverb: 0.42, delay: 0.3, delayTime: 0.375, vinyl: 0, master: 0.94, sidechain: 0.42, brightness: 1.05 }
     },
 
     house: {
@@ -1388,7 +1399,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x...x...x...x...', clap: '....x.......x...', hh: 'xoxoxoxoxoxoxoxo', oh: '..x...x...x...x.', perc: '...x......x.....' },
         fill:   { kick: 'x...x...x.......', snare: '........x.x.xxxx', oh: '..............x.' }
       },
-      fx: { reverb: 0.4, delay: 0.24, delayTime: 0.375, vinyl: 0, master: 1.02, brightness: 1.0 }
+      fx: { reverb: 0.4, delay: 0.24, delayTime: 0.375, vinyl: 0, master: 1.02, sidechain: 0.58, brightness: 1.0 }
     },
 
     ambient: {
@@ -1409,7 +1420,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x.......x.......', perc: '....o.......o...', shaker: 'o.o.o.o.o.o.o.o.' },
         fill:   { perc: '............o.o.' }
       },
-      fx: { reverb: 0.8, delay: 0.35, delayTime: 0.75, vinyl: 0.15, master: 1.31, brightness: 0.9 }
+      fx: { reverb: 0.8, delay: 0.35, delayTime: 0.75, vinyl: 0.15, master: 1.31, sidechain: 0, brightness: 0.9 }
     },
 
     cinematic: {
@@ -1430,7 +1441,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x.x.x.x.x.x.x.x.', snare: '........x.......', tom: 'o...o...o...o...', crash: 'x...............' },
         fill:   { tom: 'x.x.x.xxx.x.xxxx', crash: '................' }
       },
-      fx: { reverb: 0.65, delay: 0.18, delayTime: 0.5, vinyl: 0, master: 1.10, brightness: 0.95 }
+      fx: { reverb: 0.65, delay: 0.18, delayTime: 0.5, vinyl: 0, master: 1.10, sidechain: 0.12, brightness: 0.95 }
     },
 
     chiptune: {
@@ -1451,7 +1462,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x..xx...x..xx...', snare: '....x.......x...', hh: 'xoxoxoxoxoxoxoxo' },
         fill:   { kick: 'x.......x.......', snare: '....x...x.x.xxxx', hh: '................' }
       },
-      fx: { reverb: 0.16, delay: 0.26, delayTime: 0.1875, vinyl: 0, master: 1.38, brightness: 1.15 }
+      fx: { reverb: 0.16, delay: 0.26, delayTime: 0.1875, vinyl: 0, master: 1.38, sidechain: 0, brightness: 1.15 }
     },
 
     dnb: {
@@ -1472,7 +1483,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x.....x..x.x....', snare: '....x..o....x..o', hh: 'xoxoxoxoxoxoxoxo', oh: '..........x.....' },
         fill:   { kick: 'x.......x.......', snare: '....x...x.x.xxxx', hh: '................' }
       },
-      fx: { reverb: 0.45, delay: 0.28, delayTime: 0.375, vinyl: 0, master: 1.19, brightness: 1.05 }
+      fx: { reverb: 0.45, delay: 0.28, delayTime: 0.375, vinyl: 0, master: 1.19, sidechain: 0.34, brightness: 1.05 }
     },
 
     trap: {
@@ -1494,7 +1505,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x..x..x...x..x..', snare: '........x.......', hh: 'xoxoxoxoxoxoxoxo', oh: '..............x.' },
         fill:   { kick: 'x.......x.......', snare: '........x...xxxx', hh: 'x.x.x.x.........' }
       },
-      fx: { reverb: 0.35, delay: 0.2, delayTime: 0.375, vinyl: 0, master: 1.17, brightness: 0.95 }
+      fx: { reverb: 0.35, delay: 0.2, delayTime: 0.375, vinyl: 0, master: 1.17, sidechain: 0.46, brightness: 0.95 }
     }
   };
 
@@ -2460,6 +2471,14 @@ input[type="range"]::-moz-range-thumb {
     return t + decay;
   }
 
+  /** StereoPannerNode where available; a plain gain elsewhere (mono, but audible). */
+  function panner(ctx, pan) {
+    if (!pan || !ctx.createStereoPanner) return null;
+    const p = ctx.createStereoPanner();
+    p.pan.value = Math.max(-1, Math.min(1, pan));
+    return p;
+  }
+
   function noiseSource(ctx, t, dur) {
     const src = ctx.createBufferSource();
     src.buffer = noiseBuffer(ctx);
@@ -2550,16 +2569,30 @@ input[type="range"]::-moz-range-thumb {
       filt.type = f.type || 'lowpass';
       filt.Q.value = f.q || 1;
       const bright = (extra && extra.brightness) || 1;
+      /* Play a note harder and it should open up, not just get louder — this is
+         most of why a static synth line sounds mechanical. */
+      const vAmt = 0.55 + 0.45 * (vel === undefined ? 0.8 : vel);
       const base = Math.min(16000, Math.max(60, f.freq * bright));
-      const top = Math.min(17000, base + (f.env || 0) * bright);
+      const top = Math.min(17000, base + (f.env || 0) * bright * vAmt);
       filt.frequency.setValueAtTime(base, t);
       if (f.env) {
         filt.frequency.linearRampToValueAtTime(top, t + Math.max(0.002, f.attack || 0.005));
         filt.frequency.exponentialRampToValueAtTime(
-          Math.max(60, base + (f.env * (f.sustain === undefined ? 0.3 : f.sustain)) * bright),
+          Math.max(60, base + (f.env * (f.sustain === undefined ? 0.3 : f.sustain)) * bright * vAmt),
           t + (f.attack || 0.005) + (f.decay || 0.2));
       }
+
+      // Width: alternate oscillators left and right so a stack becomes a spread.
+      let leftPan = null, rightPan = null;
+      if (preset.width) {
+        leftPan = panner(ctx, -preset.width);
+        rightPan = panner(ctx, preset.width);
+        if (leftPan) leftPan.connect(filt);
+        if (rightPan) rightPan.connect(filt);
+      }
+
       const oscs = preset.osc || [{ type: 'sawtooth', detune: 0, gain: 1, octave: 0 }];
+      const pitched = [];
       for (let i = 0; i < oscs.length; i++) {
         const spec = oscs[i];
         const o = ctx.createOscillator();
@@ -2568,8 +2601,10 @@ input[type="range"]::-moz-range-thumb {
         o.detune.value = spec.detune || 0;
         const g = ctx.createGain();
         g.gain.value = spec.gain === undefined ? 1 : spec.gain;
-        o.connect(g).connect(filt);
+        const side = (i % 2 === 0 ? leftPan : rightPan);
+        o.connect(g).connect(side || filt);
         nodes.push(o);
+        pitched.push(o);
       }
       if (preset.sub) {
         const o = ctx.createOscillator();
@@ -2577,9 +2612,37 @@ input[type="range"]::-moz-range-thumb {
         o.frequency.value = freq / 2;
         const g = ctx.createGain();
         g.gain.value = preset.sub;
-        o.connect(g).connect(filt);
+        o.connect(g).connect(filt);       // sub stays centred
         nodes.push(o);
+        pitched.push(o);
       }
+
+      // Vibrato — a delayed swell, the way a player leans into a held note.
+      if (preset.vibrato && dur > 0.25) {
+        const v = preset.vibrato;
+        const lfo = ctx.createOscillator();
+        lfo.type = 'sine';
+        lfo.frequency.value = v.rate || 5.2;
+        const depth = ctx.createGain();
+        depth.gain.setValueAtTime(0, t);
+        depth.gain.linearRampToValueAtTime(v.depth || 7, t + (v.delay || 0.22));
+        lfo.connect(depth);
+        for (let i = 0; i < pitched.length; i++) depth.connect(pitched[i].detune);
+        nodes.push(lfo);
+      }
+
+      // Slow filter drift, so a long pad never sits still.
+      if (preset.filterLfo) {
+        const fl = preset.filterLfo;
+        const lfo = ctx.createOscillator();
+        lfo.type = 'sine';
+        lfo.frequency.value = fl.rate || 0.15;
+        const depth = ctx.createGain();
+        depth.gain.value = fl.depth || 300;
+        lfo.connect(depth).connect(filt.frequency);
+        nodes.push(lfo);
+      }
+
       filt.connect(amp);
       tail = adsr(amp.gain, t, dur, peak, preset.amp);
     }
@@ -2691,12 +2754,22 @@ input[type="range"]::-moz-range-thumb {
 
   function kitFor(id) { return KITS[id] || KITS.electro; }
 
+  /* Kick and snare hold the centre; everything else sits off to one side, the
+     way a kit does in front of you. */
+  const DRUM_PAN = {
+    kick: 0, snare: 0, clap: 0.06, hh: 0.24, oh: 0.2,
+    tom: -0.28, perc: -0.32, shaker: 0.34, crash: -0.18, rim: 0.26
+  };
+
   function playDrum(ctx, out, t, inst, vel, kitId) {
     const kit = kitFor(kitId);
     vel = vel === undefined ? 0.8 : vel;
 
+    const pan = panner(ctx, DRUM_PAN[inst] || 0);
+    if (pan) pan.connect(out.dry);
+
     function toOut(node, revAmt) {
-      node.connect(out.dry);
+      node.connect(pan || out.dry);
       if (revAmt && out.rev) {
         const g = ctx.createGain(); g.gain.value = revAmt;
         node.connect(g).connect(out.rev);
@@ -2861,6 +2934,8 @@ input[type="range"]::-moz-range-thumb {
     softClipCurve: softClipCurve,
     noiseBuffer: noiseBuffer,
     vinylBuffer: vinylBuffer,
+    panner: panner,
+    DRUM_PAN: DRUM_PAN,
     KITS: KITS
   };
 })(window);
@@ -2884,6 +2959,17 @@ input[type="range"]::-moz-range-thumb {
   /* Global output trim. Each genre's fx.master is a per-style offset on top of
      this, measured so the styles sit at a comparable loudness. */
   const MASTER_TRIM = 0.42;
+
+  /* Where each part sits across the stereo field. Kick, snare and bass hold the
+     centre — everything low or structural does — and the rest opens out. */
+  const TRACK_PAN = { drums: 0, bass: 0, chords: -0.12, arp: -0.3, lead: 0.14, pad: 0.08 };
+
+  /* How hard the kick ducks each part. This pumping is most of what makes house,
+     synthwave and trap sound like themselves; it is barely there on lo-fi and
+     absent from ambient. Rather than a real sidechain (Web Audio compressors have
+     no sidechain input), the kick times are already in the score, so the duck is
+     scheduled as gain automation exactly where the kick lands. */
+  const DUCK_TARGETS = ['bass', 'chords', 'pad', 'arp'];
 
   function presetFor(song, track) {
     const g = song.genre;
@@ -2972,16 +3058,30 @@ input[type="range"]::-moz-range-thumb {
     delay.connect(damp).connect(fb).connect(delay);
     delay.connect(delReturn).connect(master);
 
-    // Per-track sends and faders
+    // Per-track sends, faders, placement and ducking
     const tracks = {};
+    const duckDepth = fx.sidechain === undefined ? 0 : fx.sidechain;
     TRACKS.forEach(function (name) {
       const dry = ctx.createGain();
       const rev = ctx.createGain();
       const del = ctx.createGain();
-      dry.connect(master);
+
+      // dry -> [duck] -> [pan] -> master
+      let tail = dry;
+      let duck = null;
+      if (duckDepth > 0 && DUCK_TARGETS.indexOf(name) >= 0) {
+        duck = ctx.createGain();
+        duck.gain.value = 1;
+        tail.connect(duck);
+        tail = duck;
+      }
+      const pan = Synth.panner(ctx, TRACK_PAN[name] || 0);
+      if (pan) { tail.connect(pan); tail = pan; }
+      tail.connect(master);
+
       rev.connect(revPre);
       del.connect(delPre);
-      const t = { dry: dry, rev: rev, del: del };
+      const t = { dry: dry, rev: rev, del: del, duck: duck };
       tracks[name] = t;
       const m = (mix && mix[name]) || { volume: 1, muted: false };
       const v = m.muted ? 0 : m.volume;
@@ -3006,7 +3106,8 @@ input[type="range"]::-moz-range-thumb {
 
     return {
       master: master, limiter: limiter, analyser: analyser, tracks: tracks,
-      revReturn: revReturn, delReturn: delReturn, vinyl: vinyl, out: out
+      revReturn: revReturn, delReturn: delReturn, vinyl: vinyl, out: out,
+      duckDepth: duckDepth, duckRelease: Math.min(0.42, (60 / song.bpm) * 0.62)
     };
   }
 
@@ -3040,6 +3141,7 @@ input[type="range"]::-moz-range-thumb {
     if (!bus) return;
     if (ev.track === 'drums') {
       Synth.playDrum(ctx, bus, when, ev.inst, ev.v, song.genre.drums.kit);
+      if (ev.inst === 'kick' && graph.duckDepth > 0) duck(graph, when, ev.v);
       return;
     }
     const preset = presetFor(song, ev.track);
@@ -3049,6 +3151,24 @@ input[type="range"]::-moz-range-thumb {
     const extra = { brightness: brightness };
     if (ev.glideFrom) extra.glideFrom = global.Theory.midiToFreq(ev.glideFrom);
     Synth.playNote(ctx, bus, when, Math.max(0.05, ev.d * spb), freq, preset, ev.v, extra);
+  }
+
+  /**
+   * Duck the sustained parts under a kick: drop instantly, breathe back up.
+   * The recovery is tempo-relative, so the pump stays in time at any BPM.
+   */
+  function duck(graph, when, vel) {
+    const depth = graph.duckDepth * (0.65 + 0.35 * Math.min(1, vel === undefined ? 1 : vel));
+    const floor = Math.max(0.02, 1 - depth);
+    const release = graph.duckRelease;
+    for (let i = 0; i < DUCK_TARGETS.length; i++) {
+      const bus = graph.tracks[DUCK_TARGETS[i]];
+      if (!bus || !bus.duck) continue;
+      const g = bus.duck.gain;
+      g.cancelScheduledValues(when);
+      g.setValueAtTime(floor, when);
+      g.linearRampToValueAtTime(1, when + release);
+    }
   }
 
   /* ------------------------------------------------------------------ *
@@ -3229,6 +3349,7 @@ input[type="range"]::-moz-range-thumb {
       const v = m.muted ? 0 : m.volume;
       const t = this.ctx.currentTime;
       const bus = this.graph.tracks[name];
+      // Only the fader nodes — `duck` carries its own automation.
       ['dry', 'rev', 'del'].forEach(function (k) {
         bus[k].gain.setTargetAtTime(v, t, 0.02);
       });
@@ -3977,6 +4098,13 @@ input[type="range"]::-moz-range-thumb {
       e.preventDefault();
       const p = self._pos(e);
       if (p.x < LABEL_W) return;
+      /* Once you start editing, stop chasing the playhead. Otherwise the view
+         scrolls out from under you mid-edit and the next click lands in a
+         different bar than the one you were looking at. */
+      if (self.follow && self.player.playing) {
+        self.follow = false;
+        if (self.onFollowOff) self.onFollowOff();
+      }
       self.canvas.setPointerCapture(e.pointerId);
       self._painted = {};
       if (self.isDrums()) self._drumDown(p);
@@ -4445,6 +4573,10 @@ input[type="range"]::-moz-range-thumb {
       getSong: function () { return state.song; },
       player: player,
       colorFor: colorFor,
+      onFollowOff: function () {
+        el('followBtn').classList.remove('on');
+        status('Follow off while you edit — turn it back on to scroll with the music.');
+      },
       onChange: function () {
         state.edited[editor.track] = true;
         player.refresh();

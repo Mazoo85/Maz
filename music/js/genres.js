@@ -8,6 +8,10 @@
  *
  * Drum patterns are 16 characters = one bar of sixteenth notes:
  *   X = accent   x = normal   o = soft / ghost   . = rest
+ *
+ * fx.sidechain is how hard the kick ducks the sustained parts. It is a genre
+ * signature, not a polish setting: house lives on it, ambient and chiptune have
+ * no such thing.
  */
 (function (global) {
   'use strict';
@@ -57,7 +61,8 @@
       osc: [{ type: 'sawtooth', detune: -14, gain: 1, octave: 0 }, { type: 'sawtooth', detune: 12, gain: 1, octave: 0 },
             { type: 'square', detune: 0, gain: 0.5, octave: -1 }],
       filter: { type: 'lowpass', freq: 420, q: 8, env: 700, attack: 0.02, decay: 0.5, sustain: 0.5 },
-      amp: { a: 0.01, d: 0.3, s: 0.85, r: 0.15 }, drive: 0.4, gain: 0.55, send: { rev: 0.05, del: 0 }
+      amp: { a: 0.01, d: 0.3, s: 0.85, r: 0.15 }, drive: 0.4, gain: 0.55, send: { rev: 0.05, del: 0 },
+      width: 0.35, filterLfo: { rate: 0.9, depth: 180 }
     }),
     pulseBass: subtractive({
       osc: [{ type: 'square', detune: 0, gain: 1, octave: 0 }],
@@ -74,23 +79,27 @@
       osc: [{ type: 'sawtooth', detune: -8, gain: 1, octave: 0 }, { type: 'sawtooth', detune: 9, gain: 1, octave: 0 },
             { type: 'triangle', detune: 0, gain: 0.5, octave: -1 }],
       filter: { type: 'lowpass', freq: 1100, q: 2, env: 700, attack: 0.6, decay: 1.5, sustain: 0.5 },
-      amp: { a: 0.7, d: 1.2, s: 0.75, r: 1.4 }, gain: 0.3, send: { rev: 0.55, del: 0.12 }
+      amp: { a: 0.7, d: 1.2, s: 0.75, r: 1.4 }, gain: 0.3, send: { rev: 0.55, del: 0.12 },
+      width: 0.55, filterLfo: { rate: 0.11, depth: 260 }
     }),
     glassPad: subtractive({
       osc: [{ type: 'triangle', detune: -5, gain: 1, octave: 0 }, { type: 'sine', detune: 6, gain: 0.8, octave: 1 }],
       filter: { type: 'lowpass', freq: 2200, q: 1, env: 600, attack: 1.2, decay: 2.5, sustain: 0.7 },
-      amp: { a: 1.4, d: 2.0, s: 0.8, r: 2.6 }, gain: 0.26, send: { rev: 0.75, del: 0.2 }
+      amp: { a: 1.4, d: 2.0, s: 0.8, r: 2.6 }, gain: 0.26, send: { rev: 0.75, del: 0.2 },
+      width: 0.7, filterLfo: { rate: 0.07, depth: 340 }
     }),
     stab: subtractive({
       osc: [{ type: 'sawtooth', detune: -5, gain: 1, octave: 0 }, { type: 'sawtooth', detune: 6, gain: 1, octave: 0 }],
       filter: { type: 'lowpass', freq: 900, q: 7, env: 2600, attack: 0.002, decay: 0.18, sustain: 0.0 },
-      amp: { a: 0.003, d: 0.22, s: 0.0, r: 0.14 }, gain: 0.34, send: { rev: 0.3, del: 0.16 }
+      amp: { a: 0.003, d: 0.22, s: 0.0, r: 0.14 }, gain: 0.34, send: { rev: 0.3, del: 0.16 },
+      width: 0.42
     }),
     strings: subtractive({
       osc: [{ type: 'sawtooth', detune: -11, gain: 1, octave: 0 }, { type: 'sawtooth', detune: 11, gain: 1, octave: 0 },
             { type: 'sawtooth', detune: 0, gain: 0.7, octave: 1 }],
       filter: { type: 'lowpass', freq: 1500, q: 1.5, env: 900, attack: 0.35, decay: 1.2, sustain: 0.6 },
-      amp: { a: 0.42, d: 0.9, s: 0.85, r: 0.9 }, gain: 0.28, send: { rev: 0.6, del: 0.08 }
+      amp: { a: 0.42, d: 0.9, s: 0.85, r: 0.9 }, gain: 0.28, send: { rev: 0.6, del: 0.08 },
+      width: 0.6, vibrato: { rate: 4.4, depth: 5, delay: 0.5 }
     }),
     chipChord: subtractive({
       osc: [{ type: 'square', detune: 0, gain: 1, octave: 0 }],
@@ -102,12 +111,14 @@
     softLead: subtractive({
       osc: [{ type: 'triangle', detune: 0, gain: 1, octave: 0 }, { type: 'sine', detune: 4, gain: 0.5, octave: 1 }],
       filter: { type: 'lowpass', freq: 1800, q: 2, env: 900, attack: 0.02, decay: 0.4, sustain: 0.4 },
-      amp: { a: 0.02, d: 0.35, s: 0.6, r: 0.4 }, gain: 0.36, send: { rev: 0.4, del: 0.32 }
+      amp: { a: 0.02, d: 0.35, s: 0.6, r: 0.4 }, gain: 0.36, send: { rev: 0.4, del: 0.32 },
+      width: 0.18, vibrato: { rate: 5.0, depth: 8, delay: 0.28 }
     }),
     sawLead: subtractive({
       osc: [{ type: 'sawtooth', detune: -7, gain: 1, octave: 0 }, { type: 'sawtooth', detune: 8, gain: 0.9, octave: 0 }],
       filter: { type: 'lowpass', freq: 2400, q: 5, env: 2200, attack: 0.008, decay: 0.5, sustain: 0.45 },
-      amp: { a: 0.01, d: 0.3, s: 0.75, r: 0.35 }, drive: 0.2, gain: 0.34, send: { rev: 0.35, del: 0.35 }
+      amp: { a: 0.01, d: 0.3, s: 0.75, r: 0.35 }, drive: 0.2, gain: 0.34, send: { rev: 0.35, del: 0.35 },
+      width: 0.3, vibrato: { rate: 5.6, depth: 11, delay: 0.24 }
     }),
     bell: { kind: 'bell', gain: 0.3, amp: { a: 0.002, d: 2.2, s: 0, r: 0.8 }, send: { rev: 0.55, del: 0.3 } },
     pluck: {
@@ -155,7 +166,7 @@
         full:   { kick: 'x..x....x.x...x.', snare: '....x.......x..o', hh: 'xoxoxoxoxoxoxoxo', perc: '....o.......o...' },
         fill:   { kick: 'x.......x.......', snare: '........x.x.xxxx', hh: 'x.x.x.x.........' }
       },
-      fx: { reverb: 0.35, delay: 0.22, delayTime: 0.5, vinyl: 0.5, master: 1.15, brightness: 0.75 }
+      fx: { reverb: 0.35, delay: 0.22, delayTime: 0.5, vinyl: 0.5, master: 1.15, sidechain: 0.14, brightness: 0.75 }
     },
 
     synthwave: {
@@ -176,7 +187,7 @@
         full:   { kick: 'x...x...x...x..x', clap: '....x.......x...', hh: 'xoxoxoxoxoxoxoxo', oh: '......x.......x.', crash: 'x...............' },
         fill:   { kick: 'x...x...........', snare: '........x.x.xxxx', crash: '................' }
       },
-      fx: { reverb: 0.42, delay: 0.3, delayTime: 0.375, vinyl: 0, master: 0.94, brightness: 1.05 }
+      fx: { reverb: 0.42, delay: 0.3, delayTime: 0.375, vinyl: 0, master: 0.94, sidechain: 0.42, brightness: 1.05 }
     },
 
     house: {
@@ -197,7 +208,7 @@
         full:   { kick: 'x...x...x...x...', clap: '....x.......x...', hh: 'xoxoxoxoxoxoxoxo', oh: '..x...x...x...x.', perc: '...x......x.....' },
         fill:   { kick: 'x...x...x.......', snare: '........x.x.xxxx', oh: '..............x.' }
       },
-      fx: { reverb: 0.4, delay: 0.24, delayTime: 0.375, vinyl: 0, master: 1.02, brightness: 1.0 }
+      fx: { reverb: 0.4, delay: 0.24, delayTime: 0.375, vinyl: 0, master: 1.02, sidechain: 0.58, brightness: 1.0 }
     },
 
     ambient: {
@@ -218,7 +229,7 @@
         full:   { kick: 'x.......x.......', perc: '....o.......o...', shaker: 'o.o.o.o.o.o.o.o.' },
         fill:   { perc: '............o.o.' }
       },
-      fx: { reverb: 0.8, delay: 0.35, delayTime: 0.75, vinyl: 0.15, master: 1.31, brightness: 0.9 }
+      fx: { reverb: 0.8, delay: 0.35, delayTime: 0.75, vinyl: 0.15, master: 1.31, sidechain: 0, brightness: 0.9 }
     },
 
     cinematic: {
@@ -239,7 +250,7 @@
         full:   { kick: 'x.x.x.x.x.x.x.x.', snare: '........x.......', tom: 'o...o...o...o...', crash: 'x...............' },
         fill:   { tom: 'x.x.x.xxx.x.xxxx', crash: '................' }
       },
-      fx: { reverb: 0.65, delay: 0.18, delayTime: 0.5, vinyl: 0, master: 1.10, brightness: 0.95 }
+      fx: { reverb: 0.65, delay: 0.18, delayTime: 0.5, vinyl: 0, master: 1.10, sidechain: 0.12, brightness: 0.95 }
     },
 
     chiptune: {
@@ -260,7 +271,7 @@
         full:   { kick: 'x..xx...x..xx...', snare: '....x.......x...', hh: 'xoxoxoxoxoxoxoxo' },
         fill:   { kick: 'x.......x.......', snare: '....x...x.x.xxxx', hh: '................' }
       },
-      fx: { reverb: 0.16, delay: 0.26, delayTime: 0.1875, vinyl: 0, master: 1.38, brightness: 1.15 }
+      fx: { reverb: 0.16, delay: 0.26, delayTime: 0.1875, vinyl: 0, master: 1.38, sidechain: 0, brightness: 1.15 }
     },
 
     dnb: {
@@ -281,7 +292,7 @@
         full:   { kick: 'x.....x..x.x....', snare: '....x..o....x..o', hh: 'xoxoxoxoxoxoxoxo', oh: '..........x.....' },
         fill:   { kick: 'x.......x.......', snare: '....x...x.x.xxxx', hh: '................' }
       },
-      fx: { reverb: 0.45, delay: 0.28, delayTime: 0.375, vinyl: 0, master: 1.19, brightness: 1.05 }
+      fx: { reverb: 0.45, delay: 0.28, delayTime: 0.375, vinyl: 0, master: 1.19, sidechain: 0.34, brightness: 1.05 }
     },
 
     trap: {
@@ -303,7 +314,7 @@
         full:   { kick: 'x..x..x...x..x..', snare: '........x.......', hh: 'xoxoxoxoxoxoxoxo', oh: '..............x.' },
         fill:   { kick: 'x.......x.......', snare: '........x...xxxx', hh: 'x.x.x.x.........' }
       },
-      fx: { reverb: 0.35, delay: 0.2, delayTime: 0.375, vinyl: 0, master: 1.17, brightness: 0.95 }
+      fx: { reverb: 0.35, delay: 0.2, delayTime: 0.375, vinyl: 0, master: 1.17, sidechain: 0.46, brightness: 0.95 }
     }
   };
 

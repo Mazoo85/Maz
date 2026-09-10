@@ -127,6 +127,14 @@
     return t + decay;
   }
 
+  /** StereoPannerNode where available; a plain gain elsewhere (mono, but audible). */
+  function panner(ctx, pan) {
+    if (!pan || !ctx.createStereoPanner) return null;
+    const p = ctx.createStereoPanner();
+    p.pan.value = Math.max(-1, Math.min(1, pan));
+    return p;
+  }
+
   function noiseSource(ctx, t, dur) {
     const src = ctx.createBufferSource();
     src.buffer = noiseBuffer(ctx);
@@ -217,16 +225,30 @@
       filt.type = f.type || 'lowpass';
       filt.Q.value = f.q || 1;
       const bright = (extra && extra.brightness) || 1;
+      /* Play a note harder and it should open up, not just get louder — this is
+         most of why a static synth line sounds mechanical. */
+      const vAmt = 0.55 + 0.45 * (vel === undefined ? 0.8 : vel);
       const base = Math.min(16000, Math.max(60, f.freq * bright));
-      const top = Math.min(17000, base + (f.env || 0) * bright);
+      const top = Math.min(17000, base + (f.env || 0) * bright * vAmt);
       filt.frequency.setValueAtTime(base, t);
       if (f.env) {
         filt.frequency.linearRampToValueAtTime(top, t + Math.max(0.002, f.attack || 0.005));
         filt.frequency.exponentialRampToValueAtTime(
-          Math.max(60, base + (f.env * (f.sustain === undefined ? 0.3 : f.sustain)) * bright),
+          Math.max(60, base + (f.env * (f.sustain === undefined ? 0.3 : f.sustain)) * bright * vAmt),
           t + (f.attack || 0.005) + (f.decay || 0.2));
       }
+
+      // Width: alternate oscillators left and right so a stack becomes a spread.
+      let leftPan = null, rightPan = null;
+      if (preset.width) {
+        leftPan = panner(ctx, -preset.width);
+        rightPan = panner(ctx, preset.width);
+        if (leftPan) leftPan.connect(filt);
+        if (rightPan) rightPan.connect(filt);
+      }
+
       const oscs = preset.osc || [{ type: 'sawtooth', detune: 0, gain: 1, octave: 0 }];
+      const pitched = [];
       for (let i = 0; i < oscs.length; i++) {
         const spec = oscs[i];
         const o = ctx.createOscillator();
@@ -235,8 +257,10 @@
         o.detune.value = spec.detune || 0;
         const g = ctx.createGain();
         g.gain.value = spec.gain === undefined ? 1 : spec.gain;
-        o.connect(g).connect(filt);
+        const side = (i % 2 === 0 ? leftPan : rightPan);
+        o.connect(g).connect(side || filt);
         nodes.push(o);
+        pitched.push(o);
       }
       if (preset.sub) {
         const o = ctx.createOscillator();
@@ -244,9 +268,37 @@
         o.frequency.value = freq / 2;
         const g = ctx.createGain();
         g.gain.value = preset.sub;
-        o.connect(g).connect(filt);
+        o.connect(g).connect(filt);       // sub stays centred
         nodes.push(o);
+        pitched.push(o);
       }
+
+      // Vibrato — a delayed swell, the way a player leans into a held note.
+      if (preset.vibrato && dur > 0.25) {
+        const v = preset.vibrato;
+        const lfo = ctx.createOscillator();
+        lfo.type = 'sine';
+        lfo.frequency.value = v.rate || 5.2;
+        const depth = ctx.createGain();
+        depth.gain.setValueAtTime(0, t);
+        depth.gain.linearRampToValueAtTime(v.depth || 7, t + (v.delay || 0.22));
+        lfo.connect(depth);
+        for (let i = 0; i < pitched.length; i++) depth.connect(pitched[i].detune);
+        nodes.push(lfo);
+      }
+
+      // Slow filter drift, so a long pad never sits still.
+      if (preset.filterLfo) {
+        const fl = preset.filterLfo;
+        const lfo = ctx.createOscillator();
+        lfo.type = 'sine';
+        lfo.frequency.value = fl.rate || 0.15;
+        const depth = ctx.createGain();
+        depth.gain.value = fl.depth || 300;
+        lfo.connect(depth).connect(filt.frequency);
+        nodes.push(lfo);
+      }
+
       filt.connect(amp);
       tail = adsr(amp.gain, t, dur, peak, preset.amp);
     }
@@ -358,12 +410,22 @@
 
   function kitFor(id) { return KITS[id] || KITS.electro; }
 
+  /* Kick and snare hold the centre; everything else sits off to one side, the
+     way a kit does in front of you. */
+  const DRUM_PAN = {
+    kick: 0, snare: 0, clap: 0.06, hh: 0.24, oh: 0.2,
+    tom: -0.28, perc: -0.32, shaker: 0.34, crash: -0.18, rim: 0.26
+  };
+
   function playDrum(ctx, out, t, inst, vel, kitId) {
     const kit = kitFor(kitId);
     vel = vel === undefined ? 0.8 : vel;
 
+    const pan = panner(ctx, DRUM_PAN[inst] || 0);
+    if (pan) pan.connect(out.dry);
+
     function toOut(node, revAmt) {
-      node.connect(out.dry);
+      node.connect(pan || out.dry);
       if (revAmt && out.rev) {
         const g = ctx.createGain(); g.gain.value = revAmt;
         node.connect(g).connect(out.rev);
@@ -528,6 +590,8 @@
     softClipCurve: softClipCurve,
     noiseBuffer: noiseBuffer,
     vinylBuffer: vinylBuffer,
+    panner: panner,
+    DRUM_PAN: DRUM_PAN,
     KITS: KITS
   };
 })(window);

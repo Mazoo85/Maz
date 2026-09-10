@@ -321,6 +321,10 @@
       getSong: function () { return state.song; },
       player: player,
       colorFor: colorFor,
+      onFollowOff: function () {
+        el('followBtn').classList.remove('on');
+        status('Follow off while you edit — turn it back on to scroll with the music.');
+      },
       onChange: function () {
         state.edited[editor.track] = true;
         player.refresh();

@@ -33,6 +33,20 @@ function check(cond, msg) {
   if (!cond) failures++;
 }
 
+/* Wait for the transport to actually move rather than assuming a fixed delay
+     is enough; a loaded machine can start the audio clock late. */
+  async function playheadAdvances(p, ms) {
+    const first = parseInt(await p.locator('#seek').inputValue(), 10);
+    const deadline = Date.now() + (ms || 6000);
+    let last = first;
+    while (Date.now() < deadline) {
+      await p.waitForTimeout(150);
+      last = parseInt(await p.locator('#seek').inputValue(), 10);
+      if (last > first) break;
+    }
+    return { first: first, last: last, moved: last > first };
+  }
+
 function launchOptions() {
   const opts = {
     args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required', '--use-gl=swiftshader']
@@ -99,10 +113,8 @@ function launchOptions() {
   check((await page.locator('#songTitle').textContent()).trim().length > 2, 'the song is named');
   check(await page.locator('.chord-cell').count() > 0, 'chords are shown');
 
-  const t1 = await page.locator('#seek').inputValue();
-  await page.waitForTimeout(1400);
-  const t2 = await page.locator('#seek').inputValue();
-  check(parseInt(t2, 10) > parseInt(t1, 10), 'playback advances (' + t1 + ' → ' + t2 + ')');
+  const moved = await playheadAdvances(page);
+  check(moved.moved, 'playback advances (' + moved.first + ' → ' + moved.last + ')');
 
   console.log('\n— audio is real —');
   const audio = await page.evaluate(async function () {
@@ -132,6 +144,10 @@ function launchOptions() {
   check(audio.peak / audio.rms > 2.5, 'dynamics intact (crest ' + (audio.peak / audio.rms).toFixed(1) + ')');
 
   console.log('\n— the editor —');
+  // Stop the transport first: with Follow on, a playing song scrolls the editor
+  // window between clicks and the second one lands in a different bar.
+  await page.click('#playBtn');
+  await page.waitForTimeout(200);
   check(await page.locator('#editPanel').isVisible(), 'edit panel appears with a song');
   check(await page.locator('#editTracks .chip').count() === 6, 'a chip for every part');
 

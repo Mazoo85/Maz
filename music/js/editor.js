@@ -342,6 +342,13 @@
       e.preventDefault();
       const p = self._pos(e);
       if (p.x < LABEL_W) return;
+      /* Once you start editing, stop chasing the playhead. Otherwise the view
+         scrolls out from under you mid-edit and the next click lands in a
+         different bar than the one you were looking at. */
+      if (self.follow && self.player.playing) {
+        self.follow = false;
+        if (self.onFollowOff) self.onFollowOff();
+      }
       self.canvas.setPointerCapture(e.pointerId);
       self._painted = {};
       if (self.isDrums()) self._drumDown(p);

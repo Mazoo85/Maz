@@ -51,6 +51,20 @@ function check(cond, msg) {
   if (!cond) failures++;
 }
 
+/* Wait for the transport to actually move rather than assuming a fixed delay
+     is enough; a loaded machine can start the audio clock late. */
+  async function playheadAdvances(p, ms) {
+    const first = parseInt(await p.locator('#seek').inputValue(), 10);
+    const deadline = Date.now() + (ms || 6000);
+    let last = first;
+    while (Date.now() < deadline) {
+      await p.waitForTimeout(150);
+      last = parseInt(await p.locator('#seek').inputValue(), 10);
+      if (last > first) break;
+    }
+    return { first: first, last: last, moved: last > first };
+  }
+
 function launchOptions() {
   const opts = {
     args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required', '--use-gl=swiftshader']
@@ -113,10 +127,8 @@ function launchOptions() {
     return document.getElementById('playIcon').textContent;
   }) === '❚❚', 'transport switched to playing');
 
-  const t1 = await page.locator('#seek').inputValue();
-  await page.waitForTimeout(1500);
-  const t2 = await page.locator('#seek').inputValue();
-  check(parseInt(t2, 10) > parseInt(t1, 10), 'playhead advances (' + t1 + ' → ' + t2 + ')');
+  const moved = await playheadAdvances(page);
+  check(moved.moved, 'playhead advances (' + moved.first + ' → ' + moved.last + ')');
 
   console.log('\n— every genre makes an audible sound —');
   const audio = await page.evaluate(async function () {
@@ -149,17 +161,25 @@ function launchOptions() {
       window.Engine.TRACKS.forEach(function (t) { mix[t] = { volume: 1, muted: false }; });
       const buf = await window.Engine.renderOffline(song, mix);
       const ch = buf.getChannelData(0);
+      const chR = buf.numberOfChannels > 1 ? buf.getChannelData(1) : ch;
       const start = Math.floor(buf.sampleRate * 0.2);
-      let peak = 0, sum = 0, clipped = 0;
+      let peak = 0, sum = 0, clipped = 0, diff = 0, sumR = 0;
       for (let k = start; k < ch.length; k++) {
         const a = Math.abs(ch[k]);
         if (a > peak) peak = a;
         if (a > 0.999) clipped++;
         sum += a * a;
+        sumR += chR[k] * chR[k];
+        diff += Math.abs(ch[k] - chR[k]);
       }
+      const n = ch.length - start;
+      const rms = Math.sqrt(sum / n);
       out.push({
-        id: ids[i], peak: peak, rms: Math.sqrt(sum / (ch.length - start)),
-        clipped: clipped, seconds: buf.duration
+        id: ids[i], peak: peak, rms: rms,
+        clipped: clipped, seconds: buf.duration,
+        // How much the two channels differ, relative to the signal: 0 = mono.
+        stereo: rms > 0 ? (diff / n) / rms : 0,
+        balance: Math.sqrt(sumR / n) / (rms || 1)
       });
     }
     return out;
@@ -173,7 +193,81 @@ function launchOptions() {
     check(r.peak <= 1.0001, r.id + ': stays inside full scale');
     check(r.clipped === 0, r.id + ': no clipped samples (' + r.clipped + ')');
     check(r.seconds > 8, r.id + ': rendered ' + r.seconds.toFixed(1) + 's');
+    check(r.stereo > 0.05, r.id + ': is actually stereo (channel difference ' + r.stereo.toFixed(3) + ')');
+    check(r.balance > 0.8 && r.balance < 1.25,
+      r.id + ': stays balanced left to right (' + r.balance.toFixed(2) + ')');
   });
+
+  console.log('\n— the kick pumps the mix —');
+  const pump = await page.evaluate(async function () {
+    /* Measure the duck directly rather than inferring it from loudness spread.
+       Render with the DRUMS MUTED — the duck still fires, because it is
+       triggered when a kick is scheduled, not by the kick's sound — then compare
+       the level just after each kick against the level just before it. Ducking
+       makes "after" markedly quieter; without it the ratio sits near 1. */
+    function excerpt(song, fromBar, bars) {
+      const from = fromBar * 4, len = bars * 4;
+      Object.keys(song.tracks).forEach(function (k) {
+        song.tracks[k] = song.tracks[k].filter(function (e) { return e.t >= from && e.t < from + len; })
+          .map(function (e) { const c = {}; for (const f in e) c[f] = e[f]; c.t = e.t - from; return c; });
+      });
+      song.totalBeats = len;
+      return song;
+    }
+    async function ratioFor(genre, forceOff) {
+      const song = excerpt(window.Composer.compose({ seed: 'PUMP', genre: genre, length: 'short' }), 16, 8);
+      const depth = song.genre.fx.sidechain;
+      if (forceOff) {
+        song.genre = Object.assign({}, song.genre, {
+          fx: Object.assign({}, song.genre.fx, { sidechain: 0 })
+        });
+      }
+      const mix = {};
+      window.Engine.TRACKS.forEach(function (t) { mix[t] = { volume: 1, muted: t === 'drums' }; });
+      const buf = await window.Engine.renderOffline(song, mix);
+      const ch = buf.getChannelData(0);
+      const rate = buf.sampleRate;
+      const spb = 60 / song.bpm;
+      const offset = 0.05;                       // renderOffline's scheduling offset
+
+      function rms(fromSec, toSec) {
+        const a = Math.max(0, Math.floor(fromSec * rate));
+        const b = Math.min(ch.length, Math.floor(toSec * rate));
+        if (b <= a) return 0;
+        let s2 = 0;
+        for (let i = a; i < b; i++) s2 += ch[i] * ch[i];
+        return Math.sqrt(s2 / (b - a));
+      }
+
+      const kicks = song.tracks.drums.filter(function (e) { return e.inst === 'kick'; });
+      let after = 0, before = 0, n = 0;
+      for (let i = 0; i < kicks.length; i++) {
+        const t = kicks[i].t * spb + offset;
+        if (t < 0.4 || t > buf.duration - 0.5) continue;
+        const a = rms(t + 0.012, t + 0.055);     // duck is at its deepest
+        const b = rms(t - 0.055, t - 0.012);     // recovered from the previous one
+        if (b > 1e-4) { after += a; before += b; n++; }
+      }
+      return { ratio: n ? (after / before) : 1, kicks: n, depth: depth };
+    }
+    const out = {};
+    for (const g of ['house', 'trap', 'synthwave', 'ambient']) {
+      out[g] = { on: await ratioFor(g, false), off: await ratioFor(g, true) };
+    }
+    return out;
+  });
+
+  ['house', 'trap', 'synthwave'].forEach(function (g) {
+    const on = pump[g].on, off = pump[g].off;
+    check(on.kicks > 4, g + ': found kicks to measure against (' + on.kicks + ')');
+    check(on.ratio < 0.9, g + ': the mix ducks under the kick (level after/before = ' +
+      on.ratio.toFixed(2) + ', depth ' + on.depth + ')');
+    check(on.ratio < off.ratio - 0.05, g + ': and it is the duck doing it, not the music (' +
+      off.ratio.toFixed(2) + ' with the duck off → ' + on.ratio.toFixed(2) + ' with it on)');
+  });
+  check(pump.ambient.on.depth === 0, 'ambient has no duck at all, by design');
+  check(Math.abs(pump.ambient.on.ratio - pump.ambient.off.ratio) < 0.02,
+    'and ambient is unchanged either way');
 
   console.log('\n— exports —');
   const ex = await page.evaluate(async function () {
