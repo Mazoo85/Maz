@@ -235,9 +235,19 @@ const APPS = [
         'pill dims during play, even with the mouse moving'
       );
       await page.hover('.mazNav-pill');
-      await page.waitForTimeout(200);
-      const opacity = await page.$eval('.mazNav-pill', (e) => getComputedStyle(e).opacity);
-      check(parseFloat(opacity) > 0.9, 'pill returns to full opacity on hover');
+      // The fade back in is a 0.4s transition, so wait for it to settle rather
+      // than sampling mid-transition — a fixed delay here is a flaky test.
+      let restored = true;
+      try {
+        await page.waitForFunction(
+          () => parseFloat(getComputedStyle(document.querySelector('.mazNav-pill')).opacity) > 0.9,
+          null,
+          { timeout: 3000 }
+        );
+      } catch (e) {
+        restored = false;
+      }
+      check(restored, 'pill returns to full opacity on hover');
       await page.close();
     }
 
