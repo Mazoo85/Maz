@@ -13,7 +13,10 @@ def _entry(root, cfg, **kw):
 
 def test_append_creates_a_month_file(tmp_path):
     cfg = ForgeConfig()
-    path = append(new_entry("2026-09-10", outcome="no_task"), tmp_path, cfg)
+    # Pass an explicit at so the test doesn't rot. Without it, new_entry stamps at
+    # with datetime.now(), and this hardcoded assertion only passes when today
+    # happens to be in September — it fails every run from 1 October onward.
+    path = append(new_entry("2026-09-10", at="2026-09-10T12:00:00Z", outcome="no_task"), tmp_path, cfg)
     assert path.name == "2026-09.jsonl"
     assert json.loads(path.read_text().strip())["outcome"] == "no_task"
 
@@ -225,6 +228,23 @@ def test_append_converts_numeric_offset_to_utc_before_taking_month(tmp_path):
     entry = new_entry("run-offset", at="2027-01-01T00:30:00+05:00", outcome="no_task")
     path = append(entry, tmp_path, cfg)
     assert path.name == "2026-12.jsonl"
+
+
+def test_append_converts_negative_offset_forward_across_month_boundary(tmp_path):
+    """2026-09-30T20:00:00-05:00 is 2026-10-01T01:00:00Z: the local calendar
+    reads 30 September, but UTC is 1 October, so it belongs in October.
+    This tests the opposite direction from the positive-offset test above.
+
+    The discriminator is October, not the current month (2026-09 as this
+    test was written): a regression that falls back to ``now()`` would file
+    this under the current month (September) and the test would still pass,
+    since today happens to be in September. Expecting October rules out the
+    fallback bug while the local date still reads September.
+    """
+    cfg = ForgeConfig()
+    entry = new_entry("run-neg-offset", at="2026-09-30T20:00:00-05:00", outcome="no_task")
+    path = append(entry, tmp_path, cfg)
+    assert path.name == "2026-10.jsonl"
 
 
 def test_append_honours_fractional_seconds(tmp_path):
