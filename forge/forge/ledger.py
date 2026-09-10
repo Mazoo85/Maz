@@ -82,19 +82,44 @@ def _month_path(root: Path, config: ForgeConfig, when: datetime | None = None) -
 
 
 def _entry_month(entry: dict) -> datetime:
-    """The month an entry belongs in, taken from its own ``at`` field.
+    """The month an entry belongs in, taken from its own ``at`` field,
+    converted to UTC.
 
-    Falls back to ``datetime.now(timezone.utc)`` when ``at`` is missing or
-    unparseable rather than raising: ``append`` must never fail because of
-    a malformed timestamp, since a raise here means a run goes unrecorded —
-    the one thing this module exists to prevent.
+    Honours any ISO-8601 ``at``: a trailing ``Z`` (normalised to
+    ``+00:00`` first — Python 3.10's ``fromisoformat`` rejects a bare
+    ``Z``; only 3.11+ accepts it, and this project must behave
+    identically on both), a numeric UTC offset, fractional seconds, or a
+    naive timestamp with no zone at all, which is treated as already-UTC
+    since that is what ``new_entry`` emits. An offset ``at`` is converted
+    to UTC *before* the month is taken — a run at
+    ``2026-10-01T00:30:00+05:00`` is ``2026-09-30T19:30Z`` and belongs in
+    September, not October — because the month a run belongs in is a UTC
+    question, not a "does the local calendar page happen to match"
+    question.
+
+    Falls back to ``datetime.now(timezone.utc)`` only when ``at`` is
+    missing, not a string, or a string ``fromisoformat`` cannot parse at
+    all — never when it merely lacks a zone or has fractional seconds.
+    ``append`` must never fail because of a malformed timestamp, since a
+    raise here means a run goes unrecorded — the one thing this module
+    exists to prevent. Do not narrow this back to a single literal
+    ``strptime`` format: a fallback that fires on any ISO-8601 shape
+    ``strptime`` doesn't happen to match is indistinguishable from the
+    wall-clock bug this function exists to remove — it just fails
+    silently instead of loudly, for whichever inputs a future producer
+    happens to use.
     """
     at = entry.get("at")
     if isinstance(at, str):
+        iso = at[:-1] + "+00:00" if at.endswith("Z") else at
         try:
-            return datetime.strptime(at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-        except ValueError:
+            parsed = datetime.fromisoformat(iso)
+        except (ValueError, TypeError):
             pass
+        else:
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            return parsed.astimezone(timezone.utc)
     return datetime.now(timezone.utc)
 
 

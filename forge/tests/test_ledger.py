@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timezone
 
 from forge.config import ForgeConfig
-from forge.ledger import OUTCOMES, append, new_entry, read_all, recent_zones, strikes
+from forge.ledger import OUTCOMES, _entry_month, append, new_entry, read_all, recent_zones, strikes
 
 
 def _entry(root, cfg, **kw):
@@ -185,10 +185,103 @@ def test_append_falls_back_to_now_when_at_is_malformed(tmp_path):
 
 def test_read_all_finds_entries_across_multiple_month_files(tmp_path):
     """The entry-derived month path must not break the multi-file glob that
-    read_all relies on to see the whole ledger."""
+    read_all relies on to see the whole ledger.
+
+    Asserts on the actual filenames written to disk, not just a count: a
+    revert to unconditional ``now()`` would collapse both entries into a
+    single file and still pass a bare ``len(entries) == 2`` check, since
+    both would still round-trip through read_all. That is exactly what
+    happened in the earlier version of this test — confirmed empirically
+    by reverting ``_entry_month`` locally and watching it still pass.
+    """
     cfg = ForgeConfig()
-    append(new_entry("run-a", at="2025-03-04T12:00:00Z", outcome="no_task"), tmp_path, cfg)
-    append(new_entry("run-b", at="2026-09-10T00:00:00Z", outcome="pr_opened"), tmp_path, cfg)
+    path_a = append(new_entry("run-a", at="2025-03-04T12:00:00Z", outcome="no_task"), tmp_path, cfg)
+    path_b = append(new_entry("run-b", at="2026-09-10T00:00:00Z", outcome="pr_opened"), tmp_path, cfg)
+
+    assert path_a.name == "2025-03.jsonl"
+    assert path_b.name == "2026-09.jsonl"
+    assert path_a != path_b
+
+    ledger_dir = cfg.ledger_dir(tmp_path)
+    assert sorted(p.name for p in ledger_dir.glob("*.jsonl")) == ["2025-03.jsonl", "2026-09.jsonl"]
+
     entries = read_all(tmp_path, cfg)
-    assert len(entries) == 2
-    assert {e["run_id"] for e in entries} == {"run-a", "run-b"}
+    assert [e["run_id"] for e in entries] == ["run-a", "run-b"]  # oldest first
+
+
+def test_append_converts_numeric_offset_to_utc_before_taking_month(tmp_path):
+    """2026-10-01T00:30:00+05:00 is 2026-09-30T19:30Z: it belongs in
+    September, not October. This is the assertion that proves UTC
+    conversion happens, rather than merely that the string parses.
+
+    Deliberately not run on the actual current month (2026-09 as this test
+    was written): a bug that falls back to ``now()`` would file this in
+    the current month too and the test would pass for the wrong reason.
+    Using a fixed offset date whose *fallback* month (now) differs from
+    its *correct* UTC month (2026-12) is what makes this catch a
+    regression to the old strptime-only behaviour.
+    """
+    cfg = ForgeConfig()
+    entry = new_entry("run-offset", at="2027-01-01T00:30:00+05:00", outcome="no_task")
+    path = append(entry, tmp_path, cfg)
+    assert path.name == "2026-12.jsonl"
+
+
+def test_append_honours_fractional_seconds(tmp_path):
+    """Fixed in a month distinct from 'now' so a fallback-to-now() bug
+    would file this wrong and the test would actually catch it."""
+    cfg = ForgeConfig()
+    entry = new_entry("run-frac", at="2026-01-15T23:59:59.999999Z", outcome="no_task")
+    path = append(entry, tmp_path, cfg)
+    assert path.name == "2026-01.jsonl"
+
+
+def test_append_honours_naive_at_as_utc(tmp_path):
+    """No zone at all: treated as already-UTC, since that is what this
+    system emits. Fixed in a month distinct from 'now' for the same
+    reason as the fractional-seconds test above."""
+    cfg = ForgeConfig()
+    entry = new_entry("run-naive", at="2026-03-15T12:00:00", outcome="no_task")
+    path = append(entry, tmp_path, cfg)
+    assert path.name == "2026-03.jsonl"
+
+
+def test_append_never_raises_on_any_junk_at(tmp_path):
+    """The never-raise property must survive the switch to fromisoformat:
+    absent, None, an int, a dict, empty string, and a garbage string must
+    all file under the current month without raising.
+
+    A raw ``datetime`` object is exercised separately against
+    ``_entry_month`` directly (see
+    ``test_entry_month_never_raises_on_a_datetime_object``): routing it
+    through ``append`` would hit ``json.dumps`` failing to serialise the
+    ``at`` field itself, which is ``append``'s documented, deliberate
+    behaviour for non-JSON-serialisable fields (see the module docstring)
+    and has nothing to do with month derivation.
+    """
+    cfg = ForgeConfig()
+    now_name = f"{datetime.now(timezone.utc):%Y-%m}.jsonl"
+
+    entry_missing = new_entry("run-missing", outcome="no_task")
+    del entry_missing["at"]
+    assert append(entry_missing, tmp_path, cfg).name == now_name
+
+    for bad_at, label in [
+        (None, "none"),
+        (12345, "int"),
+        ({"not": "a date"}, "dict"),
+        ("", "empty-string"),
+        ("not-a-date", "garbage-string"),
+    ]:
+        entry = new_entry(f"run-{label}", at=bad_at, outcome="no_task")
+        path = append(entry, tmp_path, cfg)
+        assert path.name == now_name, f"{label} at={bad_at!r} filed under {path.name}"
+
+
+def test_entry_month_never_raises_on_a_datetime_object(tmp_path):
+    """A bare ``datetime`` fails the ``isinstance(at, str)`` guard and must
+    fall back to the current month without raising, same as any other
+    non-string junk."""
+    now = datetime.now(timezone.utc)
+    result = _entry_month({"at": datetime(2026, 9, 10, tzinfo=timezone.utc)})
+    assert (result.year, result.month) == (now.year, now.month)
