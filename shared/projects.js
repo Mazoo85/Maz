@@ -67,6 +67,20 @@
       docs: 'madlibs/README.md'
     },
     {
+      id: 'film',
+      name: 'SCRIPT FORGE',
+      kind: 'app',
+      path: 'film/',
+      tag: 'idea → finished short film',
+      accent: '#ffb300',
+      blurb:
+        'Type what your film is about and get the whole thing back: a formatted ' +
+        'screenplay, a shot list, and an animated short film — sets, camera moves, ' +
+        'character voices and a score — that you can watch and download as a video file.',
+      badges: ['Phone + desktop', 'Plays + records video', 'Fountain / FDX export'],
+      docs: 'film/README.md'
+    },
+    {
       id: 'engine',
       name: 'MAZ ENGINE',
       kind: 'code',
