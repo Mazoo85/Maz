@@ -4,7 +4,10 @@
  * Drop this one line into any page in the repo and it grows a link back to the
  * hub plus a jump menu to every other project:
  *
- *   <script src="../shared/maz-nav.js" defer></script>
+ *   <script src="../shared/maz-nav.js" data-current="your-project-id" defer></script>
+ *
+ * data-current is the project's id in shared/projects.js; it marks the current
+ * entry in the menu. scripts/check-links.mjs fails the build if it is missing.
  *
  * It loads shared/projects.js itself, so the project list lives in exactly one
  * file. Pages that are not one level below the repo root override the path with
