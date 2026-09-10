@@ -41,6 +41,7 @@ DEFAULT_WEIGHTS = {
     "value_ci_red": 10.0,
     "value_roadmap_current": 7.0,
     "value_todo_recent": 5.0,
+    "value_todo_stale": 2.0,
     "value_roadmap_later": 3.0,
     "value_memory": 4.0,
     "confidence_base": 5.0,
