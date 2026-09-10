@@ -33,7 +33,7 @@
    * Mixer graph — identical for live and offline contexts.
    * ------------------------------------------------------------------ */
 
-  function buildGraph(ctx, song, mix, withAnalyser) {
+  function buildGraph(ctx, song, mix, withAnalyser, destination) {
     const fx = song.genre.fx;
     const moodRev = song.mood.reverb || 1;
 
@@ -66,7 +66,9 @@
     out.gain.value = 0.98;
 
     master.connect(limiter).connect(safety).connect(out);
-    out.connect(ctx.destination);
+    // Default to the speakers; a caller scoring a film passes its own bus so
+    // the music reaches the recorder with everything else.
+    out.connect(destination || ctx.destination);
 
     let analyser = null;
     if (withAnalyser && ctx.createAnalyser) {
@@ -186,8 +188,10 @@
    * The live player
    * ------------------------------------------------------------------ */
 
-  function Player() {
-    this.ctx = null;
+  function Player(opts) {
+    opts = opts || {};
+    this.ctx = opts.context || null;
+    this.destination = opts.destination || null;
     this.song = null;
     this.graph = null;
     this.flat = [];
@@ -236,7 +240,7 @@
   };
 
   Player.prototype._buildGraph = function () {
-    this.graph = buildGraph(this.ctx, this.song, this.mix, true);
+    this.graph = buildGraph(this.ctx, this.song, this.mix, true, this.destination);
     if (this.graph.vinyl) {
       try { this.graph.vinyl.start(this.ctx.currentTime); } catch (e) { /* already started */ }
     }
