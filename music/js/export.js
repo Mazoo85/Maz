@@ -59,9 +59,12 @@
 
   const PPQ = 480;
 
+  /* General MIDI has no riser or impact; the nearest cymbals keep the shape of
+     the arrangement legible when the file is opened elsewhere. */
   const GM_DRUM = {
     kick: 36, snare: 38, clap: 39, hh: 42, oh: 46,
-    tom: 45, crash: 49, perc: 76, shaker: 82, rim: 37
+    tom: 45, crash: 49, perc: 76, shaker: 82, rim: 37,
+    riser: 52, impact: 55
   };
 
   /* General MIDI program numbers (0-based) chosen to resemble each part. */

@@ -246,10 +246,41 @@
       const base = patternForEnergy(drums, sec.energy);
       const isLast = s === song.sections.length - 1;
 
+      const next = song.sections[s + 1];
+      // A lift into a bigger section is worth announcing.
+      const buildsInto = genre.builds && next && next.energy > sec.energy + 0.25;
+
       for (let b = 0; b < sec.bars; b++) {
         const bar = sec.startBar + b;
         const barBeat = bar * BEATS_PER_BAR;
         const lastBarOfSection = b === sec.bars - 1;
+
+        /* The bar before a chorus: pull the kit out from under the track, run a
+           snare roll that tightens as it climbs, and sweep a riser over the top.
+           Taking things away is what makes the next bar land. */
+        if (buildsInto && lastBarOfSection && sec.bars >= 4) {
+          events.push({ t: barBeat, d: 0.25, p: 60, v: 0.95, inst: 'kick' });
+          const hits = rng.chance(0.5) ? 16 : 8;
+          const step = BEATS_PER_BAR / hits;
+          for (let i = 0; i < hits; i++) {
+            events.push({
+              t: barBeat + i * step,
+              d: Math.min(0.2, step * 0.8),
+              p: 60,
+              v: 0.3 + 0.6 * (i / (hits - 1)),
+              inst: 'snare'
+            });
+          }
+          events.push({ t: barBeat, d: BEATS_PER_BAR, p: 60, v: 0.75, inst: 'riser' });
+          continue;
+        }
+
+        // The downbeat it builds to.
+        if (b === 0 && genre.builds && sec.energy >= 0.95 && s > 0 &&
+            song.sections[s - 1].energy < sec.energy - 0.25) {
+          events.push({ t: barBeat, d: 2, p: 60, v: 0.85, inst: 'impact' });
+        }
+
         const fillBar = !isLast && lastBarOfSection && sec.bars >= 4 && rng.chance(0.85);
         const pattern = fillBar && drums.fill ? drums.fill : base;
 
@@ -788,6 +819,14 @@
   function developPart(song, part) {
     const motif = motifFromEvents(song, song.tracks[part] || []);
     if (!motif) return false;
+    /* Asking for an idea to be developed is asking for it to carry the song, so
+       let the part play wherever the arrangement can hold it. Without this the
+       motif only lands in sections that already happened to have this part, and
+       a good idea can end up appearing twice. The intro and outro stay sparse. */
+    for (let i = 0; i < song.sections.length; i++) {
+      const sec = song.sections[i];
+      if (sec.parts && sec.energy >= 0.5) sec.parts[part] = true;
+    }
     rerollPart(song, part, { motif: motif });
     return true;
   }

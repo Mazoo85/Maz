@@ -144,10 +144,25 @@ function launchOptions() {
   check(audio.peak / audio.rms > 2.5, 'dynamics intact (crest ' + (audio.peak / audio.rms).toFixed(1) + ')');
 
   console.log('\n— the editor —');
-  // Stop the transport first: with Follow on, a playing song scrolls the editor
-  // window between clicks and the second one lands in a different bar.
-  await page.click('#playBtn');
+  /* Put the editor in a settled state before clicking on it: stopped, and not
+     following the playhead. Toggling blind is not enough — if autoplay never
+     started, a click on play would start it and the view would scroll away
+     mid-edit. Read the state, then set it. */
+  if (await page.evaluate(function () {
+    return document.getElementById('playIcon').textContent === '❚❚';
+  })) {
+    await page.click('#playBtn');
+  }
+  if (await page.evaluate(function () {
+    return document.getElementById('followBtn').classList.contains('on');
+  })) {
+    await page.click('#followBtn');
+  }
   await page.waitForTimeout(200);
+  check(await page.evaluate(function () {
+    return document.getElementById('playIcon').textContent === '▶' &&
+           !document.getElementById('followBtn').classList.contains('on');
+  }), 'editor is settled: stopped, not following');
   check(await page.locator('#editPanel').isVisible(), 'edit panel appears with a song');
   check(await page.locator('#editTracks .chip').count() === 6, 'a chip for every part');
 
@@ -201,12 +216,18 @@ function launchOptions() {
   console.log('\n— the loop: what you draw teaches the generator —');
   const developed = await page.evaluate(function () {
     const song = window.__song;
-    // A deliberate four-note idea, drawn by hand.
+    /* A deliberate four-note idea, drawn by hand — built from the song's OWN
+       scale degrees rather than fixed MIDI numbers. Against a random key, two
+       fixed pitches can snap to the same degree and the shape reads as flat,
+       which says nothing about whether the motif survived. */
+    const T = window.Theory;
+    const root = T.midi(song.rootPc, 5);
+    const deg = function (d) { return T.degreePitch(song.scaleSteps, root, d); };
     song.tracks.lead = [
-      { t: 0,    d: 0.5, p: 72, v: 0.8 },
-      { t: 0.5,  d: 0.5, p: 74, v: 0.8 },
-      { t: 1.5,  d: 0.5, p: 77, v: 0.8 },
-      { t: 2.5,  d: 1.0, p: 76, v: 0.8 }
+      { t: 0,    d: 0.5, p: deg(0), v: 0.8 },
+      { t: 0.5,  d: 0.5, p: deg(1), v: 0.8 },
+      { t: 1.5,  d: 0.5, p: deg(3), v: 0.8 },
+      { t: 2.5,  d: 1.0, p: deg(2), v: 0.8 }
     ];
     const motif = window.Composer.motifFromEvents(song, song.tracks.lead);
     const ok = window.Composer.developPart(song, 'lead');

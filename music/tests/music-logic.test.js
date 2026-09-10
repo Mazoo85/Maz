@@ -125,6 +125,56 @@ Object.keys(Genres.GENRES).forEach(function (gid) {
   });
 });
 
+/* --- builds: the bar before a chorus should empty out, then land --- */
+['synthwave', 'house', 'trap', 'dnb'].forEach(function (gid) {
+  const song = Composer.compose({ seed: 'BUILD-' + gid, genre: gid, length: 'medium' });
+  const drums = song.tracks.drums;
+  let checkedOne = false;
+
+  for (let i = 0; i < song.sections.length - 1; i++) {
+    const sec = song.sections[i];
+    const next = song.sections[i + 1];
+    // The real drop is the one into a chorus; that is where an impact belongs.
+    if (next.energy < 0.95 || next.energy <= sec.energy + 0.25 || sec.bars < 4) continue;
+
+    const buildBar = sec.startBar + sec.bars - 1;
+    /* Events are humanised by a few thousandths of a beat, so a hit written on
+       the barline can land just before it. Nudge the window rather than miss it. */
+    const from = buildBar * 4 - 0.05, to = from + 4;
+    const inBuild = drums.filter(function (e) { return e.t >= from && e.t < to; });
+    const kinds = {};
+    inBuild.forEach(function (e) { kinds[e.inst] = (kinds[e.inst] || 0) + 1; });
+
+    check(kinds.riser > 0, gid + ': a riser sweeps the bar before ' + next.name);
+    check(!kinds.hh && !kinds.oh, gid + ': the kit drops out under the build into ' + next.name +
+      ' (found ' + JSON.stringify(kinds) + ')');
+    check((kinds.snare || 0) >= 8, gid + ': a snare roll climbs into ' + next.name +
+      ' (' + (kinds.snare || 0) + ' hits)');
+
+    const roll = inBuild.filter(function (e) { return e.inst === 'snare'; })
+      .sort(function (a, b) { return a.t - b.t; });
+    check(roll.length >= 4 && roll[roll.length - 1].v > roll[0].v + 0.2,
+      gid + ': and it grows (' + roll[0].v.toFixed(2) + ' → ' + roll[roll.length - 1].v.toFixed(2) + ')');
+
+    const landing = drums.filter(function (e) {
+      return e.t >= next.startBar * 4 - 0.05 && e.t < next.startBar * 4 + 1 && e.inst === 'impact';
+    });
+    check(landing.length > 0, gid + ': the drop lands on an impact at ' + next.name);
+    checkedOne = true;
+    break;
+  }
+  check(checkedOne, gid + ': has a build into a chorus to check');
+});
+
+/* --- styles that should never do that, do not --- */
+['lofi', 'ambient', 'chiptune'].forEach(function (gid) {
+  const song = Composer.compose({ seed: 'NOBUILD-' + gid, genre: gid, length: 'medium' });
+  const odd = song.tracks.drums.filter(function (e) {
+    return e.inst === 'riser' || e.inst === 'impact';
+  });
+  check(odd.length === 0, gid + ': no risers or impacts, which would be absurd here');
+});
+
 /* --- re-rolling one part leaves the others alone --- */
 const s = Composer.compose({ seed: 'REROLL-1', genre: 'synthwave', mood: 'driving' });
 const beforeLead = JSON.stringify(s.tracks.lead);

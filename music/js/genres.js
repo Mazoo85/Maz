@@ -159,6 +159,7 @@
       pad: { preset: 'warmPad', gain: 0.5 },
       lead: { preset: 'softLead', octave: 5, density: 0.55, restBias: 0.35 },
       arp: { preset: 'pluck', rate: 0.5, octave: 5, chance: 0.35 },
+      builds: false,
       drums: {
         kit: 'lofi',
         intro:  { kick: 'x.......x.......', hh: 'x...x...x...x...', snare: '................' },
@@ -180,6 +181,7 @@
       pad: { preset: 'strings', gain: 0.45 },
       lead: { preset: 'sawLead', octave: 5, density: 0.7, restBias: 0.2 },
       arp: { preset: 'pluck', rate: 0.25, octave: 5, chance: 0.85 },
+      builds: true,
       drums: {
         kit: 'electro',
         intro:  { kick: 'x.......x.......', hh: '..x...x...x...x.', clap: '................' },
@@ -201,6 +203,7 @@
       pad: { preset: 'warmPad', gain: 0.4 },
       lead: { preset: 'pluck', octave: 5, density: 0.5, restBias: 0.35 },
       arp: { preset: 'pluck', rate: 0.25, octave: 5, chance: 0.5 },
+      builds: true,
       drums: {
         kit: 'house',
         intro:  { kick: 'x...x...x...x...', hh: '..x...x...x...x.' },
@@ -222,6 +225,7 @@
       pad: { preset: 'warmPad', gain: 0.55 },
       lead: { preset: 'bell', octave: 6, density: 0.25, restBias: 0.6 },
       arp: { preset: 'bell', rate: 1.0, octave: 6, chance: 0.4 },
+      builds: false,
       drums: {
         kit: 'soft',
         intro:  {},
@@ -243,6 +247,7 @@
       pad: { preset: 'glassPad', gain: 0.5 },
       lead: { preset: 'piano', octave: 5, density: 0.6, restBias: 0.3 },
       arp: { preset: 'piano', rate: 0.5, octave: 5, chance: 0.7 },
+      builds: true,
       drums: {
         kit: 'epic',
         intro:  { tom: 'x.......x.......' },
@@ -264,6 +269,7 @@
       pad: { preset: 'chipChord', gain: 0.3 },
       lead: { preset: 'chipLead', octave: 5, density: 0.85, restBias: 0.12 },
       arp: { preset: 'chipChord', rate: 0.25, octave: 5, chance: 0.9 },
+      builds: false,
       drums: {
         kit: 'chip',
         intro:  { kick: 'x.......x.......', hh: 'x...x...x...x...' },
@@ -285,6 +291,7 @@
       pad: { preset: 'warmPad', gain: 0.4 },
       lead: { preset: 'bell', octave: 5, density: 0.35, restBias: 0.5 },
       arp: { preset: 'pluck', rate: 0.25, octave: 5, chance: 0.45 },
+      builds: true,
       drums: {
         kit: 'break',
         intro:  { kick: 'x.......x.......', hh: 'x.x.x.x.x.x.x.x.' },
@@ -307,6 +314,7 @@
       lead: { preset: 'bell', octave: 6, density: 0.45, restBias: 0.45 },
       arp: { preset: 'bell', rate: 0.5, octave: 5, chance: 0.55 },
       hatRolls: true,
+      builds: true,
       drums: {
         kit: 'trap',
         intro:  { kick: 'x.......x.......', hh: 'x...x...x...x...' },

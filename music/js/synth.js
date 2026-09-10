@@ -414,10 +414,11 @@
      way a kit does in front of you. */
   const DRUM_PAN = {
     kick: 0, snare: 0, clap: 0.06, hh: 0.24, oh: 0.2,
-    tom: -0.28, perc: -0.32, shaker: 0.34, crash: -0.18, rim: 0.26
+    tom: -0.28, perc: -0.32, shaker: 0.34, crash: -0.18, rim: 0.26,
+    riser: 0, impact: 0
   };
 
-  function playDrum(ctx, out, t, inst, vel, kitId) {
+  function playDrum(ctx, out, t, inst, vel, kitId, dur) {
     const kit = kitFor(kitId);
     vel = vel === undefined ? 0.8 : vel;
 
@@ -540,6 +541,52 @@
       percEnv(g.gain, t, p.gain * vel, p.dec);
       n.connect(hp).connect(g);
       toOut(g, 0.4);
+      return;
+    }
+
+    /* A riser is the sound of a bar being taken away: noise climbing through a
+       bandpass while the level swells, so the drop lands on something. */
+    if (inst === 'riser') {
+      const len = Math.max(0.4, dur || 1.6);
+      const n = noiseSource(ctx, t, len + 0.1);
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.Q.value = 1.6;
+      bp.frequency.setValueAtTime(320, t);
+      bp.frequency.exponentialRampToValueAtTime(7200, t + len);
+      const hp = ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.setValueAtTime(200, t);
+      hp.frequency.exponentialRampToValueAtTime(2600, t + len);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(EPS, t);
+      g.gain.exponentialRampToValueAtTime(Math.max(EPS, 0.3 * vel), t + len * 0.92);
+      g.gain.exponentialRampToValueAtTime(EPS, t + len + 0.06);
+      n.connect(bp).connect(hp).connect(g);
+      toOut(g, 0.35);
+      return;
+    }
+
+    /* An impact is the landing: a low boom under a bright splash. */
+    if (inst === 'impact') {
+      const o = ctx.createOscillator();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(90, t);
+      o.frequency.exponentialRampToValueAtTime(32, t + 0.55);
+      const og = ctx.createGain();
+      percEnv(og.gain, t, 0.95 * vel, 0.7);
+      o.connect(og);
+      toOut(og, 0.18);
+      o.start(t); o.stop(t + 0.8);
+
+      const n = noiseSource(ctx, t, 1.4);
+      const hp = ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = 3800;
+      const ng = ctx.createGain();
+      percEnv(ng.gain, t, 0.3 * vel, 1.2);
+      n.connect(hp).connect(ng);
+      toOut(ng, 0.5);
       return;
     }
 

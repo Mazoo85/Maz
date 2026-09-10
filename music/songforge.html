@@ -1350,6 +1350,7 @@ input[type="range"]::-moz-range-thumb {
       pad: { preset: 'warmPad', gain: 0.5 },
       lead: { preset: 'softLead', octave: 5, density: 0.55, restBias: 0.35 },
       arp: { preset: 'pluck', rate: 0.5, octave: 5, chance: 0.35 },
+      builds: false,
       drums: {
         kit: 'lofi',
         intro:  { kick: 'x.......x.......', hh: 'x...x...x...x...', snare: '................' },
@@ -1371,6 +1372,7 @@ input[type="range"]::-moz-range-thumb {
       pad: { preset: 'strings', gain: 0.45 },
       lead: { preset: 'sawLead', octave: 5, density: 0.7, restBias: 0.2 },
       arp: { preset: 'pluck', rate: 0.25, octave: 5, chance: 0.85 },
+      builds: true,
       drums: {
         kit: 'electro',
         intro:  { kick: 'x.......x.......', hh: '..x...x...x...x.', clap: '................' },
@@ -1392,6 +1394,7 @@ input[type="range"]::-moz-range-thumb {
       pad: { preset: 'warmPad', gain: 0.4 },
       lead: { preset: 'pluck', octave: 5, density: 0.5, restBias: 0.35 },
       arp: { preset: 'pluck', rate: 0.25, octave: 5, chance: 0.5 },
+      builds: true,
       drums: {
         kit: 'house',
         intro:  { kick: 'x...x...x...x...', hh: '..x...x...x...x.' },
@@ -1413,6 +1416,7 @@ input[type="range"]::-moz-range-thumb {
       pad: { preset: 'warmPad', gain: 0.55 },
       lead: { preset: 'bell', octave: 6, density: 0.25, restBias: 0.6 },
       arp: { preset: 'bell', rate: 1.0, octave: 6, chance: 0.4 },
+      builds: false,
       drums: {
         kit: 'soft',
         intro:  {},
@@ -1434,6 +1438,7 @@ input[type="range"]::-moz-range-thumb {
       pad: { preset: 'glassPad', gain: 0.5 },
       lead: { preset: 'piano', octave: 5, density: 0.6, restBias: 0.3 },
       arp: { preset: 'piano', rate: 0.5, octave: 5, chance: 0.7 },
+      builds: true,
       drums: {
         kit: 'epic',
         intro:  { tom: 'x.......x.......' },
@@ -1455,6 +1460,7 @@ input[type="range"]::-moz-range-thumb {
       pad: { preset: 'chipChord', gain: 0.3 },
       lead: { preset: 'chipLead', octave: 5, density: 0.85, restBias: 0.12 },
       arp: { preset: 'chipChord', rate: 0.25, octave: 5, chance: 0.9 },
+      builds: false,
       drums: {
         kit: 'chip',
         intro:  { kick: 'x.......x.......', hh: 'x...x...x...x...' },
@@ -1476,6 +1482,7 @@ input[type="range"]::-moz-range-thumb {
       pad: { preset: 'warmPad', gain: 0.4 },
       lead: { preset: 'bell', octave: 5, density: 0.35, restBias: 0.5 },
       arp: { preset: 'pluck', rate: 0.25, octave: 5, chance: 0.45 },
+      builds: true,
       drums: {
         kit: 'break',
         intro:  { kick: 'x.......x.......', hh: 'x.x.x.x.x.x.x.x.' },
@@ -1498,6 +1505,7 @@ input[type="range"]::-moz-range-thumb {
       lead: { preset: 'bell', octave: 6, density: 0.45, restBias: 0.45 },
       arp: { preset: 'bell', rate: 0.5, octave: 5, chance: 0.55 },
       hatRolls: true,
+      builds: true,
       drums: {
         kit: 'trap',
         intro:  { kick: 'x.......x.......', hh: 'x...x...x...x...' },
@@ -1780,10 +1788,41 @@ input[type="range"]::-moz-range-thumb {
       const base = patternForEnergy(drums, sec.energy);
       const isLast = s === song.sections.length - 1;
 
+      const next = song.sections[s + 1];
+      // A lift into a bigger section is worth announcing.
+      const buildsInto = genre.builds && next && next.energy > sec.energy + 0.25;
+
       for (let b = 0; b < sec.bars; b++) {
         const bar = sec.startBar + b;
         const barBeat = bar * BEATS_PER_BAR;
         const lastBarOfSection = b === sec.bars - 1;
+
+        /* The bar before a chorus: pull the kit out from under the track, run a
+           snare roll that tightens as it climbs, and sweep a riser over the top.
+           Taking things away is what makes the next bar land. */
+        if (buildsInto && lastBarOfSection && sec.bars >= 4) {
+          events.push({ t: barBeat, d: 0.25, p: 60, v: 0.95, inst: 'kick' });
+          const hits = rng.chance(0.5) ? 16 : 8;
+          const step = BEATS_PER_BAR / hits;
+          for (let i = 0; i < hits; i++) {
+            events.push({
+              t: barBeat + i * step,
+              d: Math.min(0.2, step * 0.8),
+              p: 60,
+              v: 0.3 + 0.6 * (i / (hits - 1)),
+              inst: 'snare'
+            });
+          }
+          events.push({ t: barBeat, d: BEATS_PER_BAR, p: 60, v: 0.75, inst: 'riser' });
+          continue;
+        }
+
+        // The downbeat it builds to.
+        if (b === 0 && genre.builds && sec.energy >= 0.95 && s > 0 &&
+            song.sections[s - 1].energy < sec.energy - 0.25) {
+          events.push({ t: barBeat, d: 2, p: 60, v: 0.85, inst: 'impact' });
+        }
+
         const fillBar = !isLast && lastBarOfSection && sec.bars >= 4 && rng.chance(0.85);
         const pattern = fillBar && drums.fill ? drums.fill : base;
 
@@ -2322,6 +2361,14 @@ input[type="range"]::-moz-range-thumb {
   function developPart(song, part) {
     const motif = motifFromEvents(song, song.tracks[part] || []);
     if (!motif) return false;
+    /* Asking for an idea to be developed is asking for it to carry the song, so
+       let the part play wherever the arrangement can hold it. Without this the
+       motif only lands in sections that already happened to have this part, and
+       a good idea can end up appearing twice. The intro and outro stay sparse. */
+    for (let i = 0; i < song.sections.length; i++) {
+      const sec = song.sections[i];
+      if (sec.parts && sec.energy >= 0.5) sec.parts[part] = true;
+    }
     rerollPart(song, part, { motif: motif });
     return true;
   }
@@ -2758,10 +2805,11 @@ input[type="range"]::-moz-range-thumb {
      way a kit does in front of you. */
   const DRUM_PAN = {
     kick: 0, snare: 0, clap: 0.06, hh: 0.24, oh: 0.2,
-    tom: -0.28, perc: -0.32, shaker: 0.34, crash: -0.18, rim: 0.26
+    tom: -0.28, perc: -0.32, shaker: 0.34, crash: -0.18, rim: 0.26,
+    riser: 0, impact: 0
   };
 
-  function playDrum(ctx, out, t, inst, vel, kitId) {
+  function playDrum(ctx, out, t, inst, vel, kitId, dur) {
     const kit = kitFor(kitId);
     vel = vel === undefined ? 0.8 : vel;
 
@@ -2884,6 +2932,52 @@ input[type="range"]::-moz-range-thumb {
       percEnv(g.gain, t, p.gain * vel, p.dec);
       n.connect(hp).connect(g);
       toOut(g, 0.4);
+      return;
+    }
+
+    /* A riser is the sound of a bar being taken away: noise climbing through a
+       bandpass while the level swells, so the drop lands on something. */
+    if (inst === 'riser') {
+      const len = Math.max(0.4, dur || 1.6);
+      const n = noiseSource(ctx, t, len + 0.1);
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.Q.value = 1.6;
+      bp.frequency.setValueAtTime(320, t);
+      bp.frequency.exponentialRampToValueAtTime(7200, t + len);
+      const hp = ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.setValueAtTime(200, t);
+      hp.frequency.exponentialRampToValueAtTime(2600, t + len);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(EPS, t);
+      g.gain.exponentialRampToValueAtTime(Math.max(EPS, 0.3 * vel), t + len * 0.92);
+      g.gain.exponentialRampToValueAtTime(EPS, t + len + 0.06);
+      n.connect(bp).connect(hp).connect(g);
+      toOut(g, 0.35);
+      return;
+    }
+
+    /* An impact is the landing: a low boom under a bright splash. */
+    if (inst === 'impact') {
+      const o = ctx.createOscillator();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(90, t);
+      o.frequency.exponentialRampToValueAtTime(32, t + 0.55);
+      const og = ctx.createGain();
+      percEnv(og.gain, t, 0.95 * vel, 0.7);
+      o.connect(og);
+      toOut(og, 0.18);
+      o.start(t); o.stop(t + 0.8);
+
+      const n = noiseSource(ctx, t, 1.4);
+      const hp = ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = 3800;
+      const ng = ctx.createGain();
+      percEnv(ng.gain, t, 0.3 * vel, 1.2);
+      n.connect(hp).connect(ng);
+      toOut(ng, 0.5);
       return;
     }
 
@@ -3140,7 +3234,7 @@ input[type="range"]::-moz-range-thumb {
     const bus = graph.tracks[ev.track];
     if (!bus) return;
     if (ev.track === 'drums') {
-      Synth.playDrum(ctx, bus, when, ev.inst, ev.v, song.genre.drums.kit);
+      Synth.playDrum(ctx, bus, when, ev.inst, ev.v, song.genre.drums.kit, ev.d * (60 / song.bpm));
       if (ev.inst === 'kick' && graph.duckDepth > 0) duck(graph, when, ev.v);
       return;
     }
@@ -3479,9 +3573,12 @@ input[type="range"]::-moz-range-thumb {
 
   const PPQ = 480;
 
+  /* General MIDI has no riser or impact; the nearest cymbals keep the shape of
+     the arrangement legible when the file is opened elsewhere. */
   const GM_DRUM = {
     kick: 36, snare: 38, clap: 39, hh: 42, oh: 46,
-    tom: 45, crash: 49, perc: 76, shaker: 82, rim: 37
+    tom: 45, crash: 49, perc: 76, shaker: 82, rim: 37,
+    riser: 52, impact: 55
   };
 
   /* General MIDI program numbers (0-based) chosen to resemble each part. */
@@ -3777,10 +3874,12 @@ input[type="range"]::-moz-range-thumb {
   const MIN_ROWS = 15;
   const MAX_ROWS = 34;
 
-  const DRUM_ROWS = ['kick', 'snare', 'clap', 'hh', 'oh', 'tom', 'perc', 'shaker', 'crash'];
+  const DRUM_ROWS = ['kick', 'snare', 'clap', 'hh', 'oh', 'tom', 'perc', 'shaker',
+                     'crash', 'riser', 'impact'];
   const DRUM_LABEL = {
     kick: 'Kick', snare: 'Snare', clap: 'Clap', hh: 'Hat', oh: 'Open hat',
-    tom: 'Tom', perc: 'Perc', shaker: 'Shaker', crash: 'Crash'
+    tom: 'Tom', perc: 'Perc', shaker: 'Shaker', crash: 'Crash',
+    riser: 'Riser', impact: 'Impact'
   };
 
   function Editor(opts) {
@@ -4271,7 +4370,8 @@ input[type="range"]::-moz-range-thumb {
     { id: 'lead',   label: 'Lead',   color: '#ffc857' },
     { id: 'pad',    label: 'Pad',    color: '#7a8cff' }
   ];
-  const DRUM_LANES = ['kick', 'snare', 'clap', 'hh', 'oh', 'tom', 'perc', 'shaker', 'crash'];
+  const DRUM_LANES = ['kick', 'snare', 'clap', 'hh', 'oh', 'tom', 'perc', 'shaker',
+                      'crash', 'riser', 'impact'];
   const STORE_KEY = 'songforge.library.v1';
 
   const el = function (id) { return document.getElementById(id); };

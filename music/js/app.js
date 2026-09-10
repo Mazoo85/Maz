@@ -19,7 +19,8 @@
     { id: 'lead',   label: 'Lead',   color: '#ffc857' },
     { id: 'pad',    label: 'Pad',    color: '#7a8cff' }
   ];
-  const DRUM_LANES = ['kick', 'snare', 'clap', 'hh', 'oh', 'tom', 'perc', 'shaker', 'crash'];
+  const DRUM_LANES = ['kick', 'snare', 'clap', 'hh', 'oh', 'tom', 'perc', 'shaker',
+                      'crash', 'riser', 'impact'];
   const STORE_KEY = 'songforge.library.v1';
 
   const el = function (id) { return document.getElementById(id); };

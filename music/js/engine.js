@@ -196,7 +196,7 @@
     const bus = graph.tracks[ev.track];
     if (!bus) return;
     if (ev.track === 'drums') {
-      Synth.playDrum(ctx, bus, when, ev.inst, ev.v, song.genre.drums.kit);
+      Synth.playDrum(ctx, bus, when, ev.inst, ev.v, song.genre.drums.kit, ev.d * (60 / song.bpm));
       if (ev.inst === 'kick' && graph.duckDepth > 0) duck(graph, when, ev.v);
       return;
     }
