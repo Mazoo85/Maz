@@ -37,6 +37,9 @@ def _slug_from_path(path: str) -> str:
 
 
 _ISO_8601_PREFIX = re.compile(r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}")
+"""Matches the shape of an ISO-8601 timestamp, not its calendar validity.
+A digit-shaped but impossible timestamp like "2026-13-45T99:99:99" is treated
+as valid and sorted by raw string value."""
 
 
 def _created_at_sort_key(run: dict) -> tuple[bool, str]:
@@ -64,6 +67,11 @@ def from_runs(runs: list[dict]) -> list[Candidate]:
     """Latest run per workflow; a red one becomes a candidate. Never raises."""
     latest: dict[str, dict] = {}
     for run in runs:
+        # A malformed element that is not a dict must be skipped: the payload
+        # being a dict says nothing about its contents, and this is the same
+        # failure class one level deeper as the guard already in collect().
+        if not isinstance(run, dict):
+            continue
         if run.get("head_branch") not in MAIN_BRANCHES:
             continue
         path = run.get("path") or ""

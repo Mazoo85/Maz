@@ -162,3 +162,29 @@ def test_from_runs_surfaces_failure_despite_malformed_sibling_timestamp():
     cands = from_runs(runs)
     assert len(cands) == 1
     assert "actions/runs/3" in cands[0].detail
+
+
+# --- Fix 6: from_runs() must not raise on non-dict elements in runs list ----
+
+
+def test_from_runs_skips_none_elements():
+    """A None element in the runs list should be skipped, not raise AttributeError."""
+    assert from_runs([None]) == []
+
+
+def test_collect_skips_none_elements_in_workflow_runs():
+    """A None in workflow_runs should be skipped, not raise AttributeError."""
+    assert collect(".", fetch=lambda path: {"workflow_runs": [None]}, slug="a/b") == []
+
+
+def test_from_runs_preserves_valid_siblings_of_malformed_element():
+    """A malformed element does not discard its valid siblings."""
+    runs = [
+        None,  # malformed element
+        {"name": "Music CI", "conclusion": "failure", "head_branch": "main",
+         "path": ".github/workflows/music-ci.yml", "created_at": "2026-09-09T02:00:00Z",
+         "html_url": "https://github.com/Mazoo85/Maz/actions/runs/3"},
+    ]
+    cands = from_runs(runs)
+    assert len(cands) == 1
+    assert cands[0].source == "ci:music-ci"
