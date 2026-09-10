@@ -44,7 +44,11 @@ python3 -m http.server         # or serve the folder: http://localhost:8000/musi
   plus a 16-piece kit with ride, tambourine, cowbell and conga.
 - **Undo** everything, including a re-roll or a cleared part (Ctrl+Z).
 - **Hear notes as you draw them**, and **swap the instrument** on any part.
-- **Mixer** — mute or rebalance drums, bass, chords, arp, lead and pad.
+- **Change the song you have** — slide the tempo, move the key up or down a
+  semitone, set the volume. The score is beats and pitches, so retiming and
+  transposing keep the song and change nothing else. No need to throw away a
+  track you liked and roll the dice again.
+- **Mixer** — mute, solo or rebalance drums, bass, chords, arp, lead and pad.
 - **Export** — the finished track as a **.wav**, the notes as a **.mid**, or
   **stems**: every part as its own audio file, to mix by hand in GarageBand,
   Ableton, FL Studio, Logic or MuseScore.

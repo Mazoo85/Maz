@@ -196,6 +196,58 @@ Object.keys(Genres.GENRES).forEach(function (gid) {
   check(odd.length === 0, gid + ': no risers or impacts, which would be absurd here');
 });
 
+/* --- transpose: same song, different key --- */
+(function () {
+  const song = Composer.compose({ seed: 'KEY-1', genre: 'synthwave', mood: 'driving' });
+  const beforeRoot = song.rootPc;
+  const beforeLead = song.tracks.lead.map(function (e) { return e.p; });
+  const beforeTimes = song.tracks.lead.map(function (e) { return e.t; });
+  const beforeChordName = song.chords[0].name;
+
+  check(Composer.transpose(song, 3) !== null, 'transpose up a minor third is accepted');
+  check(song.rootPc === (beforeRoot + 3) % 12, 'the key moves (' + beforeRoot + ' → ' + song.rootPc + ')');
+  check(song.tracks.lead.every(function (e, i) { return e.p === beforeLead[i] + 3; }),
+    'every melody note moves by exactly the same amount');
+  check(song.tracks.lead.every(function (e, i) { return e.t === beforeTimes[i]; }),
+    'and nothing moves in time');
+  check(song.chords[0].name !== beforeChordName, 'chord names follow the key (' +
+    beforeChordName + ' → ' + song.chords[0].name + ')');
+
+  // Intervals are the whole point: a transposed song must be the same music.
+  const gaps = song.tracks.lead.map(function (e, i) {
+    return i ? e.p - song.tracks.lead[i - 1].p : 0;
+  });
+  const wasGaps = beforeLead.map(function (p, i) { return i ? p - beforeLead[i - 1] : 0; });
+  check(JSON.stringify(gaps) === JSON.stringify(wasGaps), 'the intervals are untouched');
+
+  // And it refuses to run a part off the end of the keyboard.
+  const extreme = Composer.compose({ seed: 'KEY-2', genre: 'trap' });
+  check(Composer.transpose(extreme, 60) === null, 'an absurd transpose is refused, not clipped');
+})();
+
+/* --- tempo: retimed, not rewritten --- */
+(function () {
+  const song = Composer.compose({ seed: 'TEMPO-1', genre: 'house' });
+  const beats = JSON.stringify(song.tracks.drums.map(function (e) { return e.t; }));
+  const wasDuration = song.duration;
+  const wasBpm = song.bpm;
+
+  Composer.setTempo(song, 90);
+  check(JSON.stringify(song.tracks.drums.map(function (e) { return e.t; })) === beats,
+    'changing tempo does not touch a single note');
+  check(song.bpm === 90, 'the tempo is what we asked for');
+  check(Math.abs(song.duration - song.totalBeats * 60 / 90) < 0.01,
+    'and the length follows from it (' + wasDuration.toFixed(0) + 's at ' + wasBpm +
+    ' → ' + song.duration.toFixed(0) + 's at 90)');
+  check(song.duration > wasDuration, 'slower really is longer');
+
+  // Both ends are clamped to something a person can actually play.
+  Composer.setTempo(song, 5);
+  check(song.bpm === 40, 'a silly slow tempo is clamped (' + song.bpm + ')');
+  Composer.setTempo(song, 9000);
+  check(song.bpm === 220, 'a silly fast one too (' + song.bpm + ')');
+})();
+
 /* --- re-rolling one part leaves the others alone --- */
 const s = Composer.compose({ seed: 'REROLL-1', genre: 'synthwave', mood: 'driving' });
 const beforeLead = JSON.stringify(s.tracks.lead);

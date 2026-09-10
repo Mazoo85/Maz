@@ -51,7 +51,17 @@
    * Mixer graph — identical for live and offline contexts.
    * ------------------------------------------------------------------ */
 
-  function buildGraph(ctx, song, mix, withAnalyser) {
+  /** A soloed track silences the others; muting still wins over being soloed. */
+  function gainFor(mix, name) {
+    const m = (mix && mix[name]) || { volume: 1, muted: false, solo: false };
+    if (m.muted) return 0;
+    let anySolo = false;
+    for (const k in mix) if (mix[k] && mix[k].solo) { anySolo = true; break; }
+    if (anySolo && !m.solo) return 0;
+    return m.volume;
+  }
+
+  function buildGraph(ctx, song, mix, withAnalyser, masterVolume) {
     const fx = song.genre.fx;
     const moodRev = song.mood.reverb || 1;
 
@@ -81,7 +91,7 @@
     safety.oversample = '4x';
 
     const out = ctx.createGain();
-    out.gain.value = 0.98;
+    out.gain.value = 0.98 * (masterVolume === undefined ? 1 : masterVolume);
 
     master.connect(limiter).connect(safety).connect(out);
     out.connect(ctx.destination);
@@ -146,8 +156,7 @@
       del.connect(delPre);
       const t = { dry: dry, rev: rev, del: del, duck: duck };
       tracks[name] = t;
-      const m = (mix && mix[name]) || { volume: 1, muted: false };
-      const v = m.muted ? 0 : m.volume;
+      const v = gainFor(mix, name);
       dry.gain.value = v;
       rev.gain.value = v;
       del.gain.value = v;
@@ -246,7 +255,8 @@
     this.playing = false;
     this.loop = true;
     this.mix = {};
-    TRACKS.forEach(function (t) { this.mix[t] = { volume: 1, muted: false }; }, this);
+    TRACKS.forEach(function (t) { this.mix[t] = { volume: 1, muted: false, solo: false }; }, this);
+    this.volume = 0.85;
     this._timer = null;
     this._index = 0;
     this._pass = 0;
@@ -288,7 +298,7 @@
   };
 
   Player.prototype._buildGraph = function () {
-    this.graph = buildGraph(this.ctx, this.song, this.mix, true);
+    this.graph = buildGraph(this.ctx, this.song, this.mix, true, this.volume);
     this._vinylStarted = false;
   };
 
@@ -438,15 +448,46 @@
     if (!m) return;
     if (opts.volume !== undefined) m.volume = opts.volume;
     if (opts.muted !== undefined) m.muted = opts.muted;
-    if (this.graph && this.graph.tracks[name]) {
-      const v = m.muted ? 0 : m.volume;
-      const t = this.ctx.currentTime;
-      const bus = this.graph.tracks[name];
+    if (opts.solo !== undefined) m.solo = opts.solo;
+    this.applyMix();
+  };
+
+  /** Push the whole mix at the graph — solo changes every track, not just one. */
+  Player.prototype.applyMix = function () {
+    if (!this.graph) return;
+    const t = this.ctx.currentTime;
+    const mix = this.mix;
+    const graph = this.graph;
+    TRACKS.forEach(function (name) {
+      const bus = graph.tracks[name];
+      if (!bus) return;
+      const v = gainFor(mix, name);
       // Only the fader nodes — `duck` carries its own automation.
       ['dry', 'rev', 'del'].forEach(function (k) {
         bus[k].gain.setTargetAtTime(v, t, 0.02);
       });
+    });
+  };
+
+  Player.prototype.setVolume = function (v) {
+    this.volume = Math.max(0, Math.min(1.2, v));
+    if (this.graph && this.ctx) {
+      this.graph.out.gain.setTargetAtTime(0.98 * this.volume, this.ctx.currentTime, 0.03);
     }
+  };
+
+  /**
+   * Retime the song under the playhead. The delay line is tuned to the tempo,
+   * so the graph has to be rebuilt; playback picks up from the same beat.
+   */
+  Player.prototype.setTempo = function (bpm) {
+    if (!this.song) return;
+    const beat = this.currentBeat();
+    const wasPlaying = this.playing;
+    global.Composer.setTempo(this.song, bpm);
+    this.stop();
+    this._pausedBeat = Math.min(beat, this.song.totalBeats - 0.01);
+    if (wasPlaying) this.play(this._pausedBeat);
   };
 
   Player.prototype.level = function () {

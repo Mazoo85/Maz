@@ -408,6 +408,26 @@ input[type="range"]::-moz-range-thumb {
   margin-top: -4px;
 }
 
+.song-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0 4px;
+  border-top: 1px solid var(--panel-edge);
+  margin-bottom: 4px;
+}
+.song-controls .tool-field { flex: 1 1 190px; min-width: 0; }
+.song-controls input[type="range"] { flex: 1 1 auto; min-width: 80px; }
+.ctl-value {
+  font-family: var(--font-data);
+  font-size: 13px;
+  color: var(--cyan);
+  min-width: 46px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------------- note editor ---------------- */
 
 .edit-tracks { margin-bottom: 10px; }
@@ -471,7 +491,7 @@ input[type="range"]::-moz-range-thumb {
 
 .track {
   display: grid;
-  grid-template-columns: 84px 44px 44px 1fr auto;
+  grid-template-columns: 84px 44px 44px 44px 1fr auto;
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
@@ -502,6 +522,19 @@ input[type="range"]::-moz-range-thumb {
   font-size: 15px;
 }
 .mute-btn.off { color: var(--pink); border-color: var(--pink); }
+
+.solo-btn {
+  width: 40px; height: 38px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-edge);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink-dim);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-display);
+}
+.solo-btn.on { color: var(--lime); border-color: var(--lime); background: rgba(107, 255, 143, 0.12); }
 
 .lock-btn {
   width: 40px; height: 38px;
@@ -633,17 +666,18 @@ input[type="range"]::-moz-range-thumb {
 @media (min-width: 760px) {
   .roll { height: 240px; }
   .editor { height: 380px; }
-  .track { grid-template-columns: 110px 44px 44px 1fr auto; }
+  .track { grid-template-columns: 110px 44px 44px 44px 1fr auto; }
 }
 
 @media (max-width: 420px) {
   .editor { height: 260px; }
   .track {
-    grid-template-columns: 1fr auto auto auto;
-    grid-template-areas: "name lock mute roll" "vol vol vol vol";
+    grid-template-columns: 1fr auto auto auto auto;
+    grid-template-areas: "name lock solo mute roll" "vol vol vol vol vol";
   }
   .track-name { grid-area: name; }
   .lock-btn { grid-area: lock; }
+  .solo-btn { grid-area: solo; }
   .mute-btn { grid-area: mute; }
   .track .reroll { grid-area: roll; }
   .track .vol { grid-area: vol; }

@@ -174,8 +174,28 @@ function launchOptions() {
     await grid.click({ position: { x: x, y: y } });
     await page.waitForTimeout(120);
   }
+
+  /* Never click a fixed coordinate and hope it is empty: landing on an existing
+     note starts a drag instead of drawing one, and where the notes sit changes
+     whenever the composer does. Ask the editor for a free cell instead. */
+  async function emptySpot() {
+    return page.evaluate(function () {
+      const ed = window.__editor;
+      for (let row = 2; row < ed.rows - 2; row++) {
+        const pitch = ed.pitchOfRow(row);
+        for (let b = ed.startBeat() + 0.5; b < ed.startBeat() + ed.spanBeats() - 1; b += 0.5) {
+          if (!ed.noteAt(b, pitch)) {
+            return { x: ed.xOfBeat(b) + 2, y: ed.yOfRow(row) + ed.rowH() / 2 };
+          }
+        }
+      }
+      return null;
+    });
+  }
   const leadBefore = await page.evaluate(function () { return window.__song.tracks.lead.length; });
-  await clickGrid(300, 150);
+  const spot = await emptySpot();
+  check(!!spot, 'found an empty cell to draw in');
+  await clickGrid(spot.x, spot.y);
   const leadAfter = await page.evaluate(function () { return window.__song.tracks.lead.length; });
   check(leadAfter === leadBefore + 1, 'clicking the grid draws a note (' + leadBefore + ' → ' + leadAfter + ')');
 
@@ -214,42 +234,44 @@ function launchOptions() {
   await page.waitForTimeout(120);
 
   console.log('\n— undo —');
-  const undoState = await page.evaluate(function () {
-    return { before: window.__song.tracks.lead.length,
-             canUndo: window.__editor.canUndo() };
-  });
-  await clickGrid(360, 170);
-  await clickGrid(420, 200);
+  const originalCount = await page.evaluate(function () { return window.__song.tracks.lead.length; });
+
+  // Losing a whole part to one button press is the worst case, so test it first.
+  await page.click('#clearTrackBtn');
+  await page.waitForTimeout(150);
+  check(await page.evaluate(function () { return window.__song.tracks.lead.length; }) === 0,
+    'clear empties the part');
+  await page.click('#undoBtn');
+  await page.waitForTimeout(150);
+  check(await page.evaluate(function () { return window.__song.tracks.lead.length; }) === originalCount,
+    'and undo brings the whole part back (' + originalCount + ' notes)');
+
+  /* Now work on an empty grid, where every click is guaranteed to draw rather
+     than grab a note that happened to be there. */
+  await page.click('#clearTrackBtn');
+  await page.waitForTimeout(150);
+  const a = await emptySpot();
+  await clickGrid(a.x, a.y);
+  const b = await emptySpot();
+  await clickGrid(b.x, b.y);
   const drawnTwo = await page.evaluate(function () { return window.__song.tracks.lead.length; });
-  check(drawnTwo === undoState.before + 2, 'two more notes drawn (' + drawnTwo + ')');
+  check(drawnTwo === 2, 'two notes drawn on an empty grid (' + drawnTwo + ')');
   check(await page.evaluate(function () {
     return !document.getElementById('undoBtn').disabled;
   }), 'undo becomes available once there is something to undo');
 
   await page.click('#undoBtn');
   await page.waitForTimeout(120);
-  const afterUndo = await page.evaluate(function () { return window.__song.tracks.lead.length; });
-  check(afterUndo === drawnTwo - 1, 'undo takes back one note (' + drawnTwo + ' → ' + afterUndo + ')');
-
+  check(await page.evaluate(function () { return window.__song.tracks.lead.length; }) === 1,
+    'undo takes back one note');
   await page.click('#undoBtn');
-  await page.waitForTimeout(120);
-  check(await page.evaluate(function () { return window.__song.tracks.lead.length; }) === undoState.before,
-    'undo again returns to where we started');
-
-  await page.click('#redoBtn');
-  await page.waitForTimeout(120);
-  check(await page.evaluate(function () { return window.__song.tracks.lead.length; }) === undoState.before + 1,
-    'redo puts one back');
-
-  // Clearing a whole part must be recoverable — that is the worst thing to lose.
-  await page.click('#clearTrackBtn');
   await page.waitForTimeout(120);
   check(await page.evaluate(function () { return window.__song.tracks.lead.length; }) === 0,
-    'clear empties the part');
-  await page.click('#undoBtn');
+    'undo again returns to the empty grid');
+  await page.click('#redoBtn');
   await page.waitForTimeout(120);
-  check(await page.evaluate(function () { return window.__song.tracks.lead.length; }) > 0,
-    'and undo brings the whole part back');
+  check(await page.evaluate(function () { return window.__song.tracks.lead.length; }) === 1,
+    'redo puts one back');
 
   console.log('\n— swapping a sound —');
   const swap = await page.evaluate(async function () {
@@ -339,6 +361,41 @@ function launchOptions() {
   check(ex.midiTag === 'MThd', 'MIDI still writes a valid header');
   check(ex.zipSig, 'zip writer produces a real PK archive');
   check(ex.zipSize > ex.midiSize, 'zip contains the file (' + ex.zipSize + ' ≥ ' + ex.midiSize + ')');
+
+  console.log('\n— solo, tempo and key —');
+  await page.click('#mixer .track[data-id="bass"] .solo-btn');
+  await page.waitForTimeout(120);
+  const soloed = await page.evaluate(function () {
+    const mix = window.__editor.player.mix;
+    return { bass: mix.bass.solo, drumsAudible: !mix.drums.solo };
+  });
+  check(soloed.bass && soloed.drumsAudible, 'solo marks one part and not the others');
+  check(await page.evaluate(function () {
+    return document.querySelector('#mixer .track[data-id="bass"] .solo-btn').classList.contains('on');
+  }), 'and the button shows it');
+  await page.click('#mixer .track[data-id="bass"] .solo-btn');
+  await page.waitForTimeout(120);
+
+  const keyBefore = await page.evaluate(function () { return window.__song.rootPc; });
+  await page.click('#keyUp');
+  await page.waitForTimeout(150);
+  const keyAfter = await page.evaluate(function () {
+    return { root: window.__song.rootPc, shown: document.getElementById('keyVal').textContent,
+             meta: document.getElementById('songMeta').textContent };
+  });
+  check(keyAfter.root === (keyBefore + 1) % 12, 'the key button moves the song up a semitone');
+  check(keyAfter.meta.indexOf(keyAfter.shown) >= 0, 'and the song details agree with it');
+
+  const bpmBefore = await page.evaluate(function () { return window.__song.bpm; });
+  await page.evaluate(function () {
+    const t = document.getElementById('liveTempo');
+    t.value = String(Math.min(200, window.__song.bpm + 20));
+    t.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await page.waitForTimeout(250);
+  const bpmAfter = await page.evaluate(function () { return window.__song.bpm; });
+  check(bpmAfter === Math.min(200, bpmBefore + 20),
+    'the tempo slider retimes the song (' + bpmBefore + ' → ' + bpmAfter + ')');
 
   console.log('\n— stems —');
   const stems = await page.evaluate(async function () {

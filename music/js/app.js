@@ -197,16 +197,21 @@
     return song;
   }
 
+  function songMetaText() {
+    const s = state.song;
+    return s.genre.name + ' · ' + s.mood.name + ' · ' + s.keyName + ' · ' + s.bpm + ' BPM · ' +
+      s.bars + ' bars · seed ' + s.seed;
+  }
+
   function renderSong() {
     const s = state.song;
     el('songTitle').textContent = s.title;
-    el('songMeta').textContent =
-      s.genre.name + ' · ' + s.mood.name + ' · ' + s.keyName + ' · ' + s.bpm + ' BPM · ' +
-      s.bars + ' bars · seed ' + s.seed;
+    el('songMeta').textContent = songMetaText();
     el('timeTotal').textContent = fmtTime(s.duration);
     el('seedInput').value = s.seed;
     state.seedEdited = false;
     buildChordStrip();
+    syncSongControls();
     resizeRoll();
   }
 
@@ -260,6 +265,20 @@
                                   : ' unlocked.'));
       });
       row.appendChild(lock);
+
+      const solo = document.createElement('button');
+      solo.type = 'button';
+      solo.className = 'solo-btn';
+      solo.textContent = 'S';
+      solo.title = 'Hear ' + meta.label.toLowerCase() + ' on its own';
+      solo.setAttribute('aria-label', 'Solo ' + meta.label);
+      solo.addEventListener('click', function () {
+        const next = !player.mix[meta.id].solo;
+        player.setTrack(meta.id, { solo: next });
+        syncSolo();
+        status(next ? meta.label + ' on its own.' : 'Back to the full mix.');
+      });
+      row.appendChild(solo);
 
       const mute = document.createElement('button');
       mute.type = 'button';
@@ -497,6 +516,63 @@
     Array.prototype.forEach.call(el('mixer').children, function (row) {
       row.classList.toggle('edited', !!state.edited[row.dataset.id]);
     });
+  }
+
+  function syncSolo() {
+    Array.prototype.forEach.call(el('mixer').children, function (row) {
+      const m = player.mix[row.dataset.id];
+      const btn = row.querySelector('.solo-btn');
+      if (btn && m) btn.classList.toggle('on', !!m.solo);
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Tempo, key and volume — changing the song you already have
+   * ------------------------------------------------------------------ */
+
+  function syncSongControls() {
+    if (!state.song) return;
+    el('liveTempo').value = String(state.song.bpm);
+    el('liveTempoVal').textContent = state.song.bpm;
+    el('keyVal').textContent = T.NOTE_NAMES[state.song.rootPc];
+  }
+
+  function bindSongControls() {
+    const tempo = el('liveTempo');
+    tempo.addEventListener('input', function () {
+      el('liveTempoVal').textContent = this.value;
+    });
+    // Retime on release: rebuilding the graph on every pixel of drag would stutter.
+    ['change', 'pointerup'].forEach(function (ev) {
+      tempo.addEventListener(ev, function () {
+        if (!state.song) return;
+        player.setTempo(parseInt(tempo.value, 10));
+        setPlayIcon(player.playing);
+        renderSong();
+        status('Now ' + state.song.bpm + ' BPM — same song, new tempo.');
+      });
+    });
+
+    function shift(by) {
+      if (!state.song) return;
+      const ok = C.transpose(state.song, by);
+      if (!ok) { status('That would push a part off the end of the keyboard.', true); return; }
+      player.refresh();
+      markRollDirty();
+      if (editor) editor.refit();
+      buildChordStrip();
+      syncSongControls();
+      el('songMeta').textContent = songMetaText();
+      status('Now in ' + state.song.keyName + '.');
+    }
+    el('keyDown').addEventListener('click', function () { shift(-1); });
+    el('keyUp').addEventListener('click', function () { shift(1); });
+
+    const vol = el('masterVol');
+    vol.addEventListener('input', function () {
+      player.setVolume(parseInt(this.value, 10) / 100);
+    });
+    player.setVolume(parseInt(vol.value, 10) / 100);
   }
 
   /* ------------------------------------------------------------------ *
@@ -990,6 +1066,7 @@
     buildKeySelect();
     bindOptions();
     bindTransport();
+    bindSongControls();
     bindExport();
     bindSongActions();
     bindHelp();

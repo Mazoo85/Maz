@@ -723,6 +723,52 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Changing a song you already have
+   *
+   * The score is pitches and beats, so moving a song to another key is
+   * arithmetic rather than a rewrite — and keeping the song you liked beats
+   * rolling the dice again hoping for one as good.
+   * ------------------------------------------------------------------ */
+
+  const MELODIC = ['bass', 'chords', 'arp', 'lead', 'pad'];
+
+  function transpose(song, semitones) {
+    if (!semitones) return song;
+
+    // Refuse a move that would push a part off the ends of the keyboard.
+    let lo = 127, hi = 0;
+    MELODIC.forEach(function (t) {
+      (song.tracks[t] || []).forEach(function (e) {
+        if (e.p < lo) lo = e.p;
+        if (e.p > hi) hi = e.p;
+      });
+    });
+    if (hi > 0 && (lo + semitones < 16 || hi + semitones > 104)) return null;
+
+    song.rootPc = ((song.rootPc + semitones) % 12 + 12) % 12;
+    song.keyName = T.NOTE_NAMES[song.rootPc] + ' ' + T.SCALES[song.scaleId].name;
+    song.transposed = (song.transposed || 0) + semitones;
+
+    song.chords.forEach(function (c) {
+      c.pitches = c.pitches.map(function (p) { return p + semitones; });
+      c.voicing = c.voicing.map(function (p) { return p + semitones; });
+      c.rootPitch += semitones;
+      c.name = T.chordName(c.pitches);
+    });
+    MELODIC.forEach(function (t) {
+      (song.tracks[t] || []).forEach(function (e) { e.p += semitones; });
+    });
+    return song;
+  }
+
+  /** Retime without rewriting: every event is in beats already. */
+  function setTempo(song, bpm) {
+    song.bpm = Math.max(40, Math.min(220, Math.round(bpm)));
+    song.duration = song.totalBeats * (60 / song.bpm);
+    return song;
+  }
+
+  /* ------------------------------------------------------------------ *
    * Assembly
    * ------------------------------------------------------------------ */
 
@@ -871,6 +917,8 @@
     compose: compose,
     rerollPart: rerollPart,
     developPart: developPart,
+    transpose: transpose,
+    setTempo: setTempo,
     generatePart: generatePart,
     motifFromEvents: motifFromEvents,
     pitchToDegree: pitchToDegree,

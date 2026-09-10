@@ -86,6 +86,22 @@
       </div>
     </div>
 
+    <div class="song-controls">
+      <label class="tool-field" for="liveTempo"><span>Tempo</span>
+        <input type="range" id="liveTempo" min="50" max="200" step="1" value="120" aria-label="Tempo" />
+        <output id="liveTempoVal" class="ctl-value">120</output>
+      </label>
+      <div class="tool-field">
+        <span>Key</span>
+        <button type="button" class="mini-btn" id="keyDown" aria-label="Down a semitone">−</button>
+        <output id="keyVal" class="ctl-value">—</output>
+        <button type="button" class="mini-btn" id="keyUp" aria-label="Up a semitone">+</button>
+      </div>
+      <label class="tool-field" for="masterVol"><span>Volume</span>
+        <input type="range" id="masterVol" min="0" max="120" step="1" value="85" aria-label="Volume" />
+      </label>
+    </div>
+
     <div class="chordstrip" id="chordStrip" aria-label="Chord progression"></div>
 
     <canvas id="roll" class="roll" aria-label="Note timeline"></canvas>

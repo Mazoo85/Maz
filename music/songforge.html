@@ -423,6 +423,26 @@ input[type="range"]::-moz-range-thumb {
   margin-top: -4px;
 }
 
+.song-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0 4px;
+  border-top: 1px solid var(--panel-edge);
+  margin-bottom: 4px;
+}
+.song-controls .tool-field { flex: 1 1 190px; min-width: 0; }
+.song-controls input[type="range"] { flex: 1 1 auto; min-width: 80px; }
+.ctl-value {
+  font-family: var(--font-data);
+  font-size: 13px;
+  color: var(--cyan);
+  min-width: 46px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------------- note editor ---------------- */
 
 .edit-tracks { margin-bottom: 10px; }
@@ -486,7 +506,7 @@ input[type="range"]::-moz-range-thumb {
 
 .track {
   display: grid;
-  grid-template-columns: 84px 44px 44px 1fr auto;
+  grid-template-columns: 84px 44px 44px 44px 1fr auto;
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
@@ -517,6 +537,19 @@ input[type="range"]::-moz-range-thumb {
   font-size: 15px;
 }
 .mute-btn.off { color: var(--pink); border-color: var(--pink); }
+
+.solo-btn {
+  width: 40px; height: 38px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-edge);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ink-dim);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-display);
+}
+.solo-btn.on { color: var(--lime); border-color: var(--lime); background: rgba(107, 255, 143, 0.12); }
 
 .lock-btn {
   width: 40px; height: 38px;
@@ -648,17 +681,18 @@ input[type="range"]::-moz-range-thumb {
 @media (min-width: 760px) {
   .roll { height: 240px; }
   .editor { height: 380px; }
-  .track { grid-template-columns: 110px 44px 44px 1fr auto; }
+  .track { grid-template-columns: 110px 44px 44px 44px 1fr auto; }
 }
 
 @media (max-width: 420px) {
   .editor { height: 260px; }
   .track {
-    grid-template-columns: 1fr auto auto auto;
-    grid-template-areas: "name lock mute roll" "vol vol vol vol";
+    grid-template-columns: 1fr auto auto auto auto;
+    grid-template-areas: "name lock solo mute roll" "vol vol vol vol vol";
   }
   .track-name { grid-area: name; }
   .lock-btn { grid-area: lock; }
+  .solo-btn { grid-area: solo; }
   .mute-btn { grid-area: mute; }
   .track .reroll { grid-area: roll; }
   .track .vol { grid-area: vol; }
@@ -741,6 +775,22 @@ input[type="range"]::-moz-range-thumb {
         <button type="button" class="mini-btn" id="saveBtn" title="Save to this device">♥ Save</button>
         <button type="button" class="mini-btn" id="shareBtn" title="Copy a link that recreates this exact song">Copy link</button>
       </div>
+    </div>
+
+    <div class="song-controls">
+      <label class="tool-field" for="liveTempo"><span>Tempo</span>
+        <input type="range" id="liveTempo" min="50" max="200" step="1" value="120" aria-label="Tempo" />
+        <output id="liveTempoVal" class="ctl-value">120</output>
+      </label>
+      <div class="tool-field">
+        <span>Key</span>
+        <button type="button" class="mini-btn" id="keyDown" aria-label="Down a semitone">−</button>
+        <output id="keyVal" class="ctl-value">—</output>
+        <button type="button" class="mini-btn" id="keyUp" aria-label="Up a semitone">+</button>
+      </div>
+      <label class="tool-field" for="masterVol"><span>Volume</span>
+        <input type="range" id="masterVol" min="0" max="120" step="1" value="85" aria-label="Volume" />
+      </label>
     </div>
 
     <div class="chordstrip" id="chordStrip" aria-label="Chord progression"></div>
@@ -2429,6 +2479,52 @@ input[type="range"]::-moz-range-thumb {
   }
 
   /* ------------------------------------------------------------------ *
+   * Changing a song you already have
+   *
+   * The score is pitches and beats, so moving a song to another key is
+   * arithmetic rather than a rewrite — and keeping the song you liked beats
+   * rolling the dice again hoping for one as good.
+   * ------------------------------------------------------------------ */
+
+  const MELODIC = ['bass', 'chords', 'arp', 'lead', 'pad'];
+
+  function transpose(song, semitones) {
+    if (!semitones) return song;
+
+    // Refuse a move that would push a part off the ends of the keyboard.
+    let lo = 127, hi = 0;
+    MELODIC.forEach(function (t) {
+      (song.tracks[t] || []).forEach(function (e) {
+        if (e.p < lo) lo = e.p;
+        if (e.p > hi) hi = e.p;
+      });
+    });
+    if (hi > 0 && (lo + semitones < 16 || hi + semitones > 104)) return null;
+
+    song.rootPc = ((song.rootPc + semitones) % 12 + 12) % 12;
+    song.keyName = T.NOTE_NAMES[song.rootPc] + ' ' + T.SCALES[song.scaleId].name;
+    song.transposed = (song.transposed || 0) + semitones;
+
+    song.chords.forEach(function (c) {
+      c.pitches = c.pitches.map(function (p) { return p + semitones; });
+      c.voicing = c.voicing.map(function (p) { return p + semitones; });
+      c.rootPitch += semitones;
+      c.name = T.chordName(c.pitches);
+    });
+    MELODIC.forEach(function (t) {
+      (song.tracks[t] || []).forEach(function (e) { e.p += semitones; });
+    });
+    return song;
+  }
+
+  /** Retime without rewriting: every event is in beats already. */
+  function setTempo(song, bpm) {
+    song.bpm = Math.max(40, Math.min(220, Math.round(bpm)));
+    song.duration = song.totalBeats * (60 / song.bpm);
+    return song;
+  }
+
+  /* ------------------------------------------------------------------ *
    * Assembly
    * ------------------------------------------------------------------ */
 
@@ -2577,6 +2673,8 @@ input[type="range"]::-moz-range-thumb {
     compose: compose,
     rerollPart: rerollPart,
     developPart: developPart,
+    transpose: transpose,
+    setTempo: setTempo,
     generatePart: generatePart,
     motifFromEvents: motifFromEvents,
     pitchToDegree: pitchToDegree,
@@ -3519,7 +3617,17 @@ input[type="range"]::-moz-range-thumb {
    * Mixer graph — identical for live and offline contexts.
    * ------------------------------------------------------------------ */
 
-  function buildGraph(ctx, song, mix, withAnalyser) {
+  /** A soloed track silences the others; muting still wins over being soloed. */
+  function gainFor(mix, name) {
+    const m = (mix && mix[name]) || { volume: 1, muted: false, solo: false };
+    if (m.muted) return 0;
+    let anySolo = false;
+    for (const k in mix) if (mix[k] && mix[k].solo) { anySolo = true; break; }
+    if (anySolo && !m.solo) return 0;
+    return m.volume;
+  }
+
+  function buildGraph(ctx, song, mix, withAnalyser, masterVolume) {
     const fx = song.genre.fx;
     const moodRev = song.mood.reverb || 1;
 
@@ -3549,7 +3657,7 @@ input[type="range"]::-moz-range-thumb {
     safety.oversample = '4x';
 
     const out = ctx.createGain();
-    out.gain.value = 0.98;
+    out.gain.value = 0.98 * (masterVolume === undefined ? 1 : masterVolume);
 
     master.connect(limiter).connect(safety).connect(out);
     out.connect(ctx.destination);
@@ -3614,8 +3722,7 @@ input[type="range"]::-moz-range-thumb {
       del.connect(delPre);
       const t = { dry: dry, rev: rev, del: del, duck: duck };
       tracks[name] = t;
-      const m = (mix && mix[name]) || { volume: 1, muted: false };
-      const v = m.muted ? 0 : m.volume;
+      const v = gainFor(mix, name);
       dry.gain.value = v;
       rev.gain.value = v;
       del.gain.value = v;
@@ -3714,7 +3821,8 @@ input[type="range"]::-moz-range-thumb {
     this.playing = false;
     this.loop = true;
     this.mix = {};
-    TRACKS.forEach(function (t) { this.mix[t] = { volume: 1, muted: false }; }, this);
+    TRACKS.forEach(function (t) { this.mix[t] = { volume: 1, muted: false, solo: false }; }, this);
+    this.volume = 0.85;
     this._timer = null;
     this._index = 0;
     this._pass = 0;
@@ -3756,7 +3864,7 @@ input[type="range"]::-moz-range-thumb {
   };
 
   Player.prototype._buildGraph = function () {
-    this.graph = buildGraph(this.ctx, this.song, this.mix, true);
+    this.graph = buildGraph(this.ctx, this.song, this.mix, true, this.volume);
     this._vinylStarted = false;
   };
 
@@ -3906,15 +4014,46 @@ input[type="range"]::-moz-range-thumb {
     if (!m) return;
     if (opts.volume !== undefined) m.volume = opts.volume;
     if (opts.muted !== undefined) m.muted = opts.muted;
-    if (this.graph && this.graph.tracks[name]) {
-      const v = m.muted ? 0 : m.volume;
-      const t = this.ctx.currentTime;
-      const bus = this.graph.tracks[name];
+    if (opts.solo !== undefined) m.solo = opts.solo;
+    this.applyMix();
+  };
+
+  /** Push the whole mix at the graph — solo changes every track, not just one. */
+  Player.prototype.applyMix = function () {
+    if (!this.graph) return;
+    const t = this.ctx.currentTime;
+    const mix = this.mix;
+    const graph = this.graph;
+    TRACKS.forEach(function (name) {
+      const bus = graph.tracks[name];
+      if (!bus) return;
+      const v = gainFor(mix, name);
       // Only the fader nodes — `duck` carries its own automation.
       ['dry', 'rev', 'del'].forEach(function (k) {
         bus[k].gain.setTargetAtTime(v, t, 0.02);
       });
+    });
+  };
+
+  Player.prototype.setVolume = function (v) {
+    this.volume = Math.max(0, Math.min(1.2, v));
+    if (this.graph && this.ctx) {
+      this.graph.out.gain.setTargetAtTime(0.98 * this.volume, this.ctx.currentTime, 0.03);
     }
+  };
+
+  /**
+   * Retime the song under the playhead. The delay line is tuned to the tempo,
+   * so the graph has to be rebuilt; playback picks up from the same beat.
+   */
+  Player.prototype.setTempo = function (bpm) {
+    if (!this.song) return;
+    const beat = this.currentBeat();
+    const wasPlaying = this.playing;
+    global.Composer.setTempo(this.song, bpm);
+    this.stop();
+    this._pausedBeat = Math.min(beat, this.song.totalBeats - 0.01);
+    if (wasPlaying) this.play(this._pausedBeat);
   };
 
   Player.prototype.level = function () {
@@ -5136,16 +5275,21 @@ input[type="range"]::-moz-range-thumb {
     return song;
   }
 
+  function songMetaText() {
+    const s = state.song;
+    return s.genre.name + ' · ' + s.mood.name + ' · ' + s.keyName + ' · ' + s.bpm + ' BPM · ' +
+      s.bars + ' bars · seed ' + s.seed;
+  }
+
   function renderSong() {
     const s = state.song;
     el('songTitle').textContent = s.title;
-    el('songMeta').textContent =
-      s.genre.name + ' · ' + s.mood.name + ' · ' + s.keyName + ' · ' + s.bpm + ' BPM · ' +
-      s.bars + ' bars · seed ' + s.seed;
+    el('songMeta').textContent = songMetaText();
     el('timeTotal').textContent = fmtTime(s.duration);
     el('seedInput').value = s.seed;
     state.seedEdited = false;
     buildChordStrip();
+    syncSongControls();
     resizeRoll();
   }
 
@@ -5199,6 +5343,20 @@ input[type="range"]::-moz-range-thumb {
                                   : ' unlocked.'));
       });
       row.appendChild(lock);
+
+      const solo = document.createElement('button');
+      solo.type = 'button';
+      solo.className = 'solo-btn';
+      solo.textContent = 'S';
+      solo.title = 'Hear ' + meta.label.toLowerCase() + ' on its own';
+      solo.setAttribute('aria-label', 'Solo ' + meta.label);
+      solo.addEventListener('click', function () {
+        const next = !player.mix[meta.id].solo;
+        player.setTrack(meta.id, { solo: next });
+        syncSolo();
+        status(next ? meta.label + ' on its own.' : 'Back to the full mix.');
+      });
+      row.appendChild(solo);
 
       const mute = document.createElement('button');
       mute.type = 'button';
@@ -5436,6 +5594,63 @@ input[type="range"]::-moz-range-thumb {
     Array.prototype.forEach.call(el('mixer').children, function (row) {
       row.classList.toggle('edited', !!state.edited[row.dataset.id]);
     });
+  }
+
+  function syncSolo() {
+    Array.prototype.forEach.call(el('mixer').children, function (row) {
+      const m = player.mix[row.dataset.id];
+      const btn = row.querySelector('.solo-btn');
+      if (btn && m) btn.classList.toggle('on', !!m.solo);
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Tempo, key and volume — changing the song you already have
+   * ------------------------------------------------------------------ */
+
+  function syncSongControls() {
+    if (!state.song) return;
+    el('liveTempo').value = String(state.song.bpm);
+    el('liveTempoVal').textContent = state.song.bpm;
+    el('keyVal').textContent = T.NOTE_NAMES[state.song.rootPc];
+  }
+
+  function bindSongControls() {
+    const tempo = el('liveTempo');
+    tempo.addEventListener('input', function () {
+      el('liveTempoVal').textContent = this.value;
+    });
+    // Retime on release: rebuilding the graph on every pixel of drag would stutter.
+    ['change', 'pointerup'].forEach(function (ev) {
+      tempo.addEventListener(ev, function () {
+        if (!state.song) return;
+        player.setTempo(parseInt(tempo.value, 10));
+        setPlayIcon(player.playing);
+        renderSong();
+        status('Now ' + state.song.bpm + ' BPM — same song, new tempo.');
+      });
+    });
+
+    function shift(by) {
+      if (!state.song) return;
+      const ok = C.transpose(state.song, by);
+      if (!ok) { status('That would push a part off the end of the keyboard.', true); return; }
+      player.refresh();
+      markRollDirty();
+      if (editor) editor.refit();
+      buildChordStrip();
+      syncSongControls();
+      el('songMeta').textContent = songMetaText();
+      status('Now in ' + state.song.keyName + '.');
+    }
+    el('keyDown').addEventListener('click', function () { shift(-1); });
+    el('keyUp').addEventListener('click', function () { shift(1); });
+
+    const vol = el('masterVol');
+    vol.addEventListener('input', function () {
+      player.setVolume(parseInt(this.value, 10) / 100);
+    });
+    player.setVolume(parseInt(vol.value, 10) / 100);
   }
 
   /* ------------------------------------------------------------------ *
@@ -5929,6 +6144,7 @@ input[type="range"]::-moz-range-thumb {
     buildKeySelect();
     bindOptions();
     bindTransport();
+    bindSongControls();
     bindExport();
     bindSongActions();
     bindHelp();
