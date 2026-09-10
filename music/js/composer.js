@@ -965,6 +965,7 @@
     song.bars = bar;
     song.totalBeats = bar * BEATS_PER_BAR;
     song.duration = song.totalBeats * (60 / song.bpm);
+    clampAutomation(song);
     return song;
   }
 
@@ -997,6 +998,145 @@
     blocks[to] = tmp;
     assemble(song, blocks);
     return true;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Automation lanes
+   *
+   * A lane is a sorted list of {t: beats, v: 0-1}. The engine reads them; this
+   * end owns keeping them tidy and offers the shapes people actually want, so
+   * a fade-out is one button rather than an exercise in drawing straight lines.
+   * ------------------------------------------------------------------ */
+
+  const LANE_NAMES = ['filter', 'volume'];
+
+  function ensureAutomation(song) {
+    if (!song.automation) song.automation = {};
+    LANE_NAMES.forEach(function (k) {
+      if (!Array.isArray(song.automation[k])) song.automation[k] = [];
+    });
+    return song.automation;
+  }
+
+  /** Sort by time, clamp into range, and merge points that land on the spot. */
+  function tidyLane(song, lane) {
+    const auto = ensureAutomation(song);
+    const end = song.totalBeats;
+    const pts = auto[lane]
+      .map(function (p) {
+        return { t: Math.max(0, Math.min(end, p.t)), v: Math.max(0, Math.min(1, p.v)) };
+      })
+      .sort(function (a, b) { return a.t - b.t; });
+    const out = [];
+    for (let i = 0; i < pts.length; i++) {
+      if (out.length && Math.abs(pts[i].t - out[out.length - 1].t) < 1e-6) out[out.length - 1] = pts[i];
+      else out.push(pts[i]);
+    }
+    auto[lane] = out;
+    return out;
+  }
+
+  /* After the arrangement changes, the song is a different length. Points past
+     the new end are dropped rather than squeezed: a fade-out written for bar 40
+     is about the ending, and stretching it somewhere else would be a guess. */
+  function clampAutomation(song) {
+    ensureAutomation(song);
+    LANE_NAMES.forEach(function (lane) {
+      song.automation[lane] = song.automation[lane].filter(function (p) {
+        return p.t <= song.totalBeats + 1e-6;
+      });
+      tidyLane(song, lane);
+    });
+  }
+
+  function addPoint(song, lane, t, v) {
+    ensureAutomation(song);
+    if (LANE_NAMES.indexOf(lane) < 0) return null;
+    const pt = { t: Math.max(0, Math.min(song.totalBeats, t)), v: Math.max(0, Math.min(1, v)) };
+    song.automation[lane].push(pt);
+    tidyLane(song, lane);
+    return pt;
+  }
+
+  function removePoint(song, lane, index) {
+    ensureAutomation(song);
+    const pts = song.automation[lane];
+    if (!pts || index < 0 || index >= pts.length) return false;
+    pts.splice(index, 1);
+    return true;
+  }
+
+  function clearLane(song, lane) {
+    ensureAutomation(song);
+    if (LANE_NAMES.indexOf(lane) < 0) return false;
+    song.automation[lane] = [];
+    return true;
+  }
+
+  /** Beat where a section starts, or the end of the song if there isn't one. */
+  function beatOfSection(song, match) {
+    for (let i = 0; i < song.sections.length; i++) {
+      if (match(song.sections[i], i)) return song.sections[i].startBar * BEATS_PER_BAR;
+    }
+    return -1;
+  }
+
+  /**
+   * The four moves worth having as one tap. Each is written against the song's
+   * own arrangement — the build ends where the chorus actually starts — so they
+   * land in the right place whatever the form turned out to be.
+   */
+  const SHAPES = {
+    fadeIn: function (song) {
+      const end = Math.min(song.totalBeats, BEATS_PER_BAR * (song.sections[0] ? song.sections[0].bars : 4));
+      clearLane(song, 'volume');
+      addPoint(song, 'volume', 0, 0);
+      addPoint(song, 'volume', end, 1);
+      return 'volume';
+    },
+    fadeOut: function (song) {
+      const last = song.sections[song.sections.length - 1];
+      const start = last ? last.startBar * BEATS_PER_BAR : Math.max(0, song.totalBeats - 16);
+      clearLane(song, 'volume');
+      addPoint(song, 'volume', start, 1);
+      addPoint(song, 'volume', song.totalBeats, 0);
+      return 'volume';
+    },
+    buildToChorus: function (song) {
+      /* Build into the first chorus that has room in front of it. A song that
+         opens on its chorus — which rearranging can easily produce — has
+         nothing to build from, so fall back to the middle of the track. */
+      const MIN_RUNWAY = BEATS_PER_BAR * 2;
+      const chorus = beatOfSection(song, function (s) {
+        return s.type === 'chorus' && s.startBar * BEATS_PER_BAR >= MIN_RUNWAY;
+      });
+      const target = chorus >= MIN_RUNWAY ? chorus : Math.floor(song.totalBeats / 2);
+      const start = Math.max(0, target - BEATS_PER_BAR * 8);
+      clearLane(song, 'filter');
+      addPoint(song, 'filter', start, 0.22);          // muffled, holding back
+      addPoint(song, 'filter', target - 0.01, 1);     // wide open as it lands
+      addPoint(song, 'filter', song.totalBeats, 1);
+      return 'filter';
+    },
+    duckTheVerses: function (song) {
+      clearLane(song, 'filter');
+      song.sections.forEach(function (sec) {
+        const from = sec.startBar * BEATS_PER_BAR;
+        const to = from + sec.bars * BEATS_PER_BAR;
+        const open = sec.type === 'chorus' ? 1 : sec.type === 'intro' || sec.type === 'outro' ? 0.45 : 0.72;
+        addPoint(song, 'filter', from, open);
+        addPoint(song, 'filter', Math.min(song.totalBeats, to - 0.01), open);
+      });
+      return 'filter';
+    }
+  };
+
+  function applyShape(song, name) {
+    const fn = SHAPES[name];
+    if (!fn) return null;
+    const lane = fn(song);
+    tidyLane(song, lane);
+    return lane;
   }
 
   /* ------------------------------------------------------------------ *
@@ -1083,6 +1223,11 @@
        decides the style; this decides which of its instruments turn up, so two
        songs in the same style are not the same four sounds twice. */
     song.presetOverride = {};
+
+    /* Effects start out doing nothing. A song you have just generated should
+       sound the way the style intends; automation is something you add. */
+    song.automation = { filter: [], volume: [] };
+    song.pingpong = !!genre.fx.pingpong;
     ['bass', 'chords', 'arp', 'lead', 'pad'].forEach(function (part) {
       const cfg = genre[part];
       if (cfg && cfg.alts && cfg.alts.length && rng.chance(0.55)) {
@@ -1160,6 +1305,15 @@
     pitchToDegree: pitchToDegree,
     chordAt: chordAt,
     sectionOf: sectionOf,
+    ensureAutomation: ensureAutomation,
+    clampAutomation: clampAutomation,
+    addPoint: addPoint,
+    removePoint: removePoint,
+    clearLane: clearLane,
+    tidyLane: tidyLane,
+    applyShape: applyShape,
+    SHAPES: SHAPES,
+    LANE_NAMES: LANE_NAMES,
     BEATS_PER_BAR: BEATS_PER_BAR,
     LENGTHS: LENGTHS
   };

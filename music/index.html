@@ -166,12 +166,6 @@
       <label class="tool-field" for="soundSelect"><span>Sound</span>
         <select id="soundSelect"></select>
       </label>
-      <label class="tool-field send" for="revSend"><span>Reverb</span>
-        <input type="range" id="revSend" min="0" max="200" step="5" value="100" aria-label="Reverb for this part" />
-      </label>
-      <label class="tool-field send" for="delSend"><span>Delay</span>
-        <input type="range" id="delSend" min="0" max="200" step="5" value="100" aria-label="Delay for this part" />
-      </label>
     </div>
 
     <canvas id="editor" class="editor" aria-label="Note editor"></canvas>
@@ -187,6 +181,43 @@
       </select>
     </div>
 
+    <details class="fx-rack" id="fxRack">
+      <summary>Effects for this part — <span id="fxRackWho">lead</span></summary>
+      <div class="fx-grid">
+        <label class="fx-field" for="revSend"><span>Reverb</span>
+          <input type="range" id="revSend" min="0" max="200" step="5" value="100" aria-label="Reverb for this part" />
+          <output class="fx-value" id="revSendVal">100%</output>
+        </label>
+        <label class="fx-field" for="delSend"><span>Delay</span>
+          <input type="range" id="delSend" min="0" max="200" step="5" value="100" aria-label="Delay for this part" />
+          <output class="fx-value" id="delSendVal">100%</output>
+        </label>
+        <label class="fx-field" for="choSend"><span>Chorus</span>
+          <input type="range" id="choSend" min="0" max="100" step="5" value="0" aria-label="Chorus for this part" />
+          <output class="fx-value" id="choSendVal">0%</output>
+        </label>
+        <label class="fx-field" for="crushAmt"><span>Crush</span>
+          <input type="range" id="crushAmt" min="0" max="100" step="5" value="0" aria-label="Bit crush for this part" />
+          <output class="fx-value" id="crushAmtVal">0%</output>
+        </label>
+        <label class="fx-field" for="eqLow"><span>Bass</span>
+          <input type="range" id="eqLow" min="-12" max="12" step="1" value="0" aria-label="Bass for this part" />
+          <output class="fx-value" id="eqLowVal">0 dB</output>
+        </label>
+        <label class="fx-field" for="eqMid"><span>Mids</span>
+          <input type="range" id="eqMid" min="-12" max="12" step="1" value="0" aria-label="Mids for this part" />
+          <output class="fx-value" id="eqMidVal">0 dB</output>
+        </label>
+        <label class="fx-field" for="eqHigh"><span>Treble</span>
+          <input type="range" id="eqHigh" min="-12" max="12" step="1" value="0" aria-label="Treble for this part" />
+          <output class="fx-value" id="eqHighVal">0 dB</output>
+        </label>
+        <div class="fx-field fx-actions">
+          <button type="button" class="mini-btn" id="fxReset">Reset this part</button>
+        </div>
+      </div>
+    </details>
+
     <div class="export-row">
       <button type="button" class="wide-btn" id="developBtn">✨ Develop my idea</button>
       <button type="button" class="wide-btn" id="clearTrackBtn">Clear this part</button>
@@ -201,6 +232,30 @@
   <!-- ---------------------------------------------------------------- -->
   <section class="panel" id="mixPanel" hidden>
     <h2 class="panel-title">3 · Shape the mix</h2>
+
+    <div class="auto-block">
+      <div class="auto-head">
+        <div class="chips auto-lanes" id="autoLanes" role="radiogroup" aria-label="What to automate">
+          <button type="button" class="chip on" data-lane="filter">Filter sweep</button>
+          <button type="button" class="chip" data-lane="volume">Volume fade</button>
+        </div>
+        <button type="button" class="mini-btn toggle" id="pingBtn"
+                title="Bounce the echo left and right instead of leaving it in the middle">Ping-pong echo</button>
+      </div>
+      <p class="panel-hint" id="autoHint">
+        Click the lane to add a point, drag it to move it, right-click or double-tap it to remove it.
+        This is the only setting that <em>changes as the song plays</em>.
+      </p>
+      <canvas id="autoLane" class="auto-lane" aria-label="Automation lane"></canvas>
+      <div class="auto-shapes">
+        <button type="button" class="mini-btn" data-shape="buildToChorus">Build into the chorus</button>
+        <button type="button" class="mini-btn" data-shape="duckTheVerses">Open up on choruses</button>
+        <button type="button" class="mini-btn" data-shape="fadeIn">Fade in</button>
+        <button type="button" class="mini-btn" data-shape="fadeOut">Fade out</button>
+        <button type="button" class="mini-btn" id="autoClear">Clear lane</button>
+      </div>
+    </div>
+
     <p class="panel-hint">
       Re-roll rewrites just that one part and keeps everything else. Lock a part
       (🔓) to protect it — locked parts survive a re-roll of everything.
@@ -259,6 +314,10 @@
       <li>Draw your own notes in <strong>Edit the notes</strong>, then press
           <strong>Develop my idea</strong> and the generator builds the song around what you wrote.</li>
       <li><strong>Lock</strong> a part you like so re-rolling everything leaves it alone.</li>
+      <li>Open <strong>Effects for this part</strong> under the note grid to add chorus, crush
+          or EQ to one part without touching the others.</li>
+      <li>In <strong>Shape the mix</strong>, tap <strong>Build into the chorus</strong>. That is
+          the one control that changes <em>as the song plays</em> — everything else holds still.</li>
       <li>Mute the drums for a version you can talk over.</li>
       <li>Download the MIDI to keep writing in real music software.</li>
     </ul>
@@ -275,6 +334,7 @@
 <script src="js/synth.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/export.js"></script>
+<script src="js/automation.js"></script>
 <script src="js/editor.js"></script>
 <script src="js/app.js"></script>
 </body>

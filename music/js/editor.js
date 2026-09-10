@@ -83,7 +83,8 @@
       chords: JSON.parse(JSON.stringify(song.chords)),
       bars: song.bars,
       totalBeats: song.totalBeats,
-      duration: song.duration
+      duration: song.duration,
+      automation: JSON.parse(JSON.stringify(song.automation || {}))
     };
   }
 
@@ -94,6 +95,7 @@
     song.bars = s.bars;
     song.totalBeats = s.totalBeats;
     song.duration = s.duration;
+    if (s.automation) song.automation = JSON.parse(JSON.stringify(s.automation));
     // Sections hold their own view of the harmony; re-link it to the restored one.
     song.sections.forEach(function (sec) {
       sec.chords = song.chords.filter(function (c) {

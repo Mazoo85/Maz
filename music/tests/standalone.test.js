@@ -495,6 +495,122 @@ function launchOptions() {
   check(onLead === '100', 'switching parts shows that part\'s own setting (' + onLead + '%)');
   check(backOnPad === '180', 'and coming back remembers it (' + backOnPad + '%)');
 
+  console.log('\n— the effects rack —');
+  await page.click('#editTracks .chip[data-id="pad"]');
+  await page.evaluate(function () { document.getElementById('fxRack').open = true; });
+  await page.waitForTimeout(120);
+  await page.evaluate(function () {
+    [['choSend', '60'], ['crushAmt', '40'], ['eqLow', '-6'], ['eqHigh', '9']].forEach(function (p) {
+      const s = document.getElementById(p[0]);
+      s.value = p[1];
+      s.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  });
+  await page.waitForTimeout(150);
+  const rack = await page.evaluate(function () {
+    const m = window.__editor.player.mix;
+    return {
+      pad: { cho: m.pad.cho, crush: m.pad.crush, eqLow: m.pad.eqLow, eqHigh: m.pad.eqHigh },
+      lead: { cho: m.lead.cho, crush: m.lead.crush, eqLow: m.lead.eqLow },
+      shown: document.getElementById('eqLowVal').textContent
+    };
+  });
+  check(Math.abs(rack.pad.cho - 0.6) < 1e-6 && Math.abs(rack.pad.crush - 0.4) < 1e-6,
+    'the chorus and crush sliders reach that part (' + rack.pad.cho + ', ' + rack.pad.crush + ')');
+  check(rack.pad.eqLow === -6 && rack.pad.eqHigh === 9,
+    'and the EQ is in decibels, cut and boost (' + rack.pad.eqLow + ', +' + rack.pad.eqHigh + ')');
+  check(rack.shown === '-6 dB', 'the readout follows the slider (' + rack.shown + ')');
+  check(rack.lead.cho === 0 && rack.lead.crush === 0 && rack.lead.eqLow === 0,
+    'and no other part was touched');
+
+  await page.click('#fxReset');
+  await page.waitForTimeout(150);
+  const afterReset = await page.evaluate(function () {
+    const m = window.__editor.player.mix.pad;
+    return { cho: m.cho, crush: m.crush, eqLow: m.eqLow, eqHigh: m.eqHigh, rev: m.rev,
+             slider: document.getElementById('eqLowVal').textContent };
+  });
+  check(afterReset.cho === 0 && afterReset.crush === 0 && afterReset.eqLow === 0 &&
+        afterReset.eqHigh === 0 && afterReset.rev === 1,
+    'reset puts the whole part back to plain');
+  check(afterReset.slider === '0 dB', 'and the readouts agree');
+
+  console.log('\n— the automation lane —');
+  check(await page.locator('#autoLane').isVisible(), 'the lane is on the page');
+  const laneBefore = await page.evaluate(function () {
+    return { filter: window.__song.automation.filter.length,
+             volume: window.__song.automation.volume.length };
+  });
+  check(laneBefore.filter === 0 && laneBefore.volume === 0, 'and it starts empty');
+
+  await page.click('.auto-shapes button[data-shape="buildToChorus"]');
+  await page.waitForTimeout(200);
+  const built = await page.evaluate(function () {
+    const s = window.__song;
+    /* By this point the arranging tests have rearranged the form, so where the
+       chorus is depends on what they did. A build needs room in front of it,
+       so it aims at the first chorus that has any — and at the middle of the
+       song if the rearranging left it opening on a chorus. */
+    const chorus = s.sections.filter(function (x) {
+      return x.type === 'chorus' && x.startBar * 4 >= 8;
+    })[0];
+    const target = chorus ? chorus.startBar * 4 : Math.floor(s.totalBeats / 2);
+    return {
+      points: s.automation.filter.length,
+      hadChorus: !!chorus,
+      opensAtTarget: s.automation.filter.some(function (p) {
+        return Math.abs(p.t - target) < 0.5 && p.v === 1;
+      }),
+      startsHeldBack: s.automation.filter.length ? s.automation.filter[0].v < 0.5 : false,
+      laneShown: document.querySelector('#autoLanes .chip.on').dataset.lane
+    };
+  });
+  check(built.points >= 3, 'one tap writes a build (' + built.points + ' points)');
+  check(built.opensAtTarget, 'and it opens up exactly where the ' +
+    (built.hadChorus ? 'chorus starts' : 'song turns over'));
+  check(built.startsHeldBack, 'having started held back');
+  check(built.laneShown === 'filter', 'the view switches to the lane it wrote into');
+
+  /* Drawing: click an empty spot on the lane and a point appears there. */
+  const lane = page.locator('#autoLane');
+  const box = await lane.boundingBox();
+  await lane.click({ position: { x: Math.round(box.width * 0.5), y: 30 } });
+  await page.waitForTimeout(150);
+  const laneDrawn = await page.evaluate(function () { return window.__song.automation.filter.length; });
+  check(laneDrawn === built.points + 1,
+    'clicking the lane adds a point (' + built.points + ' → ' + laneDrawn + ')');
+
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(200);
+  check(await page.evaluate(function () { return window.__song.automation.filter.length; }) === built.points,
+    'and undo takes it back off again');
+
+  await page.click('#autoClear');
+  await page.waitForTimeout(150);
+  check(await page.evaluate(function () { return window.__song.automation.filter.length; }) === 0,
+    'clear empties the lane');
+
+  await page.click('#autoLanes button[data-lane="volume"]');
+  await page.click('.auto-shapes button[data-shape="fadeOut"]');
+  await page.waitForTimeout(200);
+  const fade = await page.evaluate(function () {
+    const v = window.__song.automation.volume;
+    return { n: v.length, endsSilent: v.length ? v[v.length - 1].v === 0 : false,
+             atEnd: v.length ? Math.abs(v[v.length - 1].t - window.__song.totalBeats) < 1e-6 : false };
+  });
+  check(fade.n >= 2 && fade.endsSilent && fade.atEnd,
+    'a fade-out reaches silence at the last beat (' + fade.n + ' points)');
+
+  const pingBefore = await page.evaluate(function () { return !!window.__song.pingpong; });
+  await page.click('#pingBtn');
+  await page.waitForTimeout(150);
+  const pingAfter = await page.evaluate(function () {
+    return { on: !!window.__song.pingpong,
+             lit: document.getElementById('pingBtn').classList.contains('on') };
+  });
+  check(pingAfter.on === !pingBefore, 'the ping-pong toggle flips the echo');
+  check(pingAfter.lit === pingAfter.on, 'and the button shows which way it is');
+
   console.log('\n— solo, tempo and key —');
   await page.click('#mixer .track[data-id="bass"] .solo-btn');
   await page.waitForTimeout(120);

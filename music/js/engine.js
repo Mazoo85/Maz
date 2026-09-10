@@ -69,6 +69,96 @@
     return gainFor(mix, name) * amt;
   }
 
+  /* Chorus differs from the other two sends in where it is tapped. Reverb and
+     delay are fed by each note directly, at the amount its preset asks for;
+     the chorus is fed from the end of the track's own chain, so it hears the
+     part crushed and EQ'd exactly as you shaped it — and a muted or un-soloed
+     part sends nothing without having to be asked, because the fader it is
+     tapped behind is already at zero. */
+  function chorusGain(mix, name) {
+    const m = (mix && mix[name]) || {};
+    return m.cho || 0;
+  }
+
+  function mixField(mix, name, field, dflt) {
+    const m = (mix && mix[name]) || {};
+    return m[field] === undefined ? dflt : m[field];
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Automation
+   *
+   * Two lanes over the length of the song, each a list of {t (beats), v (0-1)}.
+   * `filter` drives a lowpass across the whole mix — 1 is wide open, 0 is a
+   * muffled 120 Hz — and `volume` is a plain fade. Between points the value
+   * ramps; outside them it holds.
+   *
+   * This is what a fixed effect setting can never give you: a filter that opens
+   * across eight bars into the chorus, or an ending that actually ends.
+   * ------------------------------------------------------------------ */
+
+  const LANES = {
+    filter: { min: 120, max: 20000, log: true, neutral: 1 },
+    volume: { min: 0, max: 1, log: false, neutral: 1 }
+  };
+
+  function laneValueAt(points, beat, neutral) {
+    if (!points || !points.length) return neutral;
+    if (beat <= points[0].t) return points[0].v;
+    for (let i = 1; i < points.length; i++) {
+      if (beat <= points[i].t) {
+        const a = points[i - 1], b = points[i];
+        const span = b.t - a.t;
+        if (span <= 0) return b.v;
+        return a.v + (b.v - a.v) * ((beat - a.t) / span);
+      }
+    }
+    return points[points.length - 1].v;
+  }
+
+  function laneMap(name, v) {
+    const L = LANES[name];
+    const c = Math.max(0, Math.min(1, v));
+    if (!L.log) return L.min + (L.max - L.min) * c;
+    return L.min * Math.pow(L.max / L.min, c);
+  }
+
+  /**
+   * Write one pass of the song's automation onto the graph.
+   *
+   * `originTime` is the context time of beat 0 of this pass, so the same
+   * function serves live playback (called once per loop) and the offline
+   * render (called once, at the render's own scheduling offset).
+   */
+  function applyAutomation(ctx, graph, song, originTime, fromBeat) {
+    if (!graph || !graph.autoFilter) return;
+    const spb = 60 / song.bpm;
+    const auto = (song && song.automation) || {};
+    const start = fromBeat || 0;
+    const now = ctx.currentTime === undefined ? 0 : ctx.currentTime;
+
+    ['filter', 'volume'].forEach(function (lane) {
+      const param = lane === 'filter' ? graph.autoFilter.frequency : graph.autoGain.gain;
+      const pts = (auto[lane] || []).slice().sort(function (a, b) { return a.t - b.t; });
+      const neutral = LANES[lane].neutral;
+      const ramp = lane === 'filter'
+        ? function (v, t) { param.exponentialRampToValueAtTime(Math.max(1e-4, v), t); }
+        : function (v, t) { param.linearRampToValueAtTime(v, t); };
+
+      const t0 = Math.max(now, originTime + start * spb);
+      param.cancelScheduledValues(t0);
+      if (!pts.length) { param.setValueAtTime(laneMap(lane, neutral), t0); return; }
+
+      param.setValueAtTime(laneMap(lane, laneValueAt(pts, start, neutral)), t0);
+      for (let i = 0; i < pts.length; i++) {
+        if (pts[i].t <= start) continue;
+        const when = originTime + pts[i].t * spb;
+        if (when <= t0) continue;
+        ramp(laneMap(lane, pts[i].v), when);
+      }
+    });
+  }
+
   function buildGraph(ctx, song, mix, withAnalyser, masterVolume) {
     const fx = song.genre.fx;
     const moodRev = song.mood.reverb || 1;
@@ -98,10 +188,21 @@
     safety.curve = Synth.softClipCurve(ctx);
     safety.oversample = '4x';
 
+    /* The automation filter sits *before* the limiter, so a sweep is still
+       caught by the ceiling; the automation fader sits after it, because a
+       fade to silence is not something to limit back up. */
+    const autoFilter = ctx.createBiquadFilter();
+    autoFilter.type = 'lowpass';
+    autoFilter.frequency.value = 20000;
+    autoFilter.Q.value = 0.9;
+
+    const autoGain = ctx.createGain();
+    autoGain.gain.value = 1;
+
     const out = ctx.createGain();
     out.gain.value = 0.98 * (masterVolume === undefined ? 1 : masterVolume);
 
-    master.connect(limiter).connect(safety).connect(out);
+    master.connect(autoFilter).connect(limiter).connect(safety).connect(autoGain).connect(out);
     out.connect(ctx.destination);
 
     let analyser = null;
@@ -109,7 +210,7 @@
       analyser = ctx.createAnalyser();
       analyser.fftSize = 1024;
       analyser.smoothingTimeConstant = 0.75;
-      safety.connect(analyser);
+      autoGain.connect(analyser);
     }
 
     // Reverb bus
@@ -123,21 +224,89 @@
     revDamp.frequency.value = 5200;
     revPre.connect(revDamp).connect(convolver).connect(revReturn).connect(master);
 
-    // Delay bus with damped feedback
-    const delay = ctx.createDelay(2.0);
+    /*
+     * Delay bus with damped feedback, in two flavours that share one return.
+     *
+     * Both are built every time and only one is fed, so switching between them
+     * is a gain change rather than a rebuild — and the echoes already in the
+     * air ring out naturally instead of being cut off.
+     */
     const spb = 60 / song.bpm;
-    delay.delayTime.value = Math.min(1.9, fx.delayTime * spb * 2);
+    const delTime = Math.min(1.9, fx.delayTime * spb * 2);
+    const delReturn = ctx.createGain();
+    delReturn.gain.value = Math.min(1, fx.delay);
+    delReturn.connect(master);
+    const delPre = ctx.createGain();
+
+    // Centred: one line feeding back on itself.
+    const delMonoIn = ctx.createGain();
+    const delay = ctx.createDelay(2.0);
+    delay.delayTime.value = delTime;
     const fb = ctx.createGain();
     fb.gain.value = 0.34;
     const damp = ctx.createBiquadFilter();
     damp.type = 'lowpass';
     damp.frequency.value = 2800;
-    const delReturn = ctx.createGain();
-    delReturn.gain.value = Math.min(1, fx.delay);
-    const delPre = ctx.createGain();
-    delPre.connect(delay);
+    delPre.connect(delMonoIn).connect(delay);
     delay.connect(damp).connect(fb).connect(delay);
-    delay.connect(delReturn).connect(master);
+    delay.connect(delReturn);
+
+    /* Ping-pong: the input hits the left line, left feeds right, right feeds
+       left again. Each line is hard-panned, so a single note walks across the
+       room and back rather than sitting in the middle. Half the delay time
+       each, so a round trip still lands on the same beat as the centred one. */
+    const delPingIn = ctx.createGain();
+    const dL = ctx.createDelay(2.0);
+    const dR = ctx.createDelay(2.0);
+    dL.delayTime.value = delTime / 2;
+    dR.delayTime.value = delTime / 2;
+    const pfb = ctx.createGain();
+    pfb.gain.value = 0.38;
+    const pdamp = ctx.createBiquadFilter();
+    pdamp.type = 'lowpass';
+    pdamp.frequency.value = 2800;
+    const panL = Synth.panner(ctx, -0.85);
+    const panR = Synth.panner(ctx, 0.85);
+    delPre.connect(delPingIn).connect(dL);
+    dL.connect(dR);
+    dR.connect(pdamp).connect(pfb).connect(dL);
+    if (panL && panR) {
+      dL.connect(panL).connect(delReturn);
+      dR.connect(panR).connect(delReturn);
+    } else {
+      dL.connect(delReturn);
+      dR.connect(delReturn);
+    }
+
+    const ping = song.pingpong === undefined ? !!fx.pingpong : !!song.pingpong;
+    delMonoIn.gain.value = ping ? 0 : 1;
+    delPingIn.gain.value = ping ? 1 : 0;
+
+    /*
+     * Chorus bus: two short delay lines whose delay times wobble under slow
+     * LFOs, panned apart. A copy of a sound arriving a few milliseconds late
+     * and drifting in pitch is what "thick" means — it is the same trick as a
+     * second player who cannot possibly be perfectly in time or in tune.
+     */
+    const choPre = ctx.createGain();
+    const choReturn = ctx.createGain();
+    choReturn.gain.value = 0.9;
+    choReturn.connect(master);
+    const choLfos = [];
+    [[0.19, -0.7, 0.0115, 0.0033], [0.27, 0.7, 0.0163, 0.0027]].forEach(function (spec) {
+      const d = ctx.createDelay(0.1);
+      d.delayTime.value = spec[2];
+      const lfo = ctx.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.value = spec[0];
+      const depth = ctx.createGain();
+      depth.gain.value = spec[3];
+      lfo.connect(depth).connect(d.delayTime);
+      const pan = Synth.panner(ctx, spec[1]);
+      choPre.connect(d);
+      if (pan) d.connect(pan).connect(choReturn); else d.connect(choReturn);
+      choLfos.push(lfo);
+    });
 
     // Per-track sends, faders, placement and ducking
     const tracks = {};
@@ -146,9 +315,36 @@
       const dry = ctx.createGain();
       const rev = ctx.createGain();
       const del = ctx.createGain();
+      const cho = ctx.createGain();
 
-      // dry -> [duck] -> [pan] -> master
+      /* dry -> crush -> EQ -> [duck] -> [pan] -> master
+         Crushing first: the EQ is then shaping the grit rather than the grit
+         chewing up a carefully set tone. */
       let tail = dry;
+
+      const crush = ctx.createWaveShaper();
+      crush.curve = Synth.crushCurve(ctx, mixField(mix, name, 'crush', 0));
+      crush.oversample = 'none';
+      tail.connect(crush);
+      tail = crush;
+
+      const eqLow = ctx.createBiquadFilter();
+      eqLow.type = 'lowshelf';
+      eqLow.frequency.value = 220;
+      eqLow.gain.value = mixField(mix, name, 'eqLow', 0);
+      const eqMid = ctx.createBiquadFilter();
+      eqMid.type = 'peaking';
+      eqMid.frequency.value = 1200;
+      eqMid.Q.value = 0.8;
+      eqMid.gain.value = mixField(mix, name, 'eqMid', 0);
+      const eqHigh = ctx.createBiquadFilter();
+      eqHigh.type = 'highshelf';
+      eqHigh.frequency.value = 3600;
+      eqHigh.gain.value = mixField(mix, name, 'eqHigh', 0);
+      tail.connect(eqLow).connect(eqMid).connect(eqHigh);
+      tail = eqHigh;
+      eqHigh.connect(cho);
+
       let duck = null;
       if (duckDepth > 0 && DUCK_TARGETS.indexOf(name) >= 0) {
         duck = ctx.createGain();
@@ -162,11 +358,16 @@
 
       rev.connect(revPre);
       del.connect(delPre);
-      const t = { dry: dry, rev: rev, del: del, duck: duck };
+      cho.connect(choPre);
+      const t = {
+        dry: dry, rev: rev, del: del, cho: cho, duck: duck,
+        crush: crush, eqLow: eqLow, eqMid: eqMid, eqHigh: eqHigh
+      };
       tracks[name] = t;
       dry.gain.value = gainFor(mix, name);
       rev.gain.value = sendGain(mix, name, 'rev');
       del.gain.value = sendGain(mix, name, 'del');
+      cho.gain.value = chorusGain(mix, name);
     });
 
     // Vinyl / tape bed
@@ -186,6 +387,8 @@
     return {
       master: master, limiter: limiter, analyser: analyser, tracks: tracks,
       revReturn: revReturn, delReturn: delReturn, vinyl: vinyl, out: out,
+      autoFilter: autoFilter, autoGain: autoGain,
+      delMonoIn: delMonoIn, delPingIn: delPingIn, choReturn: choReturn, choLfos: choLfos,
       duckDepth: duckDepth, duckRelease: Math.min(0.42, (60 / song.bpm) * 0.62)
     };
   }
@@ -263,7 +466,11 @@
     this.loop = true;
     this.mix = {};
     TRACKS.forEach(function (t) {
-      this.mix[t] = { volume: 1, muted: false, solo: false, rev: 1, del: 1 };
+      this.mix[t] = {
+        volume: 1, muted: false, solo: false,
+        rev: 1, del: 1, cho: 0,
+        eqLow: 0, eqMid: 0, eqHigh: 0, crush: 0
+      };
     }, this);
     this.volume = 0.85;
     this._timer = null;
@@ -309,6 +516,18 @@
   Player.prototype._buildGraph = function () {
     this.graph = buildGraph(this.ctx, this.song, this.mix, true, this.volume);
     this._vinylStarted = false;
+    this._chorusStarted = false;
+  };
+
+  /* The chorus LFOs run for the life of the graph; like the tape bed they
+     belong to playback, not to one auditioned note. */
+  Player.prototype._startChorus = function () {
+    if (!this.graph || this._chorusStarted) return;
+    const t = this.ctx.currentTime;
+    for (let i = 0; i < this.graph.choLfos.length; i++) {
+      try { this.graph.choLfos[i].start(t); } catch (e) { /* already started */ }
+    }
+    this._chorusStarted = true;
   };
 
   /** The tape bed belongs to playback, not to a single auditioned note. */
@@ -365,6 +584,8 @@
     this._index = this._indexForBeat(startBeat);
     this._originTime = ctx.currentTime + 0.08 - startBeat * spb;
     this._startVinyl();
+    this._startChorus();
+    this._scheduleAutomation(0, startBeat);
     this.playing = true;
 
     const self = this;
@@ -387,6 +608,7 @@
         if (this.loop) {
           this._pass++;
           this._index = 0;
+          this._scheduleAutomation(this._pass, 0);
           continue;
         }
         if (ctx.currentTime > endTime + 0.5) {
@@ -460,12 +682,40 @@
     if (opts.solo !== undefined) m.solo = opts.solo;
     if (opts.rev !== undefined) m.rev = opts.rev;
     if (opts.del !== undefined) m.del = opts.del;
+    if (opts.cho !== undefined) m.cho = opts.cho;
+    ['eqLow', 'eqMid', 'eqHigh', 'crush'].forEach(function (k) {
+      if (opts[k] !== undefined) m[k] = opts[k];
+    });
     this.applyMix();
+  };
+
+  /** Switch the echo between centred and bouncing left-right. */
+  Player.prototype.setPingPong = function (on) {
+    if (this.song) this.song.pingpong = !!on;
+    if (!this.graph) return;
+    const t = this.ctx.currentTime;
+    this.graph.delMonoIn.gain.setTargetAtTime(on ? 0 : 1, t, 0.02);
+    this.graph.delPingIn.gain.setTargetAtTime(on ? 1 : 0, t, 0.02);
+  };
+
+  /** Re-read the automation lanes after they have been edited. */
+  Player.prototype.refreshAutomation = function () {
+    if (!this.graph || !this.song) return;
+    if (this.playing) this._scheduleAutomation(this._pass, this.currentBeat());
+    else applyAutomation(this.ctx, this.graph, this.song, this.ctx.currentTime, 0);
+  };
+
+  Player.prototype._scheduleAutomation = function (pass, fromBeat) {
+    if (!this.graph || !this.song) return;
+    const spb = 60 / this.song.bpm;
+    const origin = this._originTime + pass * this.song.totalBeats * spb;
+    applyAutomation(this.ctx, this.graph, this.song, origin, fromBeat || 0);
   };
 
   /** Push the whole mix at the graph — solo changes every track, not just one. */
   Player.prototype.applyMix = function () {
     if (!this.graph) return;
+    const self = this;
     const t = this.ctx.currentTime;
     const mix = this.mix;
     const graph = this.graph;
@@ -476,6 +726,12 @@
       bus.dry.gain.setTargetAtTime(gainFor(mix, name), t, 0.02);
       bus.rev.gain.setTargetAtTime(sendGain(mix, name, 'rev'), t, 0.02);
       bus.del.gain.setTargetAtTime(sendGain(mix, name, 'del'), t, 0.02);
+      bus.cho.gain.setTargetAtTime(chorusGain(mix, name), t, 0.02);
+      bus.eqLow.gain.setTargetAtTime(mixField(mix, name, 'eqLow', 0), t, 0.02);
+      bus.eqMid.gain.setTargetAtTime(mixField(mix, name, 'eqMid', 0), t, 0.02);
+      bus.eqHigh.gain.setTargetAtTime(mixField(mix, name, 'eqHigh', 0), t, 0.02);
+      // A curve cannot be ramped; swapping it is a single assignment.
+      bus.crush.curve = Synth.crushCurve(self.ctx, mixField(mix, name, 'crush', 0));
     });
   };
 
@@ -541,6 +797,9 @@
     const graph = buildGraph(ctx, song, mix, false);
     if (graph.vinyl) graph.vinyl.start(0);
 
+    for (let i = 0; i < graph.choLfos.length; i++) graph.choLfos[i].start(0);
+    applyAutomation(ctx, graph, song, 0.05, 0);
+
     const flat = flatten(song);
     const bright = (song.genre.fx.brightness || 1) * (song.mood.brightness || 1);
     for (let i = 0; i < flat.length; i++) {
@@ -565,10 +824,17 @@
     function next() {
       if (i >= parts.length) return Promise.resolve(out);
       const name = parts[i];
+      /* Carry every setting across, not just the fader: a stem should sound
+         like the part sounds in the mix, EQ, crush and chorus included. */
       const solo = {};
       TRACKS.forEach(function (t) {
-        const m = (mix && mix[t]) || { volume: 1, muted: false };
-        solo[t] = { volume: m.volume, muted: t !== name };
+        const m = (mix && mix[t]) || {};
+        const copy = {};
+        for (const k in m) copy[k] = m[k];
+        copy.volume = m.volume === undefined ? 1 : m.volume;
+        copy.solo = false;
+        copy.muted = t !== name;
+        solo[t] = copy;
       });
       if (onProgress) onProgress(i / parts.length, name);
       return renderOffline(song, solo).then(function (buf) {
@@ -585,6 +851,9 @@
     renderOffline: renderOffline,
     renderStems: renderStems,
     buildGraph: buildGraph,
+    applyAutomation: applyAutomation,
+    laneValueAt: laneValueAt,
+    LANES: LANES,
     flatten: flatten,
     presetFor: presetFor,
     defaultPresetName: defaultPresetName,

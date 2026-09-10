@@ -567,8 +567,90 @@ input[type="range"]::-moz-range-thumb {
   text-transform: uppercase;
   color: var(--ink-dim);
 }
-.tool-field.send { flex: 0 1 150px; }
-.tool-field.send input[type="range"] { flex: 1 1 auto; min-width: 60px; height: 30px; }
+/* ---------------- per-part effects rack ---------------- */
+
+.fx-rack {
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.22);
+  padding: 4px 12px;
+  margin: 10px 0;
+}
+.fx-rack summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--ink-dim);
+  padding: 8px 0;
+  list-style: none;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+}
+.fx-rack summary::-webkit-details-marker { display: none; }
+.fx-rack summary::before { content: "▸ "; color: var(--cyan); margin-right: 4px; }
+.fx-rack[open] summary::before { content: "▾ "; }
+.fx-rack summary span { color: var(--cyan); font-weight: 600; }
+
+.fx-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(184px, 1fr));
+  gap: 6px 16px;
+  padding: 4px 0 12px;
+}
+.fx-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.fx-field > span { flex: 0 0 52px; }
+.fx-field input[type="range"] { flex: 1 1 auto; min-width: 60px; height: 30px; }
+.fx-value {
+  flex: 0 0 46px;
+  text-align: right;
+  color: var(--cyan);
+  font-variant-numeric: tabular-nums;
+}
+.fx-actions { justify-content: flex-end; }
+
+/* ---------------- automation lane ---------------- */
+
+.auto-block {
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 12px;
+  margin-bottom: 14px;
+}
+.auto-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.auto-lanes .chip { padding: 8px 13px; min-height: 40px; font-size: 13px; }
+.auto-lanes .chip.on {
+  border-color: var(--cyan);
+  background: rgba(0, 229, 255, 0.14);
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.26);
+}
+.auto-lane {
+  display: block;
+  width: 100%;
+  height: 132px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--panel-edge);
+  touch-action: none;
+  cursor: crosshair;
+}
+.auto-shapes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .tool-field select {
   width: auto;
   min-height: 38px;

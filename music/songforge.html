@@ -582,8 +582,90 @@ input[type="range"]::-moz-range-thumb {
   text-transform: uppercase;
   color: var(--ink-dim);
 }
-.tool-field.send { flex: 0 1 150px; }
-.tool-field.send input[type="range"] { flex: 1 1 auto; min-width: 60px; height: 30px; }
+/* ---------------- per-part effects rack ---------------- */
+
+.fx-rack {
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.22);
+  padding: 4px 12px;
+  margin: 10px 0;
+}
+.fx-rack summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--ink-dim);
+  padding: 8px 0;
+  list-style: none;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+}
+.fx-rack summary::-webkit-details-marker { display: none; }
+.fx-rack summary::before { content: "▸ "; color: var(--cyan); margin-right: 4px; }
+.fx-rack[open] summary::before { content: "▾ "; }
+.fx-rack summary span { color: var(--cyan); font-weight: 600; }
+
+.fx-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(184px, 1fr));
+  gap: 6px 16px;
+  padding: 4px 0 12px;
+}
+.fx-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.fx-field > span { flex: 0 0 52px; }
+.fx-field input[type="range"] { flex: 1 1 auto; min-width: 60px; height: 30px; }
+.fx-value {
+  flex: 0 0 46px;
+  text-align: right;
+  color: var(--cyan);
+  font-variant-numeric: tabular-nums;
+}
+.fx-actions { justify-content: flex-end; }
+
+/* ---------------- automation lane ---------------- */
+
+.auto-block {
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 12px;
+  margin-bottom: 14px;
+}
+.auto-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.auto-lanes .chip { padding: 8px 13px; min-height: 40px; font-size: 13px; }
+.auto-lanes .chip.on {
+  border-color: var(--cyan);
+  background: rgba(0, 229, 255, 0.14);
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.26);
+}
+.auto-lane {
+  display: block;
+  width: 100%;
+  height: 132px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--panel-edge);
+  touch-action: none;
+  cursor: crosshair;
+}
+.auto-shapes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .tool-field select {
   width: auto;
   min-height: 38px;
@@ -968,12 +1050,6 @@ input[type="range"]::-moz-range-thumb {
       <label class="tool-field" for="soundSelect"><span>Sound</span>
         <select id="soundSelect"></select>
       </label>
-      <label class="tool-field send" for="revSend"><span>Reverb</span>
-        <input type="range" id="revSend" min="0" max="200" step="5" value="100" aria-label="Reverb for this part" />
-      </label>
-      <label class="tool-field send" for="delSend"><span>Delay</span>
-        <input type="range" id="delSend" min="0" max="200" step="5" value="100" aria-label="Delay for this part" />
-      </label>
     </div>
 
     <canvas id="editor" class="editor" aria-label="Note editor"></canvas>
@@ -989,6 +1065,43 @@ input[type="range"]::-moz-range-thumb {
       </select>
     </div>
 
+    <details class="fx-rack" id="fxRack">
+      <summary>Effects for this part — <span id="fxRackWho">lead</span></summary>
+      <div class="fx-grid">
+        <label class="fx-field" for="revSend"><span>Reverb</span>
+          <input type="range" id="revSend" min="0" max="200" step="5" value="100" aria-label="Reverb for this part" />
+          <output class="fx-value" id="revSendVal">100%</output>
+        </label>
+        <label class="fx-field" for="delSend"><span>Delay</span>
+          <input type="range" id="delSend" min="0" max="200" step="5" value="100" aria-label="Delay for this part" />
+          <output class="fx-value" id="delSendVal">100%</output>
+        </label>
+        <label class="fx-field" for="choSend"><span>Chorus</span>
+          <input type="range" id="choSend" min="0" max="100" step="5" value="0" aria-label="Chorus for this part" />
+          <output class="fx-value" id="choSendVal">0%</output>
+        </label>
+        <label class="fx-field" for="crushAmt"><span>Crush</span>
+          <input type="range" id="crushAmt" min="0" max="100" step="5" value="0" aria-label="Bit crush for this part" />
+          <output class="fx-value" id="crushAmtVal">0%</output>
+        </label>
+        <label class="fx-field" for="eqLow"><span>Bass</span>
+          <input type="range" id="eqLow" min="-12" max="12" step="1" value="0" aria-label="Bass for this part" />
+          <output class="fx-value" id="eqLowVal">0 dB</output>
+        </label>
+        <label class="fx-field" for="eqMid"><span>Mids</span>
+          <input type="range" id="eqMid" min="-12" max="12" step="1" value="0" aria-label="Mids for this part" />
+          <output class="fx-value" id="eqMidVal">0 dB</output>
+        </label>
+        <label class="fx-field" for="eqHigh"><span>Treble</span>
+          <input type="range" id="eqHigh" min="-12" max="12" step="1" value="0" aria-label="Treble for this part" />
+          <output class="fx-value" id="eqHighVal">0 dB</output>
+        </label>
+        <div class="fx-field fx-actions">
+          <button type="button" class="mini-btn" id="fxReset">Reset this part</button>
+        </div>
+      </div>
+    </details>
+
     <div class="export-row">
       <button type="button" class="wide-btn" id="developBtn">✨ Develop my idea</button>
       <button type="button" class="wide-btn" id="clearTrackBtn">Clear this part</button>
@@ -1003,6 +1116,30 @@ input[type="range"]::-moz-range-thumb {
   <!-- ---------------------------------------------------------------- -->
   <section class="panel" id="mixPanel" hidden>
     <h2 class="panel-title">3 · Shape the mix</h2>
+
+    <div class="auto-block">
+      <div class="auto-head">
+        <div class="chips auto-lanes" id="autoLanes" role="radiogroup" aria-label="What to automate">
+          <button type="button" class="chip on" data-lane="filter">Filter sweep</button>
+          <button type="button" class="chip" data-lane="volume">Volume fade</button>
+        </div>
+        <button type="button" class="mini-btn toggle" id="pingBtn"
+                title="Bounce the echo left and right instead of leaving it in the middle">Ping-pong echo</button>
+      </div>
+      <p class="panel-hint" id="autoHint">
+        Click the lane to add a point, drag it to move it, right-click or double-tap it to remove it.
+        This is the only setting that <em>changes as the song plays</em>.
+      </p>
+      <canvas id="autoLane" class="auto-lane" aria-label="Automation lane"></canvas>
+      <div class="auto-shapes">
+        <button type="button" class="mini-btn" data-shape="buildToChorus">Build into the chorus</button>
+        <button type="button" class="mini-btn" data-shape="duckTheVerses">Open up on choruses</button>
+        <button type="button" class="mini-btn" data-shape="fadeIn">Fade in</button>
+        <button type="button" class="mini-btn" data-shape="fadeOut">Fade out</button>
+        <button type="button" class="mini-btn" id="autoClear">Clear lane</button>
+      </div>
+    </div>
+
     <p class="panel-hint">
       Re-roll rewrites just that one part and keeps everything else. Lock a part
       (🔓) to protect it — locked parts survive a re-roll of everything.
@@ -1061,6 +1198,10 @@ input[type="range"]::-moz-range-thumb {
       <li>Draw your own notes in <strong>Edit the notes</strong>, then press
           <strong>Develop my idea</strong> and the generator builds the song around what you wrote.</li>
       <li><strong>Lock</strong> a part you like so re-rolling everything leaves it alone.</li>
+      <li>Open <strong>Effects for this part</strong> under the note grid to add chorus, crush
+          or EQ to one part without touching the others.</li>
+      <li>In <strong>Shape the mix</strong>, tap <strong>Build into the chorus</strong>. That is
+          the one control that changes <em>as the song plays</em> — everything else holds still.</li>
       <li>Mute the drums for a version you can talk over.</li>
       <li>Download the MIDI to keep writing in real music software.</li>
     </ul>
@@ -2846,6 +2987,7 @@ input[type="range"]::-moz-range-thumb {
     song.bars = bar;
     song.totalBeats = bar * BEATS_PER_BAR;
     song.duration = song.totalBeats * (60 / song.bpm);
+    clampAutomation(song);
     return song;
   }
 
@@ -2878,6 +3020,145 @@ input[type="range"]::-moz-range-thumb {
     blocks[to] = tmp;
     assemble(song, blocks);
     return true;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Automation lanes
+   *
+   * A lane is a sorted list of {t: beats, v: 0-1}. The engine reads them; this
+   * end owns keeping them tidy and offers the shapes people actually want, so
+   * a fade-out is one button rather than an exercise in drawing straight lines.
+   * ------------------------------------------------------------------ */
+
+  const LANE_NAMES = ['filter', 'volume'];
+
+  function ensureAutomation(song) {
+    if (!song.automation) song.automation = {};
+    LANE_NAMES.forEach(function (k) {
+      if (!Array.isArray(song.automation[k])) song.automation[k] = [];
+    });
+    return song.automation;
+  }
+
+  /** Sort by time, clamp into range, and merge points that land on the spot. */
+  function tidyLane(song, lane) {
+    const auto = ensureAutomation(song);
+    const end = song.totalBeats;
+    const pts = auto[lane]
+      .map(function (p) {
+        return { t: Math.max(0, Math.min(end, p.t)), v: Math.max(0, Math.min(1, p.v)) };
+      })
+      .sort(function (a, b) { return a.t - b.t; });
+    const out = [];
+    for (let i = 0; i < pts.length; i++) {
+      if (out.length && Math.abs(pts[i].t - out[out.length - 1].t) < 1e-6) out[out.length - 1] = pts[i];
+      else out.push(pts[i]);
+    }
+    auto[lane] = out;
+    return out;
+  }
+
+  /* After the arrangement changes, the song is a different length. Points past
+     the new end are dropped rather than squeezed: a fade-out written for bar 40
+     is about the ending, and stretching it somewhere else would be a guess. */
+  function clampAutomation(song) {
+    ensureAutomation(song);
+    LANE_NAMES.forEach(function (lane) {
+      song.automation[lane] = song.automation[lane].filter(function (p) {
+        return p.t <= song.totalBeats + 1e-6;
+      });
+      tidyLane(song, lane);
+    });
+  }
+
+  function addPoint(song, lane, t, v) {
+    ensureAutomation(song);
+    if (LANE_NAMES.indexOf(lane) < 0) return null;
+    const pt = { t: Math.max(0, Math.min(song.totalBeats, t)), v: Math.max(0, Math.min(1, v)) };
+    song.automation[lane].push(pt);
+    tidyLane(song, lane);
+    return pt;
+  }
+
+  function removePoint(song, lane, index) {
+    ensureAutomation(song);
+    const pts = song.automation[lane];
+    if (!pts || index < 0 || index >= pts.length) return false;
+    pts.splice(index, 1);
+    return true;
+  }
+
+  function clearLane(song, lane) {
+    ensureAutomation(song);
+    if (LANE_NAMES.indexOf(lane) < 0) return false;
+    song.automation[lane] = [];
+    return true;
+  }
+
+  /** Beat where a section starts, or the end of the song if there isn't one. */
+  function beatOfSection(song, match) {
+    for (let i = 0; i < song.sections.length; i++) {
+      if (match(song.sections[i], i)) return song.sections[i].startBar * BEATS_PER_BAR;
+    }
+    return -1;
+  }
+
+  /**
+   * The four moves worth having as one tap. Each is written against the song's
+   * own arrangement — the build ends where the chorus actually starts — so they
+   * land in the right place whatever the form turned out to be.
+   */
+  const SHAPES = {
+    fadeIn: function (song) {
+      const end = Math.min(song.totalBeats, BEATS_PER_BAR * (song.sections[0] ? song.sections[0].bars : 4));
+      clearLane(song, 'volume');
+      addPoint(song, 'volume', 0, 0);
+      addPoint(song, 'volume', end, 1);
+      return 'volume';
+    },
+    fadeOut: function (song) {
+      const last = song.sections[song.sections.length - 1];
+      const start = last ? last.startBar * BEATS_PER_BAR : Math.max(0, song.totalBeats - 16);
+      clearLane(song, 'volume');
+      addPoint(song, 'volume', start, 1);
+      addPoint(song, 'volume', song.totalBeats, 0);
+      return 'volume';
+    },
+    buildToChorus: function (song) {
+      /* Build into the first chorus that has room in front of it. A song that
+         opens on its chorus — which rearranging can easily produce — has
+         nothing to build from, so fall back to the middle of the track. */
+      const MIN_RUNWAY = BEATS_PER_BAR * 2;
+      const chorus = beatOfSection(song, function (s) {
+        return s.type === 'chorus' && s.startBar * BEATS_PER_BAR >= MIN_RUNWAY;
+      });
+      const target = chorus >= MIN_RUNWAY ? chorus : Math.floor(song.totalBeats / 2);
+      const start = Math.max(0, target - BEATS_PER_BAR * 8);
+      clearLane(song, 'filter');
+      addPoint(song, 'filter', start, 0.22);          // muffled, holding back
+      addPoint(song, 'filter', target - 0.01, 1);     // wide open as it lands
+      addPoint(song, 'filter', song.totalBeats, 1);
+      return 'filter';
+    },
+    duckTheVerses: function (song) {
+      clearLane(song, 'filter');
+      song.sections.forEach(function (sec) {
+        const from = sec.startBar * BEATS_PER_BAR;
+        const to = from + sec.bars * BEATS_PER_BAR;
+        const open = sec.type === 'chorus' ? 1 : sec.type === 'intro' || sec.type === 'outro' ? 0.45 : 0.72;
+        addPoint(song, 'filter', from, open);
+        addPoint(song, 'filter', Math.min(song.totalBeats, to - 0.01), open);
+      });
+      return 'filter';
+    }
+  };
+
+  function applyShape(song, name) {
+    const fn = SHAPES[name];
+    if (!fn) return null;
+    const lane = fn(song);
+    tidyLane(song, lane);
+    return lane;
   }
 
   /* ------------------------------------------------------------------ *
@@ -2964,6 +3245,11 @@ input[type="range"]::-moz-range-thumb {
        decides the style; this decides which of its instruments turn up, so two
        songs in the same style are not the same four sounds twice. */
     song.presetOverride = {};
+
+    /* Effects start out doing nothing. A song you have just generated should
+       sound the way the style intends; automation is something you add. */
+    song.automation = { filter: [], volume: [] };
+    song.pingpong = !!genre.fx.pingpong;
     ['bass', 'chords', 'arp', 'lead', 'pad'].forEach(function (part) {
       const cfg = genre[part];
       if (cfg && cfg.alts && cfg.alts.length && rng.chance(0.55)) {
@@ -3041,6 +3327,15 @@ input[type="range"]::-moz-range-thumb {
     pitchToDegree: pitchToDegree,
     chordAt: chordAt,
     sectionOf: sectionOf,
+    ensureAutomation: ensureAutomation,
+    clampAutomation: clampAutomation,
+    addPoint: addPoint,
+    removePoint: removePoint,
+    clearLane: clearLane,
+    tidyLane: tidyLane,
+    applyShape: applyShape,
+    SHAPES: SHAPES,
+    LANE_NAMES: LANE_NAMES,
     BEATS_PER_BAR: BEATS_PER_BAR,
     LENGTHS: LENGTHS
   };
@@ -3138,6 +3433,35 @@ input[type="range"]::-moz-range-thumb {
     for (let i = 0; i < n; i++) {
       const x = (i * 2) / n - 1;
       curve[i] = ((1 + k) * x) / (1 + k * Math.abs(x));
+    }
+    ctx[key] = curve;
+    return curve;
+  }
+
+  /*
+   * Bit crushing. A digital sample is a number with a fixed number of bits;
+   * throw bits away and the smooth curve becomes a staircase, and the error
+   * between the two is the crunch you hear. Rounding every input level to one
+   * of `2^bits` steps is exactly that, and a waveshaper does it in one node.
+   *
+   * The shaper is deliberately NOT oversampled. Oversampling exists to suppress
+   * the aliasing a hard curve creates — and here that aliasing, the grit and
+   * the ringing sidebands, is the entire point.
+   *
+   * At amount 0 this is 16-bit: a staircase far finer than the curve's own
+   * resolution, so it passes audio through unchanged.
+   */
+  function crushCurve(ctx, amount) {
+    const a = Math.max(0, Math.min(1, amount));
+    const bits = 16 - a * 14;                     // 16 bits (clean) → 2 bits (wrecked)
+    const key = '_mazCrush' + Math.round(bits * 100);
+    if (ctx[key]) return ctx[key];
+    const levels = Math.pow(2, bits - 1);
+    const n = 8192;
+    const curve = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i * 2) / (n - 1) - 1;
+      curve[i] = Math.max(-1, Math.min(1, Math.round(x * levels) / levels));
     }
     ctx[key] = curve;
     return curve;
@@ -3915,6 +4239,7 @@ input[type="range"]::-moz-range-thumb {
     HARMONICS: HARMONICS,
     driveCurve: driveCurve,
     softClipCurve: softClipCurve,
+    crushCurve: crushCurve,
     noiseBuffer: noiseBuffer,
     vinylBuffer: vinylBuffer,
     panner: panner,
@@ -3996,6 +4321,96 @@ input[type="range"]::-moz-range-thumb {
     return gainFor(mix, name) * amt;
   }
 
+  /* Chorus differs from the other two sends in where it is tapped. Reverb and
+     delay are fed by each note directly, at the amount its preset asks for;
+     the chorus is fed from the end of the track's own chain, so it hears the
+     part crushed and EQ'd exactly as you shaped it — and a muted or un-soloed
+     part sends nothing without having to be asked, because the fader it is
+     tapped behind is already at zero. */
+  function chorusGain(mix, name) {
+    const m = (mix && mix[name]) || {};
+    return m.cho || 0;
+  }
+
+  function mixField(mix, name, field, dflt) {
+    const m = (mix && mix[name]) || {};
+    return m[field] === undefined ? dflt : m[field];
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Automation
+   *
+   * Two lanes over the length of the song, each a list of {t (beats), v (0-1)}.
+   * `filter` drives a lowpass across the whole mix — 1 is wide open, 0 is a
+   * muffled 120 Hz — and `volume` is a plain fade. Between points the value
+   * ramps; outside them it holds.
+   *
+   * This is what a fixed effect setting can never give you: a filter that opens
+   * across eight bars into the chorus, or an ending that actually ends.
+   * ------------------------------------------------------------------ */
+
+  const LANES = {
+    filter: { min: 120, max: 20000, log: true, neutral: 1 },
+    volume: { min: 0, max: 1, log: false, neutral: 1 }
+  };
+
+  function laneValueAt(points, beat, neutral) {
+    if (!points || !points.length) return neutral;
+    if (beat <= points[0].t) return points[0].v;
+    for (let i = 1; i < points.length; i++) {
+      if (beat <= points[i].t) {
+        const a = points[i - 1], b = points[i];
+        const span = b.t - a.t;
+        if (span <= 0) return b.v;
+        return a.v + (b.v - a.v) * ((beat - a.t) / span);
+      }
+    }
+    return points[points.length - 1].v;
+  }
+
+  function laneMap(name, v) {
+    const L = LANES[name];
+    const c = Math.max(0, Math.min(1, v));
+    if (!L.log) return L.min + (L.max - L.min) * c;
+    return L.min * Math.pow(L.max / L.min, c);
+  }
+
+  /**
+   * Write one pass of the song's automation onto the graph.
+   *
+   * `originTime` is the context time of beat 0 of this pass, so the same
+   * function serves live playback (called once per loop) and the offline
+   * render (called once, at the render's own scheduling offset).
+   */
+  function applyAutomation(ctx, graph, song, originTime, fromBeat) {
+    if (!graph || !graph.autoFilter) return;
+    const spb = 60 / song.bpm;
+    const auto = (song && song.automation) || {};
+    const start = fromBeat || 0;
+    const now = ctx.currentTime === undefined ? 0 : ctx.currentTime;
+
+    ['filter', 'volume'].forEach(function (lane) {
+      const param = lane === 'filter' ? graph.autoFilter.frequency : graph.autoGain.gain;
+      const pts = (auto[lane] || []).slice().sort(function (a, b) { return a.t - b.t; });
+      const neutral = LANES[lane].neutral;
+      const ramp = lane === 'filter'
+        ? function (v, t) { param.exponentialRampToValueAtTime(Math.max(1e-4, v), t); }
+        : function (v, t) { param.linearRampToValueAtTime(v, t); };
+
+      const t0 = Math.max(now, originTime + start * spb);
+      param.cancelScheduledValues(t0);
+      if (!pts.length) { param.setValueAtTime(laneMap(lane, neutral), t0); return; }
+
+      param.setValueAtTime(laneMap(lane, laneValueAt(pts, start, neutral)), t0);
+      for (let i = 0; i < pts.length; i++) {
+        if (pts[i].t <= start) continue;
+        const when = originTime + pts[i].t * spb;
+        if (when <= t0) continue;
+        ramp(laneMap(lane, pts[i].v), when);
+      }
+    });
+  }
+
   function buildGraph(ctx, song, mix, withAnalyser, masterVolume) {
     const fx = song.genre.fx;
     const moodRev = song.mood.reverb || 1;
@@ -4025,10 +4440,21 @@ input[type="range"]::-moz-range-thumb {
     safety.curve = Synth.softClipCurve(ctx);
     safety.oversample = '4x';
 
+    /* The automation filter sits *before* the limiter, so a sweep is still
+       caught by the ceiling; the automation fader sits after it, because a
+       fade to silence is not something to limit back up. */
+    const autoFilter = ctx.createBiquadFilter();
+    autoFilter.type = 'lowpass';
+    autoFilter.frequency.value = 20000;
+    autoFilter.Q.value = 0.9;
+
+    const autoGain = ctx.createGain();
+    autoGain.gain.value = 1;
+
     const out = ctx.createGain();
     out.gain.value = 0.98 * (masterVolume === undefined ? 1 : masterVolume);
 
-    master.connect(limiter).connect(safety).connect(out);
+    master.connect(autoFilter).connect(limiter).connect(safety).connect(autoGain).connect(out);
     out.connect(ctx.destination);
 
     let analyser = null;
@@ -4036,7 +4462,7 @@ input[type="range"]::-moz-range-thumb {
       analyser = ctx.createAnalyser();
       analyser.fftSize = 1024;
       analyser.smoothingTimeConstant = 0.75;
-      safety.connect(analyser);
+      autoGain.connect(analyser);
     }
 
     // Reverb bus
@@ -4050,21 +4476,89 @@ input[type="range"]::-moz-range-thumb {
     revDamp.frequency.value = 5200;
     revPre.connect(revDamp).connect(convolver).connect(revReturn).connect(master);
 
-    // Delay bus with damped feedback
-    const delay = ctx.createDelay(2.0);
+    /*
+     * Delay bus with damped feedback, in two flavours that share one return.
+     *
+     * Both are built every time and only one is fed, so switching between them
+     * is a gain change rather than a rebuild — and the echoes already in the
+     * air ring out naturally instead of being cut off.
+     */
     const spb = 60 / song.bpm;
-    delay.delayTime.value = Math.min(1.9, fx.delayTime * spb * 2);
+    const delTime = Math.min(1.9, fx.delayTime * spb * 2);
+    const delReturn = ctx.createGain();
+    delReturn.gain.value = Math.min(1, fx.delay);
+    delReturn.connect(master);
+    const delPre = ctx.createGain();
+
+    // Centred: one line feeding back on itself.
+    const delMonoIn = ctx.createGain();
+    const delay = ctx.createDelay(2.0);
+    delay.delayTime.value = delTime;
     const fb = ctx.createGain();
     fb.gain.value = 0.34;
     const damp = ctx.createBiquadFilter();
     damp.type = 'lowpass';
     damp.frequency.value = 2800;
-    const delReturn = ctx.createGain();
-    delReturn.gain.value = Math.min(1, fx.delay);
-    const delPre = ctx.createGain();
-    delPre.connect(delay);
+    delPre.connect(delMonoIn).connect(delay);
     delay.connect(damp).connect(fb).connect(delay);
-    delay.connect(delReturn).connect(master);
+    delay.connect(delReturn);
+
+    /* Ping-pong: the input hits the left line, left feeds right, right feeds
+       left again. Each line is hard-panned, so a single note walks across the
+       room and back rather than sitting in the middle. Half the delay time
+       each, so a round trip still lands on the same beat as the centred one. */
+    const delPingIn = ctx.createGain();
+    const dL = ctx.createDelay(2.0);
+    const dR = ctx.createDelay(2.0);
+    dL.delayTime.value = delTime / 2;
+    dR.delayTime.value = delTime / 2;
+    const pfb = ctx.createGain();
+    pfb.gain.value = 0.38;
+    const pdamp = ctx.createBiquadFilter();
+    pdamp.type = 'lowpass';
+    pdamp.frequency.value = 2800;
+    const panL = Synth.panner(ctx, -0.85);
+    const panR = Synth.panner(ctx, 0.85);
+    delPre.connect(delPingIn).connect(dL);
+    dL.connect(dR);
+    dR.connect(pdamp).connect(pfb).connect(dL);
+    if (panL && panR) {
+      dL.connect(panL).connect(delReturn);
+      dR.connect(panR).connect(delReturn);
+    } else {
+      dL.connect(delReturn);
+      dR.connect(delReturn);
+    }
+
+    const ping = song.pingpong === undefined ? !!fx.pingpong : !!song.pingpong;
+    delMonoIn.gain.value = ping ? 0 : 1;
+    delPingIn.gain.value = ping ? 1 : 0;
+
+    /*
+     * Chorus bus: two short delay lines whose delay times wobble under slow
+     * LFOs, panned apart. A copy of a sound arriving a few milliseconds late
+     * and drifting in pitch is what "thick" means — it is the same trick as a
+     * second player who cannot possibly be perfectly in time or in tune.
+     */
+    const choPre = ctx.createGain();
+    const choReturn = ctx.createGain();
+    choReturn.gain.value = 0.9;
+    choReturn.connect(master);
+    const choLfos = [];
+    [[0.19, -0.7, 0.0115, 0.0033], [0.27, 0.7, 0.0163, 0.0027]].forEach(function (spec) {
+      const d = ctx.createDelay(0.1);
+      d.delayTime.value = spec[2];
+      const lfo = ctx.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.value = spec[0];
+      const depth = ctx.createGain();
+      depth.gain.value = spec[3];
+      lfo.connect(depth).connect(d.delayTime);
+      const pan = Synth.panner(ctx, spec[1]);
+      choPre.connect(d);
+      if (pan) d.connect(pan).connect(choReturn); else d.connect(choReturn);
+      choLfos.push(lfo);
+    });
 
     // Per-track sends, faders, placement and ducking
     const tracks = {};
@@ -4073,9 +4567,36 @@ input[type="range"]::-moz-range-thumb {
       const dry = ctx.createGain();
       const rev = ctx.createGain();
       const del = ctx.createGain();
+      const cho = ctx.createGain();
 
-      // dry -> [duck] -> [pan] -> master
+      /* dry -> crush -> EQ -> [duck] -> [pan] -> master
+         Crushing first: the EQ is then shaping the grit rather than the grit
+         chewing up a carefully set tone. */
       let tail = dry;
+
+      const crush = ctx.createWaveShaper();
+      crush.curve = Synth.crushCurve(ctx, mixField(mix, name, 'crush', 0));
+      crush.oversample = 'none';
+      tail.connect(crush);
+      tail = crush;
+
+      const eqLow = ctx.createBiquadFilter();
+      eqLow.type = 'lowshelf';
+      eqLow.frequency.value = 220;
+      eqLow.gain.value = mixField(mix, name, 'eqLow', 0);
+      const eqMid = ctx.createBiquadFilter();
+      eqMid.type = 'peaking';
+      eqMid.frequency.value = 1200;
+      eqMid.Q.value = 0.8;
+      eqMid.gain.value = mixField(mix, name, 'eqMid', 0);
+      const eqHigh = ctx.createBiquadFilter();
+      eqHigh.type = 'highshelf';
+      eqHigh.frequency.value = 3600;
+      eqHigh.gain.value = mixField(mix, name, 'eqHigh', 0);
+      tail.connect(eqLow).connect(eqMid).connect(eqHigh);
+      tail = eqHigh;
+      eqHigh.connect(cho);
+
       let duck = null;
       if (duckDepth > 0 && DUCK_TARGETS.indexOf(name) >= 0) {
         duck = ctx.createGain();
@@ -4089,11 +4610,16 @@ input[type="range"]::-moz-range-thumb {
 
       rev.connect(revPre);
       del.connect(delPre);
-      const t = { dry: dry, rev: rev, del: del, duck: duck };
+      cho.connect(choPre);
+      const t = {
+        dry: dry, rev: rev, del: del, cho: cho, duck: duck,
+        crush: crush, eqLow: eqLow, eqMid: eqMid, eqHigh: eqHigh
+      };
       tracks[name] = t;
       dry.gain.value = gainFor(mix, name);
       rev.gain.value = sendGain(mix, name, 'rev');
       del.gain.value = sendGain(mix, name, 'del');
+      cho.gain.value = chorusGain(mix, name);
     });
 
     // Vinyl / tape bed
@@ -4113,6 +4639,8 @@ input[type="range"]::-moz-range-thumb {
     return {
       master: master, limiter: limiter, analyser: analyser, tracks: tracks,
       revReturn: revReturn, delReturn: delReturn, vinyl: vinyl, out: out,
+      autoFilter: autoFilter, autoGain: autoGain,
+      delMonoIn: delMonoIn, delPingIn: delPingIn, choReturn: choReturn, choLfos: choLfos,
       duckDepth: duckDepth, duckRelease: Math.min(0.42, (60 / song.bpm) * 0.62)
     };
   }
@@ -4190,7 +4718,11 @@ input[type="range"]::-moz-range-thumb {
     this.loop = true;
     this.mix = {};
     TRACKS.forEach(function (t) {
-      this.mix[t] = { volume: 1, muted: false, solo: false, rev: 1, del: 1 };
+      this.mix[t] = {
+        volume: 1, muted: false, solo: false,
+        rev: 1, del: 1, cho: 0,
+        eqLow: 0, eqMid: 0, eqHigh: 0, crush: 0
+      };
     }, this);
     this.volume = 0.85;
     this._timer = null;
@@ -4236,6 +4768,18 @@ input[type="range"]::-moz-range-thumb {
   Player.prototype._buildGraph = function () {
     this.graph = buildGraph(this.ctx, this.song, this.mix, true, this.volume);
     this._vinylStarted = false;
+    this._chorusStarted = false;
+  };
+
+  /* The chorus LFOs run for the life of the graph; like the tape bed they
+     belong to playback, not to one auditioned note. */
+  Player.prototype._startChorus = function () {
+    if (!this.graph || this._chorusStarted) return;
+    const t = this.ctx.currentTime;
+    for (let i = 0; i < this.graph.choLfos.length; i++) {
+      try { this.graph.choLfos[i].start(t); } catch (e) { /* already started */ }
+    }
+    this._chorusStarted = true;
   };
 
   /** The tape bed belongs to playback, not to a single auditioned note. */
@@ -4292,6 +4836,8 @@ input[type="range"]::-moz-range-thumb {
     this._index = this._indexForBeat(startBeat);
     this._originTime = ctx.currentTime + 0.08 - startBeat * spb;
     this._startVinyl();
+    this._startChorus();
+    this._scheduleAutomation(0, startBeat);
     this.playing = true;
 
     const self = this;
@@ -4314,6 +4860,7 @@ input[type="range"]::-moz-range-thumb {
         if (this.loop) {
           this._pass++;
           this._index = 0;
+          this._scheduleAutomation(this._pass, 0);
           continue;
         }
         if (ctx.currentTime > endTime + 0.5) {
@@ -4387,12 +4934,40 @@ input[type="range"]::-moz-range-thumb {
     if (opts.solo !== undefined) m.solo = opts.solo;
     if (opts.rev !== undefined) m.rev = opts.rev;
     if (opts.del !== undefined) m.del = opts.del;
+    if (opts.cho !== undefined) m.cho = opts.cho;
+    ['eqLow', 'eqMid', 'eqHigh', 'crush'].forEach(function (k) {
+      if (opts[k] !== undefined) m[k] = opts[k];
+    });
     this.applyMix();
+  };
+
+  /** Switch the echo between centred and bouncing left-right. */
+  Player.prototype.setPingPong = function (on) {
+    if (this.song) this.song.pingpong = !!on;
+    if (!this.graph) return;
+    const t = this.ctx.currentTime;
+    this.graph.delMonoIn.gain.setTargetAtTime(on ? 0 : 1, t, 0.02);
+    this.graph.delPingIn.gain.setTargetAtTime(on ? 1 : 0, t, 0.02);
+  };
+
+  /** Re-read the automation lanes after they have been edited. */
+  Player.prototype.refreshAutomation = function () {
+    if (!this.graph || !this.song) return;
+    if (this.playing) this._scheduleAutomation(this._pass, this.currentBeat());
+    else applyAutomation(this.ctx, this.graph, this.song, this.ctx.currentTime, 0);
+  };
+
+  Player.prototype._scheduleAutomation = function (pass, fromBeat) {
+    if (!this.graph || !this.song) return;
+    const spb = 60 / this.song.bpm;
+    const origin = this._originTime + pass * this.song.totalBeats * spb;
+    applyAutomation(this.ctx, this.graph, this.song, origin, fromBeat || 0);
   };
 
   /** Push the whole mix at the graph — solo changes every track, not just one. */
   Player.prototype.applyMix = function () {
     if (!this.graph) return;
+    const self = this;
     const t = this.ctx.currentTime;
     const mix = this.mix;
     const graph = this.graph;
@@ -4403,6 +4978,12 @@ input[type="range"]::-moz-range-thumb {
       bus.dry.gain.setTargetAtTime(gainFor(mix, name), t, 0.02);
       bus.rev.gain.setTargetAtTime(sendGain(mix, name, 'rev'), t, 0.02);
       bus.del.gain.setTargetAtTime(sendGain(mix, name, 'del'), t, 0.02);
+      bus.cho.gain.setTargetAtTime(chorusGain(mix, name), t, 0.02);
+      bus.eqLow.gain.setTargetAtTime(mixField(mix, name, 'eqLow', 0), t, 0.02);
+      bus.eqMid.gain.setTargetAtTime(mixField(mix, name, 'eqMid', 0), t, 0.02);
+      bus.eqHigh.gain.setTargetAtTime(mixField(mix, name, 'eqHigh', 0), t, 0.02);
+      // A curve cannot be ramped; swapping it is a single assignment.
+      bus.crush.curve = Synth.crushCurve(self.ctx, mixField(mix, name, 'crush', 0));
     });
   };
 
@@ -4468,6 +5049,9 @@ input[type="range"]::-moz-range-thumb {
     const graph = buildGraph(ctx, song, mix, false);
     if (graph.vinyl) graph.vinyl.start(0);
 
+    for (let i = 0; i < graph.choLfos.length; i++) graph.choLfos[i].start(0);
+    applyAutomation(ctx, graph, song, 0.05, 0);
+
     const flat = flatten(song);
     const bright = (song.genre.fx.brightness || 1) * (song.mood.brightness || 1);
     for (let i = 0; i < flat.length; i++) {
@@ -4492,10 +5076,17 @@ input[type="range"]::-moz-range-thumb {
     function next() {
       if (i >= parts.length) return Promise.resolve(out);
       const name = parts[i];
+      /* Carry every setting across, not just the fader: a stem should sound
+         like the part sounds in the mix, EQ, crush and chorus included. */
       const solo = {};
       TRACKS.forEach(function (t) {
-        const m = (mix && mix[t]) || { volume: 1, muted: false };
-        solo[t] = { volume: m.volume, muted: t !== name };
+        const m = (mix && mix[t]) || {};
+        const copy = {};
+        for (const k in m) copy[k] = m[k];
+        copy.volume = m.volume === undefined ? 1 : m.volume;
+        copy.solo = false;
+        copy.muted = t !== name;
+        solo[t] = copy;
       });
       if (onProgress) onProgress(i / parts.length, name);
       return renderOffline(song, solo).then(function (buf) {
@@ -4512,6 +5103,9 @@ input[type="range"]::-moz-range-thumb {
     renderOffline: renderOffline,
     renderStems: renderStems,
     buildGraph: buildGraph,
+    applyAutomation: applyAutomation,
+    laneValueAt: laneValueAt,
+    LANES: LANES,
     flatten: flatten,
     presetFor: presetFor,
     defaultPresetName: defaultPresetName,
@@ -4886,6 +5480,324 @@ input[type="range"]::-moz-range-thumb {
 })(window);
 
 
+/* ==== automation.js ==== */
+/*
+ * automation.js — the lane you draw effect moves on.
+ *
+ * Everything else in this app is a setting: one value that holds for the whole
+ * song. This is the one place where a value *travels*. You draw a line across
+ * the length of the track and the mix follows it — a filter opening across the
+ * eight bars before the chorus, an ending that actually ends.
+ *
+ * The whole song is always on screen. That is deliberate: these are shapes
+ * measured in sections, not in sixteenths, and a lane you have to scroll is a
+ * lane whose shape you cannot see.
+ */
+(function (global) {
+  'use strict';
+
+  const C = global.Composer;
+  const BEATS_PER_BAR = 4;
+  const PAD_L = 34;          // room for the axis labels
+  const PAD_R = 10;
+  const PAD_T = 10;
+  const PAD_B = 18;
+  const HIT = 11;            // how near a point you must click to grab it
+
+  const LANE_INFO = {
+    filter: {
+      label: 'Filter', color: '#00e5ff',
+      top: 'open', bottom: 'muffled',
+      describe: function (v) { return Math.round(v * 100) + '% open'; }
+    },
+    volume: {
+      label: 'Volume', color: '#6bff8f',
+      top: 'full', bottom: 'silent',
+      describe: function (v) { return Math.round(v * 100) + '%'; }
+    }
+  };
+
+  function Automation(opts) {
+    this.canvas = opts.canvas;
+    this.cx = this.canvas.getContext('2d');
+    this.getSong = opts.getSong;
+    this.onChange = opts.onChange || function () {};
+    this.onBeforeChange = opts.onBeforeChange || function () {};
+    this.getBeat = opts.getBeat || function () { return -1; };
+
+    this.lane = 'filter';
+    this.w = 0;
+    this.h = 0;
+    this._drag = null;
+    this._bind();
+  }
+
+  Automation.prototype.setLane = function (lane) {
+    if (!LANE_INFO[lane]) return;
+    this.lane = lane;
+    this.draw();
+  };
+
+  Automation.prototype.points = function () {
+    const song = this.getSong();
+    if (!song) return [];
+    return C.ensureAutomation(song)[this.lane];
+  };
+
+  /* ------------------------------------------------------------------ *
+   * Geometry
+   * ------------------------------------------------------------------ */
+
+  Automation.prototype.resize = function () {
+    const dpr = global.devicePixelRatio || 1;
+    const rect = this.canvas.getBoundingClientRect();
+    this.w = Math.max(1, Math.floor(rect.width));
+    this.h = Math.max(1, Math.floor(rect.height));
+    this.canvas.width = Math.floor(this.w * dpr);
+    this.canvas.height = Math.floor(this.h * dpr);
+    this.cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+
+  Automation.prototype.plotW = function () { return Math.max(1, this.w - PAD_L - PAD_R); };
+  Automation.prototype.plotH = function () { return Math.max(1, this.h - PAD_T - PAD_B); };
+
+  Automation.prototype.xOfBeat = function (b) {
+    const song = this.getSong();
+    const total = song ? song.totalBeats : 1;
+    return PAD_L + (b / total) * this.plotW();
+  };
+  Automation.prototype.beatOfX = function (x) {
+    const song = this.getSong();
+    const total = song ? song.totalBeats : 1;
+    return ((x - PAD_L) / this.plotW()) * total;
+  };
+  Automation.prototype.yOfValue = function (v) { return PAD_T + (1 - v) * this.plotH(); };
+  Automation.prototype.valueOfY = function (y) {
+    return Math.max(0, Math.min(1, 1 - (y - PAD_T) / this.plotH()));
+  };
+
+  Automation.prototype._pos = function (ev) {
+    const r = this.canvas.getBoundingClientRect();
+    const p = ev.touches && ev.touches[0] ? ev.touches[0] : ev;
+    return { x: p.clientX - r.left, y: p.clientY - r.top };
+  };
+
+  /** Index of the point nearest a screen position, if it is near enough. */
+  Automation.prototype._hit = function (x, y) {
+    const pts = this.points();
+    let best = -1, bestD = HIT * HIT;
+    for (let i = 0; i < pts.length; i++) {
+      const dx = this.xOfBeat(pts[i].t) - x;
+      const dy = this.yOfValue(pts[i].v) - y;
+      const d = dx * dx + dy * dy;
+      if (d <= bestD) { bestD = d; best = i; }
+    }
+    return best;
+  };
+
+  /* ------------------------------------------------------------------ *
+   * Input
+   *
+   * Click empty space to add a point, drag one to move it, and click a point
+   * you already have with the right mouse button — or tap it twice — to take
+   * it away again.
+   * ------------------------------------------------------------------ */
+
+  Automation.prototype._bind = function () {
+    const self = this;
+    const c = this.canvas;
+
+    function down(ev) {
+      const song = self.getSong();
+      if (!song) return;
+      ev.preventDefault();
+      const p = self._pos(ev);
+      const hit = self._hit(p.x, p.y);
+
+      // Right-click or a second tap on the same point removes it.
+      const wantsDelete = (ev.button === 2) ||
+        (hit >= 0 && self._lastHit === hit && (Date.now() - self._lastHitAt) < 420);
+      if (hit >= 0 && wantsDelete) {
+        self.onBeforeChange();
+        C.removePoint(song, self.lane, hit);
+        self._lastHit = -1;
+        self.draw();
+        self.onChange();
+        return;
+      }
+
+      self.onBeforeChange();
+      let index = hit;
+      if (index < 0) {
+        const pt = C.addPoint(song, self.lane, self.beatOfX(p.x), self.valueOfY(p.y));
+        index = self.points().indexOf(pt);
+      }
+      self._lastHit = index;
+      self._lastHitAt = Date.now();
+      self._drag = { index: index };
+      self.draw();
+      self.onChange();
+    }
+
+    function move(ev) {
+      if (!self._drag) return;
+      const song = self.getSong();
+      if (!song) return;
+      ev.preventDefault();
+      const p = self._pos(ev);
+      const pts = self.points();
+      const pt = pts[self._drag.index];
+      if (!pt) return;
+      pt.t = Math.max(0, Math.min(song.totalBeats, self.beatOfX(p.x)));
+      pt.v = self.valueOfY(p.y);
+      // Keep the list sorted under the finger, and keep hold of the same point.
+      C.tidyLane(song, self.lane);
+      self._drag.index = self.points().indexOf(pt);
+      self.draw();
+      self.onChange();
+    }
+
+    function up() {
+      if (!self._drag) return;
+      self._drag = null;
+      const song = self.getSong();
+      if (song) C.tidyLane(song, self.lane);
+      self.draw();
+      self.onChange();
+    }
+
+    c.addEventListener('mousedown', down);
+    c.addEventListener('touchstart', down, { passive: false });
+    global.addEventListener('mousemove', move);
+    c.addEventListener('touchmove', move, { passive: false });
+    global.addEventListener('mouseup', up);
+    c.addEventListener('touchend', up);
+    c.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
+  };
+
+  /* ------------------------------------------------------------------ *
+   * Drawing
+   * ------------------------------------------------------------------ */
+
+  Automation.prototype.draw = function () {
+    const song = this.getSong();
+    const cx = this.cx;
+    if (!cx) return;
+    if (!this.w || !this.h) this.resize();
+    cx.clearRect(0, 0, this.w, this.h);
+    if (!song) return;
+
+    const info = LANE_INFO[this.lane];
+    const pw = this.plotW(), ph = this.plotH();
+
+    cx.fillStyle = 'rgba(0,0,0,0.3)';
+    cx.fillRect(PAD_L, PAD_T, pw, ph);
+
+    // Section bands, so you can see where the chorus is while you draw.
+    cx.font = '9px ui-monospace, monospace';
+    song.sections.forEach(function (sec, i) {
+      const x0 = this.xOfBeat(sec.startBar * BEATS_PER_BAR);
+      const x1 = this.xOfBeat((sec.startBar + sec.bars) * BEATS_PER_BAR);
+      if (sec.type === 'chorus') {
+        cx.fillStyle = 'rgba(255,45,149,0.11)';
+        cx.fillRect(x0, PAD_T, x1 - x0, ph);
+      } else if (i % 2) {
+        cx.fillStyle = 'rgba(255,255,255,0.028)';
+        cx.fillRect(x0, PAD_T, x1 - x0, ph);
+      }
+      cx.strokeStyle = 'rgba(255,255,255,0.10)';
+      cx.beginPath();
+      cx.moveTo(Math.round(x0) + 0.5, PAD_T);
+      cx.lineTo(Math.round(x0) + 0.5, PAD_T + ph);
+      cx.stroke();
+      if (x1 - x0 > 26) {
+        cx.fillStyle = 'rgba(162,151,196,0.85)';
+        cx.fillText((sec.name || sec.type).slice(0, 8), x0 + 3, PAD_T + ph + 12);
+      }
+    }, this);
+
+    // Halfway guide
+    cx.strokeStyle = 'rgba(255,255,255,0.10)';
+    cx.setLineDash([3, 4]);
+    cx.beginPath();
+    cx.moveTo(PAD_L, this.yOfValue(0.5));
+    cx.lineTo(PAD_L + pw, this.yOfValue(0.5));
+    cx.stroke();
+    cx.setLineDash([]);
+
+    cx.fillStyle = 'rgba(162,151,196,0.9)';
+    cx.fillText(info.top, 2, PAD_T + 8);
+    cx.fillText(info.bottom, 2, PAD_T + ph - 1);
+
+    const pts = this.points();
+    const neutral = 1;
+
+    // The line itself: flat at neutral when nothing is drawn.
+    cx.strokeStyle = info.color;
+    cx.lineWidth = 2;
+    cx.beginPath();
+    if (!pts.length) {
+      const y = this.yOfValue(neutral);
+      cx.moveTo(PAD_L, y);
+      cx.lineTo(PAD_L + pw, y);
+    } else {
+      cx.moveTo(PAD_L, this.yOfValue(pts[0].v));
+      for (let i = 0; i < pts.length; i++) cx.lineTo(this.xOfBeat(pts[i].t), this.yOfValue(pts[i].v));
+      cx.lineTo(PAD_L + pw, this.yOfValue(pts[pts.length - 1].v));
+    }
+    cx.stroke();
+
+    // Shade under the line — it reads as a level far faster than a bare line.
+    if (pts.length) {
+      cx.lineTo(PAD_L + pw, PAD_T + ph);
+      cx.lineTo(PAD_L, PAD_T + ph);
+      cx.closePath();
+      cx.fillStyle = 'rgba(255,255,255,0.06)';
+      cx.fill();
+    }
+
+    for (let i = 0; i < pts.length; i++) {
+      const x = this.xOfBeat(pts[i].t), y = this.yOfValue(pts[i].v);
+      cx.fillStyle = info.color;
+      cx.beginPath();
+      cx.arc(x, y, 5, 0, Math.PI * 2);
+      cx.fill();
+      cx.fillStyle = '#0b0714';
+      cx.beginPath();
+      cx.arc(x, y, 2, 0, Math.PI * 2);
+      cx.fill();
+    }
+
+    // Playhead
+    const beat = this.getBeat();
+    if (beat >= 0) {
+      const x = this.xOfBeat(beat);
+      cx.strokeStyle = '#ffc857';
+      cx.lineWidth = 1.5;
+      cx.beginPath();
+      cx.moveTo(x, PAD_T);
+      cx.lineTo(x, PAD_T + ph);
+      cx.stroke();
+    }
+
+    cx.strokeStyle = 'rgba(255,255,255,0.12)';
+    cx.lineWidth = 1;
+    cx.strokeRect(PAD_L + 0.5, PAD_T + 0.5, pw - 1, ph - 1);
+  };
+
+  Automation.prototype.describe = function () {
+    const pts = this.points();
+    const info = LANE_INFO[this.lane];
+    if (!pts.length) return info.label + ': flat — nothing moving yet.';
+    return info.label + ': ' + pts.length + ' point' + (pts.length === 1 ? '' : 's') +
+      ', from ' + info.describe(pts[0].v) + ' to ' + info.describe(pts[pts.length - 1].v) + '.';
+  };
+
+  global.Automation = Automation;
+  global.Automation.LANE_INFO = LANE_INFO;
+})(window);
+
+
 /* ==== editor.js ==== */
 /*
  * editor.js — the hands-on half of the program.
@@ -4972,7 +5884,8 @@ input[type="range"]::-moz-range-thumb {
       chords: JSON.parse(JSON.stringify(song.chords)),
       bars: song.bars,
       totalBeats: song.totalBeats,
-      duration: song.duration
+      duration: song.duration,
+      automation: JSON.parse(JSON.stringify(song.automation || {}))
     };
   }
 
@@ -4983,6 +5896,7 @@ input[type="range"]::-moz-range-thumb {
     song.bars = s.bars;
     song.totalBeats = s.totalBeats;
     song.duration = s.duration;
+    if (s.automation) song.automation = JSON.parse(JSON.stringify(s.automation));
     // Sections hold their own view of the harmony; re-link it to the restored one.
     song.sections.forEach(function (sec) {
       sec.chords = song.chords.filter(function (c) {
@@ -5537,6 +6451,7 @@ input[type="range"]::-moz-range-thumb {
   };
 
   let editor = null;
+  let autoLane = null;
 
   const player = new E.Player();
 
@@ -5684,6 +6599,7 @@ input[type="range"]::-moz-range-thumb {
       if (editorSends) editorSends();
       syncEditUI();
     }
+    refreshAutomationUI();
     updateHash();
 
     if (opts.autoplay !== false) {
@@ -6022,22 +6938,63 @@ input[type="range"]::-moz-range-thumb {
     });
     editorSoundPicker = buildSoundPicker;
 
+    /*
+     * The per-part effects rack.
+     *
+     * Every control here is the same shape: a slider, a live readout, and one
+     * field on the track's mix settings. Percentages for the sends and the
+     * crush; decibels for the three EQ bands, because that is what the numbers
+     * on every other mixer in the world mean.
+     */
+    const FX_CONTROLS = [
+      { id: 'revSend', field: 'rev', label: 'Reverb', unit: '%', scale: 100, dflt: 1 },
+      { id: 'delSend', field: 'del', label: 'Delay', unit: '%', scale: 100, dflt: 1 },
+      { id: 'choSend', field: 'cho', label: 'Chorus', unit: '%', scale: 100, dflt: 0 },
+      { id: 'crushAmt', field: 'crush', label: 'Crush', unit: '%', scale: 100, dflt: 0 },
+      { id: 'eqLow', field: 'eqLow', label: 'Bass', unit: ' dB', scale: 1, dflt: 0 },
+      { id: 'eqMid', field: 'eqMid', label: 'Mids', unit: ' dB', scale: 1, dflt: 0 },
+      { id: 'eqHigh', field: 'eqHigh', label: 'Treble', unit: ' dB', scale: 1, dflt: 0 }
+    ];
+
+    function fxText(spec, raw) {
+      return (spec.unit === ' dB' && raw > 0 ? '+' : '') + raw + spec.unit;
+    }
+
     function syncSends() {
       const m = player.mix[editor.track] || {};
-      el('revSend').value = String(Math.round((m.rev === undefined ? 1 : m.rev) * 100));
-      el('delSend').value = String(Math.round((m.del === undefined ? 1 : m.del) * 100));
+      const who = el('fxRackWho');
+      if (who) who.textContent = colorLabel(editor.track).toLowerCase();
+      FX_CONTROLS.forEach(function (spec) {
+        const v = m[spec.field] === undefined ? spec.dflt : m[spec.field];
+        const raw = Math.round(v * spec.scale);
+        el(spec.id).value = String(raw);
+        const outEl = el(spec.id + 'Val');
+        if (outEl) outEl.textContent = fxText(spec, raw);
+      });
     }
     editorSends = syncSends;
-    [['revSend', 'rev', 'Reverb'], ['delSend', 'del', 'Delay']].forEach(function (spec) {
-      el(spec[0]).addEventListener('input', function () {
-        player.setTrack(editor.track, (function (o) {
-          o[spec[1]] = parseInt(this.value, 10) / 100;
-          return o;
-        }).call(this, {}));
+
+    FX_CONTROLS.forEach(function (spec) {
+      el(spec.id).addEventListener('input', function () {
+        const raw = parseInt(this.value, 10);
+        const opts = {};
+        opts[spec.field] = raw / spec.scale;
+        player.setTrack(editor.track, opts);
+        const outEl = el(spec.id + 'Val');
+        if (outEl) outEl.textContent = fxText(spec, raw);
       });
-      el(spec[0]).addEventListener('change', function () {
-        status(spec[2] + ' on the ' + colorLabel(editor.track).toLowerCase() + ': ' + this.value + '%.');
+      el(spec.id).addEventListener('change', function () {
+        status(spec.label + ' on the ' + colorLabel(editor.track).toLowerCase() + ': ' +
+          fxText(spec, parseInt(this.value, 10)) + '.');
       });
+    });
+
+    el('fxReset').addEventListener('click', function () {
+      const opts = {};
+      FX_CONTROLS.forEach(function (spec) { opts[spec.field] = spec.dflt; });
+      player.setTrack(editor.track, opts);
+      syncSends();
+      status(colorLabel(editor.track) + ' back to its plain sound.');
     });
 
     el('undoBtn').addEventListener('click', function () {
@@ -6075,12 +7032,95 @@ input[type="range"]::-moz-range-thumb {
     });
 
     window.__editor = editor;      // handle for the test suites
-    window.addEventListener('resize', function () { editor.resize(); });
+    window.addEventListener('resize', function () {
+      editor.resize();
+      if (autoLane) { autoLane.resize(); autoLane.draw(); }
+    });
     editor.resize();
   }
 
   let editorSoundPicker = null;
   let editorSends = null;
+
+  /* ------------------------------------------------------------------ *
+   * Automation
+   * ------------------------------------------------------------------ */
+
+  function buildAutomation() {
+    autoLane = new window.Automation({
+      canvas: el('autoLane'),
+      getSong: function () { return state.song; },
+      getBeat: function () { return state.song ? player.currentBeat() : -1; },
+      /* Every gesture is a whole-song change, so it goes on the same undo
+         stack as arranging — one Ctrl+Z takes back one move, wherever it
+         was made. */
+      onBeforeChange: function () { if (editor) editor.pushSongHistory(); },
+      onChange: function () {
+        player.refreshAutomation();
+        syncEditUI();
+        el('autoHint').textContent = autoLane.describe();
+      }
+    });
+
+    el('autoLanes').addEventListener('click', function (ev) {
+      const b = ev.target.closest('button[data-lane]');
+      if (!b) return;
+      Array.prototype.forEach.call(this.children, function (c) {
+        c.classList.toggle('on', c === b);
+      });
+      autoLane.setLane(b.dataset.lane);
+      el('autoHint').textContent = autoLane.describe();
+    });
+
+    el('autoLane').parentNode.querySelector('.auto-shapes')
+      .addEventListener('click', function (ev) {
+        const b = ev.target.closest('button[data-shape]');
+        if (!b || !state.song) return;
+        if (editor) editor.pushSongHistory();
+        const lane = C.applyShape(state.song, b.dataset.shape);
+        if (!lane) return;
+        showLane(lane);
+        player.refreshAutomation();
+        syncEditUI();
+        status(b.textContent.trim() + ' — drag the points to taste.');
+      });
+
+    el('autoClear').addEventListener('click', function () {
+      if (!state.song) return;
+      if (editor) editor.pushSongHistory();
+      C.clearLane(state.song, autoLane.lane);
+      autoLane.draw();
+      player.refreshAutomation();
+      syncEditUI();
+      status('Lane cleared — that setting holds still again.');
+    });
+
+    el('pingBtn').addEventListener('click', function () {
+      if (!state.song) return;
+      const on = !state.song.pingpong;
+      player.setPingPong(on);
+      this.classList.toggle('on', on);
+      status(on ? 'Echoes now bounce left and right.' : 'Echoes back in the middle.');
+    });
+  }
+
+  function showLane(lane) {
+    if (!autoLane) return;
+    autoLane.setLane(lane);
+    Array.prototype.forEach.call(el('autoLanes').children, function (c) {
+      c.classList.toggle('on', c.dataset.lane === lane);
+    });
+    el('autoHint').textContent = autoLane.describe();
+  }
+
+  function refreshAutomationUI() {
+    if (!autoLane || !state.song) return;
+    C.ensureAutomation(state.song);
+    autoLane.resize();
+    autoLane.draw();
+    el('autoHint').textContent = autoLane.describe();
+    el('pingBtn').classList.toggle('on', !!state.song.pingpong);
+  }
 
   function colorLabel(id) {
     for (let i = 0; i < TRACK_META.length; i++) if (TRACK_META[i].id === id) return TRACK_META[i].label;
@@ -6121,6 +7161,8 @@ input[type="range"]::-moz-range-thumb {
     if (player.playing) player.seek(Math.min(player.currentBeat(), state.song.totalBeats - 0.01));
     buildChordStrip();
     buildArrange();
+    refreshAutomationUI();
+    player.refreshAutomation();
     syncEditUI();
     el('songMeta').textContent = songMetaText();
     el('timeTotal').textContent = fmtTime(state.song.duration);
@@ -6495,6 +7537,7 @@ input[type="range"]::-moz-range-thumb {
         if (editor.followPlayhead()) el('barScroll').value = String(editor.startBar);
         editor.draw();
       }
+      if (autoLane && !el('mixPanel').hidden) autoLane.draw();
     }
     requestAnimationFrame(frame);
   }
@@ -6748,6 +7791,7 @@ input[type="range"]::-moz-range-thumb {
     bindHelp();
     bindRollSeek();
     buildEditor();
+    buildAutomation();
     if (editorSoundPicker) editorSoundPicker();
     if (editorSends) editorSends();
     renderLibrary();

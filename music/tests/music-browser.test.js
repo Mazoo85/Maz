@@ -404,6 +404,135 @@ function launchOptions() {
   check(sends.mutedWet.peak < 1e-5,
     'a muted part sends nothing, however high the send (peak ' + sends.mutedWet.peak.toExponential(1) + ')');
 
+  console.log('\n— the new effects, measured —');
+  const fx = await page.evaluate(async function () {
+    /* One measuring stick for all five. `bright` is the average step between
+       consecutive samples relative to level — a signal full of high frequencies
+       moves further per sample than a dull one — and `stereo` is how far the two
+       channels differ, which is 0 for anything sitting in the middle. */
+    function measure(buf, from, to) {
+      const L = buf.getChannelData(0);
+      const R = buf.numberOfChannels > 1 ? buf.getChannelData(1) : L;
+      const a = Math.max(1, Math.floor((from === undefined ? 0 : from) * L.length));
+      const b = Math.min(L.length, Math.floor((to === undefined ? 1 : to) * L.length));
+      let s2 = 0, hf = 0, diff = 0, peak = 0;
+      for (let i = a; i < b; i++) {
+        s2 += L[i] * L[i];
+        hf += Math.abs(L[i] - L[i - 1]);
+        diff += Math.abs(L[i] - R[i]);
+        if (Math.abs(L[i]) > peak) peak = Math.abs(L[i]);
+      }
+      const n = Math.max(1, b - a);
+      const rms = Math.sqrt(s2 / n);
+      return {
+        rms: rms, peak: peak,
+        bright: rms > 0 ? (hf / n) / rms : 0,
+        stereo: rms > 0 ? (diff / n) / rms : 0
+      };
+    }
+
+    /* Cinematic has no tape-noise bed, so the master really is only the parts
+       being measured. Trimmed to 16 bars to keep eight renders quick. */
+    function song(setup) {
+      const s = window.Composer.compose({ seed: 'FX-1', genre: 'cinematic', length: 'short' });
+      s.presetOverride = {};
+      Object.keys(s.tracks).forEach(function (k) {
+        s.tracks[k] = s.tracks[k].filter(function (e) { return e.t < 64; });
+      });
+      s.totalBeats = 68;
+      if (setup) setup(s);
+      return s;
+    }
+    function mixWith(only, fields) {
+      const m = {};
+      window.Engine.TRACKS.forEach(function (t) {
+        m[t] = { volume: 1, muted: only ? t !== only : false, solo: false, rev: 1, del: 1, cho: 0,
+                 eqLow: 0, eqMid: 0, eqHigh: 0, crush: 0 };
+      });
+      if (only && fields) for (const k in fields) m[only][k] = fields[k];
+      return m;
+    }
+    const render = function (s, m) { return window.Engine.renderOffline(s, m); };
+
+    const out = {};
+
+    // 1. Filter automation — muffled at the start, wide open at the end.
+    const swept = song(function (s) {
+      s.automation.filter = [{ t: 0, v: 0 }, { t: s.totalBeats, v: 1 }];
+    });
+    const flat = song();
+    const sweptBuf = await render(swept, mixWith(null));
+    const flatBuf = await render(flat, mixWith(null));
+    out.sweepEarly = measure(sweptBuf, 0.05, 0.3);
+    out.sweepLate = measure(sweptBuf, 0.62, 0.88);
+    out.flatEarly = measure(flatBuf, 0.05, 0.3);
+    out.flatLate = measure(flatBuf, 0.62, 0.88);
+
+    // 2. Volume automation — a fade to nothing.
+    const faded = song(function (s) {
+      s.automation.volume = [{ t: s.totalBeats * 0.5, v: 1 }, { t: s.totalBeats, v: 0 }];
+    });
+    const fadeBuf = await render(faded, mixWith(null));
+    out.fadeMid = measure(fadeBuf, 0.4, 0.5);
+    out.fadeEnd = measure(fadeBuf, 0.93, 0.99);
+
+    /* 3. Chorus — same part, send up. Measured on a deliberately mono sound:
+       the pads already split themselves hard left and right, so there is no
+       room left to show a widening that is really happening. */
+    const monoLead = function () {
+      return song(function (s) { s.presetOverride = { lead: 'chipLead' }; });
+    };
+    const dryCho = await render(monoLead(), mixWith('lead', { rev: 0, del: 0, cho: 0 }));
+    const wetCho = await render(monoLead(), mixWith('lead', { rev: 0, del: 0, cho: 1 }));
+    out.choOff = measure(dryCho);
+    out.choOn = measure(wetCho);
+
+    // 4. Ping-pong — the same echoes, moved out to the sides.
+    const centred = await render(song(function (s) { s.pingpong = false; }),
+      mixWith('lead', { rev: 0, del: 2, cho: 0 }));
+    const bouncing = await render(song(function (s) { s.pingpong = true; }),
+      mixWith('lead', { rev: 0, del: 2, cho: 0 }));
+    out.pingOff = measure(centred);
+    out.pingOn = measure(bouncing);
+
+    // 5. Bit crush — grit is high-frequency energy that was not there before.
+    const clean = await render(song(), mixWith('bass', { rev: 0, del: 0, crush: 0 }));
+    const crushed = await render(song(), mixWith('bass', { rev: 0, del: 0, crush: 1 }));
+    out.crushOff = measure(clean);
+    out.crushOn = measure(crushed);
+
+    return out;
+  });
+
+  check(fx.sweepEarly.bright < fx.sweepLate.bright * 0.8,
+    'a filter sweep starts dull and ends bright (' +
+    fx.sweepEarly.bright.toFixed(4) + ' → ' + fx.sweepLate.bright.toFixed(4) + ')');
+  check(Math.abs(fx.flatEarly.bright - fx.flatLate.bright) < fx.flatEarly.bright * 0.5,
+    'and it is the automation doing it, not the arrangement (' +
+    fx.flatEarly.bright.toFixed(4) + ' → ' + fx.flatLate.bright.toFixed(4) + ' with the lane empty)');
+  check(fx.sweepEarly.bright < fx.flatEarly.bright * 0.8,
+    'the swept opening really is duller than the same music unswept');
+
+  check(fx.fadeMid.rms > 0.01, 'the fade test has music to fade (rms ' + fx.fadeMid.rms.toFixed(4) + ')');
+  check(fx.fadeEnd.peak < 0.02,
+    'a volume fade actually reaches silence (peak ' + fx.fadeEnd.peak.toFixed(5) + ')');
+
+  check(fx.choOff.rms > 1e-4, 'the chorus test has a part to thicken');
+  check(fx.choOn.stereo > fx.choOff.stereo * 1.25,
+    'chorus widens the part (stereo ' + fx.choOff.stereo.toFixed(3) + ' → ' + fx.choOn.stereo.toFixed(3) + ')');
+  check(fx.choOn.rms > fx.choOff.rms,
+    'and thickens it (rms ' + fx.choOff.rms.toFixed(4) + ' → ' + fx.choOn.rms.toFixed(4) + ')');
+
+  check(fx.pingOff.rms > 1e-4, 'the echo test has echoes to move');
+  check(fx.pingOn.stereo > fx.pingOff.stereo * 1.5,
+    'ping-pong throws the echoes to the sides (stereo ' +
+    fx.pingOff.stereo.toFixed(3) + ' → ' + fx.pingOn.stereo.toFixed(3) + ')');
+
+  check(fx.crushOff.rms > 1e-4, 'the crush test has a part to wreck');
+  check(fx.crushOn.bright > fx.crushOff.bright * 1.5,
+    'crushing adds grit that was not there (brightness ' +
+    fx.crushOff.bright.toFixed(4) + ' → ' + fx.crushOn.bright.toFixed(4) + ')');
+
   console.log('\n— exports —');
   const ex = await page.evaluate(async function () {
     const song = window.Composer.compose({ seed: 'EXPORT-1', genre: 'house', length: 'short' });
@@ -465,6 +594,17 @@ function launchOptions() {
     return document.documentElement.scrollWidth - document.documentElement.clientWidth;
   });
   check(overflow <= 1, 'no sideways scrolling at 390px (' + overflow + 'px)');
+  /* The tap check can only measure what is on screen, so open the collapsed
+     panels first — controls hidden inside a <details> are exactly the ones
+     that quietly ship too small to hit. */
+  await phone.evaluate(function () {
+    document.querySelectorAll('details').forEach(function (d) { d.open = true; });
+  });
+  await phone.waitForTimeout(150);
+  const overflowOpen = await phone.evaluate(function () {
+    return document.documentElement.scrollWidth - document.documentElement.clientWidth;
+  });
+  check(overflowOpen <= 1, 'still none with every panel open (' + overflowOpen + 'px)');
   const tooSmall = await phone.evaluate(function () {
     const bad = [];
     document.querySelectorAll('button, select, input[type=range]').forEach(function (b) {

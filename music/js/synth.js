@@ -93,6 +93,35 @@
     return curve;
   }
 
+  /*
+   * Bit crushing. A digital sample is a number with a fixed number of bits;
+   * throw bits away and the smooth curve becomes a staircase, and the error
+   * between the two is the crunch you hear. Rounding every input level to one
+   * of `2^bits` steps is exactly that, and a waveshaper does it in one node.
+   *
+   * The shaper is deliberately NOT oversampled. Oversampling exists to suppress
+   * the aliasing a hard curve creates — and here that aliasing, the grit and
+   * the ringing sidebands, is the entire point.
+   *
+   * At amount 0 this is 16-bit: a staircase far finer than the curve's own
+   * resolution, so it passes audio through unchanged.
+   */
+  function crushCurve(ctx, amount) {
+    const a = Math.max(0, Math.min(1, amount));
+    const bits = 16 - a * 14;                     // 16 bits (clean) → 2 bits (wrecked)
+    const key = '_mazCrush' + Math.round(bits * 100);
+    if (ctx[key]) return ctx[key];
+    const levels = Math.pow(2, bits - 1);
+    const n = 8192;
+    const curve = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i * 2) / (n - 1) - 1;
+      curve[i] = Math.max(-1, Math.min(1, Math.round(x * levels) / levels));
+    }
+    ctx[key] = curve;
+    return curve;
+  }
+
   /* ------------------------------------------------------------------ *
    * Waveforms
    *
@@ -865,6 +894,7 @@
     HARMONICS: HARMONICS,
     driveCurve: driveCurve,
     softClipCurve: softClipCurve,
+    crushCurve: crushCurve,
     noiseBuffer: noiseBuffer,
     vinylBuffer: vinylBuffer,
     panner: panner,

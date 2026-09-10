@@ -39,6 +39,7 @@
   };
 
   let editor = null;
+  let autoLane = null;
 
   const player = new E.Player();
 
@@ -186,6 +187,7 @@
       if (editorSends) editorSends();
       syncEditUI();
     }
+    refreshAutomationUI();
     updateHash();
 
     if (opts.autoplay !== false) {
@@ -524,22 +526,63 @@
     });
     editorSoundPicker = buildSoundPicker;
 
+    /*
+     * The per-part effects rack.
+     *
+     * Every control here is the same shape: a slider, a live readout, and one
+     * field on the track's mix settings. Percentages for the sends and the
+     * crush; decibels for the three EQ bands, because that is what the numbers
+     * on every other mixer in the world mean.
+     */
+    const FX_CONTROLS = [
+      { id: 'revSend', field: 'rev', label: 'Reverb', unit: '%', scale: 100, dflt: 1 },
+      { id: 'delSend', field: 'del', label: 'Delay', unit: '%', scale: 100, dflt: 1 },
+      { id: 'choSend', field: 'cho', label: 'Chorus', unit: '%', scale: 100, dflt: 0 },
+      { id: 'crushAmt', field: 'crush', label: 'Crush', unit: '%', scale: 100, dflt: 0 },
+      { id: 'eqLow', field: 'eqLow', label: 'Bass', unit: ' dB', scale: 1, dflt: 0 },
+      { id: 'eqMid', field: 'eqMid', label: 'Mids', unit: ' dB', scale: 1, dflt: 0 },
+      { id: 'eqHigh', field: 'eqHigh', label: 'Treble', unit: ' dB', scale: 1, dflt: 0 }
+    ];
+
+    function fxText(spec, raw) {
+      return (spec.unit === ' dB' && raw > 0 ? '+' : '') + raw + spec.unit;
+    }
+
     function syncSends() {
       const m = player.mix[editor.track] || {};
-      el('revSend').value = String(Math.round((m.rev === undefined ? 1 : m.rev) * 100));
-      el('delSend').value = String(Math.round((m.del === undefined ? 1 : m.del) * 100));
+      const who = el('fxRackWho');
+      if (who) who.textContent = colorLabel(editor.track).toLowerCase();
+      FX_CONTROLS.forEach(function (spec) {
+        const v = m[spec.field] === undefined ? spec.dflt : m[spec.field];
+        const raw = Math.round(v * spec.scale);
+        el(spec.id).value = String(raw);
+        const outEl = el(spec.id + 'Val');
+        if (outEl) outEl.textContent = fxText(spec, raw);
+      });
     }
     editorSends = syncSends;
-    [['revSend', 'rev', 'Reverb'], ['delSend', 'del', 'Delay']].forEach(function (spec) {
-      el(spec[0]).addEventListener('input', function () {
-        player.setTrack(editor.track, (function (o) {
-          o[spec[1]] = parseInt(this.value, 10) / 100;
-          return o;
-        }).call(this, {}));
+
+    FX_CONTROLS.forEach(function (spec) {
+      el(spec.id).addEventListener('input', function () {
+        const raw = parseInt(this.value, 10);
+        const opts = {};
+        opts[spec.field] = raw / spec.scale;
+        player.setTrack(editor.track, opts);
+        const outEl = el(spec.id + 'Val');
+        if (outEl) outEl.textContent = fxText(spec, raw);
       });
-      el(spec[0]).addEventListener('change', function () {
-        status(spec[2] + ' on the ' + colorLabel(editor.track).toLowerCase() + ': ' + this.value + '%.');
+      el(spec.id).addEventListener('change', function () {
+        status(spec.label + ' on the ' + colorLabel(editor.track).toLowerCase() + ': ' +
+          fxText(spec, parseInt(this.value, 10)) + '.');
       });
+    });
+
+    el('fxReset').addEventListener('click', function () {
+      const opts = {};
+      FX_CONTROLS.forEach(function (spec) { opts[spec.field] = spec.dflt; });
+      player.setTrack(editor.track, opts);
+      syncSends();
+      status(colorLabel(editor.track) + ' back to its plain sound.');
     });
 
     el('undoBtn').addEventListener('click', function () {
@@ -577,12 +620,95 @@
     });
 
     window.__editor = editor;      // handle for the test suites
-    window.addEventListener('resize', function () { editor.resize(); });
+    window.addEventListener('resize', function () {
+      editor.resize();
+      if (autoLane) { autoLane.resize(); autoLane.draw(); }
+    });
     editor.resize();
   }
 
   let editorSoundPicker = null;
   let editorSends = null;
+
+  /* ------------------------------------------------------------------ *
+   * Automation
+   * ------------------------------------------------------------------ */
+
+  function buildAutomation() {
+    autoLane = new window.Automation({
+      canvas: el('autoLane'),
+      getSong: function () { return state.song; },
+      getBeat: function () { return state.song ? player.currentBeat() : -1; },
+      /* Every gesture is a whole-song change, so it goes on the same undo
+         stack as arranging — one Ctrl+Z takes back one move, wherever it
+         was made. */
+      onBeforeChange: function () { if (editor) editor.pushSongHistory(); },
+      onChange: function () {
+        player.refreshAutomation();
+        syncEditUI();
+        el('autoHint').textContent = autoLane.describe();
+      }
+    });
+
+    el('autoLanes').addEventListener('click', function (ev) {
+      const b = ev.target.closest('button[data-lane]');
+      if (!b) return;
+      Array.prototype.forEach.call(this.children, function (c) {
+        c.classList.toggle('on', c === b);
+      });
+      autoLane.setLane(b.dataset.lane);
+      el('autoHint').textContent = autoLane.describe();
+    });
+
+    el('autoLane').parentNode.querySelector('.auto-shapes')
+      .addEventListener('click', function (ev) {
+        const b = ev.target.closest('button[data-shape]');
+        if (!b || !state.song) return;
+        if (editor) editor.pushSongHistory();
+        const lane = C.applyShape(state.song, b.dataset.shape);
+        if (!lane) return;
+        showLane(lane);
+        player.refreshAutomation();
+        syncEditUI();
+        status(b.textContent.trim() + ' — drag the points to taste.');
+      });
+
+    el('autoClear').addEventListener('click', function () {
+      if (!state.song) return;
+      if (editor) editor.pushSongHistory();
+      C.clearLane(state.song, autoLane.lane);
+      autoLane.draw();
+      player.refreshAutomation();
+      syncEditUI();
+      status('Lane cleared — that setting holds still again.');
+    });
+
+    el('pingBtn').addEventListener('click', function () {
+      if (!state.song) return;
+      const on = !state.song.pingpong;
+      player.setPingPong(on);
+      this.classList.toggle('on', on);
+      status(on ? 'Echoes now bounce left and right.' : 'Echoes back in the middle.');
+    });
+  }
+
+  function showLane(lane) {
+    if (!autoLane) return;
+    autoLane.setLane(lane);
+    Array.prototype.forEach.call(el('autoLanes').children, function (c) {
+      c.classList.toggle('on', c.dataset.lane === lane);
+    });
+    el('autoHint').textContent = autoLane.describe();
+  }
+
+  function refreshAutomationUI() {
+    if (!autoLane || !state.song) return;
+    C.ensureAutomation(state.song);
+    autoLane.resize();
+    autoLane.draw();
+    el('autoHint').textContent = autoLane.describe();
+    el('pingBtn').classList.toggle('on', !!state.song.pingpong);
+  }
 
   function colorLabel(id) {
     for (let i = 0; i < TRACK_META.length; i++) if (TRACK_META[i].id === id) return TRACK_META[i].label;
@@ -623,6 +749,8 @@
     if (player.playing) player.seek(Math.min(player.currentBeat(), state.song.totalBeats - 0.01));
     buildChordStrip();
     buildArrange();
+    refreshAutomationUI();
+    player.refreshAutomation();
     syncEditUI();
     el('songMeta').textContent = songMetaText();
     el('timeTotal').textContent = fmtTime(state.song.duration);
@@ -997,6 +1125,7 @@
         if (editor.followPlayhead()) el('barScroll').value = String(editor.startBar);
         editor.draw();
       }
+      if (autoLane && !el('mixPanel').hidden) autoLane.draw();
     }
     requestAnimationFrame(frame);
   }
@@ -1250,6 +1379,7 @@
     bindHelp();
     bindRollSeek();
     buildEditor();
+    buildAutomation();
     if (editorSoundPicker) editorSoundPicker();
     if (editorSends) editorSends();
     renderLibrary();

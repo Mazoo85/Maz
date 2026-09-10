@@ -56,9 +56,21 @@ python3 -m http.server         # or serve the folder: http://localhost:8000/musi
   it, or shove it left and right. Want two choruses back to back, or the bridge
   moved earlier? Drag the form around and the whole track re-times behind you.
   Ctrl+Z puts it back.
-- **Mixer** — mute, solo or rebalance drums, bass, chords, arp, lead and pad,
-  and set **how much reverb and delay each part gets** on its own. Push the pad
-  far back and keep the lead dry and up front.
+- **Mixer** — mute, solo or rebalance drums, bass, chords, arp, lead and pad.
+- **An effects rack on every part** — reverb, delay, **chorus**, **bit crush**
+  and a three-band **EQ** (bass, mids, treble), set separately for each of the
+  six parts. Push the pad far back and keep the lead dry and up front; thicken
+  the chords with chorus; wreck the drums with crush; carve the bass out of the
+  way of the kick. One button puts a part back to plain.
+- **Automation — the one thing that moves.** Every other setting holds for the
+  whole song; here you draw a line across the track and the mix follows it. Two
+  lanes: a **filter sweep** over the whole mix and a **volume fade**. Click to
+  add a point, drag it, right-click or double-tap to remove it. Four one-tap
+  shapes write the usual moves for you — *build into the chorus*, *open up on
+  choruses*, *fade in*, *fade out* — and they read the song's own arrangement,
+  so the build ends exactly where your chorus actually starts.
+- **Ping-pong echo** — one toggle throws the delays out to the left and right
+  instead of leaving them in the middle.
 - **Export** — the finished track as a **.wav**, the notes as a **.mid**, or
   **stems**: every part as its own audio file, to mix by hand in GarageBand,
   Ableton, FL Studio, Logic or MuseScore.
@@ -129,15 +141,26 @@ filters, there are five ways of making a sound:
 Each style also keeps a list of alternate instruments that suit it, and draws
 from them per song — so two lo-fi tracks are not the same four sounds twice.
 
-`engine.js` mixes it: each part has a place in the stereo field, velocity opens
-filters as well as raising level, pads drift under slow LFOs, each part feeds
-the reverb and delay by its own adjustable amount (and a muted part feeds them
-nothing, so muting really is silence), and — where the style calls for it —
-**the kick ducks the sustained parts**. Web Audio
+`engine.js` mixes it: each part runs through its own bit crusher and three-band
+EQ, has a place in the stereo field, feeds the reverb, delay and chorus buses by
+its own adjustable amount (a muted part feeds them nothing, so muting really is
+silence), velocity opens filters as well as raising level, pads drift under slow
+LFOs, and — where the style calls for it — **the kick ducks the sustained
+parts**. Web Audio
 compressors have no sidechain input, but the kick times are already in the
 score, so the duck is scheduled as gain automation exactly where the kick lands.
 That pump is most of what makes house, synthwave and trap sound like themselves;
 ambient and chiptune have none.
+
+A few of those effects are worth saying how they are actually built, because in
+each case the trick *is* the sound:
+
+| Effect | How |
+|---|---|
+| **Chorus** | Two short delay lines whose delay times wobble under slow LFOs, panned apart. A copy arriving a few milliseconds late and drifting in pitch is what "thick" means — it is a second player who cannot be perfectly in time or in tune. |
+| **Bit crush** | A waveshaper that rounds every level to one of `2^bits` steps, from 16 bits down to 2. It is deliberately **not** oversampled: oversampling exists to suppress the aliasing a hard curve creates, and here that aliasing is the entire point. |
+| **Ping-pong** | The input hits a left delay line, left feeds right, right feeds left again, each hard-panned — so one note walks across the room and back. Both this and the centred delay are built every time and only one is fed, so the switch is a gain change and the echoes already in the air ring out instead of being cut off. |
+| **Automation** | Points in beats, ramped onto a master lowpass (before the limiter, so a sweep is still caught by the ceiling) and a master fader (after it, because a fade to silence is not something to limit back up). The same function writes one pass for live playback and one for the offline render, so an export sounds like what you heard. |
 
 ---
 
@@ -153,6 +176,7 @@ music/js/synth.js     # Web Audio instruments and drum kits, all synthesised
 music/js/engine.js    # mixer graph, look-ahead scheduler, offline render
 music/js/export.js    # .wav encoder and standard MIDI file writer
 music/js/editor.js    # the piano roll and drum grid you draw on
+music/js/automation.js # the lane you draw effect moves on
 music/js/app.js       # interface, transport, mixer, note timeline
 
 music/build-standalone.js  # folds all of the above into one file
@@ -189,7 +213,9 @@ node music/tests/standalone.test.js       # the built single file, opened from d
 The standalone suite also covers the editor: it clicks the grid to draw a note,
 checks the note lands in key, erases it again, taps the drum grid, feeds a
 hand-drawn motif through *Develop my idea* and checks the shape survives, and
-confirms a locked part outlives a re-roll of everything. It also swaps a chord
+confirms a locked part outlives a re-roll of everything. It drives the whole
+effects rack and checks each control reaches its own part and no other, draws
+and undoes automation points, and flips the ping-pong toggle. It also swaps a chord
 and checks the bass rhythm under it is untouched, duplicates, moves and deletes
 sections and checks the form and note positions follow, and moves a part's
 reverb send and checks the slider still shows the right value after switching
@@ -205,7 +231,14 @@ quietly: a lost script, a stray closing tag, a stylesheet that never applied.
 
 The browser suite renders every genre offline and *measures the waveform* —
 peak, RMS and crest factor — so problems you can only hear cannot pass
-silently. It has already caught four real defects: a modal that covered the
+silently. It measures the effects the same way rather than trusting them: a filter sweep
+has to start measurably duller than the same music unswept, a fade has to
+actually reach silence, chorus has to widen a deliberately mono part, ping-pong
+has to push the echoes off centre, and crushing has to add high-frequency grit
+that was not there before.
+
+It has already caught five real defects: a modal that covered the
 page invisibly, a master bus that clipped on every genre, an instrument
-saturation curve with 20 dB of hidden gain that flattened the mix, and arrange
-and send controls too small to hit with a thumb on a phone.
+saturation curve with 20 dB of hidden gain that flattened the mix, arrange
+and send controls too small to hit with a thumb on a phone, and a one-tap build
+that gave up on any song whose chorus came first.

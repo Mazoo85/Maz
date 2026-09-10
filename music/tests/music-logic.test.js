@@ -372,6 +372,82 @@ Object.keys(Genres.GENRES).forEach(function (gid) {
   check(tiny.bars > 0, 'and it still has bars left');
 })();
 
+/* --- automation lanes --- */
+(function () {
+  const a = Composer.compose({ seed: 'AUTO-1', genre: 'house', length: 'medium' });
+  check(a.automation && Array.isArray(a.automation.filter) && Array.isArray(a.automation.volume),
+    'a new song starts with empty automation lanes');
+  check(a.automation.filter.length === 0 && a.automation.volume.length === 0,
+    'and nothing is moving until you ask for it');
+
+  // Points are sorted and clamped however carelessly they go in.
+  Composer.addPoint(a, 'volume', 40, 0.5);
+  Composer.addPoint(a, 'volume', 8, 1);
+  Composer.addPoint(a, 'volume', -20, 0.25);          // before the start
+  Composer.addPoint(a, 'volume', a.totalBeats + 500, 3);  // past the end, over full
+  const v = a.automation.volume;
+  check(v.length === 4, 'every point is kept (' + v.length + ')');
+  let sorted = true;
+  for (let i = 1; i < v.length; i++) if (v[i].t < v[i - 1].t) sorted = false;
+  check(sorted, 'and they are held in time order');
+  check(v[0].t === 0, 'a point before the start is pulled to the start');
+  check(v[v.length - 1].t === a.totalBeats, 'and one past the end is pulled to the end');
+  check(v.every(function (p) { return p.v >= 0 && p.v <= 1; }), 'values stay between silent and full');
+
+  check(Composer.addPoint(a, 'nonsense', 4, 0.5) === null, 'an unknown lane is refused');
+
+  // A shape lands on the song's own arrangement, not on a guessed bar number.
+  const b = Composer.compose({ seed: 'AUTO-2', genre: 'synthwave', length: 'medium' });
+  const lane = Composer.applyShape(b, 'buildToChorus');
+  check(lane === 'filter', 'the build writes into the filter lane');
+  const chorus = b.sections.filter(function (x) { return x.type === 'chorus'; })[0];
+  check(!!chorus, 'the test song has a chorus to build into');
+  const pts = b.automation.filter;
+  check(pts.length >= 3, 'the build has a shape to it (' + pts.length + ' points)');
+  const chorusBeat = chorus.startBar * 4;
+  const atChorus = pts.filter(function (p) { return Math.abs(p.t - chorusBeat) < 0.5; });
+  check(atChorus.length === 1 && atChorus[0].v === 1,
+    'and it arrives wide open exactly where the chorus starts');
+  check(pts[0].v < 0.5, 'having started held back (' + pts[0].v + ')');
+
+  // A song rearranged to open on its chorus has no room to build into it.
+  const opener = Composer.compose({ seed: 'AUTO-5', genre: 'house', length: 'medium' });
+  while (opener.sections.length > 1 && opener.sections[0].type !== 'chorus') {
+    Composer.deleteSection(opener, 0);
+  }
+  if (opener.sections[0].type === 'chorus') {
+    Composer.applyShape(opener, 'buildToChorus');
+    const op = opener.automation.filter;
+    check(op.length >= 3, 'a song opening on its chorus still gets a build (' + op.length + ')');
+    check(op.every(function (p) { return p.t >= 0 && p.t <= opener.totalBeats; }),
+      'and every point of it lands inside the song');
+    check(op[0].t < op[op.length - 1].t, 'with somewhere to build from');
+  }
+
+  const c = Composer.compose({ seed: 'AUTO-3', genre: 'lofi', length: 'short' });
+  Composer.applyShape(c, 'fadeOut');
+  const f = c.automation.volume;
+  check(f[f.length - 1].v === 0 && f[f.length - 1].t === c.totalBeats,
+    'a fade-out reaches silence at the very end');
+  check(f[0].v === 1, 'and starts from full');
+  Composer.applyShape(c, 'fadeIn');
+  check(c.automation.volume[0].v === 0 && c.automation.volume[0].t === 0,
+    'a fade-in starts from silence at the very start');
+
+  // Shortening the song must not leave automation hanging past the end.
+  const d = Composer.compose({ seed: 'AUTO-4', genre: 'house', length: 'medium' });
+  Composer.applyShape(d, 'fadeOut');
+  const endBefore = d.totalBeats;
+  Composer.deleteSection(d, d.sections.length - 1);
+  check(d.totalBeats < endBefore, 'deleting a section shortened the song');
+  check(d.automation.volume.every(function (p) { return p.t <= d.totalBeats; }),
+    'and no automation point is left stranded past the new end');
+
+  check(Composer.clearLane(d, 'volume') && d.automation.volume.length === 0,
+    'clearing a lane empties it');
+  check(d.automation.filter !== undefined, 'without disturbing the other one');
+})();
+
 /* --- re-rolling one part leaves the others alone --- */
 const s = Composer.compose({ seed: 'REROLL-1', genre: 'synthwave', mood: 'driving' });
 const beforeLead = JSON.stringify(s.tracks.lead);
