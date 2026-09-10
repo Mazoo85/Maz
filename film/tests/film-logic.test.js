@@ -509,6 +509,14 @@ test('a bare "video/mp4" claim is never trusted', () => {
   eq(chosen.playsOnApple, false);
 });
 
+test('an MP4 whose audio codec is unnamed is refused', () => {
+  // A browser offering H.264 but no explicit AAC gets no MP4 from us.
+  const videoOnly = (type) =>
+    (type.indexOf('avc1') !== -1 && type.indexOf('mp4a') === -1 && type.indexOf('aac') === -1) ||
+    type.indexOf('webm') !== -1;
+  eq(PlayerLib.pickMimeType(videoOnly).container, 'webm', 'took an mp4 with unnamed audio');
+});
+
 test('H.264 in MP4 is preferred when the browser really has it', () => {
   const realChrome = (type) => type.indexOf('avc1') !== -1 || type.indexOf('webm') !== -1;
   const chosen = PlayerLib.pickMimeType(realChrome);
@@ -525,6 +533,9 @@ test('every candidate names its codecs', () => {
   });
   PlayerLib.MP4_CANDIDATES.forEach((type) => {
     assert(/avc1|h264/.test(type), 'an mp4 candidate that is not H.264: ' + type);
+    // Naming only the video codec leaves the audio to the browser, and Chrome
+    // will put Opus in an MP4 — H.264 an iPhone plays, with sound it does not.
+    assert(/mp4a|aac/.test(type), 'an mp4 candidate that does not name its audio codec: ' + type);
   });
   assert(PlayerLib.MP4_CANDIDATES.indexOf('video/mp4') === -1, 'the bare type is a candidate again');
 });

@@ -198,6 +198,7 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
       const f = FilmPlayer.bestFormat();
       return {
         extension: f && f.extension,
+        type: f && f.type,
         playsOnApple: f && f.playsOnApple,
         button: document.getElementById('recordFilm').textContent,
         note: document.getElementById('filmNote').textContent,
@@ -270,11 +271,20 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
     const isMp4 = promised.extension === '.mp4';
 
     if (isMp4) {
+      // Name what is actually in the file, so a failure here says which box
+      // the browser wrote rather than leaving the next person guessing.
+      const boxes = ['avc1', 'avcC', 'mp4a', 'esds', 'Opus', 'dOps', 'vp09', 'ac-3', 'soun', 'vide']
+        .filter(has).join(', ') || 'none';
+      const asked = `asked for ${promised.type}; boxes found: ${boxes}`;
+
       // An .mp4 that is secretly VP9 is the exact failure this guards: a file
       // named for the format Apple devices play, that they cannot play.
-      check(has('avc1') || has('avcC'), 'an .mp4 really carries H.264, not VP9 in an MP4 wrapper');
-      check(!has('vp09'), 'no VP9 hiding inside the .mp4');
-      check(has('mp4a') || has('esds'), 'the file carries the soundtrack (AAC)');
+      check(has('avc1') || has('avcC'), `an .mp4 really carries H.264, not VP9 (${asked})`);
+      check(!has('vp09'), `no VP9 hiding inside the .mp4 (${asked})`);
+      check(has('mp4a') || has('esds'), `the file carries AAC audio (${asked})`);
+      // Opus inside an MP4 is the audio version of the same trap: a file an
+      // Apple device opens and then plays silently.
+      check(!has('Opus') && !has('dOps'), `no Opus audio hiding inside the .mp4 (${asked})`);
       // MediaRecorder writes its own duration into an MP4; the playback check
       // below is what proves it, since nothing here parses MP4 boxes.
     } else {

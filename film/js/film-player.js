@@ -433,13 +433,18 @@
    * computers — Chrome, Edge, Firefox, VLC — and on Android, but not on Apple
    * devices. The app says which one you are getting before you record.
    */
+  /* Every MP4 candidate names *both* codecs. Asking for `codecs=avc1` alone
+   * leaves the audio to the browser, and Chrome will happily put Opus in an
+   * MP4 — H.264 that an Apple device plays, carrying a soundtrack it does not.
+   * A silent film is not what anyone recorded, so an MP4 we cannot fully name
+   * is not worth having: it falls back to WebM, which at least warns. */
   var MP4_CANDIDATES = [
     'video/mp4;codecs=avc1.42E01E,mp4a.40.2',   // H.264 baseline + AAC
     'video/mp4;codecs=avc1.4D401E,mp4a.40.2',   // H.264 main + AAC
+    'video/mp4;codecs=avc1.64001E,mp4a.40.2',   // H.264 high + AAC
     'video/mp4;codecs=avc1,mp4a.40.2',
-    'video/mp4;codecs=avc1',
-    'video/mp4;codecs=h264,aac',
-    'video/mp4;codecs=h264'
+    'video/mp4;codecs=avc1,mp4a',
+    'video/mp4;codecs=h264,aac'
   ];
 
   var WEBM_CANDIDATES = [
