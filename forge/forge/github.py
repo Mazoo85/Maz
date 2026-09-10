@@ -8,6 +8,7 @@ GitHub outage must degrade the night, not break it.
 
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import re
@@ -22,11 +23,12 @@ TIMEOUT_S = 20
 _SLUG_RE = re.compile(r"github\.com[:/]([^/]+/[^/\s]+?)(?:\.git)?$")
 
 
-def token() -> str | None:
+def env_token() -> str | None:
+    """The token from the environment, or None. Named for what it reads."""
     return os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or None
 
 
-def api(path: str, method: str = "GET", body: dict | None = None, token_: str | None = None) -> dict:
+def api(path: str, method: str = "GET", body: dict | None = None, token: str | None = None) -> dict:
     """One GitHub REST call. Returns {} on any failure — never raises.
 
     Everything that can go wrong with a single call — building the request,
@@ -36,10 +38,16 @@ def api(path: str, method: str = "GET", body: dict | None = None, token_: str | 
     "Invalid IPv6 URL") right there, before any socket opens. Leaving that
     construction outside the guard would let a bad path escape the "never
     raises" contract this module promises its callers; ``json.dumps`` on a
-    non-serialisable ``body`` fails the same way, with ``TypeError``. Both are
-    folded into the same except clause as the network errors below.
+    non-serialisable ``body`` fails the same way, with ``TypeError``. All
+    three of those, plus the network errors below, share one except clause.
+
+    ``http.client.HTTPException`` (e.g. ``IncompleteRead``, raised when the
+    server closes the connection mid-body) is named separately from
+    ``OSError`` because it does not descend from it the way the socket-level
+    failures — connection resets, timeouts, DNS errors — do; omitting it
+    would let a truncated response escape this "never raises" contract.
     """
-    tok = token_ or token()
+    tok = token or env_token()
     if not tok:
         return {}
     try:
@@ -58,11 +66,14 @@ def api(path: str, method: str = "GET", body: dict | None = None, token_: str | 
         )
         with urllib.request.urlopen(req, timeout=TIMEOUT_S) as resp:
             payload = resp.read().decode("utf-8")
-    except (urllib.error.URLError, OSError, ValueError, TypeError):
+    except (urllib.error.URLError, OSError, ValueError, TypeError, http.client.HTTPException):
         # urllib.error.HTTPError (4xx/5xx) is a URLError subclass; DNS
         # failures, connection resets and socket timeouts are OSError
         # subclasses; TLS failures (ssl.SSLError) are OSError subclasses too;
         # a malformed URL or non-UTF-8 body decode raises ValueError.
+        # http.client.HTTPException (e.g. IncompleteRead, from a mid-stream
+        # read failure) is named explicitly: it subclasses Exception, not
+        # OSError, so it would otherwise escape this tuple entirely.
         return {}
     try:
         parsed = json.loads(payload)
@@ -85,5 +96,9 @@ def repo_slug(root: Path | None, runner=None) -> str | None:
         return None
     if not url:
         return None
-    m = _SLUG_RE.search(url)
+    # A remote can carry one or more trailing slashes (e.g. a URL pasted
+    # with a stray "/", or ".git/"); _SLUG_RE is anchored on $ with no
+    # allowance for one, so strip them first rather than loosen the anchor
+    # and risk matching short of the real end of the slug.
+    m = _SLUG_RE.search(url.rstrip("/"))
     return m.group(1) if m else None

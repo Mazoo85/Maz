@@ -11,6 +11,7 @@ no-touch path and could never be fixed anyway.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from ..github import api, repo_slug
@@ -35,6 +36,30 @@ def _slug_from_path(path: str) -> str:
     return name.rsplit(".", 1)[0]
 
 
+_ISO_8601_PREFIX = re.compile(r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}")
+
+
+def _created_at_sort_key(run: dict) -> tuple[bool, str]:
+    """Sort key for "latest wins" that a malformed created_at can never win.
+
+    created_at compares correctly as a plain string when it is a real
+    ISO-8601 timestamp. But GitHub is not the only source of a run dict any
+    more (from_runs is exercised directly by tests, and this module's own
+    `fetch` injection point is documented as replaceable) — a missing,
+    non-string, or non-ISO-8601-shaped value must never be able to
+    masquerade as "latest". Comparing bare strings lets it: the string
+    "None" beats every real timestamp in ASCII ("N" > "2"), so a red run
+    could lose "latest" to a malformed record and vanish, silencing the
+    exact alarm this module exists to raise. The leading bool sorts any
+    valid timestamp ahead of any malformed one regardless of the second
+    element's ASCII value; among malformed records it is a no-op tie.
+    """
+    created = run.get("created_at")
+    if isinstance(created, str) and _ISO_8601_PREFIX.match(created):
+        return (True, created)
+    return (False, "")
+
+
 def from_runs(runs: list[dict]) -> list[Candidate]:
     """Latest run per workflow; a red one becomes a candidate. Never raises."""
     latest: dict[str, dict] = {}
@@ -43,7 +68,7 @@ def from_runs(runs: list[dict]) -> list[Candidate]:
             continue
         path = run.get("path") or ""
         seen = latest.get(path)
-        if seen is None or str(run.get("created_at", "")) > str(seen.get("created_at", "")):
+        if seen is None or _created_at_sort_key(run) > _created_at_sort_key(seen):
             latest[path] = run
 
     out: list[Candidate] = []
@@ -72,6 +97,12 @@ def collect(root: Path, fetch=None, slug: str | None = None) -> list[Candidate]:
     try:
         payload = getter(f"/repos/{slug}/actions/runs?per_page={RUNS_TO_SCAN}")
     except Exception:  # noqa: BLE001
+        return []
+    # `fetch` is an explicitly documented injection point, so a payload that
+    # is not a dict (None, a list, ...) is reachable through this module's
+    # own public interface, not just a hypothetical. Guard it rather than
+    # assume `.get` exists.
+    if not isinstance(payload, dict):
         return []
     runs = payload.get("workflow_runs") or []
     if not isinstance(runs, list):
