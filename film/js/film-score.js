@@ -68,13 +68,71 @@
     return best;
   }
 
+  /* What each story beat sounds like structurally. */
+  var SECTION_TYPE = {
+    open: 'intro', spark: 'verse', push: 'verse', turn: 'bridge',
+    crisis: 'chorus', choice: 'bridge', after: 'outro'
+  };
+
+  /* One entry per scene: when it starts, how long it runs, which beat it is. */
+  function scenesOf(reel) {
+    var scenes = [];
+    var byNumber = {};
+    reel.shots.forEach(function (shot) {
+      if (!shot.scene) return;               // title and end cards
+      if (!byNumber[shot.scene]) {
+        byNumber[shot.scene] = { scene: shot.scene, start: shot.start, end: 0, beat: shot.beat, mood: shot.mood };
+        scenes.push(byNumber[shot.scene]);
+      }
+      byNumber[shot.scene].end = shot.start + shot.duration;
+      if (shot.mood > byNumber[shot.scene].mood) byNumber[shot.scene].mood = shot.mood;
+    });
+    if (scenes.length) {
+      scenes[0].start = 0;                   // the title card belongs to scene one
+      scenes[scenes.length - 1].end = reel.duration;   // and the end card to the last
+    }
+    return scenes;
+  }
+
+  function sectionPlan(reel, bpm) {
+    var barSeconds = (BEATS_PER_BAR * 60) / bpm;
+    var scenes = scenesOf(reel);
+
+    var plan = scenes.map(function (scene, index) {
+      var blocks = Math.max(1, Math.round((scene.end - scene.start) / (barSeconds * BLOCK_BARS)));
+      var energy = Math.max(0, Math.min(1, scene.mood));
+      var isFinal = index === scenes.length - 1;
+      return {
+        type: SECTION_TYPE[scene.beat] || 'verse',
+        bars: blocks * BLOCK_BARS,
+        energy: energy,
+        scene: scene.scene,
+        last: isFinal
+      };
+    });
+
+    // Rounding can leave the music a block short. It may run long; it may never
+    // run out before the picture does.
+    var totalSeconds = function () {
+      return plan.reduce(function (bars, s) { return bars + s.bars; }, 0) * barSeconds;
+    };
+    var guard = 0;
+    while (plan.length && totalSeconds() < reel.duration && guard++ < 200) {
+      plan[plan.length - 1].bars += BLOCK_BARS;
+    }
+    return plan;
+  }
+
   var API = {
     MUSIC_FOR: MUSIC_FOR,
     BEATS_PER_BAR: BEATS_PER_BAR,
     BLOCK_BARS: BLOCK_BARS,
     blockSeconds: blockSeconds,
     cutTimes: cutTimes,
-    chooseBpm: chooseBpm
+    chooseBpm: chooseBpm,
+    SECTION_TYPE: SECTION_TYPE,
+    scenesOf: scenesOf,
+    sectionPlan: sectionPlan
   };
 
   if (typeof module === 'object' && module.exports) module.exports = API;

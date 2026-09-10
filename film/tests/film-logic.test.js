@@ -658,6 +658,38 @@ test('cut times are the scene starts after the first', () => {
   });
 });
 
+test('the section plan covers the whole film', () => {
+  ['micro', 'short', 'festival'].forEach((length) => {
+    const reel = Reel.build(Writer.write(Parse.parse('a ghost in the attic'), { length }));
+    const bpm = Conductor.chooseBpm(reel, [70, 110]);
+    const plan = Conductor.sectionPlan(reel, bpm);
+
+    assert(plan.length >= 1, 'no sections for a ' + length + ' film');
+    plan.forEach((section) => {
+      assert(section.bars >= 4, 'section shorter than four bars: ' + section.bars);
+      eq(section.bars % 4, 0, 'section is not a whole number of four-bar blocks');
+      assert(section.energy >= 0 && section.energy <= 1, 'energy out of range: ' + section.energy);
+      assert(typeof section.type === 'string' && section.type.length > 0, 'section has no type');
+    });
+
+    const bars = plan.reduce((total, s) => total + s.bars, 0);
+    const seconds = (bars * Conductor.BEATS_PER_BAR * 60) / bpm;
+    assert(seconds >= reel.duration,
+      `${length}: the music runs ${seconds.toFixed(1)}s but the film runs ${reel.duration.toFixed(1)}s`);
+  });
+});
+
+test('sections take their type and energy from the beat they cover', () => {
+  const reel = Reel.build(sample);
+  const plan = Conductor.sectionPlan(reel, Conductor.chooseBpm(reel, [70, 110]));
+  eq(plan[0].type, 'intro', 'a film opens on an intro');
+
+  const crisisOrClimax = plan.reduce((best, s) => (s.energy > best.energy ? s : best), plan[0]);
+  eq(plan.indexOf(crisisOrClimax) < plan.length - 1, true, 'the highest-energy section is not the last one');
+  assert(plan[plan.length - 1].energy <= crisisOrClimax.energy,
+    'the film ends on more energy than its peak');
+});
+
 /* ------------------------------------------------------------------ report */
 console.log('');
 if (failures.length) {
