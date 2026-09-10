@@ -64,7 +64,7 @@
   const GM_DRUM = {
     kick: 36, snare: 38, clap: 39, hh: 42, oh: 46,
     tom: 45, crash: 49, perc: 76, shaker: 82, rim: 37,
-    riser: 52, impact: 55
+    riser: 52, impact: 55, ride: 51, tamb: 54, cowbell: 56, conga: 64
   };
 
   /* General MIDI program numbers (0-based) chosen to resemble each part. */

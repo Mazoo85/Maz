@@ -94,6 +94,39 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Waveforms
+   *
+   * A filter can only take away what the oscillator already has, so every
+   * subtractive patch built on a sawtooth ends up a cousin of every other one.
+   * These are harmonic recipes — amplitude per harmonic — turned into custom
+   * oscillator shapes, which is where genuinely different instruments start.
+   * ------------------------------------------------------------------ */
+
+  const HARMONICS = {
+    // Drawbars: strong fundamental, hollow even harmonics.
+    organ:   [1, 0.5, 0.35, 0.25, 0, 0.18, 0, 0.12],
+    // Bright and buzzy, the way a horn section sits on top of a mix.
+    brass:   [1, 0.7, 0.5, 0.35, 0.26, 0.2, 0.15, 0.1, 0.07],
+    // Odd harmonics only — the hollow woodiness of a stopped pipe or reed.
+    reed:    [1, 0, 0.5, 0, 0.3, 0, 0.2, 0, 0.12],
+    // A gentle rolloff that reads as a plucked string.
+    guitar:  [1, 0.6, 0.45, 0.3, 0.22, 0.16, 0.12, 0.09, 0.07, 0.05],
+    // Sparse and ringing.
+    glass:   [1, 0, 0.3, 0, 0.15, 0, 0.08, 0, 0.05, 0, 0.03]
+  };
+
+  function periodicWave(ctx, name) {
+    const key = '_mazWave_' + name;
+    if (ctx[key]) return ctx[key];
+    const amps = HARMONICS[name] || HARMONICS.guitar;
+    const real = new Float32Array(amps.length + 1);
+    const imag = new Float32Array(amps.length + 1);
+    for (let i = 0; i < amps.length; i++) imag[i + 1] = amps[i];
+    ctx[key] = ctx.createPeriodicWave(real, imag, { disableNormalization: false });
+    return ctx[key];
+  }
+
+  /* ------------------------------------------------------------------ *
    * Envelopes
    * ------------------------------------------------------------------ */
 
@@ -190,6 +223,102 @@
       carrier.connect(amp);
       nodes.push(carrier, mod);
       tail = adsr(amp.gain, t, dur, peak * 0.9, preset.amp);
+    } else if (kind === 'fm') {
+      /* Two-operator FM. The modulator's depth falls away as the note sounds,
+         which is why FM reads as "struck" — bright at the attack, mellow after.
+         Ratio decides the character: whole numbers ring, odd ratios clang. */
+      const ratio = preset.ratio === undefined ? 2 : preset.ratio;
+      const index = preset.index === undefined ? 1.6 : preset.index;
+      const carrier = ctx.createOscillator();
+      carrier.type = preset.carrier || 'sine';
+      carrier.frequency.value = freq;
+      const mod = ctx.createOscillator();
+      mod.type = 'sine';
+      mod.frequency.value = freq * ratio;
+      const modGain = ctx.createGain();
+      const decay = preset.indexDecay || Math.max(0.15, preset.amp.d * 0.6);
+      modGain.gain.setValueAtTime(freq * index, t);
+      modGain.gain.exponentialRampToValueAtTime(Math.max(EPS, freq * index * 0.05), t + decay);
+      mod.connect(modGain).connect(carrier.frequency);
+      carrier.connect(amp);
+      nodes.push(carrier, mod);
+      tail = adsr(amp.gain, t, dur, peak, preset.amp);
+    } else if (kind === 'choir') {
+      /* Formants: three fixed resonances that sit where a vowel sits, so the
+         pitch moves under them and the tone reads as a voice rather than a
+         synth. These are roughly an "aah". */
+      const formants = preset.formants || [[730, 1], [1090, 0.5], [2440, 0.25]];
+      const src = ctx.createOscillator();
+      src.type = 'sawtooth';
+      src.frequency.value = freq;
+      const src2 = ctx.createOscillator();
+      src2.type = 'sawtooth';
+      src2.frequency.value = freq;
+      src2.detune.value = preset.detune || 9;
+      nodes.push(src, src2);
+
+      const mixIn = ctx.createGain();
+      mixIn.gain.value = 0.5;
+      src.connect(mixIn);
+      src2.connect(mixIn);
+
+      for (let i = 0; i < formants.length; i++) {
+        const bp = ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = formants[i][0];
+        bp.Q.value = preset.formantQ || 7;
+        const fg = ctx.createGain();
+        fg.gain.value = formants[i][1];
+        mixIn.connect(bp).connect(fg).connect(amp);
+      }
+      // A little breath keeps it from sounding like a filter sweep.
+      if (preset.breath) {
+        const n = noiseSource(ctx, t, dur + 0.3);
+        const bp = ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = 2200;
+        bp.Q.value = 0.8;
+        const bg = ctx.createGain();
+        bg.gain.value = preset.breath;
+        n.connect(bp).connect(bg).connect(amp);
+      }
+      if (preset.vibrato) {
+        const v = preset.vibrato;
+        const lfo = ctx.createOscillator();
+        lfo.type = 'sine';
+        lfo.frequency.value = v.rate || 4.8;
+        const depth = ctx.createGain();
+        depth.gain.setValueAtTime(0, t);
+        depth.gain.linearRampToValueAtTime(v.depth || 6, t + (v.delay || 0.3));
+        lfo.connect(depth);
+        depth.connect(src.detune);
+        depth.connect(src2.detune);
+        nodes.push(lfo);
+      }
+      tail = adsr(amp.gain, t, dur, peak, preset.amp);
+    } else if (kind === 'mallet') {
+      /* Struck bar. The partials of a marimba are not a harmonic series — they
+         sit near 1, 4 and 10 — which is exactly why it sounds wooden and not
+         like a sine with a fast envelope. */
+      const partials = preset.partials || [[1, 1, 1], [3.9, 0.4, 0.45], [9.2, 0.16, 0.22]];
+      for (let i = 0; i < partials.length; i++) {
+        const o = ctx.createOscillator();
+        o.type = 'sine';
+        o.frequency.value = freq * partials[i][0];
+        const g = ctx.createGain();
+        percEnv(g.gain, t, partials[i][1], Math.max(0.08, preset.amp.d * partials[i][2]));
+        o.connect(g).connect(amp);
+        nodes.push(o);
+      }
+      // The knock of the mallet itself.
+      const n = noiseSource(ctx, t, 0.03);
+      const hp = ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = 2000;
+      const ng = ctx.createGain();
+      percEnv(ng.gain, t, 0.12, 0.02);
+      n.connect(hp).connect(ng).connect(amp);
+      tail = adsr(amp.gain, t, dur, peak, preset.amp);
     } else if (kind === 'pluck') {
       const o1 = ctx.createOscillator(); o1.type = 'sawtooth'; o1.frequency.value = freq;
       const o2 = ctx.createOscillator(); o2.type = 'triangle'; o2.frequency.value = freq * 2;
@@ -252,7 +381,8 @@
       for (let i = 0; i < oscs.length; i++) {
         const spec = oscs[i];
         const o = ctx.createOscillator();
-        o.type = spec.type;
+        if (spec.wave) o.setPeriodicWave(periodicWave(ctx, spec.wave));
+        else o.type = spec.type;
         o.frequency.value = freq * Math.pow(2, spec.octave || 0);
         o.detune.value = spec.detune || 0;
         const g = ctx.createGain();
@@ -303,13 +433,30 @@
       tail = adsr(amp.gain, t, dur, peak, preset.amp);
     }
 
+    /* Tremolo sits after the envelope, on the level itself — the shimmer of a
+       vibraphone's rotating discs or a rotary speaker. */
     let node = amp;
+    if (preset.tremolo) {
+      const tr = preset.tremolo;
+      const trem = ctx.createGain();
+      trem.gain.value = 1 - (tr.depth || 0.25);
+      const lfo = ctx.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.value = tr.rate || 5;
+      const dep = ctx.createGain();
+      dep.gain.value = tr.depth || 0.25;
+      lfo.connect(dep).connect(trem.gain);
+      amp.connect(trem);
+      node = trem;
+      lfo.start(t);
+      lfo.stop(tail + 0.05);
+    }
     if (preset.drive) {
       const shaper = ctx.createWaveShaper();
       shaper.curve = driveCurve(ctx, preset.drive);
       const post = ctx.createGain();
       post.gain.value = 1 / (1 + preset.drive);
-      amp.connect(shaper).connect(post);
+      node.connect(shaper).connect(post);
       node = post;
     }
 
@@ -415,7 +562,7 @@
   const DRUM_PAN = {
     kick: 0, snare: 0, clap: 0.06, hh: 0.24, oh: 0.2,
     tom: -0.28, perc: -0.32, shaker: 0.34, crash: -0.18, rim: 0.26,
-    riser: 0, impact: 0
+    riser: 0, impact: 0, ride: 0.3, tamb: -0.26, cowbell: 0.18, conga: -0.24
   };
 
   function playDrum(ctx, out, t, inst, vel, kitId, dur) {
@@ -590,6 +737,87 @@
       return;
     }
 
+    if (inst === 'ride') {
+      const n = noiseSource(ctx, t, 0.9);
+      const hp = ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = 6000;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 9000;
+      bp.Q.value = 0.5;
+      const g = ctx.createGain();
+      percEnv(g.gain, t, 0.16 * vel, 0.75);
+      n.connect(hp).connect(bp).connect(g);
+      // The bell of the ride, which is what makes it a ride and not a long hat.
+      const o = ctx.createOscillator();
+      o.type = 'triangle';
+      o.frequency.value = 2400;
+      const og = ctx.createGain();
+      percEnv(og.gain, t, 0.06 * vel, 0.35);
+      o.connect(og);
+      toOut(g, 0.2);
+      toOut(og, 0.2);
+      o.start(t); o.stop(t + 0.4);
+      return;
+    }
+
+    if (inst === 'tamb') {
+      // Several short noise bursts: a tambourine is many jingles, not one.
+      for (let i = 0; i < 4; i++) {
+        const off = i * 0.006;
+        const n = noiseSource(ctx, t + off, 0.14);
+        const hp = ctx.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.value = 7000 + i * 900;
+        const g = ctx.createGain();
+        percEnv(g.gain, t + off, 0.1 * vel, 0.09 + i * 0.02);
+        n.connect(hp).connect(g);
+        toOut(g, 0.14);
+      }
+      return;
+    }
+
+    if (inst === 'cowbell') {
+      // Two detuned squares through a bandpass — the classic recipe.
+      [540, 800].forEach(function (f, i) {
+        const o = ctx.createOscillator();
+        o.type = 'square';
+        o.frequency.value = f;
+        const bp = ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = 2600;
+        bp.Q.value = 1.2;
+        const g = ctx.createGain();
+        percEnv(g.gain, t, (i ? 0.16 : 0.22) * vel, 0.28);
+        o.connect(bp).connect(g);
+        toOut(g, 0.16);
+        o.start(t); o.stop(t + 0.35);
+      });
+      return;
+    }
+
+    if (inst === 'conga') {
+      const o = ctx.createOscillator();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(340, t);
+      o.frequency.exponentialRampToValueAtTime(215, t + 0.16);
+      const g = ctx.createGain();
+      percEnv(g.gain, t, 0.5 * vel, 0.24);
+      o.connect(g);
+      toOut(g, 0.22);
+      o.start(t); o.stop(t + 0.35);
+      const n = noiseSource(ctx, t, 0.03);
+      const hp = ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = 1800;
+      const ng = ctx.createGain();
+      percEnv(ng.gain, t, 0.08 * vel, 0.02);
+      n.connect(hp).connect(ng);
+      toOut(ng, 0);
+      return;
+    }
+
     // perc — a short tuned blip
     const p = kit.perc || { f: 800, dec: 0.06, gain: 0.2 };
     const o = ctx.createOscillator();
@@ -633,6 +861,8 @@
     playNote: playNote,
     playDrum: playDrum,
     reverbImpulse: reverbImpulse,
+    periodicWave: periodicWave,
+    HARMONICS: HARMONICS,
     driveCurve: driveCurve,
     softClipCurve: softClipCurve,
     noiseBuffer: noiseBuffer,

@@ -802,6 +802,17 @@
     song.totalBeats = song.bars * BEATS_PER_BAR;
     song.duration = song.totalBeats * (60 / song.bpm);
 
+    /* Draw a different instrument for some parts each time. The genre still
+       decides the style; this decides which of its instruments turn up, so two
+       songs in the same style are not the same four sounds twice. */
+    song.presetOverride = {};
+    ['bass', 'chords', 'arp', 'lead', 'pad'].forEach(function (part) {
+      const cfg = genre[part];
+      if (cfg && cfg.alts && cfg.alts.length && rng.chance(0.55)) {
+        song.presetOverride[part] = rng.pick(cfg.alts);
+      }
+    });
+
     assignParts(song, rng);
     buildHarmony(rng, song, genre, mood);
 

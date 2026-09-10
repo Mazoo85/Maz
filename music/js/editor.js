@@ -21,12 +21,13 @@
   const MIN_ROWS = 15;
   const MAX_ROWS = 34;
 
-  const DRUM_ROWS = ['kick', 'snare', 'clap', 'hh', 'oh', 'tom', 'perc', 'shaker',
-                     'crash', 'riser', 'impact'];
+  const DRUM_ROWS = ['kick', 'snare', 'clap', 'hh', 'oh', 'ride', 'tom', 'conga',
+                     'perc', 'shaker', 'tamb', 'cowbell', 'crash', 'riser', 'impact'];
   const DRUM_LABEL = {
     kick: 'Kick', snare: 'Snare', clap: 'Clap', hh: 'Hat', oh: 'Open hat',
     tom: 'Tom', perc: 'Perc', shaker: 'Shaker', crash: 'Crash',
-    riser: 'Riser', impact: 'Impact'
+    riser: 'Riser', impact: 'Impact', ride: 'Ride', tamb: 'Tambourine',
+    cowbell: 'Cowbell', conga: 'Conga'
   };
 
   function Editor(opts) {

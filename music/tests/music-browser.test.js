@@ -198,6 +198,72 @@ function launchOptions() {
       r.id + ': stays balanced left to right (' + r.balance.toFixed(2) + ')');
   });
 
+  console.log('\n— every instrument makes a sound —');
+  const voices = await page.evaluate(async function () {
+    /* A preset with a broken envelope or a bad synthesis path renders silence,
+       and silence is exactly what nobody notices until they pick that sound.
+       So play every one of them and measure. */
+    function measure(buf) {
+      const ch = buf.getChannelData(0);
+      const chR = buf.numberOfChannels > 1 ? buf.getChannelData(1) : ch;
+      let peak = 0, sum = 0, bad = 0;
+      for (let i = 0; i < ch.length; i++) {
+        const v = ch[i];
+        if (!isFinite(v)) { bad++; continue; }
+        const a = Math.abs(v);
+        if (a > peak) peak = a;
+        sum += a * a;
+      }
+      let diff = 0;
+      for (let i = 0; i < ch.length; i++) diff += Math.abs(ch[i] - chR[i]);
+      return { peak: peak, rms: Math.sqrt(sum / ch.length), bad: bad, spread: diff / ch.length };
+    }
+    function buses(ctx) {
+      const dry = ctx.createGain(); dry.connect(ctx.destination);
+      const rev = ctx.createGain(); rev.connect(ctx.destination);
+      const del = ctx.createGain(); del.connect(ctx.destination);
+      return { dry: dry, rev: rev, del: del };
+    }
+
+    const notes = [];
+    const names = Object.keys(window.Genres.PRESETS);
+    for (let i = 0; i < names.length; i++) {
+      const ctx = new OfflineAudioContext(2, 44100 * 2, 44100);
+      window.Synth.playNote(ctx, buses(ctx), 0.05, 1.0, 220,
+        window.Genres.PRESETS[names[i]], 0.9, { brightness: 1 });
+      const m = measure(await ctx.startRendering());
+      notes.push({ name: names[i], peak: m.peak, rms: m.rms, bad: m.bad });
+    }
+
+    const hits = [];
+    const kits = Object.keys(window.Synth.KITS);
+    const pieces = Object.keys(window.Synth.DRUM_PAN);
+    for (let i = 0; i < pieces.length; i++) {
+      const ctx = new OfflineAudioContext(2, 44100 * 2, 44100);
+      window.Synth.playDrum(ctx, buses(ctx), 0.05, pieces[i], 0.9, 'electro', 1.0);
+      const m = measure(await ctx.startRendering());
+      hits.push({ name: pieces[i], peak: m.peak, bad: m.bad });
+    }
+    return { notes: notes, hits: hits, kits: kits.length };
+  });
+
+  const mute = voices.notes.filter(function (n) { return n.peak < 0.01; });
+  const nan = voices.notes.filter(function (n) { return n.bad > 0; });
+  check(voices.notes.length >= 30, 'a full palette of instruments (' + voices.notes.length + ')');
+  check(mute.length === 0, 'none of them are silent' +
+    (mute.length ? ': ' + mute.map(function (n) { return n.name; }).join(', ') : ''));
+  check(nan.length === 0, 'none of them produce broken samples' +
+    (nan.length ? ': ' + nan.map(function (n) { return n.name; }).join(', ') : ''));
+  const tooLoud = voices.notes.filter(function (n) { return n.peak > 1.4; });
+  check(tooLoud.length === 0, 'none of them are wildly louder than the rest' +
+    (tooLoud.length ? ': ' + tooLoud.map(function (n) {
+      return n.name + ' ' + n.peak.toFixed(2); }).join(', ') : ''));
+
+  const quietHits = voices.hits.filter(function (h) { return h.peak < 0.01; });
+  check(voices.hits.length >= 13, 'a full drum kit (' + voices.hits.length + ' pieces)');
+  check(quietHits.length === 0, 'every drum piece sounds' +
+    (quietHits.length ? ': ' + quietHits.map(function (h) { return h.name; }).join(', ') : ''));
+
   console.log('\n— the kick pumps the mix —');
   const pump = await page.evaluate(async function () {
     /* Measure the duck directly rather than inferring it from loudness spread.
@@ -216,6 +282,11 @@ function launchOptions() {
     }
     async function ratioFor(genre, forceOff) {
       const song = excerpt(window.Composer.compose({ seed: 'PUMP', genre: genre, length: 'short' }), 16, 8);
+      /* Measure the duck, not the instruments. Songs now draw alternate sounds
+         per seed, and a pad with a slow swell rises through the measurement
+         window and masks a duck that is working perfectly well. Pin the genre's
+         default instruments so this reads the same thing every time. */
+      song.presetOverride = {};
       const depth = song.genre.fx.sidechain;
       if (forceOff) {
         song.genre = Object.assign({}, song.genre, {

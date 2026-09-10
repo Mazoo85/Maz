@@ -39,6 +39,9 @@ python3 -m http.server         # or serve the folder: http://localhost:8000/musi
 - **Re-roll any single part.** Don't like the melody? Rewrite just the melody
   over the same chords. Everything else stays exactly as it was.
 - **Lock a part** you like, and a re-roll of everything writes around it.
+- **36 instruments** — guitar, harp, nylon, marimba, vibraphone, organ, brass,
+  reed, choir, voice, FM keys, supersaw, 808 and more — swappable on any part,
+  plus a 16-piece kit with ride, tambourine, cowbell and conga.
 - **Undo** everything, including a re-roll or a cleared part (Ctrl+Z).
 - **Hear notes as you draw them**, and **swap the instrument** on any part.
 - **Mixer** — mute or rebalance drums, bass, chords, arp, lead and pad.
@@ -96,10 +99,21 @@ Each song is built in this order:
    milliseconds and a little louder or quieter, so nothing sits perfectly on the
    grid.
 
-Then `synth.js` builds every sound from oscillators and filtered noise —
-subtractive synth voices, FM bells, Rhodes-style electric piano, 808s, and drum
-kits made from pitch-swept sines and shaped noise. There are no audio files
-anywhere in this app.
+Then `synth.js` builds every sound from scratch — **36 instruments and 16 drum
+pieces, no audio files anywhere in this app**. A filter can only take away what
+the oscillator already has, so rather than one sawtooth wearing different
+filters, there are five ways of making a sound:
+
+| Model | What it gives |
+|---|---|
+| Subtractive | Saw/square/triangle stacks through a filter — synth bass, pads, saw leads, supersaw |
+| Custom waveforms | Harmonic recipes turned into oscillator shapes — organ drawbars, brass, reeds, guitar, glass |
+| FM | Two operators with a falling modulation index — bells, FM keys, FM bass, metallic leads |
+| Formant | Fixed vowel resonances over a saw pair — choir and voice |
+| Mallet | Inharmonic partials near 1, 4 and 10 — marimba and vibraphone (which is *why* they sound wooden and not like a sine) |
+
+Each style also keeps a list of alternate instruments that suit it, and draws
+from them per song — so two lo-fi tracks are not the same four sounds twice.
 
 `engine.js` mixes it: each part has a place in the stereo field, velocity opens
 filters as well as raising level, pads drift under slow LFOs, and — where the
