@@ -548,7 +548,7 @@
         'A long beat. Then {HERO} does the small brave thing instead of the big safe one.',
         '{HERO} puts the {OBJ} down, and it is the first honest thing in the film.',
         'No music. {HERO} chooses, and the room lets them.',
-        '{HERO} looks at {OTHER} and finally tells the truth about {WANT}.'
+        '{HERO} looks at {OTHER} and finally says it out loud: they want to {WANT}.'
       ],
       shots: ['CLOSE — {HERO}, the moment before', 'SLOW PUSH — into the choice', 'WIDE — the room, the decision made']
     },

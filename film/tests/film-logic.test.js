@@ -13,7 +13,7 @@
 
 const path = require('path');
 const LEX = require(path.join(__dirname, '..', 'js', 'lexicon.js'));
-require(path.join(__dirname, '..', 'js', 'dialogue.js'));
+const DLG = require(path.join(__dirname, '..', 'js', 'dialogue.js'));
 const Parse = require(path.join(__dirname, '..', 'js', 'parse.js'));
 const Writer = require(path.join(__dirname, '..', 'js', 'screenplay.js'));
 const Format = require(path.join(__dirname, '..', 'js', 'format.js'));
@@ -222,6 +222,41 @@ test('a film does not use the same sound cue twice running', () => {
         assert(cues[i] !== cues[i - 1], 'the same sound twice running: ' + cues[i]);
       }
     }
+  });
+});
+
+test('what the hero wants only ever follows "to"', () => {
+  // Every want in the lexicon is a bare verb phrase — "find what went missing",
+  // "be forgiven" — so it reads as English after "to" and nowhere else.
+  // "finally tells the truth about find what went missing" was real output.
+  const sources = [];
+  LEX.BEATS.forEach((beat) => beat.action.forEach((line) => sources.push(['beat ' + beat.id, line])));
+  Object.keys(DLG.SHARED).forEach((beat) => DLG.SHARED[beat].forEach((exchange) =>
+    exchange.forEach((line) => sources.push(['dialogue ' + beat, line.line]))));
+  Object.keys(DLG.BY_GENRE).forEach((genre) => Object.keys(DLG.BY_GENRE[genre]).forEach((beat) =>
+    DLG.BY_GENRE[genre][beat].forEach((exchange) => exchange.forEach((line) =>
+      sources.push([genre + ' ' + beat, line.line])))));
+
+  let checked = 0;
+  sources.forEach(([where, line]) => {
+    let at = line.indexOf('{WANT}');
+    while (at !== -1) {
+      checked++;
+      assert(line.slice(Math.max(0, at - 3), at) === 'to ',
+        where + ': {WANT} must follow "to " — "' + line + '"');
+      at = line.indexOf('{WANT}', at + 1);
+    }
+  });
+  assert(checked > 0, 'no template uses {WANT} at all');
+
+  // And prove it end to end: every want, rendered, reads as a sentence.
+  LEX.WANTS.forEach((entry) => {
+    const idea = entry.keys[0] + ' in a kitchen';
+    const script = Writer.write(Parse.parse(idea), { length: 'festival' });
+    script.elements.forEach((e) => {
+      assert(!/truth about (?:find|get|say|take|prove|be|win|hold|stop|make|tell)\b/.test(e.text),
+        'ungrammatical want: ' + e.text);
+    });
   });
 });
 
