@@ -169,6 +169,41 @@ const longTrap = Composer.compose({ genre: 'trap', mood: 'driving', seed: 'long-
 check(longTrap.duration >= 300, 'a fast genre asked for 300s came back at ' + longTrap.duration.toFixed(1) + 's');
 check(longTrap.duration < 330, 'a fast genre asked for 300s overshot to ' + longTrap.duration.toFixed(1) + 's');
 
+/* --- opts.seconds must be validated and bounded before any bar arithmetic:
+ * only a finite number > 0 counts as an exact-duration request; NaN,
+ * Infinity, negative values and strings must fall through to the
+ * length-preset behaviour exactly, and a real request must be capped. --- */
+const MAX_EXACT_SECONDS = Composer.MAX_EXACT_SECONDS;
+
+let t0 = Date.now();
+const infGuard = Composer.compose({ genre: 'trap', mood: 'driving', seed: 'inf-guard', seconds: Infinity });
+let elapsed = Date.now() - t0;
+check(elapsed < 2000, 'compose with seconds:Infinity must return promptly, took ' + elapsed + 'ms');
+check(infGuard.duration <= MAX_EXACT_SECONDS + 40,
+  'seconds:Infinity must not blow past the cap (got ' + infGuard.duration.toFixed(1) + 's)');
+const noSecondsInf = Composer.compose({ genre: 'trap', mood: 'driving', seed: 'inf-guard' });
+check(JSON.stringify(infGuard.sections) === JSON.stringify(noSecondsInf.sections),
+  'seconds:Infinity must fall through to the length-preset path exactly (same seed, same result)');
+
+const nanGuard = Composer.compose({ genre: 'trap', mood: 'driving', seed: 'nan-guard', seconds: NaN });
+const noSecondsNan = Composer.compose({ genre: 'trap', mood: 'driving', seed: 'nan-guard' });
+check(JSON.stringify(nanGuard.sections) === JSON.stringify(noSecondsNan.sections),
+  'seconds:NaN must behave like no seconds was passed');
+
+const negGuard = Composer.compose({ genre: 'trap', mood: 'driving', seed: 'neg-guard', seconds: -50 });
+const noSecondsNeg = Composer.compose({ genre: 'trap', mood: 'driving', seed: 'neg-guard' });
+check(JSON.stringify(negGuard.sections) === JSON.stringify(noSecondsNeg.sections),
+  'a negative seconds must behave like no seconds was passed');
+
+t0 = Date.now();
+const hugeGuard = Composer.compose({ genre: 'trap', mood: 'driving', seed: 'huge-guard', seconds: 999999 });
+elapsed = Date.now() - t0;
+check(elapsed < 2000, 'compose with a huge finite seconds must return promptly, took ' + elapsed + 'ms');
+check(hugeGuard.duration >= MAX_EXACT_SECONDS,
+  'a capped exact-duration request must still not come back short (got ' + hugeGuard.duration.toFixed(1) + 's)');
+check(hugeGuard.duration <= MAX_EXACT_SECONDS + 40,
+  'a huge seconds request must come back capped, not enormous (got ' + hugeGuard.duration.toFixed(1) + 's)');
+
 const before = Composer.compose({ genre: 'lofi', mood: 'chill', length: 'short', seed: 'unchanged-99' });
 const after  = Composer.compose({ genre: 'lofi', mood: 'chill', length: 'short', seed: 'unchanged-99' });
 check(JSON.stringify(after.sections) === JSON.stringify(before.sections),

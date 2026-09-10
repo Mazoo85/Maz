@@ -641,6 +641,10 @@
   }
 
   const LENGTHS = { short: 75, medium: 135, long: 200 };
+  // Ceiling for an exact-duration request (opts.seconds). Films in this
+  // project top out around ten minutes; 30 minutes is generous headroom
+  // while making a runaway (e.g. Infinity, or a huge finite value) impossible.
+  const MAX_EXACT_SECONDS = 1800;
 
   function compose(opts) {
     opts = opts || {};
@@ -677,15 +681,23 @@
 
     // Length → bar count, rounded to whole 4-bar blocks. `opts.seconds` scores
     // to picture: it asks for an exact duration and never comes back short.
-    const targetSec = opts.seconds > 0 ? opts.seconds : (LENGTHS[opts.length] || LENGTHS.medium);
+    // It only counts as a request when it's a finite number > 0 — NaN,
+    // Infinity, negative values and strings all fall through to the
+    // `length` preset exactly as if opts.seconds had never been passed.
+    // A real request is capped at MAX_EXACT_SECONDS so bar arithmetic (and
+    // planStructure's loop below) can never run away or hang.
+    const exactSeconds = typeof opts.seconds === 'number' && isFinite(opts.seconds) && opts.seconds > 0
+      ? Math.min(opts.seconds, MAX_EXACT_SECONDS)
+      : null;
+    const targetSec = exactSeconds !== null ? exactSeconds : (LENGTHS[opts.length] || LENGTHS.medium);
     const barsPerSec = song.bpm / 60 / BEATS_PER_BAR;
-    let bars = opts.seconds > 0
+    let bars = exactSeconds !== null
       ? Math.ceil(targetSec * barsPerSec / 4) * 4
       : Math.round(targetSec * barsPerSec / 4) * 4;
     // The 112-bar ceiling keeps SONG FORGE's own songs a sane UI length; it
     // doesn't apply when a caller asked for an exact duration (opts.seconds)
     // — that path must never come back shorter than asked.
-    bars = opts.seconds > 0 ? Math.max(24, bars) : Math.max(24, Math.min(112, bars));
+    bars = exactSeconds !== null ? Math.max(24, bars) : Math.max(24, Math.min(112, bars));
 
     // A supplied plan is used as given — that is how a film scores to its own
     // cuts instead of to a pop-song pattern.
@@ -740,6 +752,7 @@
     chordAt: chordAt,
     sectionOf: sectionOf,
     BEATS_PER_BAR: BEATS_PER_BAR,
-    LENGTHS: LENGTHS
+    LENGTHS: LENGTHS,
+    MAX_EXACT_SECONDS: MAX_EXACT_SECONDS
   };
 })(window);
