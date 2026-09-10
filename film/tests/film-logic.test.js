@@ -765,6 +765,37 @@ test('any film, any length, produces a usable request', () => {
   });
 });
 
+test('a reel with an unknown genre falls back to drama', () => {
+  // A hand-built reel may have a genre the map has never seen (e.g., 'documentary').
+  // It should still yield a usable request, scored as drama.
+  const unknownReel = {
+    genre: 'documentary',
+    seed: 0x12345678,
+    duration: 32.5,
+    shots: [
+      { start: 0, duration: 10, scene: 1, beat: 'open', mood: 0.15, kind: 'action', set: 'room', time: 'DAY', framing: 'wide', camera: 'push', caption: 'First scene', speaker: null, characters: [] },
+      { start: 10, duration: 12.5, scene: 1, beat: 'spark', mood: 0.38, kind: 'action', set: 'room', time: 'DAY', framing: 'mid', camera: 'push', caption: 'Still scene one', speaker: null, characters: [] },
+      { start: 22.5, duration: 10, scene: 2, beat: 'after', mood: 0.18, kind: 'action', set: 'room', time: 'NIGHT', framing: 'close', camera: 'static', caption: 'Final scene', speaker: null, characters: [] }
+    ]
+  };
+
+  const req = Conductor.request(unknownReel);
+
+  // Should match drama's genre and mood
+  const drama = Conductor.MUSIC_FOR.drama;
+  eq(req.genre, drama.genre, 'fallback request should have drama genre');
+  eq(req.mood, drama.mood, 'fallback request should have drama mood');
+
+  // Should still be usable: has tempo and sections
+  assert(req.bpm > 0 && isFinite(req.bpm), 'request has no valid bpm');
+  assert(req.sections.length >= 1, 'request has no sections');
+  assert(req.sections.every((s) => s.bars >= 4), 'all sections must be at least 4 bars');
+
+  // Should cover the film
+  const musicSeconds = (req.sections.reduce((b, s) => b + s.bars, 0) * Conductor.BEATS_PER_BAR * 60) / req.bpm;
+  assert(musicSeconds >= unknownReel.duration - 1e-6, 'the score is shorter than the film');
+});
+
 /* ------------------------------------------------------------------ report */
 console.log('');
 if (failures.length) {
