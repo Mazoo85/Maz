@@ -192,6 +192,27 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
     check(await page.evaluate(() => FilmPlayer.canRecord(document.getElementById('filmCanvas'))),
       'this browser can record the film');
 
+    // The app must say which format is coming *before* anyone sits through a
+    // recording, and the file it produces must match what it promised.
+    const promised = await page.evaluate(() => {
+      const f = FilmPlayer.bestFormat();
+      return {
+        extension: f && f.extension,
+        playsOnApple: f && f.playsOnApple,
+        button: document.getElementById('recordFilm').textContent,
+        note: document.getElementById('filmNote').textContent,
+        warned: document.getElementById('filmNote').className.indexOf('warn') !== -1
+      };
+    });
+    check(promised.button.indexOf(promised.extension) !== -1,
+      `the button names the format it will save (${promised.button.trim()})`);
+    check(promised.playsOnApple
+      ? /plays on anything/i.test(promised.note)
+      : (promised.warned && /iPhone/i.test(promised.note)),
+      promised.playsOnApple
+        ? 'an mp4 is described as playing anywhere'
+        : 'a webm carries a plain warning that Apple devices cannot play it');
+
     await page.click('#playFilm');
     await page.waitForTimeout(3500);
     const clockPlaying = await page.textContent('#filmClock');
@@ -238,6 +259,15 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
     const bytes = fs.readFileSync(filmFile);
     check(/\.(webm|mp4)$/.test(film.suggestedFilename()) && bytes.length > 40000,
       `a real video file comes out (${film.suggestedFilename()}, ${Math.round(bytes.length / 1024)} KB)`);
+    check(film.suggestedFilename().endsWith(promised.extension),
+      `the saved file is the format the app promised (${promised.extension})`);
+    // An .mp4 that is secretly VP9 is the exact failure this guards: a file
+    // named for a format Apple devices play, that they cannot play.
+    if (promised.extension === '.mp4') {
+      check(bytes.indexOf(Buffer.from('avc1')) !== -1 || bytes.indexOf(Buffer.from('avcC')) !== -1,
+        'an .mp4 really carries H.264, not VP9 in an MP4 wrapper');
+      check(bytes.indexOf(Buffer.from('vp09')) === -1, 'no VP9 hiding inside the .mp4');
+    }
     check(bytes.indexOf(Buffer.from('V_VP9')) !== -1 || bytes.indexOf(Buffer.from('V_VP8')) !== -1,
       'the file carries a video track');
     check(bytes.indexOf(Buffer.from('A_OPUS')) !== -1, 'the file carries the soundtrack');

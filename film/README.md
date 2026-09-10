@@ -40,7 +40,7 @@ Then take it out of the app:
 | **⬇ shot list** | every scene, its job, and the shots to cover it | Notes, GitHub, anything Markdown |
 | **🖨 Print / PDF** | a clean white screenplay page | your printer, or "Save as PDF" |
 | **★ Save** | keeps the idea in this browser so you can reopen the exact same draft | this device only |
-| **⬇ Make the video file** | the finished film as a `.webm` video | any browser, VLC, YouTube, Instagram, a phone |
+| **⬇ Make the video file** | the finished film as a video | see *Which format you get*, below |
 
 The **seed** on each script is the number that draft came from. The same idea
 always gives the same film; a new seed gives a new take on it. Saving stores the
@@ -66,9 +66,28 @@ title card, scene by scene, and out on THE END.
   for the foil.
 - **Captions** carry the action lines and the dialogue, held long enough to read.
 
-Press **⬇ Make the video file** and you get a real `.webm` — VP9 picture, Opus
-sound — that plays in any browser, VLC, or straight up to YouTube, Instagram or
-a phone.
+### Which format you get
+
+The browser decides, not the app, and it matters:
+
+- **`.mp4` (H.264)** — plays on everything: iPhone, iPad, QuickTime, Android,
+  every browser, straight up to YouTube or Instagram. You get this when the
+  browser can genuinely record H.264.
+- **`.webm` (VP9)** — plays on computers (Chrome, Edge, Firefox, VLC) and
+  Android, but **not on an iPhone, an iPad or in QuickTime.**
+
+The app names the format on the button before you record, and says plainly when
+it is the second one. If you are stuck with a `.webm` and need it on an Apple
+device: upload it somewhere that re-encodes (YouTube, Google Photos), or run it
+through a free converter like HandBrake.
+
+One trap worth knowing about, because the app deliberately avoids it: a browser
+can answer "yes, I support `video/mp4`" and then write **VP9 video inside an MP4
+wrapper** — a file called `.mp4` that an iPhone still cannot play, which is
+worse than an honest `.webm` because the name promises otherwise. SCRIPT FORGE
+only asks for MP4 by an explicit H.264 codec string, and treats a bare claim as
+a no. Headless Chromium is one of the browsers that lies here; there is a test
+for it.
 
 **Worth knowing before you press it:**
 

@@ -210,12 +210,43 @@
     el.bigPlay.classList.remove('hidden');
     updateScrub(0, reel.duration);
 
-    if (!PlayerLib.canRecord(el.filmCanvas)) {
+    describeRecording();
+  }
+
+  /* Say what the download will be *before* anyone sits through a recording.
+   * Which format you get is the browser's choice, not ours, and it decides
+   * whether the film will play on an iPhone. */
+  function describeRecording() {
+    var format = PlayerLib.bestFormat();
+
+    if (!format || !PlayerLib.canRecord(el.filmCanvas)) {
       el.recordFilm.disabled = true;
+      el.recordFilm.textContent = '⬇ Make the video file';
       el.filmNote.className = 'film-note warn';
       el.filmNote.textContent =
         'This browser can play the film but cannot save it to a video file. ' +
         'Chrome, Edge and Firefox on a computer can — Safari and most phones cannot.';
+      return;
+    }
+
+    el.recordFilm.disabled = false;
+    el.recordFilm.textContent = '⬇ Make the video file (' + format.extension + ')';
+
+    var realTime = 'Recording plays the film once, in real time — a two-minute film takes ' +
+      'two minutes. Leave this tab open while it records.';
+
+    if (format.playsOnApple) {
+      el.filmNote.className = 'film-note';
+      el.filmNote.textContent = 'You will get an .mp4, which plays on anything — phone, ' +
+        'computer, TV. ' + realTime;
+    } else {
+      // An honest warning beats a file that fails silently on someone's phone.
+      el.filmNote.className = 'film-note warn';
+      el.filmNote.textContent = 'This browser saves .webm, which plays on computers ' +
+        '(Chrome, Edge, Firefox, VLC) and Android — but not on an iPhone, iPad or in ' +
+        'QuickTime. To get a film onto an Apple device, upload the .webm somewhere that ' +
+        're-encodes it, such as YouTube or Google Photos, or open it in a free converter ' +
+        'like HandBrake. ' + realTime;
     }
   }
 
@@ -350,8 +381,7 @@
         // timeline and the length reads as unknown wherever you share it.
         var played = player ? Math.max(1, player.time) : reel.duration;
         return window.FilmWebm.withDuration(result.blob, played).then(function (blob) {
-          var name = Format.slugify(current.title) +
-            (result.mime.indexOf('mp4') !== -1 ? '.mp4' : '.webm');
+          var name = Format.slugify(current.title) + result.format.extension;
           download(name, blob, result.mime);
           say('Your film is saved as ' + name + ' — ' + Reel.clock(played) + ' long.');
         });
@@ -361,10 +391,9 @@
       })
       .then(function () {
         recording = false;
-        el.recordFilm.disabled = false;
         el.playFilm.disabled = false;
         el.filmSize.disabled = false;
-        el.recordFilm.textContent = '⬇ Make the video file';
+        describeRecording();
       });
   }
 

@@ -496,6 +496,45 @@ test('any idea, any length, makes a playable reel', () => {
   });
 });
 
+console.log('\nCHOOSING A VIDEO FORMAT');
+
+test('a bare "video/mp4" claim is never trusted', () => {
+  // A browser can answer yes to the bare type and then write VP9 into an MP4
+  // wrapper — a .mp4 an iPhone cannot play. Measured, not guessed: headless
+  // Chromium does exactly this. Only an explicit H.264 string is a promise.
+  const liar = (type) => type === 'video/mp4' || type.indexOf('video/webm') === 0;
+  const chosen = PlayerLib.pickMimeType(liar);
+  eq(chosen.container, 'webm', 'a bare mp4 claim was believed');
+  assert(chosen.type.indexOf('codecs=') !== -1, 'chose a container with no codecs named');
+  eq(chosen.playsOnApple, false);
+});
+
+test('H.264 in MP4 is preferred when the browser really has it', () => {
+  const realChrome = (type) => type.indexOf('avc1') !== -1 || type.indexOf('webm') !== -1;
+  const chosen = PlayerLib.pickMimeType(realChrome);
+  eq(chosen.container, 'mp4');
+  eq(chosen.extension, '.mp4');
+  eq(chosen.playsOnApple, true, 'an H.264 mp4 must be marked as playing on Apple devices');
+  assert(chosen.type.indexOf('avc1') !== -1, 'picked an mp4 without naming H.264: ' + chosen.type);
+});
+
+test('every candidate names its codecs', () => {
+  PlayerLib.MP4_CANDIDATES.concat(PlayerLib.WEBM_CANDIDATES).forEach((type) => {
+    if (type === 'video/webm') return; // the last-resort fallback, and honest about it
+    assert(type.indexOf('codecs=') !== -1, 'candidate without codecs: ' + type);
+  });
+  PlayerLib.MP4_CANDIDATES.forEach((type) => {
+    assert(/avc1|h264/.test(type), 'an mp4 candidate that is not H.264: ' + type);
+  });
+  assert(PlayerLib.MP4_CANDIDATES.indexOf('video/mp4') === -1, 'the bare type is a candidate again');
+});
+
+test('webm falls back in order, and nothing at all is handled', () => {
+  eq(PlayerLib.pickMimeType((t) => t === 'video/webm;codecs=vp8,opus').type, 'video/webm;codecs=vp8,opus');
+  eq(PlayerLib.pickMimeType((t) => t === 'video/webm').container, 'webm');
+  eq(PlayerLib.pickMimeType(() => false), null, 'a browser with no format at all');
+});
+
 console.log('\nWRITING THE VIDEO FILE');
 
 test('a duration is spliced into a file that has none', () => {
