@@ -140,6 +140,25 @@
     return plan;
   }
 
+  var DEFAULT_BPM_RANGE = [72, 108];
+
+  /* Assemble everything above into the one object SONG FORGE composes from. */
+  function request(reel, opts) {
+    opts = opts || {};
+    var music = MUSIC_FOR[reel.genre] || MUSIC_FOR.drama;
+    var bpm = chooseBpm(reel, opts.bpmRange || DEFAULT_BPM_RANGE);
+    return {
+      genre: music.genre,
+      mood: music.mood,
+      // A film and its score share a lineage without sharing a number, so the
+      // music is stable per film but is not the same draw as the picture.
+      seed: (reel.seed ^ 0x5f356495) >>> 0,
+      seconds: reel.duration,
+      bpm: bpm,
+      sections: sectionPlan(reel, bpm)
+    };
+  }
+
   var API = {
     MUSIC_FOR: MUSIC_FOR,
     BEATS_PER_BAR: BEATS_PER_BAR,
@@ -150,7 +169,9 @@
     SECTION_TYPE: SECTION_TYPE,
     scenesOf: scenesOf,
     partsFor: partsFor,
-    sectionPlan: sectionPlan
+    sectionPlan: sectionPlan,
+    DEFAULT_BPM_RANGE: DEFAULT_BPM_RANGE,
+    request: request
   };
 
   if (typeof module === 'object' && module.exports) module.exports = API;

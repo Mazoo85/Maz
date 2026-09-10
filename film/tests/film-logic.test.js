@@ -736,6 +736,35 @@ test('every section carries its instruments', () => {
   eq(plan[plan.length - 1].parts.drums, false, 'the film ends on drums');
 });
 
+test('a reel becomes a complete score request', () => {
+  const reel = Reel.build(sample);
+  const forge = loadSongForge();
+  const music = Conductor.MUSIC_FOR[reel.genre];
+  const req = Conductor.request(reel, { bpmRange: forge.Genres.GENRES[music.genre].bpm });
+
+  eq(req.genre, music.genre);
+  eq(req.mood, music.mood);
+  eq(req.seconds, reel.duration);
+  assert(req.sections.length >= 1, 'a request with no sections');
+  assert(req.seed !== reel.seed, 'the score seed must not be the film seed itself');
+  assert(typeof req.seed === 'number' && isFinite(req.seed), 'bad seed: ' + req.seed);
+
+  const again = Conductor.request(reel, { bpmRange: forge.Genres.GENRES[music.genre].bpm });
+  eq(JSON.stringify(again), JSON.stringify(req), 'the same film must ask for the same score');
+});
+
+test('any film, any length, produces a usable request', () => {
+  ['', 'robot', 'two sisters rob a bank at midnight', 'a ghost in the attic'].forEach((idea) => {
+    ['micro', 'short', 'festival'].forEach((length) => {
+      const reel = Reel.build(Writer.write(Parse.parse(idea, { seed: 3 }), { length, seed: 3 }));
+      const req = Conductor.request(reel);
+      assert(req.bpm > 0 && req.sections.length > 0, 'unusable request for "' + idea.slice(0, 20) + '"');
+      const seconds = (req.sections.reduce((b, s) => b + s.bars, 0) * Conductor.BEATS_PER_BAR * 60) / req.bpm;
+      assert(seconds >= reel.duration - 1e-6, 'the score is shorter than the film');
+    });
+  });
+});
+
 /* ------------------------------------------------------------------ report */
 console.log('');
 if (failures.length) {
