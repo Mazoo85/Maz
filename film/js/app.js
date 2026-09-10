@@ -30,13 +30,23 @@
   var el = {};
   ['idea', 'examples', 'length', 'genre', 'titleInput', 'write', 'reroll', 'placeholder',
    'result', 'scriptTitle', 'scriptLogline', 'chipGenre', 'chipScenes', 'chipRuntime',
-   'chipSeed', 'tabScript', 'tabShots', 'viewScript', 'viewShots', 'copy', 'dlFountain',
-   'dlFdx', 'dlText', 'dlShots', 'print', 'save', 'status', 'libraryList', 'libCount',
-   'libEmpty', 'clearLib'].forEach(function (id) {
+   'chipSeed', 'tabScript', 'tabShots', 'tabFilm', 'viewScript', 'viewShots', 'viewFilm',
+   'copy', 'dlFountain', 'dlFdx', 'dlText', 'dlShots', 'print', 'save', 'status',
+   'libraryList', 'libCount', 'libEmpty', 'clearLib', 'filmCanvas', 'bigPlay', 'playFilm',
+   'stopFilm', 'recordFilm', 'filmSize', 'speakAloud', 'scrubBar', 'scrubFill', 'filmClock',
+   'filmNote'].forEach(function (id) {
     el[id] = document.getElementById(id);
   });
 
-  var current = null; // the script on screen
+  var Reel = window.FilmReel;
+  var PlayerLib = window.FilmPlayer;
+  var ScoreLib = window.FilmScore;
+
+  var current = null;  // the script on screen
+  var reel = null;     // that script, cut into shots
+  var player = null;   // the thing playing it
+  var score = null;    // the thing scoring it
+  var recording = false;
 
   /* ------------------------------------------------------------------ setup */
   function buildGenreOptions() {
@@ -112,6 +122,7 @@
 
     renderPage(script);
     renderShots(script);
+    buildFilm(script);
     el.result.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -175,18 +186,188 @@
   }
 
   function showTab(which) {
-    var onScript = which === 'script';
-    el.tabScript.classList.toggle('is-on', onScript);
-    el.tabShots.classList.toggle('is-on', !onScript);
-    el.tabScript.setAttribute('aria-selected', String(onScript));
-    el.tabShots.setAttribute('aria-selected', String(!onScript));
-    el.viewScript.classList.toggle('hidden', !onScript);
-    el.viewShots.classList.toggle('hidden', onScript);
+    var tabs = { script: el.tabScript, shots: el.tabShots, film: el.tabFilm };
+    var views = { script: el.viewScript, shots: el.viewShots, film: el.viewFilm };
+    Object.keys(tabs).forEach(function (key) {
+      var on = key === which;
+      tabs[key].classList.toggle('is-on', on);
+      tabs[key].setAttribute('aria-selected', String(on));
+      views[key].classList.toggle('hidden', !on);
+    });
+    // Leaving the film tab stops the film; nobody wants a soundtrack from a
+    // tab they are not looking at.
+    if (which !== 'film' && player && player.playing && !recording) stopFilm();
+  }
+
+  /* ------------------------------------------------------------------- film */
+  function buildFilm(script) {
+    stopFilm();
+    reel = Reel.build(script);
+    sizeCanvas();
+    // A poster frame, so the tab is never a black rectangle.
+    PlayerLib.drawFrame(el.filmCanvas.getContext('2d'),
+      el.filmCanvas.width, el.filmCanvas.height, reel, 1.2);
+    el.bigPlay.classList.remove('hidden');
+    updateScrub(0, reel.duration);
+
+    if (!PlayerLib.canRecord(el.filmCanvas)) {
+      el.recordFilm.disabled = true;
+      el.filmNote.className = 'film-note warn';
+      el.filmNote.textContent =
+        'This browser can play the film but cannot save it to a video file. ' +
+        'Chrome, Edge and Firefox on a computer can — Safari and most phones cannot.';
+    }
+  }
+
+  function sizeCanvas() {
+    var size = (el.filmSize.value || '1280x720').split('x');
+    el.filmCanvas.width = parseInt(size[0], 10);
+    el.filmCanvas.height = parseInt(size[1], 10);
+  }
+
+  function updateScrub(time, duration) {
+    var pct = duration ? Math.min(100, (time / duration) * 100) : 0;
+    el.scrubFill.style.width = pct + '%';
+    el.filmClock.textContent = Reel.clock(time) + ' / ' + Reel.clock(duration || 0);
+    el.scrubBar.setAttribute('aria-valuenow', String(Math.round(time)));
+    el.scrubBar.setAttribute('aria-valuemax', String(Math.round(duration || 0)));
+  }
+
+  /* Clicking the bar jumps there. Every frame is drawn from the reel on
+   * demand, so this works even on a part of the film nobody has watched yet. */
+  function scrubTo(fraction) {
+    if (!reel || recording) return;
+    if (!player) makePlayer();
+    player.seek(Math.max(0, Math.min(1, fraction)) * reel.duration);
+    el.bigPlay.classList.toggle('hidden', player.playing);
+  }
+
+  function makePlayer() {
+    if (score) score.close();
+    score = null;
+    if (ScoreLib.supported()) {
+      try {
+        score = new ScoreLib.Score(reel);
+      } catch (e) {
+        score = null; // a film with no sound still plays
+      }
+    }
+    player = new PlayerLib.Player(el.filmCanvas, reel, {
+      score: score,
+      onFrame: function (time, duration) { updateScrub(time, duration); },
+      onShot: function (shot) { if (el.speakAloud.checked) speakAloud(shot); },
+      onStop: function (ended) {
+        el.bigPlay.classList.remove('hidden');
+        el.playFilm.textContent = '▶ Play the film';
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        if (ended) updateScrub(reel.duration, reel.duration);
+      },
+      onPause: function () {
+        el.bigPlay.classList.remove('hidden');
+        el.playFilm.textContent = '▶ Resume';
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+      }
+    });
+    return player;
+  }
+
+  function playFilm() {
+    if (!reel) return;
+    if (player && player.playing) {
+      player.pause();
+      return;
+    }
+    showTab('film');
+    // Resuming keeps the canvas as it is; starting over resizes it first.
+    var resumeAt = player && !player.playing && player.time > 0 && player.time < reel.duration
+      ? player.time
+      : 0;
+    if (!resumeAt) sizeCanvas();
+    var p = resumeAt && player ? player : makePlayer();
+    p.play(resumeAt);
+    el.bigPlay.classList.add('hidden');
+    el.playFilm.textContent = '⏸ Pause';
+    if (!resumeAt) say('Playing. ' + Reel.clock(reel.duration) + ' of film.');
+  }
+
+  function stopFilm() {
+    if (player) {
+      if (player.playing) player.stop(false);
+      player.time = 0;
+    }
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    if (reel) {
+      PlayerLib.drawFrame(el.filmCanvas.getContext('2d'),
+        el.filmCanvas.width, el.filmCanvas.height, reel, 1.2);
+      updateScrub(0, reel.duration);
+    }
+    el.bigPlay.classList.remove('hidden');
+    el.playFilm.textContent = '▶ Play the film';
+  }
+
+  /* The browser's own voice, for anyone who would rather hear words than
+   * character blips. It cannot be recorded into the file — the browser keeps
+   * that audio to itself — so it is offered as a live extra, clearly labelled. */
+  function speakAloud(shot) {
+    if (!window.speechSynthesis || shot.kind !== 'line') return;
+    var utter = new window.SpeechSynthesisUtterance(shot.caption);
+    var voice = reel.voices[shot.speaker];
+    if (voice) {
+      utter.pitch = Math.max(0.4, Math.min(1.8, voice.pitch / 150));
+      utter.rate = voice.rate;
+    }
+    utter.volume = 0.9;
+    window.speechSynthesis.speak(utter);
+  }
+
+  function recordFilm() {
+    if (!reel || recording) return;
+    if (!PlayerLib.canRecord(el.filmCanvas)) {
+      say('This browser cannot save video. Try Chrome, Edge or Firefox on a computer.');
+      return;
+    }
+    showTab('film');
+    sizeCanvas();
+    recording = true;
+    el.recordFilm.disabled = true;
+    el.playFilm.disabled = true;
+    el.filmSize.disabled = true;
+    el.bigPlay.classList.add('hidden');
+    el.recordFilm.textContent = '● Recording…';
+
+    var p = makePlayer();
+    var big = el.filmCanvas.height >= 1080;
+
+    PlayerLib.record(p, { fps: 30, videoBitrate: big ? 6000000 : 2500000 })
+      .then(function (result) {
+        // The recorder cannot know the length while it is still recording, so
+        // write it into the file afterwards — otherwise players show no
+        // timeline and the length reads as unknown wherever you share it.
+        var played = player ? Math.max(1, player.time) : reel.duration;
+        return window.FilmWebm.withDuration(result.blob, played).then(function (blob) {
+          var name = Format.slugify(current.title) +
+            (result.mime.indexOf('mp4') !== -1 ? '.mp4' : '.webm');
+          download(name, blob, result.mime);
+          say('Your film is saved as ' + name + ' — ' + Reel.clock(played) + ' long.');
+        });
+      })
+      .catch(function (e) {
+        say('Recording failed: ' + (e && e.message ? e.message : 'unknown error'));
+      })
+      .then(function () {
+        recording = false;
+        el.recordFilm.disabled = false;
+        el.playFilm.disabled = false;
+        el.filmSize.disabled = false;
+        el.recordFilm.textContent = '⬇ Make the video file';
+      });
   }
 
   /* ---------------------------------------------------------------- exports */
-  function download(filename, text, mime) {
-    var blob = new Blob([text], { type: (mime || 'text/plain') + ';charset=utf-8' });
+  function download(filename, content, mime) {
+    var blob = content instanceof Blob
+      ? content
+      : new Blob([content], { type: (mime || 'text/plain') + ';charset=utf-8' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
@@ -326,6 +507,30 @@
 
   el.tabScript.addEventListener('click', function () { showTab('script'); });
   el.tabShots.addEventListener('click', function () { showTab('shots'); });
+  el.tabFilm.addEventListener('click', function () { showTab('film'); });
+
+  el.playFilm.addEventListener('click', playFilm);
+  el.bigPlay.addEventListener('click', playFilm);
+  el.stopFilm.addEventListener('click', function () {
+    if (recording && player) player.stop(true); // keep the take shot so far
+    else stopFilm();
+  });
+  el.recordFilm.addEventListener('click', recordFilm);
+
+  el.scrubBar.addEventListener('click', function (e) {
+    var box = el.scrubBar.getBoundingClientRect();
+    scrubTo((e.clientX - box.left) / box.width);
+  });
+  el.scrubBar.addEventListener('keydown', function (e) {
+    if (!reel || !player) return;
+    var step = e.key === 'ArrowLeft' ? -5 : e.key === 'ArrowRight' ? 5 : 0;
+    if (!step) return;
+    e.preventDefault();
+    scrubTo((player.time + step) / reel.duration);
+  });
+  el.filmSize.addEventListener('change', function () {
+    if (reel) buildFilm(current);
+  });
 
   el.copy.addEventListener('click', function () {
     if (current) copyText(Format.toText(current));

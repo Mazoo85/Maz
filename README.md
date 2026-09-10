@@ -24,7 +24,7 @@ is a dead end.
 | 🎮 | **ZOMBOID: ANCHORAGE** | Open-world zombie survival across a tile-built replica of downtown Anchorage, drawn as a 1990s SEGA arcade title. Five decaying needs, day/night hordes, looting, firearms. | [play](zomboid/) · [docs](zomboid/README.md) |
 | 🎮 | **DEAD SECTOR** | Phone-first, top-down twin-stick zombie shooter in one self-contained HTML file. Dual touch joysticks, escalating waves. | [play](shooter/) · [docs](shooter/README.md) |
 | 🎵 | **SONG FORGE** | Generative AI music maker: writes and plays complete songs — chords, bass, drums, arpeggio, melody — across 8 genres, with WAV and MIDI export. Offline, no API key. | [open](music/) · [docs](music/README.md) |
-| 🎬 | **SCRIPT FORGE** | Type what your film is about and get a formatted short-film screenplay back — scenes, dialogue, shot list, runtime. Fountain / Final Draft / text export. | [open](film/) · [docs](film/README.md) |
+| 🎬 | **SCRIPT FORGE** | Type what your film is about and get the film: a formatted screenplay, a shot list, and an animated short — sets, camera, voices, score — that plays in the page and downloads as a video file. | [open](film/) · [docs](film/README.md) |
 | ✍️ | **MADLIBS STORY FORGE** | Randomly forges story ideas broken into scene beats, ready to seed a storyboard or script. | [open](madlibs/) · [docs](madlibs/README.md) |
 | ⚙️ | **Maz Engine** | Native **C++20 + Vulkan + SDL3** game engine, 2D-first but architected so 3D drops in later. | [roadmap](docs/ROADMAP.md) · [architecture](docs/ARCHITECTURE.md) |
 | 🕸️ | **maz-scrape** | Recipe-driven scraper for static HTML — point it at a YAML recipe, get JSONL/CSV/SQLite. | [docs](scraper/README.md) |
@@ -64,7 +64,7 @@ Adding a project is three steps: drop its folder in, add an entry to
 ```
 node scripts/check-links.mjs     # every link + the project manifest (no deps, instant)
 node scripts/smoke-site.cjs      # boots the hub and all five apps in Chromium
-node film/tests/film-logic.test.js   # SCRIPT FORGE's reader, writer and exports
+node film/tests/film-logic.test.js   # SCRIPT FORGE's reader, writer, edit and exports
 ```
 
 The second one needs Playwright once: `npm --prefix music/tests install`.

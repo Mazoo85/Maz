@@ -231,6 +231,195 @@ test('runtime and page count are sane', () => {
   });
 });
 
+
+/* ====================================================================== film
+ * The reel is the edit — every shot, its length and what is heard over it —
+ * and it is pure data, so the whole cut of a film can be checked here without
+ * a browser. The container patcher is checked against a synthetic WebM.
+ */
+const Reel = require(path.join(__dirname, '..', 'js', 'film-reel.js'));
+const Art = require(path.join(__dirname, '..', 'js', 'film-art.js'));
+const Score = require(path.join(__dirname, '..', 'js', 'film-audio.js'));
+const PlayerLib = require(path.join(__dirname, '..', 'js', 'film-player.js'));
+const Webm = require(path.join(__dirname, '..', 'js', 'film-webm.js'));
+
+console.log('\nCUTTING THE FILM');
+
+const reel = Reel.build(sample);
+
+test('the reel opens on a title card and closes on THE END', () => {
+  eq(reel.shots[0].kind, 'title');
+  eq(reel.shots[0].caption, sample.title);
+  eq(reel.shots[reel.shots.length - 1].kind, 'end');
+  eq(reel.shots[reel.shots.length - 1].caption, 'THE END');
+});
+
+test('shots run back to back with no gaps or overlaps', () => {
+  let cursor = 0;
+  reel.shots.forEach((shot, i) => {
+    assert(Math.abs(shot.start - cursor) < 1e-9, `shot ${i} starts at ${shot.start}, expected ${cursor}`);
+    assert(shot.duration > 0.5, `shot ${i} is ${shot.duration}s — too short to read`);
+    cursor += shot.duration;
+  });
+  assert(Math.abs(reel.duration - cursor) < 1e-9, 'reel duration does not match its shots');
+});
+
+test('every line of dialogue makes it into the film', () => {
+  const spoken = sample.elements.filter((e) => e.type === 'dialogue').map((e) => e.text);
+  const onScreen = reel.shots.filter((s) => s.kind === 'line').map((s) => s.caption);
+  eq(onScreen.length, spoken.length, 'line count');
+  spoken.forEach((line, i) => eq(onScreen[i], line, 'line ' + i));
+});
+
+test('a line is always attributed to the character who said it', () => {
+  const cast = sample.characters.map((c) => c.name);
+  reel.shots.filter((s) => s.kind === 'line').forEach((shot) => {
+    assert(cast.indexOf(shot.speaker) !== -1, 'unknown speaker: ' + shot.speaker);
+    assert(shot.characters.indexOf(shot.speaker) !== -1, 'the speaker is not in frame');
+  });
+});
+
+test('captions are on screen long enough to read', () => {
+  reel.shots.forEach((shot) => {
+    if (!shot.caption || shot.kind === 'establish') return;
+    const words = shot.caption.trim().split(/\s+/).length;
+    // Comfortable reading is about four words a second; we allow three.
+    assert(shot.duration >= words / 3.2, 
+      `"${shot.caption.slice(0, 30)}…" — ${words} words in ${shot.duration.toFixed(1)}s`);
+  });
+});
+
+test('the film runs about as long as the script says it does', () => {
+  const claimed = parseInt(sample.runtime.replace(/[^0-9]/g, ''), 10) * 60;
+  assert(Math.abs(reel.duration - claimed) < claimed * 0.6 + 40,
+    `reel is ${reel.duration.toFixed(0)}s but the script claims ${claimed}s`);
+});
+
+test('CONTINUOUS is turned into a real time of day for the lighting', () => {
+  const times = new Set(reel.shots.map((s) => s.time));
+  ['CONTINUOUS', 'LATER'].forEach((word) => assert(!times.has(word), word + ' reached the artist'));
+  times.forEach((t) => assert(['DAY', 'NIGHT', 'DUSK', 'DAWN'].indexOf(t) !== -1, 'odd time: ' + t));
+});
+
+test('every location maps to a set that can be drawn', () => {
+  Object.keys(Reel.SET_BY_PLACE).forEach((place) => {
+    const set = Reel.SET_BY_PLACE[place];
+    assert(typeof Art.SETS[set] === 'function', place + ' maps to "' + set + '", which nothing draws');
+  });
+  // And every place in the lexicon resolves, mapped or not.
+  Object.keys(LEX.PLACES).forEach((key) => {
+    const set = Reel.setFor({ key, int: LEX.PLACES[key].int });
+    assert(typeof Art.SETS[set] === 'function', key + ' resolves to an undrawable set');
+  });
+});
+
+test('the two characters get voices that tell them apart', () => {
+  const voices = Object.keys(reel.voices).map((k) => reel.voices[k]);
+  eq(voices.length, 2);
+  assert(Math.abs(voices[0].pitch - voices[1].pitch) > 20, 'the two voices are too close to tell apart');
+  voices.forEach((v) => {
+    assert(v.pitch > 80 && v.pitch < 260, 'voice pitch out of range: ' + v.pitch);
+    assert(v.hue >= 0 && v.hue < 360, 'bad hue: ' + v.hue);
+  });
+});
+
+test('every genre has a palette and a piece of music', () => {
+  Object.keys(LEX.GENRES).forEach((genre) => {
+    const pal = Art.palette(genre, 'NIGHT', 0.5);
+    ['key', 'sky', 'deep', 'ink', 'shadow'].forEach((tone) => {
+      assert(Array.isArray(pal[tone]) && pal[tone].length === 3, genre + ' has no ' + tone);
+    });
+    // A night frame has to separate its tones or it is just a black rectangle.
+    const lum = (c) => c[0] * 0.3 + c[1] * 0.6 + c[2] * 0.1;
+    assert(lum(pal.key) - lum(pal.shadow) > 60, genre + ' has no contrast at night');
+    assert(lum(pal.deep) > lum(pal.shadow), genre + ' ground is darker than its shadows');
+    assert(Score.MUSIC[genre], genre + ' has no music');
+  });
+});
+
+test('the camera never leaves the frame empty', () => {
+  reel.shots.forEach((shot) => {
+    const f = PlayerLib.framingFor(shot, 0.5);
+    assert(f.zoom >= 0.9 && f.zoom <= 3, 'odd zoom on shot ' + shot.index + ': ' + f.zoom);
+    assert(Math.abs(f.panX) < 0.35 && Math.abs(f.panY) < 0.35, 'camera panned off the set');
+    if (shot.kind === 'line') {
+      const layout = PlayerLib.figureLayout(shot);
+      assert(layout.length >= 1, 'nobody in frame for a spoken line');
+    }
+  });
+});
+
+test('the film fades up from black and out to it', () => {
+  assert(PlayerLib.fadeAmount(reel, reel.shots[0], 0) > 0.9, 'no fade in');
+  assert(PlayerLib.fadeAmount(reel, reel.shots[reel.shots.length - 1], reel.duration - 0.01) > 0.9, 'no fade out');
+  const middle = reel.shots[Math.floor(reel.shots.length / 2)];
+  eq(PlayerLib.fadeAmount(reel, middle, middle.start + middle.duration / 2), 0, 'the middle of a shot is not black');
+});
+
+test('longer films are longer', () => {
+  const lengths = ['micro', 'short', 'festival'].map((length) =>
+    Reel.build(Writer.write(Parse.parse('a heist at a bank'), { length })).duration);
+  assert(lengths[0] < lengths[1] && lengths[1] < lengths[2], 'lengths did not increase: ' + lengths);
+});
+
+test('any idea, any length, makes a playable reel', () => {
+  ['', 'robot', 'a ghost in the attic', 'two sisters rob a bank at midnight',
+   'a very long idea '.repeat(30)].forEach((idea) => {
+    ['micro', 'short', 'festival'].forEach((length) => {
+      const r = Reel.build(Writer.write(Parse.parse(idea, { seed: 5 }), { length, seed: 5 }));
+      assert(r.duration > 20, 'reel too short for "' + idea.slice(0, 20) + '"');
+      assert(r.shots.every((s) => s.set && s.time && s.framing && s.camera), 'a shot is missing its setup');
+      assert(!/\{[A-Z_]+\}/.test(r.shots.map((s) => s.caption).join(' ')), 'unfilled slot in a caption');
+    });
+  });
+});
+
+console.log('\nWRITING THE VIDEO FILE');
+
+test('a duration is spliced into a file that has none', () => {
+  const before = Webm.fixture(false);
+  eq(Webm.readDuration(before), null, 'the fixture should start with no duration');
+  const after = Webm.patch(before, 81.4);
+  assert(Math.abs(Webm.readDuration(after) - 81.4) < 0.01, 'duration not written');
+  eq(after.length - before.length, 11, 'a spliced duration is 11 bytes');
+});
+
+test('an existing duration is overwritten in place', () => {
+  const before = Webm.fixture(true);
+  const after = Webm.patch(before, 42.5);
+  assert(Math.abs(Webm.readDuration(after) - 42.5) < 0.01, 'duration not replaced');
+  eq(after.length, before.length, 'the file should not grow');
+});
+
+test('everything after the patch is left byte-for-byte alone', () => {
+  const before = Webm.fixture(false);
+  const after = Webm.patch(before, 12);
+  // The cluster is the last 15 bytes of the fixture: the picture data must survive.
+  const tailBefore = Array.from(before.slice(-15)).join(',');
+  const tailAfter = Array.from(after.slice(-15)).join(',');
+  eq(tailAfter, tailBefore, 'the recorded data was disturbed');
+});
+
+test('a file it does not understand is handed back untouched', () => {
+  const junk = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
+  assert(Webm.patch(junk, 10) === junk, 'junk was modified');
+  const empty = new Uint8Array(0);
+  assert(Webm.patch(empty, 10) === empty, 'an empty file was modified');
+  const good = Webm.fixture(false);
+  assert(Webm.patch(good, 0) === good, 'a zero duration was written');
+  assert(Webm.patch(good, -5) === good, 'a negative duration was written');
+});
+
+test('variable-length integers round-trip', () => {
+  [0, 1, 42, 126, 127, 128, 16000, 2097150, 5000000].forEach((n) => {
+    const encoded = Webm.writeVint(n);
+    assert(encoded, 'could not encode ' + n);
+    const decoded = Webm.readVint(encoded, 0, false);
+    eq(decoded.value, n, 'round trip for ' + n);
+    eq(decoded.length, encoded.length, 'length for ' + n);
+  });
+});
+
 /* ------------------------------------------------------------------ report */
 console.log('');
 if (failures.length) {

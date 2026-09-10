@@ -71,13 +71,13 @@
       name: 'SCRIPT FORGE',
       kind: 'app',
       path: 'film/',
-      tag: 'idea → short film script',
+      tag: 'idea → finished short film',
       accent: '#ffb300',
       blurb:
-        'Type what your film is about and get a formatted short-film screenplay back — ' +
-        'scenes, action, dialogue, a shot list and a runtime. Exports to Fountain, ' +
-        'Final Draft and plain text.',
-      badges: ['Phone + desktop', 'Fountain / FDX export', 'Zero deps'],
+        'Type what your film is about and get the whole thing back: a formatted ' +
+        'screenplay, a shot list, and an animated short film — sets, camera moves, ' +
+        'character voices and a score — that you can watch and download as a video file.',
+      badges: ['Phone + desktop', 'Plays + records video', 'Fountain / FDX export'],
       docs: 'film/README.md'
     },
     {

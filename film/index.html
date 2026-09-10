@@ -75,10 +75,50 @@
         <div class="tabs" role="tablist">
           <button class="tab is-on" id="tabScript" role="tab" aria-selected="true" aria-controls="viewScript">Screenplay</button>
           <button class="tab" id="tabShots" role="tab" aria-selected="false" aria-controls="viewShots">Shot list</button>
+          <button class="tab" id="tabFilm" role="tab" aria-selected="false" aria-controls="viewFilm">🎬 The film</button>
         </div>
 
         <div id="viewScript" class="page" role="tabpanel" aria-labelledby="tabScript"></div>
         <div id="viewShots" class="shots hidden" role="tabpanel" aria-labelledby="tabShots"></div>
+
+        <!-- ------------------------------------------------------- the film -->
+        <div id="viewFilm" class="film hidden" role="tabpanel" aria-labelledby="tabFilm">
+          <div class="screen">
+            <canvas id="filmCanvas" width="1280" height="720" aria-label="The film"></canvas>
+            <button id="bigPlay" class="big-play" aria-label="Play the film">▶</button>
+          </div>
+
+          <div class="scrub">
+            <div class="scrub-bar" id="scrubBar" role="slider" tabindex="0" aria-label="Jump to a moment in the film" aria-valuemin="0" aria-valuenow="0" aria-valuemax="0"><div id="scrubFill" class="scrub-fill"></div></div>
+            <span id="filmClock" class="film-clock">0:00 / 0:00</span>
+          </div>
+
+          <div class="film-actions no-print">
+            <button id="playFilm" class="primary">▶ Play the film</button>
+            <button id="stopFilm">⏹ Stop</button>
+            <button id="recordFilm" class="accent">⬇ Make the video file</button>
+          </div>
+
+          <div class="film-options">
+            <label class="opt-row" for="filmSize">
+              <span>Picture size</span>
+              <select id="filmSize">
+                <option value="1280x720" selected>720p — smaller file</option>
+                <option value="1920x1080">1080p — sharper, bigger file</option>
+              </select>
+            </label>
+            <label class="opt-row check">
+              <input type="checkbox" id="speakAloud" />
+              <span>Also read the lines aloud in a browser voice
+                <em>(plays on this device only — the video file keeps the character voices)</em></span>
+            </label>
+          </div>
+
+          <p id="filmNote" class="film-note">
+            Recording plays the film once, in real time — a two-minute film takes two minutes.
+            Leave this tab open while it records.
+          </p>
+        </div>
 
         <div class="result-actions no-print">
           <button id="copy">📋 Copy</button>
@@ -116,6 +156,11 @@
   <script src="js/parse.js"></script>
   <script src="js/screenplay.js"></script>
   <script src="js/format.js"></script>
+  <script src="js/film-reel.js"></script>
+  <script src="js/film-art.js"></script>
+  <script src="js/film-audio.js"></script>
+  <script src="js/film-webm.js"></script>
+  <script src="js/film-player.js"></script>
   <script src="js/app.js"></script>
 
 <!-- shared MAZ ARCADE nav: back to the hub + jump to any other project -->

@@ -176,6 +176,97 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
     await page.waitForTimeout(150);
     check(/type what your film is about/i.test(await page.textContent('#status')), 'an empty idea is refused politely');
 
+    console.log('\nTHE FILM');
+    await page.click('#tabFilm');
+    await page.waitForTimeout(400);
+
+    const poster = async () => page.evaluate(() => {
+      const c = document.getElementById('filmCanvas');
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      let lit = 0;
+      for (let i = 0; i < d.length; i += 4000) if (d[i] + d[i + 1] + d[i + 2] > 45) lit++;
+      return lit;
+    });
+    check((await poster()) > 50, 'the film tab opens on a painted poster frame, not a black box');
+    check(/0:00 \/ [0-9]:[0-9]{2}/.test(await page.textContent('#filmClock')), 'the film has a running time');
+    check(await page.evaluate(() => FilmPlayer.canRecord(document.getElementById('filmCanvas'))),
+      'this browser can record the film');
+
+    await page.click('#playFilm');
+    await page.waitForTimeout(3500);
+    const clockPlaying = await page.textContent('#filmClock');
+    check(/0:0[2-9]/.test(clockPlaying), `the film plays (clock reads ${clockPlaying})`);
+    check((await page.textContent('#playFilm')).indexOf('Pause') !== -1, 'the play button offers to pause');
+
+    // The picture has to actually change, or it is a still, not a film.
+    const frameA = await page.evaluate(() => document.getElementById('filmCanvas').toDataURL().length);
+    await page.waitForTimeout(1200);
+    const frameB = await page.evaluate(() => document.getElementById('filmCanvas').toDataURL().length);
+    check(frameA !== frameB, 'the picture moves while it plays');
+
+    await page.click('#playFilm'); // pause
+    await page.waitForTimeout(300);
+    check((await page.textContent('#playFilm')).indexOf('Resume') !== -1, 'pausing offers to resume');
+
+    // Scrub to roughly the middle.
+    const bar = await page.$('#scrubBar');
+    const box = await bar.boundingBox();
+    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height / 2);
+    await page.waitForTimeout(300);
+    const scrubbed = await page.textContent('#filmClock');
+    const seconds = parseInt(scrubbed.split(':')[1], 10) + parseInt(scrubbed.split(':')[0], 10) * 60;
+    check(seconds > 20, `clicking the bar jumps into the film (landed at ${scrubbed})`);
+    check((await poster()) > 50, 'the frame it jumped to is drawn');
+
+    await page.click('#stopFilm');
+    await page.waitForTimeout(300);
+    check((await page.textContent('#filmClock')).indexOf('0:00') === 0, 'stop returns to the start');
+
+    console.log('\nRECORDING A VIDEO FILE');
+    // Record a few seconds, then stop early: a stopped take must still produce
+    // a real, finished file rather than nothing.
+    const filmDownload = page.waitForEvent('download', { timeout: 120000 });
+    await page.click('#recordFilm');
+    await page.waitForTimeout(700);
+    check((await page.textContent('#recordFilm')).indexOf('Recording') !== -1, 'it says it is recording');
+    await page.waitForTimeout(7000);
+    await page.click('#stopFilm');
+
+    const film = await filmDownload;
+    const filmFile = path.join(downloadDir, film.suggestedFilename());
+    await film.saveAs(filmFile);
+    const bytes = fs.readFileSync(filmFile);
+    check(/\.(webm|mp4)$/.test(film.suggestedFilename()) && bytes.length > 40000,
+      `a real video file comes out (${film.suggestedFilename()}, ${Math.round(bytes.length / 1024)} KB)`);
+    check(bytes.indexOf(Buffer.from('V_VP9')) !== -1 || bytes.indexOf(Buffer.from('V_VP8')) !== -1,
+      'the file carries a video track');
+    check(bytes.indexOf(Buffer.from('A_OPUS')) !== -1, 'the file carries the soundtrack');
+
+    const Webm = require(path.join(ROOT, 'film', 'js', 'film-webm.js'));
+    const written = Webm.readDuration(new Uint8Array(bytes));
+    check(written !== null && written > 3 && written < 30,
+      `the file knows how long it is (${written === null ? 'no duration' : written.toFixed(1) + 's'})`);
+
+    // And it has to play back — the whole point of the exercise.
+    const playsBack = await page.evaluate(async (dataUrl) => {
+      const v = document.createElement('video');
+      v.src = dataUrl;
+      v.muted = true;
+      await new Promise((res, rej) => { v.onloadedmetadata = res; v.onerror = () => rej(new Error('load')); });
+      await v.play();
+      await new Promise((r) => setTimeout(r, 1500));
+      const c = document.createElement('canvas');
+      c.width = 320; c.height = 180;
+      c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      let lit = 0;
+      for (let i = 0; i < d.length; i += 400) if (d[i] + d[i + 1] + d[i + 2] > 60) lit++;
+      return { duration: v.duration, lit };
+    }, 'data:video/webm;base64,' + bytes.toString('base64'));
+    check(isFinite(playsBack.duration) && playsBack.duration > 3,
+      `the saved film reports its length on playback (${playsBack.duration}s)`);
+    check(playsBack.lit > 20, 'the saved film shows a picture when played');
+
     console.log('\nPHONE LAYOUT');
     const phone = await context.newPage();
     await phone.setViewportSize({ width: 390, height: 780 });
