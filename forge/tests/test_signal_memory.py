@@ -34,8 +34,22 @@ def test_settled_observations_are_ignored():
 
 
 def test_relation_lines_are_ignored():
-    line = '{"type":"relation","from":"A","to":"B","relationType":"uses"}'
-    assert parse(line) == []
+    # Relation record with observations that would match if treated as an entity
+    relation_line = (
+        '{"type":"relation","from":"A","to":"B","relationType":"uses",'
+        '"observations":["Still to implement the connection"]}'
+    )
+    # Relations are ignored despite having matching observations
+    assert parse(relation_line) == []
+
+    # The same observation in an entity record DOES produce a candidate
+    entity_line = (
+        '{"type":"entity","name":"A","entityType":"component",'
+        '"observations":["Still to implement the connection"]}'
+    )
+    cands = parse(entity_line)
+    assert len(cands) == 1
+    assert "connection" in cands[0].task
 
 
 def test_malformed_lines_are_skipped():
@@ -44,4 +58,20 @@ def test_malformed_lines_are_skipped():
 
 
 def test_empty_input_yields_nothing():
+    # Empty string yields nothing
     assert parse("") == []
+
+    # Blank lines and whitespace-only lines do not break parsing;
+    # valid records among them are still found
+    text = (
+        "\n"
+        "  \n"
+        "\t\n"
+        '{"type":"entity","name":"X","entityType":"component",'
+        '"observations":["Still to add feature"]}\n'
+        "\n"
+        "   \t   \n"
+    )
+    cands = parse(text)
+    assert len(cands) == 1
+    assert "feature" in cands[0].task
