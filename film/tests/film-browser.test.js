@@ -261,21 +261,33 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
       `a real video file comes out (${film.suggestedFilename()}, ${Math.round(bytes.length / 1024)} KB)`);
     check(film.suggestedFilename().endsWith(promised.extension),
       `the saved file is the format the app promised (${promised.extension})`);
-    // An .mp4 that is secretly VP9 is the exact failure this guards: a file
-    // named for a format Apple devices play, that they cannot play.
-    if (promised.extension === '.mp4') {
-      check(bytes.indexOf(Buffer.from('avc1')) !== -1 || bytes.indexOf(Buffer.from('avcC')) !== -1,
-        'an .mp4 really carries H.264, not VP9 in an MP4 wrapper');
-      check(bytes.indexOf(Buffer.from('vp09')) === -1, 'no VP9 hiding inside the .mp4');
-    }
-    check(bytes.indexOf(Buffer.from('V_VP9')) !== -1 || bytes.indexOf(Buffer.from('V_VP8')) !== -1,
-      'the file carries a video track');
-    check(bytes.indexOf(Buffer.from('A_OPUS')) !== -1, 'the file carries the soundtrack');
 
-    const Webm = require(path.join(ROOT, 'film', 'js', 'film-webm.js'));
-    const written = Webm.readDuration(new Uint8Array(bytes));
-    check(written !== null && written > 3 && written < 30,
-      `the file knows how long it is (${written === null ? 'no duration' : written.toFixed(1) + 's'})`);
+    // Which browser this suite runs on decides which format it gets — a
+    // Chromium with H.264 records MP4, one without records WebM — so the
+    // checks have to know both. Both paths get exercised in practice: CI's
+    // Chromium has H.264, a plain local one does not.
+    const has = (marker) => bytes.indexOf(Buffer.from(marker)) !== -1;
+    const isMp4 = promised.extension === '.mp4';
+
+    if (isMp4) {
+      // An .mp4 that is secretly VP9 is the exact failure this guards: a file
+      // named for the format Apple devices play, that they cannot play.
+      check(has('avc1') || has('avcC'), 'an .mp4 really carries H.264, not VP9 in an MP4 wrapper');
+      check(!has('vp09'), 'no VP9 hiding inside the .mp4');
+      check(has('mp4a') || has('esds'), 'the file carries the soundtrack (AAC)');
+      // MediaRecorder writes its own duration into an MP4; the playback check
+      // below is what proves it, since nothing here parses MP4 boxes.
+    } else {
+      check(has('V_VP9') || has('V_VP8'), 'the file carries a video track (VP8/VP9)');
+      check(has('A_OPUS'), 'the file carries the soundtrack (Opus)');
+
+      // WebM is the case where the browser leaves the duration out and the app
+      // splices it in, so here the container itself has to know.
+      const Webm = require(path.join(ROOT, 'film', 'js', 'film-webm.js'));
+      const written = Webm.readDuration(new Uint8Array(bytes));
+      check(written !== null && written > 3 && written < 30,
+        `the file knows how long it is (${written === null ? 'no duration' : written.toFixed(1) + 's'})`);
+    }
 
     // And it has to play back — the whole point of the exercise.
     const playsBack = await page.evaluate(async (dataUrl) => {
