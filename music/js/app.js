@@ -531,8 +531,13 @@
           el('exportBar').style.width = '85%';
           const blob = X.encodeWav(buffer);
           el('exportBar').style.width = '100%';
-          X.download(blob, X.safeName(state.song.title) + '-' + X.safeName(state.song.seed) + '.wav');
-          status('Audio downloaded.');
+          return X.deliver(blob, X.safeName(state.song.title) + '-' + X.safeName(state.song.seed) + '.wav')
+            .then(function (r) {
+              status(r === 'declined' ? 'Download cancelled.'
+                : r === 'busy' ? 'Another download is still open — try again in a moment.'
+                : r === 'unavailable' ? 'This browser would not accept the file.'
+                : 'Audio saved.');
+            });
         }).catch(function (err) {
           status('Render failed: ' + err.message, true);
         }).then(function () {
@@ -549,8 +554,13 @@
     el('midiBtn').addEventListener('click', function () {
       if (!state.song) return;
       const blob = X.buildMidi(state.song);
-      X.download(blob, X.safeName(state.song.title) + '-' + X.safeName(state.song.seed) + '.mid');
-      status('MIDI downloaded — open it in any music app.');
+      X.deliver(blob, X.safeName(state.song.title) + '-' + X.safeName(state.song.seed) + '.mid')
+        .then(function (r) {
+          status(r === 'declined' ? 'Download cancelled.'
+            : r === 'busy' ? 'Another download is still open — try again in a moment.'
+            : r === 'unavailable' ? 'This browser would not accept the file.'
+            : 'MIDI saved — open it in any music app.');
+        });
     });
   }
 
@@ -722,6 +732,19 @@
     });
 
     window.addEventListener('resize', function () { resizeRoll(); });
+
+    // Hosted, the file arrives zipped; as a plain page it downloads directly.
+    X.hostedSave().then(function (hosted) {
+      if (!hosted) return;
+      el('wavBtn').textContent = '⬇ Save audio (.wav in a .zip)';
+      el('midiBtn').textContent = '⬇ Save MIDI (.mid in a .zip)';
+      const note = el('exportNote');
+      if (note) {
+        note.textContent = 'Files arrive inside a .zip — open it to get the track out. ' +
+          'The WAV is the finished song; the MIDI holds every note on its own track, so you can ' +
+          'open it in GarageBand, Ableton, FL Studio, Logic or MuseScore and change anything.';
+      }
+    });
 
     const shared = readHash();
     if (shared) {

@@ -6,6 +6,9 @@
   <meta name="theme-color" content="#0b0714" />
   <meta name="description" content="SONG FORGE — a generative AI music maker that composes and plays complete tracks in your browser. No install, no account, no cloud." />
   <title>SONG FORGE — AI Music Maker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" />
   <link rel="stylesheet" href="css/style.css" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230b0714'/><rect x='3' y='9' width='3' height='4' fill='%23ff2d95'/><rect x='5' y='3' width='2' height='8' fill='%23ff2d95'/><rect x='10' y='7' width='3' height='6' fill='%2300e5ff'/><rect x='12' y='2' width='2' height='10' fill='%2300e5ff'/></svg>" />
 </head>
@@ -114,7 +117,7 @@
       <button type="button" class="wide-btn" id="wavBtn">⬇ Download audio (.wav)</button>
       <button type="button" class="wide-btn" id="midiBtn">⬇ Download MIDI (.mid)</button>
     </div>
-    <p class="panel-hint">
+    <p class="panel-hint" id="exportNote">
       The WAV is the finished track. The MIDI holds every note on separate tracks, so you can
       open it in GarageBand, Ableton, FL Studio, Logic or MuseScore and change anything.
     </p>

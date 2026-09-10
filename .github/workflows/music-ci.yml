@@ -48,3 +48,18 @@ jobs:
       - name: Run browser suite
         working-directory: music/tests
         run: node music-browser.test.js
+
+      - name: Rebuild the single-file app
+        run: node music/build-standalone.js
+
+      - name: Committed songforge.html must match the sources
+        run: |
+          if ! git diff --quiet -- music/songforge.html; then
+            echo "music/songforge.html is stale. Run: node music/build-standalone.js"
+            git diff --stat -- music/songforge.html
+            exit 1
+          fi
+
+      - name: Test the single-file app
+        working-directory: music/tests
+        run: node standalone.test.js

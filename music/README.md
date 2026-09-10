@@ -8,9 +8,15 @@ verses, a chorus, a bridge and an outro, then synthesises the whole thing live.
 
 No install, no account, no API key, no internet connection required.
 
+**The easiest way to use it: [`music/songforge.html`](songforge.html)** — the whole
+app as one file. Download it, double-click it, and it runs. No server, no
+install, and it keeps working with the wifi off. Save it to a phone and it
+opens there too.
+
 ```
-open music/index.html          # double-click it, or:
-python3 -m http.server         # then visit http://localhost:8000/music/
+open music/songforge.html      # the single-file app — double-click it
+open music/index.html          # the same app, unbundled, for development
+python3 -m http.server         # or serve the folder: http://localhost:8000/music/
 ```
 
 ---
@@ -92,7 +98,14 @@ music/js/synth.js     # Web Audio instruments and drum kits, all synthesised
 music/js/engine.js    # mixer graph, look-ahead scheduler, offline render
 music/js/export.js    # .wav encoder and standard MIDI file writer
 music/js/app.js       # interface, transport, mixer, note timeline
+
+music/build-standalone.js  # folds all of the above into one file
+music/songforge.html       # the built single-file app (generated — do not edit)
 ```
+
+Edit the files in `js/` and `css/`, then run `node music/build-standalone.js`
+to regenerate `songforge.html`. CI fails if the built file has drifted from its
+sources, so the one you hand someone is always the one in the repo.
 
 `composer.js` never makes a sound and `synth.js` never makes a decision — the
 score is plain data (`{ t, d, p, v }` in beats), which is why the same code path
@@ -108,11 +121,16 @@ node music/tests/music-logic.test.js       # 120 songs: structure, harmony, dete
 npm --prefix music/tests install           # browser suite needs Playwright
 npx --prefix music/tests playwright install chromium
 node music/tests/music-browser.test.js     # real browser: UI, playback, audio, exports
+node music/tests/standalone.test.js       # the built single file, opened from disk
 ```
 
 The logic suite checks every genre × mood × length combination for gapless
 harmony, in-range pitches, chords that don't contradict themselves, and that a
 seed always reproduces the same song.
+
+The standalone suite opens `songforge.html` over `file://` — no server, exactly
+how a person would — because inlining is the kind of step that breaks a page
+quietly: a lost script, a stray closing tag, a stylesheet that never applied.
 
 The browser suite renders every genre offline and *measures the waveform* —
 peak, RMS and crest factor — so problems you can only hear cannot pass
