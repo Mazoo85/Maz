@@ -57,3 +57,118 @@ def test_candidate_dict_round_trip():
 def test_candidate_dict_is_json_serialisable():
     c = Candidate(task="t", source="s", kind="todo", paths=("a.js",))
     assert json.loads(json.dumps(candidate_to_dict(c)))["paths"] == ["a.js"]
+
+
+# Guards for misshapen collector returns (isinstance check) and read_pulse (dict check)
+
+
+def _returns_dict(root):
+    """Collector that returns a dict instead of list of Candidates."""
+    return {"wrong": "shape"}
+
+
+def _returns_strings(root):
+    """Collector that returns a list of strings."""
+    return ["not", "candidates"]
+
+
+def _returns_dicts(root):
+    """Collector that returns a list of dicts instead of Candidates."""
+    return [{"task": "bad", "source": "wrong"}, {"task": "also bad"}]
+
+
+def _returns_mixed(root):
+    """Collector that returns a mixed list with Candidate and dict."""
+    return [
+        Candidate(task="good", source="mixed:1", kind="test"),
+        {"not": "a candidate"}
+    ]
+
+
+def test_collector_returning_dict_fails_alone(tmp_path):
+    """A collector returning a dict fails alone; healthy collector still contributes."""
+    pulse = sense(tmp_path, ForgeConfig(),
+                  collectors={"bad": _returns_dict, "good": _ok("good")})
+    # Bad collector failed with error, zero count
+    assert pulse["sources"]["bad"]["ok"] is False
+    assert pulse["sources"]["bad"]["error"]  # non-empty
+    assert pulse["sources"]["bad"]["count"] == 0
+    # Good collector still contributes
+    assert pulse["sources"]["good"]["ok"] is True
+    assert pulse["sources"]["good"]["count"] == 1
+    assert len(pulse["candidates"]) == 1
+
+
+def test_collector_returning_strings_fails_alone(tmp_path):
+    """A collector returning a list of strings fails alone."""
+    pulse = sense(tmp_path, ForgeConfig(),
+                  collectors={"bad": _returns_strings, "good": _ok("good")})
+    # Bad collector failed
+    assert pulse["sources"]["bad"]["ok"] is False
+    assert pulse["sources"]["bad"]["error"]
+    assert pulse["sources"]["bad"]["count"] == 0
+    # Good collector still contributes
+    assert pulse["sources"]["good"]["ok"] is True
+    assert pulse["sources"]["good"]["count"] == 1
+    assert len(pulse["candidates"]) == 1
+
+
+def test_collector_returning_dicts_fails_alone(tmp_path):
+    """A collector returning a list of dicts (not Candidates) fails alone."""
+    pulse = sense(tmp_path, ForgeConfig(),
+                  collectors={"bad": _returns_dicts, "good": _ok("good")})
+    # Bad collector failed
+    assert pulse["sources"]["bad"]["ok"] is False
+    assert pulse["sources"]["bad"]["error"]
+    assert pulse["sources"]["bad"]["count"] == 0
+    # Good collector still contributes
+    assert pulse["sources"]["good"]["ok"] is True
+    assert pulse["sources"]["good"]["count"] == 1
+    assert len(pulse["candidates"]) == 1
+
+
+def test_collector_returning_mixed_list_fails_alone(tmp_path):
+    """A collector returning mixed Candidate and dict fails at the dict."""
+    pulse = sense(tmp_path, ForgeConfig(),
+                  collectors={"bad": _returns_mixed, "good": _ok("good")})
+    # Bad collector failed when it hit the non-Candidate item
+    assert pulse["sources"]["bad"]["ok"] is False
+    assert pulse["sources"]["bad"]["error"]
+    assert pulse["sources"]["bad"]["count"] == 0
+    # Good collector still contributes
+    assert pulse["sources"]["good"]["ok"] is True
+    assert pulse["sources"]["good"]["count"] == 1
+    assert len(pulse["candidates"]) == 1
+
+
+def test_read_pulse_with_json_list_returns_empty(tmp_path):
+    """A pulse file with a JSON list (valid JSON, not dict) returns {}."""
+    cfg = ForgeConfig()
+    path = cfg.state_dir(tmp_path) / "pulse.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps([1, 2, 3]), encoding="utf-8")
+
+    result = read_pulse(tmp_path, cfg)
+    assert result == {}
+
+
+def test_read_pulse_with_json_number_returns_empty(tmp_path):
+    """A pulse file with a bare JSON number returns {}."""
+    cfg = ForgeConfig()
+    path = cfg.state_dir(tmp_path) / "pulse.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(42), encoding="utf-8")
+
+    result = read_pulse(tmp_path, cfg)
+    assert result == {}
+
+
+def test_read_pulse_with_malformed_json_returns_empty(tmp_path):
+    """A pulse file with malformed JSON returns {}."""
+    cfg = ForgeConfig()
+    path = cfg.state_dir(tmp_path) / "pulse.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("not valid json at all {][", encoding="utf-8")
+
+    result = read_pulse(tmp_path, cfg)
+    assert result == {}
