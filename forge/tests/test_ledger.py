@@ -1,6 +1,7 @@
 """The permanent record: append-only, one JSON line per run."""
 
 import json
+from datetime import datetime, timezone
 
 from forge.config import ForgeConfig
 from forge.ledger import OUTCOMES, append, new_entry, read_all, recent_zones, strikes
@@ -125,3 +126,69 @@ def test_read_all_skips_non_dict_json_lines(tmp_path):
 
     zones = recent_zones(tmp_path, cfg, n=3)
     assert len(zones) == 1 and zones[0] == "music/", f"recent_zones() failed: {zones}"
+
+
+def test_read_all_survives_invalid_utf8_in_a_month_file(tmp_path):
+    """UnicodeDecodeError is a ValueError, not an OSError — a bare `except
+    OSError` around path.read_text() lets one bad byte in any historical
+    month file propagate uncaught out of read_all, and therefore out of
+    strikes() and recent_zones() for the *entire* ledger. Pin that the
+    guard covers both exception types, and that both downstream consumers
+    still work over the rest of the ledger.
+    """
+    cfg = ForgeConfig()
+    _entry(tmp_path, cfg, candidate_key="abc", outcome="verify_failed")
+    _entry(tmp_path, cfg, zone="music/", outcome="pr_opened")
+
+    bad_path = cfg.ledger_dir(tmp_path) / "2026-08.jsonl"
+    bad_path.parent.mkdir(parents=True, exist_ok=True)
+    bad_path.write_bytes(b"\xff\xfe")
+
+    entries = read_all(tmp_path, cfg)
+    assert len(entries) == 2, f"Expected 2 valid entries, got {len(entries)}: {entries}"
+
+    s = strikes(tmp_path, cfg)
+    assert s.get("abc", 0) == 1, f"strikes() failed: {s}"
+
+    zones = recent_zones(tmp_path, cfg, n=3)
+    assert len(zones) == 1 and zones[0] == "music/", f"recent_zones() failed: {zones}"
+
+
+def test_append_files_by_the_entrys_own_at_not_wall_clock(tmp_path):
+    """An entry stamped in a past month must be filed under that month, not
+    under whatever month the process happens to be running in when it calls
+    append(). Deterministic without freezing the clock: the `at` is a fixed
+    date well in the past.
+    """
+    cfg = ForgeConfig()
+    entry = new_entry("run-past", at="2025-03-04T12:00:00Z", outcome="no_task")
+    path = append(entry, tmp_path, cfg)
+    assert path.name == "2025-03.jsonl"
+
+
+def test_append_falls_back_to_now_when_at_is_missing(tmp_path):
+    cfg = ForgeConfig()
+    entry = new_entry("run-missing-at", outcome="no_task")
+    del entry["at"]
+    path = append(entry, tmp_path, cfg)
+    now_name = f"{datetime.now(timezone.utc):%Y-%m}.jsonl"
+    assert path.name == now_name
+
+
+def test_append_falls_back_to_now_when_at_is_malformed(tmp_path):
+    cfg = ForgeConfig()
+    entry = new_entry("run-bad-at", at="not-a-date", outcome="no_task")
+    path = append(entry, tmp_path, cfg)
+    now_name = f"{datetime.now(timezone.utc):%Y-%m}.jsonl"
+    assert path.name == now_name
+
+
+def test_read_all_finds_entries_across_multiple_month_files(tmp_path):
+    """The entry-derived month path must not break the multi-file glob that
+    read_all relies on to see the whole ledger."""
+    cfg = ForgeConfig()
+    append(new_entry("run-a", at="2025-03-04T12:00:00Z", outcome="no_task"), tmp_path, cfg)
+    append(new_entry("run-b", at="2026-09-10T00:00:00Z", outcome="pr_opened"), tmp_path, cfg)
+    entries = read_all(tmp_path, cfg)
+    assert len(entries) == 2
+    assert {e["run_id"] for e in entries} == {"run-a", "run-b"}

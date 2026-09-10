@@ -70,13 +70,37 @@ def new_entry(run_id: str, **fields) -> dict:
 
 
 def _month_path(root: Path, config: ForgeConfig, when: datetime | None = None) -> Path:
+    """The month file. ``when`` is only a fallback for a missing/unparseable
+    ``at`` — the entry's own ``at`` is what decides the file, so a run
+    stamped near midnight is filed by when it happened, not by when the
+    process got around to writing it. Do not go back to deriving this from
+    ``datetime.now`` at call time: that was the wall-clock bug this
+    docstring exists to prevent from being reintroduced.
+    """
     when = when or datetime.now(timezone.utc)
     return config.ledger_dir(root) / f"{when:%Y-%m}.jsonl"
 
 
+def _entry_month(entry: dict) -> datetime:
+    """The month an entry belongs in, taken from its own ``at`` field.
+
+    Falls back to ``datetime.now(timezone.utc)`` when ``at`` is missing or
+    unparseable rather than raising: ``append`` must never fail because of
+    a malformed timestamp, since a raise here means a run goes unrecorded —
+    the one thing this module exists to prevent.
+    """
+    at = entry.get("at")
+    if isinstance(at, str):
+        try:
+            return datetime.strptime(at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        except ValueError:
+            pass
+    return datetime.now(timezone.utc)
+
+
 def append(entry: dict, root: Path, config: ForgeConfig) -> Path:
     """Append one entry. Creates the month file and directory as needed."""
-    path = _month_path(root, config)
+    path = _month_path(root, config, when=_entry_month(entry))
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(entry, sort_keys=True) + "\n")
@@ -84,7 +108,14 @@ def append(entry: dict, root: Path, config: ForgeConfig) -> Path:
 
 
 def read_all(root: Path, config: ForgeConfig) -> list[dict]:
-    """Every entry across every month file, oldest first. Corrupt lines skipped."""
+    """Every entry across every month file, oldest first. Corrupt lines skipped.
+
+    ``UnicodeDecodeError`` is caught alongside ``OSError``: it is a
+    ``ValueError`` subclass, not an ``OSError``, so one bad byte in any
+    historical month file would otherwise propagate uncaught out of
+    ``read_all`` — and therefore out of ``strikes()`` and ``recent_zones()``,
+    for the entire ledger rather than just the offending file.
+    """
     d = config.ledger_dir(root)
     if not d.exists():
         return []
@@ -92,7 +123,7 @@ def read_all(root: Path, config: ForgeConfig) -> list[dict]:
     for path in sorted(d.glob("*.jsonl")):
         try:
             text = path.read_text(encoding="utf-8")
-        except OSError:
+        except (OSError, UnicodeDecodeError):
             continue
         for line in text.splitlines():
             line = line.strip()
@@ -108,7 +139,13 @@ def read_all(root: Path, config: ForgeConfig) -> list[dict]:
 
 
 def strikes(root: Path, config: ForgeConfig) -> dict[str, int]:
-    """Consecutive recent failures per candidate key. A success resets to zero."""
+    """Consecutive recent failures per candidate key. A success resets to zero.
+
+    ``dry_run`` and ``no_task`` (anything outside ``FAILURE_OUTCOMES`` and
+    not ``pr_opened``) are inert: they neither increment nor reset a key's
+    count. That is deliberate — week one of this system is all dry runs,
+    and they must not accrue false strikes — not an oversight.
+    """
     counts: dict[str, int] = {}
     for entry in read_all(root, config):
         key = entry.get("candidate_key") or ""
