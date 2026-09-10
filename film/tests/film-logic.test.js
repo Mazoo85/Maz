@@ -628,6 +628,36 @@ test('every film genre maps to music SONG FORGE actually has', () => {
   });
 });
 
+test('the tempo is chosen to land bars near the cuts', () => {
+  const reel = Reel.build(sample);
+  const range = [70, 110];
+  const bpm = Conductor.chooseBpm(reel, range);
+  assert(bpm >= range[0] && bpm <= range[1], 'bpm outside the genre range: ' + bpm);
+  assert(bpm === Math.round(bpm), 'bpm is not a whole number: ' + bpm);
+
+  // It must be no worse than the middle of the range, or choosing is pointless.
+  const error = (candidate) => Conductor.cutTimes(reel).reduce((total, cut) => {
+    const block = Conductor.blockSeconds(candidate);
+    return total + Math.abs(cut - Math.round(cut / block) * block);
+  }, 0);
+  const middle = Math.round((range[0] + range[1]) / 2);
+  assert(error(bpm) <= error(middle) + 1e-9,
+    `chosen ${bpm} (error ${error(bpm).toFixed(2)}s) is worse than ${middle} (${error(middle).toFixed(2)}s)`);
+
+  eq(Conductor.chooseBpm(reel, range), bpm, 'the same reel must choose the same tempo');
+  eq(Conductor.chooseBpm(reel, [96, 96]), 96, 'a single-value range must be honoured');
+});
+
+test('cut times are the scene starts after the first', () => {
+  const reel = Reel.build(sample);
+  const cuts = Conductor.cutTimes(reel);
+  eq(cuts.length, sample.scenes.length - 1, 'one cut between each pair of scenes');
+  cuts.forEach((t, i) => {
+    assert(t > 0 && t < reel.duration, 'cut outside the film: ' + t);
+    if (i > 0) assert(t > cuts[i - 1], 'cuts are not in order');
+  });
+});
+
 /* ------------------------------------------------------------------ report */
 console.log('');
 if (failures.length) {
