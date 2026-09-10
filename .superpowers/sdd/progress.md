@@ -11,3 +11,4 @@ Task 2: complete (commits ccdc171..261302c, review clean; Minors: dead `cuts.len
 Task 3: complete (commits 3d9757f..7929881, review clean; no findings)
 Task 4: complete (commits 0e6e503..eaba99d, review clean after one Important fix — boundary assertions now pin all three thresholds)
 Task 5: complete (commits 257c61b..8aed127, review clean after one Important fix — the genre fallback is now covered by a negative test)
+Task 6: complete (commits 599ace5..d3f49f2, review clean; Minor: a line at t=0 emits two coincident envelope points)
