@@ -6,6 +6,11 @@ project below. Live on GitHub Pages:
 
 ### ▶ **https://mazoo85.github.io/Maz/**
 
+Publishing is GitHub Pages' own **"deploy from a branch"** on the default branch,
+serving the repo root — so every push to the default branch republishes the site,
+with no workflow in the loop. The empty [`.nojekyll`](.nojekyll) file at the root
+tells Pages to serve the tree verbatim rather than running Jekyll over it.
+
 Every browser project also carries a small **MAZ pill in its top-left corner**:
 tap it to jump straight to any other project, or back to the hub. Nothing here
 is a dead end.
@@ -74,7 +79,6 @@ crew — together.
 | [`music-ci.yml`](.github/workflows/music-ci.yml) | SONG FORGE composition logic + real-audio browser tests |
 | [`scraper-ci.yml`](.github/workflows/scraper-ci.yml) | maz-scrape, offline (mocked transport) |
 | [`crew-ci.yml`](.github/workflows/crew-ci.yml) | Maz Crew, offline (fake client) |
-| [`pages.yml`](.github/workflows/pages.yml) | Publishes the whole site to GitHub Pages |
 | [`all-checks.yml`](.github/workflows/all-checks.yml) | All of the above, on demand |
 
 ---
