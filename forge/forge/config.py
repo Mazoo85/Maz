@@ -109,25 +109,63 @@ def _read_config_file(root: Path | None = None) -> dict:
 
 
 def load_config(root: Path | None = None) -> ForgeConfig:
-    """Build a config from dataclass defaults, then ``forge.json`` on top."""
+    """Build a config from dataclass defaults, then ``forge.json`` on top.
+
+    Every field is coerced on its own and a bad value for one field is simply
+    dropped, falling back to that field's default — a typo in ``budget_usd``
+    must not stop ``safe_zones`` (or anything else) from taking effect, and it
+    must never crash ``load_config`` itself. A crash here would happen before
+    the run can write a ledger line, and every run — including a broken one —
+    has to leave a trace.
+    """
     kwargs = _read_config_file(root)
 
+    # A bare string is iterable, so a typo like {"safe_zones": "docs/"} would
+    # silently explode into one safe zone per character ('d', 'o', 'c', 's',
+    # '/') and, because zone matching is startswith-based, that widens the
+    # allowlist to nearly everything instead of narrowing it. Only a real
+    # list/tuple of strings is accepted; anything else falls back to default.
     for key in ("safe_zones", "no_touch"):
         if key in kwargs:
-            kwargs[key] = tuple(str(v) for v in kwargs[key])
+            value = kwargs[key]
+            if isinstance(value, (list, tuple)) and not isinstance(value, str):
+                kwargs[key] = tuple(str(v) for v in value)
+            else:
+                del kwargs[key]
+
     for key in ("budget_usd", "score_floor"):
         if key in kwargs:
-            kwargs[key] = float(kwargs[key])
+            try:
+                kwargs[key] = float(kwargs[key])
+            except (TypeError, ValueError):
+                del kwargs[key]
+
     for key in ("max_files_touched", "crew_timeout_min", "strike_limit"):
         if key in kwargs:
-            kwargs[key] = int(kwargs[key])
+            try:
+                kwargs[key] = int(kwargs[key])
+            except (TypeError, ValueError):
+                del kwargs[key]
+
     if "weights" in kwargs:
-        merged = dict(DEFAULT_WEIGHTS)
-        merged.update({k: float(v) for k, v in kwargs["weights"].items()})
-        kwargs["weights"] = merged
+        raw = kwargs["weights"]
+        if isinstance(raw, dict):
+            # Only known weight keys are merged in, matching the same
+            # unknown-key-is-ignored philosophy applied to top-level fields.
+            merged = dict(DEFAULT_WEIGHTS)
+            for k, v in raw.items():
+                if k not in DEFAULT_WEIGHTS:
+                    continue
+                try:
+                    merged[k] = float(v)
+                except (TypeError, ValueError):
+                    continue
+            kwargs["weights"] = merged
+        else:
+            del kwargs["weights"]
 
     # Weld the hard no-touch paths on, whatever the file said.
-    declared = tuple(kwargs.get("no_touch", ()))
+    declared = tuple(kwargs.get("no_touch", ForgeConfig.no_touch))
     kwargs["no_touch"] = tuple(dict.fromkeys(HARD_NO_TOUCH + declared))
 
     return ForgeConfig(**kwargs)

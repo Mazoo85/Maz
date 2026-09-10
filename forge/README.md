@@ -4,14 +4,21 @@ A nightly loop that reads the Maz repository's own state, decides what needs doi
 
 Forge wakes daily, scans your code and issues, evaluates options, picks one actionable improvement, executes it on a branch, and logs the run — all hands-off. It makes steady progress on debt and improvements without your constant attention.
 
+The primary way to run Forge is a Claude Code Routine (a scheduled trigger) that wakes a fresh
+session nightly and runs `forge run`. No API key to manage, no CI minutes, and it inherits the
+repo's Superpowers skills. A `.github/workflows/forge.yml` cron is a later, optional path for a
+fully self-hosted setup — that path needs an `ANTHROPIC_API_KEY` repo secret, but the Routine
+path does not.
+
+See `docs/FORGE.md` for the full operator's guide (lands in a later task).
+
 ## Install
 
-Requires Python 3.10+ and an Anthropic API key.
+Requires Python 3.10+.
 
 ```bash
 cd forge
 pip install -e .
-export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 ## Use
@@ -21,8 +28,8 @@ forge init        # scaffold a starter forge config
 forge config      # show effective configuration
 forge sense       # read repo state and list options
 forge decide      # pick the best option for tonight's run
-forge run         # execute the chosen task (branch, commit, log)
-forge run --dry-run  # preview without executing
+forge run         # dry run by default: sense, decide, write a ledger line, change nothing
+forge run --live  # execute the chosen task for real (branch, commit, log)
 forge ledger      # show past runs
 forge followup    # inspect the last run's output
 ```
