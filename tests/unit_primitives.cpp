@@ -32,6 +32,36 @@ bool allNormalsUnit(const assets::Mesh& m) {
     return true;
 }
 
+// True if every triangle is wound CCW-outward: its geometric normal (v1-v0)x(v2-v0) agrees
+// (positive dot) with the averaged shading normal of its three vertices.
+bool windingAgreesWithNormals(const assets::Mesh& m) {
+    for (size_t i = 0; i + 2 < m.indices.size(); i += 3) {
+        const assets::Vertex& v0 = m.vertices[m.indices[i]];
+        const assets::Vertex& v1 = m.vertices[m.indices[i + 1]];
+        const assets::Vertex& v2 = m.vertices[m.indices[i + 2]];
+        const float e1[3] = {v1.position[0] - v0.position[0], v1.position[1] - v0.position[1],
+                             v1.position[2] - v0.position[2]};
+        const float e2[3] = {v2.position[0] - v0.position[0], v2.position[1] - v0.position[1],
+                             v2.position[2] - v0.position[2]};
+        const float geo[3] = {e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2],
+                              e1[0] * e2[1] - e1[1] * e2[0]};
+        // Degenerate (zero-area) triangles have no winding: the pole rows of a sphere collapse to a
+        // single point. Skip them rather than flag their zero-length geometric normal.
+        const float geoLen2 = geo[0] * geo[0] + geo[1] * geo[1] + geo[2] * geo[2];
+        if (geoLen2 < 1e-12f) {
+            continue;
+        }
+        const float avg[3] = {(v0.normal[0] + v1.normal[0] + v2.normal[0]) / 3.0f,
+                              (v0.normal[1] + v1.normal[1] + v2.normal[1]) / 3.0f,
+                              (v0.normal[2] + v1.normal[2] + v2.normal[2]) / 3.0f};
+        const float d = geo[0] * avg[0] + geo[1] * avg[1] + geo[2] * avg[2];
+        if (!(d > 0.0f)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 // Axis-aligned extents over all vertex positions.
 void extents(const assets::Mesh& m, float mn[3], float mx[3]) {
     for (int k = 0; k < 3; ++k) {
@@ -56,6 +86,7 @@ int main() {
         check(box.vertices.size() == 24, "box has 24 vertices");
         check(box.indices.size() == 36, "box has 36 indices");
         check(allNormalsUnit(box), "box normals are unit length");
+        check(windingAgreesWithNormals(box), "box triangle winding agrees with normals");
         float mn[3], mx[3];
         extents(box, mn, mx);
         check(nearly(mn[0], -1.0f) && nearly(mx[0], 1.0f), "box x extent = +/-1");
@@ -73,6 +104,7 @@ int main() {
         check(sphere.vertices.size() == expectVerts, "sphere vertex count = (rings+1)*(segments+1)");
         check(sphere.indices.size() == expectIndices, "sphere index count = rings*segments*6");
         check(allNormalsUnit(sphere), "sphere normals are unit length");
+        check(windingAgreesWithNormals(sphere), "sphere triangle winding agrees with normals");
         float mn[3], mx[3];
         extents(sphere, mn, mx);
         check(nearly(mn[0], -1.5f) && nearly(mx[0], 1.5f), "sphere x extent = +/- radius");
@@ -85,6 +117,7 @@ int main() {
         check(!cyl.vertices.empty() && !cyl.indices.empty(), "cylinder is non-empty");
         check(cyl.indices.size() % 3 == 0, "cylinder index count is a multiple of 3");
         check(allNormalsUnit(cyl), "cylinder normals are unit length");
+        check(windingAgreesWithNormals(cyl), "cylinder triangle winding agrees with normals");
         float mn[3], mx[3];
         extents(cyl, mn, mx);
         check(nearly(mn[1], -1.5f) && nearly(mx[1], 1.5f), "cylinder y extent = +/- half height");
@@ -101,6 +134,7 @@ int main() {
             up = up && nearly(v.normal[1], 1.0f) && nearly(v.position[1], 0.0f);
         }
         check(up, "plane faces +Y at y=0");
+        check(windingAgreesWithNormals(plane), "plane triangle winding agrees with normals");
         float mn[3], mx[3];
         extents(plane, mn, mx);
         check(nearly(mn[0], -2.0f) && nearly(mx[0], 2.0f), "plane width extent = +/-2");
