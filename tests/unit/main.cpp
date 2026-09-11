@@ -20936,7 +20936,8 @@ void testFontFallback() {
         FontFallback fb;
         fb.addFont(1);
         fb.coverRange(1, 0x41, 0x5A);
-        std::u32string s = U"A☃☃B";
+        std::u32string s = U"A\u2603\u2603B"; // U+2603 SNOWMAN, escaped: MSVC decodes the source
+                                       // as the system codepage and would see 3 units each.
         auto r = fb.runs(s);
         CHECK(r.size() == 3);
         CHECK(r[0].fontId == 1 && r[0].length == 1);

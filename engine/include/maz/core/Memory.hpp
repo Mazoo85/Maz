@@ -87,7 +87,13 @@ class LinearArena {
     size_t remaining() const { return m_capacity - m_offset; }
 
   private:
-    static constexpr size_t kMaxAlign = alignof(std::max_align_t);
+    // The strictest alignment this arena hands out. Not simply alignof(std::max_align_t): that
+    // is 16 on the Itanium ABI but 8 on MSVC, so on Windows the arena refused every 16-byte
+    // request — including SIMD vectors and GLM's aligned types — by returning nullptr. Floored
+    // at 16 so the same request succeeds everywhere. The buffer below is allocated to this
+    // alignment, so raising it makes the storage stricter, never weaker.
+    static constexpr size_t kMaxAlign =
+        alignof(std::max_align_t) < 16 ? size_t{16} : alignof(std::max_align_t);
     uint8_t* m_buffer;
     size_t m_capacity;
     size_t m_offset = 0;
