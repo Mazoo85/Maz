@@ -98,21 +98,31 @@
     pendingBorrow = null;
 
     var idea = el.idea.value.trim();
+    var thin = idea.split(/\s+/).filter(Boolean).length < 3;
 
     var seed = opts.seed;
     if (typeof seed !== 'number') {
       seed = borrow ? borrow.seed :
-        // A fresh idea is seeded from its own words, so the same sentence
-        // always gives the same film. "Another take" rolls a new one on
-        // purpose.
-        (opts.fresh ? Parse.hashText(idea || 'blank') : (Math.random() * 4294967296) >>> 0);
+        // A fresh, real idea is seeded from its own words, so the same
+        // sentence always gives the same film. A thin or empty box has no
+        // words worth seeding from — hashing 'blank' every time would draw
+        // the exact same borrowed story forever, so it rolls like "Another
+        // take" does instead, and a second press on the same empty box
+        // lands somewhere new.
+        (opts.fresh && !thin ? Parse.hashText(idea) : (Math.random() * 4294967296) >>> 0);
     }
 
     // An idea too thin to work with — empty, or under three words — borrows
     // one from MADLIBS instead, seeded the same way this film will be, so
     // "Write the script" and "Another take" never dead-end on a bare box.
-    if (!borrow && idea.split(/\s+/).filter(Boolean).length < 3) {
+    // "Surprise me" already writes its borrowed text into the box on
+    // purpose (below); a thin idea has to be just as honest about it, or
+    // the box keeps showing words that are no longer what the film is
+    // about.
+    if (!borrow && thin) {
       borrow = Seed.idea(seed);
+      el.idea.value = borrow.text;
+      say('Too thin to write from — borrowed a story from MADLIBS instead.');
     }
     if (borrow) idea = borrow.text;
 
