@@ -372,6 +372,103 @@ Object.keys(Genres.GENRES).forEach(function (gid) {
   check(tiny.bars > 0, 'and it still has bars left');
 })();
 
+/* --- saving and reloading a whole song --- */
+(function () {
+  /* The point of a save is that what comes back is what you had — not what the
+     generator would write again from the same seed. So every check here is
+     made after deliberately editing the song away from its generated form. */
+  const a = Composer.compose({ seed: 'SAVE-1', genre: 'lofi', length: 'medium' });
+
+  a.tracks.lead.push({ t: 4.5, d: 1, p: 72, v: 0.8 });          // a hand-drawn note
+  a.tracks.drums.push({ t: 2.25, d: 0.25, p: 60, v: 0.9, inst: 'cowbell' });
+  Composer.setChordDegree(a, 2, 3);                              // a swapped chord
+  Composer.duplicateSection(a, 1);                               // a rearrangement
+  Composer.applyShape(a, 'fadeOut');                             // automation
+  Composer.transpose(a, 2);                                      // a key change
+  a.presetOverride = { lead: 'bell', pad: 'glassPad' };
+  a.pingpong = true;
+
+  const wire = JSON.stringify(Composer.packSong(a, { mix: { lead: { volume: 0.5 } } }));
+  const b = Composer.unpackSong(JSON.parse(wire));
+
+  check(!!b, 'a saved song can be read back');
+  check(b.title === a.title && b.seed === a.seed, 'it is the same song');
+  check(b.bpm === a.bpm && b.rootPc === a.rootPc && b.keyName === a.keyName,
+    'tempo and key survive (' + b.keyName + ' ' + b.bpm + ')');
+  check(b.scaleId === a.scaleId, 'and the scale with them');
+  check(b.bars === a.bars && b.totalBeats === a.totalBeats,
+    'the rearranged length survives (' + b.bars + ' bars)');
+  check(b.sections.map(function (x) { return x.name; }).join(',') ===
+        a.sections.map(function (x) { return x.name; }).join(','),
+    'the running order survives');
+  check(b.chords.map(function (c) { return c.name; }).join(',') ===
+        a.chords.map(function (c) { return c.name; }).join(','),
+    'every chord survives, swapped one included');
+  check(JSON.stringify(b.automation) === JSON.stringify(a.automation), 'the fade survives');
+  check(b.pingpong === true, 'the ping-pong setting survives');
+  check(b.presetOverride.lead === 'bell' && b.presetOverride.pad === 'glassPad',
+    'the chosen instruments survive');
+
+  // The score itself, note for note.
+  let counts = true, drift = 0, pitches = true, insts = true, glides = true;
+  Object.keys(a.tracks).forEach(function (k) {
+    if (b.tracks[k].length !== a.tracks[k].length) { counts = false; return; }
+    a.tracks[k].forEach(function (e, i) {
+      const g = b.tracks[k][i];
+      drift = Math.max(drift, Math.abs(e.t - g.t), Math.abs(e.d - g.d), Math.abs(e.v - g.v));
+      if (k === 'drums') { if (e.inst !== g.inst) insts = false; }
+      else if (e.p !== g.p) pitches = false;
+      if (!!e.glide !== !!g.glide) glides = false;
+    });
+  });
+  check(counts, 'every part comes back with the same number of notes');
+  check(pitches, 'at the same pitches');
+  check(insts, 'and the drums land on the same pieces');
+  check(glides, 'and the sliding bass notes still slide');
+  /* Stored at a ten-thousandth of a beat and a thousandth of a velocity: at
+     120 BPM that is half a millisecond, which is inaudible and roughly a
+     hundred times finer than the humanising already applied. */
+  check(drift <= 0.001, 'and nothing has drifted audibly (worst ' + drift.toFixed(5) + ')');
+
+  /* Find the hand-drawn note by its velocity: the composer humanises every note
+     it writes, so a velocity of exactly 0.8 is one nothing but a hand could
+     have set. Its pitch and bar have legitimately moved — the song was
+     transposed and rearranged after it was drawn — so those are read from the
+     edited song rather than from what was typed in. */
+  const handA = a.tracks.lead.filter(function (e) { return e.v === 0.8; });
+  const handB = b.tracks.lead.filter(function (e) { return Math.abs(e.v - 0.8) < 1e-9; });
+  check(handA.length === 1, 'the hand-drawn note is identifiable in the edited song');
+  check(handB.length === 1 && handB[0].p === handA[0].p &&
+        Math.abs(handB[0].t - handA[0].t) <= 0.0001,
+    'and it comes back at exactly the same pitch and beat');
+  check(b.tracks.drums.some(function (e) { return e.inst === 'cowbell'; }),
+    'and so is the cowbell');
+
+  // The live genre and mood objects have to be rebuilt, not stored.
+  check(!!b.genre && !!b.genre.fx && b.genreId === a.genreId, 'the genre is a working object again');
+  check(!!b.mood && b.moodId === a.moodId, 'and so is the mood');
+  check(wire.indexOf('"scaleSteps"') < 0, 'nothing regenerable is stored');
+
+  // Anything the caller tacks on rides along untouched.
+  const withMix = JSON.parse(wire);
+  check(withMix.mix.lead.volume === 0.5, 'mixer settings ride along with the song');
+
+  // A save must survive a round trip through storage more than once.
+  const c = Composer.unpackSong(JSON.parse(JSON.stringify(Composer.packSong(b))));
+  check(c && c.bars === a.bars && c.chords.length === a.chords.length,
+    'and saving the reloaded song again changes nothing');
+
+  // A save from a future version must be refused, not half-read.
+  const future = JSON.parse(wire);
+  future.v = Composer.SAVE_VERSION + 1;
+  check(Composer.unpackSong(future) === null, 'a save this version cannot read is refused outright');
+  check(Composer.unpackSong(null) === null, 'and so is nothing at all');
+
+  // Size matters: this goes into browser storage alongside 29 others.
+  check(wire.length < 120000, 'a saved song is small enough to keep (' +
+    Math.round(wire.length / 1024) + ' KB)');
+})();
+
 /* --- automation lanes --- */
 (function () {
   const a = Composer.compose({ seed: 'AUTO-1', genre: 'house', length: 'medium' });

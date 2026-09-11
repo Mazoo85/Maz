@@ -782,6 +782,17 @@ input[type="range"]::-moz-range-thumb {
 .lib-info { flex: 1 1 auto; min-width: 0; }
 .lib-title { font-family: var(--font-display); font-size: 15px; font-weight: 600; color: #fff; }
 .lib-sub { font-family: var(--font-data); font-size: 11px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.lib-tag {
+  font-family: var(--font-data);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  border: 1px solid var(--panel-edge);
+  border-radius: 3px;
+  padding: 1px 5px;
+  vertical-align: 2px;
+}
 
 /* ---------------- modal ---------------- */
 

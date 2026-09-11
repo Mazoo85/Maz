@@ -77,7 +77,10 @@ python3 -m http.server         # or serve the folder: http://localhost:8000/musi
 - **Seeds** — every song has a short code like `VELVET-7318`. The same seed and
   settings always produce the same song, so *Copy link* hands someone the exact
   track you are hearing.
-- **Saved songs** are kept on your own device (browser storage). Nothing is uploaded.
+- **Saved songs keep the song, not the recipe.** Save and you get back exactly
+  what you had — every note you drew, the chord you swapped, the sections you
+  moved, the fade you added, the effects on each part, what you had muted. Kept
+  on your own device in browser storage; nothing is uploaded.
 
 Works on a phone or a desktop. **Space** plays and pauses, **G** composes a new one.
 
@@ -191,6 +194,15 @@ sources, so the one you hand someone is always the one in the repo.
 score is plain data (`{ t, d, p, v }` in beats), which is why the same code path
 can play live, render an export, and write a MIDI file.
 
+A save is that same score, written out. `Composer.packSong` drops everything a
+fresh compose can rebuild — the genre and mood are whole objects of settings,
+restored from their names on the way back in — and writes each note as a bare
+array of numbers at the precision a note actually needs: a ten-thousandth of a
+beat, which is half a millisecond at 120 BPM. That turns roughly 85 KB of JSON
+per song into roughly 35, so thirty songs fit comfortably in browser storage.
+Saves made before this existed still load; they are labelled *seed only*, because
+all they can give you back is the original generated version.
+
 The editor writes into those same arrays. A note you draw is indistinguishable
 from a note the composer wrote, so it plays, renders and exports with no special
 handling — and `Composer.motifFromEvents` can read your notes back out as a
@@ -209,6 +221,13 @@ npx --prefix music/tests playwright install chromium
 node music/tests/music-browser.test.js     # real browser: UI, playback, audio, exports
 node music/tests/standalone.test.js       # the built single file, opened from disk
 ```
+
+The standalone suite saves a song with a hand-drawn note, a fade, a ping-pong
+echo and per-part effects, throws it away by composing a new one, loads it back
+and checks every part returns note for note — then plays it, to prove what came
+back is a working song and not just data. The logic suite does the same round
+trip in the abstract, over a song deliberately edited away from anything its
+seed would produce.
 
 The standalone suite also covers the editor: it clicks the grid to draw a note,
 checks the note lands in key, erases it again, taps the drum grid, feeds a

@@ -165,10 +165,24 @@
       throw err;
     }
 
+    takeSong(song, { autoplay: opts.autoplay });
+    status('"' + song.title + '" — ' + song.keyName + ', ' + song.bpm + ' BPM, seed ' + song.seed);
+    return song;
+  }
+
+  /**
+   * Put a song on the stand: wire it to the player, the editor, the mixer and
+   * every panel. Composing a new song and loading a saved one differ only in
+   * where the song came from, so they share this from here on.
+   */
+  function takeSong(song, opts) {
+    opts = opts || {};
     state.song = song;
     window.__song = song;          // handle for the test suites
-    state.locked = {};
-    state.edited = {};
+    if (!opts.keepFlags) {
+      state.locked = {};
+      state.edited = {};
+    }
     player.load(song);
 
     el('songPanel').hidden = false;
@@ -196,8 +210,18 @@
     } else {
       setPlayIcon(false);
     }
-    status('"' + song.title + '" — ' + song.keyName + ', ' + song.bpm + ' BPM, seed ' + song.seed);
-    return song;
+  }
+
+  /** Load a song that was saved rather than composed, mix settings and all. */
+  function adoptSong(song, item) {
+    applySession(item);                 // before takeSong, so the mixer draws restored
+    takeSong(song, { keepFlags: true });
+    if (editorSends) editorSends();
+    const touched = Object.keys(state.edited).filter(function (k) { return state.edited[k]; });
+    status('"' + song.title + '" loaded' +
+      (touched.length ? ' — with your edits to the ' + touched.map(function (k) {
+        return colorLabel(k).toLowerCase();
+      }).join(', ') + '.' : ' exactly as you saved it.'));
   }
 
   function songMetaText() {
@@ -1227,14 +1251,6 @@
    * Sharing + saved library
    * ------------------------------------------------------------------ */
 
-  function songConfig(s) {
-    return {
-      seed: s.seed, genre: s.genreId, mood: s.moodId,
-      length: state.length, key: s.rootPc, bpm: s.bpm,
-      title: s.title, keyName: s.keyName
-    };
-  }
-
   function updateHash() {
     const s = state.song;
     if (!s) return;
@@ -1262,15 +1278,90 @@
     };
   }
 
+  const LIB_MAX = 30;
+
   function loadLibrary() {
     try {
       const raw = localStorage.getItem(STORE_KEY);
-      return raw ? JSON.parse(raw) : [];
+      const list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list : [];
     } catch (e) { return []; }
   }
 
+  /**
+   * Write the library back.
+   *
+   * A whole song is tens of kilobytes rather than the handful a seed took, so
+   * the browser's storage really can fill up. When it does, drop the oldest
+   * entry and try again rather than silently losing the save — and say so if
+   * even that is not enough.
+   *
+   * Returns 'ok', 'trimmed' (older songs were dropped to fit) or 'blocked'.
+   */
   function saveLibrary(list) {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(list.slice(0, 30))); } catch (e) { /* full or blocked */ }
+    let out = list.slice(0, LIB_MAX);
+    let trimmed = false;
+    for (let attempt = 0; attempt < LIB_MAX; attempt++) {
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify(out));
+        return trimmed ? 'trimmed' : 'ok';
+      } catch (e) {
+        if (out.length <= 1) return 'blocked';
+        out = out.slice(0, out.length - 1);   // the newest save is the one to keep
+        trimmed = true;
+      }
+    }
+    return 'blocked';
+  }
+
+  /* An entry is either a whole song (v2) or one of the seed-only records saved
+     before songs could be stored in full. Both still load. */
+  function isFullSave(item) { return item && item.v === C.SAVE_VERSION && !!item.tracks; }
+
+  function libraryLabel(item) {
+    return {
+      title: item.title,
+      genre: item.genre,
+      keyName: item.keyName || '',
+      bpm: item.bpm,
+      seed: item.seed,
+      bars: item.bars || 0
+    };
+  }
+
+  /** Everything about the session that lives outside the song itself. */
+  function packSession() {
+    const mix = {};
+    E.TRACKS.forEach(function (t) {
+      const m = player.mix[t] || {};
+      mix[t] = {
+        volume: m.volume, muted: m.muted, rev: m.rev, del: m.del, cho: m.cho,
+        eqLow: m.eqLow, eqMid: m.eqMid, eqHigh: m.eqHigh, crush: m.crush
+      };
+    });
+    return {
+      mix: mix,
+      length: state.length,
+      edited: Object.assign({}, state.edited),
+      locked: Object.assign({}, state.locked)
+    };
+  }
+
+  function applySession(item) {
+    state.length = item.length || 'medium';
+    state.edited = Object.assign({}, item.edited || {});
+    state.locked = Object.assign({}, item.locked || {});
+    E.TRACKS.forEach(function (t) {
+      const saved = (item.mix || {})[t];
+      if (!saved) return;
+      const opts = {};
+      ['volume', 'muted', 'rev', 'del', 'cho', 'eqLow', 'eqMid', 'eqHigh', 'crush'].forEach(function (k) {
+        if (saved[k] !== undefined) opts[k] = saved[k];
+      });
+      // Solo is a listening state, not part of the song — never restore it.
+      opts.solo = false;
+      player.setTrack(t, opts);
+    });
   }
 
   function renderLibrary() {
@@ -1282,11 +1373,19 @@
       const row = document.createElement('div');
       row.className = 'lib-row';
 
+      const meta = libraryLabel(item);
+      const full = isFullSave(item);
       const info = document.createElement('div');
       info.className = 'lib-info';
-      info.innerHTML = '<div class="lib-title">' + escapeHtml(item.title) + '</div>' +
-        '<div class="lib-sub">' + escapeHtml((G.GENRES[item.genre] || {}).name || item.genre) +
-        ' · ' + escapeHtml(item.keyName || '') + ' · ' + item.bpm + ' BPM · ' + escapeHtml(item.seed) + '</div>';
+      info.innerHTML = '<div class="lib-title">' + escapeHtml(meta.title) +
+        (full ? '' : ' <span class="lib-tag">seed only</span>') + '</div>' +
+        '<div class="lib-sub">' + escapeHtml((G.GENRES[meta.genre] || {}).name || meta.genre) +
+        ' · ' + escapeHtml(meta.keyName) + ' · ' + meta.bpm + ' BPM' +
+        (full && meta.bars ? ' · ' + meta.bars + ' bars' : '') +
+        ' · ' + escapeHtml(meta.seed) + '</div>';
+      info.title = full
+        ? 'Saved in full — every note, the arrangement and the effects'
+        : 'Saved before whole songs could be kept, so this reloads the original generated version';
       row.appendChild(info);
 
       const load = document.createElement('button');
@@ -1296,10 +1395,18 @@
       load.addEventListener('click', function () {
         state.genre = item.genre; state.mood = item.mood;
         state.length = item.length || 'medium';
-        state.key = item.key; state.bpm = item.bpm;
+        state.key = item.rootPc === undefined ? item.key : item.rootPc;
+        state.bpm = item.bpm;
         syncChips();
         el('seedInput').value = item.seed;
-        generate({ seed: item.seed, genre: item.genre, mood: item.mood, length: item.length, key: item.key, bpm: item.bpm });
+
+        if (full) {
+          const song = C.unpackSong(item);
+          if (song) { adoptSong(song, item); return; }
+          status('That save could not be read — regenerating it from its seed instead.', true);
+        }
+        generate({ seed: item.seed, genre: item.genre, mood: item.mood,
+                   length: item.length, key: state.key, bpm: item.bpm });
       });
       row.appendChild(load);
 
@@ -1329,15 +1436,30 @@
   function bindSongActions() {
     el('saveBtn').addEventListener('click', function () {
       if (!state.song) return;
+      const packed = C.packSong(state.song, packSession());
       const list = loadLibrary();
-      const cfg = songConfig(state.song);
-      if (!list.some(function (x) { return x.seed === cfg.seed && x.genre === cfg.genre; })) {
-        list.unshift(cfg);
-        saveLibrary(list);
-        renderLibrary();
-        status('Saved to this device.');
+
+      /* Saving the same song again replaces it. It used to refuse as a
+         duplicate, which made sense when a save was only a seed — but now the
+         save holds your edits, and refusing to overwrite means refusing to
+         keep the work you just did. */
+      const at = list.findIndex(function (x) {
+        return x.seed === packed.seed && x.genre === packed.genre && x.mood === packed.mood;
+      });
+      const replacing = at >= 0;
+      if (replacing) list.splice(at, 1);
+      list.unshift(packed);
+
+      const result = saveLibrary(list);
+      renderLibrary();
+      if (result === 'blocked') {
+        status('This browser would not store the song — its storage is full or switched off.', true);
+      } else if (result === 'trimmed') {
+        status('Saved — the oldest songs were dropped to make room.');
       } else {
-        status('Already saved.');
+        status(replacing
+          ? 'Saved over the earlier copy — notes, arrangement and effects and all.'
+          : 'Saved to this device — notes, arrangement and effects and all.');
       }
     });
 

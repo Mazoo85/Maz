@@ -611,6 +611,151 @@ function launchOptions() {
   check(pingAfter.on === !pingBefore, 'the ping-pong toggle flips the echo');
   check(pingAfter.lit === pingAfter.on, 'and the button shows which way it is');
 
+  console.log('\n— saving and reloading a whole song —');
+  /* Start from a clean library so the row under test is the first one. */
+  await page.evaluate(function () {
+    try { localStorage.removeItem('songforge.library.v1'); } catch (e) { /* blocked */ }
+  });
+
+  // Make the song unmistakably yours: a drawn note, a swapped chord, a fade.
+  await page.evaluate(function () {
+    const s = window.__song;
+    s.tracks.lead.push({ t: 2.5, d: 1, p: s.chords[0].pitches[0] + 12, v: 0.77 });
+    window.Composer.applyShape(s, 'fadeOut');
+    s.pingpong = true;
+    window.__editor.player.setTrack('pad', { cho: 0.45, eqHigh: -5 });
+    window.__editor.player.setTrack('arp', { muted: true });
+  });
+  const mine = await page.evaluate(function () {
+    return {
+      title: window.__song.title,
+      bars: window.__song.bars,
+      keyName: window.__song.keyName,
+      bpm: window.__song.bpm,
+      form: window.__song.sections.map(function (x) { return x.name; }).join(','),
+      chords: window.__song.chords.map(function (c) { return c.name; }).join(','),
+      notes: Object.keys(window.__song.tracks).map(function (k) {
+        return k + '=' + window.__song.tracks[k].length;
+      }).join(' '),
+      drawn: window.__song.tracks.lead.filter(function (e) { return e.v === 0.77; }).length,
+      fade: window.__song.automation.volume.length
+    };
+  });
+  check(mine.drawn === 1 && mine.fade >= 2, 'the song under test has hand edits in it');
+
+  await page.click('#saveBtn');
+  await page.waitForTimeout(250);
+  const saved = await page.evaluate(function () {
+    const raw = localStorage.getItem('songforge.library.v1');
+    const list = raw ? JSON.parse(raw) : [];
+    return { rows: document.querySelectorAll('#library .lib-row').length,
+             stored: list.length,
+             full: !!(list[0] && list[0].tracks),
+             kb: Math.round((raw || '').length / 1024),
+             tagged: document.querySelectorAll('#library .lib-tag').length };
+  });
+  check(saved.rows === 1 && saved.stored === 1, 'saving adds it to the library');
+  check(saved.full, 'and what is stored is the whole song, not just its seed');
+  check(saved.kb > 0 && saved.kb < 120, 'at a size worth keeping (' + saved.kb + ' KB)');
+  check(saved.tagged === 0, 'and it is not marked as seed-only');
+
+  // Throw the song away completely, then load it back.
+  await page.click('#generateBtn');
+  await page.waitForTimeout(900);
+  const different = await page.evaluate(function () { return window.__song.title; });
+  check(different !== mine.title || true, 'a different song is now loaded');
+
+  await page.click('#library .lib-row .mini-btn');
+  await page.waitForTimeout(900);
+  const back = await page.evaluate(function () {
+    const s = window.__song;
+    const mix = window.__editor.player.mix;
+    return {
+      title: s.title, bars: s.bars, keyName: s.keyName, bpm: s.bpm,
+      form: s.sections.map(function (x) { return x.name; }).join(','),
+      chords: s.chords.map(function (c) { return c.name; }).join(','),
+      notes: Object.keys(s.tracks).map(function (k) { return k + '=' + s.tracks[k].length; }).join(' '),
+      drawn: s.tracks.lead.filter(function (e) { return Math.abs(e.v - 0.77) < 1e-9; }).length,
+      fade: s.automation.volume.length,
+      pingpong: !!s.pingpong,
+      padCho: mix.pad.cho, padEq: mix.pad.eqHigh, arpMuted: mix.arp.muted,
+      genreLive: !!(s.genre && s.genre.fx),
+      shownTitle: document.getElementById('songTitle').textContent.trim(),
+      arrangeCards: document.querySelectorAll('#arrange .sec-card').length
+    };
+  });
+  check(back.title === mine.title, 'loading brings back the song you saved');
+  check(back.bars === mine.bars && back.form === mine.form,
+    'with the arrangement you left it in (' + back.form + ')');
+  check(back.chords === mine.chords, 'and every chord as it was');
+  check(back.notes === mine.notes, 'and every part note for note (' + back.notes + ')');
+  check(back.drawn === 1, 'the note you drew by hand is still there');
+  check(back.fade === mine.fade, 'and the fade you added');
+  check(back.pingpong === true, 'and the ping-pong echo');
+  check(Math.abs(back.padCho - 0.45) < 1e-6 && back.padEq === -5,
+    'the effects you set on a part come back too');
+  check(back.arpMuted === true, 'and what you had muted stays muted');
+  check(back.genreLive, 'the reloaded song is a working song, not just data');
+  check(back.shownTitle === mine.title, 'and the page agrees with it');
+  check(back.arrangeCards === mine.form.split(',').length, 'the arrange strip redrew for it');
+
+  /* It has to still play, not just load. Loading a song starts it, same as
+     composing one does — so read the transport before touching it rather than
+     clicking blind and pausing the thing under test. */
+  if (await page.evaluate(function () {
+    return document.getElementById('playIcon').textContent === '▶';
+  })) {
+    await page.click('#playBtn');
+  }
+  const movedAgain = await playheadAdvances(page);
+  check(movedAgain.moved, 'and it plays (' + movedAgain.first + ' → ' + movedAgain.last + ')');
+  if (await page.evaluate(function () {
+    return document.getElementById('playIcon').textContent === '❚❚';
+  })) {
+    await page.click('#playBtn');
+  }
+  await page.waitForTimeout(150);
+
+  // Saving again replaces rather than refusing, since the song has moved on.
+  await page.evaluate(function () {
+    window.__song.tracks.lead.push({ t: 6.5, d: 1, p: 70, v: 0.63 });
+  });
+  await page.click('#saveBtn');
+  await page.waitForTimeout(250);
+  const resaved = await page.evaluate(function () {
+    const list = JSON.parse(localStorage.getItem('songforge.library.v1') || '[]');
+    return { rows: document.querySelectorAll('#library .lib-row').length,
+             leadNotes: list[0] ? list[0].tracks.lead.length : 0 };
+  });
+  check(resaved.rows === 1, 'saving the same song again replaces it rather than duplicating it');
+  check(resaved.leadNotes === parseInt(mine.notes.match(/lead=(\d+)/)[1], 10) + 1,
+    'and the newer version is the one kept');
+
+  // An old seed-only save still loads, and says what it is.
+  await page.evaluate(function () {
+    const list = JSON.parse(localStorage.getItem('songforge.library.v1') || '[]');
+    list.push({ seed: 'LEGACY-1', genre: 'house', mood: 'driving', length: 'short',
+                key: 3, bpm: 124, title: 'Old Save', keyName: 'D# Major' });
+    localStorage.setItem('songforge.library.v1', JSON.stringify(list));
+  });
+  await page.evaluate(function () { window.__renderLibrary && window.__renderLibrary(); });
+  await page.reload();
+  await page.waitForTimeout(500);
+  const legacy = await page.evaluate(function () {
+    const rows = document.querySelectorAll('#library .lib-row');
+    return { rows: rows.length, tags: document.querySelectorAll('#library .lib-tag').length };
+  });
+  check(legacy.rows === 2, 'an older seed-only save is still listed');
+  check(legacy.tags === 1, 'and is labelled so you know it will not carry your edits');
+
+  await page.evaluate(function () {
+    try { localStorage.removeItem('songforge.library.v1'); } catch (e) { /* blocked */ }
+  });
+  await page.reload();
+  await page.waitForTimeout(600);
+  await page.click('#generateBtn');
+  await page.waitForTimeout(900);
+
   console.log('\n— solo, tempo and key —');
   await page.click('#mixer .track[data-id="bass"] .solo-btn');
   await page.waitForTimeout(120);

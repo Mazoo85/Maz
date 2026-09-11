@@ -1001,6 +1001,146 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Saving a whole song
+   *
+   * A seed reproduces the song the generator wrote. It cannot reproduce the
+   * song *you* ended up with — the notes you drew, the chord you swapped, the
+   * sections you moved, the fade you added. So a save has to carry the score
+   * itself.
+   *
+   * Two things keep that affordable. The genre and mood are whole objects of
+   * settings, and both are rebuilt from their names on the way back in, so
+   * nothing that a fresh compose can regenerate is stored. And every note goes
+   * out as a bare array of numbers at the precision a note actually needs —
+   * a ten-thousandth of a beat is well under a millisecond — which turns
+   * roughly 85 KB of JSON per song into roughly 20.
+   * ------------------------------------------------------------------ */
+
+  const SAVE_VERSION = 2;
+  /* Fixed order: a drum piece is stored as its index here. Only ever append to
+     this list — renumbering it would silently turn old saves into nonsense. */
+  const DRUM_INSTS = ['kick', 'snare', 'clap', 'hh', 'oh', 'ride', 'tom', 'conga',
+                      'perc', 'shaker', 'tamb', 'cowbell', 'crash', 'riser', 'impact'];
+
+  function r4(n) { return Math.round(n * 1e4) / 1e4; }
+  function r3(n) { return Math.round(n * 1e3) / 1e3; }
+
+  function packNote(e, isDrums) {
+    const out = isDrums
+      ? [r4(e.t), r4(e.d), DRUM_INSTS.indexOf(e.inst), r3(e.v)]
+      : [r4(e.t), r4(e.d), e.p, r3(e.v)];
+    if (e.glide) out.push(1);
+    return out;
+  }
+
+  function unpackNote(a, isDrums) {
+    const e = { t: a[0], d: a[1], p: isDrums ? 60 : a[2], v: a[3] };
+    if (isDrums) e.inst = DRUM_INSTS[a[2]] || 'kick';
+    if (a[4]) e.glide = true;
+    return e;
+  }
+
+  /** Everything about this song that a fresh compose could not produce. */
+  function packSong(song, extra) {
+    const tracks = {};
+    Object.keys(song.tracks).forEach(function (name) {
+      const isDrums = name === 'drums';
+      tracks[name] = song.tracks[name].map(function (e) { return packNote(e, isDrums); });
+    });
+
+    const packed = {
+      v: SAVE_VERSION,
+      seed: song.seed,
+      genre: song.genreId,
+      mood: song.moodId,
+      title: song.title,
+      bpm: song.bpm,
+      swing: song.swing,
+      rootPc: song.rootPc,
+      scaleId: song.scaleId,
+      keyName: song.keyName,
+      bars: song.bars,
+      totalBeats: song.totalBeats,
+      pingpong: !!song.pingpong,
+      presetOverride: song.presetOverride || {},
+      automation: song.automation || { filter: [], volume: [] },
+      progression: song.progression,
+      partSeeds: song.partSeeds,
+      sections: song.sections.map(function (s) {
+        return { type: s.type, bars: s.bars, startBar: s.startBar, energy: s.energy,
+                 name: s.name, parts: s.parts };
+      }),
+      chords: song.chords.map(function (c) {
+        return { startBeat: r4(c.startBeat), durBeats: r4(c.durBeats), bar: c.bar, bars: c.bars,
+                 degree: c.degree, shape: c.shape, rootPitch: c.rootPitch, name: c.name,
+                 roman: c.roman, pitches: c.pitches.slice(), voicing: c.voicing.slice() };
+      }),
+      tracks: tracks
+    };
+    if (extra) for (const k in extra) packed[k] = extra[k];
+    return packed;
+  }
+
+  /**
+   * Rebuild a song from a save. The compose call is what puts the live genre
+   * and mood objects back; everything stored then replaces what it wrote.
+   */
+  function unpackSong(p) {
+    if (!p || p.v !== SAVE_VERSION) return null;
+
+    const song = compose({
+      seed: p.seed, genre: p.genre, mood: p.mood,
+      key: p.rootPc, bpm: p.bpm, scale: p.scaleId
+    });
+
+    song.title = p.title;
+    song.bpm = p.bpm;
+    song.swing = p.swing;
+    song.rootPc = p.rootPc;
+    song.scaleId = p.scaleId;
+    song.scaleSteps = T.SCALES[p.scaleId].steps;
+    song.keyName = p.keyName;
+    song.bars = p.bars;
+    song.totalBeats = p.totalBeats;
+    song.duration = p.totalBeats * (60 / p.bpm);
+    song.pingpong = !!p.pingpong;
+    song.presetOverride = p.presetOverride || {};
+    song.automation = p.automation || { filter: [], volume: [] };
+    if (p.progression) song.progression = p.progression;
+    if (p.partSeeds) song.partSeeds = p.partSeeds;
+
+    song.chords = p.chords.map(function (c) {
+      const n = {};
+      for (const k in c) n[k] = c[k];
+      n.pitches = c.pitches.slice();
+      n.voicing = c.voicing.slice();
+      return n;
+    });
+
+    song.sections = p.sections.map(function (s) {
+      return { type: s.type, bars: s.bars, startBar: s.startBar, energy: s.energy,
+               name: s.name, parts: s.parts, chords: [] };
+    });
+    // Sections keep their own view of the harmony; re-link it to the restored one.
+    song.sections.forEach(function (sec) {
+      sec.chords = song.chords.filter(function (c) {
+        return c.bar >= sec.startBar && c.bar < sec.startBar + sec.bars;
+      });
+      sec.chords.forEach(function (c) { c.section = sec.name; });
+    });
+
+    song.tracks = {};
+    Object.keys(p.tracks).forEach(function (name) {
+      const isDrums = name === 'drums';
+      song.tracks[name] = p.tracks[name].map(function (a) { return unpackNote(a, isDrums); });
+    });
+
+    ensureAutomation(song);
+    clampAutomation(song);
+    return song;
+  }
+
+  /* ------------------------------------------------------------------ *
    * Automation lanes
    *
    * A lane is a sorted list of {t: beats, v: 0-1}. The engine reads them; this
@@ -1305,6 +1445,9 @@
     pitchToDegree: pitchToDegree,
     chordAt: chordAt,
     sectionOf: sectionOf,
+    packSong: packSong,
+    unpackSong: unpackSong,
+    SAVE_VERSION: SAVE_VERSION,
     ensureAutomation: ensureAutomation,
     clampAutomation: clampAutomation,
     addPoint: addPoint,
