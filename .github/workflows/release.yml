@@ -30,6 +30,7 @@ jobs:
             build-essential cmake ninja-build \
             libvulkan-dev glslang-tools mesa-vulkan-drivers \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev \
+            libxtst-dev \
             libxss-dev libwayland-dev libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
             libasound2-dev libpulse-dev libudev-dev
 
