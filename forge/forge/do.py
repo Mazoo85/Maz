@@ -128,7 +128,9 @@ def do(chosen: dict, root: Path, config: ForgeConfig, git=None, crew=None,
 
     duration = _minutes(started)
     if code != 0:
-        return CrewOutcome(False, name, (), cost, duration, f"Crew failed: {output.strip()[-400:]}")
+        cost, cost_note = _coerce_cost(cost)
+        return CrewOutcome(False, name, (), cost, duration,
+                           _with_note(f"Crew failed: {output.strip()[-400:]}", cost_note))
 
     # A runner (a test stub today, conceivably a real integration tomorrow)
     # can hand back anything as its third tuple element. `cost` is either

@@ -485,3 +485,34 @@ def test_untracked_gitignored_file_is_not_a_violation(tmp_path):
              crew=lambda t, r, s: (0, "ok", 0.1))
     assert out.ok is True
     assert "build/out.o" not in out.files
+
+
+# --- Fix wave 3 / Fix 1: crew non-zero exit must coerce cost too, not just ----
+# --- the success path. --------------------------------------------------------
+
+
+def test_crew_non_zero_exit_with_non_numeric_cost_coerces_to_none(tmp_path):
+    """A crew runner that exits non-zero and returns a non-numeric cost
+    (e.g. a string) must have that cost coerced to None, not stored raw.
+    The outcome is still ok=False with the crew failure reported.
+    """
+    def crew(task, root, timeout_s):
+        return (1, "boom", "not-a-number")
+
+    out = do(CHOSEN, tmp_path, ForgeConfig(), git=FakeGit(), crew=crew)
+    assert out.ok is False, "crew failure must still be reported"
+    assert "boom" in out.error, "crew failure message must be in error"
+    assert out.cost_usd is None, "non-numeric cost must be coerced to None"
+
+
+def test_crew_non_zero_exit_with_valid_numeric_cost_is_preserved(tmp_path):
+    """Ensure the fix does not over-coerce: a valid numeric cost from
+    a failed crew run must be kept, not replaced with None.
+    """
+    def crew(task, root, timeout_s):
+        return (1, "oops", 2.5)
+
+    out = do(CHOSEN, tmp_path, ForgeConfig(), git=FakeGit(), crew=crew)
+    assert out.ok is False
+    assert "oops" in out.error
+    assert out.cost_usd == 2.5, "valid numeric cost must be preserved"
