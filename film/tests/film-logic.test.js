@@ -1450,6 +1450,29 @@ test('the same seed always gives the same shape', () => {
   }
 });
 
+test('every shape, at every length, ends where it began', () => {
+  // The pre-existing 'a film ends where it began' test runs only at festival
+  // length and compares the `after` beat's place to the `open` beat's — an id
+  // pair, not a position. That gives no cover at all for the micro and short
+  // spines, two of which end on `choice` with no `after` beat in them. The
+  // property holds today only because placeForBeat hardcodes open, choice and
+  // after to place 0; this pins the property itself so a future change to that
+  // mapping cannot quietly break it.
+  Object.keys(LEX.STRUCTURES).forEach((len) => {
+    LEX.STRUCTURES[len].spines.forEach((spine, i) => {
+      const first = spine[0];
+      const last = spine[spine.length - 1];
+      for (let count = 3; count <= 5; count++) {
+        for (let seed = 0; seed < 8; seed++) {
+          eq(Writer.placeForBeat(last, count, seed), Writer.placeForBeat(first, count, seed),
+            len + ' shape ' + i + ' (' + spine.join(' ') + ') ends on ' + last +
+            ' but opens on ' + first + ', at ' + count + ' places, seed ' + seed);
+        }
+      }
+    });
+  });
+});
+
 /* ------------------------------------------------------------------ report */
 console.log('');
 if (failures.length) {
