@@ -142,5 +142,82 @@ for (const c of consumes) {
   }
 }
 
+/* ------------------------------------- 5. the declaration matches the page */
+function walkHtml(dir, out = []) {
+  for (const entry of readdirSync(dir)) {
+    if (SKIP_DIRS.has(entry)) continue;
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) walkHtml(full, out);
+    else if (entry.endsWith('.html')) out.push(full);
+  }
+  return out;
+}
+
+/* Every `../<something>/...` a page loads through src= or href=. Only HTML is
+ * scanned: a README mentioning another project is prose, not coupling. */
+const CROSS_REF = /(?:src|href)=["']\.\.\/([^/"']+)\/([^"']+)["']/g;
+
+function crossRefs(text) {
+  const out = [];
+  for (const m of text.matchAll(CROSS_REF)) out.push({ project: m[1], path: m[1] + '/' + m[2] });
+  return out;
+}
+
+const pages = walkHtml(ROOT);
+const declaredByPage = new Map();
+for (const c of consumes) {
+  if (c?.via === 'script' && c.page) {
+    if (!declaredByPage.has(c.page)) declaredByPage.set(c.page, []);
+    declaredByPage.get(c.page).push(c);
+  }
+}
+
+/* 5a. every declared script link is loaded, in the declared order. */
+for (const [page, entries] of declaredByPage) {
+  const full = join(ROOT, page);
+  if (!existsSync(full)) {
+    fail(`${EXCHANGE_REL}: declares a use on ${page}, which does not exist`);
+    continue;
+  }
+  const loaded = crossRefs(readFileSync(full, 'utf8')).map((r) => r.path);
+  for (const entry of entries) {
+    const want = publishes[entry.id]?.files ?? [];
+    const missing = want.filter((f) => !loaded.includes(f));
+    if (missing.length) {
+      fail(`${page} declares it uses "${entry.id}" but does not load ${missing.join(', ')}`);
+      continue;
+    }
+    const positions = want.map((f) => loaded.indexOf(f));
+    const ordered = positions.every((p, i) => i === 0 || p > positions[i - 1]);
+    if (!ordered) {
+      fail(`${page} loads "${entry.id}" files in the wrong order — ` +
+           `they must appear as ${want.join(', ')}`);
+    }
+  }
+}
+
+/* 5b. nothing reaches into another project without declaring it. */
+const declaredFiles = new Map();
+for (const c of consumes) {
+  if (!c?.page) continue;
+  const want = publishes[c.id]?.files ?? [];
+  if (!declaredFiles.has(c.page)) declaredFiles.set(c.page, new Set());
+  for (const f of want) declaredFiles.get(c.page).add(f);
+}
+
+for (const full of pages) {
+  const page = relative(ROOT, full).split('\\').join('/');
+  const owner = page.includes('/') ? page.split('/')[0] : null;
+  const allowed = declaredFiles.get(page) ?? new Set();
+  for (const ref of crossRefs(readFileSync(full, 'utf8'))) {
+    if (INFRASTRUCTURE.has(ref.project)) continue;
+    if (ref.project === owner) continue;
+    if (allowed.has(ref.path)) continue;
+    fail(`${page} loads ${ref.path} from another project, but ${EXCHANGE_REL} ` +
+         `does not declare that it consumes it`);
+  }
+}
+
 notes.push(`${Object.keys(publishes).length} published surface(s), ${consumes.length} declared use(s)`);
+notes.push(`${pages.length} HTML page(s) scanned for undeclared coupling`);
 report();

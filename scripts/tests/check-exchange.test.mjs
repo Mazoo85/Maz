@@ -193,6 +193,56 @@ test('a non-array PROJECTS in shared/projects.js fails, naming the problem', () 
     'failed for the wrong reason.\n  wanted: PROJECTS must be an array\n  got:\n' + output);
 });
 
+test('a page loading the files out of the declared order fails', () => {
+  const files = goodFiles();
+  files['film/index.html'] = GOOD_PAGE
+    .replace('<script src="../music/js/synth.js"></script>\n', '')
+    .replace('<script src="../music/js/engine.js"></script>\n',
+             '<script src="../music/js/engine.js"></script>\n' +
+             '<script src="../music/js/synth.js"></script>\n');
+  assertFailsWith(repo(files, goodExchange()), 'order');
+});
+
+test('a page missing one of the declared files fails, naming it', () => {
+  const files = goodFiles();
+  files['film/index.html'] = GOOD_PAGE
+    .replace('<script src="../music/js/synth.js"></script>\n', '');
+  assertFailsWith(repo(files, goodExchange()), 'music/js/synth.js');
+});
+
+test('an undeclared cross-project script tag fails, naming the page', () => {
+  // The rule this whole checker exists for: a new coupling that nobody wrote
+  // down must turn CI red rather than pass quietly.
+  const files = goodFiles();
+  files['madlibs/index.html'] =
+    '<!doctype html><html><body>\n' +
+    '<script src="../music/js/synth.js"></script>\n' +
+    '</body></html>\n';
+  const root = repo(files, goodExchange(), ['music', 'film', 'madlibs']);
+  assertFailsWith(root, 'madlibs/index.html');
+});
+
+test('loading shared/ is not coupling and does not fail', () => {
+  const files = goodFiles();
+  files['madlibs/index.html'] =
+    '<!doctype html><html><body>\n' +
+    '<script src="../shared/maz-nav.js"></script>\n' +
+    '</body></html>\n';
+  files['shared/maz-nav.js'] = '// nav\n';
+  const root = repo(files, goodExchange(), ['music', 'film', 'madlibs']);
+  const { code, output } = check(root);
+  assert.strictEqual(code, 0, 'shared/ must not count as a project dependency:\n' + output);
+});
+
+test('a page may load its own files without declaring anything', () => {
+  const files = goodFiles();
+  files['film/index.html'] = GOOD_PAGE.replace(
+    '</body>', '<script src="js/app.js"></script>\n</body>');
+  files['film/js/app.js'] = '// app\n';
+  const { code, output } = check(repo(files, goodExchange()));
+  assert.strictEqual(code, 0, 'same-project scripts are not coupling:\n' + output);
+});
+
 for (const root of tmpRoots) rmSync(root, { recursive: true, force: true });
 
 console.log('\n' + (failed ? `✗ ${failed} failed, ${passed} passed` : `✓ ${passed} tests passed`));
