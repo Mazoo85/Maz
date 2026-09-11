@@ -73,9 +73,26 @@ def test_crew_timeout_is_reported(tmp_path):
     def crew(task, root, timeout_s):
         raise subprocess.TimeoutExpired(cmd="crew", timeout=timeout_s)
 
-    out = do(CHOSEN, tmp_path, ForgeConfig(), git=FakeGit(), crew=crew)
+    out = do(CHOSEN, tmp_path, ForgeConfig(crew_timeout_min=7), git=FakeGit(), crew=crew)
     assert out.ok is False
-    assert "timed out" in out.error.lower()
+    # The timeout branch names the configured leash, in minutes — that is
+    # what only it can produce. The generic crash handler's message also
+    # happens to contain the words "timed out" (from TimeoutExpired's own
+    # __str__), so asserting on that phrase alone can't tell the branches
+    # apart. A distinctive, non-default minute count can.
+    assert "7 minutes" in out.error
+
+
+def test_a_non_timeout_crash_is_reported_as_a_crash_not_a_timeout(tmp_path):
+    def crew(task, root, timeout_s):
+        raise RuntimeError("boom")
+
+    out = do(CHOSEN, tmp_path, ForgeConfig(crew_timeout_min=7), git=FakeGit(), crew=crew)
+    assert out.ok is False
+    assert "crashed" in out.error.lower()
+    assert "boom" in out.error
+    assert "timed out" not in out.error.lower()
+    assert "7 minutes" not in out.error
 
 
 def test_too_many_files_touched_fails_the_run(tmp_path):
@@ -107,6 +124,32 @@ def test_budget_overrun_fails_the_run(tmp_path):
              git=FakeGit(), crew=lambda t, r, s: (0, "ok", 9.99))
     assert out.ok is False
     assert "budget" in out.error.lower()
+
+
+def test_branch_creation_failure_stops_before_crew_runs(tmp_path):
+    class FailingCheckoutGit(FakeGit):
+        """Answers everything like FakeGit, except `checkout -b` fails."""
+
+        def __call__(self, args):
+            self.calls.append(args)
+            if args[:2] == ["checkout", "-b"]:
+                return (1, "", "fatal: a branch named forge/... already exists")
+            if args[:2] == ["rev-parse", "--abbrev-ref"]:
+                return (0, "main\n", "")
+            if args[0] == "diff":
+                return (0, "\n".join(self.changed) + "\n", "")
+            return (0, "", "")
+
+    crew_called = {"value": False}
+
+    def crew(task, root, timeout_s):
+        crew_called["value"] = True
+        return (0, "crew finished", 0.0)
+
+    out = do(CHOSEN, tmp_path, ForgeConfig(), git=FailingCheckoutGit(), crew=crew)
+    assert out.ok is False
+    assert "branch" in out.error.lower()
+    assert crew_called["value"] is False, "crew must never run if the branch could not be created"
 
 
 def test_current_branch_uses_the_runner():
