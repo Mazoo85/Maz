@@ -192,11 +192,19 @@ against each other instead of quietly fighting over the same indices:
    length; it can only give way below 3 places, which nothing this app
    generates ever offers).
 3. whatever's left over is what the *other* middle beats spread across, as
-   widely as that leaves room for. At festival length (7 scenes, 4 middle
-   beats besides the crisis) reserving the crisis a place of its own usually
-   leaves fewer spare places than there are other beats, so a couple of them
-   end up sharing one — rule 3 is the one that narrows when the arithmetic is
-   tight, never rule 2.
+   widely as that leaves room for. **Rule 3 is the one that narrows when the
+   arithmetic is tight, never rule 1 or 2** — and it narrows hardest at the
+   low end: with only 3 places, one is the opening (which is also the close)
+   and one is reserved for the crisis, so *every* other middle beat shares the
+   single remaining room, at every length. About a third of premises offer 3
+   places, so that is a real share of films, not a corner case. At 4 places a
+   festival film spreads its 4 non-crisis middle beats over 2 rooms; at 5 it
+   spreads properly.
+
+   This is still a clear gain on what came before — the average film now uses
+   3.85 distinct locations against 3.39 under the previous rule, and every
+   film used exactly 2 before this work — but it is a trade, not a free win,
+   and the sharpest case is 3 places rather than festival length.
 
 Each beat then gets a scene: a slug line, action lines built from the beat's
 own bank, and a dialogue *exchange* (whole exchanges, not stray lines, so what

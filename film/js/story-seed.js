@@ -140,8 +140,11 @@
    * does not touch; it is a MADLIBS issue to file there, not here. */
 
   function fixArticles(text) {
-    return String(text).replace(/\ba ([aeiouAEIOU][\w-]*)/g, function (whole, word) {
-      return ARTICLE_EXCEPTIONS.test(word) ? whole : 'an ' + word;
+    // Both cases: MADLIBS loglines routinely open with "A archaeologist …",
+    // and a lowercase-only pattern leaves 1.1% of them ungrammatical on screen.
+    return String(text).replace(/\b([Aa]) ([aeiouAEIOU][\w-]*)/g, function (whole, article, word) {
+      if (ARTICLE_EXCEPTIONS.test(word)) return whole;
+      return (article === 'A' ? 'An ' : 'an ') + word;
     });
   }
 
