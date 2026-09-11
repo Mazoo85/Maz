@@ -130,6 +130,7 @@ def test_nothing_to_do_records_no_task_and_never_branches(tmp_path):
 
 
 def test_crew_failure_records_crew_failed_and_deletes_the_branch(tmp_path):
+    _exchange(tmp_path)
     git = FakeGit()
     entry = live_run(tmp_path, collectors=_collectors(), git=git,
                      crew=lambda t, r, s: (1, "boom", 0.1),
@@ -146,6 +147,7 @@ def test_over_budget_crew_records_budget_exceeded_not_crew_failed(tmp_path):
     every producer used to return a falsy CrewOutcome indistinguishable from
     any other failure, so orchestrate always recorded `crew_failed` instead.
     """
+    _exchange(tmp_path)
     git = FakeGit()
     entry = live_run(tmp_path, collectors=_collectors(), git=git,
                      crew=lambda t, r, s: (0, "done", 999.0),
@@ -172,6 +174,7 @@ def test_failing_checks_record_verify_failed_and_open_no_pr(tmp_path):
 
 
 def test_third_strike_quarantines_the_candidate(tmp_path):
+    _exchange(tmp_path)
     cfg = ForgeConfig()
     for _ in range(3):
         live_run(tmp_path, collectors=_collectors(), git=FakeGit(),
@@ -189,6 +192,7 @@ def test_a_quarantined_candidate_is_not_picked_again(tmp_path):
     own even if quarantine() were wired to nothing at all (see the mutation
     check on this test: monkeypatch quarantine to a no-op and it must fail).
     """
+    _exchange(tmp_path)
     for _ in range(3):
         live_run(tmp_path, collectors=_collectors(), git=FakeGit(),
                  crew=lambda t, r, s: (1, "boom", 0.1),
@@ -292,6 +296,7 @@ def test_a_crashing_cleanup_still_records_crew_failed(tmp_path):
     cost the run its ledger line either — the failed attempt is still worth
     recording, branch cleaned up or not.
     """
+    _exchange(tmp_path)
     git = ExplodingCleanupGit()
     entry = live_run(tmp_path, collectors=_collectors(), git=git,
                      crew=lambda t, r, s: (1, "boom", 0.1),
@@ -389,6 +394,7 @@ def test_abandon_checks_out_the_configured_base_branch_not_main(tmp_path):
     tree to a wholly different project on a repo like this one.
     """
     _write_base_branch_config(tmp_path)
+    _exchange(tmp_path)
     git = FakeGit()
     entry = live_run(tmp_path, collectors=_collectors(), git=git,
                      crew=lambda t, r, s: (1, "boom", 0.1),
@@ -441,6 +447,7 @@ def test_abandon_with_a_failing_checkout_does_not_delete_and_still_records(tmp_p
     the delete must not be attempted — git refuses to delete the branch
     that's still checked out, and the run must still record.
     """
+    _exchange(tmp_path)
     git = FailingCheckoutGit()
     entry = live_run(tmp_path, collectors=_collectors(), git=git,
                      crew=lambda t, r, s: (1, "boom", 0.1),

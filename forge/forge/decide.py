@@ -110,6 +110,7 @@ def decide(
     config: ForgeConfig,
     strikes: dict | None = None,
     recent_zones: list | None = None,
+    exchange_ok: bool = True,
 ) -> dict:
     """Score everything in the pulse, apply the rules, pick one. Never raises.
 
@@ -121,6 +122,14 @@ def decide(
     an uncaught exception — a malformed pulse is exactly the kind of night
     that must still produce a clean "nothing worth doing" record rather than
     crash the loop before the ledger gets written.
+
+    `exchange_ok` is the caller's answer to "can shared/exchange.json be
+    read?". False skips every candidate as `config_error`: without that file
+    the Forge cannot tell which projects a change could break, and choosing
+    anyway would mean verifying less than the ledger claims. This is an
+    early exit, not the safety guarantee — `verify.run_checks` fails closed
+    on the same condition with no default to weaken it, which is why the
+    default here can safely be True.
     """
     strikes = strikes or {}
     recent_zones = list(recent_zones or [])
@@ -145,6 +154,10 @@ def decide(
         except (KeyError, TypeError):
             continue
         considered += 1
+
+        if not exchange_ok:
+            skipped["config_error"] += 1
+            continue
 
         zone = zone_for(candidate.paths, config)
         if zone is None:

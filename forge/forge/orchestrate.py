@@ -64,6 +64,7 @@ from .config import load_config
 from .decide import decide as decide_step
 from .decide import write_tonight
 from .do import do as do_step
+from .exchange import is_loadable
 from .gitops import checkout, delete_branch, push_branch
 from .learn import memory_note, quarantine, tick_roadmap
 from .sense import sense as sense_step
@@ -89,7 +90,8 @@ def live_run(root: Path, collectors=None, git=None, crew=None, checks=None,
     # --- DECIDE ------------------------------------------------------------
     strikes = ledger_mod.strikes(root, config)
     record = decide_step(pulse, config, strikes=strikes,
-                         recent_zones=ledger_mod.recent_zones(root, config))
+                         recent_zones=ledger_mod.recent_zones(root, config),
+                         exchange_ok=is_loadable(root))
     _best_effort(write_tonight, record, root, config)
 
     why = {

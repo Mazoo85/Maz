@@ -182,3 +182,33 @@ def test_missing_weight_is_skipped_not_fatal():
     record = decide(_pulse(stale), cfg)
     assert record["chosen"] is None
     assert record["skipped"]["config_error"] == 1
+
+
+def test_a_bad_exchange_skips_everything_as_config_error():
+    # The Forge cannot tell what a change would break, so it declines to
+    # choose. A quiet night is a correct night; a night that verifies less
+    # than it claims is not.
+    record = decide(_pulse(DOC, MUSIC), ForgeConfig(), exchange_ok=False)
+    assert record["chosen"] is None
+    assert record["skipped"]["config_error"] == record["considered"]
+
+
+def test_a_bad_exchange_still_counts_what_it_considered():
+    record = decide(_pulse(DOC, MUSIC), ForgeConfig(), exchange_ok=False)
+    assert record["considered"] == 2
+
+
+def test_a_good_exchange_changes_nothing():
+    with_flag = decide(_pulse(DOC, MUSIC), ForgeConfig(), exchange_ok=True)
+    without = decide(_pulse(DOC, MUSIC), ForgeConfig())
+    # Exclude the wall-clock timestamp: two back-to-back calls could
+    # straddle a second boundary and make an otherwise-identical pair of
+    # records compare unequal for a reason that has nothing to do with
+    # exchange_ok. What must be identical is the actual decision.
+    assert with_flag.pop("generated_at") is not None
+    assert without.pop("generated_at") is not None
+    assert with_flag == without
+    # A no-op guard must still let a real candidate through, not just
+    # produce two equally-empty records.
+    assert with_flag["chosen"] is not None
+    assert with_flag["chosen"]["candidate"]["source"] == "ci:music-ci"
