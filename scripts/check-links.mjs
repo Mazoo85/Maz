@@ -20,6 +20,9 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SKIP_DIRS = new Set([
   '.git', 'node_modules', 'build', 'dist', '__pycache__', '.venv', 'venv',
   '.pytest_cache', '.mypy_cache', '.claude',
+  // Subagent working notes: gitignored scratch, absent on CI, and full of
+  // quoted regexes and example paths that are not links at all.
+  '.superpowers',
   // Scraper test fixtures are fake pages full of deliberately dangling URLs.
   'fixtures'
 ]);
