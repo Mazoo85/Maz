@@ -318,4 +318,9 @@ Both run in **[Site CI](../.github/workflows/site-ci.yml)** on every push.
 - Dialogue comes from a hand-written bank steered by your genre and beat, so
   two very different ideas in the same genre can share a line. Reroll, or
   rewrite the line — it is your film.
+- The exterior wording swap knows *indoors from outdoors*, not one outdoor
+  place from another. No scene will talk about a sill in a parking lot any
+  more, but "the dark past the treeline" can still land in one. Getting that
+  exact would mean a variant of every image for every one of the 15 sets,
+  which is a much larger machine than the problem deserves.
 - It reads English, and reads it plainly. Sarcasm and metaphor go over its head.
