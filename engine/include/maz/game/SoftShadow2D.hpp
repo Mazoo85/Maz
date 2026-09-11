@@ -31,8 +31,17 @@ inline bool segmentsIntersect(math::vec2 p1, math::vec2 p2, math::vec2 q1, math:
         return false; // parallel or colinear -> treat as no crossing
     }
     const math::vec2 qp{q1.x - p1.x, q1.y - p1.y};
+#if defined(_MSC_VER)
+#pragma warning(push)
+// C4723: MSVC cannot see through the std::fabs guard above, which already returns for any |rxs|
+// below 1e-9f, so rxs is provably non-zero here.
+#pragma warning(disable : 4723)
+#endif
     const float t = cross(qp, s) / rxs;
     const float u = cross(qp, r) / rxs;
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
     const float eps = 1e-4f;
     return t > eps && t < 1.0f - eps && u > eps && u < 1.0f - eps;
 }

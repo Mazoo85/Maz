@@ -2,6 +2,9 @@
 # No GPU/window needed — fast, deterministic, and the first line of defence against logic bugs.
 add_executable(maz_unit_tests unit/main.cpp)
 target_link_libraries(maz_unit_tests PRIVATE maz::maz maz_warnings)
+# This translation unit is ~33k lines and exceeds the COFF section limit MSVC allows by default
+# (error C1128); /bigobj raises it. Harmless and MSVC-only.
+target_compile_options(maz_unit_tests PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/bigobj>)
 # The ZOMBOID game logic (scripts + scene builder) is shared between its app and these tests.
 target_include_directories(maz_unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/zomboid)
 add_test(NAME unit_tests COMMAND maz_unit_tests)
