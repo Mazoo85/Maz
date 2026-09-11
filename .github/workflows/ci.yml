@@ -28,6 +28,7 @@ jobs:
             build-essential cmake ninja-build \
             libvulkan-dev glslang-tools mesa-vulkan-drivers \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev \
+            libxtst-dev \
             libxss-dev libwayland-dev libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
             libasound2-dev libpulse-dev libudev-dev
       - name: Configure
@@ -53,6 +54,7 @@ jobs:
             build-essential cmake ninja-build clang-tidy \
             libvulkan-dev glslang-tools \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev \
+            libxtst-dev \
             libxss-dev libwayland-dev libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
             libasound2-dev libpulse-dev libudev-dev
       - name: Configure (exports compile_commands.json)
@@ -81,6 +83,7 @@ jobs:
             build-essential cmake ninja-build \
             libvulkan-dev glslang-tools \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev \
+            libxtst-dev \
             libxss-dev libwayland-dev libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
             libasound2-dev libpulse-dev libudev-dev
       - name: Configure with sanitizers
@@ -123,6 +126,7 @@ jobs:
             build-essential cmake ninja-build \
             libvulkan-dev glslang-tools \
             libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev \
+            libxtst-dev \
             libxss-dev libwayland-dev libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
             libasound2-dev libpulse-dev libudev-dev
       - name: Configure with ThreadSanitizer
@@ -151,7 +155,10 @@ jobs:
       - name: Install the Vulkan SDK
         uses: jakoch/install-vulkan-sdk-action@v1
         with:
-          vulkan_version: 1.3.275.0
+          # 'latest' rather than a pin: LunarG rotates older SDKs off its
+          # download server, and a pinned version silently 404s when it goes.
+          # Matches windows-editor.yml, which already tracks latest.
+          vulkan_version: latest
           install_runtime: true
           cache: true
       - name: Configure
