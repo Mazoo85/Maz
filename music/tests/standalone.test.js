@@ -289,11 +289,22 @@ function launchOptions() {
       defaultName: window.Engine.defaultPresetName(song, 'lead'),
       changed: before !== after,
       isBell: after === P.bell,
-      options: Object.keys(window.Genres.PRESET_GROUPS).length
+      /* The real rule, rather than a count that goes stale every time a part is
+         added: every melodic track must have a list of sounds to offer, and the
+         lists must not name a part that does not exist. */
+      missing: window.Engine.TRACKS.filter(function (t) {
+        return t !== 'drums' && !window.Genres.PRESET_GROUPS[t];
+      }),
+      extra: Object.keys(window.Genres.PRESET_GROUPS).filter(function (g) {
+        return window.Engine.TRACKS.indexOf(g) < 0;
+      })
     };
   });
   check(swap.changed && swap.isBell, 'an override actually changes which instrument plays');
-  check(swap.options === 5, 'every melodic part has a sound list');
+  check(swap.missing.length === 0, 'every melodic part has a sound list' +
+    (swap.missing.length ? ' — missing: ' + swap.missing.join(', ') : ''));
+  check(swap.extra.length === 0, 'and no list belongs to a part that does not exist' +
+    (swap.extra.length ? ': ' + swap.extra.join(', ') : ''));
   check(await page.evaluate(function () {
     return document.querySelectorAll('#soundSelect option').length > 3;
   }), 'the picker is populated for the current part');

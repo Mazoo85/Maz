@@ -249,7 +249,114 @@
       amp: { a: 0.01, d: 0.15, s: 0.9, r: 0.12 }, gain: 0.5,
       send: { rev: 0.04, del: 0 }
     }),
-    piano: { kind: 'epiano', gain: 0.34, amp: { a: 0.003, d: 1.1, s: 0.0, r: 0.35 }, send: { rev: 0.4, del: 0.12 }, tone: 0.8 }
+    piano: { kind: 'epiano', gain: 0.34, amp: { a: 0.003, d: 1.1, s: 0.0, r: 0.35 }, send: { rev: 0.4, del: 0.12 }, tone: 0.8 },
+
+    /* --- orchestral --- */
+    violinSolo: subtractive({
+      osc: [{ wave: 'violin', detune: -3, gain: 1, octave: 0 },
+            { wave: 'violin', detune: 4, gain: 0.55, octave: 0 }],
+      filter: { type: 'lowpass', freq: 2600, q: 1.2, env: 900, attack: 0.12, decay: 0.8, sustain: 0.7 },
+      amp: { a: 0.09, d: 0.4, s: 0.9, r: 0.35 }, gain: 0.3, width: 0.2,
+      vibrato: { rate: 5.6, depth: 14, delay: 0.35 },
+      send: { rev: 0.5, del: 0.08 }
+    }),
+    cello: subtractive({
+      osc: [{ wave: 'cello', detune: -2, gain: 1, octave: 0 },
+            { wave: 'cello', detune: 3, gain: 0.5, octave: 0 }],
+      filter: { type: 'lowpass', freq: 1500, q: 1.1, env: 700, attack: 0.14, decay: 0.9, sustain: 0.75 },
+      amp: { a: 0.12, d: 0.5, s: 0.9, r: 0.5 }, gain: 0.34, width: 0.16,
+      vibrato: { rate: 4.8, depth: 11, delay: 0.4 },
+      send: { rev: 0.5, del: 0.06 }
+    }),
+    flute: subtractive({
+      osc: [{ wave: 'flute', detune: 0, gain: 1, octave: 0 }],
+      filter: { type: 'lowpass', freq: 4200, q: 0.7, env: 600, attack: 0.06, decay: 0.4, sustain: 0.8 },
+      amp: { a: 0.05, d: 0.2, s: 0.88, r: 0.22 }, gain: 0.3,
+      vibrato: { rate: 5.2, depth: 9, delay: 0.3 },
+      send: { rev: 0.45, del: 0.14 }
+    }),
+    clarinet: subtractive({
+      osc: [{ wave: 'clarinet', detune: 0, gain: 1, octave: 0 }],
+      filter: { type: 'lowpass', freq: 2400, q: 1, env: 700, attack: 0.04, decay: 0.35, sustain: 0.8 },
+      amp: { a: 0.035, d: 0.2, s: 0.9, r: 0.2 }, gain: 0.32,
+      vibrato: { rate: 4.6, depth: 6, delay: 0.4 },
+      send: { rev: 0.38, del: 0.1 }
+    }),
+    oboe: subtractive({
+      osc: [{ wave: 'oboe', detune: 0, gain: 1, octave: 0 }],
+      filter: { type: 'lowpass', freq: 3000, q: 1.4, env: 800, attack: 0.035, decay: 0.3, sustain: 0.82 },
+      amp: { a: 0.03, d: 0.18, s: 0.9, r: 0.18 }, gain: 0.27,
+      vibrato: { rate: 5.4, depth: 10, delay: 0.3 },
+      send: { rev: 0.42, del: 0.1 }
+    }),
+
+    /* --- brass --- */
+    trombone: subtractive({
+      osc: [{ wave: 'trombone', detune: -2, gain: 1, octave: 0 }],
+      filter: { type: 'lowpass', freq: 1700, q: 1.2, env: 1400, attack: 0.05, decay: 0.3, sustain: 0.72 },
+      amp: { a: 0.045, d: 0.22, s: 0.85, r: 0.22 }, gain: 0.36, drive: 0.12,
+      send: { rev: 0.35, del: 0.08 }
+    }),
+    sax: subtractive({
+      osc: [{ wave: 'sax', detune: -3, gain: 1, octave: 0 },
+            { wave: 'sax', detune: 4, gain: 0.4, octave: 0 }],
+      filter: { type: 'lowpass', freq: 2500, q: 1.6, env: 1600, attack: 0.03, decay: 0.28, sustain: 0.7 },
+      amp: { a: 0.028, d: 0.2, s: 0.86, r: 0.25 }, gain: 0.34, drive: 0.16, width: 0.14,
+      vibrato: { rate: 5.0, depth: 12, delay: 0.28 },
+      send: { rev: 0.4, del: 0.14 }
+    }),
+    mutedTrumpet: subtractive({
+      osc: [{ wave: 'muted', detune: 0, gain: 1, octave: 0 }],
+      filter: { type: 'bandpass', freq: 1600, q: 2.4, env: 1200, attack: 0.02, decay: 0.22, sustain: 0.7 },
+      amp: { a: 0.02, d: 0.16, s: 0.82, r: 0.18 }, gain: 0.33, drive: 0.2,
+      send: { rev: 0.44, del: 0.2 }
+    }),
+
+    /* --- from further afield --- */
+    sitar: {
+      kind: 'string', gain: 0.4, tone: 0.9, ring: 3.2, body: 260,
+      amp: { a: 0.002, d: 2.4, s: 0, r: 0.9 }, send: { rev: 0.42, del: 0.18 }
+    },
+    koto: {
+      kind: 'string', gain: 0.42, tone: 0.55, ring: 1.6, body: 420,
+      amp: { a: 0.002, d: 1.3, s: 0, r: 0.5 }, send: { rev: 0.36, del: 0.12 }
+    },
+    steelGuitar: {
+      kind: 'string', gain: 0.4, tone: 0.68, ring: 2.6, body: 200,
+      amp: { a: 0.002, d: 2.0, s: 0, r: 0.7 }, send: { rev: 0.3, del: 0.12 }
+    },
+    banjo: {
+      kind: 'string', gain: 0.36, tone: 0.95, ring: 0.9, body: 520,
+      amp: { a: 0.001, d: 0.7, s: 0, r: 0.3 }, send: { rev: 0.26, del: 0.1 }
+    },
+    kalimba: {
+      kind: 'mallet', gain: 0.4, amp: { a: 0.001, d: 1.1, s: 0, r: 0.5 },
+      partials: [[1, 1, 1], [3.1, 0.28, 0.4], [7.4, 0.1, 0.2]],
+      send: { rev: 0.4, del: 0.16 }
+    },
+    steelDrum: {
+      kind: 'mallet', gain: 0.42, amp: { a: 0.002, d: 1.4, s: 0, r: 0.6 },
+      partials: [[1, 1, 1], [2, 0.6, 0.7], [3.02, 0.32, 0.5], [5.9, 0.12, 0.3]],
+      send: { rev: 0.44, del: 0.18 }
+    },
+    accordion: subtractive({
+      osc: [{ wave: 'accordion', detune: -7, gain: 1, octave: 0 },
+            { wave: 'accordion', detune: 8, gain: 0.85, octave: 0 }],
+      filter: { type: 'lowpass', freq: 3000, q: 0.8, env: 400, attack: 0.05, decay: 0.3, sustain: 0.85 },
+      amp: { a: 0.05, d: 0.2, s: 0.92, r: 0.18 }, gain: 0.3, width: 0.3,
+      send: { rev: 0.3, del: 0.1 }
+    }),
+
+    /* --- a proper bowed section, as opposed to one player --- */
+    strSection: subtractive({
+      osc: [{ wave: 'violin', detune: -12, gain: 1, octave: 0 },
+            { wave: 'violin', detune: 11, gain: 1, octave: 0 },
+            { wave: 'cello', detune: 0, gain: 0.6, octave: -1 }],
+      filter: { type: 'lowpass', freq: 2000, q: 1, env: 800, attack: 0.4, decay: 1.2, sustain: 0.7 },
+      amp: { a: 0.35, d: 0.8, s: 0.9, r: 0.8 }, gain: 0.26, width: 0.65,
+      vibrato: { rate: 4.4, depth: 7, delay: 0.5 },
+      send: { rev: 0.6, del: 0.06 }
+    })
   };
 
   /* Human names for the presets, and which ones suit which part. A bass patch
@@ -267,21 +374,36 @@
     organ: 'Organ', brass: 'Brass', reedLead: 'Reed',
     choirPad: 'Choir', voxLead: 'Voice',
     fmKeys: 'FM keys', fmBright: 'FM lead', glassBell: 'Glass bell',
-    supersaw: 'Supersaw'
+    supersaw: 'Supersaw',
+    violinSolo: 'Violin', cello: 'Cello', flute: 'Flute', clarinet: 'Clarinet',
+    oboe: 'Oboe', strSection: 'String section',
+    trombone: 'Trombone', sax: 'Saxophone', mutedTrumpet: 'Muted trumpet',
+    sitar: 'Sitar', koto: 'Koto', kalimba: 'Kalimba', steelDrum: 'Steel drum',
+    accordion: 'Accordion', banjo: 'Banjo', steelGuitar: 'Steel-string guitar'
   };
 
   const PRESET_GROUPS = {
     bass:   ['lofiBass', 'synthBass', 'houseBass', 'softBass', 'eight08', 'reese',
              'pulseBass', 'fmBass', 'pickBass', 'organBass'],
     chords: ['rhodes', 'piano', 'warmPad', 'glassPad', 'stab', 'strings', 'chipChord',
-             'pluck', 'guitar', 'nylon', 'organ', 'brass', 'choirPad', 'fmKeys', 'vibes', 'supersaw'],
+             'pluck', 'guitar', 'nylon', 'organ', 'brass', 'choirPad', 'fmKeys', 'vibes',
+             'supersaw', 'strSection', 'accordion', 'cello', 'sax'],
     arp:    ['pluck', 'bell', 'chipChord', 'chipLead', 'piano', 'softLead', 'rhodes',
-             'guitar', 'harp', 'marimba', 'vibes', 'glassBell', 'organ', 'fmKeys'],
+             'guitar', 'harp', 'marimba', 'vibes', 'glassBell', 'organ', 'fmKeys',
+             'sitar', 'koto', 'kalimba', 'steelDrum', 'banjo', 'steelGuitar'],
     lead:   ['softLead', 'sawLead', 'bell', 'pluck', 'chipLead', 'piano', 'rhodes',
              'guitar', 'nylon', 'brass', 'reedLead', 'voxLead', 'fmBright', 'glassBell',
-             'supersaw', 'marimba', 'vibes', 'organ'],
+             'supersaw', 'marimba', 'vibes', 'organ',
+             'violinSolo', 'cello', 'flute', 'clarinet', 'oboe', 'trombone', 'sax',
+             'mutedTrumpet', 'sitar', 'koto', 'kalimba', 'steelDrum', 'accordion',
+             'banjo', 'steelGuitar'],
     pad:    ['warmPad', 'glassPad', 'strings', 'chipChord', 'rhodes', 'choirPad',
-             'organ', 'brass', 'harp', 'supersaw']
+             'organ', 'brass', 'harp', 'supersaw', 'strSection', 'cello', 'accordion'],
+    counter: ['softLead', 'pluck', 'bell', 'glassBell', 'guitar', 'nylon', 'harp',
+              'marimba', 'vibes', 'organ', 'brass', 'reedLead', 'voxLead', 'piano',
+              'violinSolo', 'cello', 'flute', 'clarinet', 'oboe', 'trombone', 'sax',
+              'mutedTrumpet', 'sitar', 'koto', 'kalimba', 'steelDrum', 'accordion',
+              'banjo', 'steelGuitar', 'strSection']
   };
 
   /*
@@ -331,8 +453,8 @@
       chords: { style: 'keys', preset: 'rhodes', octaveLow: 55, octaveHigh: 79, alts: ['nylon', 'vibes', 'organ'] },
       pad: { preset: 'warmPad', gain: 0.5 },
       counter: { chance: 0.35, preset: 'nylon', octave: 4, alts: ['vibes', 'rhodes', 'marimba'] },
-      lead: { preset: 'softLead', octave: 5, density: 0.55, restBias: 0.35, alts: ['nylon', 'vibes', 'reedLead'] },
-      arp: { preset: 'pluck', rate: 0.5, octave: 5, chance: 0.35, alts: ['guitar', 'marimba', 'harp'] },
+      lead: { preset: 'softLead', octave: 5, density: 0.55, restBias: 0.35, alts: ['nylon', 'vibes', 'reedLead', 'flute', 'sax', 'kalimba'] },
+      arp: { preset: 'pluck', rate: 0.5, octave: 5, chance: 0.35, alts: ['guitar', 'marimba', 'harp', 'kalimba', 'koto', 'steelGuitar'] },
       builds: false,
       drums: {
         kit: 'lofi',
@@ -356,9 +478,9 @@
       barsPerChord: [1, 2],
       bass: { style: 'root8', octave: 2, preset: 'synthBass', alts: ['fmBass'] },
       chords: { style: 'pad', preset: 'warmPad', octaveLow: 55, octaveHigh: 81 },
-      pad: { preset: 'strings', gain: 0.45, alts: ['supersaw', 'choirPad'] },
+      pad: { preset: 'strings', gain: 0.45, alts: ['supersaw', 'choirPad', 'strSection'] },
       counter: { chance: 0.3, preset: 'softLead', octave: 4, alts: ['bell', 'fmKeys'] },
-      lead: { preset: 'sawLead', octave: 5, density: 0.7, restBias: 0.2, alts: ['supersaw', 'fmBright', 'brass'] },
+      lead: { preset: 'sawLead', octave: 5, density: 0.7, restBias: 0.2, alts: ['supersaw', 'fmBright', 'brass', 'sax'] },
       arp: { preset: 'pluck', rate: 0.25, octave: 5, chance: 0.85 },
       builds: true,
       drums: {
@@ -385,7 +507,7 @@
       chords: { style: 'stab', preset: 'stab', octaveLow: 57, octaveHigh: 83, alts: ['organ', 'rhodes', 'fmKeys'] },
       pad: { preset: 'warmPad', gain: 0.4 },
       counter: { chance: 0.25, preset: 'pluck', octave: 4, alts: ['bell', 'fmKeys'] },
-      lead: { preset: 'pluck', octave: 5, density: 0.5, restBias: 0.35, alts: ['voxLead', 'organ', 'marimba'] },
+      lead: { preset: 'pluck', octave: 5, density: 0.5, restBias: 0.35, alts: ['voxLead', 'organ', 'marimba', 'sax', 'flute'] },
       arp: { preset: 'pluck', rate: 0.25, octave: 5, chance: 0.5 },
       builds: true,
       drums: {
@@ -412,8 +534,8 @@
       chords: { style: 'pad', preset: 'glassPad', octaveLow: 55, octaveHigh: 84, alts: ['choirPad', 'organ'] },
       pad: { preset: 'warmPad', gain: 0.55 },
       counter: { chance: 0.4, preset: 'glassBell', octave: 5, alts: ['bell', 'harp'] },
-      lead: { preset: 'bell', octave: 6, density: 0.25, restBias: 0.6, alts: ['glassBell', 'vibes', 'harp'] },
-      arp: { preset: 'bell', rate: 1.0, octave: 6, chance: 0.4, alts: ['harp', 'marimba', 'glassBell'] },
+      lead: { preset: 'bell', octave: 6, density: 0.25, restBias: 0.6, alts: ['glassBell', 'vibes', 'harp', 'flute', 'kalimba', 'koto'] },
+      arp: { preset: 'bell', rate: 1.0, octave: 6, chance: 0.4, alts: ['harp', 'marimba', 'glassBell', 'kalimba', 'koto'] },
       builds: false,
       drums: {
         kit: 'soft',
@@ -436,10 +558,10 @@
       progressions: PROG.minorEpic.concat(PROG.popMajor), chordShapes: [['triad', 3], ['seventh', 2], ['sus4', 2]],
       barsPerChord: [1, 2],
       bass: { style: 'whole', octave: 2, preset: 'softBass' },
-      chords: { style: 'swell', preset: 'strings', octaveLow: 52, octaveHigh: 79, alts: ['choirPad', 'brass'] },
-      pad: { preset: 'glassPad', gain: 0.5, alts: ['choirPad', 'brass'] },
+      chords: { style: 'swell', preset: 'strings', octaveLow: 52, octaveHigh: 79, alts: ['choirPad', 'brass', 'strSection'] },
+      pad: { preset: 'glassPad', gain: 0.5, alts: ['choirPad', 'brass', 'strSection', 'cello'] },
       counter: { chance: 0.55, preset: 'strings', octave: 4, alts: ['brass', 'choirPad', 'harp'] },
-      lead: { preset: 'piano', octave: 5, density: 0.6, restBias: 0.3, alts: ['brass', 'voxLead', 'reedLead'] },
+      lead: { preset: 'piano', octave: 5, density: 0.6, restBias: 0.3, alts: ['brass', 'voxLead', 'reedLead', 'violinSolo', 'cello', 'flute', 'oboe', 'clarinet'] },
       arp: { preset: 'piano', rate: 0.5, octave: 5, chance: 0.7, alts: ['harp', 'marimba'] },
       builds: true,
       drums: {
@@ -493,7 +615,7 @@
       chords: { style: 'pad', preset: 'glassPad', octaveLow: 60, octaveHigh: 84, alts: ['choirPad', 'supersaw'] },
       pad: { preset: 'warmPad', gain: 0.4 },
       counter: { chance: 0.25, preset: 'bell', octave: 5, alts: ['pluck', 'glassBell'] },
-      lead: { preset: 'bell', octave: 5, density: 0.35, restBias: 0.5, alts: ['glassBell', 'voxLead', 'fmBright'] },
+      lead: { preset: 'bell', octave: 5, density: 0.35, restBias: 0.5, alts: ['glassBell', 'voxLead', 'fmBright', 'flute'] },
       arp: { preset: 'pluck', rate: 0.25, octave: 5, chance: 0.45 },
       builds: true,
       drums: {
@@ -548,8 +670,8 @@
       chords: { style: 'stab', preset: 'guitar', octaveLow: 52, octaveHigh: 76, alts: ['organ', 'piano', 'brass'] },
       pad: { preset: 'strings', gain: 0.3 },
       counter: { chance: 0.35, preset: 'guitar', octave: 4, alts: ['organ', 'brass'] },
-      lead: { preset: 'guitar', octave: 5, density: 0.7, restBias: 0.2, alts: ['sawLead', 'organ', 'brass'] },
-      arp: { preset: 'guitar', rate: 0.5, octave: 5, chance: 0.2, alts: ['piano', 'organ'] },
+      lead: { preset: 'guitar', octave: 5, density: 0.7, restBias: 0.2, alts: ['sawLead', 'organ', 'brass', 'steelGuitar', 'trombone'] },
+      arp: { preset: 'guitar', rate: 0.5, octave: 5, chance: 0.2, alts: ['piano', 'organ', 'steelGuitar', 'banjo'] },
       builds: true,
       drums: {
         kit: 'rock',
@@ -575,8 +697,8 @@
       chords: { style: 'stab', preset: 'guitar', octaveLow: 55, octaveHigh: 79, alts: ['organ', 'rhodes', 'brass'] },
       pad: { preset: 'strings', gain: 0.22 },
       counter: { chance: 0.5, preset: 'brass', octave: 4, alts: ['organ', 'guitar'] },
-      lead: { preset: 'brass', octave: 5, density: 0.62, restBias: 0.34, alts: ['organ', 'sawLead', 'guitar'] },
-      arp: { preset: 'guitar', rate: 0.25, octave: 5, chance: 0.45, alts: ['rhodes', 'organ', 'marimba'] },
+      lead: { preset: 'brass', octave: 5, density: 0.62, restBias: 0.34, alts: ['organ', 'sawLead', 'guitar', 'sax', 'trombone', 'mutedTrumpet'] },
+      arp: { preset: 'guitar', rate: 0.25, octave: 5, chance: 0.45, alts: ['rhodes', 'organ', 'marimba', 'steelGuitar'] },
       builds: false,
       drums: {
         kit: 'acoustic',
@@ -599,10 +721,10 @@
       progressions: PROG.jazzy.concat(PROG.bossa), chordShapes: [['ninth', 4], ['seventh', 4], ['sixth', 2]],
       barsPerChord: [1, 2],
       bass: { style: 'walk', octave: 2, preset: 'pickBass', alts: ['lofiBass', 'organBass'] },
-      chords: { style: 'keys', preset: 'piano', octaveLow: 55, octaveHigh: 81, alts: ['rhodes', 'guitar', 'vibes'] },
+      chords: { style: 'keys', preset: 'piano', octaveLow: 55, octaveHigh: 81, alts: ['rhodes', 'guitar', 'vibes', 'sax'] },
       pad: { preset: 'strings', gain: 0.18 },
       counter: { chance: 0.6, preset: 'brass', octave: 4, alts: ['reedLead', 'vibes', 'piano'] },
-      lead: { preset: 'reedLead', octave: 5, density: 0.66, restBias: 0.3, alts: ['brass', 'vibes', 'piano', 'guitar'] },
+      lead: { preset: 'reedLead', octave: 5, density: 0.66, restBias: 0.3, alts: ['brass', 'vibes', 'piano', 'guitar', 'sax', 'mutedTrumpet', 'trombone', 'clarinet', 'flute'] },
       arp: { preset: 'vibes', rate: 0.5, octave: 5, chance: 0.3, alts: ['piano', 'guitar', 'harp'] },
       builds: false,
       drums: {
@@ -626,10 +748,10 @@
       progressions: PROG.disco.concat(PROG.jazzy), chordShapes: [['seventh', 4], ['ninth', 3], ['sixth', 1]],
       barsPerChord: [1, 2],
       bass: { style: 'offbeat', octave: 2, preset: 'pickBass', alts: ['synthBass', 'organBass'] },
-      chords: { style: 'stab', preset: 'guitar', octaveLow: 55, octaveHigh: 79, alts: ['rhodes', 'piano', 'brass'] },
+      chords: { style: 'stab', preset: 'guitar', octaveLow: 55, octaveHigh: 79, alts: ['rhodes', 'piano', 'brass', 'strSection'] },
       pad: { preset: 'strings', gain: 0.42 },
       counter: { chance: 0.45, preset: 'strings', octave: 5, alts: ['brass', 'piano'] },
-      lead: { preset: 'brass', octave: 5, density: 0.6, restBias: 0.32, alts: ['sawLead', 'voxLead', 'piano'] },
+      lead: { preset: 'brass', octave: 5, density: 0.6, restBias: 0.32, alts: ['sawLead', 'voxLead', 'piano', 'sax', 'trombone', 'flute'] },
       arp: { preset: 'piano', rate: 0.25, octave: 5, chance: 0.55, alts: ['guitar', 'harp', 'marimba'] },
       builds: true,
       drums: {
@@ -657,7 +779,7 @@
       pad: { preset: 'glassPad', gain: 0.34 },
       counter: { chance: 0.2, preset: 'pluck', octave: 5, alts: ['bell', 'fmKeys'] },
       lead: { preset: 'fmBright', octave: 5, density: 0.5, restBias: 0.45, alts: ['sawLead', 'supersaw', 'bell'] },
-      arp: { preset: 'pluck', rate: 0.25, octave: 5, chance: 0.6, alts: ['chipChord', 'fmKeys', 'glassBell'] },
+      arp: { preset: 'pluck', rate: 0.25, octave: 5, chance: 0.6, alts: ['chipChord', 'fmKeys', 'glassBell', 'steelDrum', 'koto'] },
       builds: true,
       drums: {
         kit: 'nine09',
@@ -684,7 +806,7 @@
       pad: { preset: 'choirPad', gain: 0.34 },
       counter: { chance: 0.3, preset: 'glassBell', octave: 5, alts: ['bell', 'harp'] },
       lead: { preset: 'bell', octave: 5, density: 0.42, restBias: 0.5, alts: ['glassBell', 'nylon', 'voxLead'] },
-      arp: { preset: 'harp', rate: 0.25, octave: 5, chance: 0.5, alts: ['bell', 'pluck', 'marimba'] },
+      arp: { preset: 'harp', rate: 0.25, octave: 5, chance: 0.5, alts: ['bell', 'pluck', 'marimba', 'koto', 'kalimba', 'sitar'] },
       builds: true,
       drums: {
         kit: 'trap',
@@ -710,8 +832,8 @@
       chords: { style: 'stab', preset: 'guitar', octaveLow: 55, octaveHigh: 79, alts: ['organ', 'rhodes', 'marimba'] },
       pad: { preset: 'warmPad', gain: 0.24 },
       counter: { chance: 0.5, preset: 'marimba', octave: 4, alts: ['guitar', 'brass'] },
-      lead: { preset: 'brass', octave: 5, density: 0.55, restBias: 0.38, alts: ['reedLead', 'organ', 'marimba'] },
-      arp: { preset: 'marimba', rate: 0.25, octave: 5, chance: 0.6, alts: ['guitar', 'harp', 'vibes'] },
+      lead: { preset: 'brass', octave: 5, density: 0.55, restBias: 0.38, alts: ['reedLead', 'organ', 'marimba', 'sax', 'trombone'] },
+      arp: { preset: 'marimba', rate: 0.25, octave: 5, chance: 0.6, alts: ['guitar', 'harp', 'vibes', 'kalimba', 'steelDrum', 'koto'] },
       builds: false,
       drums: {
         kit: 'latin',
@@ -737,8 +859,8 @@
       chords: { style: 'keys', preset: 'nylon', octaveLow: 55, octaveHigh: 79, alts: ['guitar', 'rhodes', 'piano'] },
       pad: { preset: 'warmPad', gain: 0.18 },
       counter: { chance: 0.5, preset: 'nylon', octave: 4, alts: ['vibes', 'reedLead'] },
-      lead: { preset: 'nylon', octave: 5, density: 0.5, restBias: 0.42, alts: ['reedLead', 'vibes', 'voxLead'] },
-      arp: { preset: 'nylon', rate: 0.5, octave: 5, chance: 0.4, alts: ['guitar', 'harp', 'vibes'] },
+      lead: { preset: 'nylon', octave: 5, density: 0.5, restBias: 0.42, alts: ['reedLead', 'vibes', 'voxLead', 'flute', 'sax', 'mutedTrumpet'] },
+      arp: { preset: 'nylon', rate: 0.5, octave: 5, chance: 0.4, alts: ['guitar', 'harp', 'vibes', 'steelGuitar'] },
       builds: false,
       drums: {
         kit: 'latin',
@@ -764,7 +886,7 @@
       chords: { style: 'keys', preset: 'organ', octaveLow: 55, octaveHigh: 81, alts: ['piano', 'rhodes', 'brass'] },
       pad: { preset: 'choirPad', gain: 0.46 },
       counter: { chance: 0.55, preset: 'organ', octave: 4, alts: ['brass', 'choirPad', 'piano'] },
-      lead: { preset: 'voxLead', octave: 5, density: 0.58, restBias: 0.36, alts: ['organ', 'brass', 'piano'] },
+      lead: { preset: 'voxLead', octave: 5, density: 0.58, restBias: 0.36, alts: ['organ', 'brass', 'piano', 'sax', 'trombone'] },
       arp: { preset: 'piano', rate: 0.5, octave: 5, chance: 0.35, alts: ['organ', 'rhodes', 'harp'] },
       builds: true,
       drums: {
@@ -788,11 +910,11 @@
       progressions: PROG.country.concat(PROG.popMajor), chordShapes: [['triad', 4], ['sus4', 1], ['sixth', 2], ['seventh', 2]],
       barsPerChord: [1, 2],
       bass: { style: 'root8', octave: 2, preset: 'pickBass', alts: ['organBass', 'lofiBass'] },
-      chords: { style: 'stab', preset: 'guitar', octaveLow: 52, octaveHigh: 76, alts: ['nylon', 'piano', 'organ'] },
+      chords: { style: 'stab', preset: 'guitar', octaveLow: 52, octaveHigh: 76, alts: ['nylon', 'piano', 'organ', 'accordion'] },
       pad: { preset: 'strings', gain: 0.22 },
       counter: { chance: 0.45, preset: 'nylon', octave: 4, alts: ['guitar', 'reedLead'] },
-      lead: { preset: 'guitar', octave: 5, density: 0.56, restBias: 0.36, alts: ['nylon', 'reedLead', 'piano'] },
-      arp: { preset: 'guitar', rate: 0.25, octave: 5, chance: 0.5, alts: ['nylon', 'harp', 'marimba'] },
+      lead: { preset: 'guitar', octave: 5, density: 0.56, restBias: 0.36, alts: ['nylon', 'reedLead', 'piano', 'banjo', 'steelGuitar', 'accordion'] },
+      arp: { preset: 'guitar', rate: 0.25, octave: 5, chance: 0.5, alts: ['nylon', 'harp', 'marimba', 'banjo', 'steelGuitar'] },
       builds: false,
       drums: {
         kit: 'acoustic',

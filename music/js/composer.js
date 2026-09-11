@@ -1310,6 +1310,19 @@
     return { pitches: [r, r + 7], shape: 'power' };
   }
 
+  /** Move a whole part up or down an octave, if there is room for it. */
+  function shiftOctave(song, part, dir) {
+    const evs = song.tracks[part];
+    if (!evs || !evs.length || part === 'drums') return false;
+    const by = dir > 0 ? 12 : -12;
+    // Stay inside a range a real instrument could play.
+    const lo = Math.min.apply(null, evs.map(function (e) { return e.p; })) + by;
+    const hi = Math.max.apply(null, evs.map(function (e) { return e.p; })) + by;
+    if (lo < 16 || hi > 108) return false;
+    evs.forEach(function (e) { e.p += by; });
+    return true;
+  }
+
   /**
    * Thin a part out or fill it in.
    *
@@ -2182,6 +2195,7 @@
     GROOVES: GROOVES,
     keyRootAt: keyRootAt,
     adjustDensity: adjustDensity,
+    shiftOctave: shiftOctave,
     packSong: packSong,
     unpackSong: unpackSong,
     SAVE_VERSION: SAVE_VERSION,

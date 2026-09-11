@@ -601,6 +601,35 @@
     });
     editorSoundPicker = buildSoundPicker;
 
+    el('diceSound').addEventListener('click', function () {
+      if (!state.song) return;
+      const group = G.PRESET_GROUPS[editor.track] || G.PRESET_GROUPS.lead;
+      const current = state.song.presetOverride[editor.track];
+      const pool = group.filter(function (n) { return n !== current; });
+      if (!pool.length) return;
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      state.song.presetOverride[editor.track] = pick;
+      buildSoundPicker();
+      status(colorLabel(editor.track) + ' now plays ' + (G.PRESET_LABEL[pick] || pick) + '.');
+    });
+
+    [['octDown', -1, 'down'], ['octUp', 1, 'up']].forEach(function (spec) {
+      el(spec[0]).addEventListener('click', function () {
+        if (!state.song) return;
+        editor.pushHistory(editor.track);
+        if (!C.shiftOctave(state.song, editor.track, spec[1])) {
+          status(colorLabel(editor.track) + ' cannot go any further ' + spec[2] + '.');
+          return;
+        }
+        state.edited[editor.track] = true;
+        player.refresh();
+        markRollDirty();
+        editor.refit();
+        syncEditUI();
+        status(colorLabel(editor.track) + ' moved an octave ' + spec[2] + '.');
+      });
+    });
+
     /*
      * The per-part effects rack.
      *

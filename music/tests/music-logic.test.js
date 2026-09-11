@@ -378,6 +378,61 @@ Object.keys(Genres.GENRES).forEach(function (gid) {
   check(tiny.bars > 0, 'and it still has bars left');
 })();
 
+/* --- the instrument palette --- */
+(function () {
+  const P = Genres.PRESETS, L = Genres.PRESET_LABEL, GR = Genres.PRESET_GROUPS;
+  const names = Object.keys(P);
+  check(names.length >= 50, 'a broad palette of instruments (' + names.length + ')');
+
+  // Nothing may appear in a picker that does not exist, and nothing unlabelled.
+  const unlabelled = names.filter(function (n) { return !L[n]; });
+  check(unlabelled.length === 0, 'every instrument has a name a person would recognise' +
+    (unlabelled.length ? ': ' + unlabelled.join(', ') : ''));
+  const ghosts = [];
+  Object.keys(GR).forEach(function (g) {
+    GR[g].forEach(function (n) { if (!P[n]) ghosts.push(g + '/' + n); });
+  });
+  check(ghosts.length === 0, 'and every picker offers only instruments that exist' +
+    (ghosts.length ? ': ' + ghosts.join(', ') : ''));
+
+  // Every genre must name instruments that exist, in every part.
+  const broken = [];
+  Object.keys(Genres.GENRES).forEach(function (g) {
+    ['bass', 'chords', 'arp', 'lead', 'pad', 'counter'].forEach(function (part) {
+      const cfg = Genres.GENRES[g][part];
+      if (!cfg) return;
+      if (cfg.preset && !P[cfg.preset]) broken.push(g + '.' + part + '=' + cfg.preset);
+      (cfg.alts || []).forEach(function (a) { if (!P[a]) broken.push(g + '.' + part + ' alt ' + a); });
+    });
+  });
+  check(broken.length === 0, 'and every style names instruments that exist' +
+    (broken.length ? ': ' + broken.join(', ') : ''));
+
+  // Every synthesis model is actually used by something.
+  const kinds = {};
+  names.forEach(function (n) { kinds[P[n].kind || 'subtractive'] = true; });
+  check(Object.keys(kinds).length >= 6,
+    'several different ways of making a sound (' + Object.keys(kinds).sort().join(', ') + ')');
+  check(!!kinds.string, 'including a physically modelled one');
+
+  /* Moving a part an octave has to refuse when it would leave the range a real
+     instrument could play, rather than writing notes nobody can hear. */
+  const s = Composer.compose({ seed: 'OCT-1', genre: 'lofi', length: 'short' });
+  const before = s.tracks.lead.map(function (e) { return e.p; });
+  check(Composer.shiftOctave(s, 'lead', 1), 'a part can be moved up an octave');
+  check(s.tracks.lead.every(function (e, i) { return e.p === before[i] + 12; }),
+    'and every note moves by exactly twelve semitones');
+  check(Composer.shiftOctave(s, 'lead', -1), 'and back down again');
+  check(s.tracks.lead.every(function (e, i) { return e.p === before[i]; }), 'landing where it started');
+
+  let guard = 0;
+  while (Composer.shiftOctave(s, 'lead', 1) && guard++ < 20) { /* climb */ }
+  check(guard < 20, 'it refuses to climb out of hearing (' + guard + ' octaves)');
+  check(s.tracks.lead.every(function (e) { return e.p <= 108; }), 'and nothing ends up above the piano');
+
+  check(Composer.shiftOctave(s, 'drums', 1) === false, 'drums have no octave to move');
+})();
+
 /* --- feel: swing, grooves, fills, ghosts and half time --- */
 (function () {
   /* Swing is no longer written into the score, so the score should be straight

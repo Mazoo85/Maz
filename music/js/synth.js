@@ -141,7 +141,36 @@
     // A gentle rolloff that reads as a plucked string.
     guitar:  [1, 0.6, 0.45, 0.3, 0.22, 0.16, 0.12, 0.09, 0.07, 0.05],
     // Sparse and ringing.
-    glass:   [1, 0, 0.3, 0, 0.15, 0, 0.08, 0, 0.05, 0, 0.03]
+    glass:   [1, 0, 0.3, 0, 0.15, 0, 0.08, 0, 0.05, 0, 0.03],
+
+    /* Bowed strings: a dense harmonic series that keeps going, which is what
+       makes a section sound like many players rather than one oscillator. */
+    violin:  [1, 0.8, 0.62, 0.5, 0.42, 0.34, 0.28, 0.22, 0.18, 0.14, 0.11, 0.09],
+    cello:   [1, 0.72, 0.55, 0.36, 0.3, 0.22, 0.17, 0.12, 0.09, 0.07],
+    // Nearly a sine with a breath of second and third: a flute is almost pure.
+    flute:   [1, 0.12, 0.07, 0.02, 0.01],
+    // Odd harmonics only, the cylindrical bore of a clarinet.
+    clarinet:[1, 0.02, 0.55, 0.02, 0.32, 0.01, 0.2, 0, 0.12, 0, 0.07],
+    // Nasal and bright — the oboe's strong upper partials are its voice.
+    oboe:    [0.6, 1, 0.85, 0.7, 0.6, 0.45, 0.35, 0.25, 0.18, 0.12],
+    // A trombone is a trumpet with the top taken off.
+    trombone:[1, 0.75, 0.55, 0.38, 0.25, 0.16, 0.1, 0.06],
+    // Sax sits between reed and brass: odd harmonics, but not only odd.
+    sax:     [1, 0.45, 0.62, 0.3, 0.4, 0.2, 0.26, 0.13, 0.16, 0.08],
+    // Muted trumpet: thin, buzzy, all upper mid.
+    muted:   [0.35, 0.7, 1, 0.8, 0.6, 0.42, 0.3, 0.2, 0.12],
+    // Sitar: strong odd partials plus the buzz of the sympathetic strings.
+    sitar:   [1, 0.5, 0.8, 0.35, 0.65, 0.28, 0.5, 0.22, 0.4, 0.18, 0.3, 0.14],
+    // Koto: sparse, wooden, quick to fade.
+    koto:    [1, 0.35, 0.5, 0.18, 0.22, 0.1, 0.12, 0.06],
+    // Kalimba: a tine, so mostly fundamental with a metallic third.
+    kalimba: [1, 0.08, 0.3, 0.05, 0.12, 0.03, 0.05],
+    // Steel drum: inharmonic-feeling, dominated by the octave and twelfth.
+    steel:   [1, 0.62, 0.44, 0.12, 0.3, 0.08, 0.14, 0.05, 0.08],
+    // Accordion reeds: buzzy and even, like a small organ with teeth.
+    accordion:[1, 0.62, 0.48, 0.4, 0.3, 0.26, 0.2, 0.16, 0.12, 0.1],
+    // Banjo: bright, thin, all attack.
+    banjo:   [0.8, 1, 0.7, 0.6, 0.45, 0.36, 0.28, 0.22, 0.16, 0.12]
   };
 
   function periodicWave(ctx, name) {
@@ -216,10 +245,26 @@
    * out    — { dry, rev, del } destination gain nodes
    * preset — see genres.js PRESETS
    */
+  /*
+   * Round robin. Two identical notes in a row are a machine; a player never
+   * repeats anything exactly. This derives a small, *deterministic* variation
+   * from the note's own start time, so the same song always sounds the same
+   * while consecutive notes never do.
+   */
+  function roundRobin(t) {
+    const x = Math.sin(t * 12.9898 + 4.1414) * 43758.5453;
+    return (x - Math.floor(x)) - 0.5;          // -0.5 .. 0.5
+  }
+
   function playNote(ctx, out, t, dur, freq, preset, vel, extra) {
     const kind = preset.kind || 'subtractive';
     const amp = ctx.createGain();
     amp.gain.value = 0;
+
+    const rr = roundRobin(t);
+    // A few cents either way, and a touch of level: enough to stop the
+    // repetition reading as a copy, far too little to read as out of tune.
+    freq = freq * (1 + rr * 0.0016);
 
     let tail;
     const peak = (preset.gain || 0.5) * (vel === undefined ? 0.8 : vel);
@@ -362,6 +407,62 @@
       filt.connect(amp);
       nodes.push(o1, o2);
       tail = adsr(amp.gain, t, dur, peak, preset.amp);
+    } else if (kind === 'string') {
+      /*
+       * Karplus-Strong: simulate the string instead of imitating it.
+       *
+       * A burst of noise fills a buffer one wavelength long, and every sample
+       * after that is the average of the two samples one wavelength earlier,
+       * scaled a little under 1. The noise is the pluck; the wavelength is the
+       * string's round trip; the averaging is the energy the high harmonics
+       * lose on every trip, which is why a real string turns from bright to
+       * mellow as it rings — and why the low notes ring longer than the high
+       * ones here without being told to.
+       *
+       * It is computed into a buffer rather than built as a delay line feeding
+       * back through a filter, which is the textbook Web Audio arrangement and
+       * does not work: a BiquadFilterNode inside a feedback cycle is unstable
+       * in this engine, and was measured growing to 10^34 at a feedback of 0.9
+       * — while the identical loop without the filter sat at 0.66 and behaved.
+       * Doing the arithmetic directly is both honest to the algorithm and the
+       * only version that stays bounded.
+       */
+      const ring = Math.max(0.2, preset.ring || 2.4);
+      const rate = ctx.sampleRate;
+      const seconds = Math.min(4, Math.max(0.35, Math.min(ring, dur + (preset.amp.r || 0.4) + 0.2)));
+      const n = Math.max(64, Math.floor(rate * seconds));
+      const period = Math.max(2, Math.round(rate / Math.max(20, freq)));
+
+      const buf = ctx.createBuffer(1, n, rate);
+      const d = buf.getChannelData(0);
+
+      // The pluck. A deterministic noise, so the same note sounds the same.
+      let seed = (Math.round(freq * 100) ^ 0x9e37) >>> 0;
+      for (let i = 0; i < period; i++) {
+        seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+        d[i] = (seed / 0x3fffffff) - 1;
+      }
+
+      /* One round trip's loss. `tone` is how brightly it is picked: a higher
+         value keeps more of each trip, so it rings longer and keeps its top. */
+      const loss = Math.min(0.999, Math.pow(0.001, (period / rate) / ring));
+      const bright = 0.5 + (preset.tone === undefined ? 0.5 : preset.tone) * 0.28;
+      for (let i = period; i < n; i++) {
+        d[i] = loss * (bright * d[i - period] + (1 - bright) * d[i - period - 1 < 0 ? 0 : i - period - 1]);
+      }
+
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+
+      const body = ctx.createBiquadFilter();
+      body.type = 'peaking';
+      body.frequency.value = preset.body || 320;    // the resonance of the box
+      body.Q.value = 0.9;
+      body.gain.value = 4;
+
+      src.connect(body).connect(amp);
+      nodes.push(src);
+      tail = adsr(amp.gain, t, dur, peak, preset.amp);
     } else if (kind === 'eight08') {
       const o = ctx.createOscillator();
       o.type = 'sine';
@@ -487,6 +588,30 @@
       post.gain.value = 1 / (1 + preset.drive);
       node.connect(shaper).connect(post);
       node = post;
+    }
+
+    /*
+     * Velocity layers. Level alone is not how an instrument gets louder: a
+     * string hit harder is brighter and rougher as well, and one played softly
+     * loses its top before it loses its volume. So a hard note picks up a
+     * little saturation and a soft one is rolled off — which is most of what
+     * separates a played part from a sequenced one.
+     */
+    const v = vel === undefined ? 0.8 : vel;
+    if (v > 0.8 && kind !== 'string') {
+      const shaper = ctx.createWaveShaper();
+      shaper.curve = driveCurve(ctx, (v - 0.8) * 0.9);
+      const post = ctx.createGain();
+      post.gain.value = 1 / (1 + (v - 0.8) * 0.9);
+      node.connect(shaper).connect(post);
+      node = post;
+    } else if (v < 0.5) {
+      const soft = ctx.createBiquadFilter();
+      soft.type = 'lowpass';
+      soft.frequency.value = 900 + v * 9000;
+      soft.Q.value = 0.6;
+      node.connect(soft);
+      node = soft;
     }
 
     node.connect(out.dry);

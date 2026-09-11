@@ -251,6 +251,56 @@ function launchOptions() {
     return { notes: notes, hits: hits, kits: kits.length };
   });
 
+  /* The physically modelled strings deserve their own pass. Every other voice
+     is a chain of oscillators and filters that cannot run away; these are a
+     delay line feeding back into itself, where feedback of 1 or more would
+     grow without bound. The feedback is derived from the note's own pitch, so
+     it has to be checked across the whole range and not at one middle C. */
+  const strings = await page.evaluate(async function () {
+    const names = Object.keys(window.Genres.PRESETS).filter(function (n) {
+      return window.Genres.PRESETS[n].kind === 'string';
+    });
+    const out = [];
+    for (let i = 0; i < names.length; i++) {
+      for (const freq of [55, 110, 220, 440, 880, 1760]) {
+        const ctx = new OfflineAudioContext(2, 44100 * 4, 44100);
+        const dry = ctx.createGain(); dry.connect(ctx.destination);
+        const rev = ctx.createGain(); rev.connect(ctx.destination);
+        const del = ctx.createGain(); del.connect(ctx.destination);
+        window.Synth.playNote(ctx, { dry: dry, rev: rev, del: del },
+          0.05, 1.0, freq, window.Genres.PRESETS[names[i]], 0.9, { brightness: 1 });
+        const buf = await ctx.startRendering();
+        const ch = buf.getChannelData(0);
+        let peak = 0, bad = 0, early = 0, late = 0;
+        const mid = Math.floor(ch.length / 2);
+        for (let k = 0; k < ch.length; k++) {
+          const v = ch[k];
+          if (!isFinite(v)) { bad++; continue; }
+          const a = Math.abs(v);
+          if (a > peak) peak = a;
+          if (k < mid) { if (a > early) early = a; } else if (a > late) late = a;
+        }
+        out.push({ name: names[i], freq: freq, peak: peak, bad: bad, early: early, late: late });
+      }
+    }
+    return out;
+  });
+  check(strings.length > 0, 'there are physically modelled instruments to check');
+  check(strings.every(function (r) { return r.bad === 0; }), 'the string model never produces broken samples');
+  check(strings.every(function (r) { return r.peak < 2; }),
+    'and never runs away (loudest ' +
+    Math.max.apply(null, strings.map(function (r) { return r.peak; })).toFixed(2) + ')');
+  check(strings.every(function (r) { return r.peak > 0.01; }),
+    'it sounds at every pitch, low to high');
+  /* A string decays. If the second half of the render is not quieter than the
+     first, the loop is feeding itself rather than losing energy. */
+  const sustaining = strings.filter(function (r) { return r.late >= r.early; });
+  check(sustaining.length === 0,
+    'and it dies away rather than sustaining itself' +
+    (sustaining.length ? ': ' + sustaining.map(function (r) {
+      return r.name + '@' + r.freq + 'Hz';
+    }).join(', ') : ''));
+
   const mute = voices.notes.filter(function (n) { return n.peak < 0.01; });
   const nan = voices.notes.filter(function (n) { return n.bad > 0; });
   check(voices.notes.length >= 30, 'a full palette of instruments (' + voices.notes.length + ')');
@@ -499,13 +549,31 @@ function launchOptions() {
     out.choOff = measure(dryCho);
     out.choOn = measure(wetCho);
 
-    // 4. Ping-pong — the same echoes, moved out to the sides.
-    const centred = await render(song(function (s) { s.pingpong = false; }),
-      mixWith('lead', { rev: 0, del: 2, cho: 0 }));
-    const bouncing = await render(song(function (s) { s.pingpong = true; }),
-      mixWith('lead', { rev: 0, del: 2, cho: 0 }));
-    out.pingOff = measure(centred);
-    out.pingOn = measure(bouncing);
+    /* 4. Ping-pong — the same echoes, moved out to the sides. Measured in the
+       tail after the part has stopped, where what is left is echoes and
+       nothing else: measuring the whole render mixes the instrument's own
+       stereo width into the reading, which makes the number depend on which
+       instrument the arrangement happened to pick. */
+    const echoSong = function (ping) {
+      return song(function (s) {
+        s.pingpong = ping;
+        s.presetOverride = { lead: 'pluck' };
+      });
+    };
+    const echoWindow = function (buf, s) {
+      let lastEnd = 0;
+      s.tracks.lead.forEach(function (e) { lastEnd = Math.max(lastEnd, e.t + e.d); });
+      const spb = 60 / s.bpm;
+      const total = buf.length / buf.sampleRate;
+      return [Math.min(0.95, (lastEnd * spb + 0.35) / total),
+              Math.min(0.99, (lastEnd * spb + 2.2) / total)];
+    };
+    const offSong = echoSong(false), onSong = echoSong(true);
+    const centred = await render(offSong, mixWith('lead', { rev: 0, del: 2, cho: 0 }));
+    const bouncing = await render(onSong, mixWith('lead', { rev: 0, del: 2, cho: 0 }));
+    const wOff = echoWindow(centred, offSong), wOn = echoWindow(bouncing, onSong);
+    out.pingOff = measure(centred, wOff[0], wOff[1]);
+    out.pingOn = measure(bouncing, wOn[0], wOn[1]);
 
     // 5. Bit crush — grit is high-frequency energy that was not there before.
     const clean = await render(song(), mixWith('bass', { rev: 0, del: 0, crush: 0 }));
@@ -535,7 +603,8 @@ function launchOptions() {
   check(fx.choOn.rms > fx.choOff.rms,
     'and thickens it (rms ' + fx.choOff.rms.toFixed(4) + ' → ' + fx.choOn.rms.toFixed(4) + ')');
 
-  check(fx.pingOff.rms > 1e-4, 'the echo test has echoes to move');
+  check(fx.pingOff.rms > 1e-5, 'the echo test has echoes to move (rms ' +
+    fx.pingOff.rms.toExponential(1) + ')');
   check(fx.pingOn.stereo > fx.pingOff.stereo * 1.5,
     'ping-pong throws the echoes to the sides (stereo ' +
     fx.pingOff.stereo.toFixed(3) + ' → ' + fx.pingOn.stereo.toFixed(3) + ')');

@@ -52,8 +52,11 @@ python3 -m http.server         # or serve the folder: http://localhost:8000/musi
 - **Re-roll any single part.** Don't like the melody? Rewrite just the melody
   over the same chords. Everything else stays exactly as it was.
 - **Lock a part** you like, and a re-roll of everything writes around it.
-- **36 instruments** — guitar, harp, nylon, marimba, vibraphone, organ, brass,
-  reed, choir, voice, FM keys, supersaw, 808 and more — swappable on any part,
+- **52 instruments** — guitar, harp, nylon, marimba, vibraphone, organ, brass,
+  reed, choir, voice, FM keys, supersaw, 808, violin, cello, flute, clarinet,
+  oboe, a string section, trombone, saxophone, muted trumpet, sitar, koto,
+  kalimba, steel drum, accordion, banjo and steel-string guitar — swappable on
+  any part,
   plus a 16-piece kit with ride, tambourine, cowbell and conga, in **13 kits** —
   from a jazz kit played with brushes to a 909, an acoustic rock kit and a set
   of Latin hand percussion.
@@ -216,7 +219,28 @@ filters, there are five ways of making a sound:
 | Custom waveforms | Harmonic recipes turned into oscillator shapes — organ drawbars, brass, reeds, guitar, glass |
 | FM | Two operators with a falling modulation index — bells, FM keys, FM bass, metallic leads |
 | Formant | Fixed vowel resonances over a saw pair — choir and voice |
-| Mallet | Inharmonic partials near 1, 4 and 10 — marimba and vibraphone (which is *why* they sound wooden and not like a sine) |
+| Mallet | Inharmonic partials near 1, 4 and 10 — marimba, vibraphone, kalimba and steel drum (which is *why* they sound wooden and not like a sine) |
+| Physical model | A plucked string simulated rather than imitated — sitar, koto, banjo, steel-string guitar |
+
+The physical model is worth a word, because it is the only one where the timbre
+is not specified anywhere. Karplus-Strong fills a buffer with a burst of noise
+one wavelength long, then makes every later sample the average of the two a
+wavelength earlier, scaled just under 1. The noise is the pluck, the wavelength
+is the string's round trip, and the averaging is the energy the high harmonics
+lose on each trip — which is why the sound turns from bright to mellow as it
+rings, and why low notes ring longer than high ones, without either being
+written down. It is computed directly rather than built as a delay line feeding
+back through a filter, which is the textbook Web Audio arrangement and does not
+work: a BiquadFilterNode inside a feedback cycle is unstable in this engine, and
+was measured growing to 10³⁴ at a feedback of 0.9 while the identical loop
+without the filter behaved perfectly.
+
+Two things stop any of it sounding sequenced. **Velocity layers**: a note hit
+hard picks up saturation and one played softly is rolled off, because level
+alone is not how an instrument gets louder. **Round robin**: every note is
+detuned by a few cents derived from its own start time, so no two consecutive
+notes are identical — deterministically, so the same song always sounds the
+same.
 
 Each style also keeps a list of alternate instruments that suit it, and draws
 from them per song — so two lo-fi tracks are not the same four sounds twice.
