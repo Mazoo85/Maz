@@ -14,7 +14,7 @@
   'use strict';
 
   const C = global.Composer;
-  const BEATS_PER_BAR = 4;
+  const BEATS_PER_BAR = 4;          // fallback for a song that has no meter set
   const PAD_L = 34;          // room for the axis labels
   const PAD_R = 10;
   const PAD_T = 10;
@@ -213,8 +213,9 @@
     // Section bands, so you can see where the chorus is while you draw.
     cx.font = '9px ui-monospace, monospace';
     song.sections.forEach(function (sec, i) {
-      const x0 = this.xOfBeat(sec.startBar * BEATS_PER_BAR);
-      const x1 = this.xOfBeat((sec.startBar + sec.bars) * BEATS_PER_BAR);
+      const bpb = song.beatsPerBar || BEATS_PER_BAR;
+      const x0 = this.xOfBeat(sec.startBar * bpb);
+      const x1 = this.xOfBeat((sec.startBar + sec.bars) * bpb);
       if (sec.type === 'chorus') {
         cx.fillStyle = 'rgba(255,45,149,0.11)';
         cx.fillRect(x0, PAD_T, x1 - x0, ph);

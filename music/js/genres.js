@@ -320,6 +320,7 @@
     lofi: {
       id: 'lofi', name: 'Lo-Fi Chill', blurb: 'Dusty keys, swung drums, tape hiss.',
       bpm: [68, 86], swing: 0.17,
+      meters: [['4/4', 9], ['3/4', 1]],
       scales: [['dorian', 3], ['minor', 3], ['major', 1], ['mixolydian', 1]],
       progressions: PROG.jazzy.concat(PROG.modal), chordShapes: [['seventh', 4], ['ninth', 3], ['sixth', 1]],
       barsPerChord: [1, 2],
@@ -342,6 +343,7 @@
     synthwave: {
       id: 'synthwave', name: 'Synthwave', blurb: 'Neon arpeggios and a driving pulse.',
       bpm: [98, 118], swing: 0,
+      meters: [['4/4', 1]],
       scales: [['minor', 4], ['dorian', 2], ['harmonicMinor', 1], ['major', 1]],
       progressions: PROG.minorEpic.concat(PROG.popMajor), chordShapes: [['triad', 3], ['seventh', 2], ['sus4', 1]],
       barsPerChord: [1, 2],
@@ -364,6 +366,7 @@
     house: {
       id: 'house', name: 'Deep House', blurb: 'Four on the floor, warm stabs, rolling bass.',
       bpm: [118, 126], swing: 0.06,
+      meters: [['4/4', 1]],
       scales: [['minor', 3], ['dorian', 3], ['major', 1]],
       progressions: PROG.jazzy.concat(PROG.minorEpic), chordShapes: [['seventh', 4], ['ninth', 3], ['triad', 1]],
       barsPerChord: [1, 2],
@@ -386,6 +389,7 @@
     ambient: {
       id: 'ambient', name: 'Ambient', blurb: 'Slow bloom, long tails, almost no drums.',
       bpm: [58, 76], swing: 0,
+      meters: [['4/4', 5], ['3/4', 2], ['6/8', 2], ['5/4', 1]],
       scales: [['lydian', 3], ['major', 2], ['dorian', 2], ['minor', 2]],
       progressions: PROG.ambientDrift, chordShapes: [['ninth', 3], ['seventh', 3], ['sus2', 2], ['triad', 1]],
       barsPerChord: [2, 4],
@@ -408,6 +412,7 @@
     cinematic: {
       id: 'cinematic', name: 'Cinematic', blurb: 'Strings, piano and a rising pulse.',
       bpm: [76, 96], swing: 0,
+      meters: [['4/4', 5], ['3/4', 2], ['6/8', 1], ['5/4', 1], ['7/8', 1]],
       scales: [['minor', 3], ['harmonicMinor', 2], ['dorian', 2], ['major', 1]],
       progressions: PROG.minorEpic.concat(PROG.popMajor), chordShapes: [['triad', 3], ['seventh', 2], ['sus4', 2]],
       barsPerChord: [1, 2],
@@ -430,6 +435,7 @@
     chiptune: {
       id: 'chiptune', name: 'Chiptune', blurb: '8-bit squares, fast arps, noise drums.',
       bpm: [128, 158], swing: 0,
+      meters: [['4/4', 8], ['3/4', 1], ['7/8', 1]],
       scales: [['major', 3], ['minor', 3], ['mixolydian', 1], ['lydian', 1]],
       progressions: PROG.popMajor.concat(PROG.minorEpic), chordShapes: [['triad', 4], ['seventh', 1]],
       barsPerChord: [1, 1],
@@ -452,6 +458,7 @@
     dnb: {
       id: 'dnb', name: 'Drum & Bass', blurb: 'Breakbeats over a growling reese.',
       bpm: [168, 176], swing: 0,
+      meters: [['4/4', 9], ['7/8', 1]],
       scales: [['minor', 4], ['phrygian', 2], ['dorian', 2]],
       progressions: PROG.minorEpic.concat(PROG.modal), chordShapes: [['seventh', 3], ['ninth', 2], ['triad', 2]],
       barsPerChord: [2, 4],
@@ -474,6 +481,7 @@
     trap: {
       id: 'trap', name: 'Trap', blurb: 'Sliding 808s, hi-hat rolls, half-time snare.',
       bpm: [130, 150], swing: 0,
+      meters: [['4/4', 1]],
       scales: [['minor', 3], ['phrygian', 3], ['harmonicMinor', 2]],
       progressions: PROG.darkTrap, chordShapes: [['triad', 3], ['seventh', 2], ['sus4', 1]],
       barsPerChord: [2, 2],
@@ -497,6 +505,7 @@
     rock: {
       id: 'rock', name: 'Rock', blurb: 'Driven guitars, a kit hit hard, no apologies.',
       bpm: [116, 148], swing: 0.02,
+      meters: [['4/4', 8], ['3/4', 1], ['7/8', 1]],
       scales: [['minor', 3], ['mixolydian', 3], ['major', 2], ['dorian', 1]],
       progressions: PROG.rock.concat(PROG.popMajor), chordShapes: [['power', 3], ['triad', 4], ['sus4', 1]],
       barsPerChord: [1, 2],
@@ -519,6 +528,7 @@
     funk: {
       id: 'funk', name: 'Funk', blurb: 'One chord, sixteen notes, all of it on the one.',
       bpm: [96, 116], swing: 0.12,
+      meters: [['4/4', 1]],
       scales: [['dorian', 4], ['mixolydian', 3], ['minor', 2], ['aeolianPent', 1]],
       progressions: PROG.funk.concat(PROG.jazzy), chordShapes: [['ninth', 4], ['seventh', 3], ['sixth', 2]],
       barsPerChord: [2, 4],
@@ -541,6 +551,7 @@
     jazz: {
       id: 'jazz', name: 'Jazz', blurb: 'Brushed ride, walking bass, chords that keep moving.',
       bpm: [104, 148], swing: 0.34,
+      meters: [['4/4', 7], ['3/4', 2], ['5/4', 1]],
       scales: [['dorian', 3], ['major', 3], ['mixolydian', 2], ['minor', 2], ['harmonicMinor', 1]],
       progressions: PROG.jazzy.concat(PROG.bossa), chordShapes: [['ninth', 4], ['seventh', 4], ['sixth', 2]],
       barsPerChord: [1, 2],
@@ -563,6 +574,7 @@
     disco: {
       id: 'disco', name: 'Disco', blurb: 'Four on the floor, strings on top, hats everywhere.',
       bpm: [112, 126], swing: 0.06,
+      meters: [['4/4', 1]],
       scales: [['minor', 3], ['major', 3], ['dorian', 2]],
       progressions: PROG.disco.concat(PROG.jazzy), chordShapes: [['seventh', 4], ['ninth', 3], ['sixth', 1]],
       barsPerChord: [1, 2],
@@ -585,6 +597,7 @@
     techno: {
       id: 'techno', name: 'Techno', blurb: 'A relentless kick and a filter that never stops moving.',
       bpm: [128, 142], swing: 0,
+      meters: [['4/4', 1]],
       scales: [['minor', 4], ['phrygian', 2], ['dorian', 2]],
       progressions: PROG.techno.concat(PROG.loop2), chordShapes: [['power', 3], ['triad', 3], ['seventh', 2]],
       barsPerChord: [4, 8],
@@ -607,6 +620,7 @@
     drill: {
       id: 'drill', name: 'Drill', blurb: 'Sliding 808s, skittering hats, cold and spacious.',
       bpm: [138, 146], swing: 0.04,
+      meters: [['4/4', 1]],
       scales: [['minor', 3], ['phrygian', 3], ['harmonicMinor', 2]],
       progressions: PROG.loop2.concat(PROG.darkTrap), chordShapes: [['triad', 3], ['seventh', 3], ['power', 2]],
       barsPerChord: [2, 4],
@@ -629,6 +643,7 @@
     afrobeat: {
       id: 'afrobeat', name: 'Afrobeat', blurb: 'Interlocking percussion, a bassline that never sits still.',
       bpm: [100, 118], swing: 0.09,
+      meters: [['4/4', 9], ['6/8', 1]],
       scales: [['major', 3], ['mixolydian', 3], ['dorian', 2], ['minor', 1]],
       progressions: PROG.loop2.concat(PROG.popMajor), chordShapes: [['seventh', 3], ['triad', 3], ['ninth', 2]],
       barsPerChord: [2, 4],
@@ -651,6 +666,7 @@
     bossa: {
       id: 'bossa', name: 'Bossa Nova', blurb: 'Nylon guitar, brushed rim, and nowhere to be.',
       bpm: [122, 142], swing: 0.05,
+      meters: [['4/4', 1]],
       scales: [['major', 3], ['dorian', 2], ['mixolydian', 2], ['minor', 1]],
       progressions: PROG.bossa.concat(PROG.jazzy), chordShapes: [['ninth', 4], ['seventh', 4], ['sixth', 2]],
       barsPerChord: [1, 2],
@@ -673,6 +689,7 @@
     gospel: {
       id: 'gospel', name: 'Gospel Soul', blurb: 'Organ, choir, and chords that resolve like they mean it.',
       bpm: [72, 96], swing: 0.2,
+      meters: [['4/4', 6], ['6/8', 3], ['3/4', 1]],
       scales: [['major', 4], ['mixolydian', 3], ['dorian', 1]],
       progressions: PROG.gospel.concat(PROG.popMajor), chordShapes: [['seventh', 4], ['ninth', 3], ['sixth', 2]],
       barsPerChord: [1, 2],
@@ -695,6 +712,7 @@
     country: {
       id: 'country', name: 'Country', blurb: 'Acoustic strum, brushed snare, a story in every line.',
       bpm: [88, 124], swing: 0.14,
+      meters: [['4/4', 7], ['3/4', 3]],
       scales: [['major', 4], ['mixolydian', 3], ['minor', 1]],
       progressions: PROG.country.concat(PROG.popMajor), chordShapes: [['triad', 4], ['sus4', 1], ['sixth', 2], ['seventh', 2]],
       barsPerChord: [1, 2],

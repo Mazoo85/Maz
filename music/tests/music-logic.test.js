@@ -95,7 +95,12 @@ Object.keys(Genres.GENRES).forEach(function (gid) {
           check(isFinite(e.t) && e.t >= 0, seed + '/' + tr + ': bad start ' + e.t);
           check(isFinite(e.d) && e.d > 0, seed + '/' + tr + ': bad duration ' + e.d);
           check(isFinite(e.v) && e.v > 0 && e.v <= 1, seed + '/' + tr + ': bad velocity ' + e.v);
-          check(e.t < song.totalBeats + 4, seed + '/' + tr + ': event past the end (' + e.t + ')');
+          /* No slack. This used to allow four beats of overrun, which is exactly
+             how a bassline writing eight eighth-notes into a three-beat bar
+             went unnoticed. A note that starts after the song has ended is a
+             bug in every meter. */
+          check(e.t < song.totalBeats, seed + '/' + tr + ': event past the end (' +
+            e.t.toFixed(3) + ' of ' + song.totalBeats + ')');
           if (tr === 'drums') check(typeof e.inst === 'string', seed + '/drums: event has no instrument');
           else check(isFinite(e.p) && e.p >= 12 && e.p <= 108, seed + '/' + tr + ': pitch out of range ' + e.p);
         });
@@ -311,7 +316,8 @@ Object.keys(Genres.GENRES).forEach(function (gid) {
     });
     check(ok, label + ': sections tile the song with no gaps');
     check(bar === song.bars, label + ': the bar count matches the sections (' + bar + ' vs ' + song.bars + ')');
-    check(Math.abs(song.totalBeats - song.bars * 4) < 1e-6, label + ': beats match bars');
+    check(Math.abs(song.totalBeats - song.bars * song.beatsPerBar) < 1e-6,
+      label + ': beats match bars');
     let inRange = true;
     Object.keys(song.tracks).forEach(function (t) {
       song.tracks[t].forEach(function (e) { if (e.t < -0.1 || e.t >= song.totalBeats) inRange = false; });
@@ -370,6 +376,100 @@ Object.keys(Genres.GENRES).forEach(function (gid) {
   while (tiny.sections.length > 1) Composer.deleteSection(tiny, 0);
   check(Composer.deleteSection(tiny, 0) === false, 'a song cannot be emptied of every section');
   check(tiny.bars > 0, 'and it still has bars left');
+})();
+
+/* --- time signatures --- */
+(function () {
+  const meters = Object.keys(Composer.METERS);
+  check(meters.length >= 5, 'more than one time signature exists (' + meters.join(' ') + ')');
+
+  meters.forEach(function (m) {
+    const info = Composer.METERS[m];
+    /* Rock, deliberately: the backbeat check below needs a style that has one.
+       Cinematic is kicks and toms with no snare at all, so measuring it would
+       prove nothing about where a backbeat lands. */
+    const song = Composer.compose({ seed: 'METER-' + m, genre: 'rock', meter: m, length: 'medium' });
+
+    check(song.meter === m, m + ': the requested meter is the one used');
+    check(song.beatsPerBar === info.beats, m + ': a bar is ' + info.beats + ' beats');
+    check(Math.abs(song.totalBeats - song.bars * info.beats) < 1e-9,
+      m + ': the song is a whole number of bars (' + song.bars + ' × ' + info.beats + ')');
+
+    // Bars must tile the song with no gap and no overlap, whatever their length.
+    let expected = 0, gapless = true;
+    song.sections.forEach(function (sec) {
+      if (sec.startBar !== expected) gapless = false;
+      expected += sec.bars;
+    });
+    check(gapless && expected === song.bars, m + ': the sections tile the song exactly');
+
+    // Every chord must start on a bar line and stop inside the song.
+    const chordsAligned = song.chords.every(function (c) {
+      return Math.abs(c.startBeat - c.bar * info.beats) < 1e-6 &&
+             c.startBeat + c.durBeats <= song.totalBeats + 1e-6;
+    });
+    check(chordsAligned, m + ': every chord sits on a bar line');
+
+    // Nothing may be written past the end of the last bar.
+    let inRange = true, notes = 0;
+    Object.keys(song.tracks).forEach(function (k) {
+      song.tracks[k].forEach(function (e) {
+        notes++;
+        if (e.t < -0.06 || e.t >= song.totalBeats) inRange = false;
+      });
+    });
+    check(notes > 50, m + ': the song has parts in it (' + notes + ' notes)');
+    check(inRange, m + ': nothing is written past the final bar');
+
+    /* The part that makes a meter a meter: where the weight falls. A backbeat
+       instrument must land on this meter's backbeats and nowhere a 4/4 pattern
+       would have put it by accident.
+       Measured in a loud section, not in bar 0 — most styles write no snare at
+       all in an intro, and a check with nothing to look at passes without
+       proving anything. */
+    const loud = song.sections.filter(function (x) { return x.energy >= 0.65; })[0];
+    check(!!loud, m + ': the song has a full-strength section to measure');
+    if (loud) {
+      const from = loud.startBar * info.beats;
+      const bar = song.tracks.drums.filter(function (e) {
+        return e.t >= from - 1e-6 && e.t < from + info.beats - 1e-6;
+      });
+      const backbeat = bar.filter(function (e) {
+        return (e.inst === 'snare' || e.inst === 'clap' || e.inst === 'rim') && e.v >= 0.6;
+      });
+      check(backbeat.length > 0, m + ': and that section has a backbeat to check');
+      const wanted = info.backbeats.map(function (st) { return st * 0.25; });
+      const onGrid = backbeat.every(function (e) {
+        return wanted.some(function (w) { return Math.abs(e.t - from - w) < 0.12; });
+      });
+      check(onGrid, m + ': the backbeat lands where this meter puts it (beat ' +
+        info.backbeats.map(function (st) { return st / 4 + 1; }).join(' and ') + ')');
+    }
+  });
+
+  // A meter survives a save, because the bar length is not something to guess.
+  const w = Composer.compose({ seed: 'METER-SAVE', genre: 'country', meter: '3/4' });
+  const back = Composer.unpackSong(JSON.parse(JSON.stringify(Composer.packSong(w))));
+  check(back.meter === '3/4' && back.beatsPerBar === 3, 'a time signature survives a save');
+  check(back.bars === w.bars && back.totalBeats === w.totalBeats,
+    'and the song is still the same length afterwards');
+
+  // Rearranging a waltz keeps it a waltz.
+  Composer.duplicateSection(w, 1);
+  check(Math.abs(w.totalBeats - w.bars * 3) < 1e-9,
+    'rearranging keeps the bars three beats long');
+
+  // An unknown meter falls back rather than producing nonsense.
+  const odd = Composer.compose({ seed: 'METER-BAD', genre: 'lofi', meter: '13/16' });
+  check(Composer.METERS[odd.meter] !== undefined, 'an unknown time signature falls back to a real one');
+
+  // Every genre must be able to produce every meter it lists.
+  Object.keys(Genres.GENRES).forEach(function (g) {
+    const listed = (Genres.GENRES[g].meters || []).map(function (x) { return x[0]; });
+    check(listed.length > 0, g + ': lists at least one time signature');
+    check(listed.every(function (m) { return !!Composer.METERS[m]; }),
+      g + ': lists only time signatures that exist (' + listed.join(' ') + ')');
+  });
 })();
 
 /* --- saving and reloading a whole song --- */

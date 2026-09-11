@@ -15,9 +15,105 @@
 
   const T = global.Theory;
   const G = global.Genres;
-  const BEATS_PER_BAR = 4;
+  const BEATS_PER_BAR = 4;           // the default, and what 4/4 songs use
   const STEPS_PER_BAR = 16;          // sixteenth-note grid
-  const STEP_BEATS = BEATS_PER_BAR / STEPS_PER_BAR;
+  const STEP_BEATS = 0.25;           // one sixteenth, in beats — true in any meter
+
+  /* ------------------------------------------------------------------ *
+   * Time signatures
+   *
+   * A beat is a quarter note and a step is a sixteenth, in every meter. What
+   * changes is how many of them make a bar, and — the part that actually
+   * matters musically — where the weight falls inside it.
+   *
+   *   backbeats  where a snare or clap belongs
+   *   accents    where a bar restarts its pulse: 7/8 is 2+2+3, not seven evens
+   *   pulse      the natural subdivision for hats, in steps
+   * ------------------------------------------------------------------ */
+
+  const METERS = {
+    '4/4': { beats: 4,   steps: 16, backbeats: [4, 12],  accents: [0, 8],     pulse: 2,
+             name: 'four to the bar' },
+    '3/4': { beats: 3,   steps: 12, backbeats: [4, 8],   accents: [0],        pulse: 2,
+             name: 'waltz time' },
+    '6/8': { beats: 3,   steps: 12, backbeats: [6],      accents: [0, 6],     pulse: 2,
+             name: 'six-eight' },
+    '5/4': { beats: 5,   steps: 20, backbeats: [4, 12],  accents: [0, 12],    pulse: 2,
+             name: 'five to the bar' },
+    '7/8': { beats: 3.5, steps: 14, backbeats: [6],      accents: [0, 4, 8],  pulse: 2,
+             name: 'seven-eight' }
+  };
+
+  function meterOf(song) { return METERS[song && song.meter] || METERS['4/4']; }
+  /** Beats in one bar of this song. A quarter note everywhere; the count varies. */
+  function bpb(song) { return meterOf(song).beats; }
+  function spb_(song) { return meterOf(song).steps; }
+
+  /* Instruments fall into three jobs, and each one moves differently when the
+     bar changes length. */
+  const PULSE_INSTS = ['hh', 'oh', 'shaker', 'ride', 'tamb', 'perc', 'conga', 'cowbell'];
+  const BACKBEAT_INSTS = ['snare', 'clap', 'rim'];
+
+  /**
+   * Rewrite a 16-step 4/4 drum row for another meter.
+   *
+   * Truncating the string would be simpler and wrong: the snare on beat 4 of a
+   * 4/4 bar is the thing that falls off the end, and a backbeat is not
+   * decoration. So each instrument is moved according to what it is for —
+   * hats keep their pulse, snares land on the new bar's backbeats, and
+   * everything anchored to a downbeat is mirrored onto each accent group.
+   */
+  function adaptRow(row, inst, meter) {
+    const n = meter.steps;
+    if (n === 16) return row;
+
+    if (PULSE_INSTS.indexOf(inst) >= 0) {
+      // Periodic by nature: tile it and cut to length.
+      let out = row;
+      while (out.length < n) out += row;
+      return out.slice(0, n);
+    }
+
+    const chars = row.split('');
+    const loudest = chars.filter(function (c) { return c !== '.'; })
+      .sort(function (a, b) { return (VEL_CHAR[b] || 0) - (VEL_CHAR[a] || 0); })[0];
+    if (!loudest) return '.'.repeat(n);
+
+    if (BACKBEAT_INSTS.indexOf(inst) >= 0) {
+      const out = '.'.repeat(n).split('');
+      meter.backbeats.forEach(function (step) { if (step < n) out[step] = loudest; });
+      // Keep any ghost notes that still land inside the shorter bar.
+      for (let i = 0; i < Math.min(n, row.length); i++) {
+        const c = row.charAt(i);
+        if (c !== '.' && (VEL_CHAR[c] || 0) < 0.6 && out[i] === '.') out[i] = c;
+      }
+      return out.join('');
+    }
+
+    /* Anchored: kick, tom, crash, riser, impact. Take the figure from the first
+       accent group and restate it at each of the new bar's accents, so a 5/4
+       bar gets its kick at 1 and at the start of its second group rather than
+       an arbitrary slice of a 4/4 pattern. */
+    const groupLen = Math.max(1, Math.round(n / meter.accents.length));
+    const figure = row.slice(0, Math.min(groupLen, row.length));
+    const out = '.'.repeat(n).split('');
+    meter.accents.forEach(function (start) {
+      for (let i = 0; i < figure.length && start + i < n; i++) {
+        if (figure.charAt(i) !== '.') out[start + i] = figure.charAt(i);
+      }
+    });
+    return out.join('');
+  }
+
+  /** A whole pattern (one object of instrument rows) rewritten for a meter. */
+  function adaptPattern(pattern, meter) {
+    if (meter.steps === 16) return pattern;
+    const out = {};
+    Object.keys(pattern).forEach(function (inst) {
+      out[inst] = adaptRow(pattern[inst], inst, meter);
+    });
+    return out;
+  }
 
   /* ------------------------------------------------------------------ *
    * Titles — flavour, not function.
@@ -115,6 +211,7 @@
   }
 
   function buildHarmony(rng, song, genre, mood) {
+    const beatsPerBar = bpb(song);
     const scaleSteps = song.scaleSteps;
     const rootMidi = T.midi(song.rootPc, 4);        // chord construction octave
     const progression = rng.pick(genre.progressions);
@@ -171,8 +268,8 @@
 
         const bars = Math.min(barsPerChord, sec.startBar + sec.bars - bar);
         const chord = {
-          startBeat: bar * BEATS_PER_BAR,
-          durBeats: bars * BEATS_PER_BAR,
+          startBeat: bar * beatsPerBar,
+          durBeats: bars * beatsPerBar,
           bar: bar,
           bars: bars,
           degree: degree,
@@ -237,13 +334,15 @@
   }
 
   function composeDrums(song, rng) {
+    const meter = meterOf(song);
+    const beatsPerBar = meter.beats;
     const genre = song.genre;
     const events = [];
     const drums = genre.drums;
 
     for (let s = 0; s < song.sections.length; s++) {
       const sec = song.sections[s];
-      const base = patternForEnergy(drums, sec.energy);
+      const base = adaptPattern(patternForEnergy(drums, sec.energy), meter);
       const isLast = s === song.sections.length - 1;
 
       const next = song.sections[s + 1];
@@ -252,7 +351,7 @@
 
       for (let b = 0; b < sec.bars; b++) {
         const bar = sec.startBar + b;
-        const barBeat = bar * BEATS_PER_BAR;
+        const barBeat = bar * beatsPerBar;
         const lastBarOfSection = b === sec.bars - 1;
 
         /* The bar before a chorus: pull the kit out from under the track, run a
@@ -261,7 +360,7 @@
         if (buildsInto && lastBarOfSection && sec.bars >= 4) {
           events.push({ t: barBeat, d: 0.25, p: 60, v: 0.95, inst: 'kick' });
           const hits = rng.chance(0.5) ? 16 : 8;
-          const step = BEATS_PER_BAR / hits;
+          const step = beatsPerBar / hits;
           for (let i = 0; i < hits; i++) {
             events.push({
               t: barBeat + i * step,
@@ -271,7 +370,7 @@
               inst: 'snare'
             });
           }
-          events.push({ t: barBeat, d: BEATS_PER_BAR, p: 60, v: 0.75, inst: 'riser' });
+          events.push({ t: barBeat, d: beatsPerBar, p: 60, v: 0.75, inst: 'riser' });
           continue;
         }
 
@@ -282,7 +381,7 @@
         }
 
         const fillBar = !isLast && lastBarOfSection && sec.bars >= 4 && rng.chance(0.85);
-        const pattern = fillBar && drums.fill ? drums.fill : base;
+        const pattern = fillBar && drums.fill ? adaptPattern(drums.fill, meter) : base;
 
         Object.keys(pattern).forEach(function (inst) {
           const row = pattern[inst];
@@ -331,6 +430,7 @@
   }
 
   function composeBass(song, rng) {
+    const beatsPerBar = bpb(song);
     const genre = song.genre;
     const style = genre.bass.style;
     const oct = genre.bass.octave;
@@ -343,44 +443,56 @@
 
       for (let b = 0; b < sec.bars; b++) {
         const bar = sec.startBar + b;
-        const barBeat = bar * BEATS_PER_BAR;
+        const barBeat = bar * beatsPerBar;
         const chord = chordAt(song, barBeat);
         const root = bassPitch(chord, oct);
         const fifth = root + 7;
         const octaveUp = root + 12;
         const vel = 0.62 + energy * 0.25;
 
+        /* Every figure below is written in fractions of the bar it is in, not
+           in a fixed count of eighths. A bassline that assumes eight eighth
+           notes writes a whole extra beat into a three-beat bar — which spills
+           into the next one, and past the end of the song at the last. */
+        const eighths = Math.round(beatsPerBar * 2);
+        const quarters = Math.floor(beatsPerBar);
+        const last = beatsPerBar - 0.5;                 // the final eighth of the bar
+
         if (style === 'root8') {
-          for (let i = 0; i < 8; i++) {
+          for (let i = 0; i < eighths; i++) {
             const t = barBeat + i * 0.5;
             let p = root;
-            if (i === 7 && rng.chance(0.3)) p = fifth;
+            if (i === eighths - 1 && rng.chance(0.3)) p = fifth;
             if (i % 4 === 2 && rng.chance(0.18)) p = octaveUp;
             events.push({ t: t, d: 0.45, p: p, v: vel * (i % 2 === 0 ? 1 : 0.82) });
           }
         } else if (style === 'pulse8') {
-          for (let i = 0; i < 8; i++) {
+          for (let i = 0; i < eighths; i++) {
             const p = i % 4 === 3 ? octaveUp : root;
             events.push({ t: barBeat + i * 0.5, d: 0.42, p: p, v: vel * (i % 2 === 0 ? 1 : 0.8) });
           }
         } else if (style === 'offbeat') {
           events.push({ t: barBeat, d: 0.4, p: root, v: vel });
-          for (let i = 0; i < 4; i++) {
+          for (let i = 0; i < quarters; i++) {
             const t = barBeat + i + 0.5;
+            if (t >= barBeat + beatsPerBar) break;
             let p = root;
             if (rng.chance(0.22)) p = fifth;
             if (rng.chance(0.12)) p = octaveUp;
             events.push({ t: t, d: 0.42, p: p, v: vel * 0.95 });
           }
         } else if (style === 'walk') {
-          events.push({ t: barBeat, d: 1.4, p: root, v: vel });
-          if (rng.chance(0.7)) events.push({ t: barBeat + 1.5, d: 0.5, p: root + (rng.chance(0.5) ? 7 : 12), v: vel * 0.75 });
-          events.push({ t: barBeat + 2, d: 1.0, p: rng.chance(0.6) ? root : fifth, v: vel * 0.9 });
+          events.push({ t: barBeat, d: Math.min(1.4, beatsPerBar * 0.4), p: root, v: vel });
+          if (beatsPerBar >= 3 && rng.chance(0.7)) {
+            events.push({ t: barBeat + 1.5, d: 0.5, p: root + (rng.chance(0.5) ? 7 : 12), v: vel * 0.75 });
+          }
+          events.push({ t: barBeat + Math.min(2, beatsPerBar - 1), d: 1.0,
+                        p: rng.chance(0.6) ? root : fifth, v: vel * 0.9 });
           if (rng.chance(0.45)) {
-            const next = chordAt(song, barBeat + BEATS_PER_BAR);
+            const next = chordAt(song, barBeat + beatsPerBar);
             const target = bassPitch(next, oct);
             const approach = target + (rng.chance(0.5) ? -1 : 1);
-            events.push({ t: barBeat + 3.5, d: 0.5, p: approach, v: vel * 0.7 });
+            events.push({ t: barBeat + last, d: 0.5, p: approach, v: vel * 0.7 });
           }
         } else if (style === 'whole') {
           if (barBeat === chord.startBeat) {
@@ -388,15 +500,24 @@
           }
         } else if (style === 'sustain') {
           if (b % 2 === 0) {
-            events.push({ t: barBeat, d: 3.5, p: root, v: vel });
-            if (rng.chance(0.5)) events.push({ t: barBeat + 3.75, d: 0.25, p: root + 12, v: vel * 0.7 });
+            events.push({ t: barBeat, d: beatsPerBar - 0.5, p: root, v: vel });
+            if (rng.chance(0.5)) {
+              events.push({ t: barBeat + beatsPerBar - 0.25, d: 0.25, p: root + 12, v: vel * 0.7 });
+            }
           } else if (rng.chance(0.6)) {
-            events.push({ t: barBeat + 1.5, d: 2.0, p: rng.chance(0.4) ? fifth : root, v: vel * 0.85 });
+            events.push({ t: barBeat + 1.5, d: Math.max(0.5, beatsPerBar - 1.5),
+                          p: rng.chance(0.4) ? fifth : root, v: vel * 0.85 });
           }
         } else if (style === 'slide808') {
-          events.push({ t: barBeat, d: rng.chance(0.5) ? 2.5 : 1.75, p: root, v: vel, glide: b > 0 });
-          if (rng.chance(0.6)) events.push({ t: barBeat + 2.5, d: 1.0, p: root, v: vel * 0.85 });
-          if (energy > 0.8 && rng.chance(0.35)) events.push({ t: barBeat + 3.5, d: 0.5, p: root + (rng.chance(0.5) ? 7 : 12), v: vel * 0.8, glide: true });
+          events.push({ t: barBeat, d: beatsPerBar * (rng.chance(0.5) ? 0.625 : 0.44),
+                        p: root, v: vel, glide: b > 0 });
+          if (rng.chance(0.6)) {
+            events.push({ t: barBeat + beatsPerBar * 0.625, d: 1.0, p: root, v: vel * 0.85 });
+          }
+          if (energy > 0.8 && rng.chance(0.35)) {
+            events.push({ t: barBeat + last, d: 0.5, p: root + (rng.chance(0.5) ? 7 : 12),
+                          v: vel * 0.8, glide: true });
+          }
         }
       }
     }
@@ -408,6 +529,7 @@
    * ------------------------------------------------------------------ */
 
   function composeChords(song, rng) {
+    const beatsPerBar = bpb(song);
     const genre = song.genre;
     const style = genre.chords.style;
     const events = [];
@@ -426,8 +548,13 @@
         }
       } else if (style === 'stab') {
         for (let bar = 0; bar < chord.bars; bar++) {
-          const barBeat = chord.startBeat + bar * BEATS_PER_BAR;
-          const hits = sec.energy >= 0.95 ? [0.5, 1.5, 2.5, 3.5] : [0.5, 2.5];
+          const barBeat = chord.startBeat + bar * beatsPerBar;
+          /* Offbeat stabs, one per beat when the section is at full strength
+             and every other beat otherwise — counted from the bar's own length
+             rather than assuming four of them. */
+          const hits = [];
+          const every = sec.energy >= 0.95 ? 1 : 2;
+          for (let q = 0; q + 0.5 < beatsPerBar; q += every) hits.push(q + 0.5);
           for (let h = 0; h < hits.length; h++) {
             if (rng.chance(0.18)) continue;
             for (let i = 0; i < voicing.length; i++) {
@@ -437,10 +564,11 @@
         }
       } else if (style === 'keys') {
         for (let bar = 0; bar < chord.bars; bar++) {
-          const barBeat = chord.startBeat + bar * BEATS_PER_BAR;
+          const barBeat = chord.startBeat + bar * beatsPerBar;
           const hits = [0];
-          if (rng.chance(0.75)) hits.push(rng.pick([1.5, 2.5, 2.75]));
-          if (rng.chance(0.35)) hits.push(3.5);
+          const mid = [1.5, 2.5, 2.75].filter(function (x) { return x < beatsPerBar; });
+          if (mid.length && rng.chance(0.75)) hits.push(rng.pick(mid));
+          if (beatsPerBar - 0.5 > 1 && rng.chance(0.35)) hits.push(beatsPerBar - 0.5);
           for (let h = 0; h < hits.length; h++) {
             const roll = rng.range(0, 0.035);       // gentle hand-rolled feel
             for (let i = 0; i < voicing.length; i++) {
@@ -486,6 +614,7 @@
    * ------------------------------------------------------------------ */
 
   function composeArp(song, rng) {
+    const beatsPerBar = bpb(song);
     const genre = song.genre;
     const rate = genre.arp.rate;
     const octave = genre.arp.octave;
@@ -527,17 +656,20 @@
    * Lead melody — motif first, then variations of it.
    * ------------------------------------------------------------------ */
 
-  function makeMotif(rng, density, bars) {
+  function makeMotif(rng, density, bars, stepsPerBar) {
+    stepsPerBar = stepsPerBar || STEPS_PER_BAR;
     const notes = [];
     for (let b = 0; b < bars; b++) {
-      const cell = pickCell(rng, density);
+      // Rhythm cells are written on a sixteen-step bar; in a shorter bar the
+      // onsets that fall off the end are simply not played.
+      const cell = pickCell(rng, density).filter(function (x) { return x < stepsPerBar; });
       for (let i = 0; i < cell.length; i++) {
-        notes.push({ step: b * STEPS_PER_BAR + cell[i] });
+        notes.push({ step: b * stepsPerBar + cell[i] });
       }
     }
     // Durations run to the next onset, capped so phrases stay articulate.
     for (let i = 0; i < notes.length; i++) {
-      const next = i + 1 < notes.length ? notes[i + 1].step : bars * STEPS_PER_BAR;
+      const next = i + 1 < notes.length ? notes[i + 1].step : bars * stepsPerBar;
       notes[i].dur = Math.min(next - notes[i].step, 8);
     }
     // Contour: a small random walk in scale steps, mostly stepwise.
@@ -593,6 +725,8 @@
   }
 
   function composeLead(song, rng, opts) {
+    const beatsPerBar = bpb(song);
+    const stepsPerBar = spb_(song);
     const genre = song.genre;
     const octave = genre.lead.octave;
     const density = Math.max(0.15, Math.min(0.95, genre.lead.density + song.mood.density));
@@ -607,9 +741,9 @@
       chorus: transformMotif(rng, given, 'transpose'),
       bridge: transformMotif(rng, given, 'invert')
     } : {
-      verse: makeMotif(rng, density * 0.85, motifBars),
-      chorus: makeMotif(rng, density, motifBars),
-      bridge: makeMotif(rng, density * 0.7, motifBars)
+      verse: makeMotif(rng, density * 0.85, motifBars, stepsPerBar),
+      chorus: makeMotif(rng, density, motifBars, stepsPerBar),
+      bridge: makeMotif(rng, density * 0.7, motifBars, stepsPerBar)
     };
 
     for (let s = 0; s < song.sections.length; s++) {
@@ -624,7 +758,7 @@
         else if (ph % 2 === 1) motif = transformMotif(rng, baseMotif, rng.pick(['tail', 'thin', 'transpose']));
         else motif = baseMotif;
 
-        const phraseBeat = (sec.startBar + ph * motifBars) * BEATS_PER_BAR;
+        const phraseBeat = (sec.startBar + ph * motifBars) * beatsPerBar;
         const phraseEvents = [];
 
         for (let i = 0; i < motif.length; i++) {
@@ -654,7 +788,7 @@
         }
 
         // Every second phrase closes: four bars of line, then room to breathe.
-        const phraseEnd = phraseBeat + motifBars * BEATS_PER_BAR;
+        const phraseEnd = phraseBeat + motifBars * beatsPerBar;
         const finished = (ph % 2 === 1) ? cadence(song, phraseEvents, phraseEnd) : phraseEvents;
         Array.prototype.push.apply(events, finished);
       }
@@ -694,12 +828,12 @@
   function motifFromEvents(song, events, bars) {
     bars = bars || 2;
     if (!events || events.length < 2) return null;
-    const span = bars * BEATS_PER_BAR;
+    const span = bars * bpb(song);
 
     // Take the busiest window of `bars` bars — that is where the idea is.
     let bestStart = 0, bestCount = 0;
-    for (let b = 0; b * BEATS_PER_BAR < song.totalBeats; b += bars) {
-      const start = b * BEATS_PER_BAR;
+    for (let b = 0; b * bpb(song) < song.totalBeats; b += bars) {
+      const start = b * bpb(song);
       let n = 0;
       for (let i = 0; i < events.length; i++) {
         if (events[i].t >= start && events[i].t < start + span) n++;
@@ -882,8 +1016,8 @@
 
   function extractBlocks(song) {
     return song.sections.map(function (sec) {
-      const from = sec.startBar * BEATS_PER_BAR;
-      const to = from + sec.bars * BEATS_PER_BAR;
+      const from = sec.startBar * bpb(song);
+      const to = from + sec.bars * bpb(song);
       const tracks = {};
       Object.keys(song.tracks).forEach(function (t) {
         tracks[t] = song.tracks[t]
@@ -920,7 +1054,7 @@
     let bar = 0;
 
     blocks.forEach(function (b) {
-      const offset = bar * BEATS_PER_BAR;
+      const offset = bar * bpb(song);
       Object.keys(tracks).forEach(function (t) {
         (b.tracks[t] || []).forEach(function (e) {
           const c = {};
@@ -935,7 +1069,7 @@
         n.pitches = c.pitches.slice();
         n.voicing = c.voicing.slice();
         n.startBeat = c.startBeat + offset;
-        n.bar = Math.round(n.startBeat / BEATS_PER_BAR);
+        n.bar = Math.round(n.startBeat / bpb(song));
         chords.push(n);
       });
       sections.push({
@@ -963,7 +1097,7 @@
     song.chords = chords;
     song.sections = sections;
     song.bars = bar;
-    song.totalBeats = bar * BEATS_PER_BAR;
+    song.totalBeats = bar * bpb(song);
     song.duration = song.totalBeats * (60 / song.bpm);
     clampAutomation(song);
     return song;
@@ -1059,6 +1193,7 @@
       rootPc: song.rootPc,
       scaleId: song.scaleId,
       keyName: song.keyName,
+      meter: song.meter,
       bars: song.bars,
       totalBeats: song.totalBeats,
       pingpong: !!song.pingpong,
@@ -1090,7 +1225,7 @@
 
     const song = compose({
       seed: p.seed, genre: p.genre, mood: p.mood,
-      key: p.rootPc, bpm: p.bpm, scale: p.scaleId
+      key: p.rootPc, bpm: p.bpm, scale: p.scaleId, meter: p.meter
     });
 
     song.title = p.title;
@@ -1100,6 +1235,9 @@
     song.scaleId = p.scaleId;
     song.scaleSteps = T.SCALES[p.scaleId].steps;
     song.keyName = p.keyName;
+    song.meter = METERS[p.meter] ? p.meter : '4/4';
+    song.beatsPerBar = METERS[song.meter].beats;
+    song.stepsPerBar = METERS[song.meter].steps;
     song.bars = p.bars;
     song.totalBeats = p.totalBeats;
     song.duration = p.totalBeats * (60 / p.bpm);
@@ -1216,7 +1354,7 @@
   /** Beat where a section starts, or the end of the song if there isn't one. */
   function beatOfSection(song, match) {
     for (let i = 0; i < song.sections.length; i++) {
-      if (match(song.sections[i], i)) return song.sections[i].startBar * BEATS_PER_BAR;
+      if (match(song.sections[i], i)) return song.sections[i].startBar * bpb(song);
     }
     return -1;
   }
@@ -1228,7 +1366,7 @@
    */
   const SHAPES = {
     fadeIn: function (song) {
-      const end = Math.min(song.totalBeats, BEATS_PER_BAR * (song.sections[0] ? song.sections[0].bars : 4));
+      const end = Math.min(song.totalBeats, bpb(song) * (song.sections[0] ? song.sections[0].bars : 4));
       clearLane(song, 'volume');
       addPoint(song, 'volume', 0, 0);
       addPoint(song, 'volume', end, 1);
@@ -1236,7 +1374,7 @@
     },
     fadeOut: function (song) {
       const last = song.sections[song.sections.length - 1];
-      const start = last ? last.startBar * BEATS_PER_BAR : Math.max(0, song.totalBeats - 16);
+      const start = last ? last.startBar * bpb(song) : Math.max(0, song.totalBeats - 16);
       clearLane(song, 'volume');
       addPoint(song, 'volume', start, 1);
       addPoint(song, 'volume', song.totalBeats, 0);
@@ -1246,12 +1384,12 @@
       /* Build into the first chorus that has room in front of it. A song that
          opens on its chorus — which rearranging can easily produce — has
          nothing to build from, so fall back to the middle of the track. */
-      const MIN_RUNWAY = BEATS_PER_BAR * 2;
+      const MIN_RUNWAY = bpb(song) * 2;
       const chorus = beatOfSection(song, function (s) {
-        return s.type === 'chorus' && s.startBar * BEATS_PER_BAR >= MIN_RUNWAY;
+        return s.type === 'chorus' && s.startBar * bpb(song) >= MIN_RUNWAY;
       });
       const target = chorus >= MIN_RUNWAY ? chorus : Math.floor(song.totalBeats / 2);
-      const start = Math.max(0, target - BEATS_PER_BAR * 8);
+      const start = Math.max(0, target - bpb(song) * 8);
       clearLane(song, 'filter');
       addPoint(song, 'filter', start, 0.22);          // muffled, holding back
       addPoint(song, 'filter', target - 0.01, 1);     // wide open as it lands
@@ -1261,8 +1399,8 @@
     duckTheVerses: function (song) {
       clearLane(song, 'filter');
       song.sections.forEach(function (sec) {
-        const from = sec.startBar * BEATS_PER_BAR;
-        const to = from + sec.bars * BEATS_PER_BAR;
+        const from = sec.startBar * bpb(song);
+        const to = from + sec.bars * bpb(song);
         const open = sec.type === 'chorus' ? 1 : sec.type === 'intro' || sec.type === 'outro' ? 0.45 : 0.72;
         addPoint(song, 'filter', from, open);
         addPoint(song, 'filter', Math.min(song.totalBeats, to - 0.01), open);
@@ -1284,7 +1422,7 @@
    * ------------------------------------------------------------------ */
 
   function sectionOf(song, beat) {
-    const bar = Math.floor(beat / BEATS_PER_BAR);
+    const bar = Math.floor(beat / bpb(song));
     for (let i = 0; i < song.sections.length; i++) {
       const s = song.sections[i];
       if (bar >= s.startBar && bar < s.startBar + s.bars) return s;
@@ -1335,6 +1473,14 @@
       beatsPerBar: BEATS_PER_BAR
     };
 
+    /* Time signature. The genre proposes; an explicit request wins. Everything
+       downstream measures bars through the meter rather than assuming four. */
+    song.meter = (opts.meter && METERS[opts.meter])
+      ? opts.meter
+      : rng.weighted(genre.meters || [['4/4', 1]]);
+    song.beatsPerBar = METERS[song.meter].beats;
+    song.stepsPerBar = METERS[song.meter].steps;
+
     // Tempo
     let bpm = opts.bpm && opts.bpm > 0
       ? opts.bpm
@@ -1350,13 +1496,13 @@
 
     // Length → bar count, rounded to whole 4-bar blocks.
     const targetSec = LENGTHS[opts.length] || LENGTHS.medium;
-    const barsPerSec = song.bpm / 60 / BEATS_PER_BAR;
+    const barsPerSec = song.bpm / 60 / song.beatsPerBar;
     let bars = Math.round(targetSec * barsPerSec / 4) * 4;
     bars = Math.max(24, Math.min(112, bars));
 
     song.sections = planStructure(rng, bars);
     song.bars = song.sections.reduce(function (a, s) { return a + s.bars; }, 0);
-    song.totalBeats = song.bars * BEATS_PER_BAR;
+    song.totalBeats = song.bars * song.beatsPerBar;
     song.duration = song.totalBeats * (60 / song.bpm);
 
     /* Draw a different instrument for some parts each time. The genre still
@@ -1458,6 +1604,9 @@
     SHAPES: SHAPES,
     LANE_NAMES: LANE_NAMES,
     BEATS_PER_BAR: BEATS_PER_BAR,
+    METERS: METERS,
+    meterOf: meterOf,
+    beatsPerBar: bpb,
     LENGTHS: LENGTHS
   };
 })(window);

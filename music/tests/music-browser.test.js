@@ -348,23 +348,30 @@ function launchOptions() {
        renders come back the same; if it works, the wet one is longer and louder
        and the muted one is silent no matter how high the send is turned up. */
     async function render(revAmt, muted) {
-      /* Cinematic: a long reverb and no tape-noise bed, so what comes out of
-         the master really is the pad and its sends and nothing else. */
-      const song = window.Composer.compose({ seed: 'SENDS-1', genre: 'cinematic', length: 'short' });
-      song.presetOverride = {};
+      /* Cinematic in 4/4: a long reverb, no tape-noise bed, and a fixed meter
+         so this measures the send rather than the arrangement. */
+      const song = window.Composer.compose({ seed: 'SENDS-1', genre: 'cinematic',
+                                             meter: '4/4', length: 'short' });
+      /* A marimba on the arp, deliberately. Pads hold their release for two or
+         three seconds, so a window taken after the last note is still full of
+         the instrument and only faintly of the reverb — which makes a send test
+         that mostly measures the pad, and passes or fails on which notes the
+         arrangement happened to write. A mallet stops dead; anything still
+         ringing afterwards is reverb and nothing else. */
+      song.presetOverride = { arp: 'marimba' };
       // Short enough to render fast, long enough for a reverb tail to show.
       Object.keys(song.tracks).forEach(function (k) {
         song.tracks[k] = song.tracks[k].filter(function (e) { return e.t < 24; });
       });
       let lastEnd = 0;
-      song.tracks.pad.forEach(function (e) { lastEnd = Math.max(lastEnd, e.t + e.d); });
+      song.tracks.arp.forEach(function (e) { lastEnd = Math.max(lastEnd, e.t + e.d); });
       song.totalBeats = Math.ceil(lastEnd) + 1;   // so the render always covers the tail
       const mix = {};
       window.Engine.TRACKS.forEach(function (t) {
-        mix[t] = { volume: 1, muted: t !== 'pad', solo: false, rev: 1, del: 1 };
+        mix[t] = { volume: 1, muted: t !== 'arp', solo: false, rev: 1, del: 1 };
       });
-      mix.pad.rev = revAmt;
-      if (muted) mix.pad.muted = true;
+      mix.arp.rev = revAmt;
+      if (muted) mix.arp.muted = true;
       const buf = await window.Engine.renderOffline(song, mix);
       const ch = buf.getChannelData(0);
       const rate = buf.sampleRate;
@@ -395,14 +402,15 @@ function launchOptions() {
     };
   });
 
-  check(sends.normal.rms > 1e-4, 'the pad renders on its own (rms ' + sends.normal.rms.toFixed(4) + ')');
-  check(sends.normal.tailSamples > 1000 && sends.normal.tail > 1e-4,
-    'there is a real tail to measure (' + sends.normal.tail.toFixed(5) + ')');
-  check(sends.dry.tail < sends.normal.tail,
+  const t6 = function (x) { return x.toFixed(6); };
+  check(sends.normal.rms > 1e-4, 'the part renders on its own (rms ' + sends.normal.rms.toFixed(4) + ')');
+  check(sends.normal.tailSamples > 1000 && sends.normal.tail > 5e-5,
+    'there is a real tail to measure (' + t6(sends.normal.tail) + ')');
+  check(sends.dry.tail < sends.normal.tail * 0.75,
     'turning the reverb send down shortens the tail (' +
-    sends.normal.tail.toFixed(5) + ' → ' + sends.dry.tail.toFixed(5) + ')');
-  check(sends.wet.tail > sends.normal.tail,
-    'and turning it up lengthens it (' + sends.wet.tail.toFixed(5) + ')');
+    t6(sends.normal.tail) + ' → ' + t6(sends.dry.tail) + ')');
+  check(sends.wet.tail > sends.normal.tail * 1.4,
+    'and turning it up lengthens it (' + t6(sends.wet.tail) + ')');
   check(sends.mutedWet.peak < 1e-5,
     'a muted part sends nothing, however high the send (peak ' + sends.mutedWet.peak.toExponential(1) + ')');
 

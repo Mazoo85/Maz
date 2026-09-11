@@ -26,6 +26,11 @@ python3 -m http.server         # or serve the folder: http://localhost:8000/musi
 - **18 genres** — Lo-Fi Chill, Synthwave, Deep House, Ambient, Cinematic,
   Chiptune, Drum & Bass, Trap, Rock, Funk, Jazz, Disco, Techno, Drill,
   Afrobeat, Bossa Nova, Gospel Soul and Country.
+- **5 time signatures** — 4/4, plus **3/4** waltz time, **6/8**, **5/4** and
+  **7/8**. Pick one or let the style choose: a waltz country song, a 5/4
+  cinematic piece, a 7/8 prog-rock riff. The bar length runs through the whole
+  program — the composer, the piano-roll grid, the arrangement and the MIDI
+  export all measure in bars of the song's own meter.
 - **5 moods** — Chill, Uplifting, Dark, Dreamy, Driving. A mood bends the genre:
   brighter or darker scales, busier or sparser parts, more or less air.
 - **Real arrangement** — sections have different energy, so the chorus is
@@ -104,30 +109,38 @@ Each song is built in this order:
    an energy level: intro `0.35`, verse `0.65`, bridge `0.5`, chorus `1.0`.
    Energy decides which drum pattern plays, whether the lead sings, how open the
    filters are, and how hard the notes hit.
-3. **Harmony.** A progression is chosen as *scale degrees*, so the same numbers
+3. **Meter.** The genre proposes a time signature and you can override it. A
+   beat is a quarter note and a step a sixteenth in every meter; what changes is
+   how many make a bar and — the part that matters musically — where the weight
+   falls inside it. The drum patterns are written on a sixteen-step 4/4 bar and
+   rewritten for other meters by role rather than truncated: hats keep their
+   pulse, snares move onto the new bar's backbeats, and anything anchored to a
+   downbeat is restated at each accent, so 7/8 comes out as 2+2+3 rather than
+   seven even eighths.
+4. **Harmony.** A progression is chosen as *scale degrees*, so the same numbers
    read as I–vi–IV–V in major and i–VI–iv–v in minor. Chords are checked for
    self-contradiction (a flat and natural fifth at once, a flat ninth grinding
    against the root) and rebuilt from a simpler shape if they fail. Bare
    diminished triads gain a seventh; augmented triads lose their sharp fifth.
    Voicings use **voice leading** — each chord moves as little as possible from
    the one before it, which is why the chord track doesn't leap around.
-4. **Parts.** The bass follows the chord roots in a genre-specific pattern
+5. **Parts.** The bass follows the chord roots in a genre-specific pattern
    (walking, offbeat, driving eighths, sliding 808s). Drums come from
    sixteenth-step patterns per energy level, with fills at section boundaries.
    The arpeggio runs the chord tones. 
-5. **Melody.** This is the part that makes it sound *written* rather than
+6. **Melody.** This is the part that makes it sound *written* rather than
    random: the composer invents a two-bar **motif** — a rhythm plus a contour —
    and then varies it. Phrases repeat it, transpose it, invert it, or keep the
    opening and change the ending (the classic question-and-answer shape). Notes
    on strong beats snap to chord tones; notes in between are free to pass
    through the scale.
-6. **Phrasing.** Every second phrase closes: the last beat is cleared and the
+7. **Phrasing.** Every second phrase closes: the last beat is cleared and the
    final note leans onto a chord tone and holds. A melody that never stops for
    breath reads as a stream of notes rather than a line.
-7. **Arrangement.** Where a style calls for it, the bar before a chorus empties
+8. **Arrangement.** Where a style calls for it, the bar before a chorus empties
    out — the kit stops, a snare roll climbs, a riser sweeps — and the chorus
    lands on an impact. Taking things away is what makes the next bar hit.
-8. **Performance.** Swing pushes offbeats late, and every note is nudged a few
+9. **Performance.** Swing pushes offbeats late, and every note is nudged a few
    milliseconds and a little louder or quieter, so nothing sits perfectly on the
    grid.
 

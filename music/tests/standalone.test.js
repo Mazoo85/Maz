@@ -613,6 +613,95 @@ function launchOptions() {
   check(pingAfter.on === !pingBefore, 'the ping-pong toggle flips the echo');
   check(pingAfter.lit === pingAfter.on, 'and the button shows which way it is');
 
+  console.log('\n— time signatures —');
+  await page.evaluate(function () {
+    const sel = document.getElementById('meterSelect');
+    sel.value = '3/4';
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    document.getElementById('generateBtn').click();
+  });
+  await page.waitForTimeout(1000);
+  const waltz = await page.evaluate(function () {
+    const s = window.__song;
+    /* A full-strength bar, not bar 0 — an intro usually has no snare in it,
+       and an empty list would pass this check without proving anything. */
+    const loud = s.sections.filter(function (x) { return x.energy >= 0.65; })[0];
+    const from = loud ? loud.startBar * 3 : 0;
+    const bar0 = s.tracks.drums.filter(function (e) {
+      return e.t >= from - 1e-6 && e.t < from + 3 - 1e-6;
+    });
+    return {
+      from: from,
+      meter: s.meter,
+      bpb: s.beatsPerBar,
+      whole: Math.abs(s.totalBeats - s.bars * 3) < 1e-9,
+      meta: document.getElementById('songMeta').textContent,
+      editorBpb: window.__editor.beatsPerBar(),
+      backbeats: bar0.filter(function (e) {
+        return (e.inst === 'snare' || e.inst === 'clap' || e.inst === 'rim') && e.v >= 0.6;
+      }).map(function (e) { return Math.round((e.t - from) * 100) / 100; })
+    };
+  });
+  check(waltz.meter === '3/4' && waltz.bpb === 3, 'asking for 3/4 gets you 3/4');
+  check(waltz.whole, 'and the song is a whole number of three-beat bars');
+  check(waltz.meta.indexOf('3/4') >= 0, 'the song details say so (' + waltz.meta.split(' · ').slice(2, 4).join(' · ') + ')');
+  check(waltz.editorBpb === 3, 'and the editor draws three-beat bars');
+  check(waltz.backbeats.length > 0, 'there is a backbeat to measure');
+  check(waltz.backbeats.every(function (t) { return t === 1 || t === 2; }),
+    'and it falls on beats two and three, not where 4/4 would put it (beat ' +
+    waltz.backbeats.map(function (t) { return t + 1; }).join(', ') + ')');
+
+  const waltzAudio = await page.evaluate(async function () {
+    const s = window.Composer.compose({ seed: 'WALTZ-1', genre: 'country', meter: '3/4', length: 'short' });
+    Object.keys(s.tracks).forEach(function (k) {
+      s.tracks[k] = s.tracks[k].filter(function (e) { return e.t < 48; });
+    });
+    s.totalBeats = 48;
+    const mix = {};
+    window.Engine.TRACKS.forEach(function (t) { mix[t] = { volume: 1, muted: false }; });
+    const buf = await window.Engine.renderOffline(s, mix);
+    const ch = buf.getChannelData(0);
+    let peak = 0, sum = 0;
+    for (let i = 0; i < ch.length; i++) { const a = Math.abs(ch[i]); if (a > peak) peak = a; sum += a * a; }
+    const midi = window.Exporter.buildMidi(s);
+    return { peak: peak, rms: Math.sqrt(sum / ch.length), midiSize: midi.size, blob: null };
+  });
+  check(waltzAudio.peak > 0.05 && waltzAudio.peak <= 1.0001,
+    'a waltz renders audible and unclipped (peak ' + waltzAudio.peak.toFixed(3) + ')');
+  check(waltzAudio.midiSize > 100, 'and exports as MIDI');
+
+  // The MIDI must carry the time signature, or it opens in the wrong bars.
+  const sigBytes = await page.evaluate(async function () {
+    async function sigOf(meter) {
+      const s = window.Composer.compose({ seed: 'SIG', genre: 'cinematic', meter: meter, length: 'short' });
+      const buf = new Uint8Array(await window.Exporter.buildMidi(s).arrayBuffer());
+      for (let i = 0; i < buf.length - 6; i++) {
+        if (buf[i] === 0xff && buf[i + 1] === 0x58 && buf[i + 2] === 0x04) {
+          return [buf[i + 3], buf[i + 4], buf[i + 5]];
+        }
+      }
+      return null;
+    }
+    return { four: await sigOf('4/4'), three: await sigOf('3/4'),
+             six: await sigOf('6/8'), seven: await sigOf('7/8') };
+  });
+  check(sigBytes.four && sigBytes.four[0] === 4 && sigBytes.four[1] === 2,
+    'the MIDI says 4/4 for a 4/4 song');
+  check(sigBytes.three && sigBytes.three[0] === 3 && sigBytes.three[1] === 2,
+    'and 3/4 for a waltz');
+  check(sigBytes.six && sigBytes.six[0] === 6 && sigBytes.six[1] === 3 && sigBytes.six[2] === 36,
+    'and 6/8 with its click on the dotted quarters');
+  check(sigBytes.seven && sigBytes.seven[0] === 7 && sigBytes.seven[1] === 3, 'and 7/8');
+
+  // Back to letting the style decide, so later tests get ordinary songs.
+  await page.evaluate(function () {
+    const sel = document.getElementById('meterSelect');
+    sel.value = '4/4';
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    document.getElementById('generateBtn').click();
+  });
+  await page.waitForTimeout(1000);
+
   console.log('\n— saving and reloading a whole song —');
   /* Start from a clean library so the row under test is the first one. */
   await page.evaluate(function () {

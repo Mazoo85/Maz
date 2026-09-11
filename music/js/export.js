@@ -59,6 +59,15 @@
 
   const PPQ = 480;
 
+  /* [numerator, log2(denominator), MIDI clocks per metronome click] */
+  const MIDI_METER = {
+    '4/4': [4, 2, 24],
+    '3/4': [3, 2, 24],
+    '6/8': [6, 3, 36],     // clicks on the two dotted quarters
+    '5/4': [5, 2, 24],
+    '7/8': [7, 3, 24]
+  };
+
   /* General MIDI has no riser or impact; the nearest cymbals keep the shape of
      the arrangement legible when the file is opened elsewhere. */
   const GM_DRUM = {
@@ -133,7 +142,15 @@
     const usPerQuarter = Math.round(60000000 / song.bpm);
     meta.push({ tick: 0, order: 0, data: [0xff, 0x51, 0x03,
       (usPerQuarter >> 16) & 0xff, (usPerQuarter >> 8) & 0xff, usPerQuarter & 0xff] });
-    meta.push({ tick: 0, order: 1, data: [0xff, 0x58, 0x04, 4, 2, 24, 8] });
+    /* Time signature. The denominator is stored as a power of two — a 4 means
+       quarter notes, a 3 means eighths — and the third byte is how many MIDI
+       clocks make a metronome click, which is what tells another program where
+       the beat is in 6/8 and 7/8. Get this wrong and the song opens in the
+       right notes but the wrong bars. */
+    const meter = (global.Composer && global.Composer.METERS &&
+                   global.Composer.METERS[song.meter]) ? song.meter : '4/4';
+    const sig = MIDI_METER[meter] || MIDI_METER['4/4'];
+    meta.push({ tick: 0, order: 1, data: [0xff, 0x58, 0x04, sig[0], sig[1], sig[2], 8] });
     tracks.push(trackChunk(meta, song.title));
 
     const melodic = ['bass', 'chords', 'arp', 'lead', 'pad'];

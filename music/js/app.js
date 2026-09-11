@@ -30,6 +30,7 @@
     mood: 'chill',
     key: -1,          // -1 = let the composer choose
     length: 'medium',
+    meter: '',        // '' = let the genre choose
     bpm: 0,           // 0 = auto
     song: null,
     seekDragging: false,
@@ -126,6 +127,12 @@
 
   function bindOptions() {
     el('lengthSelect').addEventListener('change', function () { state.length = this.value; });
+    el('meterSelect').addEventListener('change', function () {
+      state.meter = this.value;
+      status(this.value
+        ? 'New songs will be in ' + this.value + '.'
+        : 'Time signature back to whatever suits the style.');
+    });
 
     el('seedInput').addEventListener('input', function () { state.seedEdited = true; });
 
@@ -154,7 +161,8 @@
       mood: opts.mood || state.mood,
       length: opts.length || state.length,
       key: opts.key !== undefined ? opts.key : state.key,
-      bpm: opts.bpm !== undefined ? opts.bpm : state.bpm
+      bpm: opts.bpm !== undefined ? opts.bpm : state.bpm,
+      meter: opts.meter !== undefined ? opts.meter : state.meter
     };
 
     let song;
@@ -226,7 +234,9 @@
 
   function songMetaText() {
     const s = state.song;
-    return s.genre.name + ' · ' + s.mood.name + ' · ' + s.keyName + ' · ' + s.bpm + ' BPM · ' +
+    // 4/4 is the default everywhere; saying so on every song is noise.
+    const meter = s.meter && s.meter !== '4/4' ? ' · ' + s.meter : '';
+    return s.genre.name + ' · ' + s.mood.name + ' · ' + s.keyName + meter + ' · ' + s.bpm + ' BPM · ' +
       s.bars + ' bars · seed ' + s.seed;
   }
 
@@ -1026,8 +1036,9 @@
     cx.font = '9px system-ui, sans-serif';
     for (let i = 0; i < song.sections.length; i++) {
       const sec = song.sections[i];
-      const x0 = xOf(sec.startBar * 4);
-      const x1 = xOf((sec.startBar + sec.bars) * 4);
+      const bpb = song.beatsPerBar || 4;
+      const x0 = xOf(sec.startBar * bpb);
+      const x1 = xOf((sec.startBar + sec.bars) * bpb);
       cx.fillStyle = i % 2 ? 'rgba(255,255,255,0.028)' : 'rgba(255,255,255,0.055)';
       cx.fillRect(x0, 0, x1 - x0, rollH);
       cx.fillStyle = 'rgba(200,190,225,0.55)';
@@ -1550,6 +1561,7 @@
       state.bpm = shared.bpm;
       syncChips();
       el('lengthSelect').value = state.length;
+      el('meterSelect').value = state.meter;
       el('keySelect').value = String(state.key);
       el('seedInput').value = shared.seed;
       generate({ seed: shared.seed, autoplay: false });

@@ -15,7 +15,7 @@
   'use strict';
 
   const T = global.Theory;
-  const BEATS_PER_BAR = 4;
+  const BEATS_PER_BAR = 4;          // fallback for a song that has no meter set
   const STEP_BEATS = 0.25;
   const LABEL_W = 52;
   const MIN_ROWS = 15;
@@ -204,8 +204,14 @@
     this.rows = rows;
   };
 
-  Editor.prototype.startBeat = function () { return this.startBar * BEATS_PER_BAR; };
-  Editor.prototype.spanBeats = function () { return this.bars * BEATS_PER_BAR; };
+  /** Beats in a bar of the song being edited — three in a waltz, not four. */
+  Editor.prototype.beatsPerBar = function () {
+    const song = this.getSong();
+    return (song && song.beatsPerBar) || BEATS_PER_BAR;
+  };
+
+  Editor.prototype.startBeat = function () { return this.startBar * this.beatsPerBar(); };
+  Editor.prototype.spanBeats = function () { return this.bars * this.beatsPerBar(); };
 
   Editor.prototype.xOfBeat = function (b) {
     return LABEL_W + ((b - this.startBeat()) / this.spanBeats()) * (this.w - LABEL_W);
@@ -275,7 +281,7 @@
     // Beat and bar lines
     for (let b = 0; b <= beats; b += this.snap) {
       const x = this.xOfBeat(start + b);
-      const onBar = Math.abs((b % BEATS_PER_BAR)) < 1e-6;
+      const onBar = Math.abs((b % this.beatsPerBar())) < 1e-6;
       const onBeat = Math.abs((b % 1)) < 1e-6;
       if (!onBeat && this.snap >= 0.5) continue;
       cx.strokeStyle = onBar ? 'rgba(255,255,255,0.30)'
@@ -291,7 +297,7 @@
     cx.font = '10px ui-monospace, monospace';
     cx.textAlign = 'left';
     for (let b = 0; b < this.bars; b++) {
-      const x = this.xOfBeat(start + b * BEATS_PER_BAR);
+      const x = this.xOfBeat(start + b * this.beatsPerBar());
       cx.fillStyle = 'rgba(200,190,225,0.75)';
       cx.fillText(String(this.startBar + b + 1), x + 4, 11);
     }
@@ -582,7 +588,7 @@
   /** Keep the playhead in view while the song plays. */
   Editor.prototype.followPlayhead = function () {
     if (!this.follow || !this.player.playing) return;
-    const bar = Math.floor(this.player.currentBeat() / BEATS_PER_BAR);
+    const bar = Math.floor(this.player.currentBeat() / this.beatsPerBar());
     if (bar < this.startBar || bar >= this.startBar + this.bars) {
       this.scrollTo(Math.floor(bar / this.bars) * this.bars);
       return true;
