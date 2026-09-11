@@ -29,7 +29,7 @@ is a dead end.
 | ⚙️ | **Maz Engine** | Native **C++20 + Vulkan + SDL3** game engine, 2D-first but architected so 3D drops in later. | [roadmap](docs/ROADMAP.md) · [architecture](docs/ARCHITECTURE.md) |
 | 🕸️ | **maz-scrape** | Recipe-driven scraper for static HTML — point it at a YAML recipe, get JSONL/CSV/SQLite. | [docs](scraper/README.md) |
 | 🤝 | **Maz Crew** | Runs a coding task through planner → coder → reviewer → tester, with human checkpoints. | [docs](crew/README.md) |
-| ⚒️ | **The Forge** | The repo's own nightly loop: reads the roadmap, CI and `TODO` markers, picks one task, hands it to Maz Crew, and opens a draft PR. Never pushes to the default branch, never merges. | [docs](docs/FORGE.md) |
+| ⚒️ | **The Forge** | The repo's own nightly loop: reads the roadmap, CI and `TODO` markers, picks one task, hands it to Maz Crew, and opens a draft PR. Verifies against every project declared to depend on what it changed. Never pushes to the default branch, never merges. | [docs](docs/FORGE.md) |
 
 The list lives in **[`shared/projects.js`](shared/projects.js)** — one file, read by
 both the hub and the in-app nav. Add a project there and it appears everywhere.

@@ -198,6 +198,25 @@ recorded as `checks: green`, having verified nothing at all. Before widening
 command first, or the work landing there is unverified while looking
 exactly like everything else that isn't.
 
+**A zone's checks now include everything downstream of it.**
+`shared/exchange.json` records which projects use each other — today only
+that SCRIPT FORGE loads five of SONG FORGE's files. So a change in `music/`
+runs `film/`'s tests as well as music's own, and `checks: green` means both
+passed. Before this, the Forge could break SCRIPT FORGE, record green, and
+open a pull request describing verified work; CI on that pull request caught
+the break, but the ledger — the permanent record of the loop's judgement —
+carried a false claim.
+
+If `shared/exchange.json` is missing or malformed the Forge stops for the
+night rather than falling back to a zone's own checks: it records
+`config_error` and picks nothing. Falling back would mean verifying less
+while still reporting green, which is the defect this exists to remove. A
+quiet night is a correct night.
+
+Adding a cross-project `<script>` tag without declaring it in
+`shared/exchange.json` fails CI (`scripts/check-exchange.mjs`), so the
+declaration cannot quietly rot.
+
 ## Outcomes
 
 Every run — dry or live — writes exactly one of these to the ledger:
