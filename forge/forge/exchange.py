@@ -39,6 +39,20 @@ class Exchange:
     def consumers_of(self, project: str) -> tuple[str, ...]:
         """Projects that consume something `project` publishes.
 
+        Direct consumers only, deliberately not transitive: if `film`
+        consumed something `madlibs` published, and something else in turn
+        consumed something `film` published, `consumers_of("madlibs")` would
+        still name only `film`, never the project one hop further out.
+        Unreachable today with the graph's single edge (music -> film), but
+        the movie-maker spec already plans three more
+        (`docs/superpowers/specs/2026-09-11-the-exchange-design.md`: a
+        renderer upgrade, MADLIBS becoming the story brain, Maz Engine
+        rendering the reel) — the first of those to chain onto an existing
+        edge would otherwise recurse outward through the whole graph, and a
+        declared cycle (A depends on B depends on A) would recurse forever
+        rather than terminate. Widen this only alongside a cycle guard, not
+        by accident.
+
         Sorted and deduplicated so a caller's command list is stable between
         runs: the ledger records what was run, and a set's iteration order
         would make two identical nights look different.

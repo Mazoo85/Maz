@@ -89,6 +89,9 @@ def test_dry_run_writes_a_ledger_line_and_touches_nothing_else(tmp_path):
 def test_dry_run_records_the_pick_when_there_is_one(tmp_path):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "notes.md").write_text("<!-- TODO: write the loot table docs -->\n")
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    (shared / "exchange.json").write_text(json.dumps({"publishes": {}, "consumes": []}))
 
     def fake_todo(root):
         from forge.models import Candidate
@@ -101,6 +104,30 @@ def test_dry_run_records_the_pick_when_there_is_one(tmp_path):
     assert entry["chose"] == "Write the loot table docs"
     assert entry["zone"] == "docs/"
     assert entry["why"]["score"] > 0
+
+
+def test_dry_run_respects_a_broken_exchange_declaration(tmp_path):
+    """Minor finding: `forge run --dry-run` used to skip the exchange gate
+    entirely — a broken shared/exchange.json would still let a candidate be
+    picked, unlike `forge decide` and a live run, which both call
+    `decide_step` with `exchange_ok=is_loadable(root)`. A dry run is the
+    first diagnostic an operator reaches for, so it must see the same
+    picture the other two do.
+    """
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "notes.md").write_text("<!-- TODO: write the loot table docs -->\n")
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    (shared / "exchange.json").write_text("{ not json", encoding="utf-8")
+
+    def fake_todo(root):
+        from forge.models import Candidate
+        return [Candidate(task="Write the loot table docs", source="todo:docs/notes.md:1",
+                          kind="todo", paths=("docs/notes.md",), detail="recent")]
+
+    record = dry_run(tmp_path, collectors={"todo": fake_todo})
+    assert record["chosen"] is None
+    assert record["skipped"]["config_error"] == record["considered"] == 1
 
 
 def test_run_command_defaults_to_dry_run(tmp_path):

@@ -5,7 +5,7 @@ import json
 from forge.config import ForgeConfig
 from forge.ledger import read_all
 from forge.models import Candidate
-from forge.orchestrate import live_run
+from forge.orchestrate import _no_task_note, live_run
 
 
 def _exchange(root):
@@ -440,6 +440,108 @@ def test_live_run_opens_the_pr_against_the_configured_base_branch(tmp_path):
                      poster=lambda p, b: posted.update(b) or {"number": 9}, slug="a/b")
     assert entry["outcome"] == "pr_opened"
     assert posted["base"] == _CONFIGURED_BASE
+
+
+# --- Important 3: VERIFY must derive checks from what Crew actually -------
+# --- changed, not from the zone DECIDE chose before Crew ran. -------------
+
+
+def test_verify_runs_the_actually_changed_zones_checks_not_just_the_chosen_zone(tmp_path):
+    """The finding-3 reproduction: DECIDE scopes the candidate to docs/ (the
+    broadest zone spanning the eventual change, and the one recorded as
+    `zone` in the ledger), but Crew's actual edit also reaches music/. The
+    music edit must still be checked — recording `checks: green` without
+    running a single command against it is the defect this branch exists to
+    remove.
+    """
+    _exchange(tmp_path)
+    checks_run = []
+    entry = live_run(
+        tmp_path,
+        collectors={"todo": lambda root: [
+            Candidate(task="Note the architecture doc", source="todo:docs/ARCHITECTURE.md:1",
+                      kind="todo", paths=("docs/ARCHITECTURE.md",), detail="recent")]},
+        git=FakeGit(changed=("docs/ARCHITECTURE.md", "music/js/composer.js")),
+        crew=lambda t, r, s: (0, "done", 0.1),
+        checks=lambda cmd, root: (checks_run.append(cmd), (0, "ok"))[1],
+        poster=lambda p, b: {"number": 1}, slug="a/b",
+    )
+    assert entry["outcome"] == "pr_opened"
+    assert entry["zone"] == "docs/"  # DECIDE's chosen zone is still recorded as-is
+    assert ("node", "music/tests/music-logic.test.js") in checks_run, (
+        f"music/ was touched but never checked; ran: {checks_run}"
+    )
+
+
+def test_verify_fails_closed_when_the_actual_change_cannot_be_checked(tmp_path):
+    """A red music check on a change DECIDE scoped to docs/ must still fail
+    the run — the fix must not accidentally make VERIFY more lenient than
+    before, only more honest about what it covers.
+    """
+    _exchange(tmp_path)
+    entry = live_run(
+        tmp_path,
+        collectors={"todo": lambda root: [
+            Candidate(task="Note the architecture doc", source="todo:docs/ARCHITECTURE.md:1",
+                      kind="todo", paths=("docs/ARCHITECTURE.md",), detail="recent")]},
+        git=FakeGit(changed=("docs/ARCHITECTURE.md", "music/js/composer.js")),
+        crew=lambda t, r, s: (0, "done", 0.1),
+        checks=lambda cmd, root: (1, "music test failed"),
+        poster=lambda p, b: {"number": 1}, slug="a/b",
+    )
+    assert entry["outcome"] == "verify_failed"
+    assert entry["pr"] is None
+
+
+# --- Important 4: a no_task night must say which skip reason dominated ----
+
+
+def test_no_task_note_names_the_dominant_skip_reason():
+    why = {"considered": 97, "skipped": {
+        "outside_zone": 0, "struck_out": 0, "variety": 0,
+        "below_floor": 0, "config_error": 97, "unscoreable": 0,
+    }}
+    note = _no_task_note(why)
+    assert "config_error" in note or "exchange.json" in note
+    assert "below the score floor" not in note.lower()
+    assert "97" in note
+
+
+def test_no_task_note_still_reports_below_floor_when_that_is_what_happened():
+    why = {"considered": 3, "skipped": {
+        "outside_zone": 0, "struck_out": 0, "variety": 0,
+        "below_floor": 3, "config_error": 0, "unscoreable": 0,
+    }}
+    note = _no_task_note(why)
+    assert "below the score floor" in note.lower()
+
+
+def test_no_task_note_handles_nothing_considered_at_all():
+    why = {"considered": 0, "skipped": {}}
+    note = _no_task_note(why)
+    assert note
+
+
+def test_a_broken_exchange_records_a_no_task_note_naming_config_error(tmp_path):
+    """Real end-to-end reproduction of finding 4: a malformed
+    shared/exchange.json must not leave the ledger reading as though 97
+    candidates were scored and found wanting.
+    """
+    shared = tmp_path / "shared"
+    shared.mkdir(parents=True)
+    (shared / "exchange.json").write_text("{ not json", encoding="utf-8")
+    entry = live_run(
+        tmp_path,
+        collectors=_collectors(),
+        git=FakeGit(),
+        crew=lambda t, r, s: (0, "done", 0.1),
+        checks=lambda cmd, root: (0, "ok"),
+        poster=lambda p, b: {"number": 1}, slug="a/b",
+    )
+    assert entry["outcome"] == "no_task"
+    assert entry["why"]["skipped"]["config_error"] == entry["why"]["considered"]
+    assert entry["why"]["skipped"]["below_floor"] == 0
+    assert "nothing scored above the floor" not in entry["notes"]
 
 
 def test_abandon_with_a_failing_checkout_does_not_delete_and_still_records(tmp_path):

@@ -2,7 +2,7 @@
 
 from forge.config import ForgeConfig, load_config
 from forge.models import Candidate
-from forge.zones import is_no_touch, risk_keys_for, zone_for
+from forge.zones import is_no_touch, risk_keys_for, zone_for, zones_for_files
 
 
 def test_path_inside_safe_zone_returns_zone():
@@ -160,3 +160,52 @@ def test_valid_path_still_resolves_to_its_zone_after_the_fix():
     cfg = ForgeConfig()
     assert zone_for(("docs/x.md",), cfg) == "docs/"
     assert is_no_touch(("docs/x.md",), cfg) is False
+
+
+# --- zones_for_files: the full set of zones touched, not just the broadest -
+
+
+def test_zones_for_files_reports_every_zone_touched():
+    # zone_for collapses this to "docs/" (the broadest single zone) — the
+    # right answer for the ledger, the wrong one for deciding what to
+    # verify. zones_for_files must report both.
+    cfg = ForgeConfig()
+    files = ("docs/ARCHITECTURE.md", "music/js/composer.js")
+    assert zone_for(files, cfg) == "docs/"
+    assert zones_for_files(files, cfg) == ("docs/", "music/")
+
+
+def test_zones_for_files_dedupes_multiple_files_in_the_same_zone():
+    cfg = ForgeConfig()
+    files = ("music/js/a.js", "music/js/b.js")
+    assert zones_for_files(files, cfg) == ("music/",)
+
+
+def test_zones_for_files_matches_zone_for_for_a_single_zone_change():
+    cfg = ForgeConfig()
+    assert zones_for_files(("docs/a.md",), cfg) == ("docs/",)
+
+
+def test_zones_for_files_none_for_empty_paths():
+    assert zones_for_files((), ForgeConfig()) is None
+
+
+def test_zones_for_files_none_when_any_path_is_outside_every_zone():
+    cfg = ForgeConfig()
+    assert zones_for_files(("docs/a.md", "engine/src/b.cpp"), cfg) is None
+
+
+def test_zones_for_files_none_on_no_touch_path(tmp_path):
+    # forge/ is not a safe zone by default, so it would fail the plain
+    # zone-match check on its own — put it in safe_zones (as
+    # test_no_touch_beats_safe_zone does above) so this actually pins
+    # is_no_touch's own veto, not just "unmatched zone".
+    (tmp_path / "forge.json").write_text('{"safe_zones": ["forge/", "docs/"]}')
+    cfg = load_config(root=tmp_path)
+    assert zones_for_files(("docs/a.md", "forge/decide.py"), cfg) is None
+
+
+def test_zones_for_files_none_on_suspicious_path():
+    cfg = ForgeConfig()
+    assert zones_for_files(("docs/../forge/decide.py",), cfg) is None
+    assert zones_for_files((None,), cfg) is None

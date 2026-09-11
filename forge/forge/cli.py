@@ -63,6 +63,14 @@ def dry_run(root: Path, collectors: dict | None = None) -> dict:
 
     Returned as a plain callable (not only a command) so it can be tested and
     scheduled without going through a terminal.
+
+    `exchange_ok=is_loadable(root)` is passed explicitly, the same as the
+    `decide` command below and `orchestrate.live_run` — a dry run is the
+    first diagnostic an operator reaches for, and it existing as a separate
+    call site is exactly how it used to silently skip the exchange gate:
+    `decide()` defaults `exchange_ok` to `True`, so leaving this argument out
+    read as though `shared/exchange.json` were fine and picked a task on a
+    pulse the `decide` command would have reported as all `config_error`.
     """
     root = Path(root)
     config = load_config(root)
@@ -75,6 +83,7 @@ def dry_run(root: Path, collectors: dict | None = None) -> dict:
         config,
         strikes=ledger_mod.strikes(root, config),
         recent_zones=ledger_mod.recent_zones(root, config),
+        exchange_ok=is_loadable(root),
     )
     write_tonight(record, root, config)
 

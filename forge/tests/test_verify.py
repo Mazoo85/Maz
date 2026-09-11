@@ -3,8 +3,10 @@
 import json
 
 from forge.checks import commands_for
+from forge.config import ForgeConfig
 from forge.do import CrewOutcome
-from forge.verify import open_draft_pr, run_checks
+from forge.verify import open_draft_pr, run_checks, run_checks_for_files
+from forge.zones import zone_for
 
 
 def _exchange(root):
@@ -61,7 +63,10 @@ def test_all_commands_must_pass(tmp_path):
 
     result = run_checks("scraper/", _exchange(tmp_path), runner=runner)
     assert result.ok is True
-    assert len(calls) == len(commands_for("scraper/")) == 2
+    # scraper/'s own two commands, plus the exchange gate every
+    # project-owning zone now runs (see checks.EXCHANGE_CHECK_CMD).
+    assert len(commands_for("scraper/")) == 2
+    assert len(calls) == 3
 
 
 def test_a_failing_command_stops_the_run(tmp_path):
@@ -75,6 +80,96 @@ def test_a_failing_command_stops_the_run(tmp_path):
     assert result.ok is False
     assert "2 failed" in result.output
     assert len(calls) == 1  # stopped at the first failure, did not run the second
+
+
+# --- run_checks_for_files: derive checks from what actually changed ------
+#
+# Important 3's reproduction: a candidate DECIDE scopes to docs/ (the
+# broadest zone) whose agent also edits music/. `run_checks("docs/", ...)`
+# runs zero commands because docs/ has none of its own — the exact defect
+# this function exists to remove.
+
+
+def test_run_checks_for_files_runs_every_touched_zones_checks(tmp_path):
+    files = ("docs/ARCHITECTURE.md", "music/js/composer.js")
+    cfg = ForgeConfig()
+    # Pin the old bug: the broadest zone across these files has no checks.
+    assert zone_for(files, cfg) == "docs/"
+    assert commands_for("docs/") == ()
+
+    _exchange(tmp_path)  # a valid, empty declaration — no downstream needed to make the point
+    calls = []
+    result = run_checks_for_files(
+        files, cfg, tmp_path,
+        runner=lambda cmd, root: (calls.append(cmd), (0, "ok"))[1],
+    )
+    assert result.ok is True
+    assert ("node", "music/tests/music-logic.test.js") in calls
+
+
+def test_run_checks_for_files_includes_downstream_consumers_of_a_touched_zone(tmp_path):
+    shared = tmp_path / "shared"
+    shared.mkdir(parents=True)
+    shared.joinpath("exchange.json").write_text(json.dumps({
+        "publishes": {
+            "music/composer": {
+                "project": "music", "summary": "Compose.",
+                "files": ["music/js/composer.js"],
+            },
+        },
+        "consumes": [
+            {"project": "film", "id": "music/composer", "via": "script",
+             "page": "film/index.html", "contract": "film/tests/film-logic.test.js"},
+        ],
+    }), encoding="utf-8")
+
+    files = ("docs/ARCHITECTURE.md", "music/js/composer.js")
+    calls = []
+    result = run_checks_for_files(
+        files, ForgeConfig(), tmp_path,
+        runner=lambda cmd, root: (calls.append(cmd), (0, "ok"))[1],
+    )
+    assert result.ok is True
+    assert ("node", "music/tests/music-logic.test.js") in calls
+    assert ("node", "film/tests/film-logic.test.js") in calls
+
+
+def test_run_checks_for_files_stops_at_the_first_failure(tmp_path):
+    _exchange(tmp_path)
+    calls = []
+
+    def runner(cmd, root):
+        calls.append(cmd)
+        return (1, "boom")
+
+    result = run_checks_for_files(("music/js/composer.js",), ForgeConfig(), tmp_path,
+                                  runner=runner)
+    assert result.ok is False
+    assert len(calls) == 1
+
+
+def test_run_checks_for_files_fails_closed_on_an_unreadable_declaration(tmp_path):
+    shared = tmp_path / "shared"
+    shared.mkdir(parents=True)
+    shared.joinpath("exchange.json").write_text("{ not json", encoding="utf-8")
+
+    result = run_checks_for_files(("music/js/composer.js",), ForgeConfig(), tmp_path,
+                                  runner=lambda cmd, root: (0, "ok"))
+    assert result.ok is False
+    assert "exchange" in result.output.lower() or "break" in result.output.lower()
+
+
+def test_run_checks_for_files_fails_closed_when_a_file_resolves_to_no_zone(tmp_path):
+    # do.py already refuses to report success for a change like this — this
+    # pins that run_checks_for_files does not rely on that "by luck": called
+    # directly with such a file, it must still fail closed, not silently
+    # verify only the files it could place.
+    _exchange(tmp_path)
+    result = run_checks_for_files(
+        ("music/js/composer.js", "engine/src/core/app.cpp"), ForgeConfig(), tmp_path,
+        runner=lambda cmd, root: (0, "ok"),
+    )
+    assert result.ok is False
 
 
 def test_open_draft_pr_posts_a_draft(tmp_path):

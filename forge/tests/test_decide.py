@@ -181,7 +181,10 @@ def test_missing_weight_is_skipped_not_fatal():
                       paths=("docs/y.md",), detail="")
     record = decide(_pulse(stale), cfg)
     assert record["chosen"] is None
-    assert record["skipped"]["config_error"] == 1
+    assert record["skipped"]["unscoreable"] == 1
+    # A missing weight is a per-candidate condition, not a broken exchange
+    # declaration — the two must not share a counter (see finding 4).
+    assert record["skipped"]["config_error"] == 0
 
 
 def test_a_bad_exchange_skips_everything_as_config_error():
@@ -191,6 +194,10 @@ def test_a_bad_exchange_skips_everything_as_config_error():
     record = decide(_pulse(DOC, MUSIC), ForgeConfig(), exchange_ok=False)
     assert record["chosen"] is None
     assert record["skipped"]["config_error"] == record["considered"]
+    # A broken exchange declaration is a different reason from an
+    # unscoreable candidate (finding 4) — this path must never touch that
+    # counter.
+    assert record["skipped"]["unscoreable"] == 0
 
 
 def test_a_bad_exchange_still_counts_what_it_considered():

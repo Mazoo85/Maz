@@ -49,15 +49,33 @@ PROJECT_CHECKS: dict[str, tuple[tuple[str, ...], ...]] = {
 }
 
 # Which project a safe zone belongs to. `None` means "no project owns this",
-# which is how docs and content get their correct empty command list.
+# which is how docs get their correct empty command list. `madlibs/` and
+# `shooter/` are real projects (both have ids in `shared/projects.js`) that
+# simply have no tests of their own today — `None` here used to conflate
+# "not a project" with "a project with nothing to run", and the second
+# reading is wrong: it skipped `consumers_of` entirely (see `all_commands`
+# below), so a declared consumer of madlibs or shooter would never have its
+# checks run. Mapping them to their real project id costs nothing for their
+# own checks (`PROJECT_CHECKS.get` already returns `()` for a project not in
+# that map) and lets `all_commands` see their consumers once either is
+# declared.
 ZONE_PROJECT: dict[str, str | None] = {
     "music/": "music",
     "scraper/": "scraper",
     "crew/tests/": "crew",
     "docs/": None,
-    "madlibs/": None,
-    "shooter/": None,
+    "madlibs/": "madlibs",
+    "shooter/": "shooter",
 }
+
+# The whole-repo gate this branch depends on: whether every cross-project
+# `<script>` coupling is declared in `shared/exchange.json`, in both
+# directions (nothing declared that isn't real, nothing real left
+# undeclared). It cannot live as one project's *own* entry in
+# `PROJECT_CHECKS` — nothing in `music/`'s own files proves the rest of the
+# repo still agrees with the declaration — so it runs alongside every
+# project-owning zone's own checks instead, once per `all_commands` call.
+EXCHANGE_CHECK_CMD: tuple[str, ...] = ("node", "scripts/check-exchange.mjs")
 
 
 def commands_for(zone: str) -> tuple[tuple[str, ...], ...]:
@@ -93,6 +111,10 @@ def all_commands(zone: str, root: Path) -> tuple[tuple[str, ...], ...]:
     project = ZONE_PROJECT.get(zone)
     if project is None:
         return tuple(out)
+    # Every project-owning zone runs the exchange gate itself, regardless of
+    # whether it has any declared consumers today — see EXCHANGE_CHECK_CMD.
+    if EXCHANGE_CHECK_CMD not in out:
+        out.append(EXCHANGE_CHECK_CMD)
     for consumer in exchange.consumers_of(project):
         for cmd in PROJECT_CHECKS.get(consumer, ()):
             if cmd not in out:
