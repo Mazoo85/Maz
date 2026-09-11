@@ -22,9 +22,19 @@ const ROOT = process.env.EXCHANGE_ROOT
   : resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 const EXCHANGE_REL = 'shared/exchange.json';
+// Keep this in step with check-links.mjs's SKIP_DIRS. Both walk the repo
+// looking for HTML to scan, and the Forge now runs this script as a green
+// gate on every zone (see forge/forge/checks.py's EXCHANGE_CHECK_CMD) — a
+// directory only one of the two skips (like the gitignored `.superpowers/`
+// scratch space) can turn a night red over a stray file CI never sees,
+// because CI never checks that directory out at all.
 const SKIP_DIRS = new Set([
   '.git', 'node_modules', 'build', 'dist', '__pycache__', '.venv', 'venv',
-  '.pytest_cache', '.mypy_cache', '.claude', 'fixtures'
+  '.pytest_cache', '.mypy_cache', '.claude',
+  // Subagent working notes: gitignored scratch, absent on CI, and full of
+  // example paths and fixture-shaped HTML that is not a real page.
+  '.superpowers',
+  'fixtures'
 ]);
 
 /* `shared/` is infrastructure every page uses (the nav, the project list),

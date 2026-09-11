@@ -5,8 +5,21 @@ repo, so it lives in code beside the other path maps (see zones.RISK_PATHS and
 signals.ci.WORKFLOW_SUBJECTS) rather than in forge.json, which is reserved for
 the numbers a human tunes.
 
-A zone with no commands passes trivially. That is correct for docs and content:
-there is nothing to run, and CI on the pull request remains the real gate.
+A zone mapped to a project with no commands of its own passes trivially on
+its *own* checks, but every zone still runs the exchange gate (see
+`EXCHANGE_CHECK_CMD` below) — nothing in `safe_zones` is ever verified by
+literally nothing.
+
+A zone with no entry in `ZONE_PROJECT` at all is a different thing entirely,
+and must not read the same way. `docs/` genuinely has no project — that is
+a fact about the repo, stated by mapping it to `None` — but a zone nobody
+has ever told this module about is a configuration gap, not an answer.
+Collapsing the two (as an earlier version of this module did, via a plain
+`.get(zone)` returning `None` either way) meant a zone added to
+`safe_zones` and forgotten here — or a bare typo in `forge.json` like
+`"music"` for `"music/"` — silently verified nothing while still recording
+`checks: green`. `commands_for` and `all_commands` now raise
+`UnmappedZoneError` for that case instead: see their docstrings.
 
 `tests/` has no entry, and that omission is deliberate, not an oversight: in
 this repo that directory is C++ (CMakeLists.txt, unit_*.cpp), built and run
@@ -17,10 +30,9 @@ this module may honestly invent. An earlier version of this map pointed
 Python suite and verifies nothing whatsoever about a C++ change — a change
 under `tests/` would have been "verified" by a command that never looks at
 it. `config.ForgeConfig.safe_zones` matches this by leaving `tests/` out of
-its default, so the two files cannot drift back into that mismatch: an
-unknown zone here (`commands_for` returning `()`) is indistinguishable from
-"nothing to check", same as `docs/`, but a zone that isn't in `safe_zones` to
-begin with is never reachable to ask.
+its default, so a live run never reaches `commands_for("tests/")` at all —
+if it ever did, it would now raise `UnmappedZoneError` rather than return
+`()`, same as any other zone nobody has classified.
 
 **A zone's own tests are not the whole story.** SCRIPT FORGE loads five of
 SONG FORGE's files, so a change in `music/` can break `film/` while music's
@@ -73,26 +85,50 @@ ZONE_PROJECT: dict[str, str | None] = {
 # directions (nothing declared that isn't real, nothing real left
 # undeclared). It cannot live as one project's *own* entry in
 # `PROJECT_CHECKS` — nothing in `music/`'s own files proves the rest of the
-# repo still agrees with the declaration — so it runs alongside every
-# project-owning zone's own checks instead, once per `all_commands` call.
+# repo still agrees with the declaration. Its result never depends on which
+# zone changed — a `docs/`-only night can add an undeclared `<script>` in a
+# new page exactly as easily as a `music/`-only night can — so `all_commands`
+# runs it for every zone unconditionally, `docs/` included, rather than only
+# for zones that happen to own a project.
 EXCHANGE_CHECK_CMD: tuple[str, ...] = ("node", "scripts/check-exchange.mjs")
 
 
-def commands_for(zone: str) -> tuple[tuple[str, ...], ...]:
-    """The commands that verify a zone itself. Unknown zones have none.
+class UnmappedZoneError(Exception):
+    """`zone` has no entry in `ZONE_PROJECT` at all.
 
-    Deliberately pure and root-free: it answers only "what tests this
-    directory", which is the question `ZONE_PROJECT` and `PROJECT_CHECKS`
-    can answer without reading anything from disk.
+    Not the same thing as a zone that is deliberately project-less: `docs/`
+    says so explicitly by mapping to `None`, and that still answers `()`
+    from `commands_for`. This exception is for a zone `ZONE_PROJECT` has
+    never heard of — added to `forge.json`'s `safe_zones` (by design, or by
+    a bare typo like `"music"` for `"music/"`) without a matching entry
+    here. Returning `()` for that case used to be indistinguishable from
+    "nothing to check" and let `checks: green` mean "nobody wired this zone
+    up to a project" — see the module docstring.
     """
-    project = ZONE_PROJECT.get(zone)
+
+
+def commands_for(zone: str) -> tuple[tuple[str, ...], ...]:
+    """The commands that verify a zone itself.
+
+    Raises `UnmappedZoneError` when `zone` has no entry in `ZONE_PROJECT` at
+    all. A zone that is deliberately project-less (`docs/`, mapped to
+    `None`) still answers `()` — only a zone nobody has classified fails
+    closed.
+
+    Deliberately pure and root-free otherwise: it answers only "what tests
+    this directory", which is the question `ZONE_PROJECT` and
+    `PROJECT_CHECKS` can answer without reading anything from disk.
+    """
+    if zone not in ZONE_PROJECT:
+        raise UnmappedZoneError(zone)
+    project = ZONE_PROJECT[zone]
     if project is None:
         return ()
     return PROJECT_CHECKS.get(project, ())
 
 
 def all_commands(zone: str, root: Path) -> tuple[tuple[str, ...], ...]:
-    """A zone's own checks plus those of every project that consumes it.
+    """A zone's own checks, the exchange gate, plus every consumer's checks.
 
     Raises `ExchangeError` when `shared/exchange.json` cannot be read — for
     every zone, including one with nothing downstream. Without that file we
@@ -102,19 +138,27 @@ def all_commands(zone: str, root: Path) -> tuple[tuple[str, ...], ...]:
     precise defect this function exists to remove; reintroducing it as the
     error path would be worse than never having written it.
 
+    Raises `UnmappedZoneError` (via `commands_for`) when `zone` has no entry
+    in `ZONE_PROJECT` — see that exception's docstring. This runs *before*
+    the exchange gate is appended, so an unmapped zone fails with a plain
+    "nobody told me what this is", not a command list that happens to be
+    just the exchange gate.
+
     `load(root)` runs first and unconditionally — even for a zone whose
     project is `None` — so a broken declaration is never silently skipped
     just because this particular zone has nothing downstream to look up.
+
+    `EXCHANGE_CHECK_CMD` is appended for every zone unconditionally,
+    `docs/` included — see its own docstring for why gating it on "has a
+    project" would be the wrong condition.
     """
     exchange = load(root)
     out = list(commands_for(zone))
-    project = ZONE_PROJECT.get(zone)
-    if project is None:
-        return tuple(out)
-    # Every project-owning zone runs the exchange gate itself, regardless of
-    # whether it has any declared consumers today — see EXCHANGE_CHECK_CMD.
     if EXCHANGE_CHECK_CMD not in out:
         out.append(EXCHANGE_CHECK_CMD)
+    project = ZONE_PROJECT[zone]
+    if project is None:
+        return tuple(out)
     for consumer in exchange.consumers_of(project):
         for cmd in PROJECT_CHECKS.get(consumer, ()):
             if cmd not in out:

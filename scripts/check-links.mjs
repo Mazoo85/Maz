@@ -17,6 +17,10 @@ import { join, dirname, resolve, relative, extname, posix } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+// Keep this in step with check-exchange.mjs's SKIP_DIRS — both walk the
+// repo for HTML, and a directory only one of them skips lets a file that
+// is invisible to CI (this one is gitignored) turn a night red or green
+// for the wrong reason, depending only on which checker happened to look.
 const SKIP_DIRS = new Set([
   '.git', 'node_modules', 'build', 'dist', '__pycache__', '.venv', 'venv',
   '.pytest_cache', '.mypy_cache', '.claude',

@@ -390,6 +390,21 @@ test('a consumes id of "constructor" does not resolve via the prototype chain', 
   assertFailsWith(repo(goodFiles(), ex), 'consumes "constructor", which nothing publishes');
 });
 
+test('a stray .html under the gitignored .superpowers/ scratch dir is skipped', () => {
+  // SKIP_DIRS here must match check-links.mjs's — see the comment on both.
+  // Before the fix, a stray file left by a subagent under .superpowers/
+  // (absent on CI, since it's gitignored) turned a locally-green night red
+  // for a failure CI could never reproduce.
+  const files = goodFiles();
+  files['.superpowers/sdd/scratch-note.html'] =
+    '<!doctype html><html><body>\n' +
+    '<script src="../../music/js/synth.js"></script>\n' +
+    '</body></html>\n';
+  const { code, output } = check(repo(files, goodExchange()));
+  assert.strictEqual(code, 0,
+    '.superpowers/ scratch files must not be scanned as real pages:\n' + output);
+});
+
 for (const root of tmpRoots) rmSync(root, { recursive: true, force: true });
 
 console.log('\n' + (failed ? `✗ ${failed} failed, ${passed} passed` : `✓ ${passed} tests passed`));

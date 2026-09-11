@@ -2,7 +2,9 @@
 
 import json
 
-from forge.checks import commands_for
+import pytest
+
+from forge.checks import EXCHANGE_CHECK_CMD, UnmappedZoneError, commands_for
 from forge.config import ForgeConfig
 from forge.do import CrewOutcome
 from forge.verify import open_draft_pr, run_checks, run_checks_for_files
@@ -33,25 +35,43 @@ def test_music_zone_runs_the_music_tests():
     assert any("music" in " ".join(c) for c in cmds)
 
 
-def test_docs_zone_has_no_commands_and_passes_trivially(tmp_path):
+def test_docs_zone_has_no_own_commands_but_still_runs_the_exchange_gate(tmp_path):
+    # docs/ has no project of its own — no own-zone commands — but Important
+    # 2 means it is never truly empty: the whole-repo exchange gate always
+    # runs, regardless of zone. The runner must see exactly that one call.
     assert commands_for("docs/") == ()
-    result = run_checks("docs/", _exchange(tmp_path), runner=lambda cmd, root: (1, "should not run"))
+    calls = []
+
+    def runner(cmd, root):
+        calls.append(cmd)
+        return (0, "ok")
+
+    result = run_checks("docs/", _exchange(tmp_path), runner=runner)
     assert result.ok is True
-    assert result.ran == ()
+    assert result.ran == (" ".join(EXCHANGE_CHECK_CMD),)
+    assert calls == [EXCHANGE_CHECK_CMD]
 
 
-def test_unknown_zone_has_no_commands(tmp_path):
-    assert commands_for("nowhere/") == ()
+def test_unknown_zone_fails_closed_rather_than_answering_no_commands(tmp_path):
+    # Important 1: a zone with no entry in ZONE_PROJECT at all must not read
+    # the same as docs/'s deliberate "no project" — see checks.UnmappedZoneError.
+    with pytest.raises(UnmappedZoneError):
+        commands_for("nowhere/")
 
 
-def test_tests_zone_has_no_wrong_command_mapped():
+def test_tests_zone_has_no_wrong_command_mapped_and_fails_closed_if_ever_asked():
     """This repo's `tests/` directory is C++ (CMake/ctest, needs the Vulkan
     SDK the sandbox lacks), not the Python suite `forge/tests`. There is no
     command this module can honestly run for it, so it must not claim one —
     `commands_for` must not map `tests/` to the Forge's own pytest suite,
-    which verifies nothing about C++ changes.
+    which verifies nothing about C++ changes. It is also absent from
+    `config.ForgeConfig.safe_zones` by default, so nothing in production
+    ever calls `commands_for("tests/")` — but if it ever did, it must fail
+    closed (UnmappedZoneError) rather than silently answer "nothing to
+    check", the same as any other zone nobody has classified.
     """
-    assert commands_for("tests/") == ()
+    with pytest.raises(UnmappedZoneError):
+        commands_for("tests/")
 
 
 def test_all_commands_must_pass(tmp_path):

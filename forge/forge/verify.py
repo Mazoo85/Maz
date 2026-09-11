@@ -15,7 +15,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from .checks import all_commands
+from .checks import UnmappedZoneError, all_commands
 from .config import ForgeConfig
 from .do import CrewOutcome
 from .exchange import ExchangeError
@@ -82,9 +82,22 @@ def run_checks(zone: str, root: Path | None, runner=None) -> CheckResult:
     live run must not call this with DECIDE's chosen zone: see
     `run_checks_for_files` below for why, and orchestrate.py's module
     docstring for the incident this replaced.
+
+    No production caller reaches this function today: `orchestrate.py`
+    calls `run_checks_for_files` exclusively (see its docstring for why).
+    This is kept for tests and any future caller that genuinely already
+    knows the one zone it means — a test-only entry point in practice, not
+    dead code, since deleting it would leave `_run_commands` and the
+    single-zone behaviour it exercises unverified.
     """
     try:
         commands = all_commands(zone, root or Path.cwd())
+    except UnmappedZoneError as exc:
+        return CheckResult(
+            False, (),
+            f"cannot tell what this change could break: zone {exc} has no "
+            f"entry in checks.ZONE_PROJECT",
+        )
     except ExchangeError as exc:
         return CheckResult(False, (), f"cannot tell what this change could break: {exc}")
     return _run_commands(commands, root, runner)
@@ -130,6 +143,12 @@ def run_checks_for_files(files: tuple[str, ...], config: ForgeConfig,
             for cmd in all_commands(zone, root):
                 if cmd not in commands:
                     commands.append(cmd)
+    except UnmappedZoneError as exc:
+        return CheckResult(
+            False, (),
+            f"cannot tell what this change could break: zone {exc} has no "
+            f"entry in checks.ZONE_PROJECT",
+        )
     except ExchangeError as exc:
         return CheckResult(False, (), f"cannot tell what this change could break: {exc}")
     return _run_commands(tuple(commands), root, runner)

@@ -103,7 +103,7 @@ SENSE -> DECIDE -> DO -> VERIFY -> LEARN -> (tomorrow)
 | **SENSE** | Reads unchecked roadmap boxes, red CI runs, `TODO` markers, and codebase-memory into `forge/state/pulse.json` |
 | **DECIDE** | Scores every candidate, applies three strikes / variety / floor, writes the pick and the reasoning to `forge/state/tonight.json` |
 | **DO** | Refuses to start if the working tree has uncommitted changes anywhere but the Forge's own bookkeeping (see *Outcomes* below); otherwise creates a branch and hands the single task to Maz Crew |
-| **VERIFY** | Runs the zone's checks; green pushes the branch and opens a draft PR, red abandons the branch — either way, the tree is back on the base branch when the run ends |
+| **VERIFY** | Runs the union of the checks for every zone the *changed files* actually touch (not just the zone DECIDE chose — see the exchange-checks section below); green pushes the branch and opens a draft PR, red abandons the branch — either way, the tree is back on the base branch when the run ends |
 | **LEARN** | Appends one line to `forge/ledger/YYYY-MM.jsonl` |
 
 ## GITHUB_TOKEN
@@ -187,16 +187,24 @@ shipped, do not read it as a live spending guarantee. `max_files_touched`,
 by contrast, is checked against the real diff on every live run and does
 bind today.
 
-**A safe zone only means something if a check backs it up.** `docs/`,
-`madlibs/`, and `shooter/` have nothing to run — there's nothing to test,
-and CI on the pull request is the real gate, which is fine and deliberate.
-But `music/`, `scraper/`, and `crew/tests/` are recorded green *because* a
-real command ran and passed. A zone with no matching command in
-`forge/forge/checks.py` passes its checks trivially — the run still gets
-recorded as `checks: green`, having verified nothing at all. Before widening
-`safe_zones` to a new directory (see *Rollout* below), give it a real check
-command first, or the work landing there is unverified while looking
-exactly like everything else that isn't.
+**A safe zone only means something if a check backs it up.** Every safe zone
+now runs at least the exchange gate (`node scripts/check-exchange.mjs`, see
+below) — `docs/`, `madlibs/`, and `shooter/` included — so no zone is ever
+verified by literally nothing. But `docs/` still has no project of its own,
+and `madlibs/` and `shooter/` have no test command of their own in
+`PROJECT_CHECKS` today: their own code is exercised only when a declared
+consumer's checks pick it up (see the exchange-checks section below), which
+is nothing if nobody currently consumes them. `music/`, `scraper/`, and
+`crew/tests/` are the three zones with a real own-zone command that runs
+regardless. A zone in `safe_zones` with **no entry at all** in
+`forge/forge/checks.py`'s `ZONE_PROJECT` is a different, worse problem than
+"nothing to run": VERIFY now fails closed for it (`verify_failed`, checks
+never even attempted) rather than silently recording green. Before widening
+`safe_zones` to a new directory (see *Rollout* below), give it an entry in
+`ZONE_PROJECT` — and a real check command in `PROJECT_CHECKS` if it has
+code of its own worth testing — or the run either fails every night or the
+work landing there is unverified while looking exactly like everything else
+that isn't.
 
 **A zone's checks now include everything downstream of it — provided the
 downstream project has its own entry in `PROJECT_CHECKS`.**
@@ -222,8 +230,9 @@ runs, DECIDE treats it as an early exit: every candidate is skipped
 cheap, because nothing ran. But if the declaration is intact at DECIDE and
 breaks afterward — during DO, while the coding agent is still working — a
 candidate has already been picked and the agent has already run by the time
-VERIFY tries to read it. `run_checks` then fails closed the same way DECIDE
-does, but the night records `verify_failed` with `checks: red` and a
+VERIFY tries to read it. `run_checks_for_files` — the function VERIFY
+actually calls on a live run — then fails closed the same way DECIDE does,
+but the night records `verify_failed` with `checks: red` and a
 quarantine strike against that candidate, after real cost was spent. Either
 way nothing is falsely reported green; a `verify_failed` entry with no test
 output beyond "cannot tell what this change could break" is this condition,
@@ -244,7 +253,7 @@ Every run — dry or live — writes exactly one of these to the ledger:
 | `pr_opened` | Checks were green, the branch pushed, and GitHub actually handed back a PR number — this is the only outcome that guarantees a PR exists to look at |
 | `pr_failed` | Checks were green and the branch reached the remote, but the PR call itself came back empty — almost always a missing `GITHUB_TOKEN` (see above). The branch is left pushed with no PR |
 | `push_failed` | Checks were green but the branch could not be pushed to the remote |
-| `verify_failed` | Crew's changes failed the zone's checks; branch abandoned |
+| `verify_failed` | Crew's changes failed the checks for the zones the changed files actually touch (see VERIFY above, not the zone DECIDE chose); branch abandoned |
 | `crew_failed` | Crew crashed, timed out, touched a no-touch or out-of-zone path, or the working tree had uncommitted changes (other than the Forge's own bookkeeping) when the run tried to start |
 | `budget_exceeded` | Crew reported a cost over `budget_usd` (only possible with a cost-reporting runner — see above) |
 
@@ -307,4 +316,4 @@ Nothing in `forge/` knows how it was invoked, so this is a drop-in swap.
 |---|---|---|
 | **Week 1** | `forge run --dry-run` nightly | Read `forge ledger` over coffee. As configured today expect `no_task` every night (see *What it will actually do tonight*) — that's the leash working. To watch it act, add one Phase 14 roadmap line naming a real file in a safe zone (see *How to give it a job*) and read the ledger the next morning |
 | **Week 2** | `forge run --live`, safe zones only | Review the draft PRs |
-| **Week 3+** | Widen `safe_zones` as the ledger justifies — and give each new zone a real check command in `checks.py` first, or the work there lands unverified (see *The leash* above) | Then start P2, the Exchange |
+| **Week 3+** | Widen `safe_zones` as the ledger justifies — and give each new zone an entry in `checks.py`'s `ZONE_PROJECT` (plus a real check command in `PROJECT_CHECKS` if it has code of its own worth testing) first, or the run fails closed the first live night and the work landing there is unverified even after that's fixed (see *The leash* above) | Then start P2, the Exchange |

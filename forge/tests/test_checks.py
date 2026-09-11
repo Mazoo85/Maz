@@ -4,7 +4,14 @@ import json
 
 import pytest
 
-from forge.checks import EXCHANGE_CHECK_CMD, PROJECT_CHECKS, all_commands, commands_for
+from forge.checks import (
+    EXCHANGE_CHECK_CMD,
+    PROJECT_CHECKS,
+    ZONE_PROJECT,
+    UnmappedZoneError,
+    all_commands,
+    commands_for,
+)
 from forge.exchange import ExchangeError
 
 GOOD = {
@@ -35,12 +42,67 @@ def _repo(root, data=GOOD):
     return root
 
 
-def test_commands_for_is_unchanged_and_takes_no_root():
-    # The pure, own-zone map. Task 4 must not alter what existing callers see.
+def test_commands_for_is_unchanged_for_known_zones_and_takes_no_root():
+    # The pure, own-zone map, for zones ZONE_PROJECT actually knows about.
     assert commands_for("music/") == (("node", "music/tests/music-logic.test.js"),)
     assert commands_for("docs/") == ()
-    assert commands_for("nowhere/") == ()
-    assert commands_for("tests/") == ()
+
+
+# --- Important 1: an unmapped-but-safe zone must fail closed, not silently -
+# --- verify nothing (ZONE_PROJECT.get(zone) collapsing "never classified" --
+# --- into the same None as docs/'s deliberate "no project"). ---------------
+
+
+def test_commands_for_raises_for_a_zone_with_no_zone_project_entry():
+    # "nowhere/" and "tests/" are not in safe_zones and so are never asked
+    # in production, but the fail-closed contract must not depend on that:
+    # nobody has told ZONE_PROJECT what either of them is.
+    assert "nowhere/" not in ZONE_PROJECT
+    assert "tests/" not in ZONE_PROJECT
+    with pytest.raises(UnmappedZoneError):
+        commands_for("nowhere/")
+    with pytest.raises(UnmappedZoneError):
+        commands_for("tests/")
+
+
+def test_all_commands_raises_for_a_zone_with_no_zone_project_entry(tmp_path):
+    with pytest.raises(UnmappedZoneError):
+        all_commands("nowhere/", _repo(tmp_path))
+
+
+def test_docs_widening_rollout_advice_literally_still_fails_closed(tmp_path, monkeypatch):
+    # Reproduction 1 from the review: follow docs/FORGE.md's *old* Rollout
+    # advice literally — add a project to PROJECT_CHECKS and its directory
+    # to safe_zones — without also adding it to ZONE_PROJECT, exactly the
+    # step that advice never named. Before this fix, all_commands('zomboid/')
+    # returned () and the night recorded checks: green having run nothing.
+    monkeypatch.setitem(
+        PROJECT_CHECKS, "zomboid", (("node", "zomboid/tests/zomboid-logic.test.js"),)
+    )
+    assert "zomboid/" not in ZONE_PROJECT
+    with pytest.raises(UnmappedZoneError):
+        all_commands("zomboid/", _repo(tmp_path))
+
+
+def test_forge_json_typo_in_safe_zones_fails_closed_via_run_checks_for_files(tmp_path):
+    # Reproduction 2 from the review: a plain typo in forge.json — "music"
+    # instead of "music/" — used to turn music's entire check set into ()
+    # while still reporting green. Exercised through the real production
+    # path (run_checks_for_files + zones_for_files), not commands_for
+    # directly, because that is the path a typo'd forge.json actually hits.
+    from forge.config import ForgeConfig
+    from forge.verify import run_checks_for_files
+
+    _repo(tmp_path)
+    (tmp_path / "music").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "music" / "notes.md").write_text("x\n", encoding="utf-8")
+
+    config = ForgeConfig(safe_zones=("music",))  # typo: no trailing slash
+    result = run_checks_for_files(("music/notes.md",), config, tmp_path,
+                                  runner=lambda cmd, root: (0, "ok"))
+    assert result.ok is False
+    assert result.ran == ()
+    assert "music" in result.output
 
 
 def test_music_gains_films_tests_because_film_consumes_music(tmp_path):
@@ -65,8 +127,11 @@ def test_a_zone_with_no_consumers_is_unchanged_besides_the_exchange_gate(tmp_pat
     assert set(cmds) - set(commands_for("crew/tests/")) == {EXCHANGE_CHECK_CMD}
 
 
-def test_a_zone_with_no_checks_of_its_own_stays_empty(tmp_path):
-    assert all_commands("docs/", _repo(tmp_path)) == ()
+def test_a_zone_with_no_checks_of_its_own_still_runs_the_exchange_gate(tmp_path):
+    # docs/ has no project and so no own-zone commands, but Important 2
+    # means it is never truly empty: the whole-repo exchange gate always
+    # runs, regardless of zone.
+    assert all_commands("docs/", _repo(tmp_path)) == (EXCHANGE_CHECK_CMD,)
 
 
 def test_a_consumer_with_no_known_checks_adds_nothing(tmp_path):
@@ -131,8 +196,19 @@ def test_all_commands_includes_the_exchange_gate_for_a_project_zone(tmp_path):
     assert EXCHANGE_CHECK_CMD in all_commands("music/", _repo(tmp_path))
 
 
-def test_all_commands_does_not_run_the_exchange_gate_for_a_project_less_zone(tmp_path):
-    assert EXCHANGE_CHECK_CMD not in all_commands("docs/", _repo(tmp_path))
+def test_all_commands_runs_the_exchange_gate_for_a_project_less_zone_too(tmp_path):
+    # Important 2: EXCHANGE_CHECK_CMD is a whole-repo gate — its result does
+    # not depend on which zone changed, so gating it on "has a project" was
+    # the wrong condition. docs/, the most-used safe zone, must run it too.
+    #
+    # Reproduced against a real copy of the repo: the Forge creates
+    # docs/demo.html with two undeclared <script src="../music/js/...">
+    # tags. Before this fix, VERIFY returned ok=True, ran=() and recorded
+    # checks: green, while `node scripts/check-exchange.mjs` on the same
+    # tree exited 1 naming both undeclared references. See
+    # test_verify_important2.py for that exact end-to-end reproduction;
+    # this test pins the unit-level cause.
+    assert EXCHANGE_CHECK_CMD in all_commands("docs/", _repo(tmp_path))
 
 
 def test_an_unreadable_declaration_raises_rather_than_narrowing(tmp_path):
@@ -194,10 +270,13 @@ def test_madlibs_picks_up_a_declared_consumers_checks(tmp_path):
     assert ("node", "film/tests/film-logic.test.js") in cmds
 
 
-def test_docs_still_contributes_nothing_even_with_the_same_shaped_declaration(tmp_path):
+def test_docs_still_contributes_no_consumer_checks_even_with_the_same_shaped_declaration(tmp_path):
     # docs/ is the one zone that must stay project-less: pinned separately
     # so a fix that (wrongly) maps every zone to a project doesn't pass the
-    # madlibs test above by accident.
+    # madlibs test above by accident. It still runs the exchange gate (see
+    # test_all_commands_runs_the_exchange_gate_for_a_project_less_zone_too)
+    # but must never pick up film's test just because madlibs happens to be
+    # declared as a producer elsewhere.
     data = {
         "publishes": {
             "madlibs/generator": {
@@ -210,7 +289,7 @@ def test_docs_still_contributes_nothing_even_with_the_same_shaped_declaration(tm
              "page": "film/index.html", "contract": "film/tests/film-logic.test.js"},
         ],
     }
-    assert all_commands("docs/", _repo(tmp_path, data)) == ()
+    assert all_commands("docs/", _repo(tmp_path, data)) == (EXCHANGE_CHECK_CMD,)
 
 
 def test_run_checks_runs_the_downstream_command(tmp_path):
