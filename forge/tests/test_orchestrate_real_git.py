@@ -89,6 +89,14 @@ def _init_repo(root: Path, remote: Path) -> None:
     # actually appends to it during these runs — that append is one of the
     # two ways the Forge dirties its own tree (see FORGE_OWN_PATHS).
     (root / ".claude" / "codebase-memory.json").write_text("")
+    # run_checks (via checks.all_commands) now reads shared/exchange.json
+    # unconditionally, for every zone — an empty-but-valid declaration keeps
+    # these tests exercising DO/VERIFY lifecycle behaviour rather than a
+    # missing-file error unrelated to what each test is about.
+    (root / "shared").mkdir()
+    (root / "shared" / "exchange.json").write_text(
+        '{"publishes": {}, "consumes": []}\n'
+    )
     _git(["add", "-A"], root)
     _git(["commit", "-q", "-m", "initial"], root)
     _git(["push", "-q", "-u", "origin", "main"], root)

@@ -27,6 +27,10 @@ jobs:
       # No dependencies — pure Node, so this job is seconds long.
       - name: Check every local link resolves
         run: node scripts/check-links.mjs
+      - name: Check every cross-project dependency is declared
+        run: node scripts/check-exchange.mjs
+      - name: check-exchange's own tests
+        run: node scripts/tests/check-exchange.test.mjs
       # SCRIPT FORGE's reader/writer/exporters are plain modules, so they can be
       # checked here without a browser — seconds, no dependencies.
       - name: SCRIPT FORGE logic tests

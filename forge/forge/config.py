@@ -75,7 +75,7 @@ class ForgeConfig:
     # `tests/` is deliberately absent: in this repo that directory is C++
     # (CMakeLists.txt, unit_*.cpp), verified only by a `cmake`/`ctest` build
     # against the Vulkan SDK (see .github/workflows/ci.yml) — a build this
-    # module cannot run and no command checks.ZONE_CHECKS may honestly
+    # module cannot run and no command checks.PROJECT_CHECKS may honestly
     # invent. A zone the Forge cannot verify is not a safe zone to work in
     # by default, whatever a green run there would otherwise look like.
     safe_zones: tuple[str, ...] = (

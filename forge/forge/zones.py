@@ -171,6 +171,39 @@ def zone_for(paths: tuple[str, ...], config: ForgeConfig) -> str | None:
     return sorted(matched, key=len)[0]
 
 
+def zones_for_files(paths: tuple[str, ...], config: ForgeConfig) -> tuple[str, ...] | None:
+    """Every distinct zone that actually covers one of these paths.
+
+    `zone_for` above collapses a multi-zone change down to the single
+    *broadest* zone spanning it — the right answer for the ledger's one-line
+    `zone` field, wrong for deciding what to verify: VERIFY must run every
+    zone's checks a change actually touches, not just the broadest one
+    (`docs/` covering both `docs/ARCHITECTURE.md` and `music/js/composer.js`
+    would otherwise mean the music change's checks never run at all — see
+    orchestrate.py's module docstring for why this function exists). This
+    returns the full set instead of picking one.
+
+    Same fail-closed contract as `zone_for`: `None` for an empty tuple, for
+    any path `is_no_touch` flags as suspicious, and for any path outside
+    every safe zone — a file this module cannot prove safe never silently
+    contributes to the answer.
+    """
+    if not paths:
+        return None
+    if is_no_touch(paths, config):
+        return None
+
+    zones: list[str] = []
+    for path in paths:
+        p = _normalise(path)
+        zone = next((z for z in config.safe_zones if p.startswith(z)), None)
+        if zone is None:
+            return None
+        if zone not in zones:
+            zones.append(zone)
+    return tuple(sorted(zones))
+
+
 def risk_keys_for(paths: tuple[str, ...]) -> tuple[str, ...]:
     """Which risk weights apply to a change touching these paths.
 

@@ -110,6 +110,7 @@ def decide(
     config: ForgeConfig,
     strikes: dict | None = None,
     recent_zones: list | None = None,
+    exchange_ok: bool = True,
 ) -> dict:
     """Score everything in the pulse, apply the rules, pick one. Never raises.
 
@@ -121,6 +122,26 @@ def decide(
     an uncaught exception — a malformed pulse is exactly the kind of night
     that must still produce a clean "nothing worth doing" record rather than
     crash the loop before the ledger gets written.
+
+    `exchange_ok` is the caller's answer to "can shared/exchange.json be
+    read?". False skips every candidate as `config_error`: without that file
+    the Forge cannot tell which projects a change could break, and choosing
+    anyway would mean verifying less than the ledger claims. This is an
+    early exit, not the safety guarantee — `verify.run_checks_for_files` fails closed
+    on the same condition with no default to weaken it, which is why the
+    default here can safely be True.
+
+    `config_error` and `unscoreable` are deliberately two different keys in
+    `skipped`, not one shared counter, even though both mean "this candidate
+    was never actually scored". `config_error` is a whole-night condition —
+    the exchange declaration is broken, so every candidate is skipped the
+    same way before any of them is looked at individually. `unscoreable` is
+    per-candidate — `config.weights` is missing a key this one candidate's
+    kind needs, which says nothing about any other candidate in the same
+    pulse. Collapsing them (as an earlier version of this function did) left
+    an operator staring at a nonzero `config_error` with no way to tell
+    "the exchange declaration is broken" from "one candidate's kind has no
+    weight configured" — two conditions with different fixes.
     """
     strikes = strikes or {}
     recent_zones = list(recent_zones or [])
@@ -135,6 +156,7 @@ def decide(
         "variety": 0,
         "below_floor": 0,
         "config_error": 0,
+        "unscoreable": 0,
     }
     survivors: list[Scored] = []
     considered = 0
@@ -145,6 +167,10 @@ def decide(
         except (KeyError, TypeError):
             continue
         considered += 1
+
+        if not exchange_ok:
+            skipped["config_error"] += 1
+            continue
 
         zone = zone_for(candidate.paths, config)
         if zone is None:
@@ -164,8 +190,11 @@ def decide(
             # `config.weights` (a hand-edited forge.json, or a config built
             # without going through `load_config`'s defaults merge). One
             # unscoreable candidate must cost the night that candidate, not
-            # the whole run.
-            skipped["config_error"] += 1
+            # the whole run — and it is a distinct reason from `config_error`
+            # above (a broken shared/exchange.json, a whole-night condition):
+            # see the `exchange_ok` docstring paragraph above for why the two
+            # must not share a counter.
+            skipped["unscoreable"] += 1
             continue
         if scored.score < config.score_floor:
             skipped["below_floor"] += 1

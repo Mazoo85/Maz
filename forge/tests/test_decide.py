@@ -2,6 +2,7 @@
 
 from forge.config import ForgeConfig
 from forge.decide import decide, read_tonight, score_one, write_tonight
+from forge import verify
 from forge.models import Candidate
 from forge.sense import candidate_to_dict
 
@@ -181,4 +182,63 @@ def test_missing_weight_is_skipped_not_fatal():
                       paths=("docs/y.md",), detail="")
     record = decide(_pulse(stale), cfg)
     assert record["chosen"] is None
-    assert record["skipped"]["config_error"] == 1
+    assert record["skipped"]["unscoreable"] == 1
+    # A missing weight is a per-candidate condition, not a broken exchange
+    # declaration — the two must not share a counter (see finding 4).
+    assert record["skipped"]["config_error"] == 0
+
+
+def test_a_bad_exchange_skips_everything_as_config_error():
+    # The Forge cannot tell what a change would break, so it declines to
+    # choose. A quiet night is a correct night; a night that verifies less
+    # than it claims is not.
+    record = decide(_pulse(DOC, MUSIC), ForgeConfig(), exchange_ok=False)
+    assert record["chosen"] is None
+    assert record["skipped"]["config_error"] == record["considered"]
+    # A broken exchange declaration is a different reason from an
+    # unscoreable candidate (finding 4) — this path must never touch that
+    # counter.
+    assert record["skipped"]["unscoreable"] == 0
+
+
+def test_a_bad_exchange_still_counts_what_it_considered():
+    record = decide(_pulse(DOC, MUSIC), ForgeConfig(), exchange_ok=False)
+    assert record["considered"] == 2
+
+
+def test_a_good_exchange_changes_nothing():
+    with_flag = decide(_pulse(DOC, MUSIC), ForgeConfig(), exchange_ok=True)
+    without = decide(_pulse(DOC, MUSIC), ForgeConfig())
+    # Exclude the wall-clock timestamp: two back-to-back calls could
+    # straddle a second boundary and make an otherwise-identical pair of
+    # records compare unequal for a reason that has nothing to do with
+    # exchange_ok. What must be identical is the actual decision.
+    assert with_flag.pop("generated_at") is not None
+    assert without.pop("generated_at") is not None
+    assert with_flag == without
+    # A no-op guard must still let a real candidate through, not just
+    # produce two equally-empty records.
+    assert with_flag["chosen"] is not None
+    assert with_flag["chosen"]["candidate"]["source"] == "ci:music-ci"
+
+
+# --- Minor 3: decide()'s own docstring must name a function that exists ----
+
+
+def test_decides_docstring_names_the_real_verify_entry_point():
+    # decide()'s docstring used to say "verify.run_checks fails closed on
+    # the same condition" — but the live production path VERIFY actually
+    # calls is run_checks_for_files (run_checks is kept only for tests and
+    # callers that already know a single zone; see verify.py's own
+    # docstrings). The claim was true of both functions, so this was a
+    # stale name, not a wrong claim — but a docstring that points at a name
+    # a reader has to go hunting for is a bug in its own right. Assert the
+    # docstring names the function that is actually reachable at runtime,
+    # not merely a function that happens to exist.
+    doc = decide.__doc__
+    assert hasattr(verify, "run_checks_for_files")
+    assert "verify.run_checks_for_files" in doc
+    # Guard against a sloppy fix that leaves the OLD, misleading reference
+    # ("`verify.run_checks`", naming the test-only single-zone function)
+    # sitting right alongside the corrected one.
+    assert "`verify.run_checks`" not in doc

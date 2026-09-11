@@ -64,15 +64,61 @@ from .config import load_config
 from .decide import decide as decide_step
 from .decide import write_tonight
 from .do import do as do_step
+from .exchange import is_loadable
 from .gitops import checkout, delete_branch, push_branch
 from .learn import memory_note, quarantine, tick_roadmap
 from .sense import sense as sense_step
 from .sense import write_pulse
-from .verify import open_draft_pr, run_checks
+from .verify import open_draft_pr, run_checks_for_files
 
 
 def _run_id() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+# Human-readable labels for decide()'s `skipped` reasons, keyed by the exact
+# names in decide.decide's `skipped` dict. Used only by `_no_task_note`
+# below to explain which reason actually dominated a `no_task` night.
+_SKIP_LABELS = {
+    "outside_zone": "outside every safe zone",
+    "struck_out": "already struck out too many times",
+    "variety": "blocked by the variety rule (same zone too recently)",
+    "below_floor": "scored, but below the score floor",
+    "config_error": "shared/exchange.json could not be read",
+    "unscoreable": "missing a scoring weight in config.weights",
+}
+
+
+def _no_task_note(why: dict) -> str:
+    """Explain a `no_task` night in terms of whichever skip reason actually
+    dominated it, instead of the single hardcoded "nothing scored above the
+    floor" this replaces.
+
+    That hardcoded text was false, and actively misleading, on a night
+    where nothing was ever scored at all: a broken `shared/exchange.json`
+    skips every candidate as `config_error` before `score_one` is called on
+    any of them, so `below_floor` sits at 0 right next to it — the ledger
+    line read as though 97 candidates had been weighed and found wanting,
+    when none of them were weighed at all (see the finding this fixes,
+    reproduced against a live repo with a malformed `shared/exchange.json`).
+
+    Ties break toward whichever reason decide()'s `skipped` dict lists
+    first (`outside_zone`, then `struck_out`, `variety`, `below_floor`,
+    `config_error`, `unscoreable`) — `dict` and `max()` both iterate in a
+    fixed, insertion order, so this is deterministic rather than depending
+    on hash randomisation.
+    """
+    if not why.get("considered", 0):
+        return "nothing to consider tonight"
+    skipped = why.get("skipped")
+    if not isinstance(skipped, dict) or not skipped:
+        return "nothing scored above the floor"
+    reason, count = max(skipped.items(), key=lambda kv: kv[1])
+    if count <= 0:
+        return "nothing scored above the floor"
+    considered = why.get("considered", 0)
+    label = _SKIP_LABELS.get(reason, reason)
+    return f"{count}/{considered} skipped: {label}"
 
 
 def live_run(root: Path, collectors=None, git=None, crew=None, checks=None,
@@ -89,7 +135,8 @@ def live_run(root: Path, collectors=None, git=None, crew=None, checks=None,
     # --- DECIDE ------------------------------------------------------------
     strikes = ledger_mod.strikes(root, config)
     record = decide_step(pulse, config, strikes=strikes,
-                         recent_zones=ledger_mod.recent_zones(root, config))
+                         recent_zones=ledger_mod.recent_zones(root, config),
+                         exchange_ok=is_loadable(root))
     _best_effort(write_tonight, record, root, config)
 
     why = {
@@ -101,7 +148,7 @@ def live_run(root: Path, collectors=None, git=None, crew=None, checks=None,
     if not chosen:
         return _record(ledger_mod.new_entry(
             run_id, outcome="no_task", why=why,
-            notes="nothing scored above the floor",
+            notes=_no_task_note(why),
         ), root, config)
 
     cand = chosen["candidate"]
@@ -136,7 +183,17 @@ def live_run(root: Path, collectors=None, git=None, crew=None, checks=None,
     # `open_draft_pr` below must only ever be reachable once `result.ok` is
     # true: a red check run returns here, before any poster call is made, so
     # "red checks => no PR" holds by construction rather than by convention.
-    result = run_checks(chosen["zone"], root, runner=checks)
+    #
+    # Derived from `outcome.files` — what Crew actually changed — never from
+    # `chosen["zone"]`, the zone DECIDE picked from the *candidate's
+    # declared* paths before Crew ever ran. `zones.zone_for` (which produced
+    # `chosen["zone"]`) reports only the single broadest zone spanning a
+    # change, not every zone it touches, so a task DECIDE scoped to `docs/`
+    # whose agent also edited `music/js/composer.js` used to run zero
+    # commands and record `checks: green` having verified nothing about the
+    # music edit at all. See `verify.run_checks_for_files`'s own docstring
+    # for the full account.
+    result = run_checks_for_files(outcome.files, config, root, runner=checks)
     if not result.ok:
         cleanup_note = _abandon(started_branch, root, git, config.base_branch)
         entry = ledger_mod.new_entry(

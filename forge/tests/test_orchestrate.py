@@ -5,7 +5,19 @@ import json
 from forge.config import ForgeConfig
 from forge.ledger import read_all
 from forge.models import Candidate
-from forge.orchestrate import live_run
+from forge.orchestrate import _no_task_note, live_run
+
+
+def _exchange(root):
+    """Give a tmp_path repo the declaration run_checks now requires before
+    it will run any commands at all, for any zone.
+    """
+    shared = root / "shared"
+    shared.mkdir(parents=True, exist_ok=True)
+    (shared / "exchange.json").write_text(
+        json.dumps({"publishes": {}, "consumes": []}), encoding="utf-8"
+    )
+    return root
 
 
 def _collectors():
@@ -91,6 +103,7 @@ class ExplodingCleanupGit(FakeGit):
 
 
 def test_happy_path_opens_a_pr_and_records_it(tmp_path):
+    _exchange(tmp_path)
     entry = live_run(
         tmp_path,
         collectors=_collectors(),
@@ -117,6 +130,7 @@ def test_nothing_to_do_records_no_task_and_never_branches(tmp_path):
 
 
 def test_crew_failure_records_crew_failed_and_deletes_the_branch(tmp_path):
+    _exchange(tmp_path)
     git = FakeGit()
     entry = live_run(tmp_path, collectors=_collectors(), git=git,
                      crew=lambda t, r, s: (1, "boom", 0.1),
@@ -133,6 +147,7 @@ def test_over_budget_crew_records_budget_exceeded_not_crew_failed(tmp_path):
     every producer used to return a falsy CrewOutcome indistinguishable from
     any other failure, so orchestrate always recorded `crew_failed` instead.
     """
+    _exchange(tmp_path)
     git = FakeGit()
     entry = live_run(tmp_path, collectors=_collectors(), git=git,
                      crew=lambda t, r, s: (0, "done", 999.0),
@@ -144,6 +159,7 @@ def test_over_budget_crew_records_budget_exceeded_not_crew_failed(tmp_path):
 
 
 def test_failing_checks_record_verify_failed_and_open_no_pr(tmp_path):
+    _exchange(tmp_path)
     posted = []
     entry = live_run(tmp_path, collectors={"todo": lambda root: [
         Candidate(task="Fix the scraper retry", source="todo:scraper/a.py:1",
@@ -158,6 +174,7 @@ def test_failing_checks_record_verify_failed_and_open_no_pr(tmp_path):
 
 
 def test_third_strike_quarantines_the_candidate(tmp_path):
+    _exchange(tmp_path)
     cfg = ForgeConfig()
     for _ in range(3):
         live_run(tmp_path, collectors=_collectors(), git=FakeGit(),
@@ -175,6 +192,7 @@ def test_a_quarantined_candidate_is_not_picked_again(tmp_path):
     own even if quarantine() were wired to nothing at all (see the mutation
     check on this test: monkeypatch quarantine to a no-op and it must fail).
     """
+    _exchange(tmp_path)
     for _ in range(3):
         live_run(tmp_path, collectors=_collectors(), git=FakeGit(),
                  crew=lambda t, r, s: (1, "boom", 0.1),
@@ -198,6 +216,7 @@ def test_two_failures_do_not_quarantine_yet(tmp_path):
     from the third-strike test so a regression that quarantines early (on
     the second failure) fails loudly instead of shipping silently.
     """
+    _exchange(tmp_path)
     for _ in range(2):
         live_run(tmp_path, collectors=_collectors(), git=FakeGit(),
                  crew=lambda t, r, s: (1, "boom", 0.1),
@@ -227,6 +246,8 @@ def test_a_raising_poster_still_records_the_ledger_line(tmp_path):
     "pr_opened" with pr=None would satisfy followup.pending()'s truthy-pr
     check and the branch would be silently orphaned on the remote forever.
     """
+    _exchange(tmp_path)
+
     def boom(path, body):
         raise RuntimeError("network exploded")
 
@@ -244,6 +265,7 @@ def test_a_poster_returning_empty_dict_records_pr_failed_not_pr_opened(tmp_path)
     must not be recorded as "pr_opened", the false-positive this fix exists
     to remove.
     """
+    _exchange(tmp_path)
     entry = live_run(tmp_path, collectors=_collectors(), git=FakeGit(),
                      crew=lambda t, r, s: (0, "done", 0.1),
                      checks=lambda cmd, root: (0, "ok"), poster=lambda p, b: {}, slug="a/b")
@@ -274,6 +296,7 @@ def test_a_crashing_cleanup_still_records_crew_failed(tmp_path):
     cost the run its ledger line either — the failed attempt is still worth
     recording, branch cleaned up or not.
     """
+    _exchange(tmp_path)
     git = ExplodingCleanupGit()
     entry = live_run(tmp_path, collectors=_collectors(), git=git,
                      crew=lambda t, r, s: (1, "boom", 0.1),
@@ -288,6 +311,7 @@ def test_the_branch_is_pushed_before_the_pr_is_opened(tmp_path):
     the poster call would mean the PR was opened against a head ref that did
     not exist on the remote yet.
     """
+    _exchange(tmp_path)
     events: list[tuple[str, object]] = []
 
     class OrderTrackingGit(FakeGit):
@@ -310,6 +334,7 @@ def test_the_branch_is_pushed_before_the_pr_is_opened(tmp_path):
 
 
 def test_a_failed_push_records_push_failed_opens_no_pr_and_abandons(tmp_path):
+    _exchange(tmp_path)
     posted = []
     git = FailingPushGit()
     entry = live_run(tmp_path, collectors=_collectors(), git=git,
@@ -326,6 +351,7 @@ def test_a_raising_push_still_records_the_ledger_line(tmp_path):
     """A push that throws (the network dying mid-call) must degrade to
     "push_failed", exactly like one that returns False — not lose the night.
     """
+    _exchange(tmp_path)
     git = RaisingPushGit()
     entry = live_run(tmp_path, collectors=_collectors(), git=git,
                      crew=lambda t, r, s: (0, "done", 0.1),
@@ -341,6 +367,7 @@ def test_push_branch_is_never_called_with_main(tmp_path):
     just cut (always ``forge/YYYY-MM-DD-...``, see do.branch_name) — never
     the base branch this cycle must not touch.
     """
+    _exchange(tmp_path)
     git = FakeGit()
     entry = live_run(tmp_path, collectors=_collectors(), git=git,
                      crew=lambda t, r, s: (0, "done", 0.1),
@@ -367,6 +394,7 @@ def test_abandon_checks_out_the_configured_base_branch_not_main(tmp_path):
     tree to a wholly different project on a repo like this one.
     """
     _write_base_branch_config(tmp_path)
+    _exchange(tmp_path)
     git = FakeGit()
     entry = live_run(tmp_path, collectors=_collectors(), git=git,
                      crew=lambda t, r, s: (1, "boom", 0.1),
@@ -388,6 +416,7 @@ def test_return_to_base_checks_out_the_configured_base_branch_not_main(tmp_path)
     different project before tomorrow's branch is even cut.
     """
     _write_base_branch_config(tmp_path)
+    _exchange(tmp_path)
     git = FakeGit()
     entry = live_run(tmp_path, collectors=_collectors(), git=git,
                      crew=lambda t, r, s: (0, "done", 0.1),
@@ -402,6 +431,7 @@ def test_return_to_base_checks_out_the_configured_base_branch_not_main(tmp_path)
 
 def test_live_run_opens_the_pr_against_the_configured_base_branch(tmp_path):
     _write_base_branch_config(tmp_path)
+    _exchange(tmp_path)
     posted = {}
     git = FakeGit()
     entry = live_run(tmp_path, collectors=_collectors(), git=git,
@@ -412,11 +442,114 @@ def test_live_run_opens_the_pr_against_the_configured_base_branch(tmp_path):
     assert posted["base"] == _CONFIGURED_BASE
 
 
+# --- Important 3: VERIFY must derive checks from what Crew actually -------
+# --- changed, not from the zone DECIDE chose before Crew ran. -------------
+
+
+def test_verify_runs_the_actually_changed_zones_checks_not_just_the_chosen_zone(tmp_path):
+    """The finding-3 reproduction: DECIDE scopes the candidate to docs/ (the
+    broadest zone spanning the eventual change, and the one recorded as
+    `zone` in the ledger), but Crew's actual edit also reaches music/. The
+    music edit must still be checked — recording `checks: green` without
+    running a single command against it is the defect this branch exists to
+    remove.
+    """
+    _exchange(tmp_path)
+    checks_run = []
+    entry = live_run(
+        tmp_path,
+        collectors={"todo": lambda root: [
+            Candidate(task="Note the architecture doc", source="todo:docs/ARCHITECTURE.md:1",
+                      kind="todo", paths=("docs/ARCHITECTURE.md",), detail="recent")]},
+        git=FakeGit(changed=("docs/ARCHITECTURE.md", "music/js/composer.js")),
+        crew=lambda t, r, s: (0, "done", 0.1),
+        checks=lambda cmd, root: (checks_run.append(cmd), (0, "ok"))[1],
+        poster=lambda p, b: {"number": 1}, slug="a/b",
+    )
+    assert entry["outcome"] == "pr_opened"
+    assert entry["zone"] == "docs/"  # DECIDE's chosen zone is still recorded as-is
+    assert ("node", "music/tests/music-logic.test.js") in checks_run, (
+        f"music/ was touched but never checked; ran: {checks_run}"
+    )
+
+
+def test_verify_fails_closed_when_the_actual_change_cannot_be_checked(tmp_path):
+    """A red music check on a change DECIDE scoped to docs/ must still fail
+    the run — the fix must not accidentally make VERIFY more lenient than
+    before, only more honest about what it covers.
+    """
+    _exchange(tmp_path)
+    entry = live_run(
+        tmp_path,
+        collectors={"todo": lambda root: [
+            Candidate(task="Note the architecture doc", source="todo:docs/ARCHITECTURE.md:1",
+                      kind="todo", paths=("docs/ARCHITECTURE.md",), detail="recent")]},
+        git=FakeGit(changed=("docs/ARCHITECTURE.md", "music/js/composer.js")),
+        crew=lambda t, r, s: (0, "done", 0.1),
+        checks=lambda cmd, root: (1, "music test failed"),
+        poster=lambda p, b: {"number": 1}, slug="a/b",
+    )
+    assert entry["outcome"] == "verify_failed"
+    assert entry["pr"] is None
+
+
+# --- Important 4: a no_task night must say which skip reason dominated ----
+
+
+def test_no_task_note_names_the_dominant_skip_reason():
+    why = {"considered": 97, "skipped": {
+        "outside_zone": 0, "struck_out": 0, "variety": 0,
+        "below_floor": 0, "config_error": 97, "unscoreable": 0,
+    }}
+    note = _no_task_note(why)
+    assert "config_error" in note or "exchange.json" in note
+    assert "below the score floor" not in note.lower()
+    assert "97" in note
+
+
+def test_no_task_note_still_reports_below_floor_when_that_is_what_happened():
+    why = {"considered": 3, "skipped": {
+        "outside_zone": 0, "struck_out": 0, "variety": 0,
+        "below_floor": 3, "config_error": 0, "unscoreable": 0,
+    }}
+    note = _no_task_note(why)
+    assert "below the score floor" in note.lower()
+
+
+def test_no_task_note_handles_nothing_considered_at_all():
+    why = {"considered": 0, "skipped": {}}
+    note = _no_task_note(why)
+    assert note
+
+
+def test_a_broken_exchange_records_a_no_task_note_naming_config_error(tmp_path):
+    """Real end-to-end reproduction of finding 4: a malformed
+    shared/exchange.json must not leave the ledger reading as though 97
+    candidates were scored and found wanting.
+    """
+    shared = tmp_path / "shared"
+    shared.mkdir(parents=True)
+    (shared / "exchange.json").write_text("{ not json", encoding="utf-8")
+    entry = live_run(
+        tmp_path,
+        collectors=_collectors(),
+        git=FakeGit(),
+        crew=lambda t, r, s: (0, "done", 0.1),
+        checks=lambda cmd, root: (0, "ok"),
+        poster=lambda p, b: {"number": 1}, slug="a/b",
+    )
+    assert entry["outcome"] == "no_task"
+    assert entry["why"]["skipped"]["config_error"] == entry["why"]["considered"]
+    assert entry["why"]["skipped"]["below_floor"] == 0
+    assert "nothing scored above the floor" not in entry["notes"]
+
+
 def test_abandon_with_a_failing_checkout_does_not_delete_and_still_records(tmp_path):
     """When checkout back to main *returns* failure (rather than raising),
     the delete must not be attempted — git refuses to delete the branch
     that's still checked out, and the run must still record.
     """
+    _exchange(tmp_path)
     git = FailingCheckoutGit()
     entry = live_run(tmp_path, collectors=_collectors(), git=git,
                      crew=lambda t, r, s: (1, "boom", 0.1),
