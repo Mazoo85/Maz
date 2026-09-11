@@ -43,11 +43,14 @@ const EXCHANGE_REL = 'shared/exchange.json';
 // make check-exchange.mjs blind to undeclared coupling in exactly the
 // files it exists to police, invisible on every night and on CI alike.
 //
-// `.venv` and `venv` ARE here, for the same reason `.superpowers/` is:
-// both are gitignored virtualenv directories, absent on CI, that this
-// repo's own setup instructions tell developers to create (`pip install
-// -e .`, four times over — PEP 668 pushes that into a venv on most
-// systems). An installed package's docs can ship an HTML page with an
+// `.venv` and `venv` ARE here. Checked directly (`git check-ignore .venv
+// venv`), neither is actually gitignored anywhere in this repo — unlike
+// `build/` above, nothing in `.gitignore` names them. They are skipped for
+// a narrower, purely operational reason: this repo's own setup
+// instructions tell developers to create one (`pip install -e .`, four
+// times over — PEP 668 pushes that into a venv on most systems), nothing
+// ever commits one, and CI never has one. An installed package's docs can
+// ship an HTML page with an
 // absolute or deep-escaping asset reference that resolves past the repo
 // root into a phantom project name once `crossRefs` resolves it against
 // the real filesystem, so a stray one under a local `.venv/` must not

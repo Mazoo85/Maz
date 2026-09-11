@@ -71,7 +71,7 @@ def _scratch_copy(tmp_path: Path) -> Path:
                 "window.Synth = {};\n", encoding="utf-8"
             ),
             ("music/js/synth.js",),
-            "Synth.playNote is not a function",
+            "Synth.softClipCurve is not a function",
             id="synth-gutted-to-empty-object",
         ),
     ],

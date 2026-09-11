@@ -229,7 +229,7 @@ the loop's judgement — carried a false claim.
 **What "`film`'s tests passed" actually covers, and what it doesn't.**
 `shared/exchange.json` declares `music/composer` as five files —
 `theory.js`, `genres.js`, `synth.js`, `composer.js`, `engine.js` — and
-`film/index.html` loads all five, in that order. Three things now stand
+`film/index.html` loads all five, in that order. Four things now stand
 between a broken one of those files and a false `checks: green`:
 
 - `scripts/check-exchange.mjs` parses every published file as JavaScript
@@ -246,39 +246,88 @@ between a broken one of those files and a false `checks: green`:
   them, in the real order SCRIPT FORGE loads them in, does not throw — not
   the same claim as side-effect-free, which nothing here checks.
 - The same suite goes past the five bare globals to the specific members
-  code actually calls: `Composer.compose`, `Engine.Player`,
-  `Engine.Player.prototype.load` and `Genres.GENRES` (what
-  `film/js/film-audio.js` itself reaches for), plus `Theory.midiToFreq`,
-  `Genres.PRESETS`, and `Synth.playNote` / `playDrum` / `softClipCurve` /
-  `reverbImpulse` / `vinylBuffer` (what `engine.js` reaches for internally
-  to build its mixer graph and schedule notes) — asserting each is present
-  with the right type, so a global staying truthy while one of its own
-  exports is renamed or deleted no longer passes. One more test composes a
-  real song with `Composer.compose` and loads it into a real
-  `Engine.Player` — the same two calls `Score.prototype.startScore` makes —
-  and asserts that chain runs without throwing. This list was produced by
-  reading `film/js/film-audio.js` and `engine.js`, not derived
-  structurally: a call added later to either file is covered here only once
-  someone reads it in and extends the assertions the same way.
+  film's own code actually calls — and it finds them by reading
+  `film/js/*.js`, not from a list someone typed in by hand. Two hand-written
+  lists in a row shipped one member short of the truth: the first stopped at
+  `Engine.Player.prototype.load`; the second added a few more but still
+  missed `play`, `seek`, `stop` and `pause` — the four methods
+  `film/js/film-player.js` (lines 391, 408, 421, 431) and
+  `film/js/film-audio.js` (line 322) actually call to run a film, today, not
+  "later." Both lists left every one of the five globals truthy and every
+  assertion in them green while a real film threw `TypeError: p.play is not
+  a function` before its first frame and never played at all.
+  `deriveFilmMusicSurface()` in the test file instead resolves film's own
+  local aliases (`film-audio.js` writes `var Forge = root.Composer, Play =
+  root.Engine`, then calls `Forge.compose(...)` and `new Play.Player(...)`
+  — searching for the literal text "Composer." or "Engine." finds neither),
+  finds every direct call this resolves onto `Theory`/`Genres`/`Synth`/
+  `Composer`/`Engine`, and separately finds the property film uses to hold a
+  constructed `Engine.Player` instance (discovered from the `new
+  ALIAS.Player(...)` construction itself, currently `this.player`) and
+  every member reached on *that* — `play`, `seek`, `pause`, `stop`, `load`,
+  `song`, `loop` today. Each is asserted present with the right shape: a
+  function member reached as `x.y(...)` against `Engine.Player.prototype`,
+  a value member against a real constructed instance (some, like `song` and
+  `loop`, are only ever set in the constructor and are not on the prototype
+  at all). The scan asserts its own health, too: it throws outright if it
+  finds no `new Engine.Player(...)` construction anywhere, and the test
+  fails if the total number of call sites found drops below a floor (eight;
+  ten are found today) — so a refactor of film that silently stopped
+  matching these patterns (an ES-module rewrite, say) fails loudly instead
+  of quietly asserting nothing, which is the failure mode both hand-written
+  lists actually shipped. `engine.js`'s own internal dependencies —
+  `Synth.playNote` and its neighbors, `Theory.midiToFreq`, `Genres.PRESETS`
+  — are deliberately *not* asserted by name here any more: film never calls
+  them, so a legitimate `music/` refactor that inlines one of them (folding
+  `Synth.vinylBuffer` into `engine.js` and dropping the export, say) has no
+  business failing *film's* contract test for a member film never touched.
+  Coverage of those internals moved to the next point, where it belongs: on
+  the actual code path, not on their names.
+- One more test composes a real song with `Composer.compose`, constructs a
+  real `Engine.Player` against a fake but functional Web Audio context
+  (every node type `engine.js`'s mixer graph and `synth.js`'s voices call
+  `ctx.create*` for, backed by real `Float32Array`s for `createBuffer`), and
+  drives `load()`, `play()`, `pause()`, another `play()`, `seek()` and
+  `stop()` across it — advancing the fake clock by hand across the whole
+  song so the scheduler actually reaches into `synth.js` for real notes and
+  drum hits, the same code path `Score.prototype.startScore` and
+  `film-player.js`'s playback loop drive in a browser. This catches every
+  one of `play`/`seek`/`pause`/`stop` renamed, and `play` reduced to a
+  no-op (asserted directly: `player.playing` must actually flip, and
+  `seek()` must actually move `player._pausedBeat`) — not just missing, but
+  present and inert. It also catches `Synth.playNote` (or any mixer-graph
+  call) throwing, since nothing here catches the exception before it
+  reaches the test. It does **not** reliably catch `Synth.playNote` reduced
+  to a silent no-op while `Synth.playDrum` still works: the assertion that
+  something real got built checks for *any* oscillator or buffer source
+  across the whole simulated playback, and a drum-only kit still creates
+  both — so a melodic voice quietly going silent while the beat keeps
+  playing can still pass. That gap is named, not hidden: closing it needs
+  either a real `AudioContext` or a much finer-grained fake that can tell
+  which instrument produced which node, and neither exists here today.
 
-None of this runs the audio graph `synth.js` and `engine.js` build, proves a
-bar of music actually sounds right, or catches a member of the right *type*
-that does the wrong thing — `Theory.midiToFreq` returning the wrong number
-for a given pitch is still a function, and passes every assertion above.
-Only a real `AudioContext`, which Node does not have, can settle that. The
-one check that does exercise the actual audio graph is
+None of this runs the audio graph `synth.js` and `engine.js` build against a
+real `AudioContext`, or proves a bar of music actually sounds right —
+`Theory.midiToFreq` returning the wrong number for a given pitch is still a
+function that returns a number, and passes every assertion above, static or
+end-to-end. Only a real `AudioContext`, which Node does not have, can settle
+that. The one check that does exercise the actual audio graph is
 `film/tests/film-browser.test.js`, run against a real Chromium in
 `.github/workflows/site-ci.yml`'s browser job, on every pull request —
 **not** by the Forge's own nightly `PROJECT_CHECKS` entry for `film`, which
 is the plain `node film/tests/film-logic.test.js` above. So a `music/`-only
 night's `checks: green` now guarantees the published files parse, load
-without throwing in the declared order, and that the specific surface
-`film`'s own code and `engine.js`'s internals reach for still exists with
-the right shape and can be driven end to end without throwing; it does not
-guarantee that surface computes the right values, or that the resulting
-audio is correct — that half of the guarantee still lives entirely in CI,
-after the PR is already open, exactly like the gap the *Two separate
-failure paths* paragraph below describes for a broken declaration.
+without throwing in the declared order, and that every member film/js/*.js
+is found — by scanning it, not by memory — to actually reach for, whether
+on the five globals directly or on the `Engine.Player` instance it holds,
+still exists with the right shape and can be driven through
+load/play/pause/seek/stop without throwing or silently failing to start;
+it does not guarantee that surface computes the right values, that the
+resulting audio is correct, or that every individual instrument voice
+inside a working playback session is still audible rather than quietly
+mute — those gaps still live entirely in CI, after the PR is already open,
+exactly like the gap the *Two separate failure paths* paragraph below
+describes for a broken declaration.
 
 Two separate failure paths follow from a broken `shared/exchange.json`, and
 they cost differently. If it is already missing or malformed when DECIDE

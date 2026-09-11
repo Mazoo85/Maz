@@ -618,7 +618,12 @@ const fs = require('fs');
 const Conductor = require(path.join(__dirname, '..', 'js', 'film-score.js'));
 
 function loadSongForge() {
-  const sandbox = { console: console };
+  // engine.js's live player drives itself with setInterval/clearInterval.
+  // The tests below step time by hand (calling player._tick() directly) so
+  // real timers are never needed to fire — these two only need to exist so
+  // Player#play/#stop don't throw on a lookup neither theory.js, genres.js,
+  // synth.js nor composer.js ever reaches for.
+  const sandbox = { console: console, setInterval: () => 0, clearInterval: () => {} };
   sandbox.window = sandbox;
   vm.createContext(sandbox);
   ['theory.js', 'genres.js', 'synth.js', 'composer.js', 'engine.js'].forEach((f) => {
@@ -627,6 +632,197 @@ function loadSongForge() {
       sandbox, { filename: f });
   });
   return sandbox;
+}
+
+/* ------------------------------------------------- the derived music surface
+ * Two consecutive reviews found this contract test's list of asserted
+ * members one item short of what film actually calls — first `Player#load`
+ * alone, then `load` plus a hand-copied handful of others that still missed
+ * `play`, `seek`, `stop` and `pause`. Both were hand-written lists produced
+ * by reading some of film's source and stopping. A third hand-written list
+ * would fail the same way the moment someone adds a call and forgets to
+ * extend it.
+ *
+ * So this reads film/js/*.js itself and finds the real call sites, rather
+ * than asserting what a person remembered:
+ *
+ *  - a direct access on one of the five exchange-published globals —
+ *    `Composer.compose(`, `Genres.GENRES` — found by resolving local
+ *    aliases first (film-audio.js writes `var Forge = root.Composer, Play =
+ *    root.Engine`, then calls `Forge.compose(...)` and `new Play.Player(
+ *    ...)` — a literal search for "Composer." or "Engine." finds neither);
+ *  - a member reached on a SONG FORGE `Player` *instance*, which film never
+ *    gets from a global — it holds one on `this.player` after `new
+ *    Play.Player(...)` in film-audio.js, then film-player.js and app.js
+ *    call `this.score.player.play(...)`, `.seek(...)`, `.pause()`,
+ *    `.stop()` and read `.song`/`.loop` off it. The binding name ("player")
+ *    is itself discovered from the `new ALIAS.Player(...)` construction,
+ *    not assumed, so a future rename of that property is still found.
+ *
+ * A member reached as `x.y(` is asserted as a function; reached any other
+ * way (`x.y`, `x.y =`, `x.y[...]`) it is asserted only to exist, since nothing
+ * here can tell a data field from a getter. Function members reached on the
+ * Player instance are asserted on `Engine.Player.prototype` (where they
+ * actually live); value members are asserted on a real constructed
+ * instance, since some — `song`, `loop` — are only ever set in the
+ * constructor and are not on the prototype at all.
+ *
+ * `engine.js`'s own internal dependencies (`Synth.playNote` and friends,
+ * `Theory.midiToFreq`, `Genres.PRESETS`) are deliberately NOT asserted here
+ * any more — see the removal note below the derivation. Nothing here
+ * doesn't mean nothing checks them: the end-to-end playback test further
+ * down actually calls into all of them through the real code path, and a
+ * rename or a throw there fails loudly. Their *existence* is now this
+ * suite's business only to the extent film's own calls require it.
+ */
+const MUSIC_GLOBALS = ['Theory', 'Genres', 'Synth', 'Composer', 'Engine'];
+
+function listFilmJsFiles() {
+  const dir = path.join(__dirname, '..', 'js');
+  return fs.readdirSync(dir).filter((f) => f.endsWith('.js')).map((f) => path.join(dir, f));
+}
+
+function deriveFilmMusicSurface() {
+  const sources = listFilmJsFiles().map((file) => ({ file, text: fs.readFileSync(file, 'utf8') }));
+
+  // Per file: normalize `root.Genres` to `Genres` so a direct access and an
+  // aliased one are found the same way, then record which local names alias
+  // which of the five globals. The alias must be a bare `NAME = GLOBAL`
+  // reachable at a declarator/statement boundary (followed by `;`, `,`, `)`
+  // or a newline) — without that boundary check, `var x = Genres && Genres.Y`
+  // reads as "x aliases Genres" too, which is not what it means.
+  const perFile = sources.map(({ file, text }) => {
+    const norm = text.replace(/\broot\.(Theory|Genres|Synth|Composer|Engine)\b/g, '$1');
+    const aliasToGlobal = new Map();
+    MUSIC_GLOBALS.forEach((g) => aliasToGlobal.set(g, g));
+    const aliasRe = /\b([A-Za-z_$][\w$]*)\s*=\s*(Theory|Genres|Synth|Composer|Engine)\s*(?=[;,)\n])/g;
+    let m;
+    while ((m = aliasRe.exec(norm))) aliasToGlobal.set(m[1], m[2]);
+    return { file, norm, aliasToGlobal };
+  });
+
+  // Which local property holds a constructed `Engine.Player`? Found from the
+  // construction itself (`this.player = new Play.Player(...)`), not assumed.
+  const playerBindings = new Set();
+  perFile.forEach(({ norm, aliasToGlobal }) => {
+    const re = /([A-Za-z_$][\w$]*)\s*=\s*new\s+([A-Za-z_$][\w$]*)\.Player\s*\(/g;
+    let m;
+    while ((m = re.exec(norm))) {
+      if (aliasToGlobal.get(m[2]) === 'Engine') playerBindings.add(m[1]);
+    }
+  });
+  if (playerBindings.size === 0) {
+    throw new Error('derivation found no "new Engine.Player(...)" construction anywhere in ' +
+      'film/js — either film stopped using SONG FORGE\'s player, or this scan no longer ' +
+      'matches film\'s source. Either way, a green run right now would not mean what it claims.');
+  }
+
+  const direct = new Map();
+  perFile.forEach(({ file, norm, aliasToGlobal }) => {
+    const re = /\b([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)\s*(\()?/g;
+    let m;
+    while ((m = re.exec(norm))) {
+      const global = aliasToGlobal.get(m[1]);
+      if (!global) continue;
+      const kind = m[3] ? 'function' : 'value';
+      const key = global + '.' + m[2] + '.' + kind;
+      if (!direct.has(key)) direct.set(key, { global, member: m[2], kind, file: path.basename(file) });
+    }
+  });
+
+  const onPlayer = new Map();
+  perFile.forEach(({ file, norm }) => {
+    playerBindings.forEach((binding) => {
+      const re = new RegExp('\\.' + binding + '\\.([A-Za-z_$][\\w$]*)\\s*(\\()?', 'g');
+      let m;
+      while ((m = re.exec(norm))) {
+        const kind = m[2] ? 'function' : 'value';
+        const key = m[1] + '.' + kind;
+        if (!onPlayer.has(key)) onPlayer.set(key, { member: m[1], kind, file: path.basename(file) });
+      }
+    });
+  });
+
+  return { direct: Array.from(direct.values()), onPlayer: Array.from(onPlayer.values()) };
+}
+
+/* --------------------------------------------------------- a fake AudioContext
+ * Just enough of the Web Audio API for `engine.js`'s mixer graph
+ * (`buildGraph`) and `synth.js`'s note/drum voices to run without throwing —
+ * every node type they call `ctx.create*` for, every AudioParam method they
+ * call, `createBuffer` backed by real `Float32Array`s. It does not produce
+ * or check actual sound (see docs/FORGE.md for why nothing outside a real
+ * browser can), but it lets the real scheduler, the real mixer graph and the
+ * real synth voices actually run end to end in Node, counting how many
+ * oscillators and buffer sources got created — a no-op or a thrown
+ * exception anywhere in that chain is visible here, either as a zero count
+ * or as the test itself failing.
+ */
+function fakeAudioParam(initial) {
+  return {
+    value: initial,
+    setValueAtTime() { return this; },
+    linearRampToValueAtTime() { return this; },
+    exponentialRampToValueAtTime() { return this; },
+    setTargetAtTime() { return this; },
+    cancelScheduledValues() { return this; }
+  };
+}
+
+function fakeAudioNode(extra) {
+  return Object.assign({ connect(dest) { return dest; }, disconnect() {} }, extra || {});
+}
+
+function makeFakeAudioContext() {
+  const calls = { createOscillator: 0, createBufferSource: 0 };
+  const ctx = {
+    currentTime: 0,
+    sampleRate: 44100,
+    state: 'running',
+    resume() {},
+    destination: fakeAudioNode(),
+    createGain() { return fakeAudioNode({ gain: fakeAudioParam(1) }); },
+    createDynamicsCompressor() {
+      return fakeAudioNode({
+        threshold: fakeAudioParam(-24), knee: fakeAudioParam(30), ratio: fakeAudioParam(12),
+        attack: fakeAudioParam(0.003), release: fakeAudioParam(0.25)
+      });
+    },
+    createWaveShaper() { return fakeAudioNode({ curve: null, oversample: 'none' }); },
+    createAnalyser() {
+      return fakeAudioNode({
+        fftSize: 2048, smoothingTimeConstant: 0.8, frequencyBinCount: 1024,
+        getByteTimeDomainData() {}, getByteFrequencyData() {}
+      });
+    },
+    createConvolver() { return fakeAudioNode({ buffer: null }); },
+    createBiquadFilter() {
+      return fakeAudioNode({
+        type: 'lowpass', frequency: fakeAudioParam(350), Q: fakeAudioParam(1), detune: fakeAudioParam(0)
+      });
+    },
+    createDelay() { return fakeAudioNode({ delayTime: fakeAudioParam(0) }); },
+    createBufferSource() {
+      calls.createBufferSource++;
+      return fakeAudioNode({
+        buffer: null, loop: false, playbackRate: fakeAudioParam(1), start() {}, stop() {}
+      });
+    },
+    createOscillator() {
+      calls.createOscillator++;
+      return fakeAudioNode({
+        type: 'sine', frequency: fakeAudioParam(440), detune: fakeAudioParam(0), start() {}, stop() {}
+      });
+    },
+    createBuffer(channels, length, rate) {
+      const n = Math.max(0, length | 0);
+      const chans = [];
+      for (let c = 0; c < channels; c++) chans.push(new Float32Array(n));
+      return { numberOfChannels: channels, length: n, sampleRate: rate, getChannelData: (ch) => chans[ch] };
+    }
+  };
+  ctx._calls = calls;
+  return ctx;
 }
 
 console.log('\nSCORING THE FILM');
@@ -645,44 +841,78 @@ test('the sandbox loads all five of SONG FORGE\'s declared files, not just three
   assert(forge.Engine, 'Engine did not load — engine.js is silently missing from the sandbox');
 });
 
-test('the members film/js/*.js actually calls on the five globals are the right shape', () => {
+test('the derivation actually finds film\'s real call sites, not nothing', () => {
+  // A scan that silently matched zero call sites would be a vacuous test of
+  // exactly the kind this project has already shipped twice: a truthy
+  // top-level object, or an empty allowlist, that passes no matter what
+  // gets renamed underneath it. Ten call sites are found in film's source
+  // today (Composer.compose, Engine.Player, Genres.GENRES, and seven
+  // members reached on a Player instance, including play/seek/stop/pause).
+  // Eight is a floor loose enough to survive a small refactor of film but
+  // tight enough to fail the moment this regex stops matching film's source
+  // altogether — e.g. if film/js/*.js were rewritten as ES modules and
+  // `root.Genres`/`var X = root.Y` stopped being the shape these patterns
+  // look for.
+  const surface = deriveFilmMusicSurface();
+  const total = surface.direct.length + surface.onPlayer.length;
+  assert(total >= 8, 'the film-derived music surface has only ' + total +
+    ' entries — the scan over film/js/*.js is not finding real call sites any more: ' +
+    JSON.stringify(surface));
+});
+
+test('every member film/js/*.js actually reaches for on Theory/Genres/Synth/Composer/Engine, or on the Engine.Player instance it holds, is the right shape', () => {
   // The truthiness test above passed just as well for a `music/js/engine.js`
   // edit that renamed `Engine.Player` to `Engine.Sequencer` — `Engine`
   // itself was still a truthy object — or for `music/js/synth.js` gutted to
   // `window.Synth = {}` — still truthy. Both leave
   // film/js/film-audio.js's `new Play.Player({...})` throwing inside its own
   // try/catch, so the film plays silently with no score, while every check
-  // this repo runs — this one included, before this test — stayed green.
+  // this repo runs — this one included, before this test existed — stayed
+  // green. A later hand-written fix for that asserted `Player#load` and a
+  // handful of `engine.js` internals, but stopped short of `play`, `seek`,
+  // `stop` and `pause` — the four methods film actually calls to run the
+  // film, at film/js/film-player.js:391,408,421,431 and
+  // film/js/film-audio.js:322. Renaming any of those away left every one of
+  // those five globals truthy and every prior assertion here green, while a
+  // real film threw `TypeError: p.play is not a function` before its first
+  // frame and never played at all.
   //
-  // This asserts the actual members reached for at runtime:
-  // film/js/film-audio.js's Score.prototype.startScore calls
-  // `Forge.compose(...)`, constructs `new Play.Player(...)`, calls
-  // `player.load(...)` and reads `Genres.GENRES`; engine.js's Player then
-  // reaches internally for `Theory.midiToFreq`, `Genres.PRESETS` and four
-  // `Synth.*` functions to build the mixer graph and schedule notes — none
-  // of which "loads all five" above ever looks at.
+  // So every assertion below comes from deriveFilmMusicSurface() reading
+  // film/js/*.js itself, not from a list someone typed out by hand.
   const forge = loadSongForge();
+  const surface = deriveFilmMusicSurface();
 
-  eq(typeof forge.Composer.compose, 'function', 'Composer.compose is not a function');
-  eq(typeof forge.Engine.Player, 'function', 'Engine.Player is not a constructor');
-  eq(typeof forge.Engine.Player.prototype.load, 'function', 'Engine.Player#load is not a function');
-  eq(typeof forge.Genres.GENRES, 'object', 'Genres.GENRES is not an object');
-  eq(typeof forge.Genres.PRESETS, 'object', 'Genres.PRESETS is not an object');
-  eq(typeof forge.Theory.midiToFreq, 'function', 'Theory.midiToFreq is not a function');
-  eq(typeof forge.Synth.playNote, 'function', 'Synth.playNote is not a function');
-  eq(typeof forge.Synth.playDrum, 'function', 'Synth.playDrum is not a function');
-  eq(typeof forge.Synth.softClipCurve, 'function', 'Synth.softClipCurve is not a function');
-  eq(typeof forge.Synth.reverbImpulse, 'function', 'Synth.reverbImpulse is not a function');
-  eq(typeof forge.Synth.vinylBuffer, 'function', 'Synth.vinylBuffer is not a function');
+  surface.direct.forEach((req) => {
+    const value = forge[req.global][req.member];
+    const where = req.global + '.' + req.member + ' (reached for in ' + req.file + ')';
+    if (req.kind === 'function') {
+      eq(typeof value, 'function', where + ' is not a function');
+    } else {
+      assert(typeof value !== 'undefined', where + ' does not exist');
+    }
+  });
+
+  const instance = new forge.Engine.Player({ context: null, destination: null });
+  surface.onPlayer.forEach((req) => {
+    const where = 'Engine.Player#' + req.member + ' (reached for in ' + req.file + ')';
+    if (req.kind === 'function') {
+      eq(typeof forge.Engine.Player.prototype[req.member], 'function', where + ' is not a function');
+    } else {
+      assert(req.member in instance, where + ' does not exist on a constructed instance');
+    }
+  });
 });
 
-test('composing a song and loading it into a Player works end to end, the way startScore() does', () => {
-  // Mirrors film/js/film-audio.js's Score.prototype.startScore exactly:
-  // compose a real song, construct a real Player against the sandbox's
-  // Engine, and load it. A rename or signature change anywhere in that
-  // chain — Composer.compose, Engine.Player, or Player#load — throws here,
-  // not just in a browser during a real film run with its try/catch
-  // swallowing the failure.
+test('composing a song and driving it through play(), pause(), seek() and stop() works end to end, the way film actually drives it', () => {
+  // The previous version of this test stopped at load() — proving
+  // Composer.compose and Player#load work together, but nothing else film
+  // calls. film/js/film-player.js drives play(), seek(), pause() and
+  // stop() on every real playback, pause and scrub — see :391, :408, :421,
+  // :431 — and film/js/film-audio.js sets `.loop` before ever calling
+  // play(). A member that exists but silently does nothing (`play` reduced
+  // to a no-op) or throws partway through (`Synth.playNote` gutted) is
+  // caught here because this actually drives playback through a fake but
+  // functional Web Audio graph — not just checked for existence.
   const forge = loadSongForge();
   const reel = Reel.build(sample);
   const music = Conductor.MUSIC_FOR[reel.genre];
@@ -695,11 +925,55 @@ test('composing a song and loading it into a Player works end to end, the way st
   assert(song && typeof song === 'object', 'compose() did not return a song');
   assert(song.tracks && typeof song.tracks === 'object', 'a composed song has no tracks');
 
-  const player = new forge.Engine.Player({ context: null, destination: null });
+  const ctx = makeFakeAudioContext();
+  const player = new forge.Engine.Player({ context: ctx, destination: null });
   player.loop = false;
   player.load(song);
   assert(player.song === song, 'Player#load did not keep the song it was given');
   assert(Array.isArray(player.flat) && player.flat.length > 0, 'Player#load produced no flattened events');
+
+  player.play(0);
+  assert(player.playing === true, 'Player#play did not actually start playback');
+
+  // Advance the fake clock across the whole song, exactly the way the real
+  // scheduler's setInterval would over time, so every event in the song
+  // gets a chance to be scheduled — and, through it, every Synth.* voice
+  // and every engine.js mixer node actually gets built at least once.
+  const spb = 60 / song.bpm;
+  const totalSeconds = song.totalBeats * spb;
+  const advance = (fraction) => {
+    ctx.currentTime = totalSeconds * fraction;
+    player._tick();
+  };
+  for (let i = 0; i <= 20; i++) advance(i / 20 * 0.4);
+
+  player.pause();
+  assert(player.playing === false, 'Player#pause did not stop playback');
+
+  player.play();
+  assert(player.playing === true, 'Player#play did not resume after pause()');
+  for (let i = 0; i <= 20; i++) advance(0.4 + (i / 20) * 0.3);
+
+  const seekTarget = song.totalBeats * 0.8;
+  player.seek(seekTarget);
+  assert(player.playing === true, 'Player#seek dropped a session that was playing');
+  // playing===true alone would still hold for a seek() that silently did
+  // nothing at all — this checks the position itself actually moved.
+  assert(Math.abs(player._pausedBeat - seekTarget) < 0.01,
+    'Player#seek did not move the playback position: at ' + player._pausedBeat + ', expected ' + seekTarget);
+  for (let i = 0; i <= 20; i++) advance(0.7 + (i / 20) * 0.3);
+
+  player.stop();
+  assert(player.playing === false, 'Player#stop did not stop playback');
+
+  // If nothing above ever actually reached a Synth voice, this whole test
+  // proved only that a handful of methods return without throwing — not
+  // that the film that calls them produces a note. Both drums and melodic
+  // tracks build their sound from an oscillator or a buffer source; a
+  // count of zero here means Synth was never actually driven.
+  const built = ctx._calls.createOscillator + ctx._calls.createBufferSource;
+  assert(built > 0, 'playback ran without ever building a single oscillator or buffer source — ' +
+    'Synth was never actually exercised');
 });
 
 test('every film genre maps to music SONG FORGE actually has', () => {

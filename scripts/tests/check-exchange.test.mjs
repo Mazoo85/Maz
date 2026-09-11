@@ -441,9 +441,9 @@ test('a published file that is not parseable JavaScript fails, naming the file',
   assertFailsWith(repo(files, ex), 'music/js/synth.js, which is not valid JavaScript');
 });
 
-// --- Minor 1: SKIP_DIRS must still skip gitignored virtualenvs -----------
+// --- Minor 1: SKIP_DIRS must still skip local, CI-absent virtualenvs -----
 
-test('a stray .html under a gitignored .venv/ is skipped, not scanned as a real page', () => {
+test('a stray .html under a local .venv/ is skipped, not scanned as a real page', () => {
   // Reproduced against the review's exact shape: `pip install -e .` (which
   // this repo's own setup instructions call for in four places, and which
   // PEP 668 pushes into a venv on most systems) installs a package whose
