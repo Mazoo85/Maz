@@ -10,10 +10,21 @@
 #pragma GCC diagnostic ignored "-Wshadow"
 #pragma GCC diagnostic ignored "-Wpedantic"
 #pragma GCC diagnostic ignored "-Wcast-qual"
+#elif defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4244)  // conversion, possible loss of data
+#pragma warning(disable : 4245)  // signed/unsigned mismatch
+#pragma warning(disable : 4267)  // conversion from 'size_t', possible loss of data
+#pragma warning(disable : 4456)  // declaration hides previous local
+#pragma warning(disable : 4457)  // declaration hides function parameter
+#pragma warning(disable : 4100)  // unreferenced formal parameter
+#pragma warning(disable : 4189)  // local variable is initialized but not referenced
 #endif
 #include <stb_truetype.h>
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#pragma warning(pop)
 #endif
 
 #include <cstddef>
