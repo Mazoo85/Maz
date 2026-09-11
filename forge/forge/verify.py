@@ -15,8 +15,9 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from .checks import commands_for
+from .checks import all_commands
 from .do import CrewOutcome
+from .exchange import ExchangeError
 from .github import api, repo_slug
 
 # Fallback only: a caller with a real ForgeConfig must pass its own
@@ -47,10 +48,19 @@ def _default_runner(cmd: tuple[str, ...], root: Path | None) -> tuple[int, str]:
 
 
 def run_checks(zone: str, root: Path | None, runner=None) -> CheckResult:
-    """Run every command for the zone, stopping at the first failure."""
+    """Run every command for the zone, stopping at the first failure.
+
+    "Every command" includes the checks of projects downstream of this zone,
+    so an unreadable `shared/exchange.json` is a failed check rather than a
+    shorter list of commands.
+    """
     run = runner or _default_runner
+    try:
+        commands = all_commands(zone, root or Path.cwd())
+    except ExchangeError as exc:
+        return CheckResult(False, (), f"cannot tell what this change could break: {exc}")
     ran: list[str] = []
-    for cmd in commands_for(zone):
+    for cmd in commands:
         ran.append(" ".join(cmd))
         try:
             code, output = run(cmd, root)

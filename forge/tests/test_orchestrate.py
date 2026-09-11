@@ -8,6 +8,18 @@ from forge.models import Candidate
 from forge.orchestrate import live_run
 
 
+def _exchange(root):
+    """Give a tmp_path repo the declaration run_checks now requires before
+    it will run any commands at all, for any zone.
+    """
+    shared = root / "shared"
+    shared.mkdir(parents=True, exist_ok=True)
+    (shared / "exchange.json").write_text(
+        json.dumps({"publishes": {}, "consumes": []}), encoding="utf-8"
+    )
+    return root
+
+
 def _collectors():
     def todo(root):
         return [Candidate(task="Write the loot table docs", source="todo:docs/a.md:1",
@@ -91,6 +103,7 @@ class ExplodingCleanupGit(FakeGit):
 
 
 def test_happy_path_opens_a_pr_and_records_it(tmp_path):
+    _exchange(tmp_path)
     entry = live_run(
         tmp_path,
         collectors=_collectors(),
@@ -144,6 +157,7 @@ def test_over_budget_crew_records_budget_exceeded_not_crew_failed(tmp_path):
 
 
 def test_failing_checks_record_verify_failed_and_open_no_pr(tmp_path):
+    _exchange(tmp_path)
     posted = []
     entry = live_run(tmp_path, collectors={"todo": lambda root: [
         Candidate(task="Fix the scraper retry", source="todo:scraper/a.py:1",
@@ -198,6 +212,7 @@ def test_two_failures_do_not_quarantine_yet(tmp_path):
     from the third-strike test so a regression that quarantines early (on
     the second failure) fails loudly instead of shipping silently.
     """
+    _exchange(tmp_path)
     for _ in range(2):
         live_run(tmp_path, collectors=_collectors(), git=FakeGit(),
                  crew=lambda t, r, s: (1, "boom", 0.1),
@@ -227,6 +242,8 @@ def test_a_raising_poster_still_records_the_ledger_line(tmp_path):
     "pr_opened" with pr=None would satisfy followup.pending()'s truthy-pr
     check and the branch would be silently orphaned on the remote forever.
     """
+    _exchange(tmp_path)
+
     def boom(path, body):
         raise RuntimeError("network exploded")
 
@@ -244,6 +261,7 @@ def test_a_poster_returning_empty_dict_records_pr_failed_not_pr_opened(tmp_path)
     must not be recorded as "pr_opened", the false-positive this fix exists
     to remove.
     """
+    _exchange(tmp_path)
     entry = live_run(tmp_path, collectors=_collectors(), git=FakeGit(),
                      crew=lambda t, r, s: (0, "done", 0.1),
                      checks=lambda cmd, root: (0, "ok"), poster=lambda p, b: {}, slug="a/b")
@@ -288,6 +306,7 @@ def test_the_branch_is_pushed_before_the_pr_is_opened(tmp_path):
     the poster call would mean the PR was opened against a head ref that did
     not exist on the remote yet.
     """
+    _exchange(tmp_path)
     events: list[tuple[str, object]] = []
 
     class OrderTrackingGit(FakeGit):
@@ -310,6 +329,7 @@ def test_the_branch_is_pushed_before_the_pr_is_opened(tmp_path):
 
 
 def test_a_failed_push_records_push_failed_opens_no_pr_and_abandons(tmp_path):
+    _exchange(tmp_path)
     posted = []
     git = FailingPushGit()
     entry = live_run(tmp_path, collectors=_collectors(), git=git,
@@ -326,6 +346,7 @@ def test_a_raising_push_still_records_the_ledger_line(tmp_path):
     """A push that throws (the network dying mid-call) must degrade to
     "push_failed", exactly like one that returns False — not lose the night.
     """
+    _exchange(tmp_path)
     git = RaisingPushGit()
     entry = live_run(tmp_path, collectors=_collectors(), git=git,
                      crew=lambda t, r, s: (0, "done", 0.1),
@@ -341,6 +362,7 @@ def test_push_branch_is_never_called_with_main(tmp_path):
     just cut (always ``forge/YYYY-MM-DD-...``, see do.branch_name) — never
     the base branch this cycle must not touch.
     """
+    _exchange(tmp_path)
     git = FakeGit()
     entry = live_run(tmp_path, collectors=_collectors(), git=git,
                      crew=lambda t, r, s: (0, "done", 0.1),
@@ -388,6 +410,7 @@ def test_return_to_base_checks_out_the_configured_base_branch_not_main(tmp_path)
     different project before tomorrow's branch is even cut.
     """
     _write_base_branch_config(tmp_path)
+    _exchange(tmp_path)
     git = FakeGit()
     entry = live_run(tmp_path, collectors=_collectors(), git=git,
                      crew=lambda t, r, s: (0, "done", 0.1),
@@ -402,6 +425,7 @@ def test_return_to_base_checks_out_the_configured_base_branch_not_main(tmp_path)
 
 def test_live_run_opens_the_pr_against_the_configured_base_branch(tmp_path):
     _write_base_branch_config(tmp_path)
+    _exchange(tmp_path)
     posted = {}
     git = FakeGit()
     entry = live_run(tmp_path, collectors=_collectors(), git=git,

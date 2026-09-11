@@ -1,8 +1,21 @@
 """VERIFY: run the zone's checks, then open a draft PR if they pass."""
 
+import json
+
 from forge.checks import commands_for
 from forge.do import CrewOutcome
 from forge.verify import open_draft_pr, run_checks
+
+
+def _exchange(root):
+    """Give a tmp_path repo the declaration run_checks now requires."""
+    shared = root / "shared"
+    shared.mkdir(parents=True, exist_ok=True)
+    (shared / "exchange.json").write_text(
+        json.dumps({"publishes": {}, "consumes": []}), encoding="utf-8"
+    )
+    return root
+
 
 OUTCOME = CrewOutcome(ok=True, branch="forge/2026-09-11-write-docs",
                       files=("docs/a.md",), cost_usd=0.5, duration_min=3.0)
@@ -20,7 +33,7 @@ def test_music_zone_runs_the_music_tests():
 
 def test_docs_zone_has_no_commands_and_passes_trivially(tmp_path):
     assert commands_for("docs/") == ()
-    result = run_checks("docs/", tmp_path, runner=lambda cmd, root: (1, "should not run"))
+    result = run_checks("docs/", _exchange(tmp_path), runner=lambda cmd, root: (1, "should not run"))
     assert result.ok is True
     assert result.ran == ()
 
@@ -46,7 +59,7 @@ def test_all_commands_must_pass(tmp_path):
         calls.append(cmd)
         return (0, "ok")
 
-    result = run_checks("scraper/", tmp_path, runner=runner)
+    result = run_checks("scraper/", _exchange(tmp_path), runner=runner)
     assert result.ok is True
     assert len(calls) == len(commands_for("scraper/")) == 2
 
@@ -58,7 +71,7 @@ def test_a_failing_command_stops_the_run(tmp_path):
         calls.append(cmd)
         return (1, "2 failed")
 
-    result = run_checks("scraper/", tmp_path, runner=runner)
+    result = run_checks("scraper/", _exchange(tmp_path), runner=runner)
     assert result.ok is False
     assert "2 failed" in result.output
     assert len(calls) == 1  # stopped at the first failure, did not run the second
