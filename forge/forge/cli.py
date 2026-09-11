@@ -7,6 +7,7 @@
     forge run --dry-run         # sense + decide + ledger line, change nothing
     forge run --live            # the full cycle (week 2 onward)
     forge ledger                # read the record back
+    forge followup              # backfill merged / human_edits from GitHub
 
 `--dry-run` is the default and deliberately so: a night that changes nothing is
 the safe default, and week one runs in exactly this mode.
@@ -213,6 +214,19 @@ def ledger(root: str | None = _ROOT_OPT, limit: int = typer.Option(10, help="How
             "" if e.get("merged") is None else str(e.get("merged")),
         )
     console.print(table)
+
+
+@app.command()
+def followup(root: str | None = _ROOT_OPT) -> None:
+    """Backfill merged / human_edits for PRs the Forge opened earlier."""
+    from .followup import backfill
+
+    r = _root(root)
+    count = backfill(r, load_config(r))
+    if count:
+        console.print(f"[green]Updated[/green] {count} ledger entr{'y' if count == 1 else 'ies'}.")
+    else:
+        console.print("[dim]Nothing to backfill.[/dim]")
 
 
 if __name__ == "__main__":
