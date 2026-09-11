@@ -196,7 +196,7 @@ in backticks:
 
 ```markdown
 - [ ] Add a volume slider to `music/js/player.js`
-- [ ] Fix the broken recipe link in `scraper/README.md`
+- [ ] Fix the broken recipe link in `scraper/recipes/README.md`
 ```
 
 Rules worth knowing before you write one:
@@ -208,7 +208,10 @@ Rules worth knowing before you write one:
   be touched at all. An item pointing at `engine/` will be skipped every night.
 - **One job a night, as a draft pull request.** Nothing is merged for you.
 - **Examples in fenced blocks are ignored**, which is why the two lines above
-  are illustrations rather than tonight's work.
+  are illustrations rather than tonight's work. They also name files that do
+  not exist, so they stay inert even if that rule ever breaks.
+- **This file and `FORGE.md` are off limits to it.** The Forge cannot edit the
+  file that decides what it works on.
 
 Nothing is listed below on purpose — an empty intake means a quiet night, and
 a quiet night is a correct one.

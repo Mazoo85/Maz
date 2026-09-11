@@ -1,6 +1,6 @@
 """Parsing docs/ROADMAP.md into candidates."""
 
-from forge.signals.roadmap import collect, parse
+from forge.signals.roadmap import MAX_PATH_CHARS, collect, parse
 
 SAMPLE = """# Maz Engine — Roadmap
 
@@ -212,3 +212,149 @@ def test_an_unclosed_fence_swallows_the_rest_rather_than_guessing():
     # that actually costs something.
     text = "## Phase 3\n- [ ] real\n```\n- [ ] example\n"
     assert [c.task for c in parse(text)] == ["real"]
+
+
+# ---------------------------------------------------------------------------
+# Fences, the hostile cases. A parity toggle is not a fence matcher: anything
+# this parser calls a fence but CommonMark does not (or the reverse) flips the
+# state for the rest of the document, and the roadmap's own illustration
+# becomes tonight's work.
+# ---------------------------------------------------------------------------
+
+
+def test_an_inline_code_span_at_line_start_is_not_a_fence():
+    # A backtick fence's info string may not contain a backtick, so CommonMark
+    # reads this as a paragraph. Reading it as an opening fence swallows every
+    # real item after it — or, one stray line earlier, un-swallows an example.
+    text = "## Phase 3\n```forge sense``` refreshes the pulse.\n- [ ] real work\n"
+    assert [c.task for c in parse(text)] == ["real work"]
+
+
+def test_a_longer_fence_may_contain_a_shorter_one():
+    # The construct required to document the "fences are ignored" rule at all.
+    text = (
+        "## Phase 3\n"
+        "````markdown\n"
+        "```markdown\n"
+        "- [ ] example\n"
+        "```\n"
+        "````\n"
+        "- [ ] real work\n"
+    )
+    assert [c.task for c in parse(text)] == ["real work"]
+
+
+def test_a_tilde_fence_is_not_closed_by_a_backtick_fence():
+    text = "## Phase 3\n~~~\n- [ ] example\n```\n- [ ] still example\n~~~\n- [ ] real work\n"
+    assert [c.task for c in parse(text)] == ["real work"]
+
+
+def test_a_backtick_fence_is_not_closed_by_a_tilde_fence():
+    text = "## Phase 3\n```\n- [ ] example\n~~~\n- [ ] still example\n```\n- [ ] real work\n"
+    assert [c.task for c in parse(text)] == ["real work"]
+
+
+def test_a_closing_fence_may_not_carry_an_info_string():
+    # ```markdown inside a block is content, not the close.
+    text = "## Phase 3\n```\n- [ ] example\n```markdown\n- [ ] still example\n```\n- [ ] real\n"
+    assert [c.task for c in parse(text)] == ["real"]
+
+
+def test_a_shorter_run_does_not_close_a_longer_fence():
+    text = "## Phase 3\n````\n- [ ] example\n```\n- [ ] still example\n````\n- [ ] real\n"
+    assert [c.task for c in parse(text)] == ["real"]
+
+
+def test_tilde_fences_are_honoured_like_backtick_fences():
+    # The `~~~` alternation must be load-bearing, not decoration.
+    assert [c.task for c in parse("## Phase 3\n~~~\n- [ ] example\n~~~\n- [ ] real\n")] == [
+        "real"
+    ]
+
+
+def test_the_roadmaps_own_illustration_survives_a_stray_fence_like_line():
+    # The regression this whole section exists for, in miniature: an ordinary
+    # prose line must not be able to reach inside a fenced example.
+    text = (
+        "## Phase 3\n"
+        "```forge sense``` refreshes the pulse nightly.\n"
+        "```markdown\n"
+        "- [ ] Fix the broken recipe link in `scraper/README.md`\n"
+        "```\n"
+    )
+    assert parse(text, exists=lambda p: True) == []
+
+
+# ---------------------------------------------------------------------------
+# Shape guards named in looks_like_path's contract, each pinned by a test.
+# ---------------------------------------------------------------------------
+
+
+def test_a_backslash_path_is_refused_even_if_it_resolves():
+    text = "## Phase 3\n- [ ] Tidy `docs\\\\notes.md`\n"
+    assert parse(text, exists=lambda p: True)[0].paths == ()
+
+
+def test_a_token_containing_whitespace_is_refused():
+    text = "## Phase 3\n- [ ] Tidy `docs/my notes.md`\n"
+    assert parse(text, exists=lambda p: True)[0].paths == ()
+
+
+def test_an_absurdly_long_token_is_refused():
+    long = "docs/" + ("a" * MAX_PATH_CHARS) + ".md"
+    text = f"## Phase 3\n- [ ] Tidy `{long}`\n"
+    assert parse(text, exists=lambda p: True)[0].paths == ()
+
+
+def test_a_symlink_pointing_out_of_the_tree_is_not_claimable(tmp_path):
+    # A safe-zone name can be a symlink to anywhere. zones.py refuses to
+    # resolve paths on purpose, so if extraction judges the written name
+    # rather than the resolved target, Crew edits the target through the link
+    # and the leash only notices afterwards.
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.py").write_text("x = 1\n", encoding="utf-8")
+    tree = tmp_path / "tree"
+    (tree / "docs").mkdir(parents=True)
+    (tree / "music").mkdir()
+    try:
+        (tree / "music" / "player.js").symlink_to(outside / "secret.py")
+    except (OSError, NotImplementedError):  # pragma: no cover - platform dependent
+        import pytest
+
+        pytest.skip("symlinks unavailable on this platform")
+    (tree / "docs" / "ROADMAP.md").write_text(
+        "## Phase 3\n- [ ] Tidy `music/player.js`\n", encoding="utf-8"
+    )
+    assert collect(tree)[0].paths == ()
+
+
+def test_a_symlink_staying_inside_the_tree_is_still_claimable(tmp_path):
+    # The containment check must not turn into "no symlinks at all" — a link
+    # to a real file in the repo names a real file in the repo.
+    tree = tmp_path / "tree"
+    (tree / "docs").mkdir(parents=True)
+    (tree / "music").mkdir()
+    (tree / "music" / "real.js").write_text("// real\n", encoding="utf-8")
+    try:
+        (tree / "music" / "player.js").symlink_to(tree / "music" / "real.js")
+    except (OSError, NotImplementedError):  # pragma: no cover - platform dependent
+        import pytest
+
+        pytest.skip("symlinks unavailable on this platform")
+    (tree / "docs" / "ROADMAP.md").write_text(
+        "## Phase 3\n- [ ] Tidy `music/player.js`\n", encoding="utf-8"
+    )
+    assert collect(tree)[0].paths == ("music/player.js",)
+
+
+def test_a_predicate_that_explodes_does_not_break_the_night():
+    # parse() promises it never raises. A predicate is caller-supplied code;
+    # catching only OSError would let anything else escape and cost SENSE
+    # every roadmap candidate, not just the one bad token.
+    def boom(_path):
+        raise RuntimeError("predicate exploded")
+
+    cands = parse("## Phase 3\n- [ ] Tidy `docs/x.md`\n", exists=boom)
+    assert [c.task for c in cands] == ["Tidy docs/x.md"]
+    assert cands[0].paths == ()

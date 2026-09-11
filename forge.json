@@ -8,12 +8,13 @@
     "music/",
     "shooter/",
     "scraper/",
-    "crew/tests/",
-    "tests/"
+    "crew/tests/"
   ],
   "no_touch": [
     "forge/",
-    ".github/workflows/"
+    ".github/workflows/",
+    "docs/ROADMAP.md",
+    "docs/FORGE.md"
   ],
   "score_floor": 4.0,
   "weights": {

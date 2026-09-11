@@ -60,24 +60,37 @@ draft pull request you can merge or close.
 Four things make this safe to do casually:
 
 - **The file has to exist**, spelled the way the repo spells it. A name the
-  Forge cannot find is read as ordinary prose and the item is skipped, so a
-  typo costs you a quiet night, never a wrong edit.
+  Forge cannot find is read as ordinary prose and the item is skipped. Spell
+  it right: a typo that lands on nothing costs you a quiet night, but a typo
+  that lands on a *different* real file in a safe zone is work the Forge will
+  happily do. (Matching is case-sensitive on Linux, where it runs; a macOS or
+  Windows checkout is laxer, the same caveat `zones.py` documents.)
+- **A symlink is judged by where it points**, not by the name you wrote, so a
+  safe-zone name cannot smuggle in a file from outside the repo.
 - **Naming a file is not permission to change it.** `safe_zones` still
   decides, and `forge/` and `.github/workflows/` are refused outright. An
   item pointing at `engine/` is skipped every night, however you word it.
 - **Examples inside a fenced code block are ignored**, so the roadmap can
-  document its own conventions without commissioning them.
+  document its own conventions without commissioning them. Fence handling
+  follows CommonMark rather than counting ``` lines, so a nested block or a
+  line-opening inline span cannot reach inside an example — and the examples
+  name files that do not exist, so they are inert regardless.
+- **`docs/ROADMAP.md` and this file are in `no_touch`.** The intake and the
+  manual are the two files the Forge must not be able to rewrite.
 - **Everything still lands as a draft PR.** One job a night, nothing merged
   for you.
 
-Verified end to end: a Phase 14 item naming `music/js/theory.js` is picked,
-placed in zone `music/`, and scored 10.5 against a floor of 4.0. Removing the
-line puts the night straight back to `considered: 97 / outside_zone: 97`.
+Verified through SENSE and DECIDE against this repo: a Phase 14 item naming
+`music/js/theory.js` is picked, placed in zone `music/`, and scored 10.5
+against a floor of 4.0. Removing the line puts the night straight back to
+`considered: 97 / outside_zone: 97`. The Crew hand-off and the draft PR that
+follow are covered by the test suite, not by that live run.
 
 The older, blunter lever still exists — widening `safe_zones` in `forge.json`
 so whole directories become reachable (see *Rollout* below). Prefer naming
-files in the roadmap: it is reversible by deleting one line, and it leaves
-the leash exactly as tight as it was.
+files in the roadmap: it is reversible by deleting one line, and it does not
+widen what the Forge may touch — only what it may be pointed at inside the
+zones it already had.
 
 ## The cycle
 

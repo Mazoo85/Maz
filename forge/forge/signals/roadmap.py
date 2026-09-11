@@ -25,7 +25,41 @@ ROADMAP_PATH = "docs/ROADMAP.md"
 
 _PHASE_RE = re.compile(r"^##\s+Phase\s+(\d+)\b")
 _ITEM_RE = re.compile(r"^-\s+\[([ x~])\]\s+(.+?)\s*$")
-_FENCE_RE = re.compile(r"^\s*(```|~~~)")
+# CommonMark fenced code blocks, close enough for a backlog file. A naive
+# "does the line start with ``` — toggle a boolean" is NOT enough, and the
+# difference is a safety bug rather than a formatting nit: any line this
+# parser calls a fence but CommonMark does not (or the reverse) inverts the
+# state for the rest of the document, and an illustration inside a fenced
+# block becomes a real candidate handed to Crew. Three rules do the work:
+#
+#   * an opener is 3+ of the same character (` or ~), indented at most 3
+#     spaces — 4 spaces is an indented code block, not a fence;
+#   * a backtick opener's info string may not contain a backtick, so a
+#     line-initial inline span (```forge sense``` prose) is a paragraph;
+#   * a closer must use the opener's character, run at least as long, and
+#     carry no info string — which is what lets a ````-block quote a
+#     ```-block, the construct documenting this very rule requires.
+_FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+
+
+def _fence_opens(line: str) -> tuple[str, int] | None:
+    """The (character, length) of the fence this line opens, or None."""
+    m = _FENCE_RE.match(line)
+    if not m:
+        return None
+    run, info = m.group(1), m.group(2)
+    if run[0] == "`" and "`" in info:
+        return None
+    return run[0], len(run)
+
+
+def _fence_closes(line: str, char: str, length: int) -> bool:
+    """True if `line` closes a fence opened with `length` of `char`."""
+    m = _FENCE_RE.match(line)
+    if not m:
+        return False
+    run, info = m.group(1), m.group(2)
+    return run[0] == char and len(run) >= length and not info.strip()
 
 
 # Spans between backticks, read off the raw item text before `_clean` removes
@@ -50,14 +84,15 @@ def looks_like_path(token: str) -> bool:
     """
     if not token or len(token) > MAX_PATH_CHARS:
         return False
-    if token != token.strip() or any(ch.isspace() for ch in token):
+    if any(ch.isspace() for ch in token):
         return False
-    if token.startswith("/") or "\\" in token:
+    if "\\" in token:
         return False
-    segments = token.split("/")
-    if any(seg in ("", ".", "..") for seg in segments):
-        return False
-    return True
+    # Every segment, not just the container: "", ".", ".." each rule out the
+    # token. The empty-segment rule is what refuses absolute paths too —
+    # "/etc/passwd".split("/") leads with "" — so there is deliberately no
+    # separate startswith("/") clause to drift out of step with this one.
+    return not any(seg in ("", ".", "..") for seg in token.split("/"))
 
 
 def paths_in(item_text: str, exists) -> tuple[str, ...]:
@@ -76,7 +111,7 @@ def paths_in(item_text: str, exists) -> tuple[str, ...]:
         try:
             if exists(token):
                 out.append(token)
-        except OSError:
+        except Exception:  # noqa: BLE001 — parse() promises it never raises
             continue
     return tuple(out)
 
@@ -97,7 +132,7 @@ def parse(text: str, exists=None) -> list[Candidate]:
     conservative result as an item that names nothing.
     """
     phase: str | None = None
-    in_fence = False
+    fence: tuple[str, int] | None = None
     # phase -> list of (state, task, paths)
     per_phase: dict[str, list[tuple[str, str, tuple[str, ...]]]] = {}
     order: list[str] = []
@@ -109,10 +144,13 @@ def parse(text: str, exists=None) -> list[Candidate]:
         # scanner on docs/superpowers fixtures. An unclosed fence deliberately
         # swallows the remainder: losing candidates is recoverable, inventing
         # them is not.
-        if _FENCE_RE.match(line):
-            in_fence = not in_fence
+        if fence is not None:
+            if _fence_closes(line, *fence):
+                fence = None
             continue
-        if in_fence:
+        opened = _fence_opens(line)
+        if opened is not None:
+            fence = opened
             continue
         m = _PHASE_RE.match(line)
         if m:
@@ -163,14 +201,24 @@ def collect(root: Path) -> list[Candidate]:
     the "never raises" contract every collector in this package promises.
     """
     p = root / ROADMAP_PATH
+    try:
+        root_real = root.resolve()
+    except OSError:
+        return []
 
     def exists(rel: str) -> bool:
+        # `is_file()` and not `exists()`: a directory is not an edit target,
+        # and handing one to the leash would misdescribe what the work touches.
+        #
         # `looks_like_path` has already refused traversal and absolute forms,
-        # so this join stays inside `root`. `is_file()` and not `exists()`:
-        # a directory is not an edit target, and handing one to the leash
-        # would misdescribe what the work touches.
+        # so the join is lexically inside `root` — but lexically is not the
+        # same as actually, because a symlink inside a safe zone can point
+        # anywhere. `zones.py` deliberately refuses to resolve paths, so
+        # extraction is the only layer that can catch it, and the check has
+        # to be on the resolved target rather than the written name.
         try:
-            return (root / rel).is_file()
+            target = (root / rel).resolve()
+            return target.is_file() and target.is_relative_to(root_real)
         except OSError:
             return False
 
