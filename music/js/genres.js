@@ -463,7 +463,7 @@
         full:   { kick: 'x..x....x.x...x.', snare: '....x.......x..o', hh: 'xoxoxoxoxoxoxoxo', perc: '....o.......o...' },
         fill:   { kick: 'x.......x.......', snare: '........x.x.xxxx', hh: 'x.x.x.x.........' }
       },
-      fx: { reverb: 0.35, delay: 0.22, delayTime: 0.5, vinyl: 0.5, master: 1.15, sidechain: 0.14, brightness: 0.75 }
+      fx: { reverb: 0.35, delay: 0.22, delayTime: 0.5, vinyl: 0.5, glue: 0.25, master: 1.15, sidechain: 0.14, brightness: 0.75 }
     },
 
     synthwave: {
@@ -490,7 +490,7 @@
         full:   { kick: 'x...x...x...x..x', clap: '....x.......x...', hh: 'xoxoxoxoxoxoxoxo', oh: '......x.......x.', crash: 'x...............' },
         fill:   { kick: 'x...x...........', snare: '........x.x.xxxx', crash: '................' }
       },
-      fx: { reverb: 0.42, delay: 0.3, delayTime: 0.375, vinyl: 0, master: 0.94, sidechain: 0.42, brightness: 1.05 }
+      fx: { reverb: 0.42, delay: 0.3, delayTime: 0.375, vinyl: 0, glue: 0.25, master: 0.94, sidechain: 0.42, brightness: 1.05 }
     },
 
     house: {
@@ -517,7 +517,7 @@
         full:   { kick: 'x...x...x...x...', clap: '....x.......x...', hh: 'xoxoxoxoxoxoxoxo', oh: '..x...x...x...x.', perc: '...x......x.....' },
         fill:   { kick: 'x...x...x.......', snare: '........x.x.xxxx', oh: '..............x.' }
       },
-      fx: { reverb: 0.4, delay: 0.24, delayTime: 0.375, vinyl: 0, master: 1.02, sidechain: 0.58, brightness: 1.0 }
+      fx: { reverb: 0.4, delay: 0.24, delayTime: 0.375, vinyl: 0, glue: 0.3, master: 1.02, sidechain: 0.58, brightness: 1.0 }
     },
 
     ambient: {
@@ -544,7 +544,7 @@
         full:   { kick: 'x.......x.......', perc: '....o.......o...', shaker: 'o.o.o.o.o.o.o.o.' },
         fill:   { perc: '............o.o.' }
       },
-      fx: { reverb: 0.8, delay: 0.35, delayTime: 0.75, vinyl: 0.15, master: 1.31, sidechain: 0, brightness: 0.9 }
+      fx: { reverb: 0.8, delay: 0.35, delayTime: 0.75, vinyl: 0.15, glue: 0.05, master: 1.31, sidechain: 0, brightness: 0.9 }
     },
 
     cinematic: {
@@ -571,7 +571,7 @@
         full:   { kick: 'x.x.x.x.x.x.x.x.', snare: '........x.......', tom: 'o...o...o...o...', crash: 'x...............' },
         fill:   { tom: 'x.x.x.xxx.x.xxxx', crash: '................' }
       },
-      fx: { reverb: 0.65, delay: 0.18, delayTime: 0.5, vinyl: 0, master: 1.10, sidechain: 0.12, brightness: 0.95 }
+      fx: { reverb: 0.65, delay: 0.18, delayTime: 0.5, vinyl: 0, glue: 0.15, master: 1.10, sidechain: 0.12, brightness: 0.95 }
     },
 
     chiptune: {
@@ -598,7 +598,7 @@
         full:   { kick: 'x..xx...x..xx...', snare: '....x.......x...', hh: 'xoxoxoxoxoxoxoxo' },
         fill:   { kick: 'x.......x.......', snare: '....x...x.x.xxxx', hh: '................' }
       },
-      fx: { reverb: 0.16, delay: 0.26, delayTime: 0.1875, vinyl: 0, master: 1.38, sidechain: 0, brightness: 1.15 }
+      fx: { reverb: 0.16, delay: 0.26, delayTime: 0.1875, vinyl: 0, glue: 0.1, master: 1.38, sidechain: 0, brightness: 1.15 }
     },
 
     dnb: {
@@ -625,7 +625,7 @@
         full:   { kick: 'x.....x..x.x....', snare: '....x..o....x..o', hh: 'xoxoxoxoxoxoxoxo', oh: '..........x.....' },
         fill:   { kick: 'x.......x.......', snare: '....x...x.x.xxxx', hh: '................' }
       },
-      fx: { reverb: 0.45, delay: 0.28, delayTime: 0.375, vinyl: 0, master: 1.19, sidechain: 0.34, brightness: 1.05 }
+      fx: { reverb: 0.45, delay: 0.28, delayTime: 0.375, vinyl: 0, glue: 0.35, master: 1.19, sidechain: 0.34, brightness: 1.05 }
     },
 
     trap: {
@@ -653,7 +653,7 @@
         full:   { kick: 'x..x..x...x..x..', snare: '........x.......', hh: 'xoxoxoxoxoxoxoxo', oh: '..............x.' },
         fill:   { kick: 'x.......x.......', snare: '........x...xxxx', hh: 'x.x.x.x.........' }
       },
-      fx: { reverb: 0.35, delay: 0.2, delayTime: 0.375, vinyl: 0, master: 1.17, sidechain: 0.46, brightness: 0.95 }
+      fx: { reverb: 0.35, delay: 0.2, delayTime: 0.375, vinyl: 0, glue: 0.3, master: 1.17, sidechain: 0.46, brightness: 0.95 }
     },
 
     rock: {
@@ -680,7 +680,7 @@
         full:   { kick: 'x..x..x.x...x...', snare: '....x.......x...', hh: 'xxxxxxxxxxxxxxxx', crash: 'x.......x.......', ride: '..x...x...x...x.' },
         fill:   { kick: 'x.......x.......', snare: '........xxx.xxxx', tom: '............x.x.', crash: '...............x' }
       },
-      fx: { reverb: 0.3, delay: 0.14, delayTime: 0.375, vinyl: 0, master: 0.92, sidechain: 0.08, brightness: 1.1 }
+      fx: { reverb: 0.3, delay: 0.14, delayTime: 0.375, vinyl: 0, glue: 0.4, master: 0.92, sidechain: 0.08, brightness: 1.1 }
     },
 
     funk: {
@@ -707,7 +707,7 @@
         full:   { kick: 'x..x..x...x..x..', snare: '....x..o....x..o', hh: 'xoxoxoxoxoxoxoxo', tamb: '..x...x...x...x.', conga: '......o...o...o.' },
         fill:   { kick: 'x.......x.......', snare: '......x.x.xxx.xx', tom: '..........x.x...' }
       },
-      fx: { reverb: 0.22, delay: 0.18, delayTime: 0.375, vinyl: 0.08, master: 1.0, sidechain: 0.1, brightness: 1.05 }
+      fx: { reverb: 0.22, delay: 0.18, delayTime: 0.375, vinyl: 0.08, glue: 0.45, master: 1.0, sidechain: 0.1, brightness: 1.05 }
     },
 
     jazz: {
@@ -734,7 +734,7 @@
         full:   { kick: 'x.....x.......x.', snare: '....o.o...o.o..o', ride: 'x.xxx.xx.xxx.xxx', hh: '....x.......x...', rim: '..........x.....' },
         fill:   { snare: '..o.x.oxx.xoxxxx', tom: '..........x.x...', crash: '...............x' }
       },
-      fx: { reverb: 0.42, delay: 0.12, delayTime: 0.5, vinyl: 0.12, master: 1.2, sidechain: 0, brightness: 0.9 }
+      fx: { reverb: 0.42, delay: 0.12, delayTime: 0.5, vinyl: 0.12, glue: 0.15, master: 1.2, sidechain: 0, brightness: 0.9 }
     },
 
     disco: {
@@ -761,7 +761,7 @@
         full:   { kick: 'x...x...x...x...', snare: '....x.......x...', hh: 'xxxxxxxxxxxxxxxx', oh: '..x...x...x...x.', tamb: '....x.......x...', conga: '..o...o...o...o.' },
         fill:   { kick: 'x...x...........', snare: '........x.x.xxxx', tom: '............x.x.' }
       },
-      fx: { reverb: 0.36, delay: 0.2, delayTime: 0.375, vinyl: 0.06, master: 0.98, sidechain: 0.3, brightness: 1.05 }
+      fx: { reverb: 0.36, delay: 0.2, delayTime: 0.375, vinyl: 0.06, glue: 0.4, master: 0.98, sidechain: 0.3, brightness: 1.05 }
     },
 
     techno: {
@@ -788,7 +788,7 @@
         full:   { kick: 'x...x...x...x...', clap: '....x.......x...', hh: 'xxxxxxxxxxxxxxxx', oh: '..x...x...x...x.', ride: '....x.......x...', cowbell: '..........x.....' },
         fill:   { kick: 'x...x...x.x.x.x.', clap: '........x.x.xxxx', crash: '...............x' }
       },
-      fx: { reverb: 0.3, delay: 0.26, delayTime: 0.375, vinyl: 0, master: 0.96, sidechain: 0.62, brightness: 1.0 }
+      fx: { reverb: 0.3, delay: 0.26, delayTime: 0.375, vinyl: 0, glue: 0.3, master: 0.96, sidechain: 0.62, brightness: 1.0 }
     },
 
     drill: {
@@ -815,7 +815,7 @@
         full:   { kick: 'x.....x...x...x.', snare: '........x.......', hh: 'xxxxx.xxxxxxx.xx', oh: '..........x.....', perc: '............o...' },
         fill:   { kick: 'x.......x.......', snare: '........xxxxxxxx', riser: 'x...............' }
       },
-      fx: { reverb: 0.4, delay: 0.24, delayTime: 0.375, vinyl: 0, master: 1.12, sidechain: 0.4, brightness: 0.92 }
+      fx: { reverb: 0.4, delay: 0.24, delayTime: 0.375, vinyl: 0, glue: 0.3, master: 1.12, sidechain: 0.4, brightness: 0.92 }
     },
 
     afrobeat: {
@@ -842,7 +842,7 @@
         full:   { kick: 'x..x..x...x..x..', rim: '....x.......x...', shaker: 'xoxoxoxoxoxoxoxo', conga: 'o.oo.o.oo.o.oo.o', cowbell: 'x...x...x...x...', tamb: '..x...x...x...x.' },
         fill:   { conga: 'oo.oo.oooo.ooooo', kick: 'x.......x.......', crash: '...............x' }
       },
-      fx: { reverb: 0.28, delay: 0.16, delayTime: 0.375, vinyl: 0.05, master: 1.05, sidechain: 0.08, brightness: 1.05 }
+      fx: { reverb: 0.28, delay: 0.16, delayTime: 0.375, vinyl: 0.05, glue: 0.35, master: 1.05, sidechain: 0.08, brightness: 1.05 }
     },
 
     bossa: {
@@ -869,7 +869,7 @@
         full:   { kick: 'x.....x.x.....x.', rim: '..x..x..x..x..x.', shaker: 'xoxoxoxoxoxoxoxo', conga: '....o.......o...', tamb: '........x.......' },
         fill:   { rim: '..x.x.x.xx.xxx.x', conga: '..........o.o...' }
       },
-      fx: { reverb: 0.4, delay: 0.14, delayTime: 0.5, vinyl: 0.1, master: 1.22, sidechain: 0, brightness: 0.95 }
+      fx: { reverb: 0.4, delay: 0.14, delayTime: 0.5, vinyl: 0.1, glue: 0.15, master: 1.22, sidechain: 0, brightness: 0.95 }
     },
 
     gospel: {
@@ -896,7 +896,7 @@
         full:   { kick: 'x..x..x.x...x...', snare: '....x..o....x..o', hh: 'xoxoxoxoxoxoxoxo', tamb: '..x.x.....x.x...', ride: '....x.......x...' },
         fill:   { kick: 'x.......x.......', snare: '......x.x.xxxxxx', tom: '..........x.x...', crash: '...............x' }
       },
-      fx: { reverb: 0.5, delay: 0.16, delayTime: 0.5, vinyl: 0.08, master: 1.08, sidechain: 0.1, brightness: 0.95 }
+      fx: { reverb: 0.5, delay: 0.16, delayTime: 0.5, vinyl: 0.08, glue: 0.35, master: 1.08, sidechain: 0.1, brightness: 0.95 }
     },
 
     country: {
@@ -923,7 +923,7 @@
         full:   { kick: 'x.....x.x.......', snare: '....x.......x...', hh: 'x.x.x.x.x.x.x.x.', tamb: '..x...x...x...x.', ride: '....x.......x...' },
         fill:   { kick: 'x.......x.......', snare: '........x.x.xxxx', tom: '............x.x.' }
       },
-      fx: { reverb: 0.34, delay: 0.14, delayTime: 0.5, vinyl: 0.1, master: 1.1, sidechain: 0.06, brightness: 1.0 }
+      fx: { reverb: 0.34, delay: 0.14, delayTime: 0.5, vinyl: 0.1, glue: 0.3, master: 1.1, sidechain: 0.06, brightness: 1.0 }
     }
   };
 

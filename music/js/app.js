@@ -287,6 +287,7 @@
     el('timeTotal').textContent = fmtTime(s.duration);
     el('seedInput').value = s.seed;
     el('grooveSelect').value = s.groove || '';
+    el('glueAmt').value = String(Math.round((s.glue || 0) * 100));
     state.seedEdited = false;
     buildChordStrip();
     buildArrange();
@@ -643,13 +644,16 @@
       { id: 'delSend', field: 'del', label: 'Delay', unit: '%', scale: 100, dflt: 1 },
       { id: 'choSend', field: 'cho', label: 'Chorus', unit: '%', scale: 100, dflt: 0 },
       { id: 'crushAmt', field: 'crush', label: 'Crush', unit: '%', scale: 100, dflt: 0 },
+      { id: 'compAmt', field: 'comp', label: 'Squeeze', unit: '%', scale: 100, dflt: 0 },
+      { id: 'punchAmt', field: 'punch', label: 'Punch', unit: '', scale: 100, dflt: 0 },
       { id: 'eqLow', field: 'eqLow', label: 'Bass', unit: ' dB', scale: 1, dflt: 0 },
       { id: 'eqMid', field: 'eqMid', label: 'Mids', unit: ' dB', scale: 1, dflt: 0 },
       { id: 'eqHigh', field: 'eqHigh', label: 'Treble', unit: ' dB', scale: 1, dflt: 0 }
     ];
 
     function fxText(spec, raw) {
-      return (spec.unit === ' dB' && raw > 0 ? '+' : '') + raw + spec.unit;
+      const sign = (spec.unit === ' dB' || spec.unit === '') && raw > 0 ? '+' : '';
+      return sign + raw + spec.unit;
     }
 
     function syncSends() {
@@ -961,6 +965,17 @@
   function bindSongControls() {
     /* The groove is a playback setting, so it changes what you hear without
        rewriting a note — moving it mid-listen is the whole point. */
+    const glue = el('glueAmt');
+    glue.addEventListener('input', function () {
+      if (!state.song) return;
+      state.song.glue = parseInt(this.value, 10) / 100;
+      player.applyMix();
+    });
+    glue.addEventListener('change', function () {
+      status(this.value === '0' ? 'Glue off — the parts stand on their own.'
+        : 'Glue at ' + this.value + '% — the mix breathes as one thing.');
+    });
+
     el('clickBtn').addEventListener('click', function () {
       const on = !player.metronome;
       player.setMetronome(on, true);

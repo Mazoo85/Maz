@@ -132,6 +132,10 @@
       <label class="tool-field" for="grooveSelect"><span>Feel</span>
         <select id="grooveSelect"></select>
       </label>
+      <label class="tool-field" for="glueAmt"><span>Glue</span>
+        <input type="range" id="glueAmt" min="0" max="100" step="5" value="0"
+               aria-label="Glue compression across the whole mix" />
+      </label>
       <label class="tool-field" for="masterVol"><span>Volume</span>
         <input type="range" id="masterVol" min="0" max="120" step="1" value="85" aria-label="Volume" />
       </label>
@@ -241,6 +245,14 @@
         <label class="fx-field" for="crushAmt"><span>Crush</span>
           <input type="range" id="crushAmt" min="0" max="100" step="5" value="0" aria-label="Bit crush for this part" />
           <output class="fx-value" id="crushAmtVal">0%</output>
+        </label>
+        <label class="fx-field" for="compAmt"><span>Squeeze</span>
+          <input type="range" id="compAmt" min="0" max="100" step="5" value="0" aria-label="Compression for this part" />
+          <output class="fx-value" id="compAmtVal">0%</output>
+        </label>
+        <label class="fx-field" for="punchAmt"><span>Punch</span>
+          <input type="range" id="punchAmt" min="-100" max="100" step="10" value="0" aria-label="Attack for this part" />
+          <output class="fx-value" id="punchAmtVal">0</output>
         </label>
         <label class="fx-field" for="eqLow"><span>Bass</span>
           <input type="range" id="eqLow" min="-12" max="12" step="1" value="0" aria-label="Bass for this part" />

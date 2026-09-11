@@ -1676,6 +1676,7 @@
       totalBeats: song.totalBeats,
       pingpong: !!song.pingpong,
       groove: song.groove || '',
+      glue: song.glue || 0,
       humanise: song.humanise === undefined ? 1 : song.humanise,
       keyChange: song.keyChange || null,
       barsPerChord: song.barsPerChord || 0,
@@ -1726,6 +1727,7 @@
     song.duration = p.totalBeats * (60 / p.bpm);
     song.pingpong = !!p.pingpong;
     song.groove = p.groove && GROOVES[p.groove] ? p.groove : '';
+    song.glue = p.glue || 0;
     song.humanise = p.humanise === undefined ? 1 : p.humanise;
     song.keyChange = p.keyChange || null;
     song.barsPerChord = p.barsPerChord || 0;
@@ -2111,6 +2113,7 @@
        sound the way the style intends; automation is something you add. */
     song.automation = { filter: [], volume: [] };
     song.pingpong = !!genre.fx.pingpong;
+    song.glue = genre.fx.glue === undefined ? 0 : genre.fx.glue;
     ['bass', 'chords', 'arp', 'lead', 'pad', 'counter'].forEach(function (part) {
       const cfg = genre[part];
       if (cfg && cfg.alts && cfg.alts.length && rng.chance(0.55)) {

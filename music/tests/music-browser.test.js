@@ -614,6 +614,72 @@ function launchOptions() {
     'crushing adds grit that was not there (brightness ' +
     fx.crushOff.bright.toFixed(4) + ' → ' + fx.crushOn.bright.toFixed(4) + ')');
 
+  console.log('\n— compression —');
+  /* Compression is the one effect that can quietly ruin everything. This chain
+     has already been flattened once by a compressor handing back the gain it
+     took, so every claim here is checked against the crest factor — peak over
+     RMS, the actual measure of how much dynamic range is left. */
+  const comp = await page.evaluate(async function () {
+    function crest(buf) {
+      const ch = buf.getChannelData(0);
+      let peak = 0, sum = 0;
+      const start = Math.floor(buf.sampleRate * 0.2);
+      for (let i = start; i < ch.length; i++) {
+        const a = Math.abs(ch[i]);
+        if (a > peak) peak = a;
+        sum += a * a;
+      }
+      const rms = Math.sqrt(sum / (ch.length - start));
+      return { peak: peak, rms: rms, crest: rms > 0 ? peak / rms : 0 };
+    }
+    function song(setup) {
+      const s = window.Composer.compose({ seed: 'COMP-1', genre: 'rock',
+                                          meter: '4/4', length: 'short' });
+      s.presetOverride = {};
+      Object.keys(s.tracks).forEach(function (k) {
+        s.tracks[k] = s.tracks[k].filter(function (e) { return e.t >= 32 && e.t < 64; })
+          .map(function (e) { const c = {}; for (const f in e) c[f] = e[f]; c.t = e.t - 32; return c; });
+      });
+      s.totalBeats = 32;
+      if (setup) setup(s);
+      return s;
+    }
+    function mixWith(fields) {
+      const m = {};
+      window.Engine.TRACKS.forEach(function (t) {
+        m[t] = { volume: 1, muted: false, solo: false, rev: 1, del: 1, cho: 0,
+                 eqLow: 0, eqMid: 0, eqHigh: 0, crush: 0, comp: 0, punch: 0 };
+        if (fields) for (const k in fields) m[t][k] = fields[k];
+      });
+      return m;
+    }
+    const none = await window.Engine.renderOffline(song(function (s) { s.glue = 0; }), mixWith());
+    const glued = await window.Engine.renderOffline(song(function (s) { s.glue = 1; }), mixWith());
+    const squeezed = await window.Engine.renderOffline(song(function (s) { s.glue = 0; }),
+      mixWith({ comp: 1 }));
+    const punchy = await window.Engine.renderOffline(song(function (s) { s.glue = 0; }),
+      mixWith({ punch: 1 }));
+    return { none: crest(none), glued: crest(glued), squeezed: crest(squeezed), punchy: crest(punchy) };
+  });
+
+  check(comp.none.crest > 3, 'the uncompressed mix has real dynamics (crest ' +
+    comp.none.crest.toFixed(1) + ')');
+  check(comp.squeezed.crest < comp.none.crest * 0.9,
+    'squeezing a part evens it out (crest ' + comp.none.crest.toFixed(1) + ' → ' +
+    comp.squeezed.crest.toFixed(1) + ')');
+  check(comp.squeezed.crest > 1.8,
+    'but does not flatten it into a brick wall (crest ' + comp.squeezed.crest.toFixed(1) + ')');
+  check(comp.glued.crest < comp.none.crest,
+    'glue tightens the whole mix (crest ' + comp.glued.crest.toFixed(1) + ')');
+  check(comp.glued.crest > comp.none.crest * 0.6,
+    'gently — glue is not a mastering limiter (' +
+    (comp.glued.crest / comp.none.crest).toFixed(2) + ' of the original range)');
+  check(comp.glued.peak <= 1.0001 && comp.squeezed.peak <= 1.0001 && comp.punchy.peak <= 1.0001,
+    'and nothing compressed ever leaves full scale');
+  check(comp.punchy.crest >= comp.squeezed.crest,
+    'turning the attack up keeps more transient than squeezing does (' +
+    comp.punchy.crest.toFixed(1) + ' vs ' + comp.squeezed.crest.toFixed(1) + ')');
+
   console.log('\n— exports —');
   const ex = await page.evaluate(async function () {
     const song = window.Composer.compose({ seed: 'EXPORT-1', genre: 'house', length: 'short' });

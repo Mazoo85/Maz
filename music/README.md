@@ -80,9 +80,10 @@ python3 -m http.server         # or serve the folder: http://localhost:8000/musi
   stereo field, and shuts up when the lead comes back in.
 - **Mixer** — mute, solo or rebalance drums, bass, chords, arp, lead, answer
   and pad.
-- **An effects rack on every part** — reverb, delay, **chorus**, **bit crush**
-  and a three-band **EQ** (bass, mids, treble), set separately for each of the
-  six parts. Push the pad far back and keep the lead dry and up front; thicken
+- **An effects rack on every part** — reverb, delay, **chorus**, **bit crush**,
+  a **compressor**, a **transient shaper** and a three-band **EQ** (bass, mids,
+  treble), set separately for each part — plus **glue** across the whole mix,
+  which is what makes several parts sound like one performance. Push the pad far back and keep the lead dry and up front; thicken
   the chords with chorus; wreck the drums with crush; carve the bass out of the
   way of the kick. One button puts a part back to plain.
 - **Automation — the one thing that moves.** Every other setting holds for the

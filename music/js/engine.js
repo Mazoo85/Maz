@@ -84,6 +84,31 @@
     return m.cho || 0;
   }
 
+  /**
+   * How hard a part is squeezed, from one control.
+   *
+   * "Threshold, ratio, attack, release, knee, makeup" is six controls and one
+   * decision — how much do you want this evened out — so they move together
+   * along the line through that space a person actually wants to travel.
+   *
+   * Makeup is applied as a separate gain rather than left to the node, because
+   * Chromium's DynamicsCompressorNode already adds its own: compounding the two
+   * is exactly how the master bus once ended up flat.
+   */
+  function shapeCompressor(bus, amt, punch) {
+    if (!bus || !bus.comp) return;
+    const c = bus.comp;
+    c.threshold.value = -6 - amt * 24 - Math.abs(punch) * 6;
+    c.ratio.value = 1 + amt * 9 + Math.abs(punch) * 3;
+    c.knee.value = 12 - amt * 6;
+    /* Attack is what a transient shaper actually moves: let the front of a note
+       through and it stays punchy, clamp it early and the attack is gone. */
+    const base = 0.012 - amt * 0.008;
+    c.attack.value = Math.max(0.0005, punch > 0 ? base * 3.5 : punch < 0 ? base * 0.15 : base);
+    c.release.value = 0.12 + amt * 0.18;
+    if (bus.compMakeup) bus.compMakeup.gain.value = 1 + amt * 0.45;
+  }
+
   function mixField(mix, name, field, dflt) {
     const m = (mix && mix[name]) || {};
     return m[field] === undefined ? dflt : m[field];
@@ -214,7 +239,23 @@
     click.gain.value = 0.5;
     click.connect(out);
 
-    master.connect(autoFilter).connect(limiter).connect(safety).connect(autoGain).connect(out);
+    /* Glue: one gentle compressor across the whole mix, which is what makes six
+       separate parts sound like one performance rather than six things playing
+       at once. Deliberately shallow — 2:1 at a high threshold, catching only
+       the peaks — because anything heavier here is the flattening this chain
+       was carefully built to avoid. */
+    const glueAmt = song.glue === undefined ? 0 : Math.max(0, Math.min(1, song.glue));
+    const glue = ctx.createDynamicsCompressor();
+    glue.threshold.value = -10 - glueAmt * 8;
+    glue.ratio.value = 1 + glueAmt * 1.6;
+    glue.knee.value = 10;
+    glue.attack.value = 0.02;
+    glue.release.value = 0.25;
+    const glueTrim = ctx.createGain();
+    glueTrim.gain.value = 1 / (1 + glueAmt * 0.25);
+
+    master.connect(glue).connect(glueTrim).connect(autoFilter)
+      .connect(limiter).connect(safety).connect(autoGain).connect(out);
     out.connect(ctx.destination);
 
     let analyser = null;
@@ -355,7 +396,16 @@
       eqHigh.gain.value = mixField(mix, name, 'eqHigh', 0);
       tail.connect(eqLow).connect(eqMid).connect(eqHigh);
       tail = eqHigh;
-      eqHigh.connect(cho);
+
+      // A compressor and a transient shaper on every part; see shapeCompressor.
+      const comp = ctx.createDynamicsCompressor();
+      const compMakeup = ctx.createGain();
+      tail.connect(comp).connect(compMakeup);
+      tail = compMakeup;
+      shapeCompressor({ comp: comp, compMakeup: compMakeup },
+        mixField(mix, name, 'comp', 0), mixField(mix, name, 'punch', 0));
+
+      tail.connect(cho);
 
       let duck = null;
       if (duckDepth > 0 && DUCK_TARGETS.indexOf(name) >= 0) {
@@ -373,7 +423,8 @@
       cho.connect(choPre);
       const t = {
         dry: dry, rev: rev, del: del, cho: cho, duck: duck,
-        crush: crush, eqLow: eqLow, eqMid: eqMid, eqHigh: eqHigh
+        crush: crush, eqLow: eqLow, eqMid: eqMid, eqHigh: eqHigh,
+        comp: comp, compMakeup: compMakeup
       };
       tracks[name] = t;
       dry.gain.value = gainFor(mix, name);
@@ -400,6 +451,7 @@
       master: master, limiter: limiter, analyser: analyser, tracks: tracks,
       revReturn: revReturn, delReturn: delReturn, vinyl: vinyl, out: out,
       autoFilter: autoFilter, autoGain: autoGain, click: click,
+      glue: glue, glueTrim: glueTrim,
       delMonoIn: delMonoIn, delPingIn: delPingIn, choReturn: choReturn, choLfos: choLfos,
       duckDepth: duckDepth, duckRelease: Math.min(0.42, (60 / song.bpm) * 0.62)
     };
@@ -506,7 +558,7 @@
       this.mix[t] = {
         volume: 1, muted: false, solo: false,
         rev: 1, del: 1, cho: 0,
-        eqLow: 0, eqMid: 0, eqHigh: 0, crush: 0
+        eqLow: 0, eqMid: 0, eqHigh: 0, crush: 0, comp: 0, punch: 0
       };
     }, this);
     this.volume = 0.85;
@@ -742,9 +794,10 @@
     if (opts.rev !== undefined) m.rev = opts.rev;
     if (opts.del !== undefined) m.del = opts.del;
     if (opts.cho !== undefined) m.cho = opts.cho;
-    ['eqLow', 'eqMid', 'eqHigh', 'crush'].forEach(function (k) {
+    ['eqLow', 'eqMid', 'eqHigh', 'crush', 'comp', 'punch'].forEach(function (k) {
       if (opts[k] !== undefined) m[k] = opts[k];
     });
+
     this.applyMix();
   };
 
@@ -791,7 +844,14 @@
       bus.eqHigh.gain.setTargetAtTime(mixField(mix, name, 'eqHigh', 0), t, 0.02);
       // A curve cannot be ramped; swapping it is a single assignment.
       bus.crush.curve = Synth.crushCurve(self.ctx, mixField(mix, name, 'crush', 0));
+      shapeCompressor(bus, mixField(mix, name, 'comp', 0), mixField(mix, name, 'punch', 0));
     });
+    if (graph.glue) {
+      const g = self.song && self.song.glue !== undefined ? self.song.glue : 0;
+      graph.glue.threshold.value = -10 - g * 8;
+      graph.glue.ratio.value = 1 + g * 1.6;
+      graph.glueTrim.gain.value = 1 / (1 + g * 0.25);
+    }
   };
 
   /** Click along with the music, and optionally count a bar in before it. */
