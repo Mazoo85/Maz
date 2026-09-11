@@ -315,6 +315,81 @@ test('a non-string "page" on a consumes entry fails rather than crashing path.jo
     'failed for the wrong reason.\n  wanted: has a "page" that is not a string\n  got:\n' + output);
 });
 
+test('a plain <a href> and <img src> to another project are not coupling, even nested', () => {
+  // A bare directory href like "../music/" can never be declared away — it
+  // can't appear in a publisher's `files` list in any spelling that also
+  // satisfies the load-order rule. If the tag filter regressed to matching
+  // bare src|href on ANY tag (not just <script src> / <link href>), this
+  // would false-fail: it deliberately puts the reference several directories
+  // deep, past "../", so a filter that only special-cased same-project refs
+  // (rather than tag name) could not accidentally pass this by luck.
+  const files = goodFiles();
+  files['film/index.html'] = GOOD_PAGE.replace(
+    '</body>',
+    '<a href="../music/">Make a song in SONG FORGE</a>\n' +
+    '<img src="../music/poster.png" alt="poster">\n</body>');
+  const { code, output } = check(repo(files, goodExchange()));
+  assert.strictEqual(code, 0,
+    'plain navigation/content to another project must not be flagged as coupling:\n' + output);
+});
+
+test('a depth-0 page reaching another project with no "../" is still caught', () => {
+  // The old CROSS_REF was anchored on a literal "../", so a page at repo
+  // depth 0 (the hub index.html) reaching another project needs no "../" at
+  // all — "music/js/synth.js" resolves correctly from the root without it —
+  // and that reference never matched. Real, undeclared coupling sailed
+  // through the rule that exists to catch it. Nothing declares this page's
+  // use of music/js/synth.js, so it must fail and name both.
+  const files = goodFiles();
+  files['index.html'] =
+    '<!doctype html><html><body>\n' +
+    '<script src="music/js/synth.js"></script>\n' +
+    '</body></html>\n';
+  const { code, output } = check(repo(files, goodExchange()));
+  assert.strictEqual(code, 1, 'expected the checker to fail, it exited 0:\n' + output);
+  assert.ok(output.includes('index.html') && output.includes('music/js/synth.js'),
+    'failed for the wrong reason, or did not name both the page and the file.\n  got:\n' + output);
+});
+
+test('a published file outside its own project fails, naming the id, file and project', () => {
+  // Nothing required a publisher's `files` to live inside its own `project`.
+  // Here music/composer (project "music") reaches into madlibs/ — a fully
+  // declared, CI-green cross-project dependency the Forge cannot see at all,
+  // since it keys the dependency graph on `project`.
+  const ex = goodExchange();
+  ex.publishes['music/composer'].files.push('madlibs/js/generator.js');
+  const files = goodFiles();
+  files['madlibs/js/generator.js'] = '// generator\n';
+  assertFailsWith(repo(files, ex, ['music', 'film', 'madlibs']),
+    'names madlibs/js/generator.js, which is outside its own project "music"');
+});
+
+test('a numeric consumes id is rejected rather than silently coerced', () => {
+  // JS's own-property lookup would coerce publishes[7] to publishes["7"],
+  // but the Python reader on the Forge side requires a string id and rejects
+  // a numeric one outright — CI green here, the Forge dead every night.
+  const ex = {
+    publishes: {
+      '7': { project: 'music', summary: 's', files: [...MUSIC_FILES] }
+    },
+    consumes: [
+      { project: 'film', id: 7, via: 'script',
+        page: 'film/index.html', contract: 'film/tests/film-logic.test.js' }
+    ]
+  };
+  assertFailsWith(repo(goodFiles(), ex), 'is not a string');
+});
+
+test('a consumes id of "constructor" does not resolve via the prototype chain', () => {
+  // publishes[c.id] alone resolves up the prototype chain, so an id of
+  // "constructor" (or "toString", "valueOf", "hasOwnProperty") would pass
+  // the "nothing publishes this" check for the wrong reason — it finds
+  // Object.prototype.constructor, not a real publisher.
+  const ex = goodExchange();
+  ex.consumes[0].id = 'constructor';
+  assertFailsWith(repo(goodFiles(), ex), 'consumes "constructor", which nothing publishes');
+});
+
 for (const root of tmpRoots) rmSync(root, { recursive: true, force: true });
 
 console.log('\n' + (failed ? `✗ ${failed} failed, ${passed} passed` : `✓ ${passed} tests passed`));

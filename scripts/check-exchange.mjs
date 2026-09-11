@@ -116,6 +116,16 @@ for (const [id, entry] of Object.entries(publishes)) {
   for (const f of entry.files) {
     if (typeof f !== 'string' || !existsSync(join(ROOT, f))) {
       fail(`${EXCHANGE_REL}: published id "${id}" names ${f}, which does not exist`);
+      continue;
+    }
+    /* A publisher's files must live under its own project, or the Forge
+     * (which keys the dependency graph on `project`) is blind to a fully
+     * declared, CI-green cross-project edge: e.g. music/composer publishing
+     * a file that actually lives under madlibs/. */
+    if (typeof entry.project === 'string' && !f.startsWith(`${entry.project}/`)) {
+      fail(`${EXCHANGE_REL}: published id "${id}" names ${f}, which is outside ` +
+           `its own project "${entry.project}" — every file it publishes must ` +
+           `start with "${entry.project}/"`);
     }
   }
 }
@@ -129,7 +139,18 @@ for (const c of consumes) {
   const where = `consumes entry for "${c.id}"`;
   knownProject(c.project, where);
 
-  const published = publishes[c.id];
+  /* A numeric id (e.g. 7 against a publishes key of "7") would resolve here
+   * via JS's own-property coercion, but the Python reader on the Forge side
+   * requires a string and rejects it — CI green, the nightly loop blind. */
+  if (typeof c.id !== 'string') {
+    fail(`${EXCHANGE_REL}: ${where} has an "id" that is not a string`);
+    continue;
+  }
+
+  /* `publishes[c.id]` alone would resolve up the prototype chain, so an id
+   * of "constructor", "toString", "valueOf" or "hasOwnProperty" would pass
+   * the "nothing publishes this" check below for the wrong reason. */
+  const published = Object.hasOwn(publishes, c.id) ? publishes[c.id] : undefined;
   if (!published) {
     fail(`${EXCHANGE_REL}: ${c.project} consumes "${c.id}", which nothing publishes`);
     continue;
@@ -160,8 +181,28 @@ function walkHtml(dir, out = []) {
  * scanned: a README mentioning another project is prose, not coupling. The
  * whole relative reference is captured (not just its first `../` segment) so
  * that references nesting more than one level up (`../../music/...`) resolve
- * to the real project instead of being pattern-matched as project "..". */
-const CROSS_REF = /(?:src|href)=["'](\.\.\/[^"']+)["']/g;
+ * to the real project instead of being pattern-matched as project "..".
+ *
+ * Only <script src=...> and <link href=...> are code/asset coupling — a
+ * <script> executes in the loading page and a <link> (stylesheet, etc.) is
+ * fetched and applied to it. <a href> and <img src> are ordinary navigation
+ * and content, not coupling, and are deliberately NOT matched here, however
+ * deep their "../" nesting: linking to another project's page, or embedding
+ * its image, does not run its code or make this page depend on its files. A
+ * bare "src|href" on any tag over-flags those, and the old anchor on a
+ * literal "../" under-flagged the opposite case: a page at repo depth 0 (the
+ * hub index.html) can reach another project with no "../" at all
+ * ("music/js/theory.js"), which is exactly the real coupling this rule
+ * exists to catch. */
+const SCRIPT_SRC = /<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi;
+const LINK_HREF = /<link\b[^>]*\bhref=["']([^"']+)["'][^>]*>/gi;
+
+/* A reference with a scheme (data:, http:, https:, mailto:, ...) or a
+ * protocol-relative "//host/..." isn't a repo-relative file at all — most
+ * commonly the inline `data:image/svg+xml,...` favicons every page uses.
+ * Resolving one of those against the page's directory would produce a
+ * meaningless "project" and false-fail every page. */
+const EXTERNAL_REF = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
 
 /* `full` is the absolute path of the page doing the referencing: each
  * reference is resolved relative to the page's own directory into a
@@ -170,8 +211,12 @@ const CROSS_REF = /(?:src|href)=["'](\.\.\/[^"']+)["']/g;
 function crossRefs(text, full) {
   const out = [];
   const pageDir = dirname(full);
-  for (const m of text.matchAll(CROSS_REF)) {
-    const clean = m[1].split('?')[0].split('#')[0];
+  const raws = [];
+  for (const m of text.matchAll(SCRIPT_SRC)) raws.push(m[1]);
+  for (const m of text.matchAll(LINK_HREF)) raws.push(m[1]);
+  for (const raw of raws) {
+    if (EXTERNAL_REF.test(raw)) continue;
+    const clean = raw.split('?')[0].split('#')[0];
     const path = relative(ROOT, resolve(pageDir, clean)).split('\\').join('/');
     out.push({ project: path.split('/')[0], path });
   }
