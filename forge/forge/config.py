@@ -58,7 +58,14 @@ DEFAULT_WEIGHTS = {
 class ForgeConfig:
     """Everything the Forge is and isn't allowed to do."""
 
-    # Hard budget for a single run, checked before Crew starts and before a PR opens.
+    # Cap for a single run's cost, checked once Crew reports a number. This
+    # binds only when the runner actually reports a cost: the bundled Crew
+    # runner (`do._default_crew`) has no machine-readable cost to read and
+    # reports `None` ("not measured"), so this cap is currently enforced
+    # only for an injected runner under test, not for a real run. It is not
+    # dead code — a future Crew that reports spend, or any other injected
+    # runner, makes it bind for real — but do not read this field as a live
+    # guarantee about production spend today.
     budget_usd: float = 5.0
     max_files_touched: int = 12
 

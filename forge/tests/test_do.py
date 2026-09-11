@@ -2,9 +2,14 @@
 
 import pytest
 
+from forge import do as do_module
 from forge.config import ForgeConfig
 from forge.do import CrewOutcome, branch_name, do
 from forge.gitops import current_branch
+
+# The SHA FakeGit answers `rev-parse HEAD` with — the base the leash re-check
+# must diff against, recorded before Crew ever runs.
+BASE_SHA = "base-sha-0000"
 
 
 class FakeGit:
@@ -18,6 +23,8 @@ class FakeGit:
         self.calls.append(args)
         if args[:2] == ["rev-parse", "--abbrev-ref"]:
             return (0, "main\n", "")
+        if args == ["rev-parse", "HEAD"]:
+            return (0, f"{BASE_SHA}\n", "")
         if args[0] == "diff":
             return (0, "\n".join(self.changed) + "\n", "")
         return (0, "", "")
@@ -154,3 +161,161 @@ def test_branch_creation_failure_stops_before_crew_runs(tmp_path):
 
 def test_current_branch_uses_the_runner():
     assert current_branch(None, runner=lambda a: (0, "main\n", "")) == "main"
+
+
+# --- Fix 1: the leash re-check must diff against the recorded base SHA, ---
+# --- not HEAD~1, which silently trusts Crew to have made exactly one    ---
+# --- commit. ---------------------------------------------------------------
+
+
+class MultiCommitGit(FakeGit):
+    """Three commits since the branch was cut: the first touches a
+    no-touch-shaped path, the last two touch docs/.
+
+    ``git diff --name-only HEAD~1`` (the old, wrong base) sees only the
+    *last* commit's file — a clean-looking subset that would pass every
+    leash check. Diffing from the recorded base SHA sees the full set,
+    including the no-touch violation buried in the first commit. That
+    contrast is the point of this fixture.
+    """
+
+    def __call__(self, args):
+        self.calls.append(args)
+        if args[:2] == ["rev-parse", "--abbrev-ref"]:
+            return (0, "main\n", "")
+        if args == ["rev-parse", "HEAD"]:
+            return (0, f"{BASE_SHA}\n", "")
+        if args == ["diff", "--name-only", BASE_SHA]:
+            return (0, "forge/forge/decide.py\ndocs/b.md\ndocs/c.md\n", "")
+        if args == ["diff", "--name-only", "HEAD~1"]:
+            # What the old, wrong implementation would have seen: only the
+            # last commit's file, no-touch violation invisible.
+            return (0, "docs/c.md\n", "")
+        return (0, "", "")
+
+
+def test_multi_commit_no_touch_violation_is_not_invisible(tmp_path):
+    out = do(CHOSEN, tmp_path, ForgeConfig(), git=MultiCommitGit(),
+             crew=lambda t, r, s: (0, "ok", 0.1))
+    assert out.ok is False
+    assert "no-touch" in out.error.lower()
+    assert "forge/forge/decide.py" in out.files
+
+
+class ZeroCommitGit(FakeGit):
+    """Crew made no commits at all. Diffing from the recorded base SHA (which
+    equals current HEAD) must report no files — not the files of whatever
+    commit predates the branch, which is what ``HEAD~1`` would fabricate.
+    """
+
+    def __call__(self, args):
+        self.calls.append(args)
+        if args[:2] == ["rev-parse", "--abbrev-ref"]:
+            return (0, "main\n", "")
+        if args == ["rev-parse", "HEAD"]:
+            return (0, f"{BASE_SHA}\n", "")
+        if args == ["diff", "--name-only", BASE_SHA]:
+            return (0, "", "")
+        if args == ["diff", "--name-only", "HEAD~1"]:
+            return (0, "docs/pre-existing.md\n", "")
+        return (0, "", "")
+
+
+def test_zero_commit_run_reports_no_files_not_a_previous_commits(tmp_path):
+    out = do(CHOSEN, tmp_path, ForgeConfig(), git=ZeroCommitGit(),
+             crew=lambda t, r, s: (0, "ok", 0.1))
+    assert out.files == ()
+    assert "docs/pre-existing.md" not in out.files
+
+
+def test_base_sha_is_read_before_crew_is_invoked(tmp_path):
+    order = []
+
+    class OrderTrackingGit(FakeGit):
+        def __call__(self, args):
+            if args == ["rev-parse", "HEAD"]:
+                order.append("head_sha")
+            return super().__call__(args)
+
+    def crew(task, root, timeout_s):
+        order.append("crew")
+        return (0, "ok", 0.1)
+
+    do(CHOSEN, tmp_path, ForgeConfig(), git=OrderTrackingGit(), crew=crew)
+    assert order == ["head_sha", "crew"], "base SHA must be recorded before Crew runs"
+
+
+def test_unreadable_base_sha_fails_without_invoking_crew(tmp_path):
+    class BadShaGit(FakeGit):
+        def __call__(self, args):
+            self.calls.append(args)
+            if args == ["rev-parse", "HEAD"]:
+                return (1, "", "fatal: ambiguous argument 'HEAD'")
+            if args[:2] == ["rev-parse", "--abbrev-ref"]:
+                return (0, "main\n", "")
+            return (0, "", "")
+
+    crew_called = {"value": False}
+
+    def crew(task, root, timeout_s):
+        crew_called["value"] = True
+        return (0, "ok", 0.1)
+
+    out = do(CHOSEN, tmp_path, ForgeConfig(), git=BadShaGit(), crew=crew)
+    assert out.ok is False
+    assert crew_called["value"] is False, "crew must never run without a recorded base SHA"
+
+
+# --- Fix 2: an unmeasured cost must read as unknown, never as free. --------
+
+
+def test_default_crew_reports_cost_as_unknown_not_zero(tmp_path, monkeypatch):
+    """`_default_crew` (the bundled, non-injected runner) has no way to learn
+    Crew's spend, so it must say so (`None`) rather than claim $0.00 — a
+    real number a ledger reader or a human auditor would take at face value.
+    """
+
+    class FakeCompletedProcess:
+        returncode = 0
+        stdout = "crew finished"
+        stderr = ""
+
+    monkeypatch.setattr(do_module.subprocess, "run",
+                        lambda *a, **k: FakeCompletedProcess())
+
+    out = do(CHOSEN, tmp_path, ForgeConfig(), git=FakeGit())
+    assert out.cost_usd is None
+
+
+def test_unknown_cost_does_not_trip_the_budget_check(tmp_path):
+    out = do(CHOSEN, tmp_path, ForgeConfig(budget_usd=0.01), git=FakeGit(),
+             crew=lambda t, r, s: (0, "ok", None))
+    assert out.cost_usd is None
+    assert out.ok is True, "an unmeasured cost must not silently fail the budget check"
+
+
+def test_a_known_cost_over_budget_still_fails(tmp_path):
+    out = do(CHOSEN, tmp_path, ForgeConfig(budget_usd=1.0), git=FakeGit(),
+             crew=lambda t, r, s: (0, "ok", 9.99))
+    assert out.ok is False
+    assert out.cost_usd == 9.99
+    assert "budget" in out.error.lower()
+
+
+# --- Fix 3: create_branch must never raise out of do(). --------------------
+
+
+def test_create_branch_crash_is_reported_not_raised(tmp_path):
+    def raising_git(args):
+        raise FileNotFoundError("git: command not found")
+
+    crew_called = {"value": False}
+
+    def crew(task, root, timeout_s):
+        crew_called["value"] = True
+        return (0, "ok", 0.1)
+
+    out = do(CHOSEN, tmp_path, ForgeConfig(), git=raising_git, crew=crew)
+    assert out.ok is False
+    assert "branch" in out.error.lower()
+    assert crew_called["value"] is False

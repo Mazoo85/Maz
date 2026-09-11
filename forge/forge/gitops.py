@@ -30,6 +30,21 @@ def create_branch(name: str, root: Path | None = None, runner=None) -> bool:
     return code == 0
 
 
+def head_sha(root: Path | None = None, runner=None) -> str:
+    """The current commit, read once right after the branch is cut.
+
+    This is the base the leash re-check diffs against once Crew is done.
+    Recording it up front — rather than assuming Crew made exactly one
+    commit and diffing against ``HEAD~1`` afterwards — is what makes the
+    re-check correct for zero, one, or any number of commits: it no longer
+    depends on Crew's commit behaviour at all. Returns "" (never raises) on
+    a bad rev-parse, exactly like ``current_branch`` above, so a caller can
+    fail closed on a falsy result the same way.
+    """
+    code, out, _ = _runner_for(root, runner)(["rev-parse", "HEAD"])
+    return out.strip() if code == 0 else ""
+
+
 def checkout(name: str, root: Path | None = None, runner=None) -> bool:
     code, _, _ = _runner_for(root, runner)(["checkout", name])
     return code == 0
