@@ -24,8 +24,8 @@ void pushVertex(Mesh& m, float px, float py, float pz, float nx, float ny, float
 }
 
 // Append a quad as two triangles from four corner positions (a,b,c,d) sharing one normal. Corners
-// are in CCW order seen from the front; winding is not load-bearing today (the pipeline culls no
-// faces) but is kept consistent for when back-face culling lands.
+// are in CCW order seen from the front; winding is load-bearing (the pipeline culls back faces), so
+// every triangle must be wound CCW-outward to agree with its vertex normals.
 void pushQuad(Mesh& m, float ax, float ay, float az, float bx, float by, float bz, float cx,
               float cy, float cz, float dx, float dy, float dz, float nx, float ny, float nz) {
     const auto base = static_cast<uint32_t>(m.vertices.size());
@@ -49,13 +49,13 @@ Mesh makeBox(float sx, float sy, float sz) {
     const float hz = sz * 0.5f;
 
     // +X
-    pushQuad(m, hx, -hy, -hz, hx, -hy, hz, hx, hy, hz, hx, hy, -hz, 1.0f, 0.0f, 0.0f);
+    pushQuad(m, hx, -hy, -hz, hx, hy, -hz, hx, hy, hz, hx, -hy, hz, 1.0f, 0.0f, 0.0f);
     // -X
-    pushQuad(m, -hx, -hy, hz, -hx, -hy, -hz, -hx, hy, -hz, -hx, hy, hz, -1.0f, 0.0f, 0.0f);
+    pushQuad(m, -hx, -hy, hz, -hx, hy, hz, -hx, hy, -hz, -hx, -hy, -hz, -1.0f, 0.0f, 0.0f);
     // +Y
-    pushQuad(m, -hx, hy, -hz, hx, hy, -hz, hx, hy, hz, -hx, hy, hz, 0.0f, 1.0f, 0.0f);
+    pushQuad(m, -hx, hy, -hz, -hx, hy, hz, hx, hy, hz, hx, hy, -hz, 0.0f, 1.0f, 0.0f);
     // -Y
-    pushQuad(m, -hx, -hy, hz, hx, -hy, hz, hx, -hy, -hz, -hx, -hy, -hz, 0.0f, -1.0f, 0.0f);
+    pushQuad(m, -hx, -hy, hz, -hx, -hy, -hz, hx, -hy, -hz, hx, -hy, hz, 0.0f, -1.0f, 0.0f);
     // +Z
     pushQuad(m, -hx, -hy, hz, hx, -hy, hz, hx, hy, hz, -hx, hy, hz, 0.0f, 0.0f, 1.0f);
     // -Z
@@ -90,7 +90,7 @@ Mesh makeSphere(float radius, int segments, int rings) {
         for (uint32_t seg = 0; seg < static_cast<uint32_t>(segments); ++seg) {
             const uint32_t a = ring * stride + seg;
             const uint32_t b = a + stride;
-            const uint32_t quad[6] = {a, b, a + 1u, a + 1u, b, b + 1u};
+            const uint32_t quad[6] = {a, a + 1u, b, a + 1u, b + 1u, b};
             for (uint32_t idx : quad) {
                 m.indices.push_back(idx);
             }
@@ -122,7 +122,7 @@ Mesh makeCylinder(float radius, float height, int segments) {
         const uint32_t b = a + 1u;              // top of this column
         const uint32_t c = a + 2u;              // bottom of the next column
         const uint32_t d = a + 3u;              // top of the next column
-        const uint32_t quad[6] = {a, c, b, b, c, d};
+        const uint32_t quad[6] = {a, b, c, b, d, c};
         for (uint32_t idx : quad) {
             m.indices.push_back(idx);
         }
@@ -145,12 +145,12 @@ Mesh makeCylinder(float radius, float height, int segments) {
             const uint32_t rim = center + 1u + seg;
             // Wind the two caps opposite ways so both face outward.
             if (side == 0) {
-                const uint32_t tri[3] = {center, rim, rim + 1u};
+                const uint32_t tri[3] = {center, rim + 1u, rim};
                 for (uint32_t idx : tri) {
                     m.indices.push_back(idx);
                 }
             } else {
-                const uint32_t tri[3] = {center, rim + 1u, rim};
+                const uint32_t tri[3] = {center, rim, rim + 1u};
                 for (uint32_t idx : tri) {
                     m.indices.push_back(idx);
                 }
