@@ -111,7 +111,9 @@ function launchOptions() {
 
   console.log('\n— page load —');
   check((await page.title()).indexOf('SONG FORGE') === 0, 'title present');
-  check(await page.locator('#genreChips .chip').count() === 8, 'eight genre chips rendered');
+  const genreCount = await page.evaluate(function () { return Object.keys(window.Genres.GENRES).length; });
+  check(await page.locator('#genreChips .chip').count() === genreCount,
+    'a chip for every genre (' + genreCount + ')');
   check(await page.locator('#moodChips .chip').count() === 5, 'five mood chips rendered');
   check(await page.locator('#songPanel').isHidden(), 'song panel hidden before generating');
   check(await page.locator('#helpModal').isHidden(), 'help modal is not covering the page');
@@ -132,7 +134,7 @@ function launchOptions() {
 
   console.log('\n— every genre makes an audible sound —');
   const audio = await page.evaluate(async function () {
-    /* Rendering whole songs for eight genres takes minutes. An eight-bar
+    /* Rendering whole songs for every genre takes minutes. An eight-bar
        excerpt from the middle of the song — where the arrangement is at full
        strength — proves the same thing in seconds. */
     function excerpt(song, fromBar, bars) {

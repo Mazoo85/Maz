@@ -23,8 +23,9 @@ python3 -m http.server         # or serve the folder: http://localhost:8000/musi
 
 ## What it does
 
-- **8 genres** — Lo-Fi Chill, Synthwave, Deep House, Ambient, Cinematic,
-  Chiptune, Drum & Bass, Trap.
+- **18 genres** — Lo-Fi Chill, Synthwave, Deep House, Ambient, Cinematic,
+  Chiptune, Drum & Bass, Trap, Rock, Funk, Jazz, Disco, Techno, Drill,
+  Afrobeat, Bossa Nova, Gospel Soul and Country.
 - **5 moods** — Chill, Uplifting, Dark, Dreamy, Driving. A mood bends the genre:
   brighter or darker scales, busier or sparser parts, more or less air.
 - **Real arrangement** — sections have different energy, so the chorus is
@@ -41,7 +42,9 @@ python3 -m http.server         # or serve the folder: http://localhost:8000/musi
 - **Lock a part** you like, and a re-roll of everything writes around it.
 - **36 instruments** — guitar, harp, nylon, marimba, vibraphone, organ, brass,
   reed, choir, voice, FM keys, supersaw, 808 and more — swappable on any part,
-  plus a 16-piece kit with ride, tambourine, cowbell and conga.
+  plus a 16-piece kit with ride, tambourine, cowbell and conga, in **13 kits** —
+  from a jazz kit played with brushes to a 909, an acoustic rock kit and a set
+  of Latin hand percussion.
 - **Undo** everything, including a re-roll or a cleared part (Ctrl+Z).
 - **Hear notes as you draw them**, and **swap the instrument** on any part.
 - **Change the song you have** — slide the tempo, move the key up or down a

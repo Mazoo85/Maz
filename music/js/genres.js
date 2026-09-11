@@ -295,7 +295,25 @@
     jazzy:      [[1, 4, 0, 0], [1, 4, 2, 5], [0, 5, 1, 4], [3, 6, 1, 4], [5, 1, 4, 0]],
     modal:      [[0, 6, 0, 3], [0, 3, 6, 0], [0, 5, 6, 3], [0, 4, 3, 0]],
     ambientDrift: [[0, 3, 5, 4], [0, 5, 3, 3], [0, 2, 3, 5], [0, 4, 0, 5]],
-    darkTrap:   [[0, 5, 3, 6], [0, 0, 5, 4], [0, 6, 3, 3], [0, 3, 6, 5]]
+    darkTrap:   [[0, 5, 3, 6], [0, 0, 5, 4], [0, 6, 3, 3], [0, 3, 6, 5]],
+    // I-IV-V and the flat-seven turnarounds rock lives on.
+    rock:       [[0, 3, 4, 4], [0, 5, 3, 4], [0, 6, 3, 0], [5, 3, 0, 4], [0, 3, 0, 4]],
+    // Twelve-bar-ish motion, plus the dominant-heavy moves blues shares.
+    blues:      [[0, 0, 3, 0], [0, 3, 0, 4], [3, 3, 0, 0], [4, 3, 0, 0]],
+    // One or two chords held for a long time — funk is rhythm, not harmony.
+    funk:       [[0, 0, 3, 0], [0, 3, 0, 0], [0, 0, 0, 4], [1, 4, 0, 0]],
+    // ii-V-I chains and the descending seconds of bossa nova.
+    bossa:      [[1, 4, 0, 0], [1, 4, 3, 6], [0, 6, 1, 4], [3, 6, 1, 4], [0, 1, 4, 0]],
+    // The four chords behind most gospel and soul: plagal, warm, resolving.
+    gospel:     [[0, 3, 4, 0], [0, 5, 1, 4], [3, 4, 5, 0], [0, 3, 0, 4]],
+    // Relentless and static — techno moves by texture, not by chord.
+    techno:     [[0, 0, 0, 0], [0, 0, 5, 5], [0, 5, 0, 5], [0, 0, 3, 3]],
+    // Disco and its descendants: busy, major-leaning, always turning over.
+    disco:      [[1, 4, 0, 5], [0, 5, 1, 4], [5, 1, 4, 0], [0, 3, 1, 4]],
+    // Two-chord loops with a minor pull, the backbone of drill and afrobeat.
+    loop2:      [[0, 5, 0, 5], [0, 3, 0, 3], [0, 6, 0, 6], [0, 4, 0, 4]],
+    // Country: major, honest, and home by the end of the bar.
+    country:    [[0, 4, 0, 0], [0, 3, 4, 0], [0, 0, 4, 4], [5, 3, 0, 4]]
   };
 
   const GENRES = {
@@ -474,6 +492,226 @@
         fill:   { kick: 'x.......x.......', snare: '........x...xxxx', hh: 'x.x.x.x.........' }
       },
       fx: { reverb: 0.35, delay: 0.2, delayTime: 0.375, vinyl: 0, master: 1.17, sidechain: 0.46, brightness: 0.95 }
+    },
+
+    rock: {
+      id: 'rock', name: 'Rock', blurb: 'Driven guitars, a kit hit hard, no apologies.',
+      bpm: [116, 148], swing: 0.02,
+      scales: [['minor', 3], ['mixolydian', 3], ['major', 2], ['dorian', 1]],
+      progressions: PROG.rock.concat(PROG.popMajor), chordShapes: [['power', 3], ['triad', 4], ['sus4', 1]],
+      barsPerChord: [1, 2],
+      bass: { style: 'root8', octave: 2, preset: 'pickBass', alts: ['synthBass', 'organBass'] },
+      chords: { style: 'stab', preset: 'guitar', octaveLow: 52, octaveHigh: 76, alts: ['organ', 'piano', 'brass'] },
+      pad: { preset: 'strings', gain: 0.3 },
+      lead: { preset: 'guitar', octave: 5, density: 0.7, restBias: 0.2, alts: ['sawLead', 'organ', 'brass'] },
+      arp: { preset: 'guitar', rate: 0.5, octave: 5, chance: 0.2, alts: ['piano', 'organ'] },
+      builds: true,
+      drums: {
+        kit: 'rock',
+        intro:  { kick: 'x.......x.......', hh: 'x.x.x.x.x.x.x.x.', snare: '....x.......x...' },
+        groove: { kick: 'x.....x.x.......', snare: '....x.......x...', hh: 'x.x.x.x.x.x.x.x.', crash: 'x...............' },
+        full:   { kick: 'x..x..x.x...x...', snare: '....x.......x...', hh: 'xxxxxxxxxxxxxxxx', crash: 'x.......x.......', ride: '..x...x...x...x.' },
+        fill:   { kick: 'x.......x.......', snare: '........xxx.xxxx', tom: '............x.x.', crash: '...............x' }
+      },
+      fx: { reverb: 0.3, delay: 0.14, delayTime: 0.375, vinyl: 0, master: 0.92, sidechain: 0.08, brightness: 1.1 }
+    },
+
+    funk: {
+      id: 'funk', name: 'Funk', blurb: 'One chord, sixteen notes, all of it on the one.',
+      bpm: [96, 116], swing: 0.12,
+      scales: [['dorian', 4], ['mixolydian', 3], ['minor', 2], ['aeolianPent', 1]],
+      progressions: PROG.funk.concat(PROG.jazzy), chordShapes: [['ninth', 4], ['seventh', 3], ['sixth', 2]],
+      barsPerChord: [2, 4],
+      bass: { style: 'pulse8', octave: 2, preset: 'pickBass', alts: ['synthBass', 'lofiBass'] },
+      chords: { style: 'stab', preset: 'guitar', octaveLow: 55, octaveHigh: 79, alts: ['organ', 'rhodes', 'brass'] },
+      pad: { preset: 'strings', gain: 0.22 },
+      lead: { preset: 'brass', octave: 5, density: 0.62, restBias: 0.34, alts: ['organ', 'sawLead', 'guitar'] },
+      arp: { preset: 'guitar', rate: 0.25, octave: 5, chance: 0.45, alts: ['rhodes', 'organ', 'marimba'] },
+      builds: false,
+      drums: {
+        kit: 'acoustic',
+        intro:  { kick: 'x.......x.......', hh: 'x.x.x.x.x.x.x.x.', snare: '....x.......x...' },
+        groove: { kick: 'x.....x...x.....', snare: '....x.......x...', hh: 'xoxoxoxoxoxoxoxo', perc: '..........o.....' },
+        full:   { kick: 'x..x..x...x..x..', snare: '....x..o....x..o', hh: 'xoxoxoxoxoxoxoxo', tamb: '..x...x...x...x.', conga: '......o...o...o.' },
+        fill:   { kick: 'x.......x.......', snare: '......x.x.xxx.xx', tom: '..........x.x...' }
+      },
+      fx: { reverb: 0.22, delay: 0.18, delayTime: 0.375, vinyl: 0.08, master: 1.0, sidechain: 0.1, brightness: 1.05 }
+    },
+
+    jazz: {
+      id: 'jazz', name: 'Jazz', blurb: 'Brushed ride, walking bass, chords that keep moving.',
+      bpm: [104, 148], swing: 0.34,
+      scales: [['dorian', 3], ['major', 3], ['mixolydian', 2], ['minor', 2], ['harmonicMinor', 1]],
+      progressions: PROG.jazzy.concat(PROG.bossa), chordShapes: [['ninth', 4], ['seventh', 4], ['sixth', 2]],
+      barsPerChord: [1, 2],
+      bass: { style: 'walk', octave: 2, preset: 'pickBass', alts: ['lofiBass', 'organBass'] },
+      chords: { style: 'keys', preset: 'piano', octaveLow: 55, octaveHigh: 81, alts: ['rhodes', 'guitar', 'vibes'] },
+      pad: { preset: 'strings', gain: 0.18 },
+      lead: { preset: 'reedLead', octave: 5, density: 0.66, restBias: 0.3, alts: ['brass', 'vibes', 'piano', 'guitar'] },
+      arp: { preset: 'vibes', rate: 0.5, octave: 5, chance: 0.3, alts: ['piano', 'guitar', 'harp'] },
+      builds: false,
+      drums: {
+        kit: 'jazz',
+        intro:  { ride: 'x..x..x...x...x.', hh: '....x.......x...' },
+        groove: { kick: 'x.............x.', snare: '......o.....o...', ride: 'x..xx.x..xx.x..x', hh: '....x.......x...' },
+        full:   { kick: 'x.....x.......x.', snare: '....o.o...o.o..o', ride: 'x.xxx.xx.xxx.xxx', hh: '....x.......x...', rim: '..........x.....' },
+        fill:   { snare: '..o.x.oxx.xoxxxx', tom: '..........x.x...', crash: '...............x' }
+      },
+      fx: { reverb: 0.42, delay: 0.12, delayTime: 0.5, vinyl: 0.12, master: 1.2, sidechain: 0, brightness: 0.9 }
+    },
+
+    disco: {
+      id: 'disco', name: 'Disco', blurb: 'Four on the floor, strings on top, hats everywhere.',
+      bpm: [112, 126], swing: 0.06,
+      scales: [['minor', 3], ['major', 3], ['dorian', 2]],
+      progressions: PROG.disco.concat(PROG.jazzy), chordShapes: [['seventh', 4], ['ninth', 3], ['sixth', 1]],
+      barsPerChord: [1, 2],
+      bass: { style: 'offbeat', octave: 2, preset: 'pickBass', alts: ['synthBass', 'organBass'] },
+      chords: { style: 'stab', preset: 'guitar', octaveLow: 55, octaveHigh: 79, alts: ['rhodes', 'piano', 'brass'] },
+      pad: { preset: 'strings', gain: 0.42 },
+      lead: { preset: 'brass', octave: 5, density: 0.6, restBias: 0.32, alts: ['sawLead', 'voxLead', 'piano'] },
+      arp: { preset: 'piano', rate: 0.25, octave: 5, chance: 0.55, alts: ['guitar', 'harp', 'marimba'] },
+      builds: true,
+      drums: {
+        kit: 'acoustic',
+        intro:  { kick: 'x...x...x...x...', hh: '..x...x...x...x.' },
+        groove: { kick: 'x...x...x...x...', snare: '....x.......x...', hh: '..x...x...x...x.', oh: '..x...x...x...x.' },
+        full:   { kick: 'x...x...x...x...', snare: '....x.......x...', hh: 'xxxxxxxxxxxxxxxx', oh: '..x...x...x...x.', tamb: '....x.......x...', conga: '..o...o...o...o.' },
+        fill:   { kick: 'x...x...........', snare: '........x.x.xxxx', tom: '............x.x.' }
+      },
+      fx: { reverb: 0.36, delay: 0.2, delayTime: 0.375, vinyl: 0.06, master: 0.98, sidechain: 0.3, brightness: 1.05 }
+    },
+
+    techno: {
+      id: 'techno', name: 'Techno', blurb: 'A relentless kick and a filter that never stops moving.',
+      bpm: [128, 142], swing: 0,
+      scales: [['minor', 4], ['phrygian', 2], ['dorian', 2]],
+      progressions: PROG.techno.concat(PROG.loop2), chordShapes: [['power', 3], ['triad', 3], ['seventh', 2]],
+      barsPerChord: [4, 8],
+      bass: { style: 'root8', octave: 1, preset: 'reese', alts: ['synthBass', 'houseBass', 'fmBass'] },
+      chords: { style: 'stab', preset: 'stab', octaveLow: 52, octaveHigh: 76, alts: ['supersaw', 'organ', 'fmKeys'] },
+      pad: { preset: 'glassPad', gain: 0.34 },
+      lead: { preset: 'fmBright', octave: 5, density: 0.5, restBias: 0.45, alts: ['sawLead', 'supersaw', 'bell'] },
+      arp: { preset: 'pluck', rate: 0.25, octave: 5, chance: 0.6, alts: ['chipChord', 'fmKeys', 'glassBell'] },
+      builds: true,
+      drums: {
+        kit: 'nine09',
+        intro:  { kick: 'x...x...x...x...', hh: '..x...x...x...x.' },
+        groove: { kick: 'x...x...x...x...', clap: '....x.......x...', hh: '..x...x...x...x.', oh: '......x.......x.' },
+        full:   { kick: 'x...x...x...x...', clap: '....x.......x...', hh: 'xxxxxxxxxxxxxxxx', oh: '..x...x...x...x.', ride: '....x.......x...', cowbell: '..........x.....' },
+        fill:   { kick: 'x...x...x.x.x.x.', clap: '........x.x.xxxx', crash: '...............x' }
+      },
+      fx: { reverb: 0.3, delay: 0.26, delayTime: 0.375, vinyl: 0, master: 0.96, sidechain: 0.62, brightness: 1.0 }
+    },
+
+    drill: {
+      id: 'drill', name: 'Drill', blurb: 'Sliding 808s, skittering hats, cold and spacious.',
+      bpm: [138, 146], swing: 0.04,
+      scales: [['minor', 3], ['phrygian', 3], ['harmonicMinor', 2]],
+      progressions: PROG.loop2.concat(PROG.darkTrap), chordShapes: [['triad', 3], ['seventh', 3], ['power', 2]],
+      barsPerChord: [2, 4],
+      bass: { style: 'slide808', octave: 1, preset: 'eight08', alts: ['fmBass', 'reese'] },
+      chords: { style: 'arpChord', preset: 'pluck', octaveLow: 55, octaveHigh: 79, alts: ['bell', 'nylon', 'glassBell'] },
+      pad: { preset: 'choirPad', gain: 0.34 },
+      lead: { preset: 'bell', octave: 5, density: 0.42, restBias: 0.5, alts: ['glassBell', 'nylon', 'voxLead'] },
+      arp: { preset: 'harp', rate: 0.25, octave: 5, chance: 0.5, alts: ['bell', 'pluck', 'marimba'] },
+      builds: true,
+      drums: {
+        kit: 'trap',
+        intro:  { kick: 'x.......x.......', hh: 'x.x.x.x.x.x.x.x.' },
+        groove: { kick: 'x.....x...x.....', snare: '........x.......', hh: 'x.xxx.x.x.xxx.x.' },
+        full:   { kick: 'x.....x...x...x.', snare: '........x.......', hh: 'xxxxx.xxxxxxx.xx', oh: '..........x.....', perc: '............o...' },
+        fill:   { kick: 'x.......x.......', snare: '........xxxxxxxx', riser: 'x...............' }
+      },
+      fx: { reverb: 0.4, delay: 0.24, delayTime: 0.375, vinyl: 0, master: 1.12, sidechain: 0.4, brightness: 0.92 }
+    },
+
+    afrobeat: {
+      id: 'afrobeat', name: 'Afrobeat', blurb: 'Interlocking percussion, a bassline that never sits still.',
+      bpm: [100, 118], swing: 0.09,
+      scales: [['major', 3], ['mixolydian', 3], ['dorian', 2], ['minor', 1]],
+      progressions: PROG.loop2.concat(PROG.popMajor), chordShapes: [['seventh', 3], ['triad', 3], ['ninth', 2]],
+      barsPerChord: [2, 4],
+      bass: { style: 'pulse8', octave: 2, preset: 'pickBass', alts: ['synthBass', 'organBass'] },
+      chords: { style: 'stab', preset: 'guitar', octaveLow: 55, octaveHigh: 79, alts: ['organ', 'rhodes', 'marimba'] },
+      pad: { preset: 'warmPad', gain: 0.24 },
+      lead: { preset: 'brass', octave: 5, density: 0.55, restBias: 0.38, alts: ['reedLead', 'organ', 'marimba'] },
+      arp: { preset: 'marimba', rate: 0.25, octave: 5, chance: 0.6, alts: ['guitar', 'harp', 'vibes'] },
+      builds: false,
+      drums: {
+        kit: 'latin',
+        intro:  { conga: 'o...o...o...o...', shaker: 'x.x.x.x.x.x.x.x.' },
+        groove: { kick: 'x.....x...x.....', rim: '....x.......x...', shaker: 'xoxoxoxoxoxoxoxo', conga: '..o.o...o.o.o...' },
+        full:   { kick: 'x..x..x...x..x..', rim: '....x.......x...', shaker: 'xoxoxoxoxoxoxoxo', conga: 'o.oo.o.oo.o.oo.o', cowbell: 'x...x...x...x...', tamb: '..x...x...x...x.' },
+        fill:   { conga: 'oo.oo.oooo.ooooo', kick: 'x.......x.......', crash: '...............x' }
+      },
+      fx: { reverb: 0.28, delay: 0.16, delayTime: 0.375, vinyl: 0.05, master: 1.05, sidechain: 0.08, brightness: 1.05 }
+    },
+
+    bossa: {
+      id: 'bossa', name: 'Bossa Nova', blurb: 'Nylon guitar, brushed rim, and nowhere to be.',
+      bpm: [122, 142], swing: 0.05,
+      scales: [['major', 3], ['dorian', 2], ['mixolydian', 2], ['minor', 1]],
+      progressions: PROG.bossa.concat(PROG.jazzy), chordShapes: [['ninth', 4], ['seventh', 4], ['sixth', 2]],
+      barsPerChord: [1, 2],
+      bass: { style: 'offbeat', octave: 2, preset: 'pickBass', alts: ['lofiBass', 'softBass'] },
+      chords: { style: 'keys', preset: 'nylon', octaveLow: 55, octaveHigh: 79, alts: ['guitar', 'rhodes', 'piano'] },
+      pad: { preset: 'warmPad', gain: 0.18 },
+      lead: { preset: 'nylon', octave: 5, density: 0.5, restBias: 0.42, alts: ['reedLead', 'vibes', 'voxLead'] },
+      arp: { preset: 'nylon', rate: 0.5, octave: 5, chance: 0.4, alts: ['guitar', 'harp', 'vibes'] },
+      builds: false,
+      drums: {
+        kit: 'latin',
+        intro:  { rim: '..x...x...x...x.', shaker: 'x.x.x.x.x.x.x.x.' },
+        groove: { kick: 'x.....x.x.....x.', rim: '..x..x..x..x..x.', shaker: 'xoxoxoxoxoxoxoxo' },
+        full:   { kick: 'x.....x.x.....x.', rim: '..x..x..x..x..x.', shaker: 'xoxoxoxoxoxoxoxo', conga: '....o.......o...', tamb: '........x.......' },
+        fill:   { rim: '..x.x.x.xx.xxx.x', conga: '..........o.o...' }
+      },
+      fx: { reverb: 0.4, delay: 0.14, delayTime: 0.5, vinyl: 0.1, master: 1.22, sidechain: 0, brightness: 0.95 }
+    },
+
+    gospel: {
+      id: 'gospel', name: 'Gospel Soul', blurb: 'Organ, choir, and chords that resolve like they mean it.',
+      bpm: [72, 96], swing: 0.2,
+      scales: [['major', 4], ['mixolydian', 3], ['dorian', 1]],
+      progressions: PROG.gospel.concat(PROG.popMajor), chordShapes: [['seventh', 4], ['ninth', 3], ['sixth', 2]],
+      barsPerChord: [1, 2],
+      bass: { style: 'walk', octave: 2, preset: 'organBass', alts: ['pickBass', 'lofiBass'] },
+      chords: { style: 'keys', preset: 'organ', octaveLow: 55, octaveHigh: 81, alts: ['piano', 'rhodes', 'brass'] },
+      pad: { preset: 'choirPad', gain: 0.46 },
+      lead: { preset: 'voxLead', octave: 5, density: 0.58, restBias: 0.36, alts: ['organ', 'brass', 'piano'] },
+      arp: { preset: 'piano', rate: 0.5, octave: 5, chance: 0.35, alts: ['organ', 'rhodes', 'harp'] },
+      builds: true,
+      drums: {
+        kit: 'acoustic',
+        intro:  { kick: 'x.......x.......', hh: 'x...x...x...x...' },
+        groove: { kick: 'x.....x.x.......', snare: '....x.......x...', hh: 'x.o.x.o.x.o.x.o.', tamb: '....x.......x...' },
+        full:   { kick: 'x..x..x.x...x...', snare: '....x..o....x..o', hh: 'xoxoxoxoxoxoxoxo', tamb: '..x.x.....x.x...', ride: '....x.......x...' },
+        fill:   { kick: 'x.......x.......', snare: '......x.x.xxxxxx', tom: '..........x.x...', crash: '...............x' }
+      },
+      fx: { reverb: 0.5, delay: 0.16, delayTime: 0.5, vinyl: 0.08, master: 1.08, sidechain: 0.1, brightness: 0.95 }
+    },
+
+    country: {
+      id: 'country', name: 'Country', blurb: 'Acoustic strum, brushed snare, a story in every line.',
+      bpm: [88, 124], swing: 0.14,
+      scales: [['major', 4], ['mixolydian', 3], ['minor', 1]],
+      progressions: PROG.country.concat(PROG.popMajor), chordShapes: [['triad', 4], ['sus4', 1], ['sixth', 2], ['seventh', 2]],
+      barsPerChord: [1, 2],
+      bass: { style: 'root8', octave: 2, preset: 'pickBass', alts: ['organBass', 'lofiBass'] },
+      chords: { style: 'stab', preset: 'guitar', octaveLow: 52, octaveHigh: 76, alts: ['nylon', 'piano', 'organ'] },
+      pad: { preset: 'strings', gain: 0.22 },
+      lead: { preset: 'guitar', octave: 5, density: 0.56, restBias: 0.36, alts: ['nylon', 'reedLead', 'piano'] },
+      arp: { preset: 'guitar', rate: 0.25, octave: 5, chance: 0.5, alts: ['nylon', 'harp', 'marimba'] },
+      builds: false,
+      drums: {
+        kit: 'acoustic',
+        intro:  { kick: 'x.......x.......', hh: 'x...x...x...x...' },
+        groove: { kick: 'x.......x.......', snare: '....x.......x...', hh: 'x.x.x.x.x.x.x.x.' },
+        full:   { kick: 'x.....x.x.......', snare: '....x.......x...', hh: 'x.x.x.x.x.x.x.x.', tamb: '..x...x...x...x.', ride: '....x.......x...' },
+        fill:   { kick: 'x.......x.......', snare: '........x.x.xxxx', tom: '............x.x.' }
+      },
+      fx: { reverb: 0.34, delay: 0.14, delayTime: 0.5, vinyl: 0.1, master: 1.1, sidechain: 0.06, brightness: 1.0 }
     }
   };
 

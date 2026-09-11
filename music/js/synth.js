@@ -581,6 +581,84 @@
       oh:    { dec: 0.2, hp: 8500, gain: 0.18 },
       perc:  { f: 1200, dec: 0.05, gain: 0.18 },
       crash: { dec: 1.6, hp: 6000, gain: 0.2 }
+    },
+
+    /* An acoustic kit is the opposite of a drum machine in every parameter:
+       the kick has a long woody decay instead of a synthetic click, the snare
+       is mostly noise across a wide band rather than a tuned tone, and the
+       cymbals ring for seconds. */
+    acoustic: {
+      kick:  { f0: 95, f1: 48, pDec: 0.11, dec: 0.5, gain: 0.95, click: 0.12, drive: 0.08 },
+      snare: { tone: 185, dec: 0.24, noise: 0.9, hp: 800, bp: 1700, gain: 0.72 },
+      rim:   { f: 1700, dec: 0.04, gain: 0.4 },
+      hh:    { dec: 0.045, hp: 6800, gain: 0.2 },
+      oh:    { dec: 0.4, hp: 5600, gain: 0.2 },
+      ride:  { dec: 1.5, hp: 5200, gain: 0.18 },
+      tom:   { f0: 200, f1: 82, dec: 0.55, gain: 0.68 },
+      conga: { f0: 300, f1: 200, dec: 0.3, gain: 0.4 },
+      tamb:  { dec: 0.09, hp: 8500, gain: 0.16 },
+      perc:  { f: 520, dec: 0.14, gain: 0.24 },
+      shaker:{ dec: 0.05, hp: 9500, gain: 0.12 },
+      crash: { dec: 2.6, hp: 4200, gain: 0.26 }
+    },
+
+    /* Jazz: brushes and sticks on a small kit. Everything quieter, the ride
+       doing the work the hats do everywhere else. */
+    jazz: {
+      kick:  { f0: 88, f1: 46, pDec: 0.1, dec: 0.42, gain: 0.6, click: 0.04, drive: 0 },
+      snare: { tone: 195, dec: 0.18, noise: 0.72, hp: 950, bp: 1900, gain: 0.44 },
+      rim:   { f: 1800, dec: 0.03, gain: 0.42 },
+      hh:    { dec: 0.05, hp: 6000, gain: 0.14 },
+      oh:    { dec: 0.34, hp: 5200, gain: 0.14 },
+      ride:  { dec: 1.9, hp: 4800, gain: 0.24 },
+      tom:   { f0: 210, f1: 96, dec: 0.42, gain: 0.5 },
+      perc:  { f: 600, dec: 0.12, gain: 0.18 },
+      crash: { dec: 2.2, hp: 4000, gain: 0.2 }
+    },
+
+    /* Rock: hit hard. A big tuned snare, hats with weight, cymbals loud
+       enough to be part of the arrangement rather than decoration. */
+    rock: {
+      kick:  { f0: 110, f1: 50, pDec: 0.07, dec: 0.4, gain: 1.15, click: 0.28, drive: 0.3 },
+      snare: { tone: 205, dec: 0.26, noise: 0.95, hp: 900, bp: 1800, gain: 0.9 },
+      hh:    { dec: 0.05, hp: 7200, gain: 0.3 },
+      oh:    { dec: 0.42, hp: 6000, gain: 0.3 },
+      ride:  { dec: 1.6, hp: 5400, gain: 0.22 },
+      tom:   { f0: 190, f1: 76, dec: 0.5, gain: 0.85 },
+      perc:  { f: 700, dec: 0.1, gain: 0.24 },
+      crash: { dec: 2.4, hp: 4400, gain: 0.38 }
+    },
+
+    /* The 909: the sound of techno. A long tuned kick with a sharp attack
+       transient, a snare that is more tone than noise, and bright metallic
+       hats with almost no decay. */
+    nine09: {
+      kick:  { f0: 165, f1: 42, pDec: 0.028, dec: 0.46, gain: 1.18, click: 0.34, drive: 0.42 },
+      snare: { tone: 238, dec: 0.14, noise: 0.6, hp: 1600, bp: 2400, gain: 0.66 },
+      clap:  { dec: 0.3, bp: 1250, gain: 0.76 },
+      hh:    { dec: 0.018, hp: 10500, gain: 0.26 },
+      oh:    { dec: 0.36, hp: 8200, gain: 0.26 },
+      ride:  { dec: 1.1, hp: 7000, gain: 0.16 },
+      tom:   { f0: 230, f1: 88, dec: 0.28, gain: 0.5 },
+      cowbell: { f: 540, dec: 0.18, gain: 0.3 },
+      perc:  { f: 1300, dec: 0.05, gain: 0.2 },
+      crash: { dec: 1.5, hp: 6200, gain: 0.24 }
+    },
+
+    /* Latin hand percussion: no kick to speak of, congas and shakers carrying
+       the pattern, everything dry and close. */
+    latin: {
+      kick:  { f0: 100, f1: 52, pDec: 0.08, dec: 0.34, gain: 0.8, click: 0.08, drive: 0.1 },
+      snare: { tone: 220, dec: 0.12, noise: 0.6, hp: 1400, bp: 2300, gain: 0.5 },
+      rim:   { f: 2100, dec: 0.03, gain: 0.5 },
+      conga: { f0: 330, f1: 215, dec: 0.26, gain: 0.6 },
+      tamb:  { dec: 0.08, hp: 9000, gain: 0.22 },
+      cowbell: { f: 620, dec: 0.16, gain: 0.34 },
+      shaker:{ dec: 0.045, hp: 10000, gain: 0.2 },
+      hh:    { dec: 0.03, hp: 8800, gain: 0.16 },
+      oh:    { dec: 0.22, hp: 7600, gain: 0.16 },
+      perc:  { f: 880, dec: 0.07, gain: 0.26 },
+      crash: { dec: 1.4, hp: 5200, gain: 0.2 }
     }
   };
 
@@ -641,8 +719,8 @@
     }
 
     if (inst === 'snare' || inst === 'rim') {
-      const p = kit.snare;
-      const dec = inst === 'rim' ? 0.05 : p.dec;
+      const p = (inst === 'rim' && kit.rim) ? Object.assign({}, kit.snare, kit.rim) : kit.snare;
+      const dec = inst === 'rim' ? (kit.rim && kit.rim.dec ? kit.rim.dec : 0.05) : p.dec;
       const n = noiseSource(ctx, t, dec + 0.05);
       const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = p.bp; bp.Q.value = 0.7;
       const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = p.hp;
@@ -767,40 +845,46 @@
     }
 
     if (inst === 'ride') {
-      const n = noiseSource(ctx, t, 0.9);
+      /* A jazz ride rings for two seconds and a 909 ride is a short metallic
+         tick, so this reads the kit like every other piece rather than sounding
+         the same on all of them. */
+      const p = kit.ride || { dec: 0.75, hp: 6000, gain: 0.16 };
+      const dec = p.dec || 0.75;
+      const n = noiseSource(ctx, t, dec + 0.15);
       const hp = ctx.createBiquadFilter();
       hp.type = 'highpass';
-      hp.frequency.value = 6000;
+      hp.frequency.value = p.hp || 6000;
       const bp = ctx.createBiquadFilter();
       bp.type = 'bandpass';
-      bp.frequency.value = 9000;
+      bp.frequency.value = (p.hp || 6000) * 1.5;
       bp.Q.value = 0.5;
       const g = ctx.createGain();
-      percEnv(g.gain, t, 0.16 * vel, 0.75);
+      percEnv(g.gain, t, (p.gain || 0.16) * vel, dec);
       n.connect(hp).connect(bp).connect(g);
       // The bell of the ride, which is what makes it a ride and not a long hat.
       const o = ctx.createOscillator();
       o.type = 'triangle';
-      o.frequency.value = 2400;
+      o.frequency.value = p.bell || 2400;
       const og = ctx.createGain();
-      percEnv(og.gain, t, 0.06 * vel, 0.35);
+      percEnv(og.gain, t, (p.gain || 0.16) * 0.38 * vel, dec * 0.46);
       o.connect(og);
       toOut(g, 0.2);
       toOut(og, 0.2);
-      o.start(t); o.stop(t + 0.4);
+      o.start(t); o.stop(t + dec * 0.5 + 0.1);
       return;
     }
 
     if (inst === 'tamb') {
       // Several short noise bursts: a tambourine is many jingles, not one.
+      const p = kit.tamb || { dec: 0.09, hp: 7000, gain: 0.1 };
       for (let i = 0; i < 4; i++) {
         const off = i * 0.006;
-        const n = noiseSource(ctx, t + off, 0.14);
+        const n = noiseSource(ctx, t + off, (p.dec || 0.09) + 0.06);
         const hp = ctx.createBiquadFilter();
         hp.type = 'highpass';
-        hp.frequency.value = 7000 + i * 900;
+        hp.frequency.value = (p.hp || 7000) + i * 900;
         const g = ctx.createGain();
-        percEnv(g.gain, t + off, 0.1 * vel, 0.09 + i * 0.02);
+        percEnv(g.gain, t + off, (p.gain || 0.1) * vel, (p.dec || 0.09) + i * 0.02);
         n.connect(hp).connect(g);
         toOut(g, 0.14);
       }
@@ -809,33 +893,38 @@
 
     if (inst === 'cowbell') {
       // Two detuned squares through a bandpass — the classic recipe.
-      [540, 800].forEach(function (f, i) {
+      const p = kit.cowbell || { f: 540, dec: 0.28, gain: 0.22 };
+      const base = p.f || 540;
+      const dec = p.dec || 0.28;
+      [base, base * 1.48].forEach(function (f, i) {
         const o = ctx.createOscillator();
         o.type = 'square';
         o.frequency.value = f;
         const bp = ctx.createBiquadFilter();
         bp.type = 'bandpass';
-        bp.frequency.value = 2600;
+        bp.frequency.value = base * 4.8;
         bp.Q.value = 1.2;
         const g = ctx.createGain();
-        percEnv(g.gain, t, (i ? 0.16 : 0.22) * vel, 0.28);
+        percEnv(g.gain, t, (p.gain || 0.22) * (i ? 0.73 : 1) * vel, dec);
         o.connect(bp).connect(g);
         toOut(g, 0.16);
-        o.start(t); o.stop(t + 0.35);
+        o.start(t); o.stop(t + dec + 0.07);
       });
       return;
     }
 
     if (inst === 'conga') {
+      const p = kit.conga || { f0: 340, f1: 215, dec: 0.24, gain: 0.5 };
+      const dec = p.dec || 0.24;
       const o = ctx.createOscillator();
       o.type = 'sine';
-      o.frequency.setValueAtTime(340, t);
-      o.frequency.exponentialRampToValueAtTime(215, t + 0.16);
+      o.frequency.setValueAtTime(p.f0 || 340, t);
+      o.frequency.exponentialRampToValueAtTime(p.f1 || 215, t + dec * 0.67);
       const g = ctx.createGain();
-      percEnv(g.gain, t, 0.5 * vel, 0.24);
+      percEnv(g.gain, t, (p.gain || 0.5) * vel, dec);
       o.connect(g);
       toOut(g, 0.22);
-      o.start(t); o.stop(t + 0.35);
+      o.start(t); o.stop(t + dec + 0.11);
       const n = noiseSource(ctx, t, 0.03);
       const hp = ctx.createBiquadFilter();
       hp.type = 'highpass';

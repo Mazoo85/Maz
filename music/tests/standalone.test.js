@@ -95,7 +95,9 @@ function launchOptions() {
   await page.waitForTimeout(400);
 
   console.log('\n— the single file boots —');
-  check(await page.locator('#genreChips .chip').count() === 8, 'all eight genres present');
+  check(await page.locator('#genreChips .chip').count() ===
+    await page.evaluate(function () { return Object.keys(window.Genres.GENRES).length; }),
+    'a chip for every genre');
   check(await page.locator('#moodChips .chip').count() === 5, 'all five moods present');
   check(await page.locator('#helpModal').isHidden(), 'help modal stays closed');
   check(await page.evaluate(function () {
