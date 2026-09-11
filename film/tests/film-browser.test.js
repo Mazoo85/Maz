@@ -244,6 +244,55 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
     await page.waitForTimeout(300);
     check((await page.textContent('#filmClock')).indexOf('0:00') === 0, 'stop returns to the start');
 
+    console.log('\nTHE SCORE');
+    const scoreState = () => page.evaluate(() => {
+      const panel = document.getElementById('viewFilm');
+      return { score: panel.dataset.score || '', music: panel.dataset.music || '',
+               sections: parseInt(panel.dataset.sections || '0', 10) };
+    });
+
+    await page.click('#playFilm');
+    await page.waitForTimeout(2500);
+    const playing = await scoreState();
+    check(playing.score === 'real', `a real composed score is playing, not the fallback (${playing.score})`);
+    check(playing.music === 'playing', 'the music is running while the picture runs');
+    check(playing.sections >= 3, `the score has a section per scene (${playing.sections})`);
+
+    await page.click('#playFilm'); // pause
+    await page.waitForTimeout(300);
+    check((await scoreState()).music === 'paused', 'pausing the film pauses the music');
+
+    await page.click('#stopFilm');
+    await page.waitForTimeout(300);
+    check((await scoreState()).music === 'stopped', 'stopping the film stops the music');
+
+    // A page where SONG FORGE is missing: the film must still play, and say why.
+    const bare = await context.newPage();
+    await bare.addInitScript(() => {
+      // Take the composer away before the app ever looks for it.
+      Object.defineProperty(window, 'Composer', { get: () => undefined, set: () => {} });
+    });
+    await bare.goto(base + '/film/', { waitUntil: 'load' });
+    await bare.fill('#idea', 'a kid and a walkie-talkie in the attic');
+    await bare.click('#write');
+    await bare.waitForTimeout(400);
+    await bare.click('#tabFilm');
+    await bare.click('#playFilm');
+    await bare.waitForTimeout(1500);
+
+    const withoutForge = await bare.evaluate(() => ({
+      music: document.getElementById('viewFilm').dataset.music || '',
+      score: document.getElementById('viewFilm').dataset.score || '',
+      clock: document.getElementById('filmClock').textContent,
+      status: document.getElementById('status').textContent
+    }));
+    check(/0:0[1-9]|0:[1-9]/.test(withoutForge.clock),
+      `the film still plays with SONG FORGE missing (clock ${withoutForge.clock})`);
+    check(withoutForge.score === 'fallback', 'it knows it is not using a real score');
+    check(/simple music/i.test(withoutForge.status),
+      `it says so plainly (status: "${withoutForge.status}")`);
+    await bare.close();
+
     console.log('\nRECORDING A VIDEO FILE');
     // Record a few seconds, then stop early: a stopped take must still produce
     // a real, finished file rather than nothing.

@@ -330,12 +330,20 @@
     p.play(resumeAt);
     el.bigPlay.classList.add('hidden');
     el.playFilm.textContent = '⏸ Pause';
-    if (!resumeAt) say('Playing. ' + Reel.clock(reel.duration) + ' of film.');
+    // Starting over announces the runtime — unless makePlayer() just said
+    // there is no real score, which matters more and should not be
+    // stomped a moment after anyone reads it.
+    if (!resumeAt && el.viewFilm.dataset.score !== 'fallback') {
+      say('Playing. ' + Reel.clock(reel.duration) + ' of film.');
+    }
   }
 
   function stopFilm() {
     if (player) {
-      if (player.playing) player.stop(false);
+      // Stop unconditionally: the film can be stopped from a pause too, and
+      // that still has to flip the music state to 'stopped', not leave it
+      // reading 'paused'.
+      player.stop(false);
       player.time = 0;
     }
     if (window.speechSynthesis) window.speechSynthesis.cancel();
