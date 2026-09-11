@@ -167,4 +167,8 @@ jobs:
         run: cmake --build build --config Release --parallel
       - name: Unit tests
         # The unit suite is pure logic (no GPU/window), so it runs anywhere the engine compiles.
-        run: ctest --test-dir build --config Release --output-on-failure -R unit_tests
+        # -C, not --config: `cmake --build` spells it --config, ctest only accepts -C /
+        # --build-config, and passing --config made ctest exit 1 with "Unknown argument"
+        # before running a single test. It is needed at all because MSBuild and Xcode are
+        # multi-config generators, so the binary sits in a per-config subdirectory.
+        run: ctest --test-dir build -C Release --output-on-failure -R unit_tests
