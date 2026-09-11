@@ -30,7 +30,7 @@ The earlier plan said *"MADLIBS becomes the story brain so films stop sharing on
 seven-beat spine."* That is wrong in an important way, and measuring it first
 changed the design.
 
-MADLIBS has **45 story templates across nine genres** — but **all 45 share one
+MADLIBS has **45 story templates across 34 genres** — but **all 45 share one
 six-beat spine**: Logline → Setup → Inciting Incident → Conflict → Climax →
 Resolution. Adopting MADLIBS wholesale would give 45 different *premises* on one
 *shape*. That is a real gain, but it is not the gain that was assumed, and on its
@@ -125,10 +125,15 @@ and this is exactly the combination the whole movie maker was for.
 
 - **When it fires:** when the typed idea is empty, when it is too thin to yield a
   premise, and from an explicit **"Surprise me"** control on the film page.
-- **What it gives:** 45 premises across nine genres, with MADLIBS's tagged word
+- **What it gives:** 45 premises across 34 genres, with MADLIBS's tagged word
   reuse keeping a character, a place and a key object consistent across beats.
 - **Genre mapping:** every MADLIBS genre must resolve to one SCRIPT FORGE genre.
-  Note `adventure` has no SCRIPT FORGE equivalent and needs a deliberate mapping.
+  This is a bigger job than it first looked: an early reading of this spec said
+  MADLIBS had nine genres, which came from sampling the first nineteen templates
+  rather than all forty-five. It has **34**, against SCRIPT FORGE's ten, so most
+  of them collapse — `noir` onto mystery, `cyberpunk` and `time-travel` onto
+  scifi, `spy` and `survival` onto thriller, `coming-of-age` and `war` onto
+  drama. `adventure` has no equivalent at all and needs a deliberate choice.
 - **Beat mapping:** MADLIBS's six labels map onto SCRIPT FORGE beat ids.
 
 MADLIBS itself is **not modified**. It keeps working standalone and keeps its own
