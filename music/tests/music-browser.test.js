@@ -552,25 +552,24 @@ function launchOptions() {
     /* 4. Ping-pong — the same echoes, moved out to the sides. Measured in the
        tail after the part has stopped, where what is left is echoes and
        nothing else: measuring the whole render mixes the instrument's own
-       stereo width into the reading, which makes the number depend on which
-       instrument the arrangement happened to pick. */
-    const echoSong = function (ping) {
-      return song(function (s) {
-        s.pingpong = ping;
-        s.presetOverride = { lead: 'pluck' };
-      });
-    };
+       stereo width into the reading.
+       On the *same* part the reverb test uses, and with the window taken from
+       that part. Measuring one track's tail in a render whose length was set by
+       another track's last note is how this ended up pointed at a window with
+       no signal in it at all — and two near-silent windows compare equal, which
+       reads as "the effect does nothing" whether or not it does. */
+    const echoSong = function (ping) { return song(function (s) { s.pingpong = ping; }); };
     const echoWindow = function (buf, s) {
       let lastEnd = 0;
-      s.tracks.lead.forEach(function (e) { lastEnd = Math.max(lastEnd, e.t + e.d); });
+      s.tracks.arp.forEach(function (e) { lastEnd = Math.max(lastEnd, e.t + e.d); });
       const spb = 60 / s.bpm;
       const total = buf.length / buf.sampleRate;
-      return [Math.min(0.95, (lastEnd * spb + 0.35) / total),
+      return [Math.min(0.95, (lastEnd * spb + 0.3) / total),
               Math.min(0.99, (lastEnd * spb + 2.2) / total)];
     };
     const offSong = echoSong(false), onSong = echoSong(true);
-    const centred = await render(offSong, mixWith('lead', { rev: 0, del: 2, cho: 0 }));
-    const bouncing = await render(onSong, mixWith('lead', { rev: 0, del: 2, cho: 0 }));
+    const centred = await render(offSong, mixWith('arp', { rev: 0, del: 2, cho: 0 }));
+    const bouncing = await render(onSong, mixWith('arp', { rev: 0, del: 2, cho: 0 }));
     const wOff = echoWindow(centred, offSong), wOn = echoWindow(bouncing, onSong);
     out.pingOff = measure(centred, wOff[0], wOff[1]);
     out.pingOn = measure(bouncing, wOn[0], wOn[1]);
@@ -603,7 +602,9 @@ function launchOptions() {
   check(fx.choOn.rms > fx.choOff.rms,
     'and thickens it (rms ' + fx.choOff.rms.toFixed(4) + ' → ' + fx.choOn.rms.toFixed(4) + ')');
 
-  check(fx.pingOff.rms > 1e-5, 'the echo test has echoes to move (rms ' +
+  /* A real floor, not a token one: two silent windows compare equal, so a test
+     that only checks the ratio would pass on an empty measurement. */
+  check(fx.pingOff.rms > 1e-4, 'the echo test has echoes to move (rms ' +
     fx.pingOff.rms.toExponential(1) + ')');
   check(fx.pingOn.stereo > fx.pingOff.stereo * 1.5,
     'ping-pong throws the echoes to the sides (stereo ' +
@@ -613,6 +614,92 @@ function launchOptions() {
   check(fx.crushOn.bright > fx.crushOff.bright * 1.5,
     'crushing adds grit that was not there (brightness ' +
     fx.crushOff.bright.toFixed(4) + ' → ' + fx.crushOn.bright.toFixed(4) + ')');
+
+  console.log('\n— swirl and sweep —');
+  /* Three modulation effects that are the same idea at different scales, plus
+     auto-pan. The flanger has a feedback loop, so it gets checked for runaway
+     the same way the plucked strings and the reverb sends were. */
+  const swirl = await page.evaluate(async function () {
+    function stats(buf, from) {
+      const L = buf.getChannelData(0);
+      const R = buf.numberOfChannels > 1 ? buf.getChannelData(1) : L;
+      const a = Math.floor((from || 0) * L.length);
+      let peak = 0, s2 = 0, diff = 0, bad = 0, hf = 0;
+      for (let i = Math.max(1, a); i < L.length; i++) {
+        if (!isFinite(L[i])) { bad++; continue; }
+        const v = Math.abs(L[i]);
+        if (v > peak) peak = v;
+        s2 += L[i] * L[i];
+        diff += Math.abs(L[i] - R[i]);
+        hf += Math.abs(L[i] - L[i - 1]);
+      }
+      const n = L.length - a;
+      const rms = Math.sqrt(s2 / n);
+      return { peak: peak, rms: rms, bad: bad,
+               /* Two stereo measures, because they answer different questions.
+                  `stereo` is channel difference relative to level, which is
+                  right for "is this part wide". `spread` is the raw difference,
+                  which is right for "does this move across the field" — an
+                  effect that pans *and* raises the level can lower the first
+                  while plainly increasing the second. */
+               spread: diff / n,
+               stereo: rms > 0 ? (diff / n) / rms : 0,
+               bright: rms > 0 ? (hf / n) / rms : 0 };
+    }
+    function song(setup) {
+      const s = window.Composer.compose({ seed: 'SWIRL-1', genre: 'cinematic',
+                                          meter: '4/4', length: 'short' });
+      /* A deliberately mono sound. The pads here split themselves hard left and
+         right, so a rotary's panning would be measured against a part that is
+         already as wide as it can get — the same trap the chorus test fell
+         into. */
+      s.presetOverride = { pad: 'chipChord' };
+      Object.keys(s.tracks).forEach(function (k) {
+        s.tracks[k] = s.tracks[k].filter(function (e) { return e.t < 32; });
+      });
+      s.totalBeats = 34;
+      s.glue = 0;
+      if (setup) setup(s);
+      return s;
+    }
+    function mixWith(fields) {
+      const m = {};
+      window.Engine.TRACKS.forEach(function (t) {
+        m[t] = { volume: 1, muted: t !== 'pad', solo: false, rev: 0, del: 0, cho: 0,
+                 mod: 0, autopan: 0, eqLow: 0, eqMid: 0, eqHigh: 0, crush: 0, comp: 0, punch: 0 };
+      });
+      if (fields) for (const k in fields) m.pad[k] = fields[k];
+      return m;
+    }
+    const out = { off: stats(await window.Engine.renderOffline(song(), mixWith())) };
+    for (const kind of ['flanger', 'phaser', 'rotary']) {
+      out[kind] = stats(await window.Engine.renderOffline(
+        song(function (s) { s.modFx = kind; }), mixWith({ mod: 1 })));
+    }
+    out.swept = stats(await window.Engine.renderOffline(song(), mixWith({ autopan: 1 })));
+    return out;
+  });
+
+  check(swirl.off.rms > 1e-4, 'there is a part to modulate (rms ' + swirl.off.rms.toFixed(4) + ')');
+  ['flanger', 'phaser', 'rotary'].forEach(function (k) {
+    check(swirl[k].bad === 0, k + ': never produces broken samples');
+    check(swirl[k].peak < 2, k + ': never runs away (peak ' + swirl[k].peak.toFixed(2) + ')');
+    check(swirl[k].rms > swirl.off.rms * 1.05,
+      k + ': actually adds something (rms ' + swirl.off.rms.toFixed(4) + ' → ' +
+      swirl[k].rms.toFixed(4) + ')');
+  });
+  /* Each of the three should differ from the others, or two of them are the
+     same effect wearing different names. */
+  const sig = ['flanger', 'phaser', 'rotary'].map(function (k) {
+    return Math.round(swirl[k].bright * 1000) + '/' + Math.round(swirl[k].stereo * 100);
+  });
+  check(new Set(sig).size === 3, 'and all three are distinguishable (' + sig.join('  ') + ')');
+  check(swirl.rotary.spread > swirl.off.spread * 1.3,
+    'the rotary moves across the stereo field, as a spinning horn does (' +
+    swirl.off.spread.toFixed(5) + ' → ' + swirl.rotary.spread.toFixed(5) + ')');
+  check(swirl.swept.spread > swirl.off.spread * 1.3,
+    'and auto-pan sweeps the part (' + swirl.off.spread.toFixed(5) + ' → ' +
+    swirl.swept.spread.toFixed(5) + ')');
 
   console.log('\n— compression —');
   /* Compression is the one effect that can quietly ruin everything. This chain

@@ -288,6 +288,7 @@
     el('seedInput').value = s.seed;
     el('grooveSelect').value = s.groove || '';
     el('glueAmt').value = String(Math.round((s.glue || 0) * 100));
+    el('modKind').value = s.modFx || 'flanger';
     state.seedEdited = false;
     buildChordStrip();
     buildArrange();
@@ -643,6 +644,8 @@
       { id: 'revSend', field: 'rev', label: 'Reverb', unit: '%', scale: 100, dflt: 1 },
       { id: 'delSend', field: 'del', label: 'Delay', unit: '%', scale: 100, dflt: 1 },
       { id: 'choSend', field: 'cho', label: 'Chorus', unit: '%', scale: 100, dflt: 0 },
+      { id: 'modSend', field: 'mod', label: 'Swirl', unit: '%', scale: 100, dflt: 0 },
+      { id: 'autopanAmt', field: 'autopan', label: 'Sweep', unit: '%', scale: 100, dflt: 0 },
       { id: 'crushAmt', field: 'crush', label: 'Crush', unit: '%', scale: 100, dflt: 0 },
       { id: 'compAmt', field: 'comp', label: 'Squeeze', unit: '%', scale: 100, dflt: 0 },
       { id: 'punchAmt', field: 'punch', label: 'Punch', unit: '', scale: 100, dflt: 0 },
@@ -965,6 +968,18 @@
   function bindSongControls() {
     /* The groove is a playback setting, so it changes what you hear without
        rewriting a note — moving it mid-listen is the whole point. */
+    /* The swirl type changes the shape of the bus, not a gain on it, so this is
+       one of the few controls that genuinely needs the graph rebuilding. */
+    el('modKind').addEventListener('change', function () {
+      if (!state.song) return;
+      state.song.modFx = this.value;
+      const at = player.currentBeat();
+      const was = player.playing;
+      player.stop();
+      if (was) player.play(at);
+      status('Swirl is now a ' + this.options[this.selectedIndex].text.toLowerCase() + '.');
+    });
+
     const glue = el('glueAmt');
     glue.addEventListener('input', function () {
       if (!state.song) return;

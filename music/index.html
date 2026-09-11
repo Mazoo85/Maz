@@ -132,6 +132,13 @@
       <label class="tool-field" for="grooveSelect"><span>Feel</span>
         <select id="grooveSelect"></select>
       </label>
+      <label class="tool-field" for="modKind"><span>Swirl type</span>
+        <select id="modKind">
+          <option value="flanger">Flanger</option>
+          <option value="phaser">Phaser</option>
+          <option value="rotary">Rotary speaker</option>
+        </select>
+      </label>
       <label class="tool-field" for="glueAmt"><span>Glue</span>
         <input type="range" id="glueAmt" min="0" max="100" step="5" value="0"
                aria-label="Glue compression across the whole mix" />
@@ -241,6 +248,14 @@
         <label class="fx-field" for="choSend"><span>Chorus</span>
           <input type="range" id="choSend" min="0" max="100" step="5" value="0" aria-label="Chorus for this part" />
           <output class="fx-value" id="choSendVal">0%</output>
+        </label>
+        <label class="fx-field" for="modSend"><span>Swirl</span>
+          <input type="range" id="modSend" min="0" max="100" step="5" value="0" aria-label="Flanger, phaser or rotary for this part" />
+          <output class="fx-value" id="modSendVal">0%</output>
+        </label>
+        <label class="fx-field" for="autopanAmt"><span>Sweep</span>
+          <input type="range" id="autopanAmt" min="0" max="100" step="5" value="0" aria-label="Auto-pan for this part" />
+          <output class="fx-value" id="autopanAmtVal">0%</output>
         </label>
         <label class="fx-field" for="crushAmt"><span>Crush</span>
           <input type="range" id="crushAmt" min="0" max="100" step="5" value="0" aria-label="Bit crush for this part" />

@@ -336,6 +336,83 @@
     delPingIn.gain.value = ping ? 1 : 0;
 
     /*
+     * Modulation bus: flanger, phaser and rotary.
+     *
+     * All three are the same idea at different scales, which is why they share
+     * a bus and a send. A flanger is a very short delay swept through the
+     * comb-filtering range and fed back on itself. A phaser is a stack of
+     * allpass filters swept instead — no delay, so no comb, just moving
+     * notches. A rotary is a slow pan plus the tremolo a spinning horn makes.
+     */
+    const modPre = ctx.createGain();
+    const modReturn = ctx.createGain();
+    modReturn.gain.value = 1;
+    modReturn.connect(master);
+    const modLfos = [];
+    const modKind = song.modFx || 'flanger';
+
+    if (modKind === 'phaser') {
+      let chain = modPre;
+      const sweep = ctx.createGain();
+      sweep.gain.value = 800;
+      const plfo = ctx.createOscillator();
+      plfo.type = 'sine';
+      plfo.frequency.value = 0.35;
+      plfo.connect(sweep);
+      for (let i = 0; i < 6; i++) {
+        const ap = ctx.createBiquadFilter();
+        ap.type = 'allpass';
+        ap.frequency.value = 300 + i * 420;
+        ap.Q.value = 0.6;
+        sweep.connect(ap.frequency);
+        chain.connect(ap);
+        chain = ap;
+      }
+      chain.connect(modReturn);
+      modLfos.push(plfo);
+    } else if (modKind === 'rotary') {
+      const rpan = Synth.panner(ctx, 0, true);        // it is going to move
+      const trem = ctx.createGain();
+      trem.gain.value = 0.7;
+      const rlfo = ctx.createOscillator();
+      rlfo.type = 'sine';
+      rlfo.frequency.value = 5.4;                 // the fast rotor
+      const rdepth = ctx.createGain();
+      rdepth.gain.value = 0.3;
+      rlfo.connect(rdepth).connect(trem.gain);
+      if (rpan && rpan.pan) {
+        const pd = ctx.createGain();
+        pd.gain.value = 0.8;
+        rlfo.connect(pd).connect(rpan.pan);
+      }
+      modPre.connect(trem);
+      if (rpan) trem.connect(rpan).connect(modReturn); else trem.connect(modReturn);
+      modLfos.push(rlfo);
+    } else {
+      /* Flanger. The feedback path deliberately contains no filter: a
+         BiquadFilterNode inside a Web Audio feedback cycle is unstable in this
+         engine, measured growing without bound — the same finding that decided
+         how the plucked strings are built. A plain gain under 1 is safe. */
+      const fd = ctx.createDelay(0.02);
+      fd.delayTime.value = 0.003;
+      const flfo = ctx.createOscillator();
+      flfo.type = 'sine';
+      flfo.frequency.value = 0.25;
+      const fdepth = ctx.createGain();
+      fdepth.gain.value = 0.0022;
+      flfo.connect(fdepth).connect(fd.delayTime);
+      const ffb = ctx.createGain();
+      ffb.gain.value = 0.55;
+      modPre.connect(fd);
+      fd.connect(ffb).connect(fd);
+      fd.connect(modReturn);
+      /* Only the delayed half is returned. A flanger needs a dry copy to comb
+         against, and the track already sends one straight to the master — so
+         adding another here would just double the level of everything sent. */
+      modLfos.push(flfo);
+    }
+
+    /*
      * Chorus bus: two short delay lines whose delay times wobble under slow
      * LFOs, panned apart. A copy of a sound arriving a few milliseconds late
      * and drifting in pitch is what "thick" means — it is the same trick as a
@@ -369,6 +446,7 @@
       const rev = ctx.createGain();
       const del = ctx.createGain();
       const cho = ctx.createGain();
+      const modSend = ctx.createGain();
 
       /* dry -> crush -> EQ -> [duck] -> [pan] -> master
          Crushing first: the EQ is then shaping the grit rather than the grit
@@ -406,6 +484,7 @@
         mixField(mix, name, 'comp', 0), mixField(mix, name, 'punch', 0));
 
       tail.connect(cho);
+      tail.connect(modSend);
 
       let duck = null;
       if (duckDepth > 0 && DUCK_TARGETS.indexOf(name) >= 0) {
@@ -414,23 +493,42 @@
         tail.connect(duck);
         tail = duck;
       }
-      const pan = Synth.panner(ctx, TRACK_PAN[name] || 0);
+      /* A part that is going to be swept needs a panner even when it starts in
+         the middle — otherwise there is nothing for the sweep to move. */
+      const autoPanAmt = mixField(mix, name, 'autopan', 0);
+      const pan = Synth.panner(ctx, TRACK_PAN[name] || 0, autoPanAmt > 0);
       if (pan) { tail.connect(pan); tail = pan; }
+
+      /* Auto-pan sweeps the part across the stereo field, around the place it
+         already sits rather than from the middle — so a part panned left
+         stays a left-ish part that moves. */
+      let panLfo = null;
+      if (autoPanAmt > 0 && pan && pan.pan) {
+        panLfo = ctx.createOscillator();
+        panLfo.type = 'sine';
+        panLfo.frequency.value = 0.5;
+        const pd = ctx.createGain();
+        pd.gain.value = autoPanAmt * (1 - Math.abs(TRACK_PAN[name] || 0));
+        panLfo.connect(pd).connect(pan.pan);
+      }
+
       tail.connect(master);
 
       rev.connect(revPre);
       del.connect(delPre);
       cho.connect(choPre);
+      modSend.connect(modPre);
       const t = {
         dry: dry, rev: rev, del: del, cho: cho, duck: duck,
         crush: crush, eqLow: eqLow, eqMid: eqMid, eqHigh: eqHigh,
-        comp: comp, compMakeup: compMakeup
+        comp: comp, compMakeup: compMakeup, modSend: modSend, panLfo: panLfo
       };
       tracks[name] = t;
       dry.gain.value = gainFor(mix, name);
       rev.gain.value = sendGain(mix, name, 'rev');
       del.gain.value = sendGain(mix, name, 'del');
       cho.gain.value = chorusGain(mix, name);
+      modSend.gain.value = mixField(mix, name, 'mod', 0);
     });
 
     // Vinyl / tape bed
@@ -453,6 +551,7 @@
       autoFilter: autoFilter, autoGain: autoGain, click: click,
       glue: glue, glueTrim: glueTrim,
       delMonoIn: delMonoIn, delPingIn: delPingIn, choReturn: choReturn, choLfos: choLfos,
+      modReturn: modReturn, modLfos: modLfos,
       duckDepth: duckDepth, duckRelease: Math.min(0.42, (60 / song.bpm) * 0.62)
     };
   }
@@ -557,7 +656,7 @@
     TRACKS.forEach(function (t) {
       this.mix[t] = {
         volume: 1, muted: false, solo: false,
-        rev: 1, del: 1, cho: 0,
+        rev: 1, del: 1, cho: 0, mod: 0, autopan: 0,
         eqLow: 0, eqMid: 0, eqHigh: 0, crush: 0, comp: 0, punch: 0
       };
     }, this);
@@ -616,8 +715,13 @@
   Player.prototype._startChorus = function () {
     if (!this.graph || this._chorusStarted) return;
     const t = this.ctx.currentTime;
-    for (let i = 0; i < this.graph.choLfos.length; i++) {
-      try { this.graph.choLfos[i].start(t); } catch (e) { /* already started */ }
+    const lfos = this.graph.choLfos.concat(this.graph.modLfos);
+    TRACKS.forEach(function (n) {
+      const b = this.graph.tracks[n];
+      if (b && b.panLfo) lfos.push(b.panLfo);
+    }, this);
+    for (let i = 0; i < lfos.length; i++) {
+      try { lfos[i].start(t); } catch (e) { /* already started */ }
     }
     this._chorusStarted = true;
   };
@@ -794,6 +898,8 @@
     if (opts.rev !== undefined) m.rev = opts.rev;
     if (opts.del !== undefined) m.del = opts.del;
     if (opts.cho !== undefined) m.cho = opts.cho;
+    if (opts.mod !== undefined) m.mod = opts.mod;
+    if (opts.autopan !== undefined) m.autopan = opts.autopan;
     ['eqLow', 'eqMid', 'eqHigh', 'crush', 'comp', 'punch'].forEach(function (k) {
       if (opts[k] !== undefined) m[k] = opts[k];
     });
@@ -839,6 +945,7 @@
       bus.rev.gain.setTargetAtTime(sendGain(mix, name, 'rev'), t, 0.02);
       bus.del.gain.setTargetAtTime(sendGain(mix, name, 'del'), t, 0.02);
       bus.cho.gain.setTargetAtTime(chorusGain(mix, name), t, 0.02);
+      bus.modSend.gain.setTargetAtTime(mixField(mix, name, 'mod', 0), t, 0.02);
       bus.eqLow.gain.setTargetAtTime(mixField(mix, name, 'eqLow', 0), t, 0.02);
       bus.eqMid.gain.setTargetAtTime(mixField(mix, name, 'eqMid', 0), t, 0.02);
       bus.eqHigh.gain.setTargetAtTime(mixField(mix, name, 'eqHigh', 0), t, 0.02);
@@ -922,7 +1029,11 @@
     const graph = buildGraph(ctx, song, mix, false);
     if (graph.vinyl) graph.vinyl.start(0);
 
-    for (let i = 0; i < graph.choLfos.length; i++) graph.choLfos[i].start(0);
+    graph.choLfos.concat(graph.modLfos).forEach(function (o) { o.start(0); });
+    TRACKS.forEach(function (n) {
+      const b = graph.tracks[n];
+      if (b && b.panLfo) b.panLfo.start(0);
+    });
     applyAutomation(ctx, graph, song, 0.05, 0);
 
     const flat = flatten(song);

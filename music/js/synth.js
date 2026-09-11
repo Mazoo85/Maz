@@ -219,10 +219,20 @@
   }
 
   /** StereoPannerNode where available; a plain gain elsewhere (mono, but audible). */
-  function panner(ctx, pan) {
-    if (!pan || !ctx.createStereoPanner) return null;
+  /**
+   * A panner, or null when one would do nothing.
+   *
+   * Returning null for a centred part is a real saving — most parts sit in the
+   * middle and a node that does nothing still costs something on every sample.
+   * But it means a *moving* pan has to ask for one explicitly, because a part
+   * that starts centred is exactly the case where "no panner needed" is wrong:
+   * there is nothing to modulate. Pass `force` when the pan is going to move.
+   */
+  function panner(ctx, pan, force) {
+    if (!ctx.createStereoPanner) return null;
+    if (!pan && !force) return null;
     const p = ctx.createStereoPanner();
-    p.pan.value = Math.max(-1, Math.min(1, pan));
+    p.pan.value = Math.max(-1, Math.min(1, pan || 0));
     return p;
   }
 

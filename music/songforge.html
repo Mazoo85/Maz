@@ -1028,6 +1028,13 @@ input[type="range"]::-moz-range-thumb {
       <label class="tool-field" for="grooveSelect"><span>Feel</span>
         <select id="grooveSelect"></select>
       </label>
+      <label class="tool-field" for="modKind"><span>Swirl type</span>
+        <select id="modKind">
+          <option value="flanger">Flanger</option>
+          <option value="phaser">Phaser</option>
+          <option value="rotary">Rotary speaker</option>
+        </select>
+      </label>
       <label class="tool-field" for="glueAmt"><span>Glue</span>
         <input type="range" id="glueAmt" min="0" max="100" step="5" value="0"
                aria-label="Glue compression across the whole mix" />
@@ -1136,6 +1143,14 @@ input[type="range"]::-moz-range-thumb {
         <label class="fx-field" for="choSend"><span>Chorus</span>
           <input type="range" id="choSend" min="0" max="100" step="5" value="0" aria-label="Chorus for this part" />
           <output class="fx-value" id="choSendVal">0%</output>
+        </label>
+        <label class="fx-field" for="modSend"><span>Swirl</span>
+          <input type="range" id="modSend" min="0" max="100" step="5" value="0" aria-label="Flanger, phaser or rotary for this part" />
+          <output class="fx-value" id="modSendVal">0%</output>
+        </label>
+        <label class="fx-field" for="autopanAmt"><span>Sweep</span>
+          <input type="range" id="autopanAmt" min="0" max="100" step="5" value="0" aria-label="Auto-pan for this part" />
+          <output class="fx-value" id="autopanAmtVal">0%</output>
         </label>
         <label class="fx-field" for="crushAmt"><span>Crush</span>
           <input type="range" id="crushAmt" min="0" max="100" step="5" value="0" aria-label="Bit crush for this part" />
@@ -2050,7 +2065,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x..x....x.x...x.', snare: '....x.......x..o', hh: 'xoxoxoxoxoxoxoxo', perc: '....o.......o...' },
         fill:   { kick: 'x.......x.......', snare: '........x.x.xxxx', hh: 'x.x.x.x.........' }
       },
-      fx: { reverb: 0.35, delay: 0.22, delayTime: 0.5, vinyl: 0.5, glue: 0.25, master: 1.15, sidechain: 0.14, brightness: 0.75 }
+      fx: { reverb: 0.35, delay: 0.22, delayTime: 0.5, vinyl: 0.5, modFx: 'rotary', glue: 0.25, master: 1.15, sidechain: 0.14, brightness: 0.75 }
     },
 
     synthwave: {
@@ -2077,7 +2092,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x...x...x...x..x', clap: '....x.......x...', hh: 'xoxoxoxoxoxoxoxo', oh: '......x.......x.', crash: 'x...............' },
         fill:   { kick: 'x...x...........', snare: '........x.x.xxxx', crash: '................' }
       },
-      fx: { reverb: 0.42, delay: 0.3, delayTime: 0.375, vinyl: 0, glue: 0.25, master: 0.94, sidechain: 0.42, brightness: 1.05 }
+      fx: { reverb: 0.42, delay: 0.3, delayTime: 0.375, vinyl: 0, modFx: 'flanger', glue: 0.25, master: 0.94, sidechain: 0.42, brightness: 1.05 }
     },
 
     house: {
@@ -2104,7 +2119,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x...x...x...x...', clap: '....x.......x...', hh: 'xoxoxoxoxoxoxoxo', oh: '..x...x...x...x.', perc: '...x......x.....' },
         fill:   { kick: 'x...x...x.......', snare: '........x.x.xxxx', oh: '..............x.' }
       },
-      fx: { reverb: 0.4, delay: 0.24, delayTime: 0.375, vinyl: 0, glue: 0.3, master: 1.02, sidechain: 0.58, brightness: 1.0 }
+      fx: { reverb: 0.4, delay: 0.24, delayTime: 0.375, vinyl: 0, modFx: 'phaser', glue: 0.3, master: 1.02, sidechain: 0.58, brightness: 1.0 }
     },
 
     ambient: {
@@ -2131,7 +2146,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x.......x.......', perc: '....o.......o...', shaker: 'o.o.o.o.o.o.o.o.' },
         fill:   { perc: '............o.o.' }
       },
-      fx: { reverb: 0.8, delay: 0.35, delayTime: 0.75, vinyl: 0.15, glue: 0.05, master: 1.31, sidechain: 0, brightness: 0.9 }
+      fx: { reverb: 0.8, delay: 0.35, delayTime: 0.75, vinyl: 0.15, modFx: 'phaser', glue: 0.05, master: 1.31, sidechain: 0, brightness: 0.9 }
     },
 
     cinematic: {
@@ -2158,7 +2173,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x.x.x.x.x.x.x.x.', snare: '........x.......', tom: 'o...o...o...o...', crash: 'x...............' },
         fill:   { tom: 'x.x.x.xxx.x.xxxx', crash: '................' }
       },
-      fx: { reverb: 0.65, delay: 0.18, delayTime: 0.5, vinyl: 0, glue: 0.15, master: 1.10, sidechain: 0.12, brightness: 0.95 }
+      fx: { reverb: 0.65, delay: 0.18, delayTime: 0.5, vinyl: 0, modFx: 'phaser', glue: 0.15, master: 1.10, sidechain: 0.12, brightness: 0.95 }
     },
 
     chiptune: {
@@ -2185,7 +2200,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x..xx...x..xx...', snare: '....x.......x...', hh: 'xoxoxoxoxoxoxoxo' },
         fill:   { kick: 'x.......x.......', snare: '....x...x.x.xxxx', hh: '................' }
       },
-      fx: { reverb: 0.16, delay: 0.26, delayTime: 0.1875, vinyl: 0, glue: 0.1, master: 1.38, sidechain: 0, brightness: 1.15 }
+      fx: { reverb: 0.16, delay: 0.26, delayTime: 0.1875, vinyl: 0, modFx: 'flanger', glue: 0.1, master: 1.38, sidechain: 0, brightness: 1.15 }
     },
 
     dnb: {
@@ -2212,7 +2227,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x.....x..x.x....', snare: '....x..o....x..o', hh: 'xoxoxoxoxoxoxoxo', oh: '..........x.....' },
         fill:   { kick: 'x.......x.......', snare: '....x...x.x.xxxx', hh: '................' }
       },
-      fx: { reverb: 0.45, delay: 0.28, delayTime: 0.375, vinyl: 0, glue: 0.35, master: 1.19, sidechain: 0.34, brightness: 1.05 }
+      fx: { reverb: 0.45, delay: 0.28, delayTime: 0.375, vinyl: 0, modFx: 'flanger', glue: 0.35, master: 1.19, sidechain: 0.34, brightness: 1.05 }
     },
 
     trap: {
@@ -2240,7 +2255,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x..x..x...x..x..', snare: '........x.......', hh: 'xoxoxoxoxoxoxoxo', oh: '..............x.' },
         fill:   { kick: 'x.......x.......', snare: '........x...xxxx', hh: 'x.x.x.x.........' }
       },
-      fx: { reverb: 0.35, delay: 0.2, delayTime: 0.375, vinyl: 0, glue: 0.3, master: 1.17, sidechain: 0.46, brightness: 0.95 }
+      fx: { reverb: 0.35, delay: 0.2, delayTime: 0.375, vinyl: 0, modFx: 'phaser', glue: 0.3, master: 1.17, sidechain: 0.46, brightness: 0.95 }
     },
 
     rock: {
@@ -2267,7 +2282,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x..x..x.x...x...', snare: '....x.......x...', hh: 'xxxxxxxxxxxxxxxx', crash: 'x.......x.......', ride: '..x...x...x...x.' },
         fill:   { kick: 'x.......x.......', snare: '........xxx.xxxx', tom: '............x.x.', crash: '...............x' }
       },
-      fx: { reverb: 0.3, delay: 0.14, delayTime: 0.375, vinyl: 0, glue: 0.4, master: 0.92, sidechain: 0.08, brightness: 1.1 }
+      fx: { reverb: 0.3, delay: 0.14, delayTime: 0.375, vinyl: 0, modFx: 'flanger', glue: 0.4, master: 0.92, sidechain: 0.08, brightness: 1.1 }
     },
 
     funk: {
@@ -2294,7 +2309,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x..x..x...x..x..', snare: '....x..o....x..o', hh: 'xoxoxoxoxoxoxoxo', tamb: '..x...x...x...x.', conga: '......o...o...o.' },
         fill:   { kick: 'x.......x.......', snare: '......x.x.xxx.xx', tom: '..........x.x...' }
       },
-      fx: { reverb: 0.22, delay: 0.18, delayTime: 0.375, vinyl: 0.08, glue: 0.45, master: 1.0, sidechain: 0.1, brightness: 1.05 }
+      fx: { reverb: 0.22, delay: 0.18, delayTime: 0.375, vinyl: 0.08, modFx: 'phaser', glue: 0.45, master: 1.0, sidechain: 0.1, brightness: 1.05 }
     },
 
     jazz: {
@@ -2321,7 +2336,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x.....x.......x.', snare: '....o.o...o.o..o', ride: 'x.xxx.xx.xxx.xxx', hh: '....x.......x...', rim: '..........x.....' },
         fill:   { snare: '..o.x.oxx.xoxxxx', tom: '..........x.x...', crash: '...............x' }
       },
-      fx: { reverb: 0.42, delay: 0.12, delayTime: 0.5, vinyl: 0.12, glue: 0.15, master: 1.2, sidechain: 0, brightness: 0.9 }
+      fx: { reverb: 0.42, delay: 0.12, delayTime: 0.5, vinyl: 0.12, modFx: 'rotary', glue: 0.15, master: 1.2, sidechain: 0, brightness: 0.9 }
     },
 
     disco: {
@@ -2348,7 +2363,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x...x...x...x...', snare: '....x.......x...', hh: 'xxxxxxxxxxxxxxxx', oh: '..x...x...x...x.', tamb: '....x.......x...', conga: '..o...o...o...o.' },
         fill:   { kick: 'x...x...........', snare: '........x.x.xxxx', tom: '............x.x.' }
       },
-      fx: { reverb: 0.36, delay: 0.2, delayTime: 0.375, vinyl: 0.06, glue: 0.4, master: 0.98, sidechain: 0.3, brightness: 1.05 }
+      fx: { reverb: 0.36, delay: 0.2, delayTime: 0.375, vinyl: 0.06, modFx: 'phaser', glue: 0.4, master: 0.98, sidechain: 0.3, brightness: 1.05 }
     },
 
     techno: {
@@ -2375,7 +2390,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x...x...x...x...', clap: '....x.......x...', hh: 'xxxxxxxxxxxxxxxx', oh: '..x...x...x...x.', ride: '....x.......x...', cowbell: '..........x.....' },
         fill:   { kick: 'x...x...x.x.x.x.', clap: '........x.x.xxxx', crash: '...............x' }
       },
-      fx: { reverb: 0.3, delay: 0.26, delayTime: 0.375, vinyl: 0, glue: 0.3, master: 0.96, sidechain: 0.62, brightness: 1.0 }
+      fx: { reverb: 0.3, delay: 0.26, delayTime: 0.375, vinyl: 0, modFx: 'flanger', glue: 0.3, master: 0.96, sidechain: 0.62, brightness: 1.0 }
     },
 
     drill: {
@@ -2402,7 +2417,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x.....x...x...x.', snare: '........x.......', hh: 'xxxxx.xxxxxxx.xx', oh: '..........x.....', perc: '............o...' },
         fill:   { kick: 'x.......x.......', snare: '........xxxxxxxx', riser: 'x...............' }
       },
-      fx: { reverb: 0.4, delay: 0.24, delayTime: 0.375, vinyl: 0, glue: 0.3, master: 1.12, sidechain: 0.4, brightness: 0.92 }
+      fx: { reverb: 0.4, delay: 0.24, delayTime: 0.375, vinyl: 0, modFx: 'phaser', glue: 0.3, master: 1.12, sidechain: 0.4, brightness: 0.92 }
     },
 
     afrobeat: {
@@ -2429,7 +2444,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x..x..x...x..x..', rim: '....x.......x...', shaker: 'xoxoxoxoxoxoxoxo', conga: 'o.oo.o.oo.o.oo.o', cowbell: 'x...x...x...x...', tamb: '..x...x...x...x.' },
         fill:   { conga: 'oo.oo.oooo.ooooo', kick: 'x.......x.......', crash: '...............x' }
       },
-      fx: { reverb: 0.28, delay: 0.16, delayTime: 0.375, vinyl: 0.05, glue: 0.35, master: 1.05, sidechain: 0.08, brightness: 1.05 }
+      fx: { reverb: 0.28, delay: 0.16, delayTime: 0.375, vinyl: 0.05, modFx: 'rotary', glue: 0.35, master: 1.05, sidechain: 0.08, brightness: 1.05 }
     },
 
     bossa: {
@@ -2456,7 +2471,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x.....x.x.....x.', rim: '..x..x..x..x..x.', shaker: 'xoxoxoxoxoxoxoxo', conga: '....o.......o...', tamb: '........x.......' },
         fill:   { rim: '..x.x.x.xx.xxx.x', conga: '..........o.o...' }
       },
-      fx: { reverb: 0.4, delay: 0.14, delayTime: 0.5, vinyl: 0.1, glue: 0.15, master: 1.22, sidechain: 0, brightness: 0.95 }
+      fx: { reverb: 0.4, delay: 0.14, delayTime: 0.5, vinyl: 0.1, modFx: 'rotary', glue: 0.15, master: 1.22, sidechain: 0, brightness: 0.95 }
     },
 
     gospel: {
@@ -2483,7 +2498,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x..x..x.x...x...', snare: '....x..o....x..o', hh: 'xoxoxoxoxoxoxoxo', tamb: '..x.x.....x.x...', ride: '....x.......x...' },
         fill:   { kick: 'x.......x.......', snare: '......x.x.xxxxxx', tom: '..........x.x...', crash: '...............x' }
       },
-      fx: { reverb: 0.5, delay: 0.16, delayTime: 0.5, vinyl: 0.08, glue: 0.35, master: 1.08, sidechain: 0.1, brightness: 0.95 }
+      fx: { reverb: 0.5, delay: 0.16, delayTime: 0.5, vinyl: 0.08, modFx: 'rotary', glue: 0.35, master: 1.08, sidechain: 0.1, brightness: 0.95 }
     },
 
     country: {
@@ -2510,7 +2525,7 @@ input[type="range"]::-moz-range-thumb {
         full:   { kick: 'x.....x.x.......', snare: '....x.......x...', hh: 'x.x.x.x.x.x.x.x.', tamb: '..x...x...x...x.', ride: '....x.......x...' },
         fill:   { kick: 'x.......x.......', snare: '........x.x.xxxx', tom: '............x.x.' }
       },
-      fx: { reverb: 0.34, delay: 0.14, delayTime: 0.5, vinyl: 0.1, glue: 0.3, master: 1.1, sidechain: 0.06, brightness: 1.0 }
+      fx: { reverb: 0.34, delay: 0.14, delayTime: 0.5, vinyl: 0.1, modFx: 'rotary', glue: 0.3, master: 1.1, sidechain: 0.06, brightness: 1.0 }
     }
   };
 
@@ -4218,6 +4233,7 @@ input[type="range"]::-moz-range-thumb {
       pingpong: !!song.pingpong,
       groove: song.groove || '',
       glue: song.glue || 0,
+      modFx: song.modFx || 'flanger',
       humanise: song.humanise === undefined ? 1 : song.humanise,
       keyChange: song.keyChange || null,
       barsPerChord: song.barsPerChord || 0,
@@ -4269,6 +4285,7 @@ input[type="range"]::-moz-range-thumb {
     song.pingpong = !!p.pingpong;
     song.groove = p.groove && GROOVES[p.groove] ? p.groove : '';
     song.glue = p.glue || 0;
+    song.modFx = p.modFx || 'flanger';
     song.humanise = p.humanise === undefined ? 1 : p.humanise;
     song.keyChange = p.keyChange || null;
     song.barsPerChord = p.barsPerChord || 0;
@@ -4655,6 +4672,7 @@ input[type="range"]::-moz-range-thumb {
     song.automation = { filter: [], volume: [] };
     song.pingpong = !!genre.fx.pingpong;
     song.glue = genre.fx.glue === undefined ? 0 : genre.fx.glue;
+    song.modFx = genre.fx.modFx || 'flanger';
     ['bass', 'chords', 'arp', 'lead', 'pad', 'counter'].forEach(function (part) {
       const cfg = genre[part];
       if (cfg && cfg.alts && cfg.alts.length && rng.chance(0.55)) {
@@ -4983,10 +5001,20 @@ input[type="range"]::-moz-range-thumb {
   }
 
   /** StereoPannerNode where available; a plain gain elsewhere (mono, but audible). */
-  function panner(ctx, pan) {
-    if (!pan || !ctx.createStereoPanner) return null;
+  /**
+   * A panner, or null when one would do nothing.
+   *
+   * Returning null for a centred part is a real saving — most parts sit in the
+   * middle and a node that does nothing still costs something on every sample.
+   * But it means a *moving* pan has to ask for one explicitly, because a part
+   * that starts centred is exactly the case where "no panner needed" is wrong:
+   * there is nothing to modulate. Pass `force` when the pan is going to move.
+   */
+  function panner(ctx, pan, force) {
+    if (!ctx.createStereoPanner) return null;
+    if (!pan && !force) return null;
     const p = ctx.createStereoPanner();
-    p.pan.value = Math.max(-1, Math.min(1, pan));
+    p.pan.value = Math.max(-1, Math.min(1, pan || 0));
     return p;
   }
 
@@ -6221,6 +6249,83 @@ input[type="range"]::-moz-range-thumb {
     delPingIn.gain.value = ping ? 1 : 0;
 
     /*
+     * Modulation bus: flanger, phaser and rotary.
+     *
+     * All three are the same idea at different scales, which is why they share
+     * a bus and a send. A flanger is a very short delay swept through the
+     * comb-filtering range and fed back on itself. A phaser is a stack of
+     * allpass filters swept instead — no delay, so no comb, just moving
+     * notches. A rotary is a slow pan plus the tremolo a spinning horn makes.
+     */
+    const modPre = ctx.createGain();
+    const modReturn = ctx.createGain();
+    modReturn.gain.value = 1;
+    modReturn.connect(master);
+    const modLfos = [];
+    const modKind = song.modFx || 'flanger';
+
+    if (modKind === 'phaser') {
+      let chain = modPre;
+      const sweep = ctx.createGain();
+      sweep.gain.value = 800;
+      const plfo = ctx.createOscillator();
+      plfo.type = 'sine';
+      plfo.frequency.value = 0.35;
+      plfo.connect(sweep);
+      for (let i = 0; i < 6; i++) {
+        const ap = ctx.createBiquadFilter();
+        ap.type = 'allpass';
+        ap.frequency.value = 300 + i * 420;
+        ap.Q.value = 0.6;
+        sweep.connect(ap.frequency);
+        chain.connect(ap);
+        chain = ap;
+      }
+      chain.connect(modReturn);
+      modLfos.push(plfo);
+    } else if (modKind === 'rotary') {
+      const rpan = Synth.panner(ctx, 0, true);        // it is going to move
+      const trem = ctx.createGain();
+      trem.gain.value = 0.7;
+      const rlfo = ctx.createOscillator();
+      rlfo.type = 'sine';
+      rlfo.frequency.value = 5.4;                 // the fast rotor
+      const rdepth = ctx.createGain();
+      rdepth.gain.value = 0.3;
+      rlfo.connect(rdepth).connect(trem.gain);
+      if (rpan && rpan.pan) {
+        const pd = ctx.createGain();
+        pd.gain.value = 0.8;
+        rlfo.connect(pd).connect(rpan.pan);
+      }
+      modPre.connect(trem);
+      if (rpan) trem.connect(rpan).connect(modReturn); else trem.connect(modReturn);
+      modLfos.push(rlfo);
+    } else {
+      /* Flanger. The feedback path deliberately contains no filter: a
+         BiquadFilterNode inside a Web Audio feedback cycle is unstable in this
+         engine, measured growing without bound — the same finding that decided
+         how the plucked strings are built. A plain gain under 1 is safe. */
+      const fd = ctx.createDelay(0.02);
+      fd.delayTime.value = 0.003;
+      const flfo = ctx.createOscillator();
+      flfo.type = 'sine';
+      flfo.frequency.value = 0.25;
+      const fdepth = ctx.createGain();
+      fdepth.gain.value = 0.0022;
+      flfo.connect(fdepth).connect(fd.delayTime);
+      const ffb = ctx.createGain();
+      ffb.gain.value = 0.55;
+      modPre.connect(fd);
+      fd.connect(ffb).connect(fd);
+      fd.connect(modReturn);
+      /* Only the delayed half is returned. A flanger needs a dry copy to comb
+         against, and the track already sends one straight to the master — so
+         adding another here would just double the level of everything sent. */
+      modLfos.push(flfo);
+    }
+
+    /*
      * Chorus bus: two short delay lines whose delay times wobble under slow
      * LFOs, panned apart. A copy of a sound arriving a few milliseconds late
      * and drifting in pitch is what "thick" means — it is the same trick as a
@@ -6254,6 +6359,7 @@ input[type="range"]::-moz-range-thumb {
       const rev = ctx.createGain();
       const del = ctx.createGain();
       const cho = ctx.createGain();
+      const modSend = ctx.createGain();
 
       /* dry -> crush -> EQ -> [duck] -> [pan] -> master
          Crushing first: the EQ is then shaping the grit rather than the grit
@@ -6291,6 +6397,7 @@ input[type="range"]::-moz-range-thumb {
         mixField(mix, name, 'comp', 0), mixField(mix, name, 'punch', 0));
 
       tail.connect(cho);
+      tail.connect(modSend);
 
       let duck = null;
       if (duckDepth > 0 && DUCK_TARGETS.indexOf(name) >= 0) {
@@ -6299,23 +6406,42 @@ input[type="range"]::-moz-range-thumb {
         tail.connect(duck);
         tail = duck;
       }
-      const pan = Synth.panner(ctx, TRACK_PAN[name] || 0);
+      /* A part that is going to be swept needs a panner even when it starts in
+         the middle — otherwise there is nothing for the sweep to move. */
+      const autoPanAmt = mixField(mix, name, 'autopan', 0);
+      const pan = Synth.panner(ctx, TRACK_PAN[name] || 0, autoPanAmt > 0);
       if (pan) { tail.connect(pan); tail = pan; }
+
+      /* Auto-pan sweeps the part across the stereo field, around the place it
+         already sits rather than from the middle — so a part panned left
+         stays a left-ish part that moves. */
+      let panLfo = null;
+      if (autoPanAmt > 0 && pan && pan.pan) {
+        panLfo = ctx.createOscillator();
+        panLfo.type = 'sine';
+        panLfo.frequency.value = 0.5;
+        const pd = ctx.createGain();
+        pd.gain.value = autoPanAmt * (1 - Math.abs(TRACK_PAN[name] || 0));
+        panLfo.connect(pd).connect(pan.pan);
+      }
+
       tail.connect(master);
 
       rev.connect(revPre);
       del.connect(delPre);
       cho.connect(choPre);
+      modSend.connect(modPre);
       const t = {
         dry: dry, rev: rev, del: del, cho: cho, duck: duck,
         crush: crush, eqLow: eqLow, eqMid: eqMid, eqHigh: eqHigh,
-        comp: comp, compMakeup: compMakeup
+        comp: comp, compMakeup: compMakeup, modSend: modSend, panLfo: panLfo
       };
       tracks[name] = t;
       dry.gain.value = gainFor(mix, name);
       rev.gain.value = sendGain(mix, name, 'rev');
       del.gain.value = sendGain(mix, name, 'del');
       cho.gain.value = chorusGain(mix, name);
+      modSend.gain.value = mixField(mix, name, 'mod', 0);
     });
 
     // Vinyl / tape bed
@@ -6338,6 +6464,7 @@ input[type="range"]::-moz-range-thumb {
       autoFilter: autoFilter, autoGain: autoGain, click: click,
       glue: glue, glueTrim: glueTrim,
       delMonoIn: delMonoIn, delPingIn: delPingIn, choReturn: choReturn, choLfos: choLfos,
+      modReturn: modReturn, modLfos: modLfos,
       duckDepth: duckDepth, duckRelease: Math.min(0.42, (60 / song.bpm) * 0.62)
     };
   }
@@ -6442,7 +6569,7 @@ input[type="range"]::-moz-range-thumb {
     TRACKS.forEach(function (t) {
       this.mix[t] = {
         volume: 1, muted: false, solo: false,
-        rev: 1, del: 1, cho: 0,
+        rev: 1, del: 1, cho: 0, mod: 0, autopan: 0,
         eqLow: 0, eqMid: 0, eqHigh: 0, crush: 0, comp: 0, punch: 0
       };
     }, this);
@@ -6501,8 +6628,13 @@ input[type="range"]::-moz-range-thumb {
   Player.prototype._startChorus = function () {
     if (!this.graph || this._chorusStarted) return;
     const t = this.ctx.currentTime;
-    for (let i = 0; i < this.graph.choLfos.length; i++) {
-      try { this.graph.choLfos[i].start(t); } catch (e) { /* already started */ }
+    const lfos = this.graph.choLfos.concat(this.graph.modLfos);
+    TRACKS.forEach(function (n) {
+      const b = this.graph.tracks[n];
+      if (b && b.panLfo) lfos.push(b.panLfo);
+    }, this);
+    for (let i = 0; i < lfos.length; i++) {
+      try { lfos[i].start(t); } catch (e) { /* already started */ }
     }
     this._chorusStarted = true;
   };
@@ -6679,6 +6811,8 @@ input[type="range"]::-moz-range-thumb {
     if (opts.rev !== undefined) m.rev = opts.rev;
     if (opts.del !== undefined) m.del = opts.del;
     if (opts.cho !== undefined) m.cho = opts.cho;
+    if (opts.mod !== undefined) m.mod = opts.mod;
+    if (opts.autopan !== undefined) m.autopan = opts.autopan;
     ['eqLow', 'eqMid', 'eqHigh', 'crush', 'comp', 'punch'].forEach(function (k) {
       if (opts[k] !== undefined) m[k] = opts[k];
     });
@@ -6724,6 +6858,7 @@ input[type="range"]::-moz-range-thumb {
       bus.rev.gain.setTargetAtTime(sendGain(mix, name, 'rev'), t, 0.02);
       bus.del.gain.setTargetAtTime(sendGain(mix, name, 'del'), t, 0.02);
       bus.cho.gain.setTargetAtTime(chorusGain(mix, name), t, 0.02);
+      bus.modSend.gain.setTargetAtTime(mixField(mix, name, 'mod', 0), t, 0.02);
       bus.eqLow.gain.setTargetAtTime(mixField(mix, name, 'eqLow', 0), t, 0.02);
       bus.eqMid.gain.setTargetAtTime(mixField(mix, name, 'eqMid', 0), t, 0.02);
       bus.eqHigh.gain.setTargetAtTime(mixField(mix, name, 'eqHigh', 0), t, 0.02);
@@ -6807,7 +6942,11 @@ input[type="range"]::-moz-range-thumb {
     const graph = buildGraph(ctx, song, mix, false);
     if (graph.vinyl) graph.vinyl.start(0);
 
-    for (let i = 0; i < graph.choLfos.length; i++) graph.choLfos[i].start(0);
+    graph.choLfos.concat(graph.modLfos).forEach(function (o) { o.start(0); });
+    TRACKS.forEach(function (n) {
+      const b = graph.tracks[n];
+      if (b && b.panLfo) b.panLfo.start(0);
+    });
     applyAutomation(ctx, graph, song, 0.05, 0);
 
     const flat = flatten(song);
@@ -8488,6 +8627,7 @@ input[type="range"]::-moz-range-thumb {
     el('seedInput').value = s.seed;
     el('grooveSelect').value = s.groove || '';
     el('glueAmt').value = String(Math.round((s.glue || 0) * 100));
+    el('modKind').value = s.modFx || 'flanger';
     state.seedEdited = false;
     buildChordStrip();
     buildArrange();
@@ -8843,6 +8983,8 @@ input[type="range"]::-moz-range-thumb {
       { id: 'revSend', field: 'rev', label: 'Reverb', unit: '%', scale: 100, dflt: 1 },
       { id: 'delSend', field: 'del', label: 'Delay', unit: '%', scale: 100, dflt: 1 },
       { id: 'choSend', field: 'cho', label: 'Chorus', unit: '%', scale: 100, dflt: 0 },
+      { id: 'modSend', field: 'mod', label: 'Swirl', unit: '%', scale: 100, dflt: 0 },
+      { id: 'autopanAmt', field: 'autopan', label: 'Sweep', unit: '%', scale: 100, dflt: 0 },
       { id: 'crushAmt', field: 'crush', label: 'Crush', unit: '%', scale: 100, dflt: 0 },
       { id: 'compAmt', field: 'comp', label: 'Squeeze', unit: '%', scale: 100, dflt: 0 },
       { id: 'punchAmt', field: 'punch', label: 'Punch', unit: '', scale: 100, dflt: 0 },
@@ -9165,6 +9307,18 @@ input[type="range"]::-moz-range-thumb {
   function bindSongControls() {
     /* The groove is a playback setting, so it changes what you hear without
        rewriting a note — moving it mid-listen is the whole point. */
+    /* The swirl type changes the shape of the bus, not a gain on it, so this is
+       one of the few controls that genuinely needs the graph rebuilding. */
+    el('modKind').addEventListener('change', function () {
+      if (!state.song) return;
+      state.song.modFx = this.value;
+      const at = player.currentBeat();
+      const was = player.playing;
+      player.stop();
+      if (was) player.play(at);
+      status('Swirl is now a ' + this.options[this.selectedIndex].text.toLowerCase() + '.');
+    });
+
     const glue = el('glueAmt');
     glue.addEventListener('input', function () {
       if (!state.song) return;
