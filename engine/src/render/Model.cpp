@@ -6,13 +6,26 @@
 // silence those diagnostics just around their includes. cgltf's implementation is defined here;
 // stb_image's implementation already lives in VulkanTexture.cpp, so we include declarations only.
 #define CGLTF_IMPLEMENTATION
+#if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wconversion"
 #pragma GCC diagnostic ignored "-Wshadow"
 #pragma GCC diagnostic ignored "-Wpedantic"
+#elif defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4996)  // cgltf calls fopen/strcpy/strncpy; it is third-party C
+#pragma warning(disable : 4244)  // conversion, possible loss of data
+#pragma warning(disable : 4245)  // signed/unsigned mismatch
+#pragma warning(disable : 4456)  // declaration hides previous local
+#pragma warning(disable : 4457)  // declaration hides function parameter
+#endif
 #include <cgltf.h>
 #include <stb_image.h>
+#if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/glm.hpp>
