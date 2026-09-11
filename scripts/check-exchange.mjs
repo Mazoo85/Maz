@@ -78,9 +78,20 @@ let projectIds = new Set();
 if (!existsSync(projectsPath)) {
   fail('shared/projects.js is missing — it is the list of what projects exist');
 } else {
-  const mod = await import(pathToFileURL(projectsPath).href);
-  const list = mod.PROJECTS ?? globalThis.MAZ_PROJECTS ?? [];
-  projectIds = new Set(list.map((p) => p?.id).filter(Boolean));
+  let mod;
+  try {
+    mod = await import(pathToFileURL(projectsPath).href);
+  } catch (err) {
+    fail(`shared/projects.js failed to load: ${err.message}`);
+  }
+  if (mod) {
+    const list = mod.PROJECTS ?? globalThis.MAZ_PROJECTS ?? [];
+    if (!Array.isArray(list)) {
+      fail('shared/projects.js: PROJECTS must be an array');
+    } else {
+      projectIds = new Set(list.map((p) => p?.id).filter(Boolean));
+    }
+  }
 }
 
 const knownProject = (id, where) => {
@@ -126,7 +137,7 @@ for (const c of consumes) {
   if (published.project === c.project) {
     fail(`${EXCHANGE_REL}: project "${c.project}" consumes "${c.id}", its own published surface`);
   }
-  if (!c.contract || !existsSync(join(ROOT, c.contract))) {
+  if (typeof c.contract !== 'string' || !existsSync(join(ROOT, c.contract))) {
     fail(`${EXCHANGE_REL}: ${where} names contract ${c.contract}, which does not exist`);
   }
 }

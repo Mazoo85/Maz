@@ -23,6 +23,7 @@ const CHECKER = join(HERE, '..', 'check-exchange.mjs');
 
 let passed = 0;
 let failed = 0;
+const tmpRoots = [];
 
 function test(name, fn) {
   try {
@@ -39,6 +40,7 @@ function test(name, fn) {
  * `exchange` is the object written to shared/exchange.json. */
 function repo(files, exchange, projectIds = ['music', 'film']) {
   const root = mkdtempSync(join(tmpdir(), 'exchange-'));
+  tmpRoots.push(root);
   const write = (rel, text) => {
     mkdirSync(join(root, dirname(rel)), { recursive: true });
     writeFileSync(join(root, rel), text);
@@ -157,6 +159,41 @@ test('publishes missing entirely fails rather than throwing', () => {
   assert.ok(output.includes('publishes'),
     'failed for the wrong reason.\n  wanted: publishes\n  got:\n' + output);
 });
+
+test('a non-string contract fails rather than crashing path.join', () => {
+  const ex = goodExchange();
+  ex.consumes[0].contract = 123;
+  const { code, output } = check(repo(goodFiles(), ex));
+  assert.strictEqual(code, 1, 'expected the checker to fail, it exited 0:\n' + output);
+  assert.ok(!output.includes('TypeError'),
+    'checker should not crash with TypeError. got:\n' + output);
+  assert.ok(output.includes('names contract 123'),
+    'failed for the wrong reason.\n  wanted: names contract 123\n  got:\n' + output);
+});
+
+test('a broken shared/projects.js fails rather than throwing', () => {
+  const root = repo(goodFiles(), goodExchange());
+  writeFileSync(join(root, 'shared/projects.js'), 'export const PROJECTS = (;\n');
+  const { code, output } = check(root);
+  assert.strictEqual(code, 1, 'expected the checker to fail, it exited 0:\n' + output);
+  assert.ok(!output.includes('TypeError') && !/^SyntaxError/m.test(output),
+    'checker should not crash uncaught. got:\n' + output);
+  assert.ok(output.includes('shared/projects.js failed to load'),
+    'failed for the wrong reason.\n  wanted: shared/projects.js failed to load\n  got:\n' + output);
+});
+
+test('a non-array PROJECTS in shared/projects.js fails, naming the problem', () => {
+  const root = repo(goodFiles(), goodExchange());
+  writeFileSync(join(root, 'shared/projects.js'), "export const PROJECTS = 'nope';\n");
+  const { code, output } = check(root);
+  assert.strictEqual(code, 1, 'expected the checker to fail, it exited 0:\n' + output);
+  assert.ok(!output.includes('TypeError'),
+    'checker should not crash with TypeError. got:\n' + output);
+  assert.ok(output.includes('PROJECTS must be an array'),
+    'failed for the wrong reason.\n  wanted: PROJECTS must be an array\n  got:\n' + output);
+});
+
+for (const root of tmpRoots) rmSync(root, { recursive: true, force: true });
 
 console.log('\n' + (failed ? `✗ ${failed} failed, ${passed} passed` : `✓ ${passed} tests passed`));
 process.exit(failed ? 1 : 0);
