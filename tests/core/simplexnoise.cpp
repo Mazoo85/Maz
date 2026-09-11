@@ -8,6 +8,7 @@
 //   * fBm stays within range and is deterministic.
 #include "maz/core/SimplexNoise.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 

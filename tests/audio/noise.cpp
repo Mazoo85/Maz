@@ -7,6 +7,7 @@
 // sized so they are not flaky.
 #include "maz/audio/Noise.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

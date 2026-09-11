@@ -6,6 +6,7 @@
 // everything is deterministic; and non-positive counts are empty. Checked against the distributions' math.
 #include "maz/math/PointDistribution.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 

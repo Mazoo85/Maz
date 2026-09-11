@@ -8,6 +8,7 @@
 //   * degenerate inputs return empty; determinism.
 #include "maz/math/PolylineStroke.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

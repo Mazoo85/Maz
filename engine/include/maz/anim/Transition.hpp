@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 
 // maz::anim complete easing/transition set — Godot's Tween transition matrix. The existing

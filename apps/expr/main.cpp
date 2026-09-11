@@ -47,7 +47,7 @@ void panelBox(render::Renderer& r, float x0, float y0, float x1, float y1, rende
 void plot(render::Renderer& r, const core::Expression& e, float x0, float y0, float x1, float y1,
           render::Color col) {
     const int N = 220;
-    math::vec2 prev;
+    math::vec2 prev(0.0f); // seeded: only read once i > 0, but MSVC cannot see that (C4701)
     bool have = false;
     for (int i = 0; i <= N; ++i) {
         const float fx = static_cast<float>(i) / static_cast<float>(N);

@@ -9,6 +9,7 @@
 //   * unit-sphere mapping; determinism.
 #include "maz/math/Loxodrome.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

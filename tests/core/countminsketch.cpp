@@ -8,6 +8,7 @@
 //   * merging two sketches sums the per-key counts; estimation is deterministic.
 #include "maz/core/CountMinSketch.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <map>

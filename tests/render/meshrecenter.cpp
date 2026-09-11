@@ -5,6 +5,7 @@
 #include "maz/render/MeshRecenter.hpp"
 #include "maz/render/MeshWinding.hpp" // makeWindingConsistent — prepare the closed pyramid
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

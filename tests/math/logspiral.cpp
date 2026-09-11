@@ -8,6 +8,7 @@
 //   * b = 0 degenerates to a circle of radius a; determinism.
 #include "maz/math/LogSpiral.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

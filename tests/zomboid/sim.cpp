@@ -7,6 +7,7 @@
 #include "maz/scene/SceneTree.hpp"
 #include "maz/core/KeyValueStore.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <set>

@@ -9,6 +9,7 @@
 //   * closed polyline (no duplicated closing point) + determinism.
 #include "maz/math/Superformula.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

@@ -9,6 +9,7 @@
 //   * IN-SPHERE PREDICATE: a point just inside/outside the sphere reads inside/outside correctly.
 #include "maz/math/Circumsphere.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

@@ -4,6 +4,7 @@
 // empty meshes are safe. Pure CPU, headless.
 #include "maz/render/MeshNormalize.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

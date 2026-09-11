@@ -10,6 +10,7 @@
 //   * SPHERE OVERLAP matches distanceToObb <= radius.
 #include "maz/math/ObbDistance.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

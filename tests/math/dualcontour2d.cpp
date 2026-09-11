@@ -9,6 +9,7 @@
 #include "maz/math/DualContour2D.hpp"
 #include "maz/math/MarchingSquares.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

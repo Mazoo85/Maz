@@ -2,6 +2,7 @@
 
 #include "maz/render/Lightmap.hpp" // Surfel + math/Geometry3D (rayIntersectsTriangle, glm)
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>

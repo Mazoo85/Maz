@@ -5,6 +5,7 @@
 // Also checks multi-source nearest-feature seeding, unreachable islands, path reconstruction, empty safety.
 #include "maz/render/MeshGeodesic.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

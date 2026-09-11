@@ -7,6 +7,7 @@
 //   * IDEMPOTENCE: closest(closest(p)) == closest(p); sphere-vs-OBB agrees with the distance; determinism.
 #include "maz/math/ClosestPointObb.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

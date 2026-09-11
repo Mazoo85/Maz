@@ -4,6 +4,7 @@
 #include "maz/render/MeshAmbientOcclusion.hpp"  // detail::aoRayTri (Möller–Trumbore ray/triangle)
 #include "maz/render/Shapes.hpp"                // shapes::MeshData, MeshVertex
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <vector>

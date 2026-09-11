@@ -8,6 +8,7 @@
 //   * grid dimensions/ordering; determinism.
 #include "maz/math/CoonsPatch.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

@@ -12730,8 +12730,8 @@ void testUtf8() {
     namespace c = maz::core;
     // Exact byte encodings.
     CHECK(c::utf8EncodeChar(U'A') == std::string("\x41"));
-    CHECK(c::utf8EncodeChar(U'é') == std::string("\xC3\xA9"));          // é
-    CHECK(c::utf8EncodeChar(U'€') == std::string("\xE2\x82\xAC"));      // €
+    CHECK(c::utf8EncodeChar(U'\u00E9') == std::string("\xC3\xA9"));          // é
+    CHECK(c::utf8EncodeChar(U'\u20AC') == std::string("\xE2\x82\xAC"));      // €
     CHECK(c::utf8EncodeChar(U'\U0001D11E') == std::string("\xF0\x9D\x84\x9E")); // 𝄞
     // Length counts code points, not bytes.
     CHECK(c::utf8Length("hello") == 5);
@@ -12743,7 +12743,7 @@ void testUtf8() {
     {
         const std::u32string cps = c::utf8Decode("A\xC3\xA9\xE2\x82\xAC\xF0\x9D\x84\x9E");
         CHECK(cps.size() == 4);
-        CHECK(cps[0] == U'A' && cps[1] == U'é' && cps[2] == U'€' &&
+        CHECK(cps[0] == U'A' && cps[1] == U'\u00E9' && cps[2] == U'\u20AC' &&
               cps[3] == U'\U0001D11E');
     }
     // Round-trip well-formed input; length matches decoded size.

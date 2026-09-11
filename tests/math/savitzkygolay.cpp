@@ -10,6 +10,7 @@
 //   * degenerate parameters return the input unchanged; determinism.
 #include "maz/math/SavitzkyGolay.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

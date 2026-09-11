@@ -10,6 +10,7 @@
 #include "maz/math/ArcLength.hpp"
 #include "maz/math/CatmullRomSpline.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

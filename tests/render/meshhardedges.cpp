@@ -5,6 +5,7 @@
 // deterministic. Pure CPU, headless.
 #include "maz/render/MeshHardEdges.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

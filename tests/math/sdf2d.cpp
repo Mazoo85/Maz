@@ -9,6 +9,7 @@
 //   * determinism.
 #include "maz/math/Sdf2D.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <functional>

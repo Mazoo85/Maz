@@ -10,6 +10,7 @@
 //   * MISS + determinism.
 #include "maz/math/RayCone.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

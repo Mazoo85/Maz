@@ -8,6 +8,7 @@
 //   * NORMAL: the analytic normal is unit and perpendicular to both surface tangents; grid dims; determinism.
 #include "maz/math/BezierSurface.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdio>

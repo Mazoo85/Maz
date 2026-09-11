@@ -10,6 +10,7 @@
 //   * a field that never crosses the iso level yields an empty mesh; determinism.
 #include "maz/math/MarchingTetrahedra.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

@@ -8,6 +8,7 @@
 //     distance; larger color changes give larger Delta-E.
 #include "maz/math/ColorLab.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

@@ -9,6 +9,7 @@
 //   * NORMAL: the gradient normal is unit and perpendicular to both parametric surface tangents.
 #include "maz/math/Superquadric.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

@@ -11,6 +11,7 @@
 //   * polyline endpoints + determinism.
 #include "maz/math/Involute.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>
