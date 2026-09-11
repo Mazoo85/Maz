@@ -652,6 +652,26 @@
       if (!editor.redo()) status('Nothing to redo.');
     });
 
+    [['simplifyBtn', -1, 'thinned out'], ['complicateBtn', 1, 'filled in']].forEach(function (spec) {
+      el(spec[0]).addEventListener('click', function () {
+        if (!state.song) return;
+        editor.pushHistory(editor.track);
+        const label = colorLabel(editor.track);
+        const before = state.song.tracks[editor.track].length;
+        if (!C.adjustDensity(state.song, editor.track, spec[1])) {
+          status(label + ' is as ' + (spec[1] < 0 ? 'simple' : 'busy') + ' as it goes.');
+          return;
+        }
+        state.edited[editor.track] = true;
+        player.refresh();
+        markRollDirty();
+        editor.refit();
+        syncEditUI();
+        status(label + ' ' + spec[2] + ' — ' + before + ' notes → ' +
+          state.song.tracks[editor.track].length + '. Ctrl+Z puts it back.');
+      });
+    });
+
     el('clearTrackBtn').addEventListener('click', function () {
       if (!state.song) return;
       const label = colorLabel(editor.track);

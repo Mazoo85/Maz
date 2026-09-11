@@ -378,6 +378,126 @@ Object.keys(Genres.GENRES).forEach(function (gid) {
   check(tiny.bars > 0, 'and it still has bars left');
 })();
 
+/* --- riffs, turnarounds, quoting, and thinning a part out --- */
+(function () {
+  /* A riff is not an arpeggio. An arpeggio runs whatever notes the chord
+     contains, so its shape changes with the harmony; a riff keeps its rhythm
+     and its intervals and moves bodily to each new root. That difference is
+     the whole point, so it is what gets measured. */
+  let riffed = null;
+  for (let i = 0; i < 40 && !riffed; i++) {
+    const s = Composer.compose({ seed: 'RIFF-' + i, genre: 'rock', length: 'medium' });
+    // A riff repeats the same rhythm in every bar it plays.
+    const byBar = {};
+    s.tracks.arp.forEach(function (e) {
+      const b = Math.floor(e.t / s.beatsPerBar);
+      (byBar[b] = byBar[b] || []).push(Math.round((e.t % s.beatsPerBar) * 4));
+    });
+    const shapes = Object.keys(byBar).map(function (b) { return byBar[b].join(','); });
+    const counts = {};
+    shapes.forEach(function (x) { counts[x] = (counts[x] || 0) + 1; });
+    const top = Math.max.apply(null, Object.keys(counts).map(function (k) { return counts[k]; }));
+    if (shapes.length >= 6 && top >= shapes.length * 0.4) riffed = { song: s, top: top, bars: shapes.length };
+  }
+  check(!!riffed, 'a riff-driven style produces a repeating figure');
+  if (riffed) {
+    check(riffed.top >= riffed.bars * 0.4,
+      'the same rhythm comes back bar after bar (' + riffed.top + ' of ' + riffed.bars + ' bars)');
+
+    // And it moves with the chord rather than staying put.
+    const roots = {};
+    riffed.song.chords.forEach(function (c) { roots[((c.rootPitch % 12) + 12) % 12] = true; });
+    const heard = {};
+    riffed.song.tracks.arp.forEach(function (e) { heard[((e.p % 12) + 12) % 12] = true; });
+    check(Object.keys(heard).length >= 3, 'and it visits more than one pitch (' +
+      Object.keys(heard).length + ' pitch classes)');
+  }
+
+  /* Turnarounds: a phrase hinge. The test that matters is that they can happen
+     at all — the first attempt used eight-bar phrases, which never fire inside
+     the eight-bar sections this composer actually writes. */
+  let hinge = 0, longSections = 0;
+  ['country', 'lofi', 'jazz', 'bossa'].forEach(function (g) {
+    for (let i = 0; i < 8; i++) {
+      const s = Composer.compose({ seed: 'HINGE-' + g + i, genre: g, length: 'long' });
+      s.sections.forEach(function (sec) {
+        if (sec.bars < 8 || !sec.chords.length) return;
+        longSections++;
+        const spans = sec.chords.map(function (c) { return c.bars; });
+        if (spans.some(function (b) { return b === 1; }) &&
+            spans.some(function (b) { return b > 1; })) hinge++;
+      });
+    }
+  });
+  check(longSections > 20, 'there are long sections to look at (' + longSections + ')');
+  check(hinge > 0, 'phrases get a turnaround (' + hinge + ' of ' + longSections + ' sections)');
+
+  /* The chorus should quote the verse. Same rhythm, different shape: identical
+     would be a copy, unrelated would be a different song spliced in. */
+  let quoted = 0, compared = 0;
+  for (let i = 0; i < 12; i++) {
+    const s = Composer.compose({ seed: 'QUOTE-' + i, genre: 'country', length: 'medium' });
+    const v = s.sections.filter(function (x) { return x.type === 'verse' && x.parts.lead; })[0];
+    const c = s.sections.filter(function (x) { return x.type === 'chorus' && x.parts.lead; })[0];
+    if (!v || !c) continue;
+    const rhythmOf = function (sec) {
+      const from = sec.startBar * s.beatsPerBar;
+      return s.tracks.lead
+        .filter(function (e) { return e.t >= from && e.t < from + 4 * s.beatsPerBar; })
+        .map(function (e) { return Math.round((e.t - from) * 4); });
+    };
+    const rv = rhythmOf(v), rc = rhythmOf(c);
+    if (!rv.length || !rc.length) continue;
+    compared++;
+    /* Overlap, not equality. The motif's rhythm is shared, but what reaches
+       the track is not: rests are dropped at random, phrase ends are trimmed,
+       and the two sections play at different densities. Demanding identical
+       onsets would be testing that none of that happens. */
+    const shared = rv.filter(function (x) { return rc.indexOf(x) >= 0; }).length;
+    if (shared >= Math.min(rv.length, rc.length) * 0.5) quoted++;
+  }
+  check(compared >= 6, 'there are verse/chorus pairs to compare (' + compared + ')');
+  check(quoted >= compared * 0.5,
+    'the chorus is built on the verse rhythm rather than a new one (' +
+    quoted + ' of ' + compared + ')');
+
+  /* Thinning and filling. Both have to keep the part recognisable: thinning
+     keeps what falls on a beat, filling keeps every note that was there. */
+  const d = Composer.compose({ seed: 'DENSITY-1', genre: 'funk', length: 'medium' });
+  const beforeLead = d.tracks.lead.length;
+  const originals = d.tracks.lead.map(function (e) { return e.t + ':' + e.p; });
+
+  check(Composer.adjustDensity(d, 'lead', 1), 'a part can be filled in');
+  check(d.tracks.lead.length > beforeLead,
+    'and gets busier (' + beforeLead + ' → ' + d.tracks.lead.length + ')');
+  const kept = d.tracks.lead.map(function (e) { return e.t + ':' + e.p; });
+  check(originals.every(function (o) { return kept.indexOf(o) >= 0; }),
+    'without losing a single note that was already there');
+  let sorted = true;
+  for (let i = 1; i < d.tracks.lead.length; i++) {
+    if (d.tracks.lead[i].t < d.tracks.lead[i - 1].t) sorted = false;
+  }
+  check(sorted, 'and the part stays in time order');
+  check(d.tracks.lead.every(function (e) { return e.t < d.totalBeats; }),
+    'and nothing lands past the end of the song');
+
+  const busy = d.tracks.lead.length;
+  check(Composer.adjustDensity(d, 'lead', -1), 'and thinned out again');
+  check(d.tracks.lead.length < busy,
+    'getting simpler (' + busy + ' → ' + d.tracks.lead.length + ')');
+  check(d.tracks.lead.length >= 4, 'but never thinned out of existence');
+
+  // Drums thin and fill too, and keep their pieces.
+  const dr = d.tracks.drums.length;
+  Composer.adjustDensity(d, 'drums', 1);
+  check(d.tracks.drums.length > dr, 'drums can be filled in as well');
+  check(d.tracks.drums.every(function (e) { return !!e.inst; }),
+    'and every hit still names a drum');
+
+  check(Composer.adjustDensity(d, 'nosuchpart', 1) === false,
+    'a part that does not exist is refused rather than crashing');
+})();
+
 /* --- the answering voice --- */
 (function () {
   check(Composer.LANE_NAMES !== undefined, 'composer exports are intact');

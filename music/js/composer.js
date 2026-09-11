@@ -294,6 +294,7 @@
       sec.chords = [];
       let bar = sec.startBar;
       let step = 0;
+      let turnaround = false;      // the next chord is a one-bar pivot
       while (bar < sec.startBar + sec.bars) {
         let degree = prog[step % prog.length];
         /* Cadence. A progression left to cycle ends a section wherever the loop
@@ -332,7 +333,30 @@
           pitches = [r, r + 7];           // last resort: a bare fifth always works
           shape = 'power';
         }
-        const bars = Math.min(barsPerChord, sec.startBar + sec.bars - bar);
+        let bars = Math.min(barsPerChord, sec.startBar + sec.bars - bar);
+
+        /* Turnaround: the last bar of a phrase pivots onto the dominant and
+           hands you back to the top. Without one, a section is the same few
+           chords repeated; with one, the phrase has a hinge you can hear.
+           Measured in four-bar phrases, which is what the sections here
+           actually are — an eight-bar rule would never fire inside an
+           eight-bar section, which is every section this composer writes. */
+        const into = bar - sec.startBar;
+        const PHRASE = 4;
+        if (turnaround) {
+          degree = scaleSteps.length > 4 ? 4 : 0;
+          bars = 1;
+          turnaround = false;
+        } else if (sec.bars >= 8 && bars >= 2 && bars < PHRASE &&
+                   into + bars < sec.bars &&
+                   (into + bars) % PHRASE === 0 && rng.chance(0.45)) {
+          /* Only a chord shorter than the phrase can give up its last bar. A
+             chord that *is* the whole phrase is not a candidate — splitting it
+             would mean nobody who asks for one change every four bars ever gets
+             one. */
+          bars -= 1;
+          turnaround = true;
+        }
         const isSectionEnd = bar + bars >= sec.startBar + sec.bars;
 
         /* A secondary dominant: the chord a fifth above where we are going,
@@ -722,13 +746,85 @@
    * Arpeggio
    * ------------------------------------------------------------------ */
 
+  /**
+   * A riff: one figure, invented once, restated on every chord.
+   *
+   * This is not an arpeggio. An arpeggio runs whatever notes the chord happens
+   * to contain, so it changes shape every time the harmony does — which is why
+   * it decorates rather than hooks. A riff keeps its rhythm and its intervals
+   * and moves bodily to each new root, and that repetition is the hook. Most
+   * rock and funk is built on one.
+   */
+  function makeRiff(rng, stepsPerBar, density) {
+    const figure = [];
+    const slots = [];
+    for (let i = 0; i < stepsPerBar; i += 2) slots.push(i);
+    const count = Math.max(3, Math.round(slots.length * (0.45 + density * 0.4)));
+    const chosen = rng.shuffle(slots).slice(0, count).sort(function (a, b) { return a - b; });
+
+    // Always land on the downbeat: a riff that doesn't is a fill.
+    if (chosen[0] !== 0) chosen.unshift(0);
+
+    let degree = 0;
+    for (let i = 0; i < chosen.length; i++) {
+      if (i > 0) {
+        // Small steps, occasionally a leap, and pulled back toward the root.
+        const move = rng.weighted([[0, 2], [1, 3], [-1, 3], [2, 2], [-2, 2], [4, 1], [-4, 1]]);
+        degree = Math.max(-4, Math.min(7, degree + move));
+        if (Math.abs(degree) > 5 && rng.chance(0.6)) degree = rng.chance(0.5) ? 0 : 2;
+      } else {
+        degree = 0;
+      }
+      const next = i + 1 < chosen.length ? chosen[i + 1] : stepsPerBar;
+      figure.push({
+        step: chosen[i],
+        dur: Math.max(1, Math.min(4, next - chosen[i])),
+        degree: degree,
+        accent: chosen[i] === 0 || chosen[i] % 4 === 0
+      });
+    }
+    return figure;
+  }
+
   function composeArp(song, rng) {
     const beatsPerBar = bpb(song);
+    const stepsPerBar = spb_(song);
     const genre = song.genre;
     const rate = genre.arp.rate;
     const octave = genre.arp.octave;
     const events = [];
     const shape = rng.pick(['up', 'up', 'updown', 'down', 'upoct']);
+
+    /* Styles built on repetition play a riff instead; the figure is invented
+       once for the whole song, which is what makes it recognisable. */
+    const asRiff = rng.chance(genre.riff || 0);
+    if (asRiff) {
+      const figure = makeRiff(rng, stepsPerBar, genre.arp.chance || 0.5);
+      for (let c = 0; c < song.chords.length; c++) {
+        const chord = song.chords[c];
+        const sec = sectionOf(song, chord.startBeat);
+        if (!sec || !sec.parts.arp) continue;
+        const rootPc = ((chord.rootPitch % 12) + 12) % 12;
+        const root = T.midi(rootPc, octave - 1);
+        const vel = 0.34 + sec.energy * 0.3;
+
+        for (let b = 0; b < chord.bars; b++) {
+          const barBeat = chord.startBeat + b * beatsPerBar;
+          for (let i = 0; i < figure.length; i++) {
+            const n = figure[i];
+            const t = barBeat + n.step * STEP_BEATS;
+            if (t >= song.totalBeats) break;
+            events.push({
+              t: t,
+              d: Math.max(0.12, n.dur * STEP_BEATS * 0.9),
+              p: T.degreePitch(song.scaleSteps, root, n.degree),
+              v: vel * (n.accent ? 1 : 0.8)
+            });
+          }
+        }
+      }
+      return applyFeel(events, song, rng, 0.25);
+    }
 
     for (let c = 0; c < song.chords.length; c++) {
       const chord = song.chords[c];
@@ -845,13 +941,19 @@
     // A motif handed in came from notes the user drew: develop that idea
     // everywhere instead of inventing three of our own.
     const given = opts && opts.motif;
+    const verseMotif = makeMotif(rng, density * 0.85, motifBars, stepsPerBar);
     const motifs = given ? {
       verse: given,
       chorus: transformMotif(rng, given, 'transpose'),
       bridge: transformMotif(rng, given, 'invert')
     } : {
-      verse: makeMotif(rng, density * 0.85, motifBars, stepsPerBar),
-      chorus: makeMotif(rng, density, motifBars, stepsPerBar),
+      verse: verseMotif,
+      /* The chorus quotes the verse instead of starting again. The rhythm is
+         what the ear recognises, so it survives; the contour is what makes it a
+         different phrase, so that is what moves. An unrelated chorus reads as a
+         different track spliced in. The bridge is the one place a genuinely new
+         idea belongs. */
+      chorus: transformMotif(rng, verseMotif, rng.pick(['transpose', 'tail', 'invert'])),
       bridge: makeMotif(rng, density * 0.7, motifBars, stepsPerBar)
     };
 
@@ -1041,6 +1143,63 @@
     }
     const r = T.degreePitch(song.scaleSteps, rootMidi, degree);
     return { pitches: [r, r + 7], shape: 'power' };
+  }
+
+  /**
+   * Thin a part out or fill it in.
+   *
+   * Both directions have to respect what the part is *for*, which is why this
+   * is not simply "delete random notes" / "add random notes". Thinning keeps
+   * what falls on a beat and what was played hard, because that is the skeleton
+   * a listener is following. Filling adds notes between existing ones, in key
+   * and quieter than what they sit between, so the shape stays and only the
+   * detail changes.
+   */
+  function adjustDensity(song, part, dir) {
+    const evs = song.tracks[part];
+    if (!evs || !evs.length) return false;
+    const isDrums = part === 'drums';
+
+    if (dir < 0) {
+      const keep = evs.filter(function (e) {
+        const onBeat = Math.abs(e.t - Math.round(e.t)) < 0.08;
+        return onBeat || e.v >= 0.75;
+      });
+      // Never thin a part out of existence.
+      if (keep.length < Math.max(4, evs.length * 0.25)) return false;
+      if (keep.length === evs.length) return false;
+      song.tracks[part] = keep;
+      return true;
+    }
+
+    const added = [];
+    for (let i = 0; i < evs.length; i++) {
+      const e = evs[i];
+      const next = evs[i + 1];
+      const room = next ? next.t - e.t : e.d;
+      /* Gauge the gap, not the note. Every drum hit is a quarter of a beat
+         long by design, so a rule that needed a longer note could never add a
+         single drum — which is exactly what it did. */
+      if (room < 0.45) continue;
+      if (!isDrums && e.d < 0.3) continue;
+      const t = e.t + room / 2;
+      if (t >= song.totalBeats) continue;
+
+      if (isDrums) {
+        // A ghost note, not another accent: the point is detail, not more noise.
+        added.push({ t: t, d: 0.25, p: 60, v: Math.max(0.2, e.v * 0.45),
+                     inst: e.inst === 'kick' ? 'hh' : e.inst });
+      } else {
+        const target = next ? next.p : e.p;
+        const step = target === e.p ? 2 : (target > e.p ? 1 : -1) * 2;
+        const p = T.snapToScale(e.p + step, song.scaleSteps,
+                                T.midi(keyRootAt(song, t), 4));
+        added.push({ t: t, d: Math.min(room / 2, e.d) * 0.8, p: p, v: e.v * 0.8 });
+      }
+    }
+    if (!added.length) return false;
+    song.tracks[part] = evs.concat(added).sort(function (a, b) { return a.t - b.t; });
+    return true;
   }
 
   /** Move `pitch` from one voicing onto the matching place in another. */
@@ -1821,6 +1980,7 @@
     chordAt: chordAt,
     sectionOf: sectionOf,
     keyRootAt: keyRootAt,
+    adjustDensity: adjustDensity,
     packSong: packSong,
     unpackSong: unpackSong,
     SAVE_VERSION: SAVE_VERSION,

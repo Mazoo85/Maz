@@ -42,6 +42,13 @@ python3 -m http.server         # or serve the folder: http://localhost:8000/musi
   your motif and builds the whole part around it: repeating it, answering it,
   turning it upside down. This is the loop that makes the two halves one
   program rather than two.
+- **Riffs.** Where a style is built on repetition, the arpeggio part plays a
+  *riff* instead: one figure, invented once, restated on every chord. An
+  arpeggio changes shape whenever the harmony does, which is why it decorates;
+  a riff keeps its rhythm and its intervals and moves bodily to each new root,
+  and that repetition is the hook.
+- **Simplify or fill in** any part with one button — thin it to its skeleton, or
+  add detail between the notes that are already there.
 - **Re-roll any single part.** Don't like the melody? Rewrite just the melody
   over the same chords. Everything else stays exactly as it was.
 - **Lock a part** you like, and a re-roll of everything writes around it.
@@ -135,6 +142,11 @@ Each song is built in this order:
    self-contradiction (a flat and natural fifth at once, a flat ninth grinding
    against the root) and rebuilt from a simpler shape if they fail. Bare
    diminished triads gain a seventh; augmented triads lose their sharp fifth.
+   **Turnarounds** hinge the phrase: the last bar of a four-bar phrase gives way
+   to the dominant and hands you back to the top, so a section is not the same
+   few chords repeated. Only a chord shorter than the phrase is a candidate —
+   splitting the chord that *is* the phrase would mean nobody who asks for one
+   change every four bars ever gets one.
    Voicings use **voice leading** — each chord moves as little as possible from
    the one before it, which is why the chord track doesn't leap around.
    Three things stop a progression sounding like a loop. **Secondary dominants**
@@ -158,7 +170,11 @@ Each song is built in this order:
    last note on a chord tone, like a small cadence of its own. A long held lead
    note counts as a gap: the lead sitting still is exactly when a second voice
    moving underneath is audible as a second voice.
-8. **Melody.** This is the part that makes it sound *written* rather than
+8. **Melody.** The chorus quotes the verse rather than starting again: the
+   rhythm is what the ear recognises, so it survives, and the contour is what
+   makes it a different phrase, so that is what moves. An unrelated chorus reads
+   as a different track spliced in. This is the part that makes it sound
+   *written* rather than
    random: the composer invents a two-bar **motif** — a rhythm plus a contour —
    and then varies it. Phrases repeat it, transpose it, invert it, or keep the
    opening and change the ending (the classic question-and-answer shape). Notes
