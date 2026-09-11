@@ -66,7 +66,16 @@ class FileLogSink {
         std::lock_guard<std::mutex> lock(m_mutex);
         close_locked();
         m_opts = opts;
+#if defined(_MSC_VER)
+#pragma warning(push)
+// fopen: the fopen_s variant is MSVC-only. The null return is checked by the caller below, which
+// is the same error handling the portable call already relies on.
+#pragma warning(disable : 4996)
+#endif
         m_file = std::fopen(path.c_str(), opts.append ? "ab" : "wb");
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
         m_lineCount = 0;
         return m_file != nullptr;
     }

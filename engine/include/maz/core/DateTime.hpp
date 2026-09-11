@@ -141,7 +141,16 @@ inline std::string offsetString(int offsetMinutes) {
 inline bool parseIso(const std::string& s, DateTime& out) {
     int y = 0, mo = 0, da = 0, h = 0, mi = 0, se = 0;
     // %*c skips the T/space separator; n==3 for date-only, n==6 for full datetime.
+#if defined(_MSC_VER)
+#pragma warning(push)
+// sscanf: the bounds-checked sscanf_s is MSVC-only, and every conversion here is a plain %d into
+// an int, so there is no buffer to overrun. The return count is validated immediately below.
+#pragma warning(disable : 4996)
+#endif
     const int n = std::sscanf(s.c_str(), "%d-%d-%d%*c%d:%d:%d", &y, &mo, &da, &h, &mi, &se);
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
     if (n != 3 && n != 6) {
         return false;
     }
