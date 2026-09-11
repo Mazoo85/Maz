@@ -35,10 +35,35 @@ from .config import ForgeConfig
 # non-fast-forward, the network) before `open_draft_pr` was ever reached.
 # Without it, that night had nowhere honest to land: "verify_failed" would
 # lie about *why* no PR exists (the checks were green), and "pr_opened" with
-# a null `pr` is already the documented shape for "the PR call itself
-# failed", not "there was no branch on the remote to open one against".
+# a null `pr` used to be the (wrong) shape for "the PR call itself failed" —
+# see "pr_failed" below for why that shape was replaced rather than kept.
+#
+# "pr_failed" sits one step further along the same chain: checks were green
+# AND the branch reached the remote, but the `POST /pulls` call itself came
+# back with nothing to show for it — `github.api()` returns `{}` on ANY
+# failure, including the ordinary case of a missing `GITHUB_TOKEN`, so this
+# is not a rare shape. Recording it as "pr_opened" with `pr: None` (the old
+# behaviour) was actively dangerous: `docs/FORGE.md` defines "pr_opened" as
+# "a draft PR was opened", so every reader of the ledger — including
+# `followup.pending()`, which requires a truthy `pr` before it will revisit
+# a run — was lied to, and the pushed branch was left orphaned on the
+# remote with no PR and no way for the follow-up pass to notice. "pr_failed"
+# gives that night somewhere honest to land instead.
+#
+# It deliberately sits in ACTING_OUTCOMES (real, checks-passed work landed
+# in that zone, so the variety rule must count it) but NOT in
+# FAILURE_OUTCOMES: a failed PR call is an environment fault (no token,
+# GitHub down) rather than anything about the candidate itself, and
+# treating it as a strike would quarantine an innocent candidate after
+# three bad-token nights — the same shape of bug `do.FORGE_OWN_PATHS`
+# exists to prevent on the self-block side. `strikes()` below already
+# special-cases only FAILURE_OUTCOMES and the literal "pr_opened" for a
+# reset, so leaving "pr_failed" out of both is what makes it inert there:
+# no strike counted, no reset triggered, by construction rather than by an
+# extra branch.
 OUTCOMES = (
     "pr_opened",
+    "pr_failed",
     "push_failed",
     "verify_failed",
     "crew_failed",
@@ -51,7 +76,7 @@ OUTCOMES = (
 FAILURE_OUTCOMES = ("verify_failed", "crew_failed", "budget_exceeded", "push_failed")
 
 # Outcomes where the Forge actually worked in a zone.
-ACTING_OUTCOMES = ("pr_opened", "verify_failed", "push_failed")
+ACTING_OUTCOMES = ("pr_opened", "pr_failed", "verify_failed", "push_failed")
 
 
 def new_entry(run_id: str, **fields) -> dict:
@@ -227,6 +252,13 @@ def strikes(root: Path, config: ForgeConfig) -> dict[str, int]:
     not ``pr_opened``) are inert: they neither increment nor reset a key's
     count. That is deliberate — week one of this system is all dry runs,
     and they must not accrue false strikes — not an oversight.
+
+    ``pr_failed`` is inert for the same structural reason and just as
+    deliberately: it is outside ``FAILURE_OUTCOMES`` on purpose (a failed PR
+    call is an environment fault — no token, GitHub down — not the
+    candidate's fault) and it is not the literal ``"pr_opened"`` this
+    function resets on, so a run of bad-token nights against the same
+    candidate never quarantines it.
     """
     counts: dict[str, int] = {}
     for entry in read_all(root, config):

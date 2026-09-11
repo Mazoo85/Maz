@@ -124,6 +124,23 @@ def test_crew_failure_records_crew_failed_and_deletes_the_branch(tmp_path):
     assert any(a[:2] == ["branch", "-D"] for a in git.calls)
 
 
+def test_over_budget_crew_records_budget_exceeded_not_crew_failed(tmp_path):
+    """A run that comes in over budget_usd is a distinct outcome from an
+    ordinary Crew failure: `budget_exceeded` is in OUTCOMES, in
+    FAILURE_OUTCOMES and in docs/FORGE.md as something the Forge writes, but
+    every producer used to return a falsy CrewOutcome indistinguishable from
+    any other failure, so orchestrate always recorded `crew_failed` instead.
+    """
+    git = FakeGit()
+    entry = live_run(tmp_path, collectors=_collectors(), git=git,
+                     crew=lambda t, r, s: (0, "done", 999.0),
+                     checks=lambda cmd, root: (0, ""), poster=lambda p, b: {}, slug="a/b",
+                     )
+    assert entry["outcome"] == "budget_exceeded"
+    assert entry["pr"] is None
+    assert any(a[:2] == ["branch", "-D"] for a in git.calls)
+
+
 def test_failing_checks_record_verify_failed_and_open_no_pr(tmp_path):
     posted = []
     entry = live_run(tmp_path, collectors={"todo": lambda root: [
@@ -203,8 +220,10 @@ def test_every_run_writes_exactly_one_ledger_line(tmp_path):
 
 def test_a_raising_poster_still_records_the_ledger_line(tmp_path):
     """A crashing poster (a network error opening the PR, say) must not cost
-    the run its ledger line — it must degrade to "no PR", the same as a
-    poster that returns something falsy.
+    the run its ledger line — it must degrade to "pr_failed": checks were
+    green and the branch pushed, but no PR exists. Recording this as
+    "pr_opened" with pr=None would satisfy followup.pending()'s truthy-pr
+    check and the branch would be silently orphaned on the remote forever.
     """
     def boom(path, body):
         raise RuntimeError("network exploded")
@@ -212,9 +231,23 @@ def test_a_raising_poster_still_records_the_ledger_line(tmp_path):
     entry = live_run(tmp_path, collectors=_collectors(), git=FakeGit(),
                      crew=lambda t, r, s: (0, "done", 0.1),
                      checks=lambda cmd, root: (0, "ok"), poster=boom, slug="a/b")
-    assert entry["outcome"] == "pr_opened"
+    assert entry["outcome"] == "pr_failed"
     assert entry["pr"] is None
     assert read_all(tmp_path, ForgeConfig())[-1]["pr"] is None
+
+
+def test_a_poster_returning_empty_dict_records_pr_failed_not_pr_opened(tmp_path):
+    """github.api() returns {} on ANY failure, including a missing
+    GITHUB_TOKEN — exactly the poster shape a live run hits most often. This
+    must not be recorded as "pr_opened", the false-positive this fix exists
+    to remove.
+    """
+    entry = live_run(tmp_path, collectors=_collectors(), git=FakeGit(),
+                     crew=lambda t, r, s: (0, "done", 0.1),
+                     checks=lambda cmd, root: (0, "ok"), poster=lambda p, b: {}, slug="a/b")
+    assert entry["outcome"] == "pr_failed"
+    assert entry["pr"] is None
+    assert entry["checks"] == "green"
 
 
 def test_a_broken_scratch_write_still_records_the_ledger_line(tmp_path, monkeypatch):

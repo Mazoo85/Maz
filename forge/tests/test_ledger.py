@@ -42,7 +42,7 @@ def test_new_entry_has_every_field(tmp_path):
 def test_outcome_set_is_closed():
     # Assert exact membership to catch typos in the closed vocabulary every
     # downstream reader depends on.
-    expected = {"pr_opened", "push_failed", "verify_failed", "crew_failed",
+    expected = {"pr_opened", "pr_failed", "push_failed", "verify_failed", "crew_failed",
                 "budget_exceeded", "no_task", "dry_run"}
     assert set(OUTCOMES) == expected, f"OUTCOMES {set(OUTCOMES)} != expected {expected}"
 
@@ -53,6 +53,30 @@ def test_outcome_set_is_closed():
         f"FAILURE_OUTCOMES {set(FAILURE_OUTCOMES)} not a subset of OUTCOMES"
     assert set(ACTING_OUTCOMES).issubset(set(OUTCOMES)), \
         f"ACTING_OUTCOMES {set(ACTING_OUTCOMES)} not a subset of OUTCOMES"
+
+
+def test_pr_failed_is_acting_but_not_failure():
+    """pr_failed means checks were green and the branch pushed — real,
+    validated work happened in that zone, so the variety rule (ACTING_OUTCOMES)
+    must count it. But the PR call failing is an environment fault (no
+    GITHUB_TOKEN, GitHub down), not the candidate's fault, so it must never
+    accrue a strike (FAILURE_OUTCOMES) — that would quarantine an innocent
+    candidate after three bad-token nights.
+    """
+    from forge.ledger import FAILURE_OUTCOMES, ACTING_OUTCOMES
+    assert "pr_failed" in ACTING_OUTCOMES
+    assert "pr_failed" not in FAILURE_OUTCOMES
+
+
+def test_pr_failed_neither_increments_nor_resets_strikes(tmp_path):
+    cfg = ForgeConfig()
+    _entry(tmp_path, cfg, candidate_key="abc", outcome="verify_failed")
+    _entry(tmp_path, cfg, candidate_key="abc", outcome="pr_failed")
+    # Still exactly 1: pr_failed does not add a strike...
+    assert strikes(tmp_path, cfg).get("abc", 0) == 1
+    _entry(tmp_path, cfg, candidate_key="xyz", outcome="pr_failed")
+    # ...nor does it reset one for a candidate with no prior failures.
+    assert strikes(tmp_path, cfg).get("xyz", 0) == 0
 
 
 def test_strikes_counts_failures_per_candidate(tmp_path):

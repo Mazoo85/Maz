@@ -75,9 +75,13 @@ def _init_repo(root: Path, remote: Path) -> None:
     # (see _ZONE_FILES) — decide.py deliberately refuses the same zone
     # three acting runs running (its "variety" rule, unrelated to either
     # lifecycle bug this file is about), so three consecutive real cycles
-    # need three different zones to land on `pr_opened` each time.
-    (root / "tests").mkdir()
-    (root / "tests" / "a.py").write_text("# placeholder\n")
+    # need three different zones to land on `pr_opened` each time. Not
+    # `tests/`: that directory is this repo's real, unrelated C++ suite and
+    # (deliberately, see config.ForgeConfig.safe_zones) is not a default
+    # safe zone the Forge may work in — `shooter/` is used instead, purely
+    # as a third zone with no checks of its own, same as `madlibs/`.
+    (root / "shooter").mkdir()
+    (root / "shooter" / "a.py").write_text("# placeholder\n")
     (root / "madlibs").mkdir()
     (root / "madlibs" / "a.txt").write_text("placeholder\n")
     # Present and tracked from the start, exactly like a real repo, so
@@ -92,7 +96,7 @@ def _init_repo(root: Path, remote: Path) -> None:
 
 # One safe zone per night, so three consecutive nights don't trip decide.py's
 # unrelated "variety" rule (never the same zone three acting runs running).
-_ZONE_FILES = {1: "docs/a.md", 2: "tests/a.py", 3: "madlibs/a.txt"}
+_ZONE_FILES = {1: "docs/a.md", 2: "shooter/a.py", 3: "madlibs/a.txt"}
 
 
 def _collectors(n: int):

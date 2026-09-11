@@ -28,8 +28,10 @@ has to be accounted for:
     reached on that path.
   - `open_draft_pr` calls the injected `poster`, an I/O boundary same as
     Crew or git — a real implementation hits the network. That call is
-    wrapped too, and a raise there degrades to exactly the same "no PR"
-    outcome as a poster that returns something falsy.
+    wrapped too, and a raise there degrades to exactly the same "pr_failed"
+    outcome as a poster that returns something falsy (`github.api()`'s
+    documented shape for any failure, a missing `GITHUB_TOKEN` included) —
+    never "pr_opened", which would lie about a PR existing.
   - `_abandon` drives the injected `git` runner to clean up a failed
     attempt; if that runner blows up, the failed attempt is still worth
     recording, branch cleaned up or not, so the git calls are wrapped
@@ -115,8 +117,15 @@ def live_run(root: Path, collectors=None, git=None, crew=None, checks=None,
     started_branch = outcome.branch
     if not outcome.ok:
         cleanup_note = _abandon(started_branch, root, git)
+        # `failure_kind` is do()'s explicit, typed signal for "this failure
+        # needs its own ledger outcome" — read that field rather than
+        # pattern-matching `outcome.error`'s free text, which is written for
+        # a human and must stay free to reword without silently breaking
+        # this dispatch. Every ordinary DO failure leaves it None and lands
+        # on "crew_failed", same as before this field existed.
+        do_outcome = outcome.failure_kind or "crew_failed"
         entry = ledger_mod.new_entry(
-            run_id, outcome="crew_failed", cost_usd=outcome.cost_usd,
+            run_id, outcome=do_outcome, cost_usd=outcome.cost_usd,
             duration_min=outcome.duration_min, files_touched=len(outcome.files),
             notes=_with_cleanup_note(outcome.error, cleanup_note), **base,
         )
@@ -174,22 +183,36 @@ def live_run(root: Path, collectors=None, git=None, crew=None, checks=None,
     except Exception as exc:  # noqa: BLE001 — a bad poster must not lose the ledger line
         pr, pr_error = None, str(exc)
 
-    # The branch just earned an open PR — it must never be deleted like a
-    # failed attempt's branch is by `_abandon` — but the tree still has to
-    # come back to BASE_BRANCH so tomorrow's DO cuts its own branch from the
-    # same known point tonight started from, not from tonight's branch (see
-    # the module docstring's "branch stacking" incident). A failure to
-    # restore is folded into this entry's notes rather than raised, exactly
-    # like every other git call on this path.
+    # `github.api()` returns `{}` on ANY failure — a missing GITHUB_TOKEN
+    # included — so a falsy `pr` here is not a rare shape, and recording it
+    # as "pr_opened" (the old behaviour) actively lied: `docs/FORGE.md`
+    # defines "pr_opened" as "a draft PR was opened", `followup.pending()`
+    # requires a truthy `pr` before revisiting a run, and `strikes()` treats
+    # the literal outcome "pr_opened" as a reset — all three would silently
+    # accept a pushed-but-orphaned branch as a success. "pr_failed" is the
+    # honest outcome for "checks were green and the branch reached the
+    # remote, but no PR exists" — see ledger.OUTCOMES for why it counts as
+    # ACTING (real work landed) but not a FAILURE (an environment fault,
+    # not the candidate's).
+    outcome_name = "pr_opened" if pr else "pr_failed"
+
+    # The branch just did real, checks-passed work — whether or not the PR
+    # call itself succeeded — so it must never be deleted like a failed
+    # attempt's branch is by `_abandon`. The tree still has to come back to
+    # BASE_BRANCH so tomorrow's DO cuts its own branch from the same known
+    # point tonight started from, not from tonight's branch (see the module
+    # docstring's "branch stacking" incident). A failure to restore is
+    # folded into this entry's notes rather than raised, exactly like every
+    # other git call on this path.
     restore_note = _return_to_base(started_branch, root, git)
 
     entry = ledger_mod.new_entry(
-        run_id, outcome="pr_opened", checks="green", pr=pr,
+        run_id, outcome=outcome_name, checks="green", pr=pr,
         cost_usd=outcome.cost_usd, duration_min=outcome.duration_min,
         files_touched=len(outcome.files),
         notes=_with_cleanup_note(
             f"draft PR opened on {outcome.branch}" if pr else
-            f"branch {outcome.branch} is green but no PR could be opened"
+            f"branch {outcome.branch} is green and pushed but no PR could be opened"
             + (f": {pr_error}" if pr_error else ""),
             restore_note),
         **base,

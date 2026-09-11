@@ -107,3 +107,21 @@ def test_memory_note_appends_an_entity_line(tmp_path):
 
 def test_memory_note_missing_file_is_not_fatal(tmp_path):
     assert memory_note({"run_id": "x", "chose": "y", "outcome": "no_task"}, tmp_path) is False
+
+
+def test_memory_note_writes_the_shared_forge_entity_name(tmp_path):
+    """The name written here and the name signals/memory.py excludes when
+    reading candidates back must be the same literal, defined in one place —
+    otherwise the writer and reader can drift apart and the Forge's own log
+    starts feeding back in as a candidate again. See signals/memory.py's
+    FORGE_ENTITY_NAME.
+    """
+    from forge.signals.memory import FORGE_ENTITY_NAME
+
+    claude = tmp_path / ".claude"
+    claude.mkdir()
+    (claude / "codebase-memory.json").write_text("")
+    entry = {"run_id": "2026-09-11", "chose": "Write the docs", "outcome": "pr_opened", "pr": 7}
+    memory_note(entry, tmp_path)
+    text = (claude / "codebase-memory.json").read_text()
+    assert f'"name": "{FORGE_ENTITY_NAME}"' in text or f'"name":"{FORGE_ENTITY_NAME}"' in text

@@ -70,6 +70,13 @@ class ForgeConfig:
     max_files_touched: int = 12
 
     # Where the Forge may work. Week 1-2 values; widen only on ledger evidence.
+    #
+    # `tests/` is deliberately absent: in this repo that directory is C++
+    # (CMakeLists.txt, unit_*.cpp), verified only by a `cmake`/`ctest` build
+    # against the Vulkan SDK (see .github/workflows/ci.yml) — a build this
+    # module cannot run and no command checks.ZONE_CHECKS may honestly
+    # invent. A zone the Forge cannot verify is not a safe zone to work in
+    # by default, whatever a green run there would otherwise look like.
     safe_zones: tuple[str, ...] = (
         "docs/",
         "madlibs/",
@@ -77,7 +84,6 @@ class ForgeConfig:
         "shooter/",
         "scraper/",
         "crew/tests/",
-        "tests/",
     )
     no_touch: tuple[str, ...] = HARD_NO_TOUCH
 
@@ -133,11 +139,43 @@ def load_config(root: Path | None = None) -> ForgeConfig:
     # '/') and, because zone matching is startswith-based, that widens the
     # allowlist to nearly everything instead of narrowing it. Only a real
     # list/tuple of strings is accepted; anything else falls back to default.
+    #
+    # The same startswith-based matching means an empty (or whitespace-only)
+    # *element* inside an otherwise well-formed list is just as dangerous,
+    # by the identical mechanism: `"".startswith("")` is true for every
+    # path, so `{"safe_zones": ["docs/", ""]}` — a trailing comma or a blank
+    # line in hand-edited JSON, easy to introduce and easy to miss — widens
+    # the allowlist to the entire repo instead of narrowing it, exactly like
+    # the bare-string typo above, just one level deeper. `no_touch` is not
+    # exempt either: a blank element there is simply a no-op prefix, never a
+    # widening one, since `no_touch` only ever narrows what `safe_zones`
+    # allows — but it is stripped for the same reason and by the same code
+    # path, so the two lists cannot silently diverge in how blanks are
+    # handled. Empty/blank elements are therefore dropped from both lists
+    # before use, never merely tolerated.
+    #
+    # Dropping every element of `safe_zones` this way can leave it empty —
+    # a config file of `{"safe_zones": ["", "  "]}` is exactly that case.
+    # An empty tuple there does not read as "the operator wants a locked-down
+    # Forge"; it reads as a config that, after the one legitimate cleanup
+    # this loop performs, no longer says anything at all — indistinguishable
+    # from having declared no `safe_zones` in the first place. So it falls
+    # back to the default zone list, matching every other malformed-field
+    # case in this function, rather than to "nothing is safe": the latter
+    # would silently turn a sloppy trailing comma into total lockout instead
+    # of the harmless no-op it should be. `no_touch` needs no matching
+    # special case: an empty *declared* `no_touch` is already exactly what
+    # the dataclass default (`HARD_NO_TOUCH` alone) welds down to below, so
+    # there is nothing to fall back to that isn't already the outcome.
     for key in ("safe_zones", "no_touch"):
         if key in kwargs:
             value = kwargs[key]
             if isinstance(value, (list, tuple)) and not isinstance(value, str):
-                kwargs[key] = tuple(str(v) for v in value)
+                cleaned = tuple(str(v) for v in value if str(v).strip())
+                if key == "safe_zones" and not cleaned:
+                    del kwargs[key]
+                else:
+                    kwargs[key] = cleaned
             else:
                 del kwargs[key]
 

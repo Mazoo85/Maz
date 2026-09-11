@@ -6,6 +6,20 @@ them are quiet admissions that something is half-done — "still to add",
 
 Like roadmap candidates, these carry no paths: an observation names a state of
 affairs, not a set of files.
+
+One entity in that same file is not a statement about the project at all:
+``learn.memory_note`` appends one observation per run under the entity named
+``FORGE_ENTITY_NAME`` below — "Forge run 2026-09-11: pr_opened (PR #7) —
+Resolve the TODO in js/game.js: ...". Every TODO candidate's task text is,
+by construction, unfinished-work-shaped, so left unfiltered that entity
+regenerates as a fresh memory candidate every single night forever: a
+closed loop where the Forge's own log becomes tomorrow's input. Excluding
+it by name — rather than by anything about the observation text — is what
+keeps this exclusion narrow: it must not (and, matched on name alone,
+cannot) swallow a genuine entity that happens to reuse the same wording.
+``FORGE_ENTITY_NAME`` is imported by ``learn.py`` rather than redefined
+there, so the writer and this reader can never drift onto two different
+strings.
 """
 
 from __future__ import annotations
@@ -16,6 +30,11 @@ from pathlib import Path
 from ..models import Candidate
 
 MEMORY_PATH = ".claude/codebase-memory.json"
+
+# The entity name learn.memory_note writes its per-run observations under.
+# Named once, here, and imported by learn.py — never redefined there — so
+# the writer and this reader cannot drift onto two different literals.
+FORGE_ENTITY_NAME = "The Forge"
 
 # Phrases that mark an observation as unfinished business.
 UNFINISHED_MARKERS = (
@@ -53,6 +72,11 @@ def parse(text: str) -> list[Candidate]:
         if not isinstance(record, dict) or record.get("type") != "entity":
             continue
         name = str(record.get("name") or "unknown")
+        if name == FORGE_ENTITY_NAME:
+            # This is a log of what the Forge did, not a statement about the
+            # project — see the module docstring for why it must not become
+            # tomorrow's candidate.
+            continue
         observations = record.get("observations")
         if not isinstance(observations, list):
             continue

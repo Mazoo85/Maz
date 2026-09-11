@@ -84,6 +84,50 @@ def test_scalar_string_no_touch_falls_back_to_default(tmp_path):
     assert "d" not in cfg.no_touch
 
 
+def test_empty_string_element_in_safe_zones_is_dropped_not_used(tmp_path):
+    """An empty string prefix matches `str.startswith("")` for every path —
+    a trailing comma or a blank line in hand-edited JSON must not silently
+    widen safe_zones to cover the whole repo."""
+    _write(tmp_path, {"safe_zones": ["docs/", ""]})
+    cfg = load_config(root=tmp_path)
+    assert cfg.safe_zones == ("docs/",)
+    assert "" not in cfg.safe_zones
+
+
+def test_whitespace_only_element_in_safe_zones_is_dropped(tmp_path):
+    _write(tmp_path, {"safe_zones": ["docs/", "   "]})
+    cfg = load_config(root=tmp_path)
+    assert cfg.safe_zones == ("docs/",)
+
+
+def test_safe_zones_of_only_empty_elements_falls_back_to_default(tmp_path):
+    """Dropping every element must not leave safe_zones empty — an empty
+    tuple means "nothing is safe" to `zone_for`'s callers in one reading,
+    but a config that (after cleanup) declares no zones at all is
+    indistinguishable from a malformed one, so it falls back to the default
+    zone list rather than to a leash that permits nothing."""
+    _write(tmp_path, {"safe_zones": ["", "   "]})
+    cfg = load_config(root=tmp_path)
+    assert cfg.safe_zones == ForgeConfig().safe_zones
+
+
+def test_empty_string_element_in_no_touch_is_dropped(tmp_path):
+    _write(tmp_path, {"no_touch": ["docs/", ""]})
+    cfg = load_config(root=tmp_path)
+    assert "" not in cfg.no_touch
+    assert "docs/" in cfg.no_touch
+    # The hard weld survives regardless.
+    assert "forge/" in cfg.no_touch
+
+
+def test_default_safe_zones_excludes_tests_dir():
+    """`tests/` in this repo is C++ (CMakeLists.txt, unit_*.cpp), built and
+    run only via `cmake`/`ctest` with the Vulkan SDK — a build the Forge's
+    sandbox cannot run and no command this module may invent. It must not
+    be a default safe zone the Forge believes it can verify."""
+    assert "tests/" not in ForgeConfig().safe_zones
+
+
 def test_bad_budget_usd_falls_back_other_keys_still_apply(tmp_path):
     _write(tmp_path, {"budget_usd": "five", "max_files_touched": 3})
     cfg = load_config(root=tmp_path)

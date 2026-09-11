@@ -1,6 +1,6 @@
 """Reading half-finished work out of the codebase-memory graph."""
 
-from forge.signals.memory import parse
+from forge.signals.memory import FORGE_ENTITY_NAME, parse
 
 SAMPLE = "\n".join([
     '{"type":"entity","name":"Maz Engine","entityType":"component",'
@@ -55,6 +55,38 @@ def test_relation_lines_are_ignored():
 def test_malformed_lines_are_skipped():
     text = "{ not json\n" + SAMPLE
     assert len(parse(text)) == 1
+
+
+def test_the_forges_own_log_entity_produces_no_candidates():
+    """learn.memory_note appends a "The Forge" entity whose observations are
+    ledger summaries like "Forge run 2026-09-11: pr_opened (PR #7) — Resolve
+    the TODO in js/game.js: ...". Every TODO candidate's task text is, by
+    construction, unfinished-work-shaped, so without this exemption the
+    Forge's own run log regenerates as a fresh memory candidate every night
+    forever. This is a log of what the Forge did, not a statement about the
+    project, so it must be excluded by name.
+    """
+    line = (
+        '{"type":"entity","name":"' + FORGE_ENTITY_NAME + '","entityType":"component",'
+        '"observations":["Forge run 2026-09-11: pr_opened (PR #7) — '
+        'Resolve the TODO in js/game.js: still to add sound"]}'
+    )
+    assert parse(line) == []
+
+
+def test_a_genuine_entity_with_the_same_marker_still_produces_a_candidate():
+    """The Forge-entity exemption must be narrow: matched by name only, not
+    by anything about the observation text itself — otherwise it would be
+    over-broad and silently swallow real unfinished-work signals too.
+    """
+    line = (
+        '{"type":"entity","name":"Maz Engine","entityType":"component",'
+        '"observations":["Forge run 2026-09-11: pr_opened (PR #7) — '
+        'still to add sound"]}'
+    )
+    cands = parse(line)
+    assert len(cands) == 1
+    assert cands[0].source == "memory:Maz Engine"
 
 
 def test_empty_input_yields_nothing():

@@ -64,6 +64,15 @@ class CrewOutcome:
     cost_usd: float | None
     duration_min: float
     error: str = ""
+    # None for every ordinary failure ("could not create the branch", "Crew
+    # crashed", a red no-touch/zone/file-count re-check, ...) — orchestrate
+    # maps those to "crew_failed". Set to the exact ledger outcome name
+    # ("budget_exceeded" today) only when a failure needs its own outcome,
+    # so orchestrate can dispatch on this field directly instead of pattern-
+    # matching `error`'s free text, which is written for a human reading the
+    # ledger and must be free to change wording without silently breaking
+    # that dispatch.
+    failure_kind: str | None = None
 
 
 def branch_name(task: str, when: datetime.date | None = None) -> str:
@@ -183,7 +192,8 @@ def do(chosen: dict, root: Path, config: ForgeConfig, git=None, crew=None,
     # measured" fact survives into the record via cost_usd staying None.
     if cost is not None and cost > config.budget_usd:
         return CrewOutcome(False, name, (), cost, duration,
-                           f"over budget: ${cost:.2f} against a ${config.budget_usd:.2f} cap")
+                           f"over budget: ${cost:.2f} against a ${config.budget_usd:.2f} cap",
+                           failure_kind="budget_exceeded")
 
     try:
         files = changed_files(root, base=base_sha, runner=git)

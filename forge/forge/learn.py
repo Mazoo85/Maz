@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import ForgeConfig
+from .signals.memory import FORGE_ENTITY_NAME
 from .signals.roadmap import _clean
 
 STUCK_FILENAME = "stuck.md"
@@ -101,7 +102,15 @@ def tick_roadmap(task: str, root: Path) -> bool:
 
 
 def memory_note(entry: dict, root: Path) -> bool:
-    """Append one observation to the codebase-memory graph. Never raises."""
+    """Append one observation to the codebase-memory graph. Never raises.
+
+    Written under ``FORGE_ENTITY_NAME`` (imported from ``signals.memory``,
+    not redefined here) so this log of what the Forge did stays
+    identifiable to that module's reader, which excludes this exact entity
+    from becoming a candidate again — see its module docstring. Naming the
+    entity in two places instead of one is how that exclusion would quietly
+    stop working the day the two literals drifted apart.
+    """
     path = root / MEMORY_PATH
     if not path.exists():
         return False
@@ -113,7 +122,7 @@ def memory_note(entry: dict, root: Path) -> bool:
     )
     record = {
         "type": "entity",
-        "name": "The Forge",
+        "name": FORGE_ENTITY_NAME,
         "entityType": "component",
         "observations": [observation],
     }

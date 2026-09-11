@@ -133,6 +133,23 @@ def test_budget_overrun_fails_the_run(tmp_path):
     assert "budget" in out.error.lower()
 
 
+def test_budget_overrun_sets_failure_kind_budget_exceeded(tmp_path):
+    """orchestrate maps this to the `budget_exceeded` ledger outcome by
+    reading this explicit field — never by string-matching `.error`. Every
+    other failure path in `do()` must leave `failure_kind` at its default
+    (None), so orchestrate falls back to `crew_failed` for them.
+    """
+    out = do(CHOSEN, tmp_path, ForgeConfig(budget_usd=1.0),
+             git=FakeGit(), crew=lambda t, r, s: (0, "ok", 9.99))
+    assert out.failure_kind == "budget_exceeded"
+
+
+def test_ordinary_crew_failure_leaves_failure_kind_unset(tmp_path):
+    out = do(CHOSEN, tmp_path, ForgeConfig(), git=FakeGit(),
+             crew=lambda t, r, s: (1, "boom", 0.1))
+    assert out.failure_kind is None
+
+
 def test_branch_creation_failure_stops_before_crew_runs(tmp_path):
     class FailingCheckoutGit(FakeGit):
         """Answers everything like FakeGit, except `checkout -b` fails."""

@@ -29,6 +29,16 @@ def test_unknown_zone_has_no_commands(tmp_path):
     assert commands_for("nowhere/") == ()
 
 
+def test_tests_zone_has_no_wrong_command_mapped():
+    """This repo's `tests/` directory is C++ (CMake/ctest, needs the Vulkan
+    SDK the sandbox lacks), not the Python suite `forge/tests`. There is no
+    command this module can honestly run for it, so it must not claim one —
+    `commands_for` must not map `tests/` to the Forge's own pytest suite,
+    which verifies nothing about C++ changes.
+    """
+    assert commands_for("tests/") == ()
+
+
 def test_all_commands_must_pass(tmp_path):
     calls = []
 
