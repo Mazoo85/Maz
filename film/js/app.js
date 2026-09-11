@@ -15,6 +15,7 @@
   var Parse = window.FilmParse;
   var Writer = window.FilmWriter;
   var Format = window.FilmFormat;
+  var Seed = window.FilmStorySeed;
 
   var LIB_KEY = 'scriptforge.library.v1';
 
@@ -28,7 +29,7 @@
   ];
 
   var el = {};
-  ['idea', 'examples', 'length', 'genre', 'titleInput', 'write', 'reroll', 'placeholder',
+  ['idea', 'examples', 'length', 'genre', 'titleInput', 'write', 'reroll', 'surprise', 'placeholder',
    'result', 'scriptTitle', 'scriptLogline', 'chipGenre', 'chipScenes', 'chipRuntime',
    'chipSeed', 'tabScript', 'tabShots', 'tabFilm', 'viewScript', 'viewShots', 'viewFilm',
    'copy', 'dlFountain', 'dlFdx', 'dlText', 'dlShots', 'print', 'save', 'status',
@@ -47,6 +48,11 @@
   var player = null;   // the thing playing it
   var score = null;    // the thing scoring it
   var recording = false;
+
+  // Set by "Surprise me" right before it clicks Write, and consumed by the
+  // very next generate() call — never carried past it, so a borrowed title
+  // cannot leak into a later, unrelated write.
+  var pendingBorrow = null;
 
   /* ------------------------------------------------------------------ setup */
   function buildGenreOptions() {
@@ -85,24 +91,41 @@
   /* --------------------------------------------------------------- generate */
   function generate(opts) {
     opts = opts || {};
+
+    // "Surprise me" hands the next call its own borrowed idea/genre/title;
+    // consumed the moment it's read, so it never outlives this one write.
+    var borrow = pendingBorrow;
+    pendingBorrow = null;
+
     var idea = el.idea.value.trim();
-    if (!idea) {
-      say('Type what your film is about first — one sentence is plenty.');
-      el.idea.focus();
-      return;
-    }
 
     var seed = opts.seed;
     if (typeof seed !== 'number') {
-      // A fresh idea is seeded from its own words, so the same sentence always
-      // gives the same film. "Another take" rolls a new one on purpose.
-      seed = opts.fresh ? Parse.hashText(idea) : (Math.random() * 4294967296) >>> 0;
+      seed = borrow ? borrow.seed :
+        // A fresh idea is seeded from its own words, so the same sentence
+        // always gives the same film. "Another take" rolls a new one on
+        // purpose.
+        (opts.fresh ? Parse.hashText(idea || 'blank') : (Math.random() * 4294967296) >>> 0);
     }
 
+    // An idea too thin to work with — empty, or under three words — borrows
+    // one from MADLIBS instead, seeded the same way this film will be, so
+    // "Write the script" and "Another take" never dead-end on a bare box.
+    if (!borrow && idea.split(/\s+/).filter(Boolean).length < 3) {
+      borrow = Seed.idea(seed);
+    }
+    if (borrow) idea = borrow.text;
+
     var premise = Parse.parse(idea, {
-      genre: el.genre.value,
+      // A genre the user actually chose always wins; MADLIBS's own genre for
+      // a borrowed story only fills in while the dropdown is left on auto.
+      genre: (el.genre.value === 'auto' && borrow) ? borrow.genre : el.genre.value,
       seed: seed,
-      title: el.titleInput.value.trim() || null
+      // A title the user typed always wins; otherwise a borrowed story keeps
+      // its own hand-written title (uppercased to match every generated
+      // title's ALL CAPS card) instead of a generated one, and that title
+      // never persists past this one script — the next call starts fresh.
+      title: el.titleInput.value.trim() || (borrow ? borrow.title.toUpperCase() : null)
     });
     current = Writer.write(premise, { length: el.length.value, seed: seed });
     render(current);
@@ -576,6 +599,15 @@
   /* ------------------------------------------------------------------ wiring */
   el.write.addEventListener('click', function () { generate({ fresh: true }); });
   el.reroll.addEventListener('click', function () { generate({}); });
+  el.surprise.addEventListener('click', function () {
+    // The one legitimate random number: the user asked to be surprised.
+    // Everything downstream of this seed is deterministic.
+    var seed = (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
+    var story = Seed.idea(seed);
+    el.idea.value = story.text;
+    pendingBorrow = { genre: story.genre, title: story.title, seed: seed };
+    el.write.click();          // the same path the Write button takes
+  });
 
   el.idea.addEventListener('keydown', function (e) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {

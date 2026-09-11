@@ -20,6 +20,7 @@ const path = require('path');
 const os = require('os');
 
 const ROOT = path.join(__dirname, '..', '..');
+const StorySeed = require(path.join(ROOT, 'film', 'js', 'story-seed.js'));
 
 let chromium = null;
 for (const spec of [
@@ -170,11 +171,60 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
     await page.waitForTimeout(150);
     check((await page.textContent('#libCount')) === '0', 'the library can be cleared');
 
-    console.log('\nEMPTY INPUT');
+    console.log('\nTHIN IDEA');
+    // Reopening the saved script above filled the title box with its title;
+    // clear it so this section sees the fallback's own title, not a leftover.
+    await page.fill('#titleInput', '');
     await page.fill('#idea', '');
     await page.click('#write');
     await page.waitForTimeout(150);
-    check(/type what your film is about/i.test(await page.textContent('#status')), 'an empty idea is refused politely');
+    const thin = await page.evaluate(() => ({
+      title: document.getElementById('scriptTitle').textContent.trim(),
+      logline: document.getElementById('scriptLogline').textContent.trim()
+    }));
+    check(thin.title.length > 0, 'an empty idea still writes a script instead of being refused');
+    check(thin.logline.length > 20, `the borrowed story supplies its own logline (${JSON.stringify(thin.logline)})`);
+
+    console.log('\nSURPRISE ME');
+    const surprised = await page.evaluate(() => {
+      const before = document.getElementById('idea').value;
+      document.getElementById('surprise').click();
+      return { before: before, after: document.getElementById('idea').value };
+    });
+    check(surprised.after.length > 20, `surprise me filled the idea box (${surprised.after.length} chars)`);
+    check(surprised.after !== surprised.before, 'surprise me changed the idea');
+
+    console.log('\nBORROWED TITLE');
+    // Pin the one legitimate random number so the seed Surprise me rolls is
+    // known, then check the exact story it borrowed reaches the finished
+    // script's title card, in MADLIBS's own words rather than a genre default.
+    const borrowedProof = await page.evaluate(() => {
+      const realRandom = Math.random;
+      const realNow = Date.now;
+      Math.random = () => 0.31415;
+      Date.now = () => 1717000000000;
+      document.getElementById('surprise').click();
+      Math.random = realRandom;
+      Date.now = realNow;
+      return {
+        idea: document.getElementById('idea').value,
+        title: document.getElementById('scriptTitle').textContent.trim()
+      };
+    });
+    const expectedSeed = (1717000000000 ^ Math.floor(0.31415 * 0xffffffff)) >>> 0;
+    const expectedStory = StorySeed.idea(expectedSeed);
+    check(borrowedProof.idea === expectedStory.text, 'the borrowed idea matches the seed the button rolled');
+    check(borrowedProof.title === expectedStory.title.toUpperCase(),
+      `MADLIBS's own title reaches the finished script (${JSON.stringify(borrowedProof.title)})`);
+
+    // Editing the idea box and writing again must not keep the borrowed
+    // title around — a stale title from a story that is no longer on screen.
+    await page.fill('#idea', 'A retired clockmaker builds a machine that repairs broken promises.');
+    await page.click('#write');
+    await page.waitForTimeout(150);
+    const editedTitle = (await page.textContent('#scriptTitle')).trim();
+    check(editedTitle !== expectedStory.title.toUpperCase(),
+      'a borrowed title does not persist once the user edits the idea and writes again');
 
     console.log('\nTHE FILM');
     await page.click('#tabFilm');
