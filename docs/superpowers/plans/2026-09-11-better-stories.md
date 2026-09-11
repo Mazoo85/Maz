@@ -745,3 +745,54 @@ git commit -m "Document the stories: more places, more shapes, and a crisis ever
 - **Task 5 deliberately avoids a second premise constructor.** Feeding MADLIBS's logline through the existing parser reuses every extraction rather than duplicating it, and is why the MADLIBS work is two small tasks rather than one large one.
 - **One task ends in looking rather than asserting** (Task 7's contact sheet), because "a default film now has a crisis" is a claim about what a viewer sees, and the whole point of the sub-project.
 - **Not covered by tests, by choice:** whether the stories are *good*. The suite proves they vary, reach a crisis, stay deterministic and always produce a playable film. Taste is the user's call on a finished film.
+
+---
+
+## Results — measured, not asserted
+
+200 films at the **default length** (`short`), ten typed ideas cycled across
+seeds 0-199, generated through the real reader and writer. "Before" is
+`origin/main` at the merge of sub-project 2, measured in a worktree with the
+same script.
+
+| | Before | After |
+|---|---|---|
+| Locations offered per film | 2, in 200 of 200 | 3 · 4 · 5 (66 / 64 / 70) |
+| Locations **used** per film | 2, in 200 of 200 | 3 or 4 — avg **3.67** |
+| Distinct beat shapes | **1** | **3** |
+| Films reaching a crisis | **0 / 200** | **200 / 200** |
+| Distinct premises | 200 | 200 |
+
+The shapes in use at the default length are `open spark turn crisis after`,
+`open spark crisis choice after` and `open push turn crisis choice`.
+
+Four places is the ceiling at this length, not a bug: five beats, and the
+opening and closing beat deliberately share one location.
+
+### What looking at it caught
+
+A contact sheet of one default film confirmed the payoff on screen — the
+crisis plays in a location no earlier scene used, tension reaches 0.88, and
+the poses break (one character sits down mid-scene, the other's hands go to
+their head).
+
+It also caught a defect no test was looking for: the crisis was
+`EXT. PARKING LOT` and the action lines read *"Rain finds the same crack in
+the sill it always finds"* and *"The radio is on the floor between them"*.
+The lexicon's images assumed an interior, which was safe when every film had
+two rooms. Measured over 400 films: 238 such lines on main, **369** after the
+extra places went in — this work made a pre-existing defect worse. Fixed with
+`LEX.OUTDOORS`, an outdoor twin per line swapped per scene; **369 → 6**, and
+the six remaining are the idiom "has learned to take up very little room",
+which is correct English in a field.
+
+### Still open
+
+- The engine's Windows/MSVC pragma guards (`Model.cpp`, `Font.cpp`,
+  `VulkanTexture.cpp`) remain unverified — every CI run on this branch was
+  cancelled by `cancel-in-progress` before the Windows job finished. Only CI
+  can confirm the warning numbers are the right ones.
+- No test pins the three-word boundary of the thin-idea fallback; the `< 3`
+  is correct by inspection.
+- `spineFor` picks by seed only, not genre — recorded as a deliberate
+  deviation in the design spec.
