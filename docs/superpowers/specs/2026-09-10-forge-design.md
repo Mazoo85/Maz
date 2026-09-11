@@ -1,7 +1,8 @@
 # The Forge — design spec
 
 **Date:** 2026-09-10
-**Status:** approved, ready for implementation planning
+**Status:** built — see `docs/FORGE.md` for the operator's guide. The "Trusted"
+criteria below remain open until thirty nights have run.
 **Scope:** P1 of a three-part system (see *Where this fits*)
 
 ---
@@ -21,7 +22,7 @@ The full goal decomposes into three sub-projects, each with its own spec and bui
 
 | | Sub-project | Delivers | Status |
 |---|---|---|---|
-| **P1** | **The Forge** — the spine | A loop that runs nightly, does one useful thing, records what happened | **this spec** |
+| **P1** | **The Forge** — the spine | A loop that runs nightly, does one useful thing, records what happened | **built** |
 | **P2** | **The Exchange** — the bus | Projects publish and consume each other's output | later |
 | **P3** | **Taste** — the scoring brain | The loop learns which work actually pays off | later |
 

@@ -1,6 +1,6 @@
 # Maz
 
-This repo holds five things:
+This repo holds six things:
 
 1. **Maz Engine** — a native **C++20 + Vulkan + SDL3** game engine, 2D-first but architected so
    3D drops in later. See **[`docs/ROADMAP.md`](docs/ROADMAP.md)** for the full build plan (the
@@ -19,6 +19,10 @@ This repo holds five things:
    and melody, arranged into verses and choruses across 8 genres, with WAV and
    MIDI export. No install, no API key, works offline. See
    **[`music/README.md`](music/README.md)**.
+6. **The Forge** — the repo's own nightly loop, in **[`forge/`](forge/)**. It reads
+   the roadmap, CI, and `TODO` markers, picks one task, hands it to Maz Crew, and
+   opens a draft pull request. It never pushes to `main` and never merges. See
+   **[`docs/FORGE.md`](docs/FORGE.md)**.
 
 > **Codebase memory:** this repo is set up with a
 > [codebase-memory MCP server](docs/CODEBASE_MEMORY.md) that gives Claude persistent,
