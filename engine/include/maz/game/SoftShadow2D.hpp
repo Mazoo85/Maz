@@ -21,6 +21,14 @@ namespace maz::game {
 // Pure 2D math (no GPU), so it unit-tests headless; the renderer approximates it by compositing one
 // faint visibility fan per sample additively.
 
+#if defined(_MSC_VER)
+#pragma warning(push)
+// C4723: the divisions by rxs below are guarded — segmentsIntersect returns early for any
+// |rxs| < 1e-9f — but MSVC cannot see through std::fabs and reports a potential divide by zero.
+// C4723 is raised by the code generator rather than the parser, so the suppression has to wrap the
+// whole function: a #pragma inside the body is applied too late to take effect.
+#pragma warning(disable : 4723)
+#endif
 // Proper segment-segment intersection (strict interior crossing; shared endpoints / grazes don't count).
 inline bool segmentsIntersect(math::vec2 p1, math::vec2 p2, math::vec2 q1, math::vec2 q2) {
     auto cross = [](math::vec2 a, math::vec2 b) { return a.x * b.y - a.y * b.x; };
@@ -31,20 +39,14 @@ inline bool segmentsIntersect(math::vec2 p1, math::vec2 p2, math::vec2 q1, math:
         return false; // parallel or colinear -> treat as no crossing
     }
     const math::vec2 qp{q1.x - p1.x, q1.y - p1.y};
-#if defined(_MSC_VER)
-#pragma warning(push)
-// C4723: MSVC cannot see through the std::fabs guard above, which already returns for any |rxs|
-// below 1e-9f, so rxs is provably non-zero here.
-#pragma warning(disable : 4723)
-#endif
     const float t = cross(qp, s) / rxs;
     const float u = cross(qp, r) / rxs;
-#if defined(_MSC_VER)
-#pragma warning(pop)
-#endif
     const float eps = 1e-4f;
     return t > eps && t < 1.0f - eps && u > eps && u < 1.0f - eps;
 }
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
 // Is the line of sight from a to b blocked by any occluder segment?
 inline bool lineBlocked(math::vec2 a, math::vec2 b, const std::vector<Segment2>& occluders) {
