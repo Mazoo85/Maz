@@ -1,0 +1,13 @@
+{
+  "name": "songforge-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Test suites for SONG FORGE. The logic suite needs nothing; the browser suite needs Playwright.",
+  "scripts": {
+    "test": "node music-logic.test.js",
+    "test:browser": "node music-browser.test.js"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}

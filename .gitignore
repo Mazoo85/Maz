@@ -20,3 +20,7 @@ compile_commands.json
 CMakeUserPresets.json
 _deps/
 Testing/
+
+# Playwright is installed on demand for the arcade's browser suites
+# (npm --prefix music/tests install), so its lockfile is local scratch.
+package-lock.json
