@@ -570,10 +570,36 @@
   /* Beat orders by target length. Short films earn their length; a 2-minute
    * film gets the spine only. */
   var STRUCTURES = {
-    micro:  { label: '3 scenes', beats: ['open', 'spark', 'choice'] },
-    short:  { label: '5 scenes', beats: ['open', 'spark', 'push', 'turn', 'choice'] },
-    festival: { label: '7 scenes', beats: ['open', 'spark', 'push', 'turn', 'crisis', 'choice', 'after'] }
+    micro: {
+      label: '3 scenes',
+      spines: [
+        ['open', 'spark', 'choice'],
+        ['open', 'crisis', 'after']
+      ]
+    },
+    short: {
+      label: '5 scenes',
+      spines: [
+        ['open', 'spark', 'crisis', 'choice', 'after'],
+        ['open', 'push', 'turn', 'crisis', 'choice'],
+        ['open', 'spark', 'turn', 'crisis', 'after']
+      ]
+    },
+    festival: {
+      label: '7 scenes',
+      spines: [
+        ['open', 'spark', 'push', 'turn', 'crisis', 'choice', 'after'],
+        ['open', 'spark', 'turn', 'push', 'crisis', 'choice', 'after'],
+        ['open', 'push', 'spark', 'turn', 'crisis', 'after', 'choice']
+      ]
+    }
   };
+
+  /* `beats` was the single shape each length used to have. Keep it pointing at
+   * the first shape so anything still reading it sees a valid story. */
+  Object.keys(STRUCTURES).forEach(function (key) {
+    STRUCTURES[key].beats = STRUCTURES[key].spines[0];
+  });
 
   /* Genre-neutral images. Mixed into every genre's own details so a single
    * script has enough of them never to repeat itself. */

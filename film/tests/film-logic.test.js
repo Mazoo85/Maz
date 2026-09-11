@@ -1402,6 +1402,54 @@ test('placeForBeat stays inside the places it is given', () => {
   });
 });
 
+console.log('\nTHE SHAPE OF A STORY');
+
+test('every length offers more than one shape', () => {
+  Object.keys(LEX.STRUCTURES).forEach((len) => {
+    const spines = LEX.STRUCTURES[len].spines;
+    assert(Array.isArray(spines) && spines.length >= 2,
+      len + ' offers ' + (spines ? spines.length : 0) + ' shapes');
+  });
+});
+
+test('every shape is made of real beats and has a beginning', () => {
+  const known = ['open', 'spark', 'push', 'turn', 'crisis', 'choice', 'after'];
+  Object.keys(LEX.STRUCTURES).forEach((len) => {
+    LEX.STRUCTURES[len].spines.forEach((spine, i) => {
+      eq(spine[0], 'open', len + ' shape ' + i + ' does not open on the open beat');
+      eq(new Set(spine).size, spine.length, len + ' shape ' + i + ' repeats a beat');
+      spine.forEach((b) => assert(known.indexOf(b) !== -1, len + ' shape ' + i + ' has unknown beat ' + b));
+    });
+  });
+});
+
+test('a short film always reaches a crisis', () => {
+  ['short', 'festival'].forEach((len) => {
+    LEX.STRUCTURES[len].spines.forEach((spine, i) => {
+      assert(spine.indexOf('crisis') !== -1,
+        len + ' shape ' + i + ' has no crisis: ' + spine.join(' '));
+    });
+  });
+  // and the shipped default really does produce one
+  for (let seed = 0; seed < 30; seed++) {
+    const script = Writer.write(Parse.parse('a stranger arrives', { seed }), { length: 'short', seed });
+    assert(script.scenes.some((s) => s.beat.id === 'crisis'),
+      'a default-length film at seed ' + seed + ' had no crisis');
+  }
+});
+
+test('two films of the same length can be shaped differently', () => {
+  const shapes = new Set();
+  for (let seed = 0; seed < 40; seed++) shapes.add(Writer.spineFor('festival', seed).join(' '));
+  assert(shapes.size >= 2, 'every festival film had the same shape');
+});
+
+test('the same seed always gives the same shape', () => {
+  for (let seed = 0; seed < 20; seed++) {
+    eq(Writer.spineFor('short', seed).join(' '), Writer.spineFor('short', seed).join(' '));
+  }
+});
+
 /* ------------------------------------------------------------------ report */
 console.log('');
 if (failures.length) {

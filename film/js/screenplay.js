@@ -123,6 +123,14 @@
     return 1 + (base + step) % span;                          // in [1, span]
   }
 
+  /* Two films of the same length should not be the same shape. */
+  function spineFor(lengthKey, seed) {
+    var structure = LEX.STRUCTURES[lengthKey] || LEX.STRUCTURES.short;
+    var spines = structure.spines || [structure.beats];
+    var rng = PARSE.makeRng((PARSE.hashText('spine:' + lengthKey) ^ (seed >>> 0)) >>> 0);
+    return spines[Math.floor(rng() * spines.length) % spines.length];
+  }
+
   function headingFor(premise, beatId, placeIndex, previous) {
     var place = premise.places[Math.min(placeIndex, premise.places.length - 1)];
     var time = beatId === 'after' ? (NEXT_TIME[premise.time] || premise.time) : premise.time;
@@ -176,7 +184,8 @@
     var previousHeading = null;
     var introduced = {};
 
-    structure.beats.forEach(function (beatId, index) {
+    var spine = spineFor(lengthKey, seed);
+    spine.forEach(function (beatId, index) {
       var beat = beatById[beatId];
       var heading = headingFor(premise, beatId,
         placeForBeat(beatId, premise.places.length, seed), previousHeading);
@@ -234,7 +243,7 @@
       // it can never contradict the action it follows.
       sceneElements.push({ type: 'action', text: capitalize(ctx.nextDetail()) });
 
-      var isLast = index === structure.beats.length - 1;
+      var isLast = index === spine.length - 1;
       if (isLast) sceneElements.push({ type: 'transition', text: 'FADE OUT.' });
 
       scenes.push({
@@ -299,7 +308,7 @@
     return { pages: pages, runtime: '≈ ' + minutes + ' min' };
   }
 
-  var API = { write: write, paginate: paginate, placeForBeat: placeForBeat };
+  var API = { write: write, paginate: paginate, placeForBeat: placeForBeat, spineFor: spineFor };
   if (typeof module === 'object' && module.exports) module.exports = API;
   root.FilmWriter = API;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
