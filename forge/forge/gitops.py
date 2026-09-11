@@ -55,12 +55,54 @@ def delete_branch(name: str, root: Path | None = None, runner=None) -> bool:
     return code == 0
 
 
+def is_clean(root: Path | None = None, runner=None) -> bool:
+    """True when the working tree has no staged, modified, or untracked-but-
+    not-ignored changes against HEAD.
+
+    ``git status --porcelain`` prints one line per such path (staged,
+    modified, or untracked and not gitignored) and nothing at all when the
+    tree is clean. Used by ``do()`` to refuse to start a run rather than
+    begin a branch, and therefore an attribution trail, on top of someone
+    else's uncommitted work. A failed status call (bad cwd, no repo) reads
+    as "not clean" — fail closed, exactly like a falsy ``head_sha``.
+    """
+    code, out, _ = _runner_for(root, runner)(["status", "--porcelain"])
+    return code == 0 and out.strip() == ""
+
+
 def changed_files(root: Path | None = None, base: str = "HEAD", runner=None) -> tuple[str, ...]:
-    """Paths changed against ``base``, including untracked-but-added files."""
-    code, out, _ = _runner_for(root, runner)(["diff", "--name-only", base])
-    if code != 0:
-        return ()
-    return tuple(p.strip() for p in out.splitlines() if p.strip())
+    """Paths touched since ``base``: tracked modifications plus untracked,
+    non-ignored new files.
+
+    ``git diff --name-only`` alone only ever sees tracked history — a file
+    Crew created and never ``git add``ed is invisible to it, and that gap is
+    exactly what could let an agent's own output (a new file dropped under a
+    no-touch path, say) slip past the leash's file-count, no-touch, and
+    safe-zone checks unseen. This function is where every caller — today
+    just the leash re-check in ``do()`` — gets protected against that gap at
+    once, rather than each caller having to remember to ask for it
+    separately. ``git ls-files --others --exclude-standard`` supplies the
+    missing half; ``--exclude-standard`` is git's own gitignore-respecting
+    flag, so a build artifact the project already ignores is correctly
+    left out rather than flagged as a violation.
+
+    Not "committed or not": a change that is committed *and reverted* back
+    to ``base`` on the branch does not appear here, because both queries
+    compare live state (the diff against ``base``, the untracked listing
+    against the index) rather than commit history.
+    """
+    run = _runner_for(root, runner)
+    code, out, _ = run(["diff", "--name-only", base])
+    tracked = tuple(p.strip() for p in out.splitlines() if p.strip()) if code == 0 else ()
+
+    code, out, _ = run(["ls-files", "--others", "--exclude-standard"])
+    untracked = tuple(p.strip() for p in out.splitlines() if p.strip()) if code == 0 else ()
+
+    # Union, not concatenation: keep the diff's own order first, then any
+    # untracked path not already present, so the result is deterministic
+    # and never lists the same path twice.
+    seen = set(tracked)
+    return tracked + tuple(p for p in untracked if p not in seen)
 
 
 def commit_all(message: str, root: Path | None = None, runner=None) -> bool:

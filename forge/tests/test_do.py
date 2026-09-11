@@ -307,6 +307,11 @@ def test_a_known_cost_over_budget_still_fails(tmp_path):
 
 def test_create_branch_crash_is_reported_not_raised(tmp_path):
     def raising_git(args):
+        # Answer the Fix-3 clean-tree check (added after this test was
+        # written) so the crash under test is still create_branch's, not
+        # the clean-tree check's — that guard has its own tests above.
+        if args == ["status", "--porcelain"]:
+            return (0, "", "")
         raise FileNotFoundError("git: command not found")
 
     crew_called = {"value": False}
@@ -319,3 +324,164 @@ def test_create_branch_crash_is_reported_not_raised(tmp_path):
     assert out.ok is False
     assert "branch" in out.error.lower()
     assert crew_called["value"] is False
+
+
+# --- Fix wave 2 / Fix 1: changed_files must not raise out of do() either, --
+# --- same failure mode as create_branch/head_sha, two calls later. --------
+
+
+def test_changed_files_crash_is_reported_not_raised(tmp_path):
+    class DiffCrashGit(FakeGit):
+        """Everything answers like FakeGit, except the diff call blows up —
+        the same FileNotFoundError a missing `git` binary raises in
+        production, reaching the re-check two calls after the ones already
+        guarded by Fix wave 1.
+        """
+
+        def __call__(self, args):
+            self.calls.append(args)
+            if args[0] == "diff":
+                raise FileNotFoundError("git: command not found")
+            if args[:2] == ["rev-parse", "--abbrev-ref"]:
+                return (0, "main\n", "")
+            if args == ["rev-parse", "HEAD"]:
+                return (0, f"{BASE_SHA}\n", "")
+            return (0, "", "")
+
+    out = do(CHOSEN, tmp_path, ForgeConfig(), git=DiffCrashGit(),
+             crew=lambda t, r, s: (0, "ok", 0.1))
+    assert out.ok is False
+    assert "command not found" in out.error
+
+
+# --- Fix wave 2 / Fix 2: a non-numeric cost must read as unmeasured, not ---
+# --- crash the budget comparison. ------------------------------------------
+
+
+def test_non_numeric_cost_is_treated_as_unmeasured(tmp_path):
+    out = do(CHOSEN, tmp_path, ForgeConfig(), git=FakeGit(),
+             crew=lambda *a: (0, "ok", "free"))
+    assert out.ok is True
+    assert out.cost_usd is None
+    assert "cost" in out.error.lower(), \
+        "an unusable cost must be visible in the outcome, not silently swallowed"
+
+
+def test_non_numeric_cost_does_not_trip_the_budget_check(tmp_path):
+    out = do(CHOSEN, tmp_path, ForgeConfig(budget_usd=0.0), git=FakeGit(),
+             crew=lambda *a: (0, "ok", "free"))
+    assert out.ok is True, "a non-numeric cost must not be compared against the budget at all"
+
+
+# --- Fix wave 2 / Fix 3: refuse to start on a dirty working tree, rather ---
+# --- than blame Crew for a pre-existing uncommitted edit. ------------------
+
+
+class DirtyTreeGit(FakeGit):
+    """`git status --porcelain` reports a pre-existing uncommitted edit."""
+
+    def __call__(self, args):
+        self.calls.append(args)
+        if args == ["status", "--porcelain"]:
+            return (0, " M engine/src/core/app.cpp\n", "")
+        if args[:2] == ["rev-parse", "--abbrev-ref"]:
+            return (0, "main\n", "")
+        if args == ["rev-parse", "HEAD"]:
+            return (0, f"{BASE_SHA}\n", "")
+        if args[0] == "diff":
+            return (0, "\n".join(self.changed) + "\n", "")
+        return (0, "", "")
+
+
+def test_dirty_working_tree_refuses_before_branch_is_created(tmp_path):
+    git = DirtyTreeGit()
+    crew_called = {"value": False}
+
+    def crew(task, root, timeout_s):
+        crew_called["value"] = True
+        return (0, "ok", 0.1)
+
+    out = do(CHOSEN, tmp_path, ForgeConfig(), git=git, crew=crew)
+    assert out.ok is False
+    assert crew_called["value"] is False, "Crew must never run on a dirty tree"
+    assert not any(c[:2] == ["checkout", "-b"] for c in git.calls), \
+        "no branch may be created on a dirty tree"
+
+
+def test_clean_tree_still_proceeds_normally(tmp_path):
+    """Sentinel: FakeGit's default `status --porcelain` answer (empty, via
+    its catch-all fallback) must read as clean — otherwise Fix 3 would be
+    over-broad and block every other test in this file, not just the
+    genuinely dirty one.
+    """
+    out = do(CHOSEN, tmp_path, ForgeConfig(), git=FakeGit(),
+             crew=lambda t, r, s: (0, "ok", 0.1))
+    assert out.ok is True
+
+
+# --- Fix wave 2 / Fix 4: untracked, never-`git add`ed files must be seen ---
+# --- by the leash re-check too, not just tracked diffs. --------------------
+
+
+class UntrackedNoTouchGit(FakeGit):
+    """Crew leaves a wholly new, never-staged file under a no-touch path.
+    `git diff --name-only` alone never reports it — that gap is exactly
+    what would have let this pass before the fix.
+    """
+
+    def __call__(self, args):
+        self.calls.append(args)
+        if args[:2] == ["rev-parse", "--abbrev-ref"]:
+            return (0, "main\n", "")
+        if args == ["rev-parse", "HEAD"]:
+            return (0, f"{BASE_SHA}\n", "")
+        if args == ["status", "--porcelain"]:
+            return (0, "", "")
+        if args == ["diff", "--name-only", BASE_SHA]:
+            return (0, "docs/a.md\n", "")
+        if args == ["ls-files", "--others", "--exclude-standard"]:
+            return (0, "forge/forge/sneaky.py\n", "")
+        return (0, "", "")
+
+
+def test_untracked_new_file_under_no_touch_path_is_caught(tmp_path):
+    out = do(CHOSEN, tmp_path, ForgeConfig(), git=UntrackedNoTouchGit(),
+             crew=lambda t, r, s: (0, "ok", 0.1))
+    assert out.ok is False
+    assert "no-touch" in out.error.lower()
+    assert "forge/forge/sneaky.py" in out.files, \
+        "the old diff-only re-check would have missed this untracked file entirely"
+
+
+class UntrackedIgnoredGit(FakeGit):
+    """Pins that the fix calls `ls-files --others --exclude-standard`
+    specifically — the flagged form git itself uses to keep gitignored
+    build output out of the answer — and not some unflagged variant that
+    would let an ignored artifact masquerade as a leash violation.
+    """
+
+    def __call__(self, args):
+        self.calls.append(args)
+        if args[:2] == ["rev-parse", "--abbrev-ref"]:
+            return (0, "main\n", "")
+        if args == ["rev-parse", "HEAD"]:
+            return (0, f"{BASE_SHA}\n", "")
+        if args == ["status", "--porcelain"]:
+            return (0, "", "")
+        if args == ["diff", "--name-only", BASE_SHA]:
+            return (0, "docs/a.md\n", "")
+        if args == ["ls-files", "--others", "--exclude-standard"]:
+            return (0, "", "")
+        if args[:2] == ["ls-files", "--others"]:
+            # Without --exclude-standard, git would also surface this
+            # gitignored build artifact. Calling the flagged form must not
+            # reach here.
+            return (0, "build/out.o\n", "")
+        return (0, "", "")
+
+
+def test_untracked_gitignored_file_is_not_a_violation(tmp_path):
+    out = do(CHOSEN, tmp_path, ForgeConfig(), git=UntrackedIgnoredGit(),
+             crew=lambda t, r, s: (0, "ok", 0.1))
+    assert out.ok is True
+    assert "build/out.o" not in out.files
