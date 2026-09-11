@@ -819,9 +819,9 @@
    * of notes rather than a line: this clears the last beat, then leans the
    * final note onto a chord tone and holds it, which is what a cadence is.
    */
-  function cadence(song, phraseEvents, endBeat) {
+  function cadence(song, phraseEvents, endBeat, breathBeats) {
     if (!phraseEvents.length) return phraseEvents;
-    const breath = endBeat - 0.75;
+    const breath = endBeat - (breathBeats === undefined ? 0.75 : breathBeats);
     let kept = phraseEvents.filter(function (e) { return e.t < breath; });
     if (!kept.length) kept = [phraseEvents[0]];
 
@@ -899,9 +899,13 @@
           });
         }
 
-        // Every second phrase closes: four bars of line, then room to breathe.
+        /* Every phrase gets a breath; every second one gets a proper close.
+           A singer has to inhale, and the silence is what makes a line a line
+           rather than a stream of notes — it is also what leaves the second
+           voice somewhere to answer. */
         const phraseEnd = phraseBeat + motifBars * beatsPerBar;
-        const finished = (ph % 2 === 1) ? cadence(song, phraseEvents, phraseEnd) : phraseEvents;
+        const closing = ph % 2 === 1;
+        const finished = cadence(song, phraseEvents, phraseEnd, closing ? 1.75 : 0.9);
         Array.prototype.push.apply(events, finished);
       }
     }
@@ -1568,10 +1572,104 @@
             : sec.type === 'verse' ? rng.chance(0.75)
             : sec.type === 'bridge' ? rng.chance(0.6)
             : sec.type === 'outro' ? rng.chance(0.4)
-            : rng.chance(0.25)
+            : rng.chance(0.25),
+        // The answering voice needs something to answer, and room to do it in.
+        counter: false
       };
       if (sec.type === 'intro') { sec.parts.lead = sec.parts.lead && rng.chance(0.4); }
+      /* The counter-melody answers the lead, so it only appears where the lead
+         does, and only where there is room for two voices without them
+         tripping over each other. */
+      sec.parts.counter = sec.parts.lead && e >= 0.6 &&
+        rng.chance(genre.counter ? genre.counter.chance : 0);
     }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Counter-melody — the second voice
+   *
+   * Not a harmony line doubling the lead a third below, which is what a naive
+   * second part turns into: two voices moving in parallel read as one thicker
+   * voice. This one answers. It plays in the gaps the lead leaves, moves the
+   * opposite way to the phrase it is answering, and shuts up the moment the
+   * lead comes back in.
+   *
+   * That is also why it is composed last and reads the lead directly: there is
+   * no way to write call and response without knowing what the call was.
+   * ------------------------------------------------------------------ */
+
+  function composeCounter(song, rng) {
+    const genre = song.genre;
+    if (!genre.counter) return [];
+    const lead = song.tracks.lead || [];
+    if (!lead.length) return [];
+
+    const octave = genre.counter.octave || ((genre.lead.octave || 5) - 1);
+    const events = [];
+    /* Just under the shortest breath the lead leaves at a phrase end (0.9
+       beats), so an ordinary phrase break counts as somewhere to answer. Set it
+       any higher and the second voice only ever speaks at the big closes. */
+    const MIN_GAP = 0.75;
+
+    song.sections.forEach(function (sec) {
+      if (!sec.parts || !sec.parts.counter) return;
+      const from = sec.startBar * bpb(song);
+      const to = from + sec.bars * bpb(song);
+      const inSec = lead.filter(function (e) { return e.t >= from && e.t < to; })
+                        .sort(function (a, b) { return a.t - b.t; });
+      if (inSec.length < 2) return;
+
+      for (let i = 0; i < inSec.length; i++) {
+        const call = inSec[i];
+        const callEnd = call.t + call.d;
+        const nextAt = i + 1 < inSec.length ? inSec[i + 1].t : to;
+        let gap = nextAt - callEnd;
+        /* A long held note is an opportunity, not an obstacle: the lead sitting
+           still is exactly when a second voice moving underneath is audible as
+           a second voice. */
+        if (gap < MIN_GAP && call.d >= 1.5) gap = nextAt - (call.t + 0.5);
+        if (gap < MIN_GAP) continue;
+        if (rng.chance(0.15)) continue;                // not every gap wants filling
+
+        /* Which way did the call move? Answer the other way — contrary motion
+           is what makes two lines read as two lines. */
+        const prev = i > 0 ? inSec[i - 1].p : call.p;
+        const rising = call.p >= prev;
+        const dir = rising ? -1 : 1;
+
+        const chord = chordAt(song, callEnd + 0.01);
+        const heldUnder = call.d >= 1.5 && nextAt - callEnd < MIN_GAP;
+        const start = (heldUnder ? call.t + 0.5 : callEnd) + Math.min(0.5, gap * 0.25);
+        const room = Math.max(0.5, nextAt - start - 0.15);
+        const count = room >= 2.5 ? 3 : room >= 1.5 ? 2 : 1;
+        const step = room / count;
+
+        let pitch = T.nearestChordTone(T.midi(keyRootAt(song, start), octave), chord.pitches);
+        for (let n = 0; n < count; n++) {
+          const t = start + n * step;
+          if (t >= to - 0.05) break;
+          if (n > 0) {
+            pitch = T.snapToScale(pitch + dir * rng.intRange(1, 3), song.scaleSteps,
+                                  T.midi(keyRootAt(song, t), octave));
+          }
+          // Land the last note of the answer on a chord tone, like a cadence.
+          if (n === count - 1) pitch = T.nearestChordTone(pitch, chordAt(song, t).pitches);
+          const lo = T.midi(keyRootAt(song, t), octave) - 7;
+          const hi = lo + 19;
+          while (pitch > hi) pitch -= 12;
+          while (pitch < lo) pitch += 12;
+
+          events.push({
+            t: t,
+            d: Math.max(0.25, step * 0.85),
+            p: pitch,
+            v: (0.42 + sec.energy * 0.2) * (n === 0 ? 1 : 0.9)
+          });
+        }
+      }
+    });
+
+    return applyFeel(events, song, rng, 0.3);
   }
 
   const LENGTHS = { short: 75, medium: 135, long: 200 };
@@ -1643,7 +1741,7 @@
        sound the way the style intends; automation is something you add. */
     song.automation = { filter: [], volume: [] };
     song.pingpong = !!genre.fx.pingpong;
-    ['bass', 'chords', 'arp', 'lead', 'pad'].forEach(function (part) {
+    ['bass', 'chords', 'arp', 'lead', 'pad', 'counter'].forEach(function (part) {
       const cfg = genre[part];
       if (cfg && cfg.alts && cfg.alts.length && rng.chance(0.55)) {
         song.presetOverride[part] = rng.pick(cfg.alts);
@@ -1655,11 +1753,13 @@
 
     song.partSeeds = {
       drums: seed + ':drums', bass: seed + ':bass', chords: seed + ':chords',
-      arp: seed + ':arp', lead: seed + ':lead', pad: seed + ':pad'
+      arp: seed + ':arp', lead: seed + ':lead', pad: seed + ':pad',
+      counter: seed + ':counter'
     };
 
     song.tracks = {};
-    ['drums', 'bass', 'chords', 'arp', 'lead', 'pad'].forEach(function (p) {
+    // Counter last: it answers the lead, so the lead has to exist first.
+    ['drums', 'bass', 'chords', 'arp', 'lead', 'pad', 'counter'].forEach(function (p) {
       song.tracks[p] = generatePart(song, p, song.partSeeds[p]);
     });
 
@@ -1668,7 +1768,7 @@
 
   const PART_FN = {
     drums: composeDrums, bass: composeBass, chords: composeChords,
-    arp: composeArp, lead: composeLead, pad: composePad
+    arp: composeArp, lead: composeLead, pad: composePad, counter: composeCounter
   };
 
   function generatePart(song, part, seed, opts) {

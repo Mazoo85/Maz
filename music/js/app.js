@@ -17,6 +17,7 @@
     { id: 'chords', label: 'Chords', color: '#00e5ff' },
     { id: 'arp',    label: 'Arp',    color: '#6bff8f' },
     { id: 'lead',   label: 'Lead',   color: '#ffc857' },
+    { id: 'counter', label: 'Answer', color: '#ff8a3d' },
     { id: 'pad',    label: 'Pad',    color: '#7a8cff' }
   ];
   const DRUM_LANES = ['kick', 'snare', 'clap', 'hh', 'oh', 'ride', 'tom', 'conga',

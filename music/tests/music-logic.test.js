@@ -378,6 +378,85 @@ Object.keys(Genres.GENRES).forEach(function (gid) {
   check(tiny.bars > 0, 'and it still has bars left');
 })();
 
+/* --- the answering voice --- */
+(function () {
+  check(Composer.LANE_NAMES !== undefined, 'composer exports are intact');
+
+  /* A counter-melody that moves with the lead is not a counter-melody — two
+     voices in parallel read as one thicker voice. These checks are about
+     separation: it plays where the lead is not, and it moves the other way. */
+  let sample = null;
+  for (let i = 0; i < 30 && !sample; i++) {
+    const s = Composer.compose({ seed: 'ANSWER-' + i, genre: 'jazz', length: 'medium' });
+    if (s.tracks.counter && s.tracks.counter.length >= 6) sample = s;
+  }
+  check(!!sample, 'a style that uses a second voice produces one');
+
+  if (sample) {
+    const lead = sample.tracks.lead;
+    const counter = sample.tracks.counter;
+
+    /* Almost nothing should start while the lead is mid-note. The exception is
+       deliberate: a long held lead note is exactly when a second voice moving
+       underneath is audible as a second voice. */
+    const clashes = counter.filter(function (c) {
+      return lead.some(function (l) {
+        return c.t >= l.t - 0.05 && c.t < l.t + l.d - 0.1 && l.d < 1.5;
+      });
+    });
+    check(clashes.length === 0,
+      'the answer never starts on top of a short lead note (' + clashes.length + ' of ' +
+      counter.length + ')');
+
+    // It only appears in sections that asked for it.
+    const wanted = {};
+    sample.sections.forEach(function (sec) {
+      if (sec.parts.counter) {
+        for (let b = sec.startBar; b < sec.startBar + sec.bars; b++) wanted[b] = true;
+      }
+    });
+    const strays = counter.filter(function (e) {
+      return !wanted[Math.floor(e.t / sample.beatsPerBar)];
+    });
+    check(strays.length === 0, 'and only in the sections that called for it');
+
+    // It stays in key and in a sane range.
+    const inKey = counter.filter(function (e) {
+      const set = {};
+      sample.scaleSteps.forEach(function (st) {
+        set[((Composer.keyRootAt(sample, e.t) + st) % 12 + 12) % 12] = true;
+      });
+      return set[((e.p % 12) + 12) % 12];
+    });
+    check(inKey.length / counter.length > 0.8,
+      'it stays in key (' + Math.round(100 * inKey.length / counter.length) + '%)');
+    const span = Math.max.apply(null, counter.map(function (e) { return e.p; })) -
+                 Math.min.apply(null, counter.map(function (e) { return e.p; }));
+    check(span <= 24, 'and inside a two-octave range (' + span + ' semitones)');
+
+    // It has to survive everything else a part survives.
+    const back = Composer.unpackSong(JSON.parse(JSON.stringify(Composer.packSong(sample))));
+    check(back.tracks.counter.length === counter.length, 'the answer survives a save');
+    Composer.rerollPart(sample, 'counter');
+    check(Array.isArray(sample.tracks.counter), 'and can be re-rolled on its own');
+  }
+
+  /* The lead has to leave room, or there is nothing to answer into. Measure the
+     silence: a melody with no gaps is a stream of notes, not a line. */
+  const phrased = Composer.compose({ seed: 'BREATH-1', genre: 'country', length: 'medium' });
+  const notes = phrased.tracks.lead.slice().sort(function (a, b) { return a.t - b.t; });
+  let gaps = 0;
+  for (let i = 1; i < notes.length; i++) {
+    if (notes[i].t - (notes[i - 1].t + notes[i - 1].d) >= 0.7) gaps++;
+  }
+  check(notes.length > 20, 'there is a melody to measure (' + notes.length + ' notes)');
+  check(gaps >= Math.floor(phrased.bars / 8),
+    'the melody stops to breathe (' + gaps + ' gaps in ' + phrased.bars + ' bars)');
+
+  // Every part the engine knows about must be one the composer can write.
+  check(Genres.GENRES.jazz.counter !== undefined, 'genres describe their second voice');
+})();
+
 /* --- key changes, borrowed chords, inversions and cadences --- */
 (function () {
   /* Key change. Gospel modulates often enough to find one quickly; the point
@@ -671,13 +750,16 @@ Object.keys(Genres.GENRES).forEach(function (gid) {
      hundred times finer than the humanising already applied. */
   check(drift <= 0.001, 'and nothing has drifted audibly (worst ' + drift.toFixed(5) + ')');
 
-  /* Find the hand-drawn note by its velocity: the composer humanises every note
-     it writes, so a velocity of exactly 0.8 is one nothing but a hand could
-     have set. Its pitch and bar have legitimately moved — the song was
-     transposed and rearranged after it was drawn — so those are read from the
-     edited song rather than from what was typed in. */
-  const handA = a.tracks.lead.filter(function (e) { return e.v === 0.8; });
-  const handB = b.tracks.lead.filter(function (e) { return Math.abs(e.v - 0.8) < 1e-9; });
+  /* Find the hand-drawn note by its exact position. The composer nudges every
+     note it writes a few thousandths off the grid, so a note sitting on a clean
+     quarter of a beat is one nothing but a hand put there — and unlike a marker
+     velocity, a time cannot be collided with by rounding. Its pitch and bar have
+     legitimately moved (the song was transposed and rearranged after it was
+     drawn), so those are read from the edited song rather than from what was
+     typed in. */
+  const clean = function (t) { return Math.abs(t * 4 - Math.round(t * 4)) < 1e-9; };
+  const handA = a.tracks.lead.filter(function (e) { return clean(e.t) && e.v === 0.8; });
+  const handB = b.tracks.lead.filter(function (e) { return clean(e.t) && Math.abs(e.v - 0.8) < 1e-9; });
   check(handA.length === 1, 'the hand-drawn note is identifiable in the edited song');
   check(handB.length === 1 && handB[0].p === handA[0].p &&
         Math.abs(handB[0].t - handA[0].t) <= 0.0001,

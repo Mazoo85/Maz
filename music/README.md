@@ -64,7 +64,12 @@ python3 -m http.server         # or serve the folder: http://localhost:8000/musi
   it, or shove it left and right. Want two choruses back to back, or the bridge
   moved earlier? Drag the form around and the whole track re-times behind you.
   Ctrl+Z puts it back.
-- **Mixer** — mute, solo or rebalance drums, bass, chords, arp, lead and pad.
+- **A seventh part: the answer.** A second melodic voice that plays *call and
+  response* with the lead — it speaks in the gaps the lead leaves, moves the
+  opposite way to the phrase it is answering, sits on the other side of the
+  stereo field, and shuts up when the lead comes back in.
+- **Mixer** — mute, solo or rebalance drums, bass, chords, arp, lead, answer
+  and pad.
 - **An effects rack on every part** — reverb, delay, **chorus**, **bit crush**
   and a three-band **EQ** (bass, mids, treble), set separately for each of the
   six parts. Push the pad far back and keep the lead dry and up front; thicken
@@ -145,19 +150,29 @@ Each song is built in this order:
    (walking, offbeat, driving eighths, sliding 808s). Drums come from
    sixteenth-step patterns per energy level, with fills at section boundaries.
    The arpeggio runs the chord tones. 
-7. **Melody.** This is the part that makes it sound *written* rather than
+7. **The answer.** Where a style calls for it, a second voice answers the lead.
+   It is composed last and reads the lead directly, because there is no way to
+   write call and response without knowing what the call was. It fills gaps
+   rather than doubling — two voices moving in parallel read as one thicker
+   voice, so it moves in contrary motion to the phrase before it and lands its
+   last note on a chord tone, like a small cadence of its own. A long held lead
+   note counts as a gap: the lead sitting still is exactly when a second voice
+   moving underneath is audible as a second voice.
+8. **Melody.** This is the part that makes it sound *written* rather than
    random: the composer invents a two-bar **motif** — a rhythm plus a contour —
    and then varies it. Phrases repeat it, transpose it, invert it, or keep the
    opening and change the ending (the classic question-and-answer shape). Notes
    on strong beats snap to chord tones; notes in between are free to pass
    through the scale.
-8. **Phrasing.** Every second phrase closes: the last beat is cleared and the
-   final note leans onto a chord tone and holds. A melody that never stops for
-   breath reads as a stream of notes rather than a line.
-9. **Arrangement.** Where a style calls for it, the bar before a chorus empties
+9. **Phrasing.** Every phrase gets a breath and every second one a full close:
+   the tail is cleared and the final note leans onto a chord tone and holds. A
+   melody that never stops for breath reads as a stream of notes rather than a
+   line — and the silence is also what leaves the second voice somewhere to
+   answer.
+10. **Arrangement.** Where a style calls for it, the bar before a chorus empties
    out — the kit stops, a snare roll climbs, a riser sweeps — and the chorus
    lands on an impact. Taking things away is what makes the next bar hit.
-10. **Performance.** Swing pushes offbeats late, and every note is nudged a few
+11. **Performance.** Swing pushes offbeats late, and every note is nudged a few
    milliseconds and a little louder or quieter, so nothing sits perfectly on the
    grid.
 

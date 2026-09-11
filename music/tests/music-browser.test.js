@@ -123,7 +123,9 @@ function launchOptions() {
   await page.waitForTimeout(900);
   check(await page.locator('#songPanel').isVisible(), 'song panel appears');
   check((await page.locator('#songTitle').textContent()).trim().length > 2, 'song has a title');
-  check(await page.locator('#mixer .track').count() === 6, 'six mixer tracks');
+  const trackCount = await page.evaluate(function () { return window.Engine.TRACKS.length; });
+  check(await page.locator('#mixer .track').count() === trackCount,
+    'a mixer row for every part (' + trackCount + ')');
   check(await page.locator('.chord-cell').count() > 0, 'chord strip filled');
   check(await page.evaluate(function () {
     return document.getElementById('playIcon').textContent;

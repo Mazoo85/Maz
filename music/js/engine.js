@@ -9,7 +9,7 @@
   'use strict';
 
   const Synth = global.Synth;
-  const TRACKS = ['drums', 'bass', 'chords', 'arp', 'lead', 'pad'];
+  const TRACKS = ['drums', 'bass', 'chords', 'arp', 'lead', 'counter', 'pad'];
   const LOOKAHEAD = 0.14;      // seconds of audio scheduled ahead of the clock
   const TICK_MS = 25;
   /* Global output trim. Each genre's fx.master is a per-style offset on top of
@@ -17,15 +17,18 @@
   const MASTER_TRIM = 0.42;
 
   /* Where each part sits across the stereo field. Kick, snare and bass hold the
-     centre — everything low or structural does — and the rest opens out. */
-  const TRACK_PAN = { drums: 0, bass: 0, chords: -0.12, arp: -0.3, lead: 0.14, pad: 0.08 };
+     centre — everything low or structural does — and the rest opens out. The
+     answering voice sits opposite the lead: two voices in the same place read
+     as one thicker voice, but apart you hear them answering each other. */
+  const TRACK_PAN = { drums: 0, bass: 0, chords: -0.12, arp: -0.3, lead: 0.14,
+                      counter: -0.22, pad: 0.08 };
 
   /* How hard the kick ducks each part. This pumping is most of what makes house,
      synthwave and trap sound like themselves; it is barely there on lo-fi and
      absent from ambient. Rather than a real sidechain (Web Audio compressors have
      no sidechain input), the kick times are already in the score, so the duck is
      scheduled as gain automation exactly where the kick lands. */
-  const DUCK_TARGETS = ['bass', 'chords', 'pad', 'arp'];
+  const DUCK_TARGETS = ['bass', 'chords', 'pad', 'arp', 'counter'];
 
   function defaultPresetName(song, track) {
     const g = song.genre;
@@ -34,6 +37,7 @@
       case 'chords': return g.chords.preset;
       case 'arp':    return g.arp.preset;
       case 'lead':   return g.lead.preset;
+      case 'counter': return g.counter ? g.counter.preset : g.lead.preset;
       case 'pad':    return g.pad.preset;
       default:       return null;
     }

@@ -166,7 +166,9 @@ function launchOptions() {
            !document.getElementById('followBtn').classList.contains('on');
   }), 'editor is settled: stopped, not following');
   check(await page.locator('#editPanel').isVisible(), 'edit panel appears with a song');
-  check(await page.locator('#editTracks .chip').count() === 6, 'a chip for every part');
+  check(await page.locator('#editTracks .chip').count() ===
+    await page.evaluate(function () { return window.Engine.TRACKS.length; }),
+    'a chip for every part');
 
   const grid = page.locator('#editor');
 
@@ -714,6 +716,11 @@ function launchOptions() {
   // Make the song unmistakably yours: a drawn note, a swapped chord, a fade.
   await page.evaluate(function () {
     const s = window.__song;
+    /* Identified by its exact position, not by a marker velocity: velocities
+       are stored to three decimals, so a composed note humanised to 0.7703
+       rounds onto any marker you pick. Times are the reliable signature —
+       every composed note is nudged off the grid, so a note sitting exactly on
+       beat 2.5 is one nothing but a hand put there. */
     s.tracks.lead.push({ t: 2.5, d: 1, p: s.chords[0].pitches[0] + 12, v: 0.77 });
     window.Composer.applyShape(s, 'fadeOut');
     s.pingpong = true;
@@ -731,7 +738,7 @@ function launchOptions() {
       notes: Object.keys(window.__song.tracks).map(function (k) {
         return k + '=' + window.__song.tracks[k].length;
       }).join(' '),
-      drawn: window.__song.tracks.lead.filter(function (e) { return e.v === 0.77; }).length,
+      drawn: window.__song.tracks.lead.filter(function (e) { return e.t === 2.5; }).length,
       fade: window.__song.automation.volume.length
     };
   });
@@ -769,7 +776,7 @@ function launchOptions() {
       form: s.sections.map(function (x) { return x.name; }).join(','),
       chords: s.chords.map(function (c) { return c.name; }).join(','),
       notes: Object.keys(s.tracks).map(function (k) { return k + '=' + s.tracks[k].length; }).join(' '),
-      drawn: s.tracks.lead.filter(function (e) { return Math.abs(e.v - 0.77) < 1e-9; }).length,
+      drawn: s.tracks.lead.filter(function (e) { return Math.abs(e.t - 2.5) < 1e-9; }).length,
       fade: s.automation.volume.length,
       pingpong: !!s.pingpong,
       padCho: mix.pad.cho, padEq: mix.pad.eqHigh, arpMuted: mix.arp.muted,

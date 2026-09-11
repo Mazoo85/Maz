@@ -1885,6 +1885,7 @@ input[type="range"]::-moz-range-thumb {
       bass: { style: 'walk', octave: 2, preset: 'lofiBass', alts: ['pickBass', 'organBass'] },
       chords: { style: 'keys', preset: 'rhodes', octaveLow: 55, octaveHigh: 79, alts: ['nylon', 'vibes', 'organ'] },
       pad: { preset: 'warmPad', gain: 0.5 },
+      counter: { chance: 0.35, preset: 'nylon', octave: 4, alts: ['vibes', 'rhodes', 'marimba'] },
       lead: { preset: 'softLead', octave: 5, density: 0.55, restBias: 0.35, alts: ['nylon', 'vibes', 'reedLead'] },
       arp: { preset: 'pluck', rate: 0.5, octave: 5, chance: 0.35, alts: ['guitar', 'marimba', 'harp'] },
       builds: false,
@@ -1909,6 +1910,7 @@ input[type="range"]::-moz-range-thumb {
       bass: { style: 'root8', octave: 2, preset: 'synthBass', alts: ['fmBass'] },
       chords: { style: 'pad', preset: 'warmPad', octaveLow: 55, octaveHigh: 81 },
       pad: { preset: 'strings', gain: 0.45, alts: ['supersaw', 'choirPad'] },
+      counter: { chance: 0.3, preset: 'softLead', octave: 4, alts: ['bell', 'fmKeys'] },
       lead: { preset: 'sawLead', octave: 5, density: 0.7, restBias: 0.2, alts: ['supersaw', 'fmBright', 'brass'] },
       arp: { preset: 'pluck', rate: 0.25, octave: 5, chance: 0.85 },
       builds: true,
@@ -1933,6 +1935,7 @@ input[type="range"]::-moz-range-thumb {
       bass: { style: 'offbeat', octave: 2, preset: 'houseBass', alts: ['organBass', 'fmBass'] },
       chords: { style: 'stab', preset: 'stab', octaveLow: 57, octaveHigh: 83, alts: ['organ', 'rhodes', 'fmKeys'] },
       pad: { preset: 'warmPad', gain: 0.4 },
+      counter: { chance: 0.25, preset: 'pluck', octave: 4, alts: ['bell', 'fmKeys'] },
       lead: { preset: 'pluck', octave: 5, density: 0.5, restBias: 0.35, alts: ['voxLead', 'organ', 'marimba'] },
       arp: { preset: 'pluck', rate: 0.25, octave: 5, chance: 0.5 },
       builds: true,
@@ -1957,6 +1960,7 @@ input[type="range"]::-moz-range-thumb {
       bass: { style: 'whole', octave: 2, preset: 'softBass' },
       chords: { style: 'pad', preset: 'glassPad', octaveLow: 55, octaveHigh: 84, alts: ['choirPad', 'organ'] },
       pad: { preset: 'warmPad', gain: 0.55 },
+      counter: { chance: 0.4, preset: 'glassBell', octave: 5, alts: ['bell', 'harp'] },
       lead: { preset: 'bell', octave: 6, density: 0.25, restBias: 0.6, alts: ['glassBell', 'vibes', 'harp'] },
       arp: { preset: 'bell', rate: 1.0, octave: 6, chance: 0.4, alts: ['harp', 'marimba', 'glassBell'] },
       builds: false,
@@ -1981,6 +1985,7 @@ input[type="range"]::-moz-range-thumb {
       bass: { style: 'whole', octave: 2, preset: 'softBass' },
       chords: { style: 'swell', preset: 'strings', octaveLow: 52, octaveHigh: 79, alts: ['choirPad', 'brass'] },
       pad: { preset: 'glassPad', gain: 0.5, alts: ['choirPad', 'brass'] },
+      counter: { chance: 0.55, preset: 'strings', octave: 4, alts: ['brass', 'choirPad', 'harp'] },
       lead: { preset: 'piano', octave: 5, density: 0.6, restBias: 0.3, alts: ['brass', 'voxLead', 'reedLead'] },
       arp: { preset: 'piano', rate: 0.5, octave: 5, chance: 0.7, alts: ['harp', 'marimba'] },
       builds: true,
@@ -2005,6 +2010,7 @@ input[type="range"]::-moz-range-thumb {
       bass: { style: 'pulse8', octave: 2, preset: 'pulseBass' },
       chords: { style: 'arpChord', preset: 'chipChord', octaveLow: 60, octaveHigh: 84 },
       pad: { preset: 'chipChord', gain: 0.3 },
+      counter: { chance: 0.45, preset: 'chipLead', octave: 4, alts: ['chipChord'] },
       lead: { preset: 'chipLead', octave: 5, density: 0.85, restBias: 0.12 },
       arp: { preset: 'chipChord', rate: 0.25, octave: 5, chance: 0.9 },
       builds: false,
@@ -2029,6 +2035,7 @@ input[type="range"]::-moz-range-thumb {
       bass: { style: 'sustain', octave: 1, preset: 'reese' },
       chords: { style: 'pad', preset: 'glassPad', octaveLow: 60, octaveHigh: 84, alts: ['choirPad', 'supersaw'] },
       pad: { preset: 'warmPad', gain: 0.4 },
+      counter: { chance: 0.25, preset: 'bell', octave: 5, alts: ['pluck', 'glassBell'] },
       lead: { preset: 'bell', octave: 5, density: 0.35, restBias: 0.5, alts: ['glassBell', 'voxLead', 'fmBright'] },
       arp: { preset: 'pluck', rate: 0.25, octave: 5, chance: 0.45 },
       builds: true,
@@ -2053,6 +2060,7 @@ input[type="range"]::-moz-range-thumb {
       bass: { style: 'slide808', octave: 1, preset: 'eight08' },
       chords: { style: 'pad', preset: 'glassPad', octaveLow: 60, octaveHigh: 84, alts: ['choirPad', 'organ'] },
       pad: { preset: 'warmPad', gain: 0.35 },
+      counter: { chance: 0.3, preset: 'bell', octave: 5, alts: ['glassBell', 'pluck'] },
       lead: { preset: 'bell', octave: 6, density: 0.45, restBias: 0.45, alts: ['glassBell', 'marimba', 'fmKeys'] },
       arp: { preset: 'bell', rate: 0.5, octave: 5, chance: 0.55 },
       hatRolls: true,
@@ -2078,6 +2086,7 @@ input[type="range"]::-moz-range-thumb {
       bass: { style: 'root8', octave: 2, preset: 'pickBass', alts: ['synthBass', 'organBass'] },
       chords: { style: 'stab', preset: 'guitar', octaveLow: 52, octaveHigh: 76, alts: ['organ', 'piano', 'brass'] },
       pad: { preset: 'strings', gain: 0.3 },
+      counter: { chance: 0.35, preset: 'guitar', octave: 4, alts: ['organ', 'brass'] },
       lead: { preset: 'guitar', octave: 5, density: 0.7, restBias: 0.2, alts: ['sawLead', 'organ', 'brass'] },
       arp: { preset: 'guitar', rate: 0.5, octave: 5, chance: 0.2, alts: ['piano', 'organ'] },
       builds: true,
@@ -2102,6 +2111,7 @@ input[type="range"]::-moz-range-thumb {
       bass: { style: 'pulse8', octave: 2, preset: 'pickBass', alts: ['synthBass', 'lofiBass'] },
       chords: { style: 'stab', preset: 'guitar', octaveLow: 55, octaveHigh: 79, alts: ['organ', 'rhodes', 'brass'] },
       pad: { preset: 'strings', gain: 0.22 },
+      counter: { chance: 0.5, preset: 'brass', octave: 4, alts: ['organ', 'guitar'] },
       lead: { preset: 'brass', octave: 5, density: 0.62, restBias: 0.34, alts: ['organ', 'sawLead', 'guitar'] },
       arp: { preset: 'guitar', rate: 0.25, octave: 5, chance: 0.45, alts: ['rhodes', 'organ', 'marimba'] },
       builds: false,
@@ -2126,6 +2136,7 @@ input[type="range"]::-moz-range-thumb {
       bass: { style: 'walk', octave: 2, preset: 'pickBass', alts: ['lofiBass', 'organBass'] },
       chords: { style: 'keys', preset: 'piano', octaveLow: 55, octaveHigh: 81, alts: ['rhodes', 'guitar', 'vibes'] },
       pad: { preset: 'strings', gain: 0.18 },
+      counter: { chance: 0.6, preset: 'brass', octave: 4, alts: ['reedLead', 'vibes', 'piano'] },
       lead: { preset: 'reedLead', octave: 5, density: 0.66, restBias: 0.3, alts: ['brass', 'vibes', 'piano', 'guitar'] },
       arp: { preset: 'vibes', rate: 0.5, octave: 5, chance: 0.3, alts: ['piano', 'guitar', 'harp'] },
       builds: false,
@@ -2150,6 +2161,7 @@ input[type="range"]::-moz-range-thumb {
       bass: { style: 'offbeat', octave: 2, preset: 'pickBass', alts: ['synthBass', 'organBass'] },
       chords: { style: 'stab', preset: 'guitar', octaveLow: 55, octaveHigh: 79, alts: ['rhodes', 'piano', 'brass'] },
       pad: { preset: 'strings', gain: 0.42 },
+      counter: { chance: 0.45, preset: 'strings', octave: 5, alts: ['brass', 'piano'] },
       lead: { preset: 'brass', octave: 5, density: 0.6, restBias: 0.32, alts: ['sawLead', 'voxLead', 'piano'] },
       arp: { preset: 'piano', rate: 0.25, octave: 5, chance: 0.55, alts: ['guitar', 'harp', 'marimba'] },
       builds: true,
@@ -2174,6 +2186,7 @@ input[type="range"]::-moz-range-thumb {
       bass: { style: 'root8', octave: 1, preset: 'reese', alts: ['synthBass', 'houseBass', 'fmBass'] },
       chords: { style: 'stab', preset: 'stab', octaveLow: 52, octaveHigh: 76, alts: ['supersaw', 'organ', 'fmKeys'] },
       pad: { preset: 'glassPad', gain: 0.34 },
+      counter: { chance: 0.2, preset: 'pluck', octave: 5, alts: ['bell', 'fmKeys'] },
       lead: { preset: 'fmBright', octave: 5, density: 0.5, restBias: 0.45, alts: ['sawLead', 'supersaw', 'bell'] },
       arp: { preset: 'pluck', rate: 0.25, octave: 5, chance: 0.6, alts: ['chipChord', 'fmKeys', 'glassBell'] },
       builds: true,
@@ -2198,6 +2211,7 @@ input[type="range"]::-moz-range-thumb {
       bass: { style: 'slide808', octave: 1, preset: 'eight08', alts: ['fmBass', 'reese'] },
       chords: { style: 'arpChord', preset: 'pluck', octaveLow: 55, octaveHigh: 79, alts: ['bell', 'nylon', 'glassBell'] },
       pad: { preset: 'choirPad', gain: 0.34 },
+      counter: { chance: 0.3, preset: 'glassBell', octave: 5, alts: ['bell', 'harp'] },
       lead: { preset: 'bell', octave: 5, density: 0.42, restBias: 0.5, alts: ['glassBell', 'nylon', 'voxLead'] },
       arp: { preset: 'harp', rate: 0.25, octave: 5, chance: 0.5, alts: ['bell', 'pluck', 'marimba'] },
       builds: true,
@@ -2222,6 +2236,7 @@ input[type="range"]::-moz-range-thumb {
       bass: { style: 'pulse8', octave: 2, preset: 'pickBass', alts: ['synthBass', 'organBass'] },
       chords: { style: 'stab', preset: 'guitar', octaveLow: 55, octaveHigh: 79, alts: ['organ', 'rhodes', 'marimba'] },
       pad: { preset: 'warmPad', gain: 0.24 },
+      counter: { chance: 0.5, preset: 'marimba', octave: 4, alts: ['guitar', 'brass'] },
       lead: { preset: 'brass', octave: 5, density: 0.55, restBias: 0.38, alts: ['reedLead', 'organ', 'marimba'] },
       arp: { preset: 'marimba', rate: 0.25, octave: 5, chance: 0.6, alts: ['guitar', 'harp', 'vibes'] },
       builds: false,
@@ -2246,6 +2261,7 @@ input[type="range"]::-moz-range-thumb {
       bass: { style: 'offbeat', octave: 2, preset: 'pickBass', alts: ['lofiBass', 'softBass'] },
       chords: { style: 'keys', preset: 'nylon', octaveLow: 55, octaveHigh: 79, alts: ['guitar', 'rhodes', 'piano'] },
       pad: { preset: 'warmPad', gain: 0.18 },
+      counter: { chance: 0.5, preset: 'nylon', octave: 4, alts: ['vibes', 'reedLead'] },
       lead: { preset: 'nylon', octave: 5, density: 0.5, restBias: 0.42, alts: ['reedLead', 'vibes', 'voxLead'] },
       arp: { preset: 'nylon', rate: 0.5, octave: 5, chance: 0.4, alts: ['guitar', 'harp', 'vibes'] },
       builds: false,
@@ -2270,6 +2286,7 @@ input[type="range"]::-moz-range-thumb {
       bass: { style: 'walk', octave: 2, preset: 'organBass', alts: ['pickBass', 'lofiBass'] },
       chords: { style: 'keys', preset: 'organ', octaveLow: 55, octaveHigh: 81, alts: ['piano', 'rhodes', 'brass'] },
       pad: { preset: 'choirPad', gain: 0.46 },
+      counter: { chance: 0.55, preset: 'organ', octave: 4, alts: ['brass', 'choirPad', 'piano'] },
       lead: { preset: 'voxLead', octave: 5, density: 0.58, restBias: 0.36, alts: ['organ', 'brass', 'piano'] },
       arp: { preset: 'piano', rate: 0.5, octave: 5, chance: 0.35, alts: ['organ', 'rhodes', 'harp'] },
       builds: true,
@@ -2294,6 +2311,7 @@ input[type="range"]::-moz-range-thumb {
       bass: { style: 'root8', octave: 2, preset: 'pickBass', alts: ['organBass', 'lofiBass'] },
       chords: { style: 'stab', preset: 'guitar', octaveLow: 52, octaveHigh: 76, alts: ['nylon', 'piano', 'organ'] },
       pad: { preset: 'strings', gain: 0.22 },
+      counter: { chance: 0.45, preset: 'nylon', octave: 4, alts: ['guitar', 'reedLead'] },
       lead: { preset: 'guitar', octave: 5, density: 0.56, restBias: 0.36, alts: ['nylon', 'reedLead', 'piano'] },
       arp: { preset: 'guitar', rate: 0.25, octave: 5, chance: 0.5, alts: ['nylon', 'harp', 'marimba'] },
       builds: false,
@@ -3154,9 +3172,9 @@ input[type="range"]::-moz-range-thumb {
    * of notes rather than a line: this clears the last beat, then leans the
    * final note onto a chord tone and holds it, which is what a cadence is.
    */
-  function cadence(song, phraseEvents, endBeat) {
+  function cadence(song, phraseEvents, endBeat, breathBeats) {
     if (!phraseEvents.length) return phraseEvents;
-    const breath = endBeat - 0.75;
+    const breath = endBeat - (breathBeats === undefined ? 0.75 : breathBeats);
     let kept = phraseEvents.filter(function (e) { return e.t < breath; });
     if (!kept.length) kept = [phraseEvents[0]];
 
@@ -3234,9 +3252,13 @@ input[type="range"]::-moz-range-thumb {
           });
         }
 
-        // Every second phrase closes: four bars of line, then room to breathe.
+        /* Every phrase gets a breath; every second one gets a proper close.
+           A singer has to inhale, and the silence is what makes a line a line
+           rather than a stream of notes — it is also what leaves the second
+           voice somewhere to answer. */
         const phraseEnd = phraseBeat + motifBars * beatsPerBar;
-        const finished = (ph % 2 === 1) ? cadence(song, phraseEvents, phraseEnd) : phraseEvents;
+        const closing = ph % 2 === 1;
+        const finished = cadence(song, phraseEvents, phraseEnd, closing ? 1.75 : 0.9);
         Array.prototype.push.apply(events, finished);
       }
     }
@@ -3903,10 +3925,104 @@ input[type="range"]::-moz-range-thumb {
             : sec.type === 'verse' ? rng.chance(0.75)
             : sec.type === 'bridge' ? rng.chance(0.6)
             : sec.type === 'outro' ? rng.chance(0.4)
-            : rng.chance(0.25)
+            : rng.chance(0.25),
+        // The answering voice needs something to answer, and room to do it in.
+        counter: false
       };
       if (sec.type === 'intro') { sec.parts.lead = sec.parts.lead && rng.chance(0.4); }
+      /* The counter-melody answers the lead, so it only appears where the lead
+         does, and only where there is room for two voices without them
+         tripping over each other. */
+      sec.parts.counter = sec.parts.lead && e >= 0.6 &&
+        rng.chance(genre.counter ? genre.counter.chance : 0);
     }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Counter-melody — the second voice
+   *
+   * Not a harmony line doubling the lead a third below, which is what a naive
+   * second part turns into: two voices moving in parallel read as one thicker
+   * voice. This one answers. It plays in the gaps the lead leaves, moves the
+   * opposite way to the phrase it is answering, and shuts up the moment the
+   * lead comes back in.
+   *
+   * That is also why it is composed last and reads the lead directly: there is
+   * no way to write call and response without knowing what the call was.
+   * ------------------------------------------------------------------ */
+
+  function composeCounter(song, rng) {
+    const genre = song.genre;
+    if (!genre.counter) return [];
+    const lead = song.tracks.lead || [];
+    if (!lead.length) return [];
+
+    const octave = genre.counter.octave || ((genre.lead.octave || 5) - 1);
+    const events = [];
+    /* Just under the shortest breath the lead leaves at a phrase end (0.9
+       beats), so an ordinary phrase break counts as somewhere to answer. Set it
+       any higher and the second voice only ever speaks at the big closes. */
+    const MIN_GAP = 0.75;
+
+    song.sections.forEach(function (sec) {
+      if (!sec.parts || !sec.parts.counter) return;
+      const from = sec.startBar * bpb(song);
+      const to = from + sec.bars * bpb(song);
+      const inSec = lead.filter(function (e) { return e.t >= from && e.t < to; })
+                        .sort(function (a, b) { return a.t - b.t; });
+      if (inSec.length < 2) return;
+
+      for (let i = 0; i < inSec.length; i++) {
+        const call = inSec[i];
+        const callEnd = call.t + call.d;
+        const nextAt = i + 1 < inSec.length ? inSec[i + 1].t : to;
+        let gap = nextAt - callEnd;
+        /* A long held note is an opportunity, not an obstacle: the lead sitting
+           still is exactly when a second voice moving underneath is audible as
+           a second voice. */
+        if (gap < MIN_GAP && call.d >= 1.5) gap = nextAt - (call.t + 0.5);
+        if (gap < MIN_GAP) continue;
+        if (rng.chance(0.15)) continue;                // not every gap wants filling
+
+        /* Which way did the call move? Answer the other way — contrary motion
+           is what makes two lines read as two lines. */
+        const prev = i > 0 ? inSec[i - 1].p : call.p;
+        const rising = call.p >= prev;
+        const dir = rising ? -1 : 1;
+
+        const chord = chordAt(song, callEnd + 0.01);
+        const heldUnder = call.d >= 1.5 && nextAt - callEnd < MIN_GAP;
+        const start = (heldUnder ? call.t + 0.5 : callEnd) + Math.min(0.5, gap * 0.25);
+        const room = Math.max(0.5, nextAt - start - 0.15);
+        const count = room >= 2.5 ? 3 : room >= 1.5 ? 2 : 1;
+        const step = room / count;
+
+        let pitch = T.nearestChordTone(T.midi(keyRootAt(song, start), octave), chord.pitches);
+        for (let n = 0; n < count; n++) {
+          const t = start + n * step;
+          if (t >= to - 0.05) break;
+          if (n > 0) {
+            pitch = T.snapToScale(pitch + dir * rng.intRange(1, 3), song.scaleSteps,
+                                  T.midi(keyRootAt(song, t), octave));
+          }
+          // Land the last note of the answer on a chord tone, like a cadence.
+          if (n === count - 1) pitch = T.nearestChordTone(pitch, chordAt(song, t).pitches);
+          const lo = T.midi(keyRootAt(song, t), octave) - 7;
+          const hi = lo + 19;
+          while (pitch > hi) pitch -= 12;
+          while (pitch < lo) pitch += 12;
+
+          events.push({
+            t: t,
+            d: Math.max(0.25, step * 0.85),
+            p: pitch,
+            v: (0.42 + sec.energy * 0.2) * (n === 0 ? 1 : 0.9)
+          });
+        }
+      }
+    });
+
+    return applyFeel(events, song, rng, 0.3);
   }
 
   const LENGTHS = { short: 75, medium: 135, long: 200 };
@@ -3978,7 +4094,7 @@ input[type="range"]::-moz-range-thumb {
        sound the way the style intends; automation is something you add. */
     song.automation = { filter: [], volume: [] };
     song.pingpong = !!genre.fx.pingpong;
-    ['bass', 'chords', 'arp', 'lead', 'pad'].forEach(function (part) {
+    ['bass', 'chords', 'arp', 'lead', 'pad', 'counter'].forEach(function (part) {
       const cfg = genre[part];
       if (cfg && cfg.alts && cfg.alts.length && rng.chance(0.55)) {
         song.presetOverride[part] = rng.pick(cfg.alts);
@@ -3990,11 +4106,13 @@ input[type="range"]::-moz-range-thumb {
 
     song.partSeeds = {
       drums: seed + ':drums', bass: seed + ':bass', chords: seed + ':chords',
-      arp: seed + ':arp', lead: seed + ':lead', pad: seed + ':pad'
+      arp: seed + ':arp', lead: seed + ':lead', pad: seed + ':pad',
+      counter: seed + ':counter'
     };
 
     song.tracks = {};
-    ['drums', 'bass', 'chords', 'arp', 'lead', 'pad'].forEach(function (p) {
+    // Counter last: it answers the lead, so the lead has to exist first.
+    ['drums', 'bass', 'chords', 'arp', 'lead', 'pad', 'counter'].forEach(function (p) {
       song.tracks[p] = generatePart(song, p, song.partSeeds[p]);
     });
 
@@ -4003,7 +4121,7 @@ input[type="range"]::-moz-range-thumb {
 
   const PART_FN = {
     drums: composeDrums, bass: composeBass, chords: composeChords,
-    arp: composeArp, lead: composeLead, pad: composePad
+    arp: composeArp, lead: composeLead, pad: composePad, counter: composeCounter
   };
 
   function generatePart(song, part, seed, opts) {
@@ -5085,7 +5203,7 @@ input[type="range"]::-moz-range-thumb {
   'use strict';
 
   const Synth = global.Synth;
-  const TRACKS = ['drums', 'bass', 'chords', 'arp', 'lead', 'pad'];
+  const TRACKS = ['drums', 'bass', 'chords', 'arp', 'lead', 'counter', 'pad'];
   const LOOKAHEAD = 0.14;      // seconds of audio scheduled ahead of the clock
   const TICK_MS = 25;
   /* Global output trim. Each genre's fx.master is a per-style offset on top of
@@ -5093,15 +5211,18 @@ input[type="range"]::-moz-range-thumb {
   const MASTER_TRIM = 0.42;
 
   /* Where each part sits across the stereo field. Kick, snare and bass hold the
-     centre — everything low or structural does — and the rest opens out. */
-  const TRACK_PAN = { drums: 0, bass: 0, chords: -0.12, arp: -0.3, lead: 0.14, pad: 0.08 };
+     centre — everything low or structural does — and the rest opens out. The
+     answering voice sits opposite the lead: two voices in the same place read
+     as one thicker voice, but apart you hear them answering each other. */
+  const TRACK_PAN = { drums: 0, bass: 0, chords: -0.12, arp: -0.3, lead: 0.14,
+                      counter: -0.22, pad: 0.08 };
 
   /* How hard the kick ducks each part. This pumping is most of what makes house,
      synthwave and trap sound like themselves; it is barely there on lo-fi and
      absent from ambient. Rather than a real sidechain (Web Audio compressors have
      no sidechain input), the kick times are already in the score, so the duck is
      scheduled as gain automation exactly where the kick lands. */
-  const DUCK_TARGETS = ['bass', 'chords', 'pad', 'arp'];
+  const DUCK_TARGETS = ['bass', 'chords', 'pad', 'arp', 'counter'];
 
   function defaultPresetName(song, track) {
     const g = song.genre;
@@ -5110,6 +5231,7 @@ input[type="range"]::-moz-range-thumb {
       case 'chords': return g.chords.preset;
       case 'arp':    return g.arp.preset;
       case 'lead':   return g.lead.preset;
+      case 'counter': return g.counter ? g.counter.preset : g.lead.preset;
       case 'pad':    return g.pad.preset;
       default:       return null;
     }
@@ -7277,6 +7399,7 @@ input[type="range"]::-moz-range-thumb {
     { id: 'chords', label: 'Chords', color: '#00e5ff' },
     { id: 'arp',    label: 'Arp',    color: '#6bff8f' },
     { id: 'lead',   label: 'Lead',   color: '#ffc857' },
+    { id: 'counter', label: 'Answer', color: '#ff8a3d' },
     { id: 'pad',    label: 'Pad',    color: '#7a8cff' }
   ];
   const DRUM_LANES = ['kick', 'snare', 'clap', 'hh', 'oh', 'ride', 'tom', 'conga',
