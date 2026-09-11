@@ -60,10 +60,12 @@ title card, scene by scene, and out on THE END.
   looks the same offline as online.
 - **The camera** pushes, pulls and pans; scenes open wide, dialogue plays in
   close-up, and the object the story turns on gets its own insert.
-- **The sound** is generated too: a chord bed that opens up as the film gets
-  tenser, a pulse under the tense stretches, a hit on every cut, and a voice for
-  each character — pitched blips, one per syllable, low for the lead and higher
-  for the foil.
+- **The sound** is a real score. SONG FORGE composes a song for this film
+  specifically — to its exact length, with its sections turning over on your
+  scene cuts and its instruments following the story: pad and chords under the
+  opening, bass as it builds, drums through the middle, the full band only at
+  the crisis, and back down to pad to end. It plays live, ducking under every
+  line of dialogue, and the character voices and cut hits sit over the top.
 - **Captions** carry the action lines and the dialogue, held long enough to read.
 
 ### Which format you get
@@ -109,6 +111,10 @@ for it.
   7.5 MB at 1080p. Drawn art is flat colour and hard edges, so 540p holds up far
   better than camera footage would at the same size — pick it when you need to
   send the film somewhere with a size limit.
+- **The score plays live while you record**, the same way the character voices
+  and the cut hits always have — none of it is rendered in advance. On a slow
+  machine that could in principle glitch the audio in a recording. It has not
+  happened in testing.
 
 There is also a **read the lines aloud** option, which uses your browser's own
 speech voice while the film plays. It is a live extra only: browsers do not let
