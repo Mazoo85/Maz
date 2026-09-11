@@ -830,6 +830,140 @@ test('lines close together stay ducked rather than pumping', () => {
   eq(ducks, 1, 'two lines a fifth of a second apart should be one duck, not two');
 });
 
+/* The duck envelope is arithmetic, but *scheduling* it is where it goes wrong:
+ * Web Audio ramps from the previous automation event, so a bare list of ramps
+ * glides the level continuously instead of holding it. These drive the real
+ * `applyDuck` through a fake AudioParam that records every call, then replay
+ * the recording to ask what the level actually is at a given moment. */
+
+/* A fake Score: applyDuck only touches these four things. */
+function fakeScore(reel, now) {
+  const calls = [];
+  const gain = {
+    calls: calls,
+    cancelScheduledValues(t) { calls.push({ op: 'cancel', value: null, at: t }); },
+    setValueAtTime(v, t) { calls.push({ op: 'set', value: v, at: t }); },
+    linearRampToValueAtTime(v, t) { calls.push({ op: 'ramp', value: v, at: t }); }
+  };
+  return {
+    calls: calls,
+    duckPoints: Conductor.duckEnvelope(reel),
+    musicBus: { gain: gain },
+    ctx: { currentTime: now }
+  };
+}
+
+/* Replay a recorded automation the way Web Audio would, and report the level
+ * at one moment: a `set` pins a value, a `ramp` runs linearly to its value
+ * from whatever event came before it. */
+function levelAt(calls, t) {
+  let prevAt = null, prevValue = null, value = 0;
+  for (const call of calls) {
+    if (call.op === 'cancel') continue;
+    if (call.at <= t) {
+      value = call.value;
+      prevAt = call.at;
+      prevValue = call.value;
+      continue;
+    }
+    if (call.op === 'ramp' && prevValue !== null) {
+      const span = call.at - prevAt;
+      value = span <= 0 ? call.value
+        : prevValue + (call.value - prevValue) * ((t - prevAt) / span);
+    }
+    break;
+  }
+  return value;
+}
+
+const duckReel = {
+  duration: 40, genre: 'drama', seed: 1,
+  shots: [
+    { kind: 'line', start: 10, duration: 3, scene: 1 },
+    { kind: 'line', start: 25, duration: 2, scene: 2 }
+  ]
+};
+
+test('the duck is scheduled flat, not as one long glide', () => {
+  const NOW = 1000;          // a context that has been running a while
+  const score = fakeScore(duckReel, NOW);
+  Score.Score.prototype.applyDuck.call(score, 0);
+
+  eq(score.calls[0].op, 'cancel', 'the old envelope must be cancelled first');
+  const full = score.calls[1].value;
+  assert(score.calls[1].op === 'set' && full > 0, 'the envelope must open on a held value');
+  const ducked = full * Conductor.DUCK_GAIN;
+
+  const at = (filmSeconds) => levelAt(score.calls, NOW + filmSeconds);
+  const near = (actual, expected, where) => assert(Math.abs(actual - expected) < 1e-6,
+    `at ${where} the music is at ${actual.toFixed(4)}, expected ${expected.toFixed(4)}`);
+
+  // Flat at full right across the gap before the first line — this is the one
+  // that fails if the setValueAtTime anchors go: without them the level is
+  // already halfway down by here, sliding since the film began.
+  near(at(0), full, '0s, the top of the film');
+  near(at(5), full, '5s, the middle of the gap');
+  near(at(9.7), full, '9.7s, a breath before the dip starts');
+
+  // A quarter-second dip that lands exactly as the line starts.
+  near(at(10 - Conductor.DUCK_LEAD), full, 'the instant the dip begins');
+  assert(at(9.9) < full && at(9.9) > ducked, 'the dip is not moving mid-ramp');
+  near(at(10), ducked, '10s, the first word');
+
+  // Flat and low through the line, not climbing back while it is spoken.
+  near(at(11.5), ducked, '11.5s, mid-line');
+  near(at(13), ducked, '13s, the last word');
+  near(at(13 + Conductor.DUCK_TAIL), ducked, 'the instant the rise begins');
+
+  // Up again after it, and flat until the next line.
+  near(at(13.2 + Conductor.DUCK_TAIL), full, 'the top of the rise');
+  near(at(20), full, '20s, between the two lines');
+
+  // And the same shape again for the second line.
+  near(at(24.7), full, '24.7s, before the second line');
+  near(at(25), ducked, '25s, the second line');
+  near(at(26.5), ducked, '26.5s, mid second line');
+  near(at(27.4), full, '27.4s, back up after the second line');
+  near(at(39), full, '39s, the end of the film');
+});
+
+test('every duck transition is anchored before it ramps', () => {
+  const NOW = 4;
+  const score = fakeScore(duckReel, NOW);
+  Score.Score.prototype.applyDuck.call(score, 0);
+
+  const ramps = score.calls.filter((c) => c.op === 'ramp');
+  eq(ramps.length, 4, 'two lines make four transitions: down, up, down, up');
+
+  ramps.forEach((ramp) => {
+    const anchor = score.calls[score.calls.indexOf(ramp) - 1];
+    eq(anchor.op, 'set', 'a ramp with no setValueAtTime before it glides from the last event');
+    assert(anchor.value !== ramp.value, 'the anchor holds the old level, not the new one');
+    const seconds = ramp.at - anchor.at;
+    const expected = ramp.value < anchor.value ? Conductor.DUCK_LEAD : Conductor.DUCK_TAIL;
+    assert(Math.abs(seconds - expected) < 1e-6,
+      `a transition took ${seconds.toFixed(3)}s, expected ${expected}s`);
+  });
+});
+
+test('playing from the middle of a line starts already ducked', () => {
+  const NOW = 7;
+  const score = fakeScore(duckReel, NOW);
+  Score.Score.prototype.applyDuck.call(score, 11);   // eleven seconds in, mid-line
+
+  const opening = score.calls[1];
+  eq(opening.op, 'set', 'the envelope opens on a held value');
+  eq(opening.at, NOW, 'and it is held from this instant, not from film zero');
+  assert(Math.abs(opening.value - 0.55 * Conductor.DUCK_GAIN) < 1e-6,
+    'starting mid-line must start under the dialogue, at ' + opening.value);
+
+  // Everything still to come is laid relative to where playback starts.
+  const first = score.calls.filter((c) => c.op === 'ramp')[0];
+  assert(Math.abs(first.at - (NOW + (13.2 - 11) + Conductor.DUCK_TAIL)) < 1e-6,
+    'the rise after the current line is at the wrong moment: ' + first.at);
+  score.calls.forEach((c) => assert(c.at >= NOW, 'an event was scheduled in the past: ' + c.at));
+});
+
 /* ------------------------------------------------------------------ report */
 console.log('');
 if (failures.length) {

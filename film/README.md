@@ -155,8 +155,26 @@ every shot, how long it holds, what set it plays on, how the camera moves, what
 is heard over it and how tense the moment is. It is plain data, so the entire
 edit of a film can be checked in a test without a browser.
 
+**The conductor** (`js/film-score.js`) turns a reel into the score request the
+music is composed from — which of SONG FORGE's genres and moods this kind of
+film is scored with, a tempo whose four-bar blocks land near the actual cuts, a
+section per scene carrying that scene's energy and instruments, and the list of
+level changes that ducks the music under every line. It is pure data in, pure
+data out, so the musical shape of a film is checkable in Node the way its edit
+already is.
+
+**The film page loads SONG FORGE as a library.** `film/index.html` pulls in five
+files from `../music/js/` — `theory.js`, `genres.js`, `synth.js`, `composer.js`
+and `engine.js` — and SCRIPT FORGE calls `Composer.compose()` for a song built
+to this film's length and sections, then plays it through
+`Engine.Player({ context, destination })` into its own music bus. The two apps
+share a repository and nothing else: there is no build step, no copy of the
+music code inside `film/`, and if those files are missing or fail, the film
+still plays and says so on the film tab.
+
 **The artist** (`js/film-art.js`) draws the sets, the figures and the objects.
-**The score** (`js/film-audio.js`) plays them. **The camera**
+**The score** (`js/film-audio.js`) plays them — the composed music on one bus,
+the cut hits, the pulse and the character voices on another. **The camera**
 (`js/film-player.js`) puts the two together, frame by frame, and records them.
 **The file fixer** (`js/film-webm.js`) writes the duration into the finished
 video, which is the one thing the browser's recorder leaves out.
@@ -179,7 +197,8 @@ film/
   js/format.js        a script       → .fountain / .txt / .fdx / shot list
   js/film-reel.js     a script       → a reel: timed shots, framing, voices
   js/film-art.js      15 sets, figures, objects, genre palettes
-  js/film-audio.js    the score, the cuts and the character voices
+  js/film-score.js    a reel         → a score request + a ducking envelope
+  js/film-audio.js    plays the score, the cuts and the character voices
   js/film-player.js   draws any frame; plays and records the film
   js/film-webm.js     writes the duration into the recorded file
   js/app.js           buttons, rendering, the projector, the saved library

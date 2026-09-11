@@ -284,13 +284,21 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
       music: document.getElementById('viewFilm').dataset.music || '',
       score: document.getElementById('viewFilm').dataset.score || '',
       clock: document.getElementById('filmClock').textContent,
-      status: document.getElementById('status').textContent
+      status: document.getElementById('status').textContent,
+      note: document.getElementById('filmNote').textContent,
+      noteClass: document.getElementById('filmNote').className
     }));
     check(/0:0[1-9]|0:[1-9]/.test(withoutForge.clock),
       `the film still plays with SONG FORGE missing (clock ${withoutForge.clock})`);
     check(withoutForge.score === 'fallback', 'it knows it is not using a real score');
-    check(/simple music/i.test(withoutForge.status),
-      `it says so plainly (status: "${withoutForge.status}")`);
+    // The notice belongs on the film tab, where it stays, not in the status
+    // line, which the next message scrolls away.
+    check(/could not compose a score/i.test(withoutForge.note) &&
+          /cut hits/i.test(withoutForge.note),
+      `the film tab says plainly there is no music (note: "${withoutForge.note}")`);
+    check(/warn/.test(withoutForge.noteClass), 'and it is marked as a warning');
+    check(/playing/i.test(withoutForge.status),
+      `the ordinary Playing message still appears (status: "${withoutForge.status}")`);
     await bare.close();
 
     console.log('\nRECORDING A VIDEO FILE');

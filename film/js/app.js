@@ -213,9 +213,17 @@
     describeRecording();
   }
 
+  /* What the film tab says when SONG FORGE could not compose. The film still
+   * plays — it just has no music under it. */
+  var NO_SCORE_NOTE = 'This browser could not compose a score, so the film plays with ' +
+    'its cut hits, character voices and a pulse — but no music.';
+  var scoreNote = '';
+
   /* Say what the download will be *before* anyone sits through a recording.
    * Which format you get is the browser's choice, not ours, and it decides
-   * whether the film will play on an iPhone. */
+   * whether the film will play on an iPhone. The missing-score notice rides
+   * along on the same element, because both are things to know before you
+   * press play. */
   function describeRecording() {
     var format = PlayerLib.bestFormat();
 
@@ -226,6 +234,7 @@
       el.filmNote.textContent =
         'This browser can play the film but cannot save it to a video file. ' +
         'Chrome, Edge and Firefox on a computer can — Safari and most phones cannot.';
+      addScoreNote();
       return;
     }
 
@@ -248,6 +257,13 @@
         're-encodes it, such as YouTube or Google Photos, or open it in a free converter ' +
         'like HandBrake. ' + realTime;
     }
+    addScoreNote();
+  }
+
+  function addScoreNote() {
+    if (!scoreNote) return;
+    el.filmNote.className = 'film-note warn';
+    el.filmNote.textContent = scoreNote + ' ' + el.filmNote.textContent;
   }
 
   function sizeCanvas() {
@@ -283,14 +299,22 @@
         score = null; // a film with no sound still plays
       }
     }
-    if (score) {
-      var scored = score.startScore(reel);
-      // The panel carries what it has: which kind of score, and what the
-      // music is doing. The film note and the tests both read it.
-      el.viewFilm.dataset.score = scored ? 'real' : 'fallback';
-      el.viewFilm.dataset.sections = scored && score.player && score.player.song
-        ? String(score.player.song.sections.length) : '0';
-      if (!scored) say('Could not compose a score in this browser — using simple music.');
+    // Every rebuild says where it stands, including the browsers that gave us
+    // no Score at all — otherwise the panel keeps the last film's answer and
+    // the audience is told nothing.
+    var scored = score ? score.startScore(reel) : false;
+    // The panel carries what it has: which kind of score, and what the
+    // music is doing. The film note and the tests both read it.
+    el.viewFilm.dataset.score = scored ? 'real' : 'fallback';
+    el.viewFilm.dataset.sections = scored && score.player && score.player.song
+      ? String(score.player.song.sections.length) : '0';
+    // A missing score is a fact about the film you are about to watch, so it
+    // belongs on the film tab beside the recording note — not in the status
+    // line, which scrolls away a moment later.
+    var note = scored ? '' : NO_SCORE_NOTE;
+    if (note !== scoreNote) {
+      scoreNote = note;
+      describeRecording();
     }
     player = new PlayerLib.Player(el.filmCanvas, reel, {
       score: score,
@@ -330,12 +354,9 @@
     p.play(resumeAt);
     el.bigPlay.classList.add('hidden');
     el.playFilm.textContent = '⏸ Pause';
-    // Starting over announces the runtime — unless makePlayer() just said
-    // there is no real score, which matters more and should not be
-    // stomped a moment after anyone reads it.
-    if (!resumeAt && el.viewFilm.dataset.score !== 'fallback') {
-      say('Playing. ' + Reel.clock(reel.duration) + ' of film.');
-    }
+    // Starting over announces the runtime. Nothing to guard against now: a
+    // missing score is written on the film tab, not here.
+    if (!resumeAt) say('Playing. ' + Reel.clock(reel.duration) + ' of film.');
   }
 
   function stopFilm() {

@@ -21,19 +21,20 @@
 (function (root) {
   'use strict';
 
-  /* Each genre's pulse (used by `tick`) and the root/chord/wave/cutoff a
-   * fallback bed could use if a real score fails to load. */
+  /* Which genres keep a pulse going under the picture (read by `tick`). The
+   * fast, driving ones do; the ones that live on silence do not, and only get
+   * one when the scene itself turns tense. */
   var MUSIC = {
-    drama:    { root: 110.0, chord: [1, 1.5, 1.8, 2.4],        wave: 'sine',     cutoff: 900,  pulse: false },
-    thriller: { root: 82.4,  chord: [1, 1.5, 2.02, 3.0],       wave: 'sawtooth', cutoff: 620,  pulse: true },
-    horror:   { root: 73.4,  chord: [1, 1.414, 2.0, 2.83],     wave: 'sawtooth', cutoff: 480,  pulse: false },
-    comedy:   { root: 146.8, chord: [1, 1.25, 1.5, 2.0],       wave: 'triangle', cutoff: 1600, pulse: true },
-    romance:  { root: 130.8, chord: [1, 1.26, 1.5, 1.89],      wave: 'sine',     cutoff: 1200, pulse: false },
-    scifi:    { root: 98.0,  chord: [1, 1.5, 2.0, 3.0],        wave: 'triangle', cutoff: 1100, pulse: true },
-    mystery:  { root: 98.0,  chord: [1, 1.19, 1.5, 2.38],      wave: 'sine',     cutoff: 800,  pulse: false },
-    fantasy:  { root: 123.5, chord: [1, 1.335, 1.5, 2.0],      wave: 'triangle', cutoff: 1300, pulse: false },
-    heist:    { root: 87.3,  chord: [1, 1.5, 1.78, 2.0],       wave: 'sawtooth', cutoff: 700,  pulse: true },
-    western:  { root: 110.0, chord: [1, 1.5, 2.0, 2.99],       wave: 'triangle', cutoff: 1000, pulse: false }
+    drama:    { pulse: false },
+    thriller: { pulse: true },
+    horror:   { pulse: false },
+    comedy:   { pulse: true },
+    romance:  { pulse: false },
+    scifi:    { pulse: true },
+    mystery:  { pulse: false },
+    fantasy:  { pulse: false },
+    heist:    { pulse: true },
+    western:  { pulse: false }
   };
 
   var MUSIC_LEVEL = 0.55;   // where the score sits under the dialogue
@@ -263,35 +264,67 @@
   /* The duck envelope is a list of level changes in *film* time. Scheduling is
    * in audio-context time, so it is laid down relative to where playback is
    * starting from — and re-laid every time the film plays or is scrubbed,
-   * otherwise a scrub leaves the ducking pointing at the wrong moments. */
+   * otherwise a scrub leaves the ducking pointing at the wrong moments.
+   *
+   * Every transition is *anchored*. A `linearRampToValueAtTime` on its own
+   * ramps from the previous automation event, however long ago that was, so a
+   * bare list of ramps makes the level glide continuously: down across the
+   * whole gap before a line and back up across the line itself — quietest the
+   * instant someone starts speaking, loudest by the time they finish, which is
+   * the opposite of ducking. Pinning the held level with `setValueAtTime` at
+   * the moment each ramp begins gives the shape the film wants: flat at full
+   * between lines, a DUCK_LEAD dip into each line, flat and low through it, a
+   * DUCK_TAIL rise after it. */
   Score.prototype.applyDuck = function (fromFilmSeconds) {
-    if (!this.duckPoints) return;
+    var Conductor = root.FilmConductor;
+    if (!this.duckPoints || !Conductor) return;
     var bus = this.musicBus.gain;
     var base = MUSIC_LEVEL;
     var now = this.ctx.currentTime;
     var offset = fromFilmSeconds || 0;
+    var points = this.duckPoints;
+    var i, point;
 
     bus.cancelScheduledValues(now);
-    // Start at whatever the level should be at this moment in the film.
-    var current = base;
-    this.duckPoints.forEach(function (point) {
-      if (point.t <= offset) current = base * point.gain;
-    });
-    bus.setValueAtTime(current, now);
 
-    this.duckPoints.forEach(function (point) {
-      if (point.t <= offset) return;
-      bus.linearRampToValueAtTime(base * point.gain, now + (point.t - offset));
-    });
+    // Start at whatever the level should be at this moment in the film — the
+    // film can be played from the middle of a line, and that starts ducked.
+    var level = base;
+    for (i = 0; i < points.length; i++) {
+      if (points[i].t <= offset) level = base * points[i].gain;
+    }
+    bus.setValueAtTime(level, now);
+
+    for (i = 0; i < points.length; i++) {
+      point = points[i];
+      if (point.t <= offset) continue;
+      var target = base * point.gain;
+      // Dropping into a line takes DUCK_LEAD; coming back out takes DUCK_TAIL.
+      var startAt = now + (point.t - offset);
+      var endAt = startAt + (point.gain < 1 ? Conductor.DUCK_LEAD : Conductor.DUCK_TAIL);
+      // Two lines can sit close enough that the rise after the first is still
+      // climbing when the next drop is due. The next transition always wins.
+      var next = points[i + 1];
+      if (next) endAt = Math.min(endAt, now + (next.t - offset));
+
+      // Hold the level we have been sitting at, *then* move.
+      bus.setValueAtTime(level, startAt);
+      if (endAt > startAt) bus.linearRampToValueAtTime(target, endAt);
+      else bus.setValueAtTime(target, startAt);
+      level = target;
+    }
   };
 
   Score.prototype.stop = function () {
+    // The music player is stopped unconditionally: `close()` calls through
+    // here, and a score that was never `start()`ed can still have a player
+    // loaded and running — an early return would leave it playing.
+    if (this.player) this.player.stop();
     if (!this.started) return;
     this.clearBlips();
     this.started = false;
     this.currentShot = null;
     this.pulseNext = 0;
-    if (this.player) this.player.stop();
   };
 
   Score.prototype.close = function () {

@@ -403,8 +403,9 @@
     if (wasPlaying) this.pause();
     this.time = target;
     if (this.score && this.score.player) {
+      // No duck envelope here: `pause()` above has already cleared `playing`,
+      // and the `play(target)` below lays a fresh envelope from the new spot.
       this.score.player.seek(beatAt(this.score, target));
-      if (this.playing) this.score.applyDuck(target);
     }
     this.drawAt(target);
     if (this.hooks.onFrame) this.hooks.onFrame(target, this.reel.duration);
