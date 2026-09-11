@@ -79,8 +79,9 @@
         'characters and shot with a moving camera across sets built in depth, scored ' +
         'by SONG FORGE, and downloadable as a video file. Every story gets three to ' +
         'five locations and its own beat order, always building to a real crisis ' +
-        'somewhere the film has not been yet — and no idea in mind borrows one of ' +
-        'MADLIBS\'s 45 stories instead.',
+        'somewhere no earlier scene has been — and no idea in mind borrows one of ' +
+        'MADLIBS\'s 45 stories instead, right in the idea box so you can see what your ' +
+        'film is actually about.',
       badges: ['Phone + desktop', 'Plays + records video', 'Scored by SONG FORGE'],
       docs: 'film/README.md'
     },

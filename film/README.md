@@ -179,11 +179,24 @@ shape while a new take can pick a different one, and every **short** and
 **festival** shape guarantees a **Crisis** beat — the default 5-scene length
 always reaches one. Each beat plays in its own place drawn from the premise's
 three to five locations, spread across the running time rather than picked
-once for the whole film, and the **crisis specifically happens somewhere the
-film has not been yet** — the worst moment of the night lands somewhere
-unfamiliar, the way a real crisis does. The film still opens and closes in the
-same location, because that is what makes an ending feel like one, for every
-length and every shape.
+once for the whole film, decided for the whole spine at once
+(`placesForSpine`) rather than beat by beat, so three rules can be weighed
+against each other instead of quietly fighting over the same indices:
+
+1. the film opens and closes in the same location, always — that is what
+   makes an ending feel like one, for every length and every shape.
+2. the **crisis lands somewhere no earlier scene in the film has used** — the
+   worst moment of the night lands somewhere unfamiliar, the way a real
+   crisis does. Every premise offers 3-5 places, and at 3-5 places this rule
+   **always holds** (checked over thousands of generated films at every
+   length; it can only give way below 3 places, which nothing this app
+   generates ever offers).
+3. whatever's left over is what the *other* middle beats spread across, as
+   widely as that leaves room for. At festival length (7 scenes, 4 middle
+   beats besides the crisis) reserving the crisis a place of its own usually
+   leaves fewer spare places than there are other beats, so a couple of them
+   end up sharing one — rule 3 is the one that narrows when the arithmetic is
+   tight, never rule 2.
 
 Each beat then gets a scene: a slug line, action lines built from the beat's
 own bank, and a dialogue *exchange* (whole exchanges, not stray lines, so what

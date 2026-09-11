@@ -1368,26 +1368,63 @@ test('a festival film uses at least three distinct places', () => {
 });
 
 test('a film ends where it began', () => {
+  // By *position*, not by beat id: festival's third shape ends
+  // ['... crisis, after, choice'] — 'after' is second-to-last there, not
+  // last, so an id-based 'after === open' check is only true by accident of
+  // the other two shapes. The real property, true of every shape, is that
+  // the first scene and the last scene share a place.
   for (let seed = 0; seed < 40; seed++) {
     const script = Writer.write(Parse.parse('a lighthouse keeper finds a radio', { seed }), { length: 'festival', seed });
-    const byBeat = {};
-    script.scenes.forEach((s) => { byBeat[s.beat.id] = s.heading.place.key; });
-    if (byBeat.open && byBeat.after) {
-      eq(byBeat.after, byBeat.open, 'seed ' + seed + ' did not return to the opening place');
-    }
+    const first = script.scenes[0].heading.place.key;
+    const last = script.scenes[script.scenes.length - 1].heading.place.key;
+    eq(last, first, 'seed ' + seed + ' did not return to the opening place');
   }
 });
 
 test('the crisis happens somewhere the film has not been', () => {
-  let elsewhere = 0, total = 0;
-  for (let seed = 0; seed < 40; seed++) {
-    const script = Writer.write(Parse.parse('a thief in a warehouse', { seed }), { length: 'festival', seed });
-    const byBeat = {};
-    script.scenes.forEach((s) => { byBeat[s.beat.id] = s.heading.place.key; });
-    if (byBeat.crisis && byBeat.open) { total++; if (byBeat.crisis !== byBeat.open) elsewhere++; }
-  }
-  assert(total > 0, 'no festival film reached a crisis');
-  eq(elsewhere, total, 'the crisis shared the opening place in ' + (total - elsewhere) + ' of ' + total);
+  // The old version of this test only checked byBeat.crisis !== byBeat.open —
+  // but placeForBeat put the crisis at the far index (placeCount - 1) and
+  // then spread spark/push/turn over [1, placeCount - 1], a range that
+  // *includes* the crisis's own index, so a middle beat routinely got there
+  // first while open (always index 0) never collided anyway. That made the
+  // assertion true by construction: open and crisis literally could not
+  // share an index, so it could never fail. The real property is that no
+  // beat *before* the crisis in the spine used the crisis's place — checked
+  // here directly against placesForSpine, for every shape this app ships, at
+  // every place count a premise can actually offer, over many seeds.
+  ['micro', 'short', 'festival'].forEach((len) => {
+    LEX.STRUCTURES[len].spines.forEach((spine, i) => {
+      const ci = spine.indexOf('crisis');
+      if (ci === -1) return;
+      for (let count = 3; count <= 5; count++) {
+        for (let seed = 0; seed < 100; seed++) {
+          const result = Writer.placesForSpine(spine, count, seed);
+          const crisisPlace = result.places[ci];
+          const usedBefore = new Set(result.places.slice(0, ci));
+          assert(result.degraded === 'crisis-unused' || !usedBefore.has(crisisPlace),
+            len + ' shape ' + i + ' (' + spine.join(' ') + ') at ' + count + ' places, seed ' + seed +
+            ': the crisis reused an earlier beat\'s place ' + crisisPlace + ' (degraded=' + result.degraded + ')');
+        }
+      }
+    });
+  });
+
+  // And the same property holds end to end, through the real writer, on
+  // real generated premises (3-5 places, never fewer).
+  let total = 0;
+  ['short', 'festival'].forEach((len) => {
+    for (let seed = 0; seed < 200; seed++) {
+      const script = Writer.write(Parse.parse('a thief in a warehouse', { seed }), { length: len, seed });
+      const crisisIndex = script.scenes.findIndex((s) => s.beat.id === 'crisis');
+      if (crisisIndex === -1) continue;
+      total++;
+      const crisisPlace = script.scenes[crisisIndex].heading.place.key;
+      const usedBefore = new Set(script.scenes.slice(0, crisisIndex).map((s) => s.heading.place.key));
+      assert(!usedBefore.has(crisisPlace),
+        len + ' seed ' + seed + ': the crisis landed back in ' + crisisPlace + ', already used');
+    }
+  });
+  assert(total > 0, 'no film reached a crisis');
 });
 
 test('placeForBeat stays inside the places it is given', () => {
@@ -1442,6 +1479,38 @@ test('two films of the same length can be shaped differently', () => {
   const shapes = new Set();
   for (let seed = 0; seed < 40; seed++) shapes.add(Writer.spineFor('festival', seed).join(' '));
   assert(shapes.size >= 2, 'every festival film had the same shape');
+});
+
+test('scene times never go backwards within a film', () => {
+  // headingFor used to advance the clock only for the beat id 'after' — a
+  // rule written back when 'after' was always the spine's last beat. Once a
+  // shape puts 'choice' after it (festival's third shape does:
+  // '... crisis, after, choice'), the closing scene reverted to the
+  // premise's original time, e.g. DUSK (after) followed by DAY (choice) on
+  // the last two cards. It now advances for 'after' and everything at or
+  // after it in the spine, so this checks the property directly: once a
+  // scene shows the advanced time, nothing later in the same film shows the
+  // original time again.
+  const NEXT_TIME = { NIGHT: 'DAWN', DAWN: 'DAY', DAY: 'DUSK', DUSK: 'NIGHT' };
+  ['micro', 'short', 'festival'].forEach((len) => {
+    for (let seed = 0; seed < 150; seed++) {
+      const premise = Parse.parse('a lighthouse keeper finds a radio', { seed });
+      const script = Writer.write(premise, { length: len, seed });
+      const base = premise.time;
+      const advanced = NEXT_TIME[base] || base;
+      let sawAdvanced = false;
+      script.scenes.forEach((s) => {
+        const t = s.heading.time;
+        if (t === 'CONTINUOUS' || t === 'LATER') return; // reads as the same clock as the scene before it
+        if (advanced !== base && t === advanced) sawAdvanced = true;
+        else if (t === base) {
+          assert(!sawAdvanced, len + ' seed ' + seed + ': the clock ran backwards, back to ' +
+            base + ' after already showing ' + advanced + ' (' +
+            script.scenes.map((x) => x.beat.id + '=' + x.heading.time).join(', ') + ')');
+        }
+      });
+    }
+  });
 });
 
 test('the same seed always gives the same shape', () => {
