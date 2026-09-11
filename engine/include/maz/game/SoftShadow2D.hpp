@@ -27,8 +27,11 @@ inline bool segmentsIntersect(math::vec2 p1, math::vec2 p2, math::vec2 q1, math:
     const math::vec2 r{p2.x - p1.x, p2.y - p1.y};
     const math::vec2 s{q2.x - q1.x, q2.y - q1.y};
     const float rxs = cross(r, s);
-    if (std::fabs(rxs) < 1e-9f) {
-        return false; // parallel or colinear -> treat as no crossing
+    // Parallel or colinear -> treat as no crossing. The epsilon test is the real numerical guard;
+    // the explicit == 0 in front of it is there so MSVC can see that the two divisions below
+    // cannot divide by zero. It does not reason through std::fabs, and raises C4723 without it.
+    if (rxs == 0.0f || std::fabs(rxs) < 1e-9f) {
+        return false;
     }
     const math::vec2 qp{q1.x - p1.x, q1.y - p1.y};
     const float t = cross(qp, s) / rxs;

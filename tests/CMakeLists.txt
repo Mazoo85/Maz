@@ -4,6 +4,12 @@ add_executable(maz_unit_tests unit/main.cpp)
 target_link_libraries(maz_unit_tests PRIVATE maz::maz maz_warnings)
 # The ZOMBOID game logic (scripts + scene builder) is shared between its app and these tests.
 target_include_directories(maz_unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/zomboid)
+# unit/main.cpp is one 33k-line translation unit and overruns the number of sections a COFF
+# object file can hold, which MSVC reports as C1128 and tells you to fix with this exact flag.
+# It raises a format limit; it does not relax a warning or a check.
+if(MSVC)
+    target_compile_options(maz_unit_tests PRIVATE /bigobj)
+endif()
 add_test(NAME unit_tests COMMAND maz_unit_tests)
 set_tests_properties(unit_tests PROPERTIES TIMEOUT 30)
 
