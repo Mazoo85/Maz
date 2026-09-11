@@ -55,9 +55,10 @@ def delete_branch(name: str, root: Path | None = None, runner=None) -> bool:
     return code == 0
 
 
-def is_clean(root: Path | None = None, runner=None) -> bool:
+def is_clean(root: Path | None = None, runner=None,
+             ignore_prefixes: tuple[str, ...] = ()) -> bool:
     """True when the working tree has no staged, modified, or untracked-but-
-    not-ignored changes against HEAD.
+    not-ignored changes against HEAD, other than paths under ``ignore_prefixes``.
 
     ``git status --porcelain`` prints one line per such path (staged,
     modified, or untracked and not gitignored) and nothing at all when the
@@ -65,9 +66,31 @@ def is_clean(root: Path | None = None, runner=None) -> bool:
     begin a branch, and therefore an attribution trail, on top of someone
     else's uncommitted work. A failed status call (bad cwd, no repo) reads
     as "not clean" — fail closed, exactly like a falsy ``head_sha``.
+
+    ``ignore_prefixes`` exists so a caller can name paths it knows *it*
+    authored (its own bookkeeping from a previous run, say) and have a dirty
+    status confined to exactly those paths still read as clean. This
+    function stays generic — it knows nothing about the Forge — the actual
+    list of self-authored paths is do.py's ``FORGE_OWN_PATHS``, defined once
+    there with the reasoning for each entry.
     """
     code, out, _ = _runner_for(root, runner)(["status", "--porcelain"])
-    return code == 0 and out.strip() == ""
+    if code != 0:
+        return False
+    for line in out.splitlines():
+        if not line.strip():
+            continue
+        # Porcelain v1 format: "XY PATH" or, for a rename/copy, "XY PATH1 ->
+        # PATH2" — the two-character status code plus a space is always the
+        # first three characters; a rename's interesting half (what's there
+        # now) is the part after " -> ".
+        path = line[3:]
+        if " -> " in path:
+            path = path.split(" -> ", 1)[1]
+        path = path.strip().strip('"')
+        if not any(path.startswith(p) for p in ignore_prefixes):
+            return False
+    return True
 
 
 def changed_files(root: Path | None = None, base: str = "HEAD", runner=None) -> tuple[str, ...]:

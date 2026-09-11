@@ -23,6 +23,35 @@ from .zones import is_no_touch, zone_for
 
 SLUG_MAX = 40
 
+# Paths the Forge's own bookkeeping writes on its way out of *every* run,
+# success or failure: the ledger line, a quarantine entry, its scratch
+# state, and the shared codebase-memory observation. None of these is ever
+# authored by a human or by Crew — Crew cannot even reach them, since
+# `forge/` and `.github/workflows/` are welded into `no_touch` on every
+# config load (see config.HARD_NO_TOUCH) — so a dirty status confined to
+# exactly these paths is the *previous* run's exhaust, not someone else's
+# unfinished work, and must not stop the *next* run from starting. Without
+# this exemption the dirty-tree guard below is self-defeating: the very act
+# of recording last night's outcome leaves the tree in a state that refuses
+# to let tonight run at all (see the module docstring's "self-block").
+#
+# This list must never grow to include a path a human or Crew could write —
+# that would be the guard quietly looking away from real uncommitted work,
+# which is exactly what it exists to catch. Every other path, including any
+# other file under `forge/`, still blocks the run.
+#
+# Used in two places below, for the same reason: once at the top of `do()`
+# to let the dirty-tree guard start the run, and again after Crew finishes
+# to keep the same leftover dirt out of the leash's file-count/no-touch/
+# zone re-check — `changed_files` cannot tell "already dirty before Crew
+# ran" from "Crew's own edit" any better than the guard can.
+FORGE_OWN_PATHS = (
+    "forge/ledger/",
+    "forge/stuck.md",
+    "forge/state/",  # already gitignored (see .gitignore); listed for clarity
+    ".claude/codebase-memory.json",
+)
+
 
 @dataclass(frozen=True)
 class CrewOutcome:
@@ -79,8 +108,14 @@ def do(chosen: dict, root: Path, config: ForgeConfig, git=None, crew=None,
     # AND legitimately touched by Crew is not separable after the fact);
     # refusing to start is exact instead. It also keeps the branch itself
     # from carrying someone else's uncommitted work under Crew's name.
+    #
+    # `ignore_prefixes=FORGE_OWN_PATHS` is the one deliberate exception: the
+    # Forge's own bookkeeping from a previous run (the ledger, stuck.md, its
+    # state dir, the memory note) must not count as "someone else's
+    # uncommitted work" against itself. See FORGE_OWN_PATHS above for why
+    # this is safe and why the list must stay narrow.
     try:
-        clean = is_clean(root, runner=git)
+        clean = is_clean(root, runner=git, ignore_prefixes=FORGE_OWN_PATHS)
     except Exception as exc:  # noqa: BLE001 — a crash is an outcome, not a traceback
         return CrewOutcome(False, name, (), None, _minutes(started),
                            f"could not check whether the working tree was clean: {exc}")
@@ -155,6 +190,16 @@ def do(chosen: dict, root: Path, config: ForgeConfig, git=None, crew=None,
     except Exception as exc:  # noqa: BLE001 — a crash is an outcome, not a traceback
         return CrewOutcome(False, name, (), cost, duration,
                            _with_note(f"could not determine what Crew changed: {exc}", cost_note))
+
+    # `changed_files` diffs `base_sha` against the live working tree, which
+    # cannot distinguish "already dirty before Crew ran" from "Crew's own
+    # edit" — the same ambiguity the dirty-tree guard above exists to avoid,
+    # just discovered one step later. Left unfiltered, a previous run's own
+    # bookkeeping — still sitting uncommitted precisely because the guard
+    # above was taught to let it be — would show up here as *this* run
+    # having touched a no-touch path, on every single subsequent night.
+    # Same list, same reasoning as the guard: see FORGE_OWN_PATHS.
+    files = tuple(f for f in files if not any(f.startswith(p) for p in FORGE_OWN_PATHS))
     if len(files) > config.max_files_touched:
         return CrewOutcome(False, name, files, cost, duration,
                            _with_note(f"touched {len(files)} files, over the "
