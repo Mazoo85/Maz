@@ -89,9 +89,39 @@
       .replace(/\{SOUND\}/g, function () { return ctx.nextSound(); });
   }
 
-  /* Which of the premise's locations each beat plays in. The film opens and
-   * closes in the same place — that is what makes an ending feel like one. */
-  var BEAT_PLACE = { open: 0, spark: 0, push: 1, turn: 1, crisis: 1, choice: 0, after: 0 };
+  /* Which of the premise's locations each beat plays in.
+   *
+   * Two rules carry the feeling and the rest is seeded spread. A film opens
+   * and closes in the same place, which is what makes an ending feel like
+   * one. And the crisis happens somewhere the film has not been — being
+   * somewhere unfamiliar is part of what a crisis is.
+   *
+   * spark, push and turn take turns through the middle ground rather than
+   * each rolling independently: three *independent* seeded rolls landed on
+   * the same index more often than a film can get away with (three separate
+   * coin flips agreeing is not rare enough at only 3-5 places), which read
+   * as the story refusing to leave one room. A single seeded roll instead
+   * picks a rotation's starting point, and each beat takes the next slot in
+   * it, so the three are spread on purpose instead of by luck. */
+  var SPREAD_STEP = { spark: 0, push: 1, turn: 2 };
+
+  function placeForBeat(beatId, placeCount, seed) {
+    if (placeCount <= 1) return 0;
+
+    // open, choice and after all land on the opening place: 'choice' is the
+    // final beat in the micro and short structures (no 'after' follows it
+    // there), so it has to be home already for "the film ends where it
+    // began" to hold for every length, not only festival's seven beats.
+    if (beatId === 'open' || beatId === 'choice' || beatId === 'after') return 0;
+    if (beatId === 'crisis') return placeCount - 1;          // the far end, never the opening
+
+    // spread across the middle ground [1, placeCount - 1], never the opening.
+    var span = Math.max(1, placeCount - 1);
+    var rng = PARSE.makeRng((PARSE.hashText('spread') ^ (seed >>> 0)) >>> 0);
+    var base = Math.floor(rng() * span) % span;               // in [0, span - 1]
+    var step = SPREAD_STEP.hasOwnProperty(beatId) ? SPREAD_STEP[beatId] : 0;
+    return 1 + (base + step) % span;                          // in [1, span]
+  }
 
   function headingFor(premise, beatId, placeIndex, previous) {
     var place = premise.places[Math.min(placeIndex, premise.places.length - 1)];
@@ -148,7 +178,8 @@
 
     structure.beats.forEach(function (beatId, index) {
       var beat = beatById[beatId];
-      var heading = headingFor(premise, beatId, BEAT_PLACE[beatId] || 0, previousHeading);
+      var heading = headingFor(premise, beatId,
+        placeForBeat(beatId, premise.places.length, seed), previousHeading);
       previousHeading = heading;
       // Action lines say "the kitchen" only when the scene is in the kitchen.
       ctx.placeWord = heading.place.word.toLowerCase();
@@ -268,7 +299,7 @@
     return { pages: pages, runtime: '≈ ' + minutes + ' min' };
   }
 
-  var API = { write: write, paginate: paginate };
+  var API = { write: write, paginate: paginate, placeForBeat: placeForBeat };
   if (typeof module === 'object' && module.exports) module.exports = API;
   root.FilmWriter = API;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

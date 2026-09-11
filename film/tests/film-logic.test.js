@@ -1359,6 +1359,49 @@ test('the same idea and seed give the same places', () => {
   }
 });
 
+test('a festival film uses at least three distinct places', () => {
+  for (let seed = 0; seed < 40; seed++) {
+    const script = Writer.write(Parse.parse('a courier takes a job', { seed }), { length: 'festival', seed });
+    const used = new Set(script.scenes.map((s) => s.heading.place.key));
+    assert(used.size >= 3, 'seed ' + seed + ' used only ' + used.size + ' places');
+  }
+});
+
+test('a film ends where it began', () => {
+  for (let seed = 0; seed < 40; seed++) {
+    const script = Writer.write(Parse.parse('a lighthouse keeper finds a radio', { seed }), { length: 'festival', seed });
+    const byBeat = {};
+    script.scenes.forEach((s) => { byBeat[s.beat.id] = s.heading.place.key; });
+    if (byBeat.open && byBeat.after) {
+      eq(byBeat.after, byBeat.open, 'seed ' + seed + ' did not return to the opening place');
+    }
+  }
+});
+
+test('the crisis happens somewhere the film has not been', () => {
+  let elsewhere = 0, total = 0;
+  for (let seed = 0; seed < 40; seed++) {
+    const script = Writer.write(Parse.parse('a thief in a warehouse', { seed }), { length: 'festival', seed });
+    const byBeat = {};
+    script.scenes.forEach((s) => { byBeat[s.beat.id] = s.heading.place.key; });
+    if (byBeat.crisis && byBeat.open) { total++; if (byBeat.crisis !== byBeat.open) elsewhere++; }
+  }
+  assert(total > 0, 'no festival film reached a crisis');
+  eq(elsewhere, total, 'the crisis shared the opening place in ' + (total - elsewhere) + ' of ' + total);
+});
+
+test('placeForBeat stays inside the places it is given', () => {
+  ['open', 'spark', 'push', 'turn', 'crisis', 'choice', 'after'].forEach((beat) => {
+    for (let count = 1; count <= 5; count++) {
+      for (let seed = 0; seed < 20; seed++) {
+        const i = Writer.placeForBeat(beat, count, seed);
+        assert(Number.isInteger(i) && i >= 0 && i < count,
+          beat + ' with ' + count + ' places returned ' + i);
+      }
+    }
+  });
+});
+
 /* ------------------------------------------------------------------ report */
 console.log('');
 if (failures.length) {
