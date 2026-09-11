@@ -213,8 +213,15 @@ Rules worth knowing before you write one:
 - **This file and `FORGE.md` are off limits to it.** The Forge cannot edit the
   file that decides what it works on.
 
-Nothing is listed below on purpose — an empty intake means a quiet night, and
-a quiet night is a correct one.
+### Open
+
+- [ ] Add direct unit tests for `scraper/scraper/robots.py` covering host keying, the cache, user-agent matching, and the fetch-failure case that must fall back to allowing the URL — it is currently only exercised indirectly, through the crawl tests
+
+Write each item on a single line. The parser reads one line per item, so a
+wrapped continuation line is silently dropped and the job reaches the Forge as
+a truncated sentence.
+
+An empty list here means a quiet night, and a quiet night is a correct one.
 
 ---
 
