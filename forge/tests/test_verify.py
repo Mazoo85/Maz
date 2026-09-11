@@ -120,6 +120,33 @@ def test_pr_body_renders_sensibly_with_no_cost_reported():
     assert "None" not in text
 
 
+def test_open_draft_pr_uses_the_configured_base_branch(tmp_path):
+    """The PR's `base` must be whatever base_branch the caller passes, not
+    the module's own "main" default — a lingering hard-coded fallback here
+    is exactly the bug this fix removes.
+    """
+    posted = {}
+
+    def poster(path, body):
+        posted["body"] = body
+        return {"number": 7}
+
+    open_draft_pr(OUTCOME, CHOSEN, tmp_path, slug="a/b", poster=poster,
+                  base_branch="claude/zomboid-sega-neon-anchorage-i5emkk")
+    assert posted["body"]["base"] == "claude/zomboid-sega-neon-anchorage-i5emkk"
+
+
+def test_open_draft_pr_defaults_base_branch_to_main_when_not_given(tmp_path):
+    posted = {}
+
+    def poster(path, body):
+        posted["body"] = body
+        return {"number": 8}
+
+    open_draft_pr(OUTCOME, CHOSEN, tmp_path, slug="a/b", poster=poster)
+    assert posted["body"]["base"] == "main"
+
+
 def test_pr_body_renders_sensibly_with_no_files():
     outcome = CrewOutcome(ok=True, branch="forge/x", files=(),
                           cost_usd=1.23, duration_min=2.0)

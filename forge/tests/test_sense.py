@@ -163,6 +163,26 @@ def test_read_pulse_with_json_number_returns_empty(tmp_path):
     assert result == {}
 
 
+def test_default_ci_collector_is_wired_to_the_configured_base_branch(tmp_path, monkeypatch):
+    """When `collectors` is left to its default (the real nightly path,
+    unlike every other test in this file), the `ci` collector must be bound
+    to `config.base_branch` — not left to watch only main/master, which
+    would make SENSE blind to red CI on this repo's actual base branch.
+    """
+    import forge.sense as sense_mod
+
+    seen = {}
+
+    def fake_ci_collect(root, base_branch=None):
+        seen["base_branch"] = base_branch
+        return []
+
+    monkeypatch.setattr(sense_mod.ci_signal, "collect", fake_ci_collect)
+    cfg = ForgeConfig(base_branch="claude/zomboid-sega-neon-anchorage-i5emkk")
+    sense(tmp_path, cfg)
+    assert seen["base_branch"] == "claude/zomboid-sega-neon-anchorage-i5emkk"
+
+
 def test_read_pulse_with_malformed_json_returns_empty(tmp_path):
     """A pulse file with malformed JSON returns {}."""
     cfg = ForgeConfig()

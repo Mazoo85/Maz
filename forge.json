@@ -1,4 +1,5 @@
 {
+  "base_branch": "claude/zomboid-sega-neon-anchorage-i5emkk",
   "budget_usd": 5.0,
   "max_files_touched": 12,
   "safe_zones": [

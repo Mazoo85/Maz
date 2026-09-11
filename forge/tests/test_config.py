@@ -160,3 +160,29 @@ def test_bad_field_never_bypasses_hard_no_touch_weld(tmp_path):
     cfg = load_config(root=tmp_path)
     assert "forge/" in cfg.no_touch
     assert ".github/workflows/" in cfg.no_touch
+
+
+def test_base_branch_defaults_to_main(tmp_path):
+    """No forge.json at all, and a forge.json that says nothing about it,
+    must both still leave `main` in force — it is the right default for
+    most repositories, just not this one (see forge.json at the repo root).
+    """
+    assert load_config(root=tmp_path).base_branch == "main"
+    _write(tmp_path, {"budget_usd": 2.0})
+    assert load_config(root=tmp_path).base_branch == "main"
+
+
+def test_base_branch_settable_via_file(tmp_path):
+    _write(tmp_path, {"base_branch": "claude/zomboid-sega-neon-anchorage-i5emkk"})
+    cfg = load_config(root=tmp_path)
+    assert cfg.base_branch == "claude/zomboid-sega-neon-anchorage-i5emkk"
+
+
+def test_blank_base_branch_falls_back_to_default(tmp_path):
+    _write(tmp_path, {"base_branch": "   "})
+    assert load_config(root=tmp_path).base_branch == "main"
+
+
+def test_non_string_base_branch_falls_back_to_default(tmp_path):
+    _write(tmp_path, {"base_branch": 3})
+    assert load_config(root=tmp_path).base_branch == "main"

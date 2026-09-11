@@ -1,5 +1,7 @@
 """The full live cycle, wired end to end with every side effect injected."""
 
+import json
+
 from forge.config import ForgeConfig
 from forge.ledger import read_all
 from forge.models import Candidate
@@ -350,6 +352,64 @@ def test_push_branch_is_never_called_with_main(tmp_path):
     for args in push_calls:
         assert args[-1] != "main"
         assert args[-1].startswith("forge/")
+
+
+_CONFIGURED_BASE = "claude/zomboid-sega-neon-anchorage-i5emkk"
+
+
+def _write_base_branch_config(root):
+    (root / "forge.json").write_text(json.dumps({"base_branch": _CONFIGURED_BASE}))
+
+
+def test_abandon_checks_out_the_configured_base_branch_not_main(tmp_path):
+    """A failed run's cleanup must check out `config.base_branch`, not the
+    hard-coded "main" — a lingering constant here would move the working
+    tree to a wholly different project on a repo like this one.
+    """
+    _write_base_branch_config(tmp_path)
+    git = FakeGit()
+    entry = live_run(tmp_path, collectors=_collectors(), git=git,
+                     crew=lambda t, r, s: (1, "boom", 0.1),
+                     checks=lambda cmd, root: (0, ""), poster=lambda p, b: {}, slug="a/b")
+    assert entry["outcome"] == "crew_failed"
+    # `["checkout", "-b", <branch>]` (cutting tonight's branch) also starts
+    # with "checkout" — excluded here so this only pins the *return*
+    # checkout `_abandon` makes, not the unrelated call DO makes earlier.
+    checkout_calls = [a for a in git.calls if a[:1] == ["checkout"] and a[:2] != ["checkout", "-b"]]
+    assert checkout_calls, "expected a checkout during cleanup"
+    assert all(a == ["checkout", _CONFIGURED_BASE] for a in checkout_calls), checkout_calls
+    assert not any(a == ["checkout", "main"] for a in git.calls)
+
+
+def test_return_to_base_checks_out_the_configured_base_branch_not_main(tmp_path):
+    """The tree left behind after a *successful* run must land on
+    `config.base_branch` — this is the consequence that is live on every
+    successful night: a hard-coded "main" here moves the working tree to a
+    different project before tomorrow's branch is even cut.
+    """
+    _write_base_branch_config(tmp_path)
+    git = FakeGit()
+    entry = live_run(tmp_path, collectors=_collectors(), git=git,
+                     crew=lambda t, r, s: (0, "done", 0.1),
+                     checks=lambda cmd, root: (0, "ok"),
+                     poster=lambda p, b: {"number": 3}, slug="a/b")
+    assert entry["outcome"] == "pr_opened"
+    checkout_calls = [a for a in git.calls if a[:1] == ["checkout"] and a[:2] != ["checkout", "-b"]]
+    assert checkout_calls, "expected a checkout back to base after success"
+    assert all(a == ["checkout", _CONFIGURED_BASE] for a in checkout_calls), checkout_calls
+    assert not any(a == ["checkout", "main"] for a in git.calls)
+
+
+def test_live_run_opens_the_pr_against_the_configured_base_branch(tmp_path):
+    _write_base_branch_config(tmp_path)
+    posted = {}
+    git = FakeGit()
+    entry = live_run(tmp_path, collectors=_collectors(), git=git,
+                     crew=lambda t, r, s: (0, "done", 0.1),
+                     checks=lambda cmd, root: (0, "ok"),
+                     poster=lambda p, b: posted.update(b) or {"number": 9}, slug="a/b")
+    assert entry["outcome"] == "pr_opened"
+    assert posted["base"] == _CONFIGURED_BASE
 
 
 def test_abandon_with_a_failing_checkout_does_not_delete_and_still_records(tmp_path):

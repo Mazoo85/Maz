@@ -12,16 +12,18 @@ Read this first, because it matters more than anything else here.
 - **Stop tonight's run:** disable the scheduled Routine (see *Scheduling* below).
   Nothing else is needed — the Forge holds no state between runs.
 - **Undo a night:** every live run works on its own `forge/YYYY-MM-DD-<slug>`
-  branch, cut fresh from `main`, and opens a *draft* pull request. Close the
-  PR and delete the branch — nothing else was touched, and no other night's
-  branch carries those commits. Nothing the Forge does is ever merged
-  without you — it has no ability to merge anything itself.
+  branch, cut fresh from the base branch (`base_branch` in `forge.json` —
+  `main` by default; see *The leash* below), and opens a *draft* pull
+  request. Close the PR and delete the branch — nothing else was touched,
+  and no other night's branch carries those commits. Nothing the Forge does
+  is ever merged without you — it has no ability to merge anything itself.
 - **Stop it touching a directory:** add the path to `no_touch` in `forge.json`.
 - **Stop it entirely and permanently:** delete `forge.json`. Without a config
   file the defaults still apply (they are the same safe zones and limits), so
   to actually stop it you must also disable the Routine.
 
-The Forge never pushes to `main`, never merges anything, and can never modify
+The Forge never pushes to its base branch — `main` by default, whatever
+`base_branch` says otherwise — never merges anything, and can never modify
 `forge/` or `.github/workflows/` — those two paths are hard-coded into the
 program itself, welded on underneath whatever `forge.json` says, so deleting
 or editing the config cannot remove them.
@@ -59,7 +61,7 @@ SENSE -> DECIDE -> DO -> VERIFY -> LEARN -> (tomorrow)
 | **SENSE** | Reads unchecked roadmap boxes, red CI runs, `TODO` markers, and codebase-memory into `forge/state/pulse.json` |
 | **DECIDE** | Scores every candidate, applies three strikes / variety / floor, writes the pick and the reasoning to `forge/state/tonight.json` |
 | **DO** | Refuses to start if the working tree has uncommitted changes anywhere but the Forge's own bookkeeping (see *Outcomes* below); otherwise creates a branch and hands the single task to Maz Crew |
-| **VERIFY** | Runs the zone's checks; green pushes the branch and opens a draft PR, red abandons the branch — either way, the tree is back on `main` when the run ends |
+| **VERIFY** | Runs the zone's checks; green pushes the branch and opens a draft PR, red abandons the branch — either way, the tree is back on the base branch when the run ends |
 | **LEARN** | Appends one line to `forge/ledger/YYYY-MM.jsonl` |
 
 ## GITHUB_TOKEN
@@ -69,8 +71,8 @@ before you rely on anything below. Without it, three things quietly stop
 working — none of them loudly:
 
 - **SENSE** can't see which GitHub Actions workflow is currently red on
-  `main` — that signal source is just silently empty every night, as if
-  everything were green.
+  `main`, `master`, or the configured base branch — that signal source is
+  just silently empty every night, as if everything were green.
 - **VERIFY**, on a `--live` run, can't open the draft pull request after
   checks pass — the branch still gets pushed, but no PR appears. The night
   records `pr_failed`, not `pr_opened`.
@@ -110,6 +112,7 @@ otherwise, and `forge init` writes a starter file with these same defaults.
 
 | Field | Default | Meaning |
 |-------|---------|---------|
+| `base_branch` | `main` | What every PR is opened against, and what the tree is returned to when a run ends — see the callout below |
 | `budget_usd` | `5.0` | Spend cap for one run — see the caveat below, it does not bind today |
 | `max_files_touched` | `12` | A run that changes more than this is abandoned |
 | `safe_zones` | `docs/`, `madlibs/`, `music/`, `shooter/`, `scraper/`, `crew/tests/` | Where it may work |
@@ -118,6 +121,19 @@ otherwise, and `forge init` writes a starter file with these same defaults.
 | `strike_limit` | `3` | Failures on the same task before it is quarantined to `forge/stuck.md` |
 | `crew_timeout_min` | `45` | Wall-clock cap on the Crew subprocess |
 | `weights` | see `forge/forge/config.py` | The scoring numbers |
+
+**Get `base_branch` right, or the Forge's work goes to the wrong place.**
+Every PR the Forge opens declares this branch as its `base`, and the working
+tree is checked out back to it both when a run fails and after a run
+succeeds — so if it names the wrong branch, every PR is opened against the
+wrong line of the project, and every successful night silently moves the
+working tree there too, before tomorrow's branch is even cut. `main` is the
+right default for most repositories, which is why it's the default — but
+this repo's actual default branch is not `main` (`main` here is a separate,
+unrelated line of the project), so **this repo's `forge.json` sets
+`base_branch` explicitly**. If you copy the Forge into another repository,
+check what that repo's default branch actually is before trusting the
+default.
 
 **The budget cap does not bind in production.** Crew doesn't currently report
 its cost in any machine-readable way, so a real run always records
@@ -164,9 +180,10 @@ codebase-memory note — which never blocks the next run from starting.
 Anything else left uncommitted, from you or anything else, still stops it
 cold.
 
-Every run also leaves the tree back on `main` when it finishes, whether it
-opened a PR or abandoned the branch, so tomorrow's run always branches from
-the same known point rather than from tonight's own branch.
+Every run also leaves the tree back on the base branch (`base_branch` in
+`forge.json`, `main` by default) when it finishes, whether it opened a PR
+or abandoned the branch, so tomorrow's run always branches from the same
+known point rather than from tonight's own branch.
 
 ## The ledger
 

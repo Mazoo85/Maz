@@ -19,6 +19,16 @@ from .checks import commands_for
 from .do import CrewOutcome
 from .github import api, repo_slug
 
+# Fallback only: a caller with a real ForgeConfig must pass its own
+# `base_branch` explicitly (see orchestrate.py) rather than lean on this.
+# This module deliberately does not import `config.py` to read it itself —
+# that would make every `open_draft_pr` call site's honesty about which
+# base it targets an accident of import order rather than a fact visible in
+# its own call, and would risk a circular import (config.py has no
+# dependency on verify.py today, but nothing should rely on that staying
+# true). Kept around only so a caller that genuinely doesn't have a config
+# (an ad-hoc script, a REPL, most of this module's own unit tests) still
+# gets a sane default instead of a required argument.
 BASE_BRANCH = "main"
 CHECK_TIMEOUT_S = 900
 
@@ -70,8 +80,18 @@ def _pr_body(outcome: CrewOutcome, chosen: dict) -> str:
 
 
 def open_draft_pr(outcome: CrewOutcome, chosen: dict, root: Path | None,
-                  slug: str | None = None, poster=None) -> int | None:
-    """Open a draft PR for the branch. Returns the PR number, or None."""
+                  slug: str | None = None, poster=None,
+                  base_branch: str = BASE_BRANCH) -> int | None:
+    """Open a draft PR for the branch. Returns the PR number, or None.
+
+    `base_branch` is a bare string, not a `ForgeConfig`, deliberately: this
+    module has no other reason to know about config.py's shape, and a
+    string keeps the one real caller (`orchestrate.live_run`, which already
+    has a loaded config in hand) honest about passing `config.base_branch`
+    explicitly, rather than letting this function silently reach for its
+    own default whenever a config happens to be available. The default
+    here only serves callers with no config at all.
+    """
     slug = slug if slug is not None else repo_slug(root)
     if not slug:
         return None
@@ -80,7 +100,7 @@ def open_draft_pr(outcome: CrewOutcome, chosen: dict, root: Path | None,
     payload = {
         "title": f"forge: {task[:70]}",
         "head": outcome.branch,
-        "base": BASE_BRANCH,
+        "base": base_branch,
         "draft": True,
         "body": _pr_body(outcome, chosen),
     }

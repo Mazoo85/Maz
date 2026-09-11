@@ -90,6 +90,68 @@ def test_collect_wires_a_real_fetch_into_from_runs(tmp_path):
     assert any("branch=master" in p for p in seen_paths)
 
 
+# --- base_branch: the configured base branch's CI must count too ---------
+
+
+def test_from_runs_ignores_a_non_default_branch_with_no_base_branch_given():
+    runs = [dict(RUNS[0], head_branch="claude/zomboid-sega-neon-anchorage-i5emkk")]
+    assert from_runs(runs) == []
+
+
+def test_from_runs_watches_the_configured_base_branch():
+    runs = [dict(RUNS[0], head_branch="claude/zomboid-sega-neon-anchorage-i5emkk")]
+    cands = from_runs(runs, base_branch="claude/zomboid-sega-neon-anchorage-i5emkk")
+    assert len(cands) == 1
+    assert cands[0].source == "ci:music-ci"
+
+
+def test_from_runs_still_watches_main_and_master_when_base_branch_is_set():
+    # base_branch extends the watch list, it does not replace it.
+    cands = from_runs(RUNS, base_branch="claude/zomboid-sega-neon-anchorage-i5emkk")
+    assert len(cands) == 1
+    assert cands[0].source == "ci:music-ci"
+
+
+def test_collect_queries_the_configured_base_branch_too(tmp_path):
+    seen_paths = []
+
+    def fetch(path):
+        seen_paths.append(path)
+        return {"workflow_runs": []}
+
+    collect(tmp_path, fetch=fetch, slug="a/b",
+            base_branch="claude/zomboid-sega-neon-anchorage-i5emkk")
+    assert len(seen_paths) == 3
+    assert any("branch=main" in p for p in seen_paths)
+    assert any("branch=master" in p for p in seen_paths)
+    assert any("branch=claude/zomboid-sega-neon-anchorage-i5emkk" in p for p in seen_paths)
+
+
+def test_collect_finds_a_failure_on_the_configured_base_branch(tmp_path):
+    runs = [dict(RUNS[0], head_branch="claude/zomboid-sega-neon-anchorage-i5emkk")]
+
+    def fetch(path):
+        if "branch=claude/zomboid-sega-neon-anchorage-i5emkk" in path:
+            return {"workflow_runs": runs}
+        return {"workflow_runs": []}
+
+    result = collect(tmp_path, fetch=fetch, slug="a/b",
+                     base_branch="claude/zomboid-sega-neon-anchorage-i5emkk")
+    assert len(result) == 1
+    assert result[0].source == "ci:music-ci"
+
+
+def test_collect_does_not_duplicate_the_query_when_base_branch_is_main(tmp_path):
+    seen_paths = []
+
+    def fetch(path):
+        seen_paths.append(path)
+        return {"workflow_runs": []}
+
+    collect(tmp_path, fetch=fetch, slug="a/b", base_branch="main")
+    assert len(seen_paths) == 2
+
+
 def test_repo_slug_parses_https_and_ssh():
     assert repo_slug(None, runner=lambda a: "https://github.com/Mazoo85/Maz.git\n") == "Mazoo85/Maz"
     assert repo_slug(None, runner=lambda a: "git@github.com:Mazoo85/Maz.git\n") == "Mazoo85/Maz"

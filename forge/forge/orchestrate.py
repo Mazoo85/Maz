@@ -38,9 +38,9 @@ has to be accounted for:
     inside `_abandon` itself.
   - `_return_to_base` runs on the one path `_abandon` does not cover: a
     successful night. Every run — failed or not — must leave the tree on
-    `BASE_BRANCH` so tomorrow's DO cuts its branch from the same known
-    point tonight started from, rather than from tonight's own branch (see
-    the module docstring's "branch stacking" incident). Unlike `_abandon`
+    `config.base_branch` so tomorrow's DO cuts its branch from the same
+    known point tonight started from, rather than from tonight's own branch
+    (see the module docstring's "branch stacking" incident). Unlike `_abandon`
     it must not delete the branch — a successful branch carries an open PR
     — so it is its own function, not a flag on `_abandon`. It is guarded
     the same way: a checkout failure here is folded into the entry's notes,
@@ -68,7 +68,7 @@ from .gitops import checkout, delete_branch, push_branch
 from .learn import memory_note, quarantine, tick_roadmap
 from .sense import sense as sense_step
 from .sense import write_pulse
-from .verify import BASE_BRANCH, open_draft_pr, run_checks
+from .verify import open_draft_pr, run_checks
 
 
 def _run_id() -> str:
@@ -116,7 +116,7 @@ def live_run(root: Path, collectors=None, git=None, crew=None, checks=None,
     outcome = do_step(chosen, root, config, git=git, crew=crew)
     started_branch = outcome.branch
     if not outcome.ok:
-        cleanup_note = _abandon(started_branch, root, git)
+        cleanup_note = _abandon(started_branch, root, git, config.base_branch)
         # `failure_kind` is do()'s explicit, typed signal for "this failure
         # needs its own ledger outcome" — read that field rather than
         # pattern-matching `outcome.error`'s free text, which is written for
@@ -138,7 +138,7 @@ def live_run(root: Path, collectors=None, git=None, crew=None, checks=None,
     # "red checks => no PR" holds by construction rather than by convention.
     result = run_checks(chosen["zone"], root, runner=checks)
     if not result.ok:
-        cleanup_note = _abandon(started_branch, root, git)
+        cleanup_note = _abandon(started_branch, root, git, config.base_branch)
         entry = ledger_mod.new_entry(
             run_id, outcome="verify_failed", checks="red",
             cost_usd=outcome.cost_usd, duration_min=outcome.duration_min,
@@ -164,7 +164,7 @@ def live_run(root: Path, collectors=None, git=None, crew=None, checks=None,
     else:
         push_error = ""
     if not pushed:
-        cleanup_note = _abandon(started_branch, root, git)
+        cleanup_note = _abandon(started_branch, root, git, config.base_branch)
         entry = ledger_mod.new_entry(
             run_id, outcome="push_failed", checks="green",
             cost_usd=outcome.cost_usd, duration_min=outcome.duration_min,
@@ -178,7 +178,8 @@ def live_run(root: Path, collectors=None, git=None, crew=None, checks=None,
         return _record(entry, root, config)
 
     try:
-        pr = open_draft_pr(outcome, chosen, root, slug=slug, poster=poster)
+        pr = open_draft_pr(outcome, chosen, root, slug=slug, poster=poster,
+                           base_branch=config.base_branch)
         pr_error = ""
     except Exception as exc:  # noqa: BLE001 — a bad poster must not lose the ledger line
         pr, pr_error = None, str(exc)
@@ -199,12 +200,12 @@ def live_run(root: Path, collectors=None, git=None, crew=None, checks=None,
     # The branch just did real, checks-passed work — whether or not the PR
     # call itself succeeded — so it must never be deleted like a failed
     # attempt's branch is by `_abandon`. The tree still has to come back to
-    # BASE_BRANCH so tomorrow's DO cuts its own branch from the same known
-    # point tonight started from, not from tonight's branch (see the module
-    # docstring's "branch stacking" incident). A failure to restore is
-    # folded into this entry's notes rather than raised, exactly like every
-    # other git call on this path.
-    restore_note = _return_to_base(started_branch, root, git)
+    # config.base_branch so tomorrow's DO cuts its own branch from the same
+    # known point tonight started from, not from tonight's branch (see the
+    # module docstring's "branch stacking" incident). A failure to restore
+    # is folded into this entry's notes rather than raised, exactly like
+    # every other git call on this path.
+    restore_note = _return_to_base(started_branch, root, git, config.base_branch)
 
     entry = ledger_mod.new_entry(
         run_id, outcome=outcome_name, checks="green", pr=pr,
@@ -237,29 +238,37 @@ def _best_effort(fn, *args) -> None:
         pass
 
 
-def _abandon(branch: str | None, root: Path, git) -> str:
+def _abandon(branch: str | None, root: Path, git, base_branch: str) -> str:
     """Leave the working tree where the night started.
+
+    `base_branch` comes from the caller's loaded `ForgeConfig`
+    (`config.base_branch`) rather than a module-wide constant: this
+    function has no config of its own to fall back on, on purpose — a
+    silent fallback here is exactly the bug that shipped this repo's PRs
+    against the wrong project line (see verify.py's module docstring for
+    the incident).
 
     Best-effort: if the injected git runner blows up while cleaning up after
     a failed attempt, the failed attempt is still worth recording — branch
     cleaned up or not — so a crash here must not stop the caller from
     reaching `_record`.
 
-    The delete is only attempted once the checkout back to BASE_BRANCH actually
-    succeeds. `delete_branch` runs `git branch -D <branch>`, which git
-    refuses on the branch that's currently checked out — so calling it after
-    a checkout that merely *returned* failure (main missing locally, any
-    ordinary git error; not the exception case above) would either no-op or,
-    worse, silently leave the tree sitting on the Forge branch. Returns a
-    human-readable note when that happens, so the caller can fold it into
-    the ledger entry rather than let the tree's real state go unrecorded;
-    returns "" when cleanup is not needed or succeeds.
+    The delete is only attempted once the checkout back to `base_branch`
+    actually succeeds. `delete_branch` runs `git branch -D <branch>`, which
+    git refuses on the branch that's currently checked out — so calling it
+    after a checkout that merely *returned* failure (the base branch
+    missing locally, any ordinary git error; not the exception case above)
+    would either no-op or, worse, silently leave the tree sitting on the
+    Forge branch. Returns a human-readable note when that happens, so the
+    caller can fold it into the ledger entry rather than let the tree's
+    real state go unrecorded; returns "" when cleanup is not needed or
+    succeeds.
     """
     if not branch:
         return ""
     try:
-        if not checkout(BASE_BRANCH, root, runner=git):
-            return (f"could not clean up: checkout to {BASE_BRANCH} failed; "
+        if not checkout(base_branch, root, runner=git):
+            return (f"could not clean up: checkout to {base_branch} failed; "
                     f"working tree left on {branch}")
         delete_branch(branch, root, runner=git)
     except Exception:  # noqa: BLE001 — cleanup failing is not this run's story
@@ -267,31 +276,36 @@ def _abandon(branch: str | None, root: Path, git) -> str:
     return ""
 
 
-def _return_to_base(branch: str, root: Path, git) -> str:
-    """Leave the working tree on BASE_BRANCH after a *successful* run.
+def _return_to_base(branch: str, root: Path, git, base_branch: str) -> str:
+    """Leave the working tree on `base_branch` after a *successful* run.
+
+    `base_branch` is the caller's `config.base_branch`, for the same reason
+    given in `_abandon` above: this function must never quietly substitute
+    its own idea of "the base branch" when a real config was available to
+    ask.
 
     The counterpart to `_abandon` above, for the one outcome it does not
     cover: `pr_opened`. The branch just earned an open PR, so — unlike
     `_abandon` — this never deletes it; only the checkout back to
-    BASE_BRANCH happens here. Skipping this step entirely is the bug this
+    `base_branch` happens here. Skipping this step entirely is the bug this
     function exists to fix: without it, the tree stays on tonight's branch,
     and tomorrow's `create_branch` cuts tomorrow's branch from tonight's
     work (plus anything a human commits in between) instead of from a known
-    base — so a PR whose declared `base` is BASE_BRANCH ends up carrying
+    base — so a PR whose declared `base` is `base_branch` ends up carrying
     commits that were never tonight's to offer.
 
     Best-effort, exactly like `_abandon`: a checkout that fails or raises
     must not cost this run its ledger line — `_record` still has to run —
     so a human-readable note is returned instead, for the caller to fold
     into the entry. The operator needs to know the tree was left on the
-    Forge branch rather than assume a clean handoff to BASE_BRANCH.
+    Forge branch rather than assume a clean handoff to `base_branch`.
     """
     try:
-        if not checkout(BASE_BRANCH, root, runner=git):
-            return (f"could not return to {BASE_BRANCH} after opening the PR; "
+        if not checkout(base_branch, root, runner=git):
+            return (f"could not return to {base_branch} after opening the PR; "
                     f"working tree left on {branch}")
     except Exception as exc:  # noqa: BLE001 — a crash here must not lose the ledger line
-        return (f"could not return to {BASE_BRANCH} after opening the PR: {exc}; "
+        return (f"could not return to {base_branch} after opening the PR: {exc}; "
                 f"working tree left on {branch}")
     return ""
 

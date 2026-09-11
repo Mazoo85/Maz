@@ -37,6 +37,26 @@ DEFAULT_COLLECTORS = {
 }
 
 
+def _default_collectors(config: ForgeConfig) -> dict:
+    """The real collector set, with `ci` bound to this run's own base branch.
+
+    `DEFAULT_COLLECTORS` above stays a plain, importable dict for anything
+    that wants the bare collector functions (tests, mostly) — but every
+    collector `sense()` actually calls takes just `root`, and `ci_signal
+    .collect` alone among them needs to know which branch's CI is "the"
+    signal (see signals/ci.py). Building that binding here, per call, keeps
+    that knowledge out of a module-level constant that cannot see a
+    `config` at import time — and, not incidentally, out of yet another
+    place `base_branch` could be silently forgotten and default to `main`.
+    """
+    return {
+        "ci": lambda root: ci_signal.collect(root, base_branch=config.base_branch),
+        "roadmap": roadmap_signal.collect,
+        "todo": todo_signal.collect,
+        "memory": memory_signal.collect,
+    }
+
+
 def candidate_to_dict(c: Candidate) -> dict:
     return {
         "task": c.task,
@@ -79,7 +99,7 @@ def sense(root: Path, config: ForgeConfig, collectors: dict | None = None) -> di
     ``Candidate`` here, inside the same try — a collector that returns the
     wrong shape is treated exactly like one that raised: it fails alone.
     """
-    collectors = DEFAULT_COLLECTORS if collectors is None else collectors
+    collectors = _default_collectors(config) if collectors is None else collectors
     sources: dict[str, dict] = {}
     candidates: list[Candidate] = []
 

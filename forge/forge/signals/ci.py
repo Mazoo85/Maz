@@ -1,4 +1,6 @@
-"""The immune system's alarm: workflows that are currently red on main.
+"""The immune system's alarm: workflows that are currently red on the base
+branch (main/master by default, plus whatever `base_branch` a caller's
+ForgeConfig names — see `_branches_to_watch`).
 
 A red check is the highest-value signal the Forge has — something that used to
 work has stopped. Only the most recent run per workflow counts; older failures
@@ -29,6 +31,27 @@ WORKFLOW_SUBJECTS = {
 
 MAIN_BRANCHES = ("main", "master")
 RUNS_TO_SCAN = 40  # runs to scan, per branch (see collect())
+
+
+def _branches_to_watch(base_branch: str | None) -> tuple[str, ...]:
+    """Which branches' CI runs count as "the" CI signal.
+
+    `MAIN_BRANCHES` alone is the same hard-coded-"main" bug `verify.py` had:
+    on a repo whose actual default branch is neither `main` nor `master`
+    (this one included), red CI on that real base branch is invisible here
+    and red CI on an unrelated `main` line is watched instead. `base_branch`
+    — the caller's `ForgeConfig.base_branch` — is added to the watch list
+    rather than replacing it: `main`/`master` stay included because a repo
+    can genuinely have meaningful workflow history on either regardless of
+    which one is checked out by default, and because every existing caller
+    of this module calls it with no `base_branch` at all and must keep
+    seeing exactly the `main`/`master` behavior it always has.
+    `dict.fromkeys` dedupes without reordering, so passing a `base_branch`
+    that already is "main" or "master" costs nothing extra.
+    """
+    if not base_branch:
+        return MAIN_BRANCHES
+    return tuple(dict.fromkeys((*MAIN_BRANCHES, base_branch)))
 
 
 def _slug_from_path(path: str) -> str:
@@ -63,8 +86,9 @@ def _created_at_sort_key(run: dict) -> tuple[bool, str]:
     return (False, "")
 
 
-def from_runs(runs: list[dict]) -> list[Candidate]:
+def from_runs(runs: list[dict], base_branch: str | None = None) -> list[Candidate]:
     """Latest run per workflow; a red one becomes a candidate. Never raises."""
+    branches = _branches_to_watch(base_branch)
     latest: dict[str, dict] = {}
     for run in runs:
         # A malformed element that is not a dict must be skipped: the payload
@@ -72,7 +96,7 @@ def from_runs(runs: list[dict]) -> list[Candidate]:
         # failure class one level deeper as the guard already in collect().
         if not isinstance(run, dict):
             continue
-        if run.get("head_branch") not in MAIN_BRANCHES:
+        if run.get("head_branch") not in branches:
             continue
         path = run.get("path") or ""
         seen = latest.get(path)
@@ -84,9 +108,14 @@ def from_runs(runs: list[dict]) -> list[Candidate]:
         if run.get("conclusion") != "failure":
             continue
         name = run.get("name") or _slug_from_path(path)
+        # Named after the branch this run actually failed on — not a
+        # hard-coded "main" — since that branch is now whichever one of
+        # `_branches_to_watch()` this run's `head_branch` matched, and a
+        # human reading the task text deserves the true answer.
+        branch = run.get("head_branch") or "main"
         out.append(
             Candidate(
-                task=f"Fix the failing {name} workflow on main",
+                task=f"Fix the failing {name} workflow on {branch}",
                 source=f"ci:{_slug_from_path(path)}",
                 kind="ci",
                 paths=WORKFLOW_SUBJECTS.get(path, ()),
@@ -96,28 +125,35 @@ def from_runs(runs: list[dict]) -> list[Candidate]:
     return out
 
 
-def collect(root: Path, fetch=None, slug: str | None = None) -> list[Candidate]:
+def collect(root: Path, fetch=None, slug: str | None = None,
+           base_branch: str | None = None) -> list[Candidate]:
     """Read recent workflow runs from GitHub. No token means no CI signals.
 
-    The runs endpoint is queried once per name in MAIN_BRANCHES rather than
-    once unscoped. An unscoped `?per_page=N` query returns the N most recent
-    runs *across every branch* in the repo; on a repo with active
-    feature-branch work, main's own runs can be pushed out of that window
-    entirely, and from_runs()'s client-side branch filter would then have
-    nothing to find. That failure is silent and indistinguishable from "CI
-    is green" — collect() returns `[]` either way — which is worse than
-    loud, since a red main is the highest-value signal this module exists to
-    surface. Passing `branch=` lets GitHub do the filtering server-side, so
-    the window is N runs *of that branch*. A repo has one of main/master,
-    never both, so one of the two calls returns empty cheaply; that's
-    preferable to a third round trip to look up the repo's default branch.
+    The runs endpoint is queried once per name in `_branches_to_watch()`
+    rather than once unscoped. An unscoped `?per_page=N` query returns the N
+    most recent runs *across every branch* in the repo; on a repo with
+    active feature-branch work, the base branch's own runs can be pushed out
+    of that window entirely, and from_runs()'s client-side branch filter
+    would then have nothing to find. That failure is silent and
+    indistinguishable from "CI is green" — collect() returns `[]` either
+    way — which is worse than loud, since a red base branch is the
+    highest-value signal this module exists to surface. Passing `branch=`
+    lets GitHub do the filtering server-side, so the window is N runs *of
+    that branch*.
+
+    `base_branch` — the caller's `ForgeConfig.base_branch` — extends the
+    watch list beyond the hard-coded `main`/`master` (see
+    `_branches_to_watch`); a repo has at most one of main/master as its real
+    default, so at least one of those two calls (and, when `base_branch` is
+    neither, all three) returns empty cheaply — cheaper than a further round
+    trip to ask GitHub which branch is actually the default.
     """
     slug = slug or repo_slug(root)
     if not slug:
         return []
     getter = fetch or (lambda path: api(path))
     runs: list[dict] = []
-    for branch in MAIN_BRANCHES:
+    for branch in _branches_to_watch(base_branch):
         try:
             payload = getter(
                 f"/repos/{slug}/actions/runs?per_page={RUNS_TO_SCAN}&branch={branch}"
@@ -135,4 +171,4 @@ def collect(root: Path, fetch=None, slug: str | None = None) -> list[Candidate]:
         if not isinstance(branch_runs, list):
             continue
         runs.extend(branch_runs)
-    return from_runs(runs)
+    return from_runs(runs, base_branch=base_branch)

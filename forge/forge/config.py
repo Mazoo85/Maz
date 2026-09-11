@@ -34,6 +34,7 @@ _FILE_FIELDS = (
     "weights",
     "crew_timeout_min",
     "strike_limit",
+    "base_branch",
 )
 
 # Default scoring weights. Tuning these must never require a code change.
@@ -97,6 +98,14 @@ class ForgeConfig:
 
     # Failures on the same task before it is quarantined to forge/stuck.md.
     strike_limit: int = 3
+
+    # What every PR's `base` is opened against, and what the tree is
+    # returned to after `_abandon`/`_return_to_base` run in orchestrate.py.
+    # "main" is the right default for most repositories, but it is only a
+    # default: a repo whose default branch is something else (this repo
+    # included — see forge.json) must override it, or the Forge opens PRs
+    # against, and returns the tree to, an unrelated line of the project.
+    base_branch: str = "main"
 
     state_dirname: str = "forge/state"
     ledger_dirname: str = "forge/ledger"
@@ -178,6 +187,19 @@ def load_config(root: Path | None = None) -> ForgeConfig:
                     kwargs[key] = cleaned
             else:
                 del kwargs[key]
+
+    # A non-string or blank base_branch (a stray `{"base_branch": 3}` or
+    # `""`) is exactly the same class of typo `safe_zones`/`no_touch` are
+    # guarded against above: silently falling back to the default here is
+    # correct precisely because the default ("main") is a real, usable
+    # branch name — unlike those fields, there is no widened-allowlist
+    # danger to worry about, just a bad value that must not crash the load.
+    if "base_branch" in kwargs:
+        value = kwargs["base_branch"]
+        if isinstance(value, str) and value.strip():
+            kwargs["base_branch"] = value.strip()
+        else:
+            del kwargs["base_branch"]
 
     for key in ("budget_usd", "score_floor"):
         if key in kwargs:
