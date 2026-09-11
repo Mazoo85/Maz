@@ -204,10 +204,18 @@ test('a page loading the files out of the declared order fails', () => {
 });
 
 test('a page missing one of the declared files fails, naming it', () => {
+  // The missing file is deliberately the FIRST declared one, not the third.
+  // If the "missing" check is deleted, the order check that runs in its
+  // place sees loaded.indexOf(theory.js) === -1 for the first entry, and
+  // "-1 < every later real index" reads as already-ordered — so the checker
+  // would exit 0 (a silent pass on genuinely missing coupling) rather than
+  // merely failing for a different reason. Asserting the specific "does not
+  // load" phrasing plus exit 1 catches that silent pass; a substring that
+  // also appears in the "wrong order" message would not.
   const files = goodFiles();
   files['film/index.html'] = GOOD_PAGE
-    .replace('<script src="../music/js/synth.js"></script>\n', '');
-  assertFailsWith(repo(files, goodExchange()), 'music/js/synth.js');
+    .replace('<script src="../music/js/theory.js"></script>\n', '');
+  assertFailsWith(repo(files, goodExchange()), 'does not load music/js/theory.js');
 });
 
 test('an undeclared cross-project script tag fails, naming the page', () => {
@@ -235,12 +243,76 @@ test('loading shared/ is not coupling and does not fail', () => {
 });
 
 test('a page may load its own files without declaring anything', () => {
+  // Uses "../film/js/app.js" rather than "js/app.js": a same-project ref
+  // with no "../" never matches CROSS_REF at all, so it never reaches the
+  // `ref.project === owner` guard this test is meant to exercise. This form
+  // resolves to the page's own project and does reach that guard.
   const files = goodFiles();
   files['film/index.html'] = GOOD_PAGE.replace(
-    '</body>', '<script src="js/app.js"></script>\n</body>');
+    '</body>', '<script src="../film/js/app.js"></script>\n</body>');
   files['film/js/app.js'] = '// app\n';
   const { code, output } = check(repo(files, goodExchange()));
   assert.strictEqual(code, 0, 'same-project scripts are not coupling:\n' + output);
+});
+
+test('a reference more than one level up resolves to the real project, not ".."', () => {
+  // A page nested two directories deep referencing "../../music/..." used to
+  // be pattern-matched as project "..", which matches neither INFRASTRUCTURE
+  // nor the page's own owner — so it was always reported as undeclared
+  // coupling, even when correctly declared. Resolving the reference relative
+  // to the page's directory into a repo-relative path fixes that.
+  const files = {
+    'film/sub/page.html':
+      '<!doctype html><html><body>\n' +
+      '<script src="../../music/js/synth.js"></script>\n' +
+      '</body></html>\n',
+    'music/js/synth.js': '// synth\n',
+    'film/tests/film-logic.test.js': '// contract\n'
+  };
+  const ex = {
+    publishes: {
+      'music/synth': { project: 'music', summary: 's', files: ['music/js/synth.js'] }
+    },
+    consumes: [
+      { project: 'film', id: 'music/synth', via: 'script',
+        page: 'film/sub/page.html', contract: 'film/tests/film-logic.test.js' }
+    ]
+  };
+  const { code, output } = check(repo(files, ex));
+  assert.strictEqual(code, 0,
+    'a correctly-resolved ../../ reference to a declared project should pass:\n' + output);
+});
+
+test('a query string on a cross-project reference is stripped before comparing', () => {
+  const files = goodFiles();
+  files['film/index.html'] = GOOD_PAGE.replace(
+    '<script src="../music/js/synth.js"></script>',
+    '<script src="../music/js/synth.js?v=2"></script>');
+  const { code, output } = check(repo(files, goodExchange()));
+  assert.strictEqual(code, 0,
+    'a cache-busting query string should not break the declared-file match:\n' + output);
+});
+
+test('a non-array "files" on a published id fails rather than crashing .filter', () => {
+  const ex = goodExchange();
+  ex.publishes['music/composer'].files = 'oops-not-an-array';
+  const { code, output } = check(repo(goodFiles(), ex));
+  assert.strictEqual(code, 1, 'expected the checker to fail, it exited 0:\n' + output);
+  assert.ok(!output.includes('TypeError'),
+    'checker should not crash with TypeError. got:\n' + output);
+  assert.ok(output.includes('declares no files'),
+    'failed for the wrong reason.\n  wanted: declares no files\n  got:\n' + output);
+});
+
+test('a non-string "page" on a consumes entry fails rather than crashing path.join', () => {
+  const ex = goodExchange();
+  ex.consumes[0].page = 42;
+  const { code, output } = check(repo(goodFiles(), ex));
+  assert.strictEqual(code, 1, 'expected the checker to fail, it exited 0:\n' + output);
+  assert.ok(!output.includes('TypeError'),
+    'checker should not crash with TypeError. got:\n' + output);
+  assert.ok(output.includes('has a "page" that is not a string'),
+    'failed for the wrong reason.\n  wanted: has a "page" that is not a string\n  got:\n' + output);
 });
 
 for (const root of tmpRoots) rmSync(root, { recursive: true, force: true });

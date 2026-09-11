@@ -140,6 +140,9 @@ for (const c of consumes) {
   if (typeof c.contract !== 'string' || !existsSync(join(ROOT, c.contract))) {
     fail(`${EXCHANGE_REL}: ${where} names contract ${c.contract}, which does not exist`);
   }
+  if (c.page !== undefined && typeof c.page !== 'string') {
+    fail(`${EXCHANGE_REL}: ${where} has a "page" that is not a string`);
+  }
 }
 
 /* ------------------------------------- 5. the declaration matches the page */
@@ -154,19 +157,31 @@ function walkHtml(dir, out = []) {
 }
 
 /* Every `../<something>/...` a page loads through src= or href=. Only HTML is
- * scanned: a README mentioning another project is prose, not coupling. */
-const CROSS_REF = /(?:src|href)=["']\.\.\/([^/"']+)\/([^"']+)["']/g;
+ * scanned: a README mentioning another project is prose, not coupling. The
+ * whole relative reference is captured (not just its first `../` segment) so
+ * that references nesting more than one level up (`../../music/...`) resolve
+ * to the real project instead of being pattern-matched as project "..". */
+const CROSS_REF = /(?:src|href)=["'](\.\.\/[^"']+)["']/g;
 
-function crossRefs(text) {
+/* `full` is the absolute path of the page doing the referencing: each
+ * reference is resolved relative to the page's own directory into a
+ * repo-relative path, and the project is read off that resolved path —
+ * never off the raw `../` text — so depth and query strings can't fool it. */
+function crossRefs(text, full) {
   const out = [];
-  for (const m of text.matchAll(CROSS_REF)) out.push({ project: m[1], path: m[1] + '/' + m[2] });
+  const pageDir = dirname(full);
+  for (const m of text.matchAll(CROSS_REF)) {
+    const clean = m[1].split('?')[0].split('#')[0];
+    const path = relative(ROOT, resolve(pageDir, clean)).split('\\').join('/');
+    out.push({ project: path.split('/')[0], path });
+  }
   return out;
 }
 
 const pages = walkHtml(ROOT);
 const declaredByPage = new Map();
 for (const c of consumes) {
-  if (c?.via === 'script' && c.page) {
+  if (c?.via === 'script' && typeof c.page === 'string') {
     if (!declaredByPage.has(c.page)) declaredByPage.set(c.page, []);
     declaredByPage.get(c.page).push(c);
   }
@@ -179,9 +194,13 @@ for (const [page, entries] of declaredByPage) {
     fail(`${EXCHANGE_REL}: declares a use on ${page}, which does not exist`);
     continue;
   }
-  const loaded = crossRefs(readFileSync(full, 'utf8')).map((r) => r.path);
+  const loaded = crossRefs(readFileSync(full, 'utf8'), full).map((r) => r.path);
   for (const entry of entries) {
-    const want = publishes[entry.id]?.files ?? [];
+    /* entry.id may name a published id whose "files" failed validation back
+     * in section 3 (not an array at all) — fall back to [] rather than let a
+     * non-array reach .filter()/.map() below. */
+    const rawFiles = publishes[entry.id]?.files;
+    const want = Array.isArray(rawFiles) ? rawFiles : [];
     const missing = want.filter((f) => !loaded.includes(f));
     if (missing.length) {
       fail(`${page} declares it uses "${entry.id}" but does not load ${missing.join(', ')}`);
@@ -199,8 +218,9 @@ for (const [page, entries] of declaredByPage) {
 /* 5b. nothing reaches into another project without declaring it. */
 const declaredFiles = new Map();
 for (const c of consumes) {
-  if (!c?.page) continue;
-  const want = publishes[c.id]?.files ?? [];
+  if (typeof c?.page !== 'string') continue;
+  const rawFiles = publishes[c.id]?.files;
+  const want = Array.isArray(rawFiles) ? rawFiles : [];
   if (!declaredFiles.has(c.page)) declaredFiles.set(c.page, new Set());
   for (const f of want) declaredFiles.get(c.page).add(f);
 }
@@ -209,7 +229,7 @@ for (const full of pages) {
   const page = relative(ROOT, full).split('\\').join('/');
   const owner = page.includes('/') ? page.split('/')[0] : null;
   const allowed = declaredFiles.get(page) ?? new Set();
-  for (const ref of crossRefs(readFileSync(full, 'utf8'))) {
+  for (const ref of crossRefs(readFileSync(full, 'utf8'), full)) {
     if (INFRASTRUCTURE.has(ref.project)) continue;
     if (ref.project === owner) continue;
     if (allowed.has(ref.path)) continue;
