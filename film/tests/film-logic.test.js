@@ -1473,6 +1473,34 @@ test('every shape, at every length, ends where it began', () => {
   });
 });
 
+console.log('\nSTORIES FROM MADLIBS');
+const Seed = require(path.join(__dirname, '..', 'js', 'story-seed.js'));
+const MADLIBS = require(path.join(__dirname, '..', '..', 'madlibs', 'js', 'generator.js'));
+const MAD_TEMPLATES = require(path.join(__dirname, '..', '..', 'madlibs', 'js', 'templates.js'));
+
+test('every MADLIBS genre maps to a genre SCRIPT FORGE actually has', () => {
+  const templates = MAD_TEMPLATES.templates || MAD_TEMPLATES;
+  const genres = new Set(templates.map((t) => t.genre));
+  assert(genres.size >= 5, 'expected several MADLIBS genres, found ' + genres.size);
+  genres.forEach((g) => {
+    const mapped = Seed.GENRE_FOR[g];
+    assert(mapped, 'no mapping for MADLIBS genre "' + g + '"');
+    assert(LEX.GENRES[mapped], g + ' maps to "' + mapped + '", which SCRIPT FORGE does not have');
+  });
+});
+
+test('every MADLIBS beat label maps to a real beat', () => {
+  const known = ['open', 'spark', 'push', 'turn', 'crisis', 'choice', 'after'];
+  const templates = MAD_TEMPLATES.templates || MAD_TEMPLATES;
+  const labels = new Set();
+  templates.forEach((t) => (t.beats || []).forEach((b) => labels.add(b.label)));
+  labels.forEach((label) => {
+    const mapped = Seed.BEAT_FOR[label];
+    assert(mapped !== undefined, 'no mapping for MADLIBS beat "' + label + '"');
+    if (mapped !== null) assert(known.indexOf(mapped) !== -1, label + ' maps to unknown beat ' + mapped);
+  });
+});
+
 /* ------------------------------------------------------------------ report */
 console.log('');
 if (failures.length) {
