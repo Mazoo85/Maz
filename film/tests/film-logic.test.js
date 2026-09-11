@@ -668,12 +668,27 @@ function loadSongForge() {
  * constructor and are not on the prototype at all.
  *
  * `engine.js`'s own internal dependencies (`Synth.playNote` and friends,
- * `Theory.midiToFreq`, `Genres.PRESETS`) are deliberately NOT asserted here
- * any more — see the removal note below the derivation. Nothing here
- * doesn't mean nothing checks them: the end-to-end playback test further
- * down actually calls into all of them through the real code path, and a
- * rename or a throw there fails loudly. Their *existence* is now this
- * suite's business only to the extent film's own calls require it.
+ * `Theory.midiToFreq`, `Genres.PRESETS`) are NOT part of this particular
+ * derivation — film's source never names them, so a scan of film/js/*.js
+ * cannot find them. A previous wave dropped seven hand-written assertions on
+ * exactly those members, reasoning the end-to-end playback test below drives
+ * all of them anyway. Six of the seven really are: every genre's melodic and
+ * drum tracks reach `Synth.playNote`/`playDrum`/`Theory.midiToFreq` and the
+ * mixer graph always builds `Synth.softClipCurve` and `Synth.reverbImpulse`.
+ * But `Synth.vinylBuffer` (engine.js:130) runs only inside
+ * `if (fx.vinyl > 0)`, true for just two of SONG FORGE's genres — `lofi` and
+ * `ambient` — and the single sample reel this file drove end to end
+ * everywhere else scores as `cinematic` (`fx.vinyl: 0`), so that branch was
+ * never taken: a renamed or deleted `Synth.vinylBuffer` recorded a false
+ * green while three of film's ten genres (`comedy`, `romance` → lofi;
+ * `horror` → ambient, film-score.js:22-24) threw before their first frame.
+ * Two independent fixes close this, not one: the end-to-end test below now
+ * drives every genre in `Conductor.MUSIC_FOR` rather than one sample reel
+ * (so `fx.vinyl > 0` is exercised every run), and `deriveEngineInternalSurface`
+ * further down applies this exact same scanning approach to
+ * `music/js/engine.js` itself, so `engine.js`'s own `Synth.*`/`Theory.*`/
+ * `Genres.*` call sites are asserted by name, unconditionally — not only
+ * on whichever code path an end-to-end drive happens to take.
  */
 const MUSIC_GLOBALS = ['Theory', 'Genres', 'Synth', 'Composer', 'Engine'];
 
@@ -744,6 +759,66 @@ function deriveFilmMusicSurface() {
   });
 
   return { direct: Array.from(direct.values()), onPlayer: Array.from(onPlayer.values()) };
+}
+
+/* ----------------------------------------------- engine.js's own internal surface
+ * `deriveFilmMusicSurface` above finds only what *film* reaches for on the
+ * five exchange-published globals. `engine.js` also reaches for members of
+ * its own — `Synth.playNote`, `Synth.playDrum`, `Synth.softClipCurve`,
+ * `Synth.reverbImpulse`, `Synth.vinylBuffer`, `Theory.midiToFreq`,
+ * `Genres.PRESETS` — that film's source never names, so no scan of
+ * film/js/*.js can ever find them. This applies the identical approach —
+ * read the real source, resolve local aliases, find the actual call
+ * sites — to music/js/engine.js instead of film/js/*.js, and to the three
+ * globals engine.js itself depends on (Theory, Genres, Synth — it doesn't
+ * call into Composer or its own Engine namespace).
+ *
+ * engine.js's IIFE names its global-object parameter `global`
+ * (`(function (global) { ... })(window)`), not `root` like film/js's files
+ * do (`(function (root) { ... })(...)`), so the normalization below rewrites
+ * `global.X` to `X` rather than `root.X`. `synth.js` is aliased locally
+ * (`const Synth = global.Synth;` at the top of engine.js) while `Theory` and
+ * `Genres` are reached directly (`global.Theory.midiToFreq(...)`,
+ * `global.Genres.PRESETS`) — both shapes are found the same way once the
+ * `global.` prefix is normalized away, exactly as `root.` is for film.
+ *
+ * This is the fix for a real regression: a previous wave dropped seven
+ * hand-written assertions on these exact members as "over-coupled",
+ * reasoning that the end-to-end playback test further down drives all of
+ * them anyway. It drives six of the seven on every run — but
+ * `Synth.vinylBuffer` runs only inside `if (fx.vinyl > 0)`
+ * (music/js/engine.js:130), true only for the `lofi` and `ambient` genres,
+ * and the single sample reel that test used to drive scores as `cinematic`
+ * (`fx.vinyl: 0`) — so that branch went untaken and a renamed or deleted
+ * `Synth.vinylBuffer` recorded a false green. Driving every genre (see the
+ * updated end-to-end test below) closes that specific gap; deriving and
+ * asserting this surface closes the general one — a conditional branch no
+ * end-to-end drive happens to reach is still asserted to exist, unconditionally.
+ */
+const ENGINE_INTERNAL_GLOBALS = ['Theory', 'Genres', 'Synth'];
+
+function deriveEngineInternalSurface() {
+  const file = path.join(__dirname, '..', '..', 'music', 'js', 'engine.js');
+  const text = fs.readFileSync(file, 'utf8');
+  const norm = text.replace(/\bglobal\.(Theory|Genres|Synth)\b/g, '$1');
+
+  const aliasToGlobal = new Map();
+  ENGINE_INTERNAL_GLOBALS.forEach((g) => aliasToGlobal.set(g, g));
+  const aliasRe = /\b([A-Za-z_$][\w$]*)\s*=\s*(Theory|Genres|Synth)\s*(?=[;,)\n])/g;
+  let am;
+  while ((am = aliasRe.exec(norm))) aliasToGlobal.set(am[1], am[2]);
+
+  const direct = new Map();
+  const re = /\b([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)\s*(\()?/g;
+  let m;
+  while ((m = re.exec(norm))) {
+    const global = aliasToGlobal.get(m[1]);
+    if (!global) continue;
+    const kind = m[3] ? 'function' : 'value';
+    const key = global + '.' + m[2] + '.' + kind;
+    if (!direct.has(key)) direct.set(key, { global, member: m[2], kind, file: 'engine.js' });
+  }
+  return Array.from(direct.values());
 }
 
 /* --------------------------------------------------------- a fake AudioContext
@@ -900,6 +975,104 @@ test('every member film/js/*.js actually reaches for on Theory/Genres/Synth/Comp
     } else {
       assert(req.member in instance, where + ' does not exist on a constructed instance');
     }
+  });
+});
+
+test('the derivation over engine.js\'s own Synth/Theory/Genres surface finds real call sites, not nothing', () => {
+  // The same vacuous-scan failure mode the film derivation guards against
+  // applies here too: a scan that silently matched zero call sites in
+  // engine.js would pass no matter what got renamed underneath it. Seven
+  // call sites are found in engine.js today (playNote, playDrum,
+  // softClipCurve, reverbImpulse, vinylBuffer, Theory.midiToFreq,
+  // Genres.PRESETS). Five is a floor loose enough to survive a small
+  // refactor of engine.js but tight enough to fail the moment this regex
+  // stops matching engine.js's source altogether.
+  const surface = deriveEngineInternalSurface();
+  assert(surface.length >= 5, 'the engine-derived internal surface has only ' + surface.length +
+    ' entries — the scan over music/js/engine.js is not finding real call sites any more: ' +
+    JSON.stringify(surface));
+});
+
+test('every Synth/Theory/Genres member engine.js itself reaches for internally is the right shape', () => {
+  // This is the restoration, on a derived rather than hand-written basis, of
+  // the seven assertions a previous wave dropped as "over-coupled" — and it
+  // is what actually catches `Synth.vinylBuffer` renamed or deleted:
+  // engine.js's own source names it (music/js/engine.js:130), regardless of
+  // whether any genre driven end to end this run happens to reach the
+  // `if (fx.vinyl > 0)` branch that calls it.
+  const forge = loadSongForge();
+  const surface = deriveEngineInternalSurface();
+
+  surface.forEach((req) => {
+    const value = forge[req.global][req.member];
+    const where = req.global + '.' + req.member + ' (reached for internally in ' + req.file + ')';
+    if (req.kind === 'function') {
+      eq(typeof value, 'function', where + ' is not a function');
+    } else {
+      assert(typeof value !== 'undefined', where + ' does not exist');
+    }
+  });
+});
+
+test('every film genre actually plays, not just the sample reel\'s', () => {
+  // Regression: `Synth.vinylBuffer` is called from engine.js's `buildGraph`
+  // only inside `if (fx.vinyl > 0)` (music/js/engine.js:130), and only the
+  // `lofi` (fx.vinyl 0.5) and `ambient` (fx.vinyl 0.15) genres set that. The
+  // sample reel the detailed test above drives is scored as `cinematic`
+  // (fx.vinyl: 0), which never takes that branch — so a rename or deletion
+  // of `Synth.vinylBuffer` left every check that used only the sample reel
+  // green, while `comedy`/`romance` (both scored `lofi`) and `horror`
+  // (scored `ambient` — see film-score.js:22-24, film/js/film-score.js's
+  // MUSIC_FOR) threw `TypeError: Synth.vinylBuffer is not a function` inside
+  // `_buildGraph`, reached with no try/catch from film-player.js:391 and
+  // app.js:359 — three of film's ten genres never played at all.
+  //
+  // So this drives the same real play()/pause()/play()/seek()/stop() cycle
+  // as the detailed test below, but for every genre film can actually ask
+  // for — read from `Conductor.MUSIC_FOR` itself, not a hand list, so a
+  // genre added later is covered the moment it exists, and any similar
+  // genre-gated branch elsewhere is caught the same way.
+  const forge = loadSongForge();
+  const reel = Reel.build(sample);
+  const filmGenres = Object.keys(Conductor.MUSIC_FOR);
+  assert(filmGenres.length >= 8, 'Conductor.MUSIC_FOR has suspiciously few genres: ' + filmGenres.length);
+
+  filmGenres.forEach((filmGenre) => {
+    const scoredReel = Object.assign({}, reel, { genre: filmGenre });
+    const music = Conductor.MUSIC_FOR[filmGenre];
+    const genreRange = forge.Genres.GENRES[music.genre];
+    const req = Conductor.request(scoredReel, { bpmRange: genreRange && genreRange.bpm });
+    const song = forge.Composer.compose({
+      genre: req.genre, mood: req.mood, seed: req.seed,
+      bpm: req.bpm, seconds: req.seconds, sections: req.sections
+    });
+
+    const ctx = makeFakeAudioContext();
+    const player = new forge.Engine.Player({ context: ctx, destination: null });
+    player.loop = false;
+    player.load(song);
+    player.play(0);
+    assert(player.playing === true, filmGenre + ' (' + music.genre + '): play() did not start playback');
+
+    const spb = 60 / song.bpm;
+    const totalSeconds = song.totalBeats * spb;
+    const advance = (fraction) => { ctx.currentTime = totalSeconds * fraction; player._tick(); };
+    for (let i = 0; i <= 12; i++) advance((i / 12) * 0.5);
+
+    player.pause();
+    assert(player.playing === false, filmGenre + ': pause() did not stop playback');
+    player.play();
+    for (let i = 0; i <= 12; i++) advance(0.5 + (i / 12) * 0.3);
+
+    player.seek(song.totalBeats * 0.85);
+    for (let i = 0; i <= 12; i++) advance(0.8 + (i / 12) * 0.2);
+
+    player.stop();
+    assert(player.playing === false, filmGenre + ': stop() did not stop playback');
+
+    const built = ctx._calls.createOscillator + ctx._calls.createBufferSource;
+    assert(built > 0, filmGenre + ' (' + music.genre + '/' + music.mood +
+      '): playback ran without ever building a single oscillator or buffer source');
   });
 });
 

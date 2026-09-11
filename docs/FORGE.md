@@ -229,7 +229,7 @@ the loop's judgement — carried a false claim.
 **What "`film`'s tests passed" actually covers, and what it doesn't.**
 `shared/exchange.json` declares `music/composer` as five files —
 `theory.js`, `genres.js`, `synth.js`, `composer.js`, `engine.js` — and
-`film/index.html` loads all five, in that order. Four things now stand
+`film/index.html` loads all five, in that order. Five things now stand
 between a broken one of those files and a false `checks: green`:
 
 - `scripts/check-exchange.mjs` parses every published file as JavaScript
@@ -277,12 +277,44 @@ between a broken one of those files and a false `checks: green`:
   of quietly asserting nothing, which is the failure mode both hand-written
   lists actually shipped. `engine.js`'s own internal dependencies —
   `Synth.playNote` and its neighbors, `Theory.midiToFreq`, `Genres.PRESETS`
-  — are deliberately *not* asserted by name here any more: film never calls
-  them, so a legitimate `music/` refactor that inlines one of them (folding
-  `Synth.vinylBuffer` into `engine.js` and dropping the export, say) has no
-  business failing *film's* contract test for a member film never touched.
-  Coverage of those internals moved to the next point, where it belongs: on
-  the actual code path, not on their names.
+  — are *not* found by this particular scan: film's source never names them,
+  so a scan of `film/js/*.js` cannot see them, by construction. A previous
+  wave took that as license to drop seven hand-written assertions on exactly
+  those members, reasoning that the end-to-end playback test below (the
+  next point) drives all of them anyway on the code path, not by name. That
+  reasoning held for six of the seven: every genre's melodic and drum
+  tracks reach `playNote`/`playDrum`/`midiToFreq`, and the mixer graph
+  always builds `softClipCurve` and `reverbImpulse`, regardless of genre.
+  It did *not* hold for `Synth.vinylBuffer` (`engine.js:130`), which runs
+  only inside `if (fx.vinyl > 0)` — true for exactly two of SONG FORGE's
+  genres, `lofi` and `ambient` — and the single sample reel the end-to-end
+  test drove everywhere scores as `cinematic` (`fx.vinyl: 0`), so that
+  branch was never taken. Folding `Synth.vinylBuffer` into `engine.js` and
+  dropping the export (the very refactor this section used to cite as the
+  motivating, safe-to-drop example) recorded a false `checks: green` while
+  three of film's ten genres — `comedy` and `romance` (both scored `lofi`)
+  and `horror` (scored `ambient`; see `film/js/film-score.js:22-24`) —
+  threw `TypeError: Synth.vinylBuffer is not a function` before their first
+  frame and played with no score at all. See the next point for how this is
+  fixed now.
+- The end-to-end playback test (below) now drives every genre film can
+  actually ask for — every key of `Conductor.MUSIC_FOR`, not one sample
+  reel — so genre-gated branches like `fx.vinyl > 0` are exercised on every
+  run, not only on whichever genre a hand-picked sample idea happens to
+  land on. And a second, independent derivation — `deriveEngineInternalSurface()`
+  — applies the exact same read-the-source approach `deriveFilmMusicSurface`
+  uses, aimed at `music/js/engine.js` itself instead of `film/js/*.js`: it
+  finds `engine.js`'s own real `Synth.*`/`Theory.*`/`Genres.*` call sites
+  (resolving `engine.js`'s own local alias, `const Synth = global.Synth`,
+  the same way film's aliases are resolved) and asserts each exists with
+  the right shape, restoring the seven dropped assertions on a derived
+  rather than hand-typed basis. It carries its own floor (five; seven are
+  found today) for the same reason the film derivation does — a scan that
+  silently matches nothing is exactly the failure this whole approach
+  exists to avoid. Between the two, `Synth.vinylBuffer` is now covered
+  twice, by two independent mechanisms: unconditionally, by name, whether
+  or not any genre driven this run happens to reach the branch that calls
+  it; and conditionally, by actually driving that branch, on every run.
 - One more test composes a real song with `Composer.compose`, constructs a
   real `Engine.Player` against a fake but functional Web Audio context
   (every node type `engine.js`'s mixer graph and `synth.js`'s voices call
@@ -295,16 +327,20 @@ between a broken one of those files and a false `checks: green`:
   one of `play`/`seek`/`pause`/`stop` renamed, and `play` reduced to a
   no-op (asserted directly: `player.playing` must actually flip, and
   `seek()` must actually move `player._pausedBeat`) — not just missing, but
-  present and inert. It also catches `Synth.playNote` (or any mixer-graph
-  call) throwing, since nothing here catches the exception before it
-  reaches the test. It does **not** reliably catch `Synth.playNote` reduced
-  to a silent no-op while `Synth.playDrum` still works: the assertion that
-  something real got built checks for *any* oscillator or buffer source
-  across the whole simulated playback, and a drum-only kit still creates
-  both — so a melodic voice quietly going silent while the beat keeps
-  playing can still pass. That gap is named, not hidden: closing it needs
-  either a real `AudioContext` or a much finer-grained fake that can tell
-  which instrument produced which node, and neither exists here today.
+  present and inert. It also catches `Synth.playNote` or `Synth.playDrum`
+  (or any mixer-graph call) throwing, since nothing here catches the
+  exception before it reaches the test. What it does **not** reliably
+  catch is either one of `Synth.playNote` or `Synth.playDrum` reduced to a
+  silent no-op while *the other* still works: the assertion that something
+  real got built checks for *any* oscillator or buffer source, built by
+  *any* instrument, across the whole simulated playback — and a song
+  always has both a drum track and at least one melodic track, so either
+  voice alone quietly going silent while the other keeps playing can still
+  pass. (Gutting *both* together does fail: then nothing gets built at
+  all, and the assertion catches it directly.) That gap is named, not
+  hidden: closing it needs either a real `AudioContext` or a much
+  finer-grained fake that can tell which instrument produced which node,
+  and neither exists here today.
 
 None of this runs the audio graph `synth.js` and `engine.js` build against a
 real `AudioContext`, or proves a bar of music actually sounds right —
@@ -321,8 +357,13 @@ without throwing in the declared order, and that every member film/js/*.js
 is found — by scanning it, not by memory — to actually reach for, whether
 on the five globals directly or on the `Engine.Player` instance it holds,
 still exists with the right shape and can be driven through
-load/play/pause/seek/stop without throwing or silently failing to start;
-it does not guarantee that surface computes the right values, that the
+load/play/pause/seek/stop without throwing or silently failing to start —
+for every genre film can ask for, not one sample reel — and that every
+member `engine.js` itself reaches for on `Theory`/`Genres`/`Synth`,
+likewise found by scanning `engine.js`'s own source rather than by memory,
+still exists with the right shape, whether or not the genre a given
+end-to-end run happened to drive would ever have reached it; it does not
+guarantee that surface computes the right values, that the
 resulting audio is correct, or that every individual instrument voice
 inside a working playback session is still audible rather than quietly
 mute — those gaps still live entirely in CI, after the PR is already open,
