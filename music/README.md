@@ -94,6 +94,13 @@ python3 -m http.server         # or serve the folder: http://localhost:8000/musi
 - **Export** — the finished track as a **.wav**, the notes as a **.mid**, or
   **stems**: every part as its own audio file, to mix by hand in GarageBand,
   Ableton, FL Studio, Logic or MuseScore.
+- **Feel** — eight grooves (straight, light, swung, hard, MPC, drunk, pushed,
+  laid back) that change how the song is *played* rather than what it plays, so
+  you can move the groove while you listen. Plus a **looseness** control for how
+  far notes drift off the grid when they are written.
+- **A click track** with a bar counted in, for playing along.
+- **Half time** — where a style calls for it, a chorus or bridge drops to half
+  speed under music that has not slowed down.
 - **Choose the scale, the chord rate and the time signature** yourself, or
   leave any of them to the style.
 - **Seeds** — every song has a short code like `VELVET-7318`. The same seed and
@@ -188,9 +195,15 @@ Each song is built in this order:
 10. **Arrangement.** Where a style calls for it, the bar before a chorus empties
    out — the kit stops, a snare roll climbs, a riser sweeps — and the chorus
    lands on an impact. Taking things away is what makes the next bar hit.
-11. **Performance.** Swing pushes offbeats late, and every note is nudged a few
-   milliseconds and a little louder or quieter, so nothing sits perfectly on the
-   grid.
+11. **Performance.** Two different things, deliberately kept apart. *Humanising*
+   is part of the written performance — a few thousandths of a beat and a little
+   louder or quieter, decided by the part's own seed — so it lives in the score
+   and changes when a part is re-rolled. *Swing* is not: it is how the score is
+   played, the same notes pushed late on the offbeats, so it is applied at
+   playback by the scheduler, the offline render and the MIDI writer alike.
+   That is what makes the groove something you can move while you listen instead
+   of something that needs a part rewritten — and it means what you hear, what
+   you export and what you save all swing identically.
 
 Then `synth.js` builds every sound from scratch — **36 instruments and 16 drum
 pieces, no audio files anywhere in this app**. A filter can only take away what

@@ -434,17 +434,47 @@
    * Feel — swing and humanising, applied once at the end.
    * ------------------------------------------------------------------ */
 
+  /* ------------------------------------------------------------------ *
+   * Feel
+   *
+   * Two different things used to be baked into the note times together, and
+   * they do not belong together.
+   *
+   * Humanising is part of the written performance: a few thousandths of a beat
+   * and a little louder or quieter, decided by the part's own seed. It stays in
+   * the score, because re-rolling the part is what should change it.
+   *
+   * Swing is not. It is how the score is *played* — the same notes, pushed late
+   * on the offbeats — so it belongs at playback, where it can be moved while
+   * you listen instead of only when a part is rewritten. `swingTime` below is
+   * applied by the scheduler, the offline render and the MIDI writer alike, so
+   * what you hear, what you export and what you save all swing identically.
+   * ------------------------------------------------------------------ */
+
+  /** Where a beat lands once the groove has had its say. */
+  function swingTime(t, swing, push) {
+    let out = t;
+    if (swing > 0) {
+      const eighth = Math.round(t / 0.5);
+      if (Math.abs(t - eighth * 0.5) < 1e-6 && eighth % 2 === 1) out += swing * 0.5;
+    }
+    if (push) {
+      /* Push and pull: a groove is not only where the offbeats sit but how the
+         sixteenths lean. A positive value drags behind the beat, a negative one
+         leans into it. */
+      const step = Math.round(t * 4) % 4;
+      out += (push[step] || 0);
+    }
+    return out < 0 ? 0 : out;
+  }
+
   function applyFeel(events, song, rng, amount) {
-    const swing = song.swing;
     for (let i = 0; i < events.length; i++) {
       const e = events[i];
-      if (swing > 0) {
-        const eighth = Math.round(e.t / 0.5);
-        if (Math.abs(e.t - eighth * 0.5) < 1e-6 && eighth % 2 === 1) e.t += swing * 0.5;
-      }
       if (amount > 0) {
-        e.t += (rng.next() - 0.5) * 0.02 * amount;
-        e.v = Math.max(0.08, Math.min(1, e.v + (rng.next() - 0.5) * 0.12 * amount));
+        const loose = song.humanise === undefined ? 1 : song.humanise;
+        e.t += (rng.next() - 0.5) * 0.02 * amount * loose;
+        e.v = Math.max(0.08, Math.min(1, e.v + (rng.next() - 0.5) * 0.12 * amount * loose));
       }
       if (e.t < 0) e.t = 0;
     }
@@ -453,10 +483,110 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Grooves
+   *
+   * A borrowed feel. `swing` is how far the offbeat eighths sit late; `push` is
+   * a per-sixteenth lean in beats, which is the part that gives a groove its
+   * character — an MPC pushes the second sixteenth, and the drunk feel drags
+   * the second and fourth by different amounts so the bar never quite settles.
+   * ------------------------------------------------------------------ */
+
+  const GROOVES = {
+    straight: { name: 'Straight',   swing: 0,    push: null },
+    light:    { name: 'Light swing', swing: 0.12, push: null },
+    swung:    { name: 'Swung',      swing: 0.3,  push: null },
+    hard:     { name: 'Hard swing', swing: 0.42, push: null },
+    mpc:      { name: 'MPC',        swing: 0.24, push: [0, 0.012, 0, 0.006] },
+    dilla:    { name: 'Drunk',      swing: 0.18, push: [0, 0.03, -0.012, 0.022] },
+    pushed:   { name: 'Pushed',     swing: 0.08, push: [0, -0.014, -0.008, -0.014] },
+    laidback: { name: 'Laid back',  swing: 0.14, push: [0, 0.02, 0.014, 0.02] }
+  };
+
+  function grooveOf(song) {
+    if (song && song.groove && GROOVES[song.groove]) return GROOVES[song.groove];
+    return null;
+  }
+
+  /** Swing and lean for this song, whether from a groove or its own settings. */
+  function feelOf(song) {
+    const g = grooveOf(song);
+    return {
+      swing: g ? g.swing : (song.swing || 0),
+      push: g ? g.push : null
+    };
+  }
+
+  /* ------------------------------------------------------------------ *
    * Drums
    * ------------------------------------------------------------------ */
 
   const VEL_CHAR = { X: 1.0, x: 0.85, o: 0.45 };
+
+  /** The first step a backbeat instrument actually plays in this pattern. */
+  function firstBackbeatStep(pattern, inst) {
+    const row = pattern[inst] || '';
+    for (let i = 0; i < row.length; i++) if (row.charAt(i) !== '.') return i;
+    return -1;
+  }
+
+  /**
+   * A fill, drawn fresh each time.
+   *
+   * Four shapes, because the seam between two sections is the one bar a
+   * listener is most likely to notice, and hearing the identical figure at
+   * every seam turns a signpost into wallpaper. The genre's own written fill
+   * stays in the pool so its character survives.
+   */
+  function makeFill(rng, written, energy, meter) {
+    const n = 16;
+    const blank = function () { return '.'.repeat(n).split(''); };
+    const pick = rng.weighted([
+      ['written', written ? 3 : 0],
+      ['roll', 3],
+      ['toms', 2],
+      ['stutter', 2],
+      ['drop', energy >= 0.8 ? 2 : 1]
+    ]);
+    if (pick === 'written' && written) return written;
+
+    const out = {};
+    if (pick === 'roll') {
+      // A snare roll that tightens as it climbs.
+      const snare = blank();
+      const from = rng.pick([4, 6, 8]);
+      for (let i = from; i < n; i++) snare[i] = i >= n - 4 ? 'X' : (i % 2 ? 'o' : 'x');
+      out.snare = snare.join('');
+      const kick = blank(); kick[0] = 'x';
+      out.kick = kick.join('');
+    } else if (pick === 'toms') {
+      // A run down the toms, landing on the crash of the next bar.
+      const tom = blank();
+      [8, 10, 11, 12, 14].forEach(function (i) { tom[i] = i >= 12 ? 'X' : 'x'; });
+      out.tom = tom.join('');
+      const kick = blank(); kick[0] = 'x'; kick[8] = 'x';
+      out.kick = kick.join('');
+      const snare = blank(); snare[4] = 'x';
+      out.snare = snare.join('');
+    } else if (pick === 'stutter') {
+      // The kit keeps going, the hats trip over themselves.
+      const hh = blank();
+      for (let i = 0; i < n; i++) hh[i] = i >= 12 ? 'X' : (i % 2 ? 'o' : 'x');
+      out.hh = hh.join('');
+      const kick = blank(); kick[0] = 'x'; kick[6] = 'x'; kick[10] = 'x';
+      out.kick = kick.join('');
+      const snare = blank(); snare[4] = 'x'; snare[12] = 'x'; snare[14] = 'o';
+      out.snare = snare.join('');
+    } else {
+      /* Everything stops, then three hits. Taking the kit away is a louder fill
+         than adding to it. */
+      const snare = blank();
+      [10, 12, 14].forEach(function (i) { snare[i] = 'X'; });
+      out.snare = snare.join('');
+      const kick = blank(); kick[0] = 'X';
+      out.kick = kick.join('');
+    }
+    return out;
+  }
 
   function patternForEnergy(drums, energy) {
     if (energy <= 0.4) return drums.intro || drums.groove || {};
@@ -473,6 +603,7 @@
 
     for (let s = 0; s < song.sections.length; s++) {
       const sec = song.sections[s];
+      const halfTime = !!sec.halfTime;
       const base = adaptPattern(patternForEnergy(drums, sec.energy), meter);
       const isLast = s === song.sections.length - 1;
 
@@ -512,7 +643,12 @@
         }
 
         const fillBar = !isLast && lastBarOfSection && sec.bars >= 4 && rng.chance(0.85);
-        const pattern = fillBar && drums.fill ? adaptPattern(drums.fill, meter) : base;
+        /* One fill per genre meant every section ended the same way, which is
+           the opposite of what a fill is for — it is supposed to mark the seam,
+           and a seam you have heard eight times stops marking anything. */
+        const pattern = fillBar
+          ? adaptPattern(makeFill(rng, drums.fill, sec.energy, meter), meter)
+          : base;
 
         Object.keys(pattern).forEach(function (inst) {
           const row = pattern[inst];
@@ -523,6 +659,19 @@
 
             // Drop the odd hit in sparse sections so it breathes.
             if (sec.energy < 0.5 && vel < 0.6 && rng.chance(0.35)) continue;
+            /* Half time: the kit plays at half speed under music that has not
+               slowed down. Across two bars the kick keeps the first and the
+               backbeat lands in the second, so the pattern the style already
+               wrote is stretched rather than replaced — and the hats keep the
+               original pulse, which is what makes it feel heavy rather than
+               simply slower. */
+            if (halfTime) {
+              if (inst === 'kick' && bar % 2 === 1) continue;
+              if (BACKBEAT_INSTS.indexOf(inst) >= 0) {
+                if (bar % 2 === 0) continue;
+                if (i !== firstBackbeatStep(pattern, inst)) continue;
+              }
+            }
             // Occasional extra kick/snare ghost in high energy.
             vel *= 0.85 + sec.energy * 0.2;
 
@@ -541,6 +690,22 @@
             }
           }
         });
+
+        /* Ghost notes: the quiet in-between hits that make a groove breathe.
+           A drummer's left hand never stops moving, and a pattern written only
+           as accents is a machine playing the accents. */
+        if (!fillBar && sec.energy >= 0.55 && drums.ghosts !== false) {
+          const spots = [3, 7, 11, 15].filter(function (x) { return x < meter.steps; });
+          for (let g = 0; g < spots.length; g++) {
+            if (!rng.chance(0.22 * sec.energy)) continue;
+            events.push({
+              t: barBeat + spots[g] * STEP_BEATS,
+              d: 0.2, p: 60,
+              v: 0.16 + rng.next() * 0.12,
+              inst: 'snare'
+            });
+          }
+        }
 
         // Crash the downbeat when a big section starts.
         if (b === 0 && sec.energy >= 0.95) {
@@ -1160,14 +1325,30 @@
     if (!evs || !evs.length) return false;
     const isDrums = part === 'drums';
 
+    const onBeat = function (e) { return Math.abs(e.t - Math.round(e.t)) < 0.08; };
+
     if (dir < 0) {
-      const keep = evs.filter(function (e) {
-        const onBeat = Math.abs(e.t - Math.round(e.t)) < 0.08;
-        return onBeat || e.v >= 0.75;
-      });
+      /* Loud is relative. An absolute velocity threshold does nothing to a part
+         that is loud throughout — which is exactly what a part looks like after
+         it has been filled in — so the cut is taken from this part's own
+         spread: keep what lands on a beat, plus the loudest third. */
+      const sorted = evs.map(function (e) { return e.v; }).sort(function (a, b) { return a - b; });
+      const cut = sorted[Math.floor(sorted.length * 0.66)];
+      let keep = evs.filter(function (e) { return onBeat(e) || e.v >= cut; });
+
+      /* If that removed nothing, the part is all downbeats and all loud. Thin
+         it by taking out every second offbeat instead, so the button always
+         does something or honestly says it cannot. */
+      if (keep.length === evs.length) {
+        let n = 0;
+        keep = evs.filter(function (e) {
+          if (onBeat(e)) return true;
+          return (n++ % 2) === 0;
+        });
+      }
+      if (keep.length === evs.length) return false;
       // Never thin a part out of existence.
       if (keep.length < Math.max(4, evs.length * 0.25)) return false;
-      if (keep.length === evs.length) return false;
       song.tracks[part] = keep;
       return true;
     }
@@ -1323,6 +1504,7 @@
         });
       return {
         type: sec.type, bars: sec.bars, energy: sec.energy, keyShift: sec.keyShift || 0,
+        halfTime: !!sec.halfTime,
         parts: sec.parts, tracks: tracks, chords: chords
       };
     });
@@ -1356,7 +1538,8 @@
       });
       sections.push({
         type: b.type, bars: b.bars, energy: b.energy,
-        parts: b.parts, keyShift: b.keyShift || 0, startBar: bar, chords: []
+        parts: b.parts, keyShift: b.keyShift || 0, halfTime: !!b.halfTime,
+        startBar: bar, chords: []
       });
       bar += b.bars;
     });
@@ -1479,6 +1662,8 @@
       bars: song.bars,
       totalBeats: song.totalBeats,
       pingpong: !!song.pingpong,
+      groove: song.groove || '',
+      humanise: song.humanise === undefined ? 1 : song.humanise,
       keyChange: song.keyChange || null,
       barsPerChord: song.barsPerChord || 0,
       presetOverride: song.presetOverride || {},
@@ -1487,7 +1672,8 @@
       partSeeds: song.partSeeds,
       sections: song.sections.map(function (s) {
         return { type: s.type, bars: s.bars, startBar: s.startBar, energy: s.energy,
-                 name: s.name, parts: s.parts, keyShift: s.keyShift || 0 };
+                 name: s.name, parts: s.parts, keyShift: s.keyShift || 0,
+                 halfTime: !!s.halfTime };
       }),
       chords: song.chords.map(function (c) {
         return { startBeat: r4(c.startBeat), durBeats: r4(c.durBeats), bar: c.bar, bars: c.bars,
@@ -1526,6 +1712,8 @@
     song.totalBeats = p.totalBeats;
     song.duration = p.totalBeats * (60 / p.bpm);
     song.pingpong = !!p.pingpong;
+    song.groove = p.groove && GROOVES[p.groove] ? p.groove : '';
+    song.humanise = p.humanise === undefined ? 1 : p.humanise;
     song.keyChange = p.keyChange || null;
     song.barsPerChord = p.barsPerChord || 0;
     song.presetOverride = p.presetOverride || {};
@@ -1543,7 +1731,8 @@
 
     song.sections = p.sections.map(function (s) {
       return { type: s.type, bars: s.bars, startBar: s.startBar, energy: s.energy,
-               name: s.name, parts: s.parts, keyShift: s.keyShift || 0, chords: [] };
+               name: s.name, parts: s.parts, keyShift: s.keyShift || 0,
+               halfTime: !!s.halfTime, chords: [] };
     });
     // Sections keep their own view of the harmony; re-link it to the restored one.
     song.sections.forEach(function (sec) {
@@ -1741,6 +1930,10 @@
          tripping over each other. */
       sec.parts.counter = sec.parts.lead && e >= 0.6 &&
         rng.chance(genre.counter ? genre.counter.chance : 0);
+      /* Half time belongs to a section that wants weight rather than speed —
+         a bridge that drops, or a chorus that lands heavier than the verse. */
+      sec.halfTime = (sec.type === 'bridge' || sec.type === 'chorus') &&
+        sec.bars >= 8 && rng.chance(genre.halfTime || 0);
     }
   }
 
@@ -1867,6 +2060,11 @@
       : Math.round(rng.range(genre.bpm[0], genre.bpm[1]) + mood.bpm);
     song.bpm = Math.max(40, Math.min(200, bpm));
     song.swing = genre.swing;
+    /* Feel. The groove is a playback setting and can be moved while you listen;
+       looseness is written into the notes, so it takes effect when a part is
+       written or re-rolled. */
+    song.groove = opts.groove && GROOVES[opts.groove] ? opts.groove : '';
+    song.humanise = opts.humanise === undefined ? 1 : Math.max(0, Math.min(2, opts.humanise));
 
     // Key
     song.rootPc = (typeof opts.key === 'number' && opts.key >= 0) ? opts.key : rng.int(12);
@@ -1979,6 +2177,9 @@
     pitchToDegree: pitchToDegree,
     chordAt: chordAt,
     sectionOf: sectionOf,
+    swingTime: swingTime,
+    feelOf: feelOf,
+    GROOVES: GROOVES,
     keyRootAt: keyRootAt,
     adjustDensity: adjustDensity,
     packSong: packSong,

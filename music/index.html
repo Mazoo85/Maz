@@ -46,6 +46,12 @@
           <select id="keySelect"></select>
         </div>
         <div class="adv-item">
+          <label class="field-label" for="looseInput">
+            Looseness <span class="hint" id="looseLabel">normal</span>
+          </label>
+          <input type="range" id="looseInput" min="0" max="200" step="10" value="100" />
+        </div>
+        <div class="adv-item">
           <label class="field-label" for="scaleSelect">Scale</label>
           <select id="scaleSelect">
             <option value="">Let the style choose</option>
@@ -123,6 +129,9 @@
         <output id="keyVal" class="ctl-value">—</output>
         <button type="button" class="mini-btn" id="keyUp" aria-label="Up a semitone">+</button>
       </div>
+      <label class="tool-field" for="grooveSelect"><span>Feel</span>
+        <select id="grooveSelect"></select>
+      </label>
       <label class="tool-field" for="masterVol"><span>Volume</span>
         <input type="range" id="masterVol" min="0" max="120" step="1" value="85" aria-label="Volume" />
       </label>
@@ -147,6 +156,8 @@
         <input type="range" id="seek" min="0" max="1000" value="0" aria-label="Position" />
         <div class="times"><span id="timeNow">0:00</span><span id="timeTotal">0:00</span></div>
       </div>
+      <button type="button" class="mini-btn toggle" id="clickBtn"
+              title="Click along with the beat, with a bar counted in">Click</button>
       <button type="button" class="mini-btn toggle on" id="loopBtn" title="Loop the song">Loop</button>
     </div>
   </section>

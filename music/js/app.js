@@ -33,6 +33,7 @@
     length: 'medium',
     meter: '',        // '' = let the genre choose
     scale: '',        // '' = let the genre choose
+    humanise: 1,      // how far notes drift off the grid when they are written
     chordRate: 0,     // 0 = let the genre choose
     bpm: 0,           // 0 = auto
     song: null,
@@ -130,6 +131,18 @@
 
   function bindOptions() {
     el('lengthSelect').addEventListener('change', function () { state.length = this.value; });
+    const loose = el('looseInput');
+    loose.addEventListener('input', function () {
+      state.humanise = parseInt(this.value, 10) / 100;
+      el('looseLabel').textContent = state.humanise === 0 ? 'dead straight'
+        : state.humanise < 0.7 ? 'tight'
+        : state.humanise > 1.4 ? 'very loose'
+        : state.humanise > 1.05 ? 'loose' : 'normal';
+    });
+    loose.addEventListener('change', function () {
+      status('Looseness set — it takes effect on the next song, or when you re-roll a part.');
+    });
+
     const scaleSel = el('scaleSelect');
     Object.keys(T.SCALES).forEach(function (id) {
       const o = document.createElement('option');
@@ -188,7 +201,8 @@
       bpm: opts.bpm !== undefined ? opts.bpm : state.bpm,
       meter: opts.meter !== undefined ? opts.meter : state.meter,
       scale: opts.scale !== undefined ? opts.scale : state.scale,
-      barsPerChord: opts.barsPerChord !== undefined ? opts.barsPerChord : state.chordRate
+      barsPerChord: opts.barsPerChord !== undefined ? opts.barsPerChord : state.chordRate,
+      humanise: opts.humanise !== undefined ? opts.humanise : state.humanise
     };
 
     let song;
@@ -272,6 +286,7 @@
     el('songMeta').textContent = songMetaText();
     el('timeTotal').textContent = fmtTime(s.duration);
     el('seedInput').value = s.seed;
+    el('grooveSelect').value = s.groove || '';
     state.seedEdited = false;
     buildChordStrip();
     buildArrange();
@@ -915,6 +930,37 @@
   }
 
   function bindSongControls() {
+    /* The groove is a playback setting, so it changes what you hear without
+       rewriting a note — moving it mid-listen is the whole point. */
+    el('clickBtn').addEventListener('click', function () {
+      const on = !player.metronome;
+      player.setMetronome(on, true);
+      this.classList.toggle('on', on);
+      status(on ? 'Click on — a bar is counted in when you press play.' : 'Click off.');
+      // Restart so a count-in actually counts you in.
+      if (player.playing) { const at = player.currentBeat(); player.stop(); player.play(at); }
+    });
+
+    const groove = el('grooveSelect');
+    const blank = document.createElement('option');
+    blank.value = '';
+    blank.textContent = 'As the style plays it';
+    groove.appendChild(blank);
+    Object.keys(C.GROOVES).forEach(function (id) {
+      const o = document.createElement('option');
+      o.value = id;
+      o.textContent = C.GROOVES[id].name;
+      groove.appendChild(o);
+    });
+    groove.addEventListener('change', function () {
+      if (!state.song) return;
+      state.song.groove = this.value;
+      player.refresh();                  // re-times the score; no note is changed
+      markRollDirty();
+      status(this.value ? 'Feel: ' + C.GROOVES[this.value].name + '.'
+                        : 'Back to the style\u2019s own feel.');
+    });
+
     const tempo = el('liveTempo');
     tempo.addEventListener('input', function () {
       el('liveTempoVal').textContent = this.value;

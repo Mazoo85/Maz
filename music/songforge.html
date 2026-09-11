@@ -942,6 +942,12 @@ input[type="range"]::-moz-range-thumb {
           <select id="keySelect"></select>
         </div>
         <div class="adv-item">
+          <label class="field-label" for="looseInput">
+            Looseness <span class="hint" id="looseLabel">normal</span>
+          </label>
+          <input type="range" id="looseInput" min="0" max="200" step="10" value="100" />
+        </div>
+        <div class="adv-item">
           <label class="field-label" for="scaleSelect">Scale</label>
           <select id="scaleSelect">
             <option value="">Let the style choose</option>
@@ -1019,6 +1025,9 @@ input[type="range"]::-moz-range-thumb {
         <output id="keyVal" class="ctl-value">—</output>
         <button type="button" class="mini-btn" id="keyUp" aria-label="Up a semitone">+</button>
       </div>
+      <label class="tool-field" for="grooveSelect"><span>Feel</span>
+        <select id="grooveSelect"></select>
+      </label>
       <label class="tool-field" for="masterVol"><span>Volume</span>
         <input type="range" id="masterVol" min="0" max="120" step="1" value="85" aria-label="Volume" />
       </label>
@@ -1043,6 +1052,8 @@ input[type="range"]::-moz-range-thumb {
         <input type="range" id="seek" min="0" max="1000" value="0" aria-label="Position" />
         <div class="times"><span id="timeNow">0:00</span><span id="timeTotal">0:00</span></div>
       </div>
+      <button type="button" class="mini-btn toggle" id="clickBtn"
+              title="Click along with the beat, with a bar counted in">Click</button>
       <button type="button" class="mini-btn toggle on" id="loopBtn" title="Loop the song">Loop</button>
     </div>
   </section>
@@ -1882,6 +1893,7 @@ input[type="range"]::-moz-range-thumb {
       meters: [['4/4', 9], ['3/4', 1]],
       modulates: 0.0, borrow: 0.14,
       riff: 0.15,
+      halfTime: 0.15,
       scales: [['dorian', 3], ['minor', 3], ['major', 1], ['mixolydian', 1]],
       progressions: PROG.jazzy.concat(PROG.modal), chordShapes: [['seventh', 4], ['ninth', 3], ['sixth', 1]],
       barsPerChord: [1, 2],
@@ -1908,6 +1920,7 @@ input[type="range"]::-moz-range-thumb {
       meters: [['4/4', 1]],
       modulates: 0.12, borrow: 0.05,
       riff: 0.3,
+      halfTime: 0.15,
       scales: [['minor', 4], ['dorian', 2], ['harmonicMinor', 1], ['major', 1]],
       progressions: PROG.minorEpic.concat(PROG.popMajor), chordShapes: [['triad', 3], ['seventh', 2], ['sus4', 1]],
       barsPerChord: [1, 2],
@@ -1934,6 +1947,7 @@ input[type="range"]::-moz-range-thumb {
       meters: [['4/4', 1]],
       modulates: 0.05, borrow: 0.04,
       riff: 0.2,
+      halfTime: 0.1,
       scales: [['minor', 3], ['dorian', 3], ['major', 1]],
       progressions: PROG.jazzy.concat(PROG.minorEpic), chordShapes: [['seventh', 4], ['ninth', 3], ['triad', 1]],
       barsPerChord: [1, 2],
@@ -1960,6 +1974,7 @@ input[type="range"]::-moz-range-thumb {
       meters: [['4/4', 5], ['3/4', 2], ['6/8', 2], ['5/4', 1]],
       modulates: 0.0, borrow: 0.02,
       riff: 0.05,
+      halfTime: 0.05,
       scales: [['lydian', 3], ['major', 2], ['dorian', 2], ['minor', 2]],
       progressions: PROG.ambientDrift, chordShapes: [['ninth', 3], ['seventh', 3], ['sus2', 2], ['triad', 1]],
       barsPerChord: [2, 4],
@@ -1986,6 +2001,7 @@ input[type="range"]::-moz-range-thumb {
       meters: [['4/4', 5], ['3/4', 2], ['6/8', 1], ['5/4', 1], ['7/8', 1]],
       modulates: 0.3, borrow: 0.1,
       riff: 0.1,
+      halfTime: 0.3,
       scales: [['minor', 3], ['harmonicMinor', 2], ['dorian', 2], ['major', 1]],
       progressions: PROG.minorEpic.concat(PROG.popMajor), chordShapes: [['triad', 3], ['seventh', 2], ['sus4', 2]],
       barsPerChord: [1, 2],
@@ -2012,6 +2028,7 @@ input[type="range"]::-moz-range-thumb {
       meters: [['4/4', 8], ['3/4', 1], ['7/8', 1]],
       modulates: 0.25, borrow: 0.06,
       riff: 0.4,
+      halfTime: 0.1,
       scales: [['major', 3], ['minor', 3], ['mixolydian', 1], ['lydian', 1]],
       progressions: PROG.popMajor.concat(PROG.minorEpic), chordShapes: [['triad', 4], ['seventh', 1]],
       barsPerChord: [1, 1],
@@ -2038,6 +2055,7 @@ input[type="range"]::-moz-range-thumb {
       meters: [['4/4', 9], ['7/8', 1]],
       modulates: 0.05, borrow: 0.05,
       riff: 0.3,
+      halfTime: 0.35,
       scales: [['minor', 4], ['phrygian', 2], ['dorian', 2]],
       progressions: PROG.minorEpic.concat(PROG.modal), chordShapes: [['seventh', 3], ['ninth', 2], ['triad', 2]],
       barsPerChord: [2, 4],
@@ -2064,6 +2082,7 @@ input[type="range"]::-moz-range-thumb {
       meters: [['4/4', 1]],
       modulates: 0.0, borrow: 0.03,
       riff: 0.25,
+      halfTime: 0.4,
       scales: [['minor', 3], ['phrygian', 3], ['harmonicMinor', 2]],
       progressions: PROG.darkTrap, chordShapes: [['triad', 3], ['seventh', 2], ['sus4', 1]],
       barsPerChord: [2, 2],
@@ -2091,6 +2110,7 @@ input[type="range"]::-moz-range-thumb {
       meters: [['4/4', 8], ['3/4', 1], ['7/8', 1]],
       modulates: 0.18, borrow: 0.1,
       riff: 0.65,
+      halfTime: 0.2,
       scales: [['minor', 3], ['mixolydian', 3], ['major', 2], ['dorian', 1]],
       progressions: PROG.rock.concat(PROG.popMajor), chordShapes: [['power', 3], ['triad', 4], ['sus4', 1]],
       barsPerChord: [1, 2],
@@ -2117,6 +2137,7 @@ input[type="range"]::-moz-range-thumb {
       meters: [['4/4', 1]],
       modulates: 0.05, borrow: 0.16,
       riff: 0.7,
+      halfTime: 0.15,
       scales: [['dorian', 4], ['mixolydian', 3], ['minor', 2], ['aeolianPent', 1]],
       progressions: PROG.funk.concat(PROG.jazzy), chordShapes: [['ninth', 4], ['seventh', 3], ['sixth', 2]],
       barsPerChord: [2, 4],
@@ -2143,6 +2164,7 @@ input[type="range"]::-moz-range-thumb {
       meters: [['4/4', 7], ['3/4', 2], ['5/4', 1]],
       modulates: 0.1, borrow: 0.34,
       riff: 0.15,
+      halfTime: 0.05,
       scales: [['dorian', 3], ['major', 3], ['mixolydian', 2], ['minor', 2], ['harmonicMinor', 1]],
       progressions: PROG.jazzy.concat(PROG.bossa), chordShapes: [['ninth', 4], ['seventh', 4], ['sixth', 2]],
       barsPerChord: [1, 2],
@@ -2169,6 +2191,7 @@ input[type="range"]::-moz-range-thumb {
       meters: [['4/4', 1]],
       modulates: 0.22, borrow: 0.12,
       riff: 0.3,
+      halfTime: 0.05,
       scales: [['minor', 3], ['major', 3], ['dorian', 2]],
       progressions: PROG.disco.concat(PROG.jazzy), chordShapes: [['seventh', 4], ['ninth', 3], ['sixth', 1]],
       barsPerChord: [1, 2],
@@ -2195,6 +2218,7 @@ input[type="range"]::-moz-range-thumb {
       meters: [['4/4', 1]],
       modulates: 0.0, borrow: 0.02,
       riff: 0.35,
+      halfTime: 0.15,
       scales: [['minor', 4], ['phrygian', 2], ['dorian', 2]],
       progressions: PROG.techno.concat(PROG.loop2), chordShapes: [['power', 3], ['triad', 3], ['seventh', 2]],
       barsPerChord: [4, 8],
@@ -2221,6 +2245,7 @@ input[type="range"]::-moz-range-thumb {
       meters: [['4/4', 1]],
       modulates: 0.0, borrow: 0.03,
       riff: 0.4,
+      halfTime: 0.45,
       scales: [['minor', 3], ['phrygian', 3], ['harmonicMinor', 2]],
       progressions: PROG.loop2.concat(PROG.darkTrap), chordShapes: [['triad', 3], ['seventh', 3], ['power', 2]],
       barsPerChord: [2, 4],
@@ -2247,6 +2272,7 @@ input[type="range"]::-moz-range-thumb {
       meters: [['4/4', 9], ['6/8', 1]],
       modulates: 0.05, borrow: 0.08,
       riff: 0.45,
+      halfTime: 0.1,
       scales: [['major', 3], ['mixolydian', 3], ['dorian', 2], ['minor', 1]],
       progressions: PROG.loop2.concat(PROG.popMajor), chordShapes: [['seventh', 3], ['triad', 3], ['ninth', 2]],
       barsPerChord: [2, 4],
@@ -2273,6 +2299,7 @@ input[type="range"]::-moz-range-thumb {
       meters: [['4/4', 1]],
       modulates: 0.08, borrow: 0.3,
       riff: 0.1,
+      halfTime: 0.05,
       scales: [['major', 3], ['dorian', 2], ['mixolydian', 2], ['minor', 1]],
       progressions: PROG.bossa.concat(PROG.jazzy), chordShapes: [['ninth', 4], ['seventh', 4], ['sixth', 2]],
       barsPerChord: [1, 2],
@@ -2299,6 +2326,7 @@ input[type="range"]::-moz-range-thumb {
       meters: [['4/4', 6], ['6/8', 3], ['3/4', 1]],
       modulates: 0.35, borrow: 0.26,
       riff: 0.2,
+      halfTime: 0.1,
       scales: [['major', 4], ['mixolydian', 3], ['dorian', 1]],
       progressions: PROG.gospel.concat(PROG.popMajor), chordShapes: [['seventh', 4], ['ninth', 3], ['sixth', 2]],
       barsPerChord: [1, 2],
@@ -2325,6 +2353,7 @@ input[type="range"]::-moz-range-thumb {
       meters: [['4/4', 7], ['3/4', 3]],
       modulates: 0.28, borrow: 0.12,
       riff: 0.3,
+      halfTime: 0.1,
       scales: [['major', 4], ['mixolydian', 3], ['minor', 1]],
       progressions: PROG.country.concat(PROG.popMajor), chordShapes: [['triad', 4], ['sus4', 1], ['sixth', 2], ['seventh', 2]],
       barsPerChord: [1, 2],
@@ -2807,17 +2836,47 @@ input[type="range"]::-moz-range-thumb {
    * Feel — swing and humanising, applied once at the end.
    * ------------------------------------------------------------------ */
 
+  /* ------------------------------------------------------------------ *
+   * Feel
+   *
+   * Two different things used to be baked into the note times together, and
+   * they do not belong together.
+   *
+   * Humanising is part of the written performance: a few thousandths of a beat
+   * and a little louder or quieter, decided by the part's own seed. It stays in
+   * the score, because re-rolling the part is what should change it.
+   *
+   * Swing is not. It is how the score is *played* — the same notes, pushed late
+   * on the offbeats — so it belongs at playback, where it can be moved while
+   * you listen instead of only when a part is rewritten. `swingTime` below is
+   * applied by the scheduler, the offline render and the MIDI writer alike, so
+   * what you hear, what you export and what you save all swing identically.
+   * ------------------------------------------------------------------ */
+
+  /** Where a beat lands once the groove has had its say. */
+  function swingTime(t, swing, push) {
+    let out = t;
+    if (swing > 0) {
+      const eighth = Math.round(t / 0.5);
+      if (Math.abs(t - eighth * 0.5) < 1e-6 && eighth % 2 === 1) out += swing * 0.5;
+    }
+    if (push) {
+      /* Push and pull: a groove is not only where the offbeats sit but how the
+         sixteenths lean. A positive value drags behind the beat, a negative one
+         leans into it. */
+      const step = Math.round(t * 4) % 4;
+      out += (push[step] || 0);
+    }
+    return out < 0 ? 0 : out;
+  }
+
   function applyFeel(events, song, rng, amount) {
-    const swing = song.swing;
     for (let i = 0; i < events.length; i++) {
       const e = events[i];
-      if (swing > 0) {
-        const eighth = Math.round(e.t / 0.5);
-        if (Math.abs(e.t - eighth * 0.5) < 1e-6 && eighth % 2 === 1) e.t += swing * 0.5;
-      }
       if (amount > 0) {
-        e.t += (rng.next() - 0.5) * 0.02 * amount;
-        e.v = Math.max(0.08, Math.min(1, e.v + (rng.next() - 0.5) * 0.12 * amount));
+        const loose = song.humanise === undefined ? 1 : song.humanise;
+        e.t += (rng.next() - 0.5) * 0.02 * amount * loose;
+        e.v = Math.max(0.08, Math.min(1, e.v + (rng.next() - 0.5) * 0.12 * amount * loose));
       }
       if (e.t < 0) e.t = 0;
     }
@@ -2826,10 +2885,110 @@ input[type="range"]::-moz-range-thumb {
   }
 
   /* ------------------------------------------------------------------ *
+   * Grooves
+   *
+   * A borrowed feel. `swing` is how far the offbeat eighths sit late; `push` is
+   * a per-sixteenth lean in beats, which is the part that gives a groove its
+   * character — an MPC pushes the second sixteenth, and the drunk feel drags
+   * the second and fourth by different amounts so the bar never quite settles.
+   * ------------------------------------------------------------------ */
+
+  const GROOVES = {
+    straight: { name: 'Straight',   swing: 0,    push: null },
+    light:    { name: 'Light swing', swing: 0.12, push: null },
+    swung:    { name: 'Swung',      swing: 0.3,  push: null },
+    hard:     { name: 'Hard swing', swing: 0.42, push: null },
+    mpc:      { name: 'MPC',        swing: 0.24, push: [0, 0.012, 0, 0.006] },
+    dilla:    { name: 'Drunk',      swing: 0.18, push: [0, 0.03, -0.012, 0.022] },
+    pushed:   { name: 'Pushed',     swing: 0.08, push: [0, -0.014, -0.008, -0.014] },
+    laidback: { name: 'Laid back',  swing: 0.14, push: [0, 0.02, 0.014, 0.02] }
+  };
+
+  function grooveOf(song) {
+    if (song && song.groove && GROOVES[song.groove]) return GROOVES[song.groove];
+    return null;
+  }
+
+  /** Swing and lean for this song, whether from a groove or its own settings. */
+  function feelOf(song) {
+    const g = grooveOf(song);
+    return {
+      swing: g ? g.swing : (song.swing || 0),
+      push: g ? g.push : null
+    };
+  }
+
+  /* ------------------------------------------------------------------ *
    * Drums
    * ------------------------------------------------------------------ */
 
   const VEL_CHAR = { X: 1.0, x: 0.85, o: 0.45 };
+
+  /** The first step a backbeat instrument actually plays in this pattern. */
+  function firstBackbeatStep(pattern, inst) {
+    const row = pattern[inst] || '';
+    for (let i = 0; i < row.length; i++) if (row.charAt(i) !== '.') return i;
+    return -1;
+  }
+
+  /**
+   * A fill, drawn fresh each time.
+   *
+   * Four shapes, because the seam between two sections is the one bar a
+   * listener is most likely to notice, and hearing the identical figure at
+   * every seam turns a signpost into wallpaper. The genre's own written fill
+   * stays in the pool so its character survives.
+   */
+  function makeFill(rng, written, energy, meter) {
+    const n = 16;
+    const blank = function () { return '.'.repeat(n).split(''); };
+    const pick = rng.weighted([
+      ['written', written ? 3 : 0],
+      ['roll', 3],
+      ['toms', 2],
+      ['stutter', 2],
+      ['drop', energy >= 0.8 ? 2 : 1]
+    ]);
+    if (pick === 'written' && written) return written;
+
+    const out = {};
+    if (pick === 'roll') {
+      // A snare roll that tightens as it climbs.
+      const snare = blank();
+      const from = rng.pick([4, 6, 8]);
+      for (let i = from; i < n; i++) snare[i] = i >= n - 4 ? 'X' : (i % 2 ? 'o' : 'x');
+      out.snare = snare.join('');
+      const kick = blank(); kick[0] = 'x';
+      out.kick = kick.join('');
+    } else if (pick === 'toms') {
+      // A run down the toms, landing on the crash of the next bar.
+      const tom = blank();
+      [8, 10, 11, 12, 14].forEach(function (i) { tom[i] = i >= 12 ? 'X' : 'x'; });
+      out.tom = tom.join('');
+      const kick = blank(); kick[0] = 'x'; kick[8] = 'x';
+      out.kick = kick.join('');
+      const snare = blank(); snare[4] = 'x';
+      out.snare = snare.join('');
+    } else if (pick === 'stutter') {
+      // The kit keeps going, the hats trip over themselves.
+      const hh = blank();
+      for (let i = 0; i < n; i++) hh[i] = i >= 12 ? 'X' : (i % 2 ? 'o' : 'x');
+      out.hh = hh.join('');
+      const kick = blank(); kick[0] = 'x'; kick[6] = 'x'; kick[10] = 'x';
+      out.kick = kick.join('');
+      const snare = blank(); snare[4] = 'x'; snare[12] = 'x'; snare[14] = 'o';
+      out.snare = snare.join('');
+    } else {
+      /* Everything stops, then three hits. Taking the kit away is a louder fill
+         than adding to it. */
+      const snare = blank();
+      [10, 12, 14].forEach(function (i) { snare[i] = 'X'; });
+      out.snare = snare.join('');
+      const kick = blank(); kick[0] = 'X';
+      out.kick = kick.join('');
+    }
+    return out;
+  }
 
   function patternForEnergy(drums, energy) {
     if (energy <= 0.4) return drums.intro || drums.groove || {};
@@ -2846,6 +3005,7 @@ input[type="range"]::-moz-range-thumb {
 
     for (let s = 0; s < song.sections.length; s++) {
       const sec = song.sections[s];
+      const halfTime = !!sec.halfTime;
       const base = adaptPattern(patternForEnergy(drums, sec.energy), meter);
       const isLast = s === song.sections.length - 1;
 
@@ -2885,7 +3045,12 @@ input[type="range"]::-moz-range-thumb {
         }
 
         const fillBar = !isLast && lastBarOfSection && sec.bars >= 4 && rng.chance(0.85);
-        const pattern = fillBar && drums.fill ? adaptPattern(drums.fill, meter) : base;
+        /* One fill per genre meant every section ended the same way, which is
+           the opposite of what a fill is for — it is supposed to mark the seam,
+           and a seam you have heard eight times stops marking anything. */
+        const pattern = fillBar
+          ? adaptPattern(makeFill(rng, drums.fill, sec.energy, meter), meter)
+          : base;
 
         Object.keys(pattern).forEach(function (inst) {
           const row = pattern[inst];
@@ -2896,6 +3061,19 @@ input[type="range"]::-moz-range-thumb {
 
             // Drop the odd hit in sparse sections so it breathes.
             if (sec.energy < 0.5 && vel < 0.6 && rng.chance(0.35)) continue;
+            /* Half time: the kit plays at half speed under music that has not
+               slowed down. Across two bars the kick keeps the first and the
+               backbeat lands in the second, so the pattern the style already
+               wrote is stretched rather than replaced — and the hats keep the
+               original pulse, which is what makes it feel heavy rather than
+               simply slower. */
+            if (halfTime) {
+              if (inst === 'kick' && bar % 2 === 1) continue;
+              if (BACKBEAT_INSTS.indexOf(inst) >= 0) {
+                if (bar % 2 === 0) continue;
+                if (i !== firstBackbeatStep(pattern, inst)) continue;
+              }
+            }
             // Occasional extra kick/snare ghost in high energy.
             vel *= 0.85 + sec.energy * 0.2;
 
@@ -2914,6 +3092,22 @@ input[type="range"]::-moz-range-thumb {
             }
           }
         });
+
+        /* Ghost notes: the quiet in-between hits that make a groove breathe.
+           A drummer's left hand never stops moving, and a pattern written only
+           as accents is a machine playing the accents. */
+        if (!fillBar && sec.energy >= 0.55 && drums.ghosts !== false) {
+          const spots = [3, 7, 11, 15].filter(function (x) { return x < meter.steps; });
+          for (let g = 0; g < spots.length; g++) {
+            if (!rng.chance(0.22 * sec.energy)) continue;
+            events.push({
+              t: barBeat + spots[g] * STEP_BEATS,
+              d: 0.2, p: 60,
+              v: 0.16 + rng.next() * 0.12,
+              inst: 'snare'
+            });
+          }
+        }
 
         // Crash the downbeat when a big section starts.
         if (b === 0 && sec.energy >= 0.95) {
@@ -3533,14 +3727,30 @@ input[type="range"]::-moz-range-thumb {
     if (!evs || !evs.length) return false;
     const isDrums = part === 'drums';
 
+    const onBeat = function (e) { return Math.abs(e.t - Math.round(e.t)) < 0.08; };
+
     if (dir < 0) {
-      const keep = evs.filter(function (e) {
-        const onBeat = Math.abs(e.t - Math.round(e.t)) < 0.08;
-        return onBeat || e.v >= 0.75;
-      });
+      /* Loud is relative. An absolute velocity threshold does nothing to a part
+         that is loud throughout — which is exactly what a part looks like after
+         it has been filled in — so the cut is taken from this part's own
+         spread: keep what lands on a beat, plus the loudest third. */
+      const sorted = evs.map(function (e) { return e.v; }).sort(function (a, b) { return a - b; });
+      const cut = sorted[Math.floor(sorted.length * 0.66)];
+      let keep = evs.filter(function (e) { return onBeat(e) || e.v >= cut; });
+
+      /* If that removed nothing, the part is all downbeats and all loud. Thin
+         it by taking out every second offbeat instead, so the button always
+         does something or honestly says it cannot. */
+      if (keep.length === evs.length) {
+        let n = 0;
+        keep = evs.filter(function (e) {
+          if (onBeat(e)) return true;
+          return (n++ % 2) === 0;
+        });
+      }
+      if (keep.length === evs.length) return false;
       // Never thin a part out of existence.
       if (keep.length < Math.max(4, evs.length * 0.25)) return false;
-      if (keep.length === evs.length) return false;
       song.tracks[part] = keep;
       return true;
     }
@@ -3696,6 +3906,7 @@ input[type="range"]::-moz-range-thumb {
         });
       return {
         type: sec.type, bars: sec.bars, energy: sec.energy, keyShift: sec.keyShift || 0,
+        halfTime: !!sec.halfTime,
         parts: sec.parts, tracks: tracks, chords: chords
       };
     });
@@ -3729,7 +3940,8 @@ input[type="range"]::-moz-range-thumb {
       });
       sections.push({
         type: b.type, bars: b.bars, energy: b.energy,
-        parts: b.parts, keyShift: b.keyShift || 0, startBar: bar, chords: []
+        parts: b.parts, keyShift: b.keyShift || 0, halfTime: !!b.halfTime,
+        startBar: bar, chords: []
       });
       bar += b.bars;
     });
@@ -3852,6 +4064,8 @@ input[type="range"]::-moz-range-thumb {
       bars: song.bars,
       totalBeats: song.totalBeats,
       pingpong: !!song.pingpong,
+      groove: song.groove || '',
+      humanise: song.humanise === undefined ? 1 : song.humanise,
       keyChange: song.keyChange || null,
       barsPerChord: song.barsPerChord || 0,
       presetOverride: song.presetOverride || {},
@@ -3860,7 +4074,8 @@ input[type="range"]::-moz-range-thumb {
       partSeeds: song.partSeeds,
       sections: song.sections.map(function (s) {
         return { type: s.type, bars: s.bars, startBar: s.startBar, energy: s.energy,
-                 name: s.name, parts: s.parts, keyShift: s.keyShift || 0 };
+                 name: s.name, parts: s.parts, keyShift: s.keyShift || 0,
+                 halfTime: !!s.halfTime };
       }),
       chords: song.chords.map(function (c) {
         return { startBeat: r4(c.startBeat), durBeats: r4(c.durBeats), bar: c.bar, bars: c.bars,
@@ -3899,6 +4114,8 @@ input[type="range"]::-moz-range-thumb {
     song.totalBeats = p.totalBeats;
     song.duration = p.totalBeats * (60 / p.bpm);
     song.pingpong = !!p.pingpong;
+    song.groove = p.groove && GROOVES[p.groove] ? p.groove : '';
+    song.humanise = p.humanise === undefined ? 1 : p.humanise;
     song.keyChange = p.keyChange || null;
     song.barsPerChord = p.barsPerChord || 0;
     song.presetOverride = p.presetOverride || {};
@@ -3916,7 +4133,8 @@ input[type="range"]::-moz-range-thumb {
 
     song.sections = p.sections.map(function (s) {
       return { type: s.type, bars: s.bars, startBar: s.startBar, energy: s.energy,
-               name: s.name, parts: s.parts, keyShift: s.keyShift || 0, chords: [] };
+               name: s.name, parts: s.parts, keyShift: s.keyShift || 0,
+               halfTime: !!s.halfTime, chords: [] };
     });
     // Sections keep their own view of the harmony; re-link it to the restored one.
     song.sections.forEach(function (sec) {
@@ -4114,6 +4332,10 @@ input[type="range"]::-moz-range-thumb {
          tripping over each other. */
       sec.parts.counter = sec.parts.lead && e >= 0.6 &&
         rng.chance(genre.counter ? genre.counter.chance : 0);
+      /* Half time belongs to a section that wants weight rather than speed —
+         a bridge that drops, or a chorus that lands heavier than the verse. */
+      sec.halfTime = (sec.type === 'bridge' || sec.type === 'chorus') &&
+        sec.bars >= 8 && rng.chance(genre.halfTime || 0);
     }
   }
 
@@ -4240,6 +4462,11 @@ input[type="range"]::-moz-range-thumb {
       : Math.round(rng.range(genre.bpm[0], genre.bpm[1]) + mood.bpm);
     song.bpm = Math.max(40, Math.min(200, bpm));
     song.swing = genre.swing;
+    /* Feel. The groove is a playback setting and can be moved while you listen;
+       looseness is written into the notes, so it takes effect when a part is
+       written or re-rolled. */
+    song.groove = opts.groove && GROOVES[opts.groove] ? opts.groove : '';
+    song.humanise = opts.humanise === undefined ? 1 : Math.max(0, Math.min(2, opts.humanise));
 
     // Key
     song.rootPc = (typeof opts.key === 'number' && opts.key >= 0) ? opts.key : rng.int(12);
@@ -4352,6 +4579,9 @@ input[type="range"]::-moz-range-thumb {
     pitchToDegree: pitchToDegree,
     chordAt: chordAt,
     sectionOf: sectionOf,
+    swingTime: swingTime,
+    feelOf: feelOf,
+    GROOVES: GROOVES,
     keyRootAt: keyRootAt,
     adjustDensity: adjustDensity,
     packSong: packSong,
@@ -5580,6 +5810,14 @@ input[type="range"]::-moz-range-thumb {
     const out = ctx.createGain();
     out.gain.value = 0.98 * (masterVolume === undefined ? 1 : masterVolume);
 
+    /* The click goes straight to the output. It is not part of the music, so it
+       must not be swept by the filter lane, faded by the volume lane, ducked by
+       the kick, or caught by the limiter — and it never reaches an export,
+       because it is only ever scheduled during live playback. */
+    const click = ctx.createGain();
+    click.gain.value = 0.5;
+    click.connect(out);
+
     master.connect(autoFilter).connect(limiter).connect(safety).connect(autoGain).connect(out);
     out.connect(ctx.destination);
 
@@ -5765,7 +6003,7 @@ input[type="range"]::-moz-range-thumb {
     return {
       master: master, limiter: limiter, analyser: analyser, tracks: tracks,
       revReturn: revReturn, delReturn: delReturn, vinyl: vinyl, out: out,
-      autoFilter: autoFilter, autoGain: autoGain,
+      autoFilter: autoFilter, autoGain: autoGain, click: click,
       delMonoIn: delMonoIn, delPingIn: delPingIn, choReturn: choReturn, choLfos: choLfos,
       duckDepth: duckDepth, duckRelease: Math.min(0.42, (60 / song.bpm) * 0.62)
     };
@@ -5777,12 +6015,19 @@ input[type="range"]::-moz-range-thumb {
 
   function flatten(song) {
     const flat = [];
+    /* Swing and groove lean are applied here rather than written into the
+       score, so this one place feeds live playback and the offline render
+       alike — and moving the groove while you listen changes what you hear
+       without rewriting a single note. */
+    const feel = global.Composer.feelOf(song);
+    const swing = global.Composer.swingTime;
     TRACKS.forEach(function (name) {
       const evs = song.tracks[name] || [];
       let prevPitch = null;
       for (let i = 0; i < evs.length; i++) {
         const e = evs[i];
-        const item = { t: e.t, d: e.d, p: e.p, v: e.v, inst: e.inst, track: name };
+        const item = { t: swing(e.t, feel.swing, feel.push), d: e.d, p: e.p, v: e.v,
+                       inst: e.inst, track: name };
         if (name === 'bass' && e.glide && prevPitch !== null) item.glideFrom = prevPitch;
         if (name === 'bass') prevPitch = e.p;
         flat.push(item);
@@ -5831,6 +6076,24 @@ input[type="range"]::-moz-range-thumb {
     }
   }
 
+  /**
+   * A click. Two pitches: higher on the first beat of the bar, so you can hear
+   * where the bar is rather than only where the beats are.
+   */
+  function scheduleClick(ctx, graph, when, downbeat) {
+    if (!graph || !graph.click) return;
+    const o = ctx.createOscillator();
+    o.type = 'square';
+    o.frequency.value = downbeat ? 1600 : 1050;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(downbeat ? 0.5 : 0.28, when + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + 0.045);
+    o.connect(g).connect(graph.click);
+    o.start(when);
+    o.stop(when + 0.06);
+  }
+
   /* ------------------------------------------------------------------ *
    * The live player
    * ------------------------------------------------------------------ */
@@ -5851,6 +6114,9 @@ input[type="range"]::-moz-range-thumb {
       };
     }, this);
     this.volume = 0.85;
+    this.metronome = false;
+    this.countIn = false;
+    this._clickBeat = 0;
     this._timer = null;
     this._index = 0;
     this._pass = 0;
@@ -5960,7 +6226,11 @@ input[type="range"]::-moz-range-thumb {
     const spb = 60 / this.song.bpm;
     this._pass = 0;
     this._index = this._indexForBeat(startBeat);
-    this._originTime = ctx.currentTime + 0.08 - startBeat * spb;
+    /* A count-in is simply the song starting a bar later: everything downstream
+       already measures from `_originTime`, so nothing else has to know. */
+    const lead = (this.metronome && this.countIn) ? (this.song.beatsPerBar || 4) * spb : 0;
+    this._originTime = ctx.currentTime + 0.08 + lead - startBeat * spb;
+    this._clickBeat = Math.floor(startBeat) - (lead ? (this.song.beatsPerBar || 4) : 0);
     this._startVinyl();
     this._startChorus();
     this._scheduleAutomation(0, startBeat);
@@ -5977,6 +6247,21 @@ input[type="range"]::-moz-range-thumb {
     const song = this.song;
     const spb = 60 / song.bpm;
     const horizon = ctx.currentTime + LOOKAHEAD;
+
+    if (this.metronome) {
+      const bpb = song.beatsPerBar || 4;
+      let guardC = 0;
+      while (guardC++ < 64) {
+        const when = this._originTime + this._pass * song.totalBeats * spb + this._clickBeat * spb;
+        if (when > horizon) break;
+        if (when >= ctx.currentTime - 0.02) {
+          const b = ((this._clickBeat % bpb) + bpb) % bpb;
+          scheduleClick(ctx, this.graph, when, Math.abs(b) < 1e-6);
+        }
+        this._clickBeat++;
+        if (this._clickBeat >= song.totalBeats) this._clickBeat = 0;
+      }
+    }
     const bright = this._brightness();
     let guard = 0;
 
@@ -6111,6 +6396,12 @@ input[type="range"]::-moz-range-thumb {
       // A curve cannot be ramped; swapping it is a single assignment.
       bus.crush.curve = Synth.crushCurve(self.ctx, mixField(mix, name, 'crush', 0));
     });
+  };
+
+  /** Click along with the music, and optionally count a bar in before it. */
+  Player.prototype.setMetronome = function (on, countIn) {
+    this.metronome = !!on;
+    if (countIn !== undefined) this.countIn = !!countIn;
   };
 
   Player.prototype.setVolume = function (v) {
@@ -6390,6 +6681,11 @@ input[type="range"]::-moz-range-thumb {
        clocks make a metronome click, which is what tells another program where
        the beat is in 6/8 and 7/8. Get this wrong and the song opens in the
        right notes but the wrong bars. */
+    /* Export what you hear, swing and all — a straight MIDI of a swung song
+       opens somewhere else sounding like a different track. */
+    const feel = global.Composer.feelOf(song);
+    const swing = global.Composer.swingTime;
+
     const meter = (global.Composer && global.Composer.METERS &&
                    global.Composer.METERS[song.meter]) ? song.meter : '4/4';
     const sig = MIDI_METER[meter] || MIDI_METER['4/4'];
@@ -6405,8 +6701,9 @@ input[type="range"]::-moz-range-thumb {
       const list = [{ tick: 0, order: 0, data: [0xc0 | ch, progs[name] || 0] }];
       for (let i = 0; i < evs.length; i++) {
         const e = evs[i];
-        const on = Math.round(e.t * PPQ);
-        const off = Math.max(on + 10, Math.round((e.t + e.d) * PPQ));
+        const t = swing(e.t, feel.swing, feel.push);
+        const on = Math.round(t * PPQ);
+        const off = Math.max(on + 10, Math.round((t + e.d) * PPQ));
         const vel = Math.max(1, Math.min(127, Math.round(e.v * 110)));
         const pitch = Math.max(0, Math.min(127, Math.round(e.p)));
         list.push({ tick: on, order: 2, data: [0x90 | ch, pitch, vel] });
@@ -6422,7 +6719,7 @@ input[type="range"]::-moz-range-thumb {
     for (let i = 0; i < drumEvents.length; i++) {
       const e = drumEvents[i];
       const pitch = GM_DRUM[e.inst] || 39;
-      const on = Math.round(e.t * PPQ);
+      const on = Math.round(swing(e.t, feel.swing, feel.push) * PPQ);
       const vel = Math.max(1, Math.min(127, Math.round(e.v * 115)));
       dlist.push({ tick: on, order: 2, data: [0x99, pitch, vel] });
       dlist.push({ tick: on + Math.round(PPQ / 8), order: 1, data: [0x89, pitch, 64] });
@@ -7595,6 +7892,7 @@ input[type="range"]::-moz-range-thumb {
     length: 'medium',
     meter: '',        // '' = let the genre choose
     scale: '',        // '' = let the genre choose
+    humanise: 1,      // how far notes drift off the grid when they are written
     chordRate: 0,     // 0 = let the genre choose
     bpm: 0,           // 0 = auto
     song: null,
@@ -7692,6 +7990,18 @@ input[type="range"]::-moz-range-thumb {
 
   function bindOptions() {
     el('lengthSelect').addEventListener('change', function () { state.length = this.value; });
+    const loose = el('looseInput');
+    loose.addEventListener('input', function () {
+      state.humanise = parseInt(this.value, 10) / 100;
+      el('looseLabel').textContent = state.humanise === 0 ? 'dead straight'
+        : state.humanise < 0.7 ? 'tight'
+        : state.humanise > 1.4 ? 'very loose'
+        : state.humanise > 1.05 ? 'loose' : 'normal';
+    });
+    loose.addEventListener('change', function () {
+      status('Looseness set — it takes effect on the next song, or when you re-roll a part.');
+    });
+
     const scaleSel = el('scaleSelect');
     Object.keys(T.SCALES).forEach(function (id) {
       const o = document.createElement('option');
@@ -7750,7 +8060,8 @@ input[type="range"]::-moz-range-thumb {
       bpm: opts.bpm !== undefined ? opts.bpm : state.bpm,
       meter: opts.meter !== undefined ? opts.meter : state.meter,
       scale: opts.scale !== undefined ? opts.scale : state.scale,
-      barsPerChord: opts.barsPerChord !== undefined ? opts.barsPerChord : state.chordRate
+      barsPerChord: opts.barsPerChord !== undefined ? opts.barsPerChord : state.chordRate,
+      humanise: opts.humanise !== undefined ? opts.humanise : state.humanise
     };
 
     let song;
@@ -7834,6 +8145,7 @@ input[type="range"]::-moz-range-thumb {
     el('songMeta').textContent = songMetaText();
     el('timeTotal').textContent = fmtTime(s.duration);
     el('seedInput').value = s.seed;
+    el('grooveSelect').value = s.groove || '';
     state.seedEdited = false;
     buildChordStrip();
     buildArrange();
@@ -8477,6 +8789,37 @@ input[type="range"]::-moz-range-thumb {
   }
 
   function bindSongControls() {
+    /* The groove is a playback setting, so it changes what you hear without
+       rewriting a note — moving it mid-listen is the whole point. */
+    el('clickBtn').addEventListener('click', function () {
+      const on = !player.metronome;
+      player.setMetronome(on, true);
+      this.classList.toggle('on', on);
+      status(on ? 'Click on — a bar is counted in when you press play.' : 'Click off.');
+      // Restart so a count-in actually counts you in.
+      if (player.playing) { const at = player.currentBeat(); player.stop(); player.play(at); }
+    });
+
+    const groove = el('grooveSelect');
+    const blank = document.createElement('option');
+    blank.value = '';
+    blank.textContent = 'As the style plays it';
+    groove.appendChild(blank);
+    Object.keys(C.GROOVES).forEach(function (id) {
+      const o = document.createElement('option');
+      o.value = id;
+      o.textContent = C.GROOVES[id].name;
+      groove.appendChild(o);
+    });
+    groove.addEventListener('change', function () {
+      if (!state.song) return;
+      state.song.groove = this.value;
+      player.refresh();                  // re-times the score; no note is changed
+      markRollDirty();
+      status(this.value ? 'Feel: ' + C.GROOVES[this.value].name + '.'
+                        : 'Back to the style\u2019s own feel.');
+    });
+
     const tempo = el('liveTempo');
     tempo.addEventListener('input', function () {
       el('liveTempoVal').textContent = this.value;

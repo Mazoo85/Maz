@@ -378,6 +378,113 @@ Object.keys(Genres.GENRES).forEach(function (gid) {
   check(tiny.bars > 0, 'and it still has bars left');
 })();
 
+/* --- feel: swing, grooves, fills, ghosts and half time --- */
+(function () {
+  /* Swing is no longer written into the score, so the score should be straight
+     and swing should show up only when the feel is applied. That separation is
+     the whole point: it makes the groove something you can move while you
+     listen rather than something that needs a part rewritten. */
+  const s = Composer.compose({ seed: 'FEEL-1', genre: 'lofi', length: 'medium' });
+  check(s.swing > 0, 'lo-fi is a swung style (' + s.swing + ')');
+
+  const offbeats = s.tracks.drums.filter(function (e) {
+    return Math.abs((e.t % 1) - 0.5) < 0.06;
+  });
+  check(offbeats.length > 4, 'there are offbeats in the score to look at');
+  check(offbeats.every(function (e) { return Math.abs((e.t % 1) - 0.5) < 0.06; }),
+    'and the score itself is straight — swing is not baked into the notes');
+
+  const straight = Composer.swingTime(1.5, 0, null);
+  const swung = Composer.swingTime(1.5, 0.3, null);
+  check(straight === 1.5, 'with no swing an offbeat stays where it is');
+  check(swung > 1.5 && swung < 2, 'with swing it is pushed late (' + swung + ')');
+  check(Composer.swingTime(1, 0.3, null) === 1, 'and the downbeat never moves');
+
+  // A groove overrides the style's own swing, and adds its lean.
+  Object.keys(Composer.GROOVES).forEach(function (id) {
+    const g = Object.assign({}, s, { groove: id });
+    const feel = Composer.feelOf(g);
+    check(feel.swing === Composer.GROOVES[id].swing, id + ': the groove sets the swing');
+    const moved = Composer.swingTime(0.25, feel.swing, feel.push);
+    check(moved >= 0, id + ': and a sixteenth lands somewhere real (' + moved.toFixed(3) + ')');
+  });
+  check(Composer.feelOf(s).swing === s.swing, 'with no groove chosen, the style plays as written');
+
+  // Looseness is written in, so it has to change the notes.
+  const tight = Composer.compose({ seed: 'FEEL-2', genre: 'funk', humanise: 0 });
+  const loose = Composer.compose({ seed: 'FEEL-2', genre: 'funk', humanise: 2 });
+  const drift = function (song) {
+    const d = song.tracks.drums.map(function (e) {
+      return Math.abs(e.t * 4 - Math.round(e.t * 4));
+    });
+    return d.reduce(function (a, b) { return a + b; }, 0) / d.length;
+  };
+  check(drift(tight) < 1e-6, 'dead straight really is dead straight (' + drift(tight).toFixed(6) + ')');
+  check(drift(loose) > drift(tight), 'and loose drifts off the grid (' + drift(loose).toFixed(4) + ')');
+
+  // Both survive a save.
+  const withFeel = Composer.compose({ seed: 'FEEL-3', genre: 'jazz', humanise: 1.5 });
+  withFeel.groove = 'dilla';
+  const back = Composer.unpackSong(JSON.parse(JSON.stringify(Composer.packSong(withFeel))));
+  check(back.groove === 'dilla' && back.humanise === 1.5, 'groove and looseness survive a save');
+
+  /* Fills should differ from one another. A fill marks a seam, and a seam you
+     have heard eight times has stopped marking anything. */
+  const long = Composer.compose({ seed: 'FILL-1', genre: 'rock', length: 'long' });
+  const shapes = long.sections.slice(0, -1).map(function (sec) {
+    const from = (sec.startBar + sec.bars - 1) * long.beatsPerBar;
+    return long.tracks.drums
+      .filter(function (e) { return e.t >= from && e.t < from + long.beatsPerBar; })
+      .map(function (e) { return e.inst + Math.round((e.t - from) * 4); }).sort().join(' ');
+  }).filter(function (x) { return x.length > 0; });
+  check(shapes.length >= 4, 'there are seams to look at (' + shapes.length + ')');
+  const distinct = {};
+  shapes.forEach(function (x) { distinct[x] = true; });
+  check(Object.keys(distinct).length >= shapes.length * 0.6,
+    'and the fills are not all the same (' + Object.keys(distinct).length +
+    ' distinct of ' + shapes.length + ')');
+
+  // Ghost notes: quiet, and quiet on purpose.
+  const ghosted = Composer.compose({ seed: 'GHOST-1', genre: 'funk', length: 'medium' });
+  const snares = ghosted.tracks.drums.filter(function (e) { return e.inst === 'snare'; });
+  const ghosts = snares.filter(function (e) { return e.v < 0.32; });
+  check(ghosts.length > 0, 'a groove gets ghost notes (' + ghosts.length + ' of ' + snares.length + ')');
+  check(ghosts.length < snares.length * 0.6, 'but they do not take over from the backbeat');
+
+  /* Half time: the backbeat happens half as often while the hats keep the
+     original pulse. Measured against a normal section of the same song. */
+  let ht = null;
+  for (let i = 0; i < 40 && !ht; i++) {
+    const song = Composer.compose({ seed: 'HALF-' + i, genre: 'drill', length: 'medium' });
+    const half = song.sections.filter(function (x) { return x.halfTime && x.parts.drums; })[0];
+    const norm = song.sections.filter(function (x) {
+      return !x.halfTime && x.energy >= 0.6 && x.parts.drums;
+    })[0];
+    if (half && norm) ht = { song: song, half: half, norm: norm };
+  }
+  check(!!ht, 'a style that drops into half time does so');
+  if (ht) {
+    const per = function (sec, inst) {
+      const from = sec.startBar * ht.song.beatsPerBar;
+      const to = from + sec.bars * ht.song.beatsPerBar;
+      return ht.song.tracks.drums.filter(function (e) {
+        return e.inst === inst && e.t >= from && e.t < to && e.v >= 0.5;
+      }).length / sec.bars;
+    };
+    const halfSnare = per(ht.half, 'snare'), normSnare = per(ht.norm, 'snare');
+    check(normSnare > 0, 'the normal section has a backbeat to compare against');
+    check(halfSnare > 0, 'half time still has a backbeat at all (' + halfSnare.toFixed(2) + '/bar)');
+    check(halfSnare < normSnare * 0.75,
+      'and it lands half as often (' + halfSnare.toFixed(2) + ' vs ' + normSnare.toFixed(2) + ' per bar)');
+    check(per(ht.half, 'hh') >= per(ht.norm, 'hh') * 0.8,
+      'while the hats keep the original pulse — that is what makes it heavy rather than slow');
+    const saved = Composer.unpackSong(JSON.parse(JSON.stringify(Composer.packSong(ht.song))));
+    check(saved.sections.filter(function (x) { return x.halfTime; }).length ===
+          ht.song.sections.filter(function (x) { return x.halfTime; }).length,
+      'and half time survives a save');
+  }
+})();
+
 /* --- riffs, turnarounds, quoting, and thinning a part out --- */
 (function () {
   /* A riff is not an arpeggio. An arpeggio runs whatever notes the chord

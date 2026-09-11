@@ -147,6 +147,11 @@
        clocks make a metronome click, which is what tells another program where
        the beat is in 6/8 and 7/8. Get this wrong and the song opens in the
        right notes but the wrong bars. */
+    /* Export what you hear, swing and all — a straight MIDI of a swung song
+       opens somewhere else sounding like a different track. */
+    const feel = global.Composer.feelOf(song);
+    const swing = global.Composer.swingTime;
+
     const meter = (global.Composer && global.Composer.METERS &&
                    global.Composer.METERS[song.meter]) ? song.meter : '4/4';
     const sig = MIDI_METER[meter] || MIDI_METER['4/4'];
@@ -162,8 +167,9 @@
       const list = [{ tick: 0, order: 0, data: [0xc0 | ch, progs[name] || 0] }];
       for (let i = 0; i < evs.length; i++) {
         const e = evs[i];
-        const on = Math.round(e.t * PPQ);
-        const off = Math.max(on + 10, Math.round((e.t + e.d) * PPQ));
+        const t = swing(e.t, feel.swing, feel.push);
+        const on = Math.round(t * PPQ);
+        const off = Math.max(on + 10, Math.round((t + e.d) * PPQ));
         const vel = Math.max(1, Math.min(127, Math.round(e.v * 110)));
         const pitch = Math.max(0, Math.min(127, Math.round(e.p)));
         list.push({ tick: on, order: 2, data: [0x90 | ch, pitch, vel] });
@@ -179,7 +185,7 @@
     for (let i = 0; i < drumEvents.length; i++) {
       const e = drumEvents[i];
       const pitch = GM_DRUM[e.inst] || 39;
-      const on = Math.round(e.t * PPQ);
+      const on = Math.round(swing(e.t, feel.swing, feel.push) * PPQ);
       const vel = Math.max(1, Math.min(127, Math.round(e.v * 115)));
       dlist.push({ tick: on, order: 2, data: [0x99, pitch, vel] });
       dlist.push({ tick: on + Math.round(PPQ / 8), order: 1, data: [0x89, pitch, 64] });

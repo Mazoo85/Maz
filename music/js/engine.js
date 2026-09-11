@@ -206,6 +206,14 @@
     const out = ctx.createGain();
     out.gain.value = 0.98 * (masterVolume === undefined ? 1 : masterVolume);
 
+    /* The click goes straight to the output. It is not part of the music, so it
+       must not be swept by the filter lane, faded by the volume lane, ducked by
+       the kick, or caught by the limiter — and it never reaches an export,
+       because it is only ever scheduled during live playback. */
+    const click = ctx.createGain();
+    click.gain.value = 0.5;
+    click.connect(out);
+
     master.connect(autoFilter).connect(limiter).connect(safety).connect(autoGain).connect(out);
     out.connect(ctx.destination);
 
@@ -391,7 +399,7 @@
     return {
       master: master, limiter: limiter, analyser: analyser, tracks: tracks,
       revReturn: revReturn, delReturn: delReturn, vinyl: vinyl, out: out,
-      autoFilter: autoFilter, autoGain: autoGain,
+      autoFilter: autoFilter, autoGain: autoGain, click: click,
       delMonoIn: delMonoIn, delPingIn: delPingIn, choReturn: choReturn, choLfos: choLfos,
       duckDepth: duckDepth, duckRelease: Math.min(0.42, (60 / song.bpm) * 0.62)
     };
@@ -403,12 +411,19 @@
 
   function flatten(song) {
     const flat = [];
+    /* Swing and groove lean are applied here rather than written into the
+       score, so this one place feeds live playback and the offline render
+       alike — and moving the groove while you listen changes what you hear
+       without rewriting a single note. */
+    const feel = global.Composer.feelOf(song);
+    const swing = global.Composer.swingTime;
     TRACKS.forEach(function (name) {
       const evs = song.tracks[name] || [];
       let prevPitch = null;
       for (let i = 0; i < evs.length; i++) {
         const e = evs[i];
-        const item = { t: e.t, d: e.d, p: e.p, v: e.v, inst: e.inst, track: name };
+        const item = { t: swing(e.t, feel.swing, feel.push), d: e.d, p: e.p, v: e.v,
+                       inst: e.inst, track: name };
         if (name === 'bass' && e.glide && prevPitch !== null) item.glideFrom = prevPitch;
         if (name === 'bass') prevPitch = e.p;
         flat.push(item);
@@ -457,6 +472,24 @@
     }
   }
 
+  /**
+   * A click. Two pitches: higher on the first beat of the bar, so you can hear
+   * where the bar is rather than only where the beats are.
+   */
+  function scheduleClick(ctx, graph, when, downbeat) {
+    if (!graph || !graph.click) return;
+    const o = ctx.createOscillator();
+    o.type = 'square';
+    o.frequency.value = downbeat ? 1600 : 1050;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(downbeat ? 0.5 : 0.28, when + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + 0.045);
+    o.connect(g).connect(graph.click);
+    o.start(when);
+    o.stop(when + 0.06);
+  }
+
   /* ------------------------------------------------------------------ *
    * The live player
    * ------------------------------------------------------------------ */
@@ -477,6 +510,9 @@
       };
     }, this);
     this.volume = 0.85;
+    this.metronome = false;
+    this.countIn = false;
+    this._clickBeat = 0;
     this._timer = null;
     this._index = 0;
     this._pass = 0;
@@ -586,7 +622,11 @@
     const spb = 60 / this.song.bpm;
     this._pass = 0;
     this._index = this._indexForBeat(startBeat);
-    this._originTime = ctx.currentTime + 0.08 - startBeat * spb;
+    /* A count-in is simply the song starting a bar later: everything downstream
+       already measures from `_originTime`, so nothing else has to know. */
+    const lead = (this.metronome && this.countIn) ? (this.song.beatsPerBar || 4) * spb : 0;
+    this._originTime = ctx.currentTime + 0.08 + lead - startBeat * spb;
+    this._clickBeat = Math.floor(startBeat) - (lead ? (this.song.beatsPerBar || 4) : 0);
     this._startVinyl();
     this._startChorus();
     this._scheduleAutomation(0, startBeat);
@@ -603,6 +643,21 @@
     const song = this.song;
     const spb = 60 / song.bpm;
     const horizon = ctx.currentTime + LOOKAHEAD;
+
+    if (this.metronome) {
+      const bpb = song.beatsPerBar || 4;
+      let guardC = 0;
+      while (guardC++ < 64) {
+        const when = this._originTime + this._pass * song.totalBeats * spb + this._clickBeat * spb;
+        if (when > horizon) break;
+        if (when >= ctx.currentTime - 0.02) {
+          const b = ((this._clickBeat % bpb) + bpb) % bpb;
+          scheduleClick(ctx, this.graph, when, Math.abs(b) < 1e-6);
+        }
+        this._clickBeat++;
+        if (this._clickBeat >= song.totalBeats) this._clickBeat = 0;
+      }
+    }
     const bright = this._brightness();
     let guard = 0;
 
@@ -737,6 +792,12 @@
       // A curve cannot be ramped; swapping it is a single assignment.
       bus.crush.curve = Synth.crushCurve(self.ctx, mixField(mix, name, 'crush', 0));
     });
+  };
+
+  /** Click along with the music, and optionally count a bar in before it. */
+  Player.prototype.setMetronome = function (on, countIn) {
+    this.metronome = !!on;
+    if (countIn !== undefined) this.countIn = !!countIn;
   };
 
   Player.prototype.setVolume = function (v) {
