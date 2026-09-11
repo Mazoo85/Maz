@@ -31,6 +31,8 @@
     key: -1,          // -1 = let the composer choose
     length: 'medium',
     meter: '',        // '' = let the genre choose
+    scale: '',        // '' = let the genre choose
+    chordRate: 0,     // 0 = let the genre choose
     bpm: 0,           // 0 = auto
     song: null,
     seekDragging: false,
@@ -127,6 +129,27 @@
 
   function bindOptions() {
     el('lengthSelect').addEventListener('change', function () { state.length = this.value; });
+    const scaleSel = el('scaleSelect');
+    Object.keys(T.SCALES).forEach(function (id) {
+      const o = document.createElement('option');
+      o.value = id;
+      o.textContent = T.SCALES[id].name;
+      scaleSel.appendChild(o);
+    });
+    scaleSel.addEventListener('change', function () {
+      state.scale = this.value;
+      status(this.value
+        ? 'New songs will use the ' + T.SCALES[this.value].name + ' scale.'
+        : 'Scale back to whatever suits the style and mood.');
+    });
+
+    el('chordRate').addEventListener('change', function () {
+      state.chordRate = parseInt(this.value, 10);
+      status(state.chordRate
+        ? 'Chords will change every ' + (state.chordRate === 1 ? 'bar.' : state.chordRate + ' bars.')
+        : 'Chord changes back to whatever suits the style.');
+    });
+
     el('meterSelect').addEventListener('change', function () {
       state.meter = this.value;
       status(this.value
@@ -162,7 +185,9 @@
       length: opts.length || state.length,
       key: opts.key !== undefined ? opts.key : state.key,
       bpm: opts.bpm !== undefined ? opts.bpm : state.bpm,
-      meter: opts.meter !== undefined ? opts.meter : state.meter
+      meter: opts.meter !== undefined ? opts.meter : state.meter,
+      scale: opts.scale !== undefined ? opts.scale : state.scale,
+      barsPerChord: opts.barsPerChord !== undefined ? opts.barsPerChord : state.chordRate
     };
 
     let song;

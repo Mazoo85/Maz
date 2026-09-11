@@ -210,6 +210,53 @@
     return rng.weighted(pool);
   }
 
+  /* ------------------------------------------------------------------ *
+   * Key changes
+   *
+   * A section can sit in a different key from the one the song started in.
+   * `sec.keyShift` is semitones from the song's root, so transposing the whole
+   * song still works (it moves the root, not the shifts) and rearranging moves
+   * a modulation along with the section it belongs to.
+   * ------------------------------------------------------------------ */
+
+  /** Root pitch class in force at a given beat. */
+  function keyRootAt(song, beat) {
+    const sec = sectionOf(song, beat);
+    const shift = sec && sec.keyShift ? sec.keyShift : 0;
+    return ((song.rootPc + shift) % 12 + 12) % 12;
+  }
+
+  /* The gear change: lift the last big section a step or a semitone. Common
+     enough in pop to be a cliché, which is exactly why its absence was
+     noticeable. Only worth doing when there is a section late enough for the
+     lift to feel like an arrival. */
+  function planKeyChange(rng, song, genre) {
+    song.sections.forEach(function (sec) { sec.keyShift = 0; });
+    if (!genre.modulates || song.sections.length < 4) return;
+    if (!rng.chance(genre.modulates)) return;
+
+    // The last chorus, or failing that the last full-strength section.
+    let at = -1;
+    for (let i = song.sections.length - 1; i >= 0; i--) {
+      if (song.sections[i].type === 'chorus') { at = i; break; }
+    }
+    if (at < 0) {
+      for (let i = song.sections.length - 1; i >= 0; i--) {
+        if (song.sections[i].energy >= 0.9) { at = i; break; }
+      }
+    }
+    if (at < 2) return;                       // too early to be an arrival
+
+    const shift = rng.weighted([[1, 2], [2, 3], [3, 1]]);
+    for (let i = at; i < song.sections.length; i++) song.sections[i].keyShift = shift;
+    song.keyChange = { atBar: song.sections[at].startBar, semitones: shift };
+  }
+
+  /** True when this chord is the last one before the section ends. */
+  function lastBarOfChord(bar, bars, sec) {
+    return bar + bars < sec.startBar + sec.bars;
+  }
+
   function buildHarmony(rng, song, genre, mood) {
     const beatsPerBar = bpb(song);
     const scaleSteps = song.scaleSteps;
@@ -220,9 +267,13 @@
 
     const timeline = [];
     let prevVoicing = null;
+    let prevBassPc = null;
+    const inversionChance = genre.inversions === undefined ? 0.18 : genre.inversions;
 
     for (let s = 0; s < song.sections.length; s++) {
       const sec = song.sections[s];
+      // A modulated section is built in its own key, so every part follows.
+      const sectionRoot = T.midi(((song.rootPc + (sec.keyShift || 0)) % 12 + 12) % 12, 4);
       let prog = sec.type === 'bridge' ? bridgeProg : progression;
       // Open and close on the tonic so the song feels anchored, even when the
       // progression itself starts somewhere else (a ii-V-I, say).
@@ -230,15 +281,33 @@
         const tonicAt = prog.indexOf(0);
         if (tonicAt > 0) prog = prog.slice(tonicAt).concat(prog.slice(0, tonicAt));
       }
-      const barsPerChord = sec.type === 'intro' || sec.type === 'outro' || sec.type === 'ambientish'
-        ? Math.max(genre.barsPerChord[0], 2)
-        : rng.chance(0.5) ? genre.barsPerChord[0] : genre.barsPerChord[1];
+      const barsPerChord = song.barsPerChord && song.barsPerChord > 0
+        ? Math.min(song.barsPerChord, sec.bars)
+        : (sec.type === 'intro' || sec.type === 'outro' || sec.type === 'ambientish'
+          ? Math.max(genre.barsPerChord[0], 2)
+          : rng.chance(0.5) ? genre.barsPerChord[0] : genre.barsPerChord[1]);
+      /* Borrowed chords are colour: plenty in a jazz or gospel bridge, none in
+         an intro that is meant to sit still. */
+      const borrowChance = (genre.borrow || 0) *
+        (sec.type === 'intro' || sec.type === 'outro' ? 0 : sec.energy >= 0.9 ? 1.2 : 0.7);
 
       sec.chords = [];
       let bar = sec.startBar;
       let step = 0;
       while (bar < sec.startBar + sec.bars) {
-        const degree = prog[step % prog.length];
+        let degree = prog[step % prog.length];
+        /* Cadence. A progression left to cycle ends a section wherever the loop
+           happens to stop, which is why sections used to run into each other
+           without ever sounding finished. The last chord of a section is chosen
+           for where the music is going: a chorus or an ending lands home, a
+           verse or a bridge stops on the dominant and leans forward. */
+        const atEnd = bar + Math.min(barsPerChord, sec.startBar + sec.bars - bar)
+                      >= sec.startBar + sec.bars;
+        if (atEnd && rng.chance(0.75)) {
+          if (sec.type === 'chorus' || sec.type === 'outro' || sec.type === 'intro') degree = 0;
+          else if (scaleSteps.length > 4) degree = 4;         // the dominant
+        }
+
         // Simpler shapes in low-energy sections, richer in the chorus.
         let shape = shapeMain;
         // A suspension is colour, not a harmony. Left as the song-wide shape it
@@ -255,18 +324,52 @@
         let pitches = null;
         const candidates = [shape, 'seventh', 'triad'];
         for (let ci = 0; ci < candidates.length; ci++) {
-          const p = T.sweetenChord(T.buildChord(scaleSteps, rootMidi, degree, candidates[ci]));
+          const p = T.sweetenChord(T.buildChord(scaleSteps, sectionRoot, degree, candidates[ci]));
           if (T.chordIsSound(p)) { pitches = p; shape = candidates[ci]; break; }
         }
         if (!pitches) {
-          const r = T.degreePitch(scaleSteps, rootMidi, degree);
+          const r = T.degreePitch(scaleSteps, sectionRoot, degree);
           pitches = [r, r + 7];           // last resort: a bare fifth always works
           shape = 'power';
         }
+        const bars = Math.min(barsPerChord, sec.startBar + sec.bars - bar);
+        const isSectionEnd = bar + bars >= sec.startBar + sec.bars;
+
+        /* A secondary dominant: the chord a fifth above where we are going,
+           made major with a flat seventh whether or not the key contains those
+           notes. It is the strongest pull in tonal music and it cannot be built
+           by stacking scale degrees, which is why every progression here used
+           to sound like it never left home. */
+        let borrowed = null;
+        const nextDegree = prog[(step + 1) % prog.length];
+        if (lastBarOfChord(bar, bars, sec) && borrowChance > 0 && rng.chance(borrowChance) &&
+            nextDegree !== degree) {
+          const targetRoot = T.degreePitch(scaleSteps, sectionRoot, nextDegree);
+          const domRoot = targetRoot - 5;          // a fifth above the target
+          const dom = [domRoot, domRoot + 4, domRoot + 7, domRoot + 10];
+          if (T.chordIsSound(dom)) { pitches = dom; borrowed = 'V/' + (nextDegree + 1); shape = 'seventh'; }
+        }
+
+        /* Inversion. Putting the third or fifth in the bass is what lets a bass
+           line walk down under held harmony instead of jumping to each root —
+           which is the whole reason slash chords exist. Only taken when it
+           actually moves less than the root would. */
+        let bassNote = pitches[0];
+        if (!borrowed && !isSectionEnd && inversionChance > 0 && pitches.length >= 3 &&
+            rng.chance(inversionChance) && prevBassPc !== null) {
+          const options = [pitches[1], pitches[2]];
+          const dist = function (p) {
+            const d = Math.abs((((p - prevBassPc) % 12) + 12) % 12);
+            return Math.min(d, 12 - d);
+          };
+          const rootMove = dist(pitches[0]);
+          options.forEach(function (p) { if (dist(p) < rootMove) bassNote = p; });
+        }
+        prevBassPc = bassNote;
+
         const voicing = T.voiceChord(pitches, prevVoicing, genre.chords.octaveLow, genre.chords.octaveHigh);
         prevVoicing = voicing;
 
-        const bars = Math.min(barsPerChord, sec.startBar + sec.bars - bar);
         const chord = {
           startBeat: bar * beatsPerBar,
           durBeats: bars * beatsPerBar,
@@ -277,8 +380,12 @@
           pitches: pitches,
           voicing: voicing,
           rootPitch: pitches[0],
-          name: T.chordName(pitches),
-          roman: T.romanNumeral(scaleSteps, degree, pitches),
+          bassPitch: bassNote,
+          name: T.chordName(pitches) +
+            (((bassNote % 12) + 12) % 12 !== ((pitches[0] % 12) + 12) % 12
+              ? '/' + T.NOTE_NAMES[((bassNote % 12) + 12) % 12] : ''),
+          roman: borrowed || T.romanNumeral(scaleSteps, degree, pitches),
+          borrowed: !!borrowed,
           section: sec.name
         };
         timeline.push(chord);
@@ -425,7 +532,9 @@
    * ------------------------------------------------------------------ */
 
   function bassPitch(chord, octave) {
-    const pc = ((chord.rootPitch % 12) + 12) % 12;
+    // A slash chord puts a chord tone other than the root under the harmony.
+    const src = chord.bassPitch === undefined ? chord.rootPitch : chord.bassPitch;
+    const pc = ((src % 12) + 12) % 12;
     return T.midi(pc, octave);
   }
 
@@ -771,13 +880,16 @@
           const center = T.midi(((chord.rootPitch % 12) + 12) % 12, octave);
           let pitch = T.degreePitch(song.scaleSteps, center, n.contour);
           const strong = n.step % 4 === 0;
+          // Snap to the key in force here, which is not the opening key once
+          // the song has modulated.
+          const localRoot = T.midi(keyRootAt(song, t), octave);
           pitch = strong
             ? T.nearestChordTone(pitch, chord.pitches)
-            : T.snapToScale(pitch, song.scaleSteps, T.midi(song.rootPc, octave));
+            : T.snapToScale(pitch, song.scaleSteps, localRoot);
 
           // Keep the melody in a singable window.
-          while (pitch > T.midi(song.rootPc, octave) + 16) pitch -= 12;
-          while (pitch < T.midi(song.rootPc, octave) - 8) pitch += 12;
+          while (pitch > localRoot + 16) pitch -= 12;
+          while (pitch < localRoot - 8) pitch += 12;
 
           phraseEvents.push({
             t: t,
@@ -913,8 +1025,11 @@
    * a melody note that was leaning on a chord tone leans on the nearest new one.
    * ------------------------------------------------------------------ */
 
-  function buildChordFor(song, degree, shape) {
-    const rootMidi = T.midi(song.rootPc, 4);
+  function buildChordFor(song, degree, shape, atBeat) {
+    // In the local key: a song that has modulated is not in its opening key any
+    // more, and building a chord from the old root would be out of tune with
+    // everything around it.
+    const rootMidi = T.midi(atBeat === undefined ? song.rootPc : keyRootAt(song, atBeat), 4);
     const candidates = [shape || 'triad', 'seventh', 'triad'];
     for (let i = 0; i < candidates.length; i++) {
       const p = T.sweetenChord(T.buildChord(song.scaleSteps, rootMidi, degree, candidates[i]));
@@ -940,7 +1055,7 @@
     const chord = song.chords[index];
     if (!chord) return false;
 
-    const built = buildChordFor(song, degree, chord.shape);
+    const built = buildChordFor(song, degree, chord.shape, chord.startBeat);
     const prev = index > 0 ? song.chords[index - 1].voicing : null;
     const genre = song.genre;
     const voicing = T.voiceChord(built.pitches, prev,
@@ -948,13 +1063,17 @@
 
     const oldPitches = chord.pitches.slice();
     const oldVoicing = chord.voicing.slice();
-    const oldRoot = chord.rootPitch;
+    const oldRoot = chord.bassPitch === undefined ? chord.rootPitch : chord.bassPitch;
 
     chord.degree = degree;
     chord.shape = built.shape;
     chord.pitches = built.pitches;
     chord.voicing = voicing;
     chord.rootPitch = built.pitches[0];
+    // Choosing a chord by hand resets it to root position; a slash chord is a
+    // voicing decision and the picker is about which chord, not which inversion.
+    chord.bassPitch = built.pitches[0];
+    chord.borrowed = false;
     chord.name = T.chordName(built.pitches);
     chord.roman = T.romanNumeral(song.scaleSteps, degree, built.pitches);
 
@@ -972,7 +1091,7 @@
     // Bass keeps its role: a fifth stays a fifth, an octave stays an octave.
     (song.tracks.bass || []).forEach(function (e) {
       if (!inSpan(e)) return;
-      e.p = e.p - oldRoot + chord.rootPitch;
+      e.p = e.p - oldRoot + chord.bassPitch;
     });
 
     // The arpeggio runs the chord tones, so move it tone for tone.
@@ -1040,7 +1159,7 @@
           return n;
         });
       return {
-        type: sec.type, bars: sec.bars, energy: sec.energy,
+        type: sec.type, bars: sec.bars, energy: sec.energy, keyShift: sec.keyShift || 0,
         parts: sec.parts, tracks: tracks, chords: chords
       };
     });
@@ -1074,7 +1193,7 @@
       });
       sections.push({
         type: b.type, bars: b.bars, energy: b.energy,
-        parts: b.parts, startBar: bar, chords: []
+        parts: b.parts, keyShift: b.keyShift || 0, startBar: bar, chords: []
       });
       bar += b.bars;
     });
@@ -1197,13 +1316,15 @@
       bars: song.bars,
       totalBeats: song.totalBeats,
       pingpong: !!song.pingpong,
+      keyChange: song.keyChange || null,
+      barsPerChord: song.barsPerChord || 0,
       presetOverride: song.presetOverride || {},
       automation: song.automation || { filter: [], volume: [] },
       progression: song.progression,
       partSeeds: song.partSeeds,
       sections: song.sections.map(function (s) {
         return { type: s.type, bars: s.bars, startBar: s.startBar, energy: s.energy,
-                 name: s.name, parts: s.parts };
+                 name: s.name, parts: s.parts, keyShift: s.keyShift || 0 };
       }),
       chords: song.chords.map(function (c) {
         return { startBeat: r4(c.startBeat), durBeats: r4(c.durBeats), bar: c.bar, bars: c.bars,
@@ -1242,6 +1363,8 @@
     song.totalBeats = p.totalBeats;
     song.duration = p.totalBeats * (60 / p.bpm);
     song.pingpong = !!p.pingpong;
+    song.keyChange = p.keyChange || null;
+    song.barsPerChord = p.barsPerChord || 0;
     song.presetOverride = p.presetOverride || {};
     song.automation = p.automation || { filter: [], volume: [] };
     if (p.progression) song.progression = p.progression;
@@ -1257,7 +1380,7 @@
 
     song.sections = p.sections.map(function (s) {
       return { type: s.type, bars: s.bars, startBar: s.startBar, energy: s.energy,
-               name: s.name, parts: s.parts, chords: [] };
+               name: s.name, parts: s.parts, keyShift: s.keyShift || 0, chords: [] };
     });
     // Sections keep their own view of the harmony; re-link it to the restored one.
     song.sections.forEach(function (sec) {
@@ -1501,9 +1624,15 @@
     bars = Math.max(24, Math.min(112, bars));
 
     song.sections = planStructure(rng, bars);
+    planKeyChange(rng, song, genre);
     song.bars = song.sections.reduce(function (a, s) { return a + s.bars; }, 0);
     song.totalBeats = song.bars * song.beatsPerBar;
     song.duration = song.totalBeats * (60 / song.bpm);
+
+    /* How often the harmony turns over. Zero means the style decides. Slow
+       chords feel grand and fast ones feel busy, and it is the single biggest
+       lever on whether a track sounds patient or restless. */
+    song.barsPerChord = opts.barsPerChord > 0 ? opts.barsPerChord : 0;
 
     /* Draw a different instrument for some parts each time. The genre still
        decides the style; this decides which of its instruments turn up, so two
@@ -1591,6 +1720,7 @@
     pitchToDegree: pitchToDegree,
     chordAt: chordAt,
     sectionOf: sectionOf,
+    keyRootAt: keyRootAt,
     packSong: packSong,
     unpackSong: unpackSong,
     SAVE_VERSION: SAVE_VERSION,

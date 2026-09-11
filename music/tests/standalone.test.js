@@ -647,9 +647,12 @@ function launchOptions() {
   check(waltz.meta.indexOf('3/4') >= 0, 'the song details say so (' + waltz.meta.split(' · ').slice(2, 4).join(' · ') + ')');
   check(waltz.editorBpb === 3, 'and the editor draws three-beat bars');
   check(waltz.backbeats.length > 0, 'there is a backbeat to measure');
-  check(waltz.backbeats.every(function (t) { return t === 1 || t === 2; }),
+  /* Within a tolerance: every note is nudged a few thousandths of a beat to
+     keep it off the grid, so an exact comparison would be testing that
+     humanising is switched off. */
+  check(waltz.backbeats.every(function (t) { return Math.abs(t - 1) < 0.12 || Math.abs(t - 2) < 0.12; }),
     'and it falls on beats two and three, not where 4/4 would put it (beat ' +
-    waltz.backbeats.map(function (t) { return t + 1; }).join(', ') + ')');
+    waltz.backbeats.map(function (t) { return (t + 1).toFixed(2); }).join(', ') + ')');
 
   const waltzAudio = await page.evaluate(async function () {
     const s = window.Composer.compose({ seed: 'WALTZ-1', genre: 'country', meter: '3/4', length: 'short' });

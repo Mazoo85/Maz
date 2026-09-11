@@ -82,6 +82,8 @@ python3 -m http.server         # or serve the folder: http://localhost:8000/musi
 - **Export** — the finished track as a **.wav**, the notes as a **.mid**, or
   **stems**: every part as its own audio file, to mix by hand in GarageBand,
   Ableton, FL Studio, Logic or MuseScore.
+- **Choose the scale, the chord rate and the time signature** yourself, or
+  leave any of them to the style.
 - **Seeds** — every song has a short code like `VELVET-7318`. The same seed and
   settings always produce the same song, so *Copy link* hands someone the exact
   track you are hearing.
@@ -117,30 +119,45 @@ Each song is built in this order:
    pulse, snares move onto the new bar's backbeats, and anything anchored to a
    downbeat is restated at each accent, so 7/8 comes out as 2+2+3 rather than
    seven even eighths.
-4. **Harmony.** A progression is chosen as *scale degrees*, so the same numbers
+4. **Key changes.** Where a style calls for it, the last chorus lifts a
+   semitone or a tone and stays there. It is a `keyShift` on the section rather
+   than a rewrite, so transposing the whole song still works and moving that
+   section moves the modulation with it — and the melody follows, because the
+   lead snaps to the key in force where it is rather than the one the song
+   opened in.
+5. **Harmony.** A progression is chosen as *scale degrees*, so the same numbers
    read as I–vi–IV–V in major and i–VI–iv–v in minor. Chords are checked for
    self-contradiction (a flat and natural fifth at once, a flat ninth grinding
    against the root) and rebuilt from a simpler shape if they fail. Bare
    diminished triads gain a seventh; augmented triads lose their sharp fifth.
    Voicings use **voice leading** — each chord moves as little as possible from
    the one before it, which is why the chord track doesn't leap around.
-5. **Parts.** The bass follows the chord roots in a genre-specific pattern
+   Three things stop a progression sounding like a loop. **Secondary dominants**
+   are borrowed from outside the key — the major-with-a-flat-seventh chord a
+   fifth above wherever the music is going, which is the strongest pull in tonal
+   music and cannot be built by stacking scale degrees. **Inversions** put the
+   third or fifth in the bass when that moves less than the root would, so the
+   bass walks under held harmony instead of jumping (and the chord is named
+   `C/E` accordingly). And **cadences** choose the last chord of each section
+   for where the music is going: a chorus or an ending lands on the tonic, a
+   verse or a bridge stops on the dominant and leans forward.
+6. **Parts.** The bass follows the chord roots in a genre-specific pattern
    (walking, offbeat, driving eighths, sliding 808s). Drums come from
    sixteenth-step patterns per energy level, with fills at section boundaries.
    The arpeggio runs the chord tones. 
-6. **Melody.** This is the part that makes it sound *written* rather than
+7. **Melody.** This is the part that makes it sound *written* rather than
    random: the composer invents a two-bar **motif** — a rhythm plus a contour —
    and then varies it. Phrases repeat it, transpose it, invert it, or keep the
    opening and change the ending (the classic question-and-answer shape). Notes
    on strong beats snap to chord tones; notes in between are free to pass
    through the scale.
-7. **Phrasing.** Every second phrase closes: the last beat is cleared and the
+8. **Phrasing.** Every second phrase closes: the last beat is cleared and the
    final note leans onto a chord tone and holds. A melody that never stops for
    breath reads as a stream of notes rather than a line.
-8. **Arrangement.** Where a style calls for it, the bar before a chorus empties
+9. **Arrangement.** Where a style calls for it, the bar before a chorus empties
    out — the kit stops, a snare roll climbs, a riser sweeps — and the chorus
    lands on an impact. Taking things away is what makes the next bar hit.
-9. **Performance.** Swing pushes offbeats late, and every note is nudged a few
+10. **Performance.** Swing pushes offbeats late, and every note is nudged a few
    milliseconds and a little louder or quieter, so nothing sits perfectly on the
    grid.
 

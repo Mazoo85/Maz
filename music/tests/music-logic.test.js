@@ -39,7 +39,7 @@ vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(path.join(JS_DIR, f), 'utf8'), sandbox, { filename: f });
 });
 
-const { Genres, Composer, Exporter } = sandbox;
+const { Theory, Genres, Composer, Exporter } = sandbox;
 
 let failures = 0;
 let checks = 0;
@@ -376,6 +376,147 @@ Object.keys(Genres.GENRES).forEach(function (gid) {
   while (tiny.sections.length > 1) Composer.deleteSection(tiny, 0);
   check(Composer.deleteSection(tiny, 0) === false, 'a song cannot be emptied of every section');
   check(tiny.bars > 0, 'and it still has bars left');
+})();
+
+/* --- key changes, borrowed chords, inversions and cadences --- */
+(function () {
+  /* Key change. Gospel modulates often enough to find one quickly; the point
+     is that everything moves together, not just the chords. */
+  let modulated = null;
+  for (let i = 0; i < 60 && !modulated; i++) {
+    const s = Composer.compose({ seed: 'MOD-' + i, genre: 'gospel', length: 'medium' });
+    if (s.keyChange) modulated = s;
+  }
+  check(!!modulated, 'a style that modulates produces a key change');
+
+  if (modulated) {
+    const at = modulated.keyChange.atBar;
+    const shift = modulated.keyChange.semitones;
+    check(shift >= 1 && shift <= 3, 'the lift is a step or two (' + shift + ' semitones)');
+
+    // Every section from the change onwards is in the new key, and none before.
+    const before = modulated.sections.filter(function (x) { return x.startBar < at; });
+    const after = modulated.sections.filter(function (x) { return x.startBar >= at; });
+    check(before.every(function (x) { return !x.keyShift; }), 'nothing before it has moved');
+    check(after.every(function (x) { return x.keyShift === shift; }), 'everything after it has');
+
+    /* The real test: the chords either side must actually be in different keys.
+       Compare the pitch-class sets — a modulation that only changed a label
+       would pass a check on the label. */
+    const pcsIn = function (secs) {
+      const set = {};
+      secs.forEach(function (sec) {
+        sec.chords.forEach(function (c) {
+          c.pitches.forEach(function (p) { set[((p % 12) + 12) % 12] = true; });
+        });
+      });
+      return Object.keys(set).map(Number).sort(function (a, b) { return a - b; });
+    };
+    const pcBefore = pcsIn(before), pcAfter = pcsIn(after);
+    check(pcBefore.join(',') !== pcAfter.join(','),
+      'and the notes really do change key (' + pcBefore.join(' ') + ' → ' + pcAfter.join(' ') + ')');
+
+    // The melody has to follow, or it is playing in the old key over the new one.
+    const beatAt = at * modulated.beatsPerBar;
+    const leadAfter = modulated.tracks.lead.filter(function (e) { return e.t >= beatAt; });
+    if (leadAfter.length > 4) {
+      const newScale = {};
+      modulated.scaleSteps.forEach(function (st) {
+        newScale[((modulated.rootPc + shift + st) % 12 + 12) % 12] = true;
+      });
+      const inKey = leadAfter.filter(function (e) { return newScale[((e.p % 12) + 12) % 12]; });
+      check(inKey.length / leadAfter.length > 0.7,
+        'and the melody moves with it (' + Math.round(100 * inKey.length / leadAfter.length) +
+        '% of the notes after the change are in the new key)');
+    }
+
+    // A key change must survive a save and a transposition.
+    const back = Composer.unpackSong(JSON.parse(JSON.stringify(Composer.packSong(modulated))));
+    check(back.sections.map(function (x) { return x.keyShift || 0; }).join(',') ===
+          modulated.sections.map(function (x) { return x.keyShift || 0; }).join(','),
+      'a key change survives a save');
+  }
+
+  /* Borrowed chords. A secondary dominant is a major triad with a flat seventh
+     on a root the scale may not even contain — which is the point. */
+  const jz = Composer.compose({ seed: 'BORROW-1', genre: 'jazz', length: 'long' });
+  const borrowed = jz.chords.filter(function (c) { return c.borrowed; });
+  check(borrowed.length > 0, 'a style that borrows produces borrowed chords (' + borrowed.length + ')');
+  check(borrowed.every(function (c) {
+    const r = c.pitches[0];
+    const iv = c.pitches.map(function (p) { return ((p - r) % 12 + 12) % 12; }).sort(function (a, b) { return a - b; });
+    return iv.join(',') === '0,4,7,10';
+  }), 'and every one of them really is a dominant seventh');
+  check(borrowed.every(function (c) { return Theory.chordIsSound(c.pitches); }),
+    'and none of them contradicts itself');
+
+  /* Cadences: a section should end where it is going, not wherever the loop
+     stopped. Choruses land home; verses lean on the dominant. */
+  let homeEndings = 0, chorusCount = 0;
+  ['country', 'gospel', 'rock', 'disco'].forEach(function (g) {
+    for (let i = 0; i < 6; i++) {
+      const s = Composer.compose({ seed: 'CAD-' + g + i, genre: g, length: 'medium' });
+      s.sections.forEach(function (sec) {
+        if (sec.type !== 'chorus' || !sec.chords.length) return;
+        chorusCount++;
+        if (sec.chords[sec.chords.length - 1].degree === 0) homeEndings++;
+      });
+    }
+  });
+  check(chorusCount > 10, 'there are choruses to check (' + chorusCount + ')');
+  check(homeEndings / chorusCount > 0.6,
+    'most choruses end on the tonic (' + homeEndings + ' of ' + chorusCount + ')');
+
+  /* Inversions. A slash chord must actually put a chord tone other than the
+     root in the bass — and say so in its name. */
+  let slash = null;
+  for (let i = 0; i < 40 && !slash; i++) {
+    const s = Composer.compose({ seed: 'INV-' + i, genre: 'gospel', length: 'medium' });
+    slash = s.chords.filter(function (c) {
+      return ((c.bassPitch % 12) + 12) % 12 !== ((c.rootPitch % 12) + 12) % 12;
+    })[0];
+    if (slash) slash._song = s;
+  }
+  check(!!slash, 'inversions happen');
+  if (slash) {
+    check(slash.name.indexOf('/') > 0, 'and are named as slash chords (' + slash.name + ')');
+    check(slash.pitches.indexOf(slash.bassPitch) >= 0,
+      'with a bass note that belongs to the chord');
+    const bassPc = ((slash.bassPitch % 12) + 12) % 12;
+    const under = slash._song.tracks.bass.filter(function (e) {
+      return e.t >= slash.startBeat - 0.05 && e.t < slash.startBeat + slash.durBeats - 0.05;
+    });
+    check(under.length === 0 || under.every(function (e) {
+      // Root, fifth and octave decorations are all built from the bass note.
+      const rel = ((e.p - bassPc) % 12 + 12) % 12;
+      return rel === 0 || rel === 7;
+    }), 'and a bassline that actually plays it');
+  }
+
+  /* Chord rate: asking for one change every four bars must produce exactly
+     that, not merely fewer changes. */
+  [1, 2, 4].forEach(function (rate) {
+    const s = Composer.compose({ seed: 'RATE-' + rate, genre: 'lofi', barsPerChord: rate, length: 'medium' });
+    const spans = s.chords.map(function (c) { return c.bars; });
+    check(spans.every(function (b) { return b === rate || b < rate; }),
+      'chords every ' + rate + ' bar(s): nothing lasts longer');
+    check(spans.filter(function (b) { return b === rate; }).length > spans.length * 0.7,
+      'and almost all of them last exactly that');
+  });
+
+  // An explicit scale is honoured.
+  const ph = Composer.compose({ seed: 'SCALE-1', genre: 'lofi', scale: 'phrygian' });
+  check(ph.scaleId === 'phrygian', 'a requested scale is used');
+  check(ph.keyName.indexOf('Phrygian') > 0, 'and named (' + ph.keyName + ')');
+
+  // Re-rolling a part must never rewrite the harmony under it.
+  const lock = Composer.compose({ seed: 'LOCK-1', genre: 'jazz', length: 'medium' });
+  const chordsBefore = JSON.stringify(lock.chords);
+  ['lead', 'bass', 'arp', 'drums', 'pad', 'chords'].forEach(function (t) {
+    Composer.rerollPart(lock, t);
+  });
+  check(JSON.stringify(lock.chords) === chordsBefore,
+    're-rolling every part leaves the chord progression exactly as it was');
 })();
 
 /* --- time signatures --- */
