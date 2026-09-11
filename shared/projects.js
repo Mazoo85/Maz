@@ -77,7 +77,10 @@
         'Type what your film is about and get the whole thing back: a formatted ' +
         'screenplay, a shot list, and an animated short film — performed by jointed ' +
         'characters and shot with a moving camera across sets built in depth, scored ' +
-        'by SONG FORGE, and downloadable as a video file.',
+        'by SONG FORGE, and downloadable as a video file. Every story gets three to ' +
+        'five locations and its own beat order, always building to a real crisis ' +
+        'somewhere the film has not been yet — and no idea in mind borrows one of ' +
+        'MADLIBS\'s 45 stories instead.',
       badges: ['Phone + desktop', 'Plays + records video', 'Scored by SONG FORGE'],
       docs: 'film/README.md'
     },

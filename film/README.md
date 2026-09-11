@@ -153,22 +153,41 @@ It is not a chatbot and does not call one. It is a *reader* and a *writer*:
   relationships it knows (`lighthouse keeper`, `detective`, `sister`). A role
   behind a possessive — "*her* father" — belongs to the second character, not
   the lead. Capitals after "in" or "at" are read as places, not people.
-- **where**: locations in your text, or the one that comes with the job, plus a
-  second location the film can cut to.
+- **where**: **three to five** locations — the ones your text (or the hero's
+  job) names lead, then generic connectors (a car, a street, a hallway…) fill
+  out the rest, deduplicated. A five-scene film that only ever offered two
+  rooms is what this widened.
 - **what it turns on**: the thing after "finds / receives / steals / opens…",
   or a known object in your text. A location never gets used as the object.
 - **what kind of film**: ten genres, scored on keyword hits; you can override it.
 - **when** and **what the hero wants**: read from the words, with a fallback.
 
 Anything it can't find, it chooses — seeded from your text, so the choice is
-stable.
+stable. And if there's barely anything to read — the idea box is empty or
+under three words — the reader doesn't guess in a vacuum: it borrows one of
+**MADLIBS STORY FORGE**'s 45 stories instead (`js/story-seed.js`, reading
+`../madlibs/js/generator.js` as a library, MADLIBS itself untouched), mapping
+its 34 genres and its Setup/Inciting Incident/Conflict/Climax/Resolution beats
+onto SCRIPT FORGE's own ten genres and seven beats. The **🎁 Surprise me**
+button does the same borrowing on purpose, any time, thin idea or not.
 
 **The writer** (`js/screenplay.js`) lays the premise on a seven-beat spine —
-Ordinary → Disruption → The Push → Complication → Crisis → The Choice → After —
-and gives each beat a scene: a slug line, action lines built from the beat's
+Ordinary → Disruption → The Push → Complication → Crisis → The Choice → After
+— but not always the same one: every length offers **several different beat
+orders** (a 5-scene film alone has three), seeded so the same idea keeps its
+shape while a new take can pick a different one, and every **short** and
+**festival** shape guarantees a **Crisis** beat — the default 5-scene length
+always reaches one. Each beat plays in its own place drawn from the premise's
+three to five locations, spread across the running time rather than picked
+once for the whole film, and the **crisis specifically happens somewhere the
+film has not been yet** — the worst moment of the night lands somewhere
+unfamiliar, the way a real crisis does. The film still opens and closes in the
+same location, because that is what makes an ending feel like one, for every
+length and every shape.
+
+Each beat then gets a scene: a slug line, action lines built from the beat's
 own bank, and a dialogue *exchange* (whole exchanges, not stray lines, so what
-the characters say follows on). The film opens and closes in the same location,
-because that is what makes an ending feel like one.
+the characters say follows on).
 
 **The director** (`js/film-reel.js`) turns the finished script into a *reel*:
 every shot, how long it holds, what set it plays on, how the camera moves, what
@@ -217,6 +236,7 @@ film/
   js/lexicon.js       genres, places, roles, objects, names, beats
   js/dialogue.js      dialogue exchanges by beat and genre
   js/parse.js         your sentence  → a premise
+  js/story-seed.js    borrows a story from MADLIBS when your idea is thin (or you ask)
   js/screenplay.js    a premise      → scenes, elements, shots, runtime
   js/format.js        a script       → .fountain / .txt / .fdx / shot list
   js/film-reel.js     a script       → a reel: timed shots, framing, voices
