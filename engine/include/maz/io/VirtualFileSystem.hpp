@@ -88,7 +88,7 @@ inline std::string extension(const std::string& p) {
 
 // The file name without its extension ("a/b/c.png" -> "c").
 inline std::string fileStem(const std::string& p) {
-    const std::string name = fileName(p);
+    std::string name = fileName(p);
     const size_t dot = name.find_last_of('.');
     if (dot == std::string::npos || dot == 0) {
         return name;
