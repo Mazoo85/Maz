@@ -32,14 +32,34 @@ const EXCHANGE_REL = 'shared/exchange.json';
 // declaring it, and a fixture page can do exactly that as easily as a real
 // one — see check-exchange.test.mjs's "fixtures are scanned" case. So this
 // list is narrowed to only what would otherwise produce false coupling
-// reports or scan things that were never checked out: version control
-// (`.git`), installed dependencies (`node_modules`), build output
-// (`build`, `dist`), and the gitignored `.superpowers/` scratch space (full
-// of subagent working notes and example paths that are not real pages, and
-// absent on CI, so a stray file there must not turn a locally-green night
-// red for a failure CI could never reproduce).
+// reports or scan things that were never checked out or never committed:
+// version control (`.git`), installed dependencies (`node_modules`), and
+// build output (`build` — gitignored by `.gitignore`).
+//
+// `dist` is NOT here, unlike check-links.mjs's list. `.gitignore` covers
+// `build/`, `build-*/`, `out/` and `cmake-build-*/` but not `dist/`, so a
+// page under a `dist/` directory is real, committable content — and
+// `music/` is a safe zone, so the Forge could add one. Skipping it would
+// make check-exchange.mjs blind to undeclared coupling in exactly the
+// files it exists to police, invisible on every night and on CI alike.
+//
+// `.venv` and `venv` ARE here, for the same reason `.superpowers/` is:
+// both are gitignored virtualenv directories, absent on CI, that this
+// repo's own setup instructions tell developers to create (`pip install
+// -e .`, four times over — PEP 668 pushes that into a venv on most
+// systems). An installed package's docs can ship an HTML page with an
+// absolute or deep-escaping asset reference that resolves past the repo
+// root into a phantom project name once `crossRefs` resolves it against
+// the real filesystem, so a stray one under a local `.venv/` must not
+// turn a locally-green night red for a failure CI — which has no
+// virtualenv at all — could never reproduce. A prior narrowing of this
+// list dropped both alongside the entries it meant to remove, and that
+// regression is the reason `.venv`/`venv` are called out here explicitly
+// instead of folded into the paragraph above: the next narrowing should
+// not repeat it.
 const SKIP_DIRS = new Set([
-  '.git', 'node_modules', 'build', 'dist',
+  '.git', 'node_modules', 'build',
+  '.venv', 'venv',
   '.superpowers'
 ]);
 

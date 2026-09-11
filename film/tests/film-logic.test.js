@@ -645,6 +645,63 @@ test('the sandbox loads all five of SONG FORGE\'s declared files, not just three
   assert(forge.Engine, 'Engine did not load — engine.js is silently missing from the sandbox');
 });
 
+test('the members film/js/*.js actually calls on the five globals are the right shape', () => {
+  // The truthiness test above passed just as well for a `music/js/engine.js`
+  // edit that renamed `Engine.Player` to `Engine.Sequencer` — `Engine`
+  // itself was still a truthy object — or for `music/js/synth.js` gutted to
+  // `window.Synth = {}` — still truthy. Both leave
+  // film/js/film-audio.js's `new Play.Player({...})` throwing inside its own
+  // try/catch, so the film plays silently with no score, while every check
+  // this repo runs — this one included, before this test — stayed green.
+  //
+  // This asserts the actual members reached for at runtime:
+  // film/js/film-audio.js's Score.prototype.startScore calls
+  // `Forge.compose(...)`, constructs `new Play.Player(...)`, calls
+  // `player.load(...)` and reads `Genres.GENRES`; engine.js's Player then
+  // reaches internally for `Theory.midiToFreq`, `Genres.PRESETS` and four
+  // `Synth.*` functions to build the mixer graph and schedule notes — none
+  // of which "loads all five" above ever looks at.
+  const forge = loadSongForge();
+
+  eq(typeof forge.Composer.compose, 'function', 'Composer.compose is not a function');
+  eq(typeof forge.Engine.Player, 'function', 'Engine.Player is not a constructor');
+  eq(typeof forge.Engine.Player.prototype.load, 'function', 'Engine.Player#load is not a function');
+  eq(typeof forge.Genres.GENRES, 'object', 'Genres.GENRES is not an object');
+  eq(typeof forge.Genres.PRESETS, 'object', 'Genres.PRESETS is not an object');
+  eq(typeof forge.Theory.midiToFreq, 'function', 'Theory.midiToFreq is not a function');
+  eq(typeof forge.Synth.playNote, 'function', 'Synth.playNote is not a function');
+  eq(typeof forge.Synth.playDrum, 'function', 'Synth.playDrum is not a function');
+  eq(typeof forge.Synth.softClipCurve, 'function', 'Synth.softClipCurve is not a function');
+  eq(typeof forge.Synth.reverbImpulse, 'function', 'Synth.reverbImpulse is not a function');
+  eq(typeof forge.Synth.vinylBuffer, 'function', 'Synth.vinylBuffer is not a function');
+});
+
+test('composing a song and loading it into a Player works end to end, the way startScore() does', () => {
+  // Mirrors film/js/film-audio.js's Score.prototype.startScore exactly:
+  // compose a real song, construct a real Player against the sandbox's
+  // Engine, and load it. A rename or signature change anywhere in that
+  // chain — Composer.compose, Engine.Player, or Player#load — throws here,
+  // not just in a browser during a real film run with its try/catch
+  // swallowing the failure.
+  const forge = loadSongForge();
+  const reel = Reel.build(sample);
+  const music = Conductor.MUSIC_FOR[reel.genre];
+  const genreRange = forge.Genres.GENRES[music.genre];
+  const req = Conductor.request(reel, { bpmRange: genreRange && genreRange.bpm });
+  const song = forge.Composer.compose({
+    genre: req.genre, mood: req.mood, seed: req.seed,
+    bpm: req.bpm, seconds: req.seconds, sections: req.sections
+  });
+  assert(song && typeof song === 'object', 'compose() did not return a song');
+  assert(song.tracks && typeof song.tracks === 'object', 'a composed song has no tracks');
+
+  const player = new forge.Engine.Player({ context: null, destination: null });
+  player.loop = false;
+  player.load(song);
+  assert(player.song === song, 'Player#load did not keep the song it was given');
+  assert(Array.isArray(player.flat) && player.flat.length > 0, 'Player#load produced no flattened events');
+});
+
 test('every film genre maps to music SONG FORGE actually has', () => {
   const forge = loadSongForge();
   const genres = forge.Genres.GENRES;

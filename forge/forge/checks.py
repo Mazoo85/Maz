@@ -7,8 +7,13 @@ the numbers a human tunes.
 
 A zone mapped to a project with no commands of its own passes trivially on
 its *own* checks, but every zone still runs the exchange gate (see
-`EXCHANGE_CHECK_CMD` below) — nothing in `safe_zones` is ever verified by
-literally nothing.
+`EXCHANGE_CHECK_CMD` below), so no zone in `safe_zones` is ever left with
+*nothing at all* running against it. That gate proves the declaration, not
+the zone's own code: it never opens a file inside `madlibs/` or `shooter/`
+itself, so a change confined to one of those today runs only the exchange
+check, and its own code goes unexercised unless a declared consumer's
+checks happen to pick it up — see docs/FORGE.md's "A safe zone only means
+something if a check backs it up" for the honest version of this.
 
 A zone with no entry in `ZONE_PROJECT` at all is a different thing entirely,
 and must not read the same way. `docs/` genuinely has no project — that is

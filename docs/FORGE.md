@@ -229,7 +229,7 @@ the loop's judgement — carried a false claim.
 **What "`film`'s tests passed" actually covers, and what it doesn't.**
 `shared/exchange.json` declares `music/composer` as five files —
 `theory.js`, `genres.js`, `synth.js`, `composer.js`, `engine.js` — and
-`film/index.html` loads all five, in that order. Two things now stand
+`film/index.html` loads all five, in that order. Three things now stand
 between a broken one of those files and a false `checks: green`:
 
 - `scripts/check-exchange.mjs` parses every published file as JavaScript
@@ -237,26 +237,48 @@ between a broken one of those files and a false `checks: green`:
   catches a file replaced with garbage, or a stray syntax error, regardless
   of whether anything ever loads it in a sandbox.
 - `film/tests/film-logic.test.js` loads all five files into its vm sandbox
-  (not just the three — `theory.js`, `genres.js`, `composer.js` — its
+  (not just the three — `theory.js`, `genres.js`, `composer.js` — its other
   assertions happen to call into) and asserts each one actually defines its
   global. `synth.js` and `engine.js` are Web Audio code, but neither one
-  touches `AudioContext` at load time — only lazily, inside functions the
-  logic suite never calls — so both load in plain Node with no browser and
-  no stub. This proves both files are syntactically valid *and*
-  side-effect-free to load in the real order SCRIPT FORGE loads them in.
+  touches `AudioContext` at load time — only lazily, inside functions this
+  first pass never calls — so both load in plain Node with no browser and no
+  stub. This proves both files are syntactically valid, and that loading
+  them, in the real order SCRIPT FORGE loads them in, does not throw — not
+  the same claim as side-effect-free, which nothing here checks.
+- The same suite goes past the five bare globals to the specific members
+  code actually calls: `Composer.compose`, `Engine.Player`,
+  `Engine.Player.prototype.load` and `Genres.GENRES` (what
+  `film/js/film-audio.js` itself reaches for), plus `Theory.midiToFreq`,
+  `Genres.PRESETS`, and `Synth.playNote` / `playDrum` / `softClipCurve` /
+  `reverbImpulse` / `vinylBuffer` (what `engine.js` reaches for internally
+  to build its mixer graph and schedule notes) — asserting each is present
+  with the right type, so a global staying truthy while one of its own
+  exports is renamed or deleted no longer passes. One more test composes a
+  real song with `Composer.compose` and loads it into a real
+  `Engine.Player` — the same two calls `Score.prototype.startScore` makes —
+  and asserts that chain runs without throwing. This list was produced by
+  reading `film/js/film-audio.js` and `engine.js`, not derived
+  structurally: a call added later to either file is covered here only once
+  someone reads it in and extends the assertions the same way.
 
-Neither check runs the audio graph `synth.js` and `engine.js` build, or
-proves a bar of music actually sounds right — that needs a real
-`AudioContext`, which Node does not have. The one check that does exercise
-that code is `film/tests/film-browser.test.js`, run against a real Chromium
-in `.github/workflows/site-ci.yml`'s browser job, on every pull request —
+None of this runs the audio graph `synth.js` and `engine.js` build, proves a
+bar of music actually sounds right, or catches a member of the right *type*
+that does the wrong thing — `Theory.midiToFreq` returning the wrong number
+for a given pitch is still a function, and passes every assertion above.
+Only a real `AudioContext`, which Node does not have, can settle that. The
+one check that does exercise the actual audio graph is
+`film/tests/film-browser.test.js`, run against a real Chromium in
+`.github/workflows/site-ci.yml`'s browser job, on every pull request —
 **not** by the Forge's own nightly `PROJECT_CHECKS` entry for `film`, which
-is the plain `node film/tests/film-logic.test.js` above. So a `music/`-only night's
-`checks: green` guarantees the published files parse and load in the
-declared order; it does not guarantee the resulting audio is correct — that
-half of the guarantee still lives entirely in CI, after the PR is already
-open, exactly like the gap the *Two separate failure paths* paragraph below
-describes for a broken declaration.
+is the plain `node film/tests/film-logic.test.js` above. So a `music/`-only
+night's `checks: green` now guarantees the published files parse, load
+without throwing in the declared order, and that the specific surface
+`film`'s own code and `engine.js`'s internals reach for still exists with
+the right shape and can be driven end to end without throwing; it does not
+guarantee that surface computes the right values, or that the resulting
+audio is correct — that half of the guarantee still lives entirely in CI,
+after the PR is already open, exactly like the gap the *Two separate
+failure paths* paragraph below describes for a broken declaration.
 
 Two separate failure paths follow from a broken `shared/exchange.json`, and
 they cost differently. If it is already missing or malformed when DECIDE

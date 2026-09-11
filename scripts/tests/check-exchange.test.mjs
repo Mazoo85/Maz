@@ -441,6 +441,56 @@ test('a published file that is not parseable JavaScript fails, naming the file',
   assertFailsWith(repo(files, ex), 'music/js/synth.js, which is not valid JavaScript');
 });
 
+// --- Minor 1: SKIP_DIRS must still skip gitignored virtualenvs -----------
+
+test('a stray .html under a gitignored .venv/ is skipped, not scanned as a real page', () => {
+  // Reproduced against the review's exact shape: `pip install -e .` (which
+  // this repo's own setup instructions call for in four places, and which
+  // PEP 668 pushes into a venv on most systems) installs a package whose
+  // docs ship an HTML page with an asset reference deep enough ("../../..")
+  // to resolve past the repo root into a phantom project name once
+  // `crossRefs` resolves it against the real filesystem. A prior narrowing
+  // of SKIP_DIRS dropped `.venv` and `venv` along with the entries it meant
+  // to remove, so every night failed on this — even one that touched
+  // nothing — and CI, which has no virtualenv, could never reproduce it.
+  const files = goodFiles();
+  files['.venv/lib/python3.12/site-packages/pygments/doc/index.html'] =
+    '<!doctype html><html><head>\n' +
+    '<link rel="stylesheet" href="/_static/style.css">\n' +
+    '</head><body></body></html>\n';
+  const { code, output } = check(repo(files, goodExchange()));
+  assert.strictEqual(code, 0,
+    '.venv/ virtualenv contents must not be scanned as real pages:\n' + output);
+});
+
+test('the same stray page under venv/ (no leading dot) is also skipped', () => {
+  const files = goodFiles();
+  files['venv/lib/python3.12/site-packages/pygments/doc/index.html'] =
+    '<!doctype html><html><head>\n' +
+    '<link rel="stylesheet" href="/_static/style.css">\n' +
+    '</head><body></body></html>\n';
+  const { code, output } = check(repo(files, goodExchange()));
+  assert.strictEqual(code, 0,
+    'venv/ virtualenv contents must not be scanned as real pages:\n' + output);
+});
+
+// --- Minor 2: dist/ is real, committable content, not build output -------
+
+test('an undeclared script tag inside a dist/ directory is caught, not skipped', () => {
+  // .gitignore covers build/, build-*/, out/ and cmake-build-*/ but not
+  // dist/, so a page under any dist/ directory is real, committable
+  // content — and music/ is a safe zone, so the Forge can create one.
+  // Before this fix, check-exchange.mjs skipped `dist` unconditionally, so
+  // two undeclared cross-project <script> tags under music/dist/ passed
+  // silently while the byte-identical page under music/pages/ was caught.
+  const files = goodFiles();
+  files['music/dist/preview.html'] =
+    '<!doctype html><html><body>\n' +
+    '<script src="../../film/js/lexicon.js"></script>\n' +
+    '</body></html>\n';
+  assertFailsWith(repo(files, goodExchange()), 'music/dist/preview.html');
+});
+
 for (const root of tmpRoots) rmSync(root, { recursive: true, force: true });
 
 console.log('\n' + (failed ? `✗ ${failed} failed, ${passed} passed` : `✓ ${passed} tests passed`));
