@@ -210,6 +210,18 @@ Each beat then gets a scene: a slug line, action lines built from the beat's
 own bank, and a dialogue *exchange* (whole exchanges, not stray lines, so what
 the characters say follows on).
 
+**Exterior scenes get their own wording.** The images in the lexicon were
+written when a film had two places and they were nearly always interiors —
+so once films started using three to five, "Rain finds the same crack in the
+sill it always finds" began landing in a parking lot. About one exterior
+scene in two carried a line that needed a room around it. Those lines now
+have an outdoor twin (`LEX.OUTDOORS`) and the writer swaps them whenever the
+scene is `EXT.`, for action lines and sound cues alike: the sill becomes a
+gutter, the floor becomes the ground, the fridge cutting out becomes a
+streetlight buzzing and stopping. Lines that use a room only as a *simile* —
+"The woods go quiet the way a room goes quiet" — are deliberately left alone,
+because they read correctly under an open sky.
+
 **The director** (`js/film-reel.js`) turns the finished script into a *reel*:
 every shot, how long it holds, what set it plays on, how the camera moves, what
 is heard over it and how tense the moment is. It is plain data, so the entire
