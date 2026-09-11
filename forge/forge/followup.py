@@ -8,12 +8,16 @@ outcomes but these two fields are backfilled in place, later, from GitHub.
 This is the sole exception to "never rewrite the ledger", and it is why the
 month file is rewritten whole rather than appended to.
 
-Everything this module reads off the wire — a PR object, a commit list, a
-commit's nested "commit"/"author"/"stats" blocks — comes from ``fetch``
-(ordinarily ``github.api``, which itself never raises, but is deliberately
-injectable). None of it is trusted to have the shape the happy path expects:
-a field can be missing, ``None``, or the wrong type, and this module must
-degrade an entry to "still unknown" rather than raise.
+Everything this module reads off the wire — a PR object, a commit list, and
+(one call per non-Forge commit) that commit's own detail, with its nested
+"commit"/"author"/"message" and "stats"/"total" blocks — comes from
+``fetch`` (ordinarily ``github.api``, which itself never raises, but is
+deliberately injectable). None of it is trusted to have the shape the happy
+path expects: a field can be missing, ``None``, or the wrong type, and this
+module must degrade an entry to "still unknown" rather than raise. Note in
+particular that the commit-*list* endpoint (``.../pulls/{n}/commits``)
+never carries "stats" at all — only the single-commit endpoint
+(``.../commits/{sha}``) does — which is why a per-commit fetch exists.
 """
 
 from __future__ import annotations
@@ -26,7 +30,25 @@ from .github import api, repo_slug
 from .ledger import read_all, write_atomic
 
 # Commit authors that are the Forge itself, not a human editing its work.
+# Kept only as a fallback: nothing in this codebase actually sets a commit
+# author for the Forge's own commits (`crew do --commit` runs under
+# whatever identity git is locally configured with, which on a
+# contributor's machine is probably them). This list is therefore a
+# coincidence-based secondary signal, not a control the Forge exercises —
+# see FORGE_MESSAGE_PREFIX below for the one it does.
 FORGE_AUTHORS = ("the forge", "forge", "claude", "maz crew")
+
+# Every commit the Forge makes goes through `do._default_crew`, which always
+# calls `crew do ... --commit -m "forge: {task[:60]}"`. This prefix is the
+# one signal this codebase actually controls end to end, so it is the
+# decisive check. Do not "simplify" this down to the author-name check
+# above: that list matches on values nobody in this pipeline sets, so it
+# would silently misclassify the Forge's own commits as human edits (the
+# bug this module exists to fix) while also risking the opposite mistake —
+# flagging a real human merely because they happen to share a name with the
+# list. The author check is retained only as a fallback for the case the
+# message itself can't be read at all (missing, not a string).
+FORGE_MESSAGE_PREFIX = "forge: "
 
 
 def pending(entries: list[dict]) -> list[dict]:
@@ -34,27 +56,71 @@ def pending(entries: list[dict]) -> list[dict]:
     return [e for e in entries if e.get("pr") and e.get("merged") is None]
 
 
-def _human_edit_lines(commits: list) -> int:
+def _is_forge_commit(commit_block: object) -> bool:
+    """Is this commit the Forge's own work, not a human editing it?
+
+    The message prefix is checked first and, when the message is present
+    and readable, is decisive either way — see the FORGE_MESSAGE_PREFIX
+    docstring for why it is trusted over the author name even when they
+    disagree (a real "forge: ..." commit under an unexpected author name is
+    still the Forge's; an ordinary commit that merely has an author named
+    "claude" is still a human's). The author-name fallback only applies when
+    there is no readable message to decide from at all — a defensive path
+    for malformed input, not a second vote.
+    """
+    block = commit_block if isinstance(commit_block, dict) else None
+    message = block.get("message") if block else None
+    if isinstance(message, str):
+        return message.startswith(FORGE_MESSAGE_PREFIX)
+    author = block.get("author") if block else None
+    name = author.get("name") if isinstance(author, dict) else None
+    return isinstance(name, str) and name.strip().lower() in FORGE_AUTHORS
+
+
+def _human_edit_lines(commits: list, slug: str, fetch) -> int | None:
     """Total changed lines from commits not authored by the Forge itself.
 
-    ``commits`` is whatever ``fetch`` handed back for a commits listing —
-    real GitHub commit objects nest "commit" -> "author" -> "name" and
-    "stats" -> "total", but each of those levels can be absent or the wrong
-    type (a test double, a future API shape, a hand-built fixture), so every
-    level is isinstance-checked before it is indexed rather than assumed.
+    ``commits`` is whatever ``fetch`` handed back for a commits *listing*
+    (``GET /repos/{slug}/pulls/{n}/commits``) — but that endpoint never
+    returns a "stats" block on its list items; "stats" only exists on the
+    single-commit endpoint, ``GET /repos/{slug}/commits/{sha}``. So for
+    every commit that isn't the Forge's own, this fetches that commit
+    individually and reads ``stats.total`` from *that* response. Forge PRs
+    typically carry zero or one non-Forge commit, so this is a small,
+    bounded number of extra calls, not a fan-out — and when every commit is
+    the Forge's own, no per-commit fetch happens at all.
+
+    Every level of both shapes — the list item's "commit"/"author"/
+    "message", and the per-commit response's "stats"/"total" — can be
+    absent or the wrong type (a test double, a future API shape, a
+    transient fetch failure returning ``github.api``'s own ``{}``), so each
+    is isinstance-checked before use. Critically, an unreadable stat is
+    never counted as zero: a wrong small number is worse than an honest
+    unknown for a signal a later system will train on, so the first
+    non-Forge commit whose stats can't be read makes the whole result
+    ``None`` rather than under-counting.
     """
-    total = 0
+    shas: list[object] = []
     for commit in commits or []:
         if not isinstance(commit, dict):
             continue
-        commit_block = commit.get("commit")
-        author = commit_block.get("author") if isinstance(commit_block, dict) else None
-        name = author.get("name") if isinstance(author, dict) else None
-        if isinstance(name, str) and name.strip().lower() in FORGE_AUTHORS:
+        if _is_forge_commit(commit.get("commit")):
             continue
-        stats = commit.get("stats")
+        shas.append(commit.get("sha"))
+
+    if not shas:
+        return 0
+
+    total = 0
+    for sha in shas:
+        if not isinstance(sha, str) or not sha:
+            return None  # no sha to fetch by — this commit's stats are unknowable
+        detail = fetch(f"/repos/{slug}/commits/{sha}")
+        stats = detail.get("stats") if isinstance(detail, dict) else None
         lines = stats.get("total") if isinstance(stats, dict) else None
-        total += lines if isinstance(lines, (int, float)) else 0
+        if isinstance(lines, bool) or not isinstance(lines, (int, float)):
+            return None
+        total += lines
     return total
 
 
@@ -70,11 +136,11 @@ def resolve(entry: dict, slug: str, fetch) -> dict | None:
         return None  # still in flight; ask again another night
 
     merged = bool(pr.get("merged"))
-    edits = 0
+    edits: int | None = 0
     if merged:
         commits = fetch(f"/repos/{slug}/pulls/{number}/commits")
         items = commits.get("items") if isinstance(commits, dict) else None
-        edits = _human_edit_lines(items if isinstance(items, list) else [])
+        edits = _human_edit_lines(items if isinstance(items, list) else [], slug, fetch)
 
     updated = dict(entry)
     updated["merged"] = merged
