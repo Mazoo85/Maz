@@ -30,7 +30,10 @@ try {
   }
 }
 
-const ROOT = path.join(__dirname, '..');
+// Serve the repo root, not just music/, and open the app at /music/ — the same
+// shape as the deployed site. SONG FORGE loads shared/maz-nav.js from one level
+// up, so a server rooted at music/ would 404 it and report a false failure.
+const ROOT = path.join(__dirname, '..', '..');
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 8199;
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
 
@@ -65,7 +68,7 @@ function launchOptions() {
 
 (async function () {
   await new Promise(function (r) { server.listen(PORT, r); });
-  const base = 'http://127.0.0.1:' + PORT + '/index.html';
+  const base = 'http://127.0.0.1:' + PORT + '/music/index.html';
 
   const browser = await chromium.launch(launchOptions());
   const page = await browser.newPage({ viewport: { width: 900, height: 1000 } });

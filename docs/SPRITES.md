@@ -1,3 +1,5 @@
+<!-- Part of MAZ ARCADE — see the repo root README for every project. -->
+
 # Maz 2D Sprites
 
 The **sprite renderer** is the engine's 2D drawing path — textured, alpha-blended quads in screen
@@ -77,3 +79,7 @@ cmake -S . -B build -G Ninja && cmake --build build
 Image-file loading (stb_image / KTX2) so textures come from PNGs instead of code; a pannable /
 zoomable `Camera2D`; a chunked tilemap renderer on top of this batch; line/shape debug draw; and
 mipmaps for scaled-down sprites.
+
+---
+
+← Back to the [**MAZ ARCADE hub**](../index.html) · [repository README](../README.md)

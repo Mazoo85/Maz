@@ -2,6 +2,10 @@
 node_modules/
 *.log
 
+# Playwright is installed on demand for the browser suites
+# (npm --prefix music/tests install), so its lockfile is local scratch.
+package-lock.json
+
 # C++ / CMake build artifacts
 build/
 build-*/
