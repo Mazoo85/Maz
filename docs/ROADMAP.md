@@ -185,6 +185,34 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
       loot, hordes, audio — the flagship proof the engine ships a full game (the existing
       `index.html` / `js/` browser version is the design reference)
 
+## Phase 14 — Arcade upkeep (the Forge's intake)
+
+This phase is the steering wheel for [**the Forge**](FORGE.md), the nightly
+loop. Phases 0–13 describe engine work in prose, which the Forge deliberately
+refuses to touch: it will not act on anything it cannot name a file for.
+
+To hand it a job, write a normal item here and put the file it should change
+in backticks:
+
+```markdown
+- [ ] Add a volume slider to `music/js/player.js`
+- [ ] Fix the broken recipe link in `scraper/README.md`
+```
+
+Rules worth knowing before you write one:
+
+- **The file must already exist**, spelled exactly as it sits in the repo.
+  A name it cannot find is treated as prose, and the item is skipped.
+- **Naming a file is not permission to change it.** The safe zones in
+  `forge.json` still decide, and `forge/` and `.github/workflows/` can never
+  be touched at all. An item pointing at `engine/` will be skipped every night.
+- **One job a night, as a draft pull request.** Nothing is merged for you.
+- **Examples in fenced blocks are ignored**, which is why the two lines above
+  are illustrations rather than tonight's work.
+
+Nothing is listed below on purpose — an empty intake means a quiet night, and
+a quiet night is a correct one.
+
 ---
 
 ### How to pick the next task

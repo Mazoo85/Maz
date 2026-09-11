@@ -41,14 +41,43 @@ against this repo considered 97 candidates and skipped every single one:
   core, which is deliberately human-only and outside every safe zone.
 - The `TODO`/`FIXME`/`HACK` scanner found zero matches in tracked source.
 
-So a night will keep recording "nothing worth doing" (`no_task`, or
+So a night keeps recording "nothing worth doing" (`no_task`, or
 `considered: 97 / outside_zone: 97` if you run `forge sense` and `forge
-decide` yourself) until one of two things changes: either the roadmap or
-memory signals start carrying real file paths, or `safe_zones` in
-`forge.json` is widened to cover code the Forge can actually reach (see
-*Rollout* below). This is the conservative design working as intended, not
-something to fix in a hurry — but don't expect to wake up to draft PRs until
-you've made one of those changes.
+decide` yourself) until you give it something it can place. That is the
+conservative design working as intended, not something to fix in a hurry.
+
+## How to give it a job
+
+Write one line in **Phase 14** of [`docs/ROADMAP.md`](ROADMAP.md) and put the
+file it should change in backticks:
+
+    - [ ] Add a volume slider to `music/js/player.js`
+
+That is the whole interface. The next run scores it like any other candidate,
+places it by its path, and — on a live run — hands it to Crew and opens a
+draft pull request you can merge or close.
+
+Four things make this safe to do casually:
+
+- **The file has to exist**, spelled the way the repo spells it. A name the
+  Forge cannot find is read as ordinary prose and the item is skipped, so a
+  typo costs you a quiet night, never a wrong edit.
+- **Naming a file is not permission to change it.** `safe_zones` still
+  decides, and `forge/` and `.github/workflows/` are refused outright. An
+  item pointing at `engine/` is skipped every night, however you word it.
+- **Examples inside a fenced code block are ignored**, so the roadmap can
+  document its own conventions without commissioning them.
+- **Everything still lands as a draft PR.** One job a night, nothing merged
+  for you.
+
+Verified end to end: a Phase 14 item naming `music/js/theory.js` is picked,
+placed in zone `music/`, and scored 10.5 against a floor of 4.0. Removing the
+line puts the night straight back to `considered: 97 / outside_zone: 97`.
+
+The older, blunter lever still exists — widening `safe_zones` in `forge.json`
+so whole directories become reachable (see *Rollout* below). Prefer naming
+files in the roadmap: it is reversible by deleting one line, and it leaves
+the leash exactly as tight as it was.
 
 ## The cycle
 
@@ -228,6 +257,6 @@ Nothing in `forge/` knows how it was invoked, so this is a drop-in swap.
 
 | | What runs | What you do |
 |---|---|---|
-| **Week 1** | `forge run --dry-run` nightly | Read `forge ledger` over coffee. As configured today expect `no_task` every night (see *What it will actually do tonight*) — that's the leash working. If you want to see it act sooner, either widen `safe_zones` in `forge.json` to cover real code, or add file paths to the roadmap/memory signals it reads |
+| **Week 1** | `forge run --dry-run` nightly | Read `forge ledger` over coffee. As configured today expect `no_task` every night (see *What it will actually do tonight*) — that's the leash working. To watch it act, add one Phase 14 roadmap line naming a real file in a safe zone (see *How to give it a job*) and read the ledger the next morning |
 | **Week 2** | `forge run --live`, safe zones only | Review the draft PRs |
 | **Week 3+** | Widen `safe_zones` as the ledger justifies — and give each new zone a real check command in `checks.py` first, or the work there lands unverified (see *The leash* above) | Then start P2, the Exchange |
