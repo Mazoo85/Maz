@@ -228,8 +228,10 @@
     var format = PlayerLib.bestFormat();
 
     if (!format || !PlayerLib.canRecord(el.filmCanvas)) {
-      el.recordFilm.disabled = true;
-      el.recordFilm.textContent = '⬇ Make the video file';
+      if (!recording) {
+        el.recordFilm.disabled = true;
+        el.recordFilm.textContent = '⬇ Make the video file';
+      }
       el.filmNote.className = 'film-note warn';
       el.filmNote.textContent =
         'This browser can play the film but cannot save it to a video file. ' +
@@ -238,8 +240,10 @@
       return;
     }
 
-    el.recordFilm.disabled = false;
-    el.recordFilm.textContent = '⬇ Make the video file (' + format.extension + ')';
+    if (!recording) {
+      el.recordFilm.disabled = false;
+      el.recordFilm.textContent = '⬇ Make the video file (' + format.extension + ')';
+    }
 
     var realTime = 'Recording plays the film once, in real time — a two-minute film takes ' +
       'two minutes. Leave this tab open while it records.';
