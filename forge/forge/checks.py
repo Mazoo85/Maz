@@ -39,6 +39,19 @@ SONG FORGE's files, so a change in `music/` can break `film/` while music's
 own tests stay green. `all_commands` reads `shared/exchange.json` and adds
 the checks of every project declared to consume this one. `commands_for`
 remains the pure own-zone answer, for callers that genuinely want only that.
+
+**A declared consumer with no checks of its own is the same gap as an
+unmapped zone, one map over.** `all_commands` looks each of a project's
+consumers up in `PROJECT_CHECKS` and raises `UnmappedConsumerError` for one
+with no entry there, rather than silently contributing zero commands for
+it. This is the consumer-side mirror of `UnmappedZoneError` above: a zone
+`ZONE_PROJECT` has never heard of is a configuration gap, not "nothing to
+run", and so is a project named in `consumes` that `PROJECT_CHECKS` has
+never heard of — `checks: green` must not claim to have verified a
+downstream project it never ran a single command against. Give a new
+consumer a `PROJECT_CHECKS` entry before declaring it in
+`shared/exchange.json`, or a night touching what it consumes now fails
+closed instead of quietly verifying less than the ledger claims.
 """
 
 from __future__ import annotations
@@ -107,6 +120,27 @@ class UnmappedZoneError(Exception):
     """
 
 
+class UnmappedConsumerError(Exception):
+    """A project named in `shared/exchange.json`'s `consumes` has no entry
+    in `PROJECT_CHECKS`.
+
+    The same shape as `UnmappedZoneError`, one level over: a *zone* with no
+    entry in `ZONE_PROJECT` is a configuration gap, not "nothing to check"
+    — and so is a *consumer project*, named by a `consumes` entry, with no
+    entry in `PROJECT_CHECKS`. `all_commands` used to answer that with
+    `PROJECT_CHECKS.get(consumer, ())` — silently zero commands, exactly
+    the `ZONE_PROJECT` mistake this module's docstring already describes,
+    just one map over. `checks: green` would then claim to have verified a
+    downstream project it never ran a single command against. This is
+    distinct from a zone's *own* project having no `PROJECT_CHECKS` entry
+    (`commands_for`'s `PROJECT_CHECKS.get(project, ())`, unchanged and
+    correctly fail-open): a project with no tests of its own but real
+    consumers is a legitimate shape (`madlibs/`, `shooter/` today), verified
+    entirely through what consumes it. A *consumer* with no entry is not —
+    there is nothing left downstream of it to verify it instead.
+    """
+
+
 def commands_for(zone: str) -> tuple[tuple[str, ...], ...]:
     """The commands that verify a zone itself.
 
@@ -144,6 +178,13 @@ def all_commands(zone: str, root: Path) -> tuple[tuple[str, ...], ...]:
     "nobody told me what this is", not a command list that happens to be
     just the exchange gate.
 
+    Raises `UnmappedConsumerError` when a project this zone's project feeds
+    (`exchange.consumers_of(project)`) has no entry in `PROJECT_CHECKS` —
+    see that exception's docstring for why this is a configuration gap, not
+    "nothing to check", the same way an unmapped zone is. This is checked
+    *before* appending any of that consumer's commands, so a night never
+    partially records a downstream project's checks as run.
+
     `load(root)` runs first and unconditionally — even for a zone whose
     project is `None` — so a broken declaration is never silently skipped
     just because this particular zone has nothing downstream to look up.
@@ -160,7 +201,9 @@ def all_commands(zone: str, root: Path) -> tuple[tuple[str, ...], ...]:
     if project is None:
         return tuple(out)
     for consumer in exchange.consumers_of(project):
-        for cmd in PROJECT_CHECKS.get(consumer, ()):
+        if consumer not in PROJECT_CHECKS:
+            raise UnmappedConsumerError(consumer)
+        for cmd in PROJECT_CHECKS[consumer]:
             if cmd not in out:
                 out.append(cmd)
     return tuple(out)

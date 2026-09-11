@@ -8,6 +8,7 @@ from forge.checks import (
     EXCHANGE_CHECK_CMD,
     PROJECT_CHECKS,
     ZONE_PROJECT,
+    UnmappedConsumerError,
     UnmappedZoneError,
     all_commands,
     commands_for,
@@ -134,17 +135,22 @@ def test_a_zone_with_no_checks_of_its_own_still_runs_the_exchange_gate(tmp_path)
     assert all_commands("docs/", _repo(tmp_path)) == (EXCHANGE_CHECK_CMD,)
 
 
-def test_a_consumer_with_no_known_checks_adds_nothing(tmp_path):
-    # zomboid consumes music but has no entry in PROJECT_CHECKS. Inventing a
-    # command for it would be the `tests/` mistake all over again.
+def test_a_consumer_with_no_known_checks_fails_closed(tmp_path):
+    # Minor 2 from the third review: zomboid consumes music but has no entry
+    # in PROJECT_CHECKS. This used to silently contribute zero commands for
+    # it (`PROJECT_CHECKS.get(consumer, ())`) — the exact shape of the
+    # ZONE_PROJECT gap the previous wave closed, left open one map over.
+    # Inventing a command for it would be the `tests/` mistake all over
+    # again; the honest answer is to fail closed, the same way an unmapped
+    # zone does, not to verify nothing while still recording checks: green.
     data = json.loads(json.dumps(GOOD))
     data["consumes"].append({
         "project": "zomboid", "id": "music/composer", "via": "script",
         "page": "zomboid/index.html", "contract": "zomboid/tests/t.js",
     })
     assert "zomboid" not in PROJECT_CHECKS
-    cmds = all_commands("music/", _repo(tmp_path, data))
-    assert not any("zomboid" in " ".join(c) for c in cmds)
+    with pytest.raises(UnmappedConsumerError):
+        all_commands("music/", _repo(tmp_path, data))
 
 
 def test_a_command_needed_twice_is_run_once(tmp_path):

@@ -15,7 +15,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from .checks import UnmappedZoneError, all_commands
+from .checks import UnmappedConsumerError, UnmappedZoneError, all_commands
 from .config import ForgeConfig
 from .do import CrewOutcome
 from .exchange import ExchangeError
@@ -98,6 +98,12 @@ def run_checks(zone: str, root: Path | None, runner=None) -> CheckResult:
             f"cannot tell what this change could break: zone {exc} has no "
             f"entry in checks.ZONE_PROJECT",
         )
+    except UnmappedConsumerError as exc:
+        return CheckResult(
+            False, (),
+            f"cannot tell what this change could break: consumer project {exc} has no "
+            f"entry in checks.PROJECT_CHECKS",
+        )
     except ExchangeError as exc:
         return CheckResult(False, (), f"cannot tell what this change could break: {exc}")
     return _run_commands(commands, root, runner)
@@ -148,6 +154,12 @@ def run_checks_for_files(files: tuple[str, ...], config: ForgeConfig,
             False, (),
             f"cannot tell what this change could break: zone {exc} has no "
             f"entry in checks.ZONE_PROJECT",
+        )
+    except UnmappedConsumerError as exc:
+        return CheckResult(
+            False, (),
+            f"cannot tell what this change could break: consumer project {exc} has no "
+            f"entry in checks.PROJECT_CHECKS",
         )
     except ExchangeError as exc:
         return CheckResult(False, (), f"cannot tell what this change could break: {exc}")

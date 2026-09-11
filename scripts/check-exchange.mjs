@@ -16,25 +16,31 @@
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, resolve, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import vm from 'node:vm';
 
 const ROOT = process.env.EXCHANGE_ROOT
   ? resolve(process.env.EXCHANGE_ROOT)
   : resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 const EXCHANGE_REL = 'shared/exchange.json';
-// Keep this in step with check-links.mjs's SKIP_DIRS. Both walk the repo
-// looking for HTML to scan, and the Forge now runs this script as a green
-// gate on every zone (see forge/forge/checks.py's EXCHANGE_CHECK_CMD) — a
-// directory only one of the two skips (like the gitignored `.superpowers/`
-// scratch space) can turn a night red over a stray file CI never sees,
-// because CI never checks that directory out at all.
+// This is deliberately NOT the same set as check-links.mjs's SKIP_DIRS, and
+// that is not drift to "fix" back into alignment. check-links.mjs skips
+// `fixtures` because the scraper's test fixtures are fake pages full of
+// deliberately dangling URLs — real for *that* checker's purpose, noise for
+// its rule. This checker doesn't care about dangling links at all; it cares
+// whether a page's <script>/<link> tags reach into another project without
+// declaring it, and a fixture page can do exactly that as easily as a real
+// one — see check-exchange.test.mjs's "fixtures are scanned" case. So this
+// list is narrowed to only what would otherwise produce false coupling
+// reports or scan things that were never checked out: version control
+// (`.git`), installed dependencies (`node_modules`), build output
+// (`build`, `dist`), and the gitignored `.superpowers/` scratch space (full
+// of subagent working notes and example paths that are not real pages, and
+// absent on CI, so a stray file there must not turn a locally-green night
+// red for a failure CI could never reproduce).
 const SKIP_DIRS = new Set([
-  '.git', 'node_modules', 'build', 'dist', '__pycache__', '.venv', 'venv',
-  '.pytest_cache', '.mypy_cache', '.claude',
-  // Subagent working notes: gitignored scratch, absent on CI, and full of
-  // example paths and fixture-shaped HTML that is not a real page.
-  '.superpowers',
-  'fixtures'
+  '.git', 'node_modules', 'build', 'dist',
+  '.superpowers'
 ]);
 
 /* `shared/` is infrastructure every page uses (the nav, the project list),
@@ -136,6 +142,20 @@ for (const [id, entry] of Object.entries(publishes)) {
       fail(`${EXCHANGE_REL}: published id "${id}" names ${f}, which is outside ` +
            `its own project "${entry.project}" — every file it publishes must ` +
            `start with "${entry.project}/"`);
+    }
+    /* A published file must at least be parseable JavaScript. This does not
+     * prove it runs correctly, or that a consumer's contract test actually
+     * exercises it — only that the browser wouldn't hit a SyntaxError before
+     * a single line executes. Cheap and unconditional (every published file
+     * gets this, whether or not anything loads it in a vm sandbox), and it
+     * is exactly the gap the garbage-file reproduction exploited: swapping a
+     * published file for unparseable text left every existing check green,
+     * because none of them ever read the file's contents as code. */
+    try {
+      new vm.Script(readFileSync(join(ROOT, f), 'utf8'), { filename: f });
+    } catch (err) {
+      fail(`${EXCHANGE_REL}: published id "${id}" names ${f}, which is not valid ` +
+           `JavaScript: ${err.message}`);
     }
   }
 }

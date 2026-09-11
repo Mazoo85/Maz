@@ -206,22 +206,57 @@ code of its own worth testing — or the run either fails every night or the
 work landing there is unverified while looking exactly like everything else
 that isn't.
 
-**A zone's checks now include everything downstream of it — provided the
-downstream project has its own entry in `PROJECT_CHECKS`.**
-`shared/exchange.json` records which projects use each other — today only
-that SCRIPT FORGE loads five of SONG FORGE's files. So a change in `music/`
-runs `film/`'s tests as well as music's own, and `checks: green` means both
-passed — because `film` is registered in `forge/forge/checks.py`'s
-`PROJECT_CHECKS`. But `all_commands` looks each consumer up in that same map,
-and a project named in `consumes` with no entry there contributes zero
-commands: `checks: green` would then claim to have verified a downstream
-project it never ran a single command against, the same trivial-pass hazard
-the paragraph above names for zones themselves. Give a new consumer a
-`PROJECT_CHECKS` entry before declaring it, or its half of "green" is empty.
+**A zone's checks now include everything downstream of it, and a consumer
+with no checks of its own now fails closed the same way an unmapped zone
+does.** `shared/exchange.json` records which projects use each other —
+today only that SCRIPT FORGE loads five of SONG FORGE's files. So a change
+in `music/` runs `film/`'s tests as well as music's own, and `checks: green`
+means both passed — because `film` is registered in `forge/forge/checks.py`'s
+`PROJECT_CHECKS`. `all_commands` looks each consumer up in that same map,
+and a project named in `consumes` with **no** entry there now raises
+`checks.UnmappedConsumerError` rather than silently contributing zero
+commands: VERIFY reports `verify_failed` with `checks: red`, the same as an
+unmapped zone (see above), instead of `checks: green` claiming to have
+verified a downstream project it never ran a single command against. Give a
+new consumer a `PROJECT_CHECKS` entry *before* declaring it in
+`shared/exchange.json`, or the first night touching what it consumes fails
+closed rather than recording green over an empty check list.
 Before this exchange check existed at all, the Forge could break SCRIPT
 FORGE, record green, and open a pull request describing verified work; CI on
 that pull request caught the break, but the ledger — the permanent record of
 the loop's judgement — carried a false claim.
+
+**What "`film`'s tests passed" actually covers, and what it doesn't.**
+`shared/exchange.json` declares `music/composer` as five files —
+`theory.js`, `genres.js`, `synth.js`, `composer.js`, `engine.js` — and
+`film/index.html` loads all five, in that order. Two things now stand
+between a broken one of those files and a false `checks: green`:
+
+- `scripts/check-exchange.mjs` parses every published file as JavaScript
+  (`new vm.Script(...)`) and fails naming the file if it isn't — this alone
+  catches a file replaced with garbage, or a stray syntax error, regardless
+  of whether anything ever loads it in a sandbox.
+- `film/tests/film-logic.test.js` loads all five files into its vm sandbox
+  (not just the three — `theory.js`, `genres.js`, `composer.js` — its
+  assertions happen to call into) and asserts each one actually defines its
+  global. `synth.js` and `engine.js` are Web Audio code, but neither one
+  touches `AudioContext` at load time — only lazily, inside functions the
+  logic suite never calls — so both load in plain Node with no browser and
+  no stub. This proves both files are syntactically valid *and*
+  side-effect-free to load in the real order SCRIPT FORGE loads them in.
+
+Neither check runs the audio graph `synth.js` and `engine.js` build, or
+proves a bar of music actually sounds right — that needs a real
+`AudioContext`, which Node does not have. The one check that does exercise
+that code is `film/tests/film-browser.test.js`, run against a real Chromium
+in `.github/workflows/site-ci.yml`'s browser job, on every pull request —
+**not** by the Forge's own nightly `PROJECT_CHECKS` entry for `film`, which
+is the plain `node film/tests/film-logic.test.js` above. So a `music/`-only night's
+`checks: green` guarantees the published files parse and load in the
+declared order; it does not guarantee the resulting audio is correct — that
+half of the guarantee still lives entirely in CI, after the PR is already
+open, exactly like the gap the *Two separate failure paths* paragraph below
+describes for a broken declaration.
 
 Two separate failure paths follow from a broken `shared/exchange.json`, and
 they cost differently. If it is already missing or malformed when DECIDE

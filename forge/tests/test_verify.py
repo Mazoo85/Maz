@@ -179,6 +179,35 @@ def test_run_checks_for_files_fails_closed_on_an_unreadable_declaration(tmp_path
     assert "exchange" in result.output.lower() or "break" in result.output.lower()
 
 
+def test_run_checks_for_files_fails_closed_on_a_consumer_with_no_checks(tmp_path):
+    # Minor 2 from the third review, exercised through the real production
+    # path: a music/ change would previously report checks: green having
+    # never run a single command against a declared consumer ("zomboid")
+    # that has no entry in checks.PROJECT_CHECKS — the ZONE_PROJECT gap the
+    # previous wave closed, left open one map over. This must now fail
+    # closed instead, the same way an unreadable declaration does.
+    shared = tmp_path / "shared"
+    shared.mkdir(parents=True)
+    shared.joinpath("exchange.json").write_text(json.dumps({
+        "publishes": {
+            "music/composer": {
+                "project": "music", "summary": "Compose.",
+                "files": ["music/js/composer.js"],
+            },
+        },
+        "consumes": [
+            {"project": "zomboid", "id": "music/composer", "via": "script",
+             "page": "zomboid/index.html", "contract": "zomboid/tests/t.js"},
+        ],
+    }), encoding="utf-8")
+
+    result = run_checks_for_files(("music/js/composer.js",), ForgeConfig(), tmp_path,
+                                  runner=lambda cmd, root: (0, "ok"))
+    assert result.ok is False
+    assert result.ran == ()
+    assert "zomboid" in result.output
+
+
 def test_run_checks_for_files_fails_closed_when_a_file_resolves_to_no_zone(tmp_path):
     # do.py already refuses to report success for a change like this — this
     # pins that run_checks_for_files does not rely on that "by luck": called

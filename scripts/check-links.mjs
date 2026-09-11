@@ -17,10 +17,20 @@ import { join, dirname, resolve, relative, extname, posix } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-// Keep this in step with check-exchange.mjs's SKIP_DIRS — both walk the
-// repo for HTML, and a directory only one of them skips lets a file that
-// is invisible to CI (this one is gitignored) turn a night red or green
-// for the wrong reason, depending only on which checker happened to look.
+// This list is intentionally NOT identical to check-exchange.mjs's
+// SKIP_DIRS, even though both walk the repo for HTML — the two checkers
+// skip `fixtures` for different reasons, and only one of those reasons
+// still applies here. This checker cares about dangling links, and the
+// scraper's test fixtures are fake pages full of deliberately dangling
+// URLs — real fixture noise for *this* rule, so `fixtures` stays skipped.
+// check-exchange.mjs cares about undeclared cross-project <script>/<link>
+// coupling, which a fixture page can produce exactly as easily as a real
+// one, so it does NOT skip `fixtures` — see the comment on its own
+// SKIP_DIRS. Do not "fix" this divergence back into alignment.
+//
+// `.superpowers/` is skipped by both for the same reason though: gitignored
+// scratch, absent on CI, so a stray file there must not turn a locally-green
+// night red for a failure CI could never reproduce.
 const SKIP_DIRS = new Set([
   '.git', 'node_modules', 'build', 'dist', '__pycache__', '.venv', 'venv',
   '.pytest_cache', '.mypy_cache', '.claude',

@@ -127,7 +127,7 @@ def decide(
     read?". False skips every candidate as `config_error`: without that file
     the Forge cannot tell which projects a change could break, and choosing
     anyway would mean verifying less than the ledger claims. This is an
-    early exit, not the safety guarantee — `verify.run_checks` fails closed
+    early exit, not the safety guarantee — `verify.run_checks_for_files` fails closed
     on the same condition with no default to weaken it, which is why the
     default here can safely be True.
 

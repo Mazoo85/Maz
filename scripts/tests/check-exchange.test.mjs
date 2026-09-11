@@ -391,10 +391,11 @@ test('a consumes id of "constructor" does not resolve via the prototype chain', 
 });
 
 test('a stray .html under the gitignored .superpowers/ scratch dir is skipped', () => {
-  // SKIP_DIRS here must match check-links.mjs's — see the comment on both.
-  // Before the fix, a stray file left by a subagent under .superpowers/
-  // (absent on CI, since it's gitignored) turned a locally-green night red
-  // for a failure CI could never reproduce.
+  // .superpowers/ is gitignored scratch, absent on CI: a stray file left
+  // there by a subagent must not turn a locally-green night red for a
+  // failure CI could never reproduce. (This is NOT the same reason
+  // check-exchange.mjs and check-links.mjs's SKIP_DIRS otherwise differ —
+  // see the comment on check-exchange.mjs's SKIP_DIRS.)
   const files = goodFiles();
   files['.superpowers/sdd/scratch-note.html'] =
     '<!doctype html><html><body>\n' +
@@ -403,6 +404,41 @@ test('a stray .html under the gitignored .superpowers/ scratch dir is skipped', 
   const { code, output } = check(repo(files, goodExchange()));
   assert.strictEqual(code, 0,
     '.superpowers/ scratch files must not be scanned as real pages:\n' + output);
+});
+
+// --- Minor 1: fixtures are a safe-zone blind spot, not a CI blind spot ----
+
+test('an undeclared script tag inside a fixtures/ directory is caught, not skipped', () => {
+  // Reproduced against the review's exact shape: docs/ is a safe zone, so
+  // the Forge can create docs/fixtures/demo.html. Before this fix,
+  // check-exchange.mjs's SKIP_DIRS matched "fixtures" at any depth (copied
+  // wholesale from check-links.mjs, which skips it for a reason that does
+  // not apply here — this checker doesn't care about dangling links) and
+  // this file's undeclared music coupling exited 0.
+  const files = goodFiles();
+  files['docs/fixtures/demo.html'] =
+    '<!doctype html><html><body>\n' +
+    '<script src="../../music/js/theory.js"></script>\n' +
+    '<script src="../../music/js/genres.js"></script>\n' +
+    '</body></html>\n';
+  assertFailsWith(repo(files, goodExchange(), ['music', 'film', 'docs']),
+    'docs/fixtures/demo.html');
+});
+
+// --- Important: every published file must at least parse as JavaScript ---
+
+test('a published file that is not parseable JavaScript fails, naming the file', () => {
+  // Reproduced against the review's exact scenario: swap a published file
+  // (synth.js or engine.js — both load-bearing for film/index.html, and
+  // neither one was ever loaded by any test before this branch) for text
+  // that is not valid JavaScript. Before this fix, check-exchange.mjs only
+  // checked that the path *exists* — never that it parses — so this passed
+  // every check the repo ran and the Forge would have recorded
+  // `checks: green` and opened a pull request over a broken SCRIPT FORGE.
+  const ex = goodExchange();
+  const files = goodFiles();
+  files['music/js/synth.js'] = 'this is not { valid javascript at all (((';
+  assertFailsWith(repo(files, ex), 'music/js/synth.js, which is not valid JavaScript');
 });
 
 for (const root of tmpRoots) rmSync(root, { recursive: true, force: true });

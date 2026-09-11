@@ -596,6 +596,22 @@ test('variable-length integers round-trip', () => {
  * The conductor is pure data in, pure data out, so the entire musical shape of
  * a film is checkable here. SONG FORGE's own modules are browser files, so they
  * load the way SONG FORGE's tests load them: in a vm sandbox with a fake window.
+ *
+ * shared/exchange.json declares music/composer as all five of theory.js,
+ * genres.js, synth.js, composer.js and engine.js, and film/index.html loads
+ * all five in that order — so this sandbox loads all five too, in the same
+ * order, rather than only the three this test happens to call into. synth.js
+ * and engine.js are audio code (Web Audio's AudioContext/OfflineAudioContext),
+ * but neither one touches an audio API at load time — they only reach for
+ * `global.AudioContext` etc. lazily, inside functions nothing here calls — so
+ * they load cleanly in plain Node with no AudioContext stub at all. Loading
+ * them here is a genuine (if partial) contract: it proves the two files SONG
+ * FORGE's own test suite never touches (music/tests/music-logic.test.js loads
+ * only theory/genres/composer/export) are at least syntactically valid and
+ * side-effect-free to load in the order SCRIPT FORGE actually loads them in.
+ * It does not prove they produce correct *sound* — nothing outside a browser
+ * can — see docs/FORGE.md's exchange-checks section for what remains
+ * uncovered and why.
  */
 const vm = require('vm');
 const fs = require('fs');
@@ -605,7 +621,7 @@ function loadSongForge() {
   const sandbox = { console: console };
   sandbox.window = sandbox;
   vm.createContext(sandbox);
-  ['theory.js', 'genres.js', 'composer.js'].forEach((f) => {
+  ['theory.js', 'genres.js', 'synth.js', 'composer.js', 'engine.js'].forEach((f) => {
     vm.runInContext(
       fs.readFileSync(path.join(__dirname, '..', '..', 'music', 'js', f), 'utf8'),
       sandbox, { filename: f });
@@ -614,6 +630,20 @@ function loadSongForge() {
 }
 
 console.log('\nSCORING THE FILM');
+
+test('the sandbox loads all five of SONG FORGE\'s declared files, not just three', () => {
+  // shared/exchange.json's music/composer publishes theory, genres, synth,
+  // composer and engine; film/index.html loads all five. Before this test
+  // (and the loadSongForge fix it pins), this sandbox silently loaded only
+  // theory/genres/composer — so a music/js/synth.js or music/js/engine.js
+  // that fails to even parse passed every check this repo ran.
+  const forge = loadSongForge();
+  assert(forge.Theory, 'Theory did not load');
+  assert(forge.Genres, 'Genres did not load');
+  assert(forge.Composer, 'Composer did not load');
+  assert(forge.Synth, 'Synth did not load — synth.js is silently missing from the sandbox');
+  assert(forge.Engine, 'Engine did not load — engine.js is silently missing from the sandbox');
+});
 
 test('every film genre maps to music SONG FORGE actually has', () => {
   const forge = loadSongForge();
