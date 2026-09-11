@@ -77,7 +77,14 @@
 
     sections.push({ type: 'outro', bars: outroBars });
 
-    // Human-readable labels: Verse 1, Chorus 2, ...
+    finalizeSections(sections);
+    return sections;
+  }
+
+  // Human-readable labels (Verse 1, Chorus 2, ...), start bars and a
+  // fallback energy — applied to any section list, whether planStructure
+  // rolled it or the caller supplied its own (e.g. a film's cut-by-cut plan).
+  function finalizeSections(sections) {
     const counts = {};
     let bar = 0;
     for (let s = 0; s < sections.length; s++) {
@@ -85,12 +92,11 @@
       counts[sec.type] = (counts[sec.type] || 0) + 1;
       const cap = sec.type.charAt(0).toUpperCase() + sec.type.slice(1);
       const multi = sections.filter(function (x) { return x.type === sec.type; }).length > 1;
-      sec.name = multi ? cap + ' ' + counts[sec.type] : cap;
+      if (!sec.name) sec.name = multi ? cap + ' ' + counts[sec.type] : cap;
       sec.startBar = bar;
-      sec.energy = ENERGY[sec.type];
+      if (sec.energy === undefined || sec.energy === null) sec.energy = ENERGY[sec.type];
       bar += sec.bars;
     }
-    return sections;
   }
 
   /* ------------------------------------------------------------------ *
@@ -616,6 +622,7 @@
     const genre = song.genre;
     for (let i = 0; i < song.sections.length; i++) {
       const sec = song.sections[i];
+      if (sec.parts) continue;          // supplied by the caller
       const e = sec.energy;
       sec.parts = {
         drums: true,
@@ -634,6 +641,10 @@
   }
 
   const LENGTHS = { short: 75, medium: 135, long: 200 };
+  // Ceiling for an exact-duration request (opts.seconds). Films in this
+  // project top out around ten minutes; 30 minutes is generous headroom
+  // while making a runaway (e.g. Infinity, or a huge finite value) impossible.
+  const MAX_EXACT_SECONDS = 1800;
 
   function compose(opts) {
     opts = opts || {};
@@ -668,13 +679,34 @@
     song.scaleSteps = T.SCALES[song.scaleId].steps;
     song.keyName = T.NOTE_NAMES[song.rootPc] + ' ' + T.SCALES[song.scaleId].name;
 
-    // Length → bar count, rounded to whole 4-bar blocks.
-    const targetSec = LENGTHS[opts.length] || LENGTHS.medium;
+    // Length → bar count, rounded to whole 4-bar blocks. `opts.seconds` scores
+    // to picture: it asks for an exact duration and never comes back short.
+    // It only counts as a request when it's a finite number > 0 — NaN,
+    // Infinity, negative values and strings all fall through to the
+    // `length` preset exactly as if opts.seconds had never been passed.
+    // A real request is capped at MAX_EXACT_SECONDS so bar arithmetic (and
+    // planStructure's loop below) can never run away or hang.
+    const exactSeconds = typeof opts.seconds === 'number' && isFinite(opts.seconds) && opts.seconds > 0
+      ? Math.min(opts.seconds, MAX_EXACT_SECONDS)
+      : null;
+    const targetSec = exactSeconds !== null ? exactSeconds : (LENGTHS[opts.length] || LENGTHS.medium);
     const barsPerSec = song.bpm / 60 / BEATS_PER_BAR;
-    let bars = Math.round(targetSec * barsPerSec / 4) * 4;
-    bars = Math.max(24, Math.min(112, bars));
+    let bars = exactSeconds !== null
+      ? Math.ceil(targetSec * barsPerSec / 4) * 4
+      : Math.round(targetSec * barsPerSec / 4) * 4;
+    // The 112-bar ceiling keeps SONG FORGE's own songs a sane UI length; it
+    // doesn't apply when a caller asked for an exact duration (opts.seconds)
+    // — that path must never come back shorter than asked.
+    bars = exactSeconds !== null ? Math.max(24, bars) : Math.max(24, Math.min(112, bars));
 
-    song.sections = planStructure(rng, bars);
+    // A supplied plan is used as given — that is how a film scores to its own
+    // cuts instead of to a pop-song pattern.
+    song.sections = opts.sections && opts.sections.length
+      ? opts.sections.map(function (s) {
+          return { type: s.type, bars: s.bars, energy: s.energy, parts: s.parts || null };
+        })
+      : planStructure(rng, bars);
+    finalizeSections(song.sections);   // start bars (and names/energy where missing)
     song.bars = song.sections.reduce(function (a, s) { return a + s.bars; }, 0);
     song.totalBeats = song.bars * BEATS_PER_BAR;
     song.duration = song.totalBeats * (60 / song.bpm);
@@ -720,6 +752,7 @@
     chordAt: chordAt,
     sectionOf: sectionOf,
     BEATS_PER_BAR: BEATS_PER_BAR,
-    LENGTHS: LENGTHS
+    LENGTHS: LENGTHS,
+    MAX_EXACT_SECONDS: MAX_EXACT_SECONDS
   };
 })(window);

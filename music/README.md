@@ -100,6 +100,25 @@ music/js/app.js       # interface, transport, mixer, note timeline
 score is plain data (`{ t, d, p, v }` in beats), which is why the same code path
 can play live, render an export, and write a MIDI file.
 
+### SONG FORGE is also a library
+
+[**SCRIPT FORGE**](../film/) scores its films with it. `film/index.html` loads
+`theory.js`, `genres.js`, `synth.js`, `composer.js` and `engine.js` straight
+from this folder and drives them from `film/js/film-score.js`, so two bits of
+this API have a second consumer and should not change shape without a look next
+door:
+
+- **`Composer.compose()`'s optional `seconds`, `sections` and `parts`.** A film
+  asks for a song of an exact length, with one section per scene, and with the
+  instruments named per section — pad and chords under the opening, the full
+  band only at the crisis — rather than letting the genre choose an arrangement.
+- **`Engine.Player({ context, destination })`.** The film supplies its own
+  `AudioContext` and plays the song into its own gain node, so the music can be
+  ducked under the dialogue and recorded with the picture.
+
+`music/tests/` does not cover that use; `node film/tests/film-logic.test.js` and
+`node film/tests/film-browser.test.js` do.
+
 ## Tests
 
 Two suites live in `music/tests/`:

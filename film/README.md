@@ -40,7 +40,7 @@ Then take it out of the app:
 | **⬇ shot list** | every scene, its job, and the shots to cover it | Notes, GitHub, anything Markdown |
 | **🖨 Print / PDF** | a clean white screenplay page | your printer, or "Save as PDF" |
 | **★ Save** | keeps the idea in this browser so you can reopen the exact same draft | this device only |
-| **⬇ Make the video file** | the finished film as a `.webm` video | any browser, VLC, YouTube, Instagram, a phone |
+| **⬇ Make the video file** | the finished film as a video | see *Which format you get*, below |
 
 The **seed** on each script is the number that draft came from. The same idea
 always gives the same film; a new seed gives a new take on it. Saving stores the
@@ -60,15 +60,36 @@ title card, scene by scene, and out on THE END.
   looks the same offline as online.
 - **The camera** pushes, pulls and pans; scenes open wide, dialogue plays in
   close-up, and the object the story turns on gets its own insert.
-- **The sound** is generated too: a chord bed that opens up as the film gets
-  tenser, a pulse under the tense stretches, a hit on every cut, and a voice for
-  each character — pitched blips, one per syllable, low for the lead and higher
-  for the foil.
+- **The sound** is a real score. SONG FORGE composes a song for this film
+  specifically — to its exact length, with its sections turning over on your
+  scene cuts and its instruments following the story: pad and chords under the
+  opening, bass as it builds, drums through the middle, the full band only at
+  the crisis, and back down to pad to end. It plays live, ducking under every
+  line of dialogue, and the character voices and cut hits sit over the top.
 - **Captions** carry the action lines and the dialogue, held long enough to read.
 
-Press **⬇ Make the video file** and you get a real `.webm` — VP9 picture, Opus
-sound — that plays in any browser, VLC, or straight up to YouTube, Instagram or
-a phone.
+### Which format you get
+
+The browser decides, not the app, and it matters:
+
+- **`.mp4` (H.264)** — plays on everything: iPhone, iPad, QuickTime, Android,
+  every browser, straight up to YouTube or Instagram. You get this when the
+  browser can genuinely record H.264.
+- **`.webm` (VP9)** — plays on computers (Chrome, Edge, Firefox, VLC) and
+  Android, but **not on an iPhone, an iPad or in QuickTime.**
+
+The app names the format on the button before you record, and says plainly when
+it is the second one. If you are stuck with a `.webm` and need it on an Apple
+device: upload it somewhere that re-encodes (YouTube, Google Photos), or run it
+through a free converter like HandBrake.
+
+One trap worth knowing about, because the app deliberately avoids it: a browser
+can answer "yes, I support `video/mp4`" and then write **VP9 video inside an MP4
+wrapper** — a file called `.mp4` that an iPhone still cannot play, which is
+worse than an honest `.webm` because the name promises otherwise. SCRIPT FORGE
+only asks for MP4 by an explicit H.264 codec string, and treats a bare claim as
+a no. Headless Chromium is one of the browsers that lies here; there is a test
+for it.
 
 **Worth knowing before you press it:**
 
@@ -90,6 +111,10 @@ a phone.
   7.5 MB at 1080p. Drawn art is flat colour and hard edges, so 540p holds up far
   better than camera footage would at the same size — pick it when you need to
   send the film somewhere with a size limit.
+- **The score plays live while you record**, the same way the character voices
+  and the cut hits always have — none of it is rendered in advance. On a slow
+  machine that could in principle glitch the audio in a recording. It has not
+  happened in testing.
 
 There is also a **read the lines aloud** option, which uses your browser's own
 speech voice while the film plays. It is a live extra only: browsers do not let
@@ -130,8 +155,26 @@ every shot, how long it holds, what set it plays on, how the camera moves, what
 is heard over it and how tense the moment is. It is plain data, so the entire
 edit of a film can be checked in a test without a browser.
 
+**The conductor** (`js/film-score.js`) turns a reel into the score request the
+music is composed from — which of SONG FORGE's genres and moods this kind of
+film is scored with, a tempo whose four-bar blocks land near the actual cuts, a
+section per scene carrying that scene's energy and instruments, and the list of
+level changes that ducks the music under every line. It is pure data in, pure
+data out, so the musical shape of a film is checkable in Node the way its edit
+already is.
+
+**The film page loads SONG FORGE as a library.** `film/index.html` pulls in five
+files from `../music/js/` — `theory.js`, `genres.js`, `synth.js`, `composer.js`
+and `engine.js` — and SCRIPT FORGE calls `Composer.compose()` for a song built
+to this film's length and sections, then plays it through
+`Engine.Player({ context, destination })` into its own music bus. The two apps
+share a repository and nothing else: there is no build step, no copy of the
+music code inside `film/`, and if those files are missing or fail, the film
+still plays and says so on the film tab.
+
 **The artist** (`js/film-art.js`) draws the sets, the figures and the objects.
-**The score** (`js/film-audio.js`) plays them. **The camera**
+**The score** (`js/film-audio.js`) plays them — the composed music on one bus,
+the cut hits, the pulse and the character voices on another. **The camera**
 (`js/film-player.js`) puts the two together, frame by frame, and records them.
 **The file fixer** (`js/film-webm.js`) writes the duration into the finished
 video, which is the one thing the browser's recorder leaves out.
@@ -154,7 +197,8 @@ film/
   js/format.js        a script       → .fountain / .txt / .fdx / shot list
   js/film-reel.js     a script       → a reel: timed shots, framing, voices
   js/film-art.js      15 sets, figures, objects, genre palettes
-  js/film-audio.js    the score, the cuts and the character voices
+  js/film-score.js    a reel         → a score request + a ducking envelope
+  js/film-audio.js    plays the score, the cuts and the character voices
   js/film-player.js   draws any frame; plays and records the film
   js/film-webm.js     writes the duration into the recorded file
   js/app.js           buttons, rendering, the projector, the saved library

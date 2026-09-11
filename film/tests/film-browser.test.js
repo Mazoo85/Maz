@@ -192,6 +192,28 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
     check(await page.evaluate(() => FilmPlayer.canRecord(document.getElementById('filmCanvas'))),
       'this browser can record the film');
 
+    // The app must say which format is coming *before* anyone sits through a
+    // recording, and the file it produces must match what it promised.
+    const promised = await page.evaluate(() => {
+      const f = FilmPlayer.bestFormat();
+      return {
+        extension: f && f.extension,
+        type: f && f.type,
+        playsOnApple: f && f.playsOnApple,
+        button: document.getElementById('recordFilm').textContent,
+        note: document.getElementById('filmNote').textContent,
+        warned: document.getElementById('filmNote').className.indexOf('warn') !== -1
+      };
+    });
+    check(promised.button.indexOf(promised.extension) !== -1,
+      `the button names the format it will save (${promised.button.trim()})`);
+    check(promised.playsOnApple
+      ? /plays on anything/i.test(promised.note)
+      : (promised.warned && /iPhone/i.test(promised.note)),
+      promised.playsOnApple
+        ? 'an mp4 is described as playing anywhere'
+        : 'a webm carries a plain warning that Apple devices cannot play it');
+
     await page.click('#playFilm');
     await page.waitForTimeout(3500);
     const clockPlaying = await page.textContent('#filmClock');
@@ -222,6 +244,63 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
     await page.waitForTimeout(300);
     check((await page.textContent('#filmClock')).indexOf('0:00') === 0, 'stop returns to the start');
 
+    console.log('\nTHE SCORE');
+    const scoreState = () => page.evaluate(() => {
+      const panel = document.getElementById('viewFilm');
+      return { score: panel.dataset.score || '', music: panel.dataset.music || '',
+               sections: parseInt(panel.dataset.sections || '0', 10) };
+    });
+
+    await page.click('#playFilm');
+    await page.waitForTimeout(2500);
+    const playing = await scoreState();
+    check(playing.score === 'real', `a real composed score is playing, not the fallback (${playing.score})`);
+    check(playing.music === 'playing', 'the music is running while the picture runs');
+    check(playing.sections >= 3, `the score has a section per scene (${playing.sections})`);
+
+    await page.click('#playFilm'); // pause
+    await page.waitForTimeout(300);
+    check((await scoreState()).music === 'paused', 'pausing the film pauses the music');
+
+    await page.click('#stopFilm');
+    await page.waitForTimeout(300);
+    check((await scoreState()).music === 'stopped', 'stopping the film stops the music');
+
+    // A page where SONG FORGE is missing: the film must still play, and say why.
+    const bare = await context.newPage();
+    await bare.addInitScript(() => {
+      // Take the composer away before the app ever looks for it.
+      Object.defineProperty(window, 'Composer', { get: () => undefined, set: () => {} });
+    });
+    await bare.goto(base + '/film/', { waitUntil: 'load' });
+    await bare.fill('#idea', 'a kid and a walkie-talkie in the attic');
+    await bare.click('#write');
+    await bare.waitForTimeout(400);
+    await bare.click('#tabFilm');
+    await bare.click('#playFilm');
+    await bare.waitForTimeout(1500);
+
+    const withoutForge = await bare.evaluate(() => ({
+      music: document.getElementById('viewFilm').dataset.music || '',
+      score: document.getElementById('viewFilm').dataset.score || '',
+      clock: document.getElementById('filmClock').textContent,
+      status: document.getElementById('status').textContent,
+      note: document.getElementById('filmNote').textContent,
+      noteClass: document.getElementById('filmNote').className
+    }));
+    check(/0:0[1-9]|0:[1-9]/.test(withoutForge.clock),
+      `the film still plays with SONG FORGE missing (clock ${withoutForge.clock})`);
+    check(withoutForge.score === 'fallback', 'it knows it is not using a real score');
+    // The notice belongs on the film tab, where it stays, not in the status
+    // line, which the next message scrolls away.
+    check(/could not compose a score/i.test(withoutForge.note) &&
+          /cut hits/i.test(withoutForge.note),
+      `the film tab says plainly there is no music (note: "${withoutForge.note}")`);
+    check(/warn/.test(withoutForge.noteClass), 'and it is marked as a warning');
+    check(/playing/i.test(withoutForge.status),
+      `the ordinary Playing message still appears (status: "${withoutForge.status}")`);
+    await bare.close();
+
     console.log('\nRECORDING A VIDEO FILE');
     // Record a few seconds, then stop early: a stopped take must still produce
     // a real, finished file rather than nothing.
@@ -238,14 +317,44 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
     const bytes = fs.readFileSync(filmFile);
     check(/\.(webm|mp4)$/.test(film.suggestedFilename()) && bytes.length > 40000,
       `a real video file comes out (${film.suggestedFilename()}, ${Math.round(bytes.length / 1024)} KB)`);
-    check(bytes.indexOf(Buffer.from('V_VP9')) !== -1 || bytes.indexOf(Buffer.from('V_VP8')) !== -1,
-      'the file carries a video track');
-    check(bytes.indexOf(Buffer.from('A_OPUS')) !== -1, 'the file carries the soundtrack');
+    check(film.suggestedFilename().endsWith(promised.extension),
+      `the saved file is the format the app promised (${promised.extension})`);
 
-    const Webm = require(path.join(ROOT, 'film', 'js', 'film-webm.js'));
-    const written = Webm.readDuration(new Uint8Array(bytes));
-    check(written !== null && written > 3 && written < 30,
-      `the file knows how long it is (${written === null ? 'no duration' : written.toFixed(1) + 's'})`);
+    // Which browser this suite runs on decides which format it gets — a
+    // Chromium with H.264 records MP4, one without records WebM — so the
+    // checks have to know both. Both paths get exercised in practice: CI's
+    // Chromium has H.264, a plain local one does not.
+    const has = (marker) => bytes.indexOf(Buffer.from(marker)) !== -1;
+    const isMp4 = promised.extension === '.mp4';
+
+    if (isMp4) {
+      // Name what is actually in the file, so a failure here says which box
+      // the browser wrote rather than leaving the next person guessing.
+      const boxes = ['avc1', 'avcC', 'mp4a', 'esds', 'Opus', 'dOps', 'vp09', 'ac-3', 'soun', 'vide']
+        .filter(has).join(', ') || 'none';
+      const asked = `asked for ${promised.type}; boxes found: ${boxes}`;
+
+      // An .mp4 that is secretly VP9 is the exact failure this guards: a file
+      // named for the format Apple devices play, that they cannot play.
+      check(has('avc1') || has('avcC'), `an .mp4 really carries H.264, not VP9 (${asked})`);
+      check(!has('vp09'), `no VP9 hiding inside the .mp4 (${asked})`);
+      check(has('mp4a') || has('esds'), `the file carries AAC audio (${asked})`);
+      // Opus inside an MP4 is the audio version of the same trap: a file an
+      // Apple device opens and then plays silently.
+      check(!has('Opus') && !has('dOps'), `no Opus audio hiding inside the .mp4 (${asked})`);
+      // MediaRecorder writes its own duration into an MP4; the playback check
+      // below is what proves it, since nothing here parses MP4 boxes.
+    } else {
+      check(has('V_VP9') || has('V_VP8'), 'the file carries a video track (VP8/VP9)');
+      check(has('A_OPUS'), 'the file carries the soundtrack (Opus)');
+
+      // WebM is the case where the browser leaves the duration out and the app
+      // splices it in, so here the container itself has to know.
+      const Webm = require(path.join(ROOT, 'film', 'js', 'film-webm.js'));
+      const written = Webm.readDuration(new Uint8Array(bytes));
+      check(written !== null && written > 3 && written < 30,
+        `the file knows how long it is (${written === null ? 'no duration' : written.toFixed(1) + 's'})`);
+    }
 
     // And it has to play back — the whole point of the exercise.
     const playsBack = await page.evaluate(async (dataUrl) => {

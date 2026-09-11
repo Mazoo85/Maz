@@ -75,9 +75,9 @@
       accent: '#ffb300',
       blurb:
         'Type what your film is about and get the whole thing back: a formatted ' +
-        'screenplay, a shot list, and an animated short film — sets, camera moves, ' +
-        'character voices and a score — that you can watch and download as a video file.',
-      badges: ['Phone + desktop', 'Plays + records video', 'Fountain / FDX export'],
+        'screenplay, a shot list, and an animated short film — sets, camera moves and ' +
+        'character voices — scored by SONG FORGE, and downloadable as a video file.',
+      badges: ['Phone + desktop', 'Plays + records video', 'Scored by SONG FORGE'],
       docs: 'film/README.md'
     },
     {

@@ -1,16 +1,19 @@
 /*
  * SCRIPT FORGE — the score.
  * -------------------------
- * Everything you hear is generated: a chord bed that retunes as the film gets
- * tenser, a pulse that arrives when it does, a hit on every cut between scenes,
- * and a voice per character — pitched blips, the way a game speaks, so the
- * dialogue has a rhythm and a register without a voice actor.
+ * Two buses feed the master: a music bus, which SONG FORGE composes and plays
+ * into via `startScore()`, and an effects bus carrying everything the film
+ * makes itself — a pulse that arrives when the story gets tense, a hit on
+ * every cut between scenes, and a voice per character — pitched blips, the
+ * way a game speaks, so the dialogue has a rhythm and a register without a
+ * voice actor. The music bus is ducked under the dialogue by `applyDuck()`.
  *
- * It all runs through one gain node, which feeds the speakers *and* a
- * MediaStreamDestination, so the recorded film has exactly the sound you heard.
+ * The master feeds the speakers *and* a MediaStreamDestination, so the
+ * recorded film has exactly the sound you heard.
  *
  *   var score = new FilmScore.Score(reel);
- *   score.start(); score.enterShot(shot); score.tick(timeInFilm); score.stop();
+ *   score.start(); score.startScore(reel);
+ *   score.enterShot(shot); score.tick(timeInFilm); score.stop();
  *
  * Exposed as window.FilmScore. Nothing runs at load, so this file is safe to
  * require in Node — only `new Score()` needs a browser.
@@ -18,20 +21,23 @@
 (function (root) {
   'use strict';
 
-  /* Each genre gets a root note, a chord shape and a voice. Tension opens the
-   * filter, detunes the pad and brings in the pulse. */
+  /* Which genres keep a pulse going under the picture (read by `tick`). The
+   * fast, driving ones do; the ones that live on silence do not, and only get
+   * one when the scene itself turns tense. */
   var MUSIC = {
-    drama:    { root: 110.0, chord: [1, 1.5, 1.8, 2.4],        wave: 'sine',     cutoff: 900,  pulse: false },
-    thriller: { root: 82.4,  chord: [1, 1.5, 2.02, 3.0],       wave: 'sawtooth', cutoff: 620,  pulse: true },
-    horror:   { root: 73.4,  chord: [1, 1.414, 2.0, 2.83],     wave: 'sawtooth', cutoff: 480,  pulse: false },
-    comedy:   { root: 146.8, chord: [1, 1.25, 1.5, 2.0],       wave: 'triangle', cutoff: 1600, pulse: true },
-    romance:  { root: 130.8, chord: [1, 1.26, 1.5, 1.89],      wave: 'sine',     cutoff: 1200, pulse: false },
-    scifi:    { root: 98.0,  chord: [1, 1.5, 2.0, 3.0],        wave: 'triangle', cutoff: 1100, pulse: true },
-    mystery:  { root: 98.0,  chord: [1, 1.19, 1.5, 2.38],      wave: 'sine',     cutoff: 800,  pulse: false },
-    fantasy:  { root: 123.5, chord: [1, 1.335, 1.5, 2.0],      wave: 'triangle', cutoff: 1300, pulse: false },
-    heist:    { root: 87.3,  chord: [1, 1.5, 1.78, 2.0],       wave: 'sawtooth', cutoff: 700,  pulse: true },
-    western:  { root: 110.0, chord: [1, 1.5, 2.0, 2.99],       wave: 'triangle', cutoff: 1000, pulse: false }
+    drama:    { pulse: false },
+    thriller: { pulse: true },
+    horror:   { pulse: false },
+    comedy:   { pulse: true },
+    romance:  { pulse: false },
+    scifi:    { pulse: true },
+    mystery:  { pulse: false },
+    fantasy:  { pulse: false },
+    heist:    { pulse: true },
+    western:  { pulse: false }
   };
+
+  var MUSIC_LEVEL = 0.55;   // where the score sits under the dialogue
 
   function audioContextClass() {
     return root.AudioContext || root.webkitAudioContext || null;
@@ -64,17 +70,20 @@
       : null;
     if (this.streamDestination) this.master.connect(this.streamDestination);
 
-    // ---- the bed: a chord through a filter, with a slow breath on the level
-    this.padGain = this.ctx.createGain();
-    this.padGain.gain.value = 0;
-    this.filter = this.ctx.createBiquadFilter();
-    this.filter.type = 'lowpass';
-    this.filter.frequency.value = this.music.cutoff;
-    this.filter.Q.value = 1.2;
-    this.padGain.connect(this.filter);
-    this.filter.connect(this.master);
+    // Two buses: the score, and everything the film makes itself. Both feed the
+    // master, which already reaches the speakers and the recorder.
+    this.musicBus = this.ctx.createGain();
+    this.musicBus.gain.value = MUSIC_LEVEL;
+    this.musicBus.connect(this.master);
 
-    this.oscs = [];
+    this.effectsBus = this.ctx.createGain();
+    this.effectsBus.gain.value = 1;
+    this.effectsBus.connect(this.master);
+
+    this.player = null;          // SONG FORGE's Player, once a score exists
+    this.usingRealScore = false;
+    this.duckPoints = null;
+
     this.started = false;
     this.pulseNext = 0;
     this.currentShot = null;
@@ -85,46 +94,16 @@
     if (this.started) return;
     this.started = true;
     if (this.ctx.state === 'suspended' && this.ctx.resume) this.ctx.resume();
-
-    var self = this;
-    var now = this.ctx.currentTime;
-    this.music.chord.forEach(function (ratio, i) {
-      var osc = self.ctx.createOscillator();
-      osc.type = self.music.wave;
-      osc.frequency.value = self.music.root * ratio;
-      // A pair of cents of detune per voice is what stops it sounding like a
-      // test tone and starts it sounding like an instrument.
-      osc.detune.value = (i - 1.5) * 6;
-      var g = self.ctx.createGain();
-      g.gain.value = i === 0 ? 0.34 : 0.20 / i;
-      osc.connect(g);
-      g.connect(self.padGain);
-      osc.start(now);
-      self.oscs.push({ osc: osc, gain: g, ratio: ratio });
-    });
-    this.padGain.gain.setTargetAtTime(0.20, now, 1.2);
   };
 
   /* Called when the film cuts to a new shot. */
   Score.prototype.enterShot = function (shot, timeInFilm) {
     if (!this.started) return;
-    var now = this.ctx.currentTime;
     var tension = shot.mood == null ? 0.4 : shot.mood;
-
-    // Tension opens the filter and lifts the bed.
-    this.filter.frequency.setTargetAtTime(
-      this.music.cutoff * (0.7 + tension * 1.9), now, 0.6);
-    this.padGain.gain.setTargetAtTime(0.15 + tension * 0.16, now, 0.8);
 
     // A new scene gets a soft hit, so cuts land.
     if (!this.currentShot || this.currentShot.scene !== shot.scene) {
       this.hit(0.5 + tension * 0.5);
-      // ...and the chord tilts a step for the new scene.
-      var self = this;
-      var lift = 1 + (shot.scene % 3) * 0.02 - tension * 0.03;
-      this.oscs.forEach(function (v) {
-        v.osc.frequency.setTargetAtTime(self.music.root * v.ratio * lift, now, 0.9);
-      });
     }
 
     this.currentShot = shot;
@@ -145,10 +124,10 @@
     osc.frequency.setValueAtTime(120, now);
     osc.frequency.exponentialRampToValueAtTime(38, now + 0.5);
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.30 * strength, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.18 * strength, now + 0.02);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.9);
     osc.connect(gain);
-    gain.connect(this.master);
+    gain.connect(this.effectsBus);
     osc.start(now);
     osc.stop(now + 1.0);
 
@@ -174,7 +153,7 @@
     gain.gain.value = level;
     src.connect(filter);
     filter.connect(gain);
-    gain.connect(this.master);
+    gain.connect(this.effectsBus);
     return src;
   };
 
@@ -215,7 +194,7 @@
 
     osc.connect(filter);
     filter.connect(gain);
-    gain.connect(this.master);
+    gain.connect(this.effectsBus);
     osc.start(when);
     osc.stop(when + 0.12);
     this.blipTimers.push(osc);
@@ -249,26 +228,103 @@
     gain.gain.exponentialRampToValueAtTime(0.10 + tension * 0.10, now + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
     osc.connect(gain);
-    gain.connect(this.master);
+    gain.connect(this.effectsBus);
     osc.start(now);
     osc.stop(now + 0.3);
   };
 
-  Score.prototype.stop = function () {
-    if (!this.started) return;
+  /* Ask SONG FORGE for a score for this film and start it playing into the
+   * music bus. Returns true if a real score is playing, false if the film is
+   * carrying on without one. */
+  Score.prototype.startScore = function (reel) {
+    var Forge = root.Composer, Play = root.Engine, Conductor = root.FilmConductor;
+    if (!Forge || !Play || !Conductor) return false;
+
+    try {
+      var genreRange = root.Genres && root.Genres.GENRES[Conductor.MUSIC_FOR[reel.genre].genre];
+      var req = Conductor.request(reel, { bpmRange: genreRange && genreRange.bpm });
+      var song = Forge.compose({
+        genre: req.genre, mood: req.mood, seed: req.seed,
+        bpm: req.bpm, seconds: req.seconds, sections: req.sections
+      });
+
+      this.player = new Play.Player({ context: this.ctx, destination: this.musicBus });
+      this.player.loop = false;
+      this.player.load(song);
+      this.duckPoints = Conductor.duckEnvelope(reel);
+      this.usingRealScore = true;
+      return true;
+    } catch (e) {
+      this.player = null;
+      this.usingRealScore = false;
+      return false;
+    }
+  };
+
+  /* The duck envelope is a list of level changes in *film* time. Scheduling is
+   * in audio-context time, so it is laid down relative to where playback is
+   * starting from — and re-laid every time the film plays or is scrubbed,
+   * otherwise a scrub leaves the ducking pointing at the wrong moments.
+   *
+   * Every transition is *anchored*. A `linearRampToValueAtTime` on its own
+   * ramps from the previous automation event, however long ago that was, so a
+   * bare list of ramps makes the level glide continuously: down across the
+   * whole gap before a line and back up across the line itself — quietest the
+   * instant someone starts speaking, loudest by the time they finish, which is
+   * the opposite of ducking. Pinning the held level with `setValueAtTime` at
+   * the moment each ramp begins gives the shape the film wants: flat at full
+   * between lines, a DUCK_LEAD dip into each line, flat and low through it, a
+   * DUCK_TAIL rise after it. */
+  Score.prototype.applyDuck = function (fromFilmSeconds) {
+    var Conductor = root.FilmConductor;
+    if (!this.duckPoints || !Conductor) return;
+    var bus = this.musicBus.gain;
+    var base = MUSIC_LEVEL;
     var now = this.ctx.currentTime;
+    var offset = fromFilmSeconds || 0;
+    var points = this.duckPoints;
+    var i, point;
+
+    bus.cancelScheduledValues(now);
+
+    // Start at whatever the level should be at this moment in the film — the
+    // film can be played from the middle of a line, and that starts ducked.
+    var level = base;
+    for (i = 0; i < points.length; i++) {
+      if (points[i].t <= offset) level = base * points[i].gain;
+    }
+    bus.setValueAtTime(level, now);
+
+    for (i = 0; i < points.length; i++) {
+      point = points[i];
+      if (point.t <= offset) continue;
+      var target = base * point.gain;
+      // Dropping into a line takes DUCK_LEAD; coming back out takes DUCK_TAIL.
+      var startAt = now + (point.t - offset);
+      var endAt = startAt + (point.gain < 1 ? Conductor.DUCK_LEAD : Conductor.DUCK_TAIL);
+      // Two lines can sit close enough that the rise after the first is still
+      // climbing when the next drop is due. The next transition always wins.
+      var next = points[i + 1];
+      if (next) endAt = Math.min(endAt, now + (next.t - offset));
+
+      // Hold the level we have been sitting at, *then* move.
+      bus.setValueAtTime(level, startAt);
+      if (endAt > startAt) bus.linearRampToValueAtTime(target, endAt);
+      else bus.setValueAtTime(target, startAt);
+      level = target;
+    }
+  };
+
+  Score.prototype.stop = function () {
+    // The music player is stopped unconditionally: `close()` calls through
+    // here, and a score that was never `start()`ed can still have a player
+    // loaded and running — an early return would leave it playing.
+    if (this.player) this.player.stop();
+    if (!this.started) return;
     this.clearBlips();
-    this.padGain.gain.setTargetAtTime(0.0001, now, 0.25);
-    var oscs = this.oscs;
-    this.oscs = [];
     this.started = false;
     this.currentShot = null;
     this.pulseNext = 0;
-    setTimeout(function () {
-      oscs.forEach(function (v) {
-        try { v.osc.stop(); } catch (e) { /* already stopped */ }
-      });
-    }, 900);
   };
 
   Score.prototype.close = function () {

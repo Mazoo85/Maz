@@ -496,6 +496,56 @@ test('any idea, any length, makes a playable reel', () => {
   });
 });
 
+console.log('\nCHOOSING A VIDEO FORMAT');
+
+test('a bare "video/mp4" claim is never trusted', () => {
+  // A browser can answer yes to the bare type and then write VP9 into an MP4
+  // wrapper — a .mp4 an iPhone cannot play. Measured, not guessed: headless
+  // Chromium does exactly this. Only an explicit H.264 string is a promise.
+  const liar = (type) => type === 'video/mp4' || type.indexOf('video/webm') === 0;
+  const chosen = PlayerLib.pickMimeType(liar);
+  eq(chosen.container, 'webm', 'a bare mp4 claim was believed');
+  assert(chosen.type.indexOf('codecs=') !== -1, 'chose a container with no codecs named');
+  eq(chosen.playsOnApple, false);
+});
+
+test('an MP4 whose audio codec is unnamed is refused', () => {
+  // A browser offering H.264 but no explicit AAC gets no MP4 from us.
+  const videoOnly = (type) =>
+    (type.indexOf('avc1') !== -1 && type.indexOf('mp4a') === -1 && type.indexOf('aac') === -1) ||
+    type.indexOf('webm') !== -1;
+  eq(PlayerLib.pickMimeType(videoOnly).container, 'webm', 'took an mp4 with unnamed audio');
+});
+
+test('H.264 in MP4 is preferred when the browser really has it', () => {
+  const realChrome = (type) => type.indexOf('avc1') !== -1 || type.indexOf('webm') !== -1;
+  const chosen = PlayerLib.pickMimeType(realChrome);
+  eq(chosen.container, 'mp4');
+  eq(chosen.extension, '.mp4');
+  eq(chosen.playsOnApple, true, 'an H.264 mp4 must be marked as playing on Apple devices');
+  assert(chosen.type.indexOf('avc1') !== -1, 'picked an mp4 without naming H.264: ' + chosen.type);
+});
+
+test('every candidate names its codecs', () => {
+  PlayerLib.MP4_CANDIDATES.concat(PlayerLib.WEBM_CANDIDATES).forEach((type) => {
+    if (type === 'video/webm') return; // the last-resort fallback, and honest about it
+    assert(type.indexOf('codecs=') !== -1, 'candidate without codecs: ' + type);
+  });
+  PlayerLib.MP4_CANDIDATES.forEach((type) => {
+    assert(/avc1|h264/.test(type), 'an mp4 candidate that is not H.264: ' + type);
+    // Naming only the video codec leaves the audio to the browser, and Chrome
+    // will put Opus in an MP4 — H.264 an iPhone plays, with sound it does not.
+    assert(/mp4a|aac/.test(type), 'an mp4 candidate that does not name its audio codec: ' + type);
+  });
+  assert(PlayerLib.MP4_CANDIDATES.indexOf('video/mp4') === -1, 'the bare type is a candidate again');
+});
+
+test('webm falls back in order, and nothing at all is handled', () => {
+  eq(PlayerLib.pickMimeType((t) => t === 'video/webm;codecs=vp8,opus').type, 'video/webm;codecs=vp8,opus');
+  eq(PlayerLib.pickMimeType((t) => t === 'video/webm').container, 'webm');
+  eq(PlayerLib.pickMimeType(() => false), null, 'a browser with no format at all');
+});
+
 console.log('\nWRITING THE VIDEO FILE');
 
 test('a duration is spliced into a file that has none', () => {
@@ -540,6 +590,378 @@ test('variable-length integers round-trip', () => {
     eq(decoded.value, n, 'round trip for ' + n);
     eq(decoded.length, encoded.length, 'length for ' + n);
   });
+});
+
+/* ==================================================================== score
+ * The conductor is pure data in, pure data out, so the entire musical shape of
+ * a film is checkable here. SONG FORGE's own modules are browser files, so they
+ * load the way SONG FORGE's tests load them: in a vm sandbox with a fake window.
+ */
+const vm = require('vm');
+const fs = require('fs');
+const Conductor = require(path.join(__dirname, '..', 'js', 'film-score.js'));
+
+function loadSongForge() {
+  const sandbox = { console: console };
+  sandbox.window = sandbox;
+  vm.createContext(sandbox);
+  ['theory.js', 'genres.js', 'composer.js'].forEach((f) => {
+    vm.runInContext(
+      fs.readFileSync(path.join(__dirname, '..', '..', 'music', 'js', f), 'utf8'),
+      sandbox, { filename: f });
+  });
+  return sandbox;
+}
+
+console.log('\nSCORING THE FILM');
+
+test('every film genre maps to music SONG FORGE actually has', () => {
+  const forge = loadSongForge();
+  const genres = forge.Genres.GENRES;
+  const moods = forge.Genres.MOODS;
+
+  Object.keys(LEX.GENRES).forEach((filmGenre) => {
+    const pick = Conductor.MUSIC_FOR[filmGenre];
+    assert(pick, 'no music for film genre ' + filmGenre);
+    assert(genres[pick.genre], filmGenre + ' asks for genre "' + pick.genre + '", which SONG FORGE does not have');
+    assert(moods[pick.mood], filmGenre + ' asks for mood "' + pick.mood + '", which SONG FORGE does not have');
+  });
+});
+
+test('the tempo is chosen to land bars near the cuts', () => {
+  const reel = Reel.build(sample);
+  const range = [70, 110];
+  const bpm = Conductor.chooseBpm(reel, range);
+  assert(bpm >= range[0] && bpm <= range[1], 'bpm outside the genre range: ' + bpm);
+  assert(bpm === Math.round(bpm), 'bpm is not a whole number: ' + bpm);
+
+  // It must be no worse than the middle of the range, or choosing is pointless.
+  const error = (candidate) => Conductor.cutTimes(reel).reduce((total, cut) => {
+    const block = Conductor.blockSeconds(candidate);
+    return total + Math.abs(cut - Math.round(cut / block) * block);
+  }, 0);
+  const middle = Math.round((range[0] + range[1]) / 2);
+  assert(error(bpm) <= error(middle) + 1e-9,
+    `chosen ${bpm} (error ${error(bpm).toFixed(2)}s) is worse than ${middle} (${error(middle).toFixed(2)}s)`);
+
+  eq(Conductor.chooseBpm(reel, range), bpm, 'the same reel must choose the same tempo');
+  eq(Conductor.chooseBpm(reel, [96, 96]), 96, 'a single-value range must be honoured');
+});
+
+test('cut times are the scene starts after the first', () => {
+  const reel = Reel.build(sample);
+  const cuts = Conductor.cutTimes(reel);
+  eq(cuts.length, sample.scenes.length - 1, 'one cut between each pair of scenes');
+  cuts.forEach((t, i) => {
+    assert(t > 0 && t < reel.duration, 'cut outside the film: ' + t);
+    if (i > 0) assert(t > cuts[i - 1], 'cuts are not in order');
+  });
+});
+
+test('the section plan covers the whole film', () => {
+  ['micro', 'short', 'festival'].forEach((length) => {
+    const reel = Reel.build(Writer.write(Parse.parse('a ghost in the attic'), { length }));
+    const bpm = Conductor.chooseBpm(reel, [70, 110]);
+    const plan = Conductor.sectionPlan(reel, bpm);
+
+    assert(plan.length >= 1, 'no sections for a ' + length + ' film');
+    plan.forEach((section) => {
+      assert(section.bars >= 4, 'section shorter than four bars: ' + section.bars);
+      eq(section.bars % 4, 0, 'section is not a whole number of four-bar blocks');
+      assert(section.energy >= 0 && section.energy <= 1, 'energy out of range: ' + section.energy);
+      assert(typeof section.type === 'string' && section.type.length > 0, 'section has no type');
+    });
+
+    const bars = plan.reduce((total, s) => total + s.bars, 0);
+    const seconds = (bars * Conductor.BEATS_PER_BAR * 60) / bpm;
+    assert(seconds >= reel.duration,
+      `${length}: the music runs ${seconds.toFixed(1)}s but the film runs ${reel.duration.toFixed(1)}s`);
+  });
+});
+
+test('sections take their type and energy from the beat they cover', () => {
+  const reel = Reel.build(sample);
+  const plan = Conductor.sectionPlan(reel, Conductor.chooseBpm(reel, [70, 110]));
+  eq(plan[0].type, 'intro', 'a film opens on an intro');
+
+  const crisisOrClimax = plan.reduce((best, s) => (s.energy > best.energy ? s : best), plan[0]);
+  eq(plan.indexOf(crisisOrClimax) < plan.length - 1, true, 'the highest-energy section is not the last one');
+  assert(plan[plan.length - 1].energy <= crisisOrClimax.energy,
+    'the film ends on more energy than its peak');
+});
+
+test('the band grows with the tension and stands down at the end', () => {
+  const quiet = Conductor.partsFor(0.15, false);
+  eq(quiet.drums, false, 'drums under the opening');
+  eq(quiet.bass, false, 'bass under the opening');
+  eq(quiet.pad && quiet.chords, true, 'the opening still needs pad and chords');
+
+  eq(Conductor.partsFor(0.4, false).bass, true, 'bass joins in the middle band');
+  eq(Conductor.partsFor(0.4, false).drums, false, 'drums are too early at 0.4');
+  eq(Conductor.partsFor(0.6, false).drums, true, 'drums join by 0.6');
+  eq(Conductor.partsFor(0.6, false).lead, false, 'the lead is not out yet at 0.6');
+
+  const crisis = Conductor.partsFor(0.88, false);
+  eq(crisis.drums && crisis.bass && crisis.lead && crisis.arp, true, 'the crisis gets the full band');
+
+  // Boundary assertions for bass at >= 0.3
+  eq(Conductor.partsFor(0.29999, false).bass, false, 'bass must not engage below 0.3');
+  eq(Conductor.partsFor(0.3, false).bass, true, 'bass must engage at exactly 0.3');
+
+  // Boundary assertions for drums at >= 0.5
+  eq(Conductor.partsFor(0.49999, false).drums, false, 'drums must not engage below 0.5');
+  eq(Conductor.partsFor(0.5, false).drums, true, 'drums must engage at exactly 0.5');
+
+  // Boundary assertions for arp and lead at > 0.7
+  eq(Conductor.partsFor(0.7, false).arp, false, 'arp must not engage at 0.7');
+  eq(Conductor.partsFor(0.7, false).lead, false, 'lead must not engage at 0.7');
+  eq(Conductor.partsFor(0.70001, false).arp, true, 'arp must engage above 0.7');
+  eq(Conductor.partsFor(0.70001, false).lead, true, 'lead must engage above 0.7');
+
+  // The last scene resolves regardless of its own tension — a micro film ends
+  // on the choice at 0.5 and must still land rather than stop.
+  const ending = Conductor.partsFor(0.5, true);
+  eq(ending.drums, false, 'the closing scene still had drums');
+  eq(ending.pad && ending.chords, true, 'the closing scene needs pad and chords');
+});
+
+test('every section carries its instruments', () => {
+  const reel = Reel.build(sample);
+  const plan = Conductor.sectionPlan(reel, Conductor.chooseBpm(reel, [70, 110]));
+  plan.forEach((section) => {
+    ['drums', 'bass', 'chords', 'arp', 'lead', 'pad'].forEach((part) => {
+      eq(typeof section.parts[part], 'boolean', 'section is missing ' + part);
+    });
+  });
+  eq(plan[plan.length - 1].parts.drums, false, 'the film ends on drums');
+});
+
+test('a reel becomes a complete score request', () => {
+  const reel = Reel.build(sample);
+  const forge = loadSongForge();
+  const music = Conductor.MUSIC_FOR[reel.genre];
+  const req = Conductor.request(reel, { bpmRange: forge.Genres.GENRES[music.genre].bpm });
+
+  eq(req.genre, music.genre);
+  eq(req.mood, music.mood);
+  eq(req.seconds, reel.duration);
+  assert(req.sections.length >= 1, 'a request with no sections');
+  assert(req.seed !== reel.seed, 'the score seed must not be the film seed itself');
+  assert(typeof req.seed === 'number' && isFinite(req.seed), 'bad seed: ' + req.seed);
+
+  const again = Conductor.request(reel, { bpmRange: forge.Genres.GENRES[music.genre].bpm });
+  eq(JSON.stringify(again), JSON.stringify(req), 'the same film must ask for the same score');
+});
+
+test('any film, any length, produces a usable request', () => {
+  ['', 'robot', 'two sisters rob a bank at midnight', 'a ghost in the attic'].forEach((idea) => {
+    ['micro', 'short', 'festival'].forEach((length) => {
+      const reel = Reel.build(Writer.write(Parse.parse(idea, { seed: 3 }), { length, seed: 3 }));
+      const req = Conductor.request(reel);
+      assert(req.bpm > 0 && req.sections.length > 0, 'unusable request for "' + idea.slice(0, 20) + '"');
+      const seconds = (req.sections.reduce((b, s) => b + s.bars, 0) * Conductor.BEATS_PER_BAR * 60) / req.bpm;
+      assert(seconds >= reel.duration - 1e-6, 'the score is shorter than the film');
+    });
+  });
+});
+
+test('a reel with an unknown genre falls back to drama', () => {
+  // A hand-built reel may have a genre the map has never seen (e.g., 'documentary').
+  // It should still yield a usable request, scored as drama.
+  const unknownReel = {
+    genre: 'documentary',
+    seed: 0x12345678,
+    duration: 32.5,
+    shots: [
+      { start: 0, duration: 10, scene: 1, beat: 'open', mood: 0.15, kind: 'action', set: 'room', time: 'DAY', framing: 'wide', camera: 'push', caption: 'First scene', speaker: null, characters: [] },
+      { start: 10, duration: 12.5, scene: 1, beat: 'spark', mood: 0.38, kind: 'action', set: 'room', time: 'DAY', framing: 'mid', camera: 'push', caption: 'Still scene one', speaker: null, characters: [] },
+      { start: 22.5, duration: 10, scene: 2, beat: 'after', mood: 0.18, kind: 'action', set: 'room', time: 'NIGHT', framing: 'close', camera: 'static', caption: 'Final scene', speaker: null, characters: [] }
+    ]
+  };
+
+  const req = Conductor.request(unknownReel);
+
+  // Should match drama's genre and mood
+  const drama = Conductor.MUSIC_FOR.drama;
+  eq(req.genre, drama.genre, 'fallback request should have drama genre');
+  eq(req.mood, drama.mood, 'fallback request should have drama mood');
+
+  // Should still be usable: has tempo and sections
+  assert(req.bpm > 0 && isFinite(req.bpm), 'request has no valid bpm');
+  assert(req.sections.length >= 1, 'request has no sections');
+  assert(req.sections.every((s) => s.bars >= 4), 'all sections must be at least 4 bars');
+
+  // Should cover the film
+  const musicSeconds = (req.sections.reduce((b, s) => b + s.bars, 0) * Conductor.BEATS_PER_BAR * 60) / req.bpm;
+  assert(musicSeconds >= unknownReel.duration - 1e-6, 'the score is shorter than the film');
+});
+
+test('the music ducks for every line and comes back up', () => {
+  const reel = Reel.build(sample);
+  const env = Conductor.duckEnvelope(reel);
+  const lines = reel.shots.filter((s) => s.kind === 'line');
+
+  eq(env[0].t, 0, 'the envelope must start at the top of the film');
+  eq(env[0].gain, 1, 'the film must start at full music');
+
+  for (let i = 1; i < env.length; i++) {
+    assert(env[i].t >= env[i - 1].t, 'envelope points are out of order');
+    assert(env[i].gain === 1 || env[i].gain === Conductor.DUCK_GAIN,
+      'unexpected gain ' + env[i].gain);
+    assert(env[i].t >= 0 && env[i].t <= reel.duration + 1, 'envelope point outside the film');
+  }
+
+  const ducks = env.filter((p) => p.gain === Conductor.DUCK_GAIN).length;
+  assert(ducks >= 1 && ducks <= lines.length,
+    `${ducks} ducks for ${lines.length} lines — expected at most one per line`);
+  eq(env[env.length - 1].gain, 1, 'the music must come back up before the end');
+});
+
+test('lines close together stay ducked rather than pumping', () => {
+  const reel = {
+    duration: 20, genre: 'drama', seed: 1,
+    shots: [
+      { kind: 'line', start: 5, duration: 2, scene: 1 },
+      { kind: 'line', start: 7.1, duration: 2, scene: 1 }
+    ]
+  };
+  const env = Conductor.duckEnvelope(reel);
+  const ducks = env.filter((p) => p.gain === Conductor.DUCK_GAIN).length;
+  eq(ducks, 1, 'two lines a fifth of a second apart should be one duck, not two');
+});
+
+/* The duck envelope is arithmetic, but *scheduling* it is where it goes wrong:
+ * Web Audio ramps from the previous automation event, so a bare list of ramps
+ * glides the level continuously instead of holding it. These drive the real
+ * `applyDuck` through a fake AudioParam that records every call, then replay
+ * the recording to ask what the level actually is at a given moment. */
+
+/* A fake Score: applyDuck only touches these four things. */
+function fakeScore(reel, now) {
+  const calls = [];
+  const gain = {
+    calls: calls,
+    cancelScheduledValues(t) { calls.push({ op: 'cancel', value: null, at: t }); },
+    setValueAtTime(v, t) { calls.push({ op: 'set', value: v, at: t }); },
+    linearRampToValueAtTime(v, t) { calls.push({ op: 'ramp', value: v, at: t }); }
+  };
+  return {
+    calls: calls,
+    duckPoints: Conductor.duckEnvelope(reel),
+    musicBus: { gain: gain },
+    ctx: { currentTime: now }
+  };
+}
+
+/* Replay a recorded automation the way Web Audio would, and report the level
+ * at one moment: a `set` pins a value, a `ramp` runs linearly to its value
+ * from whatever event came before it. */
+function levelAt(calls, t) {
+  let prevAt = null, prevValue = null, value = 0;
+  for (const call of calls) {
+    if (call.op === 'cancel') continue;
+    if (call.at <= t) {
+      value = call.value;
+      prevAt = call.at;
+      prevValue = call.value;
+      continue;
+    }
+    if (call.op === 'ramp' && prevValue !== null) {
+      const span = call.at - prevAt;
+      value = span <= 0 ? call.value
+        : prevValue + (call.value - prevValue) * ((t - prevAt) / span);
+    }
+    break;
+  }
+  return value;
+}
+
+const duckReel = {
+  duration: 40, genre: 'drama', seed: 1,
+  shots: [
+    { kind: 'line', start: 10, duration: 3, scene: 1 },
+    { kind: 'line', start: 25, duration: 2, scene: 2 }
+  ]
+};
+
+test('the duck is scheduled flat, not as one long glide', () => {
+  const NOW = 1000;          // a context that has been running a while
+  const score = fakeScore(duckReel, NOW);
+  Score.Score.prototype.applyDuck.call(score, 0);
+
+  eq(score.calls[0].op, 'cancel', 'the old envelope must be cancelled first');
+  const full = score.calls[1].value;
+  assert(score.calls[1].op === 'set' && full > 0, 'the envelope must open on a held value');
+  const ducked = full * Conductor.DUCK_GAIN;
+
+  const at = (filmSeconds) => levelAt(score.calls, NOW + filmSeconds);
+  const near = (actual, expected, where) => assert(Math.abs(actual - expected) < 1e-6,
+    `at ${where} the music is at ${actual.toFixed(4)}, expected ${expected.toFixed(4)}`);
+
+  // Flat at full right across the gap before the first line — this is the one
+  // that fails if the setValueAtTime anchors go: without them the level is
+  // already halfway down by here, sliding since the film began.
+  near(at(0), full, '0s, the top of the film');
+  near(at(5), full, '5s, the middle of the gap');
+  near(at(9.7), full, '9.7s, a breath before the dip starts');
+
+  // A quarter-second dip that lands exactly as the line starts.
+  near(at(10 - Conductor.DUCK_LEAD), full, 'the instant the dip begins');
+  assert(at(9.9) < full && at(9.9) > ducked, 'the dip is not moving mid-ramp');
+  near(at(10), ducked, '10s, the first word');
+
+  // Flat and low through the line, not climbing back while it is spoken.
+  near(at(11.5), ducked, '11.5s, mid-line');
+  near(at(13), ducked, '13s, the last word');
+  near(at(13 + Conductor.DUCK_TAIL), ducked, 'the instant the rise begins');
+
+  // Up again after it, and flat until the next line.
+  near(at(13.2 + Conductor.DUCK_TAIL), full, 'the top of the rise');
+  near(at(20), full, '20s, between the two lines');
+
+  // And the same shape again for the second line.
+  near(at(24.7), full, '24.7s, before the second line');
+  near(at(25), ducked, '25s, the second line');
+  near(at(26.5), ducked, '26.5s, mid second line');
+  near(at(27.4), full, '27.4s, back up after the second line');
+  near(at(39), full, '39s, the end of the film');
+});
+
+test('every duck transition is anchored before it ramps', () => {
+  const NOW = 4;
+  const score = fakeScore(duckReel, NOW);
+  Score.Score.prototype.applyDuck.call(score, 0);
+
+  const ramps = score.calls.filter((c) => c.op === 'ramp');
+  eq(ramps.length, 4, 'two lines make four transitions: down, up, down, up');
+
+  ramps.forEach((ramp) => {
+    const anchor = score.calls[score.calls.indexOf(ramp) - 1];
+    eq(anchor.op, 'set', 'a ramp with no setValueAtTime before it glides from the last event');
+    assert(anchor.value !== ramp.value, 'the anchor holds the old level, not the new one');
+    const seconds = ramp.at - anchor.at;
+    const expected = ramp.value < anchor.value ? Conductor.DUCK_LEAD : Conductor.DUCK_TAIL;
+    assert(Math.abs(seconds - expected) < 1e-6,
+      `a transition took ${seconds.toFixed(3)}s, expected ${expected}s`);
+  });
+});
+
+test('playing from the middle of a line starts already ducked', () => {
+  const NOW = 7;
+  const score = fakeScore(duckReel, NOW);
+  Score.Score.prototype.applyDuck.call(score, 11);   // eleven seconds in, mid-line
+
+  const opening = score.calls[1];
+  eq(opening.op, 'set', 'the envelope opens on a held value');
+  eq(opening.at, NOW, 'and it is held from this instant, not from film zero');
+  assert(Math.abs(opening.value - 0.55 * Conductor.DUCK_GAIN) < 1e-6,
+    'starting mid-line must start under the dialogue, at ' + opening.value);
+
+  // Everything still to come is laid relative to where playback starts.
+  const first = score.calls.filter((c) => c.op === 'ramp')[0];
+  assert(Math.abs(first.at - (NOW + (13.2 - 11) + Conductor.DUCK_TAIL)) < 1e-6,
+    'the rise after the current line is at the wrong moment: ' + first.at);
+  score.calls.forEach((c) => assert(c.at >= NOW, 'an event was scheduled in the past: ' + c.at));
 });
 
 /* ------------------------------------------------------------------ report */

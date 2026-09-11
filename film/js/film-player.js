@@ -326,6 +326,13 @@
     ctx.fillRect(0, y, w, h);
   }
 
+  /* The score is a live player, so the film drives it the way a projectionist
+   * drives sound: same clock, same transport. */
+  function beatAt(score, seconds) {
+    if (!score || !score.player || !score.player.song) return 0;
+    return (seconds * score.player.song.bpm) / 60;
+  }
+
   /* --------------------------------------------------------------- player */
   function Player(canvas, reel, hooks) {
     this.canvas = canvas;
@@ -380,6 +387,10 @@
       self._raf = root.requestAnimationFrame(tick);
     }
     if (this.score) this.score.start();
+    if (this.score && this.score.player) {
+      this.score.player.play(beatAt(this.score, this._offset));
+      this.score.applyDuck(this._offset);
+    }
     this._raf = root.requestAnimationFrame(tick);
     if (this.hooks.onPlay) this.hooks.onPlay();
   };
@@ -391,6 +402,11 @@
     var wasPlaying = this.playing;
     if (wasPlaying) this.pause();
     this.time = target;
+    if (this.score && this.score.player) {
+      // No duck envelope here: `pause()` above has already cleared `playing`,
+      // and the `play(target)` below lays a fresh envelope from the new spot.
+      this.score.player.seek(beatAt(this.score, target));
+    }
     this.drawAt(target);
     if (this.hooks.onFrame) this.hooks.onFrame(target, this.reel.duration);
     if (wasPlaying) this.play(target);
@@ -402,6 +418,7 @@
     this._raf = null;
     this.playing = false;
     this._shot = null;
+    if (this.score && this.score.player) this.score.player.pause();
     if (this.score) this.score.stop();
     if (this.hooks.onPause) this.hooks.onPause(this.time);
   };
@@ -411,6 +428,7 @@
     this._raf = null;
     this.playing = false;
     this._shot = null;
+    if (this.score && this.score.player) this.score.player.stop();
     if (this.score) this.score.stop();
     if (!ended) this.time = 0;
     if (this.hooks.onStop) this.hooks.onStop(!!ended);
@@ -421,20 +439,65 @@
    * score together. It runs in real time, because that is the only way a
    * browser can record: a two-minute film takes two minutes.
    */
-  var MIME_CANDIDATES = [
+  /* Choosing a format is not as simple as asking for MP4.
+   *
+   * A browser can answer "yes" to the bare type `video/mp4` and then write VP9
+   * video into an MP4 wrapper — a file named .mp4 that an iPhone still cannot
+   * play, which is worse than an honest .webm because the name promises
+   * otherwise. Only an explicit H.264 codec string is a real promise, so those
+   * are asked for by name and the bare type is never used.
+   *
+   * H.264 in MP4 plays everywhere, iPhone and QuickTime included. WebM plays on
+   * computers — Chrome, Edge, Firefox, VLC — and on Android, but not on Apple
+   * devices. The app says which one you are getting before you record.
+   */
+  /* Every MP4 candidate names *both* codecs. Asking for `codecs=avc1` alone
+   * leaves the audio to the browser, and Chrome will happily put Opus in an
+   * MP4 — H.264 that an Apple device plays, carrying a soundtrack it does not.
+   * A silent film is not what anyone recorded, so an MP4 we cannot fully name
+   * is not worth having: it falls back to WebM, which at least warns. */
+  var MP4_CANDIDATES = [
+    'video/mp4;codecs=avc1.42E01E,mp4a.40.2',   // H.264 baseline + AAC
+    'video/mp4;codecs=avc1.4D401E,mp4a.40.2',   // H.264 main + AAC
+    'video/mp4;codecs=avc1.64001E,mp4a.40.2',   // H.264 high + AAC
+    'video/mp4;codecs=avc1,mp4a.40.2',
+    'video/mp4;codecs=avc1,mp4a',
+    'video/mp4;codecs=h264,aac'
+  ];
+
+  var WEBM_CANDIDATES = [
     'video/webm;codecs=vp9,opus',
     'video/webm;codecs=vp8,opus',
     'video/webm;codecs=vp9',
-    'video/webm',
-    'video/mp4'
+    'video/webm'
   ];
 
-  function bestMimeType() {
-    if (typeof root.MediaRecorder === 'undefined') return null;
-    for (var i = 0; i < MIME_CANDIDATES.length; i++) {
-      if (root.MediaRecorder.isTypeSupported(MIME_CANDIDATES[i])) return MIME_CANDIDATES[i];
+  /* Pure, so the choice can be tested against any browser's answers. */
+  function pickMimeType(isSupported) {
+    var i;
+    for (i = 0; i < MP4_CANDIDATES.length; i++) {
+      if (isSupported(MP4_CANDIDATES[i])) {
+        return { type: MP4_CANDIDATES[i], container: 'mp4', extension: '.mp4', playsOnApple: true };
+      }
+    }
+    for (i = 0; i < WEBM_CANDIDATES.length; i++) {
+      if (isSupported(WEBM_CANDIDATES[i])) {
+        return { type: WEBM_CANDIDATES[i], container: 'webm', extension: '.webm', playsOnApple: false };
+      }
     }
     return null;
+  }
+
+  function bestFormat() {
+    if (typeof root.MediaRecorder === 'undefined') return null;
+    return pickMimeType(function (type) {
+      return root.MediaRecorder.isTypeSupported(type);
+    });
+  }
+
+  function bestMimeType() {
+    var format = bestFormat();
+    return format ? format.type : null;
   }
 
   function canRecord(canvas) {
@@ -446,10 +509,11 @@
   function record(player, opts) {
     opts = opts || {};
     var canvas = player.canvas;
-    var mime = bestMimeType();
-    if (!mime || !canvas.captureStream) {
+    var format = bestFormat();
+    if (!format || !canvas.captureStream) {
       return Promise.reject(new Error('This browser cannot record video from a canvas.'));
     }
+    var mime = format.type;
 
     var fps = opts.fps || 30;
     var stream = canvas.captureStream(fps);
@@ -473,7 +537,7 @@
       recorder.onerror = function (e) { reject(e.error || new Error('Recording failed.')); };
       recorder.onstop = function () {
         stream.getTracks().forEach(function (t) { t.stop(); });
-        resolve({ blob: new Blob(chunks, { type: mime }), mime: mime });
+        resolve({ blob: new Blob(chunks, { type: mime }), mime: mime, format: format });
       };
 
       var previousStop = player.hooks.onStop;
@@ -497,6 +561,10 @@
     record: record,
     canRecord: canRecord,
     bestMimeType: bestMimeType,
+    bestFormat: bestFormat,
+    pickMimeType: pickMimeType,
+    MP4_CANDIDATES: MP4_CANDIDATES,
+    WEBM_CANDIDATES: WEBM_CANDIDATES,
     framingFor: framingFor,
     figureLayout: figureLayout,
     fadeAmount: fadeAmount,
