@@ -326,6 +326,13 @@
     ctx.fillRect(0, y, w, h);
   }
 
+  /* The score is a live player, so the film drives it the way a projectionist
+   * drives sound: same clock, same transport. */
+  function beatAt(score, seconds) {
+    if (!score || !score.player || !score.player.song) return 0;
+    return (seconds * score.player.song.bpm) / 60;
+  }
+
   /* --------------------------------------------------------------- player */
   function Player(canvas, reel, hooks) {
     this.canvas = canvas;
@@ -380,6 +387,10 @@
       self._raf = root.requestAnimationFrame(tick);
     }
     if (this.score) this.score.start();
+    if (this.score && this.score.player) {
+      this.score.player.play(beatAt(this.score, this._offset));
+      this.score.applyDuck(this._offset);
+    }
     this._raf = root.requestAnimationFrame(tick);
     if (this.hooks.onPlay) this.hooks.onPlay();
   };
@@ -391,6 +402,10 @@
     var wasPlaying = this.playing;
     if (wasPlaying) this.pause();
     this.time = target;
+    if (this.score && this.score.player) {
+      this.score.player.seek(beatAt(this.score, target));
+      if (this.playing) this.score.applyDuck(target);
+    }
     this.drawAt(target);
     if (this.hooks.onFrame) this.hooks.onFrame(target, this.reel.duration);
     if (wasPlaying) this.play(target);
@@ -402,6 +417,7 @@
     this._raf = null;
     this.playing = false;
     this._shot = null;
+    if (this.score && this.score.player) this.score.player.pause();
     if (this.score) this.score.stop();
     if (this.hooks.onPause) this.hooks.onPause(this.time);
   };
@@ -411,6 +427,7 @@
     this._raf = null;
     this.playing = false;
     this._shot = null;
+    if (this.score && this.score.player) this.score.player.stop();
     if (this.score) this.score.stop();
     if (!ended) this.time = 0;
     if (this.hooks.onStop) this.hooks.onStop(!!ended);

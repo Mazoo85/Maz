@@ -283,20 +283,32 @@
         score = null; // a film with no sound still plays
       }
     }
+    if (score) {
+      var scored = score.startScore(reel);
+      // The panel carries what it has: which kind of score, and what the
+      // music is doing. The film note and the tests both read it.
+      el.viewFilm.dataset.score = scored ? 'real' : 'fallback';
+      el.viewFilm.dataset.sections = scored && score.player && score.player.song
+        ? String(score.player.song.sections.length) : '0';
+      if (!scored) say('Could not compose a score in this browser — using simple music.');
+    }
     player = new PlayerLib.Player(el.filmCanvas, reel, {
       score: score,
       onFrame: function (time, duration) { updateScrub(time, duration); },
       onShot: function (shot) { if (el.speakAloud.checked) speakAloud(shot); },
+      onPlay: function () { el.viewFilm.dataset.music = 'playing'; },
       onStop: function (ended) {
         el.bigPlay.classList.remove('hidden');
         el.playFilm.textContent = '▶ Play the film';
         if (window.speechSynthesis) window.speechSynthesis.cancel();
         if (ended) updateScrub(reel.duration, reel.duration);
+        el.viewFilm.dataset.music = 'stopped';
       },
       onPause: function () {
         el.bigPlay.classList.remove('hidden');
         el.playFilm.textContent = '▶ Resume';
         if (window.speechSynthesis) window.speechSynthesis.cancel();
+        el.viewFilm.dataset.music = 'paused';
       }
     });
     return player;
