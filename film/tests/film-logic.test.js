@@ -1501,6 +1501,34 @@ test('every MADLIBS beat label maps to a real beat', () => {
   });
 });
 
+test('every MADLIBS story yields an idea a film can be made from', () => {
+  for (let seed = 0; seed < 60; seed++) {
+    const idea = Seed.idea(seed);
+    assert(idea && typeof idea.text === 'string' && idea.text.length > 20,
+      'seed ' + seed + ' gave no usable idea');
+    assert(LEX.GENRES[idea.genre], 'seed ' + seed + ' gave genre ' + idea.genre);
+
+    const premise = Parse.parse(idea.text, { seed, genre: idea.genre });
+    const script = Writer.write(premise, { length: 'short', seed });
+    assert(script.scenes.length >= 3, 'seed ' + seed + ' produced ' + script.scenes.length + ' scenes');
+    assert(script.title && script.title.length, 'seed ' + seed + ' produced no title');
+    const reel = Reel.build(script);
+    assert(reel.duration > 30, 'seed ' + seed + ' produced a ' + reel.duration + 's film');
+  }
+});
+
+test('the same seed always gives the same story', () => {
+  for (let seed = 0; seed < 20; seed++) {
+    eq(Seed.idea(seed).text, Seed.idea(seed).text, 'seed ' + seed + ' was not deterministic');
+  }
+});
+
+test('different seeds give different stories', () => {
+  const seen = new Set();
+  for (let seed = 0; seed < 40; seed++) seen.add(Seed.idea(seed).text);
+  assert(seen.size >= 20, 'only ' + seen.size + ' distinct stories in 40 seeds');
+});
+
 /* ------------------------------------------------------------------ report */
 console.log('');
 if (failures.length) {

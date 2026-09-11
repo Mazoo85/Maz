@@ -31,9 +31,11 @@
    *   adventure         -> fantasy   map-of-the-dead & sky-pirates: a magic
    *                                  relic, a fortune, a ship's crew — reads
    *                                  as a fantasy quest, not a modern caper.
-   *   superhero         -> scifi     "gains the power to ... protect the
-   *                                  city" is contemporary-urban, not a
-   *                                  realm/kingdom story.
+   *   superhero         -> scifi     close call against fantasy — "gains the
+   *                                  power to ... protect the city" has no
+   *                                  vocabulary either genre owns outright,
+   *                                  but its contemporary-urban setting
+   *                                  reads closer to scifi than fantasy.
    *   noir               -> mystery  "takes one case ... falls into a city
    *                                  of secrets" — case/secret are mystery's
    *                                  own keywords.
@@ -124,7 +126,25 @@
     'Resolution': 'after'
   };
 
-  var API = { GENRE_FOR: GENRE_FOR, BEAT_FOR: BEAT_FOR };
+  /* A MADLIBS story, reduced to the one sentence SCRIPT FORGE's parser reads
+   * best. The logline already names a person, a place and what turns — which
+   * is exactly what parse() goes looking for — so the whole existing
+   * extraction is reused rather than duplicated here. */
+  function idea(seed) {
+    var story = MAD.generate({ seed: (seed >>> 0) });
+    var logline = '';
+    for (var i = 0; i < story.beats.length; i++) {
+      if (story.beats[i].label === 'Logline') { logline = story.beats[i].text; break; }
+    }
+    if (!logline && story.beats.length) logline = story.beats[0].text;
+    return {
+      text: logline,
+      genre: GENRE_FOR[story.genre] || 'drama',
+      title: story.title
+    };
+  }
+
+  var API = { GENRE_FOR: GENRE_FOR, BEAT_FOR: BEAT_FOR, idea: idea };
   if (typeof module === 'object' && module.exports) module.exports = API;
   root.FilmStorySeed = API;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
