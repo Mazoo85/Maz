@@ -198,20 +198,36 @@ recorded as `checks: green`, having verified nothing at all. Before widening
 command first, or the work landing there is unverified while looking
 exactly like everything else that isn't.
 
-**A zone's checks now include everything downstream of it.**
+**A zone's checks now include everything downstream of it — provided the
+downstream project has its own entry in `PROJECT_CHECKS`.**
 `shared/exchange.json` records which projects use each other — today only
 that SCRIPT FORGE loads five of SONG FORGE's files. So a change in `music/`
 runs `film/`'s tests as well as music's own, and `checks: green` means both
-passed. Before this, the Forge could break SCRIPT FORGE, record green, and
-open a pull request describing verified work; CI on that pull request caught
-the break, but the ledger — the permanent record of the loop's judgement —
-carried a false claim.
+passed — because `film` is registered in `forge/forge/checks.py`'s
+`PROJECT_CHECKS`. But `all_commands` looks each consumer up in that same map,
+and a project named in `consumes` with no entry there contributes zero
+commands: `checks: green` would then claim to have verified a downstream
+project it never ran a single command against, the same trivial-pass hazard
+the paragraph above names for zones themselves. Give a new consumer a
+`PROJECT_CHECKS` entry before declaring it, or its half of "green" is empty.
+Before this exchange check existed at all, the Forge could break SCRIPT
+FORGE, record green, and open a pull request describing verified work; CI on
+that pull request caught the break, but the ledger — the permanent record of
+the loop's judgement — carried a false claim.
 
-If `shared/exchange.json` is missing or malformed the Forge stops for the
-night rather than falling back to a zone's own checks: it records
-`config_error` and picks nothing. Falling back would mean verifying less
-while still reporting green, which is the defect this exists to remove. A
-quiet night is a correct night.
+Two separate failure paths follow from a broken `shared/exchange.json`, and
+they cost differently. If it is already missing or malformed when DECIDE
+runs, DECIDE treats it as an early exit: every candidate is skipped
+(`config_error`), nothing is picked, and the night records `no_task` —
+cheap, because nothing ran. But if the declaration is intact at DECIDE and
+breaks afterward — during DO, while the coding agent is still working — a
+candidate has already been picked and the agent has already run by the time
+VERIFY tries to read it. `run_checks` then fails closed the same way DECIDE
+does, but the night records `verify_failed` with `checks: red` and a
+quarantine strike against that candidate, after real cost was spent. Either
+way nothing is falsely reported green; a `verify_failed` entry with no test
+output beyond "cannot tell what this change could break" is this condition,
+not a real test failure.
 
 Adding a cross-project `<script>` tag without declaring it in
 `shared/exchange.json` fails CI (`scripts/check-exchange.mjs`), so the
