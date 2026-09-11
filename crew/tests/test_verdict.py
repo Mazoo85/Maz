@@ -1,0 +1,59 @@
+"""The verdict parser is the fix for the old brittle substring check."""
+
+import pytest
+
+from crew.verdict import interpret_test_result as f
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        # Explicit marker is authoritative.
+        ("12 passed, 0 failed\nVERDICT: PASS", True),
+        ("VERDICT: FAIL", False),
+        ("verdict: pass", True),  # case-insensitive
+        # Real formats agents actually emit (found by running the crew live):
+        ("**Verdict: PASS** — full test suite green, no linters to run.", True),
+        ("**VERDICT: FAIL** (2 tests failing)", False),
+        ("Final result\n\n**Verdict: PASS**", True),
+        ("VERDICT: `FAIL`", False),
+        # Marker wins even when the prose looks the other way...
+        ("2 failed, 3 errors\n\nVERDICT: PASS", True),
+        # ...and the LAST marker is the tester's final word.
+        ("VERDICT: FAIL\nwait, re-ran\nVERDICT: PASS", True),
+        # These are exactly what broke the old heuristic:
+        ("no failures found", True),
+        ("Ran 8 tests, 0 errors", True),
+        ("0 failed", True),
+        # Real failures.
+        ("2 failed, 5 passed", False),
+        ("1 error during collection", False),
+        # Plain-English success without counts.
+        ("all tests passed", True),
+        ("build is green", True),
+        # Genuinely ambiguous / empty -> unknown.
+        ("hmm, something happened but I'm not sure", None),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_interpret(text, expected):
+    assert f(text) is expected
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("Looks good.\nREVIEW: CLEAN", True),
+        ("- bug at foo.py:3\nREVIEW: ISSUES", False),
+        ("**Review: CLEAN** — nothing to change", True),
+        ("REVIEW: CHANGES needed", False),
+        ("no marker here", None),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_review_is_clean(text, expected):
+    from crew.verdict import review_is_clean
+
+    assert review_is_clean(text) is expected

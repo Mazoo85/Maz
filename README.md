@@ -8,6 +8,30 @@ pluggable renderer, 2D and 3D cameras, a depth buffer, and lit meshes alongside 
 Continuous integration builds the engine and runs the full test suite (8900+ checks) on
 **Linux, macOS, and Windows** on every push — see [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
+---
+
+## Also in this repository: MAZ ARCADE
+
+Alongside the engine, a set of browser projects that run offline from a static
+file server with no build step and no dependencies. The front door is
+**[`index.html`](index.html)** — the hub — and every app carries a small MAZ pill
+in its corner that leads back to it.
+
+| | Project | What it is |
+|---|---|---|
+| 🎬 | **SCRIPT FORGE** — [open](film/) · [docs](film/README.md) | Type what your film is about and get the film: a formatted screenplay, a shot list, and an animated short with jointed characters, layered sets, weather, moving light and a composed score, that plays in the page and downloads. |
+| 🎵 | **SONG FORGE** — [open](music/) · [docs](music/README.md) | Writes and plays complete songs — chords, bass, drums, arpeggio, melody — across 8 genres, with WAV and MIDI export. It is also the thing that scores a SCRIPT FORGE film. |
+| 🎮 | **ZOMBOID: ANCHORAGE** — [play](zomboid/) · [docs](zomboid/README.md) | Open-world zombie survival across a tile-built replica of downtown Anchorage, drawn as a 1990s SEGA arcade title. |
+| 🎮 | **DEAD SECTOR** — [play](shooter/) · [docs](shooter/README.md) | Phone-first top-down twin-stick shooter in one self-contained HTML file. |
+| ✍️ | **MADLIBS STORY FORGE** — [open](madlibs/) · [docs](madlibs/README.md) | Forges story ideas broken into scene beats, ready to seed a script. |
+| 🕸️ | **maz-scrape** — [docs](scraper/README.md) | Recipe-driven scraper for static HTML: point it at a YAML recipe, get JSONL/CSV/SQLite. |
+| 🧰 | **crew** — [docs](crew/README.md) | Small shared tooling. |
+
+The arcade has its own CI — [`site-ci.yml`](.github/workflows/site-ci.yml) checks
+that every cross-link resolves and drives the hub and each app in a real
+Chromium; [`music-ci.yml`](.github/workflows/music-ci.yml) covers SONG FORGE.
+Neither touches the engine build.
+
 See **[`docs/ROADMAP.md`](docs/ROADMAP.md)** for the full build plan (the "massive list") and
 **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** for the module map and design principles.
 
