@@ -1328,6 +1328,37 @@ test('the new framings are understood by the camera', () => {
   });
 });
 
+console.log('\nWHERE A FILM HAPPENS');
+
+test('a premise offers three to five places', () => {
+  for (let seed = 0; seed < 60; seed++) {
+    const p = Parse.parse('a courier takes a job in a city at night', { seed });
+    assert(p.places.length >= 3 && p.places.length <= 5,
+      'seed ' + seed + ' offered ' + p.places.length + ' places');
+  }
+});
+
+test('the places are distinct', () => {
+  for (let seed = 0; seed < 60; seed++) {
+    const p = Parse.parse('a lighthouse keeper finds a radio', { seed });
+    const keys = p.places.map((x) => x.key);
+    eq(new Set(keys).size, keys.length, 'seed ' + seed + ' repeated a place: ' + keys.join(','));
+  }
+});
+
+test('a place named in the idea is still used, and comes first', () => {
+  const p = Parse.parse('two sisters argue in a kitchen');
+  eq(p.places[0].key, 'kitchen', 'the typed place did not lead');
+});
+
+test('the same idea and seed give the same places', () => {
+  for (let seed = 0; seed < 20; seed++) {
+    const a = Parse.parse('a thief in a warehouse', { seed }).places.map((x) => x.key).join(',');
+    const b = Parse.parse('a thief in a warehouse', { seed }).places.map((x) => x.key).join(',');
+    eq(a, b, 'seed ' + seed + ' was not deterministic');
+  }
+});
+
 /* ------------------------------------------------------------------ report */
 console.log('');
 if (failures.length) {
