@@ -584,6 +584,11 @@ target_link_libraries(maz_meshwinding_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_winding COMMAND maz_meshwinding_tests)
 set_tests_properties(mesh_winding PROPERTIES TIMEOUT 30)
 
+add_executable(maz_meshorient_tests render/meshorient.cpp)
+target_link_libraries(maz_meshorient_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_orient COMMAND maz_meshorient_tests)
+set_tests_properties(mesh_orient PROPERTIES TIMEOUT 30)
+
 add_executable(maz_meshdegenerate_tests render/meshdegenerate.cpp)
 target_link_libraries(maz_meshdegenerate_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_degenerate COMMAND maz_meshdegenerate_tests)
