@@ -31,10 +31,12 @@ forge decide      # pick the best option for tonight's run
 forge run         # dry run by default: sense, decide, write a ledger line, change nothing
 forge run --live  # execute the chosen task for real (branch, commit, log)
 forge ledger      # show past runs
-forge followup    # inspect the last run's output
+forge followup    # backfill merged / human_edits for past PRs, by asking GitHub
 ```
 
 Forge never pushes to main and never merges branches — all changes land on feature branches for your review.
+
+Talking to GitHub at all — reading CI status, opening a PR, and `forge followup` — needs a `GITHUB_TOKEN` (or `GH_TOKEN`) environment variable set wherever Forge runs. The Routine path needs no API key for Crew, but it still needs this. See `docs/FORGE.md` for what a missing token looks like.
 
 ## Development
 
