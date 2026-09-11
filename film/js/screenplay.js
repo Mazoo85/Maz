@@ -76,7 +76,9 @@
    * emptied banks that hold a dozen entries and put the same sound cue on
    * screen twice in a row. */
   function fill(text, ctx) {
-    return String(text)
+    // The swap happens on the template, before {HERO}/{OBJ} go in, because the
+    // map is keyed by the raw strings that live in the lexicon.
+    return String(ctx.exterior ? LEX.outdoors(text) : text)
       .replace(/\{HERO\}/g, ctx.hero.name)
       .replace(/\{OTHER\}/g, ctx.other.name)
       .replace(/\{OBJ\}/g, ctx.object)
@@ -243,15 +245,25 @@
     var rng = PARSE.makeRng((seed + 0x9e3779b9) >>> 0);
     var genre = LEX.GENRES[premise.genre] || LEX.GENRES.drama;
 
-    var ctx = {
+    var ctx;
+    ctx = {
       hero: premise.hero,
       other: premise.other,
       object: premise.object,
       placeWord: premise.places[0].word.toLowerCase(),
       want: premise.want,
       tonight: premise.time === 'NIGHT' || premise.time === 'DUSK' ? 'tonight' : 'today',
-      nextDetail: pool(genre.details, rng),
-      nextSound: pool(genre.sounds, rng)
+      exterior: false,
+      nextDetail: (function (next) {
+        // Details reach the page two ways: substituted into a template by
+        // fill(), and pushed straight through at the end of a scene. Swapping
+        // here covers both, and never double-swaps (an outdoor twin is not
+        // itself a key).
+        return function () { return ctx.exterior ? LEX.outdoors(next()) : next(); };
+      }(pool(genre.details, rng))),
+      nextSound: (function (next) {
+        return function () { return ctx.exterior ? LEX.outdoors(next()) : next(); };
+      }(pool(genre.sounds, rng)))
     };
 
     var beatById = {};
@@ -273,6 +285,8 @@
       previousHeading = heading;
       // Action lines say "the kitchen" only when the scene is in the kitchen.
       ctx.placeWord = heading.place.word.toLowerCase();
+      // ...and only talk about sills and ceilings when there are some.
+      ctx.exterior = heading.int === 'EXT.';
 
       var sceneElements = [{ type: 'scene_heading', text: heading.text }];
       var actionPool = pool(beat.action, rng);

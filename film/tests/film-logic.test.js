@@ -1624,6 +1624,109 @@ test('an article is only an article when a space follows it', () => {
 });
 
 /* ------------------------------------------------------------------ report */
+console.log('\nUNDER AN OPEN SKY');
+
+/* A film used to be two interiors. It now has three to five places and about a
+ * third of its scenes are exteriors, which is how "Rain finds the same crack in
+ * the sill it always finds" ended up in a parking lot. LEX.OUTDOORS gives those
+ * lines an outdoor twin and the writer swaps them when the scene is EXT. */
+
+const INTERIOR_WORDS = /\b(sill|floor|ceiling|walls?|doorway|hallway|rooms?|corridor|radiator|counter|fridge|floorboard|kettle)\b/i;
+
+// Everything the lexicon can put on a page, as raw strings: a key that matches
+// none of these is a typo and would swap nothing, silently.
+function everyLexiconLine() {
+  const out = new Set();
+  Object.keys(LEX.GENRES).forEach((g) => {
+    LEX.GENRES[g].details.forEach((x) => out.add(x));
+    LEX.GENRES[g].sounds.forEach((x) => out.add(x));
+  });
+  LEX.BEATS.forEach((b) => {
+    ['action', 'actions', 'lines', 'shots', 'openers'].forEach((field) => {
+      if (Array.isArray(b[field])) b[field].forEach((x) => out.add(x));
+    });
+  });
+  return out;
+}
+
+test('every outdoor swap replaces a line that really exists', () => {
+  const lines = everyLexiconLine();
+  const orphans = Object.keys(LEX.OUTDOORS).filter((k) => !lines.has(k));
+  eq(orphans.length, 0,
+    'these OUTDOORS keys match nothing in the lexicon, so they would never fire: ' +
+    JSON.stringify(orphans));
+});
+
+test('an outdoor twin is never itself swapped again', () => {
+  Object.keys(LEX.OUTDOORS).forEach((k) => {
+    const twin = LEX.OUTDOORS[k];
+    assert(LEX.OUTDOORS[twin] === undefined,
+      'the twin of "' + k + '" is itself a key, so the swap would chain');
+    assert(twin !== k, 'the twin of "' + k + '" is the same line');
+  });
+});
+
+test('an outdoor twin mentions nothing that needs a ceiling', () => {
+  Object.keys(LEX.OUTDOORS).forEach((k) => {
+    const twin = LEX.OUTDOORS[k];
+    assert(!INTERIOR_WORDS.test(twin),
+      '"' + twin + '" is the outdoor twin of "' + k + '" but still names an interior');
+  });
+});
+
+test('no exterior scene uses a line that needs a room around it', () => {
+  const keys = new Set(Object.keys(LEX.OUTDOORS));
+  const ideas = [
+    "A lighthouse keeper finds a radio that plays tomorrow's news.",
+    'A courier discovers a package that hums.',
+    'Two sisters inherit a house that remembers them.',
+    'A detective loses the only witness who believed her.',
+    'A diver finds a door on the seabed.'
+  ];
+  const offenders = [];
+  for (let seed = 0; seed < 300; seed++) {
+    const script = Writer.write(Parse.parse(ideas[seed % ideas.length], { seed }),
+      { length: 'short', seed });
+    script.scenes.forEach((scene) => {
+      if (scene.heading.int !== 'EXT.') return;
+      scene.elements.forEach((el) => {
+        if (el.type !== 'action') return;
+        keys.forEach((k) => {
+          // The raw line, and the way it reads once capitalised on the page.
+          const shown = k.charAt(0).toUpperCase() + k.slice(1);
+          if (el.text.indexOf(shown) !== -1 && offenders.length < 5) {
+            offenders.push(scene.heading.text + ' — ' + el.text);
+          }
+        });
+      });
+    });
+  }
+  eq(offenders.length, 0, 'exterior scenes still reading as interiors: ' +
+    JSON.stringify(offenders));
+});
+
+test('an interior scene keeps the interior line', () => {
+  // The swap must be per scene, not global: a lamp room should still have a
+  // radiator in it. Proven by finding at least one interior line still in use.
+  let found = false;
+  const keys = Object.keys(LEX.OUTDOORS);
+  for (let seed = 0; seed < 300 && !found; seed++) {
+    const script = Writer.write(Parse.parse('A lighthouse keeper finds a radio.', { seed }),
+      { length: 'festival', seed });
+    script.scenes.forEach((scene) => {
+      if (scene.heading.int !== 'INT.') return;
+      scene.elements.forEach((el) => {
+        if (el.type !== 'action') return;
+        keys.forEach((k) => {
+          const shown = k.charAt(0).toUpperCase() + k.slice(1);
+          if (el.text.indexOf(shown) !== -1) found = true;
+        });
+      });
+    });
+  }
+  assert(found, 'no interior scene used an interior line — the swap is firing everywhere');
+});
+
 console.log('');
 if (failures.length) {
   console.error('✖ ' + failures.length + ' failing test(s):');
