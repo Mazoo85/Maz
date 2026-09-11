@@ -1529,6 +1529,25 @@ test('different seeds give different stories', () => {
   assert(seen.size >= 20, 'only ' + seen.size + ' distinct stories in 40 seeds');
 });
 
+test('an article is only an article when a space follows it', () => {
+  // "the" used to match inside "they": "discovers they are the last heir"
+  // yielded the object "y are", and so a film titled "THE Y ARE". Any typed
+  // idea containing "they" after a find/discover verb hit this.
+  const p = Parse.parse('A brazen pilot named Cordelia discovers they are the last heir to Umberfall.',
+    { seed: 7, genre: 'fantasy' });
+  assert(!/\b(are|were|was|is|be|to|of|and|they)\b/i.test(p.object),
+    'object came back as ' + JSON.stringify(p.object));
+  assert(!/\bY ARE\b/.test(p.title), 'title came back as ' + JSON.stringify(p.title));
+
+  // and the objects it is supposed to find are still found
+  [['a lighthouse keeper finds a radio that plays tomorrow', 'radio'],
+   ['a kid finds a walkie-talkie in an attic', 'walkie-talkie'],
+   ['a thief steals the duffel bag', 'duffel bag'],
+   ['she discovers letters in the attic', 'letters']].forEach((pair) => {
+    eq(Parse.parse(pair[0], { seed: 1 }).object, pair[1], 'object from: ' + pair[0]);
+  });
+});
+
 /* ------------------------------------------------------------------ report */
 console.log('');
 if (failures.length) {

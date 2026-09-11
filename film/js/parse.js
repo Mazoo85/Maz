@@ -235,7 +235,10 @@
   ];
 
   var OBJECT_TRIGGER =
-    /\b(?:finds?|found|discovers?|discovered|receives?|received|inherits?|inherited|steals?|stole|buys?|bought|opens?|opened|loses?|lost|keeps?|kept|carries|carrying|holding|hides?|hid)\s+(?:a|an|the|their|his|her|its|one|some)?\s*([a-z][a-z'-]*(?:\s+[a-z][a-z'-]*)?)/i;
+    // The article group must be followed by whitespace. Without that, "the"
+    // matched inside "they" — "discovers they are the last heir" yielded the
+    // object "y are", and so the title "THE Y ARE".
+    /\b(?:finds?|found|discovers?|discovered|receives?|received|inherits?|inherited|steals?|stole|buys?|bought|opens?|opened|loses?|lost|keeps?|kept|carries|carrying|holding|hides?|hid)\s+(?:(?:a|an|the|their|his|her|its|one|some)\s+)?([a-z][a-z'-]*(?:\s+[a-z][a-z'-]*)?)/i;
 
   var OBJECT_TAIL = {
     that: 1, which: 1, who: 1, in: 1, on: 1, at: 1, to: 1, from: 1, with: 1,
