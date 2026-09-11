@@ -1,10 +1,13 @@
 """The permanent record: append-only, one JSON line per run."""
 
 import json
+import os
 from datetime import datetime, timezone
 
+import pytest
+
 from forge.config import ForgeConfig
-from forge.ledger import OUTCOMES, _entry_month, append, new_entry, read_all, recent_zones, strikes
+from forge.ledger import OUTCOMES, _entry_month, append, new_entry, read_all, recent_zones, strikes, write_atomic
 
 
 def _entry(root, cfg, **kw):
@@ -185,6 +188,80 @@ def test_append_falls_back_to_now_when_at_is_malformed(tmp_path):
     path = append(entry, tmp_path, cfg)
     now_name = f"{datetime.now(timezone.utc):%Y-%m}.jsonl"
     assert path.name == now_name
+
+
+# --- write_atomic: the only supported way to rewrite a ledger file in place ---
+#
+# Path.write_text() truncates at open time, before writing a single byte —
+# a crash partway through a rewrite turns the file into a fragment. These
+# tests pin that write_atomic never allows that: the target is either the
+# old content or the complete new content, never a partial mixture, and a
+# failed write leaves no stray temp file behind.
+
+def test_write_atomic_replaces_content_successfully(tmp_path):
+    path = tmp_path / "2026-09.jsonl"
+    path.write_text("old content\n", encoding="utf-8")
+    write_atomic(path, "new content\n")
+    assert path.read_text(encoding="utf-8") == "new content\n"
+
+
+def test_write_atomic_leaves_original_intact_when_the_write_fails(tmp_path, monkeypatch):
+    path = tmp_path / "2026-09.jsonl"
+    original = '{"run_id": "a"}\n{"run_id": "b"}\n'
+    path.write_text(original, encoding="utf-8")
+
+    def failing_write(fh, content):
+        # Simulate a crash partway through: some bytes reach the temp file,
+        # then the process dies before flush/fsync/replace ever happen.
+        fh.write(content[:5])
+        raise OSError("simulated disk failure")
+
+    monkeypatch.setattr("forge.ledger._write_and_sync", failing_write)
+
+    with pytest.raises(OSError):
+        write_atomic(path, '{"run_id": "a", "merged": true}\n{"run_id": "b"}\n')
+
+    assert path.read_bytes() == original.encode("utf-8")
+
+
+def test_write_atomic_leaves_no_temp_file_after_a_failed_write(tmp_path, monkeypatch):
+    path = tmp_path / "2026-09.jsonl"
+    path.write_text("original\n", encoding="utf-8")
+
+    def failing_write(fh, content):
+        fh.write(content[:3])
+        raise OSError("simulated disk failure")
+
+    monkeypatch.setattr("forge.ledger._write_and_sync", failing_write)
+
+    with pytest.raises(OSError):
+        write_atomic(path, "replacement\n")
+
+    assert os.listdir(tmp_path) == ["2026-09.jsonl"]
+
+
+def test_write_atomic_uses_a_temp_file_in_the_same_directory(tmp_path, monkeypatch):
+    # os.replace is only atomic within one filesystem — the temp file must
+    # be a sibling of the target, never dropped in /tmp, or a future rename
+    # across filesystems silently breaks the atomicity guarantee.
+    path = tmp_path / "2026-09.jsonl"
+    path.write_text("original\n", encoding="utf-8")
+
+    import tempfile as tempfile_module
+
+    real_mkstemp = tempfile_module.mkstemp
+    seen_dirs = []
+
+    def spying_mkstemp(*args, **kwargs):
+        seen_dirs.append(kwargs.get("dir"))
+        return real_mkstemp(*args, **kwargs)
+
+    monkeypatch.setattr("forge.ledger.tempfile.mkstemp", spying_mkstemp)
+
+    write_atomic(path, "replacement\n")
+
+    assert seen_dirs == [path.parent]
+    assert path.read_text(encoding="utf-8") == "replacement\n"
 
 
 def test_read_all_finds_entries_across_multiple_month_files(tmp_path):

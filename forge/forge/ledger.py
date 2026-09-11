@@ -21,6 +21,8 @@ behind for ``read_all`` to trip over.
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -139,6 +141,52 @@ def append(entry: dict, root: Path, config: ForgeConfig) -> Path:
     with path.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(entry, sort_keys=True) + "\n")
     return path
+
+
+def _write_and_sync(fh, content: str) -> None:
+    """The write-then-flush-then-fsync step, pulled out on its own so tests
+    can make it fail partway through without needing a real full disk or a
+    real power cut."""
+    fh.write(content)
+    fh.flush()
+    os.fsync(fh.fileno())
+
+
+def write_atomic(path: Path, content: str) -> None:
+    """Replace ``path`` with ``content`` without ever risking a truncated file.
+
+    This is the only supported way to rewrite a ledger month file in place
+    (see ``followup.backfill``, the sole caller). ``Path.write_text`` is not
+    safe for that: it truncates the file at open time, before a single byte
+    of new content is written, so a crash partway through — disk full,
+    process killed, power loss — leaves a truncated fragment where the
+    ledger used to be. The ledger is the one artifact in this system that
+    cannot be regenerated, so that failure mode is not acceptable here even
+    though it would be fine for a disposable file.
+
+    Instead: write the full new content to a temp file, fsync it so it is
+    actually on disk, then ``os.replace`` it over the target. ``os.replace``
+    is atomic on POSIX *within a single filesystem* — which is exactly why
+    the temp file is created with ``dir=path.parent``, making it a sibling
+    of the target. It must stay a sibling. Moving it to ``/tmp`` (a tempting
+    "tidy it up" edit) would put it on a different filesystem in the general
+    case, turning the final step into a copy-then-delete that is no longer
+    atomic and reintroduces the exact truncation risk this function exists
+    to remove.
+
+    On any failure before the replace, ``path`` is left byte-for-byte as it
+    was and the temp file is deleted in the ``finally`` — nothing is ever
+    left as a mixture of old and new content, and no stray temp file
+    accumulates in the ledger directory.
+    """
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            _write_and_sync(fh, content)
+        os.replace(tmp_path, path)
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
 
 def read_all(root: Path, config: ForgeConfig) -> list[dict]:

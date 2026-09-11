@@ -23,7 +23,7 @@ from pathlib import Path
 
 from .config import ForgeConfig
 from .github import api, repo_slug
-from .ledger import read_all
+from .ledger import read_all, write_atomic
 
 # Commit authors that are the Forge itself, not a human editing its work.
 FORGE_AUTHORS = ("the forge", "forge", "claude", "maz crew")
@@ -151,6 +151,9 @@ def backfill(root: Path, config: ForgeConfig, slug: str | None = None, fetch=Non
             lines_out.append(json.dumps(record, sort_keys=True))
 
         if touched:
-            path.write_text("\n".join(lines_out) + "\n", encoding="utf-8")
+            # write_atomic, not Path.write_text: see its docstring in
+            # ledger.py for why an in-place ledger rewrite must never
+            # truncate the file before the new content is safely down.
+            write_atomic(path, "\n".join(lines_out) + "\n")
             applied += touched
     return applied
