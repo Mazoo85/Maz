@@ -66,7 +66,17 @@ class FileLogSink {
         std::lock_guard<std::mutex> lock(m_mutex);
         close_locked();
         m_opts = opts;
+        // Same C4996 story as DateTime's sscanf: MSVC deprecates fopen in favour of fopen_s,
+        // which is not portable. The result is checked before use, so there is nothing unsafe
+        // here to fix.
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4996)
+#endif
         m_file = std::fopen(path.c_str(), opts.append ? "ab" : "wb");
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
         m_lineCount = 0;
         return m_file != nullptr;
     }
