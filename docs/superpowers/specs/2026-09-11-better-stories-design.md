@@ -101,6 +101,15 @@ keeping the one rule worth keeping and adding the ones that create variety:
 One spine per length becomes **a set of spines per length**, chosen by seed and
 genre, so two films of the same length can be shaped differently.
 
+> **Deviation (whole-branch review, 2026-09-11):** the shipped `spineFor(lengthKey,
+> seed)` picks by seed only, not genre. Task 2 implemented it that way and every
+> later task built on it without objection; the whole-branch review is what caught
+> the gap against this line. Making it genre-aware would mean inventing an
+> association between (say) horror and a particular beat order with no reason
+> behind the pairing beyond "it had to be something" — exactly what this spec's
+> own "illustrative rather than final" framing was trying to avoid inventing
+> without cause. Recording the deviation here rather than guessing at one.
+
 **Every spine at `short` and `festival` must contain a crisis**, which fixes cause
 2 outright. `micro` at three beats is too short to always carry one, but at least
 one of its spines must.

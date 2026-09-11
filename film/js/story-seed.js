@@ -115,16 +115,35 @@
     'road-trip': 'drama'
   };
 
-  /* MADLIBS's six labels against the seven beats a film is cut from. The
-   * logline is the premise rather than a scene, so it maps to nothing. */
-  var BEAT_FOR = {
-    'Logline': null,
-    'Setup': 'open',
-    'Inciting Incident': 'spark',
-    'Conflict': 'push',
-    'Climax': 'crisis',
-    'Resolution': 'after'
-  };
+  /* MADLIBS fills its templates' "a {role}" slots with the article already
+   * decided — before it knows which role will land there — so 225 of 4,000
+   * borrowed loglines read "a astronaut", "a apothecary", "a archaeologist":
+   * "a" in front of a role that turned out to start with a vowel sound.
+   * MADLIBS itself is not touched (out of this plan's boundary); this fixes
+   * it on the way out here instead, where the text is about to reach the
+   * idea box and the screen.
+   *
+   * A plain vowel-letter test is right for every role this bank actually
+   * has (checked: astronaut, apothecary, archaeologist, archivist,
+   * undertaker, unruly, ...and the color/material adjectives — amber,
+   * emerald, indigo, ivory, obsidian, ochre, ash-gray, ancient, airship,
+   * invisible, escape). It is wrong only for a word that starts with a
+   * vowel *letter* but a consonant *sound* — "a unicorn", "a european",
+   * "a one-off" — so those are the exceptions, kept ready in case the
+   * dictionary ever grows one, even though none of today's words need them. */
+  var ARTICLE_EXCEPTIONS = /^(unicorn|uniform|union|unique|unit|universe|universal|university|usual|user|utopia\w*|one|once|ouija|ufo|euro\w*)\b/i;
+
+  /* Left alone on purpose: 25 of 4,000 loglines (0.6%) read "a single
+   * <plural>" — a number/plural disagreement baked into MADLIBS's own
+   * templates (madlibs/js/templates.js), not something the text passes
+   * through here. Fixing it would mean editing MADLIBS, which this plan
+   * does not touch; it is a MADLIBS issue to file there, not here. */
+
+  function fixArticles(text) {
+    return String(text).replace(/\ba ([aeiouAEIOU][\w-]*)/g, function (whole, word) {
+      return ARTICLE_EXCEPTIONS.test(word) ? whole : 'an ' + word;
+    });
+  }
 
   /* A MADLIBS story, reduced to the one sentence SCRIPT FORGE's parser reads
    * best. The logline already names a person, a place and what turns — which
@@ -138,13 +157,13 @@
     }
     if (!logline && story.beats.length) logline = story.beats[0].text;
     return {
-      text: logline,
+      text: fixArticles(logline),
       genre: GENRE_FOR[story.genre] || 'drama',
       title: story.title
     };
   }
 
-  var API = { GENRE_FOR: GENRE_FOR, BEAT_FOR: BEAT_FOR, idea: idea };
+  var API = { GENRE_FOR: GENRE_FOR, idea: idea };
   if (typeof module === 'object' && module.exports) module.exports = API;
   root.FilmStorySeed = API;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

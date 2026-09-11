@@ -188,7 +188,14 @@
     return { places: places, degraded: degraded };
   }
 
-  /* Two films of the same length should not be the same shape. */
+  /* Two films of the same length should not be the same shape.
+   *
+   * The design spec says spines are "chosen by seed and genre"; this only
+   * uses the seed. Recorded as a deviation rather than honoured, because
+   * honouring it means inventing a reason a given genre prefers a given beat
+   * order (does horror really want 'push' before 'spark' more than drama
+   * does?) with nothing to base that association on — see the spec's own
+   * note at docs/superpowers/specs/2026-09-11-better-stories-design.md. */
   function spineFor(lengthKey, seed) {
     var structure = LEX.STRUCTURES[lengthKey] || LEX.STRUCTURES.short;
     var spines = structure.spines || [structure.beats];

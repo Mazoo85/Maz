@@ -1558,18 +1558,6 @@ test('every MADLIBS genre maps to a genre SCRIPT FORGE actually has', () => {
   });
 });
 
-test('every MADLIBS beat label maps to a real beat', () => {
-  const known = ['open', 'spark', 'push', 'turn', 'crisis', 'choice', 'after'];
-  const templates = MAD_TEMPLATES.templates || MAD_TEMPLATES;
-  const labels = new Set();
-  templates.forEach((t) => (t.beats || []).forEach((b) => labels.add(b.label)));
-  labels.forEach((label) => {
-    const mapped = Seed.BEAT_FOR[label];
-    assert(mapped !== undefined, 'no mapping for MADLIBS beat "' + label + '"');
-    if (mapped !== null) assert(known.indexOf(mapped) !== -1, label + ' maps to unknown beat ' + mapped);
-  });
-});
-
 test('every MADLIBS story yields an idea a film can be made from', () => {
   for (let seed = 0; seed < 60; seed++) {
     const idea = Seed.idea(seed);
@@ -1596,6 +1584,22 @@ test('different seeds give different stories', () => {
   const seen = new Set();
   for (let seed = 0; seed < 40; seed++) seen.add(Seed.idea(seed).text);
   assert(seen.size >= 20, 'only ' + seen.size + ' distinct stories in 40 seeds');
+});
+
+test('a borrowed story never says "a" before a vowel sound', () => {
+  // MADLIBS decides its article before it knows which role fills the slot,
+  // so roughly 4-6% of borrowed loglines used to read "a astronaut", "a
+  // apothecary", "a archaeologist". Checked across a large sample rather
+  // than a handful of fixed strings, since the bug depends on which role
+  // MADLIBS happens to roll.
+  let offenders = [];
+  for (let seed = 0; seed < 4000; seed++) {
+    const text = Seed.idea(seed).text;
+    const bad = text.match(/\ba [aeiouAEIOU]\w*/g);
+    if (bad) offenders.push(seed + ': ' + JSON.stringify(bad));
+  }
+  eq(offenders.length, 0, offenders.length + ' of 4000 borrowed loglines say "a" before a vowel sound: ' +
+    offenders.slice(0, 5).join(' | '));
 });
 
 test('an article is only an article when a space follows it', () => {
