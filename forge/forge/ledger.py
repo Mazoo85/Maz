@@ -27,8 +27,17 @@ from pathlib import Path
 from .config import ForgeConfig
 
 # The closed set of ways a run can end.
+#
+# "push_failed" sits between a green check run and "pr_opened": the branch
+# passed VERIFY but could not be pushed to the remote (auth, a rejected
+# non-fast-forward, the network) before `open_draft_pr` was ever reached.
+# Without it, that night had nowhere honest to land: "verify_failed" would
+# lie about *why* no PR exists (the checks were green), and "pr_opened" with
+# a null `pr` is already the documented shape for "the PR call itself
+# failed", not "there was no branch on the remote to open one against".
 OUTCOMES = (
     "pr_opened",
+    "push_failed",
     "verify_failed",
     "crew_failed",
     "budget_exceeded",
@@ -37,10 +46,10 @@ OUTCOMES = (
 )
 
 # Outcomes that count as a failed attempt at a specific candidate.
-FAILURE_OUTCOMES = ("verify_failed", "crew_failed", "budget_exceeded")
+FAILURE_OUTCOMES = ("verify_failed", "crew_failed", "budget_exceeded", "push_failed")
 
 # Outcomes where the Forge actually worked in a zone.
-ACTING_OUTCOMES = ("pr_opened", "verify_failed")
+ACTING_OUTCOMES = ("pr_opened", "verify_failed", "push_failed")
 
 
 def new_entry(run_id: str, **fields) -> dict:

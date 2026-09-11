@@ -39,7 +39,8 @@ def test_new_entry_has_every_field(tmp_path):
 def test_outcome_set_is_closed():
     # Assert exact membership to catch typos in the closed vocabulary every
     # downstream reader depends on.
-    expected = {"pr_opened", "verify_failed", "crew_failed", "budget_exceeded", "no_task", "dry_run"}
+    expected = {"pr_opened", "push_failed", "verify_failed", "crew_failed",
+                "budget_exceeded", "no_task", "dry_run"}
     assert set(OUTCOMES) == expected, f"OUTCOMES {set(OUTCOMES)} != expected {expected}"
 
     # Assert that both subsets are valid. A member of either that isn't in

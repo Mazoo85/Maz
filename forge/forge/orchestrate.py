@@ -19,6 +19,13 @@ has to be accounted for:
     carry no such guarantee (a disk-full or permission error is a plain
     `OSError` out of `Path.write_text`), so their calls are wrapped here:
     losing pulse.json must not cost the run its ledger line.
+  - `push_branch` drives the injected `git` runner over the network same as
+    Crew or the poster below. It runs after checks are green and before the
+    branch is offered to anyone as a PR: a real GitHub head ref has to exist
+    before `open_draft_pr` can name it, so a push that fails or raises is
+    treated as this run's outcome (`push_failed`) — the branch is abandoned
+    exactly as any other failed attempt is, and `open_draft_pr` is never
+    reached on that path.
   - `open_draft_pr` calls the injected `poster`, an I/O boundary same as
     Crew or git — a real implementation hits the network. That call is
     wrapped too, and a raise there degrades to exactly the same "no PR"
@@ -45,7 +52,7 @@ from .config import load_config
 from .decide import decide as decide_step
 from .decide import write_tonight
 from .do import do as do_step
-from .gitops import checkout, delete_branch
+from .gitops import checkout, delete_branch, push_branch
 from .learn import memory_note, quarantine, tick_roadmap
 from .sense import sense as sense_step
 from .sense import write_pulse
@@ -97,11 +104,11 @@ def live_run(root: Path, collectors=None, git=None, crew=None, checks=None,
     outcome = do_step(chosen, root, config, git=git, crew=crew)
     started_branch = outcome.branch
     if not outcome.ok:
-        _abandon(started_branch, root, git)
+        cleanup_note = _abandon(started_branch, root, git)
         entry = ledger_mod.new_entry(
             run_id, outcome="crew_failed", cost_usd=outcome.cost_usd,
             duration_min=outcome.duration_min, files_touched=len(outcome.files),
-            notes=outcome.error, **base,
+            notes=_with_cleanup_note(outcome.error, cleanup_note), **base,
         )
         _maybe_quarantine(entry, strikes, root, config)
         return _record(entry, root, config)
@@ -112,12 +119,41 @@ def live_run(root: Path, collectors=None, git=None, crew=None, checks=None,
     # "red checks => no PR" holds by construction rather than by convention.
     result = run_checks(chosen["zone"], root, runner=checks)
     if not result.ok:
-        _abandon(started_branch, root, git)
+        cleanup_note = _abandon(started_branch, root, git)
         entry = ledger_mod.new_entry(
             run_id, outcome="verify_failed", checks="red",
             cost_usd=outcome.cost_usd, duration_min=outcome.duration_min,
             files_touched=len(outcome.files),
-            notes=f"checks failed: {result.output[-300:]}", **base,
+            notes=_with_cleanup_note(f"checks failed: {result.output[-300:]}", cleanup_note),
+            **base,
+        )
+        _maybe_quarantine(entry, strikes, root, config)
+        return _record(entry, root, config)
+
+    # The branch only ever existed locally up to this point. It has to reach
+    # the remote before `open_draft_pr` can name it as a PR's `head` — a real
+    # GitHub API call against a ref that isn't there fails, and `github.api`
+    # swallows that failure into `{}`, so without this step every green
+    # night would silently record `pr: None` with no PR ever opened. A push
+    # that fails or raises is this run's failure, recorded as such, with the
+    # branch abandoned exactly like any other failed attempt — `open_draft_pr`
+    # (and therefore the injected `poster`) must never be reached on this path.
+    try:
+        pushed = push_branch(started_branch, root, runner=git)
+    except Exception as exc:  # noqa: BLE001 — a raise here must not lose the ledger line
+        pushed, push_error = False, str(exc)
+    else:
+        push_error = ""
+    if not pushed:
+        cleanup_note = _abandon(started_branch, root, git)
+        entry = ledger_mod.new_entry(
+            run_id, outcome="push_failed", checks="green",
+            cost_usd=outcome.cost_usd, duration_min=outcome.duration_min,
+            files_touched=len(outcome.files),
+            notes=_with_cleanup_note(
+                f"could not push {outcome.branch}" + (f": {push_error}" if push_error else ""),
+                cleanup_note),
+            **base,
         )
         _maybe_quarantine(entry, strikes, root, config)
         return _record(entry, root, config)
@@ -157,21 +193,39 @@ def _best_effort(fn, *args) -> None:
         pass
 
 
-def _abandon(branch: str | None, root: Path, git) -> None:
+def _abandon(branch: str | None, root: Path, git) -> str:
     """Leave the working tree where the night started.
 
     Best-effort: if the injected git runner blows up while cleaning up after
     a failed attempt, the failed attempt is still worth recording — branch
     cleaned up or not — so a crash here must not stop the caller from
     reaching `_record`.
+
+    The delete is only attempted once the checkout back to main actually
+    succeeds. `delete_branch` runs `git branch -D <branch>`, which git
+    refuses on the branch that's currently checked out — so calling it after
+    a checkout that merely *returned* failure (main missing locally, any
+    ordinary git error; not the exception case above) would either no-op or,
+    worse, silently leave the tree sitting on the Forge branch. Returns a
+    human-readable note when that happens, so the caller can fold it into
+    the ledger entry rather than let the tree's real state go unrecorded;
+    returns "" when cleanup is not needed or succeeds.
     """
     if not branch:
-        return
+        return ""
     try:
-        checkout("main", root, runner=git)
+        if not checkout("main", root, runner=git):
+            return (f"could not clean up: checkout to main failed; "
+                    f"working tree left on {branch}")
         delete_branch(branch, root, runner=git)
     except Exception:  # noqa: BLE001 — cleanup failing is not this run's story
         pass
+    return ""
+
+
+def _with_cleanup_note(note: str, cleanup_note: str) -> str:
+    """Append `_abandon`'s cleanup warning to an outcome's note, if any."""
+    return f"{note}; {cleanup_note}" if cleanup_note else note
 
 
 def _maybe_quarantine(entry: dict, strikes: dict, root: Path, config) -> None:
