@@ -122,7 +122,7 @@
       'ring', 'mask', 'coin', 'feather', 'candle', 'chalice', 'contract',
       'photograph', 'music box', 'pocket watch', 'seed', 'bell', 'ledger',
       'blueprint', 'amulet', 'painting', 'typewriter', 'radio', 'engine',
-      'flask', 'quill', 'hourglass', 'ticket', 'suitcase', 'anchor', 'crown'
+      'flask', 'quill', 'hourglass', 'ticket', 'suitcase', 'anchor', 'inkwell'
     ],
     pluralNoun: [
       'secrets', 'ghosts', 'stars', 'debts', 'lies', 'wolves', 'ashes',

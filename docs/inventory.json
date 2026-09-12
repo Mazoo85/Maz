@@ -18,9 +18,9 @@
     "appsGolden": 97,
     "modulesTested": 99,
     "modulesDemoed": 20,
-    "checksPassed": 2495,
+    "checksPassed": 2496,
     "checksTotal": 3110,
-    "openTasks": 23
+    "openTasks": 22
   },
   "queue": [
     {
@@ -626,7 +626,7 @@
       "priority": 1,
       "kind": "opportunity",
       "check": "",
-      "title": "3 browser projects have no tests at all",
+      "title": "2 browser projects have no tests at all",
       "detail": "film/tests/film-logic.test.js is the pattern: plain `node` over the project's pure logic, no dependencies, seconds to run, already wired into CI. Every project that lacks it is one refactor away from silent breakage.",
       "paths": [],
       "source": "inventory:opportunity:browser-projects-with-no-tests"
@@ -673,18 +673,6 @@
         "shooter"
       ],
       "source": "inventory:pairing:songforge-scores-the-silent-games"
-    },
-    {
-      "id": "web:madlibs#tests",
-      "priority": 1,
-      "kind": "web-app",
-      "check": "tests",
-      "title": "MADLIBS STORY FORGE: has a logic test",
-      "detail": "Add madlibs/tests/ with a dependency-free Node test over its pure logic, in the style of film/tests/film-logic.test.js, and run it in CI.",
-      "paths": [
-        "madlibs"
-      ],
-      "source": "inventory:web:madlibs:tests"
     },
     {
       "id": "web:shooter#tests",
