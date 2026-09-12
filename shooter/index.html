@@ -1150,6 +1150,21 @@
     ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
   }
 
+  /* ---------- Test handle ----------
+   * DEAD SECTOR is one self-contained file on purpose, so its balance tables
+   * have nowhere to be imported from. Publishing them read-only here lets
+   * shooter/tests check them against the real thing rather than against a
+   * second copy that would drift the first time a weapon was retuned. Nothing
+   * in the game reads this object; deleting it changes nothing on screen.
+   */
+  window.DEAD_SECTOR = Object.freeze({
+    WEAPONS: WEAPONS,
+    WEAPON_ORDER: WEAPON_ORDER,
+    ENEMY: ENEMY,
+    UPGRADE_POOL: UPGRADE_POOL,
+    State: State
+  });
+
   // ---------- Main loop ----------
   let last = performance.now();
   function frame(now) {

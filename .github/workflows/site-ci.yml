@@ -55,6 +55,11 @@ jobs:
       # by the Chromium smoke test below.
       - name: ZOMBOID logic tests
         run: node zomboid/tests/zomboid-logic.test.js
+      # DEAD SECTOR is one self-contained file, so what can be checked without a
+      # browser is whether it agrees with itself — every element the script
+      # reaches for exists, and it is still single-file. Playing it is below.
+      - name: DEAD SECTOR static checks
+        run: node shooter/tests/shooter-logic.test.js
       # The inventory catalogues every artifact in the repo and ranks what each
       # one is still missing. It is committed, so it can drift: this fails the
       # build when docs/INVENTORY.md and the repository disagree, which is the
@@ -84,3 +89,5 @@ jobs:
         run: node film/tests/film-browser.test.js
       - name: CODA PICS end to end (paint, restyle, keep, save)
         run: node coda-pics/tests/coda-browser.test.js
+      - name: DEAD SECTOR end to end (play, pause, twin-stick on a phone)
+        run: node shooter/tests/shooter-browser.test.js
