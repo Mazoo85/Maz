@@ -1035,6 +1035,13 @@ input[type="range"]::-moz-range-thumb {
           <option value="rotary">Rotary speaker</option>
         </select>
       </label>
+      <label class="tool-field" for="colourFx"><span>Colour type</span>
+        <select id="colourFx">
+          <option value="ring">Ring (metallic)</option>
+          <option value="fold">Fold (gnarly)</option>
+          <option value="wah">Wah (talking)</option>
+        </select>
+      </label>
       <label class="tool-field" for="glueAmt"><span>Glue</span>
         <input type="range" id="glueAmt" min="0" max="100" step="5" value="0"
                aria-label="Glue compression across the whole mix" />
@@ -1151,6 +1158,10 @@ input[type="range"]::-moz-range-thumb {
         <label class="fx-field" for="autopanAmt"><span>Sweep</span>
           <input type="range" id="autopanAmt" min="0" max="100" step="5" value="0" aria-label="Auto-pan for this part" />
           <output class="fx-value" id="autopanAmtVal">0%</output>
+        </label>
+        <label class="fx-field" for="colourAmt"><span>Colour</span>
+          <input type="range" id="colourAmt" min="0" max="100" step="5" value="0" aria-label="Colour effect for this part" />
+          <output class="fx-value" id="colourAmtVal">0%</output>
         </label>
         <label class="fx-field" for="crushAmt"><span>Crush</span>
           <input type="range" id="crushAmt" min="0" max="100" step="5" value="0" aria-label="Bit crush for this part" />
@@ -4286,6 +4297,7 @@ input[type="range"]::-moz-range-thumb {
       groove: song.groove || '',
       glue: song.glue || 0,
       modFx: song.modFx || 'flanger',
+      colourFx: song.colourFx || 'ring',
       revKind: song.revKind || 'room',
       revSize: song.revSize,
       delDiv: song.delDiv,
@@ -4347,6 +4359,7 @@ input[type="range"]::-moz-range-thumb {
     song.groove = p.groove && GROOVES[p.groove] ? p.groove : '';
     song.glue = p.glue || 0;
     song.modFx = p.modFx || 'flanger';
+    song.colourFx = p.colourFx || 'ring';
     song.revKind = p.revKind || 'room';
     if (p.revSize !== undefined) song.revSize = p.revSize;
     if (p.delDiv !== undefined) song.delDiv = p.delDiv;
@@ -4743,6 +4756,7 @@ input[type="range"]::-moz-range-thumb {
     song.pingpong = !!genre.fx.pingpong;
     song.glue = genre.fx.glue === undefined ? 0 : genre.fx.glue;
     song.modFx = genre.fx.modFx || 'flanger';
+    song.colourFx = genre.fx.colourFx || 'ring';
     song.revKind = 'room';
     song.revSize = genreId === 'ambient' ? 4.2 : 2.6;
     song.delDiv = genre.fx.delayTime;
@@ -5004,6 +5018,23 @@ input[type="range"]::-moz-range-thumb {
       curve[i] = Math.max(-1, Math.min(1, Math.round(x * levels) / levels));
     }
     ctx[key] = curve;
+    return curve;
+  }
+
+  /**
+   * Wave folding. Past full scale the signal turns back on itself instead of
+   * flattening, so where clipping only squares off the harmonics a sound
+   * already has, folding adds a whole series that was never there.
+   */
+  function foldCurve(ctx) {
+    if (ctx._mazFold) return ctx._mazFold;
+    const n = 4096;
+    const curve = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i * 4) / (n - 1) - 2;          // -2..2, so there is room to fold
+      curve[i] = Math.sin(x * Math.PI * 0.5);
+    }
+    ctx._mazFold = curve;
     return curve;
   }
 
@@ -6030,6 +6061,7 @@ input[type="range"]::-moz-range-thumb {
     softClipCurve: softClipCurve,
     crushCurve: crushCurve,
     octaveCurve: octaveCurve,
+    foldCurve: foldCurve,
     noiseBuffer: noiseBuffer,
     vinylBuffer: vinylBuffer,
     panner: panner,
@@ -6149,6 +6181,28 @@ input[type="range"]::-moz-range-thumb {
     c.attack.value = Math.max(0.0005, punch > 0 ? base * 3.5 : punch < 0 ? base * 0.15 : base);
     c.release.value = 0.12 + amt * 0.18;
     if (bus.compMakeup) bus.compMakeup.gain.value = 1 + amt * 0.45;
+  }
+
+  /**
+   * How strong a part's colour effect is, from one control.
+   *
+   * All three colours are built at graph time and blended dry-to-wet here, so
+   * the slider works while the song is playing. Only the *kind* needs the
+   * graph rebuilt, because that is a different set of nodes.
+   *
+   * Each kind gets harder as well as louder: at 100% the ring tone climbs, the
+   * folder drives further past full scale and the wah gets narrower and wider-
+   * swinging. A blend alone would only ever fade between two fixed sounds.
+   */
+  function shapeColour(bits, amt) {
+    if (!bits) return;
+    const a = Math.max(0, Math.min(1, amt));
+    bits.dry.gain.value = 1 - a;
+    bits.wet.gain.value = a;
+    if (bits.pre) bits.pre.gain.value = 1 + a * 6;
+    if (bits.osc) bits.osc.frequency.value = 140 + a * 340;
+    if (bits.filter) bits.filter.Q.value = 4 + a * 6;
+    if (bits.depth) bits.depth.gain.value = 900 * a;
   }
 
   function mixField(mix, name, field, dflt) {
@@ -6668,6 +6722,70 @@ input[type="range"]::-moz-range-thumb {
       tail.connect(eqLow).connect(eqMid).connect(eqHigh);
       tail = eqHigh;
 
+      /*
+       * Colour: ring modulation, wave folding and an envelope-following filter.
+       *
+       * Three deliberately extreme tone effects on one control, because nobody
+       * wants three sliders each of which is silent at zero. `colourKind` picks
+       * which; the amount blends it against the untouched signal, so the same
+       * slider goes from "not doing anything" to "ruined" with everything
+       * useful in between.
+       */
+      const colourAmt = mixField(mix, name, 'colour', 0);
+      const colourKind = song.colourFx || 'ring';
+      const colourDry = ctx.createGain();
+      const colourWetG = ctx.createGain();
+      const colourJoin = ctx.createGain();
+      const colourBits = { kind: colourKind, dry: colourDry, wet: colourWetG };
+      let colourOsc = null;
+      tail.connect(colourDry).connect(colourJoin);
+
+      if (colourKind === 'fold') {
+        /* Wave folding: drive the signal past full scale and fold it back
+           rather than clipping it, which adds harmonics that were never in
+           the original instead of merely squaring off the ones that were. */
+        const pre = ctx.createGain();
+        const folder = ctx.createWaveShaper();
+        folder.curve = Synth.foldCurve(ctx);
+        folder.oversample = '4x';
+        const post = ctx.createGain();
+        post.gain.value = 0.6;
+        tail.connect(pre).connect(folder).connect(post).connect(colourWetG);
+        colourBits.pre = pre;
+      } else if (colourKind === 'wah') {
+        /* An envelope-following filter, done as a resonant sweep the part
+           drives: a real follower needs to read the signal back, which this
+           engine cannot do in a graph, so the sweep is driven by an LFO slow
+           enough to read as the part opening and closing. */
+        const wah = ctx.createBiquadFilter();
+        wah.type = 'bandpass';
+        wah.frequency.value = 700;
+        const wlfo = ctx.createOscillator();
+        wlfo.type = 'sine';
+        wlfo.frequency.value = 1.6;
+        const wdepth = ctx.createGain();
+        wlfo.connect(wdepth).connect(wah.frequency);
+        colourOsc = wlfo;
+        colourBits.filter = wah;
+        colourBits.depth = wdepth;
+        tail.connect(wah).connect(colourWetG);
+      } else {
+        /* Ring modulation: multiply the part by a fixed tone. Web Audio has
+           no multiplier, but a gain node *is* one — its gain is an audio-rate
+           parameter, so driving it with an oscillator multiplies the two. */
+        const ring = ctx.createGain();
+        ring.gain.value = 0;
+        const rosc = ctx.createOscillator();
+        rosc.type = 'sine';
+        rosc.connect(ring.gain);
+        colourOsc = rosc;
+        colourBits.osc = rosc;
+        tail.connect(ring).connect(colourWetG);
+      }
+      colourWetG.connect(colourJoin);
+      shapeColour(colourBits, colourAmt);
+      tail = colourJoin;
+
       // A compressor and a transient shaper on every part; see shapeCompressor.
       const comp = ctx.createDynamicsCompressor();
       const compMakeup = ctx.createGain();
@@ -6714,7 +6832,8 @@ input[type="range"]::-moz-range-thumb {
       const t = {
         dry: dry, rev: rev, del: del, cho: cho, duck: duck,
         crush: crush, eqLow: eqLow, eqMid: eqMid, eqHigh: eqHigh,
-        comp: comp, compMakeup: compMakeup, modSend: modSend, panLfo: panLfo
+        comp: comp, compMakeup: compMakeup, modSend: modSend, panLfo: panLfo,
+        colourOsc: colourOsc, colour: colourBits
       };
       tracks[name] = t;
       dry.gain.value = gainFor(mix, name);
@@ -6850,7 +6969,7 @@ input[type="range"]::-moz-range-thumb {
     TRACKS.forEach(function (t) {
       this.mix[t] = {
         volume: 1, muted: false, solo: false,
-        rev: 1, del: 1, cho: 0, mod: 0, autopan: 0,
+        rev: 1, del: 1, cho: 0, mod: 0, autopan: 0, colour: 0,
         eqLow: 0, eqMid: 0, eqHigh: 0, crush: 0, comp: 0, punch: 0
       };
     }, this);
@@ -6913,6 +7032,7 @@ input[type="range"]::-moz-range-thumb {
     TRACKS.forEach(function (n) {
       const b = this.graph.tracks[n];
       if (b && b.panLfo) lfos.push(b.panLfo);
+      if (b && b.colourOsc) lfos.push(b.colourOsc);
     }, this);
     for (let i = 0; i < lfos.length; i++) {
       try { lfos[i].start(t); } catch (e) { /* already started */ }
@@ -7094,6 +7214,7 @@ input[type="range"]::-moz-range-thumb {
     if (opts.cho !== undefined) m.cho = opts.cho;
     if (opts.mod !== undefined) m.mod = opts.mod;
     if (opts.autopan !== undefined) m.autopan = opts.autopan;
+    if (opts.colour !== undefined) m.colour = opts.colour;
     ['eqLow', 'eqMid', 'eqHigh', 'crush', 'comp', 'punch'].forEach(function (k) {
       if (opts[k] !== undefined) m[k] = opts[k];
     });
@@ -7145,6 +7266,7 @@ input[type="range"]::-moz-range-thumb {
       bus.eqHigh.gain.setTargetAtTime(mixField(mix, name, 'eqHigh', 0), t, 0.02);
       // A curve cannot be ramped; swapping it is a single assignment.
       bus.crush.curve = Synth.crushCurve(self.ctx, mixField(mix, name, 'crush', 0));
+      shapeColour(bus.colour, mixField(mix, name, 'colour', 0));
       shapeCompressor(bus, mixField(mix, name, 'comp', 0), mixField(mix, name, 'punch', 0));
     });
     if (graph.mEqLow && self.song) {
@@ -7232,6 +7354,7 @@ input[type="range"]::-moz-range-thumb {
     TRACKS.forEach(function (n) {
       const b = graph.tracks[n];
       if (b && b.panLfo) b.panLfo.start(0);
+      if (b && b.colourOsc) b.colourOsc.start(0);
     });
     applyAutomation(ctx, graph, song, 0.05, 0);
 
@@ -8914,6 +9037,7 @@ input[type="range"]::-moz-range-thumb {
     el('grooveSelect').value = s.groove || '';
     el('glueAmt').value = String(Math.round((s.glue || 0) * 100));
     el('modKind').value = s.modFx || 'flanger';
+    el('colourFx').value = s.colourFx || 'ring';
     el('revKind').value = s.revKind || 'room';
     el('revSize').value = String(Math.round((s.revSize || 2.6) * 100));
     el('revSizeVal').textContent = (s.revSize || 2.6).toFixed(1) + 's';
@@ -9288,6 +9412,7 @@ input[type="range"]::-moz-range-thumb {
       { id: 'choSend', field: 'cho', label: 'Chorus', unit: '%', scale: 100, dflt: 0 },
       { id: 'modSend', field: 'mod', label: 'Swirl', unit: '%', scale: 100, dflt: 0 },
       { id: 'autopanAmt', field: 'autopan', label: 'Sweep', unit: '%', scale: 100, dflt: 0 },
+      { id: 'colourAmt', field: 'colour', label: 'Colour', unit: '%', scale: 100, dflt: 0 },
       { id: 'crushAmt', field: 'crush', label: 'Crush', unit: '%', scale: 100, dflt: 0 },
       { id: 'compAmt', field: 'comp', label: 'Squeeze', unit: '%', scale: 100, dflt: 0 },
       { id: 'punchAmt', field: 'punch', label: 'Punch', unit: '', scale: 100, dflt: 0 },
@@ -9620,6 +9745,19 @@ input[type="range"]::-moz-range-thumb {
       player.stop();
       if (was) player.play(at);
       status('Swirl is now a ' + this.options[this.selectedIndex].text.toLowerCase() + '.');
+    });
+
+    /* Same for the colour type: ring, fold and wah are three different sets of
+       nodes, so switching between them rebuilds. The Colour slider itself does
+       not — it blends, and blending is live. */
+    el('colourFx').addEventListener('change', function () {
+      if (!state.song) return;
+      state.song.colourFx = this.value;
+      const at = player.currentBeat();
+      const was = player.playing;
+      player.stop();
+      if (was) player.play(at);
+      status('Colour is now ' + this.options[this.selectedIndex].text.toLowerCase().replace(/ \(.*\)/, '') + '.');
     });
 
     /* The reverb's shape and the delay's timing are built into the graph, so

@@ -109,6 +109,28 @@
     if (bus.compMakeup) bus.compMakeup.gain.value = 1 + amt * 0.45;
   }
 
+  /**
+   * How strong a part's colour effect is, from one control.
+   *
+   * All three colours are built at graph time and blended dry-to-wet here, so
+   * the slider works while the song is playing. Only the *kind* needs the
+   * graph rebuilt, because that is a different set of nodes.
+   *
+   * Each kind gets harder as well as louder: at 100% the ring tone climbs, the
+   * folder drives further past full scale and the wah gets narrower and wider-
+   * swinging. A blend alone would only ever fade between two fixed sounds.
+   */
+  function shapeColour(bits, amt) {
+    if (!bits) return;
+    const a = Math.max(0, Math.min(1, amt));
+    bits.dry.gain.value = 1 - a;
+    bits.wet.gain.value = a;
+    if (bits.pre) bits.pre.gain.value = 1 + a * 6;
+    if (bits.osc) bits.osc.frequency.value = 140 + a * 340;
+    if (bits.filter) bits.filter.Q.value = 4 + a * 6;
+    if (bits.depth) bits.depth.gain.value = 900 * a;
+  }
+
   function mixField(mix, name, field, dflt) {
     const m = (mix && mix[name]) || {};
     return m[field] === undefined ? dflt : m[field];
@@ -626,6 +648,70 @@
       tail.connect(eqLow).connect(eqMid).connect(eqHigh);
       tail = eqHigh;
 
+      /*
+       * Colour: ring modulation, wave folding and an envelope-following filter.
+       *
+       * Three deliberately extreme tone effects on one control, because nobody
+       * wants three sliders each of which is silent at zero. `colourKind` picks
+       * which; the amount blends it against the untouched signal, so the same
+       * slider goes from "not doing anything" to "ruined" with everything
+       * useful in between.
+       */
+      const colourAmt = mixField(mix, name, 'colour', 0);
+      const colourKind = song.colourFx || 'ring';
+      const colourDry = ctx.createGain();
+      const colourWetG = ctx.createGain();
+      const colourJoin = ctx.createGain();
+      const colourBits = { kind: colourKind, dry: colourDry, wet: colourWetG };
+      let colourOsc = null;
+      tail.connect(colourDry).connect(colourJoin);
+
+      if (colourKind === 'fold') {
+        /* Wave folding: drive the signal past full scale and fold it back
+           rather than clipping it, which adds harmonics that were never in
+           the original instead of merely squaring off the ones that were. */
+        const pre = ctx.createGain();
+        const folder = ctx.createWaveShaper();
+        folder.curve = Synth.foldCurve(ctx);
+        folder.oversample = '4x';
+        const post = ctx.createGain();
+        post.gain.value = 0.6;
+        tail.connect(pre).connect(folder).connect(post).connect(colourWetG);
+        colourBits.pre = pre;
+      } else if (colourKind === 'wah') {
+        /* An envelope-following filter, done as a resonant sweep the part
+           drives: a real follower needs to read the signal back, which this
+           engine cannot do in a graph, so the sweep is driven by an LFO slow
+           enough to read as the part opening and closing. */
+        const wah = ctx.createBiquadFilter();
+        wah.type = 'bandpass';
+        wah.frequency.value = 700;
+        const wlfo = ctx.createOscillator();
+        wlfo.type = 'sine';
+        wlfo.frequency.value = 1.6;
+        const wdepth = ctx.createGain();
+        wlfo.connect(wdepth).connect(wah.frequency);
+        colourOsc = wlfo;
+        colourBits.filter = wah;
+        colourBits.depth = wdepth;
+        tail.connect(wah).connect(colourWetG);
+      } else {
+        /* Ring modulation: multiply the part by a fixed tone. Web Audio has
+           no multiplier, but a gain node *is* one — its gain is an audio-rate
+           parameter, so driving it with an oscillator multiplies the two. */
+        const ring = ctx.createGain();
+        ring.gain.value = 0;
+        const rosc = ctx.createOscillator();
+        rosc.type = 'sine';
+        rosc.connect(ring.gain);
+        colourOsc = rosc;
+        colourBits.osc = rosc;
+        tail.connect(ring).connect(colourWetG);
+      }
+      colourWetG.connect(colourJoin);
+      shapeColour(colourBits, colourAmt);
+      tail = colourJoin;
+
       // A compressor and a transient shaper on every part; see shapeCompressor.
       const comp = ctx.createDynamicsCompressor();
       const compMakeup = ctx.createGain();
@@ -672,7 +758,8 @@
       const t = {
         dry: dry, rev: rev, del: del, cho: cho, duck: duck,
         crush: crush, eqLow: eqLow, eqMid: eqMid, eqHigh: eqHigh,
-        comp: comp, compMakeup: compMakeup, modSend: modSend, panLfo: panLfo
+        comp: comp, compMakeup: compMakeup, modSend: modSend, panLfo: panLfo,
+        colourOsc: colourOsc, colour: colourBits
       };
       tracks[name] = t;
       dry.gain.value = gainFor(mix, name);
@@ -808,7 +895,7 @@
     TRACKS.forEach(function (t) {
       this.mix[t] = {
         volume: 1, muted: false, solo: false,
-        rev: 1, del: 1, cho: 0, mod: 0, autopan: 0,
+        rev: 1, del: 1, cho: 0, mod: 0, autopan: 0, colour: 0,
         eqLow: 0, eqMid: 0, eqHigh: 0, crush: 0, comp: 0, punch: 0
       };
     }, this);
@@ -871,6 +958,7 @@
     TRACKS.forEach(function (n) {
       const b = this.graph.tracks[n];
       if (b && b.panLfo) lfos.push(b.panLfo);
+      if (b && b.colourOsc) lfos.push(b.colourOsc);
     }, this);
     for (let i = 0; i < lfos.length; i++) {
       try { lfos[i].start(t); } catch (e) { /* already started */ }
@@ -1052,6 +1140,7 @@
     if (opts.cho !== undefined) m.cho = opts.cho;
     if (opts.mod !== undefined) m.mod = opts.mod;
     if (opts.autopan !== undefined) m.autopan = opts.autopan;
+    if (opts.colour !== undefined) m.colour = opts.colour;
     ['eqLow', 'eqMid', 'eqHigh', 'crush', 'comp', 'punch'].forEach(function (k) {
       if (opts[k] !== undefined) m[k] = opts[k];
     });
@@ -1103,6 +1192,7 @@
       bus.eqHigh.gain.setTargetAtTime(mixField(mix, name, 'eqHigh', 0), t, 0.02);
       // A curve cannot be ramped; swapping it is a single assignment.
       bus.crush.curve = Synth.crushCurve(self.ctx, mixField(mix, name, 'crush', 0));
+      shapeColour(bus.colour, mixField(mix, name, 'colour', 0));
       shapeCompressor(bus, mixField(mix, name, 'comp', 0), mixField(mix, name, 'punch', 0));
     });
     if (graph.mEqLow && self.song) {
@@ -1190,6 +1280,7 @@
     TRACKS.forEach(function (n) {
       const b = graph.tracks[n];
       if (b && b.panLfo) b.panLfo.start(0);
+      if (b && b.colourOsc) b.colourOsc.start(0);
     });
     applyAutomation(ctx, graph, song, 0.05, 0);
 

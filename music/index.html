@@ -139,6 +139,13 @@
           <option value="rotary">Rotary speaker</option>
         </select>
       </label>
+      <label class="tool-field" for="colourFx"><span>Colour type</span>
+        <select id="colourFx">
+          <option value="ring">Ring (metallic)</option>
+          <option value="fold">Fold (gnarly)</option>
+          <option value="wah">Wah (talking)</option>
+        </select>
+      </label>
       <label class="tool-field" for="glueAmt"><span>Glue</span>
         <input type="range" id="glueAmt" min="0" max="100" step="5" value="0"
                aria-label="Glue compression across the whole mix" />
@@ -256,6 +263,10 @@
         <label class="fx-field" for="autopanAmt"><span>Sweep</span>
           <input type="range" id="autopanAmt" min="0" max="100" step="5" value="0" aria-label="Auto-pan for this part" />
           <output class="fx-value" id="autopanAmtVal">0%</output>
+        </label>
+        <label class="fx-field" for="colourAmt"><span>Colour</span>
+          <input type="range" id="colourAmt" min="0" max="100" step="5" value="0" aria-label="Colour effect for this part" />
+          <output class="fx-value" id="colourAmtVal">0%</output>
         </label>
         <label class="fx-field" for="crushAmt"><span>Crush</span>
           <input type="range" id="crushAmt" min="0" max="100" step="5" value="0" aria-label="Bit crush for this part" />

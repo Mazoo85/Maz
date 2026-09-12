@@ -147,6 +147,23 @@
   }
 
   /**
+   * Wave folding. Past full scale the signal turns back on itself instead of
+   * flattening, so where clipping only squares off the harmonics a sound
+   * already has, folding adds a whole series that was never there.
+   */
+  function foldCurve(ctx) {
+    if (ctx._mazFold) return ctx._mazFold;
+    const n = 4096;
+    const curve = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i * 4) / (n - 1) - 2;          // -2..2, so there is room to fold
+      curve[i] = Math.sin(x * Math.PI * 0.5);
+    }
+    ctx._mazFold = curve;
+    return curve;
+  }
+
+  /**
    * Frequency doubling by squaring.
    *
    * Squaring a sine gives (1 - cos 2wt)/2 — a steady offset plus the octave
@@ -1169,6 +1186,7 @@
     softClipCurve: softClipCurve,
     crushCurve: crushCurve,
     octaveCurve: octaveCurve,
+    foldCurve: foldCurve,
     noiseBuffer: noiseBuffer,
     vinylBuffer: vinylBuffer,
     panner: panner,

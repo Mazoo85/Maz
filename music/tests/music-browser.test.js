@@ -797,6 +797,99 @@ function launchOptions() {
     'and auto-pan sweeps the part (' + swirl.off.spread.toFixed(5) + ' → ' +
     swirl.swept.spread.toFixed(5) + ')');
 
+  console.log('\n— colour —');
+  /* Ring, fold and wah are the three "ruin it on purpose" tones. They share one
+     slider, so the two things that matter are that the slider is genuinely
+     silent at zero and that each kind does something different at the top. */
+  const colour = await page.evaluate(async function () {
+    /* `change` is the headline measure here: how much of the part the effect
+       actually rewrote, as a fraction of the untouched part's level. Brightness
+       alone is the wrong lens for a ring modulator — it shifts every partial by
+       a fixed number of hertz, so a tone moved from 500 Hz to 20 and 980 reads
+       as barely brighter on average while sounding nothing like the original. */
+    function stats(buf, dryData) {
+      const L = buf.getChannelData(0);
+      let peak = 0, s2 = 0, bad = 0, hf = 0, d2 = 0;
+      for (let i = 1; i < L.length; i++) {
+        if (!isFinite(L[i])) { bad++; continue; }
+        const v = Math.abs(L[i]);
+        if (v > peak) peak = v;
+        s2 += L[i] * L[i];
+        hf += Math.abs(L[i] - L[i - 1]);
+        if (dryData) { const d = L[i] - dryData[i]; d2 += d * d; }
+      }
+      const n = L.length - 1;
+      const rms = Math.sqrt(s2 / n);
+      return { peak: peak, rms: rms, bad: bad,
+               bright: rms > 0 ? (hf / n) / rms : 0,
+               change: dryData ? Math.sqrt(d2 / n) : 0 };
+    }
+    function song(kind) {
+      /* A flute: nearly a sine, so any harmonics in the result were put there
+         by the effect rather than being in the instrument already. */
+      const s = window.Composer.compose({ seed: 'COLOUR-1', genre: 'ambient',
+                                          meter: '4/4', length: 'short' });
+      s.presetOverride = { lead: 'flute' };
+      Object.keys(s.tracks).forEach(function (k) {
+        s.tracks[k] = s.tracks[k].filter(function (e) { return e.t < 32; });
+      });
+      s.totalBeats = 34;
+      s.glue = 0;
+      if (kind) s.colourFx = kind;
+      return s;
+    }
+    function mixWith(amt) {
+      const m = {};
+      window.Engine.TRACKS.forEach(function (t) {
+        m[t] = { volume: 1, muted: t !== 'lead', solo: false, rev: 0, del: 0, cho: 0,
+                 mod: 0, autopan: 0, colour: 0, eqLow: 0, eqMid: 0, eqHigh: 0,
+                 crush: 0, comp: 0, punch: 0 };
+      });
+      m.lead.colour = amt;
+      return m;
+    }
+    const dryBuf = await window.Engine.renderOffline(song(), mixWith(0));
+    const dryData = dryBuf.getChannelData(0);
+    const out = { off: stats(dryBuf) };
+    for (const kind of ['ring', 'fold', 'wah']) {
+      out[kind] = stats(await window.Engine.renderOffline(song(kind), mixWith(1)), dryData);
+      out[kind + 'Zero'] = stats(await window.Engine.renderOffline(song(kind), mixWith(0)), dryData);
+    }
+    return out;
+  });
+
+  check(colour.off.rms > 1e-4, 'there is a part to colour (rms ' + colour.off.rms.toFixed(4) + ')');
+  ['ring', 'fold', 'wah'].forEach(function (k) {
+    check(colour[k].bad === 0, k + ': never produces broken samples');
+    check(colour[k].peak < 2, k + ': never runs away (peak ' + colour[k].peak.toFixed(2) + ')');
+    /* At zero the effect is built but blended out, so it must come back
+       sample-for-sample identical to the untouched part — a colour that leaks
+       at zero is a colour you can never turn off. */
+    check(colour[k + 'Zero'].change === 0,
+      k + ': completely silent at zero (difference from dry ' +
+      colour[k + 'Zero'].change.toExponential(1) + ')');
+    check(colour[k].change > colour.off.rms * 0.4,
+      k + ': rewrites the part at full (changed ' +
+      (colour[k].change / colour.off.rms * 100).toFixed(0) + '% of its level)');
+  });
+  /* Each kind leaves a different fingerprint, and each fingerprint is the one
+     its own maths predicts. Multiplying a signal by a full-swing sine is what
+     ring modulation *is*, and that halves the power — so an rms of exactly
+     1/√2 is the proof the modulator is running rather than merely connected. */
+  check(Math.abs(colour.ring.rms / colour.off.rms - 0.707) < 0.03,
+    'ring modulation drops the level by √2, as multiplying by a tone must (' +
+    (colour.ring.rms / colour.off.rms).toFixed(3) + ')');
+  check(colour.fold.bright > colour.off.bright * 1.5,
+    'folding adds harmonics that were never there (' + colour.off.bright.toFixed(4) +
+    ' → ' + colour.fold.bright.toFixed(4) + ')');
+  check(colour.wah.bright < colour.off.bright && colour.wah.rms < colour.off.rms * 0.5,
+    'and the wah narrows the part to a band instead (brightness ' +
+    colour.off.bright.toFixed(4) + ' → ' + colour.wah.bright.toFixed(4) + ')');
+  const csig = ['ring', 'fold', 'wah'].map(function (k) {
+    return Math.round(colour[k].bright * 1000) + '/' + Math.round(colour[k].rms * 10000);
+  });
+  check(new Set(csig).size === 3, 'all three colours are distinguishable (' + csig.join('  ') + ')');
+
   console.log('\n— compression —');
   /* Compression is the one effect that can quietly ruin everything. This chain
      has already been flattened once by a compressor handing back the gain it
