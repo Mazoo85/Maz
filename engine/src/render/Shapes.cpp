@@ -68,7 +68,7 @@ MeshData makeSphere(float radius, int rings, int sectors, const Color& color) {
         for (uint32_t j = 0; j < static_cast<uint32_t>(sectors); ++j) {
             const uint32_t a = i * stride + j;
             const uint32_t b = a + stride;
-            m.indices.insert(m.indices.end(), {a, b, a + 1, a + 1, b, b + 1});
+            m.indices.insert(m.indices.end(), {a, a + 1, b, a + 1, b + 1, b});
         }
     }
     return m;
@@ -83,7 +83,7 @@ MeshData makePlane(float halfSize, const Color& color) {
         vtx(s, 0.0f, s, 0, 1, 0, color, 6, 6),
         vtx(-s, 0.0f, s, 0, 1, 0, color, 0, 6),
     };
-    m.indices = {0, 1, 2, 0, 2, 3};
+    m.indices = {0, 2, 1, 0, 3, 2};
     return m;
 }
 

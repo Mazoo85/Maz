@@ -48,7 +48,7 @@ inline MeshData makeCylinder(float radius, float height, int sectors, const Colo
     for (int i = 0; i < sectors; ++i) {
         const uint32_t b = sideBase + static_cast<uint32_t>(i) * 2u;
         // bottom=b, top=b+1, next bottom=b+2, next top=b+3
-        m.indices.insert(m.indices.end(), {b, b + 2, b + 3, b, b + 3, b + 1});
+        m.indices.insert(m.indices.end(), {b, b + 3, b + 2, b, b + 1, b + 3});
     }
 
     // Caps: a center vertex + a fan. Top faces +Y, bottom faces -Y.
@@ -65,9 +65,9 @@ inline MeshData makeCylinder(float radius, float height, int sectors, const Colo
         for (int i = 0; i < sectors; ++i) {
             const uint32_t r0 = ringStart + static_cast<uint32_t>(i);
             if (ny > 0.0f) {
-                m.indices.insert(m.indices.end(), {center, r0, r0 + 1});
-            } else {
                 m.indices.insert(m.indices.end(), {center, r0 + 1, r0});
+            } else {
+                m.indices.insert(m.indices.end(), {center, r0, r0 + 1});
             }
         }
     };
@@ -104,7 +104,7 @@ inline MeshData makeCone(float radius, float height, int sectors, const Color& c
                                          n1.z, color,
                                          static_cast<float>(i + 1) / static_cast<float>(sectors), 0.0f));
         m.vertices.push_back(detail::vtx(0.0f, hy, 0.0f, na.x, na.y, na.z, color, 0.5f, 1.0f));
-        m.indices.insert(m.indices.end(), {base, base + 1, base + 2});
+        m.indices.insert(m.indices.end(), {base, base + 2, base + 1});
     }
     // Base cap facing -Y.
     const auto center = static_cast<uint32_t>(m.vertices.size());
@@ -118,7 +118,7 @@ inline MeshData makeCone(float radius, float height, int sectors, const Color& c
     }
     for (int i = 0; i < sectors; ++i) {
         const uint32_t r0 = ringStart + static_cast<uint32_t>(i);
-        m.indices.insert(m.indices.end(), {center, r0 + 1, r0});
+        m.indices.insert(m.indices.end(), {center, r0, r0 + 1});
     }
     return m;
 }
@@ -154,7 +154,7 @@ inline MeshData makeTorus(float majorRadius, float minorRadius, int majorSegs, i
         for (int j = 0; j < nv; ++j) {
             const uint32_t a = static_cast<uint32_t>(i) * stride + static_cast<uint32_t>(j);
             const uint32_t b = a + stride;
-            m.indices.insert(m.indices.end(), {a, b, a + 1, a + 1, b, b + 1});
+            m.indices.insert(m.indices.end(), {a, a + 1, b, a + 1, b + 1, b});
         }
     }
     return m;
@@ -185,7 +185,7 @@ inline MeshData makeCapsule(float radius, float cylHeight, int sectors, int ring
     }
     for (int i = 0; i < sectors; ++i) {
         const uint32_t b = sideBase + static_cast<uint32_t>(i) * 2u;
-        m.indices.insert(m.indices.end(), {b, b + 2, b + 3, b, b + 3, b + 1});
+        m.indices.insert(m.indices.end(), {b, b + 3, b + 2, b, b + 1, b + 3});
     }
 
     // A hemisphere cap: `sign` +1 => top (centered at +hy), -1 => bottom (centered at -hy).
