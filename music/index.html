@@ -436,6 +436,31 @@
   </section>
 
   <!-- ---------------------------------------------------------------- -->
+  <section class="panel" id="stationPanel" hidden>
+    <h2 class="panel-title">The Station · jam on a loop</h2>
+    <p class="panel-hint">
+      One bar on a grid of pads, going round. It starts filled in with this song's own
+      groove — press <strong>Fill it from the song</strong> any time to get it back.
+      Click a pad to cycle it <em>off → on → accent</em>; click the lower grid to place
+      bass notes. It plays through the same kit and effects as everything else.
+    </p>
+    <div class="station-bar">
+      <button type="button" class="wide-btn" id="stationPlay">▶ Play the loop</button>
+      <button type="button" class="wide-btn" id="stationFill">✨ Fill it from the song</button>
+      <button type="button" class="wide-btn" id="stationClear">Clear the pads</button>
+      <label class="tool-field" for="stationSteps"><span>Length</span>
+        <select id="stationSteps">
+          <option value="16">One bar</option>
+          <option value="32">Two bars</option>
+        </select>
+      </label>
+      <button type="button" class="wide-btn" id="stationTake">Put this loop in the song</button>
+    </div>
+    <div class="station-scroll"><div id="stationRack"></div></div>
+    <div class="station-scroll"><div id="stationRoll"></div></div>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
   <section class="panel" id="exportPanel" hidden>
     <h2 class="panel-title">4 · Take it with you</h2>
     <div class="export-row">
@@ -519,6 +544,7 @@
 <script src="js/export.js"></script>
 <script src="js/automation.js"></script>
 <script src="js/editor.js"></script>
+<script src="js/station.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

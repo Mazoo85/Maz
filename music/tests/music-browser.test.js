@@ -1678,6 +1678,95 @@ function launchOptions() {
   check(ex.midiTag === 'MThd', 'midi header is MThd');
   check(ex.midiSize > 500, 'midi has content (' + ex.midiSize + ' bytes)');
 
+  console.log('\n— the Station —');
+  /* The groovebox. The thing worth proving is not that the pads light up but
+     that it is genuinely part of this program: it arrives already filled in
+     with the song's own groove, it plays through the one audio engine rather
+     than a second one, and leaving it puts the song back untouched. */
+  /* Whatever the transport was doing when this section started, it is doing
+     again when it ends: a section that quietly leaves the player stopped
+     breaks the next one for reasons that look like nothing to do with it. */
+  const transportWas = await page.evaluate(function () { return window.__songforge.player.playing; });
+  check(await page.locator('#stationPanel').isVisible(), 'the Station panel is on the page');
+  const rackRows = await page.locator('#stationRack .st-row').count();
+  check(rackRows === 9, 'the rack has a row for every drum (' + rackRows + ')');
+  const rollRows = await page.locator('#stationRoll .st-row').count();
+  check(rollRows === 8, 'and the note grid has eight rungs (' + rollRows + ')');
+  const padCount = await page.locator('#stationRack .st-pad').count();
+  check(padCount === 9 * 16, 'sixteen pads on each row (' + padCount + ')');
+
+  /* Filled in by the AI, not empty. A groovebox that starts blank has handed
+     the job straight back to you, which is the opposite of the point. */
+  const litAtStart = await page.locator('#stationRack .st-pad.on, #stationRack .st-pad.acc').count();
+  check(litAtStart > 6, 'it arrives already carrying the song’s groove (' +
+    litAtStart + ' pads lit)');
+  const accents = await page.locator('#stationRack .st-pad.acc').count();
+  check(accents > 0, 'with the loudest hits marked as accents (' + accents + ')');
+  const notesLit = await page.locator('#stationRoll .st-note.on').count();
+  check(notesLit > 0, 'and the bassline on the grid (' + notesLit + ' notes)');
+
+  /* Every note it writes must be in the song's key — the ladder is built from
+     the song's own scale rather than a fixed pentatonic, which is what makes a
+     note placed here belong with everything else. */
+  const keyCheck = await page.evaluate(function () {
+    const song = window.__songforge && window.__songforge.song;
+    if (!song) return { ok: false, why: 'no song' };
+    const rungs = window.Station.ladder(song);
+    const set = {};
+    song.scaleSteps.forEach(function (st) { set[st] = true; });
+    const bad = rungs.filter(function (m) {
+      return !set[(((m - window.Theory.midi(song.rootPc, 2)) % 12) + 12) % 12];
+    });
+    return { ok: bad.length === 0, count: rungs.length };
+  });
+  check(keyCheck.ok, 'every rung of the note grid is in the song’s key');
+
+  // Clicking a pad cycles it off → on → accent, and back.
+  const firstPad = page.locator('#stationRack .st-pad').first();
+  const before = await firstPad.getAttribute('class');
+  await firstPad.click();
+  const after1 = await firstPad.getAttribute('class');
+  await firstPad.click();
+  const after2 = await firstPad.getAttribute('class');
+  await firstPad.click();
+  const after3 = await firstPad.getAttribute('class');
+  check(after1 !== before && after2 !== after1 && after3 !== after2,
+    'a pad cycles through three states when clicked');
+
+  /* The loop plays, and the song comes back afterwards exactly as it was.
+     Anything else would make the Station a place you lose work. */
+  const songBefore = await page.evaluate(function () {
+    const s = window.__songforge.song;
+    return { title: s.title, beats: s.totalBeats, drums: s.tracks.drums.length };
+  });
+  await page.click('#stationPlay');
+  await page.waitForTimeout(900);
+  const whilePlaying = await page.evaluate(function () {
+    const p = window.__songforge.player;
+    return { playing: p.playing, loop: p.loop, beats: p.song.totalBeats,
+             isLoop: !!p.song.isStationLoop };
+  });
+  check(whilePlaying.playing && whilePlaying.loop, 'the loop plays, and it loops');
+  check(whilePlaying.isLoop && whilePlaying.beats === 4,
+    'what is playing is the one-bar loop (' + whilePlaying.beats + ' beats)');
+  await page.click('#stationPlay');
+  await page.waitForTimeout(400);
+  const songAfter = await page.evaluate(function () {
+    const s = window.__songforge.song;
+    const p = window.__songforge.player;
+    return { title: s.title, beats: s.totalBeats, drums: s.tracks.drums.length,
+             loaded: p.song.totalBeats, loop: p.loop };
+  });
+  check(songAfter.title === songBefore.title && songAfter.beats === songBefore.beats &&
+        songAfter.drums === songBefore.drums,
+    'and the song itself is untouched by the visit');
+  check(songAfter.loaded === songBefore.beats && !songAfter.loop,
+    'with the full song loaded back into the player');
+  if (transportWas) {
+    await page.click('#playBtn');
+    await page.waitForTimeout(250);
+  }
+
   console.log('\n— interaction —');
   await page.click('#mixer .track:nth-child(1) .mute-btn');
   await page.waitForTimeout(150);

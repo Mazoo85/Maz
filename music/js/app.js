@@ -10,6 +10,7 @@
   const C = window.Composer;
   const E = window.Engine;
   const X = window.Exporter;
+  const St = window.Station;
 
   const TRACK_META = [
     { id: 'drums',  label: 'Drums',  color: '#ff2d95' },
@@ -245,6 +246,14 @@
     el('editPanel').hidden = false;
     el('mixPanel').hidden = false;
     el('exportPanel').hidden = false;
+    el('stationPanel').hidden = false;
+
+    /* A new song means a new groove on the pads. Dropping the old pattern
+       rather than keeping it is deliberate: the Station shows *this* song, and
+       a rack still holding the last song's groove would be lying. */
+    if (stationOn) stationStop();
+    stationPattern = null;
+    stationDraw();
 
     renderSong();
     buildMixer();
@@ -1029,6 +1038,250 @@
     el('liveTempo').value = String(state.song.bpm);
     el('liveTempoVal').textContent = state.song.bpm;
     el('keyVal').textContent = T.NOTE_NAMES[state.song.rootPc];
+  }
+
+  /* ------------------------------------------------------------------ *
+   * The Station
+   *
+   * A looping groovebox over the song that is already loaded. It plays by
+   * handing the player a very short song with looping on, so there is still
+   * exactly one audio engine, one set of drum kits and one effects rack in
+   * this app — the Station is a different way of looking at this song, not a
+   * second program running beside it.
+   * ------------------------------------------------------------------ */
+
+  let stationPattern = null;
+  let stationOn = false;
+  let stationSongBefore = null;
+  let stationTimer = null;
+
+  function stationSteps() { return parseInt(el('stationSteps').value, 10) || 16; }
+
+  function stationEnsure() {
+    if (!state.song) return null;
+    const want = stationSteps();
+    if (!stationPattern) stationPattern = St.fromSong(state.song, want);
+    else if (stationPattern.steps !== want) stationPattern = St.resize(stationPattern, want);
+    return stationPattern;
+  }
+
+  function stationDraw() {
+    const p = stationEnsure();
+    if (!p) return;
+    const rack = el('stationRack');
+    const roll = el('stationRoll');
+    rack.innerHTML = '';
+    roll.innerHTML = '';
+
+    /* Pads in groups of four, because a bar you cannot count at a glance is a
+       bar you cannot program. */
+    function grouped(make) {
+      const frag = document.createDocumentFragment();
+      for (let g = 0; g < p.steps; g += 4) {
+        const grp = document.createElement('div');
+        grp.className = 'st-grp';
+        for (let s = g; s < g + 4 && s < p.steps; s++) grp.appendChild(make(s));
+        frag.appendChild(grp);
+      }
+      return frag;
+    }
+
+    St.ROWS.forEach(function (r) {
+      const row = document.createElement('div');
+      row.className = 'st-row';
+
+      const chan = document.createElement('div');
+      chan.className = 'st-chan';
+      const mute = document.createElement('button');
+      mute.type = 'button';
+      mute.className = 'st-mute' + (p.mute[r.id] ? ' on' : '');
+      mute.textContent = 'M';
+      mute.title = 'Mute ' + r.name;
+      mute.setAttribute('aria-label', 'Mute ' + r.name);
+      mute.addEventListener('click', function () {
+        p.mute[r.id] = !p.mute[r.id];
+        mute.classList.toggle('on', p.mute[r.id]);
+        stationRefresh();
+      });
+      const name = document.createElement('span');
+      name.className = 'st-name';
+      name.textContent = r.name;
+      const vol = document.createElement('input');
+      vol.type = 'range';
+      vol.className = 'st-vol';
+      vol.min = 0; vol.max = 100; vol.step = 5;
+      vol.value = String(Math.round((p.vol[r.id] === undefined ? 1 : p.vol[r.id]) * 100));
+      vol.title = r.name + ' level';
+      vol.setAttribute('aria-label', r.name + ' level');
+      vol.addEventListener('input', function () {
+        p.vol[r.id] = parseInt(this.value, 10) / 100;
+        stationRefresh();
+      });
+      chan.appendChild(mute);
+      chan.appendChild(name);
+      chan.appendChild(vol);
+
+      const steps = document.createElement('div');
+      steps.className = 'st-steps';
+      steps.appendChild(grouped(function (s) {
+        const pad = document.createElement('button');
+        pad.type = 'button';
+        pad.className = 'st-pad';
+        pad.dataset.step = String(s);
+        pad.title = r.name + ', step ' + (s + 1) + ' — off, on, accent';
+        pad.setAttribute('aria-label', r.name + ' step ' + (s + 1));
+        stationPaint(pad, p.drums[r.id][s]);
+        pad.addEventListener('click', function () {
+          p.drums[r.id][s] = (p.drums[r.id][s] + 1) % 3;
+          stationPaint(pad, p.drums[r.id][s]);
+          stationRefresh();
+        });
+        return pad;
+      }));
+
+      row.appendChild(chan);
+      row.appendChild(steps);
+      rack.appendChild(row);
+    });
+
+    const rungs = St.ladder(state.song);
+    for (let i = St.LADDER - 1; i >= 0; i--) {
+      const row = document.createElement('div');
+      row.className = 'st-row';
+      const label = document.createElement('div');
+      label.className = 'st-label';
+      label.textContent = T.midiToName(rungs[i]);
+      const cells = document.createElement('div');
+      cells.className = 'st-steps';
+      cells.appendChild(grouped(function (s) {
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'st-note' + (p.notes[s] === i ? ' on' : '');
+        cell.dataset.step = String(s);
+        cell.title = T.midiToName(rungs[i]) + ', step ' + (s + 1);
+        cell.setAttribute('aria-label', T.midiToName(rungs[i]) + ' step ' + (s + 1));
+        cell.addEventListener('click', function () {
+          // One note per column: this is a bassline, not a chord grid.
+          p.notes[s] = (p.notes[s] === i) ? null : i;
+          stationDraw();
+          stationRefresh();
+        });
+        return cell;
+      }));
+      row.appendChild(label);
+      row.appendChild(cells);
+      roll.appendChild(row);
+    }
+  }
+
+  function stationPaint(pad, v) {
+    pad.classList.toggle('on', v === 1);
+    pad.classList.toggle('acc', v === 2);
+  }
+
+  /** Push the pads into the player without stopping the loop. */
+  function stationRefresh() {
+    if (!stationOn || !state.song) return;
+    const at = player.currentBeat();
+    player.song = St.toSong(state.song, stationPattern);
+    player.refresh();
+    void at;
+  }
+
+  function stationStart() {
+    if (!state.song) return;
+    stationEnsure();
+    stationSongBefore = state.song;
+    stationOn = true;
+    player.load(St.toSong(state.song, stationPattern));
+    player.loop = true;
+    player.play(0);
+    setPlayIcon(true);
+    el('stationPlay').textContent = '■ Stop the loop';
+    stationTimer = setInterval(stationTick, 60);
+    status('The Station is looping. The song itself is untouched.');
+  }
+
+  function stationStop() {
+    stationOn = false;
+    clearInterval(stationTimer);
+    stationTimer = null;
+    player.stop();
+    setPlayIcon(false);
+    el('stationPlay').textContent = '▶ Play the loop';
+    document.querySelectorAll('.st-pad.now, .st-note.now')
+      .forEach(function (e) { e.classList.remove('now'); });
+    if (stationSongBefore) {
+      // Put the real song back, exactly as it was before the loop started.
+      player.load(stationSongBefore);
+      player.loop = false;
+      stationSongBefore = null;
+    }
+    status('Back to the song.');
+  }
+
+  function stationTick() {
+    if (!stationOn || !stationPattern) return;
+    const beat = player.currentBeat();
+    const step = ((Math.floor(beat / St.STEP_BEATS) % stationPattern.steps) +
+                  stationPattern.steps) % stationPattern.steps;
+    document.querySelectorAll('.st-pad.now, .st-note.now')
+      .forEach(function (e) { e.classList.remove('now'); });
+    document.querySelectorAll('[data-step="' + step + '"]')
+      .forEach(function (e) { e.classList.add('now'); });
+  }
+
+  function bindStation() {
+    el('stationPlay').addEventListener('click', function () {
+      if (stationOn) stationStop(); else stationStart();
+    });
+    el('stationFill').addEventListener('click', function () {
+      if (!state.song) return;
+      stationPattern = St.fromSong(state.song, stationSteps());
+      stationDraw();
+      stationRefresh();
+      status('The Station is loaded with the song\'s own groove.');
+    });
+    el('stationClear').addEventListener('click', function () {
+      if (!state.song) return;
+      stationPattern = St.make(stationSteps());
+      stationDraw();
+      stationRefresh();
+      status('Pads cleared — build a groove, or fill it from the song again.');
+    });
+    el('stationSteps').addEventListener('change', function () {
+      if (!state.song) return;
+      stationPattern = St.resize(stationEnsure(), stationSteps());
+      stationDraw();
+      if (stationOn) { stationStop(); stationStart(); }
+    });
+    el('stationTake').addEventListener('click', function () {
+      if (!state.song || !stationPattern) return;
+      const loop = St.toSong(state.song, stationPattern);
+      const bars = state.song.bars;
+      const beats = stationPattern.steps * St.STEP_BEATS;
+      editor.pushHistory('drums');
+      /* Tile the loop across the whole song. The drums are replaced outright,
+         because half a song of loop and half of the old groove is neither. */
+      const out = [];
+      for (let b = 0; b < state.song.totalBeats; b += beats) {
+        loop.tracks.drums.forEach(function (e) {
+          if (b + e.t >= state.song.totalBeats) return;
+          const c = {};
+          for (const f in e) c[f] = e[f];
+          c.t = b + e.t;
+          out.push(c);
+        });
+      }
+      state.song.tracks.drums = out;
+      state.edited.drums = true;
+      if (stationOn) stationStop();
+      player.refresh();
+      markRollDirty();
+      editor.refit();
+      syncEditUI();
+      status('Loop laid across all ' + bars + ' bars of the song. Ctrl+Z puts the drums back.');
+    });
   }
 
   function bindSongControls() {
@@ -1853,6 +2106,7 @@
     bindOptions();
     bindTransport();
     bindSongControls();
+    bindStation();
     bindExport();
     bindSongActions();
     bindHelp();
@@ -1917,6 +2171,20 @@
     resizeRoll();
     requestAnimationFrame(frame);
   }
+
+  /*
+   * A read-only window into the running app, for the test suite.
+   *
+   * Getters rather than a snapshot, so it always reports what is true now
+   * rather than what was true when the page loaded. Nothing in the app reads
+   * this; it exists so a test can ask "is the player still holding the whole
+   * song?" instead of inferring it from what the page happens to be drawing.
+   */
+  window.__songforge = {
+    get song() { return state.song; },
+    get player() { return player; },
+    get station() { return stationPattern; }
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

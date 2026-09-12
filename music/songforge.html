@@ -907,6 +907,109 @@ input[type="range"]::-moz-range-thumb {
   * { transition: none !important; }
 }
 
+/* ------------------------------------------------------------------ *
+ * The Station — a looping groovebox on the same page.
+ *
+ * Built from the same tokens as everything else so it reads as part of
+ * Song Forge rather than a second app pasted in: the same panel, the same
+ * pink and cyan, the same monospaced numbers.
+ * ------------------------------------------------------------------ */
+
+.station-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.station-bar .wide-btn { flex: 0 1 auto; }
+
+/* Horizontal scroll belongs to the grids alone, never to the page. */
+.station-scroll { overflow-x: auto; padding-bottom: 6px; }
+
+.st-row {
+  display: grid;
+  grid-template-columns: 148px max-content;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 0;
+}
+.st-row + .st-row { border-top: 1px solid var(--panel-edge); }
+.st-chan { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.st-chan .st-name {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.st-mute {
+  font-family: var(--font-data);
+  font-size: 10px;
+  /* 28px is the smallest this app lets any control be — a grid is not an
+     excuse for a target you cannot hit on a phone. */
+  width: 28px; height: 28px;
+  flex: none;
+  border-radius: 7px;
+  cursor: pointer;
+  border: 1px solid var(--panel-edge);
+  background: var(--panel);
+  color: var(--ink-dim);
+}
+.st-mute.on { background: var(--pink); border-color: var(--pink); color: #14000c; }
+.st-vol { width: 48px; flex: none; }
+
+.st-steps { display: flex; gap: 4px; min-width: max-content; }
+.st-steps .st-grp { display: flex; gap: 4px; }
+.st-steps .st-grp + .st-grp { margin-left: 10px; }
+
+.st-pad {
+  width: 30px; height: 30px;
+  flex: none;
+  border-radius: 7px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid transparent;
+  position: relative;
+  padding: 0;
+}
+.st-pad:hover { border-color: var(--pink); }
+.st-pad.on { background: var(--pink); box-shadow: 0 0 10px rgba(255, 45, 149, 0.35); }
+/* An accent is ringed rather than merely brighter, so you can see the shape of
+   the bar at a glance instead of comparing shades of pink. */
+.st-pad.acc {
+  background: var(--pink);
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px var(--amber), 0 0 14px rgba(255, 200, 87, 0.4);
+}
+.st-pad.now { outline: 2px solid var(--ink); outline-offset: 1px; }
+
+.st-note {
+  width: 30px; height: 28px;
+  flex: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid transparent;
+  padding: 0;
+}
+.st-note:hover { border-color: var(--cyan); }
+.st-note.on { background: var(--cyan); box-shadow: 0 0 10px rgba(0, 229, 255, 0.35); }
+.st-note.now { outline: 2px solid var(--ink); outline-offset: 1px; }
+
+.st-label {
+  font-family: var(--font-data);
+  font-size: 11px;
+  color: var(--ink-dim);
+  text-align: right;
+  padding-right: 2px;
+}
+
+@media (max-width: 560px) {
+  .st-row { grid-template-columns: 104px max-content; }
+  .st-vol { display: none; }
+}
+
 </style>
 </head>
 <body>
@@ -1328,6 +1431,31 @@ input[type="range"]::-moz-range-thumb {
     </p>
     <div class="mixer" id="mixer"></div>
     <button type="button" class="wide-btn" id="rerollAllBtn">🎲 Re-roll every part</button>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section class="panel" id="stationPanel" hidden>
+    <h2 class="panel-title">The Station · jam on a loop</h2>
+    <p class="panel-hint">
+      One bar on a grid of pads, going round. It starts filled in with this song's own
+      groove — press <strong>Fill it from the song</strong> any time to get it back.
+      Click a pad to cycle it <em>off → on → accent</em>; click the lower grid to place
+      bass notes. It plays through the same kit and effects as everything else.
+    </p>
+    <div class="station-bar">
+      <button type="button" class="wide-btn" id="stationPlay">▶ Play the loop</button>
+      <button type="button" class="wide-btn" id="stationFill">✨ Fill it from the song</button>
+      <button type="button" class="wide-btn" id="stationClear">Clear the pads</button>
+      <label class="tool-field" for="stationSteps"><span>Length</span>
+        <select id="stationSteps">
+          <option value="16">One bar</option>
+          <option value="32">Two bars</option>
+        </select>
+      </label>
+      <button type="button" class="wide-btn" id="stationTake">Put this loop in the song</button>
+    </div>
+    <div class="station-scroll"><div id="stationRack"></div></div>
+    <div class="station-scroll"><div id="stationRoll"></div></div>
   </section>
 
   <!-- ---------------------------------------------------------------- -->
@@ -10006,6 +10134,227 @@ input[type="range"]::-moz-range-thumb {
 })(window);
 
 
+/* ==== station.js ==== */
+/*
+ * station.js — the Station: a looping groovebox built into Song Forge.
+ *
+ * Song Forge writes whole songs. The Station is the other way of working with
+ * the same music: one bar or two, looping, with every drum laid out as a row of
+ * pads you can hit. It is for finding a groove rather than finishing a track.
+ *
+ * Two things make it part of this program rather than a second program bolted
+ * on.
+ *
+ * The first is that it makes no sound of its own. A loop here is a *song* —
+ * a very short one, with looping switched on — handed to the same player
+ * everything else uses, so it comes out through the same drum kits, the same
+ * effects rack and the same mixer. There is one audio engine in this app and
+ * this is not a second one.
+ *
+ * The second is that the AI fills it in. A step sequencer normally starts empty
+ * and waits for you to program it; this one reads the song you already have and
+ * lays its groove out on the pads, and you change what you want to change.
+ */
+(function (global) {
+  'use strict';
+
+  const T = global.Theory;
+
+  /* The nine drums the rack shows, in the order a drummer would sit at them.
+     These are Song Forge's own instrument names, so a pattern written here is
+     the same kind of data the composer writes. */
+  const ROWS = [
+    { id: 'kick',    name: 'Kick' },
+    { id: 'snare',   name: 'Snare' },
+    { id: 'hh',      name: 'Closed Hat' },
+    { id: 'oh',      name: 'Open Hat' },
+    { id: 'clap',    name: 'Clap' },
+    { id: 'tom',     name: 'Tom' },
+    { id: 'rim',     name: 'Rimshot' },
+    { id: 'cowbell', name: 'Cowbell' },
+    { id: 'ride',    name: 'Ride' }
+  ];
+
+  const STEP_BEATS = 0.25;          // a step is a sixteenth note
+  /* Off, on, accent. An accent is not just louder — a drummer's accent is what
+     tells you where the bar is, and one velocity for every hit is most of what
+     makes a programmed pattern sound programmed. */
+  const VEL = { 1: 0.7, 2: 1 };
+  const LADDER = 8;                 // rows in the note grid
+
+  function emptyPattern(steps) {
+    const drums = {};
+    ROWS.forEach(function (r) { drums[r.id] = new Array(steps).fill(0); });
+    return {
+      steps: steps,
+      drums: drums,
+      notes: new Array(steps).fill(null),   // a ladder row index, or null
+      vol: {}, mute: {}
+    };
+  }
+
+  function make(steps) {
+    const p = emptyPattern(steps || 16);
+    ROWS.forEach(function (r) { p.vol[r.id] = 1; p.mute[r.id] = false; });
+    return p;
+  }
+
+  /** Resize a pattern, keeping what fits and repeating it to fill the rest. */
+  function resize(p, steps) {
+    const out = make(steps);
+    out.vol = p.vol; out.mute = p.mute;
+    ROWS.forEach(function (r) {
+      for (let i = 0; i < steps; i++) out.drums[r.id][i] = p.drums[r.id][i % p.steps] || 0;
+    });
+    for (let i = 0; i < steps; i++) out.notes[i] = p.notes[i % p.steps];
+    return out;
+  }
+
+  /**
+   * The note ladder: eight rungs of the song's own scale from its own root.
+   *
+   * A fixed pentatonic would be simpler and would sound wrong the moment the
+   * song is in anything but a minor key. Reading the song's scale means a note
+   * placed on the grid is in the same key as everything else in the app, and
+   * changing the song's key moves the ladder with it.
+   */
+  function ladder(song) {
+    const root = T.midi(song.rootPc, 2);
+    const out = [];
+    for (let i = 0; i < LADDER; i++) out.push(T.degreePitch(song.scaleSteps, root, i));
+    return out;
+  }
+
+  function nearestRung(pitch, rungs) {
+    let best = 0, bestD = 1e9;
+    for (let i = 0; i < rungs.length; i++) {
+      /* Compared by pitch class, so a bass note two octaves below the ladder
+         still lands on the rung it belongs to rather than on the bottom one. */
+      const d = Math.min(
+        Math.abs(pitch - rungs[i]),
+        Math.abs(((pitch - rungs[i]) % 12 + 12) % 12),
+        Math.abs(12 - ((pitch - rungs[i]) % 12 + 12) % 12)
+      );
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    return best;
+  }
+
+  /**
+   * Lay a song's own groove out on the pads.
+   *
+   * Read from the busiest section rather than from the top: bar one of most
+   * songs is an intro holding half the kit back, and a groovebox loaded with an
+   * intro looks broken. The loudest hits become accents, which is how the
+   * pattern keeps the shape the composer gave it instead of flattening to one
+   * velocity.
+   */
+  function fromSong(song, steps) {
+    const p = make(steps);
+    const rungs = ladder(song);
+    const bpb = song.beatsPerBar || 4;
+    const bars = Math.max(1, Math.round(steps * STEP_BEATS / bpb));
+
+    let best = null;
+    (song.sections || []).forEach(function (s) {
+      if (s.bars < bars) return;
+      if (!best || s.energy > best.energy) best = s;
+    });
+    const fromBeat = (best ? best.startBar : 0) * bpb;
+
+    /* A velocity counts as an accent when it is near the top of what this
+       pattern actually contains, not against a fixed number — a style that
+       plays everything softly still has accents within itself. */
+    const inWindow = function (e) {
+      return e.t >= fromBeat - 1e-6 && e.t < fromBeat + steps * STEP_BEATS - 1e-6;
+    };
+    const drumEvents = (song.tracks.drums || []).filter(inWindow);
+    let loud = 0;
+    drumEvents.forEach(function (e) { if (e.v > loud) loud = e.v; });
+    const accentAt = loud * 0.92;
+
+    drumEvents.forEach(function (e) {
+      if (!p.drums[e.inst]) return;                   // a drum the rack has no row for
+      const step = Math.round((e.t - fromBeat) / STEP_BEATS);
+      if (step < 0 || step >= steps) return;
+      p.drums[e.inst][step] = e.v >= accentAt ? 2 : 1;
+    });
+
+    (song.tracks.bass || []).filter(inWindow).forEach(function (e) {
+      const step = Math.round((e.t - fromBeat) / STEP_BEATS);
+      if (step < 0 || step >= steps) return;
+      p.notes[step] = nearestRung(e.p, rungs);
+    });
+    return p;
+  }
+
+  /**
+   * Turn the pads back into a song the player can play.
+   *
+   * Built on top of the song already loaded, so the loop inherits its key,
+   * tempo, kit, instruments and effects — the Station is a different view of
+   * this song, not a different song. Everything but the two parts it shows is
+   * emptied, because a groovebox that quietly kept playing a pad part you
+   * cannot see would be lying about what it is.
+   */
+  function toSong(song, p) {
+    const loop = {};
+    for (const k in song) loop[k] = song[k];
+    const beats = p.steps * STEP_BEATS;
+    const rungs = ladder(song);
+
+    loop.tracks = { drums: [], bass: [], chords: [], arp: [], lead: [], counter: [], pad: [] };
+    ROWS.forEach(function (r) {
+      if (p.mute[r.id]) return;
+      for (let s = 0; s < p.steps; s++) {
+        const v = p.drums[r.id][s];
+        if (!v) continue;
+        loop.tracks.drums.push({
+          t: s * STEP_BEATS, d: STEP_BEATS, p: 60,
+          /* Mute and level live in the pattern rather than in the mixer: the
+             mixer has one fader for the whole kit, and the rack needs nine. */
+          v: Math.max(0.02, VEL[v] * (p.vol[r.id] === undefined ? 1 : p.vol[r.id])),
+          inst: r.id
+        });
+      }
+    });
+    for (let s = 0; s < p.steps; s++) {
+      const rung = p.notes[s];
+      if (rung == null) continue;
+      /* Held until the next note or the end of the loop, so a line reads as a
+         bassline rather than as a row of clicks. */
+      let len = STEP_BEATS;
+      for (let n = s + 1; n < p.steps; n++) {
+        if (p.notes[n] != null) break;
+        len += STEP_BEATS;
+      }
+      loop.tracks.bass.push({ t: s * STEP_BEATS, d: len, p: rungs[rung], v: 0.85 });
+    }
+
+    loop.totalBeats = beats;
+    loop.bars = Math.max(1, Math.round(beats / (song.beatsPerBar || 4)));
+    loop.duration = beats * (60 / song.bpm);
+    loop.sections = [{ type: 'chorus', name: 'Loop', bars: loop.bars, startBar: 0,
+                       energy: 1, parts: {}, keyShift: 0, halfTime: false }];
+    loop.automation = { filter: [], volume: [] };
+    loop.isStationLoop = true;
+    return loop;
+  }
+
+  global.Station = {
+    ROWS: ROWS,
+    STEP_BEATS: STEP_BEATS,
+    VEL: VEL,
+    LADDER: LADDER,
+    make: make,
+    resize: resize,
+    ladder: ladder,
+    fromSong: fromSong,
+    toSong: toSong
+  };
+})(window);
+
+
 /* ==== app.js ==== */
 /*
  * app.js — the interface: settings, transport, mixer, the scrolling note
@@ -10019,6 +10368,7 @@ input[type="range"]::-moz-range-thumb {
   const C = window.Composer;
   const E = window.Engine;
   const X = window.Exporter;
+  const St = window.Station;
 
   const TRACK_META = [
     { id: 'drums',  label: 'Drums',  color: '#ff2d95' },
@@ -10254,6 +10604,14 @@ input[type="range"]::-moz-range-thumb {
     el('editPanel').hidden = false;
     el('mixPanel').hidden = false;
     el('exportPanel').hidden = false;
+    el('stationPanel').hidden = false;
+
+    /* A new song means a new groove on the pads. Dropping the old pattern
+       rather than keeping it is deliberate: the Station shows *this* song, and
+       a rack still holding the last song's groove would be lying. */
+    if (stationOn) stationStop();
+    stationPattern = null;
+    stationDraw();
 
     renderSong();
     buildMixer();
@@ -11038,6 +11396,250 @@ input[type="range"]::-moz-range-thumb {
     el('liveTempo').value = String(state.song.bpm);
     el('liveTempoVal').textContent = state.song.bpm;
     el('keyVal').textContent = T.NOTE_NAMES[state.song.rootPc];
+  }
+
+  /* ------------------------------------------------------------------ *
+   * The Station
+   *
+   * A looping groovebox over the song that is already loaded. It plays by
+   * handing the player a very short song with looping on, so there is still
+   * exactly one audio engine, one set of drum kits and one effects rack in
+   * this app — the Station is a different way of looking at this song, not a
+   * second program running beside it.
+   * ------------------------------------------------------------------ */
+
+  let stationPattern = null;
+  let stationOn = false;
+  let stationSongBefore = null;
+  let stationTimer = null;
+
+  function stationSteps() { return parseInt(el('stationSteps').value, 10) || 16; }
+
+  function stationEnsure() {
+    if (!state.song) return null;
+    const want = stationSteps();
+    if (!stationPattern) stationPattern = St.fromSong(state.song, want);
+    else if (stationPattern.steps !== want) stationPattern = St.resize(stationPattern, want);
+    return stationPattern;
+  }
+
+  function stationDraw() {
+    const p = stationEnsure();
+    if (!p) return;
+    const rack = el('stationRack');
+    const roll = el('stationRoll');
+    rack.innerHTML = '';
+    roll.innerHTML = '';
+
+    /* Pads in groups of four, because a bar you cannot count at a glance is a
+       bar you cannot program. */
+    function grouped(make) {
+      const frag = document.createDocumentFragment();
+      for (let g = 0; g < p.steps; g += 4) {
+        const grp = document.createElement('div');
+        grp.className = 'st-grp';
+        for (let s = g; s < g + 4 && s < p.steps; s++) grp.appendChild(make(s));
+        frag.appendChild(grp);
+      }
+      return frag;
+    }
+
+    St.ROWS.forEach(function (r) {
+      const row = document.createElement('div');
+      row.className = 'st-row';
+
+      const chan = document.createElement('div');
+      chan.className = 'st-chan';
+      const mute = document.createElement('button');
+      mute.type = 'button';
+      mute.className = 'st-mute' + (p.mute[r.id] ? ' on' : '');
+      mute.textContent = 'M';
+      mute.title = 'Mute ' + r.name;
+      mute.setAttribute('aria-label', 'Mute ' + r.name);
+      mute.addEventListener('click', function () {
+        p.mute[r.id] = !p.mute[r.id];
+        mute.classList.toggle('on', p.mute[r.id]);
+        stationRefresh();
+      });
+      const name = document.createElement('span');
+      name.className = 'st-name';
+      name.textContent = r.name;
+      const vol = document.createElement('input');
+      vol.type = 'range';
+      vol.className = 'st-vol';
+      vol.min = 0; vol.max = 100; vol.step = 5;
+      vol.value = String(Math.round((p.vol[r.id] === undefined ? 1 : p.vol[r.id]) * 100));
+      vol.title = r.name + ' level';
+      vol.setAttribute('aria-label', r.name + ' level');
+      vol.addEventListener('input', function () {
+        p.vol[r.id] = parseInt(this.value, 10) / 100;
+        stationRefresh();
+      });
+      chan.appendChild(mute);
+      chan.appendChild(name);
+      chan.appendChild(vol);
+
+      const steps = document.createElement('div');
+      steps.className = 'st-steps';
+      steps.appendChild(grouped(function (s) {
+        const pad = document.createElement('button');
+        pad.type = 'button';
+        pad.className = 'st-pad';
+        pad.dataset.step = String(s);
+        pad.title = r.name + ', step ' + (s + 1) + ' — off, on, accent';
+        pad.setAttribute('aria-label', r.name + ' step ' + (s + 1));
+        stationPaint(pad, p.drums[r.id][s]);
+        pad.addEventListener('click', function () {
+          p.drums[r.id][s] = (p.drums[r.id][s] + 1) % 3;
+          stationPaint(pad, p.drums[r.id][s]);
+          stationRefresh();
+        });
+        return pad;
+      }));
+
+      row.appendChild(chan);
+      row.appendChild(steps);
+      rack.appendChild(row);
+    });
+
+    const rungs = St.ladder(state.song);
+    for (let i = St.LADDER - 1; i >= 0; i--) {
+      const row = document.createElement('div');
+      row.className = 'st-row';
+      const label = document.createElement('div');
+      label.className = 'st-label';
+      label.textContent = T.midiToName(rungs[i]);
+      const cells = document.createElement('div');
+      cells.className = 'st-steps';
+      cells.appendChild(grouped(function (s) {
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'st-note' + (p.notes[s] === i ? ' on' : '');
+        cell.dataset.step = String(s);
+        cell.title = T.midiToName(rungs[i]) + ', step ' + (s + 1);
+        cell.setAttribute('aria-label', T.midiToName(rungs[i]) + ' step ' + (s + 1));
+        cell.addEventListener('click', function () {
+          // One note per column: this is a bassline, not a chord grid.
+          p.notes[s] = (p.notes[s] === i) ? null : i;
+          stationDraw();
+          stationRefresh();
+        });
+        return cell;
+      }));
+      row.appendChild(label);
+      row.appendChild(cells);
+      roll.appendChild(row);
+    }
+  }
+
+  function stationPaint(pad, v) {
+    pad.classList.toggle('on', v === 1);
+    pad.classList.toggle('acc', v === 2);
+  }
+
+  /** Push the pads into the player without stopping the loop. */
+  function stationRefresh() {
+    if (!stationOn || !state.song) return;
+    const at = player.currentBeat();
+    player.song = St.toSong(state.song, stationPattern);
+    player.refresh();
+    void at;
+  }
+
+  function stationStart() {
+    if (!state.song) return;
+    stationEnsure();
+    stationSongBefore = state.song;
+    stationOn = true;
+    player.load(St.toSong(state.song, stationPattern));
+    player.loop = true;
+    player.play(0);
+    setPlayIcon(true);
+    el('stationPlay').textContent = '■ Stop the loop';
+    stationTimer = setInterval(stationTick, 60);
+    status('The Station is looping. The song itself is untouched.');
+  }
+
+  function stationStop() {
+    stationOn = false;
+    clearInterval(stationTimer);
+    stationTimer = null;
+    player.stop();
+    setPlayIcon(false);
+    el('stationPlay').textContent = '▶ Play the loop';
+    document.querySelectorAll('.st-pad.now, .st-note.now')
+      .forEach(function (e) { e.classList.remove('now'); });
+    if (stationSongBefore) {
+      // Put the real song back, exactly as it was before the loop started.
+      player.load(stationSongBefore);
+      player.loop = false;
+      stationSongBefore = null;
+    }
+    status('Back to the song.');
+  }
+
+  function stationTick() {
+    if (!stationOn || !stationPattern) return;
+    const beat = player.currentBeat();
+    const step = ((Math.floor(beat / St.STEP_BEATS) % stationPattern.steps) +
+                  stationPattern.steps) % stationPattern.steps;
+    document.querySelectorAll('.st-pad.now, .st-note.now')
+      .forEach(function (e) { e.classList.remove('now'); });
+    document.querySelectorAll('[data-step="' + step + '"]')
+      .forEach(function (e) { e.classList.add('now'); });
+  }
+
+  function bindStation() {
+    el('stationPlay').addEventListener('click', function () {
+      if (stationOn) stationStop(); else stationStart();
+    });
+    el('stationFill').addEventListener('click', function () {
+      if (!state.song) return;
+      stationPattern = St.fromSong(state.song, stationSteps());
+      stationDraw();
+      stationRefresh();
+      status('The Station is loaded with the song\'s own groove.');
+    });
+    el('stationClear').addEventListener('click', function () {
+      if (!state.song) return;
+      stationPattern = St.make(stationSteps());
+      stationDraw();
+      stationRefresh();
+      status('Pads cleared — build a groove, or fill it from the song again.');
+    });
+    el('stationSteps').addEventListener('change', function () {
+      if (!state.song) return;
+      stationPattern = St.resize(stationEnsure(), stationSteps());
+      stationDraw();
+      if (stationOn) { stationStop(); stationStart(); }
+    });
+    el('stationTake').addEventListener('click', function () {
+      if (!state.song || !stationPattern) return;
+      const loop = St.toSong(state.song, stationPattern);
+      const bars = state.song.bars;
+      const beats = stationPattern.steps * St.STEP_BEATS;
+      editor.pushHistory('drums');
+      /* Tile the loop across the whole song. The drums are replaced outright,
+         because half a song of loop and half of the old groove is neither. */
+      const out = [];
+      for (let b = 0; b < state.song.totalBeats; b += beats) {
+        loop.tracks.drums.forEach(function (e) {
+          if (b + e.t >= state.song.totalBeats) return;
+          const c = {};
+          for (const f in e) c[f] = e[f];
+          c.t = b + e.t;
+          out.push(c);
+        });
+      }
+      state.song.tracks.drums = out;
+      state.edited.drums = true;
+      if (stationOn) stationStop();
+      player.refresh();
+      markRollDirty();
+      editor.refit();
+      syncEditUI();
+      status('Loop laid across all ' + bars + ' bars of the song. Ctrl+Z puts the drums back.');
+    });
   }
 
   function bindSongControls() {
@@ -11862,6 +12464,7 @@ input[type="range"]::-moz-range-thumb {
     bindOptions();
     bindTransport();
     bindSongControls();
+    bindStation();
     bindExport();
     bindSongActions();
     bindHelp();
@@ -11926,6 +12529,20 @@ input[type="range"]::-moz-range-thumb {
     resizeRoll();
     requestAnimationFrame(frame);
   }
+
+  /*
+   * A read-only window into the running app, for the test suite.
+   *
+   * Getters rather than a snapshot, so it always reports what is true now
+   * rather than what was true when the page loaded. Nothing in the app reads
+   * this; it exists so a test can ask "is the player still holding the whole
+   * song?" instead of inferring it from what the page happens to be drawing.
+   */
+  window.__songforge = {
+    get song() { return state.song; },
+    get player() { return player; },
+    get station() { return stationPattern; }
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
