@@ -1,0 +1,125 @@
+name: Trunk hygiene
+
+# Two jobs that keep the aftermath of the two-trunk split from creeping back.
+#
+# Until 12 September this repo had two mainlines. `main` grew the engine; the
+# branch `claude/zomboid-sega-neon-anchorage-i5emkk` grew the arcade and the
+# Forge — and *that* branch is the repo's configured default, so every fresh
+# clone and every new web session starts there. PR #34 merged the two, but the
+# default-branch setting itself can only be changed by a human in
+# Settings -> General, so the branch is still what newcomers land on.
+#
+#   sync-legacy-default  keeps that branch identical to main, so landing on it
+#                        is harmless. Fast-forward only.
+#   prune-merged         deletes branches whose work is fully in main. Manual,
+#                        and it re-checks containment itself rather than
+#                        trusting the list below.
+#
+# Both exist because a session's own git credential is scoped to create and
+# update refs but NOT delete them (a `git push --delete` gets a flat 403), and
+# nothing in the GitHub API surface available to a session can change a
+# repository setting. GITHUB_TOKEN can do both, so the repo does it itself.
+#
+# DELETE THIS FILE once Settings -> General -> Default branch is `main`: at that
+# point sync-legacy-default has nothing to protect against, and the legacy
+# branch can simply be deleted.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      prune:
+        description: "Also delete the merged branches listed in the prune-merged job"
+        type: boolean
+        default: false
+
+concurrency:
+  group: trunk-hygiene
+  cancel-in-progress: false
+
+jobs:
+  # ---- Keep the legacy default branch pointing at main ------------------------------------------
+  sync-legacy-default:
+    name: Sync the legacy default branch to main
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fast-forward the legacy default branch
+        env:
+          LEGACY: claude/zomboid-sega-neon-anchorage-i5emkk
+        run: |
+          set -euo pipefail
+          if ! git show-ref --verify --quiet "refs/remotes/origin/$LEGACY"; then
+            echo "::notice::$LEGACY no longer exists — the default branch was probably moved to main. This job can be deleted."
+            exit 0
+          fi
+          old=$(git rev-parse "origin/$LEGACY")
+          new=$(git rev-parse origin/main)
+          if [ "$old" = "$new" ]; then
+            echo "Already in sync at ${new:0:8}."
+            exit 0
+          fi
+          # Refuse anything that is not a fast-forward. If that branch ever carries
+          # a commit main does not, it holds real work and must not be overwritten.
+          if ! git merge-base --is-ancestor "$old" "$new"; then
+            echo "::error::$LEGACY has $(git rev-list --count "$new..$old") commit(s) not in main. Refusing to overwrite; someone pushed real work there."
+            exit 1
+          fi
+          git push origin "$new:refs/heads/$LEGACY"
+          echo "Fast-forwarded $LEGACY: ${old:0:8} -> ${new:0:8}"
+
+  # ---- Delete branches whose work is entirely in main -------------------------------------------
+  prune-merged:
+    name: Prune branches already merged into main
+    if: github.event_name == 'workflow_dispatch' && inputs.prune
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Delete merged branches
+        run: |
+          set -uo pipefail
+          # Named explicitly rather than globbed: this repo has branches that LOOK
+          # dormant but are still being pushed to, and one that was safe to delete
+          # at the start of a session had gained commits by the end of it. The
+          # containment check below is what actually authorises each delete — this
+          # list only bounds what is considered.
+          BRANCHES="
+            claude/character-item-creator-c792be
+            claude/ci-health-repair
+            claude/ci-windows-crt-warnings
+            claude/codebase-memory-mcp-setup-lxfz5k
+            claude/data-scraping-tool-plan-z9qaid
+            claude/feedback-loop-brainstorm-22rx2c
+            claude/github-superpowers-download-50w3ty
+            claude/maz-engine-roadmap-3zuh8u
+            claude/maz-engine-team-q433e8-base
+            claude/repository-connections-34t3xm
+          "
+          deleted=0; kept=0; absent=0
+          for b in $BRANCHES; do
+            if ! git show-ref --verify --quiet "refs/remotes/origin/$b"; then
+              echo "absent  $b"; absent=$((absent+1)); continue
+            fi
+            tip=$(git rev-parse "origin/$b")
+            # Re-verify NOW, not from the list: only delete if main already contains
+            # every commit on the branch. Anything else keeps its work.
+            if git merge-base --is-ancestor "$tip" origin/main; then
+              git push origin --delete "$b" && { echo "deleted $b (was ${tip:0:8})"; deleted=$((deleted+1)); }
+            else
+              ahead=$(git rev-list --count "origin/main..origin/$b")
+              echo "::warning::kept $b — $ahead commit(s) not in main"
+              kept=$((kept+1))
+            fi
+          done
+          echo
+          echo "deleted=$deleted kept=$kept absent=$absent"
+          echo "Recover any of these with: git push origin <sha>:refs/heads/<name>"
