@@ -936,6 +936,12 @@ function launchOptions() {
     const dryBuf = await window.Engine.renderOffline(song(), mixWith(0));
     const dryData = dryBuf.getChannelData(0);
     const out = { off: stats(dryBuf) };
+    /* The same render again, to find out how close "identical" can actually
+       get. Chromium's offline renderer is not bit-exact run to run — two
+       renders of the same graph differ in the last decimal place or so — so
+       "unchanged" has to mean "no further from the reference than the
+       reference is from itself", not "exactly equal". */
+    out.floor = stats(await window.Engine.renderOffline(song(), mixWith(0)), dryData);
     for (const kind of ['ring', 'fold', 'wah']) {
       out[kind] = stats(await window.Engine.renderOffline(song(kind), mixWith(1)), dryData);
       out[kind + 'Zero'] = stats(await window.Engine.renderOffline(song(kind), mixWith(0)), dryData);
@@ -950,9 +956,10 @@ function launchOptions() {
     /* At zero the effect is built but blended out, so it must come back
        sample-for-sample identical to the untouched part — a colour that leaks
        at zero is a colour you can never turn off. */
-    check(colour[k + 'Zero'].change === 0,
-      k + ': completely silent at zero (difference from dry ' +
-      colour[k + 'Zero'].change.toExponential(1) + ')');
+    check(colour[k + 'Zero'].change <= Math.max(colour.floor.change * 4, 1e-9),
+      k + ': silent at zero (difference from dry ' +
+      colour[k + 'Zero'].change.toExponential(1) + ', renderer floor ' +
+      colour.floor.change.toExponential(1) + ')');
     check(colour[k].change > colour.off.rms * 0.4,
       k + ': rewrites the part at full (changed ' +
       (colour[k].change / colour.off.rms * 100).toFixed(0) + '% of its level)');
@@ -1045,6 +1052,10 @@ function launchOptions() {
     };
     return {
       flat: await run(),
+      /* The same render again: Chromium's offline renderer is not bit-exact
+         run to run, so "left alone" has to be measured against how far a
+         render sits from an identical one, not against zero. */
+      floor: await run(),
       pumpLight: await run(function (s) { s.sidechain = 0.3; }),
       pumpHard: await run(function (s) { s.sidechain = 0.7; }),
       slowBack: await run(function (s) { s.sidechain = 0.7; s.duckSpeed = 0; }),
@@ -1071,8 +1082,11 @@ function launchOptions() {
     'a slow pump holds the part down longer than a fast one (' +
     dyn.fastBack.rms.toFixed(4) + ' → ' + dyn.slowBack.rms.toFixed(4) + ')');
 
-  check(dyn.chopOff.rms === dyn.flat.rms,
-    'chop at zero leaves the part exactly alone');
+  const renderFloor = Math.abs(dyn.floor.rms - dyn.flat.rms);
+  check(Math.abs(dyn.chopOff.rms - dyn.flat.rms) <= Math.max(renderFloor * 4, dyn.flat.rms * 1e-6),
+    'chop at zero leaves the part alone (off by ' +
+    Math.abs(dyn.chopOff.rms - dyn.flat.rms).toExponential(1) + ', renderer floor ' +
+    renderFloor.toExponential(1) + ')');
   check(dyn.chopE.lo < dyn.flat.lo * 0.1 && dyn.chopE.bad === 0,
     'chop at full cuts the part to silence between steps (' +
     dyn.flat.lo.toFixed(4) + ' → ' + dyn.chopE.lo.toFixed(4) + ')');
@@ -1083,6 +1097,134 @@ function launchOptions() {
   check(dyn.chopE.rate > dyn.chopQ.rate * 1.7 && dyn.chopS.rate > dyn.chopE.rate * 1.7,
     'each chop rate is twice the one before (' + dyn.chopQ.rate.toFixed(1) + ' → ' +
     dyn.chopE.rate.toFixed(1) + ' → ' + dyn.chopS.rate.toFixed(1) + ' per second)');
+
+  console.log('\n— split glue —');
+  /* Three compressors across three bands instead of one across everything.
+     Two things have to be true: the split has to put the mix back together
+     *exactly* as it found it, and it has to actually stop the kick pulling the
+     rest of the mix down with it. The first is the one that can go silently
+     wrong, so it is measured band by band rather than on the total. */
+  const glue = await page.evaluate(async function () {
+    /* One-pole filters, applied in JS to the finished render, so the
+       measurement does not depend on the same filter recipe it is checking. */
+    function lowpass(d, rate, fc) {
+      const a = 1 / (1 + 1 / (2 * Math.PI * fc / rate));
+      const y = new Float32Array(d.length);
+      for (let i = 1; i < d.length; i++) y[i] = y[i - 1] + a * (d[i] - y[i - 1]);
+      return y;
+    }
+    function highpass(d, rate, fc) {
+      const rc = 1 / (2 * Math.PI * fc);
+      const a = rc / (rc + 1 / rate);
+      const y = new Float32Array(d.length);
+      for (let i = 1; i < d.length; i++) y[i] = a * (y[i - 1] + d[i] - d[i - 1]);
+      return y;
+    }
+    function rmsOf(d, from, to) {
+      let s2 = 0, n = 0;
+      for (let i = from; i < to && i < d.length; i++) { s2 += d[i] * d[i]; n++; }
+      return Math.sqrt(s2 / Math.max(1, n));
+    }
+    function song(setup) {
+      const s = window.Composer.compose({ seed: 'GLUE-2', genre: 'house', length: 'short' });
+      s.presetOverride = {};
+      Object.keys(s.tracks).forEach(function (k) { s.tracks[k] = []; });
+      for (let b = 0; b < 16; b += 1) {
+        s.tracks.drums.push({ t: b, d: 0.25, p: 36, v: 1, inst: 'kick' });
+        /* Hats on the off-sixteenths only, so none lands on a kick and gets
+           masked by it. */
+        [0.25, 0.5, 0.75].forEach(function (o) {
+          s.tracks.drums.push({ t: b + o, d: 0.25, p: 42, v: 0.55, inst: 'hat' });
+        });
+      }
+      /* A sustained low note under it all: most of a mix's energy is in the
+         bottom, and it is that energy a single compressor reacts to. */
+      for (let b = 0; b < 16; b += 2) s.tracks.bass.push({ t: b, d: 2, p: 36, v: 1 });
+      s.totalBeats = 16;
+      s.sidechain = 0;
+      if (setup) setup(s);
+      return s;
+    }
+    function mix() {
+      const m = {};
+      window.Engine.TRACKS.forEach(function (t) {
+        m[t] = { volume: 1, muted: !(t === 'drums' || t === 'bass'), solo: false,
+                 rev: 0, del: 0, cho: 0, mod: 0, autopan: 0, colour: 0, chop: 0,
+                 eqLow: 0, eqMid: 0, eqHigh: 0, crush: 0, comp: 0, punch: 0 };
+      });
+      return m;
+    }
+    async function measure(multi, amt) {
+      const s = song(function (x) { x.glue = amt; x.glueMulti = multi; });
+      const buf = await window.Engine.renderOffline(s, mix());
+      const rate = buf.sampleRate;
+      const L = buf.getChannelData(0);
+      let peak = 0, bad = 0;
+      for (let i = 0; i < L.length; i++) {
+        if (!isFinite(L[i])) { bad++; continue; }
+        const v = Math.abs(L[i]); if (v > peak) peak = v;
+      }
+      // Three bands of the finished mix, on the same splits the glue uses.
+      const low = lowpass(L, rate, 180);
+      const above = highpass(L, rate, 180);
+      const mid = lowpass(above, rate, 2600);
+      const high = highpass(above, rate, 2600);
+      const n = L.length;
+      const bands = [rmsOf(low, 0, n), rmsOf(mid, 0, n), rmsOf(high, 0, n)];
+
+      /* How far the hat a sixteenth after the kick sits below the hat three
+         sixteenths after it, by which point a compressor has let go. */
+      const hp = highpass(L, rate, 4000);
+      const spb = 60 / s.bpm, offset = 0.05;
+      let near = 0, far = 0, k = 0;
+      for (let i = 1; i < 15; i++) {
+        const t = i * spb + offset;
+        const a = rmsOf(hp, Math.floor((t + 0.25 * spb) * rate),
+                            Math.floor((t + 0.25 * spb + 0.035) * rate));
+        const b = rmsOf(hp, Math.floor((t + 0.75 * spb) * rate),
+                            Math.floor((t + 0.75 * spb + 0.035) * rate));
+        if (b > 1e-6) { near += a; far += b; k++; }
+      }
+      return { rms: rmsOf(L, 0, n), peak: peak, bad: bad, bands: bands,
+               hold: k ? near / far : 1 };
+    }
+    return {
+      none: await measure(false, 0),
+      splitZero: await measure(true, 0),
+      single: await measure(false, 0.9),
+      split: await measure(true, 0.9)
+    };
+  });
+
+  ['splitZero', 'split'].forEach(function (k) {
+    check(glue[k].bad === 0, k + ': never produces broken samples');
+    check(glue[k].peak < 1, k + ': never runs away (peak ' + glue[k].peak.toFixed(3) + ')');
+  });
+  /* The split has to be invisible when nothing is being compressed. A
+     crossover that does not sum flat leaves a notch or a bump at the split
+     frequencies, and nothing else in the app would ever complain about it —
+     built with the wrong filter Q this read +7.5 dB at both splits and every
+     band came back 47% too loud. */
+  ['bass', 'middle', 'treble'].forEach(function (label, i) {
+    const ref = glue.none.bands[i], got = glue.splitZero.bands[i];
+    const db = 20 * Math.log10(got / ref);
+    check(Math.abs(db) < 1,
+      'splitting and rejoining leaves the ' + label + ' where it was (' +
+      (db >= 0 ? '+' : '') + db.toFixed(2) + ' dB)');
+  });
+  /* And the point of the whole thing: with one compressor the kick drags the
+     hats down with it, and with three it mostly does not. */
+  const bias = function (k) { return 1 - glue[k].hold / glue.none.hold; };
+  check(bias('single') > 0.03,
+    'one compressor lets the kick drag the hats down (' +
+    (bias('single') * 100).toFixed(1) + '%)');
+  check(bias('split') < bias('single') * 0.85,
+    'and splitting the bands holds them up better (' +
+    (bias('split') * 100).toFixed(1) + '% against ' +
+    (bias('single') * 100).toFixed(1) + '%)');
+  check(glue.split.rms > glue.single.rms,
+    'with more level for the same squeeze (' + glue.single.rms.toFixed(4) +
+    ' → ' + glue.split.rms.toFixed(4) + ')');
 
   console.log('\n— compression —');
   /* Compression is the one effect that can quietly ruin everything. This chain

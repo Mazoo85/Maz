@@ -297,6 +297,7 @@
     el('pumpAmt').value = String(Math.round((s.sidechain || 0) * 100));
     el('pumpSpeed').value = String(Math.round((s.duckSpeed === undefined ? 0.5 : s.duckSpeed) * 100));
     el('chopRate').value = String(s.chopRate || 2);
+    el('glueMulti').value = s.glueMulti ? '1' : '0';
     el('delDiv').value = String(s.delDiv === undefined ? 0.375 : s.delDiv);
     el('delFb').value = String(Math.round((s.delFb === undefined ? 0.34 : s.delFb) * 100));
     el('delFbVal').textContent = Math.round((s.delFb === undefined ? 0.34 : s.delFb) * 100) + '%';
@@ -1058,6 +1059,16 @@
       el(spec[0]).addEventListener('change', function () {
         status((spec[1] === 'depth' ? 'Pump: ' : 'Pump speed: ') + this.value + '%.');
       });
+    });
+
+    /* Both glue chains are built every time, so this is a gain change. */
+    el('glueMulti').addEventListener('change', function () {
+      if (!state.song) return;
+      const on = this.value === '1';
+      player.setGlueMulti(on);
+      status(on
+        ? 'Glue now squeezes bass, middle and treble separately.'
+        : 'Glue is back to one compressor across everything.');
     });
 
     /* The chop grid is read on each step, so the rate changes on the next one. */

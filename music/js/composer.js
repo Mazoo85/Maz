@@ -1683,6 +1683,7 @@
       sidechain: song.sidechain === undefined ? 0 : song.sidechain,
       duckSpeed: song.duckSpeed === undefined ? 0.5 : song.duckSpeed,
       chopRate: song.chopRate || 2,
+      glueMulti: !!song.glueMulti,
       revKind: song.revKind || 'room',
       revSize: song.revSize,
       delDiv: song.delDiv,
@@ -1749,6 +1750,7 @@
     if (p.sidechain !== undefined) song.sidechain = p.sidechain;
     song.duckSpeed = p.duckSpeed === undefined ? 0.5 : p.duckSpeed;
     song.chopRate = p.chopRate || 2;
+    song.glueMulti = !!p.glueMulti;
     song.revKind = p.revKind || 'room';
     if (p.revSize !== undefined) song.revSize = p.revSize;
     if (p.delDiv !== undefined) song.delDiv = p.delDiv;
@@ -2150,6 +2152,7 @@
     song.sidechain = genre.fx.sidechain === undefined ? 0 : genre.fx.sidechain;
     song.duckSpeed = 0.5;
     song.chopRate = 2;
+    song.glueMulti = false;
     song.revKind = 'room';
     song.revSize = genreId === 'ambient' ? 4.2 : 2.6;
     song.delDiv = genre.fx.delayTime;

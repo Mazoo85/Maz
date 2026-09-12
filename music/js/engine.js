@@ -11,6 +11,21 @@
   const Synth = global.Synth;
   const TRACKS = ['drums', 'bass', 'chords', 'arp', 'lead', 'counter', 'pad'];
   const LOOKAHEAD = 0.14;      // seconds of audio scheduled ahead of the clock
+
+  /*
+   * Butterworth Q, for a Web Audio lowpass or highpass.
+   *
+   * Not 0.707. For *these two filter types only*, Web Audio reads Q in
+   * decibels — it is the gain at the cutoff, so the default Q of 1 means a
+   * filter that is 1 dB *up* where it should already be coming down. A
+   * Butterworth is 0.707 in the usual quality-factor sense, which is
+   * 20·log10(0.707) = −3.01 dB here.
+   *
+   * This matters enough to name: built with 0.707 in the belief that it meant
+   * the usual thing, the crossover below summed to +7.5 dB at both split
+   * points rather than flat, and every band read 47% too loud.
+   */
+  const BUTTERWORTH_Q_DB = -3.0103;
   const TICK_MS = 25;
   /* Global output trim. Each genre's fx.master is a per-style offset on top of
      this, measured so the styles sit at a comparable loudness. */
@@ -209,6 +224,33 @@
       if (mixField(mix, TRACKS[i], 'chop', 0) > 0) return true;
     }
     return false;
+  }
+
+  /**
+   * The three band compressors, from the one Glue control.
+   *
+   * Each band gets slightly different timing, because what each one is holding
+   * is different: bass moves slowly and needs a long release or it sounds like
+   * it is breathing, cymbals move fast and a long release on them audibly
+   * dulls the top of the mix. Thresholds are staggered too — most of a mix's
+   * energy is in the bottom, so an identical threshold on all three would
+   * squeeze the low band hard and barely touch the high one.
+   */
+  function shapeGlueBands(bands, amt) {
+    if (!bands || bands.length < 3) return;
+    const spec = [
+      { thr: -14, rel: 0.34, att: 0.012 },
+      { thr: -10, rel: 0.22, att: 0.018 },
+      { thr: -8,  rel: 0.12, att: 0.006 }
+    ];
+    for (let i = 0; i < 3; i++) {
+      const c = bands[i].comp;
+      c.threshold.value = spec[i].thr - amt * 8;
+      c.ratio.value = 1 + amt * 1.8;
+      c.attack.value = spec[i].att;
+      c.release.value = spec[i].rel;
+      bands[i].makeup.gain.value = 1 / (1 + amt * 0.22);
+    }
   }
 
   function mixField(mix, name, field, dflt) {
@@ -452,8 +494,72 @@
     const glueTrim = ctx.createGain();
     glueTrim.gain.value = 1 / (1 + glueAmt * 0.25);
 
+    /*
+     * Glue again, split into three bands.
+     *
+     * One compressor across everything has a problem you can hear: a kick drum
+     * is far louder than anything else in the mix, so it triggers the
+     * compressor and pulls the *whole* mix down with it — the vocal ducks
+     * because the bass drum hit. Splitting the mix into low, middle and high
+     * and compressing each separately means the kick only moves the low band.
+     *
+     * The crossovers are Linkwitz-Riley: two Butterworth filters in series at
+     * the same frequency. A single filter pair splits the signal but does not
+     * put it back together — the two halves arrive out of phase around the
+     * crossover and partly cancel, leaving a notch. Cascading two is what makes
+     * the halves sum flat again. The low band gets an allpass at the second
+     * crossover so that it picks up the same phase shift the other two do on
+     * their way through it; without it the sum is flat at one crossover and
+     * dented at the other.
+     */
+    const glueIn = ctx.createGain();
+    const glueJoin = ctx.createGain();
+    const glueSingleIn = ctx.createGain();
+    const glueMultiIn = ctx.createGain();
+    masterHead.connect(glueIn);
+    glueIn.connect(glueSingleIn).connect(glue).connect(glueTrim).connect(glueJoin);
+    glueIn.connect(glueMultiIn);
+
+    function lrPair(type, freq) {
+      const a = ctx.createBiquadFilter();
+      const b = ctx.createBiquadFilter();
+      a.type = b.type = type;
+      a.frequency.value = b.frequency.value = freq;
+      a.Q.value = b.Q.value = BUTTERWORTH_Q_DB;
+      a.connect(b);
+      return { head: a, tail: b };
+    }
+    const XLOW = 180, XHIGH = 2600;
+    const bandLow = lrPair('lowpass', XLOW);
+    const bandRest = lrPair('highpass', XLOW);
+    const bandMid = lrPair('lowpass', XHIGH);
+    const bandHigh = lrPair('highpass', XHIGH);
+    const lowAllpass = ctx.createBiquadFilter();
+    lowAllpass.type = 'allpass';
+    lowAllpass.frequency.value = XHIGH;
+    lowAllpass.Q.value = Math.SQRT1_2;
+    glueMultiIn.connect(bandLow.head);
+    glueMultiIn.connect(bandRest.head);
+    bandLow.tail.connect(lowAllpass);
+    bandRest.tail.connect(bandMid.head);
+    bandRest.tail.connect(bandHigh.head);
+
+    const glueBands = [];
+    [lowAllpass, bandMid.tail, bandHigh.tail].forEach(function (src) {
+      const comp = ctx.createDynamicsCompressor();
+      const makeup = ctx.createGain();
+      comp.knee.value = 10;
+      src.connect(comp).connect(makeup).connect(glueJoin);
+      glueBands.push({ comp: comp, makeup: makeup });
+    });
+    shapeGlueBands(glueBands, glueAmt);
+
+    const multi = !!song.glueMulti;
+    glueSingleIn.gain.value = multi ? 0 : 1;
+    glueMultiIn.gain.value = multi ? 1 : 0;
+
     master.connect(preMaster);
-    masterHead.connect(glue).connect(glueTrim).connect(autoFilter)
+    glueJoin.connect(autoFilter)
       .connect(limiter).connect(safety).connect(autoGain).connect(out);
     out.connect(ctx.destination);
 
@@ -941,7 +1047,8 @@
       master: master, limiter: limiter, analyser: analyser, tracks: tracks,
       revReturn: revReturn, delReturn: delReturn, vinyl: vinyl, out: out,
       autoFilter: autoFilter, autoGain: autoGain, click: click,
-      glue: glue, glueTrim: glueTrim,
+      glue: glue, glueTrim: glueTrim, glueBands: glueBands,
+      glueSingleIn: glueSingleIn, glueMultiIn: glueMultiIn,
       mEqLow: mLow, mEqMid: mMid, mEqHigh: mHigh,
       delMonoIn: delMonoIn, delPingIn: delPingIn, delIns: delIns, delLfos: delLfos,
       choReturn: choReturn, choLfos: choLfos,
@@ -1365,6 +1472,15 @@
     }
   };
 
+  /** Switch the glue between one compressor and three banded ones. */
+  Player.prototype.setGlueMulti = function (on) {
+    if (this.song) this.song.glueMulti = !!on;
+    if (!this.graph || !this.graph.glueSingleIn) return;
+    const t = this.ctx.currentTime;
+    this.graph.glueSingleIn.gain.setTargetAtTime(on ? 0 : 1, t, 0.03);
+    this.graph.glueMultiIn.gain.setTargetAtTime(on ? 1 : 0, t, 0.03);
+  };
+
   /** Switch the echo between digital, tape and multi-tap. */
   Player.prototype.setDelayKind = function (kind) {
     if (this.song) this.song.delKind = kind;
@@ -1428,6 +1544,7 @@
       graph.glue.threshold.value = -10 - g * 8;
       graph.glue.ratio.value = 1 + g * 1.6;
       graph.glueTrim.gain.value = 1 / (1 + g * 0.25);
+      shapeGlueBands(graph.glueBands, g);
     }
   };
 
