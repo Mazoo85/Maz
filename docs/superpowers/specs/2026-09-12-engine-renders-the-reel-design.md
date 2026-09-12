@@ -218,3 +218,81 @@ asked "can the engine fill a shape" and not "can the engine draw a frame":
   is linked PRIVATE to the engine so no header can reach it. That became
   `render::StrokeFont`, 77 glyphs of vector geometry — a bigger detour than
   anything else here, and not one the plan anticipated.
+
+
+---
+
+## Stage two: the sets
+
+The staged-for-later part, done. All fifteen sets in their three parallax
+planes, plus the scatter they are furnished from, the light each place owns, the
+caption layout and the letterbox.
+
+**Held to agreement, not to plausibility.** 15 sets × 3 planes × 3 palettes,
+captured from the browser as a grid of cell means: worst cell **1.37 levels out
+of 255**. The scatter matches bit for bit. Two independent rasterizers never
+agree pixel for pixel on an anti-aliased curve, and demanding that would test
+the rasterizer rather than the port — but they do agree on where a thing is, how
+big it is, and what colour.
+
+**The port found a live crash in the shipped renderer.** `drawFrame` threw on
+every INSERT shot: `light` was computed inside the branch that paints the
+figures, which an insert skips, while the light-leak wash read `light.offset`
+unconditionally 130 lines further down. `var` being function-scoped hid it. One
+shot in forty is an insert, so most films had one, and the player stopped
+drawing the moment it arrived. Nothing caught it because nothing had ever drawn
+an insert — the existing checks drew the poster frame and a few chosen moments.
+Fixed, with a guard that walks every shot of a film and also asserts the film it
+sweeps still contains an insert.
+
+**Two things had been invented rather than ported, and only the browser's own
+output beside it made that visible:** the caption layout (a slug line is a
+location stamp at the bottom *left* with a coloured bar down its edge, not a
+centred line at the top, and dialogue needs no band behind it) and the 2.35:1
+letterbox, which the native renderer simply had not had.
+
+### Performance, and being wrong three times
+
+The sets cost the speed: **0.4× realtime**, because the per-shot cache stage one
+leaned on is gone — with three parallax planes nothing in the background is
+constant within a shot. Back to **1.5× realtime** for the whole film.
+
+Every step was measured, because reasoning about it was wrong repeatedly, and
+that is the part worth recording:
+
+| guessed | measured |
+|---|---|
+| the gradient's per-pixel inverse transform is the cost | hoisting it changed nothing |
+| gradients are why the corridor costs 6× a lighthouse | baking the ramp barely moved it |
+| the active edge table fixed the earlier slowdown | it was worth 15%; the wash cache was the other 85% |
+
+What it actually was, found by profiling a frame by stage and then a film by
+set:
+
+1. **Rectangles** — 148 of the sets' 180 operations, each rasterized at 16
+   sub-scanlines per row where every sub-scanline of a rectangle's row has
+   identical coverage. An exact fast path, plus span writes so the source colour
+   converts once per run: the lighthouse's back plane, 52ms → 1.2ms.
+2. **The compositor** — reading each pixel out as a float colour and writing it
+   back is four divisions and four multiplies per channel, a million pixels a
+   frame. `Image` gained an integer compositor and a span writer.
+3. **The Dutch tilt** — the corridor's real problem. A rotated rectangle cannot
+   take the axis-aligned path, so every full-frame fill in the crisis scene went
+   the slow way. The rasterizer now writes the fully-covered interior of any
+   convex row once rather than accumulating it sixteen times; and the clip became
+   integer bounds handed to the rasterizer instead of a test the shader makes per
+   pixel — which had been silently disabling the run-writing shortcut on *every*
+   clipped fill, which is every fill, because the frame is letterboxed. 60ms → 17ms.
+4. **Captions** — one path of thousands of tiny contours, none of whose rows are
+   convex, so no shortcut applies. Fewer sub-scanlines; indistinguishable at
+   these sizes.
+
+The picture is unchanged through all of it: mean difference 0.03 levels out of
+255 against the sheet rendered before any optimisation.
+
+**The lesson, again.** Stage one shipped a performance test and it was the right
+instinct; but what it pinned — a specific cache — stopped existing the moment
+the architecture changed, and a test that pins an implementation rather than a
+property dies with the implementation. The replacement pins a property instead:
+four times the pixels must cost no more than eight times the time. That survives
+the next rewrite.
