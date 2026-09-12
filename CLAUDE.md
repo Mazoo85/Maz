@@ -21,6 +21,15 @@ Because it's this large, **the first move for any new feature is to search `engi
 for what already exists** — reuse it, don't reinvent it. (There is already a `math::Geometry2D`,
 a physics world, an audio DSP stack, an animation system, a UI toolkit, and much more.)
 
+**Search by capability, not by directory name.** The subsystem list above is not a map of what the
+engine can do — `game/` alone holds 124 headers, including the entire navigation and AI suite:
+`AStar2D` · `AStar3D` · `AStarGrid2D` · `ThetaStar` · `HexPath` · `NavGrid` · `NavMesh` ·
+`NavMesh3D` · `FlowField` · `PathFollow2D/3D` · `BehaviorTree` (with its own `Blackboard`) ·
+`StateMachine` · `Steering`. There is no `ai/` directory, and concluding from that that the engine
+has no AI would be wrong. Grep for the *concept* across all of `engine/include/maz/` before adding
+anything — and check your pattern really matches: in `grep -E`, alternation is `|`, so a `\|` is an
+escaped literal pipe and the search silently returns nothing.
+
 ## The rest of the repo (not the engine)
 
 `main` also carries a set of browser projects and Python tools that have nothing to do with the C++
