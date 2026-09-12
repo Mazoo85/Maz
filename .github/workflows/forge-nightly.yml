@@ -58,11 +58,37 @@ jobs:
 
       - name: Work out which branch is which
         id: branches
+        # The trunk comes from forge.json, which is the Forge's own
+        # declaration of it and the one the Forge itself obeys.
+        #
+        # This used to ask GitHub for the repository's *default branch*
+        # instead, and that was a second source of truth for the same fact.
+        # The two agreed only by accident: `main` and the old default,
+        # `claude/zomboid-...`, pointed at the same commit. The first merge
+        # into `main` moved one and not the other, and from then on the
+        # nightly run merged a frozen branch and sensed a repository that no
+        # longer existed — silently, and reporting success, because every
+        # step did exactly what it was told.
         run: |
           set -euo pipefail
-          default="$(git remote show origin | sed -n 's/.*HEAD branch: //p')"
-          echo "default=$default" >> "$GITHUB_OUTPUT"
-          echo "Default branch: $default"
+          trunk="$(python -c "import json; print(json.load(open('forge.json'))['base_branch'])")"
+          if [ -z "$trunk" ]; then
+            echo "::error::forge.json has no base_branch."
+            exit 1
+          fi
+          if ! git ls-remote --exit-code --heads origin "$trunk" >/dev/null 2>&1; then
+            echo "::error::forge.json names base_branch '$trunk', which is not a branch on origin."
+            exit 1
+          fi
+          echo "default=$trunk" >> "$GITHUB_OUTPUT"
+          echo "Trunk, per forge.json: $trunk"
+
+          # Not a failure — the run is correct either way now — but say so,
+          # because the drift is invisible from the Actions tab otherwise.
+          ghdefault="$(git remote show origin | sed -n 's/.*HEAD branch: //p')"
+          if [ "$ghdefault" != "$trunk" ]; then
+            echo "::warning::GitHub's default branch is '$ghdefault' but the Forge's trunk is '$trunk'. This run used '$trunk'. Fresh clones and new sessions still start on '$ghdefault'."
+          fi
 
       - name: Put the ledger branch in place
         # Each night appends to the same record rather than overwriting it, so
@@ -81,6 +107,18 @@ jobs:
             echo "No ledger branch yet; starting one from $default."
             git checkout -B forge-ledger "origin/$default"
           fi
+
+          # Prove the run is about to sense the trunk as it stands now.
+          # Every step of the run that sensed a stale repository reported
+          # success, because each did what it was told; nothing asserted the
+          # one thing that mattered. This is that assertion, and it is one
+          # command: if the trunk's tip is not in this branch's history, the
+          # tree below is not the repository anyone is working in.
+          if ! git merge-base --is-ancestor "origin/$default" HEAD; then
+            echo "::error::forge-ledger does not contain the tip of $default; the run would sense a stale tree."
+            exit 1
+          fi
+          echo "forge-ledger contains $default @ $(git rev-parse --short "origin/$default")"
 
       - name: Refuse to start on a dirty tree
         # The Forge's own guard, asserted here too: if anything above left the
