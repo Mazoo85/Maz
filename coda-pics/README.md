@@ -139,7 +139,9 @@ keeps it in your browser and nowhere else.
 7. Press create. Copy the **client ID** (it ends in
    `.apps.googleusercontent.com`) and paste it into the box in CODA PICS.
 
-Then: **Connect Google Photos** → say yes at Google → **Choose photos**.
+Then: **Connect Google Photos** → say yes at Google → **Choose photos**. Up to
+twelve photos come in at a time, which is as many palettes as the app keeps
+anyway; press it again for more.
 
 ### What is stored, and where
 

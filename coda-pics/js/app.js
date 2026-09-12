@@ -938,6 +938,10 @@
     gpPickerWindow = null;
     if (!window.CODA_GPHOTOS_GO) {
       try { gpPickerWindow = window.open('', '_blank'); } catch (e) { gpPickerWindow = null; }
+      /* The tab is ours, so cut its handle back to us before Google is put in
+       * it. Nothing here needs to talk across that gap — the session is polled,
+       * not messaged — so the link is only a liability. */
+      if (gpPickerWindow) { try { gpPickerWindow.opener = null; } catch (e) {} }
     }
     gpSay('Opening your gallery — choose the photos you want, then come back here.');
     el.gpPick.disabled = true;
@@ -989,7 +993,7 @@
     if (q.get('error')) {
       gpCleanUrl();
       if (el.gphotos) el.gphotos.open = true;
-      gpSay('Google said no: ' + q.get('error') + '.');
+      gpSay('Google said no: ' + String(q.get('error')).slice(0, 80) + '.');
       return;
     }
     if (q.get('code') && q.get('state')) {
