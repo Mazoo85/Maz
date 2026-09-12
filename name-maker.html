@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Name Maker</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='3' fill='%23ff4d2e'/><text x='8' y='12' font-size='10' text-anchor='middle' fill='white' font-family='monospace'>N</text></svg>" />
+
+<!-- Installable-app (PWA) tags: open full-screen like a real app + work offline -->
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#ff4d2e" />
+<link rel="apple-touch-icon" href="icons/icon-180.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Name Maker" />
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function () {});
+    });
+  }
+</script>
+</head>
+<body>
+<style>
+  :root {
+    --paper: #f2efe9;
+    --panel: #ffffff;
+    --ink: #1b1a22;
+    --ink-soft: #5c5a67;
+    --line: #e2ded5;
+    --accent: #ff4d2e;
+    --accent-ink: #ffffff;
+    --readout-bg: #14131a;
+    --readout-ink: #ffd9cd;
+    --readout-glow: #ff6a4d;
+    --shadow: 0 18px 44px rgba(24, 20, 18, 0.16);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #131218;
+      --panel: #1e1d26;
+      --ink: #f3f1ec;
+      --ink-soft: #a8a5b2;
+      --line: #2e2c38;
+      --accent: #ff5a3c;
+      --accent-ink: #14100e;
+      --readout-bg: #0c0b11;
+      --readout-ink: #ffd9cd;
+      --readout-glow: #ff6a4d;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+    }
+  }
+  :root[data-theme="light"] {
+    --paper: #f2efe9; --panel: #ffffff; --ink: #1b1a22; --ink-soft: #5c5a67;
+    --line: #e2ded5; --accent: #ff4d2e; --accent-ink: #ffffff;
+    --readout-bg: #14131a; --readout-ink: #ffd9cd; --readout-glow: #ff6a4d;
+    --shadow: 0 18px 44px rgba(24, 20, 18, 0.16);
+  }
+  :root[data-theme="dark"] {
+    --paper: #131218; --panel: #1e1d26; --ink: #f3f1ec; --ink-soft: #a8a5b2;
+    --line: #2e2c38; --accent: #ff5a3c; --accent-ink: #14100e;
+    --readout-bg: #0c0b11; --readout-ink: #ffd9cd; --readout-glow: #ff6a4d;
+    --shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(1rem, 4vw, 3rem);
+    background:
+      radial-gradient(120% 100% at 50% 0%, color-mix(in srgb, var(--accent) 8%, var(--paper)), var(--paper));
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .machine {
+    width: 100%;
+    max-width: 480px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    padding: clamp(1.5rem, 5vw, 2.5rem);
+    box-shadow: var(--shadow);
+  }
+
+  .eyebrow {
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  h1 {
+    margin: 0.35rem 0 0.2rem;
+    font-size: clamp(1.9rem, 6vw, 2.4rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    text-wrap: balance;
+  }
+
+  .lede {
+    margin: 0 0 1.5rem;
+    color: var(--ink-soft);
+    font-size: 0.95rem;
+  }
+
+  .readout {
+    background: var(--readout-bg);
+    border-radius: 14px;
+    padding: 1.6rem 1.25rem;
+    text-align: center;
+    overflow: hidden;
+  }
+
+  .readout .name {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: clamp(1.5rem, 6.5vw, 2.15rem);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: var(--readout-ink);
+    text-shadow: 0 0 22px color-mix(in srgb, var(--readout-glow) 55%, transparent);
+    line-height: 1.15;
+    word-break: break-word;
+    min-height: 1.2em;
+  }
+
+  .readout .hint {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.95rem;
+    color: color-mix(in srgb, var(--readout-ink) 55%, transparent);
+    letter-spacing: 0.02em;
+  }
+
+  .rolling { opacity: 0.75; }
+
+  button.make {
+    appearance: none;
+    border: none;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 1rem;
+    padding: 1.05rem 1rem;
+    font: inherit;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: var(--accent-ink);
+    background: var(--accent);
+    border-radius: 14px;
+    box-shadow: 0 8px 0 color-mix(in srgb, var(--accent) 55%, #000);
+    transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.15s ease;
+  }
+  button.make:hover { filter: brightness(1.04); }
+  button.make:active {
+    transform: translateY(6px);
+    box-shadow: 0 2px 0 color-mix(in srgb, var(--accent) 55%, #000);
+  }
+  button.make:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--accent) 60%, var(--ink));
+    outline-offset: 3px;
+  }
+
+  button.copy {
+    appearance: none;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 0.7rem;
+    padding: 0.85rem 1rem;
+    font: inherit;
+    font-size: 0.98rem;
+    font-weight: 600;
+    color: var(--ink);
+    background: transparent;
+    border: 1.5px solid var(--line);
+    border-radius: 14px;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  }
+  button.copy:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  button.copy:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--accent) 60%, var(--ink));
+    outline-offset: 3px;
+  }
+  button.copy:disabled { opacity: 0.45; cursor: default; }
+  button.copy.copied {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    color: var(--accent);
+  }
+
+  .recent {
+    margin-top: 1.75rem;
+    border-top: 1px solid var(--line);
+    padding-top: 1.1rem;
+  }
+  .recent h2 {
+    margin: 0 0 0.7rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .recent ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+  .recent li {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.95rem;
+    color: var(--ink-soft);
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .recent li .num {
+    font-size: 0.72rem;
+    color: color-mix(in srgb, var(--ink-soft) 60%, transparent);
+    font-variant-numeric: tabular-nums;
+  }
+  .recent .empty { color: color-mix(in srgb, var(--ink-soft) 70%, transparent); font-style: italic; }
+
+  .foot {
+    margin-top: 1.5rem;
+    text-align: center;
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    button.make, .rolling { transition: none; }
+  }
+</style>
+
+<main class="machine">
+  <p class="eyebrow">Random Name Maker</p>
+  <h1>Make a name</h1>
+  <p class="lede">One random describing word, one random thing. Press the button.</p>
+
+  <div class="readout">
+    <div id="name" class="name hint">press the button &rarr;</div>
+  </div>
+
+  <button id="make" class="make" type="button">Make a name</button>
+  <button id="copy" class="copy" type="button" disabled>Copy name</button>
+
+  <section class="recent">
+    <h2>Recent names</h2>
+    <ul id="recent"><li class="empty">Your names will show up here.</li></ul>
+  </section>
+
+  <p class="foot">Choosing from 1000 adjectives &times; 1000 nouns &mdash; a million possible names.</p>
+</main>
+
+<script>
+// Auto-generated word banks for the Name Maker.
+// 1000 unique adjectives and 1000 unique nouns.
+
+const ADJECTIVES = [
+  "able", "absent", "absolute", "abstract", "absurd", "abundant", "academic", "acceptable", "accurate", "active",
+  "actual", "acute", "adaptable", "adequate", "adjacent", "admirable", "adorable", "adult", "advanced", "adventurous",
+  "aerial", "affectionate", "afraid", "aged", "aggressive", "agile", "agreeable", "alert", "alien", "alike",
+  "alive", "alleged", "aloof", "aloud", "amazing", "ambitious", "ample", "ancient", "angelic", "angry",
+  "animated", "annual", "anonymous", "anxious", "apparent", "appealing", "appropriate", "apt", "arctic", "arid",
+  "aromatic", "artistic", "ashamed", "aspiring", "assorted", "assured", "astonishing", "athletic", "atomic", "attentive",
+  "attractive", "austere", "authentic", "automatic", "autumnal", "available", "average", "aware", "awesome", "awful",
+  "awkward", "azure", "backward", "bad", "balanced", "bald", "bare", "basic", "beautiful", "bendy",
+  "beneficial", "benevolent", "bent", "best", "better", "bewildered", "big", "bigger", "biggest", "billowing",
+  "bitter", "bizarre", "black", "blank", "bleak", "blind", "blissful", "blond", "bloody", "blue",
+  "blunt", "blushing", "bogus", "bold", "bony", "boring", "bossy", "bouncy", "bound", "brainy",
+  "brash", "brave", "brawny", "breakable", "breezy", "brief", "bright", "brilliant", "brisk", "broad",
+  "broken", "bronze", "brown", "bruised", "bubbly", "bulky", "bumpy", "buoyant", "burly", "burning",
+  "bushy", "busy", "buttery", "calm", "candid", "capable", "careful", "careless", "caring", "casual",
+  "causal", "cautious", "ceaseless", "celebrated", "central", "certain", "chaotic", "charming", "cheap", "cheerful",
+  "cheery", "chief", "childish", "childlike", "chilly", "chosen", "chubby", "chunky", "civil", "clammy",
+  "classic", "classical", "clean", "clear", "clever", "cloudy", "clumsy", "coarse", "coastal", "cold",
+  "colorful", "colossal", "comfortable", "comic", "common", "compact", "complete", "complex", "complicated", "concerned",
+  "concise", "concrete", "confident", "confused", "conscious", "considerable", "constant", "content", "continual", "cooked",
+  "cool", "cooperative", "coordinated", "corny", "correct", "corrupt", "cosmic", "costly", "courageous", "courteous",
+  "cowardly", "cozy", "cracked", "crafty", "crazy", "creamy", "creative", "creepy", "crimson", "crisp",
+  "critical", "crooked", "crowded", "crucial", "crude", "cruel", "crushing", "crusty", "cubic", "cuddly",
+  "cultural", "cultured", "cunning", "curious", "curly", "current", "curved", "curvy", "cute", "daffy",
+  "daily", "damaged", "damp", "dandy", "dangerous", "dapper", "daring", "dark", "dashing", "dazzling",
+  "dead", "deadly", "deafening", "dear", "decent", "decimal", "decisive", "decorative", "deep", "defiant",
+  "deficient", "definite", "delayed", "delectable", "delicate", "delicious", "delightful", "demanding", "dense", "dental",
+  "dependable", "dependent", "depraved", "deranged", "descriptive", "deserted", "detailed", "determined", "devoted", "different",
+  "difficult", "digital", "diligent", "dim", "diminutive", "direct", "dirty", "disagreeable", "disastrous", "discrete",
+  "disguised", "disloyal", "dismal", "distant", "distinct", "distorted", "divine", "dizzy", "domestic", "dominant",
+  "double", "doubtful", "downright", "dozen", "drab", "drafty", "dramatic", "dreadful", "dreary", "drooping",
+  "droopy", "drowsy", "dry", "dual", "dull", "dutiful", "dynamic", "eager", "early", "earnest",
+  "earthly", "earthy", "east", "eastern", "easy", "eatable", "eccentric", "economic", "edible", "educated",
+  "efficient", "effortless", "elaborate", "elastic", "elated", "elderly", "electric", "elegant", "elementary", "elevated",
+  "eligible", "elite", "eminent", "emotional", "empty", "enchanted", "enchanting", "encouraging", "endless", "energetic",
+  "enormous", "enraged", "enthusiastic", "entire", "envious", "equal", "equatorial", "essential", "established", "eternal",
+  "ethical", "euphoric", "even", "eventual", "everlasting", "evident", "evil", "exact", "exalted", "excellent",
+  "exceptional", "excited", "exciting", "exclusive", "exhausted", "exotic", "expensive", "experienced", "expert", "explicit",
+  "external", "extra", "extraordinary", "extreme", "exuberant", "fabulous", "factual", "failing", "faint", "fair",
+  "faithful", "fake", "fallen", "false", "familiar", "famous", "fanciful", "fancy", "fantastic", "far",
+  "faraway", "fascinated", "fascinating", "fashionable", "fast", "fatal", "fatherly", "faulty", "favorable", "fearful",
+  "fearless", "feeble", "feisty", "female", "feminine", "fertile", "festive", "fickle", "fictional", "fierce",
+  "fiery", "filthy", "final", "financial", "fine", "finished", "firm", "first", "fiscal", "fishy",
+  "fit", "fixed", "flagrant", "flaky", "flamboyant", "flashy", "flat", "flawed", "flawless", "fleeting",
+  "flexible", "flickering", "flimsy", "floppy", "floral", "flowery", "fluffy", "fluid", "foamy", "focused",
+  "foggy", "fond", "foolhardy", "foolish", "forceful", "foreign", "forgetful", "forlorn", "formal", "former",
+  "forsaken", "forthright", "fortunate", "forward", "foul", "fragile", "fragrant", "frail", "frank", "frantic",
+  "fraternal", "frayed", "free", "freezing", "frequent", "fresh", "fried", "friendly", "frightened", "frigid",
+  "frilly", "frisky", "frivolous", "front", "frosty", "frozen", "frugal", "fruitful", "frustrating", "full",
+  "fumbling", "functional", "fundamental", "funny", "furious", "furry", "further", "furthest", "fussy", "future",
+  "fuzzy", "gainful", "gallant", "gaping", "garbled", "gaudy", "gaunt", "general", "generous", "genial",
+  "gentle", "genuine", "ghastly", "giant", "giddy", "gifted", "gigantic", "gilded", "giving", "glad",
+  "glamorous", "glaring", "glass", "gleaming", "gleeful", "glib", "glistening", "glittering", "gloomy", "glorious",
+  "glossy", "glowing", "glum", "golden", "good", "gorgeous", "graceful", "gracious", "gradual", "grand",
+  "grandiose", "granular", "grateful", "grave", "gray", "greasy", "great", "greedy", "green", "gregarious",
+  "grieving", "grim", "grimy", "gripping", "gritty", "groggy", "grotesque", "grouchy", "grounded", "growing",
+  "grown", "gruesome", "gruff", "grumpy", "guarded", "guilty", "gullible", "gushing", "gusty", "habitual",
+  "haggard", "hairy", "half", "handmade", "handsome", "handy", "happy", "hard", "hardy", "harmful",
+  "harmless", "harmonious", "harsh", "hasty", "hateful", "haunting", "hazy", "healthy", "hearty", "heavenly",
+  "heavy", "hefty", "helpful", "helpless", "heroic", "hidden", "hideous", "high", "hilarious", "hoarse",
+  "hollow", "homely", "honest", "honorable", "hopeful", "horizontal", "horrible", "hospitable", "hostile", "hot",
+  "huge", "humble", "humid", "humiliated", "humming", "humongous", "humorous", "hungry", "hurried", "hurt",
+  "hushed", "husky", "icky", "icy", "ideal", "idealistic", "idle", "idolized", "ignorant", "ill",
+  "illegal", "illiterate", "illustrious", "imaginary", "imaginative", "immaculate", "immature", "immediate", "immense", "imminent",
+  "impartial", "impassioned", "imperfect", "imperial", "impish", "impolite", "important", "imported", "impossible", "impractical",
+  "impressive", "improbable", "improper", "impure", "inborn", "incandescent", "incompatible", "incomplete", "inconsistent", "incredible",
+  "indelible", "indolent", "industrious", "inexpensive", "infamous", "infantile", "infatuated", "inferior", "infinite", "informal",
+  "inner", "innocent", "inquisitive", "insecure", "insidious", "insignificant", "insistent", "instant", "instinctive", "instructive",
+  "insubstantial", "intelligent", "intent", "interesting", "internal", "international", "intrepid", "intrigued", "invisible", "involved",
+  "irate", "iridescent", "irked", "ironclad", "irresponsible", "irritating", "itchy", "jaded", "jagged", "jaunty",
+  "jealous", "jittery", "jolly", "jovial", "joyful", "joyous", "jubilant", "judicious", "juicy", "jumbled",
+  "jumbo", "jumpy", "junior", "just", "juvenile", "keen", "key", "kind", "kindhearted", "kindly",
+  "klutzy", "knobby", "knotty", "knowing", "knowledgeable", "known", "kooky", "kosher", "lame", "lanky",
+  "large", "last", "lasting", "late", "lavish", "lawful", "lazy", "leading", "lean", "leafy",
+  "left", "legal", "legitimate", "lengthy", "lesser", "level", "lifeless", "light", "lighthearted", "likable",
+  "likeable", "likely", "limber", "limited", "limp", "limping", "linear", "lined", "liquid", "literate",
+  "little", "live", "lively", "livid", "loathsome", "lonely", "long", "loose", "lopsided", "lost",
+  "loud", "lovable", "lovely", "loving", "low", "loyal", "lucent", "lucid", "lucky", "ludicrous",
+  "lukewarm", "luminous", "lumpy", "lush", "luxurious", "luxuriant", "mad", "magnificent", "majestic", "major",
+  "male", "malicious", "mammoth", "manly", "mannerly", "many", "marked", "massive", "master", "masterful",
+  "material", "maternal", "mature", "meager", "mealy", "mean", "meandering", "measly", "meaty", "medical",
+  "mediocre", "medium", "meek", "mellow", "melodic", "melodious", "melted", "merciful", "merry", "messy",
+  "metallic", "mighty", "mild", "military", "milky", "mindless", "miniature", "minor", "minty", "minute",
+  "miserable", "miserly", "misty", "mixed", "moaning", "modern", "modest", "moist", "moldy", "momentous",
+  "monstrous", "monthly", "monumental", "moody", "moral", "motherly", "motionless", "mountainous", "mournful", "moving",
+  "muddy", "muffled", "multiple", "mundane", "murky", "muscular", "mushy", "musty", "mute", "muted",
+  "mysterious", "naive", "narrow", "nasty", "native", "natural", "naughty", "nautical", "near", "neat",
+  "necessary", "needy", "negative", "neglected", "negligible", "neighboring", "nervous", "new", "next", "nice",
+  "nifty", "nimble", "nippy", "noble", "noisy", "nonstop", "normal", "north", "nostalgic", "notable",
+  "noted", "noteworthy", "noticeable", "novel", "noxious", "null", "numb", "numberless", "numerous", "nutritious",
+  "nutty", "oafish", "obedient", "obese", "oblong", "obnoxious", "obscure", "observant", "obvious", "occasional",
+  "oceanic", "odd", "offbeat", "offensive", "official", "oily", "old", "oldest", "ominous", "open",
+  "opposite", "optimal", "optimistic", "opulent", "orange", "orderly", "ordinary", "organic", "original", "ornate",
+  "ornery", "outgoing", "outlandish", "outlying", "outrageous", "outstanding", "oval", "overcooked", "overdue", "overjoyed",
+  "overlooked", "padded", "pale", "paltry", "parallel", "parched", "partial", "passionate", "pastel", "peaceful",
+  "peculiar", "perfect", "perfumed", "periodic", "perky", "permanent", "perpetual", "persistent", "personal", "petite",
+  "pettish", "petty", "phony", "physical", "piercing", "pink", "pitiful", "placid", "plain", "plaintive",
+  "playful", "pleasant", "pleased", "pleasing", "plentiful", "plucky", "plump", "plush", "pointed", "pointless",
+  "poised", "polished", "polite", "political", "poor", "popular", "portly", "posh", "positive", "possible",
+  "potable", "powerful", "practical", "precious", "precise", "present", "prestigious", "pretend", "pretty", "previous",
+  "priceless", "prickly", "prim", "primary", "prime", "primitive", "princely", "prized", "probable", "productive",
+];
+
+const NOUNS = [
+  "account", "acorn", "acrobat", "action", "activity", "actor", "address", "adventure", "advice", "affair",
+  "afternoon", "agency", "agent", "agreement", "airplane", "airport", "alarm", "album", "alley", "alligator",
+  "almond", "alphabet", "ambulance", "anchor", "angle", "animal", "ankle", "answer", "ant", "antelope",
+  "apartment", "appliance", "apple", "appointment", "apricot", "april", "apron", "aquarium", "arch", "archer",
+  "area", "arena", "argument", "arm", "armadillo", "armor", "army", "arrival", "arrow", "art",
+  "artist", "ash", "aspect", "asphalt", "assistant", "asteroid", "astronaut", "athlete", "atlas", "atmosphere",
+  "atom", "attic", "attraction", "audience", "aunt", "author", "autumn", "avalanche", "avenue", "avocado",
+  "award", "awning", "axe", "baboon", "baby", "back", "backbone", "background", "backpack", "bacon",
+  "badge", "badger", "bag", "bagel", "baggage", "bakery", "balance", "balcony", "ball", "ballad",
+  "balloon", "ballot", "bamboo", "banana", "band", "bandage", "bandit", "bank", "banner", "banquet",
+  "barber", "barn", "barnacle", "barrel", "barrier", "baseball", "basement", "basil", "basin", "basket",
+  "bat", "bath", "bathroom", "battery", "battle", "bay", "bayou", "beach", "beacon", "bead",
+  "beak", "beam", "bean", "bear", "beard", "beast", "beat", "beauty", "beaver", "bed",
+  "bedroom", "bee", "beech", "beef", "beetle", "beggar", "beginning", "behavior", "bell", "belt",
+  "bench", "bend", "berry", "beside", "bet", "beverage", "bicycle", "bike", "bill", "billboard",
+  "bin", "biology", "birch", "bird", "birth", "birthday", "biscuit", "bishop", "bison", "bit",
+  "bite", "blade", "blame", "blank", "blanket", "blast", "blaze", "blazer", "blender", "blessing",
+  "blimp", "blister", "blizzard", "block", "blood", "bloom", "blossom", "blouse", "blow", "blueberry",
+  "board", "boat", "body", "boil", "bolt", "bomb", "bond", "bone", "bonfire", "bonnet",
+  "bonus", "book", "bookcase", "boot", "booth", "border", "boss", "bottle", "bottom", "boulder",
+  "bounce", "boundary", "bouquet", "boutique", "bow", "bowl", "box", "boxer", "boy", "bracelet",
+  "brain", "brake", "branch", "brass", "bratwurst", "bread", "break", "breakfast", "breath", "breeze",
+  "brick", "bride", "bridge", "briefcase", "broccoli", "brochure", "bronze", "brook", "broom", "broth",
+  "brother", "brow", "brownie", "brush", "bubble", "bucket", "buckle", "bud", "buddy", "buffalo",
+  "buffet", "bug", "buggy", "bugle", "builder", "building", "bulb", "bull", "bulldozer", "bullet",
+  "bumper", "bun", "bunch", "bundle", "bungalow", "bunk", "bunny", "burden", "bureau", "burger",
+  "burglar", "burrito", "burst", "bus", "bush", "business", "butcher", "butter", "butterfly", "button",
+  "buyer", "buzzard", "cab", "cabbage", "cabin", "cabinet", "cable", "cactus", "cafe", "cafeteria",
+  "cage", "cake", "calculator", "calendar", "calf", "call", "camel", "camera", "camp", "campaign",
+  "campus", "can", "canal", "canary", "candidate", "candle", "candy", "cane", "cannon", "canoe",
+  "canvas", "canyon", "cap", "cape", "capital", "captain", "car", "caramel", "caravan", "carbon",
+  "card", "cardboard", "cardinal", "cargo", "carnation", "carnival", "carpenter", "carpet", "carriage", "carrot",
+  "cart", "carton", "cartoon", "carwash", "case", "cash", "cashier", "casserole", "castle", "cat",
+  "catalog", "caterpillar", "cathedral", "cattle", "cauliflower", "cave", "caveman", "cavern", "cavity", "celebration",
+  "celery", "cell", "cellar", "cello", "cement", "cemetery", "census", "cent", "center", "ceremony",
+  "certificate", "chain", "chair", "chalk", "challenge", "chamber", "champion", "chance", "chandelier", "change",
+  "channel", "chapter", "character", "charcoal", "charge", "chariot", "charity", "charm", "chart", "chase",
+  "check", "checkbook", "cheek", "cheer", "cheese", "cheetah", "chef", "cherry", "chess", "chest",
+  "chestnut", "chicken", "chief", "child", "chill", "chimney", "chimpanzee", "chin", "china", "chip",
+  "chipmunk", "chirp", "chocolate", "choice", "choir", "chord", "chore", "chorus", "chowder", "church",
+  "cider", "cigar", "cinema", "cinnamon", "circle", "circus", "citizen", "city", "clam", "clamp",
+  "clan", "clap", "clarinet", "clasp", "class", "classroom", "claw", "clay", "cleaner", "clearing",
+  "cleat", "clerk", "cliff", "climate", "climax", "clinic", "clip", "cloak", "clock", "clone",
+  "closet", "cloth", "clothes", "cloud", "clove", "clover", "clown", "club", "clue", "clump",
+  "cluster", "clutch", "coach", "coal", "coast", "coat", "cobra", "cobweb", "cockpit", "cockroach",
+  "coconut", "cocoon", "code", "coffee", "coffin", "coil", "coin", "cold", "collar", "collection",
+  "college", "colony", "color", "column", "comb", "combat", "comedian", "comedy", "comet", "comfort",
+  "comma", "command", "committee", "community", "company", "compass", "competition", "composer", "computer", "comrade",
+  "concept", "concert", "conclusion", "concrete", "condition", "condor", "cone", "conference", "confusion", "congress",
+  "connection", "consonant", "contact", "contest", "continent", "contract", "contrast", "control", "convention", "conversation",
+  "cook", "cookie", "cool", "copper", "copy", "coral", "cord", "corduroy", "cork", "corn",
+  "corner", "corral", "cottage", "cotton", "couch", "cougar", "cough", "council", "counselor", "count",
+  "counter", "country", "county", "couple", "coupon", "courage", "course", "court", "cousin", "cove",
+  "cover", "cow", "coward", "cowboy", "coyote", "crab", "crack", "cracker", "cradle", "craft",
+  "crane", "crash", "crate", "crater", "crawl", "crayon", "cream", "creation", "creator", "creature",
+  "credit", "creek", "crest", "crew", "cricket", "crime", "criminal", "crisis", "critic", "crocodile",
+  "crook", "crop", "cross", "crossing", "crow", "crowd", "crown", "crumb", "crust", "crutch",
+  "cry", "crystal", "cub", "cube", "cucumber", "cup", "cupboard", "cupcake", "curb", "cure",
+  "curl", "currency", "current", "curtain", "curve", "cushion", "custard", "customer", "cyclone", "cylinder",
+  "cymbal", "dad", "daffodil", "dagger", "dairy", "daisy", "dam", "damage", "dance", "dancer",
+  "dandelion", "danger", "dart", "dash", "data", "database", "date", "daughter", "dawn", "day",
+  "daydream", "deal", "dealer", "death", "debate", "debris", "debt", "debut", "decade", "deck",
+  "decoration", "deer", "defeat", "defense", "degree", "delay", "delivery", "den", "denim", "dentist",
+  "department", "departure", "depth", "desert", "design", "designer", "desk", "dessert", "destination", "detail",
+  "detective", "detour", "development", "device", "dew", "diagram", "dial", "diamond", "diary", "dice",
+  "dictionary", "diet", "difference", "digit", "dime", "diner", "dinner", "dinosaur", "dip", "diploma",
+  "direction", "director", "dirt", "disaster", "disc", "disco", "discount", "discovery", "discussion", "disease",
+  "disguise", "dish", "disk", "display", "distance", "district", "ditch", "diver", "division", "dock",
+  "doctor", "document", "dog", "doll", "dollar", "dolphin", "dome", "domino", "donkey", "donor",
+  "donut", "door", "doorknob", "doorway", "dot", "doughnut", "dove", "down", "downtown", "dozen",
+  "draft", "dragon", "dragonfly", "drain", "drama", "drape", "drawer", "drawing", "dream", "dress",
+  "dresser", "drill", "drink", "drive", "driver", "driveway", "drizzle", "drop", "drought", "drug",
+  "drum", "drummer", "duck", "duckling", "dude", "duel", "dugout", "dumpling", "dune", "dungeon",
+  "dusk", "dust", "duty", "dwarf", "dwelling", "eagle", "ear", "earache", "earl", "earring",
+  "earth", "earthquake", "earthworm", "easel", "east", "ecosystem", "edge", "editor", "education", "eel",
+  "effect", "effort", "egg", "eggplant", "elbow", "elder", "election", "electricity", "elegance", "element",
+  "elephant", "elevator", "elf", "elk", "elm", "email", "ember", "emerald", "emergency", "emotion",
+  "emperor", "empire", "employee", "employer", "emu", "enamel", "enclosure", "encounter", "encyclopedia", "end",
+  "enemy", "energy", "engine", "engineer", "enterprise", "entertainment", "entrance", "entry", "envelope", "environment",
+  "equation", "equator", "equipment", "era", "eraser", "error", "escalator", "escape", "essay", "estate",
+  "estuary", "evening", "event", "evidence", "exam", "example", "exchange", "excitement", "excuse", "exercise",
+  "exhibit", "exit", "expanse", "experience", "experiment", "expert", "explanation", "explorer", "explosion", "export",
+  "expression", "extension", "eye", "eyebrow", "eyelash", "fable", "fabric", "face", "fact", "factory",
+  "fair", "fairy", "faith", "falcon", "fall", "family", "fan", "fang", "fantasy", "fare",
+  "farm", "farmer", "fashion", "father", "faucet", "fault", "fawn", "fear", "feast", "feather",
+  "feature", "february", "fee", "feeling", "fellow", "fence", "fender", "fern", "ferret", "ferry",
+  "festival", "fever", "fiber", "fiction", "fiddle", "field", "fig", "fight", "figure", "file",
+  "fin", "finance", "finding", "finger", "fire", "fireman", "fireplace", "firework", "fish", "fisherman",
+  "fist", "fixture", "flag", "flame", "flamingo", "flannel", "flap", "flare", "flash", "flask",
+  "flavor", "flea", "fleet", "flesh", "flight", "flock", "flood", "floor", "flour", "flower",
+  "flute", "fly", "foam", "focus", "fog", "foil", "fold", "folder", "folk", "food",
+  "fool", "foot", "football", "footprint", "force", "forehead", "forest", "fork", "form", "fort",
+  "fortune", "fossil", "foundation", "fountain", "fox", "fraction", "fragrance", "frame", "freckle", "freedom",
+  "freeway", "freezer", "freight", "frenzy", "friction", "fridge", "friend", "friendship", "frog", "front",
+  "frost", "frown", "fruit", "fuel", "fun", "function", "fund", "fungus", "funnel", "fur",
+  "furnace", "furniture", "future", "galaxy", "gale", "gallery", "gallon", "game", "gang", "gap",
+  "garage", "garbage", "garden", "garland", "garlic", "garment", "gas", "gate", "gateway", "gather",
+  "gauge", "gazelle", "gear", "gem", "general", "generation", "generator", "genius", "gentleman", "geography",
+  "geology", "germ", "ghost", "giant", "gift", "giraffe", "girl", "glacier", "gland", "glass",
+  "glasses", "glaze", "glider", "glitter", "globe", "glory", "glove", "glow", "glue", "goal",
+];
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function cap(w) { return w.charAt(0).toUpperCase() + w.slice(1); }
+function makeName() { return cap(pick(ADJECTIVES)) + " " + cap(pick(NOUNS)); }
+
+const nameEl = document.getElementById("name");
+const btn = document.getElementById("make");
+const copyBtn = document.getElementById("copy");
+const recentEl = document.getElementById("recent");
+const history = [];
+let rolling = false;
+let currentName = "";
+let copyResetTimer = null;
+
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function show(name) {
+  nameEl.textContent = name;
+  nameEl.classList.remove("hint");
+}
+
+function commit(name) {
+  show(name);
+  currentName = name;
+  copyBtn.disabled = false;
+  history.unshift(name);
+  if (history.length > 5) history.pop();
+  recentEl.innerHTML = "";
+  history.forEach((n, i) => {
+    const li = document.createElement("li");
+    const label = document.createElement("span");
+    label.textContent = n;
+    const num = document.createElement("span");
+    num.className = "num";
+    num.textContent = "#" + (history.length - i);
+    li.appendChild(label);
+    li.appendChild(num);
+    recentEl.appendChild(li);
+  });
+}
+
+function run() {
+  if (rolling) return;
+  const final = makeName();
+  if (reduceMotion) { commit(final); return; }
+  rolling = true;
+  btn.disabled = true;
+  nameEl.classList.add("rolling");
+  let ticks = 0;
+  const total = 11;
+  const step = () => {
+    ticks++;
+    if (ticks >= total) {
+      nameEl.classList.remove("rolling");
+      commit(final);
+      rolling = false;
+      btn.disabled = false;
+      return;
+    }
+    show(makeName());
+    setTimeout(step, 40 + ticks * 12);
+  };
+  step();
+}
+
+function flashCopied() {
+  copyBtn.textContent = "Copied!";
+  copyBtn.classList.add("copied");
+  if (copyResetTimer) clearTimeout(copyResetTimer);
+  copyResetTimer = setTimeout(() => {
+    copyBtn.textContent = "Copy name";
+    copyBtn.classList.remove("copied");
+  }, 1400);
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.setAttribute("readonly", "");
+  ta.style.position = "absolute";
+  ta.style.left = "-9999px";
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand("copy"); } catch (e) {}
+  document.body.removeChild(ta);
+}
+
+function copyName() {
+  if (!currentName) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(currentName).then(flashCopied, () => {
+      fallbackCopy(currentName);
+      flashCopied();
+    });
+  } else {
+    fallbackCopy(currentName);
+    flashCopied();
+  }
+}
+
+btn.addEventListener("click", run);
+copyBtn.addEventListener("click", copyName);
+document.addEventListener("keydown", (e) => {
+  if (e.code === "Space" || e.code === "Enter") {
+    const active = document.activeElement;
+    if (active !== btn && active !== copyBtn) { e.preventDefault(); run(); }
+  }
+});
+</script>
+
+</body>
+</html>
