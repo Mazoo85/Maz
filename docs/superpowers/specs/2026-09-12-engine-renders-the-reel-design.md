@@ -160,3 +160,54 @@ compared against the browser's for the same reel and seed.
 6. The whole frame: backdrop, figures, captions, camera, fade.
 7. Measure against realtime, contact-sheet it, and say honestly what it looks
    like and what it does not do yet.
+
+
+## What actually happened
+
+Recorded after building it, because the plan's value is in what it got wrong as
+much as what it got right.
+
+**The spec was right about the gap, for once.** The four previous sub-projects
+each corrected this document after reading the code; this time the survey was
+done first and the "one missing primitive" claim held. The rasterizer was
+genuinely the whole job, and everything above it went in without redesign.
+
+**Three things were wrong in the picture, and all three were found by rendering
+a contact sheet and looking at it, with every test green:**
+
+1. **Every set got a city skyline** — including a lighthouse lamp room, a moving
+   car and a hallway. A room is now a wall with a window; only the four sets
+   that are actually outdoors get a horizon.
+2. **The window was a hole cut through to the sky**, which put a big pale
+   rectangle in the middle of every interior and read as a projector screen. It
+   is now small, high, on the light's side, divided, and barely brighter than
+   the wall.
+3. **The over-the-shoulder foreground took the beat's pose like anyone else**,
+   so a `reach` — one arm straight out — filled a quarter of the frame with a
+   black slab at that size and zoom. It is a shoulder now, held still. This is
+   the same failure as the striding zombie: a pose that is correct in isolation
+   and wrong for what it is being asked to do.
+
+**One was found by measuring, and it was the important one.** The first version
+rendered at **0.3× realtime** — three times slower than the browser it exists to
+beat, which would have made the entire sub-project pointless. Two causes:
+`fillPath` tested every edge against every sub-scanline (fine for a triangle,
+ruinous for a line of text, which is one path of thousands of edges), and the
+full-frame washes were rebuilt for every frame of a shot instead of once. With
+an active edge table and a per-shot wash cache it runs the whole film at
+**1.9× realtime**, and the picture is unchanged.
+
+The lesson is the one this project keeps relearning: **the claim in the spec was
+"it runs as fast as the machine allows", and nothing tested it.** Correctness had
+six test files and performance had none, so the one property the sub-project
+existed to deliver was the one that was broken. A test is now owed here.
+
+**Two engine gaps turned up that the survey missed**, both because the survey
+asked "can the engine fill a shape" and not "can the engine draw a frame":
+
+- **no PNG encoder** (only a decoder) — sidestepped, `encodeQoi` already existed
+  and QOI suits flat-colour films better anyway;
+- **no CPU text at all.** `ui::Font` needs a Vulkan renderer and a TTF, and stb
+  is linked PRIVATE to the engine so no header can reach it. That became
+  `render::StrokeFont`, 77 glyphs of vector geometry — a bigger detour than
+  anything else here, and not one the plan anticipated.

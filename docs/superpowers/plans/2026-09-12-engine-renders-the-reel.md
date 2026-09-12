@@ -1,6 +1,6 @@
 # The engine renders the reel — implementation plan
 
-> **For agentic workers:** steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** the Maz engine reads a film reel and draws its frames natively, faster
 than realtime, with no browser involved.
@@ -39,16 +39,16 @@ modify `tests/CMakeLists.txt`
 **Produces:** `render::Path` with `moveTo/lineTo/quadTo/cubicTo/ellipse/close`,
 and `render::fillPath(Image&, const Path&, const Color&, FillRule)`.
 
-- [ ] Write failing tests: an axis-aligned rect covers exactly its pixels; a
+- [x] Write failing tests: an axis-aligned rect covers exactly its pixels; a
       triangle's ink equals its area within tolerance; a shape wound backwards
       fills the same under nonzero; a ring is hollow under even-odd and solid
       under nonzero; nothing is written outside the path's bounds.
-- [ ] Run them, watch them fail to compile (no such header).
-- [ ] Implement `Path` with curve flattening to a tolerance.
-- [ ] Implement `fillPath`: per-scanline sub-sampling, coverage accumulation,
+- [x] Run them, watch them fail to compile (no such header).
+- [x] Implement `Path` with curve flattening to a tolerance.
+- [x] Implement `fillPath`: per-scanline sub-sampling, coverage accumulation,
       composite through `blendCoverage`.
-- [ ] Run the tests. Render a sheet of shapes and **look at it.**
-- [ ] Register in `tests/CMakeLists.txt`; commit.
+- [x] Run the tests. Render a sheet of shapes and **look at it.**
+- [x] Register in `tests/CMakeLists.txt`; commit.
 
 ### Task 2: The reel leaves the browser
 
@@ -56,11 +56,11 @@ and `render::fillPath(Image&, const Path&, const Color&, FillRule)`.
 
 **Produces:** a downloadable `<title>.reel.json` holding the whole reel.
 
-- [ ] Write a failing test: the exported JSON round-trips to a reel with the
+- [x] Write a failing test: the exported JSON round-trips to a reel with the
       same shot count, duration and every shot boundary intact.
-- [ ] Run, watch fail.
-- [ ] Implement the export and a button for it.
-- [ ] Run the logic suite; commit.
+- [x] Run, watch fail.
+- [x] Implement the export and a button for it.
+- [x] Run the logic suite; commit.
 
 ### Task 3: The engine reads the reel
 
@@ -69,62 +69,62 @@ and `render::fillPath(Image&, const Path&, const Color&, FillRule)`.
 
 **Produces:** `film::Reel`, `film::parseReel(json)`, `film::shotAt(reel, t)`.
 
-- [ ] Write failing tests against a real exported reel checked in as a fixture:
+- [x] Write failing tests against a real exported reel checked in as a fixture:
       shot count and duration match; `shotAt` returns the right shot at every
       boundary, just before it, and just after; out-of-range times clamp the way
       the browser's does.
-- [ ] Run, watch fail.
-- [ ] Implement the parser and `shotAt`.
-- [ ] Run; commit.
+- [x] Run, watch fail.
+- [x] Implement the parser and `shotAt`.
+- [x] Run; commit.
 
 ### Task 4: The palette, ported exactly
 
 **Files:** create `engine/include/maz/film/Palette.hpp`; modify
 `tests/film/reel.cpp` (or a new `tests/film/palette.cpp`)
 
-- [ ] Write failing tests: all 10 genres × 4 hours × 3 moods match values
+- [x] Write failing tests: all 10 genres × 4 hours × 3 moods match values
       generated from the browser and checked in as a fixture, channel for
       channel.
-- [ ] Run, watch fail.
-- [ ] Port `GENRE_COLOUR`, `HOUR`, `mix`, `scale`, `palette`.
-- [ ] Run; commit.
+- [x] Run, watch fail.
+- [x] Port `GENRE_COLOUR`, `HOUR`, `mix`, `scale`, `palette`.
+- [x] Run; commit.
 
 ### Task 5: The figures, ported — and looked at
 
 **Files:** create `engine/include/maz/film/Figure.hpp`; create
 `tests/film/figure.cpp`; modify `tests/CMakeLists.txt`
 
-- [ ] Write failing tests: every pose is inside `POSE_LIMITS`; the planted-foot
+- [x] Write failing tests: every pose is inside `POSE_LIMITS`; the planted-foot
       property holds for all ten poses; the body path is closed and non-empty.
-- [ ] Run, watch fail.
-- [ ] Port `POSE_LIMITS`, `POSES`, and the body geometry as a `render::Path`.
-- [ ] Draw all ten poses to a sheet and **look at it.** The sitting-pose bug and
+- [x] Run, watch fail.
+- [x] Port `POSE_LIMITS`, `POSES`, and the body geometry as a `render::Path`.
+- [x] Draw all ten poses to a sheet and **look at it.** The sitting-pose bug and
       the striding zombie were both caught exactly here.
-- [ ] Run; commit.
+- [x] Run; commit.
 
 ### Task 6: A whole frame
 
 **Files:** create `apps/filmreel/main.cpp`, `apps/filmreel/CMakeLists.txt`;
 modify root `CMakeLists.txt`
 
-- [ ] Backdrop from the palette (sky, horizon, floor, light wash).
-- [ ] Figures placed by the shot's characters and sides, with rim, tint and
+- [x] Backdrop from the palette (sky, horizon, floor, light wash).
+- [x] Figures placed by the shot's characters and sides, with rim, tint and
       contact shadow.
-- [ ] Captions through the engine's existing text layout.
-- [ ] Camera move and the fades, from the reel.
-- [ ] `--reel <file> --out <dir> --fps N --frames N --width W`.
-- [ ] Render a real film. **Look at a contact sheet.**
-- [ ] Commit.
+- [x] Captions through the engine's existing text layout.
+- [x] Camera move and the fades, from the reel.
+- [x] `--reel <file> --out <dir> --fps N --frames N --width W`.
+- [x] Render a real film. **Look at a contact sheet.**
+- [x] Commit.
 
 ### Task 7: Measure, look, and say what it does and does not do
 
 **Files:** `film/README.md`, `docs/`, the spec
 
-- [ ] Time a full film natively against its realtime duration; state the ratio.
-- [ ] Contact sheet, native beside browser, same reel and seed.
-- [ ] Write down honestly what is faithful (people, light, timing, cutting) and
+- [x] Time a full film natively against its realtime duration; state the ratio.
+- [x] Contact sheet, native beside browser, same reel and seed.
+- [x] Write down honestly what is faithful (people, light, timing, cutting) and
       what is plain (the sets), and what is not attempted (sound, video file).
-- [ ] Commit.
+- [x] Commit.
 
 ## Self-review notes
 
@@ -137,3 +137,17 @@ modify root `CMakeLists.txt`
   was found that way and none were found by assertions.
 - **Nothing here touches the story layer, the score, or the browser renderer.**
   If a task seems to need to, the design is wrong.
+
+
+## Done
+
+All seven tasks. Two things the plan did not have a task for turned up in the
+middle of Task 6 and had to be built: **a CPU text renderer** (`render::StrokeFont`
+— `ui::Font` needs Vulkan and a TTF, and stb is private to the engine) and
+**an active edge table plus a per-shot wash cache**, without which the renderer
+ran at 0.3x realtime and the whole sub-project was pointless.
+
+The plan should have had a performance task. Task 7 measured at the END, which
+is where the problem was found — late, and only because the measurement happened
+to be part of the deliverable. Had it not been, this would have shipped slower
+than the thing it replaces.
