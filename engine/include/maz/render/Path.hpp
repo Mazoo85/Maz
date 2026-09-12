@@ -94,11 +94,16 @@ public:
 
     // An ellipse as its own closed contour, optionally rotated, optionally wound the other way.
     //
-    // Winding matters: a path's contours combine under the nonzero rule by winding direction, so an
-    // inner contour wound OPPOSITE to its outer one cuts a hole, while one wound the same way does not.
-    // That is how a ring, a letter 'O' or an eye socket gets its hole.
+    // Winding matters, and is the easiest thing here to get wrong. A path's contours combine under the
+    // nonzero rule by winding DIRECTION: an inner contour wound OPPOSITE to its outer one cuts a hole,
+    // one wound the same way does not. That is how a ring, a letter 'O' or an eye socket gets its
+    // hole -- and, when it is not what you wanted, how a shape comes out riddled with them.
+    //
+    // `reversed` rather than `clockwise` on purpose: y grows DOWNWARD here, so the direction that is
+    // counter-clockwise in maths is clockwise on screen, and a name carrying either claim would be
+    // wrong half the time. All that matters is whether two contours agree, and this flips one.
     Path& ellipse(float cx, float cy, float rx, float ry, float rotation = 0.0f,
-                  bool clockwise = false) {
+                  bool reversed = false) {
         rx = std::fabs(rx);
         ry = std::fabs(ry);
         if (rx <= 0.0f || ry <= 0.0f) {
@@ -122,7 +127,7 @@ public:
 
         const float cosR = std::cos(rotation);
         const float sinR = std::sin(rotation);
-        const float step = (clockwise ? -6.28318530718f : 6.28318530718f) / static_cast<float>(n);
+        const float step = (reversed ? -6.28318530718f : 6.28318530718f) / static_cast<float>(n);
 
         m_contours.emplace_back();
         auto& c = m_contours.back();

@@ -143,7 +143,7 @@ int main() {
     {
         Path ring;
         ring.ellipse(48.0f, 48.0f, 32.0f, 32.0f);
-        ring.ellipse(48.0f, 48.0f, 16.0f, 16.0f, /*rotation*/ 0.0f, /*clockwise*/ true);
+        ring.ellipse(48.0f, 48.0f, 16.0f, 16.0f, /*rotation*/ 0.0f, /*reversed*/ true);
         Image nz(96, 96, kBlack);
         maz::render::fillPath(nz, ring, kWhite, FillRule::NonZero);
         CHECK(nz.getPixel(48, 48).r < 0.01f, "nonzero leaves a hole when the inner contour is reversed");
