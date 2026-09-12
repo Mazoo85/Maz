@@ -40,6 +40,11 @@ jobs:
       # really rolled rather than always adjective-first.
       - name: NAME FORGE logic tests
         run: node names/tests/names-logic.test.js
+      # CODA PICS paints onto a recording canvas, so its whole pipeline —
+      # reading the words, painting the scene, finishing it in every style —
+      # is checked here without a browser too.
+      - name: CODA PICS logic tests
+        run: node coda-pics/tests/coda-logic.test.js
 
   browser:
     name: Site smoke test (Chromium)
@@ -61,3 +66,5 @@ jobs:
         run: node film/tests/film-browser.test.js
       - name: NAME FORGE end to end (roll, flip, batch, export, save)
         run: node names/tests/names-browser.test.js
+      - name: CODA PICS end to end (paint, restyle, keep, save)
+        run: node coda-pics/tests/coda-browser.test.js

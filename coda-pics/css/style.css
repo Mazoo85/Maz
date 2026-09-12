@@ -1,0 +1,218 @@
+/*
+ * CODA PICS — styling.
+ *
+ * Phone first: one column, big targets, nothing that needs a hover to be
+ * discoverable. The palette is the MAZ ARCADE one, with spring green as this
+ * app's own accent so it is recognisable in the hub.
+ */
+
+:root {
+  --bg: #0b0714;
+  --panel: #150e26;
+  --panel-2: #1c1431;
+  --ink: #ece6f7;
+  --muted: #9b91b4;
+  --line: rgba(255, 255, 255, .12);
+  --accent: #00d68f;
+  --accent-2: #ffd166;
+  --pink: #ff2d95;
+  --cyan: #00e5ff;
+  --radius: 14px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+
+/* An author `display:` rule beats the browser's own rule for [hidden], so the
+ * overlays below — which are flex — would stay on screen forever without this.
+ * Everything in this app that appears and disappears does it with .hidden. */
+[hidden] { display: none !important; }
+
+body {
+  min-height: 100vh;
+  background: var(--bg);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0, 214, 143, .20), transparent 70%),
+    radial-gradient(ellipse 60% 45% at 90% 10%, rgba(255, 45, 149, .12), transparent 70%);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: 'Trebuchet MS', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+#app {
+  max-width: 940px;
+  margin: 0 auto;
+  padding-block: 22px 42px;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+
+/* --------------------------------------------------------------- topbar */
+.topbar { text-align: center; margin-bottom: 20px; }
+.brand { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.brand-mark { font-size: 22px; color: var(--accent); }
+.brand h1 {
+  font-size: clamp(30px, 9vw, 48px); font-weight: 900; letter-spacing: 4px; line-height: 1;
+  color: #fff; text-shadow: 0 0 20px rgba(0, 214, 143, .6), 0 3px 0 #04563b;
+}
+.brand-alt { color: var(--accent); text-shadow: 0 0 20px rgba(0, 214, 143, .8); }
+.tagline { margin-top: 8px; color: var(--muted); font-size: clamp(13px, 3.4vw, 15.5px); }
+
+/* ---------------------------------------------------------------- panel */
+.panel {
+  background: linear-gradient(180deg, var(--panel), var(--panel-2));
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.field-label {
+  display: block; font-size: 11px; letter-spacing: 2.4px; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 8px;
+}
+
+textarea, select, input {
+  width: 100%; font: inherit; color: var(--ink);
+  background: rgba(0, 0, 0, .34);
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 11px 12px;
+}
+textarea { resize: vertical; min-height: 62px; }
+textarea::placeholder { color: #6f6688; }
+textarea:focus, select:focus, button:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 1px;
+}
+
+.examples { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+.chip {
+  font-size: 12px; padding: 5px 10px; border-radius: 999px; cursor: pointer;
+  background: rgba(255, 255, 255, .06); border: 1px solid var(--line); color: #cdc4e2;
+}
+.chip:hover, .chip:focus-visible { border-color: var(--accent); color: #fff; }
+
+.controls {
+  display: grid; gap: 10px; margin-top: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+.control label {
+  display: block; font-size: 10.5px; letter-spacing: 1.6px; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 5px;
+}
+
+.buttons { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 14px; }
+.buttons.out { margin-top: 14px; justify-content: center; }
+
+button {
+  font: inherit; font-weight: 700; cursor: pointer;
+  padding: 11px 16px; border-radius: 10px;
+  background: rgba(255, 255, 255, .07); color: var(--ink);
+  border: 1px solid var(--line);
+  transition: transform .12s ease, border-color .12s ease, background .12s ease;
+}
+button:hover { border-color: var(--accent); }
+button:active { transform: translateY(1px); }
+button.primary {
+  background: linear-gradient(180deg, var(--accent), #00a870);
+  color: #05231a; border-color: transparent;
+  box-shadow: 0 6px 18px -8px var(--accent);
+}
+button[disabled] { opacity: .55; cursor: progress; }
+
+.hint { margin-top: 11px; font-size: 12px; color: var(--muted); }
+
+/* ---------------------------------------------------------------- stage */
+.stage { margin-top: 20px; }
+
+.frame {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #07040e;
+  overflow: hidden;
+  box-shadow: 0 18px 40px -22px #000;
+}
+canvas {
+  display: block; width: 100%; height: auto;
+  max-height: 74vh; object-fit: contain; background: #07040e;
+}
+
+.placeholder, .busy {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  text-align: center; padding: 20px;
+  background: rgba(7, 4, 14, .92); color: var(--muted); font-size: 14px;
+}
+.placeholder strong { color: var(--ink); }
+.placeholder em { color: var(--accent); font-style: normal; font-weight: 700; }
+.busy { gap: 10px; font-size: 13px; letter-spacing: 1px; color: var(--accent); }
+
+.spinner {
+  width: 15px; height: 15px; border-radius: 50%;
+  border: 2px solid rgba(0, 214, 143, .3); border-top-color: var(--accent);
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.status {
+  margin-top: 10px; text-align: center; font-size: 13px; color: var(--muted);
+  min-height: 20px;
+}
+.status b { color: var(--ink); font-weight: 700; }
+
+.readout { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 9px; }
+.tag {
+  font-size: 11px; padding: 4px 9px; border-radius: 7px;
+  background: rgba(0, 214, 143, .10); border: 1px solid rgba(0, 214, 143, .3);
+  color: #bff0dd;
+}
+.tag span { color: var(--muted); }
+.tag.guess { background: rgba(255, 255, 255, .05); border-color: var(--line); color: var(--muted); }
+
+/* -------------------------------------------------------------- gallery */
+.gallery-wrap { margin-top: 30px; }
+.section-title {
+  font-size: 11px; letter-spacing: 3.4px; text-transform: uppercase; color: var(--muted);
+  display: flex; align-items: center; gap: 10px;
+}
+.section-title::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.gallery-note { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+.gallery {
+  display: grid; gap: 10px; margin-top: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+.card {
+  position: relative; padding: 0; overflow: hidden; border-radius: 11px;
+  background: #07040e; border: 1px solid var(--line); text-align: left;
+}
+.card canvas { width: 100%; height: auto; display: block; }
+.card .label {
+  display: block; padding: 7px 8px; font-size: 11.5px; font-weight: 400; color: #cdc4e2;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.card .drop {
+  position: absolute; top: 5px; right: 5px; padding: 2px 7px; font-size: 12px;
+  border-radius: 7px; background: rgba(7, 4, 14, .8); color: var(--muted); border: 1px solid var(--line);
+}
+.card .drop:hover { color: var(--pink); border-color: var(--pink); }
+
+/* --------------------------------------------------------------- footer */
+.foot {
+  margin-top: 34px; padding-top: 16px; border-top: 1px solid var(--line);
+  font-size: 12.5px; color: var(--muted); text-align: center;
+}
+.foot a { color: var(--cyan); text-decoration: none; border-bottom: 1px solid rgba(0, 229, 255, .35); }
+.foot a:hover { color: #fff; }
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
+  button { transition: none; }
+}
