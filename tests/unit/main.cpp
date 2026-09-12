@@ -19206,13 +19206,30 @@ void testCurlNoise() {
     }
 
     // ---- Curl is exactly perpendicular to the gradient. ----
+    //
+    // Checked two ways, because `dot == 0.0f` alone is not portable. curl2 returns the gradient
+    // rotated a quarter turn, so the dot product is g.y*g.x + (-g.x)*g.y — zero in real arithmetic
+    // and zero in IEEE too, as long as both products are rounded the same way. A compiler is
+    // allowed to contract `a*b + c*d` into a fused multiply-add, which keeps one product at full
+    // precision and rounds the other, and then the two no longer cancel. Apple's ARM machines have
+    // that instruction and clang uses it at the Release optimisation level; baseline x86-64 does
+    // not, which is why this passed on Linux and Windows for as long as macOS could never finish a
+    // build. Reproduced on x86 with -O3 -mfma -ffp-contract=on: 497 of these 500 points come out
+    // non-zero, the worst by 5.9e-08.
+    //
+    // So: assert the exact identity the implementation really guarantees, which no contraction can
+    // disturb, and assert perpendicularity itself within a tolerance scaled to the magnitudes.
     {
         for (int i = 0; i < 500; ++i) {
             const float x = static_cast<float>(i) * 0.13f - 5.0f;
             const float y = static_cast<float>(i) * 0.07f + 2.0f;
             auto c = cn.curl2(x, y);
             auto g = cn.gradient2(x, y);
-            CHECK(c.first * g.first + c.second * g.second == 0.0f);
+            CHECK(c.first == g.second && c.second == -g.first); // exact, every platform
+            const float dot = c.first * g.first + c.second * g.second;
+            const float scale = std::sqrt(c.first * c.first + c.second * c.second) *
+                                std::sqrt(g.first * g.first + g.second * g.second);
+            CHECK(std::fabs(dot) <= 1e-6f * (scale + 1.0f));
         }
     }
 
