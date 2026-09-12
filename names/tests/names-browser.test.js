@@ -40,7 +40,14 @@ if (!chromium) {
 }
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 8214;
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.md': 'text/plain' };
+const MIME = {
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.css': 'text/css',
+  '.md': 'text/plain',
+  '.webmanifest': 'application/manifest+json',
+  '.png': 'image/png'
+};
 
 const server = http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split('?')[0].split('#')[0]);
@@ -182,6 +189,66 @@ async function rolled(page) {
     await page.reload({ waitUntil: 'load' });
     const afterReload = await page.$$eval('#libraryList .n', (els) => els.map((e) => e.textContent.trim()));
     check(afterReload.join('|') === saved.join('|'), 'saved names survive a reload');
+
+    console.log('\nOFFLINE');
+    /*
+     * The point of the service worker is a page that still works with no
+     * signal, so the only honest test is to take the network away. A fresh
+     * context gets its own service-worker registry, so this starts clean:
+     * open the app once to let it install, then cut the connection at the
+     * browser and reload. Everything after that comes out of the cache.
+     */
+    const offlineCtx = await browser.newContext();
+    const off = await offlineCtx.newPage();
+    const offProblems = [];
+    off.on('pageerror', (e) => offProblems.push('uncaught: ' + e.message));
+    await off.goto(base, { waitUntil: 'load' });
+    // navigator.serviceWorker.ready never settles when nothing registers, so
+    // it is raced against a deadline: without this, a page that lost its
+    // registration would hang this suite instead of failing it.
+    const registered = await off.evaluate(() => Promise.race([
+      navigator.serviceWorker.ready.then((r) => !!r.active).catch(() => false),
+      new Promise((res) => setTimeout(() => res(false), 10000))
+    ]));
+    check(registered, 'the service worker installs and activates');
+
+    const manifest = await off.evaluate(() =>
+      fetch('manifest.webmanifest').then((r) => r.json()).then((m) => ({
+        name: m.name,
+        display: m.display,
+        icons: m.icons.length,
+        maskable: m.icons.some((i) => i.purpose === 'maskable')
+      })).catch(() => null));
+    check(manifest !== null, 'the manifest is served and is valid JSON');
+    check(manifest && manifest.display === 'standalone',
+      'it asks to open as an app, not a browser tab');
+    check(manifest && manifest.icons === 3 && manifest.maskable,
+      'it declares icons including a maskable one');
+
+    await offlineCtx.setOffline(true);
+    // A page with no cache to fall back on fails this reload outright, so it
+    // is reported as the failing check it is rather than a stack trace.
+    let reloaded = true;
+    await off.reload({ waitUntil: 'load' }).catch((e) => {
+      reloaded = false;
+      check(false, 'the app still loads with the network cut (' + e.message.split('\n')[0] + ')');
+    });
+    if (reloaded) {
+      check((await off.title()).indexOf('Name Forge') !== -1, 'the app still loads with the network cut');
+    }
+    if (reloaded) {
+      await off.click('#roll');
+      const offlineName = (await off.textContent('#nameOut')).trim();
+      check(/\S/.test(offlineName) && offlineName !== 'Roll your first name',
+        `and still rolls a name offline (${offlineName})`);
+      const offlineStyled = await off.evaluate(() =>
+        getComputedStyle(document.querySelector('.stage')).display !== 'inline');
+      check(offlineStyled, 'with its stylesheet, not as unstyled text');
+    }
+    check(offProblems.length === 0, 'nothing threw while offline' +
+      (offProblems.length ? ': ' + offProblems.join('; ') : ''));
+    await offlineCtx.setOffline(false);
+    await offlineCtx.close();
 
     console.log('\nPHONE');
     const phone = await browser.newPage({ viewport: { width: 390, height: 780 } });

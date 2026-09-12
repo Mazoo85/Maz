@@ -45,6 +45,9 @@ names/
 ├── js/words.js           # the word bank: 1000 adjectives + 1000 nouns
 ├── js/generator.js       # the engine — draws the pair, builds the name
 ├── js/app.js             # the UI: buttons, batches, saved names, export
+├── manifest.webmanifest  # lets it install to a home screen
+├── sw.js                 # service worker: the offline copy
+├── icons/                # 192, 512 and apple-touch, drawn to match
 └── tests/
     ├── names-logic.test.js     # the engine, headless
     └── names-browser.test.js   # the real page, in Chromium
@@ -62,6 +65,23 @@ node names/tests/names-browser.test.js   # drives the page in Chromium
 Those tests are the app's promises, written down: exactly 1000 words in each
 list, no duplicates, no word ever paired with itself, and — checked over a
 thousand rolls — a name that is always an adjective followed by a noun.
+
+## Offline, and installable
+
+The app never needed the network to roll a name — the word banks are plain
+scripts in the page — so the only thing standing between it and working with
+no signal was the browser having to fetch those files. `sw.js` caches them on
+the first visit, which makes the whole app work offline afterwards, and
+`manifest.webmanifest` lets it be installed to a home screen and opened like
+an app rather than a tab.
+
+This is not taken on trust: the browser suite opens the app, cuts the
+connection at the browser, reloads, and asserts it still comes up styled and
+still rolls a name. If the service worker ever stops registering, that section
+fails rather than quietly leaving people with a dead page in a tunnel.
+
+Change any file the app is made of and bump `CACHE` in `sw.js`, or browsers
+will keep serving the copy they already have.
 
 ## Adding words
 

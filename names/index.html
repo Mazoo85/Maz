@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Name Forge — Random Name Maker</title>
+  <meta name="description" content="1000 adjectives x 1000 nouns — a million names, rolled in the page with no network." />
+  <meta name="theme-color" content="#130b20" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
   <link rel="stylesheet" href="css/style.css" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23130b20'/><rect x='2' y='4' width='12' height='2' fill='%23ff8a3d'/><rect x='2' y='8' width='8' height='2' fill='%2300e5ff'/><rect x='2' y='12' width='10' height='2' fill='%23ff2d95'/></svg>" />
 </head>
@@ -92,5 +96,16 @@
 
 <!-- shared MAZ ARCADE nav: back to the hub + jump to any other project -->
 <script src="../shared/maz-nav.js" data-current="names" defer></script>
+<script>
+  // Installable, and works with no signal once it has been opened once.
+  // Registration is deliberately last and failure is silent: a browser with
+  // no service workers, or a page opened straight off the filesystem, still
+  // gets the whole app — this only ever adds the offline copy.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+    });
+  }
+</script>
 </body>
 </html>
