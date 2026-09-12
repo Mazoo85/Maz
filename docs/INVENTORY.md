@@ -15,7 +15,7 @@ size is in the wiring between the parts, not in any one part.
 |---|---:|---|
 | Native games and demos (`apps/`) | 161 | 31,861 lines |
 | Engine capabilities (`engine/include/maz/`) | 692 | 87,768 lines across 20 subsystems |
-| C++ test files (`tests/`) | 372 | |
+| C++ test files (`tests/`) | 374 | |
 | Browser apps and games | 6 | 17,423 lines |
 | Python tools | 3 | |
 | CI gates (`scripts/`) | 3 | |
@@ -25,12 +25,12 @@ size is in the wiring between the parts, not in any one part.
 
 | Health signal | Score | |
 |---|---:|---|
-| Completeness checks passing | 81% | ████████░░ 2507 of 3110 |
+| Completeness checks passing | 81% | ████████░░ 2513 of 3110 |
 | Apps that run headless in CI | 76% | ████████░░ |
 | Apps with a golden screenshot | 97% | ██████████ |
-| Engine modules a test exercises | 99% | ██████████ |
+| Engine modules a test exercises | 100% | ██████████ |
 | Engine modules an app demonstrates | 20% | ██░░░░░░░░ |
-| Open tasks in the queue below | 12 | |
+| Open tasks in the queue below | 10 | |
 
 ## 1. Everything you have built
 
@@ -66,12 +66,12 @@ module with neither is working code nobody can find.
 |---|---:|---:|---:|
 | `render` | 165 | 164 (99%) | 11 (7%) |
 | `math` | 132 | 132 (100%) | 6 (5%) |
-| `game` | 124 | 123 (99%) | 22 (18%) |
+| `game` | 124 | 124 (100%) | 22 (18%) |
 | `core` | 104 | 104 (100%) | 23 (22%) |
 | `io` | 30 | 30 (100%) | 10 (33%) |
 | `audio` | 27 | 27 (100%) | 14 (52%) |
 | `ui` | 27 | 25 (93%) | 15 (56%) |
-| `platform` | 20 | 18 (90%) | 11 (55%) |
+| `platform` | 20 | 20 (100%) | 11 (55%) |
 | `anim` | 19 | 19 (100%) | 12 (63%) |
 | `net` | 16 | 16 (100%) | 2 (13%) |
 | `scene` | 7 | 7 (100%) | 4 (57%) |
@@ -101,7 +101,7 @@ module with neither is working code nobody can find.
 
 **`ui`** — ~ColorPicker, Container, Controls, DebugOverlay, ~DragAndDrop, FileDialog, Font, ~FontFallback, ~GlyphCache, ~GraphEdit, ItemList, Layout, PopupMenu, Range, Rect, ~RichText, ~RichTextEffects, ~Sdf, StyleBox, ~TabContainer, ~TextInput, TextLayout, ~TextServer, ~TextShaping, Theme, Tree, UI
 
-**`platform`** — ~AppFocus, !Clipboard, CrashHandler, DesktopBackend, ~DisplayScale, ~Displays, Haptics, Input, Motion, ~Network, Orientation, !Paths, PlatformBackend, PowerState, SafeArea, ~SoftKeyboard, ~ThumbZone, ~TouchTarget, WebLoop, Window
+**`platform`** — ~AppFocus, ~Clipboard, CrashHandler, DesktopBackend, ~DisplayScale, ~Displays, Haptics, Input, Motion, ~Network, Orientation, ~Paths, PlatformBackend, PowerState, SafeArea, ~SoftKeyboard, ~ThumbZone, ~TouchTarget, WebLoop, Window
 
 **`anim`** — ~AdditiveBlend, AnimClip, AnimStateMachine, Animator, ~BlendSpace, BlendTree, ~CubicBezierEasing, Curve, Gradient, IK, ~RootMotion, Skeleton, ~SpringBone, SpriteAnim, Timeline, ~Transition, ~TriggerTrack, Tween, TweenPlayer
 
@@ -348,7 +348,6 @@ not by judging the work. Every failing check below is a specific, finishable job
 | web-app | declared in shared/exchange.json | 4/6 (67%) |
 | app | runs headless for CI | 123/161 (76%) |
 | app | has a golden screenshot | 156/161 (97%) |
-| engine-module | covered by a test | 686/692 (99%) |
 | app | built by CMake | 161/161 (100%) |
 | app | has CMakeLists.txt | 161/161 (100%) |
 | app | header comment says what it shows | 161/161 (100%) |
@@ -356,6 +355,7 @@ not by judging the work. Every failing check below is a specific, finishable job
 | build-tool | says what it does | 11/11 (100%) |
 | doc | reachable from somewhere | 18/18 (100%) |
 | engine-module | header has a doc comment | 692/692 (100%) |
+| engine-module | covered by a test or a golden image | 692/692 (100%) |
 | gate | rule-encoding checkers are tested | 3/3 (100%) |
 | gate | wired into a workflow | 3/3 (100%) |
 | py-tool | has a README | 3/3 (100%) |
@@ -373,21 +373,13 @@ projects without declaring it. Everything below is written to end up in that man
 
 ### Found by the scan
 
-#### 550 engine modules are tested but no app shows them
+#### 552 engine modules are tested but no app shows them
 
 These are finished, working features that nobody can see. Each one is a small app away from
 being discoverable, and apps/ is how this engine documents itself. Grouping several related
 modules into one demo is usually better than one app each.
 
-<sub>550 affected · effort: medium · value: ★★★ · queued below as the `engine-module:demoed` task</sub>
-
-#### 2 engine modules have neither a test nor a demo
-
-Nothing in the repo names these types. They are either genuinely unused — in which case they are
-unproven code that will rot — or they are used through another module's API and only look
-unused. Both readings are worth resolving: a test settles it either way.
-
-<sub>2 affected · effort: large · value: ★★</sub>
+<sub>552 affected · effort: medium · value: ★★★ · queued below as the `engine-module:demoed` task</sub>
 
 #### 38 apps cannot run without a display
 
@@ -528,21 +520,17 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
 
 - **38 apps cannot run without a display**
   <br>Apps with --headless / --frames N are run by CI on every push and can be captured as goldens; apps without them are only ever proven by someone opening a window. The flag is a dozen lines copied from apps/_template/main.cpp and it converts each app into a test. — area2d, blackboard, boundary, bus, camera3d, capsule, ccd, contacts, convex, envelope, filter, flowfield, and 26 more. Example: Teach apps/area2d the --headless / --frames N flags so CI can run it without a display.
-- **550 engine modules are tested but no app shows them**
+- **552 engine modules are tested but no app shows them**
   <br>These are finished, working features that nobody can see. Each one is a small app away from being discoverable, and apps/ is how this engine documents itself. Grouping several related modules into one demo is usually better than one app each. — AdditiveBlend, BlendSpace, CubicBezierEasing, RootMotion, SpringBone, Transition, TriggerTrack, Dsp, EnvelopeFollower, G711, Goertzel, ImaAdpcm, and 540 more. Example: No app under apps/ demonstrates maz::anim::AdditiveBlend. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.
 - **CODA PICS paints backdrops for SCRIPT FORGE and illustrates MADLIBS**
   <br>CODA PICS turns a sentence into a finished picture in canvas 2D, offline. SCRIPT FORGE builds its sets from primitives and MADLIBS returns pure text. Publishing coda-pics/js as coda-pics/painter would let SCRIPT FORGE paint a title card and a establishing backdrop per location straight from its own scene description, and let MADLIBS show each story idea rather than only describing it.
 - **SONG FORGE supplies the one music layer the engine does not have**
   <br>The engine already has the layers underneath and above a composer: audio::MusicTheory does note/pitch conversion, audio::MusicScales the scale tables, audio::Oscillator and audio::BusGraph the synthesis and mixing, and audio::MusicSequencer switches between music segments on the beat as the action changes. What nothing under engine/include/maz/audio/ does is WRITE the segments — pick a progression, lay a bassline and a drum pattern under it, arrange verses and choruses. music/js/genres.js and music/js/composer.js do exactly that, as plain data and pure functions, for eight genres. Porting the…
 
-### P2 — coverage gaps (8)
+### P2 — coverage gaps (6)
 
 - **5 apps fail "has a golden screenshot"**
   <br>_template, mobilepack, orbs, sandbox, swarm. Example: Capture a golden frame for _template into tests/golden/_template.png so a rendering regression is caught automatically.
-- **6 engine modules fail "covered by a test"**
-  <br>FlyCamera, Clipboard, Paths, Renderer, DebugOverlay, Font. Example: Add a unit test naming maz::game::FlyCamera under tests/ — nothing in the suite exercises it today.
-- **2 engine modules have neither a test nor a demo**
-  <br>Nothing in the repo names these types. They are either genuinely unused — in which case they are unproven code that will rot — or they are used through another module's API and only look unused. Both readings are worth resolving: a test settles it either way.
 - **The golden screenshots become the arcade's cover art**
   <br>tests/golden/ holds a deterministic captured frame for most apps, produced purely to catch rendering regressions. That is also a ready-made, always-current screenshot library: the hub at index.html lists every project as text today, and could show each native demo's golden frame as its tile art at zero maintenance cost, because CI regenerates them.
 - **MADLIBS and CODA PICS fill templates twice, and only one of them does it correctly**

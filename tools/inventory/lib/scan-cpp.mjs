@@ -169,6 +169,18 @@ export function linkUsage(root, modules, apps, cppTests) {
   for (const m of modules) {
     m.demoedBy = (appIndex.get(m.name) || []).slice().sort();
     m.testedBy = (testIndex.get(m.name) || []).slice().sort();
+    // A module demonstrated by an app that has a committed golden frame is
+    // covered by the `golden_images` ctest, which renders that app on software
+    // Vulkan and compares the result. That is real coverage — it is what
+    // catches a broken render pass — and it is the only kind available to the
+    // Vulkan renderer, the font atlas and the debug overlay, none of which can
+    // be exercised by a headless unit test. Weaker than a unit test at edge
+    // cases, so it is tracked separately rather than folded into testedBy.
+    m.goldenBy = m.demoedBy
+      .map((rel) => byApp.get(rel))
+      .filter((a) => a && a.golden)
+      .map((a) => a.id)
+      .sort();
     for (const rel of m.demoedBy) {
       const app = byApp.get(rel);
       if (app) app.usesModules.push(m.id);

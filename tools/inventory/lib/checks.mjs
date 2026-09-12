@@ -65,10 +65,15 @@ const CHECKS = {
     },
     {
       id: 'tested',
-      missing: 'no test',
-      label: 'covered by a test',
-      test: (m) => m.testedBy.length > 0,
-      fix: (m) => `Add a unit test naming maz::${m.subsystem}::${m.name} under tests/ — nothing in the suite exercises it today.`
+      missing: 'no test, no golden',
+      label: 'covered by a test or a golden image',
+      // Either counts. A unit test is stronger and is what most modules should
+      // have; a golden-image comparison through an app that demonstrates the
+      // module is the only coverage available to the Vulkan renderer, the font
+      // atlas and the debug overlay, and it is what catches a broken render
+      // pass. See `goldenBy` in scan-cpp.mjs.
+      test: (m) => m.testedBy.length > 0 || m.goldenBy.length > 0,
+      fix: (m) => `Nothing exercises maz::${m.subsystem}::${m.name}: no test names it, and no app that demonstrates it has a golden frame. Add a unit test under tests/, or a golden for an app that shows it.`
     },
     {
       id: 'demoed',

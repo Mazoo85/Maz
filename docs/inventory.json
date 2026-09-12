@@ -4,7 +4,7 @@
     "apps": 161,
     "engineModules": 692,
     "engineSubsystems": 20,
-    "cppTests": 372,
+    "cppTests": 374,
     "webApps": 6,
     "pyTools": 3,
     "gates": 3,
@@ -16,11 +16,11 @@
     "linesOfWeb": 17423,
     "appsHeadless": 76,
     "appsGolden": 97,
-    "modulesTested": 99,
+    "modulesTested": 100,
     "modulesDemoed": 20,
-    "checksPassed": 2507,
+    "checksPassed": 2513,
     "checksTotal": 3110,
-    "openTasks": 12
+    "openTasks": 10
   },
   "queue": [
     {
@@ -308,7 +308,7 @@
       "priority": 1,
       "kind": "engine-module",
       "check": "demoed",
-      "title": "550 engine modules are tested but no app shows them",
+      "title": "552 engine modules are tested but no app shows them",
       "detail": "These are finished, working features that nobody can see. Each one is a small app away from being discoverable, and apps/ is how this engine documents itself. Grouping several related modules into one demo is usually better than one app each. — AdditiveBlend, BlendSpace, CubicBezierEasing, RootMotion, SpringBone, Transition, TriggerTrack, Dsp, EnvelopeFollower, G711, Goertzel, ImaAdpcm, and 540 more. Example: No app under apps/ demonstrates maz::anim::AdditiveBlend. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.",
       "paths": [
         "engine/include/maz/anim/AdditiveBlend.hpp",
@@ -674,72 +674,6 @@
           "fix": "Capture a golden frame for swarm into tests/golden/swarm.png so a rendering regression is caught automatically."
         }
       ]
-    },
-    {
-      "id": "group:engine-module:tested",
-      "priority": 2,
-      "kind": "engine-module",
-      "check": "tested",
-      "title": "6 engine modules fail \"covered by a test\"",
-      "detail": "FlyCamera, Clipboard, Paths, Renderer, DebugOverlay, Font. Example: Add a unit test naming maz::game::FlyCamera under tests/ — nothing in the suite exercises it today.",
-      "paths": [
-        "engine/include/maz/game/FlyCamera.hpp",
-        "engine/include/maz/platform/Clipboard.hpp",
-        "engine/include/maz/platform/Paths.hpp",
-        "engine/include/maz/render/Renderer.hpp",
-        "engine/include/maz/ui/DebugOverlay.hpp",
-        "engine/include/maz/ui/Font.hpp"
-      ],
-      "source": "inventory:engine-module:tested",
-      "memberCount": 6,
-      "members": [
-        {
-          "id": "engine:game/FlyCamera",
-          "name": "FlyCamera",
-          "path": "engine/include/maz/game/FlyCamera.hpp",
-          "fix": "Add a unit test naming maz::game::FlyCamera under tests/ — nothing in the suite exercises it today."
-        },
-        {
-          "id": "engine:platform/Clipboard",
-          "name": "Clipboard",
-          "path": "engine/include/maz/platform/Clipboard.hpp",
-          "fix": "Add a unit test naming maz::platform::Clipboard under tests/ — nothing in the suite exercises it today."
-        },
-        {
-          "id": "engine:platform/Paths",
-          "name": "Paths",
-          "path": "engine/include/maz/platform/Paths.hpp",
-          "fix": "Add a unit test naming maz::platform::Paths under tests/ — nothing in the suite exercises it today."
-        },
-        {
-          "id": "engine:render/Renderer",
-          "name": "Renderer",
-          "path": "engine/include/maz/render/Renderer.hpp",
-          "fix": "Add a unit test naming maz::render::Renderer under tests/ — nothing in the suite exercises it today."
-        },
-        {
-          "id": "engine:ui/DebugOverlay",
-          "name": "DebugOverlay",
-          "path": "engine/include/maz/ui/DebugOverlay.hpp",
-          "fix": "Add a unit test naming maz::ui::DebugOverlay under tests/ — nothing in the suite exercises it today."
-        },
-        {
-          "id": "engine:ui/Font",
-          "name": "Font",
-          "path": "engine/include/maz/ui/Font.hpp",
-          "fix": "Add a unit test naming maz::ui::Font under tests/ — nothing in the suite exercises it today."
-        }
-      ]
-    },
-    {
-      "id": "opportunity:engine-features-with-neither",
-      "priority": 2,
-      "kind": "opportunity",
-      "check": "",
-      "title": "2 engine modules have neither a test nor a demo",
-      "detail": "Nothing in the repo names these types. They are either genuinely unused — in which case they are unproven code that will rot — or they are used through another module's API and only look unused. Both readings are worth resolving: a test settles it either way.",
-      "paths": [],
-      "source": "inventory:opportunity:engine-features-with-neither"
     },
     {
       "id": "pairing:goldens-become-the-arcade-shelf",

@@ -216,6 +216,20 @@ await test('a module named by an app is demonstrated; one named by nothing is no
   assert.deepStrictEqual(ghost.testedBy, []);
 });
 
+await test('a module with no test still counts as covered if a golden app demonstrates it', async () => {
+  // The Vulkan renderer, the font atlas and the debug overlay cannot be
+  // exercised by a headless unit test. What covers them is the golden_images
+  // ctest rendering an app that uses them and comparing the frame, and the
+  // checker has to know that or it reports the engine's most-exercised code as
+  // untested. `shown` has a golden and names Widget; nothing else does.
+  const m = await buildModel(ROOT);
+  const widget = m.modules.find((x) => x.name === 'Widget');
+  const hidden = m.modules.find((x) => x.name === 'Hidden');
+  assert.deepStrictEqual(widget.goldenBy, ['app:shown']);
+  assert.deepStrictEqual(hidden.goldenBy, [], 'a module no golden app demonstrates has no golden coverage');
+  assert.strictEqual(widget.checks.find((c) => c.id === 'tested').ok, true);
+});
+
 await test('the app that demonstrates nothing fails exactly the checks it should', async () => {
   const m = await buildModel(ROOT);
   const hidden = m.apps.find((a) => a.name === 'hidden');

@@ -3376,3 +3376,21 @@ target_link_libraries(maz_zomboid_sim_tests PRIVATE maz::maz maz_warnings)
 target_include_directories(maz_zomboid_sim_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/zomboid)
 add_test(NAME zomboid_sim COMMAND maz_zomboid_sim_tests)
 set_tests_properties(zomboid_sim PROPERTIES TIMEOUT 30)
+
+# The first-person fly camera. Pure math — where it looks, how it moves along its own axes, that
+# pitch cannot flip over the top, and that the view matrix really is the inverse of where the camera
+# is standing. game::FlyCamera is what two of the 3D demos steer with and nothing exercised it.
+add_executable(maz_flycamera_tests game/flycamera.cpp)
+target_link_libraries(maz_flycamera_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME fly_camera COMMAND maz_flycamera_tests)
+set_tests_properties(fly_camera PROPERTIES TIMEOUT 30)
+
+# The two thinnest platform shims — the system clipboard and the per-user preferences path. Between
+# them they were the engine's only modules with neither a test nor a demo. Both are SDL3-backed and
+# implemented in Window.cpp, so this links the real thing and runs under CI's dummy drivers; it
+# asserts the contract the headers promise (chiefly that they are safe to call with no window open)
+# and skips the parts a container with no display server is entitled to refuse.
+add_executable(maz_clipboard_paths_tests platform/clipboard_paths.cpp)
+target_link_libraries(maz_clipboard_paths_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME clipboard_paths COMMAND maz_clipboard_paths_tests)
+set_tests_properties(clipboard_paths PROPERTIES TIMEOUT 30)
