@@ -1170,6 +1170,14 @@ target_link_libraries(maz_film_canvas_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME film_canvas COMMAND maz_film_canvas_tests)
 set_tests_properties(film_canvas PROPERTIES TIMEOUT 30)
 
+# The fifteen sets, held to agreement with the browser: each set, each of its three planes, under
+# three palettes, reduced to a coarse grid of cell means. Coarse on purpose -- two rasterizers never
+# agree on an anti-aliased curve, but a shape in the wrong place moves a cell mean by tens.
+add_executable(maz_film_sets_tests film/sets.cpp)
+target_link_libraries(maz_film_sets_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME film_sets COMMAND maz_film_sets_tests ${CMAKE_CURRENT_SOURCE_DIR}/film/sets-fixture.json)
+set_tests_properties(film_sets PROPERTIES TIMEOUT 120)
+
 add_executable(maz_recoil_tests game/recoil.cpp)
 target_link_libraries(maz_recoil_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME recoil COMMAND maz_recoil_tests)

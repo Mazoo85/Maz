@@ -23,11 +23,8 @@ inline void blendCoverage(Image& img, int x, int y, const Color& c, float cov) {
     if (cov > 1.0f) {
         cov = 1.0f;
     }
-    const Color o = img.getPixel(x, y);
-    const float a = c.a * cov;
-    img.setPixel(x, y,
-                 Color{o.r * (1.0f - a) + c.r * a, o.g * (1.0f - a) + c.g * a,
-                       o.b * (1.0f - a) + c.b * a, a + o.a * (1.0f - a)});
+    // Delegates to Image's integer compositor: same result, without a float round trip per channel.
+    img.blendPixel(x, y, c, cov);
 }
 
 inline float ipartf(float x) { return std::floor(x); }

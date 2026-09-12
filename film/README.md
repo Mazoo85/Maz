@@ -400,19 +400,12 @@ The native renderer draws frame *n* at time *n*/fps and writes it. It cannot dro
 a frame, it knows the duration before it starts, and it runs as fast as the
 machine allows:
 
-Rendering the whole of a real 2:39 film — 3,823 frames at 720p — takes **82
-seconds**, which is **1.9× realtime**. Measured over shorter stretches, where
-there are fewer cuts to set up:
-
-| | speed |
-|---|---|
-| 540p | 3.3× realtime |
-| 720p | 2.2× realtime |
-| 1080p | 1.1× realtime |
-
-The whole-film figure is the lower one and the one to believe: it is the whole
-job, cuts included. 1080p is only just faster than realtime, which is worth
-saying plainly rather than quoting the 540p number and leaving it there.
+Rendering the whole of a real 2:39 film — 3,823 frames at 720p, with the full
+sets in — takes **110 seconds**, which is **1.5× realtime**. That is the figure
+to believe: the whole job, every cut, every set. Some shots are much more
+expensive than others (a corridor, whose back wall is a receding perspective
+under a Dutch tilt, costs five times a lighthouse), so a short sample taken
+from an easy stretch flatters it.
 
 ### What is faithful, and what is plain
 
@@ -425,14 +418,24 @@ This matters, so it is stated plainly rather than left to be discovered.
 - the **camera** matches 200 cases to machine epsilon — every framing and move;
 - the **cutting** happens at exactly the same instants, shot for shot.
 
+- all **fifteen sets**, each in its three parallax planes — the far one, the one
+  the characters stand among, and one dark element close to the lens. Held to a
+  signature captured from the browser: 15 sets × 3 planes × 3 palettes, compared
+  as a grid of cell means, worst cell **1.37 levels out of 255** adrift. (Two
+  independent rasterizers never agree pixel for pixel on an anti-aliased curve;
+  they do agree on where things are, how big, and what colour.)
+- the **scatter** every set is furnished from — the stars, the bottles behind the
+  bar, the glints on water — **bit for bit**, so the same seed furnishes the same
+  room.
+- the **light each place owns**: a lighthouse beam that sweeps, headlights that
+  pass, a failing bulb, moving cloud.
+
 **Plain — deliberately not ported yet:**
 
-- the **sets**. `film-sets.js` is 25KB of per-set artwork across fifteen sets,
-  and porting it is a sub-project of its own. The native renderer draws a
-  palette-correct room instead: a wall, a window on the side the light is on, a
-  floor, a vignette — and a low horizon for the handful of sets that are actually
-  outdoors. It is right in colour, light and composition, and plain in detail.
-- the **weather**, for the same reason.
+- the **weather and air** — rain, dust, fog, embers. Screen-space, on top of the
+  picture.
+- the **film-stock grain and light leak**.
+- the **insert shot's object glyphs** — the radio, the phone, the letter.
 - **sound.** Still the browser's job entirely.
 
 **Not attempted:** a video file. The output is a lossless frame sequence (QOI),
@@ -448,3 +451,18 @@ Two things that were simply missing, and that anything else can now use:
   renderer's polygon fill is convex-only. Every single thing a film draws is a
   filled path, so that one gap was the whole job.
 - **`render::StrokeFont`** — text on a CPU image with no GPU and no font file.
+- **`film::Canvas`** — the canvas-2D subset the sets are written against, so 500
+  lines of drawing calls could be ported by hand without being rewritten.
+- an **integer compositor and span writer** on `render::Image`. Reading each
+  pixel out as a float colour, blending, and writing it back is four divisions
+  and four multiplies per channel; a full-frame fill is a million pixels, and
+  that round trip was most of the time a frame took.
+
+### One thing the port found
+
+The browser's own renderer **crashed on every insert shot** — `light` was
+computed inside the branch that paints the figures, which an insert skips, while
+the light-leak wash read it unconditionally 130 lines later. About one shot in
+forty is an insert, so most films had one, and the player stopped drawing the
+moment it came up. Nothing caught it because nothing had ever drawn an insert.
+Fixed, and there is now a check that walks *every* shot of a film.

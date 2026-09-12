@@ -31,6 +31,135 @@ public:
 
     bool inBounds(int x, int y) const { return x >= 0 && y >= 0 && x < m_w && y < m_h; }
 
+    // Composite one colour across a horizontal run with a PER-PIXEL coverage taken from `mask`
+    // (0..255, one byte per pixel, starting at x0). This is how a precomputed mask -- a vignette, a
+    // soft shadow, a light falloff -- gets applied without recomputing its shape every frame.
+    void blendSpanMasked(int x0, int x1, int y, const Color& c, const std::uint8_t* mask) {
+        if (y < 0 || y >= m_h || mask == nullptr) {
+            return;
+        }
+        int skip = 0;
+        if (x0 < 0) {
+            skip = -x0;
+            x0 = 0;
+        }
+        if (x1 > m_w) {
+            x1 = m_w;
+        }
+        if (x1 <= x0) {
+            return;
+        }
+        const int sr = static_cast<int>(to8(c.r));
+        const int sg = static_cast<int>(to8(c.g));
+        const int sb = static_cast<int>(to8(c.b));
+        const int ca = static_cast<int>(to8(c.a));
+        std::uint8_t* px = m_px.data() + idx(x0, y);
+        const std::uint8_t* m = mask + skip;
+        for (int x = x0; x < x1; ++x) {
+            const int a = ca * static_cast<int>(*m) / 255;
+            if (a > 0) {
+                const int inv = 255 - a;
+                px[0] = static_cast<std::uint8_t>((sr * a + static_cast<int>(px[0]) * inv + 127) / 255);
+                px[1] = static_cast<std::uint8_t>((sg * a + static_cast<int>(px[1]) * inv + 127) / 255);
+                px[2] = static_cast<std::uint8_t>((sb * a + static_cast<int>(px[2]) * inv + 127) / 255);
+                px[3] = static_cast<std::uint8_t>(a + (static_cast<int>(px[3]) * inv + 127) / 255);
+            }
+            px += 4;
+            ++m;
+        }
+    }
+
+    // Composite one constant colour across a horizontal run of pixels at one constant coverage.
+    //
+    // The point is to hoist everything that does not change: converting the source colour from
+    // 0..1 floats to bytes, and working out the alpha, are the same for every pixel in the run, and
+    // doing them per pixel is most of the cost of filling a large rectangle. A fully opaque run
+    // skips reading the destination at all and just writes.
+    //
+    // [x0, x1) is clipped to the image; a run outside it does nothing.
+    void blendSpan(int x0, int x1, int y, const Color& c, float coverage) {
+        if (y < 0 || y >= m_h || coverage <= 0.0f) {
+            return;
+        }
+        if (coverage > 1.0f) {
+            coverage = 1.0f;
+        }
+        if (x0 < 0) {
+            x0 = 0;
+        }
+        if (x1 > m_w) {
+            x1 = m_w;
+        }
+        if (x1 <= x0) {
+            return;
+        }
+        const int a = static_cast<int>(c.a * coverage * 255.0f + 0.5f);
+        if (a <= 0) {
+            return;
+        }
+        const int sr = static_cast<int>(to8(c.r));
+        const int sg = static_cast<int>(to8(c.g));
+        const int sb = static_cast<int>(to8(c.b));
+        std::uint8_t* px = m_px.data() + idx(x0, y);
+        if (a >= 255) {
+            for (int x = x0; x < x1; ++x) {
+                px[0] = static_cast<std::uint8_t>(sr);
+                px[1] = static_cast<std::uint8_t>(sg);
+                px[2] = static_cast<std::uint8_t>(sb);
+                px[3] = 255u;
+                px += 4;
+            }
+            return;
+        }
+        const int inv = 255 - a;
+        const int pr = sr * a, pg = sg * a, pb = sb * a;
+        for (int x = x0; x < x1; ++x) {
+            px[0] = static_cast<std::uint8_t>((pr + static_cast<int>(px[0]) * inv + 127) / 255);
+            px[1] = static_cast<std::uint8_t>((pg + static_cast<int>(px[1]) * inv + 127) / 255);
+            px[2] = static_cast<std::uint8_t>((pb + static_cast<int>(px[2]) * inv + 127) / 255);
+            px[3] = static_cast<std::uint8_t>(a + (static_cast<int>(px[3]) * inv + 127) / 255);
+            px += 4;
+        }
+    }
+
+    // Alpha-composite `c` over the pixel at (x,y) with `coverage` in [0,1], in 8-bit integer
+    // arithmetic. This is the inner loop of every filled shape, and the obvious spelling -- read a
+    // pixel out as a float Color, blend, write it back -- costs four divisions and four multiplies
+    // per channel per pixel to move between 8-bit storage and 0..1 floats. A full-frame fill is a
+    // million pixels, so on a CPU raster that round trip is most of the time spent. Out of bounds
+    // and zero coverage are no-ops.
+    void blendPixel(int x, int y, const Color& c, float coverage) {
+        if (coverage <= 0.0f || !inBounds(x, y)) {
+            return;
+        }
+        if (coverage > 1.0f) {
+            coverage = 1.0f;
+        }
+        const int a = static_cast<int>(c.a * coverage * 255.0f + 0.5f);
+        if (a <= 0) {
+            return;
+        }
+        const std::size_t i = idx(x, y);
+        const int sr = static_cast<int>(to8(c.r));
+        const int sg = static_cast<int>(to8(c.g));
+        const int sb = static_cast<int>(to8(c.b));
+        if (a >= 255) {
+            m_px[i] = static_cast<std::uint8_t>(sr);
+            m_px[i + 1] = static_cast<std::uint8_t>(sg);
+            m_px[i + 2] = static_cast<std::uint8_t>(sb);
+            m_px[i + 3] = 255u;
+            return;
+        }
+        const int inv = 255 - a;
+        m_px[i] = static_cast<std::uint8_t>((sr * a + static_cast<int>(m_px[i]) * inv + 127) / 255);
+        m_px[i + 1] =
+            static_cast<std::uint8_t>((sg * a + static_cast<int>(m_px[i + 1]) * inv + 127) / 255);
+        m_px[i + 2] =
+            static_cast<std::uint8_t>((sb * a + static_cast<int>(m_px[i + 2]) * inv + 127) / 255);
+        m_px[i + 3] = static_cast<std::uint8_t>(
+            a + (static_cast<int>(m_px[i + 3]) * inv + 127) / 255);
+    }
+
     // Pixel at (x,y) as a Color; out-of-bounds returns transparent black (a safe default rather than UB).
     Color getPixel(int x, int y) const {
         if (!inBounds(x, y)) {
