@@ -229,15 +229,54 @@ def ledger(root: str | None = _ROOT_OPT, limit: int = typer.Option(10, help="How
 
 @app.command()
 def followup(root: str | None = _ROOT_OPT) -> None:
-    """Backfill merged / human_edits for PRs the Forge opened earlier."""
-    from .followup import backfill
+    """Backfill merged / human_edits for PRs the Forge opened earlier.
+
+    Three different things can leave nothing updated, and they are reported
+    separately on purpose. `merged`, backfilled here, is the only evidence in
+    the whole ledger that a night's work was actually good — green checks only
+    prove nothing broke. A run that silently updates nothing because it cannot
+    reach GitHub looks exactly like one that had nothing to do, and the cost of
+    confusing them is a ledger that quietly never learns anything.
+    """
+    from .followup import backfill, pending
+    from .github import repo_slug
 
     r = _root(root)
-    count = backfill(r, load_config(r))
+    cfg = load_config(r)
+
+    slug = repo_slug(r)
+    if not slug:
+        console.print(
+            "[yellow]No GitHub remote found[/yellow] — cannot ask whether anything merged. "
+            "Nothing was changed."
+        )
+        raise typer.Exit(code=1)
+
+    waiting = len(pending(ledger_mod.read_all(r, cfg)))
+    count = backfill(r, cfg, slug=slug)
+
     if count:
         console.print(f"[green]Updated[/green] {count} ledger entr{'y' if count == 1 else 'ies'}.")
-    else:
-        console.print("[dim]Nothing to backfill.[/dim]")
+        remaining = waiting - count
+        if remaining > 0:
+            console.print(
+                f"  [dim]{remaining} still open or unreachable; they will be asked about again.[/dim]"
+            )
+        return
+
+    if waiting:
+        # Every pending entry came back unresolved. An open pull request is the
+        # ordinary reason and is not a problem; an unreachable GitHub is, and
+        # from here the two are indistinguishable — so say both rather than
+        # picking the reassuring one.
+        console.print(
+            f"[yellow]{waiting} entr{'y' if waiting == 1 else 'ies'} still unresolved.[/yellow] "
+            "Either those pull requests are still open, or GitHub could not be reached "
+            "(a missing GITHUB_TOKEN does this). Nothing was changed."
+        )
+        return
+
+    console.print("[dim]Nothing to backfill — no entry is waiting on an answer.[/dim]")
 
 
 if __name__ == "__main__":
