@@ -27,6 +27,20 @@
       docs: 'zomboid/README.md'
     },
     {
+      id: 'cells',
+      name: 'NEON CELLS',
+      kind: 'play',
+      path: 'cells/',
+      tag: 'roguelite action platformer',
+      accent: '#2fe6c8',
+      blurb:
+        'A Dead Cells-style run: procedurally built biomes, permadeath, cells and gold, ' +
+        'three scroll colours that decide what your run becomes, weapons with rolled ' +
+        'affixes, skills, mutations, elites, two bosses, and blueprints that stay unlocked.',
+      badges: ['Phone + desktop', 'Touch + keyboard', 'Canvas 2D'],
+      docs: 'cells/README.md'
+    },
+    {
       id: 'shooter',
       name: 'DEAD SECTOR',
       kind: 'play',

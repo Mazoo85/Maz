@@ -22,6 +22,7 @@ is a dead end.
 | | Project | What it is | Open it |
 |---|---|---|---|
 | 🎮 | **ZOMBOID: ANCHORAGE** | Open-world zombie survival across a tile-built replica of downtown Anchorage, drawn as a 1990s SEGA arcade title. Five decaying needs, day/night hordes, looting, firearms. | [play](zomboid/) · [docs](zomboid/README.md) |
+| 🎮 | **NEON CELLS** | Roguelite action-platformer in the shape of Dead Cells: procedurally built biomes proved reachable before you enter them, permadeath, three scroll colours, weapons with rolled affixes, skills, mutations, two bosses, and blueprints that stay unlocked between runs. | [play](cells/) · [docs](cells/README.md) |
 | 🎮 | **DEAD SECTOR** | Phone-first, top-down twin-stick zombie shooter in one self-contained HTML file. Dual touch joysticks, escalating waves. | [play](shooter/) · [docs](shooter/README.md) |
 | 🎵 | **SONG FORGE** | Generative AI music maker: writes and plays complete songs — chords, bass, drums, arpeggio, melody — across 8 genres, with WAV and MIDI export. Offline, no API key. | [open](music/) · [docs](music/README.md) |
 | 🎬 | **SCRIPT FORGE** | Type what your film is about and get the film: a formatted screenplay, a shot list, and an animated short — sets, camera, voices, a real SONG FORGE score — that plays in the page and downloads as an MP4 or WebM. | [open](film/) · [docs](film/README.md) |
@@ -42,7 +43,7 @@ both the hub and the in-app nav. Add a project there and it appears everywhere.
 index.html              # the MAZ ARCADE hub — links to everything
 shared/projects.js      # THE list of projects (hub + nav both read this)
 shared/maz-nav.js       # the in-app nav pill, one <script> line per app
-zomboid/  shooter/  music/  madlibs/  film/   # the browser projects
+zomboid/  cells/  shooter/  music/  madlibs/  film/   # the browser projects
 engine/   apps/  tests/  docs/           # Maz Engine (C++)
 scraper/  crew/  forge/                  # Python tools
 scripts/check-links.mjs # proves every link in the repo resolves
@@ -64,21 +65,23 @@ Adding a project is three steps: drop its folder in, add an entry to
 
 ```
 node scripts/check-links.mjs     # every link + the project manifest (no deps, instant)
-node scripts/smoke-site.cjs      # boots the hub and all five apps in Chromium
+node scripts/smoke-site.cjs      # boots the hub and every app in Chromium
 node film/tests/film-logic.test.js   # SCRIPT FORGE's reader, writer, edit and exports
+node cells/tests/cells-logic.test.js    # NEON CELLS' level reachability, combat maths and save
+node cells/tests/cells-browser.test.js  # NEON CELLS itself: a real run in Chromium
 ```
 
-The second one needs Playwright once: `npm --prefix music/tests install`.
+The browser ones need Playwright once: `npm --prefix music/tests install`.
 
-Both run automatically in **[Site CI](.github/workflows/site-ci.yml)** on every
-push. **[All Checks](.github/workflows/all-checks.yml)** is the one button in the
+These all run automatically in **[Site CI](.github/workflows/site-ci.yml)** on
+every push. **[All Checks](.github/workflows/all-checks.yml)** is the one button in the
 Actions tab that runs every suite in the repo — engine, site, music, scraper and
 crew — together.
 
 | Workflow | Covers |
 |---|---|
 | [`ci.yml`](.github/workflows/ci.yml) | Maz Engine: builds under `-Werror`, headless ctest |
-| [`site-ci.yml`](.github/workflows/site-ci.yml) | Links, the project manifest, SCRIPT FORGE logic, hub + every app in Chromium |
+| [`site-ci.yml`](.github/workflows/site-ci.yml) | Links, the project manifest, SCRIPT FORGE logic, NEON CELLS logic + a real run, hub + every app in Chromium |
 | [`music-ci.yml`](.github/workflows/music-ci.yml) | SONG FORGE composition logic + real-audio browser tests |
 | [`scraper-ci.yml`](.github/workflows/scraper-ci.yml) | maz-scrape, offline (mocked transport) |
 | [`crew-ci.yml`](.github/workflows/crew-ci.yml) | Maz Crew, offline (fake client) |
