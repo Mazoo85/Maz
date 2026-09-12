@@ -37,6 +37,8 @@ jobs:
         run: node scripts/check-exchange.mjs
       - name: check-exchange's own tests
         run: node scripts/tests/check-exchange.test.mjs
+      - name: check-links's own tests
+        run: node scripts/tests/check-links.test.mjs
       # SCRIPT FORGE's reader/writer/exporters are plain modules, so they can be
       # checked here without a browser — seconds, no dependencies.
       - name: SCRIPT FORGE logic tests

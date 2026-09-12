@@ -25,12 +25,12 @@ size is in the wiring between the parts, not in any one part.
 
 | Health signal | Score | |
 |---|---:|---|
-| Completeness checks passing | 81% | ████████░░ 2504 of 3110 |
+| Completeness checks passing | 81% | ████████░░ 2505 of 3110 |
 | Apps that run headless in CI | 76% | ████████░░ |
 | Apps with a golden screenshot | 97% | ██████████ |
 | Engine modules a test exercises | 99% | ██████████ |
 | Engine modules an app demonstrates | 20% | ██░░░░░░░░ |
-| Open tasks in the queue below | 16 | |
+| Open tasks in the queue below | 15 | |
 
 ## 1. Everything you have built
 
@@ -305,7 +305,7 @@ engine capability, a handful of them complete games.
 | Artifact | What it does | Gaps |
 |---|---|---|
 | `scripts/check-exchange.mjs` | check-exchange — proves the declared dependencies between projects are true. | — |
-| `scripts/check-links.mjs` | check-links — proves the repo is actually wired together. | no tests |
+| `scripts/check-links.mjs` | check-links — proves the repo is actually wired together. | — |
 | `scripts/smoke-site.cjs` | smoke-site — drives the whole site in a real browser. | no tests |
 | `tools/build_editor.bat` | build_editor.bat - one command to turn the Maz Engine source code into the Editor program. | — |
 | `tools/build_editor.sh` | build_editor.sh — one command to turn the Maz Engine source code into the Editor program. | — |
@@ -345,8 +345,8 @@ not by judging the work. Every failing check below is a specific, finishable job
 | Kind | Check | Passing |
 |---|---|---:|
 | engine-module | shown by a sample app | 140/692 (20%) |
-| gate | the checker itself is tested | 1/3 (33%) |
 | web-app | declared in shared/exchange.json | 3/6 (50%) |
+| gate | the checker itself is tested | 2/3 (67%) |
 | app | runs headless for CI | 123/161 (76%) |
 | app | has a golden screenshot | 156/161 (97%) |
 | engine-module | covered by a test | 686/692 (99%) |
@@ -509,10 +509,8 @@ Every gap above, ranked. **P1** is something broken or unprotected, **P2** is a 
 gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list out of
 `docs/inventory.json`, so the nightly Forge can pick work straight off it.
 
-### P1 — broken or unprotected (7)
+### P1 — broken or unprotected (6)
 
-- **check-links.mjs: the checker itself is tested**
-  <br>Add scripts/tests/check-links.test.mjs — a gate with no tests of its own can pass for the wrong reason.
 - **smoke-site.cjs: the checker itself is tested**
   <br>Add scripts/tests/smoke-site.test.mjs — a gate with no tests of its own can pass for the wrong reason.
 - **38 apps cannot run without a display**

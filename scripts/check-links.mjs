@@ -16,7 +16,11 @@ import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, dirname, resolve, relative, extname, posix } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+// LINKS_ROOT points the checker at another tree, which is how its own tests run
+// it against a throwaway repo. Same override check-exchange.mjs takes.
+const ROOT = process.env.LINKS_ROOT
+  ? resolve(process.env.LINKS_ROOT)
+  : resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // This list is intentionally NOT identical to check-exchange.mjs's SKIP_DIRS,
 // even though both walk the repo for HTML — the two checkers skip `fixtures` for
 // different reasons, and only one of those reasons applies here. This checker
@@ -108,21 +112,64 @@ function resolves(fromFile, target) {
   return true;
 }
 
+/* -------------------------------------------------------- the manifest */
+/* Loaded before anything else because it is the list of what exists: which
+ * directories are scanned below comes from it, so adding a project to the
+ * manifest is the only thing anyone has to remember. */
+const manifestPath = join(ROOT, 'shared', 'projects.js');
+let projects = [];
+let manifestMissing = !existsSync(manifestPath);
+if (!manifestMissing) {
+  const mod = await import(pathToFileURL(manifestPath).href + `?t=${Date.now()}`);
+  projects = mod.PROJECTS ?? mod.default?.PROJECTS ?? globalThis.MAZ_PROJECTS ?? [];
+}
+
 /* ------------------------------------------------------- 1. every link */
 /* This checks the MAZ ARCADE web projects — the hub, the browser apps and
  * their docs. The engine's own C++ docs tree is not ours to police: it is far
  * larger, it has its own CI, and its API reference legitimately contains
  * things like [links](url) as prose describing Markdown syntax, which is not a
- * link at all. So scan the arcade roots rather than the whole repository. */
-const ARCADE_ROOTS = ['zomboid', 'shooter', 'music', 'madlibs', 'film', 'scraper', 'crew', 'forge', 'shared', 'docs/superpowers'];
-
-const scanned = ARCADE_ROOTS
+ * link at all. So scan the arcade roots rather than the whole repository.
+ *
+ * The roots come from the manifest rather than a list written out here. They
+ * used to be written out here, and CODA PICS was added to the arcade without
+ * being added to the list, so for as long as it existed none of its links were
+ * checked by the gate whose whole job is checking links. Derived this way, a
+ * project is covered the moment it is real. */
+// Not every project's manifest path is a directory. A browser app points at
+// its own folder, which is walked; a code project points at the single document
+// that introduces it (`scraper/README.md`, `docs/ROADMAP.md`), and that document
+// alone is what gets checked. Walking its folder instead would drag in all of
+// docs/ — including the generated API reference, which is full of `[links](url)`
+// written as prose about Markdown syntax and is not ours to police.
+//
+// `forge` is not in the manifest at all — it is machinery rather than something
+// to open — but its docs link out like any other, so it stays named here.
+const FIXED_ROOTS = ['shared', 'docs/superpowers', 'forge'];
+const rootDirs = new Set(FIXED_ROOTS);
+const rootFiles = new Set(['index.html', 'README.md']);
+for (const p of projects) {
+  const rel = String(p.path || '').replace(/\/$/, '');
+  if (!rel) continue;
+  const abs = join(ROOT, rel);
+  if (!existsSync(abs)) continue;
+  (statSync(abs).isDirectory() ? rootDirs : rootFiles).add(rel);
+  // A project's `docs` entry is its front door even when `path` is the app.
+  if (p.docs) rootFiles.add(String(p.docs));
+}
+const scanned = [...rootDirs]
   .map((r) => join(ROOT, r))
-  .filter((d) => existsSync(d))
+  .filter((d) => existsSync(d) && statSync(d).isDirectory())
   .flatMap((d) => walk(d));
-scanned.push(join(ROOT, 'index.html'), join(ROOT, 'README.md'));
+for (const f of rootFiles) {
+  const abs = join(ROOT, f);
+  if (existsSync(abs) && !statSync(abs).isDirectory()) scanned.push(abs);
+}
 
-const files = scanned.filter((f) => ['.html', '.htm', '.md'].includes(extname(f).toLowerCase()));
+// A file can be reached twice — README.md is both a named root and inside a
+// walked directory — and counting its links twice would misreport the total.
+const files = [...new Set(scanned)]
+  .filter((f) => ['.html', '.htm', '.md'].includes(extname(f).toLowerCase()));
 
 let checked = 0;
 for (const file of files) {
@@ -135,12 +182,9 @@ for (const file of files) {
 notes.push(`${checked} local links across ${files.length} HTML/Markdown files`);
 
 /* --------------------------------------------- 2. the project manifest */
-const manifestPath = join(ROOT, 'shared', 'projects.js');
-if (!existsSync(manifestPath)) {
+if (manifestMissing) {
   errors.push('shared/projects.js is missing — the hub and the nav both read it');
 } else {
-  const { PROJECTS } = await import(pathToFileURL(manifestPath).href);
-  const projects = PROJECTS ?? globalThis.MAZ_PROJECTS ?? [];
   if (!projects.length) errors.push('shared/projects.js exported no projects');
 
   const required = ['id', 'name', 'kind', 'path', 'tag', 'accent', 'blurb'];

@@ -18,23 +18,11 @@
     "appsGolden": 97,
     "modulesTested": 99,
     "modulesDemoed": 20,
-    "checksPassed": 2504,
+    "checksPassed": 2505,
     "checksTotal": 3110,
-    "openTasks": 16
+    "openTasks": 15
   },
   "queue": [
-    {
-      "id": "gate:check-links#tests",
-      "priority": 1,
-      "kind": "gate",
-      "check": "tests",
-      "title": "check-links.mjs: the checker itself is tested",
-      "detail": "Add scripts/tests/check-links.test.mjs — a gate with no tests of its own can pass for the wrong reason.",
-      "paths": [
-        "scripts/check-links.mjs"
-      ],
-      "source": "inventory:gate:check-links:tests"
-    },
     {
       "id": "gate:smoke-site#tests",
       "priority": 1,
