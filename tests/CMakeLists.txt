@@ -1113,6 +1113,13 @@ target_link_libraries(maz_pathfill_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME path_fill COMMAND maz_pathfill_tests)
 set_tests_properties(path_fill PROPERTIES TIMEOUT 30)
 
+# The film reel reader is checked against a real 40-shot film exported from the browser, passed in by
+# path so the test does not care what directory ctest runs it from.
+add_executable(maz_film_reel_tests film/reel.cpp)
+target_link_libraries(maz_film_reel_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME film_reel COMMAND maz_film_reel_tests ${CMAKE_CURRENT_SOURCE_DIR}/film/reel-fixture.json)
+set_tests_properties(film_reel PROPERTIES TIMEOUT 30)
+
 add_executable(maz_recoil_tests game/recoil.cpp)
 target_link_libraries(maz_recoil_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME recoil COMMAND maz_recoil_tests)
