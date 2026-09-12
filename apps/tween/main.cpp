@@ -108,7 +108,6 @@ int main(int argc, char** argv) {
         font.load(*renderer, fontPath.c_str(), 34.0f);
     }
 
-    float t = 0.0f;
     while (!window.shouldClose()) {
         window.pumpEvents(input);
         if (input.keyPressed(SDL_SCANCODE_ESCAPE)) {
@@ -123,7 +122,6 @@ int main(int argc, char** argv) {
         clock.beginFrame();
         while (clock.consumeFixedStep()) {
             const float dt = static_cast<float>(clock.fixedDelta());
-            t += dt;
             drive.update(dt);
             fade.update(dt);
         }
