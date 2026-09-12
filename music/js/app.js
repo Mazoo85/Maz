@@ -289,6 +289,12 @@
     el('grooveSelect').value = s.groove || '';
     el('glueAmt').value = String(Math.round((s.glue || 0) * 100));
     el('modKind').value = s.modFx || 'flanger';
+    el('revKind').value = s.revKind || 'room';
+    el('revSize').value = String(Math.round((s.revSize || 2.6) * 100));
+    el('revSizeVal').textContent = (s.revSize || 2.6).toFixed(1) + 's';
+    el('delDiv').value = String(s.delDiv === undefined ? 0.375 : s.delDiv);
+    el('delFb').value = String(Math.round((s.delFb === undefined ? 0.34 : s.delFb) * 100));
+    el('delFbVal').textContent = Math.round((s.delFb === undefined ? 0.34 : s.delFb) * 100) + '%';
     state.seedEdited = false;
     buildChordStrip();
     buildArrange();
@@ -978,6 +984,39 @@
       player.stop();
       if (was) player.play(at);
       status('Swirl is now a ' + this.options[this.selectedIndex].text.toLowerCase() + '.');
+    });
+
+    /* The reverb's shape and the delay's timing are built into the graph, so
+       these rebuild it — quickly, and from the same beat you were on. */
+    function rebuildAudio() {
+      const at = player.currentBeat();
+      const was = player.playing;
+      player.stop();
+      if (was) player.play(at);
+    }
+
+    [['revKind', 'revKind', null], ['delDiv', 'delDiv', parseFloat]].forEach(function (spec) {
+      el(spec[0]).addEventListener('change', function () {
+        if (!state.song) return;
+        state.song[spec[1]] = spec[2] ? spec[2](this.value) : this.value;
+        rebuildAudio();
+        status(this.options[this.selectedIndex].text + ' — ' +
+          (spec[0] === 'revKind' ? 'reverb.' : 'echo timing.'));
+      });
+    });
+
+    [['revSize', 'revSize', 100, 's'], ['delFb', 'delFb', 100, '%']].forEach(function (spec) {
+      const input = el(spec[0]);
+      input.addEventListener('input', function () {
+        const v = parseInt(this.value, 10) / spec[2];
+        el(spec[0] + 'Val').textContent = spec[3] === 's' ? v.toFixed(1) + 's'
+                                                          : Math.round(v * 100) + '%';
+      });
+      input.addEventListener('change', function () {
+        if (!state.song) return;
+        state.song[spec[1]] = parseInt(this.value, 10) / spec[2];
+        rebuildAudio();
+      });
     });
 
     const glue = el('glueAmt');

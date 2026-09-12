@@ -615,6 +615,102 @@ function launchOptions() {
     'crushing adds grit that was not there (brightness ' +
     fx.crushOff.bright.toFixed(4) + ' → ' + fx.crushOn.bright.toFixed(4) + ')');
 
+  console.log('\n— reverb shapes and echo timing —');
+  /* The four shapes are told apart by what the tail *does over time*, not by
+     how loud it is. A gated reverb is a long tail with the end cut off, which
+     sounds nothing like a short tail even though one loudness reading cannot
+     separate them — so this measures the energy just after the gate point
+     against the energy just before it. That single ratio distinguishes all
+     three: a room decays, a gate stops dead, a reverse swells. */
+  const verbs = await page.evaluate(async function () {
+    const out = {};
+    for (const kind of ['room', 'gated', 'reverse']) {
+      const ctx = new OfflineAudioContext(2, 44100 * 4, 44100);
+      const conv = ctx.createConvolver();
+      conv.buffer = window.Synth.reverbImpulse(ctx, 2.6, 2.4, kind);
+      const dry = ctx.createGain(); dry.gain.value = 0.001;
+      const wet = ctx.createGain(); wet.gain.value = 1;
+      dry.connect(ctx.destination);
+      wet.connect(conv).connect(ctx.destination);
+      window.Synth.playNote(ctx, { dry: dry, rev: wet, del: ctx.createGain() },
+        0.05, 0.3, 330, window.Genres.PRESETS.pluck, 0.9, { brightness: 1 });
+      const buf = await ctx.startRendering();
+      const ch = buf.getChannelData(0);
+      const band = function (a, b) {
+        let s2 = 0;
+        const A = Math.floor(a * 44100), B = Math.floor(b * 44100);
+        for (let i = A; i < B; i++) s2 += ch[i] * ch[i];
+        return Math.sqrt(s2 / Math.max(1, B - A));
+      };
+      let peak = 0, bad = 0;
+      for (let i = 0; i < ch.length; i++) {
+        if (!isFinite(ch[i])) { bad++; continue; }
+        if (Math.abs(ch[i]) > peak) peak = Math.abs(ch[i]);
+      }
+      // The gate closes at 28% of the impulse, so 0.78s after a note at 0.05s.
+      const pre = band(0.5, 0.75), post = band(0.95, 1.5);
+      out[kind] = { peak: peak, bad: bad, pre: pre, post: post,
+                    ratio: post / Math.max(1e-9, pre) };
+    }
+    return out;
+  });
+
+  ['room', 'gated', 'reverse'].forEach(function (k) {
+    check(verbs[k].bad === 0 && verbs[k].peak > 1e-4,
+      k + ' reverb: renders a real tail (peak ' + verbs[k].peak.toFixed(3) + ')');
+  });
+  check(verbs.room.ratio > 0.25 && verbs.room.ratio < 1,
+    'a room tail decays gradually (' + verbs.room.ratio.toFixed(2) + ' of its energy carries on)');
+  check(verbs.gated.ratio < verbs.room.ratio * 0.4,
+    'a gated tail stops dead where a room tail is still ringing (' +
+    verbs.gated.ratio.toFixed(2) + ' vs ' + verbs.room.ratio.toFixed(2) + ')');
+  check(verbs.reverse.ratio > 1.5,
+    'a reverse tail swells instead of fading (' + verbs.reverse.ratio.toFixed(2) + ')');
+
+  /* Shimmer is not an impulse shape but an arrangement — a second, brighter
+     convolution an octave up — so it is checked through the engine. */
+  const shimmer = await page.evaluate(async function () {
+    async function bright(kind) {
+      const s = window.Composer.compose({ seed: 'SHIM-1', genre: 'ambient',
+                                          meter: '4/4', length: 'short' });
+      s.presetOverride = { pad: 'marimba' };
+      s.revKind = kind;
+      s.glue = 0;
+      Object.keys(s.tracks).forEach(function (k) {
+        s.tracks[k] = s.tracks[k].filter(function (e) { return e.t < 16; });
+      });
+      s.totalBeats = 20;
+      const m = {};
+      window.Engine.TRACKS.forEach(function (t) {
+        m[t] = { volume: 1, muted: t !== 'pad', solo: false, rev: 2, del: 0, cho: 0,
+                 mod: 0, autopan: 0, eqLow: 0, eqMid: 0, eqHigh: 0, crush: 0, comp: 0, punch: 0 };
+      });
+      const buf = await window.Engine.renderOffline(s, m);
+      const ch = buf.getChannelData(0);
+      let s2 = 0, hf = 0;
+      for (let i = 1; i < ch.length; i++) { s2 += ch[i] * ch[i]; hf += Math.abs(ch[i] - ch[i - 1]); }
+      const rms = Math.sqrt(s2 / ch.length);
+      return { rms: rms, bright: rms > 0 ? (hf / ch.length) / rms : 0 };
+      /* Measured across the render rather than in a window after the last note:
+         the shimmer is fed from the send input, so its extra content sits under
+         the notes and their tails, not in a quiet patch at the end. */
+    }
+    return { room: await bright('room'), shimmer: await bright('shimmer') };
+  });
+  check(shimmer.room.rms > 1e-4, 'there is a reverb to shimmer (rms ' +
+    shimmer.room.rms.toFixed(4) + ')');
+  /* A deliberately modest margin, and an honest one. What is being measured is
+     the whole mix, in which the reverb return is one contribution among many —
+     the shimmer is a sheen over a tail, not a new instrument. Measured at +2%
+     level and +3% brightness, which is small but consistent and repeatable;
+     claiming more than that here would be claiming more than was measured. */
+  check(shimmer.shimmer.bright > shimmer.room.bright * 1.02,
+    'shimmer puts a brighter voice over the tail (' + shimmer.room.bright.toFixed(5) +
+    ' → ' + shimmer.shimmer.bright.toFixed(5) + ')');
+  check(shimmer.shimmer.rms > shimmer.room.rms * 1.01,
+    'and adds to it rather than replacing it (' + shimmer.room.rms.toFixed(5) +
+    ' → ' + shimmer.shimmer.rms.toFixed(5) + ')');
+
   console.log('\n— swirl and sweep —');
   /* Three modulation effects that are the same idea at different scales, plus
      auto-pan. The flanger has a feedback loop, so it gets checked for runaway

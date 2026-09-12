@@ -1678,6 +1678,10 @@
       groove: song.groove || '',
       glue: song.glue || 0,
       modFx: song.modFx || 'flanger',
+      revKind: song.revKind || 'room',
+      revSize: song.revSize,
+      delDiv: song.delDiv,
+      delFb: song.delFb,
       humanise: song.humanise === undefined ? 1 : song.humanise,
       keyChange: song.keyChange || null,
       barsPerChord: song.barsPerChord || 0,
@@ -1730,6 +1734,10 @@
     song.groove = p.groove && GROOVES[p.groove] ? p.groove : '';
     song.glue = p.glue || 0;
     song.modFx = p.modFx || 'flanger';
+    song.revKind = p.revKind || 'room';
+    if (p.revSize !== undefined) song.revSize = p.revSize;
+    if (p.delDiv !== undefined) song.delDiv = p.delDiv;
+    if (p.delFb !== undefined) song.delFb = p.delFb;
     song.humanise = p.humanise === undefined ? 1 : p.humanise;
     song.keyChange = p.keyChange || null;
     song.barsPerChord = p.barsPerChord || 0;
@@ -2117,6 +2125,10 @@
     song.pingpong = !!genre.fx.pingpong;
     song.glue = genre.fx.glue === undefined ? 0 : genre.fx.glue;
     song.modFx = genre.fx.modFx || 'flanger';
+    song.revKind = 'room';
+    song.revSize = genreId === 'ambient' ? 4.2 : 2.6;
+    song.delDiv = genre.fx.delayTime;
+    song.delFb = 0.34;
     ['bass', 'chords', 'arp', 'lead', 'pad', 'counter'].forEach(function (part) {
       const cfg = genre[part];
       if (cfg && cfg.alts && cfg.alts.length && rng.chance(0.55)) {

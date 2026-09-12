@@ -96,6 +96,12 @@ python3 -m http.server         # or serve the folder: http://localhost:8000/musi
   so the build ends exactly where your chorus actually starts.
 - **Ping-pong echo** — one toggle throws the delays out to the left and right
   instead of leaving them in the middle.
+- **Four reverbs and an adjustable room** — room, **gated** (the eighties
+  snare: a long tail with the end chopped off, which sounds nothing like a
+  short one), **reverse** (it swells into the note instead of trailing away)
+  and **shimmer** (an octave above the tail). Plus a size control, echo timing
+  in musical divisions down to a dotted sixteenth, and how many times it
+  repeats.
 - **Export** — the finished track as a **.wav**, the notes as a **.mid**, or
   **stems**: every part as its own audio file, to mix by hand in GarageBand,
   Ableton, FL Studio, Logic or MuseScore.

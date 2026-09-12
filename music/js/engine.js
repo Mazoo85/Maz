@@ -266,16 +266,64 @@
       autoGain.connect(analyser);
     }
 
-    // Reverb bus
+    /*
+     * Reverb bus, in four characters.
+     *
+     * `size` sets how long the room is, adjustable rather than fixed per genre.
+     * The other three are shapes the tail is put through:
+     *
+     *   room     the plain decaying tail
+     *   gated    cut off abruptly part way through — the eighties snare, which
+     *            is not a short reverb but a long one with the end chopped off,
+     *            and sounds nothing like the former
+     *   reverse  the tail played backwards, so it swells into the note instead
+     *            of trailing away from it
+     *   shimmer  a second copy an octave up, fed by playing the same impulse at
+     *            double rate, which is how a pitch-shifted tail is built when
+     *            there is no pitch shifter to hand
+     */
+    const revSize = song.revSize === undefined
+      ? (song.genreId === 'ambient' ? 4.2 : 2.6)
+      : Math.max(0.3, Math.min(6, song.revSize));
+    const revKind = song.revKind || 'room';
+
     const convolver = ctx.createConvolver();
-    convolver.buffer = Synth.reverbImpulse(ctx, song.genreId === 'ambient' ? 4.2 : 2.6, 2.4);
+    convolver.buffer = Synth.reverbImpulse(ctx, revSize, 2.4, revKind);
     const revReturn = ctx.createGain();
     revReturn.gain.value = Math.min(1, fx.reverb * moodRev);
     const revPre = ctx.createGain();
     const revDamp = ctx.createBiquadFilter();
     revDamp.type = 'lowpass';
-    revDamp.frequency.value = 5200;
+    revDamp.frequency.value = revKind === 'shimmer' ? 7200 : 5200;
     revPre.connect(revDamp).connect(convolver).connect(revReturn).connect(master);
+
+    if (revKind === 'shimmer') {
+      /* A real octave above the tail. Squaring a signal doubles its frequency
+         and adds a steady offset, so the tail is squared, the offset is removed
+         by a highpass, and the result is convolved again to smear it back into
+         a tail of its own. Squaring also makes quiet signals far quieter, hence
+         the makeup gain. */
+      /* Squared *before* the reverb, not after it. Squaring is a multiplication,
+         so it scales with the square of the input: applied to a tail already
+         down at 0.005 it produces 0.000025, which is inaudible whatever makeup
+         follows — measured as literally no change to the output. Applied to the
+         send at note level it gives a real signal, which is then given a tail
+         of its own. */
+      const shaper = ctx.createWaveShaper();
+      shaper.curve = Synth.octaveCurve(ctx);
+      shaper.oversample = '2x';
+      const upTone = ctx.createBiquadFilter();
+      upTone.type = 'highpass';
+      upTone.frequency.value = 700;            // takes the offset out
+      const upMakeup = ctx.createGain();
+      upMakeup.gain.value = 9;
+      const up = ctx.createConvolver();
+      up.buffer = Synth.reverbImpulse(ctx, Math.max(0.5, revSize * 0.7), 2.2, 'room');
+      const upGain = ctx.createGain();
+      upGain.gain.value = 0.9;
+      revDamp.connect(shaper).connect(upTone).connect(upMakeup)
+        .connect(up).connect(upGain).connect(revReturn);
+    }
 
     /*
      * Delay bus with damped feedback, in two flavours that share one return.
@@ -285,7 +333,12 @@
      * air ring out naturally instead of being cut off.
      */
     const spb = 60 / song.bpm;
-    const delTime = Math.min(1.9, fx.delayTime * spb * 2);
+    /* Delay time as a musical division rather than a fixed genre setting: a
+       dotted eighth is the sound of half the records ever made, and it was not
+       reachable. */
+    const delDiv = song.delDiv === undefined ? fx.delayTime : song.delDiv;
+    const delTime = Math.min(1.9, delDiv * spb * 2);
+    const delFb = song.delFb === undefined ? 0.34 : Math.max(0, Math.min(0.85, song.delFb));
     const delReturn = ctx.createGain();
     delReturn.gain.value = Math.min(1, fx.delay);
     delReturn.connect(master);
@@ -296,7 +349,7 @@
     const delay = ctx.createDelay(2.0);
     delay.delayTime.value = delTime;
     const fb = ctx.createGain();
-    fb.gain.value = 0.34;
+    fb.gain.value = delFb;
     const damp = ctx.createBiquadFilter();
     damp.type = 'lowpass';
     damp.frequency.value = 2800;
@@ -314,7 +367,8 @@
     dL.delayTime.value = delTime / 2;
     dR.delayTime.value = delTime / 2;
     const pfb = ctx.createGain();
-    pfb.gain.value = 0.38;
+    // Capped short of runaway: each ping-pong round trip is two delay lines.
+    pfb.gain.value = Math.min(0.82, delFb * 1.12);
     const pdamp = ctx.createBiquadFilter();
     pdamp.type = 'lowpass';
     pdamp.frequency.value = 2800;

@@ -327,6 +327,38 @@
       </div>
     </div>
 
+    <div class="auto-block">
+      <div class="fx-grid">
+        <label class="fx-field" for="revKind"><span>Reverb</span>
+          <select id="revKind">
+            <option value="room">Room</option>
+            <option value="gated">Gated</option>
+            <option value="reverse">Reverse</option>
+            <option value="shimmer">Shimmer</option>
+          </select>
+        </label>
+        <label class="fx-field" for="revSize"><span>Size</span>
+          <input type="range" id="revSize" min="30" max="600" step="10" value="260" aria-label="Reverb size" />
+          <output class="fx-value" id="revSizeVal">2.6s</output>
+        </label>
+        <label class="fx-field" for="delDiv"><span>Echo</span>
+          <select id="delDiv">
+            <option value="0.125">1/16</option>
+            <option value="0.1875">Dotted 1/16</option>
+            <option value="0.25">1/8</option>
+            <option value="0.375">Dotted 1/8</option>
+            <option value="0.5">1/4</option>
+            <option value="0.75">Dotted 1/4</option>
+            <option value="1">1/2</option>
+          </select>
+        </label>
+        <label class="fx-field" for="delFb"><span>Repeats</span>
+          <input type="range" id="delFb" min="0" max="85" step="5" value="34" aria-label="Echo feedback" />
+          <output class="fx-value" id="delFbVal">34%</output>
+        </label>
+      </div>
+    </div>
+
     <p class="panel-hint">
       Re-roll rewrites just that one part and keeps everything else. Lock a part
       (🔓) to protect it — locked parts survive a re-roll of everything.
