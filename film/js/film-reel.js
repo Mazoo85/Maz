@@ -60,12 +60,33 @@
   /* How wound-up each beat is. Drives the score, the light and the cutting. */
   var MOOD = { open: 0.15, spark: 0.38, push: 0.52, turn: 0.62, crisis: 0.88, choice: 0.5, after: 0.18 };
 
+  /* How long the film lets a shot sit, by beat. A film that cuts at one rate
+   * from the title to the end card has no build in it: the crisis plays at the
+   * speed of the opening, which is why the opening feels hurried and the crisis
+   * feels calm -- exactly backwards.
+   *
+   * Under 1 is quicker than natural, over 1 is a hold. The shape is a squeeze:
+   * the film tightens through the middle, snaps at the crisis, and then the
+   * choice is the longest shot in the picture, because the only way to make an
+   * audience feel a decision is to make them sit in it.
+   *
+   * These scale a shot's duration but never below its floor. A caption still has
+   * to be readable at the crisis, and an unreadable line is not tension, it is a
+   * mistake. */
+  var PACE = { open: 1.12, spark: 1.0, push: 0.9, turn: 0.84, crisis: 0.76, choice: 1.3, after: 1.15 };
+
   /* Reading speed. A caption has to be on screen long enough to actually read
    * it — comfortable is about three words a second, and a caption that shares
    * the frame with a picture wants to be slower than that, not faster. */
   var ACTION_SECONDS_PER_WORD = 0.38;
   var LINE_SECONDS_PER_WORD = 0.40;
   var MIN_ACTION = 2.4;
+  /* The fastest a caption may ever go by, whatever the pace says. An unreadable
+   * line is not tension, it is a mistake -- so acceleration is BOUNDED: the
+   * crisis cuts from 2.6 words a second up to 3.1, and stops there. What makes
+   * the crisis feel faster than that is the cutaways, which carry no words and
+   * so have no floor to hit. */
+  var READING_FLOOR = 0.32;
   var MIN_LINE = 1.9;
   var TITLE_SECONDS = 3.6;
   var ESTABLISH_SECONDS = 2.8;
@@ -73,6 +94,12 @@
 
   function words(text) {
     return String(text).trim().split(/\s+/).filter(Boolean).length;
+  }
+
+  /* A paced duration, never below what it takes to read the caption on it. */
+  function readable(duration, text) {
+    var w = words(text || '');
+    return w ? Math.max(duration, w * READING_FLOOR) : duration;
   }
 
   /* A voice and a silhouette colour per character, from the name, so the same
@@ -135,19 +162,105 @@
       beat: 'title'
     });
 
-    /* A two-hander reads as a conversation when the camera changes sides. Never
-     * the same framing three times running. `ots` needs two people in frame, so
-     * it is only on the table when both of them are. */
-    var spokenFramings = [];
-    function nextLineFraming(both) {
-      var options = both ? ['two', 'ots', 'close'] : ['close', 'low'];
-      var last = spokenFramings[spokenFramings.length - 1];
-      var prev = spokenFramings[spokenFramings.length - 2];
-      var fresh = options.filter(function (f) { return !(last === f && prev === f); });
-      if (!fresh.length) fresh = options;
-      var pick = fresh[Math.floor(rng() * fresh.length) % fresh.length];
-      spokenFramings.push(pick);
-      return pick;
+    /* How a conversation is cut.
+     *
+     * This used to draw a framing at random per line, with a rule against the
+     * same one three times running. That gives VARIETY, which is not the same
+     * thing as GRAMMAR, and the difference is the whole reason a two-hander read
+     * as two people talking to camera rather than to each other: close, two,
+     * over-the-shoulder, close, in no relation to who was speaking.
+     *
+     * Shot/reverse-shot is the oldest rule in film and it is a rule about
+     * MATCHING. When the speaker changes, the camera goes to the answering
+     * angle: the reverse of a close is a close, the reverse of an over-the-
+     * shoulder is an over-the-shoulder, from the other side. The sides take care
+     * of themselves -- each shot carries the speaker's own side of the frame --
+     * so matching the framing is the part that has to be deliberate.
+     *
+     * A run of lines is bracketed by two-shots: one to establish who is standing
+     * where before the cutting starts, and another every few lines to put them
+     * back in the same room. Without those the audience loses the geometry, and
+     * a conversation with no geometry is just alternating portraits.
+     */
+    var convo = { lastSpeaker: null, lastFraming: null, lines: 0 };
+    /* What was actually put on screen, across the whole scene. An exchange ends
+     * whenever a line of action interrupts it, so `convo` resets often -- but the
+     * AUDIENCE does not reset, and three identical framings running still reads
+     * as a stuck camera even if the film considers them three separate
+     * conversations. This is the memory that outlives the exchange. */
+    var spoken = [];
+
+    function resetConversation() {
+      convo.lastSpeaker = null;
+      convo.lastFraming = null;
+      convo.lines = 0;
+    }
+
+    /* Off the speaker and onto the thing they are talking around.
+     *
+     * This is the cheapest shot in film -- no new art, no new line, one second
+     * long -- and at the crisis it is the ONLY way to raise the cut rate. A shot
+     * with a caption on it cannot go below reading speed however tense the scene
+     * is, so squeezing the pace alone left the crisis cutting slower than the
+     * beat before it: exactly backwards, and measured, not guessed. A shot that
+     * carries no words has no floor to hit.
+     */
+    function cutAway(scene, set, light, mood, pace) {
+      push({
+        kind: 'action',
+        duration: 1.1 * pace,
+        set: set,
+        time: light,
+        framing: 'insert',
+        camera: 'push-slow',
+        caption: '',
+        speaker: null,
+        characters: [],
+        mood: mood,
+        scene: scene.number,
+        beat: scene.beat.id,
+        cutaway: true
+      });
+    }
+
+    function nextLineFraming(speaker, both) {
+      var framing;
+      if (!both) {
+        // Alone in the frame: nobody to cut against, so this is about size, and
+        // it steps through the sizes across the scene rather than restarting at
+        // 'mid' every time an action line breaks the run.
+        var sizes = ['mid', 'close', 'low'];
+        framing = sizes[spoken.length % sizes.length];
+      } else if (convo.lines === 0) {
+        framing = 'two';                       // establish the geography first
+      } else if (convo.lines % 5 === 0) {
+        framing = 'two';                       // and re-establish it now and then
+      } else if (speaker !== convo.lastSpeaker) {
+        // The reverse. Match the previous framing; the side flips with the
+        // speaker on its own.
+        framing = convo.lastFraming === 'two'
+          ? (rng() < 0.55 ? 'ots' : 'close')   // out of the two-shot, pick the pair's register
+          : convo.lastFraming;
+      } else {
+        // Same person, still talking: stay on them, but come off a two-shot.
+        framing = convo.lastFraming === 'two' ? 'close' : convo.lastFraming;
+      }
+      // Last guard, and it is about the audience rather than the grammar: three
+      // identical framings running is a stuck camera however well-motivated each
+      // one was on its own.
+      var n = spoken.length;
+      if (n >= 2 && spoken[n - 1] === framing && spoken[n - 2] === framing) {
+        var escape = both
+          ? (framing === 'two' ? 'ots' : 'two')
+          : (framing === 'close' ? 'mid' : 'close');
+        framing = escape;
+      }
+
+      convo.lastFraming = framing;
+      convo.lastSpeaker = speaker;
+      convo.lines++;
+      spoken.push(framing);
+      return framing;
     }
 
     /* -------------------------------------------------------------- scenes */
@@ -155,14 +268,16 @@
       var set = setFor(scene.heading.place);
       var light = lightFor(scene.heading.time);
       var mood = MOOD[scene.beat.id] == null ? 0.4 : MOOD[scene.beat.id];
+      var pace = PACE[scene.beat.id] == null ? 1 : PACE[scene.beat.id];
       var onScreen = [];
       var shotsThisScene = 0;
+      resetConversation();
 
       // Establishing shot: the slug line, held, so the audience knows where
       // they are before anyone speaks.
       push({
         kind: 'establish',
-        duration: ESTABLISH_SECONDS,
+        duration: ESTABLISH_SECONDS * pace,
         set: set,
         time: light,
         framing: 'wide',
@@ -194,9 +309,15 @@
 
           // The choice should sit a beat longer than is comfortable.
           var hold = scene.beat.id === 'choice' ? 1.35 : 1;
+          // A line of action between two lines of dialogue ends the exchange:
+          // whatever is said next starts a new one, and has to re-establish
+          // where everybody is standing.
+          resetConversation();
           push({
             kind: 'action',
-            duration: Math.max(MIN_ACTION, words(element.text) * ACTION_SECONDS_PER_WORD) * hold,
+            duration: readable(
+              Math.max(MIN_ACTION, words(element.text) * ACTION_SECONDS_PER_WORD) * hold * pace,
+              element.text),
             set: set,
             time: light,
             framing: framing,
@@ -215,6 +336,12 @@
             beat: scene.beat.id
           });
           shotsThisScene++;
+          // A crisis is cut, not described. Hold on a long line of action there
+          // and the worst moment of the film plays at the speed of the opening.
+          if (scene.beat.id === 'crisis' && words(element.text) >= 9 && rng() < 0.7) {
+            cutAway(scene, set, light, mood, pace);
+            shotsThisScene++;
+          }
         } else if (element.type === 'character') {
           if (onScreen.indexOf(element.text) === -1) onScreen.push(element.text);
           shots._pendingSpeaker = element.text;
@@ -223,12 +350,27 @@
           shots._pendingParen = element.text;
         } else if (element.type === 'dialogue') {
           var speaker = shots._pendingSpeaker || script.characters[0].name;
-          var both = onScreen.length > 1 && rng() < 0.35;
-          var lineFraming = nextLineFraming(both);
+          var both = onScreen.length > 1;
+
+          // A cutaway, mid-exchange, on the beats that can carry one. Cutting
+          // off the speaker and onto the thing they are talking around is how an
+          // edit says "look at what this is really about", and it is the single
+          // cheapest shot in film: no new art, no new line, one second long.
+          var every = scene.beat.id === 'crisis' ? 2 : 3;
+          var chance = scene.beat.id === 'crisis' ? 0.85 : 0.6;
+          if (both && convo.lines >= 2 && convo.lines % every === 0 &&
+              (scene.beat.id === 'turn' || scene.beat.id === 'crisis') && rng() < chance) {
+            cutAway(scene, set, light, mood, pace);
+            shotsThisScene++;
+          }
+
+          var lineFraming = nextLineFraming(speaker, both);
           var pair = lineFraming === 'two' || lineFraming === 'ots';
           push({
             kind: 'line',
-            duration: Math.max(MIN_LINE, words(element.text) * LINE_SECONDS_PER_WORD) + 0.25,
+            // Pace scales the breath after the line, never the reading time: a
+            // caption nobody can read is not tension, it is a mistake.
+            duration: Math.max(MIN_LINE, words(element.text) * LINE_SECONDS_PER_WORD) + 0.25 * pace,
             set: set,
             time: light,
             framing: lineFraming,

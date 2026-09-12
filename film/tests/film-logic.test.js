@@ -2441,6 +2441,120 @@ test('a film has both registers in it', () => {
 });
 
 
+/* ---------------------------------------------------------- the cutting */
+
+function reelsAcross(seeds, length) {
+  const out = [];
+  for (let seed = 1; seed <= seeds; seed++) {
+    out.push(Reel.build(Writer.write(Parse.parse('a lighthouse keeper finds a radio'), { length, seed })));
+  }
+  return out;
+}
+
+test('the film cuts faster towards the crisis and holds on the choice', () => {
+  // Measured in cuts per minute, not average shot length: a shot with a caption
+  // on it cannot go below reading speed, so the crisis gets its speed from
+  // shots that carry no words rather than from squeezing the ones that do.
+  const time = {};
+  const count = {};
+  reelsAcross(12, 'festival').forEach((reel) => reel.shots.forEach((shot) => {
+    time[shot.beat] = (time[shot.beat] || 0) + shot.duration;
+    count[shot.beat] = (count[shot.beat] || 0) + 1;
+  }));
+  const rate = (beat) => 60 * count[beat] / time[beat];
+
+  assert(rate('crisis') > rate('open') * 1.4,
+    'the crisis cuts at ' + rate('crisis').toFixed(1) + '/min against an opening of ' +
+    rate('open').toFixed(1));
+  assert(rate('crisis') > rate('turn'),
+    'the crisis (' + rate('crisis').toFixed(1) + ') cuts slower than the turn (' +
+    rate('turn').toFixed(1) + ') — the build runs backwards');
+  assert(rate('choice') < rate('crisis') * 0.75,
+    'the choice is not held: ' + rate('choice').toFixed(1) + ' against a crisis of ' +
+    rate('crisis').toFixed(1));
+  // The decision must be the slowest thing in the film.
+  Object.keys(rate('choice') ? count : {}).forEach((beat) => {
+    if (beat === 'choice' || beat === 'title' || beat === 'end') return;
+    assert(rate('choice') <= rate(beat),
+      'the ' + beat + ' is held longer than the choice');
+  });
+});
+
+test('a conversation is cut as shot and reverse-shot', () => {
+  // The reverse of a close is a close and the reverse of an over-the-shoulder is
+  // an over-the-shoulder, from the other side. Mixing the two registers across a
+  // cut is what made a two-hander read as two people talking to camera.
+  let reverses = 0;
+  reelsAcross(10, 'festival').forEach((reel) => {
+    const lines = reel.shots.filter((s) => s.kind === 'line');
+    for (let i = 1; i < lines.length; i++) {
+      const a = lines[i - 1];
+      const b = lines[i];
+      if (a.scene !== b.scene) continue;
+      if (a.speaker === b.speaker) continue;
+      if (['ots', 'close'].indexOf(a.framing) === -1) continue;
+      if (['ots', 'close'].indexOf(b.framing) === -1) continue;
+      reverses++;
+      eq(b.framing, a.framing,
+        'a ' + a.framing + ' was answered with a ' + b.framing + ' (scene ' + a.scene + ')');
+      assert(b.side !== a.side,
+        'the camera did not change sides between ' + a.speaker + ' and ' + b.speaker);
+    }
+  });
+  assert(reverses > 20, 'barely any reverses to check: ' + reverses);
+});
+
+test('a conversation establishes where everybody is standing first', () => {
+  // Cut straight into a close and the audience has no geometry; a conversation
+  // with no geometry is alternating portraits.
+  let checked = 0;
+  reelsAcross(10, 'festival').forEach((reel) => {
+    let lastScene = null;
+    let firstWithBoth = null;
+    reel.shots.forEach((shot) => {
+      if (shot.scene !== lastScene) { lastScene = shot.scene; firstWithBoth = null; }
+      if (shot.kind !== 'line') return;
+      if (!shot.characters || shot.characters.length < 2) return;
+      if (firstWithBoth === null) {
+        firstWithBoth = shot;
+        checked++;
+        eq(shot.framing, 'two', 'a two-hander opened on a ' + shot.framing);
+      }
+    });
+  });
+  assert(checked > 10, 'no two-handers found at all');
+});
+
+test('a cutaway is a shot of the thing, with nothing written on it', () => {
+  let cutaways = 0;
+  reelsAcross(10, 'festival').forEach((reel) => reel.shots.forEach((shot) => {
+    if (!shot.cutaway) return;
+    cutaways++;
+    eq(shot.framing, 'insert', 'a cutaway was not an insert');
+    eq(shot.caption, '', 'a cutaway carried a caption: ' + JSON.stringify(shot.caption));
+    eq(shot.speaker, null, 'a cutaway had a speaker');
+    assert(shot.duration < 2, 'a cutaway held for ' + shot.duration.toFixed(1) + 's');
+    assert(shot.beat === 'turn' || shot.beat === 'crisis',
+      'a cutaway landed on the ' + shot.beat);
+  }));
+  assert(cutaways > 15, 'cutaways are not reaching films: ' + cutaways);
+});
+
+test('no caption is ever rushed, at any pace', () => {
+  // The acceleration is BOUNDED. This is the bound, checked across every length
+  // and every beat rather than on one sample reel.
+  ['micro', 'short', 'festival'].forEach((length) => {
+    reelsAcross(8, length).forEach((reel) => reel.shots.forEach((shot) => {
+      if (!shot.caption || shot.kind === 'establish') return;
+      const n = shot.caption.trim().split(/\s+/).length;
+      assert(shot.duration >= n / 3.2,
+        length + ': "' + shot.caption.slice(0, 30) + '" — ' + n + ' words in ' +
+        shot.duration.toFixed(1) + 's');
+    }));
+  });
+});
+
+
 if (failures.length) {
   console.error('✖ ' + failures.length + ' failing test(s):');
   failures.forEach((f) => console.error('  - ' + f));
