@@ -164,7 +164,13 @@ jobs:
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DMAZ_WERROR=ON
       - name: Build
-        run: cmake --build build --config Release --parallel
+        # An explicit job count, not a bare --parallel. With no number CMake passes a bare -j to
+        # the native tool, and on macOS the default generator is Unix Makefiles, where bare -j
+        # means UNLIMITED jobs: ~170 targets each spawning a clang on a 3-core runner, which
+        # thrashes memory rather than compiling. That is why this job sat in Build for 3.5 hours
+        # while Ninja on Linux finished the same tree in 11 minutes and MSBuild on Windows — which
+        # bounds itself — took 20. Windows is unaffected by the cap; macOS is rescued by it.
+        run: cmake --build build --config Release --parallel 4
       - name: Unit tests
         # The unit suite is pure logic (no GPU/window), so it runs anywhere the engine compiles.
         # -C, not --config: `cmake --build` spells it --config, ctest only accepts -C /
