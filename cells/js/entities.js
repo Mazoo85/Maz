@@ -1194,11 +1194,14 @@
         }
         if (b.hitWall || b.timer <= 0) {
           if (b.hitWall) {
+            /* it has run itself into the wall: this is your window */
             world.shake = 8;
             puff(world, b.x + b.facing * 14, b.y - 10, '#caa', 16);
+            stagger(world, b, 1.7);
+          } else {
+            b.state = 'idle';
+            b.timer = 0.9 - 0.3 * (b.phase - 1);
           }
-          b.state = 'idle';
-          b.timer = 0.9 - 0.3 * (b.phase - 1);
         }
         break;
 
@@ -1210,8 +1213,8 @@
           shockwave(world, b.x, b.y, 1);
           world.shake = 10;
           sfx('explode');
-          b.state = 'idle';
-          b.timer = 1.0;
+          /* the weight of the slam leaves it planted for a beat */
+          stagger(world, b, 1.2);
         } else if (b.timer <= 0) {
           b.state = 'idle';
           b.timer = 0.8;
@@ -1231,7 +1234,10 @@
         b.timer -= dt;
         b.vx = b.facing * b.speed * 4.0;
         if (hitBox(b, p, 8)) hurtPlayer(world, b.dmg * 0.8, 'melee', b);
-        if (b.timer <= 0 || b.hitWall) {
+        if (b.hitWall) {
+          puff(world, b.x + b.facing * 12, b.y - 12, '#ffe600', 12);
+          stagger(world, b, 1.4);       // same rule as a charge: a wall is a mistake
+        } else if (b.timer <= 0) {
           b.state = 'idle';
           b.timer = 0.7;
         }
@@ -1263,10 +1269,32 @@
           b.timer = 1.0;
         }
         break;
+
+      /* Open. This is what a boss fight is for: read the move, survive it, and
+       * take the moment it costs them. */
+      case 'stagger':
+        b.timer -= dt;
+        b.vx *= 0.85;
+        b.vulnerable = true;
+        if (b.timer <= 0) {
+          b.vulnerable = false;
+          b.state = 'idle';
+          b.timer = 0.5;
+        }
+        break;
     }
 
     b.vy = Math.min(MAX_FALL, b.vy + GRAVITY * dt);
     moveBody(level, b, dt);
+  }
+
+  function stagger(world, b, seconds) {
+    b.state = 'stagger';
+    b.timer = seconds;
+    b.vulnerable = true;
+    b.vx *= 0.3;
+    floatText(world, b.x, b.y - b.h - 12, 'STAGGERED', '#ffe600', 1.15);
+    sfx('parry');
   }
 
   function startBossMove(world, b, dir) {
@@ -1416,6 +1444,9 @@
         }
       }
     }
+
+    /* a staggered enemy is wide open */
+    if (e.vulnerable && !options.fromStatus) amount = Math.round(amount * 1.6);
 
     e.hp -= amount;
     e.hurtT = 0.12;

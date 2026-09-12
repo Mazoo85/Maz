@@ -535,6 +535,23 @@ function launchOptions() {
     await phone.waitForTimeout(200);
     await phone.touchscreen.tap(150, 300);      // the move zone
     await phone.waitForTimeout(400);
+    /* a phone has no Esc key, so pausing has to be reachable by thumb */
+    await phone.waitForFunction(() => window.NEON_CELLS.state() === 'PLAY', null, { timeout: 5000 });
+    const pauseButton = await phone.evaluate(() => {
+      const b = window.NEON_CELLS.touchButtons().find((x) => x.name === 'pause');
+      const c = document.getElementById('game');
+      return b ? { x: (b.x / c.width) * window.innerWidth, y: (b.y / c.height) * window.innerHeight } : null;
+    });
+    check(!!pauseButton, 'there is a pause button on a touch screen');
+    if (pauseButton) {
+      await phone.touchscreen.tap(pauseButton.x, pauseButton.y);
+      await phone.waitForTimeout(250);
+      check(await phone.evaluate(() => window.NEON_CELLS.state()) === 'PAUSE', 'tapping it pauses the game');
+      await phone.touchscreen.tap(pauseButton.x, pauseButton.y);
+      await phone.waitForTimeout(250);
+      check(await phone.evaluate(() => window.NEON_CELLS.state()) === 'PLAY', 'and tapping it again resumes');
+    }
+
     check(phoneProblems.length === 0, 'plays on a phone-sized screen' + (phoneProblems.length ? ' — ' + phoneProblems.join('; ') : ''));
     check(
       await phone.evaluate(() => {

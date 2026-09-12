@@ -235,7 +235,8 @@
       skill1: keyPressed('skill1') || buttonPressed('skill1'),
       skill2: keyPressed('skill2') || buttonPressed('skill2'),
       flask: keyPressed('flask') || buttonPressed('flask'),
-      interact: keyPressed('interact') || buttonPressed('interact')
+      interact: keyPressed('interact') || buttonPressed('interact'),
+      pause: keyPressed('pause') || buttonPressed('pause')
     };
   }
 
@@ -331,7 +332,9 @@
       { name: 'skill1', label: 'S1', x: bx - g * 1.95, y: by - g * 0.35, r: r * 0.8 },
       { name: 'skill2', label: 'S2', x: bx - g * 2.1, y: by - g * 1.3, r: r * 0.8 },
       { name: 'flask', label: 'HEAL', x: bx - g * 2.8, y: by - g * 0.85, r: r * 0.8 },
-      { name: 'interact', label: 'USE', x: bx - g * 2.75, y: by - g * 1.85, r: r * 0.8 }
+      { name: 'interact', label: 'USE', x: bx - g * 2.75, y: by - g * 1.85, r: r * 0.8 },
+      /* Esc and Start are not available to a thumb, so pause gets a corner. */
+      { name: 'pause', label: 'II', x: v.w - r * 0.6 - 8, y: r * 0.6 + 8, r: r * 0.6 }
     ].map(function (b) {
       b.down = false;
       b.pressedNow = false;
@@ -358,7 +361,17 @@
       const x = (t.clientX / global.innerWidth) * v.w;
       const y = (t.clientY / global.innerHeight) * v.h;
 
-      if (state !== STATE.PLAY) {
+      /* The name card at the start of a biome is drawn over a live world, so the
+       * thumb buttons have to work under it exactly as they do in play. */
+      if (state !== STATE.PLAY && state !== STATE.INTRO) {
+        /* the pause button keeps working while paused; everything else on a
+         * menu screen is handled as a tap on the menu itself */
+        const resume = touch.buttons.filter(function (b) { return b.name === 'pause'; })[0];
+        if (state === STATE.PAUSE && resume && Math.hypot(x - resume.x, y - resume.y) <= resume.r * 1.4) {
+          if (e.type === 'touchstart') resume.pressedNow = true;
+          resume.down = true;
+          continue;
+        }
         if (e.type === 'touchstart') menuClick(x, y);
         continue;
       }
@@ -874,7 +887,7 @@
         break;
 
       case STATE.PLAY: {
-        if (keyPressed('pause')) {
+        if (input.pause) {
           state = STATE.PAUSE;
           menuIndex = 0;
           break;
@@ -888,7 +901,7 @@
       }
 
       case STATE.PAUSE:
-        if (keyPressed('pause')) state = STATE.PLAY;
+        if (input.pause) state = STATE.PLAY;
         else menuNav();
         break;
 
@@ -899,7 +912,7 @@
 
       case STATE.SHOP:
       case STATE.COLLECTOR:
-        if (keyPressed('pause') || pressed.PadB) state = STATE.PLAY;
+        if (input.pause || pressed.PadB) state = STATE.PLAY;
         else menuNav();
         break;
 
@@ -1142,6 +1155,7 @@
         drawHud(ctx, v);
         dim(ctx, v, 0.72);
         drawList(ctx, v, 'PAUSED', menuItems(), null);
+        if (touch.active) drawTouchControls(ctx, ['pause']);
         return;
 
       case STATE.SCROLL:
@@ -1244,8 +1258,8 @@
       stx += 10;
     }
 
-    /* cells, gold, keys */
-    const right = v.w - 8;
+    /* cells, gold, keys — shifted in to clear the touch pause button */
+    const right = v.w - 8 - (touch.active ? 24 : 0);
     R.text(String(p.cells), right, 16, { align: 'right', size: 9, color: '#9ffff0', bold: true });
     R.text('CELLS', right - R.measure(String(p.cells), 9, true) - 4, 16, { align: 'right', size: 7, color: 'rgba(159,255,240,.6)' });
     R.text(String(p.gold), right, 27, { align: 'right', size: 9, color: '#ffd34a', bold: true });
@@ -1405,9 +1419,10 @@
     R.text(label, x + 4, y + 9, { align: 'center', size: 7, color: '#fff' });
   }
 
-  function drawTouchControls(ctx) {
+  function drawTouchControls(ctx, only) {
     ctx.save();
     for (const b of touch.buttons) {
+      if (only && only.indexOf(b.name) === -1) continue;
       ctx.globalAlpha = b.down ? 0.5 : 0.22;
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
@@ -1845,6 +1860,7 @@
     nearby: function () { return nearby; },
     press: function (code) { keys[code] = true; pressed[code] = true; },
     hint: hint,
+    touchButtons: function () { return touch.buttons; },
     padConnected: function () { return padConnected; },
     release: function (code) { keys[code] = false; }
   };

@@ -863,6 +863,17 @@
       rect(b.x - 7, top - 4, 14, 4, '#ffe600');
     }
 
+    if (b.vulnerable) {
+      /* unmissable: this is the window the whole fight is built around */
+      const pulse = 0.5 + Math.sin(world.time * 18) * 0.3;
+      ctx.save();
+      ctx.globalAlpha = pulse;
+      ctx.strokeStyle = '#ffe600';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(Math.round(b.x - b.w / 2) - 3.5, Math.round(top) - 3.5, b.w + 7, b.h + 7);
+      ctx.restore();
+      light(b.x, top + b.h / 2, b.w * 2.2, 'rgba(255,230,0,.26)');
+    }
     if (b.phase === 2) {
       light(b.x, top + b.h / 2, b.w * 2.6, 'rgba(255,59,92,.28)');
     }

@@ -951,6 +951,140 @@ test('the run gets harder the deeper it goes', () => {
   }
 });
 
+/* A boss fight, simulated the way the room fights are: read the telegraph, get
+ * out of the way, close and hit it. What is being checked is that both bosses
+ * are beatable by an ordinary build, that neither falls over in a few seconds,
+ * and that a Boss Cell really does make the next run harder. */
+function simulateBoss(biomeIndex, weaponId, seed, bossCells, maxSeconds) {
+  const dice = RNG.Rng(seed ^ 0x5bf03635);
+  EN.setRandom(dice.next);
+  CB.setRandom(dice.next);
+
+  const biome = CONTENT.BIOMES[biomeIndex];
+  const level = LG.generate(biome.id, seed, { bossCells: bossCells });
+  const world = emptyWorld(level);
+  world.bossCells = bossCells;
+
+  const weapon = CB.makeWeapon(CONTENT.WEAPON[weaponId], CONTENT.AFFIX.none);
+  const kit = kitFor(biomeIndex, weapon.color);
+  const player = EN.makePlayer(level, {
+    stats: buildFor(biomeIndex, weapon.color),
+    mutations: kit.mutations,
+    weapons: [weapon, null],
+    skills: [kit.skill, null],
+    flasks: 3
+  });
+  world.player = player;
+  world.boss = EN.makeBoss(world, level);
+
+  function done(result) {
+    EN.setRandom(null);
+    CB.setRandom(null);
+    return result;
+  }
+
+  let sawStagger = false;
+  const frames = Math.round(maxSeconds * 60);
+  for (let i = 0; i < frames; i++) {
+    const boss = world.boss;
+    if (boss.vulnerable) sawStagger = true;
+    if (boss.dead) return done({ won: true, seconds: i / 60, sawStagger: sawStagger });
+
+    const input = Object.assign({}, IDLE_INPUT);
+    const dist = Math.hypot(boss.x - player.x, boss.y - player.y);
+    const dir = Math.sign(boss.x - player.x) || 1;
+    const winding = boss.state === 'telegraph' || boss.state === 'charge' || boss.state === 'dash';
+    const incoming = world.projectiles.some(function (pr) {
+      return pr.from === 'enemy' && Math.hypot(pr.x - player.x, pr.y - (player.y - 10)) < 40;
+    });
+
+    if (((winding && dist < 90) || incoming) && player.rollCd <= 0) {
+      input.roll = true;
+      if (dir > 0) input.left = true; else input.right = true;
+    } else if (dist > weapon.reach * 0.8 + boss.w / 2) {
+      if (dir > 0) input.right = true; else input.left = true;
+      if (boss.state === 'slam' && dist < 70 && player.onGround) {
+        input.jump = true;
+        input.jumpHeld = true;
+      }
+    } else {
+      input.atk1 = true;
+      input.atk1Held = true;
+    }
+    if (kit.skill && player.skillCd[0] <= 0 && dist < 140) input.skill1 = true;
+    if (player.hp < player.maxHp * 0.4 && player.flasks > 0) input.flask = true;
+
+    EN.updatePlayer(world, input, 1 / 60);
+    EN.updateEnemies(world, 1 / 60);
+    EN.updateProjectiles(world, 1 / 60);
+    EN.updateEffects(world, 1 / 60);
+    world.time += 1 / 60;
+
+    if (player.dead) return done({ won: false, seconds: i / 60, sawStagger: sawStagger, died: true });
+  }
+  return done({ won: false, seconds: maxSeconds, sawStagger: sawStagger, timeout: true });
+}
+
+test('both bosses can be beaten by an ordinary build, and neither is a pushover', () => {
+  for (let b = 0; b < CONTENT.BIOMES.length; b++) {
+    const biome = CONTENT.BIOMES[b];
+    if (!biome.boss) continue;
+
+    let won = 0;
+    let quickest = Infinity;
+    let staggered = false;
+    const tries = 3;
+    for (let t = 0; t < tries; t++) {
+      const result = simulateBoss(b, 'war_hammer', 700 + t * 53, 0, 90);
+      if (result.won) {
+        won++;
+        quickest = Math.min(quickest, result.seconds);
+      }
+      if (result.sawStagger) staggered = true;
+    }
+
+    assert(won >= 2, biome.boss + ' was beaten only ' + won + ' times in ' + tries);
+    assert(quickest > 5, biome.boss + ' died in ' + quickest.toFixed(1) + 's — that is not a boss fight');
+    assert(staggered, biome.boss + ' never left an opening to punish');
+  }
+});
+
+test('a Boss Cell really does make the next run harder', () => {
+  const index = CONTENT.BIOMES.findIndex(function (b) { return b.boss === 'warden'; });
+  const time = function (cells) {
+    let total = 0;
+    for (let t = 0; t < 3; t++) total += simulateBoss(index, 'war_hammer', 700 + t * 53, cells, 90).seconds;
+    return total / 3;
+  };
+  const plain = time(0);
+  const hard = time(2);
+  assert(hard > plain, 'two Boss Cells made the fight take ' + hard.toFixed(1) + 's against ' + plain.toFixed(1) + 's');
+});
+
+test('a staggered boss takes more damage, and only while it is open', () => {
+  const index = CONTENT.BIOMES.findIndex(function (b) { return b.boss === 'warden'; });
+  const level = LG.generate(CONTENT.BIOMES[index].id, 3, {});
+  const world = emptyWorld(level);
+  world.player = EN.makePlayer(level, {
+    stats: { brutality: 1, tactics: 1, survival: 1 }, mutations: [],
+    weapons: [CB.makeWeapon(CONTENT.WEAPON.rusty_sword, CONTENT.AFFIX.none), null], skills: [null, null]
+  });
+  const boss = EN.makeBoss(world, level);
+  world.boss = boss;
+
+  const before = boss.hp;
+  EN.damageEnemy(world, boss, 100, { silent: true });
+  const normal = before - boss.hp;
+
+  boss.vulnerable = true;
+  const openBefore = boss.hp;
+  EN.damageEnemy(world, boss, 100, { silent: true });
+  const open = openBefore - boss.hp;
+
+  assert(open > normal, 'a staggered boss took ' + open + ' where a guarded one took ' + normal);
+  eq(Math.round(open / normal * 10) / 10, 1.6, 'the stagger multiplier');
+});
+
 test('a shieldbearer can be broken through as well as gone around', () => {
   const level = LG.generate('bridge', 5, {});
   level.boss = null;

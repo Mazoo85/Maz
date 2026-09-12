@@ -47,7 +47,7 @@ mid-run — the button hints on screen follow whichever you last touched.
 | skills | `U` / `I` | **LB** / **RB** | **S1** / **S2** |
 | health flask | `Q` | **RT** | **HEAL** |
 | interact | `E` | **LT** | **USE** |
-| pause · mute | `Esc` · `M` | **Start** · **Back** | pause from the menu |
+| pause · mute | `Esc` · `M` | **Start** · **Back** | **II** in the corner |
 
 Any standard-layout controller works — plug it in (or pair it) and press a
 button; the game says so when it sees one. Menus take the stick and **A**, **B**
@@ -89,6 +89,9 @@ pick plus one more at random.
 - **Every enemy attack is telegraphed.** Bodies flare white before they strike —
   bats included: they pull back out of a hover before diving. If a hit surprised
   you, it was readable.
+- **Bosses stagger.** Run the Warden into a wall, or ride out a slam, and it is
+  left planted and wide open — hits land 60% harder while the outline is
+  flashing. Reading the pattern is the fight.
 - **Shields break.** A Shieldbearer blocks what it can face, but the shield is a
   health pool of its own: keep hitting it and it shatters, staggering its owner.
   Rolling behind is still quicker — and an explosion never cared about the shield
@@ -152,8 +155,8 @@ over hundreds of seeds.
 ## Checking it
 
 ```
-node cells/tests/cells-logic.test.js     # 60 checks, no dependencies, ~8s
-node cells/tests/cells-browser.test.js   # 62 checks, drives the real game in Chromium
+node cells/tests/cells-logic.test.js     # 63 checks, no dependencies, ~8s
+node cells/tests/cells-browser.test.js   # 65 checks, drives the real game in Chromium
 ```
 
 The logic suite covers seeded determinism, the content tables, level
@@ -174,7 +177,10 @@ its colour is built around, a mutation per biome cleared — into a room of that
 biome's enemies, and plays it: close, swing, roll through anything winding up,
 drink at a third health. Then it checks the numbers that matter: every biome is
 clearable, no biome eats most of your health as a matter of course, and the
-enemy scaling really does climb all the way down.
+enemy scaling really does climb all the way down. The same machinery fights both
+bosses: each has to be beatable by an ordinary build, neither may fall over in a
+few seconds, each must leave an opening to punish, and a Boss Cell must really
+make the next fight longer.
 
 Enemy behaviour rolls dice — attack timing, leaps, patrol direction — so
 `entities.js` and `combat.js` each expose a `setRandom` seam the tests point at
