@@ -155,3 +155,74 @@ def test_ledger_command_reads_back(tmp_path):
     result = runner.invoke(app, ["ledger", "--root", str(tmp_path)])
     assert result.exit_code == 0
     assert "dry_run" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# `forge followup` must not report three different situations identically.
+#
+# `merged` is the only evidence in the ledger that a night's work was actually
+# good — green checks only prove nothing broke. A run that updates nothing
+# because it cannot reach GitHub looks exactly like one that had nothing to do,
+# and confusing them means a ledger that quietly never learns anything.
+# ---------------------------------------------------------------------------
+
+
+def _ledger_with(root, entries):
+    """A repo whose ledger holds the given entries."""
+    d = root / "forge" / "ledger"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "2026-09.jsonl").write_text(
+        "".join(json.dumps(e) + "\n" for e in entries), encoding="utf-8"
+    )
+    return root
+
+
+_PENDING = {
+    "at": "2026-09-12T02:00:00Z", "run_id": "2026-09-12", "outcome": "pr_opened",
+    "chose": "something", "kind": "roadmap", "source": "roadmap:phase-14",
+    "zone": "docs/", "candidate_key": "k1", "pr": 7, "merged": None,
+    "human_edits": None, "checks": "green", "files_touched": 1,
+    "cost_usd": 0.0, "duration_min": 0.0, "notes": "", "why": {},
+}
+_SETTLED = dict(_PENDING, pr=6, candidate_key="k0", merged=True, human_edits=0)
+
+
+def test_followup_without_a_github_remote_says_so_and_fails(tmp_path, monkeypatch):
+    # Silently reporting "nothing to backfill" here would hide the fact that
+    # the quality signal can never be collected at all.
+    monkeypatch.setattr("forge.github.repo_slug", lambda root: None)
+    _ledger_with(tmp_path, [_PENDING])
+    result = runner.invoke(app, ["followup", "--root", str(tmp_path)])
+    assert result.exit_code == 1
+    assert "No GitHub remote" in result.stdout
+
+
+def test_followup_distinguishes_unresolved_from_nothing_to_do(tmp_path, monkeypatch):
+    monkeypatch.setattr("forge.github.repo_slug", lambda root: "owner/repo")
+    monkeypatch.setattr("forge.followup.backfill", lambda *a, **k: 0)
+    _ledger_with(tmp_path, [_PENDING])
+    result = runner.invoke(app, ["followup", "--root", str(tmp_path)])
+    assert result.exit_code == 0
+    assert "still unresolved" in result.stdout
+    assert "GITHUB_TOKEN" in result.stdout
+    assert "Nothing to backfill" not in result.stdout
+
+
+def test_followup_with_no_pending_entries_says_nothing_is_waiting(tmp_path, monkeypatch):
+    monkeypatch.setattr("forge.github.repo_slug", lambda root: "owner/repo")
+    monkeypatch.setattr("forge.followup.backfill", lambda *a, **k: 0)
+    _ledger_with(tmp_path, [_SETTLED])
+    result = runner.invoke(app, ["followup", "--root", str(tmp_path)])
+    assert result.exit_code == 0
+    assert "Nothing to backfill" in result.stdout
+    assert "still unresolved" not in result.stdout
+
+
+def test_followup_reports_what_it_updated_and_what_is_left(tmp_path, monkeypatch):
+    monkeypatch.setattr("forge.github.repo_slug", lambda root: "owner/repo")
+    monkeypatch.setattr("forge.followup.backfill", lambda *a, **k: 1)
+    _ledger_with(tmp_path, [_PENDING, dict(_PENDING, pr=8, candidate_key="k2")])
+    result = runner.invoke(app, ["followup", "--root", str(tmp_path)])
+    assert result.exit_code == 0
+    assert "Updated" in result.stdout and "1 ledger entry" in result.stdout
+    assert "1 still open or unreachable" in result.stdout

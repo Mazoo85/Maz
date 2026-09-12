@@ -424,8 +424,8 @@ known point rather than from tonight's own branch.
 deleted. It is the most important thing the Forge produces: everything else
 here could be rebuilt, and six months of records could not.
 
-Two fields start out `null` and are filled in later, by running
-`forge followup`, once you have looked at a PR the Forge opened:
+Two fields start out `null` and are filled in later, by `forge followup`,
+which asks GitHub what became of each pull request the Forge opened:
 
 - **`merged`** — did you take the work (`true`/`false`)
 - **`human_edits`** — how many lines you changed before merging (`0` for
@@ -435,6 +435,30 @@ Green checks only prove nothing broke. *Merged with zero edits* is the only
 evidence that the work was actually good, and it is what a future learned
 scorer will train on.
 
+**The nightly run does this for you**, before it senses anything, so the
+record fills itself in as you merge or close things. Running it by hand is
+still fine and changes nothing else.
+
+A pull request you have not decided about yet is left alone — `followup`
+reports it as still unresolved and asks again another night, rather than
+recording it as unmerged. So there is no hurry to review one, and no way for
+an undecided PR to be logged as a failure.
+
+`followup` distinguishes four outcomes and says which it hit, because three of
+them look identical if you only count what changed:
+
+| What it says | What it means |
+|---|---|
+| `Updated N ledger entries` | It learned something — a PR was merged or closed |
+| `N entries still unresolved` | Those PRs are still open, **or** GitHub could not be reached. A missing `GITHUB_TOKEN` does this |
+| `No GitHub remote found` | It cannot ask at all. Exits non-zero |
+| `Nothing to backfill` | Nothing is waiting on an answer |
+
+The middle two matter more than they look. If the token goes missing, the
+quality signal silently stops being collected — and a scorer trained on a
+record with no `merged` values in it would have learned nothing while
+appearing to work.
+
 ## Scheduling
 
 The brain lives in this repo; the alarm clock is deliberately external, so it
@@ -443,9 +467,14 @@ can be swapped without touching any code.
 **Now — a Claude Code Routine.** Create a scheduled trigger that wakes a fresh
 session nightly with a prompt like:
 
-> Run the Forge for tonight: `cd forge && python -m forge.cli run --dry-run --root ..`
-> then `python -m forge.cli followup --root ..`. Commit any ledger change on a
-> branch and open a draft PR if the run opened one. Do not merge anything.
+> Run the Forge for tonight. First `python -m forge.cli followup` — ask GitHub
+> what happened to earlier nights' pull requests — then
+> `python -m forge.cli run --dry-run`. Commit any ledger change to a dedicated
+> ledger branch and push only there. Never push to the default branch, and
+> never merge anything.
+
+The order matters: `followup` first, so a night's report can tell you what was
+merged before it tells you what it would do next.
 
 Start with `--dry-run` and only switch the Routine's prompt to `--live` once
 you've read a couple of weeks of ledger entries and are comfortable with what

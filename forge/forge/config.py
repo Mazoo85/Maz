@@ -101,10 +101,11 @@ class ForgeConfig:
 
     # What every PR's `base` is opened against, and what the tree is
     # returned to after `_abandon`/`_return_to_base` run in orchestrate.py.
-    # "main" is the right default for most repositories, but it is only a
-    # default: a repo whose default branch is something else (this repo
-    # included — see forge.json) must override it, or the Forge opens PRs
-    # against, and returns the tree to, an unrelated line of the project.
+    # "main" is the right default for most repositories, and since the two
+    # trunks were merged it is right for this one too — forge.json now sets it
+    # explicitly rather than overriding it to something else. A repo whose real
+    # mainline is some other branch must still override it, or the Forge opens
+    # PRs against, and returns the tree to, an unrelated line of the project.
     base_branch: str = "main"
 
     state_dirname: str = "forge/state"

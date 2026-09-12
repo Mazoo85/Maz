@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdarg>
+#include <functional>
 
 namespace maz::core {
 
@@ -9,6 +10,12 @@ enum class LogLevel { Trace, Info, Warn, Error };
 // Minimum level that will actually be emitted. Defaults to Info (Trace in debug builds).
 void setLogLevel(LogLevel level);
 LogLevel logLevel();
+
+// Optional sink that also receives every emitted line (after level filtering), formatted as
+// "[TAG] file:line: message" with no colour codes or trailing newline — used by the editor to show a
+// live Output/Log panel. Pass a default-constructed std::function to clear it.
+using LogSink = std::function<void(LogLevel level, const char* message)>;
+void setLogSink(LogSink sink);
 
 // printf-style logging. Prefer the MAZ_LOG* macros below.
 void logMessage(LogLevel level, const char* file, int line, const char* fmt, ...)

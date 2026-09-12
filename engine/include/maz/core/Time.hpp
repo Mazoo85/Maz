@@ -4,8 +4,8 @@
 
 namespace maz::core {
 
-// Fixed-timestep clock. Decouples the deterministic simulation step from render frame rate,
-// mirroring the accumulator pattern used by the reference browser game (STEP = 1/60).
+// Fixed-timestep clock. Decouples the deterministic simulation step from render frame rate
+// using the classic accumulator pattern (default step = 1/60 s).
 //
 // Usage per frame:
 //   clock.beginFrame();

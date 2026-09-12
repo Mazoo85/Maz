@@ -76,7 +76,9 @@
    * emptied banks that hold a dozen entries and put the same sound cue on
    * screen twice in a row. */
   function fill(text, ctx) {
-    return String(text)
+    // The swap happens on the template, before {HERO}/{OBJ} go in, because the
+    // map is keyed by the raw strings that live in the lexicon.
+    return String(ctx.exterior ? LEX.outdoors(text) : text)
       .replace(/\{HERO\}/g, ctx.hero.name)
       .replace(/\{OTHER\}/g, ctx.other.name)
       .replace(/\{OBJ\}/g, ctx.object)
@@ -89,13 +91,129 @@
       .replace(/\{SOUND\}/g, function () { return ctx.nextSound(); });
   }
 
-  /* Which of the premise's locations each beat plays in. The film opens and
-   * closes in the same place — that is what makes an ending feel like one. */
-  var BEAT_PLACE = { open: 0, spark: 0, push: 1, turn: 1, crisis: 1, choice: 0, after: 0 };
+  /* Which of the premise's locations each beat plays in.
+   *
+   * This used to be three independent per-beat rules (open/choice/after home,
+   * crisis at the far end, spark/push/turn spread through the middle) and
+   * that is exactly the bug: 'crisis at the far end' and 'spread through the
+   * middle, including the far end' were fighting over the same index, and the
+   * spread rule usually won — measured, the crisis landed on a place a middle
+   * beat had already used in the *majority* of short and festival films (see
+   * placesForSpine below). A per-beat rule can't see the rest of the spine,
+   * so it can't avoid that. This one does: it is handed the whole spine and
+   * decides every beat's place at once.
+   *
+   * The legacy per-beat function (`placeForBeat`, still below) is kept only
+   * because `film/tests/film-logic.test.js:1462` pins its behaviour
+   * (open/choice/after all hardcode place 0) as a documented historical
+   * property; `write()` no longer calls it, so there is exactly one notion of
+   * "which place" governing an actual film. */
+  function placeForBeat(beatId, placeCount, seed) {
+    if (placeCount <= 1) return 0;
+    if (beatId === 'open' || beatId === 'choice' || beatId === 'after') return 0;
+    if (beatId === 'crisis') return placeCount - 1;
+    var span = Math.max(1, placeCount - 1);
+    var rng = PARSE.makeRng((PARSE.hashText('spread') ^ (seed >>> 0)) >>> 0);
+    var base = Math.floor(rng() * span) % span;
+    var step = { spark: 0, push: 1, turn: 2 }[beatId] || 0;
+    return 1 + (base + step) % span;
+  }
 
-  function headingFor(premise, beatId, placeIndex, previous) {
+  /* The real, spine-aware assignment `write()` actually uses.
+   *
+   * Three rules, in priority order — each below gives way only when the
+   * place count can't satisfy it *and* the ones above it at once:
+   *
+   *   1. the first beat and the last beat share place 0 (unconditional —
+   *      this is what makes an ending feel like one; pinned for every spine
+   *      by the 'ends where it began' test)
+   *   2. the crisis lands on a place no *earlier* beat in this same spine
+   *      used — a room the film has not needed yet, because the worst
+   *      moment of the night is supposed to be somewhere unfamiliar
+   *   3. the other middle beats spread across whatever places are left, as
+   *      widely as that allows
+   *
+   * Rule 2 outranks rule 3: the middle beats between rule 2's neighbors
+   * reserve the crisis's spot for it rather than the other way around, so at
+   * 3 places rule 2 still holds and the middle beats simply share their one
+   * remaining spot with each other (rule 3 narrows) rather than the crisis
+   * falling back into a used room. Only when there is no spare place at all
+   * (fewer than 3 places total — never the case for a generated premise,
+   * which always offers 3-5) does rule 2 itself give way; the return value's
+   * `degraded` field says which rule gave way, or null if none did.
+   *
+   * Returns { places: [placeIndex per beat, same order as `spine`], degraded }
+   * where degraded is null, 'crisis-unused' (rule 2 gave way — only possible
+   * with fewer than 3 places), or 'spread-narrowed' (rule 3 gave way: the
+   * non-crisis middle beats had to repeat a place among themselves so the
+   * crisis could have one to itself). */
+  function placesForSpine(spine, placeCount, seed) {
+    var n = spine.length;
+    var places = new Array(n);
+    var ci = spine.indexOf('crisis');
+
+    if (placeCount <= 1 || n <= 1) {
+      for (var z = 0; z < n; z++) places[z] = 0;
+      return { places: places, degraded: (ci !== -1 && n > 1) ? 'crisis-unused' : null };
+    }
+
+    places[0] = 0;
+    places[n - 1] = 0;
+
+    var span = placeCount - 1;                    // nonzero places: 1 .. placeCount-1
+    var rng = PARSE.makeRng((PARSE.hashText('spread:' + spine.join('>')) ^ (seed >>> 0)) >>> 0);
+
+    var crisisPlace = ci !== -1 ? 1 + (Math.floor(rng() * span) % span) : null;
+
+    // Everyone else draws from every nonzero place except the crisis's own —
+    // reserving it is what lets rule 2 hold — unless there is only the one
+    // nonzero place to go around, in which case there is nothing to reserve
+    // and the crisis's own rule (2) is what gives way, not this one.
+    var spreadValues = [];
+    for (var v = 1; v < placeCount; v++) {
+      if (crisisPlace === null || v !== crisisPlace || span === 1) spreadValues.push(v);
+    }
+    var draw = pool(spreadValues, rng);
+
+    var middleNonCrisis = 0;
+    for (var i = 1; i < n - 1; i++) {
+      if (i === ci) continue;
+      middleNonCrisis++;
+      places[i] = draw();
+    }
+    if (ci !== -1) places[ci] = crisisPlace;
+
+    var degraded = null;
+    if (ci !== -1 && span === 1) degraded = 'crisis-unused';
+    else if (spreadValues.length < middleNonCrisis) degraded = 'spread-narrowed';
+
+    return { places: places, degraded: degraded };
+  }
+
+  /* Two films of the same length should not be the same shape.
+   *
+   * The design spec says spines are "chosen by seed and genre"; this only
+   * uses the seed. Recorded as a deviation rather than honoured, because
+   * honouring it means inventing a reason a given genre prefers a given beat
+   * order (does horror really want 'push' before 'spark' more than drama
+   * does?) with nothing to base that association on — see the spec's own
+   * note at docs/superpowers/specs/2026-09-11-better-stories-design.md. */
+  function spineFor(lengthKey, seed) {
+    var structure = LEX.STRUCTURES[lengthKey] || LEX.STRUCTURES.short;
+    var spines = structure.spines || [structure.beats];
+    var rng = PARSE.makeRng((PARSE.hashText('spine:' + lengthKey) ^ (seed >>> 0)) >>> 0);
+    return spines[Math.floor(rng() * spines.length) % spines.length];
+  }
+
+  function headingFor(premise, beatId, placeIndex, previous, advanceTime) {
     var place = premise.places[Math.min(placeIndex, premise.places.length - 1)];
-    var time = beatId === 'after' ? (NEXT_TIME[premise.time] || premise.time) : premise.time;
+    // Time advances once, for 'after' and everything at or after it in the
+    // spine — not for the 'after' beat id alone. That rule was written when
+    // 'after' was always the last beat; once a shape puts 'choice' after it
+    // (festival's third shape does), the beat id test alone let the closing
+    // scene revert to the premise's original time, running the clock
+    // backwards on the last two cards of ~30% of festival films.
+    var time = advanceTime ? (NEXT_TIME[premise.time] || premise.time) : premise.time;
     // Two scenes running in one room read as CONTINUOUS, then LATER.
     if (previous && previous.place.slug === place.slug && previous.time === time) {
       time = previous.continuous ? 'LATER' : 'CONTINUOUS';
@@ -127,15 +245,25 @@
     var rng = PARSE.makeRng((seed + 0x9e3779b9) >>> 0);
     var genre = LEX.GENRES[premise.genre] || LEX.GENRES.drama;
 
-    var ctx = {
+    var ctx;
+    ctx = {
       hero: premise.hero,
       other: premise.other,
       object: premise.object,
       placeWord: premise.places[0].word.toLowerCase(),
       want: premise.want,
       tonight: premise.time === 'NIGHT' || premise.time === 'DUSK' ? 'tonight' : 'today',
-      nextDetail: pool(genre.details, rng),
-      nextSound: pool(genre.sounds, rng)
+      exterior: false,
+      nextDetail: (function (next) {
+        // Details reach the page two ways: substituted into a template by
+        // fill(), and pushed straight through at the end of a scene. Swapping
+        // here covers both, and never double-swaps (an outdoor twin is not
+        // itself a key).
+        return function () { return ctx.exterior ? LEX.outdoors(next()) : next(); };
+      }(pool(genre.details, rng))),
+      nextSound: (function (next) {
+        return function () { return ctx.exterior ? LEX.outdoors(next()) : next(); };
+      }(pool(genre.sounds, rng)))
     };
 
     var beatById = {};
@@ -146,12 +274,19 @@
     var previousHeading = null;
     var introduced = {};
 
-    structure.beats.forEach(function (beatId, index) {
+    var spine = spineFor(lengthKey, seed);
+    var placement = placesForSpine(spine, premise.places.length, seed);
+    var afterIndex = spine.indexOf('after');
+    spine.forEach(function (beatId, index) {
       var beat = beatById[beatId];
-      var heading = headingFor(premise, beatId, BEAT_PLACE[beatId] || 0, previousHeading);
+      var advanceTime = afterIndex !== -1 && index >= afterIndex;
+      var heading = headingFor(premise, beatId,
+        placement.places[index], previousHeading, advanceTime);
       previousHeading = heading;
       // Action lines say "the kitchen" only when the scene is in the kitchen.
       ctx.placeWord = heading.place.word.toLowerCase();
+      // ...and only talk about sills and ceilings when there are some.
+      ctx.exterior = heading.int === 'EXT.';
 
       var sceneElements = [{ type: 'scene_heading', text: heading.text }];
       var actionPool = pool(beat.action, rng);
@@ -203,7 +338,7 @@
       // it can never contradict the action it follows.
       sceneElements.push({ type: 'action', text: capitalize(ctx.nextDetail()) });
 
-      var isLast = index === structure.beats.length - 1;
+      var isLast = index === spine.length - 1;
       if (isLast) sceneElements.push({ type: 'transition', text: 'FADE OUT.' });
 
       scenes.push({
@@ -268,7 +403,10 @@
     return { pages: pages, runtime: '≈ ' + minutes + ' min' };
   }
 
-  var API = { write: write, paginate: paginate };
+  var API = {
+    write: write, paginate: paginate,
+    placeForBeat: placeForBeat, placesForSpine: placesForSpine, spineFor: spineFor
+  };
   if (typeof module === 'object' && module.exports) module.exports = API;
   root.FilmWriter = API;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

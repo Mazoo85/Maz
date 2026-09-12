@@ -11,10 +11,9 @@ struct AppConfig {
     uint32_t height = 720;
     bool headless = false;   // --headless : no visible window, run then exit (CI/tests)
     bool vsync = true;       // --no-vsync to disable
+    bool demo = false;       // --demo : autopilot for offscreen capture (no keyboard)
     int frames = -1;         // --frames N : quit after N frames (<0 = run until closed)
-    const char* modelPath = nullptr; // --load-model PATH : load a glTF/GLB and draw it spinning
-    const char* scenePath = nullptr; // --scene PATH : load a .mazscene and render its entities
-    bool spriteDemo = false;         // --sprite-demo : draw bouncing 2D sprites (2D renderer demo)
+    bool mobile = false;     // --mobile : request the lighter mobile render tier (MSAA off, no bloom/SSAO)
 };
 
 // Parse argv into an AppConfig. Unknown flags are logged and ignored.

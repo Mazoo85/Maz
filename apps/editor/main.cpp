@@ -1,459 +1,930 @@
-// Maz Editor — the visual scene editor.
-//
-// A window with a menu bar, a Hierarchy panel (the list of objects), an Inspector panel (edit the
-// selected object's transform), and the live 3D scene behind them. Edits operate on an in-memory
-// maz::scene::Scene that can be saved/loaded as .mazscene. See docs/EDITOR.md.
-//
-// Runs headless as a no-op (no GPU/UI) so CI can smoke-test that it starts and exits cleanly.
+// Maz Engine — "EDITOR" (a minimal in-engine scene editor, toward Godot's editor)
+// A 3D viewport showing an editable scene, a scene-tree panel listing the nodes (click a row to
+// select), and an inspector panel that live-edits the selected node's transform and PBR material.
+// Click an object in the viewport to select it too. The selection is outlined with a wire box.
+// Fixed camera => deterministic golden. Run --headless / --frames N for CI.
 
 #include "maz/Engine.hpp"
-#include "maz/assets/CompositeAsset.hpp"
-#include "maz/assets/Model.hpp"
-#include "maz/scene/Camera.hpp"
-#include "maz/scene/Scene.hpp"
 
-// See note in VulkanRenderer.cpp: quiet third-party ImGui header warnings under -Werror.
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wconversion"
-#pragma GCC diagnostic ignored "-Wsign-conversion"
-#pragma GCC diagnostic ignored "-Wold-style-cast"
-#pragma GCC diagnostic ignored "-Wshadow"
-#pragma GCC diagnostic ignored "-Wpedantic"
-#endif
-#include "imgui.h"
-#include "backends/imgui_impl_sdl3.h"
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
+#include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_scancode.h>
 
-#include <SDL3/SDL_events.h>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
-#include <cctype>
+#include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
-#include <filesystem>
+#include <functional>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 using namespace maz;
 
 namespace {
 
-// State for the Creator panel: the composite asset being authored plus the currently edited part.
-struct CreatorState {
-    assets::AssetDoc doc;
-    int selectedPart = -1;
-};
-
-// Reduce a display name to a safe file stem (alphanumerics kept; spaces/dashes -> underscore).
-std::string sanitizeStem(const std::string& s) {
-    std::string out;
-    for (char c : s) {
-        if (std::isalnum(static_cast<unsigned char>(c))) {
-            out += c;
-        } else if (c == ' ' || c == '-' || c == '_') {
-            out += '_';
-        }
-    }
-    return out.empty() ? std::string("untitled") : out;
-}
-
-bool endsWith(const std::string& s, const std::string& suffix) {
-    return s.size() >= suffix.size() && s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;
-}
-
-// The directory a kind of asset saves into, and the full .mazasset path for a document.
-std::string assetDir(assets::AssetKind kind) {
-    return kind == assets::AssetKind::Character ? "assets/characters" : "assets/items";
-}
-std::string assetPath(const assets::AssetDoc& doc) {
-    return assetDir(doc.kind) + "/" + sanitizeStem(doc.name) + ".mazasset";
-}
-
-// Append a new part of the given primitive shape with sensible defaults, and select it.
-void addPart(CreatorState& creator, assets::PrimitiveKind kind, const char* label) {
-    assets::Part part;
-    part.name = std::string(label) + " " + std::to_string(creator.doc.parts.size());
-    part.kind = kind;
-    creator.doc.parts.push_back(part);
-    creator.selectedPart = static_cast<int>(creator.doc.parts.size()) - 1;
-}
-
-// Draw the Creator panel. Authors the composite asset; on Save/Bake it writes a .mazasset and
-// (for Bake) adds/updates a scene entity referencing it, pushing its path to `bakeInvalidate` so
-// the caller drops any stale upload cache entry and re-bakes the fresh geometry.
-void buildCreatorUI(CreatorState& creator, scene::Scene& scn, int& selected,
-                    std::vector<std::string>& bakeInvalidate) {
-    assets::AssetDoc& doc = creator.doc;
-
-    ImGui::Begin("Creator");
-
-    char nameBuf[128];
-    std::snprintf(nameBuf, sizeof(nameBuf), "%s", doc.name.c_str());
-    if (ImGui::InputText("Asset Name", nameBuf, sizeof(nameBuf))) {
-        doc.name = nameBuf;
-    }
-    int kindIdx = static_cast<int>(doc.kind);
-    ImGui::RadioButton("Item", &kindIdx, static_cast<int>(assets::AssetKind::Item));
-    ImGui::SameLine();
-    ImGui::RadioButton("Character", &kindIdx, static_cast<int>(assets::AssetKind::Character));
-    doc.kind = static_cast<assets::AssetKind>(kindIdx);
-
-    ImGui::Separator();
-    ImGui::TextDisabled("Parts");
-    const int partCount = static_cast<int>(doc.parts.size());
-    for (int i = 0; i < partCount; ++i) {
-        const std::string label =
-            doc.parts[static_cast<size_t>(i)].name + "##part" + std::to_string(i);
-        if (ImGui::Selectable(label.c_str(), i == creator.selectedPart)) {
-            creator.selectedPart = i;
-        }
-    }
-
-    if (ImGui::Button("+Box")) addPart(creator, assets::PrimitiveKind::Box, "Box");
-    ImGui::SameLine();
-    if (ImGui::Button("+Sphere")) addPart(creator, assets::PrimitiveKind::Sphere, "Sphere");
-    ImGui::SameLine();
-    if (ImGui::Button("+Cylinder")) addPart(creator, assets::PrimitiveKind::Cylinder, "Cylinder");
-    ImGui::SameLine();
-    if (ImGui::Button("+Plane")) addPart(creator, assets::PrimitiveKind::Plane, "Plane");
-    ImGui::SameLine();
-    if (ImGui::Button("Delete Part") && creator.selectedPart >= 0 &&
-        creator.selectedPart < partCount) {
-        doc.parts.erase(doc.parts.begin() + creator.selectedPart);
-        creator.selectedPart = -1;
-    }
-
-    ImGui::Separator();
-    if (creator.selectedPart >= 0 && creator.selectedPart < partCount) {
-        assets::Part& part = doc.parts[static_cast<size_t>(creator.selectedPart)];
-        char partName[128];
-        std::snprintf(partName, sizeof(partName), "%s", part.name.c_str());
-        if (ImGui::InputText("Part Name", partName, sizeof(partName))) {
-            part.name = partName;
-        }
-        const char* shapes[] = {"Box", "Sphere", "Cylinder", "Plane"};
-        int shapeIdx = static_cast<int>(part.kind);
-        if (ImGui::Combo("Shape", &shapeIdx, shapes, IM_ARRAYSIZE(shapes))) {
-            part.kind = static_cast<assets::PrimitiveKind>(shapeIdx);
-        }
-        // Only the fields this shape uses.
-        switch (part.kind) {
-        case assets::PrimitiveKind::Box:
-            ImGui::DragFloat3("Size", part.params.size, 0.02f, 0.001f, 100.0f);
-            break;
-        case assets::PrimitiveKind::Sphere:
-            ImGui::DragFloat("Radius", &part.params.radius, 0.02f, 0.001f, 100.0f);
-            ImGui::DragInt("Segments", &part.params.segments, 1.0f, 3, 128);
-            ImGui::DragInt("Rings", &part.params.rings, 1.0f, 2, 128);
-            break;
-        case assets::PrimitiveKind::Cylinder:
-            ImGui::DragFloat("Radius", &part.params.radius, 0.02f, 0.001f, 100.0f);
-            ImGui::DragFloat("Height", &part.params.height, 0.02f, 0.001f, 100.0f);
-            ImGui::DragInt("Segments", &part.params.segments, 1.0f, 3, 128);
-            break;
-        case assets::PrimitiveKind::Plane:
-            ImGui::DragFloat3("Size (W,_,D)", part.params.size, 0.02f, 0.001f, 100.0f);
-            break;
-        }
-        ImGui::Separator();
-        ImGui::DragFloat3("Position", &part.local.position.x, 0.05f);
-        ImGui::DragFloat3("Rotation", &part.local.rotationEuler.x, 0.5f);
-        // Phase 1 keeps scale uniform (single slider) so baked normals stay correct.
-        float uniform = part.local.scale.x;
-        if (ImGui::DragFloat("Scale", &uniform, 0.02f, 0.001f, 100.0f)) {
-            part.local.scale = math::vec3(uniform, uniform, uniform);
-        }
-    } else {
-        ImGui::TextDisabled("Add a part, then select it to edit.");
-    }
-
-    ImGui::Separator();
-    const std::string path = assetPath(doc);
-    ImGui::TextDisabled("-> %s", path.c_str());
-    if (ImGui::Button("Save Asset")) {
-        std::error_code ec;
-        std::filesystem::create_directories(assetDir(doc.kind), ec);
-        std::string serr;
-        if (assets::saveAsset(path, doc, &serr)) {
-            MAZ_LOG_INFO("saved asset to %s", path.c_str());
-        } else {
-            MAZ_LOG_ERROR("save asset failed: %s", serr.c_str());
-        }
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Bake & Preview") && !doc.parts.empty()) {
-        std::error_code ec;
-        std::filesystem::create_directories(assetDir(doc.kind), ec);
-        std::string serr;
-        if (assets::saveAsset(path, doc, &serr)) {
-            // Ensure exactly one scene entity references this asset; refresh its geometry.
-            bool found = false;
-            for (int i = 0; i < static_cast<int>(scn.entities.size()); ++i) {
-                if (scn.entities[static_cast<size_t>(i)].modelPath == path) {
-                    found = true;
-                    selected = i;
-                    break;
-                }
-            }
-            if (!found) {
-                scene::Entity ent;
-                ent.name = doc.name;
-                ent.modelPath = path;
-                scn.entities.push_back(ent);
-                selected = static_cast<int>(scn.entities.size()) - 1;
-            }
-            bakeInvalidate.push_back(path); // drop stale upload so the new bake is uploaded
-            MAZ_LOG_INFO("baked & previewed %s", path.c_str());
-        } else {
-            MAZ_LOG_ERROR("bake failed: %s", serr.c_str());
-        }
-    }
-
-    ImGui::End();
-}
-
-// Draw the editor panels. Mutates the scene (add/remove/select/edit) in response to input.
-void buildEditorUI(scene::Scene& scn, int& selected, bool& running, const std::string& savePath,
-                   CreatorState& creator, std::vector<std::string>& bakeInvalidate) {
-    ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
-
-    if (ImGui::BeginMainMenuBar()) {
-        if (ImGui::BeginMenu("Scene")) {
-            if (ImGui::MenuItem("New")) {
-                scn.entities.clear();
-                scn.name = "Untitled Scene";
-                selected = -1;
-            }
-            if (ImGui::MenuItem("Reload")) {
-                scene::Scene tmp;
-                std::string serr;
-                if (scene::loadScene(savePath, tmp, &serr)) {
-                    scn = tmp;
-                    selected = scn.entities.empty() ? -1 : 0;
-                }
-            }
-            if (ImGui::MenuItem("Save")) {
-                std::string serr;
-                if (scene::saveScene(savePath, scn, &serr)) {
-                    MAZ_LOG_INFO("saved scene to %s", savePath.c_str());
-                } else {
-                    MAZ_LOG_ERROR("save failed: %s", serr.c_str());
-                }
-            }
-            ImGui::Separator();
-            if (ImGui::MenuItem("Quit")) {
-                running = false;
-            }
-            ImGui::EndMenu();
-        }
-        if (ImGui::BeginMenu("Add")) {
-            if (ImGui::MenuItem("Cube")) {
-                scene::Entity ent;
-                ent.name = "Cube " + std::to_string(scn.entities.size());
-                ent.modelPath = "assets/models/cube.gltf";
-                scn.entities.push_back(ent);
-                selected = static_cast<int>(scn.entities.size()) - 1;
-            }
-            ImGui::EndMenu();
-        }
-        ImGui::EndMainMenuBar();
-    }
-
-    const int count = static_cast<int>(scn.entities.size());
-
-    ImGui::Begin("Hierarchy");
-    ImGui::TextDisabled("%s", scn.name.c_str());
-    ImGui::Separator();
-    for (int i = 0; i < count; ++i) {
-        const std::string label =
-            scn.entities[static_cast<size_t>(i)].name + "##ent" + std::to_string(i);
-        if (ImGui::Selectable(label.c_str(), i == selected)) {
-            selected = i;
-        }
-    }
-    ImGui::Separator();
-    if (ImGui::Button("Add Cube")) {
-        scene::Entity ent;
-        ent.name = "Cube " + std::to_string(scn.entities.size());
-        ent.modelPath = "assets/models/cube.gltf";
-        scn.entities.push_back(ent);
-        selected = static_cast<int>(scn.entities.size()) - 1;
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Delete") && selected >= 0 && selected < count) {
-        scn.entities.erase(scn.entities.begin() + selected);
-        selected = -1;
-    }
-    ImGui::End();
-
-    ImGui::Begin("Inspector");
-    if (selected >= 0 && selected < count) {
-        scene::Entity& ent = scn.entities[static_cast<size_t>(selected)];
-        char nameBuf[128];
-        std::snprintf(nameBuf, sizeof(nameBuf), "%s", ent.name.c_str());
-        if (ImGui::InputText("Name", nameBuf, sizeof(nameBuf))) {
-            ent.name = nameBuf;
-        }
-        ImGui::DragFloat3("Position", &ent.transform.position.x, 0.05f);
-        ImGui::DragFloat3("Rotation", &ent.transform.rotationEuler.x, 0.5f);
-        ImGui::DragFloat3("Scale", &ent.transform.scale.x, 0.02f, 0.001f, 100.0f);
-        ImGui::TextDisabled("model: %s",
-                            ent.modelPath.empty() ? "(none)" : ent.modelPath.c_str());
-    } else {
-        ImGui::TextDisabled("Select an object in the Hierarchy.");
-    }
-    ImGui::End();
-
-    buildCreatorUI(creator, scn, selected, bakeInvalidate);
+std::vector<uint8_t> solidRGBA(uint8_t r, uint8_t g, uint8_t b) {
+    return {r, g, b, 255, r, g, b, 255, r, g, b, 255, r, g, b, 255};
 }
 
 } // namespace
 
 int main(int argc, char** argv) {
     core::AppConfig cfg = core::parseArgs(argc, argv);
-    MAZ_LOG_INFO("Maz Editor starting (headless=%d)", cfg.headless);
+    MAZ_LOG_INFO("EDITOR starting");
 
     platform::Window window;
     platform::WindowConfig wc;
-    wc.title = "Maz Editor";
+    wc.title = "Maz Engine — Editor";
     wc.width = cfg.width;
     wc.height = cfg.height;
     wc.headless = cfg.headless;
     if (!window.init(wc)) {
-        MAZ_LOG_ERROR("window init failed");
         return 1;
     }
 
     render::RendererConfig rc;
     rc.vsync = cfg.vsync;
     rc.allowHeadless = cfg.headless;
-#if defined(MAZ_DEBUG)
-    rc.enableValidation = !cfg.headless;
-#endif
     auto renderer = render::createVulkanRenderer();
     if (!renderer->init(window, rc)) {
-        MAZ_LOG_ERROR("renderer init failed");
         return 1;
     }
 
-    const bool gui = renderer->initGui(window);
-    if (!gui && !cfg.headless) {
-        MAZ_LOG_WARN("editor UI unavailable (no GPU?); rendering scene only");
-    }
+    platform::Input input;
+    core::Clock clock(1.0 / 60.0);
 
-    const std::string savePath = cfg.scenePath ? cfg.scenePath : "assets/scenes/demo.mazscene";
-    scene::Scene scn;
-    std::string err;
-    if (scene::loadScene(savePath, scn, &err)) {
-        MAZ_LOG_INFO("loaded scene \"%s\": %zu entities", scn.name.c_str(), scn.entities.size());
-    } else {
-        MAZ_LOG_WARN("starting with an empty scene (%s)", err.c_str());
-        scn = scene::Scene{};
-    }
+    namespace sh = render::shapes;
+    auto upload = [&](const sh::MeshData& m) {
+        return renderer->createMesh(m.vertices.data(), static_cast<uint32_t>(m.vertices.size()),
+                                    m.indices.data(), static_cast<uint32_t>(m.indices.size()));
+    };
+    const std::vector<render::MeshHandle> meshes = {
+        upload(sh::makeBox(1.0f, render::Color{1, 1, 1, 1})),                    // 0 box
+        upload(sh::makeSphere(0.5f, 32, 40, render::Color{1, 1, 1, 1})),         // 1 sphere
+        upload(sh::makeCylinder(0.5f, 1.0f, 32, render::Color{1, 1, 1, 1})),     // 2 cylinder
+        upload(sh::makeCone(0.5f, 1.0f, 32, render::Color{1, 1, 1, 1})),         // 3 cone
+        upload(sh::makeTorus(0.5f, 0.2f, 32, 20, render::Color{1, 1, 1, 1})),    // 4 torus
+        upload(sh::makeCapsule(0.35f, 0.6f, 24, 8, render::Color{1, 1, 1, 1})),  // 5 capsule
+    };
+    const render::MeshHandle ground = upload(sh::makePlane(9.0f, render::Color{1, 1, 1, 1}));
 
-    // Upload-on-demand cache: model path -> renderer handle. A `.mazasset` path is baked from its
-    // composite document; anything else is loaded as glTF. (Re-baking uploads a fresh model; the old
-    // GPU handle is orphaned — the Renderer has no release yet. Acceptable for editor previews.)
-    std::unordered_map<std::string, int> pathToHandle;
-    auto ensureHandle = [&](const std::string& path) -> int {
-        auto it = pathToHandle.find(path);
-        if (it != pathToHandle.end()) {
-            return it->second;
-        }
-        int handle = -1;
-        assets::Model model;
-        std::string loadErr;
-        bool ok = false;
-        if (endsWith(path, ".mazasset")) {
-            assets::AssetDoc doc;
-            if (assets::loadAsset(path, doc, &loadErr)) {
-                model = assets::buildModel(doc);
-                ok = true;
-            }
-        } else {
-            ok = assets::loadModel(path, model, &loadErr);
-        }
-        if (ok) {
-            handle = renderer->uploadModel(model);
-        } else {
-            MAZ_LOG_ERROR("model '%s': %s", path.c_str(), loadErr.c_str());
-        }
-        pathToHandle[path] = handle;
-        return handle;
+    // The asset browser's catalog: instantiable primitives, each with the mesh index and the local
+    // AABB used for click-picking (matching the geometry's real extents).
+    struct Asset {
+        const char* name;
+        uint32_t mesh;
+        math::vec3 lmin, lmax;
+    };
+    const std::vector<Asset> assets = {
+        {"Box", 0, math::vec3(-0.5f), math::vec3(0.5f)},
+        {"Sphere", 1, math::vec3(-0.5f), math::vec3(0.5f)},
+        {"Cylinder", 2, math::vec3(-0.5f), math::vec3(0.5f)},
+        {"Cone", 3, math::vec3(-0.5f), math::vec3(0.5f)},
+        {"Torus", 4, math::vec3(-0.7f, -0.2f, -0.7f), math::vec3(0.7f, 0.2f, 0.7f)},
+        {"Capsule", 5, math::vec3(-0.35f, -0.65f, -0.35f), math::vec3(0.35f, 0.65f, 0.35f)},
     };
 
-    scene::Camera camera;
-    core::Clock clock(1.0 / 60.0);
-    int selected = scn.entities.empty() ? -1 : 0;
-    float orbit = 0.0f;
-    bool running = true;
-    int rendered = 0;
-
-    CreatorState creator;
-    std::vector<std::string> bakeInvalidate; // asset paths whose cached upload must be refreshed
-
-    while (running && !window.shouldClose()) {
-        SDL_Event ev;
-        while (SDL_PollEvent(&ev)) {
-            if (gui) {
-                ImGui_ImplSDL3_ProcessEvent(&ev);
-            }
-            if (ev.type == SDL_EVENT_QUIT || ev.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
-                running = false;
-            } else if (ev.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED ||
-                       ev.type == SDL_EVENT_WINDOW_RESIZED) {
-                uint32_t w = 0, h = 0;
-                window.drawableSize(w, h);
-                renderer->onResize(w, h);
+    // A small material swatch palette (1x1 albedo textures the nodes index by colorIndex).
+    const std::vector<render::TextureHandle> swatches = {
+        renderer->createTexture(2, 2, solidRGBA(210, 90, 80).data()),   // red
+        renderer->createTexture(2, 2, solidRGBA(90, 170, 220).data()),  // blue
+        renderer->createTexture(2, 2, solidRGBA(120, 200, 120).data()), // green
+        renderer->createTexture(2, 2, solidRGBA(225, 200, 110).data()), // gold
+        renderer->createTexture(2, 2, solidRGBA(210, 210, 215).data()), // white
+    };
+    const render::TextureHandle groundTex = renderer->createTexture(2, 2, solidRGBA(150, 150, 155).data());
+    // A tiling grid texture for the ground. The plane maps UV 0..6 across its 18 units, so one texture
+    // tile spans 3 world units; six cells per tile makes each grid cell 0.5 units (= the snap step).
+    render::TextureHandle gridTex;
+    {
+        const int size = 192, cells = 6, step = size / cells; // 32px per 0.5-unit cell
+        std::vector<uint8_t> px(static_cast<size_t>(size) * size * 4);
+        for (int y = 0; y < size; ++y) {
+            for (int x = 0; x < size; ++x) {
+                const bool line = (x % step < 2) || (y % step < 2); // 2px lines on cell edges
+                const uint8_t r = line ? 188 : 150, g = line ? 191 : 150, b = line ? 198 : 155;
+                // x needs the same widen y already has; both are non-negative loop counters.
+                const size_t i = (static_cast<size_t>(y) * size + static_cast<size_t>(x)) * 4;
+                px[i] = r;
+                px[i + 1] = g;
+                px[i + 2] = b;
+                px[i + 3] = 255;
             }
         }
+        gridTex = renderer->createTexture(size, size, px.data());
+    }
 
-        clock.beginFrame();
-        while (clock.consumeFixedStep()) {
-            orbit += static_cast<float>(clock.fixedDelta()) * 0.25f;
+    ui::Font font;
+    {
+        const char* base = SDL_GetBasePath();
+        const std::string fontPath =
+            (base ? std::string(base) : std::string()) + "assets/fonts/DejaVuSans.ttf";
+        font.load(*renderer, fontPath.c_str(), 32.0f);
+    }
+    const render::TextureHandle white = swatches.back();
+    ui::Context gui;
+    gui.init(*renderer, font, white);
+
+    // Build the editable scene.
+    editor::Scene scene;
+    auto addNode = [&](const char* name, uint32_t mesh, math::vec3 pos, int color, float rough,
+                       float metal) {
+        editor::Node n;
+        n.name = name;
+        n.meshId = mesh;
+        n.position = pos;
+        n.colorIndex = color;
+        n.roughness = rough;
+        n.metallic = metal;
+        n.specular = 1.0f;
+        if (mesh == 1) { // sphere: local AABB radius 0.5
+            n.localMin = math::vec3(-0.5f);
+            n.localMax = math::vec3(0.5f);
         }
+        scene.nodes.push_back(n);
+    };
+    addNode("Crate", 0, math::vec3(-1.6f, 0.5f, 0.0f), 3, 0.7f, 0.0f);
+    addNode("BigBox", 0, math::vec3(0.4f, 0.75f, -1.0f), 1, 0.4f, 0.0f);
+    scene.nodes.back().scale = math::vec3(1.5f);
+    scene.nodes.back().localMax = math::vec3(0.5f); // keep local unit box; scale handles size
+    addNode("Ball", 1, math::vec3(-0.6f, 0.5f, 1.1f), 0, 0.25f, 1.0f);
+    addNode("Sphere2", 1, math::vec3(1.7f, 0.5f, 0.4f), 2, 0.5f, 0.0f);
+    addNode("SmallCube", 0, math::vec3(1.1f, 0.35f, 1.4f), 4, 0.3f, 0.0f);
+    scene.nodes.back().scale = math::vec3(0.7f);
+    scene.selectOnly(0);
 
-        uint32_t dw = 0, dh = 0;
-        window.drawableSize(dw, dh);
-        const float aspect = dh > 0 ? static_cast<float>(dw) / static_cast<float>(dh) : 1.0f;
-        camera.setPerspective(glm::radians(55.0f), aspect, 0.1f, 100.0f);
-        camera.setPosition({std::sin(orbit) * 7.0f, 3.5f, std::cos(orbit) * 7.0f});
-        camera.setTarget({0.0f, 0.5f, 0.0f});
+    enum class Gizmo { Move, Rotate, Scale };
+    Gizmo gizmo = Gizmo::Move;     // active transform tool (keys 1/2/3 or the SCENE toolbar)
+    bool dragging = false;         // a gizmo drag is in progress
+    math::vec3 dragOffset{0, 0, 0}; // Move: node pos minus ground-plane hit at grab time
+    float grabAngle = 0.0f;        // Rotate: cursor angle around the object's screen centre at grab
+    float grabDist = 1.0f;         // Scale: cursor distance from the object's screen centre at grab
+    std::vector<float> grabYaw;    // Rotate: each selected node's yaw at grab (parallel to selection)
+    std::vector<float> grabScale;  // Scale: each selected node's uniform scale at grab
+    editor::History history;        // undo/redo snapshots
+    bool gridOn = true;            // show the ground reference grid
+    bool snapOn = false;           // snap translation to the grid
+    const float snapStep = 0.5f;   // grid cell size in world units
 
-        renderer->setClearColor({0.10f, 0.11f, 0.13f, 1.0f});
-        if (renderer->beginFrame()) {
-            if (gui) {
-                renderer->guiNewFrame();
-                buildEditorUI(scn, selected, running, savePath, creator, bakeInvalidate);
-                // Drop cache entries for freshly baked assets so their new geometry is uploaded.
-                for (const std::string& p : bakeInvalidate) {
-                    pathToHandle.erase(p);
-                }
-                bakeInvalidate.clear();
+    // Play-in-editor: pressing Play simulates the scene as 3D rigid bodies falling onto the ground;
+    // Stop restores the scene exactly as it was authored (runtime motion is discarded, like Godot).
+    bool playing = false;
+    std::vector<editor::Node> savedScene;  // snapshot captured at Play, restored on Stop
+    game::PhysicsWorld3D world;            // physics world rebuilt each Play
+    std::vector<int> bodyNode;             // dynamic body index -> node index (world.bodies[0] = ground)
+    std::vector<math::quat> liveQuat;      // per-node live orientation while playing (else identity)
+
+    // Bottom-dock tabs (Godot's bottom panel): Assets browser, Profiler, and Output/Log.
+    enum class DockTab { Assets, Profiler, Log };
+    DockTab dockTab = DockTab::Assets;
+    std::vector<std::pair<int, std::string>> logLines; // (level, formatted text), capped ring
+    std::vector<float> frameMs(120, 0.0f);             // rolling frame-time history for the profiler graph
+    size_t frameMsPos = 0;
+
+    // Mirror engine log output into the editor's Output panel (capped so it can't grow unbounded).
+    core::setLogSink([&logLines](core::LogLevel lvl, const char* msg) {
+        logLines.emplace_back(static_cast<int>(lvl), msg);
+        if (logLines.size() > 200) {
+            logLines.erase(logLines.begin());
+        }
+    });
+    MAZ_LOG_INFO("editor ready — %zu nodes; PLAY to simulate", scene.nodes.size());
+
+    // Where Ctrl+S / Ctrl+O save and load the scene (a guaranteed-writable per-user dir).
+    std::string scenePath, packPath;
+    {
+        char* pref = SDL_GetPrefPath("MazEngine", "editor");
+        const std::string dir = pref ? std::string(pref) : std::string();
+        scenePath = dir + "scene.json";
+        packPath = dir + "scene.mazpack"; // Package output (a distributable resource pack)
+        if (pref) {
+            SDL_free(pref);
+        }
+    }
+
+    render::SceneLighting light;
+    light.ambient[0] = light.ambient[1] = light.ambient[2] = 0.30f;
+    light.sunDir[0] = 0.35f;
+    light.sunDir[1] = 0.85f;
+    light.sunDir[2] = 0.45f;
+    light.sunColor[0] = light.sunColor[1] = light.sunColor[2] = 0.85f;
+    renderer->setLighting(light);
+
+    // Discrete scene edits (add / duplicate / delete) commit one undo step immediately. commitEdit
+    // pushes the before-state and, if a mouse gesture happens to be open, re-bases its pending
+    // snapshot so the gesture's own end() doesn't record the same change a second time.
+    auto commitEdit = [&](const std::vector<editor::Node>& before) {
+        history.commit(before, scene.nodes);
+        if (history.inGesture) {
+            history.pending = scene.nodes;
+        }
+    };
+    // Instantiate a catalog asset: a fresh node with the asset's mesh + pick-AABB, resting on the
+    // ground (bottom at y=0), a rotating swatch colour, selected and committed as one undo step.
+    auto addAsset = [&](size_t a) {
+        if (a >= assets.size()) {
+            return;
+        }
+        std::vector<editor::Node> before = scene.nodes;
+        editor::Node n;
+        n.name = std::string(assets[a].name) + std::to_string(scene.nodes.size());
+        n.meshId = assets[a].mesh;
+        n.localMin = assets[a].lmin;
+        n.localMax = assets[a].lmax;
+        n.position = math::vec3(0.0f, -assets[a].lmin.y, 0.0f); // sit on the floor
+        n.colorIndex = static_cast<int>(scene.nodes.size()) % static_cast<int>(swatches.size());
+        n.roughness = 0.6f;
+        n.specular = 1.0f;
+        scene.nodes.push_back(n);
+        scene.selectOnly(static_cast<int>(scene.nodes.size()) - 1);
+        commitEdit(before);
+        MAZ_LOG_INFO("added %s (%zu nodes)", assets[a].name, scene.nodes.size());
+    };
+    // Duplicate every selected node (offset copies), then select the new copies.
+    auto duplicateSelected = [&]() {
+        if (scene.selection.empty()) {
+            return;
+        }
+        std::vector<editor::Node> before = scene.nodes;
+        std::vector<int> src = scene.selection; // copy: we mutate scene.selection below
+        scene.clearSelection();
+        for (int idx : src) {
+            editor::Node copy = before[static_cast<size_t>(idx)];
+            copy.name += " copy";
+            copy.position.x += 0.6f;
+            copy.position.z += 0.6f;
+            scene.nodes.push_back(copy);
+            scene.selection.push_back(static_cast<int>(scene.nodes.size()) - 1);
+        }
+        scene.selected = scene.selection.empty() ? -1 : scene.selection.back();
+        commitEdit(before);
+    };
+    // Delete every selected node (erase high indices first so lower ones stay valid).
+    auto deleteSelected = [&]() {
+        if (scene.selection.empty()) {
+            return;
+        }
+        std::vector<editor::Node> before = scene.nodes;
+        std::vector<int> idx = scene.selection;
+        std::sort(idx.begin(), idx.end(), std::greater<int>());
+        for (int i : idx) {
+            if (i >= 0 && i < static_cast<int>(scene.nodes.size())) {
+                scene.nodes.erase(scene.nodes.begin() + i);
             }
-            for (const scene::Entity& ent : scn.entities) {
-                if (ent.modelPath.empty()) {
+        }
+        scene.clearSelection();
+        commitEdit(before);
+    };
+
+    // Node Euler (degrees, Y then X then Z — matching Node::modelMatrix) as a quaternion, so a playing
+    // body starts at the authored orientation.
+    auto eulerToQuat = [](const math::vec3& deg) {
+        return glm::angleAxis(glm::radians(deg.y), math::vec3(0, 1, 0)) *
+               glm::angleAxis(glm::radians(deg.x), math::vec3(1, 0, 0)) *
+               glm::angleAxis(glm::radians(deg.z), math::vec3(0, 0, 1));
+    };
+    // Enter or leave play mode. Entering snapshots the scene and builds a physics world from the nodes;
+    // leaving restores the snapshot so all simulated motion is discarded (Godot's play/stop semantics).
+    auto togglePlay = [&]() {
+        if (!playing) {
+            savedScene = scene.nodes;
+            world = game::PhysicsWorld3D{};
+            world.allowSleep = true;
+            world.add(game::makeGroundPlane(math::vec3(0, 1, 0), math::vec3(0, 0, 0)));
+            bodyNode.clear();
+            liveQuat.assign(scene.nodes.size(), math::quat(1, 0, 0, 0));
+            for (size_t i = 0; i < scene.nodes.size(); ++i) {
+                const editor::Node& n = scene.nodes[i];
+                if (!n.visible) {
                     continue;
                 }
-                const int handle = ensureHandle(ent.modelPath);
-                const math::mat4 modelMatrix = ent.transform.matrix();
-                const math::mat4 mvp = camera.viewProjection() * modelMatrix;
-                renderer->drawModel(handle, mvp, modelMatrix);
+                const math::vec3 s = n.scale;
+                game::Body3D b;
+                if (n.meshId == 1) { // sphere
+                    b = game::makeSphere(n.position, 0.5f * s.x, 1.0f);
+                } else if (n.meshId == 5) { // capsule: radius 0.35, cyl half-height 0.30
+                    b = game::makeCapsule(n.position, 0.35f * s.x, 0.30f * s.y, 1.0f);
+                } else { // box / cylinder / cone / torus -> box from the scaled local AABB
+                    const math::vec3 half((n.localMax.x - n.localMin.x) * 0.5f * s.x,
+                                          (n.localMax.y - n.localMin.y) * 0.5f * s.y,
+                                          (n.localMax.z - n.localMin.z) * 0.5f * s.z);
+                    b = game::makeBox(n.position, half, 1.0f);
+                }
+                b.orientation = eulerToQuat(n.euler);
+                b.restitution = 0.25f;
+                b.friction = 0.6f;
+                b.enableRotation();
+                liveQuat[i] = b.orientation;
+                world.add(b);
+                bodyNode.push_back(static_cast<int>(i));
             }
+            playing = true;
+            MAZ_LOG_INFO("play started — simulating %zu bodies", bodyNode.size());
+        } else {
+            scene.nodes = savedScene;
+            scene.sanitizeSelection();
+            playing = false;
+            MAZ_LOG_INFO("play stopped — scene restored");
+        }
+    };
+
+    // Content pipeline: package the scene (+ a manifest) into a single distributable resource pack
+    // (io::ResourcePack — Maz's .pck equivalent) that a shipped runtime could mount and load from.
+    auto packageScene = [&]() {
+        const std::string json = editor::toJson(scene).dump(2);
+        std::string manifest = "engine=Maz\nformat=mazpack1\nnodes=" +
+                               std::to_string(scene.nodes.size()) + "\n";
+        for (const Asset& a : assets) {
+            size_t n = 0;
+            for (const editor::Node& node : scene.nodes) {
+                if (node.meshId == a.mesh) {
+                    ++n;
+                }
+            }
+            manifest += std::string("count.") + a.name + "=" + std::to_string(n) + "\n";
+        }
+        std::vector<io::PackEntry> entries;
+        entries.push_back({"scene.json", std::vector<uint8_t>(json.begin(), json.end())});
+        entries.push_back({"manifest.txt", std::vector<uint8_t>(manifest.begin(), manifest.end())});
+        const std::vector<uint8_t> bytes = io::packResources(entries);
+        if (io::writeFile(packPath, bytes)) {
+            MAZ_LOG_INFO("packaged %zu nodes -> %s (%zu bytes)", scene.nodes.size(), packPath.c_str(),
+                         bytes.size());
+        } else {
+            MAZ_LOG_ERROR("package failed: could not write %s", packPath.c_str());
+        }
+    };
+
+    while (!window.shouldClose()) {
+        window.pumpEvents(input);
+        if (input.keyPressed(SDL_SCANCODE_ESCAPE)) {
+            window.requestClose();
+        }
+
+        uint32_t bw = 0, bh = 0;
+        window.drawableSize(bw, bh);
+        const float fw = static_cast<float>(bw), fh = static_cast<float>(bh);
+        const float aspect = bh > 0 ? fw / fh : 16.0f / 9.0f;
+
+        clock.beginFrame();
+        frameMs[frameMsPos] = static_cast<float>(clock.frameDelta() * 1000.0); // for the profiler graph
+        frameMsPos = (frameMsPos + 1) % frameMs.size();
+        while (clock.consumeFixedStep()) {
+            if (playing) {
+                world.step(1.0f / 60.0f, 8);
+            }
+        }
+        // Mirror the simulated bodies back into the nodes (position + live orientation) for rendering.
+        if (playing) {
+            for (size_t k = 0; k < bodyNode.size(); ++k) {
+                const game::Body3D& b = world.bodies[k + 1]; // +1: world.bodies[0] is the ground
+                const int ni = bodyNode[k];
+                scene.nodes[static_cast<size_t>(ni)].position = b.pos;
+                liveQuat[static_cast<size_t>(ni)] = b.orientation;
+            }
+        }
+
+        const glm::vec3 eye(3.6f, 3.4f, 6.4f);
+        const glm::mat4 proj = math::perspective(glm::radians(46.0f), aspect, 0.1f, 100.0f);
+        const glm::mat4 view = glm::lookAt(eye, glm::vec3(0.2f, 0.3f, 0.0f), glm::vec3(0, 1, 0));
+        const glm::mat4 viewProj = proj * view;
+
+        const float mx = input.mouseX(), my = input.mouseY();
+        const bool down = input.mouseDown(0);
+
+        // Undo / redo (Ctrl+Z / Ctrl+Y). Handled outside gesture bracketing below.
+        const bool ctrl =
+            input.keyDown(SDL_SCANCODE_LCTRL) || input.keyDown(SDL_SCANCODE_RCTRL);
+        const bool shift =
+            input.keyDown(SDL_SCANCODE_LSHIFT) || input.keyDown(SDL_SCANCODE_RSHIFT);
+        // Space toggles play/stop at any time; the rest of the editing keys are inert while playing.
+        if (input.keyPressed(SDL_SCANCODE_SPACE)) {
+            togglePlay();
+        }
+        // Transform-tool selector: 1 = Move, 2 = Rotate, 3 = Scale.
+        if (input.keyPressed(SDL_SCANCODE_1)) gizmo = Gizmo::Move;
+        if (input.keyPressed(SDL_SCANCODE_2)) gizmo = Gizmo::Rotate;
+        if (input.keyPressed(SDL_SCANCODE_3)) gizmo = Gizmo::Scale;
+        if (!playing && ctrl && input.keyPressed(SDL_SCANCODE_Z)) {
+            history.undo(scene.nodes);
+        }
+        if (!playing && ctrl && input.keyPressed(SDL_SCANCODE_Y)) {
+            history.redo(scene.nodes);
+        }
+        // Node ops via keyboard: Ctrl+D duplicates the selection, Delete removes it.
+        if (!playing && ctrl && input.keyPressed(SDL_SCANCODE_D)) {
+            duplicateSelected();
+        }
+        if (!playing && input.keyPressed(SDL_SCANCODE_DELETE)) {
+            deleteSelected();
+        }
+        scene.sanitizeSelection(); // drop stale indices after undo/redo/delete
+        // Save / load the scene (Ctrl+S / Ctrl+O) as human-readable JSON.
+        if (!playing && ctrl && input.keyPressed(SDL_SCANCODE_S)) {
+            io::writeTextFile(scenePath, editor::toJson(scene).dump(2));
+            MAZ_LOG_INFO("saved scene -> %s", scenePath.c_str());
+        }
+        if (!playing && ctrl && input.keyPressed(SDL_SCANCODE_O)) {
+            std::string txt;
+            const io::JsonParseResult pr =
+                io::readTextFile(scenePath, txt) ? io::parseJson(txt) : io::JsonParseResult{};
+            if (pr.ok) {
+                editor::fromJson(pr.value, scene);
+                scene.sanitizeSelection();
+            }
+        }
+        // Package the scene into a distributable resource pack (Ctrl+B).
+        if (!playing && ctrl && input.keyPressed(SDL_SCANCODE_B)) {
+            packageScene();
+            dockTab = DockTab::Log;
+        }
+
+        // Undo bracketing: a drag / keyboard-nudge / slider grab is one undo step. Snapshot the scene
+        // when such a gesture starts and commit it (if anything changed) when the gesture ends.
+        const bool nudgeHeld =
+            scene.selectedNode() != nullptr &&
+            (input.keyDown(SDL_SCANCODE_LEFT) || input.keyDown(SDL_SCANCODE_RIGHT) ||
+             input.keyDown(SDL_SCANCODE_UP) || input.keyDown(SDL_SCANCODE_DOWN) ||
+             input.keyDown(SDL_SCANCODE_Q) || input.keyDown(SDL_SCANCODE_E));
+        const bool gestureActive = !playing && (down || nudgeHeld);
+        if (gestureActive && !history.inGesture) {
+            history.begin(scene.nodes);
+        } else if (!gestureActive && history.inGesture) {
+            history.end(scene.nodes);
+        }
+
+        // Viewport click-to-pick + translate gizmo: a left click in the 3D viewport (not over a
+        // panel) casts a ray; it selects the nearest node it hits and begins a ground-plane drag.
+        const float treeW = 240.0f, inspW = 288.0f, dockH = 112.0f;
+        const bool inViewport =
+            mx > treeW + 8.0f && mx < fw - inspW - 8.0f && my < fh - dockH; // exclude the ASSETS dock
+        const glm::mat4 invVP = glm::inverse(viewProj);
+        if (!playing && input.mousePressed(0) && inViewport) {
+            math::vec3 ro, rd;
+            editor::screenRay(invVP, mx, my, fw, fh, ro, rd);
+            const int hit = editor::pickNode(scene, ro, rd);
+            if (hit >= 0) {
+                // Shift-click toggles a node in the selection; a plain click on an unselected node
+                // selects just it; clicking an already-selected node keeps the group and re-primes it,
+                // then starts a group drag anchored on the primary node's ground plane.
+                if (shift) {
+                    scene.toggleSelect(hit);
+                } else {
+                    if (!scene.isSelected(hit)) {
+                        scene.selectOnly(hit);
+                    } else {
+                        scene.selected = hit;
+                    }
+                    // Begin a gizmo drag; snapshot the grab reference for the active tool.
+                    if (editor::Node* p = scene.selectedNode()) {
+                        dragging = true;
+                        if (gizmo == Gizmo::Move) {
+                            math::vec3 planeHit;
+                            if (editor::rayPlaneY(ro, rd, p->position.y, planeHit)) {
+                                dragOffset = math::vec3(p->position.x - planeHit.x, 0.0f,
+                                                        p->position.z - planeHit.z);
+                            } else {
+                                dragging = false;
+                            }
+                        } else {
+                            math::vec2 c;
+                            if (editor::worldToScreen(viewProj, p->position, fw, fh, c)) {
+                                if (gizmo == Gizmo::Rotate) {
+                                    grabAngle = std::atan2(my - c.y, mx - c.x);
+                                    grabYaw.clear();
+                                    for (int i : scene.selection) {
+                                        grabYaw.push_back(scene.nodes[static_cast<size_t>(i)].euler.y);
+                                    }
+                                } else { // Scale
+                                    grabDist = std::max(std::hypot(mx - c.x, my - c.y), 1e-3f);
+                                    grabScale.clear();
+                                    for (int i : scene.selection) {
+                                        grabScale.push_back(scene.nodes[static_cast<size_t>(i)].scale.x);
+                                    }
+                                }
+                            } else {
+                                dragging = false;
+                            }
+                        }
+                    }
+                }
+            } else if (!shift) {
+                scene.clearSelection(); // click empty space to deselect (shift keeps the selection)
+            }
+        }
+        // Continue a gizmo drag. Move slides the whole selection on the ground plane; Rotate spins each
+        // selected node's yaw by the angle the cursor has swept around the primary's screen centre;
+        // Scale multiplies each node's size by the cursor's distance ratio from that centre.
+        if (dragging && input.mouseDown(0)) {
+            if (editor::Node* p = scene.selectedNode()) {
+                if (gizmo == Gizmo::Move) {
+                    math::vec3 ro, rd, planeHit;
+                    editor::screenRay(invVP, mx, my, fw, fh, ro, rd);
+                    if (editor::rayPlaneY(ro, rd, p->position.y, planeHit)) {
+                        float nx = planeHit.x + dragOffset.x, nz = planeHit.z + dragOffset.z;
+                        if (snapOn) { // land on tidy grid coordinates
+                            nx = editor::snap1(nx, snapStep);
+                            nz = editor::snap1(nz, snapStep);
+                        }
+                        const float dx = nx - p->position.x, dz = nz - p->position.z;
+                        for (int i : scene.selection) {
+                            scene.nodes[static_cast<size_t>(i)].position.x += dx;
+                            scene.nodes[static_cast<size_t>(i)].position.z += dz;
+                        }
+                    }
+                } else {
+                    math::vec2 c;
+                    if (editor::worldToScreen(viewProj, p->position, fw, fh, c)) {
+                        if (gizmo == Gizmo::Rotate) {
+                            const float ddeg = glm::degrees(std::atan2(my - c.y, mx - c.x) - grabAngle);
+                            for (size_t k = 0; k < scene.selection.size() && k < grabYaw.size(); ++k) {
+                                float y = grabYaw[k] + ddeg;
+                                if (snapOn) { // 15-degree detents
+                                    y = editor::snap1(y, 15.0f);
+                                }
+                                scene.nodes[static_cast<size_t>(scene.selection[k])].euler.y = y;
+                            }
+                        } else { // Scale
+                            const float ratio = std::hypot(mx - c.x, my - c.y) / grabDist;
+                            for (size_t k = 0; k < scene.selection.size() && k < grabScale.size(); ++k) {
+                                float s = grabScale[k] * ratio;
+                                if (snapOn) {
+                                    s = editor::snap1(s, 0.25f);
+                                }
+                                s = glm::clamp(s, 0.05f, 10.0f);
+                                scene.nodes[static_cast<size_t>(scene.selection[k])].scale = math::vec3(s);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (!input.mouseDown(0)) {
+            dragging = false;
+        }
+        // Keyboard nudge of the whole selection: arrows move on the ground plane, Q/E rotate each node
+        // about its own origin. With snap on, each arrow *press* steps one grid cell (and re-aligns to
+        // the grid); otherwise arrows glide smoothly while held.
+        if (!playing && !scene.selection.empty()) {
+            float dx = 0.0f, dz = 0.0f, dyaw = 0.0f;
+            if (snapOn) {
+                if (input.keyPressed(SDL_SCANCODE_LEFT)) dx -= snapStep;
+                if (input.keyPressed(SDL_SCANCODE_RIGHT)) dx += snapStep;
+                if (input.keyPressed(SDL_SCANCODE_UP)) dz -= snapStep;
+                if (input.keyPressed(SDL_SCANCODE_DOWN)) dz += snapStep;
+            } else {
+                const float step = 0.06f;
+                if (input.keyDown(SDL_SCANCODE_LEFT)) dx -= step;
+                if (input.keyDown(SDL_SCANCODE_RIGHT)) dx += step;
+                if (input.keyDown(SDL_SCANCODE_UP)) dz -= step;
+                if (input.keyDown(SDL_SCANCODE_DOWN)) dz += step;
+            }
+            if (input.keyDown(SDL_SCANCODE_Q)) dyaw -= 2.0f;
+            if (input.keyDown(SDL_SCANCODE_E)) dyaw += 2.0f;
+            for (int i : scene.selection) {
+                editor::Node& n = scene.nodes[static_cast<size_t>(i)];
+                n.position.x += dx;
+                n.position.z += dz;
+                n.euler.y += dyaw;
+                if (snapOn) {
+                    n.position.x = editor::snap1(n.position.x, snapStep);
+                    n.position.z = editor::snap1(n.position.z, snapStep);
+                }
+            }
+        }
+
+        renderer->setClearColor(render::Color{0.10f, 0.11f, 0.14f, 1.0f});
+        if (renderer->beginFrame()) {
+            renderer->setViewProjection3D(glm::value_ptr(viewProj));
+            renderer->setCameraPosition(glm::value_ptr(eye));
+
+            // Ground — the grid is baked into a tiling texture so objects occlude it correctly.
+            {
+                render::Renderer::Material gm;
+                gm.albedo = gridOn ? gridTex : groundTex;
+                gm.roughness = 0.9f;
+                const glm::mat4 m = glm::translate(glm::mat4(1.0f), glm::vec3(0, 0, 0));
+                renderer->drawMeshMaterial(ground, glm::value_ptr(m), gm);
+            }
+            // Scene nodes. While playing, orientation comes from the physics body (liveQuat); otherwise
+            // from the node's authored Euler angles.
+            for (size_t i = 0; i < scene.nodes.size(); ++i) {
+                const editor::Node& n = scene.nodes[i];
+                if (!n.visible) {
+                    continue;
+                }
+                render::Renderer::Material mat;
+                mat.albedo = swatches[static_cast<size_t>(n.colorIndex) % swatches.size()];
+                mat.roughness = n.roughness;
+                mat.metallic = n.metallic;
+                mat.specular = n.specular;
+                mat.emissive[0] = n.emissive.x;
+                mat.emissive[1] = n.emissive.y;
+                mat.emissive[2] = n.emissive.z;
+                glm::mat4 model;
+                if (playing) {
+                    model = glm::translate(glm::mat4(1.0f), glm::vec3(n.position)) *
+                            glm::mat4_cast(liveQuat[i]);
+                    model = glm::scale(model, glm::vec3(n.scale));
+                } else {
+                    model = n.modelMatrix();
+                }
+                renderer->drawMeshMaterial(meshes[n.meshId % meshes.size()], glm::value_ptr(model),
+                                           mat);
+            }
+            // Selection outline: a wire AABB around every selected node (the primary glows brighter).
+            // Hidden while playing (the simulated transforms don't match the authored AABB gizmo).
+            for (int i : scene.selection) {
+                if (playing) {
+                    break;
+                }
+                editor::Node& n = scene.nodes[static_cast<size_t>(i)];
+                math::vec3 mn, mxb;
+                n.worldAabb(mn, mxb);
+                const bool primary = (i == scene.selected);
+                const float col[4] = {1.0f, primary ? 0.85f : 0.6f, primary ? 0.2f : 0.15f,
+                                      primary ? 1.0f : 0.7f};
+                renderer->drawAabb(glm::value_ptr(mn), glm::value_ptr(mxb), col);
+            }
+            // Gizmo widget on the primary node: Move/Scale show RGB axes; Rotate shows a yaw ring.
+            if (editor::Node* sel = scene.selectedNode(); sel && !playing) {
+                const glm::vec3 c = sel->position;
+                if (gizmo == Gizmo::Rotate) {
+                    // A ring on the XZ plane sized to the node's horizontal footprint (Y-axis yaw).
+                    math::vec3 mn, mxb;
+                    sel->worldAabb(mn, mxb);
+                    const float r =
+                        std::max(0.6f, 0.5f * std::max(mxb.x - mn.x, mxb.z - mn.z) + 0.35f);
+                    const float col[4] = {0.4f, 0.85f, 1.0f, 1.0f};
+                    const int seg = 48;
+                    glm::vec3 prev = c + glm::vec3(r, 0.0f, 0.0f);
+                    for (int i = 1; i <= seg; ++i) {
+                        const float a = static_cast<float>(i) / static_cast<float>(seg) * 6.2831853f;
+                        const glm::vec3 cur = c + glm::vec3(r * std::cos(a), 0.0f, r * std::sin(a));
+                        renderer->drawLine(glm::value_ptr(prev), glm::value_ptr(cur), col);
+                        prev = cur;
+                    }
+                } else {
+                    const float L = gizmo == Gizmo::Scale ? 1.1f : 1.4f;
+                    const float rx[4] = {1.0f, 0.3f, 0.25f, 1.0f};
+                    const float gy[4] = {0.35f, 1.0f, 0.35f, 1.0f};
+                    const float bz[4] = {0.35f, 0.55f, 1.0f, 1.0f};
+                    const glm::vec3 ax = c + glm::vec3(L, 0, 0), ay = c + glm::vec3(0, L, 0),
+                                    az = c + glm::vec3(0, 0, L);
+                    renderer->drawLine(glm::value_ptr(c), glm::value_ptr(ax), rx);
+                    renderer->drawLine(glm::value_ptr(c), glm::value_ptr(ay), gy);
+                    renderer->drawLine(glm::value_ptr(c), glm::value_ptr(az), bz);
+                }
+            }
+
+            // ---- 2D editor UI (pixel space) ----
+            render::Camera2D uicam;
+            uicam.usePixelSpace = true;
+            renderer->setCamera2D(uicam);
+            gui.begin(mx, my, down);
+
+            // Play / Stop control floating at the top of the viewport (Space also toggles it).
+            {
+                const ui::Rect pr{treeW + 16.0f, 12.0f, 104.0f, 30.0f};
+                gui.panel(pr, playing ? render::Color{0.72f, 0.30f, 0.28f, 1}
+                                      : render::Color{0.28f, 0.55f, 0.34f, 1});
+                if (gui.button(60u, pr, playing ? "> STOP" : "> PLAY", 0.40f)) {
+                    togglePlay();
+                }
+                // Package button: export the scene to a distributable resource pack (Ctrl+B also).
+                const ui::Rect kr{treeW + 128.0f, 12.0f, 128.0f, 30.0f};
+                if (gui.button(61u, kr, "Package", 0.36f) && !playing) {
+                    packageScene();
+                    dockTab = DockTab::Log; // show the result in the Output panel
+                }
+            }
+
+            // Scene-tree panel on the left.
+            const float panelW = 240.0f;
+            gui.panel(ui::Rect{0, 0, panelW, fh}, gui.colBg);
+            font.drawText(*renderer, 16.0f, 14.0f, "SCENE", render::Color{1, 1, 1, 1}, 0.55f);
+            // Node-op toolbar: duplicate or delete the selected node(s). (Adding new nodes lives in the
+            // ASSETS browser docked along the bottom.)
+            {
+                const float bwid = 108.0f, gap = 4.0f, by = 42.0f, bhgt = 26.0f;
+                float bx = 10.0f;
+                if (gui.button(72u, ui::Rect{bx, by, bwid, bhgt}, "Duplicate", 0.34f) && !playing) {
+                    duplicateSelected();
+                }
+                bx += bwid + gap;
+                if (gui.button(73u, ui::Rect{bx, by, bwid, bhgt}, "Delete", 0.34f) && !playing) {
+                    deleteSelected();
+                }
+            }
+            // Transform-tool selector row (Move / Rotate / Scale); the active tool is highlighted.
+            {
+                const float bwid = 70.0f, gap = 5.0f, by = 74.0f, bhgt = 24.0f;
+                const char* labels[3] = {"Move", "Rot", "Scale"};
+                const Gizmo modes[3] = {Gizmo::Move, Gizmo::Rotate, Gizmo::Scale};
+                float bx = 10.0f;
+                for (int m = 0; m < 3; ++m) {
+                    const ui::Rect r{bx, by, bwid, bhgt};
+                    if (gizmo == modes[m]) {
+                        gui.panel(r, gui.colActive);
+                    }
+                    if (gui.button(static_cast<uint32_t>(80 + m), r, labels[m], 0.32f)) {
+                        gizmo = modes[m];
+                    }
+                    bx += bwid + gap;
+                }
+            }
+            float ty = 112.0f;
+            for (size_t i = 0; i < scene.nodes.size(); ++i) {
+                const ui::Rect row{10.0f, ty, panelW - 20.0f, 30.0f};
+                if (scene.isSelected(static_cast<int>(i))) {
+                    gui.panel(row, gui.colActive);
+                }
+                if (gui.button(static_cast<uint32_t>(100 + i), row, scene.nodes[i].name.c_str(),
+                               0.42f)) {
+                    // Shift-click a tree row to toggle it in the selection; a plain click selects only it.
+                    if (shift) {
+                        scene.toggleSelect(static_cast<int>(i));
+                    } else {
+                        scene.selectOnly(static_cast<int>(i));
+                    }
+                }
+                ty += 36.0f;
+            }
+
+            // Inspector panel on the right: live-edit the selected node.
+            if (editor::Node* sel = scene.selectedNode()) {
+                const float iw = 288.0f;
+                const float ix = fw - iw;
+                gui.panel(ui::Rect{ix, 0, iw, fh}, gui.colBg);
+                font.drawText(*renderer, ix + 16.0f, 14.0f, "INSPECTOR",
+                              render::Color{1, 1, 1, 1}, 0.55f);
+                font.drawText(*renderer, ix + 16.0f, 46.0f, sel->name.c_str(), gui.colAccent, 0.42f);
+
+                float y = 84.0f;
+                uint32_t id = 200;
+                auto row = [&](const char* label, float& value, float lo, float hi) {
+                    char buf[64];
+                    std::snprintf(buf, sizeof(buf), "%s: %.2f", label, static_cast<double>(value));
+                    font.drawText(*renderer, ix + 14.0f, y, buf, gui.colText, 0.34f);
+                    gui.slider(id++, ui::Rect{ix + 14.0f, y + 20.0f, iw - 28.0f, 16.0f}, value, lo,
+                               hi);
+                    y += 46.0f;
+                };
+                font.drawText(*renderer, ix + 14.0f, y, "TRANSFORM", gui.colAccent, 0.32f);
+                y += 24.0f;
+                row("Pos X", sel->position.x, -4.0f, 4.0f);
+                row("Pos Y", sel->position.y, 0.0f, 4.0f);
+                row("Pos Z", sel->position.z, -4.0f, 4.0f);
+                row("Rot Y", sel->euler.y, 0.0f, 360.0f);
+                float uniform = sel->scale.x;
+                row("Scale", uniform, 0.2f, 2.5f);
+                sel->scale = math::vec3(uniform);
+
+                y += 6.0f;
+                font.drawText(*renderer, ix + 14.0f, y, "MATERIAL", gui.colAccent, 0.32f);
+                y += 24.0f;
+                row("Rough", sel->roughness, 0.05f, 1.0f);
+                row("Metal", sel->metallic, 0.0f, 1.0f);
+                float glow = sel->emissive.x;
+                row("Glow", glow, 0.0f, 3.0f);
+                sel->emissive = math::vec3(glow);
+
+                // Color swatches: click one to recolor the node.
+                font.drawText(*renderer, ix + 14.0f, y, "COLOR", gui.colText, 0.32f);
+                for (int c = 0; c < static_cast<int>(swatches.size()); ++c) {
+                    const ui::Rect sw{ix + 74.0f + static_cast<float>(c) * 38.0f, y - 4.0f, 30.0f,
+                                      24.0f};
+                    // Draw the swatch using its palette color (approximate the 1x1 texture color).
+                    static const render::Color pal[5] = {{0.82f, 0.35f, 0.31f, 1}, {0.35f, 0.67f, 0.86f, 1},
+                                                         {0.47f, 0.78f, 0.47f, 1}, {0.88f, 0.78f, 0.43f, 1},
+                                                         {0.82f, 0.82f, 0.84f, 1}};
+                    gui.panel(sw, pal[c]);
+                    if (sel->colorIndex == c) { // outline the active swatch
+                        gui.panel(ui::Rect{sw.x - 2.0f, sw.y - 2.0f, sw.w + 4.0f, 2.0f}, gui.colAccent);
+                    }
+                    if (input.mousePressed(0) && sw.contains(mx, my)) {
+                        sel->colorIndex = c;
+                    }
+                }
+                y += 40.0f;
+                gui.toggle(500u, ui::Rect{ix + 14.0f, y, 22.0f, 22.0f}, "Visible", sel->visible,
+                           0.34f);
+            }
+
+            // ---- Bottom dock (Godot-style tabbed panel): Assets browser / Profiler / Output log ----
+            {
+                const float y0 = fh - dockH;
+                gui.panel(ui::Rect{0, y0, fw, dockH}, gui.colBg);
+
+                // Tab bar selecting what the dock shows.
+                const char* tabNames[3] = {"Assets", "Profiler", "Output"};
+                const DockTab tabs[3] = {DockTab::Assets, DockTab::Profiler, DockTab::Log};
+                float tx = 10.0f;
+                for (int t = 0; t < 3; ++t) {
+                    const ui::Rect r{tx, y0 + 4.0f, 84.0f, 20.0f};
+                    if (dockTab == tabs[t]) {
+                        gui.panel(r, gui.colActive);
+                    }
+                    if (gui.button(static_cast<uint32_t>(96 + t), r, tabNames[t], 0.30f)) {
+                        dockTab = tabs[t];
+                    }
+                    tx += 88.0f;
+                }
+                const float cy = y0 + 32.0f; // content top
+
+                if (dockTab == DockTab::Assets) {
+                    font.drawText(*renderer, 14.0f, cy - 2.0f, "VIEW", gui.colAccent, 0.26f);
+                    gui.toggle(74u, ui::Rect{14.0f, cy + 20.0f, 20.0f, 20.0f}, "Grid", gridOn, 0.28f);
+                    gui.toggle(75u, ui::Rect{92.0f, cy + 20.0f, 20.0f, 20.0f}, "Snap", snapOn, 0.28f);
+                    static const render::Color chip[6] = {
+                        {0.82f, 0.35f, 0.31f, 1}, {0.35f, 0.67f, 0.86f, 1}, {0.47f, 0.78f, 0.47f, 1},
+                        {0.88f, 0.78f, 0.43f, 1}, {0.72f, 0.55f, 0.85f, 1}, {0.82f, 0.82f, 0.84f, 1}};
+                    const float tw = 70.0f, gap = 6.0f;
+                    float bx = 200.0f;
+                    for (size_t i = 0; i < assets.size(); ++i) {
+                        gui.panel(ui::Rect{bx, cy, tw, 20.0f}, chip[i % 6]);
+                        if (gui.button(static_cast<uint32_t>(90 + i),
+                                       ui::Rect{bx, cy + 22.0f, tw, 24.0f}, assets[i].name, 0.30f) &&
+                            !playing) {
+                            addAsset(i);
+                        }
+                        bx += tw + gap;
+                    }
+                    if (bx < fw - 300.0f) {
+                        font.drawText(*renderer, bx + 20.0f, cy + 20.0f,
+                                      "1/2/3 Move/Rotate/Scale   Shift+click multi-select   Ctrl+Z undo   Ctrl+S/O save",
+                                      render::Color{0.62f, 0.67f, 0.78f, 1}, 0.26f);
+                    }
+                } else if (dockTab == DockTab::Profiler) {
+                    // Frame timing summary + a rolling frame-time bar graph.
+                    const size_t N = frameMs.size();
+                    const float lastMs = frameMs[(frameMsPos + N - 1) % N];
+                    float sum = 0.0f;
+                    for (float m : frameMs) {
+                        sum += m;
+                    }
+                    const float avg = N ? sum / static_cast<float>(N) : 0.0f;
+                    const float fps = avg > 0.0001f ? 1000.0f / avg : 0.0f;
+                    char buf[128];
+                    std::snprintf(buf, sizeof(buf),
+                                  "FPS %.0f     frame %.2f ms (avg %.2f)     nodes %zu     %s",
+                                  static_cast<double>(fps), static_cast<double>(lastMs),
+                                  static_cast<double>(avg), scene.nodes.size(),
+                                  playing ? "PLAYING" : "editing");
+                    font.drawText(*renderer, 14.0f, cy - 2.0f, buf, gui.colText, 0.30f);
+                    const float gx = 14.0f, gy = cy + 24.0f, gw = 520.0f;
+                    const float gh = dockH - (gy - y0) - 8.0f;
+                    gui.panel(ui::Rect{gx, gy, gw, gh}, render::Color{0.15f, 0.16f, 0.20f, 1});
+                    const float barW = gw / static_cast<float>(N);
+                    for (size_t k = 0; k < N; ++k) {
+                        const float m = frameMs[(frameMsPos + k) % N];
+                        const float h = glm::clamp(m / 33.3f, 0.0f, 1.0f) * gh; // 33ms (30 FPS) = full height
+                        const render::Color c = m > 20.0f ? render::Color{0.88f, 0.5f, 0.3f, 1}
+                                                          : render::Color{0.4f, 0.8f, 0.55f, 1};
+                        gui.panel(
+                            ui::Rect{gx + static_cast<float>(k) * barW, gy + gh - h, barW + 0.6f, h},
+                            c);
+                    }
+                    font.drawText(*renderer, gx + gw + 12.0f, gy, "33ms",
+                                  render::Color{0.5f, 0.55f, 0.62f, 1}, 0.24f);
+                    font.drawText(*renderer, gx + gw + 12.0f, gy + gh - 12.0f, "0ms",
+                                  render::Color{0.5f, 0.55f, 0.62f, 1}, 0.24f);
+                } else { // Output / Log
+                    if (logLines.empty()) {
+                        font.drawText(*renderer, 14.0f, cy, "(no output yet)",
+                                      render::Color{0.5f, 0.55f, 0.62f, 1}, 0.28f);
+                    } else {
+                        const int maxLines = 5;
+                        const int start = std::max(0, static_cast<int>(logLines.size()) - maxLines);
+                        float ly = cy - 4.0f;
+                        for (int i = start; i < static_cast<int>(logLines.size()); ++i) {
+                            const int lvl = logLines[static_cast<size_t>(i)].first;
+                            const render::Color c =
+                                lvl >= 3 ? render::Color{0.90f, 0.42f, 0.36f, 1}
+                                         : lvl == 2 ? render::Color{0.90f, 0.80f, 0.42f, 1}
+                                                    : render::Color{0.70f, 0.74f, 0.82f, 1};
+                            font.drawText(*renderer, 14.0f, ly,
+                                          logLines[static_cast<size_t>(i)].second.c_str(), c, 0.26f);
+                            ly += 15.0f;
+                        }
+                    }
+                }
+            }
+            gui.end();
+
             renderer->endFrame();
         }
 
-        ++rendered;
-        if (cfg.frames >= 0 && rendered >= cfg.frames) {
-            MAZ_LOG_INFO("reached frame cap (%d); exiting", cfg.frames);
-            running = false;
+        if (cfg.frames >= 0 && clock.frameCount() >= static_cast<uint64_t>(cfg.frames)) {
+            window.requestClose();
         }
     }
 
-    MAZ_LOG_INFO("Maz Editor shutting down after %d frames", rendered);
+    MAZ_LOG_INFO("EDITOR shutting down (renderer %s)", renderer->isActive() ? "active" : "inactive");
+    core::setLogSink({}); // detach before the captured logLines goes out of scope
     renderer->shutdown();
     window.shutdown();
     return 0;

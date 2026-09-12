@@ -1,51 +1,183 @@
 name: CI
 
-# Builds the Maz Engine and runs the headless test suite on a machine that has the
-# Vulkan SDK + shader compiler (which the dev sandbox lacks). This is what actually
-# verifies GPU-facing code: it compiles under -Werror and the tests run under the
-# dummy SDL video/audio drivers, so no real GPU or display is needed.
-
+# Build the Maz Engine and run its test suite on every push and pull request.
+# Linux is the primary, fully-exercised gate (build + the complete ctest suite, including the
+# headless render smokes on software Vulkan / lavapipe). macOS and Windows build the engine and run
+# the GPU-free unit tests, giving genuine cross-platform compile coverage.
 on:
   push:
     branches: ["**"]
   pull_request:
+  workflow_dispatch:
+  # all-checks.yml gathers every suite in the repo behind one button; it can only
+  # reuse this workflow if this workflow says it may be called.
   workflow_call:
 
-# Cancel superseded runs on the same ref.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build-and-test:
-    name: Build & test (Linux)
+  # ---- Linux: full build + complete test suite (the required gate) --------------------------------
+  linux:
+    name: Linux (build + full ctest)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install toolchain & dependencies
+      - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            ninja-build \
-            glslang-tools \
-            libvulkan-dev \
-            vulkan-validationlayers \
-            mesa-vulkan-drivers \
-            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev \
-            libxfixes-dev libxss-dev libxtst-dev libxkbcommon-dev \
-            libwayland-dev wayland-protocols libegl1-mesa-dev libgl1-mesa-dev \
-            libasound2-dev libpulse-dev libdbus-1-dev
-
+          sudo apt-get install -y \
+            build-essential cmake ninja-build \
+            libvulkan-dev glslang-tools mesa-vulkan-drivers \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev \
+            libxtst-dev \
+            libxss-dev libwayland-dev libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
+            libasound2-dev libpulse-dev libudev-dev
       - name: Configure
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DMAZ_WERROR=ON
       - name: Build
-        run: cmake --build build
+        run: cmake --build build --parallel
+      - name: Test
+        # Software Vulkan (lavapipe) lets the headless render smokes run; the golden-image test
+        # self-skips when ImageMagick/Xvfb are absent. SDL uses dummy video/audio drivers (set per
+        # test in CMake), so no display is needed.
+        run: ctest --test-dir build --output-on-failure
 
-      - name: Test (headless)
-        working-directory: build
+  # ---- clang-tidy lint gate (first-party engine sources) ------------------------------------------
+  tidy:
+    name: clang-tidy (lint gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake ninja-build clang-tidy \
+            libvulkan-dev glslang-tools \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev \
+            libxtst-dev \
+            libxss-dev libwayland-dev libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
+            libasound2-dev libpulse-dev libudev-dev
+      - name: Configure (exports compile_commands.json)
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+      - name: Build fetched deps only
+        # clang-tidy needs the generated/fetched headers present; build the engine lib once so all
+        # dependency headers exist under build/_deps before analysis.
+        run: cmake --build build --target maz --parallel
+      - name: Run clang-tidy over first-party engine sources
+        # .clang-tidy sets WarningsAsErrors '*', so any diagnostic in maz's own code fails the gate.
+        run: |
+          files=$(find engine/src -name '*.cpp')
+          echo "Linting:"; echo "$files"
+          clang-tidy -p build $files
+
+  # ---- Sanitizers: unit suite under ASan + UBSan + LeakSanitizer ----------------------------------
+  sanitizers:
+    name: Sanitizers (ASan + UBSan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake ninja-build \
+            libvulkan-dev glslang-tools \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev \
+            libxtst-dev \
+            libxss-dev libwayland-dev libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
+            libasound2-dev libpulse-dev libudev-dev
+      - name: Configure with sanitizers
+        # float-cast-overflow is NOT part of GCC's -fsanitize=undefined; enable it explicitly so a
+        # float->int conversion of an out-of-range/NaN value (e.g. a hostile FBX polygon index) is caught.
+        run: cmake -S . -B build-san -G Ninja -DCMAKE_BUILD_TYPE=Debug -DMAZ_SANITIZE=address,undefined,float-cast-overflow
+      - name: Build unit tests
+        run: cmake --build build-san --target maz_unit_tests maz_imagecodecfuzz_tests maz_audiocontainerfuzz_tests maz_textparserfuzz_tests maz_resourcepackfuzz_tests maz_websocketfuzz_tests maz_scriptparserfuzz_tests maz_codecfuzz_tests maz_modelparserfuzz_tests maz_savefilefuzz_tests maz_hdrfuzz_tests maz_binarydifffuzz_tests --parallel
+      - name: Run fuzz tests under sanitizers
         env:
+          ASAN_OPTIONS: detect_leaks=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
           SDL_VIDEODRIVER: dummy
-          SDL_AUDIODRIVER: dummy
-        run: ctest --output-on-failure
+        run: ctest --test-dir build-san --output-on-failure -R 'imagecodec_fuzz|audiocontainer_fuzz|textparser_fuzz|resourcepack_fuzz|websocket_fuzz|scriptparser_fuzz|codec_fuzz|modelparser_fuzz|savefile_fuzz|hdr_fuzz|binarydiff_fuzz'
+      - name: Run unit tests under sanitizers
+        # Run the instrumented binary directly rather than through ctest: ASan/UBSan instrumentation makes the
+        # full unit suite take ~3 min, which overshoots the unit_tests ctest per-test TIMEOUT (30 s, sized for
+        # the uninstrumented Release run). The TSan job does the same for the same reason. A non-zero exit
+        # (a sanitizer-detected error, with halt_on_error=1) fails the job.
+        env:
+          ASAN_OPTIONS: detect_leaks=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+          SDL_VIDEODRIVER: dummy
+        run: ./build-san/bin/maz_unit_tests
+
+  # ---- ThreadSanitizer: unit suite under TSan (data-race detection on the JobSystem + LogSinks) ----
+  # The ASan/UBSan job above cannot see data races; this one instruments the first-party concurrent
+  # code (core::JobSystem's thread pool + parallelFor/parallelRanges, the multi-threaded LogSinks
+  # fan-out) with ThreadSanitizer and fails on any race. Verified clean at introduction (0 warnings
+  # across the full unit suite); this job keeps it that way as the concurrency code evolves.
+  sanitizers-thread:
+    name: Sanitizers (ThreadSanitizer)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake ninja-build \
+            libvulkan-dev glslang-tools \
+            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxfixes-dev \
+            libxtst-dev \
+            libxss-dev libwayland-dev libxkbcommon-dev libegl1-mesa-dev libgl1-mesa-dev \
+            libasound2-dev libpulse-dev libudev-dev
+      - name: Configure with ThreadSanitizer
+        run: cmake -S . -B build-tsan -G Ninja -DCMAKE_BUILD_TYPE=Debug -DMAZ_SANITIZE=thread
+      - name: Build unit tests
+        run: cmake --build build-tsan --target maz_unit_tests --parallel
+      - name: Run unit tests under ThreadSanitizer
+        # Run the instrumented binary directly rather than through ctest: TSan's instrumentation makes
+        # the suite take ~2 min, which overshoots the unit_tests ctest per-test TIMEOUT. halt_on_error=1
+        # makes any detected data race a non-zero exit and fails the job.
+        env:
+          TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
+          SDL_VIDEODRIVER: dummy
+        run: ./build-tsan/bin/maz_unit_tests
+
+  # ---- macOS / Windows: build + GPU-free unit tests (cross-platform compile coverage) -------------
+  crossbuild:
+    name: ${{ matrix.os }} (build + unit tests)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the Vulkan SDK
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          # 'latest' rather than a pin: LunarG rotates older SDKs off its
+          # download server, and a pinned version silently 404s when it goes.
+          # Matches windows-editor.yml, which already tracks latest.
+          vulkan_version: latest
+          install_runtime: true
+          cache: true
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DMAZ_WERROR=ON
+      - name: Build
+        # An explicit job count, not a bare --parallel. With no number CMake passes a bare -j to
+        # the native tool, and on macOS the default generator is Unix Makefiles, where bare -j
+        # means UNLIMITED jobs: ~170 targets each spawning a clang on a 3-core runner, which
+        # thrashes memory rather than compiling. That is why this job sat in Build for 3.5 hours
+        # while Ninja on Linux finished the same tree in 11 minutes and MSBuild on Windows — which
+        # bounds itself — took 20. Windows is unaffected by the cap; macOS is rescued by it.
+        run: cmake --build build --config Release --parallel 4
+      - name: Unit tests
+        # The unit suite is pure logic (no GPU/window), so it runs anywhere the engine compiles.
+        # -C, not --config: `cmake --build` spells it --config, ctest only accepts -C /
+        # --build-config, and passing --config made ctest exit 1 with "Unknown argument"
+        # before running a single test. It is needed at all because MSBuild and Xcode are
+        # multi-config generators, so the binary sits in a per-config subdirectory.
+        run: ctest --test-dir build -C Release --output-on-failure -R unit_tests

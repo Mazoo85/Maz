@@ -1,0 +1,46 @@
+# Doxygen configuration for the Maz Engine.
+#
+# Generates full HTML API documentation from the engine headers (which are heavily commented).
+# This is the "complete" docs path for contributors who have Doxygen installed:
+#     doxygen Doxyfile        # -> docs/api-html/index.html
+#
+# For a quick, tool-free API map that also runs in CI, use tools/gen_api_docs.py -> docs/API.md.
+
+PROJECT_NAME           = "Maz Engine"
+PROJECT_BRIEF          = "A native C++20 + Vulkan + SDL3 2D/3D game engine"
+PROJECT_NUMBER         = 0.1.0
+
+OUTPUT_DIRECTORY       = docs
+HTML_OUTPUT            = api-html
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+
+# The public API lives in the headers; the apps and tests are usage examples.
+INPUT                  = engine/include README.md docs/ARCHITECTURE.md docs/SCRIPTING.md
+FILE_PATTERNS          = *.hpp *.h
+RECURSIVE              = YES
+USE_MDFILE_AS_MAINPAGE = README.md
+
+# The headers use plain `//` comments as documentation rather than /** */ blocks.
+JAVADOC_AUTOBRIEF      = YES
+QT_AUTOBRIEF           = YES
+MULTILINE_CPP_IS_BRIEF = NO
+EXTRACT_ALL            = YES
+EXTRACT_STATIC         = YES
+EXTRACT_PRIVATE        = NO
+HIDE_UNDOC_MEMBERS     = NO
+SORT_MEMBER_DOCS       = NO
+
+# Group by namespace (maz::core, maz::render, …) so the structure reads like the engine.
+SHOW_NAMESPACES        = YES
+BUILTIN_STL_SUPPORT    = YES
+
+# Keep the build quiet-but-honest; don't fail on the odd undocumented member.
+QUIET                  = YES
+WARN_IF_UNDOCUMENTED   = NO
+WARNINGS               = YES
+
+# Diagrams if Graphviz is present; harmless otherwise.
+HAVE_DOT               = NO
+CLASS_DIAGRAMS         = YES
+GENERATE_TREEVIEW      = YES

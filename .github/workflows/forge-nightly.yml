@@ -1,0 +1,156 @@
+name: Forge nightly
+
+# The Forge's alarm clock.
+#
+# The brain lives in `forge/`; this file only wakes it. That separation is
+# deliberate (see docs/FORGE.md, "Scheduling") so the schedule can move without
+# touching a line of Forge code — which is exactly what happened: the original
+# scheduled-session Routine fired three times and produced no run and no
+# notification, with no log anyone could read. A workflow run leaves a log.
+#
+# What happens here is a DRY RUN and nothing else. It reads the repo, decides
+# what it *would* do, writes one line to the ledger, and stops. It never hands
+# work to Crew, never opens a pull request, and never pushes to the default
+# branch. Going live is a separate, deliberate change.
+#
+# Note this file is inside `.github/workflows/`, which `forge/forge/config.py`
+# welds into HARD_NO_TOUCH on every config load. The Forge cannot edit its own
+# alarm clock, by construction.
+
+on:
+  schedule:
+    # 08:00 UTC nightly. GitHub's scheduler runs on a best-effort queue and can
+    # be late by several minutes under load; nothing here depends on the exact
+    # minute.
+    - cron: "0 8 * * *"
+  # So a human can run it now and read the log, rather than waiting a day to
+  # find out whether it works.
+  workflow_dispatch:
+
+concurrency:
+  group: forge-nightly
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  nightly:
+    name: Sense, decide, record
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+        with:
+          # The ledger branch is merged with the default branch below, so the
+          # full history has to be here.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the Forge's dependencies
+        # Matches forge/pyproject.toml. The dry run needs no other project's
+        # dependencies: it senses and scores, and only a *live* run executes a
+        # zone's check commands.
+        run: python -m pip install --upgrade pip typer rich
+
+      - name: Work out which branch is which
+        id: branches
+        run: |
+          set -euo pipefail
+          default="$(git remote show origin | sed -n 's/.*HEAD branch: //p')"
+          echo "default=$default" >> "$GITHUB_OUTPUT"
+          echo "Default branch: $default"
+
+      - name: Put the ledger branch in place
+        # Each night appends to the same record rather than overwriting it, so
+        # the ledger branch is the base and the default branch is merged into
+        # it to pick up any Forge code changes. The ledger file only ever
+        # changes on this branch, so that merge does not conflict.
+        run: |
+          set -euo pipefail
+          default="${{ steps.branches.outputs.default }}"
+          if git ls-remote --exit-code --heads origin forge/ledger >/dev/null 2>&1; then
+            echo "Ledger branch exists; continuing it."
+            git fetch origin forge/ledger
+            git checkout -B forge-ledger FETCH_HEAD
+            git merge --no-edit "origin/$default"
+          else
+            echo "No ledger branch yet; starting one from $default."
+            git checkout -B forge-ledger "origin/$default"
+          fi
+
+      - name: Refuse to start on a dirty tree
+        # The Forge's own guard, asserted here too: if anything above left the
+        # tree dirty, a ledger commit would carry changes that are not the
+        # ledger.
+        run: |
+          set -euo pipefail
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::Working tree is not clean before the run:"
+            git status --porcelain
+            exit 1
+          fi
+
+      - name: Ask GitHub what happened to earlier pull requests
+        # Whether work was merged, and how much a human changed first, is the
+        # only evidence in the ledger that a night's work was any good. Green
+        # checks only prove nothing broke.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: PYTHONPATH=forge python -m forge.cli followup
+
+      - name: Sense, decide, record — changing nothing
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: PYTHONPATH=forge python -m forge.cli run --dry-run
+
+      - name: Refuse to commit anything that is not the ledger
+        # A dry run touching anything else is a bug worth failing the job over,
+        # not something to commit quietly.
+        run: |
+          set -euo pipefail
+          outside="$(git status --porcelain -- . ':(exclude)forge/ledger' || true)"
+          if [ -n "$outside" ]; then
+            echo "::error::A dry run changed files outside forge/ledger/:"
+            echo "$outside"
+            exit 1
+          fi
+
+      - name: Record the night
+        run: |
+          set -euo pipefail
+          if [ -z "$(git status --porcelain -- forge/ledger)" ]; then
+            echo "Ledger unchanged — nothing to record."
+            exit 0
+          fi
+          git config user.name "the Forge"
+          git config user.email "forge@users.noreply.github.com"
+          git add forge/ledger
+          git commit -m "forge: ledger for $(date -u +%Y-%m-%d)"
+          git push origin forge-ledger:refs/heads/forge/ledger
+
+      - name: Put tonight's line in the run summary
+        # So the result is readable from the Actions tab without checking out
+        # the ledger branch.
+        if: always()
+        run: |
+          set -euo pipefail
+          month="forge/ledger/$(date -u +%Y-%m).jsonl"
+          {
+            echo "## The Forge — $(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo
+            if [ -f "$month" ]; then
+              echo '```json'
+              tail -n 1 "$month" | python -m json.tool
+              echo '```'
+              echo
+              echo "\`outcome: no_task\`, or everything skipped as \`outside_zone\`,"
+              echo "is the expected result when nothing has been asked of it —"
+              echo "a quiet night is the leash working."
+            else
+              echo "No ledger file for this month; the run did not get that far."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
