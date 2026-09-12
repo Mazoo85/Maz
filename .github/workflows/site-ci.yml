@@ -4,7 +4,8 @@ name: Site CI
 # every link in every HTML and Markdown file resolves, the project manifest that
 # the hub and the in-app nav both read is intact, and — in a real Chromium — the
 # hub lists every project, each app boots clean, and the nav in each app leads
-# back to the hub. A broken cross-link is a bug here, not a documentation nit.
+# back to the hub. It also keeps the repository's own inventory honest. A broken
+# cross-link is a bug here, not a documentation nit.
 
 on:
   push:
@@ -40,6 +41,14 @@ jobs:
       # is checked here without a browser too.
       - name: CODA PICS logic tests
         run: node coda-pics/tests/coda-logic.test.js
+      # The inventory catalogues every artifact in the repo and ranks what each
+      # one is still missing. It is committed, so it can drift: this fails the
+      # build when docs/INVENTORY.md and the repository disagree, which is the
+      # only thing that keeps the catalogue worth reading.
+      - name: Inventory is up to date
+        run: node tools/inventory/main.mjs --check
+      - name: The inventory's own tests
+        run: node tools/inventory/tests/inventory.test.mjs
 
   browser:
     name: Site smoke test (Chromium)

@@ -1,0 +1,572 @@
+{
+  "schema": 1,
+  "stats": {
+    "apps": 161,
+    "engineModules": 692,
+    "engineSubsystems": 20,
+    "cppTests": 372,
+    "webApps": 6,
+    "pyTools": 3,
+    "gates": 3,
+    "buildTools": 11,
+    "docs": 18,
+    "totalArtifacts": 894,
+    "linesOfApps": 31861,
+    "linesOfEngine": 87753,
+    "linesOfWeb": 17173,
+    "appsHeadless": 76,
+    "appsGolden": 97,
+    "modulesTested": 99,
+    "modulesDemoed": 20,
+    "checksPassed": 2495,
+    "checksTotal": 3110,
+    "openTasks": 29
+  },
+  "queue": [
+    {
+      "id": "gate:check-links#tests",
+      "priority": 1,
+      "kind": "gate",
+      "check": "tests",
+      "title": "check-links.mjs: the checker itself is tested",
+      "detail": "Add scripts/tests/check-links.test.mjs — a gate with no tests of its own can pass for the wrong reason.",
+      "paths": [
+        "scripts/check-links.mjs"
+      ],
+      "source": "inventory:gate:check-links:tests"
+    },
+    {
+      "id": "gate:smoke-site#tests",
+      "priority": 1,
+      "kind": "gate",
+      "check": "tests",
+      "title": "smoke-site.cjs: the checker itself is tested",
+      "detail": "Add scripts/tests/smoke-site.test.mjs — a gate with no tests of its own can pass for the wrong reason.",
+      "paths": [
+        "scripts/smoke-site.cjs"
+      ],
+      "source": "inventory:gate:smoke-site:tests"
+    },
+    {
+      "id": "opportunity:apps-that-cannot-run-in-ci",
+      "priority": 1,
+      "kind": "opportunity",
+      "check": "",
+      "title": "38 apps cannot run without a display",
+      "detail": "Apps with --headless / --frames N are run by CI on every push and can be captured as goldens; apps without them are only ever proven by someone opening a window. The flag is a dozen lines copied from apps/_template/main.cpp and it converts each app into a test.",
+      "paths": [],
+      "source": "inventory:opportunity:apps-that-cannot-run-in-ci"
+    },
+    {
+      "id": "opportunity:browser-projects-with-no-tests",
+      "priority": 1,
+      "kind": "opportunity",
+      "check": "",
+      "title": "3 browser projects have no tests at all",
+      "detail": "film/tests/film-logic.test.js is the pattern: plain `node` over the project's pure logic, no dependencies, seconds to run, already wired into CI. Every project that lacks it is one refactor away from silent breakage.",
+      "paths": [],
+      "source": "inventory:opportunity:browser-projects-with-no-tests"
+    },
+    {
+      "id": "opportunity:engine-features-with-no-demo",
+      "priority": 1,
+      "kind": "opportunity",
+      "check": "",
+      "title": "550 engine modules are tested but no app shows them",
+      "detail": "These are finished, working features that nobody can see. Each one is a small app away from being discoverable, and apps/ is how this engine documents itself. Grouping several related modules into one demo is usually better than one app each.",
+      "paths": [],
+      "source": "inventory:opportunity:engine-features-with-no-demo"
+    },
+    {
+      "id": "opportunity:helpers-written-out-in-every-project",
+      "priority": 1,
+      "kind": "opportunity",
+      "check": "",
+      "title": "9 helpers are hand-written in three or more browser projects",
+      "detail": "Each of `download`, `generate`, `pick`, `clamp`, `draw`, `lerp`, `noise`, `render` and others exists separately in several projects. A single shared/maz-util.js, declared in shared/exchange.json and covered by one test, replaces every copy and means a fix to the seeded RNG or the clamp lands everywhere at once.",
+      "paths": [],
+      "source": "inventory:opportunity:helpers-written-out-in-every-project"
+    },
+    {
+      "id": "pairing:codapics-paints-for-the-others",
+      "priority": 1,
+      "kind": "pairing",
+      "check": "",
+      "title": "CODA PICS paints backdrops for SCRIPT FORGE and illustrates MADLIBS",
+      "detail": "CODA PICS turns a sentence into a finished picture in canvas 2D, offline. SCRIPT FORGE builds its sets from primitives and MADLIBS returns pure text. Publishing coda-pics/js as coda-pics/painter would let SCRIPT FORGE paint a title card and a establishing backdrop per location straight from its own scene description, and let MADLIBS show each story idea rather than only describing it.",
+      "paths": [
+        "coda-pics",
+        "film",
+        "madlibs"
+      ],
+      "source": "inventory:pairing:codapics-paints-for-the-others"
+    },
+    {
+      "id": "pairing:engine-gains-a-composer",
+      "priority": 1,
+      "kind": "pairing",
+      "check": "",
+      "title": "SONG FORGE supplies the one music layer the engine does not have",
+      "detail": "The engine already has the layers underneath and above a composer: audio::MusicTheory does note/pitch conversion, audio::MusicScales the scale tables, audio::Oscillator and audio::BusGraph the synthesis and mixing, and audio::MusicSequencer switches between music segments on the beat as the action changes. What nothing under engine/include/maz/audio/ does is WRITE the segments — pick a progression, lay a bassline and a drum pattern under it, arrange verses and choruses. music/js/genres.js and music/js/composer.js do exactly that, as plain data and pure functions, for eight genres. Porting them to an engine/include/maz/audio/MusicComposer.hpp that emits segments for MusicSequencer to switch between would give every native Maz game an endless, non-repeating, state-aware score, and apps/music is already standing there as the demo to extend.",
+      "paths": [
+        "music",
+        "engine/include/maz/audio/MusicSequencer.hpp",
+        "engine/include/maz/audio/MusicTheory.hpp",
+        "apps/music"
+      ],
+      "source": "inventory:pairing:engine-gains-a-composer"
+    },
+    {
+      "id": "pairing:inventory-feeds-the-forge",
+      "priority": 1,
+      "kind": "pairing",
+      "check": "",
+      "title": "The inventory work queue becomes a Forge signal",
+      "detail": "The Forge already senses the repo through pluggable collectors (ci, roadmap, todo, memory) and picks one task a night. This inventory produces exactly that shape of thing — a ranked list of concrete, path-scoped tasks — so a forge/forge/signals/inventory.py collector reading docs/inventory.json turns every gap found here into work the Forge can pick up unattended.",
+      "paths": [
+        "forge"
+      ],
+      "source": "inventory:pairing:inventory-feeds-the-forge"
+    },
+    {
+      "id": "pairing:songforge-scores-the-silent-games",
+      "priority": 1,
+      "kind": "pairing",
+      "check": "",
+      "title": "SONG FORGE scores the two silent browser games",
+      "detail": "ZOMBOID: ANCHORAGE and DEAD SECTOR are played in silence today, while SONG FORGE already writes and plays complete genre-tagged songs in the browser with no dependencies. Publish a small playback-only entry point from music/js/engine.js, declare it in shared/exchange.json as music/soundtrack, and have each game start a track that shifts with its state — calm while looting, driving during a horde. SCRIPT FORGE already consumes music/composer this way, so the wiring pattern exists and is tested.",
+      "paths": [
+        "music",
+        "zomboid",
+        "shooter"
+      ],
+      "source": "inventory:pairing:songforge-scores-the-silent-games"
+    },
+    {
+      "id": "web:madlibs#tests",
+      "priority": 1,
+      "kind": "web-app",
+      "check": "tests",
+      "title": "MADLIBS STORY FORGE: has a logic test",
+      "detail": "Add madlibs/tests/ with a dependency-free Node test over its pure logic, in the style of film/tests/film-logic.test.js, and run it in CI.",
+      "paths": [
+        "madlibs"
+      ],
+      "source": "inventory:web:madlibs:tests"
+    },
+    {
+      "id": "web:shooter#tests",
+      "priority": 1,
+      "kind": "web-app",
+      "check": "tests",
+      "title": "DEAD SECTOR: has a logic test",
+      "detail": "Add shooter/tests/ with a dependency-free Node test over its pure logic, in the style of film/tests/film-logic.test.js, and run it in CI.",
+      "paths": [
+        "shooter"
+      ],
+      "source": "inventory:web:shooter:tests"
+    },
+    {
+      "id": "web:zomboid#tests",
+      "priority": 1,
+      "kind": "web-app",
+      "check": "tests",
+      "title": "ZOMBOID: ANCHORAGE: has a logic test",
+      "detail": "Add zomboid/tests/ with a dependency-free Node test over its pure logic, in the style of film/tests/film-logic.test.js, and run it in CI.",
+      "paths": [
+        "zomboid"
+      ],
+      "source": "inventory:web:zomboid:tests"
+    },
+    {
+      "id": "group:app:golden",
+      "priority": 2,
+      "kind": "app",
+      "check": "golden",
+      "title": "5 apps fail \"has a golden screenshot\"",
+      "detail": "_template, mobilepack, orbs, sandbox, swarm. Example: Capture a golden frame for _template into tests/golden/_template.png so a rendering regression is caught automatically.",
+      "paths": [
+        "apps/_template",
+        "apps/mobilepack",
+        "apps/orbs",
+        "apps/sandbox",
+        "apps/swarm"
+      ],
+      "source": "inventory:app:golden"
+    },
+    {
+      "id": "group:app:headless",
+      "priority": 2,
+      "kind": "app",
+      "check": "headless",
+      "title": "38 apps fail \"runs headless for CI\"",
+      "detail": "area2d, blackboard, boundary, bus, camera3d, capsule, ccd, contacts, convex, envelope, filter, flowfield, and 26 more. Example: Teach apps/area2d the --headless / --frames N flags so CI can run it without a display.",
+      "paths": [
+        "apps/area2d",
+        "apps/blackboard",
+        "apps/boundary",
+        "apps/bus",
+        "apps/camera3d",
+        "apps/capsule",
+        "apps/ccd",
+        "apps/contacts",
+        "apps/convex",
+        "apps/envelope",
+        "apps/filter",
+        "apps/flowfield",
+        "apps/goap",
+        "apps/gradient",
+        "apps/inifile",
+        "apps/interp",
+        "apps/itemlist",
+        "apps/manybody",
+        "apps/mobilepack",
+        "apps/motor",
+        "apps/normalmap",
+        "apps/physics3d",
+        "apps/polyline",
+        "apps/popupmenu",
+        "apps/reverb",
+        "apps/ring",
+        "apps/scene3d",
+        "apps/sequencer",
+        "apps/sleep",
+        "apps/softshadow",
+        "apps/solver",
+        "apps/spectrum",
+        "apps/stack",
+        "apps/statemachine",
+        "apps/stylebox",
+        "apps/theme",
+        "apps/tree",
+        "apps/xform2d"
+      ],
+      "source": "inventory:app:headless"
+    },
+    {
+      "id": "group:engine-module:demoed",
+      "priority": 2,
+      "kind": "engine-module",
+      "check": "demoed",
+      "title": "552 engine modules fail \"shown by a sample app\"",
+      "detail": "AdditiveBlend, BlendSpace, CubicBezierEasing, RootMotion, SpringBone, Transition, TriggerTrack, Dsp, EnvelopeFollower, G711, Goertzel, ImaAdpcm, and 540 more. Example: No app under apps/ demonstrates maz::anim::AdditiveBlend. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.",
+      "paths": [
+        "engine/include/maz/anim/AdditiveBlend.hpp",
+        "engine/include/maz/anim/BlendSpace.hpp",
+        "engine/include/maz/anim/CubicBezierEasing.hpp",
+        "engine/include/maz/anim/RootMotion.hpp",
+        "engine/include/maz/anim/SpringBone.hpp",
+        "engine/include/maz/anim/Transition.hpp",
+        "engine/include/maz/anim/TriggerTrack.hpp",
+        "engine/include/maz/audio/Dsp.hpp",
+        "engine/include/maz/audio/EnvelopeFollower.hpp",
+        "engine/include/maz/audio/G711.hpp",
+        "engine/include/maz/audio/Goertzel.hpp",
+        "engine/include/maz/audio/ImaAdpcm.hpp",
+        "engine/include/maz/audio/KarplusStrong.hpp",
+        "engine/include/maz/audio/Mp3.hpp",
+        "engine/include/maz/audio/MusicScales.hpp",
+        "engine/include/maz/audio/MusicTheory.hpp",
+        "engine/include/maz/audio/PitchDetect.hpp",
+        "engine/include/maz/audio/Qoa.hpp",
+        "engine/include/maz/audio/Spatial2D.hpp",
+        "engine/include/maz/audio/TempoEstimate.hpp",
+        "engine/include/maz/core/AhoCorasick.hpp",
+        "engine/include/maz/core/AliasTable.hpp",
+        "engine/include/maz/core/Assert.hpp",
+        "engine/include/maz/core/BitSet.hpp",
+        "engine/include/maz/core/BloomFilter.hpp",
+        "engine/include/maz/core/CellularNoise.hpp",
+        "engine/include/maz/core/Checkpoints.hpp",
+        "engine/include/maz/core/CountMinSketch.hpp",
+        "engine/include/maz/core/CurlNoise.hpp",
+        "engine/include/maz/core/DamerauLevenshtein.hpp",
+        "engine/include/maz/core/DateTime.hpp",
+        "engine/include/maz/core/Diff.hpp",
+        "engine/include/maz/core/DisjointSet.hpp",
+        "engine/include/maz/core/FenwickTree.hpp",
+        "engine/include/maz/core/FixedTimestep.hpp",
+        "engine/include/maz/core/FuzzyMatch.hpp",
+        "engine/include/maz/core/GapBuffer.hpp",
+        "engine/include/maz/core/GrayCode.hpp",
+        "engine/include/maz/core/Halton.hpp",
+        "engine/include/maz/core/Histogram.hpp"
+      ],
+      "source": "inventory:engine-module:demoed"
+    },
+    {
+      "id": "group:engine-module:tested",
+      "priority": 2,
+      "kind": "engine-module",
+      "check": "tested",
+      "title": "6 engine modules fail \"covered by a test\"",
+      "detail": "FlyCamera, Clipboard, Paths, Renderer, DebugOverlay, Font. Example: Add a unit test naming maz::game::FlyCamera under tests/ — nothing in the suite exercises it today.",
+      "paths": [
+        "engine/include/maz/game/FlyCamera.hpp",
+        "engine/include/maz/platform/Clipboard.hpp",
+        "engine/include/maz/platform/Paths.hpp",
+        "engine/include/maz/render/Renderer.hpp",
+        "engine/include/maz/ui/DebugOverlay.hpp",
+        "engine/include/maz/ui/Font.hpp"
+      ],
+      "source": "inventory:engine-module:tested"
+    },
+    {
+      "id": "opportunity:docs-nothing-links-to",
+      "priority": 2,
+      "kind": "opportunity",
+      "check": "",
+      "title": "4 docs are not linked from anywhere",
+      "detail": "A doc that nothing references is invisible to a newcomer and to a future session, however good it is. Link each from README.md or a sibling doc, or retire it.",
+      "paths": [],
+      "source": "inventory:opportunity:docs-nothing-links-to"
+    },
+    {
+      "id": "opportunity:engine-features-with-neither",
+      "priority": 2,
+      "kind": "opportunity",
+      "check": "",
+      "title": "2 engine modules have neither a test nor a demo",
+      "detail": "Nothing in the repo names these types. They are either genuinely unused — in which case they are unproven code that will rot — or they are used through another module's API and only look unused. Both readings are worth resolving: a test settles it either way.",
+      "paths": [],
+      "source": "inventory:opportunity:engine-features-with-neither"
+    },
+    {
+      "id": "pairing:crew-executes-the-queue",
+      "priority": 2,
+      "kind": "pairing",
+      "check": "",
+      "title": "MAZ CREW is the hands for the queue the inventory writes",
+      "detail": "Crew runs a task through planner → coder → reviewer → tester with a bounded repair loop, and the Forge already hands it work. Every task in this inventory is written as a single scoped instruction with the files it touches, which is precisely Crew's input contract — so the inventory, the Forge and Crew compose into a loop that closes its own gaps.",
+      "paths": [
+        "crew",
+        "forge"
+      ],
+      "source": "inventory:pairing:crew-executes-the-queue"
+    },
+    {
+      "id": "pairing:goldens-become-the-arcade-shelf",
+      "priority": 2,
+      "kind": "pairing",
+      "check": "",
+      "title": "The golden screenshots become the arcade's cover art",
+      "detail": "tests/golden/ holds a deterministic captured frame for most apps, produced purely to catch rendering regressions. That is also a ready-made, always-current screenshot library: the hub at index.html lists every project as text today, and could show each native demo's golden frame as its tile art at zero maintenance cost, because CI regenerates them.",
+      "paths": [
+        "apps/pong",
+        "film"
+      ],
+      "source": "inventory:pairing:goldens-become-the-arcade-shelf"
+    },
+    {
+      "id": "pairing:madlibs-seeds-the-games",
+      "priority": 2,
+      "kind": "pairing",
+      "check": "",
+      "title": "MADLIBS seeds prompts and in-game flavour text",
+      "detail": "madlibs/storyideas is already published and already consumed by SCRIPT FORGE. The same generator can hand CODA PICS a \"surprise me\" prompt that is a real scene rather than a random noun, and give ZOMBOID the radio broadcasts and note scraps its world is missing. Consuming an already-published capability is the cheapest integration in the repo.",
+      "paths": [
+        "madlibs",
+        "zomboid",
+        "coda-pics"
+      ],
+      "source": "inventory:pairing:madlibs-seeds-the-games"
+    },
+    {
+      "id": "pairing:scraper-fills-the-worlds",
+      "priority": 2,
+      "kind": "pairing",
+      "check": "",
+      "title": "MAZ-SCRAPE fills the game worlds with real data",
+      "detail": "The scraper turns a YAML recipe into JSONL/CSV/SQLite from static HTML. ZOMBOID's Anchorage, apps/village and apps/world are all populated by hand-written name and place tables today. A recipe that harvests real street, business and place names into a JSON table the games load would make all three worlds larger without a line of new game code.",
+      "paths": [
+        "scraper",
+        "zomboid",
+        "apps/village",
+        "apps/world"
+      ],
+      "source": "inventory:pairing:scraper-fills-the-worlds"
+    },
+    {
+      "id": "web:coda-pics#exchange",
+      "priority": 2,
+      "kind": "web-app",
+      "check": "exchange",
+      "title": "CODA PICS: declared in shared/exchange.json",
+      "detail": "CODA PICS neither publishes a capability nor consumes one. Declare in shared/exchange.json what it can lend the other projects — that manifest is how they find each other.",
+      "paths": [
+        "coda-pics"
+      ],
+      "source": "inventory:web:coda-pics:exchange"
+    },
+    {
+      "id": "web:shooter#exchange",
+      "priority": 2,
+      "kind": "web-app",
+      "check": "exchange",
+      "title": "DEAD SECTOR: declared in shared/exchange.json",
+      "detail": "DEAD SECTOR neither publishes a capability nor consumes one. Declare in shared/exchange.json what it can lend the other projects — that manifest is how they find each other.",
+      "paths": [
+        "shooter"
+      ],
+      "source": "inventory:web:shooter:exchange"
+    },
+    {
+      "id": "web:zomboid#exchange",
+      "priority": 2,
+      "kind": "web-app",
+      "check": "exchange",
+      "title": "ZOMBOID: ANCHORAGE: declared in shared/exchange.json",
+      "detail": "ZOMBOID: ANCHORAGE neither publishes a capability nor consumes one. Declare in shared/exchange.json what it can lend the other projects — that manifest is how they find each other.",
+      "paths": [
+        "zomboid"
+      ],
+      "source": "inventory:web:zomboid:exchange"
+    },
+    {
+      "id": "group:doc:linked",
+      "priority": 3,
+      "kind": "doc",
+      "check": "linked",
+      "title": "4 docs fail \"reachable from somewhere\"",
+      "detail": "CODEBASE_MEMORY.md, EVALUATION.md, GODOT_GAPS.md, GODOT_PARITY.md. Example: Nothing links to docs/CODEBASE_MEMORY.md. Link it from README.md, CLAUDE.md or a sibling doc, or delete it.",
+      "paths": [
+        "docs/CODEBASE_MEMORY.md",
+        "docs/EVALUATION.md",
+        "docs/GODOT_GAPS.md",
+        "docs/GODOT_PARITY.md"
+      ],
+      "source": "inventory:doc:linked"
+    },
+    {
+      "id": "group:engine-module:documented",
+      "priority": 3,
+      "kind": "engine-module",
+      "check": "documented",
+      "title": "1 engine module fail \"header has a doc comment\"",
+      "detail": "Collision. Example: Give engine/include/maz/game/Collision.hpp a leading doc comment — docs/API.md is generated from it, so an undocumented header is a blank entry in the public API reference.",
+      "paths": [
+        "engine/include/maz/game/Collision.hpp"
+      ],
+      "source": "inventory:engine-module:documented"
+    },
+    {
+      "id": "tool:build_editor.bat#documented",
+      "priority": 3,
+      "kind": "build-tool",
+      "check": "documented",
+      "title": "build_editor.bat: says what it does",
+      "detail": "Open tools/build_editor.bat with a one-line comment saying what it builds or generates and how it is invoked.",
+      "paths": [
+        "tools/build_editor.bat"
+      ],
+      "source": "inventory:tool:build_editor.bat:documented"
+    }
+  ],
+  "pairings": [
+    {
+      "id": "songforge-scores-the-silent-games",
+      "title": "SONG FORGE scores the two silent browser games",
+      "from": [
+        "web:music"
+      ],
+      "to": [
+        "web:zomboid",
+        "web:shooter"
+      ],
+      "effort": "medium",
+      "value": 3
+    },
+    {
+      "id": "codapics-paints-for-the-others",
+      "title": "CODA PICS paints backdrops for SCRIPT FORGE and illustrates MADLIBS",
+      "from": [
+        "web:coda-pics"
+      ],
+      "to": [
+        "web:film",
+        "web:madlibs"
+      ],
+      "effort": "medium",
+      "value": 3
+    },
+    {
+      "id": "madlibs-seeds-the-games",
+      "title": "MADLIBS seeds prompts and in-game flavour text",
+      "from": [
+        "web:madlibs"
+      ],
+      "to": [
+        "web:zomboid",
+        "web:coda-pics"
+      ],
+      "effort": "small",
+      "value": 2
+    },
+    {
+      "id": "inventory-feeds-the-forge",
+      "title": "The inventory work queue becomes a Forge signal",
+      "from": [
+        "tool:inventory"
+      ],
+      "to": [
+        "py:forge"
+      ],
+      "effort": "small",
+      "value": 3
+    },
+    {
+      "id": "crew-executes-the-queue",
+      "title": "MAZ CREW is the hands for the queue the inventory writes",
+      "from": [
+        "py:crew"
+      ],
+      "to": [
+        "py:forge",
+        "tool:inventory"
+      ],
+      "effort": "small",
+      "value": 2
+    },
+    {
+      "id": "scraper-fills-the-worlds",
+      "title": "MAZ-SCRAPE fills the game worlds with real data",
+      "from": [
+        "py:scraper"
+      ],
+      "to": [
+        "web:zomboid",
+        "app:village",
+        "app:world"
+      ],
+      "effort": "medium",
+      "value": 2
+    },
+    {
+      "id": "engine-gains-a-composer",
+      "title": "SONG FORGE supplies the one music layer the engine does not have",
+      "from": [
+        "web:music"
+      ],
+      "to": [
+        "engine:audio/MusicSequencer",
+        "engine:audio/MusicTheory",
+        "app:music"
+      ],
+      "effort": "large",
+      "value": 3
+    },
+    {
+      "id": "goldens-become-the-arcade-shelf",
+      "title": "The golden screenshots become the arcade's cover art",
+      "from": [
+        "app:pong"
+      ],
+      "to": [
+        "web:film"
+      ],
+      "effort": "small",
+      "value": 2
+    }
+  ],
+  "stalePairings": []
+}

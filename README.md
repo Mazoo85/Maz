@@ -43,6 +43,12 @@ runs every suite in the repository — engine included — behind one button, so
 See **[`docs/ROADMAP.md`](docs/ROADMAP.md)** for the full build plan (the "massive list") and
 **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** for the module map and design principles.
 
+**What is in here, and what it still needs:** **[`docs/INVENTORY.md`](docs/INVENTORY.md)** is the
+catalogue of every program, demo, engine capability, tool and document in this repository, what each
+one is still missing, and what each could lend the others. It is generated — `node
+tools/inventory/main.mjs --write` — and CI fails if it drifts from the repository it describes. Start
+there if you are wondering what to work on next.
+
 **API reference:** **[`docs/API.md`](docs/API.md)** is a browsable index of every module, type, and
 free function, generated from the header doc-comments by `python3 tools/gen_api_docs.py` (no external
 tools). For full HTML docs, contributors with Doxygen installed can run `doxygen Doxyfile`
