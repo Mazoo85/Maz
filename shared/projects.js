@@ -67,6 +67,20 @@
       docs: 'madlibs/README.md'
     },
     {
+      id: 'names',
+      name: 'NAME FORGE',
+      kind: 'app',
+      path: 'names/',
+      tag: 'random name maker',
+      accent: '#ff8a3d',
+      blurb:
+        'Rolls names out of 1000 adjectives and 1000 nouns — and rolls again for ' +
+        'which of the two goes first, so a name is never just adjective-then-noun. ' +
+        'Two million of them, with batches and export.',
+      badges: ['Phone + desktop', '1000 × 1000 words', 'Zero deps'],
+      docs: 'names/README.md'
+    },
+    {
       id: 'film',
       name: 'SCRIPT FORGE',
       kind: 'app',

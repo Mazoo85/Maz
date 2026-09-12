@@ -35,6 +35,11 @@ jobs:
       # checked here without a browser — seconds, no dependencies.
       - name: SCRIPT FORGE logic tests
         run: node film/tests/film-logic.test.js
+      # NAME FORGE's word bank and engine are plain modules too: these prove
+      # the 1000 + 1000 word counts, no duplicates, and that the word order is
+      # really rolled rather than always adjective-first.
+      - name: NAME FORGE logic tests
+        run: node names/tests/names-logic.test.js
 
   browser:
     name: Site smoke test (Chromium)
@@ -54,3 +59,5 @@ jobs:
         run: node scripts/smoke-site.cjs
       - name: SCRIPT FORGE end to end (write, export, save)
         run: node film/tests/film-browser.test.js
+      - name: NAME FORGE end to end (roll, flip, batch, export, save)
+        run: node names/tests/names-browser.test.js
