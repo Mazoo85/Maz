@@ -102,6 +102,10 @@ python3 -m http.server         # or serve the folder: http://localhost:8000/musi
   and **shimmer** (an octave above the tail). Plus a size control, echo timing
   in musical divisions down to a dotted sixteenth, and how many times it
   repeats.
+- **Master tone and imaging** — a three-band EQ across the whole mix, a
+  **stereo width** control, and **mono bass**, which takes the stereo out of
+  the low end so it stays solid on a big system without narrowing anything
+  above it.
 - **Export** — the finished track as a **.wav**, the notes as a **.mid**, or
   **stems**: every part as its own audio file, to mix by hand in GarageBand,
   Ableton, FL Studio, Logic or MuseScore.

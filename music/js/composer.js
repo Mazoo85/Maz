@@ -1682,6 +1682,11 @@
       revSize: song.revSize,
       delDiv: song.delDiv,
       delFb: song.delFb,
+      mEqLow: song.mEqLow || 0,
+      mEqMid: song.mEqMid || 0,
+      mEqHigh: song.mEqHigh || 0,
+      width: song.width === undefined ? 1 : song.width,
+      monoBass: song.monoBass || 0,
       humanise: song.humanise === undefined ? 1 : song.humanise,
       keyChange: song.keyChange || null,
       barsPerChord: song.barsPerChord || 0,
@@ -1738,6 +1743,11 @@
     if (p.revSize !== undefined) song.revSize = p.revSize;
     if (p.delDiv !== undefined) song.delDiv = p.delDiv;
     if (p.delFb !== undefined) song.delFb = p.delFb;
+    song.mEqLow = p.mEqLow || 0;
+    song.mEqMid = p.mEqMid || 0;
+    song.mEqHigh = p.mEqHigh || 0;
+    song.width = p.width === undefined ? 1 : p.width;
+    song.monoBass = p.monoBass || 0;
     song.humanise = p.humanise === undefined ? 1 : p.humanise;
     song.keyChange = p.keyChange || null;
     song.barsPerChord = p.barsPerChord || 0;
@@ -2129,6 +2139,11 @@
     song.revSize = genreId === 'ambient' ? 4.2 : 2.6;
     song.delDiv = genre.fx.delayTime;
     song.delFb = 0.34;
+    song.mEqLow = 0;
+    song.mEqMid = 0;
+    song.mEqHigh = 0;
+    song.width = 1;
+    song.monoBass = 0;
     ['bass', 'chords', 'arp', 'lead', 'pad', 'counter'].forEach(function (part) {
       const cfg = genre[part];
       if (cfg && cfg.alts && cfg.alts.length && rng.chance(0.55)) {

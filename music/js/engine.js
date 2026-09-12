@@ -239,6 +239,102 @@
     click.gain.value = 0.5;
     click.connect(out);
 
+    /*
+     * Master tone and imaging, at the end of the chain.
+     *
+     * Mono bass first: low frequencies carry most of the energy, and when the
+     * two channels disagree down there a club system cancels them into mush.
+     * Splitting off everything below the crossover, summing it to one signal
+     * and putting it back in the middle is what keeps the low end solid — and
+     * it has to happen before the width control, or widening undoes it.
+     */
+    const preMaster = ctx.createGain();
+    let masterHead = preMaster;
+
+    const monoBass = song.monoBass === undefined ? 0 : Math.max(0, Math.min(1, song.monoBass));
+    if (monoBass > 0 && ctx.createChannelSplitter) {
+      /*
+       * Done in mid/side, not by splitting the band and putting it back.
+       *
+       * A lowpass and a highpass at the same frequency do not sum back to what
+       * went in — they disagree in phase around the crossover, which measured
+       * as a 16% loss above it and, absurdly, *more* stereo difference than
+       * before. Mid/side has no such seam: the mid is never touched at all, and
+       * only the side has its low end removed. That is exactly the intent —
+       * take the stereo out of the bass, leave the bass alone.
+       */
+      const sp = ctx.createChannelSplitter(2);
+      const mg = ctx.createChannelMerger(2);
+      masterHead.connect(sp);
+
+      const mid = ctx.createGain(); mid.gain.value = 0.5;
+      sp.connect(mid, 0); sp.connect(mid, 1);
+
+      const sPos = ctx.createGain(); sPos.gain.value = 0.5;
+      const sNeg = ctx.createGain(); sNeg.gain.value = -0.5;
+      sp.connect(sPos, 0); sp.connect(sNeg, 1);
+      const side = ctx.createGain();
+      sPos.connect(side); sNeg.connect(side);
+
+      // The side's low end, removed in proportion to the amount asked for.
+      const sideHigh = ctx.createBiquadFilter();
+      sideHigh.type = 'highpass';
+      sideHigh.frequency.value = 120;
+      const cut = ctx.createGain(); cut.gain.value = monoBass;
+      const keep = ctx.createGain(); keep.gain.value = 1 - monoBass;
+      const sideOut = ctx.createGain();
+      side.connect(sideHigh).connect(cut).connect(sideOut);
+      side.connect(keep).connect(sideOut);
+
+      // L = mid + side, R = mid - side.
+      const inv = ctx.createGain(); inv.gain.value = -1;
+      mid.connect(mg, 0, 0); mid.connect(mg, 0, 1);
+      sideOut.connect(mg, 0, 0);
+      sideOut.connect(inv).connect(mg, 0, 1);
+      masterHead = mg;
+    }
+
+    /* Stereo width, done as mid/side. The mid is what both channels agree on
+       and the side is what they do not; scaling the side is the only way to
+       widen a mix without smearing what is meant to be centred. */
+    const widthAmt = song.width === undefined ? 1 : Math.max(0, Math.min(2, song.width));
+    if (Math.abs(widthAmt - 1) > 0.01 && ctx.createChannelSplitter) {
+      const sp = ctx.createChannelSplitter(2);
+      const mg = ctx.createChannelMerger(2);
+      const mid = ctx.createGain(); mid.gain.value = 0.5;
+      const sideA = ctx.createGain(); sideA.gain.value = 0.5 * widthAmt;
+      const sideB = ctx.createGain(); sideB.gain.value = -0.5 * widthAmt;
+      masterHead.connect(sp);
+      // L = mid + side, R = mid - side, rebuilt from the two channels.
+      sp.connect(mid, 0); sp.connect(mid, 1);
+      sp.connect(sideA, 0); sp.connect(sideB, 1);
+      mid.connect(mg, 0, 0); mid.connect(mg, 0, 1);
+      sideA.connect(mg, 0, 0); sideB.connect(mg, 0, 0);
+      const negA = ctx.createGain(); negA.gain.value = -1;
+      const negB = ctx.createGain(); negB.gain.value = -1;
+      sideA.connect(negA).connect(mg, 0, 1);
+      sideB.connect(negB).connect(mg, 0, 1);
+      masterHead = mg;
+    }
+
+    /* Master EQ: the final word on tone, after everything else has had its
+       say. Three bands, the same shape as the per-part one. */
+    const mLow = ctx.createBiquadFilter();
+    mLow.type = 'lowshelf';
+    mLow.frequency.value = 180;
+    mLow.gain.value = song.mEqLow || 0;
+    const mMid = ctx.createBiquadFilter();
+    mMid.type = 'peaking';
+    mMid.frequency.value = 1000;
+    mMid.Q.value = 0.7;
+    mMid.gain.value = song.mEqMid || 0;
+    const mHigh = ctx.createBiquadFilter();
+    mHigh.type = 'highshelf';
+    mHigh.frequency.value = 4000;
+    mHigh.gain.value = song.mEqHigh || 0;
+    masterHead.connect(mLow).connect(mMid).connect(mHigh);
+    masterHead = mHigh;
+
     /* Glue: one gentle compressor across the whole mix, which is what makes six
        separate parts sound like one performance rather than six things playing
        at once. Deliberately shallow — 2:1 at a high threshold, catching only
@@ -254,7 +350,8 @@
     const glueTrim = ctx.createGain();
     glueTrim.gain.value = 1 / (1 + glueAmt * 0.25);
 
-    master.connect(glue).connect(glueTrim).connect(autoFilter)
+    master.connect(preMaster);
+    masterHead.connect(glue).connect(glueTrim).connect(autoFilter)
       .connect(limiter).connect(safety).connect(autoGain).connect(out);
     out.connect(ctx.destination);
 
@@ -604,6 +701,7 @@
       revReturn: revReturn, delReturn: delReturn, vinyl: vinyl, out: out,
       autoFilter: autoFilter, autoGain: autoGain, click: click,
       glue: glue, glueTrim: glueTrim,
+      mEqLow: mLow, mEqMid: mMid, mEqHigh: mHigh,
       delMonoIn: delMonoIn, delPingIn: delPingIn, choReturn: choReturn, choLfos: choLfos,
       modReturn: modReturn, modLfos: modLfos,
       duckDepth: duckDepth, duckRelease: Math.min(0.42, (60 / song.bpm) * 0.62)
@@ -1007,6 +1105,11 @@
       bus.crush.curve = Synth.crushCurve(self.ctx, mixField(mix, name, 'crush', 0));
       shapeCompressor(bus, mixField(mix, name, 'comp', 0), mixField(mix, name, 'punch', 0));
     });
+    if (graph.mEqLow && self.song) {
+      graph.mEqLow.gain.setTargetAtTime(self.song.mEqLow || 0, t, 0.02);
+      graph.mEqMid.gain.setTargetAtTime(self.song.mEqMid || 0, t, 0.02);
+      graph.mEqHigh.gain.setTargetAtTime(self.song.mEqHigh || 0, t, 0.02);
+    }
     if (graph.glue) {
       const g = self.song && self.song.glue !== undefined ? self.song.glue : 0;
       graph.glue.threshold.value = -10 - g * 8;

@@ -295,6 +295,17 @@
     el('delDiv').value = String(s.delDiv === undefined ? 0.375 : s.delDiv);
     el('delFb').value = String(Math.round((s.delFb === undefined ? 0.34 : s.delFb) * 100));
     el('delFbVal').textContent = Math.round((s.delFb === undefined ? 0.34 : s.delFb) * 100) + '%';
+    [['mEqLow', 0], ['mEqMid', 0], ['mEqHigh', 0]].forEach(function (spec) {
+      const v = s[spec[0]] || spec[1];
+      el(spec[0]).value = String(v);
+      el(spec[0] + 'Val').textContent = (v > 0 ? '+' : '') + v + ' dB';
+    });
+    const w = Math.round((s.width === undefined ? 1 : s.width) * 100);
+    el('widthAmt').value = String(w);
+    el('widthAmtVal').textContent = w + '%';
+    const mb = Math.round((s.monoBass || 0) * 100);
+    el('monoBass').value = String(mb);
+    el('monoBassVal').textContent = mb + '%';
     state.seedEdited = false;
     buildChordStrip();
     buildArrange();
@@ -1002,6 +1013,30 @@
         rebuildAudio();
         status(this.options[this.selectedIndex].text + ' — ' +
           (spec[0] === 'revKind' ? 'reverb.' : 'echo timing.'));
+      });
+    });
+
+    /* Master EQ is three AudioParams, so it moves live. */
+    [['mEqLow', 'mEqLow'], ['mEqMid', 'mEqMid'], ['mEqHigh', 'mEqHigh']].forEach(function (spec) {
+      el(spec[0]).addEventListener('input', function () {
+        if (!state.song) return;
+        const v = parseInt(this.value, 10);
+        state.song[spec[1]] = v;
+        el(spec[0] + 'Val').textContent = (v > 0 ? '+' : '') + v + ' dB';
+        player.applyMix();
+      });
+    });
+
+    /* Width and mono bass change the shape of the master chain rather than a
+       value on it, so they rebuild — on release, not on every pixel of drag. */
+    [['widthAmt', 'width', 100], ['monoBass', 'monoBass', 100]].forEach(function (spec) {
+      el(spec[0]).addEventListener('input', function () {
+        el(spec[0] + 'Val').textContent = this.value + '%';
+      });
+      el(spec[0]).addEventListener('change', function () {
+        if (!state.song) return;
+        state.song[spec[1]] = parseInt(this.value, 10) / spec[2];
+        rebuildAudio();
       });
     });
 

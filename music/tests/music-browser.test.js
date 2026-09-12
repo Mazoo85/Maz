@@ -863,6 +863,142 @@ function launchOptions() {
     'turning the attack up keeps more transient than squeezing does (' +
     comp.punchy.crest.toFixed(1) + ' vs ' + comp.squeezed.crest.toFixed(1) + ')');
 
+  console.log('\n— master tone and imaging —');
+  /* Width and mono bass are the two that can silently destroy a mix rather
+     than merely change it: width 0 must not collapse to silence, and mono bass
+     must fix the low end without narrowing everything above it. */
+  const mst = await page.evaluate(async function () {
+    function bands(buf) {
+      const L = buf.getChannelData(0);
+      const R = buf.numberOfChannels > 1 ? buf.getChannelData(1) : L;
+      let s2 = 0, diff = 0, peak = 0, bad = 0;
+      // A crude low/high split: a running average is a lowpass.
+      let lp = 0, lo = 0, hi = 0, sideLow = 0, sideLp = 0, bright = 0;
+      for (let i = 0; i < L.length; i++) {
+        if (!isFinite(L[i])) { bad++; continue; }
+        const v = Math.abs(L[i]);
+        if (v > peak) peak = v;
+        s2 += L[i] * L[i];
+        diff += Math.abs(L[i] - R[i]);
+        if (i > 0) bright += Math.abs(L[i] - L[i - 1]);
+        lp += (L[i] - lp) * 0.02;
+        lo += lp * lp;
+        hi += (L[i] - lp) * (L[i] - lp);
+        /* The side signal's low end — the exact thing mono bass removes, and
+           the only measurement that can tell whether it did. Overall channel
+           difference cannot: most of it lives above the crossover. */
+        const sd = (L[i] - R[i]) / 2;
+        sideLp += (sd - sideLp) * 0.02;
+        sideLow += sideLp * sideLp;
+      }
+      const n = L.length;
+      const rms = Math.sqrt(s2 / n);
+      return { rms: rms, spread: diff / n, peak: peak, bad: bad,
+               lowRms: Math.sqrt(lo / n), highRms: Math.sqrt(hi / n),
+               sideLow: Math.sqrt(sideLow / n),
+               bright: rms > 0 ? (bright / n) / rms : 0 };
+    }
+    function make(setup) {
+      const s = window.Composer.compose({ seed: 'MASTER-1', genre: 'house',
+                                          meter: '4/4', length: 'short' });
+      s.presetOverride = {};
+      s.glue = 0;
+      Object.keys(s.tracks).forEach(function (k) {
+        s.tracks[k] = s.tracks[k].filter(function (e) { return e.t >= 32 && e.t < 64; })
+          .map(function (e) { const c = {}; for (const f in e) c[f] = e[f]; c.t = e.t - 32; return c; });
+      });
+      s.totalBeats = 32;
+      if (setup) setup(s);
+      return s;
+    }
+    const mix = {};
+    window.Engine.TRACKS.forEach(function (t) { mix[t] = { volume: 1, muted: false }; });
+    const r = {};
+    r.flat = bands(await window.Engine.renderOffline(make(), mix));
+    r.wide = bands(await window.Engine.renderOffline(make(function (s) { s.width = 2; }), mix));
+    r.narrow = bands(await window.Engine.renderOffline(make(function (s) { s.width = 0; }), mix));
+    r.mono = bands(await window.Engine.renderOffline(make(function (s) { s.monoBass = 1; }), mix));
+    r.bassUp = bands(await window.Engine.renderOffline(make(function (s) { s.mEqLow = 9; }), mix));
+    r.trebleUp = bands(await window.Engine.renderOffline(make(function (s) { s.mEqHigh = 9; }), mix));
+    return r;
+  });
+
+  check(mst.flat.rms > 0.02, 'there is a mix to shape (rms ' + mst.flat.rms.toFixed(3) + ')');
+  ['wide', 'narrow', 'mono', 'bassUp', 'trebleUp'].forEach(function (k) {
+    check(mst[k].bad === 0 && mst[k].peak <= 1.0001,
+      k + ': stays finite and inside full scale (peak ' + mst[k].peak.toFixed(3) + ')');
+  });
+  check(mst.wide.spread > mst.flat.spread * 1.3,
+    'width widens (' + mst.flat.spread.toFixed(4) + ' → ' + mst.wide.spread.toFixed(4) + ')');
+  check(mst.narrow.spread < mst.flat.spread * 0.3,
+    'and collapses to the centre at zero (' + mst.narrow.spread.toFixed(5) + ')');
+  check(mst.narrow.rms > mst.flat.rms * 0.5,
+    'without collapsing to silence — a narrow mix is still a mix (rms ' +
+    mst.narrow.rms.toFixed(3) + ')');
+  check(mst.mono.highRms > mst.flat.highRms * 0.95,
+    'while leaving everything above it alone (' + mst.flat.highRms.toFixed(4) +
+    ' → ' + mst.mono.highRms.toFixed(4) + ')');
+  check(mst.mono.spread > mst.flat.spread * 0.7,
+    'and without narrowing the mix as a whole (' + mst.flat.spread.toFixed(4) +
+    ' → ' + mst.mono.spread.toFixed(4) + ')');
+  check(mst.bassUp.lowRms > mst.flat.lowRms * 1.15,
+    'master bass lifts the low end (' + mst.flat.lowRms.toFixed(4) + ' → ' +
+    mst.bassUp.lowRms.toFixed(4) + ')');
+  /* Brightness, not the whole band above 140 Hz — a 4 kHz shelf barely moves
+     that, because almost all of a mix lives below 4 kHz. */
+  check(mst.trebleUp.bright > mst.flat.bright * 1.1,
+    'and master treble lifts the top (' + mst.flat.bright.toFixed(4) + ' → ' +
+    mst.trebleUp.bright.toFixed(4) + ')');
+
+  /* Mono bass is checked on a signal built to isolate it rather than on a
+     finished mix. In a real mix the low band's stereo content is already tiny
+     and a gentle measuring filter leaks more from above it than the band itself
+     contains — which is a limit of the measurement, not of the effect. A 60 Hz
+     tone hard left against a 3 kHz tone hard right has its stereo content
+     entirely in the low band, so what happens to it is unambiguous. */
+  const monoProof = await page.evaluate(async function () {
+    async function run(amount) {
+      const ctx = new OfflineAudioContext(2, 44100, 44100);
+      const lo = ctx.createOscillator(); lo.frequency.value = 60;
+      const hi = ctx.createOscillator(); hi.frequency.value = 3000;
+      const pl = ctx.createStereoPanner(); pl.pan.value = -1;
+      const pr = ctx.createStereoPanner(); pr.pan.value = 1;
+      const head = ctx.createGain();
+      lo.connect(pl).connect(head);
+      hi.connect(pr).connect(head);
+      const song = window.Composer.compose({ seed: 'MONO', genre: 'house', length: 'short' });
+      song.monoBass = amount;
+      song.tracks = { drums: [], bass: [], chords: [], arp: [], lead: [], counter: [], pad: [] };
+      song.totalBeats = 4;
+      const mix = {};
+      window.Engine.TRACKS.forEach(function (t) { mix[t] = { volume: 1, muted: false }; });
+      const graph = window.Engine.buildGraph(ctx, song, mix, false, 1);
+      head.connect(graph.master);
+      lo.start(0); hi.start(0); lo.stop(1); hi.stop(1);
+      const buf = await ctx.startRendering();
+      const L = buf.getChannelData(0), R = buf.getChannelData(1);
+      let lp = 0, low = 0, hiE = 0, hp = 0;
+      for (let i = 0; i < L.length; i++) {
+        const sd = (L[i] - R[i]) / 2;
+        lp += (sd - lp) * 0.02;
+        low += lp * lp;
+        hp = sd - lp;
+        hiE += hp * hp;
+      }
+      return { sideLow: Math.sqrt(low / L.length), sideHigh: Math.sqrt(hiE / L.length) };
+    }
+    return { off: await run(0), on: await run(1) };
+  });
+  check(monoProof.off.sideLow > 0.01,
+    'the mono-bass probe really does have stereo bass in it (' +
+    monoProof.off.sideLow.toFixed(4) + ')');
+  check(monoProof.on.sideLow < monoProof.off.sideLow * 0.6,
+    'mono bass takes the stereo out of the low end (' + monoProof.off.sideLow.toFixed(4) +
+    ' → ' + monoProof.on.sideLow.toFixed(4) + ')');
+  check(monoProof.on.sideHigh > monoProof.off.sideHigh * 0.85,
+    'and leaves the stereo above it alone (' + monoProof.off.sideHigh.toFixed(4) +
+    ' → ' + monoProof.on.sideHigh.toFixed(4) + ')');
+
   console.log('\n— exports —');
   const ex = await page.evaluate(async function () {
     const song = window.Composer.compose({ seed: 'EXPORT-1', genre: 'house', length: 'short' });
