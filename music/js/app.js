@@ -748,6 +748,39 @@
       });
     });
 
+    /* Harmony and octave doubling are arrangement, not effects: they add notes
+       to the part and land in the undo history like any other edit, and they
+       come out in the MIDI export because they really are notes. */
+    [['harmoniseBtn', 'harmonise', 2, 'a third above'],
+     ['harmoniseLowBtn', 'harmonise', -4, 'a sixth below'],
+     ['doubleDownBtn', 'double', -1, 'an octave below']].forEach(function (spec) {
+      el(spec[0]).addEventListener('click', function () {
+        if (!state.song) return;
+        const label = colorLabel(editor.track);
+        if (editor.track === 'drums') {
+          status('Drums have no tune to harmonise — pick a melodic part first.');
+          return;
+        }
+        editor.pushHistory(editor.track);
+        const before = state.song.tracks[editor.track].length;
+        const ok = spec[1] === 'harmonise'
+          ? C.harmonise(state.song, editor.track, spec[2])
+          : C.doubleOctave(state.song, editor.track, spec[2]);
+        if (!ok) {
+          status('Nothing to add to ' + label.toLowerCase() + ' — it is empty, or the ' +
+            'harmony would fall off the end of the keyboard.');
+          return;
+        }
+        state.edited[editor.track] = true;
+        player.refresh();
+        markRollDirty();
+        editor.refit();
+        syncEditUI();
+        status(label + ' doubled ' + spec[3] + ' — ' + before + ' notes → ' +
+          state.song.tracks[editor.track].length + '. Ctrl+Z puts it back.');
+      });
+    });
+
     el('clearTrackBtn').addEventListener('click', function () {
       if (!state.song) return;
       const label = colorLabel(editor.track);

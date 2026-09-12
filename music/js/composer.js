@@ -1324,6 +1324,105 @@
   }
 
   /**
+   * Which scale degree a pitch is sitting on, counting octaves.
+   *
+   * The inverse of degreePitch, which is what makes a *diatonic* interval
+   * possible: a third in a key is not a fixed number of semitones, it is two
+   * scale steps, and whether that comes out as three semitones or four is
+   * what makes the harmony belong to the key rather than sit beside it.
+   */
+  function degreeOf(pitch, scaleSteps, rootMidi) {
+    const rel = pitch - rootMidi;
+    const oct = Math.floor(rel / 12);
+    const pc = ((rel % 12) + 12) % 12;
+    let bestI = 0, bestD = 99;
+    for (let i = 0; i < scaleSteps.length; i++) {
+      const d = Math.abs(scaleSteps[i] - pc);
+      if (d < bestD) { bestD = d; bestI = i; }
+    }
+    return oct * scaleSteps.length + bestI;
+  }
+
+  /**
+   * Add a second voice to a part, a fixed number of *scale steps* away.
+   *
+   * Two steps is a third and four is a sixth — the two intervals almost every
+   * harmony part in popular music is built from. Because the distance is
+   * counted in scale steps rather than semitones, the interval widens and
+   * narrows to stay in the key, which is the whole difference between a
+   * harmony line and a detuned copy.
+   *
+   * The new voice is quieter than the original: a harmony that matches the
+   * tune for volume stops being a harmony and becomes two tunes.
+   */
+  function harmonise(song, part, steps) {
+    const evs = song.tracks[part];
+    if (!evs || !evs.length || part === 'drums') return false;
+    const added = [];
+    const seen = {};
+    evs.forEach(function (e) { seen[e.t.toFixed(4) + ':' + e.p] = true; });
+    evs.forEach(function (e) {
+      const root = keyRootAt(song, e.t);
+      const deg = degreeOf(e.p, song.scaleSteps, root);
+      /* The harmony has to stay in the key, so a chromatic note — a passing
+         note, or the third of a secondary dominant — is measured from the
+         scale degree nearest to it. That can land the harmony closer to the
+         note than a third, which is a second and sounds like a mistake rather
+         than a harmony, so step on until there is a real interval. */
+      let off = steps;
+      let p = T.degreePitch(song.scaleSteps, root, deg + off);
+      let guard = 0;
+      while (guard++ < 3 && Math.abs(p - e.p) < 3) {
+        off += steps > 0 ? 1 : -1;
+        p = T.degreePitch(song.scaleSteps, root, deg + off);
+      }
+      if (p < 16 || p > 108) return;
+      const key = e.t.toFixed(4) + ':' + p;
+      if (seen[key]) return;            // that note is already being played
+      seen[key] = true;
+      const copy = {};
+      for (const f in e) copy[f] = e[f];
+      copy.p = p;
+      copy.v = Math.max(0.05, e.v * 0.78);
+      added.push(copy);
+    });
+    if (!added.length) return false;
+    song.tracks[part] = evs.concat(added).sort(function (a, b) { return a.t - b.t; });
+    return true;
+  }
+
+  /**
+   * Double a part an octave away, keeping the original.
+   *
+   * Not the same as moving it an octave, which `shiftOctave` does: this leaves
+   * the part where it is and adds a second voice under or over it, which is
+   * how a bass gets weight and a lead gets size without changing the line.
+   */
+  function doubleOctave(song, part, dir) {
+    const evs = song.tracks[part];
+    if (!evs || !evs.length || part === 'drums') return false;
+    const by = dir > 0 ? 12 : -12;
+    const added = [];
+    const seen = {};
+    evs.forEach(function (e) { seen[e.t.toFixed(4) + ':' + e.p] = true; });
+    evs.forEach(function (e) {
+      const p = e.p + by;
+      if (p < 16 || p > 108) return;
+      const key = e.t.toFixed(4) + ':' + p;
+      if (seen[key]) return;
+      seen[key] = true;
+      const copy = {};
+      for (const f in e) copy[f] = e[f];
+      copy.p = p;
+      copy.v = Math.max(0.05, e.v * 0.72);
+      added.push(copy);
+    });
+    if (!added.length) return false;
+    song.tracks[part] = evs.concat(added).sort(function (a, b) { return a.t - b.t; });
+    return true;
+  }
+
+  /**
    * Thin a part out or fill it in.
    *
    * Both directions have to respect what the part is *for*, which is why this
@@ -2247,6 +2346,8 @@
     keyRootAt: keyRootAt,
     adjustDensity: adjustDensity,
     shiftOctave: shiftOctave,
+    harmonise: harmonise,
+    doubleOctave: doubleOctave,
     packSong: packSong,
     unpackSong: unpackSong,
     SAVE_VERSION: SAVE_VERSION,

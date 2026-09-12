@@ -433,6 +433,91 @@ Object.keys(Genres.GENRES).forEach(function (gid) {
   check(Composer.shiftOctave(s, 'drums', 1) === false, 'drums have no octave to move');
 })();
 
+/* --- harmony lines and octave doubling --- */
+(function () {
+  /* A harmony is not a fixed number of semitones. A third in a major key is
+     four semitones from the first degree and three from the second, and that
+     bending to stay in the key is the entire difference between a harmony line
+     and a detuned copy. So the test that matters is not "is it a third" but
+     "is it *both* sizes of third, in the right places". */
+  const s = Composer.compose({ seed: 'HARM-1', genre: 'lofi', length: 'medium' });
+  const before = s.tracks.lead.map(function (e) { return { t: e.t, d: e.d, p: e.p, v: e.v }; });
+  check(before.length > 4, 'there is a tune to harmonise (' + before.length + ' notes)');
+
+  check(Composer.harmonise(s, 'lead', 2), 'a part can be given a harmony line');
+  const after = s.tracks.lead;
+  check(after.length > before.length, 'which adds notes (' + before.length +
+    ' → ' + after.length + ')');
+
+  /* Every original note must survive untouched: a harmony adds a voice, it
+     does not rewrite the tune. */
+  const kept = before.every(function (o) {
+    return after.some(function (e) {
+      return e.t === o.t && e.p === o.p && e.d === o.d && e.v === o.v;
+    });
+  });
+  check(kept, 'and leaves every note of the original exactly where it was');
+
+  /* Pick out the added notes by difference rather than by position, so the
+     measurement cannot accidentally pair a note with another *original* note
+     that happens to sit above it. */
+  const wasThere = {};
+  before.forEach(function (o) { wasThere[o.t.toFixed(4) + ':' + o.p] = true; });
+  const added = after.filter(function (e) { return !wasThere[e.t.toFixed(4) + ':' + e.p]; });
+  check(added.length + before.length === after.length,
+    'the new notes are all additions, nothing was replaced');
+
+  const scaleSet = {};
+  s.scaleSteps.forEach(function (st) { scaleSet[st] = true; });
+  const sizes = {};
+  let allInKey = true, allQuieter = true, allPaired = true;
+  added.forEach(function (a) {
+    const root = Composer.keyRootAt(s, a.t);
+    const pc = (((a.p - root) % 12) + 12) % 12;
+    if (!scaleSet[pc]) allInKey = false;
+    const src = before.filter(function (o) { return o.t === a.t; })
+      .sort(function (x, y) { return Math.abs(a.p - x.p) - Math.abs(a.p - y.p); })[0];
+    if (!src) { allPaired = false; return; }
+    sizes[a.p - src.p] = (sizes[a.p - src.p] || 0) + 1;
+    if (a.v >= src.v) allQuieter = false;
+  });
+  check(allPaired, 'every harmony note belongs to a note of the tune');
+  check(allInKey, 'every harmony note is in the key');
+  check(allQuieter, 'and sits under the tune rather than level with it');
+  const kinds = Object.keys(sizes).map(Number).sort(function (a, b) { return a - b; });
+  /* Three or four semitones, and never two. The tune contains chromatic notes
+     — the third of a secondary dominant, passing notes — and a harmony
+     measured from the scale degree nearest to one of those can land a whole
+     tone away, which is a second and sounds like a mistake. */
+  check(kinds.every(function (k) { return k === 3 || k === 4; }),
+    'every interval is a third, major or minor, never a second (' + kinds.join(', ') + ')');
+  check(kinds.length > 1,
+    'and both sizes occur, which is what makes it diatonic rather than a fixed shift (' +
+    kinds.map(function (k) { return k + '×' + sizes[k]; }).join(', ') + ')');
+
+  /* Doubling an octave is the plain version of the same idea, and must not be
+     confused with moving the part: the original stays. */
+  const d = Composer.compose({ seed: 'HARM-2', genre: 'house', length: 'short' });
+  const bassBefore = d.tracks.bass.map(function (e) { return { t: e.t, p: e.p }; });
+  check(Composer.doubleOctave(d, 'bass', -1), 'a part can be doubled an octave lower');
+  check(bassBefore.every(function (o) {
+    return d.tracks.bass.some(function (e) { return e.t === o.t && e.p === o.p; });
+  }), 'with the original part still there');
+  check(bassBefore.every(function (o) {
+    return o.p - 12 < 16 || d.tracks.bass.some(function (e) {
+      return e.t === o.t && e.p === o.p - 12;
+    });
+  }), 'and a copy twelve semitones below every note that had room for one');
+  check(d.tracks.bass.every(function (e) { return e.p >= 16 && e.p <= 108; }),
+    'nothing falls off the end of the keyboard');
+  check(d.tracks.bass.every(function (e) { return e.t + e.d <= d.totalBeats; }),
+    'and nothing runs past the end of the song');
+
+  check(Composer.harmonise(d, 'drums', 2) === false, 'drums have no tune to harmonise');
+  check(Composer.doubleOctave(d, 'drums', -1) === false, 'and none to double');
+  check(Composer.harmonise(d, 'nosuchpart', 2) === false, 'an unknown part is refused');
+})();
+
 /* --- feel: swing, grooves, fills, ghosts and half time --- */
 (function () {
   /* Swing is no longer written into the score, so the score should be straight

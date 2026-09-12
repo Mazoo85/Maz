@@ -1224,6 +1224,11 @@ input[type="range"]::-moz-range-thumb {
       <button type="button" class="wide-btn" id="complicateBtn">+ Fill it in</button>
       <button type="button" class="wide-btn" id="clearTrackBtn">Clear this part</button>
     </div>
+    <div class="export-row">
+      <button type="button" class="wide-btn" id="harmoniseBtn">♪ Add a harmony (a third up)</button>
+      <button type="button" class="wide-btn" id="harmoniseLowBtn">♪ Add a harmony (a sixth down)</button>
+      <button type="button" class="wide-btn" id="doubleDownBtn">♪ Double it an octave lower</button>
+    </div>
     <p class="panel-hint">
       <strong>Develop my idea</strong> reads the notes you drew, then rewrites this part across the
       whole song from them — repeating your idea, answering it, turning it upside down. It is how
@@ -3985,6 +3990,105 @@ input[type="range"]::-moz-range-thumb {
   }
 
   /**
+   * Which scale degree a pitch is sitting on, counting octaves.
+   *
+   * The inverse of degreePitch, which is what makes a *diatonic* interval
+   * possible: a third in a key is not a fixed number of semitones, it is two
+   * scale steps, and whether that comes out as three semitones or four is
+   * what makes the harmony belong to the key rather than sit beside it.
+   */
+  function degreeOf(pitch, scaleSteps, rootMidi) {
+    const rel = pitch - rootMidi;
+    const oct = Math.floor(rel / 12);
+    const pc = ((rel % 12) + 12) % 12;
+    let bestI = 0, bestD = 99;
+    for (let i = 0; i < scaleSteps.length; i++) {
+      const d = Math.abs(scaleSteps[i] - pc);
+      if (d < bestD) { bestD = d; bestI = i; }
+    }
+    return oct * scaleSteps.length + bestI;
+  }
+
+  /**
+   * Add a second voice to a part, a fixed number of *scale steps* away.
+   *
+   * Two steps is a third and four is a sixth — the two intervals almost every
+   * harmony part in popular music is built from. Because the distance is
+   * counted in scale steps rather than semitones, the interval widens and
+   * narrows to stay in the key, which is the whole difference between a
+   * harmony line and a detuned copy.
+   *
+   * The new voice is quieter than the original: a harmony that matches the
+   * tune for volume stops being a harmony and becomes two tunes.
+   */
+  function harmonise(song, part, steps) {
+    const evs = song.tracks[part];
+    if (!evs || !evs.length || part === 'drums') return false;
+    const added = [];
+    const seen = {};
+    evs.forEach(function (e) { seen[e.t.toFixed(4) + ':' + e.p] = true; });
+    evs.forEach(function (e) {
+      const root = keyRootAt(song, e.t);
+      const deg = degreeOf(e.p, song.scaleSteps, root);
+      /* The harmony has to stay in the key, so a chromatic note — a passing
+         note, or the third of a secondary dominant — is measured from the
+         scale degree nearest to it. That can land the harmony closer to the
+         note than a third, which is a second and sounds like a mistake rather
+         than a harmony, so step on until there is a real interval. */
+      let off = steps;
+      let p = T.degreePitch(song.scaleSteps, root, deg + off);
+      let guard = 0;
+      while (guard++ < 3 && Math.abs(p - e.p) < 3) {
+        off += steps > 0 ? 1 : -1;
+        p = T.degreePitch(song.scaleSteps, root, deg + off);
+      }
+      if (p < 16 || p > 108) return;
+      const key = e.t.toFixed(4) + ':' + p;
+      if (seen[key]) return;            // that note is already being played
+      seen[key] = true;
+      const copy = {};
+      for (const f in e) copy[f] = e[f];
+      copy.p = p;
+      copy.v = Math.max(0.05, e.v * 0.78);
+      added.push(copy);
+    });
+    if (!added.length) return false;
+    song.tracks[part] = evs.concat(added).sort(function (a, b) { return a.t - b.t; });
+    return true;
+  }
+
+  /**
+   * Double a part an octave away, keeping the original.
+   *
+   * Not the same as moving it an octave, which `shiftOctave` does: this leaves
+   * the part where it is and adds a second voice under or over it, which is
+   * how a bass gets weight and a lead gets size without changing the line.
+   */
+  function doubleOctave(song, part, dir) {
+    const evs = song.tracks[part];
+    if (!evs || !evs.length || part === 'drums') return false;
+    const by = dir > 0 ? 12 : -12;
+    const added = [];
+    const seen = {};
+    evs.forEach(function (e) { seen[e.t.toFixed(4) + ':' + e.p] = true; });
+    evs.forEach(function (e) {
+      const p = e.p + by;
+      if (p < 16 || p > 108) return;
+      const key = e.t.toFixed(4) + ':' + p;
+      if (seen[key]) return;
+      seen[key] = true;
+      const copy = {};
+      for (const f in e) copy[f] = e[f];
+      copy.p = p;
+      copy.v = Math.max(0.05, e.v * 0.72);
+      added.push(copy);
+    });
+    if (!added.length) return false;
+    song.tracks[part] = evs.concat(added).sort(function (a, b) { return a.t - b.t; });
+    return true;
+  }
+
+  /**
    * Thin a part out or fill it in.
    *
    * Both directions have to respect what the part is *for*, which is why this
@@ -4908,6 +5012,8 @@ input[type="range"]::-moz-range-thumb {
     keyRootAt: keyRootAt,
     adjustDensity: adjustDensity,
     shiftOctave: shiftOctave,
+    harmonise: harmonise,
+    doubleOctave: doubleOctave,
     packSong: packSong,
     unpackSong: unpackSong,
     SAVE_VERSION: SAVE_VERSION,
@@ -10088,6 +10194,39 @@ input[type="range"]::-moz-range-thumb {
         editor.refit();
         syncEditUI();
         status(label + ' ' + spec[2] + ' — ' + before + ' notes → ' +
+          state.song.tracks[editor.track].length + '. Ctrl+Z puts it back.');
+      });
+    });
+
+    /* Harmony and octave doubling are arrangement, not effects: they add notes
+       to the part and land in the undo history like any other edit, and they
+       come out in the MIDI export because they really are notes. */
+    [['harmoniseBtn', 'harmonise', 2, 'a third above'],
+     ['harmoniseLowBtn', 'harmonise', -4, 'a sixth below'],
+     ['doubleDownBtn', 'double', -1, 'an octave below']].forEach(function (spec) {
+      el(spec[0]).addEventListener('click', function () {
+        if (!state.song) return;
+        const label = colorLabel(editor.track);
+        if (editor.track === 'drums') {
+          status('Drums have no tune to harmonise — pick a melodic part first.');
+          return;
+        }
+        editor.pushHistory(editor.track);
+        const before = state.song.tracks[editor.track].length;
+        const ok = spec[1] === 'harmonise'
+          ? C.harmonise(state.song, editor.track, spec[2])
+          : C.doubleOctave(state.song, editor.track, spec[2]);
+        if (!ok) {
+          status('Nothing to add to ' + label.toLowerCase() + ' — it is empty, or the ' +
+            'harmony would fall off the end of the keyboard.');
+          return;
+        }
+        state.edited[editor.track] = true;
+        player.refresh();
+        markRollDirty();
+        editor.refit();
+        syncEditUI();
+        status(label + ' doubled ' + spec[3] + ' — ' + before + ' notes → ' +
           state.song.tracks[editor.track].length + '. Ctrl+Z puts it back.');
       });
     });
