@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Name Forge — Random Name Maker</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23130b20'/><rect x='2' y='4' width='12' height='2' fill='%23ff8a3d'/><rect x='2' y='8' width='8' height='2' fill='%2300e5ff'/><rect x='2' y='12' width='10' height='2' fill='%23ff2d95'/></svg>" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">✦</span>
+        <h1>Name <span class="brand-alt">Forge</span></h1>
+      </div>
+      <p class="tagline">
+        1000 adjectives × 1000 nouns — a million names, every one of them
+        an adjective and then a noun.
+      </p>
+    </header>
+
+    <section class="stage">
+      <output id="nameOut" class="name" aria-live="polite">Roll your first name</output>
+      <div class="name-meta">
+        <span class="chip" id="orderChip" hidden></span>
+        <span class="chip ghost" id="seedChip" hidden></span>
+      </div>
+      <div class="stage-actions">
+        <button id="roll" class="primary">🎲 Roll a Name</button>
+        <button id="copy">📋 Copy</button>
+        <button id="save" class="accent">★ Save</button>
+      </div>
+    </section>
+
+    <section class="controls">
+      <div class="control">
+        <label for="order">Word order</label>
+        <select id="order"></select>
+      </div>
+      <div class="control">
+        <label for="style">Style</label>
+        <select id="style"></select>
+      </div>
+      <div class="stat" id="scaleStat" title="Different names this app can make"></div>
+    </section>
+
+    <section class="batch">
+      <div class="section-head">
+        <h3>Roll a batch</h3>
+        <p class="muted">A pile of names at once — tap any one to save it.</p>
+      </div>
+      <div class="batch-row">
+        <button data-n="10" class="batch-btn">10</button>
+        <button data-n="25" class="batch-btn">25</button>
+        <button data-n="100" class="batch-btn">100</button>
+        <span id="batchStatus" class="muted"></span>
+      </div>
+      <ul id="batchList" class="batch-list"></ul>
+      <div class="batch-actions" id="batchActions" hidden>
+        <button id="copyBatch">📋 Copy all</button>
+        <button id="exportTxt">⬇ .txt</button>
+        <button id="exportCsv">⬇ .csv</button>
+      </div>
+    </section>
+
+    <section class="library">
+      <div class="section-head">
+        <h3>Saved names <span id="libCount" class="count">0</span></h3>
+        <button id="clearLib" class="link">clear all</button>
+      </div>
+      <ul id="libraryList" class="library-list"></ul>
+      <p id="libEmpty" class="muted">
+        Nothing saved yet. Roll a name you like and hit <strong>Save</strong>.
+      </p>
+      <div class="batch-actions" id="libActions" hidden>
+        <button id="copyLib">📋 Copy saved</button>
+        <button id="exportLib">⬇ Export saved</button>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <span id="wordStat"></span> · a fresh adjective and a fresh noun every roll ·
+      everything runs locally in your browser.
+    </footer>
+  </div>
+
+  <!-- words + engine + ui -->
+  <script src="js/words.js"></script>
+  <script src="js/generator.js"></script>
+  <script src="js/app.js"></script>
+
+<!-- shared MAZ ARCADE nav: back to the hub + jump to any other project -->
+<script src="../shared/maz-nav.js" data-current="names" defer></script>
+</body>
+</html>
