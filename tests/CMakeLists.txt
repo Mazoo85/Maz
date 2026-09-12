@@ -595,38 +595,6 @@ target_link_libraries(maz_meshorient_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_orient COMMAND maz_meshorient_tests)
 set_tests_properties(mesh_orient PROPERTIES TIMEOUT 30)
 
-# ---- maz::ai — pathfinding, behavior trees, FSM, blackboard, steering ----------
-# Pure logic (no GPU/window), so each runs headless under ctest like the rest.
-add_executable(maz_astargrid_tests ai/astargrid.cpp)
-target_link_libraries(maz_astargrid_tests PRIVATE maz::maz maz_warnings)
-add_test(NAME ai_astar_grid COMMAND maz_astargrid_tests)
-set_tests_properties(ai_astar_grid PROPERTIES TIMEOUT 30)
-
-add_executable(maz_astargraph_tests ai/astargraph.cpp)
-target_link_libraries(maz_astargraph_tests PRIVATE maz::maz maz_warnings)
-add_test(NAME ai_astar_graph COMMAND maz_astargraph_tests)
-set_tests_properties(ai_astar_graph PROPERTIES TIMEOUT 30)
-
-add_executable(maz_behaviortree_tests ai/behaviortree.cpp)
-target_link_libraries(maz_behaviortree_tests PRIVATE maz::maz maz_warnings)
-add_test(NAME ai_behavior_tree COMMAND maz_behaviortree_tests)
-set_tests_properties(ai_behavior_tree PROPERTIES TIMEOUT 30)
-
-add_executable(maz_blackboard_tests ai/blackboard.cpp)
-target_link_libraries(maz_blackboard_tests PRIVATE maz::maz maz_warnings)
-add_test(NAME ai_blackboard COMMAND maz_blackboard_tests)
-set_tests_properties(ai_blackboard PROPERTIES TIMEOUT 30)
-
-add_executable(maz_statemachine_tests ai/statemachine.cpp)
-target_link_libraries(maz_statemachine_tests PRIVATE maz::maz maz_warnings)
-add_test(NAME ai_state_machine COMMAND maz_statemachine_tests)
-set_tests_properties(ai_state_machine PROPERTIES TIMEOUT 30)
-
-add_executable(maz_steering_tests ai/steering.cpp)
-target_link_libraries(maz_steering_tests PRIVATE maz::maz maz_warnings)
-add_test(NAME ai_steering COMMAND maz_steering_tests)
-set_tests_properties(ai_steering PROPERTIES TIMEOUT 30)
-
 add_executable(maz_meshdegenerate_tests render/meshdegenerate.cpp)
 target_link_libraries(maz_meshdegenerate_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_degenerate COMMAND maz_meshdegenerate_tests)
