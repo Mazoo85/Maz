@@ -212,16 +212,28 @@ async function watch(initialModel, initialMd, initialJs) {
     }
   };
 
-  const stop = watchTree(ROOT, roots, () => { void rescan(); });
-
   return new Promise((resolve) => {
-    const finish = () => {
+    let stop = () => {};
+    const finish = (code, why) => {
       stop();
-      process.stdout.write('\nstopped watching\n');
-      resolve(0);
+      process.stdout.write(why ? `\n${why}\n` : '\nstopped watching\n');
+      resolve(code);
     };
-    process.on('SIGINT', finish);
-    process.on('SIGTERM', finish);
+
+    stop = watchTree(ROOT, roots, () => { void rescan(); }, 400, (filename) => {
+      // Node caches an ES module for the life of the process, so this watcher
+      // cannot pick up a change to its own code. Carrying on would keep
+      // reporting "updated" while writing the answer the old code gives.
+      // `filename` arrives relative to the watched root, which is `tools` — so it
+      // already begins "inventory/". Prefixing the full path doubled it.
+      finish(0,
+        `tools/${filename} changed — this watcher is still running the code it ` +
+        'started with and cannot reload it.\n' +
+        'Restart it:  node tools/inventory/main.mjs --watch');
+    });
+
+    process.on('SIGINT', () => finish(0));
+    process.on('SIGTERM', () => finish(0));
   });
 }
 

@@ -23,7 +23,7 @@ import { parseHeaderComment, extractDocComment } from '../lib/scan-cpp.mjs';
 import { declaredFunctions, extractFunctions, duplicateHelpers } from '../lib/scan-web.mjs';
 import { validatePairings } from '../lib/synergy.mjs';
 import { buildModel } from '../lib/model.mjs';
-import { watchRoots } from '../lib/watch.mjs';
+import { watchRoots, isOwnSource } from '../lib/watch.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MAIN = join(HERE, '..', 'main.mjs');
@@ -453,6 +453,20 @@ await test('the watched roots cover every project, including ones added later', 
   }
   assert.strictEqual(new Set(roots).size, roots.length, 'a root is listed twice');
   assert.ok(!roots.includes('nope'), 'a root that does not exist should be dropped');
+});
+
+await test('a change to the inventory\'s own source is recognised as such', () => {
+  // Node caches an ES module for the life of a process, so a running watcher
+  // cannot reload its own scanner. Carrying on would mean reporting "updated"
+  // while writing what the OLD code says — a stale catalogue that looks live.
+  // The path arrives relative to the watched root, which is `tools`, so it
+  // already begins "inventory/"; an earlier version prefixed the full path and
+  // printed "tools/inventory/inventory/lib/synergy.mjs".
+  assert.strictEqual(isOwnSource(ROOT, 'tools', 'inventory/lib/synergy.mjs'), true);
+  assert.strictEqual(isOwnSource(ROOT, 'tools', 'inventory/main.mjs'), true);
+  assert.strictEqual(isOwnSource(ROOT, 'tools', 'golden.sh'), false, 'another tool is not our source');
+  assert.strictEqual(isOwnSource(ROOT, 'apps', 'inventory/lib/x.mjs'), false, 'only under tools/');
+  assert.strictEqual(isOwnSource(ROOT, 'tools', null), false, 'a nameless event is not our source');
 });
 
 for (const r of tmpRoots) rmSync(r, { recursive: true, force: true });

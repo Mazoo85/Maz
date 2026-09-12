@@ -42,7 +42,8 @@ if (!chromium) {
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 8211;
 const MIME = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
-  '.json': 'application/json', '.svg': 'image/svg+xml', '.md': 'text/plain'
+  '.json': 'application/json', '.svg': 'image/svg+xml', '.md': 'text/plain',
+  '.webmanifest': 'application/manifest+json', '.png': 'image/png'
 };
 
 const server = http.createServer((req, res) => {

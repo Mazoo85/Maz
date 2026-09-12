@@ -13,7 +13,7 @@
     "totalArtifacts": 905,
     "linesOfApps": 34191,
     "linesOfEngine": 87768,
-    "linesOfWeb": 24525,
+    "linesOfWeb": 25291,
     "appsHeadless": 100,
     "appsGolden": 92,
     "modulesTested": 100,
@@ -446,7 +446,7 @@
       "kind": "pairing",
       "check": "",
       "title": "CODA PICS can be lent now — but not to SCRIPT FORGE or MADLIBS as they speak today",
-      "detail": "The surface exists: coda-pics/painter is published, takes a sentence and a canvas, and — unlike the studio page — reports how much of the picture came from the words. It refuses rather than guessing when asked to, because CODA PICS invents a subject for anything it does not recognise and a caller cannot otherwise tell a picture of the thing it asked for from a picture of something else.\n\nWhat is NOT true is the obvious next step, and it was measured rather than assumed. Fed SCRIPT FORGE's scene headings, about half paint something unrelated — \"EXT. SHORELINE — DAY\" becomes a wolf in a cavern, \"INT. POLICE STATION — NIGHT\" a serpent in the open sea. Fed MADLIBS loglines, six of twelve are refused outright and the six that paint are only loosely related. The cause is vocabulary: CODA PICS knows 60 subjects and 20 settings chosen for being paintable, and neither a screenplay nor a story generator draws from that list.\n\nSo the work is not wiring, it is words. Either CODA PICS's lexicon grows the interiors and institutions a screenplay is full of — stairwells, offices, police stations, hospital rooms — or a caller translates its own vocabulary into CODA PICS's before asking. Until one of those happens, a consumer would get a refusal half the time and a wrong picture some of the rest, and no amount of integration code improves that.",
+      "detail": "The surface exists: coda-pics/painter is published, takes a sentence and a canvas, and — unlike the studio page — reports how much of the picture came from the words. It refuses rather than guessing when asked to, because CODA PICS invents a subject for anything it does not recognise and a caller cannot otherwise tell a picture of the thing it asked for from a picture of something else.\n\nWhat is NOT true is the obvious next step, and it was measured rather than assumed. Fed SCRIPT FORGE's scene headings, about half painted something unrelated, and fed MADLIBS loglines, six of twelve were refused outright with the rest only loosely related. Those figures are from before the trunk taught the reader to understand more of what people type, so the ratio has moved — but the cause has not: CODA PICS knows a set of subjects and settings chosen for being PAINTABLE, and neither a screenplay nor a story generator draws from that list. Re-measure before acting on the numbers.\n\nSo the work is not wiring, it is words. Either CODA PICS's lexicon grows the interiors and institutions a screenplay is full of — stairwells, offices, police stations, hospital rooms — or a caller translates its own vocabulary into CODA PICS's before asking. Until one of those happens, a consumer would get a refusal half the time and a wrong picture some of the rest, and no amount of integration code improves that.",
       "paths": [
         "coda-pics",
         "film",

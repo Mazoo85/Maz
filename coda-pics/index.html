@@ -8,6 +8,13 @@
   <title>CODA PICS — Type it, see it</title>
   <link rel="stylesheet" href="css/style.css" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230b0714'/><rect x='2' y='3' width='12' height='10' rx='1.5' fill='none' stroke='%2300d68f' stroke-width='1.4'/><circle cx='6' cy='6.6' r='1.2' fill='%23ffd166'/><path d='M3 12l3.4-3.6 2.2 2.2L11 8.2 13 12z' fill='%2300d68f'/></svg>" />
+  <!-- Installable: add it to a home screen and it opens like any other app,
+       and keeps working with no network. -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="CODA PICS" />
 </head>
 <body>
   <div id="app">
@@ -40,13 +47,24 @@
             <option value="wide" selected>Wide — 1280 × 720</option>
             <option value="tall">Tall — 832 × 1216</option>
             <option value="phone">Phone wallpaper — 720 × 1280</option>
+            <option value="bigsquare">Big square — 2048 × 2048</option>
+            <option value="hd">Desktop wallpaper — 2560 × 1440</option>
+            <option value="phonehd">Phone wallpaper, big — 1440 × 2560</option>
           </select>
         </div>
       </div>
 
+      <fieldset class="locks">
+        <legend>Keep when you take another</legend>
+        <label><input type="checkbox" id="lockSubject" /> the subject</label>
+        <label><input type="checkbox" id="lockSky" /> the sky</label>
+        <label><input type="checkbox" id="lockLand" /> the land</label>
+      </fieldset>
+
       <div class="buttons">
         <button id="paint" class="primary" type="button">🎨 Paint it</button>
         <button id="reroll" type="button" title="Same words, a different take">🎲 Another take</button>
+        <button id="six" type="button" title="Six takes at once">▦ Show me six</button>
         <button id="surprise" type="button" title="Write me a prompt">✨ Surprise me</button>
       </div>
       <p class="hint">Everything is drawn in your browser. Nothing is uploaded, no account, no key, no cost —
@@ -67,10 +85,17 @@
 
         <p id="status" class="status" role="status" aria-live="polite"></p>
         <div id="readout" class="readout" aria-label="What I understood"></div>
+        <p id="unknown" class="unknown" hidden></p>
 
         <div class="buttons out" id="outButtons" hidden>
           <button id="download" class="primary" type="button">⬇ Save the picture</button>
           <button id="keep" type="button">★ Keep in my gallery</button>
+          <button id="share" type="button" title="A link that paints this exact picture">🔗 Copy a link to it</button>
+        </div>
+
+        <div class="sheet" id="sheet" hidden>
+          <h3 class="section-title">Six takes</h3>
+          <div class="gallery" id="sheetGrid"></div>
         </div>
       </section>
 
@@ -78,6 +103,11 @@
       <section class="gallery-wrap" id="galleryWrap" hidden>
         <h2 class="section-title">My gallery</h2>
         <p class="gallery-note">Kept on this device only. Tap one to bring it back.</p>
+        <div class="buttons gallery-tools">
+          <button id="exportGallery" type="button">⬇ Save my gallery to a file</button>
+          <button id="importGallery" type="button">⬆ Load a gallery file</button>
+          <input type="file" id="importFile" accept="application/json,.json" hidden />
+        </div>
         <div class="gallery" id="gallery"></div>
       </section>
     </main>
@@ -98,5 +128,14 @@
   <script src="js/painter.js"></script>
   <script src="js/app.js"></script>
   <script src="../shared/maz-nav.js" data-current="coda-pics" defer></script>
+  <script>
+    /* Offline support is a bonus, never a requirement: if the browser has no
+       service workers, or refuses to register one, the app is unaffected. */
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function () {});
+      });
+    }
+  </script>
 </body>
 </html>

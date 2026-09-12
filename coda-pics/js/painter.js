@@ -12,8 +12,8 @@
  * invents a subject, a setting and a style from the prompt's own hash and
  * paints those. Standalone that is exactly right — you always get a picture,
  * and pressing again gives you another. Handed to another project it is a
- * trap: "a police station" paints a knight in the open sky, and the caller has
- * no way to tell that from a picture of what it asked for.
+ * trap: "a stairwell" paints a comet over a swamp, and the caller has no way to
+ * tell that from a picture of what it asked for.
  *
  * So `paint()` reports how much of the picture came from the words, and
  * `paintIfRecognised()` refuses rather than guessing. A project illustrating

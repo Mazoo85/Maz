@@ -93,7 +93,27 @@
     { id: 'island',     label: 'a floating isle', draw: 'island',    scene: 'sky',     words: ['island', 'isle', 'atoll', 'archipelago'] },
     { id: 'planet',     label: 'a ringed planet', draw: 'planet',    scene: 'space',   words: ['planet', 'saturn', 'jupiter', 'world', 'globe'] },
     { id: 'moon',       label: 'a huge moon',     draw: 'bigmoon',   scene: 'plains',  words: ['moon', 'luna', 'crescent'] },
-    { id: 'eye',        label: 'a watching eye',  draw: 'eye',       scene: 'space',   words: ['eye', 'iris', 'pupil'] }
+    { id: 'eye',        label: 'a watching eye',  draw: 'eye',       scene: 'space',   words: ['eye', 'iris', 'pupil'] },
+
+    /* --- more of what people ask for, on routines that already exist -------
+     * A sheep and a wolf are the same four-legged builder with different ears
+     * and tail; a swan and an owl the same bird. Adding the word is the whole
+     * job, and the lexicon is where that stays honest. */
+    { id: 'sheep',    label: 'a sheep',        draw: 'quadruped', form: 'rabbit', scene: 'meadow',    words: ['sheep', 'lamb', 'ram', 'goat'] },
+    { id: 'cow',      label: 'a cow',          draw: 'quadruped', form: 'bear',   scene: 'meadow',    words: ['cow', 'bull', 'cattle', 'ox', 'buffalo', 'bison'] },
+    { id: 'camel',    label: 'a camel',        draw: 'quadruped', form: 'horse',  scene: 'desert',    words: ['camel', 'dromedary'] },
+    { id: 'elephant', label: 'an elephant',    draw: 'quadruped', form: 'bear',   scene: 'plains',    words: ['elephant', 'mammoth'] },
+    { id: 'swan',     label: 'a swan',         draw: 'bird',      form: 'bird',   scene: 'lake',      words: ['swan', 'goose', 'duck', 'flamingo', 'stork'] },
+    { id: 'bat',      label: 'a bat',          draw: 'bird',      form: 'bird',   scene: 'cave',      words: ['bat', 'bats'] },
+    { id: 'monk',     label: 'a monk',         draw: 'humanoid',  form: 'wizard', scene: 'mountains', words: ['monk', 'priest', 'pilgrim', 'hermit'] },
+    { id: 'pirate',   label: 'a pirate',       draw: 'humanoid',  form: 'knight', scene: 'shore',     words: ['pirate', 'captain', 'buccaneer'] },
+    { id: 'farmer',   label: 'a farmer',       draw: 'humanoid',  form: 'figure', scene: 'meadow',    words: ['farmer', 'shepherd', 'gardener'] },
+    { id: 'barn',     label: 'a barn',         draw: 'cabin',     scene: 'meadow',  words: ['barn', 'farmhouse', 'farm', 'stable'] },
+    { id: 'obelisk',  label: 'an obelisk',     draw: 'tower',     scene: 'desert',  words: ['obelisk', 'pillar', 'column', 'standing stone'] },
+    { id: 'raft',     label: 'a small boat',   draw: 'ship',      scene: 'lake',    words: ['raft', 'canoe', 'kayak', 'rowboat', 'dinghy'] },
+    { id: 'satellite', label: 'a satellite',   draw: 'ufo',       scene: 'space',   words: ['satellite', 'probe', 'station'] },
+    { id: 'comet',    label: 'a comet',        draw: 'bigmoon',   scene: 'space',   words: ['comet', 'asteroid', 'meteor'] },
+    { id: 'totem',    label: 'a totem',        draw: 'crystal',   scene: 'forest',  words: ['totem', 'monolith stone', 'idol', 'statue'] }
   ];
 
   /* ---------------------------------------------------------------- scenes
@@ -210,6 +230,29 @@
     { count: 1, words: ['one', 'lone', 'single', 'solitary', 'a'] }
   ];
 
+  /* ---------------------------------------------------------- relations
+   * Where one thing sits relative to another. People write these constantly
+   * ("a cat under a tree") and a painter that ignores them paints the wrong
+   * picture with all the right things in it.
+   */
+  var RELATIONS = [
+    { id: 'under',  label: 'under',      words: ['under', 'underneath', 'beneath', 'below'] },
+    { id: 'above',  label: 'above',      words: ['above', 'over', 'on top of', 'atop', 'on'] },
+    { id: 'behind', label: 'behind',     words: ['behind', 'past', 'beyond'] },
+    { id: 'beside', label: 'beside',     words: ['beside', 'next to', 'alongside', 'by', 'with', 'and'] },
+    { id: 'front',  label: 'in front of', words: ['in front of', 'before'] }
+  ];
+
+  /* Words that mean nothing to a painter. Kept so the app can tell the
+   * difference between "a word I do not know" and "a word nobody draws". */
+  var FILLER = [
+    'a', 'an', 'the', 'of', 'in', 'on', 'at', 'to', 'is', 'it', 'its', 'as',
+    'and', 'or', 'but', 'with', 'from', 'into', 'onto', 'for', 'by', 'very',
+    'some', 'that', 'this', 'there', 'here', 'looking', 'style', 'art', 'image',
+    'picture', 'draw', 'drawing', 'make', 'me', 'please', 'show', 'want', 'like',
+    'really', 'quite', 'sort', 'kind', 'scene', 'background', 'foreground'
+  ];
+
   var LEXICON = {
     SUBJECTS: SUBJECTS,
     SCENES: SCENES,
@@ -219,7 +262,9 @@
     PALETTES: PALETTES,
     MOODS: MOODS,
     SCALE_WORDS: SCALE_WORDS,
-    COUNT_WORDS: COUNT_WORDS
+    COUNT_WORDS: COUNT_WORDS,
+    RELATIONS: RELATIONS,
+    FILLER: FILLER
   };
 
   root.CodaLexicon = LEXICON;

@@ -47,6 +47,25 @@ export function watchRoots(root, model) {
 // Changes to these never mean the repository changed — they ARE the answer.
 const GENERATED = new Set(['INVENTORY.md', 'inventory.json']);
 
+/*
+ * The one thing a long-running watcher cannot do is reload itself.
+ *
+ * Node caches an ES module for the life of the process, so editing the scanner,
+ * the checks or the pairings while `--watch` is running leaves it scanning with
+ * the code it started with. It keeps reporting "updated" and keeps writing the
+ * OLD answer, which is a worse failure than not running at all — a stale
+ * catalogue that looks live.
+ *
+ * So a change under tools/inventory/ stops the watcher and says why. Restarting
+ * is the fix, and it has to be a person's decision: re-exec'ing itself on every
+ * save would fight an editor mid-write.
+ */
+export function isOwnSource(root, rel, filename) {
+  if (rel !== 'tools') return false;
+  const path = String(filename || '');
+  return path.startsWith('inventory/') || path.startsWith('inventory\\');
+}
+
 // Editors write a save through a swarm of temporary files; none is a real edit.
 const IGNORED = /(^\.|~$|\.swp$|\.tmp$|^4913$|\.lock$)/;
 
@@ -61,7 +80,7 @@ function interesting(filename) {
  * Watch `roots` and call `onChange` once per quiet burst.
  * Returns a stop() that closes every watcher.
  */
-export function watchTree(root, roots, onChange, debounceMs = 400) {
+export function watchTree(root, roots, onChange, debounceMs = 400, onOwnSourceChange = null) {
   const watchers = [];
   let timer = null;
 
@@ -74,6 +93,10 @@ export function watchTree(root, roots, onChange, debounceMs = 400) {
     try {
       const w = fsWatch(join(root, rel), { recursive: true }, (_event, filename) => {
         if (!interesting(filename)) return;
+        if (onOwnSourceChange && isOwnSource(root, rel, filename)) {
+          onOwnSourceChange(filename);
+          return;
+        }
         if (timer) clearTimeout(timer);
         timer = setTimeout(fire, debounceMs);
       });

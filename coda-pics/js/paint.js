@@ -71,19 +71,25 @@
    * towards one target and lifts saturation, which is what makes "a red dragon
    * over the sea" read red without turning the sea into a flat red block.
    */
-  function makePalette(spec) {
+  function makePalette(spec, opts) {
     var sky = SKY[spec.time] || SKY.dusk;
     var scene = SCENE_COLOUR[spec.scene.id] || SCENE_COLOUR.plains;
     var tint = spec.palette;
     var drama = spec.mood;
+    /* How hard a colour word pulls. "A red dragon" should give you a red
+     * dragon, not a red world — so the scene is mixed weakly and the subject
+     * strongly, and the painter builds one palette of each. With no subject to
+     * carry it, the colour has nowhere to go but the scene. */
+    var pull = (opts && opts.tintStrength != null) ? opts.tintStrength
+      : (spec.subject ? 0.18 : 0.5);
 
     function bend(c) {
       var h = c[0], s = c[1], l = c[2];
       if (tint) {
         var d = ((tint.hue - h) % 360 + 540) % 360 - 180;   // shortest way round
-        h = (h + d * 0.55 + 360) % 360;
-        s = clamp(s * tint.sat, 0, 100);
-        l = clamp(l * (0.94 + (tint.warm - 1) * 0.22), 0, 100);
+        h = (h + d * pull + 360) % 360;
+        s = clamp(s * (1 + (tint.sat - 1) * (pull / 0.55)), 0, 100);
+        l = clamp(l * (0.94 + (tint.warm - 1) * 0.22 * (pull / 0.55)), 0, 100);
       }
       return [h, s, l];
     }
@@ -115,6 +121,7 @@
       scene: scene,
       drama: drama,
       isWater: !!scene.water,
+      light_at: null,                 /* filled in once the sun is placed */
       css: css,
       bend: bend,
       /* A silhouette at `depth`, optionally lightened towards the land tone. */
@@ -124,7 +131,12 @@
        * difference is most of what makes the pictures read. */
       silhouette: function (depth, a) {
         var c = depthMix(scene.ink, depth);
-        return css([c[0], c[1] * 0.92, c[2] * (0.62 - drama * 0.10)], a);
+        /* A silhouette is dark by design, but a subject the prompt gave a
+         * colour has to be light enough for that colour to survive — a red
+         * dragon painted at silhouette darkness is just a dragon. */
+        var lift = (tint && pull > 0.5) ? 1.55 : 1;
+        return css([c[0], c[1] * 0.92 * (lift > 1 ? 1.25 : 1),
+          clamp(c[2] * (0.62 - drama * 0.10) * lift, 0, 100)], a);
       },
       land: function (depth, a) { return css(depthMix(scene.land, depth), a); },
       far: function (depth, a) { return css(depthMix(scene.far, depth), a); },
@@ -862,11 +874,20 @@
    */
   function placeBox(w, h, hz, spec, subject, index, total, r) {
     var meta = (SUBJECTS && SUBJECTS.META[subject.draw]) || { anchor: 'ground', base: 0.3, aspect: 1 };
-    var spread = total > 1 ? (index + 0.5) / total : 0.5;
-    var jitter = (r() - 0.5) * (total > 1 ? 0.12 : 0.30);
-    var cx = w * clamp(spread + jitter, 0.12, 0.88);
+    var cx;
+    if (total > 1) {
+      cx = w * clamp((index + 0.5) / total + (r() - 0.5) * 0.12, 0.12, 0.88);
+    } else {
+      /* Off-centre by default: a third of the way in, either side, with dead
+       * centre kept as one option among three rather than the only one. */
+      var thirds = [0.33, 0.5, 0.67];
+      cx = w * clamp(thirds[Math.floor(r() * 3) % 3] + (r() - 0.5) * 0.09, 0.14, 0.86);
+    }
     var depth = total > 1 ? index / Math.max(total - 1, 1) : 0;
-    var size = Math.min(w, h) * meta.base * subject.scale * (1 - depth * 0.25);
+    /* Scale contrast: a lone subject is sometimes near and large, sometimes a
+     * small thing in a big landscape. Both read better than always mid-sized. */
+    var swing = total > 1 ? 1 : (0.72 + r() * 0.75);
+    var size = Math.min(w, h) * meta.base * subject.scale * swing * (1 - depth * 0.25);
     var bw = size * (meta.aspect || 1);
     var bh = size;
 
@@ -882,16 +903,19 @@
     return { x: cx - bw / 2, y: y, w: bw, h: bh, depth: depth, anchor: meta.anchor };
   }
 
-  /* A soft pool of shade where a thing meets the ground. Cheap, and the
-   * difference between a wolf standing in a forest and a wolf pasted over one. */
-  function groundShadow(ctx, box, P) {
-    var cy = box.y + box.h;
+  /* A soft pool of shade where a thing meets the ground, thrown away from the
+   * light rather than straight down — the give-away that a picture was lit by
+   * something in particular and not by nothing. */
+  function groundShadow(ctx, box, P, light) {
+    var cx = box.x + box.w / 2, cy = box.y + box.h;
+    var lean = 0;
+    if (light) lean = clamp((cx - light.x) / Math.max(box.w, 1), -2.2, 2.2);
     var rx = box.w * 0.55, ry = box.h * 0.05;
-    var g = ctx.createRadialGradient(box.x + box.w / 2, cy, 0, box.x + box.w / 2, cy, rx);
+    var g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
     g.addColorStop(0, P.silhouette(0, 0.5));
     g.addColorStop(1, P.silhouette(0, 0));
     ctx.save();
-    ctx.translate(box.x + box.w / 2, cy);
+    ctx.translate(cx + lean * box.w * 0.18, cy);
     ctx.scale(1, ry / rx);
     ctx.fillStyle = g;
     ctx.beginPath();
@@ -900,10 +924,197 @@
     ctx.restore();
   }
 
+  /* A palette that answers every question with one colour. Handing this to a
+   * subject routine redraws the very same shapes as a flat stencil, which is
+   * what the shadow, rim-light and settled-snow passes below are made of — so
+   * all 42 routines gain them without knowing they exist. */
+  function flat(P, colour) {
+    function same() { return colour; }
+    return {
+      sky: P.sky, scene: P.scene, drama: P.drama, isWater: P.isWater,
+      light_at: P.light_at, bend: P.bend,
+      css: same, ink: same, silhouette: same, land: same, far: same,
+      sea: same, light: same, haze: same, shade: same
+    };
+  }
+
+  function stencil(ctx, subject, box, P, r, spec, colour, dx, dy, alpha) {
+    if (!SUBJECTS || !SUBJECTS.setStencil) return;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(dx, dy);
+    SUBJECTS.setStencil(true);
+    SUBJECTS.draw(ctx, subject, box, flat(P, colour), r, spec);
+    SUBJECTS.setStencil(false);
+    ctx.restore();
+  }
+
+  /*
+   * Draw one subject, lit. The order is the order a painter would work in:
+   * the shape it throws away from the light, the shape itself, the edge the
+   * light catches, then whatever the weather is doing to it.
+   */
+  function paintSubject(ctx, subject, box, P, PS, r, spec, light, hz, h) {
+    var cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+    var dx = 0, dy = 0;
+    if (light) {
+      var vx = cx - light.x, vy = cy - light.y;
+      var len = Math.sqrt(vx * vx + vy * vy) || 1;
+      dx = vx / len; dy = vy / len;
+    }
+    var off = Math.max(1.2, Math.min(box.w, box.h) * 0.030);
+
+    /* Water gives it back, upside down and dimmer. */
+    if (P.isWater && REFLECTS[spec.scene.id] && box.y + box.h <= h) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, Math.max(hz, box.y + box.h), ctx.canvas ? ctx.canvas.width : box.x + box.w * 4, h);
+      ctx.clip();
+      ctx.globalAlpha = 0.26;
+      ctx.translate(0, (box.y + box.h) * 2);
+      ctx.scale(1, -1);
+      SUBJECTS.draw(ctx, subject, box, P, r, spec);
+      ctx.restore();
+      ctx.globalAlpha = 1;
+    }
+
+    if (box.anchor === 'ground') groundShadow(ctx, box, P, light);
+
+    /* Everything that shows only at the edges goes down first, and the subject
+     * is drawn once on top of the lot. */
+    stencil(ctx, subject, box, PS, r, spec, PS.silhouette(0.7, 1), dx * off, dy * off, 0.6);
+    stencil(ctx, subject, box, PS, r, spec, P.light(0.95), -dx * off, -dy * off, 0.65);
+    if (spec.weather === 'snowfall') {          // snow settles on upward faces
+      stencil(ctx, subject, box, PS, r, spec, P.css([205, 18, 97], 1), 0, -off * 1.1, 0.75);
+    }
+
+    if (SUBJECTS) SUBJECTS.draw(ctx, subject, box, PS, r, spec);
+
+    if (spec.weather === 'fog') {               // distance eats it, softly
+      var fg = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(box.w, box.h) * 0.8);
+      fg.addColorStop(0, P.haze(0.10 + box.depth * 0.22));
+      fg.addColorStop(1, P.haze(0));
+      ctx.save();
+      ctx.fillStyle = fg;
+      ctx.fillRect(box.x - box.w * 0.6, box.y - box.h * 0.6, box.w * 2.2, box.h * 2.2);
+      ctx.restore();
+    }
+  }
+
+  /* Where a subject's reflection makes sense: open water that runs to the
+   * bottom of the frame. A beach or an island has land in the way. */
+  var REFLECTS = { ocean: true, lake: true, swamp: true };
+
+  /*
+   * Something close to the viewer, at the very front. Two layers of distance
+   * make a landscape; three make a photograph of one. Not every picture gets
+   * it — a frame that is always framed is its own kind of sameness.
+   */
+  var FRAMED = {
+    forest: 'leaves', jungle: 'leaves', meadow: 'grass', plains: 'grass',
+    swamp: 'reeds', mountains: 'rocks', canyon: 'rocks', desert: 'rocks',
+    snow: 'rocks', shore: 'rocks', ruins: 'rocks', lake: 'reeds'
+  };
+
+  function foreground(ctx, w, h, hz, P, spec, r) {
+    var kind = FRAMED[spec.scene.id];
+    if (!kind || r() > 0.55) return;
+    var ink = P.silhouette(0, 0.92);
+
+    if (kind === 'leaves') {                    // a branch across one top corner
+      var left = r() < 0.5;
+      var ox = left ? 0 : w;
+      var dir = left ? 1 : -1;
+      ctx.strokeStyle = ink;
+      ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(2, w * 0.012);
+      ctx.beginPath();
+      ctx.moveTo(ox, -h * 0.02);
+      ctx.quadraticCurveTo(ox + dir * w * 0.26, h * 0.10, ox + dir * w * 0.52, h * 0.05);
+      ctx.stroke();
+      for (var i = 0; i < 9; i++) {
+        var t = 0.15 + i * 0.095;
+        var lx = ox + dir * w * 0.52 * t;
+        var ly = h * (0.02 + Math.sin(t * 3) * 0.05);
+        blob(ctx, lx, ly + h * 0.035, w * 0.045, h * 0.028, 8, r, ink);
+      }
+    } else if (kind === 'grass' || kind === 'reeds') {
+      var tall = kind === 'reeds' ? 0.30 : 0.16;
+      for (var g = 0; g < 46; g++) {
+        var x = r() * w;
+        var gh = h * tall * (0.5 + r() * 0.9);
+        ctx.strokeStyle = ink;
+        ctx.lineWidth = Math.max(1.5, w * (kind === 'reeds' ? 0.004 : 0.003));
+        ctx.beginPath();
+        ctx.moveTo(x, h);
+        ctx.quadraticCurveTo(x + (r() - 0.5) * w * 0.03, h - gh * 0.6,
+          x + (r() - 0.5) * w * 0.06, h - gh);
+        ctx.stroke();
+      }
+    } else {                                    // a rock shelf along the bottom
+      var side = r() < 0.5 ? 0 : 1;
+      ctx.beginPath();
+      ctx.moveTo(side ? w : 0, h);
+      ctx.lineTo(side ? w : 0, h * (0.80 + r() * 0.08));
+      for (var k = 0; k <= 6; k++) {
+        var kx = (side ? w : 0) + (side ? -1 : 1) * w * (k / 6) * (0.30 + r() * 0.16);
+        ctx.lineTo(kx, h * (0.84 + r() * 0.14));
+      }
+      ctx.lineTo(side ? w * 0.55 : w * 0.45, h);
+      ctx.closePath();
+      ctx.fillStyle = ink;
+      ctx.fill();
+    }
+  }
+
+  /*
+   * Put the first-named subject where the sentence said, relative to the
+   * second. "A cat under a tree" is a different picture from "a cat and a
+   * tree", and until now they were the same one.
+   */
+  function arrange(relation, placed, w, h) {
+    var anchor = placed[0].box;                      // the companion
+    var movers = placed.slice(1);
+    movers.forEach(function (m) {
+      var b = m.box;
+      var cx = anchor.x + anchor.w / 2;
+      switch (relation.id) {
+        case 'under':
+          b.x = cx - b.w / 2 + (b.x - cx) * 0.15;
+          b.y = Math.max(anchor.y + anchor.h * 0.55, b.y);
+          m.z = 2;                                   // nearer than what it is under
+          break;
+        case 'above':
+          b.x = cx - b.w / 2 + (b.x - cx) * 0.15;
+          b.y = anchor.y - b.h * 0.85;
+          m.z = 2;
+          break;
+        case 'behind':
+          b.x = cx - b.w * 0.35;
+          b.y -= b.h * 0.18;
+          b.w *= 0.8; b.h *= 0.8;
+          b.depth = Math.min(1, (b.depth || 0) + 0.35);
+          m.z = -1;                                  // drawn first, so it sits behind
+          break;
+        case 'front':
+          b.w *= 1.18; b.h *= 1.18;
+          b.y = anchor.y + anchor.h - b.h + h * 0.03;
+          m.z = 3;
+          break;
+        default:                                     // beside
+          b.x = anchor.x + anchor.w * 1.15;
+          if (b.x + b.w > w * 0.96) b.x = anchor.x - b.w * 1.15;
+          b.x = clamp(b.x, w * 0.02, w - b.w - w * 0.02);
+          break;
+      }
+    });
+  }
+
   /* ----------------------------------------------------------------- render */
 
   function render(ctx, w, h, spec) {
-    var P = makePalette(spec);
+    var P = makePalette(spec);                              // the world
+    var PS = makePalette(spec, { tintStrength: 0.85 });     // the thing in it
     var r = PROMPT.rng(spec, 'scene');
     var hz = clamp(spec.scene.horizon + (r() - 0.5) * 0.05, 0.42, 1.3) * h;
 
@@ -914,22 +1125,32 @@
 
     paintSky(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'sky'));
     var light = paintLight(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'light'));
+    P.light_at = PS.light_at = light;
     clouds(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'cloud'));
 
     (GROUND[spec.scene.id] || GROUND.plains)(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'ground'), light);
 
     /* Subjects, furthest first so a nearer one overlaps it. */
     var sr = PROMPT.rng(spec, 'subject');
-    var queue = [];
-    if (spec.companion) queue.push({ s: spec.companion, n: 1 });
-    if (spec.subject) queue.push({ s: spec.subject, n: spec.subject.count });
-    queue.forEach(function (item) {
-      for (var i = item.n - 1; i >= 0; i--) {
-        var box = placeBox(w, h, hz, spec, item.s, i, item.n, sr);
-        if (box.anchor === 'ground') groundShadow(ctx, box, P);
-        if (SUBJECTS) SUBJECTS.draw(ctx, item.s, box, P, sr, spec);
+    var placed = [];
+    if (spec.companion) {
+      placed.push({ s: spec.companion, box: placeBox(w, h, hz, spec, spec.companion, 0, 1, sr), z: 0 });
+    }
+    if (spec.subject) {
+      for (var i = spec.subject.count - 1; i >= 0; i--) {
+        placed.push({
+          s: spec.subject, z: 1,
+          box: placeBox(w, h, hz, spec, spec.subject, i, spec.subject.count, sr)
+        });
       }
+    }
+    if (spec.relation && placed.length > 1) arrange(spec.relation, placed, w, h);
+    placed.sort(function (a, b) { return a.z - b.z; });
+    placed.forEach(function (item) {
+      paintSubject(ctx, item.s, item.box, P, PS, sr, spec, light, hz, h);
     });
+
+    foreground(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'fore'));
 
     paintWeather(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'weather'));
     ctx.restore();
@@ -943,6 +1164,9 @@
     SKY: SKY,
     SCENE_COLOUR: SCENE_COLOUR,
     groundShadow: groundShadow,
+    paintSubject: paintSubject,
+    arrange: arrange,
+    foreground: foreground,
     helpers: { ridge: ridge, fillPoly: fillPoly, hills: hills, pine: pine, blob: blob, clamp: clamp, lerp: lerp }
   };
 

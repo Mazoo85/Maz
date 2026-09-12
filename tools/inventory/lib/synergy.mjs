@@ -32,11 +32,12 @@ export const DECLARED_PAIRINGS = [
       'not recognise and a caller cannot otherwise tell a picture of the thing it asked for from a ' +
       'picture of something else.\n\n' +
       'What is NOT true is the obvious next step, and it was measured rather than assumed. Fed ' +
-      'SCRIPT FORGE\'s scene headings, about half paint something unrelated — "EXT. SHORELINE — ' +
-      'DAY" becomes a wolf in a cavern, "INT. POLICE STATION — NIGHT" a serpent in the open sea. ' +
-      'Fed MADLIBS loglines, six of twelve are refused outright and the six that paint are only ' +
-      'loosely related. The cause is vocabulary: CODA PICS knows 60 subjects and 20 settings chosen ' +
-      'for being paintable, and neither a screenplay nor a story generator draws from that list.\n\n' +
+      'SCRIPT FORGE\'s scene headings, about half painted something unrelated, and fed MADLIBS ' +
+      'loglines, six of twelve were refused outright with the rest only loosely related. Those ' +
+      'figures are from before the trunk taught the reader to understand more of what people type, ' +
+      'so the ratio has moved — but the cause has not: CODA PICS knows a set of subjects and ' +
+      'settings chosen for being PAINTABLE, and neither a screenplay nor a story generator draws ' +
+      'from that list. Re-measure before acting on the numbers.\n\n' +
       'So the work is not wiring, it is words. Either CODA PICS\'s lexicon grows the interiors and ' +
       'institutions a screenplay is full of — stairwells, offices, police stations, hospital rooms — ' +
       'or a caller translates its own vocabulary into CODA PICS\'s before asking. Until one of those ' +

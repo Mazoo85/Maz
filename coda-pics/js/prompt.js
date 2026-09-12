@@ -51,9 +51,36 @@
   }
 
   /* A fresh generator for one spec. `salt` keeps independent parts of the
-   * painting independent — the clouds re-rolling must not move the mountains. */
+   * painting independent — the clouds re-rolling must not move the mountains.
+   *
+   * `spec.locked` is how a part is held still while the rest re-rolls: it maps
+   * a salt to the seed that part should keep using, so "another take" can
+   * change the sky and leave the subject exactly where it was. */
   function rng(spec, salt) {
-    return rngFrom(hash(String(spec.prompt) + '|' + spec.seed + '|' + (salt || '')));
+    var seed = spec.seed;
+    if (spec.locked && Object.prototype.hasOwnProperty.call(spec.locked, salt)) {
+      seed = spec.locked[salt];
+    }
+    return rngFrom(hash(String(spec.prompt) + '|' + seed + '|' + (salt || '')));
+  }
+
+  /* The salts each lock covers. Named for what a person would call the part,
+   * not for the functions that happen to use them. */
+  var LOCKS = {
+    subject: ['subject'],
+    sky: ['sky', 'light', 'cloud', 'weather'],
+    land: ['scene', 'ground', 'fore']
+  };
+
+  /* Build the `locked` map for a new take: every salt covered by a held lock
+   * keeps the seed it had. */
+  function holdLocks(previousSeed, locks) {
+    var out = {};
+    Object.keys(LOCKS).forEach(function (name) {
+      if (!locks || !locks[name]) return;
+      LOCKS[name].forEach(function (salt) { out[salt] = previousSeed; });
+    });
+    return out;
   }
 
   /* ------------------------------------------------------------- tokenising */
@@ -78,6 +105,51 @@
     if (word.length > 4 && /ves$/.test(word)) out.push(word.slice(0, -3) + 'f');
     if (word.length > 4 && /ies$/.test(word)) out.push(word.slice(0, -3) + 'y');
     return out;
+  }
+
+  /* How many single-character edits turn one word into another. Bounded: it
+   * stops as soon as the answer is past the limit, because a prompt is short
+   * and the vocabulary is not. */
+  function editDistance(a, b, limit) {
+    if (Math.abs(a.length - b.length) > limit) return limit + 1;
+    var prev = [], cur = [], i, j;
+    for (j = 0; j <= b.length; j++) prev[j] = j;
+    for (i = 1; i <= a.length; i++) {
+      cur[0] = i;
+      var best = cur[0];
+      for (j = 1; j <= b.length; j++) {
+        cur[j] = Math.min(
+          prev[j] + 1,
+          cur[j - 1] + 1,
+          prev[j - 1] + (a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1)
+        );
+        if (cur[j] < best) best = cur[j];
+      }
+      if (best > limit) return limit + 1;
+      prev = cur.slice();
+    }
+    return prev[b.length];
+  }
+
+  /* A near miss on a word nobody typed on purpose. Only for words long enough
+   * that a near match means something — "cat" and "bat" are two animals, not a
+   * typo, so short words are never corrected. */
+  function findNear(table, tokenList) {
+    var best = null;
+    table.forEach(function (entry) {
+      (entry.words || []).forEach(function (w) {
+        if (w.length < 5 || w.indexOf(' ') >= 0) return;
+        tokenList.forEach(function (t, at) {
+          if (t.length < 5) return;
+          var limit = t.length > 7 ? 2 : 1;
+          var d = editDistance(t, w, limit);
+          if (d <= limit && (!best || d < best.distance)) {
+            best = { entry: entry, word: t, meant: w, at: at, distance: d, specific: 0 };
+          }
+        });
+      });
+    });
+    return best;
   }
 
   /*
@@ -168,27 +240,62 @@
     var flat = normalise(prompt);
     var toks = tokens(flat);
     var seed = options.seed == null ? 1 : (options.seed | 0);
+    var locked = options.locked || null;
     var base = rngFrom(hash(flat + '|' + seed));
     var read = [];
 
-    function note(category, label, word) {
-      read.push({ category: category, label: label, word: word || null });
+    var used = {};                    // which tokens were understood
+    function note(category, label, word, meant) {
+      /* A phrase match ("hot air balloon") has to mark every word in it, or
+       * the words inside it get reported as ones nobody understood. */
+      if (word) String(word).split(' ').forEach(function (w) { used[w] = true; });
+      read.push({
+        category: category, label: label, word: word || null,
+        meant: meant || null           // set when a word was read as a near miss
+      });
     }
 
     /* --- subject (and an optional second one) --- */
     var subjectHits = findAll(LEX.SUBJECTS, flat, toks);
     var sceneHit = findOne(LEX.SCENES, flat, toks);
 
+    var corrected = null;
+    if (!subjectHits.length) {
+      var near = findNear(LEX.SUBJECTS, toks);
+      if (near) { subjectHits = [near]; corrected = near; }
+    }
+
     var subject = null;
     var companion = null;
     if (subjectHits.length) {
       subject = buildSubject(subjectHits[0], flat, toks, base);
-      note('subject', subjectHits[0].entry.label, subjectHits[0].word);
+      note('subject', subjectHits[0].entry.label, subjectHits[0].word,
+        corrected ? corrected.meant : null);
       if (subjectHits.length > 1) {
         companion = buildSubject(subjectHits[1], flat, toks, base);
         companion.scale *= 0.62;
         note('subject', 'and ' + subjectHits[1].entry.label, subjectHits[1].word);
       }
+    }
+
+    /* Size and count words are read inside buildSubject, which has no way to
+     * report back — so they are accounted for here, or a prompt that was fully
+     * understood claims it was not. */
+    if (subject) {
+      LEX.SCALE_WORDS.forEach(function (entry) {
+        entry.words.forEach(function (w) {
+          if (toks.indexOf(w) >= 0 && subject.scale === entry.factor) {
+            note('size', w, w);
+          }
+        });
+      });
+      LEX.COUNT_WORDS.forEach(function (entry) {
+        entry.words.forEach(function (w) {
+          if (w !== 'a' && toks.indexOf(w) >= 0 && subject.count === entry.count) {
+            note('how many', w, w);
+          }
+        });
+      });
     }
 
     /* --- setting --- */
@@ -252,15 +359,23 @@
 
     /* --- style --- */
     var style;
+    var extraStyle = null;
     var forced = options.style && options.style !== 'auto' ? options.style : null;
     if (forced && byId(LEX.STYLES, forced)) {
       style = forced;
       note('style', byId(LEX.STYLES, style).label + ' (you chose it)', null);
     } else {
-      var styleHit = findOne(LEX.STYLES, flat, toks);
-      if (styleHit) {
-        style = styleHit.entry.id;
-        note('style', styleHit.entry.label, styleHit.word);
+      var styleHits = findAll(LEX.STYLES, flat, toks);
+      if (styleHits.length) {
+        style = styleHits[0].entry.id;
+        note('style', styleHits[0].entry.label, styleHits[0].word);
+        /* Two style words are not a contradiction to resolve — they are a
+         * request for both, and the passes run in the order they were asked
+         * for. "Watercolour pixel art" is a real thing to want. */
+        if (styleHits.length > 1) {
+          extraStyle = styleHits[1].entry.id;
+          note('style', 'and ' + styleHits[1].entry.label, styleHits[1].word);
+        }
       } else {
         var candidates = DEFAULT_STYLE_BY_SCENE[scene.id] || ['poster', 'oil', 'watercolour'];
         style = pick(candidates, base);
@@ -268,24 +383,68 @@
       }
     }
 
+    /* --- how the two things are arranged ---
+     * Only meaningful with two subjects, and only when the word sits between
+     * them: "a cat under a tree" places the cat, "under a tree a cat sits"
+     * says the same thing and lands the same way. */
+    var relation = null;
+    if (subject && companion && subjectHits.length > 1) {
+      var a = Math.min(subjectHits[0].at, subjectHits[1].at);
+      var b = Math.max(subjectHits[0].at, subjectHits[1].at);
+      var relHits = findAll(LEX.RELATIONS, flat, toks);
+      for (var ri = 0; ri < relHits.length; ri++) {
+        if (relHits[ri].at > a && relHits[ri].at < b) {
+          relation = { id: relHits[ri].entry.id, of: 'companion' };
+          /* The word order says which one is placed: the first-named subject
+           * is the one the preposition is about. */
+          if (subjectHits[0].at > subjectHits[1].at) relation.of = 'subject';
+          note('placing', subject.label + ' ' + relHits[ri].entry.label + ' ' + companion.label,
+            relHits[ri].word);
+          break;
+        }
+      }
+    }
+
+    /* --- what it could not use ---
+     * Silence here is the worst answer: somebody types "a griffin" and gets a
+     * fox with no idea why. */
+    var filler = {};
+    LEX.FILLER.forEach(function (f) { filler[f] = true; });
+    /* A relation word is understood English even when there is only one thing
+     * in the picture for it to be about. */
+    LEX.RELATIONS.forEach(function (rel) {
+      rel.words.forEach(function (w) {
+        w.split(' ').forEach(function (part) { filler[part] = true; });
+      });
+    });
+    var unknown = [];
+    toks.forEach(function (t) {
+      if (t.length < 3 || used[t] || filler[t] || /^[0-9]+$/.test(t)) return;
+      if (unknown.indexOf(t) < 0) unknown.push(t);
+    });
+
     return {
       prompt: prompt,
       seed: seed,
+      locked: locked,
       subject: subject,
       companion: companion,
+      relation: relation,
       scene: { id: scene.id, label: scene.label, prep: scene.prep || 'in', horizon: scene.horizon },
       time: time,
       weather: weather,
       style: style,
+      styles: extraStyle ? [style, extraStyle] : [style],
       palette: palette,
       mood: Math.max(0, Math.min(1, mood)),
+      unknown: unknown,
       read: read,
       // How much of the picture came from the words, and how much CODA PICS
       // chose. `read` has recorded this all along — an entry with a null
       // `word` is something invented — but nothing summarised it, so there was
       // no way to tell "a red dragon over snowy mountains" (four of five parts
-      // read from the prompt) from "a police station" (none of three, and the
-      // result is a knight in the open sky). Standalone, inventing is right:
+      // read from the prompt) from "a stairwell" (none of three, and the result
+      // is a comet over a swamp). Standalone, inventing is right:
       // a blank page is never a blank page. Lent to another project, it is the
       // difference between a picture of the thing asked for and a picture of
       // something else entirely, so the caller is told which it got.
@@ -427,9 +586,13 @@
     describe: describe,
     surprise: surprise,
     rng: rng,
+    LOCKS: LOCKS,
+    holdLocks: holdLocks,
     rngFrom: rngFrom,
     hash: hash,
-    normalise: normalise
+    normalise: normalise,
+    editDistance: editDistance,
+    findNear: findNear
   };
 
   root.CodaPrompt = API;

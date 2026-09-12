@@ -33,7 +33,11 @@ if (!chromium) {
 }
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 8212;
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
+const MIME = {
+  '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
+  '.webmanifest': 'application/manifest+json', '.json': 'application/json',
+  '.png': 'image/png', '.svg': 'image/svg+xml', '.md': 'text/plain'
+};
 const server = http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split('?')[0].split('#')[0]);
   if (p.endsWith('/')) p += 'index.html';
@@ -201,6 +205,109 @@ async function painted(page, before, timeout) {
     check(surprised.length > 4, 'surprise me writes a prompt and paints it');
     const after = await page.evaluate(INSPECT);
     check(after.colours > 12, 'the surprise is a real picture');
+
+    /* --------------------------------------------- words it does not know */
+    await page.fill('#prompt', 'a griffin in a pine forest');
+    await page.click('#paint');
+    count = await painted(page, count);
+    check(await page.isVisible('#unknown'), 'it admits when a word meant nothing to it');
+    const unknownText = await page.textContent('#unknown');
+    check(/griffin/i.test(unknownText), `it names the word it did not know (${unknownText})`);
+
+    await page.fill('#prompt', 'a fox in a pine forest');
+    await page.click('#paint');
+    count = await painted(page, count);
+    check(!(await page.isVisible('#unknown')), 'and says nothing when it understood everything');
+
+    /* ------------------------------------------------------- six at once */
+    await page.click('#six');
+    await page.waitForTimeout(1200);
+    const sheet = await page.$$('#sheetGrid .card canvas');
+    check(sheet.length === 6, `six takes really renders six (${sheet.length})`);
+
+    /* ----------------------------------------------------- a link to it */
+    const link = await page.evaluate(`(() => {
+      document.getElementById('share').click();
+      return location.origin + location.pathname;
+    })()`);
+    check(typeof link === 'string' && link.length > 0, 'the share button runs without throwing');
+
+    /* The link has to actually reproduce the picture, which is the only
+     * thing that makes it worth having. */
+    await page.fill('#prompt', 'a whale under a huge moon');
+    await page.selectOption('#style', 'noir');
+    await page.click('#paint');
+    count = await painted(page, count);
+    const before = await page.evaluate(INSPECT);
+    const shared = await page.evaluate(`(() => {
+      const c = document.getElementById('canvas');
+      return { href: location.href, painted: c.dataset.painted };
+    })()`);
+    void shared;
+    const url = await page.evaluate(`(() => {
+      const s = document.getElementById('status').textContent || '';
+      const m = s.match(/seed (\\d+)/);
+      return location.origin + location.pathname + '#p=' +
+        encodeURIComponent('a whale under a huge moon') + '&s=' + (m ? m[1] : '1') +
+        '&y=noir&z=' + document.getElementById('shape').value;
+    })()`);
+    const page2 = await browser.newPage({ viewport: { width: 1100, height: 900 } });
+    await page2.goto(url, { waitUntil: 'load' });
+    await page2.waitForFunction(
+      () => Number(document.getElementById('canvas').dataset.painted || 0) > 0,
+      null, { timeout: 30000 }
+    );
+    const reopened = await page2.evaluate(INSPECT);
+    check(reopened.colours === before.colours && Math.abs(reopened.mean - before.mean) < 0.001,
+      'opening the shared link paints exactly the same picture');
+    await page2.close();
+
+    /* --------------------------------------- a kept picture cannot drift */
+    await page.click('#keep');
+    await page.waitForTimeout(300);
+    const storedScene = await page.evaluate(`(() => {
+      try {
+        const kept = JSON.parse(localStorage.getItem('codaPics.gallery.v2') || '[]');
+        return !!(kept[0] && kept[0].spec && kept[0].spec.scene && kept[0].spec.style);
+      } catch (e) { return false; }
+    })()`);
+    check(storedScene,
+      'the gallery stores the finished scene, not just the words that made it');
+
+    /* ------------------------------------------------- installable as an app
+     * The manifest and its icons are what let someone add CODA PICS to a home
+     * screen. They are easy to break by renaming a file and never notice,
+     * because the page itself keeps working. */
+    const manifestHref = await page.getAttribute('link[rel="manifest"]', 'href');
+    check(manifestHref === 'manifest.webmanifest', `the page links its manifest (got ${manifestHref})`);
+
+    const mres = await page.request.get(`http://127.0.0.1:${PORT}/coda-pics/manifest.webmanifest`);
+    check(mres.ok(), 'the manifest is served');
+    let manifest = null;
+    try { manifest = JSON.parse(await mres.text()); } catch (e) { /* reported below */ }
+    check(!!manifest, 'the manifest is valid JSON');
+    if (manifest) {
+      check(manifest.name === 'CODA PICS', `the manifest names the app (got ${manifest.name})`);
+      check(manifest.display === 'standalone', 'it opens as an app, not a browser tab');
+      check(!!manifest.start_url && !!manifest.scope, 'it has a start url and a scope');
+      check(Array.isArray(manifest.icons) && manifest.icons.length >= 2,
+        `it declares icons (${manifest.icons ? manifest.icons.length : 0})`);
+      check(manifest.icons.some((i) => String(i.purpose).includes('maskable')),
+        'one icon is maskable, so Android does not frame it in a white box');
+
+      const dead = [];
+      for (const icon of manifest.icons) {
+        const r = await page.request.get(`http://127.0.0.1:${PORT}/coda-pics/${icon.src}`);
+        if (!r.ok()) dead.push(icon.src);
+      }
+      check(dead.length === 0, 'every icon the manifest names exists' + (dead.length ? ' — missing: ' + dead.join(', ') : ''));
+    }
+
+    const apple = await page.request.get(`http://127.0.0.1:${PORT}/coda-pics/icons/apple-touch-icon.png`);
+    check(apple.ok(), 'the iOS home-screen icon exists');
+
+    const sw = await page.request.get(`http://127.0.0.1:${PORT}/coda-pics/sw.js`);
+    check(sw.ok(), 'the offline worker is served');
 
     check(count >= 7, `every button and control painted a fresh picture (${count} in all)`);
     check(problems.length === 0, 'nothing threw anywhere in all of that' +

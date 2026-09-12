@@ -16,7 +16,7 @@ size is in the wiring between the parts, not in any one part.
 | Native games and demos (`apps/`) | 169 | 34,191 lines |
 | Engine capabilities (`engine/include/maz/`) | 692 | 87,768 lines across 20 subsystems |
 | C++ test files (`tests/`) | 376 | |
-| Browser apps and games | 8 | 24,525 lines |
+| Browser apps and games | 8 | 25,291 lines |
 | Python tools | 3 | |
 | CI gates (`scripts/`) | 3 | |
 | Build and codegen helpers (`tools/`) | 11 | |
@@ -48,7 +48,7 @@ will ever see, and the ones that can most easily lend each other capabilities.
 | **MADLIBS STORY FORGE** <br>`madlibs/` | Randomly forges story ideas broken into scene beats, ready to seed a storyboard or script. Zero dependencies. | 1,458 | madlibs/storyideas, madlibs/templates | — | — |
 | **NAME FORGE** <br>`names/` | Rolls names out of 1000 adjectives and 1000 nouns — a random adjective and then a random noun, a million of them, in six styles with batches and export. | 940 | — | — | not in exchange.json |
 | **SCRIPT FORGE** <br>`film/` | Type what your film is about and get the whole thing back: a formatted screenplay, a shot list, and an animated short film — performed by jointed characters an… | 6,163 | — | music/composer, madlibs/storyideas | — |
-| **CODA PICS** <br>`coda-pics/` | Type what you want to see and it paints it: 60 subjects, 20 settings, every hour and weather, finished in one of 14 art styles from pixel art to watercolour. D… | 3,907 | coda-pics/painter | — | — |
+| **CODA PICS** <br>`coda-pics/` | Type what you want to see and it paints it: 60 subjects, 20 settings, every hour and weather, finished in one of 14 art styles from pixel art to watercolour. D… | 4,673 | coda-pics/painter | — | — |
 
 ### Python tools
 
@@ -464,16 +464,16 @@ the studio page — reports how much of the picture came from the words. It refu
 guessing when asked to, because CODA PICS invents a subject for anything it does not recognise
 and a caller cannot otherwise tell a picture of the thing it asked for from a picture of
 something else. What is NOT true is the obvious next step, and it was measured rather than
-assumed. Fed SCRIPT FORGE's scene headings, about half paint something unrelated — "EXT.
-SHORELINE — DAY" becomes a wolf in a cavern, "INT. POLICE STATION — NIGHT" a serpent in the open
-sea. Fed MADLIBS loglines, six of twelve are refused outright and the six that paint are only
-loosely related. The cause is vocabulary: CODA PICS knows 60 subjects and 20 settings chosen for
-being paintable, and neither a screenplay nor a story generator draws from that list. So the
-work is not wiring, it is words. Either CODA PICS's lexicon grows the interiors and institutions
-a screenplay is full of — stairwells, offices, police stations, hospital rooms — or a caller
-translates its own vocabulary into CODA PICS's before asking. Until one of those happens, a
-consumer would get a refusal half the time and a wrong picture some of the rest, and no amount
-of integration code improves that.
+assumed. Fed SCRIPT FORGE's scene headings, about half painted something unrelated, and fed
+MADLIBS loglines, six of twelve were refused outright with the rest only loosely related. Those
+figures are from before the trunk taught the reader to understand more of what people type, so
+the ratio has moved — but the cause has not: CODA PICS knows a set of subjects and settings
+chosen for being PAINTABLE, and neither a screenplay nor a story generator draws from that list.
+Re-measure before acting on the numbers. So the work is not wiring, it is words. Either CODA
+PICS's lexicon grows the interiors and institutions a screenplay is full of — stairwells,
+offices, police stations, hospital rooms — or a caller translates its own vocabulary into CODA
+PICS's before asking. Until one of those happens, a consumer would get a refusal half the time
+and a wrong picture some of the rest, and no amount of integration code improves that.
 
 <sub>effort: large · value: ★★</sub>
 
@@ -556,7 +556,7 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
 - **12 apps fail "has a golden screenshot"**
   <br>_template, economy, genworld, lookup, orbs, rpgstats, sandbox, squeeze, swarm, tactics, telemetry, wire. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.
 - **CODA PICS can be lent now — but not to SCRIPT FORGE or MADLIBS as they speak today**
-  <br>The surface exists: coda-pics/painter is published, takes a sentence and a canvas, and — unlike the studio page — reports how much of the picture came from the words. It refuses rather than guessing when asked to, because CODA PICS invents a subject for anything it does not recognise and a caller cannot otherwise tell a picture of the thing it asked for from a picture of something else.  What is NOT true is the obvious next step, and it was measured rather than assumed. Fed SCRIPT FORGE's scene headings, about half paint something unrelated — "EXT. SHORELINE — DAY" becomes a wolf in a cavern…
+  <br>The surface exists: coda-pics/painter is published, takes a sentence and a canvas, and — unlike the studio page — reports how much of the picture came from the words. It refuses rather than guessing when asked to, because CODA PICS invents a subject for anything it does not recognise and a caller cannot otherwise tell a picture of the thing it asked for from a picture of something else.  What is NOT true is the obvious next step, and it was measured rather than assumed. Fed SCRIPT FORGE's scene headings, about half painted something unrelated, and fed MADLIBS loglines, six of twelve were refu…
 - **The golden screenshots become the arcade's cover art**
   <br>tests/golden/ holds a deterministic captured frame for most apps, produced purely to catch rendering regressions. That is also a ready-made, always-current screenshot library: the hub at index.html lists every project as text today, and could show each native demo's golden frame as its tile art at zero maintenance cost, because CI regenerates them.
 - **MAZ-SCRAPE fills the game worlds with real data**

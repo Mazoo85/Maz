@@ -40,6 +40,12 @@ than no catalogue, because it is confidently wrong.
 Several Claude sessions edit this repository at once, and both consequences are handled rather than
 left to whoever remembers.
 
+**One thing it cannot do: reload itself.** Node caches an ES module for the life of a process, so a
+watcher running while you edit `tools/inventory/` keeps scanning with the code it started with —
+reporting "updated" while writing the answer the *old* code gives, which is worse than not running.
+So a change under `tools/inventory/` stops the watcher and says to restart it. Everywhere else in
+the repo it picks changes up live.
+
 **It stays current, not just correct at commit time.** `--watch` rescans when anything the scan
 reads changes and rewrites the two outputs — but only when the content actually differs. That is
 not an optimisation: the outputs live inside a watched tree, so an unconditional write would loop,

@@ -96,11 +96,19 @@
 
   /* A separable box blur, run twice — close enough to a gaussian by eye, and
    * fast enough for a 1600px canvas. */
+  /* Every pass here is linear in pixels, so a 2560 x 1440 wallpaper is four
+   * times the work of a 1280 x 720 one. Past a few megapixels the second
+   * smoothing pass costs more than it shows, so it is dropped rather than
+   * letting a big export take seconds. */
+  function heavy(w, h) { return w * h > 2600000; }
+
   function blur(img, w, h, radius, passes) {
     if (radius < 1) return;
     var d = img.data;
     var tmp = new Uint8ClampedArray(d.length);
-    for (var p = 0; p < (passes || 2); p++) {
+    var runs = passes || 2;
+    if (heavy(w, h) && runs > 1) runs = 1;
+    for (var p = 0; p < runs; p++) {
       boxPass(d, tmp, w, h, radius, true);
       boxPass(tmp, d, w, h, radius, false);
     }
@@ -486,7 +494,8 @@
   function mosaic(ctx, w, h, r, opts) {
     var img = read(ctx, w, h);
     if (!img) return;
-    var cols = opts.cols, rows = Math.max(3, Math.round(cols * h / w));
+    var cols = Math.min(opts.cols, Math.max(12, Math.round(w / 26)));
+    var rows = Math.max(3, Math.round(cols * h / w));
     var cw = w / cols, ch = h / rows;
     var grid = [];
     for (var y = 0; y <= rows; y++) {
@@ -590,14 +599,22 @@
     write(ctx, img);
   };
 
+  /*
+   * Run the style. Two style words run both passes, in the order they were
+   * asked for — "watercolour pixel art" is a wash, then blocked out, and looks
+   * like neither on its own.
+   */
   function apply(ctx, w, h, spec, P) {
-    var fn = STYLE[spec.style] || STYLE.poster;
-    var r = PROMPT.rng(spec, 'finish');
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    fn(ctx, w, h, spec, P, r);
-    ctx.restore();
-    return spec.style;
+    var list = (spec.styles && spec.styles.length) ? spec.styles : [spec.style];
+    list.forEach(function (id, i) {
+      var fn = STYLE[id] || STYLE.poster;
+      var r = PROMPT.rng(spec, 'finish' + (i ? i : ''));
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      fn(ctx, w, h, spec, P, r);
+      ctx.restore();
+    });
+    return list.join(' + ');
   }
 
   var API = {
