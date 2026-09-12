@@ -41,18 +41,8 @@
   var batch = [];     // the most recent batch
 
   // ------------------------------------------------------------- utilities
-  function toast(msg) {
-    var t = document.getElementById('toast');
-    if (!t) {
-      t = document.createElement('div');
-      t.id = 'toast';
-      document.body.appendChild(t);
-    }
-    t.textContent = msg;
-    t.classList.add('show');
-    clearTimeout(toast._t);
-    toast._t = setTimeout(function () { t.classList.remove('show'); }, 1600);
-  }
+  // The slide-up message is shared/maz-toast.js's; this page styles #toast itself.
+  var toast = window.MazToast || function () {};
 
   function copyText(text, what) {
     function fallback() {

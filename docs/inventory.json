@@ -13,14 +13,14 @@
     "totalArtifacts": 906,
     "linesOfApps": 34547,
     "linesOfEngine": 87806,
-    "linesOfWeb": 25291,
+    "linesOfWeb": 25254,
     "appsHeadless": 100,
     "appsGolden": 92,
     "modulesTested": 100,
     "modulesDemoed": 37,
-    "checksPassed": 2725,
+    "checksPassed": 2727,
     "checksTotal": 3173,
-    "openTasks": 10
+    "openTasks": 7
   },
   "queue": [
     {
@@ -318,16 +318,6 @@
       ]
     },
     {
-      "id": "opportunity:helpers-copied-between-projects",
-      "priority": 1,
-      "kind": "opportunity",
-      "check": "",
-      "title": "3 helpers are written out identically in more than one browser project",
-      "detail": "`makeRng(seed)` in madlibs and names, `pickFrom(list, rng)` in madlibs and names, `toast(msg)` in madlibs and names. These are the same code in more than one place, so one shared/maz-util.js — declared in shared/exchange.json, covered by one test, loaded by each page — replaces every copy and means a fix lands everywhere at once. Start with these: they are proven identical, so moving them cannot change behaviour.",
-      "paths": [],
-      "source": "inventory:opportunity:helpers-copied-between-projects"
-    },
-    {
       "id": "pairing:engine-gains-a-composer",
       "priority": 1,
       "kind": "pairing",
@@ -501,30 +491,6 @@
         "coda-pics"
       ],
       "source": "inventory:pairing:the-template-filler-is-lendable-now"
-    },
-    {
-      "id": "web:cells#exchange",
-      "priority": 2,
-      "kind": "web-app",
-      "check": "exchange",
-      "title": "NEON CELLS: declared in shared/exchange.json",
-      "detail": "NEON CELLS neither publishes a capability nor consumes one. Declare in shared/exchange.json what it can lend the other projects — that manifest is how they find each other.",
-      "paths": [
-        "cells"
-      ],
-      "source": "inventory:web:cells:exchange"
-    },
-    {
-      "id": "web:names#exchange",
-      "priority": 2,
-      "kind": "web-app",
-      "check": "exchange",
-      "title": "NAME FORGE: declared in shared/exchange.json",
-      "detail": "NAME FORGE neither publishes a capability nor consumes one. Declare in shared/exchange.json what it can lend the other projects — that manifest is how they find each other.",
-      "paths": [
-        "names"
-      ],
-      "source": "inventory:web:names:exchange"
     }
   ],
   "pairings": [

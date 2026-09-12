@@ -27,11 +27,11 @@ wholesale.
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
 import pytest
 
+from conftest import scratch_repo_copy
 from forge.checks import all_commands
 from forge.config import ForgeConfig
 from forge.verify import run_checks_for_files
@@ -42,26 +42,16 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 def _scratch_copy(tmp_path: Path) -> Path:
     """A scratch copy of just enough of the real repo to run the real
     `film/tests/film-logic.test.js`, `music/tests/music-logic.test.js` and
-    `scripts/check-exchange.mjs` against: the real `shared/`, `music/`,
-    `film/`, `madlibs/` and `scripts/` directories, copied straight off disk.
+    `scripts/check-exchange.mjs` against, copied straight off disk.
 
-    `madlibs/` is here because film's idea box borrows a MADLIBS story, so
-    film/index.html loads madlibs/js/*.js and shared/exchange.json declares it.
-    check-exchange.mjs verifies every declared file exists, so leaving madlibs
-    out makes it fail on the fixture for a reason that has nothing to do with
-    the breakage the test is actually about.
-
-    `zomboid/` and `coda-pics/` are here for the same reason, one manifest
-    entry later: zomboid consumes music/soundtrack, and coda-pics publishes
-    coda-pics/painter. The list below is not arbitrary — it is every project
-    shared/exchange.json names — so adding a publisher or a consumer to that
-    manifest means adding it here too, or every test using this fixture fails
-    on eight missing-file complaints that have nothing to do with it.
+    Which directories that is comes from `shared/exchange.json` itself (see
+    `tests/conftest.py`): check-exchange.mjs verifies every declared file
+    exists, so a project the manifest names but the fixture does not copy makes
+    the checker fail here for reasons that have nothing to do with the breakage
+    under test. It used to be a hand-written list with a comment saying to keep
+    it in step with the manifest, and it fell out of step anyway.
     """
-    root = tmp_path / "repo"
-    for rel in ("shared", "music", "film", "madlibs", "zomboid", "coda-pics", "scripts"):
-        shutil.copytree(REPO_ROOT / rel, root / rel)
-    return root
+    return scratch_repo_copy(tmp_path)
 
 
 def _rename_player_method(root: Path, method: str) -> None:

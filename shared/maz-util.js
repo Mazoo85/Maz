@@ -51,11 +51,40 @@
     return list[Math.floor(rng() * list.length) % list.length];
   }
 
+
+  /**
+   * A seeded random generator (mulberry32): call the returned function for the
+   * next number in [0, 1).
+   *
+   * The whole arcade is built on reproducibility — the same seed rebuilds the
+   * same story, the same name, the same picture — and that only works if the
+   * randomness comes from the seed rather than from Math.random. Thirty-two
+   * bits of state, four operations, identical results in every browser and in
+   * Node, which is what lets a logic test check a specific seed.
+   */
+  function makeRng(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a |= 0;
+      a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /** A fresh 32-bit seed for makeRng, for when nobody asked for a particular one. */
+  function randomSeed() {
+    return Math.floor(Math.random() * 4294967296) >>> 0;
+  }
+
   var API = {
     clamp: clamp,
     lerp: lerp,
     escapeHtml: escapeHtml,
-    pick: pick
+    pick: pick,
+    makeRng: makeRng,
+    randomSeed: randomSeed
   };
 
   if (typeof module === 'object' && module.exports) module.exports = API;

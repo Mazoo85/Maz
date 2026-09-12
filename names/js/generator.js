@@ -22,6 +22,10 @@
 
   var WORDS = root.NAME_WORDS ||
     (typeof require !== 'undefined' ? require('./words.js') : { adjectives: [], nouns: [] });
+  // The seeded RNG and the list pick are shared/maz-util.js's — the same code was
+  // written out here and in MADLIBS, so one copy serves both.
+  var UTIL = root.MazUtil ||
+    (typeof require !== 'undefined' ? require('../../shared/maz-util.js') : {});
 
   // Which word lands first. Adjective first is the default and the point;
   // the others are there for anyone who wants them.
@@ -40,25 +44,9 @@
     { id: 'shout', label: 'SHOUT CASE', example: 'CRIMSON FALCON' }
   ];
 
-  // ---- Seeded RNG (mulberry32) — the same seed always rebuilds the name.
-  function makeRng(seed) {
-    var a = seed >>> 0;
-    return function () {
-      a |= 0;
-      a = (a + 0x6D2B79F5) | 0;
-      var t = Math.imul(a ^ (a >>> 15), 1 | a);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-
-  function randomSeed() {
-    return Math.floor(Math.random() * 4294967296) >>> 0;
-  }
-
-  function pickFrom(list, rng) {
-    return list[Math.floor(rng() * list.length)];
-  }
+  var makeRng = UTIL.makeRng;
+  var randomSeed = UTIL.randomSeed;
+  var pickFrom = UTIL.pick;
 
   function capitalise(word) {
     return word.charAt(0).toUpperCase() + word.slice(1);

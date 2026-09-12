@@ -15,9 +15,9 @@ change that `node scripts/check-exchange.mjs` fails outright.
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
+from conftest import scratch_repo_copy
 from forge.config import ForgeConfig
 from forge.verify import run_checks_for_files
 
@@ -33,14 +33,16 @@ DEMO_HTML = (
 
 def _scratch_copy(tmp_path: Path) -> Path:
     """A scratch copy of just enough of the real repo to run the real
-    check-exchange.mjs against: shared/, music/js/, film/, and the script
-    itself. Copied straight off disk, not reconstructed by hand, so this
-    exercises the real declaration and the real consumer page.
+    check-exchange.mjs against, copied straight off disk rather than
+    reconstructed by hand, so this exercises the real declaration and the real
+    consumer page.
+
+    "Just enough" is whatever `shared/exchange.json` refers to (see
+    `tests/conftest.py`) — the checker verifies every declared file exists, so
+    anything the manifest names and the fixture omits shows up as a missing-file
+    complaint mixed into the output this test reads.
     """
-    root = tmp_path / "repo"
-    for rel in ("shared", "music/js", "film", "scripts"):
-        shutil.copytree(REPO_ROOT / rel, root / rel)
-    return root
+    return scratch_repo_copy(tmp_path)
 
 
 def test_docs_only_demo_html_with_undeclared_script_tags_fails_verify(tmp_path):

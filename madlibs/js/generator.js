@@ -24,26 +24,13 @@
   // Categories that are reserved grammar helpers, not dictionary lookups.
   var RESERVED = { a: true };
 
-  // ---- Seeded RNG (mulberry32) — deterministic so a seed reproduces a story.
-  function makeRng(seed) {
-    var a = seed >>> 0;
-    return function () {
-      a |= 0;
-      a = (a + 0x6D2B79F5) | 0;
-      var t = Math.imul(a ^ (a >>> 15), 1 | a);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-
-  function randomSeed() {
-    // 32-bit seed. Math.random is fine in the browser and in node.
-    return (Math.floor(Math.random() * 4294967296)) >>> 0;
-  }
-
-  function pickFrom(list, rng) {
-    return list[Math.floor(rng() * list.length)];
-  }
+  // The seeded RNG and the list pick are shared/maz-util.js's — the same code was
+  // written out here and in NAME FORGE, so one copy serves both.
+  var UTIL = root.MazUtil ||
+    (typeof require !== 'undefined' ? require('../../shared/maz-util.js') : {});
+  var makeRng = UTIL.makeRng;
+  var randomSeed = UTIL.randomSeed;
+  var pickFrom = UTIL.pick;
 
   /*
    * Public: draw one random word from a dictionary category.

@@ -51,6 +51,21 @@
       "files": [
         "madlibs/js/generator.js"
       ]
+    },
+    "names/namer": {
+      "project": "names",
+      "summary": "Roll a two-word name \u2014 1000 adjectives against 1000 nouns \u2014 in any of six styles, from a seed, so the same seed always yields the same name. Pure logic, no DOM.",
+      "files": [
+        "names/js/words.js",
+        "names/js/generator.js"
+      ]
+    },
+    "cells/seededrun": {
+      "project": "cells",
+      "summary": "Seeded randomness a whole run can be rebuilt from, including from a STRING seed (\"run-7\", today's date) via hashSeed \u2014 which is what a daily challenge needs. On top of the raw stream it adds int, float, chance, sign, pick, shuffle, sample and weighted. The stream is the same mulberry32 as shared/maz-util.js's makeRng and was measured to match it draw for draw, so a project already seeded on that one can move up to this without any of its existing seeds changing what they produce.",
+      "files": [
+        "cells/js/rng.js"
+      ]
     }
   },
   "consumes": [
