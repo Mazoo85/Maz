@@ -71,6 +71,56 @@
     return String(text).replace(/[^A-Za-z0-9' ]/g, ' ');
   }
 
+  /* The vowel sounds of a line, one per syllable, in the order they are said.
+   *
+   * The voice used to shape every syllable from an arbitrary character code, so
+   * two different lines came out identical. Taking the vowels that are actually
+   * in the words means "I can't" and "Say it" no longer sound the same, and the
+   * count comes from syllablesFor so the audio and the caption stay in step —
+   * they are the same clock, and they were separated once already.
+   *
+   * Spelling is not pronunciation and this does not pretend otherwise: a rough
+   * letter-to-vowel map is enough to give a line shape. Digraphs are folded
+   * first ("ee" is one sound, not two) and anything with no vowel at all still
+   * gets something speakable, because a line of "..." still takes time.
+   */
+  var VOWEL_RUNS = [
+    ['ee', 'i'], ['ea', 'i'], ['oo', 'u'], ['ou', 'u'], ['ow', 'o'],
+    ['oa', 'o'], ['ai', 'e'], ['ay', 'e'], ['ie', 'i'], ['igh', 'i']
+  ];
+  var SINGLE_VOWEL = { a: 'a', e: 'e', i: 'i', o: 'o', u: 'u', y: 'i' };
+
+  function vowelsFor(text, count) {
+    var lower = cleanSpeech(text).toLowerCase();
+    var found = [];
+    var i = 0;
+    while (i < lower.length) {
+      var matched = false;
+      for (var r = 0; r < VOWEL_RUNS.length; r++) {
+        var run = VOWEL_RUNS[r][0];
+        if (lower.substr(i, run.length) === run) {
+          found.push(VOWEL_RUNS[r][1]);
+          i += run.length;
+          matched = true;
+          break;
+        }
+      }
+      if (matched) continue;
+      var single = SINGLE_VOWEL[lower.charAt(i)];
+      if (single) found.push(single);
+      i++;
+    }
+    // A line can be shorter in vowels than in syllables, or have none at all.
+    // Cycling keeps the mouth moving for the whole line rather than stopping
+    // partway through it.
+    var n = Math.max(0, count || 0);
+    var out = [];
+    for (var k = 0; k < n; k++) {
+      out.push(found.length ? found[k % found.length] : 'a');
+    }
+    return out;
+  }
+
   function syllablesFor(text) {
     return Math.max(2, Math.round(cleanSpeech(text).split(/\s+/).filter(Boolean).length * 1.7));
   }
@@ -429,6 +479,7 @@
     withArticle: withArticle,
     titleCase: titleCase,
     cleanSpeech: cleanSpeech,
+    vowelsFor: vowelsFor,
     syllablesFor: syllablesFor
   };
 

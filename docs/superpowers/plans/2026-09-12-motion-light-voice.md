@@ -158,13 +158,11 @@ weight shift on the legs, a shallow chest cycle on the torso, and a head settle.
       character's pitch.
 - [ ] Run the suites; listen if possible; commit.
 
-### Task 9: Mouths move with the vowel
+### Task 9: ~~Mouths move with the vowel~~ — dropped with faces
 
-**Files:** `film/js/film-figures.js`, `film/js/film-player.js`
-
-- [ ] The vowel that shapes the sound sets the mouth opening, so the face is in
-      sync with what is heard. Only if Task 6 kept faces.
-- [ ] Contact sheet; commit.
+Conditional on Task 6 keeping faces, which it did not. There is no mouth to
+move. The vowel work stands on its own in the audio; `vowelsFor` is exported and
+would drive a mouth immediately if faces ever come back.
 
 ### Task 10: Prove the dialogue is in the recording
 

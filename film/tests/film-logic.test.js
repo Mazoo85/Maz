@@ -1964,6 +1964,64 @@ test('a walk never bends past a human', () => {
   });
 });
 
+console.log('\nVOICES THAT SAY A VOWEL');
+
+/* Every syllable used to be the same blip, pitched by character and shaped by
+ * an arbitrary character code. Now each one takes the vowel that is actually in
+ * the word, so "I can't" and "Say it" stop sounding identical. */
+
+test('every vowel the lexicon can speak has a formant pair', () => {
+  const vowels = Object.keys(Score.FORMANTS);
+  assert(vowels.length >= 5, 'a voice needs at least the five vowels, saw ' + vowels.length);
+  vowels.forEach((v) => {
+    const f = Score.FORMANTS[v];
+    assert(Array.isArray(f) && f.length === 2, v + ' has no [F1, F2] pair');
+    assert(f[0] > 200 && f[0] < 1200, v + ' F1 of ' + f[0] + 'Hz is not a human first formant');
+    assert(f[1] > f[0], v + ' F2 (' + f[1] + ') must sit above F1 (' + f[0] + ')');
+    assert(f[1] < 3000, v + ' F2 of ' + f[1] + 'Hz is not a human second formant');
+  });
+});
+
+test('a caption yields one vowel per syllable, every time', () => {
+  const lines = ['Say it.', "I can't.", 'You were not there.',
+                 'That is the whole sentence. There is no rest of it.',
+                 'Then we are done here.'];
+  lines.forEach((line) => {
+    const n = Parse.syllablesFor(line);
+    const a = Parse.vowelsFor(line, n);
+    const b = Parse.vowelsFor(line, n);
+    eq(a.length, n, 'vowelsFor should return one vowel per syllable for ' + JSON.stringify(line));
+    eq(a.join(''), b.join(''), 'vowelsFor was not deterministic for ' + JSON.stringify(line));
+    a.forEach((v) => {
+      assert(Score.FORMANTS[v], JSON.stringify(line) + ' produced vowel ' + JSON.stringify(v) +
+        ' which has no formant pair');
+    });
+  });
+});
+
+test('two different lines do not sound the same', () => {
+  // The whole point: the blips were identical regardless of the words.
+  const a = Parse.vowelsFor('Say it.', Parse.syllablesFor('Say it.')).join('');
+  const b = Parse.vowelsFor("I can't.", Parse.syllablesFor("I can't.")).join('');
+  assert(a !== b, 'two different lines produced the same vowel sequence: ' + a);
+});
+
+test('a line with no vowels at all still speaks', () => {
+  ['...', '!!!', '', 'Hmm', 'Shh'].forEach((odd) => {
+    const n = Parse.syllablesFor(odd);
+    const v = Parse.vowelsFor(odd, n);
+    eq(v.length, n, JSON.stringify(odd) + ' should still produce ' + n + ' speakable syllables');
+    v.forEach((x) => assert(Score.FORMANTS[x], JSON.stringify(odd) + ' produced unspeakable ' + x));
+  });
+});
+
+test('the vowels follow the words in order', () => {
+  // "oh no" must not come out "no oh": the mouth has to match the caption.
+  const v = Parse.vowelsFor('oh ee', 2);
+  eq(v[0], 'o', 'the first vowel of "oh ee" should be o, got ' + v[0]);
+  eq(v[1], 'i', 'the second vowel of "oh ee" should be i, got ' + v[1]);
+});
+
 console.log('');
 if (failures.length) {
   console.error('✖ ' + failures.length + ' failing test(s):');
