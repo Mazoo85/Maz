@@ -293,6 +293,7 @@
     el('revKind').value = s.revKind || 'room';
     el('revSize').value = String(Math.round((s.revSize || 2.6) * 100));
     el('revSizeVal').textContent = (s.revSize || 2.6).toFixed(1) + 's';
+    el('delKind').value = s.delKind || 'digital';
     el('delDiv').value = String(s.delDiv === undefined ? 0.375 : s.delDiv);
     el('delFb').value = String(Math.round((s.delFb === undefined ? 0.34 : s.delFb) * 100));
     el('delFbVal').textContent = Math.round((s.delFb === undefined ? 0.34 : s.delFb) * 100) + '%';
@@ -1029,6 +1030,15 @@
         status(this.options[this.selectedIndex].text + ' — ' +
           (spec[0] === 'revKind' ? 'reverb.' : 'echo timing.'));
       });
+    });
+
+    /* All four echo lines are built every time, so the type is a gain change:
+       the repeats already ringing out finish instead of being cut off. */
+    el('delKind').addEventListener('change', function () {
+      if (!state.song) return;
+      player.setDelayKind(this.value);
+      status('Echo is now ' +
+        this.options[this.selectedIndex].text.toLowerCase().replace(/ \(.*\)/, '') + '.');
     });
 
     /* Master EQ is three AudioParams, so it moves live. */

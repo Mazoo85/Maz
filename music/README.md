@@ -97,6 +97,12 @@ python3 -m http.server         # or serve the folder: http://localhost:8000/musi
   so the build ends exactly where your chorus actually starts.
 - **Ping-pong echo** — one toggle throws the delays out to the left and right
   instead of leaving them in the middle.
+- **Three kinds of echo** — **digital** (clean repeats), **tape** (each repeat
+  darker, softer and slightly out of tune, the way a real tape loop wobbles)
+  and **multi-tap** (three taps bouncing across the stereo field with no
+  feedback at all, a rhythm rather than a fade). All four lines are built every
+  time and only one is fed, so switching flavour never cuts off the repeats
+  already ringing out.
 - **Four reverbs and an adjustable room** — room, **gated** (the eighties
   snare: a long tail with the end chopped off, which sounds nothing like a
   short one), **reverse** (it swells into the note instead of trailing away)
@@ -277,6 +283,8 @@ each case the trick *is* the sound:
 | **Chorus** | Two short delay lines whose delay times wobble under slow LFOs, panned apart. A copy arriving a few milliseconds late and drifting in pitch is what "thick" means — it is a second player who cannot be perfectly in time or in tune. |
 | **Bit crush** | A waveshaper that rounds every level to one of `2^bits` steps, from 16 bits down to 2. It is deliberately **not** oversampled: oversampling exists to suppress the aliasing a hard curve creates, and here that aliasing is the entire point. |
 | **Colour** | Three ways to make a part sound wrong on purpose, sharing one slider. **Ring** multiplies the part by a tone — Web Audio has no multiplier, but a gain node *is* one, since its gain is an audio-rate parameter you can drive with an oscillator, and the result is the clangorous sum-and-difference tones of a ring modulator. **Fold** drives the signal past full scale and folds it back rather than clipping it, which adds harmonics that were never in the original instead of merely squaring off the ones that were. **Wah** is a narrow resonant band swept across the part. All three are built every time and blended dry-to-wet, so the slider is genuinely silent at zero and moves while the song is playing; only switching kind rebuilds. |
+| **Tape echo** | The same delay line, but the feedback path is filtered *and* saturated, so each repeat comes back darker and softer rather than merely quieter — and two LFOs bend the delay time, a slow drift and a faster quiver. That last part is the whole character: a tape echo's loop never runs at exactly constant speed, so every repeat is a little out of tune, and changing how long a delay is *is* changing the speed the sound comes off it. A lowpass inside a feedback loop is safe at this scale; the flanger's instability came from a loop only milliseconds long, where the loop gain compounds hundreds of times a second. |
+| **Multi-tap** | Three fixed taps at rising delays and falling levels, spread hard left, hard right and centre, with no feedback whatsoever. A feedback delay repeats one rhythm getting quieter; this plays a pattern — which is why it is its own flavour rather than a setting on the others. |
 | **Ping-pong** | The input hits a left delay line, left feeds right, right feeds left again, each hard-panned — so one note walks across the room and back. Both this and the centred delay are built every time and only one is fed, so the switch is a gain change and the echoes already in the air ring out instead of being cut off. |
 | **Automation** | Points in beats, ramped onto a master lowpass (before the limiter, so a sweep is still caught by the ceiling) and a master fader (after it, because a fade to silence is not something to limit back up). The same function writes one pass for live playback and one for the offline render, so an export sounds like what you heard. |
 

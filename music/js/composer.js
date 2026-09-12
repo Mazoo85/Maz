@@ -1679,6 +1679,7 @@
       glue: song.glue || 0,
       modFx: song.modFx || 'flanger',
       colourFx: song.colourFx || 'ring',
+      delKind: song.delKind || 'digital',
       revKind: song.revKind || 'room',
       revSize: song.revSize,
       delDiv: song.delDiv,
@@ -1741,6 +1742,7 @@
     song.glue = p.glue || 0;
     song.modFx = p.modFx || 'flanger';
     song.colourFx = p.colourFx || 'ring';
+    song.delKind = p.delKind || 'digital';
     song.revKind = p.revKind || 'room';
     if (p.revSize !== undefined) song.revSize = p.revSize;
     if (p.delDiv !== undefined) song.delDiv = p.delDiv;
@@ -2138,6 +2140,7 @@
     song.glue = genre.fx.glue === undefined ? 0 : genre.fx.glue;
     song.modFx = genre.fx.modFx || 'flanger';
     song.colourFx = genre.fx.colourFx || 'ring';
+    song.delKind = genre.fx.delKind || 'digital';
     song.revKind = 'room';
     song.revSize = genreId === 'ambient' ? 4.2 : 2.6;
     song.delDiv = genre.fx.delayTime;

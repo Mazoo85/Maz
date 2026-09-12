@@ -711,6 +711,91 @@ function launchOptions() {
     'and adds to it rather than replacing it (' + shimmer.room.rms.toFixed(5) +
     ' → ' + shimmer.shimmer.rms.toFixed(5) + ')');
 
+  console.log('\n— echo flavours —');
+  /* Digital, tape and multi-tap, told apart by the three things that actually
+     make them different instruments rather than three settings: how dark the
+     repeats get as they go, whether they feed back at all, and where they sit
+     across the stereo field.
+
+     Measured on cinematic, which has no tape-noise bed. On a genre that does,
+     the noise floor swamps a quiet tail and all three read as identical — which
+     is exactly what the first run of this showed. */
+  const echoes = await page.evaluate(async function () {
+    function win(buf, fromSec, toSec) {
+      const L = buf.getChannelData(0);
+      const R = buf.numberOfChannels > 1 ? buf.getChannelData(1) : L;
+      const sr = buf.sampleRate;
+      const a = Math.max(1, Math.floor(fromSec * sr));
+      const b = Math.min(L.length, Math.floor(toSec * sr));
+      let peak = 0, s2 = 0, hf = 0, diff = 0, bad = 0;
+      for (let i = a; i < b; i++) {
+        if (!isFinite(L[i])) { bad++; continue; }
+        const v = Math.abs(L[i]); if (v > peak) peak = v;
+        s2 += L[i] * L[i];
+        hf += Math.abs(L[i] - L[i - 1]);
+        diff += Math.abs(L[i] - R[i]);
+      }
+      const n = Math.max(1, b - a);
+      const rms = Math.sqrt(s2 / n);
+      return { peak: peak, rms: rms, bad: bad, spread: diff / n,
+               bright: rms > 0 ? (hf / n) / rms : 0 };
+    }
+    function song(kind) {
+      /* One short note and nothing else, so everything after it is echo. */
+      const s = window.Composer.compose({ seed: 'DELAY-1', genre: 'cinematic',
+                                          meter: '4/4', length: 'short' });
+      s.presetOverride = { lead: 'marimba' };
+      Object.keys(s.tracks).forEach(function (k) { s.tracks[k] = []; });
+      s.tracks.lead = [{ t: 0, d: 0.4, p: 72, v: 1 }];
+      s.totalBeats = 16;
+      s.glue = 0;
+      s.delDiv = 0.5;
+      s.delFb = 0.55;
+      s.delKind = kind;
+      return s;
+    }
+    function mix() {
+      const m = {};
+      window.Engine.TRACKS.forEach(function (t) {
+        /* Sent well above unity: the preset's own delay send is a twelfth, and
+           at that level the echoes are too quiet to measure anything about. */
+        m[t] = { volume: 1, muted: t !== 'lead', solo: false, rev: 0, del: 6, cho: 0,
+                 mod: 0, autopan: 0, colour: 0, eqLow: 0, eqMid: 0, eqHigh: 0,
+                 crush: 0, comp: 0, punch: 0 };
+      });
+      return m;
+    }
+    const out = {};
+    for (const kind of ['digital', 'tape', 'multi']) {
+      const buf = await window.Engine.renderOffline(song(kind), mix());
+      out[kind] = { taps: win(buf, 0.35, 1.9), late: win(buf, 3.0, 7.0) };
+    }
+    return out;
+  });
+
+  check(echoes.digital.taps.peak > 0.01,
+    'there are echoes to measure (peak ' + echoes.digital.taps.peak.toFixed(3) + ')');
+  ['digital', 'tape', 'multi'].forEach(function (k) {
+    check(echoes[k].taps.bad === 0 && echoes[k].late.bad === 0,
+      k + ': never produces broken samples');
+    check(echoes[k].taps.peak < 1, k + ': never runs away (peak ' +
+      echoes[k].taps.peak.toFixed(3) + ')');
+  });
+  /* Tape's repeats are filtered and saturated on their way round the loop, so
+     each one comes back darker than the last — by the late window they have
+     been round it five or six times and the difference is plain. */
+  check(echoes.tape.late.bright < echoes.digital.late.bright * 0.75,
+    'tape repeats get darker every time round (brightness ' +
+    echoes.digital.late.bright.toFixed(4) + ' → ' + echoes.tape.late.bright.toFixed(4) + ')');
+  /* Multi-tap has no feedback at all: three taps and done. Its late window is
+     the proof — a feedback delay is still ringing there and this is not. */
+  check(echoes.multi.late.peak < echoes.digital.late.peak * 0.4,
+    'multi-tap does not feed back, so it stops (late peak ' +
+    echoes.digital.late.peak.toFixed(4) + ' → ' + echoes.multi.late.peak.toFixed(4) + ')');
+  check(echoes.multi.taps.spread > echoes.digital.taps.spread * 2,
+    'and it spreads its taps across the field (' +
+    echoes.digital.taps.spread.toFixed(5) + ' → ' + echoes.multi.taps.spread.toFixed(5) + ')');
+
   console.log('\n— swirl and sweep —');
   /* Three modulation effects that are the same idea at different scales, plus
      auto-pan. The flanger has a feedback loop, so it gets checked for runaway

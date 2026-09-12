@@ -131,6 +131,30 @@
     if (bits.depth) bits.depth.gain.value = 900 * a;
   }
 
+  /**
+   * Point the delay send at one of the four lines.
+   *
+   * All four are built every time and only one is fed, so changing flavour is
+   * a gain change rather than a rebuild — and the echoes already in the air
+   * ring out naturally instead of being cut off mid-repeat. Ping-pong stays a
+   * separate switch because it is a property of the plain digital line, not a
+   * flavour of its own: a tape echo that bounced would be a tape echo nobody
+   * has ever heard.
+   */
+  function routeDelay(ins, kind, ping, ctx) {
+    const want = {
+      mono: kind === 'tape' || kind === 'multi' ? 0 : (ping ? 0 : 1),
+      ping: kind === 'tape' || kind === 'multi' ? 0 : (ping ? 1 : 0),
+      tape: kind === 'tape' ? 1 : 0,
+      multi: kind === 'multi' ? 1 : 0
+    };
+    Object.keys(want).forEach(function (k) {
+      if (!ins[k]) return;
+      if (ctx) ins[k].gain.setTargetAtTime(want[k], ctx.currentTime, 0.02);
+      else ins[k].gain.value = want[k];
+    });
+  }
+
   function mixField(mix, name, field, dflt) {
     const m = (mix && mix[name]) || {};
     return m[field] === undefined ? dflt : m[field];
@@ -504,9 +528,67 @@
       dR.connect(delReturn);
     }
 
+    /*
+     * Tape: the same line, but every repeat comes back darker, softer and very
+     * slightly out of tune.
+     *
+     * That last part is the whole character. A tape echo's playback head reads
+     * a loop of tape whose speed is never exactly constant, so each repeat is
+     * bent a little in pitch — slow drift (wow) and a faster quiver (flutter).
+     * Two LFOs on the delay time do the same thing here, because changing how
+     * long a delay is *is* changing the speed the sound comes off it.
+     *
+     * The feedback path is filtered and saturated rather than merely quieter,
+     * so repeats lose their top and round over instead of just fading. A
+     * lowpass inside a feedback loop is safe at this scale — the flanger's
+     * instability came from a loop only milliseconds long, where the loop gain
+     * compounds hundreds of times a second.
+     */
+    const delTapeIn = ctx.createGain();
+    const tape = ctx.createDelay(2.0);
+    tape.delayTime.value = delTime;
+    const tdamp = ctx.createBiquadFilter();
+    tdamp.type = 'lowpass';
+    tdamp.frequency.value = 1900;
+    const tsat = ctx.createWaveShaper();
+    tsat.curve = Synth.softClipCurve(ctx);
+    tsat.oversample = '2x';
+    const tfb = ctx.createGain();
+    tfb.gain.value = delFb;
+    const delLfos = [];
+    // Wow: a slow drift. Flutter: a faster quiver, shallower by an order.
+    [[0.7, 0.0022], [5.4, 0.00035]].forEach(function (spec) {
+      const lfo = ctx.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.value = spec[0];
+      const depth = ctx.createGain();
+      depth.gain.value = spec[1];
+      lfo.connect(depth).connect(tape.delayTime);
+      delLfos.push(lfo);
+    });
+    delPre.connect(delTapeIn).connect(tape);
+    tape.connect(tdamp).connect(tsat).connect(tfb).connect(tape);
+    tape.connect(delReturn);
+
+    /* Multi-tap: three fixed taps at rising delays and falling levels, spread
+       across the stereo field, with no feedback at all. A feedback delay
+       repeats one rhythm getting quieter; this plays a pattern — which is why
+       it is a separate flavour rather than a setting on the others. */
+    const delMultiIn = ctx.createGain();
+    delPre.connect(delMultiIn);
+    [[0.5, 0.75, -0.8], [1.0, 0.5, 0.8], [1.5, 0.32, 0]].forEach(function (spec) {
+      const tap = ctx.createDelay(3.0);
+      tap.delayTime.value = Math.min(2.9, delTime * spec[0]);
+      const g = ctx.createGain();
+      g.gain.value = spec[1];
+      const p = Synth.panner(ctx, spec[2]);
+      delMultiIn.connect(tap).connect(g);
+      if (p) g.connect(p).connect(delReturn); else g.connect(delReturn);
+    });
+
     const ping = song.pingpong === undefined ? !!fx.pingpong : !!song.pingpong;
-    delMonoIn.gain.value = ping ? 0 : 1;
-    delPingIn.gain.value = ping ? 1 : 0;
+    const delIns = { mono: delMonoIn, ping: delPingIn, tape: delTapeIn, multi: delMultiIn };
+    routeDelay(delIns, song.delKind || 'digital', ping, null);
 
     /*
      * Modulation bus: flanger, phaser and rotary.
@@ -789,7 +871,8 @@
       autoFilter: autoFilter, autoGain: autoGain, click: click,
       glue: glue, glueTrim: glueTrim,
       mEqLow: mLow, mEqMid: mMid, mEqHigh: mHigh,
-      delMonoIn: delMonoIn, delPingIn: delPingIn, choReturn: choReturn, choLfos: choLfos,
+      delMonoIn: delMonoIn, delPingIn: delPingIn, delIns: delIns, delLfos: delLfos,
+      choReturn: choReturn, choLfos: choLfos,
       modReturn: modReturn, modLfos: modLfos,
       duckDepth: duckDepth, duckRelease: Math.min(0.42, (60 / song.bpm) * 0.62)
     };
@@ -954,7 +1037,7 @@
   Player.prototype._startChorus = function () {
     if (!this.graph || this._chorusStarted) return;
     const t = this.ctx.currentTime;
-    const lfos = this.graph.choLfos.concat(this.graph.modLfos);
+    const lfos = this.graph.choLfos.concat(this.graph.modLfos, this.graph.delLfos || []);
     TRACKS.forEach(function (n) {
       const b = this.graph.tracks[n];
       if (b && b.panLfo) lfos.push(b.panLfo);
@@ -1152,9 +1235,15 @@
   Player.prototype.setPingPong = function (on) {
     if (this.song) this.song.pingpong = !!on;
     if (!this.graph) return;
-    const t = this.ctx.currentTime;
-    this.graph.delMonoIn.gain.setTargetAtTime(on ? 0 : 1, t, 0.02);
-    this.graph.delPingIn.gain.setTargetAtTime(on ? 1 : 0, t, 0.02);
+    routeDelay(this.graph.delIns, (this.song && this.song.delKind) || 'digital', !!on, this.ctx);
+  };
+
+  /** Switch the echo between digital, tape and multi-tap. */
+  Player.prototype.setDelayKind = function (kind) {
+    if (this.song) this.song.delKind = kind;
+    if (!this.graph) return;
+    const ping = this.song ? !!this.song.pingpong : false;
+    routeDelay(this.graph.delIns, kind, ping, this.ctx);
   };
 
   /** Re-read the automation lanes after they have been edited. */
@@ -1276,7 +1365,7 @@
     const graph = buildGraph(ctx, song, mix, false);
     if (graph.vinyl) graph.vinyl.start(0);
 
-    graph.choLfos.concat(graph.modLfos).forEach(function (o) { o.start(0); });
+    graph.choLfos.concat(graph.modLfos, graph.delLfos || []).forEach(function (o) { o.start(0); });
     TRACKS.forEach(function (n) {
       const b = graph.tracks[n];
       if (b && b.panLfo) b.panLfo.start(0);
