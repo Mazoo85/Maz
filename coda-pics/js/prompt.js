@@ -127,9 +127,9 @@
     return null;
   }
 
-  function pick(list, r) {
-    return list[Math.floor(r() * list.length) % list.length];
-  }
+  var UTIL = root.MazUtil ||
+    (typeof require !== 'undefined' ? require('../../shared/maz-util.js') : {});
+  var pick = UTIL.pick;
 
   /* ------------------------------------------------------------- defaulting
    * Nothing here is "random" in the everyday sense: an unstated hour, style or

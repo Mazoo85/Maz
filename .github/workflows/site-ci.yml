@@ -26,6 +26,11 @@ jobs:
         with:
           node-version: "22"
       # No dependencies — pure Node, so this job is seconds long.
+      # The four helpers five projects now share. A mistake in them breaks
+      # SCRIPT FORGE, SONG FORGE, CODA PICS and ZOMBOID at once, so they are
+      # checked before anything that depends on them.
+      - name: Shared helper tests
+        run: node shared/tests/maz-util.test.mjs
       - name: Check every local link resolves
         run: node scripts/check-links.mjs
       - name: Check every cross-project dependency is declared

@@ -25,8 +25,10 @@
   var SUBJECTS = root.CodaSubjects ||
     (typeof require !== 'undefined' ? require('./subjects.js') : null);
 
-  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
-  function lerp(a, b, t) { return a + (b - a) * t; }
+  var UTIL = root.MazUtil ||
+    (typeof require !== 'undefined' ? require('../../shared/maz-util.js') : {});
+  var clamp = UTIL.clamp;
+  var lerp = UTIL.lerp;
 
   /* ---------------------------------------------------------------- colour */
 

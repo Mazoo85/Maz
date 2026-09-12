@@ -16,6 +16,8 @@
 
   var LEX = root.FILM_LEXICON ||
     (typeof require !== 'undefined' ? require('./lexicon.js') : {});
+  var UTIL = root.MazUtil ||
+    (typeof require !== 'undefined' ? require('../../shared/maz-util.js') : {});
 
   /* ------------------------------------------------------------ seeded RNG */
   // mulberry32 — same generator the other Maz apps use. Deterministic, so a
@@ -41,9 +43,7 @@
     return h >>> 0;
   }
 
-  function pick(list, rng) {
-    return list[Math.floor(rng() * list.length) % list.length];
-  }
+  var pick = UTIL.pick;
 
   /* ------------------------------------------------------------ text tools */
   function tokens(text) {

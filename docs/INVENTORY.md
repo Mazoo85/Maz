@@ -16,7 +16,7 @@ size is in the wiring between the parts, not in any one part.
 | Native games and demos (`apps/`) | 161 | 31,861 lines |
 | Engine capabilities (`engine/include/maz/`) | 692 | 87,753 lines across 20 subsystems |
 | C++ test files (`tests/`) | 372 | |
-| Browser apps and games | 6 | 17,173 lines |
+| Browser apps and games | 6 | 17,172 lines |
 | Python tools | 3 | |
 | CI gates (`scripts/`) | 3 | |
 | Build and codegen helpers (`tools/`) | 11 | |
@@ -30,7 +30,7 @@ size is in the wiring between the parts, not in any one part.
 | Apps with a golden screenshot | 97% | ██████████ |
 | Engine modules a test exercises | 99% | ██████████ |
 | Engine modules an app demonstrates | 20% | ██░░░░░░░░ |
-| Open tasks in the queue below | 24 | |
+| Open tasks in the queue below | 23 | |
 
 ## 1. Everything you have built
 
@@ -41,12 +41,12 @@ will ever see, and the ones that can most easily lend each other capabilities.
 
 | Project | What it is | Lines | Publishes | Consumes | Gaps |
 |---|---|---:|---|---|---|
-| **ZOMBOID: ANCHORAGE** <br>`zomboid/` | Open-world zombie survival across a tile-built replica of downtown Anchorage, rendered as a 1990s SEGA arcade title. Five decaying needs, day/night hordes, loo… | 1,612 | — | — | no tests; not in exchange.json |
+| **ZOMBOID: ANCHORAGE** <br>`zomboid/` | Open-world zombie survival across a tile-built replica of downtown Anchorage, rendered as a 1990s SEGA arcade title. Five decaying needs, day/night hordes, loo… | 1,613 | — | — | no tests; not in exchange.json |
 | **DEAD SECTOR** <br>`shooter/` | Top-down twin-stick zombie shooter in a single self-contained HTML file. Dual touch joysticks, escalating waves, three zombie types. | 1,070 | — | — | no tests; not in exchange.json |
-| **SONG FORGE** <br>`music/` | Writes and plays complete songs in the browser — chords, bass, drums, arpeggio and melody arranged into verses and choruses across 8 genres. WAV and MIDI expor… | 3,147 | music/composer | — | — |
+| **SONG FORGE** <br>`music/` | Writes and plays complete songs in the browser — chords, bass, drums, arpeggio and melody arranged into verses and choruses across 8 genres. WAV and MIDI expor… | 3,144 | music/composer | — | — |
 | **MADLIBS STORY FORGE** <br>`madlibs/` | Randomly forges story ideas broken into scene beats, ready to seed a storyboard or script. Zero dependencies. | 1,447 | madlibs/storyideas | — | no tests |
 | **SCRIPT FORGE** <br>`film/` | Type what your film is about and get the whole thing back: a formatted screenplay, a shot list, and an animated short film — performed by jointed characters an… | 6,163 | — | music/composer, madlibs/storyideas | — |
-| **CODA PICS** <br>`coda-pics/` | Type what you want to see and it paints it: 60 subjects, 20 settings, every hour and weather, finished in one of 14 art styles from pixel art to watercolour. D… | 3,734 | — | — | not in exchange.json |
+| **CODA PICS** <br>`coda-pics/` | Type what you want to see and it paints it: 60 subjects, 20 settings, every hour and weather, finished in one of 14 art styles from pixel art to watercolour. D… | 3,735 | — | — | not in exchange.json |
 
 ### Python tools
 
@@ -405,16 +405,6 @@ away from silent breakage.
 
 <sub>3 affected · effort: medium · value: ★★★ · queued below as the `web-app:tests` task</sub>
 
-#### 4 helpers are written out identically in more than one browser project
-
-`clamp(v, a, b)` in coda-pics and zomboid, `escapeHtml(s)` in coda-pics and music, `lerp(a, b,
-t)` in coda-pics and zomboid, `pick(list, rng)` in coda-pics and film. These are the same code
-in more than one place, so one shared/maz-util.js — declared in shared/exchange.json, covered by
-one test, loaded by each page — replaces every copy and means a fix lands everywhere at once.
-Start with these: they are proven identical, so moving them cannot change behaviour.
-
-<sub>4 affected · effort: small · value: ★★★</sub>
-
 #### 4 docs are not linked from anywhere
 
 A doc that nothing references is invisible to a newcomer and to a future session, however good
@@ -534,7 +524,7 @@ Every gap above, ranked. **P1** is something broken or unprotected, **P2** is a 
 gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list out of
 `docs/inventory.json`, so the nightly Forge can pick work straight off it.
 
-### P1 — broken or unprotected (12)
+### P1 — broken or unprotected (11)
 
 - **check-links.mjs: the checker itself is tested**
   <br>Add scripts/tests/check-links.test.mjs — a gate with no tests of its own can pass for the wrong reason.
@@ -546,8 +536,6 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
   <br>These are finished, working features that nobody can see. Each one is a small app away from being discoverable, and apps/ is how this engine documents itself. Grouping several related modules into one demo is usually better than one app each. — AdditiveBlend, BlendSpace, CubicBezierEasing, RootMotion, SpringBone, Transition, TriggerTrack, Dsp, EnvelopeFollower, G711, Goertzel, ImaAdpcm, and 540 more. Example: No app under apps/ demonstrates maz::anim::AdditiveBlend. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.
 - **3 browser projects have no tests at all**
   <br>film/tests/film-logic.test.js is the pattern: plain `node` over the project's pure logic, no dependencies, seconds to run, already wired into CI. Every project that lacks it is one refactor away from silent breakage.
-- **4 helpers are written out identically in more than one browser project**
-  <br>`clamp(v, a, b)` in coda-pics and zomboid, `escapeHtml(s)` in coda-pics and music, `lerp(a, b, t)` in coda-pics and zomboid, `pick(list, rng)` in coda-pics and film. These are the same code in more than one place, so one shared/maz-util.js — declared in shared/exchange.json, covered by one test, loaded by each page — replaces every copy and means a fix lands everywhere at once. Start with these: they are proven identical, so moving them cannot change behaviour.
 - **CODA PICS paints backdrops for SCRIPT FORGE and illustrates MADLIBS**
   <br>CODA PICS turns a sentence into a finished picture in canvas 2D, offline. SCRIPT FORGE builds its sets from primitives and MADLIBS returns pure text. Publishing coda-pics/js as coda-pics/painter would let SCRIPT FORGE paint a title card and a establishing backdrop per location straight from its own scene description, and let MADLIBS show each story idea rather than only describing it.
 - **SONG FORGE supplies the one music layer the engine does not have**

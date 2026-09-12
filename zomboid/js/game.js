@@ -1283,8 +1283,8 @@
   // =====================================================================
   function pushMsg(text, col) { messages.push({ text, col: col || '#fff', life: 6 }); if (messages.length > 30) messages.shift(); }
   function floatText(x, y, text, col) { floatTexts.push({ x, y, text: String(text), col, life: 0.9 }); }
-  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
-  function lerp(a, b, t) { return a + (b - a) * t; }
+  var clamp = MazUtil.clamp;
+  var lerp = MazUtil.lerp;
   function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
   function normAng(a) { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; }
 

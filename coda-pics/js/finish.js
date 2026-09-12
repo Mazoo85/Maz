@@ -21,7 +21,9 @@
   var PROMPT = root.CodaPrompt ||
     (typeof require !== 'undefined' ? require('./prompt.js') : null);
 
-  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+  var UTIL = root.MazUtil ||
+    (typeof require !== 'undefined' ? require('../../shared/maz-util.js') : {});
+  var clamp = UTIL.clamp;
 
   /* Pixels in, pixels out — both tolerate a canvas that will not give them up
    * (a tainted or zero-sized one), in which case the style falls back to

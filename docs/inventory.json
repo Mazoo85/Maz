@@ -13,14 +13,14 @@
     "totalArtifacts": 894,
     "linesOfApps": 31861,
     "linesOfEngine": 87753,
-    "linesOfWeb": 17173,
+    "linesOfWeb": 17172,
     "appsHeadless": 76,
     "appsGolden": 97,
     "modulesTested": 99,
     "modulesDemoed": 20,
     "checksPassed": 2495,
     "checksTotal": 3110,
-    "openTasks": 24
+    "openTasks": 23
   },
   "queue": [
     {
@@ -630,16 +630,6 @@
       "detail": "film/tests/film-logic.test.js is the pattern: plain `node` over the project's pure logic, no dependencies, seconds to run, already wired into CI. Every project that lacks it is one refactor away from silent breakage.",
       "paths": [],
       "source": "inventory:opportunity:browser-projects-with-no-tests"
-    },
-    {
-      "id": "opportunity:helpers-copied-between-projects",
-      "priority": 1,
-      "kind": "opportunity",
-      "check": "",
-      "title": "4 helpers are written out identically in more than one browser project",
-      "detail": "`clamp(v, a, b)` in coda-pics and zomboid, `escapeHtml(s)` in coda-pics and music, `lerp(a, b, t)` in coda-pics and zomboid, `pick(list, rng)` in coda-pics and film. These are the same code in more than one place, so one shared/maz-util.js — declared in shared/exchange.json, covered by one test, loaded by each page — replaces every copy and means a fix lands everywhere at once. Start with these: they are proven identical, so moving them cannot change behaviour.",
-      "paths": [],
-      "source": "inventory:opportunity:helpers-copied-between-projects"
     },
     {
       "id": "pairing:codapics-paints-for-the-others",

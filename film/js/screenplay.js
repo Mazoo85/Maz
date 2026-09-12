@@ -19,6 +19,7 @@
   var LEX = root.FILM_LEXICON || (typeof require !== 'undefined' ? require('./lexicon.js') : {});
   var DLG = root.FILM_DIALOGUE || (typeof require !== 'undefined' ? require('./dialogue.js') : {});
   var PARSE = root.FilmParse || (typeof require !== 'undefined' ? require('./parse.js') : {});
+  var UTIL = root.MazUtil || (typeof require !== 'undefined' ? require('../../shared/maz-util.js') : {});
 
   /* Ages have to match the part. A script that introduces "ALEX (40s), a kid"
    * has told the reader nothing and lost them at the same time. */
@@ -375,9 +376,7 @@
     };
   }
 
-  function pick(list, rng) {
-    return list[Math.floor(rng() * list.length) % list.length];
-  }
+  var pick = UTIL.pick;
 
   function stageExchange(exchange, out, premise, ctx) {
     exchange.forEach(function (line) {
