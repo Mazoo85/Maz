@@ -876,11 +876,18 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
       const line = reel.shots.filter((s) => s.kind === 'line' && s.caption)[0];
       if (!line) return { noLine: true };
 
-      function rmsOf(caption, seconds) {
+      // The control has to be the same length and genuinely silent. An empty
+      // caption is neither: syllablesFor floors at 2, so "" still speaks twice,
+      // and a shorter buffer raises the average for the same energy. Both of
+      // those made the first version of this check compare nothing useful.
+      const SECONDS = 2.2;
+      function rmsOf(caption) {
         const Off = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-        const off = new Off(1, Math.ceil(44100 * seconds), 44100);
+        const off = new Off(1, Math.ceil(44100 * SECONDS), 44100);
         const score = new FilmScore.Score(reel, { context: off });
-        score.speak(caption, reel.voices[line.speaker] || { pitch: 180 }, seconds);
+        if (caption !== null) {
+          score.speak(caption, reel.voices[line.speaker] || { pitch: 180 }, SECONDS);
+        }
         return off.startRendering().then((buf) => {
           const d = buf.getChannelData(0);
           let sum = 0;
@@ -889,8 +896,8 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
         });
       }
 
-      const spoken = await rmsOf(line.caption, 2.2);
-      const silent = await rmsOf('', 0.25);
+      const spoken = await rmsOf(line.caption);
+      const silent = await rmsOf(null);          // same graph, nobody speaks
       return { spoken, silent, caption: line.caption };
     });
 
@@ -899,8 +906,8 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
     } else {
       check(heard.spoken > 0.0005,
         `a spoken line reaches the recorder's own audio graph (rms ${heard.spoken.toExponential(2)} for ${JSON.stringify(heard.caption)})`);
-      check(heard.spoken > heard.silent * 4,
-        `speech is louder than an empty caption (${heard.spoken.toExponential(2)} vs ${heard.silent.toExponential(2)})`);
+      check(heard.spoken > heard.silent * 10 && heard.spoken > 0.0005,
+        `the same graph with nobody speaking is silent by comparison (${heard.spoken.toExponential(2)} speaking vs ${heard.silent.toExponential(2)} not)`);
     }
 
     console.log('\nPHONE LAYOUT');
