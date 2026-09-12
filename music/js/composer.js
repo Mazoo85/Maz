@@ -1680,6 +1680,9 @@
       modFx: song.modFx || 'flanger',
       colourFx: song.colourFx || 'ring',
       delKind: song.delKind || 'digital',
+      sidechain: song.sidechain === undefined ? 0 : song.sidechain,
+      duckSpeed: song.duckSpeed === undefined ? 0.5 : song.duckSpeed,
+      chopRate: song.chopRate || 2,
       revKind: song.revKind || 'room',
       revSize: song.revSize,
       delDiv: song.delDiv,
@@ -1743,6 +1746,9 @@
     song.modFx = p.modFx || 'flanger';
     song.colourFx = p.colourFx || 'ring';
     song.delKind = p.delKind || 'digital';
+    if (p.sidechain !== undefined) song.sidechain = p.sidechain;
+    song.duckSpeed = p.duckSpeed === undefined ? 0.5 : p.duckSpeed;
+    song.chopRate = p.chopRate || 2;
     song.revKind = p.revKind || 'room';
     if (p.revSize !== undefined) song.revSize = p.revSize;
     if (p.delDiv !== undefined) song.delDiv = p.delDiv;
@@ -2141,6 +2147,9 @@
     song.modFx = genre.fx.modFx || 'flanger';
     song.colourFx = genre.fx.colourFx || 'ring';
     song.delKind = genre.fx.delKind || 'digital';
+    song.sidechain = genre.fx.sidechain === undefined ? 0 : genre.fx.sidechain;
+    song.duckSpeed = 0.5;
+    song.chopRate = 2;
     song.revKind = 'room';
     song.revSize = genreId === 'ambient' ? 4.2 : 2.6;
     song.delDiv = genre.fx.delayTime;

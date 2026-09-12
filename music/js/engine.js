@@ -155,6 +155,62 @@
     });
   }
 
+  /**
+   * How long a ducked part takes to breathe back up after a kick.
+   *
+   * Tempo-relative, so the pump stays in time at any BPM, and scaled by the
+   * song's own speed control: slow is a long swell, fast is a tight click of a
+   * pump. The ceiling stops a slow song from ducking into the next kick.
+   */
+  function duckReleaseFor(song) {
+    const speed = song.duckSpeed === undefined ? 0.5 : Math.max(0, Math.min(1, song.duckSpeed));
+    const base = (60 / song.bpm) * 0.62;
+    return Math.min(0.6, base * (1.6 - speed * 1.25));
+  }
+
+  /**
+   * The rhythmic gate: chop a part into even pieces on a fixed grid.
+   *
+   * Not a noise gate. A noise gate exists to remove hiss and microphone bleed
+   * between the notes of a recording, and there is neither in a mix that was
+   * synthesised from a score — every part is already silent when it is not
+   * playing. What people actually reach for a gate to do is this: cut a held
+   * pad into a pulse. So that is what this does.
+   *
+   * Open for the first half of each step and shut for the second, with short
+   * ramps on both edges — a hard corner in a gain curve is a click.
+   */
+  function scheduleChop(graph, song, mix, when, stepDur) {
+    for (let i = 0; i < TRACKS.length; i++) {
+      const name = TRACKS[i];
+      const amt = mixField(mix, name, 'chop', 0);
+      const bus = graph.tracks[name];
+      if (!bus || !bus.gate || amt <= 0) continue;
+      const floor = Math.max(0, 1 - amt);
+      const edge = Math.min(0.006, stepDur * 0.12);
+      const half = stepDur * 0.5;
+      const g = bus.gate.gain;
+      g.cancelScheduledValues(when);
+      g.setValueAtTime(floor, when);
+      g.linearRampToValueAtTime(1, when + edge);
+      g.setValueAtTime(1, when + half - edge);
+      g.linearRampToValueAtTime(floor, when + half);
+    }
+  }
+
+  /** Steps per beat for the chop grid: quarters, eighths or sixteenths. */
+  function chopStepsPerBeat(song) {
+    const r = song.chopRate;
+    return r === 1 || r === 4 ? r : 2;
+  }
+
+  function anyChop(mix) {
+    for (let i = 0; i < TRACKS.length; i++) {
+      if (mixField(mix, TRACKS[i], 'chop', 0) > 0) return true;
+    }
+    return false;
+  }
+
   function mixField(mix, name, field, dflt) {
     const m = (mix && mix[name]) || {};
     return m[field] === undefined ? dflt : m[field];
@@ -695,7 +751,11 @@
 
     // Per-track sends, faders, placement and ducking
     const tracks = {};
-    const duckDepth = fx.sidechain === undefined ? 0 : fx.sidechain;
+    /* The style sets how hard the kick pumps, but it is a taste control as much
+       as a genre one, so the song's own setting wins where there is one. */
+    const duckDepth = song.sidechain === undefined
+      ? (fx.sidechain === undefined ? 0 : fx.sidechain)
+      : Math.max(0, Math.min(1, song.sidechain));
     TRACKS.forEach(function (name) {
       const dry = ctx.createGain();
       const rev = ctx.createGain();
@@ -805,13 +865,25 @@
       tail.connect(cho);
       tail.connect(modSend);
 
+      /* Built for every duckable part whether or not the style pumps, so that
+         turning the pump up on a song that started with none is a gain change
+         rather than a rebuild. A gain node sitting at 1 costs nothing. */
       let duck = null;
-      if (duckDepth > 0 && DUCK_TARGETS.indexOf(name) >= 0) {
+      if (DUCK_TARGETS.indexOf(name) >= 0) {
         duck = ctx.createGain();
         duck.gain.value = 1;
         tail.connect(duck);
         tail = duck;
       }
+
+      /* The rhythmic gate — "chop". Its own node rather than a setting on the
+         duck, because the two are scheduled from different clocks: the duck
+         fires wherever the kick happens to land, and this fires on a fixed
+         grid whether anything is playing or not. */
+      const gate = ctx.createGain();
+      gate.gain.value = 1;
+      tail.connect(gate);
+      tail = gate;
       /* A part that is going to be swept needs a panner even when it starts in
          the middle — otherwise there is nothing for the sweep to move. */
       const autoPanAmt = mixField(mix, name, 'autopan', 0);
@@ -838,7 +910,7 @@
       cho.connect(choPre);
       modSend.connect(modPre);
       const t = {
-        dry: dry, rev: rev, del: del, cho: cho, duck: duck,
+        dry: dry, rev: rev, del: del, cho: cho, duck: duck, gate: gate,
         crush: crush, eqLow: eqLow, eqMid: eqMid, eqHigh: eqHigh,
         comp: comp, compMakeup: compMakeup, modSend: modSend, panLfo: panLfo,
         colourOsc: colourOsc, colour: colourBits
@@ -874,7 +946,7 @@
       delMonoIn: delMonoIn, delPingIn: delPingIn, delIns: delIns, delLfos: delLfos,
       choReturn: choReturn, choLfos: choLfos,
       modReturn: modReturn, modLfos: modLfos,
-      duckDepth: duckDepth, duckRelease: Math.min(0.42, (60 / song.bpm) * 0.62)
+      duckDepth: duckDepth, duckRelease: duckReleaseFor(song)
     };
   }
 
@@ -978,7 +1050,7 @@
     TRACKS.forEach(function (t) {
       this.mix[t] = {
         volume: 1, muted: false, solo: false,
-        rev: 1, del: 1, cho: 0, mod: 0, autopan: 0, colour: 0,
+        rev: 1, del: 1, cho: 0, mod: 0, autopan: 0, colour: 0, chop: 0,
         eqLow: 0, eqMid: 0, eqHigh: 0, crush: 0, comp: 0, punch: 0
       };
     }, this);
@@ -1106,6 +1178,9 @@
     const lead = (this.metronome && this.countIn) ? (this.song.beatsPerBar || 4) * spb : 0;
     this._originTime = ctx.currentTime + 0.08 + lead - startBeat * spb;
     this._clickBeat = Math.floor(startBeat) - (lead ? (this.song.beatsPerBar || 4) : 0);
+    /* Counted from the song's origin, not from now, so starting halfway through
+       lands the gate on the same grid it would have been on all along. */
+    this._chopStep = Math.max(0, Math.floor(startBeat * chopStepsPerBeat(this.song)));
     this._startVinyl();
     this._startChorus();
     this._scheduleAutomation(0, startBeat);
@@ -1137,6 +1212,28 @@
         if (this._clickBeat >= song.totalBeats) this._clickBeat = 0;
       }
     }
+    /* The chop grid runs on its own counter rather than off the notes, the way
+       the metronome does: a gate that only fired where a note started would be
+       following the part instead of cutting it. */
+    if (anyChop(this.mix)) {
+      const stepDur = spb / chopStepsPerBeat(song);
+      /* The counter only advances while something is being chopped, so turning
+         the chop on mid-song leaves it pointing at a step long past. Taking
+         whichever is later — the counter or the step the clock is actually on —
+         means it catches up in one go instead of grinding through the gap. */
+      const nowStep = Math.floor((ctx.currentTime - this._originTime) / stepDur);
+      if (nowStep > this._chopStep) this._chopStep = nowStep;
+      let guardG = 0;
+      while (guardG++ < 256) {
+        const when = this._originTime + this._chopStep * stepDur;
+        if (when > horizon) break;
+        if (when >= ctx.currentTime - 0.02) {
+          scheduleChop(this.graph, song, this.mix, when, stepDur);
+        }
+        this._chopStep++;
+      }
+    }
+
     const bright = this._brightness();
     let guard = 0;
 
@@ -1224,6 +1321,7 @@
     if (opts.mod !== undefined) m.mod = opts.mod;
     if (opts.autopan !== undefined) m.autopan = opts.autopan;
     if (opts.colour !== undefined) m.colour = opts.colour;
+    if (opts.chop !== undefined) m.chop = opts.chop;
     ['eqLow', 'eqMid', 'eqHigh', 'crush', 'comp', 'punch'].forEach(function (k) {
       if (opts[k] !== undefined) m[k] = opts[k];
     });
@@ -1236,6 +1334,35 @@
     if (this.song) this.song.pingpong = !!on;
     if (!this.graph) return;
     routeDelay(this.graph.delIns, (this.song && this.song.delKind) || 'digital', !!on, this.ctx);
+  };
+
+  /**
+   * How hard the kick pumps everything else, and how fast it recovers.
+   *
+   * Both are read fresh on every kick rather than baked into the graph, so
+   * they move while the song plays — including up from nothing on a style that
+   * does not pump at all, because the gain node is always there waiting.
+   */
+  Player.prototype.setSidechain = function (depth, speed) {
+    if (this.song) {
+      if (depth !== undefined) this.song.sidechain = Math.max(0, Math.min(1, depth));
+      if (speed !== undefined) this.song.duckSpeed = Math.max(0, Math.min(1, speed));
+    }
+    if (!this.graph || !this.song) return;
+    if (depth !== undefined) this.graph.duckDepth = this.song.sidechain;
+    this.graph.duckRelease = duckReleaseFor(this.song);
+    /* A part left held down by the last kick before the pump was turned off
+       would never come back up on its own. */
+    if (this.graph.duckDepth <= 0) {
+      const t = this.ctx.currentTime;
+      const self = this;
+      DUCK_TARGETS.forEach(function (n) {
+        const bus = self.graph.tracks[n];
+        if (!bus || !bus.duck) return;
+        bus.duck.gain.cancelScheduledValues(t);
+        bus.duck.gain.setTargetAtTime(1, t, 0.02);
+      });
+    }
   };
 
   /** Switch the echo between digital, tape and multi-tap. */
@@ -1282,6 +1409,13 @@
       // A curve cannot be ramped; swapping it is a single assignment.
       bus.crush.curve = Synth.crushCurve(self.ctx, mixField(mix, name, 'crush', 0));
       shapeColour(bus.colour, mixField(mix, name, 'colour', 0));
+      /* Turning the chop off has to put the gate back at 1 by hand: the grid
+         stops writing new envelopes, and whatever value the last one left
+         behind would otherwise hold the part down for good. */
+      if (bus.gate && mixField(mix, name, 'chop', 0) <= 0) {
+        bus.gate.gain.cancelScheduledValues(t);
+        bus.gate.gain.setTargetAtTime(1, t, 0.02);
+      }
       shapeCompressor(bus, mixField(mix, name, 'comp', 0), mixField(mix, name, 'punch', 0));
     });
     if (graph.mEqLow && self.song) {
@@ -1372,6 +1506,12 @@
       if (b && b.colourOsc) b.colourOsc.start(0);
     });
     applyAutomation(ctx, graph, song, 0.05, 0);
+
+    if (anyChop(mix)) {
+      const stepDur = spb / chopStepsPerBeat(song);
+      const steps = Math.ceil((song.totalBeats * spb) / stepDur);
+      for (let s = 0; s < steps; s++) scheduleChop(graph, song, mix, s * stepDur + 0.05, stepDur);
+    }
 
     const flat = flatten(song);
     const bright = (song.genre.fx.brightness || 1) * (song.mood.brightness || 1);

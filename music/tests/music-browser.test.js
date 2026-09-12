@@ -341,12 +341,12 @@ function launchOptions() {
          window and masks a duck that is working perfectly well. Pin the genre's
          default instruments so this reads the same thing every time. */
       song.presetOverride = {};
-      const depth = song.genre.fx.sidechain;
-      if (forceOff) {
-        song.genre = Object.assign({}, song.genre, {
-          fx: Object.assign({}, song.genre.fx, { sidechain: 0 })
-        });
-      }
+      /* The pump is the song's own setting now, seeded from the style rather
+         than read from it on every kick, so this turns it off at the song and
+         not at the genre — reaching into `genre.fx` leaves `song.sidechain`
+         carrying the style's value and "off" measures identical to "on". */
+      const depth = song.sidechain === undefined ? song.genre.fx.sidechain : song.sidechain;
+      if (forceOff) song.sidechain = 0;
       const mix = {};
       window.Engine.TRACKS.forEach(function (t) { mix[t] = { volume: 1, muted: t === 'drums' }; });
       const buf = await window.Engine.renderOffline(song, mix);
@@ -974,6 +974,115 @@ function launchOptions() {
     return Math.round(colour[k].bright * 1000) + '/' + Math.round(colour[k].rms * 10000);
   });
   check(new Set(csig).size === 3, 'all three colours are distinguishable (' + csig.join('  ') + ')');
+
+  console.log('\n— pump depth and the rhythmic gate —');
+  /* Both of these are movement in the level over time, so both are measured
+     the same way: cut the render into 10 ms blocks and look at what the
+     envelope does. How deep the troughs go says how hard the effect bites; how
+     often it crosses its own midpoint says how fast it is doing it. A loudness
+     reading averaged over the whole window can see neither. */
+  const dyn = await page.evaluate(async function () {
+    function env(buf, fromSec, toSec) {
+      const L = buf.getChannelData(0);
+      const sr = buf.sampleRate;
+      const a = Math.max(0, Math.floor(fromSec * sr));
+      const b = Math.min(L.length, Math.floor(toSec * sr));
+      const blk = Math.floor(sr * 0.01);
+      const raw = [];
+      let bad = 0, s2 = 0;
+      for (let i = a; i + blk < b; i += blk) {
+        let t2 = 0;
+        for (let j = i; j < i + blk; j++) {
+          if (!isFinite(L[j])) { bad++; continue; }
+          t2 += L[j] * L[j];
+        }
+        raw.push(Math.sqrt(t2 / blk));
+      }
+      for (let i = a; i < b; i++) s2 += L[i] * L[i];
+      const sorted = raw.slice().sort(function (x, y) { return x - y; });
+      const q = function (f) { return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * f))] || 0; };
+      const lo = q(0.1), hi = q(0.9), mid = (lo + hi) * 0.5;
+      let cross = 0, up = raw[0] > mid;
+      for (let i = 1; i < raw.length; i++) {
+        const nowUp = raw[i] > mid;
+        if (nowUp !== up) { cross++; up = nowUp; }
+      }
+      return { rms: Math.sqrt(s2 / Math.max(1, b - a)), lo: lo, hi: hi, bad: bad,
+               rate: cross / (toSec - fromSec) };
+    }
+    /* A held pad over a kick on every beat. The drums fader is muted but the
+       kick events stay in the score, so the part still ducks where the kick
+       lands — measured with the kick audible, the kick fills its own hole and
+       the pump reads as doing nothing at all. */
+    function song(setup) {
+      const s = window.Composer.compose({ seed: 'DYN-1', genre: 'cinematic',
+                                          meter: '4/4', length: 'short' });
+      s.presetOverride = {};
+      Object.keys(s.tracks).forEach(function (k) { s.tracks[k] = []; });
+      for (let b = 0; b < 16; b += 4) s.tracks.pad.push({ t: b, d: 4, p: 60, v: 0.9 });
+      for (let b = 0; b < 16; b += 1) {
+        s.tracks.drums.push({ t: b, d: 0.25, p: 36, v: 1, inst: 'kick' });
+      }
+      s.totalBeats = 16;
+      s.glue = 0;
+      s.sidechain = 0;
+      if (setup) setup(s);
+      return s;
+    }
+    function mix(fields) {
+      const m = {};
+      window.Engine.TRACKS.forEach(function (t) {
+        m[t] = { volume: 1, muted: t !== 'pad', solo: false, rev: 0, del: 0, cho: 0,
+                 mod: 0, autopan: 0, colour: 0, chop: 0, eqLow: 0, eqMid: 0,
+                 eqHigh: 0, crush: 0, comp: 0, punch: 0 };
+      });
+      if (fields) for (const k in fields) m.pad[k] = fields[k];
+      return m;
+    }
+    const W = [1.0, 6.0];
+    const run = async function (setup, fields) {
+      return env(await window.Engine.renderOffline(song(setup), mix(fields)), W[0], W[1]);
+    };
+    return {
+      flat: await run(),
+      pumpLight: await run(function (s) { s.sidechain = 0.3; }),
+      pumpHard: await run(function (s) { s.sidechain = 0.7; }),
+      slowBack: await run(function (s) { s.sidechain = 0.7; s.duckSpeed = 0; }),
+      fastBack: await run(function (s) { s.sidechain = 0.7; s.duckSpeed = 1; }),
+      chopOff: await run(null, { chop: 0 }),
+      chopQ: await run(function (s) { s.chopRate = 1; }, { chop: 1 }),
+      chopE: await run(function (s) { s.chopRate = 2; }, { chop: 1 }),
+      chopS: await run(function (s) { s.chopRate = 4; }, { chop: 1 }),
+      chopHalf: await run(null, { chop: 0.5 })
+    };
+  });
+
+  check(dyn.flat.rms > 1e-3 && dyn.flat.bad === 0,
+    'there is a steady part to pump (rms ' + dyn.flat.rms.toFixed(4) + ')');
+  /* A deeper pump digs deeper troughs. Measured at the tenth percentile of the
+     envelope — the quiet moments — because the loud ones barely move. */
+  check(dyn.pumpLight.lo < dyn.flat.lo && dyn.pumpHard.lo < dyn.pumpLight.lo,
+    'a harder pump digs deeper troughs (' + dyn.flat.lo.toFixed(4) + ' → ' +
+    dyn.pumpLight.lo.toFixed(4) + ' → ' + dyn.pumpHard.lo.toFixed(4) + ')');
+  check(dyn.pumpHard.lo < dyn.flat.lo * 0.8,
+    'and the deepest setting is plainly audible, not a trim');
+  /* A slow recovery holds the part down longer, so less of it gets through. */
+  check(dyn.slowBack.rms < dyn.fastBack.rms * 0.9,
+    'a slow pump holds the part down longer than a fast one (' +
+    dyn.fastBack.rms.toFixed(4) + ' → ' + dyn.slowBack.rms.toFixed(4) + ')');
+
+  check(dyn.chopOff.rms === dyn.flat.rms,
+    'chop at zero leaves the part exactly alone');
+  check(dyn.chopE.lo < dyn.flat.lo * 0.1 && dyn.chopE.bad === 0,
+    'chop at full cuts the part to silence between steps (' +
+    dyn.flat.lo.toFixed(4) + ' → ' + dyn.chopE.lo.toFixed(4) + ')');
+  check(dyn.chopHalf.lo > dyn.chopE.lo && dyn.chopHalf.lo < dyn.flat.lo * 0.8,
+    'and half way is half way (' + dyn.chopHalf.lo.toFixed(4) + ')');
+  /* Each rate should open the gate twice as often as the one before, which is
+     what makes them three rates rather than three names for one. */
+  check(dyn.chopE.rate > dyn.chopQ.rate * 1.7 && dyn.chopS.rate > dyn.chopE.rate * 1.7,
+    'each chop rate is twice the one before (' + dyn.chopQ.rate.toFixed(1) + ' → ' +
+    dyn.chopE.rate.toFixed(1) + ' → ' + dyn.chopS.rate.toFixed(1) + ' per second)');
 
   console.log('\n— compression —');
   /* Compression is the one effect that can quietly ruin everything. This chain

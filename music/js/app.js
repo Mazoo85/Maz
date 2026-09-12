@@ -294,6 +294,9 @@
     el('revSize').value = String(Math.round((s.revSize || 2.6) * 100));
     el('revSizeVal').textContent = (s.revSize || 2.6).toFixed(1) + 's';
     el('delKind').value = s.delKind || 'digital';
+    el('pumpAmt').value = String(Math.round((s.sidechain || 0) * 100));
+    el('pumpSpeed').value = String(Math.round((s.duckSpeed === undefined ? 0.5 : s.duckSpeed) * 100));
+    el('chopRate').value = String(s.chopRate || 2);
     el('delDiv').value = String(s.delDiv === undefined ? 0.375 : s.delDiv);
     el('delFb').value = String(Math.round((s.delFb === undefined ? 0.34 : s.delFb) * 100));
     el('delFbVal').textContent = Math.round((s.delFb === undefined ? 0.34 : s.delFb) * 100) + '%';
@@ -665,6 +668,7 @@
       { id: 'choSend', field: 'cho', label: 'Chorus', unit: '%', scale: 100, dflt: 0 },
       { id: 'modSend', field: 'mod', label: 'Swirl', unit: '%', scale: 100, dflt: 0 },
       { id: 'autopanAmt', field: 'autopan', label: 'Sweep', unit: '%', scale: 100, dflt: 0 },
+      { id: 'chopAmt', field: 'chop', label: 'Chop', unit: '%', scale: 100, dflt: 0 },
       { id: 'colourAmt', field: 'colour', label: 'Colour', unit: '%', scale: 100, dflt: 0 },
       { id: 'crushAmt', field: 'crush', label: 'Crush', unit: '%', scale: 100, dflt: 0 },
       { id: 'compAmt', field: 'comp', label: 'Squeeze', unit: '%', scale: 100, dflt: 0 },
@@ -1039,6 +1043,28 @@
       player.setDelayKind(this.value);
       status('Echo is now ' +
         this.options[this.selectedIndex].text.toLowerCase().replace(/ \(.*\)/, '') + '.');
+    });
+
+    /* The pump is read fresh on every kick, so both of these move live — and
+       the gain node is built whether or not the style pumps, so a song that
+       started with none can be given some without rebuilding anything. */
+    [['pumpAmt', 'depth'], ['pumpSpeed', 'speed']].forEach(function (spec) {
+      el(spec[0]).addEventListener('input', function () {
+        if (!state.song) return;
+        const v = parseInt(this.value, 10) / 100;
+        player.setSidechain(spec[1] === 'depth' ? v : undefined,
+                            spec[1] === 'speed' ? v : undefined);
+      });
+      el(spec[0]).addEventListener('change', function () {
+        status((spec[1] === 'depth' ? 'Pump: ' : 'Pump speed: ') + this.value + '%.');
+      });
+    });
+
+    /* The chop grid is read on each step, so the rate changes on the next one. */
+    el('chopRate').addEventListener('change', function () {
+      if (!state.song) return;
+      state.song.chopRate = parseInt(this.value, 10);
+      status('Chop is now in ' + this.options[this.selectedIndex].text + ' notes.');
     });
 
     /* Master EQ is three AudioParams, so it moves live. */

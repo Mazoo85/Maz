@@ -146,6 +146,21 @@
           <option value="wah">Wah (talking)</option>
         </select>
       </label>
+      <label class="tool-field" for="pumpAmt"><span>Pump</span>
+        <input type="range" id="pumpAmt" min="0" max="100" step="5" value="0"
+               aria-label="How hard the kick ducks everything else" />
+      </label>
+      <label class="tool-field" for="pumpSpeed"><span>Pump speed</span>
+        <input type="range" id="pumpSpeed" min="0" max="100" step="5" value="50"
+               aria-label="How fast the pump recovers" />
+      </label>
+      <label class="tool-field" for="chopRate"><span>Chop rate</span>
+        <select id="chopRate">
+          <option value="1">1/4</option>
+          <option value="2">1/8</option>
+          <option value="4">1/16</option>
+        </select>
+      </label>
       <label class="tool-field" for="glueAmt"><span>Glue</span>
         <input type="range" id="glueAmt" min="0" max="100" step="5" value="0"
                aria-label="Glue compression across the whole mix" />
@@ -263,6 +278,10 @@
         <label class="fx-field" for="autopanAmt"><span>Sweep</span>
           <input type="range" id="autopanAmt" min="0" max="100" step="5" value="0" aria-label="Auto-pan for this part" />
           <output class="fx-value" id="autopanAmtVal">0%</output>
+        </label>
+        <label class="fx-field" for="chopAmt"><span>Chop</span>
+          <input type="range" id="chopAmt" min="0" max="100" step="5" value="0" aria-label="Rhythmic gate for this part" />
+          <output class="fx-value" id="chopAmtVal">0%</output>
         </label>
         <label class="fx-field" for="colourAmt"><span>Colour</span>
           <input type="range" id="colourAmt" min="0" max="100" step="5" value="0" aria-label="Colour effect for this part" />
