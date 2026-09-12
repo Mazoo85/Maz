@@ -1157,6 +1157,19 @@ target_include_directories(maz_film_render_tests PRIVATE ${CMAKE_SOURCE_DIR}/app
 add_test(NAME film_render COMMAND maz_film_render_tests ${CMAKE_CURRENT_SOURCE_DIR}/film/reel-fixture.json)
 set_tests_properties(film_render PROPERTIES TIMEOUT 120)
 
+# The scatter every set is furnished from, checked bit-for-bit against the browser: same set and same
+# seed must put the same bottles on the same shelf.
+add_executable(maz_film_noise_tests film/noise.cpp)
+target_link_libraries(maz_film_noise_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME film_noise COMMAND maz_film_noise_tests ${CMAKE_CURRENT_SOURCE_DIR}/film/noise-fixture.json)
+set_tests_properties(film_noise PROPERTIES TIMEOUT 30)
+
+# The canvas-2D subset the fifteen sets are written against.
+add_executable(maz_film_canvas_tests film/canvas.cpp)
+target_link_libraries(maz_film_canvas_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME film_canvas COMMAND maz_film_canvas_tests)
+set_tests_properties(film_canvas PROPERTIES TIMEOUT 30)
+
 add_executable(maz_recoil_tests game/recoil.cpp)
 target_link_libraries(maz_recoil_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME recoil COMMAND maz_recoil_tests)

@@ -92,10 +92,19 @@ inline void addSpanCoverage(std::vector<float>& acc, float xa, float xb, float w
 
 } // namespace detail
 
-// Fill `path` into `img` in `color`. `samples` is the number of sub-scanlines per pixel row: more is
-// smoother on near-horizontal edges and costs proportionally more; 16 is visually clean.
-inline void fillPath(Image& img, const Path& path, const Color& color,
-                     FillRule rule = FillRule::NonZero, int samples = 16) {
+// Fill `path` into `img`, taking the colour of each pixel from `shade(x, y)`.
+//
+// A shader rather than a colour because a set is not all flat fills: a sky is a vertical gradient, a
+// lighthouse beam is a linear one, a lamp is a radial one. Generalising the rasterizer is the
+// alternative to a second rasterizer that would drift out of step with this one -- and a shader that
+// ignores its arguments and returns a constant compiles to the same work as a plain colour fill.
+// Returning a colour with zero alpha draws nothing, which is also how a clip is done.
+//
+// `samples` is the number of sub-scanlines per pixel row: more is smoother on near-horizontal edges
+// and costs proportionally more; 16 is visually clean.
+template <class Shade>
+inline void fillPathShaded(Image& img, const Path& path, Shade&& shade,
+                           FillRule rule = FillRule::NonZero, int samples = 16) {
     if (img.empty() || samples < 1 || path.empty()) {
         return;
     }
@@ -216,11 +225,17 @@ inline void fillPath(Image& img, const Path& path, const Color& color,
         for (int x = lo; x <= hi; ++x) {
             const std::size_t k = static_cast<std::size_t>(x);
             if (acc[k] > 0.0f) {
-                detail::blendCoverage(img, x, y, color, acc[k]);
+                detail::blendCoverage(img, x, y, shade(x, y), acc[k]);
             }
             acc[k] = 0.0f;
         }
     }
+}
+
+// Fill `path` into `img` in one flat `color`.
+inline void fillPath(Image& img, const Path& path, const Color& color,
+                     FillRule rule = FillRule::NonZero, int samples = 16) {
+    fillPathShaded(img, path, [&color](int, int) -> const Color& { return color; }, rule, samples);
 }
 
 } // namespace maz::render
