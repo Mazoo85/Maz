@@ -9,6 +9,7 @@
 //   * INVARIANCE: area is translation/rotation invariant; reversing the winding flips the normal.
 #include "maz/math/PolygonNewell.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

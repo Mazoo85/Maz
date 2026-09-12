@@ -8,6 +8,7 @@
 //   * LINEARITY: scaling the signal scales the magnitude; a Hz helper maps to the right bin.
 #include "maz/audio/Goertzel.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

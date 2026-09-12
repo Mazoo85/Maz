@@ -10,6 +10,7 @@
 //   * central symmetry P(t) == −P(t+π); superellipseContains agrees with the boundary; determinism.
 #include "maz/math/Superellipse.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

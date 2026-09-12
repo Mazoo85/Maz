@@ -2132,15 +2132,20 @@ private:
         std::unordered_map<uint64_t, std::vector<int>> grid;
         std::vector<int> large;
         for (int i = 0; i < n; ++i) {
-            if (bodies[i].shape == Body2D::WorldBoundary) {
+            // i indexes bodies and is also stored in the cell lists as an int, so it stays int and
+            // the subscript is taken once, explicitly widened. i is non-negative by the loop bound;
+            // the cast is only to satisfy clang's -Wsign-conversion, which its -Wconversion implies
+            // and GCC's does not.
+            const Body2D& body = bodies[static_cast<size_t>(i)];
+            if (body.shape == Body2D::WorldBoundary) {
                 large.push_back(i); // infinite plane: test against everything
                 continue;
             }
-            const float e = extent(bodies[i]);
-            const int minX = static_cast<int>(std::floor((bodies[i].pos.x - e) * invCell));
-            const int maxX = static_cast<int>(std::floor((bodies[i].pos.x + e) * invCell));
-            const int minY = static_cast<int>(std::floor((bodies[i].pos.y - e) * invCell));
-            const int maxY = static_cast<int>(std::floor((bodies[i].pos.y + e) * invCell));
+            const float e = extent(body);
+            const int minX = static_cast<int>(std::floor((body.pos.x - e) * invCell));
+            const int maxX = static_cast<int>(std::floor((body.pos.x + e) * invCell));
+            const int minY = static_cast<int>(std::floor((body.pos.y - e) * invCell));
+            const int maxY = static_cast<int>(std::floor((body.pos.y + e) * invCell));
             const long span = static_cast<long>(maxX - minX + 1) * static_cast<long>(maxY - minY + 1);
             if (span > 256) {
                 large.push_back(i);

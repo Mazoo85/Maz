@@ -111,7 +111,9 @@ int main(int argc, char** argv) {
     for (int i = 0; i < kGuards; ++i) {
         auto gp = std::make_unique<Guard>();
         Guard* g = gp.get();
-        g->wp = static_cast<uint32_t>(i % patrol.size());
+        // i is int and patrol.size() is size_t; widen i explicitly rather than let the modulo
+        // convert it. i is 0..kGuards-1, so the value is unchanged.
+        g->wp = static_cast<uint32_t>(static_cast<size_t>(i) % patrol.size());
         g->agent.pos = patrol[g->wp];
         g->agent.maxSpeed = 5.0f + static_cast<float>(i % 2);
         g->agent.maxForce = 26.0f;
@@ -135,7 +137,7 @@ int main(int argc, char** argv) {
         });
         g->fsm.addState(
             GuardState::Return,
-            [g, arriveR](float dt) {
+            [g](float dt) { // arriveR was captured and never used
                 math::vec3 f = game::arrive(g->agent, g->home, 2.0f);
                 f.y = 0.0f;
                 game::integrate(g->agent, f, dt);

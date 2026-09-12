@@ -153,22 +153,74 @@ It is not a chatbot and does not call one. It is a *reader* and a *writer*:
   relationships it knows (`lighthouse keeper`, `detective`, `sister`). A role
   behind a possessive — "*her* father" — belongs to the second character, not
   the lead. Capitals after "in" or "at" are read as places, not people.
-- **where**: locations in your text, or the one that comes with the job, plus a
-  second location the film can cut to.
+- **where**: **three to five** locations — the ones your text (or the hero's
+  job) names lead, then generic connectors (a car, a street, a hallway…) fill
+  out the rest, deduplicated. A five-scene film that only ever offered two
+  rooms is what this widened.
 - **what it turns on**: the thing after "finds / receives / steals / opens…",
   or a known object in your text. A location never gets used as the object.
 - **what kind of film**: ten genres, scored on keyword hits; you can override it.
 - **when** and **what the hero wants**: read from the words, with a fallback.
 
 Anything it can't find, it chooses — seeded from your text, so the choice is
-stable.
+stable. And if there's barely anything to read — the idea box is empty or
+under three words — the reader doesn't guess in a vacuum: it borrows one of
+**MADLIBS STORY FORGE**'s 45 stories instead (`js/story-seed.js`, reading
+`../madlibs/js/generator.js` as a library, MADLIBS itself untouched), mapping
+its 34 genres and its Setup/Inciting Incident/Conflict/Climax/Resolution beats
+onto SCRIPT FORGE's own ten genres and seven beats. The **🎁 Surprise me**
+button does the same borrowing on purpose, any time, thin idea or not.
 
 **The writer** (`js/screenplay.js`) lays the premise on a seven-beat spine —
-Ordinary → Disruption → The Push → Complication → Crisis → The Choice → After —
-and gives each beat a scene: a slug line, action lines built from the beat's
+Ordinary → Disruption → The Push → Complication → Crisis → The Choice → After
+— but not always the same one: every length offers **several different beat
+orders** (a 5-scene film alone has three), seeded so the same idea keeps its
+shape while a new take can pick a different one, and every **short** and
+**festival** shape guarantees a **Crisis** beat — the default 5-scene length
+always reaches one. Each beat plays in its own place drawn from the premise's
+three to five locations, spread across the running time rather than picked
+once for the whole film, decided for the whole spine at once
+(`placesForSpine`) rather than beat by beat, so three rules can be weighed
+against each other instead of quietly fighting over the same indices:
+
+1. the film opens and closes in the same location, always — that is what
+   makes an ending feel like one, for every length and every shape.
+2. the **crisis lands somewhere no earlier scene in the film has used** — the
+   worst moment of the night lands somewhere unfamiliar, the way a real
+   crisis does. Every premise offers 3-5 places, and at 3-5 places this rule
+   **always holds** (checked over thousands of generated films at every
+   length; it can only give way below 3 places, which nothing this app
+   generates ever offers).
+3. whatever's left over is what the *other* middle beats spread across, as
+   widely as that leaves room for. **Rule 3 is the one that narrows when the
+   arithmetic is tight, never rule 1 or 2** — and it narrows hardest at the
+   low end: with only 3 places, one is the opening (which is also the close)
+   and one is reserved for the crisis, so *every* other middle beat shares the
+   single remaining room, at every length. About a third of premises offer 3
+   places, so that is a real share of films, not a corner case. At 4 places a
+   festival film spreads its 4 non-crisis middle beats over 2 rooms; at 5 it
+   spreads properly.
+
+   This is still a clear gain on what came before — the average film now uses
+   3.85 distinct locations against 3.39 under the previous rule, and every
+   film used exactly 2 before this work — but it is a trade, not a free win,
+   and the sharpest case is 3 places rather than festival length.
+
+Each beat then gets a scene: a slug line, action lines built from the beat's
 own bank, and a dialogue *exchange* (whole exchanges, not stray lines, so what
-the characters say follows on). The film opens and closes in the same location,
-because that is what makes an ending feel like one.
+the characters say follows on).
+
+**Exterior scenes get their own wording.** The images in the lexicon were
+written when a film had two places and they were nearly always interiors —
+so once films started using three to five, "Rain finds the same crack in the
+sill it always finds" began landing in a parking lot. About one exterior
+scene in two carried a line that needed a room around it. Those lines now
+have an outdoor twin (`LEX.OUTDOORS`) and the writer swaps them whenever the
+scene is `EXT.`, for action lines and sound cues alike: the sill becomes a
+gutter, the floor becomes the ground, the fridge cutting out becomes a
+streetlight buzzing and stopping. Lines that use a room only as a *simile* —
+"The woods go quiet the way a room goes quiet" — are deliberately left alone,
+because they read correctly under an open sky.
 
 **The director** (`js/film-reel.js`) turns the finished script into a *reel*:
 every shot, how long it holds, what set it plays on, how the camera moves, what
@@ -217,6 +269,7 @@ film/
   js/lexicon.js       genres, places, roles, objects, names, beats
   js/dialogue.js      dialogue exchanges by beat and genre
   js/parse.js         your sentence  → a premise
+  js/story-seed.js    borrows a story from MADLIBS when your idea is thin (or you ask)
   js/screenplay.js    a premise      → scenes, elements, shots, runtime
   js/format.js        a script       → .fountain / .txt / .fdx / shot list
   js/film-reel.js     a script       → a reel: timed shots, framing, voices
@@ -265,4 +318,9 @@ Both run in **[Site CI](../.github/workflows/site-ci.yml)** on every push.
 - Dialogue comes from a hand-written bank steered by your genre and beat, so
   two very different ideas in the same genre can share a line. Reroll, or
   rewrite the line — it is your film.
+- The exterior wording swap knows *indoors from outdoors*, not one outdoor
+  place from another. No scene will talk about a sill in a parking lot any
+  more, but "the dark past the treeline" can still land in one. Getting that
+  exact would mean a variant of every image for every one of the 15 sets,
+  which is a much larger machine than the problem deserves.
 - It reads English, and reads it plainly. Sarcasm and metaphor go over its head.

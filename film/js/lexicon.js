@@ -570,10 +570,36 @@
   /* Beat orders by target length. Short films earn their length; a 2-minute
    * film gets the spine only. */
   var STRUCTURES = {
-    micro:  { label: '3 scenes', beats: ['open', 'spark', 'choice'] },
-    short:  { label: '5 scenes', beats: ['open', 'spark', 'push', 'turn', 'choice'] },
-    festival: { label: '7 scenes', beats: ['open', 'spark', 'push', 'turn', 'crisis', 'choice', 'after'] }
+    micro: {
+      label: '3 scenes',
+      spines: [
+        ['open', 'spark', 'choice'],
+        ['open', 'crisis', 'after']
+      ]
+    },
+    short: {
+      label: '5 scenes',
+      spines: [
+        ['open', 'spark', 'crisis', 'choice', 'after'],
+        ['open', 'push', 'turn', 'crisis', 'choice'],
+        ['open', 'spark', 'turn', 'crisis', 'after']
+      ]
+    },
+    festival: {
+      label: '7 scenes',
+      spines: [
+        ['open', 'spark', 'push', 'turn', 'crisis', 'choice', 'after'],
+        ['open', 'spark', 'turn', 'push', 'crisis', 'choice', 'after'],
+        ['open', 'push', 'spark', 'turn', 'crisis', 'after', 'choice']
+      ]
+    }
   };
+
+  /* `beats` was the single shape each length used to have. Keep it pointing at
+   * the first shape so anything still reading it sees a valid story. */
+  Object.keys(STRUCTURES).forEach(function (key) {
+    STRUCTURES[key].beats = STRUCTURES[key].spines[0];
+  });
 
   /* Genre-neutral images. Mixed into every genre's own details so a single
    * script has enough of them never to repeat itself. */
@@ -601,6 +627,88 @@
     'a car that does not stop', 'the fridge cutting out'
   ];
 
+  /* Some images only work with a ceiling over them.
+   *
+   * A film used to have two places and they were nearly always interiors. It
+   * now has three to five, and a third of its scenes are exteriors — so "Rain
+   * finds the same crack in the sill it always finds" started landing in a
+   * parking lot, and "the whole room reorganises itself" in an alley. Measured
+   * over 400 default-length films: about one exterior scene in two carried a
+   * line that needed a room around it.
+   *
+   * Each of those lines gets an outdoor twin here and the writer swaps it when
+   * the scene is EXT. Keys are the raw strings, templates included, so the swap
+   * happens before {HERO}/{OBJ} are substituted. Lines that only mention a room
+   * as a simile — "The woods go quiet the way a room goes quiet" — are left
+   * alone: they read correctly under an open sky, and rewriting them to satisfy
+   * a keyword sweep would cost the image and buy nothing. */
+  var OUTDOORS = {
+    // Genre-neutral, so these two were the most frequent offenders by far.
+    'The room does what rooms do once a decision has been made in them.':
+      'The weather does what weather does once a decision has been made under it.',
+    'The window has nothing to add.':
+      'The sky has nothing to add.',
+    // drama
+    'Dust turns over in a bar of window light.':
+      'Dust turns over in a bar of low sun.',
+    'The radiator knocks twice and gives up.':
+      'A gate knocks twice in the wind and gives up.',
+    'Rain finds the same crack in the sill it always finds.':
+      'Rain finds the same gutter it always finds.',
+    'A photograph lies face down on the counter.':
+      'A photograph lies face down on the step.',
+    // thriller
+    'Headlights sweep the ceiling and move on.':
+      'Headlights sweep the wet road and move on.',
+    'The room holds its breath.':
+      'The street holds its breath.',
+    'A phone screen lights the floor and dies.':
+      'A phone screen lights a pair of hands and dies.',
+    // horror
+    'The dark past the doorway does not behave like dark.':
+      'The dark past the treeline does not behave like dark.',
+    'Something in the walls stops moving the moment it is heard.':
+      'Something in the hedge stops moving the moment it is heard.',
+    // comedy
+    'Everyone in the room decides to look at something else.':
+      'Everyone within earshot decides to look at something else.',
+    // romance
+    'The last of the light goes gold on the wall.':
+      'The last of the light goes gold on the rooftops.',
+    // mystery
+    'The room has been tidied by someone in a hurry.':
+      'The ground has been swept by someone in a hurry.',
+    // fantasy
+    'The wind moves through the room without moving the curtains.':
+      'The wind moves through the yard without moving the washing.',
+    // Beat action templates. Swapped before substitution, hence the braces.
+    'A life, in the shorthand of a room: {DETAIL}':
+      'A life, in the shorthand of what someone left outside: {DETAIL}',
+    '{HERO} finds the {OBJ}, and the whole room reorganises itself around it.':
+      '{HERO} finds the {OBJ}, and everything around it rearranges itself to match.',
+    'The {OBJ} is on the floor between them and neither will be the one to pick it up.':
+      'The {OBJ} is on the ground between them and neither will be the one to pick it up.',
+    'No music. {HERO} chooses, and the room lets them.':
+      'No music. {HERO} chooses, and nothing stops them.',
+    // Sound cues. A kettle or a fridge is not audible from a parking lot.
+    'a kettle building': 'an engine that will not start',
+    'a door two rooms away': 'a door somewhere behind them',
+    'a floorboard settling': 'gravel settling underfoot',
+    'water in a pipe': 'water in a drain',
+    'the fridge cutting out': 'a streetlight buzzing and stopping',
+    'wings too large for the room': 'wings too large for the sky they are in',
+    // Shot descriptions carry the same assumption.
+    'WIDE — the room after': 'WIDE — the place after',
+    'LOW ANGLE — the room over them': 'LOW ANGLE — the sky over them',
+    'WIDE — the room, the decision made': 'WIDE — the open ground, the decision made'
+  };
+
+  /* The outdoor twin of a line, or the line itself when it needs no swap. */
+  function outdoors(text) {
+    var swap = OUTDOORS[text];
+    return swap === undefined ? text : swap;
+  }
+
   Object.keys(GENRES).forEach(function (key) {
     GENRES[key].details = GENRES[key].details.concat(NEUTRAL_DETAILS);
     GENRES[key].sounds = GENRES[key].sounds.concat(NEUTRAL_SOUNDS);
@@ -609,6 +717,8 @@
   var LEX = {
     GENRES: GENRES,
     NEUTRAL_DETAILS: NEUTRAL_DETAILS,
+    OUTDOORS: OUTDOORS,
+    outdoors: outdoors,
     NEUTRAL_SOUNDS: NEUTRAL_SOUNDS,
     PLACES: PLACES,
     ROLES: ROLES,

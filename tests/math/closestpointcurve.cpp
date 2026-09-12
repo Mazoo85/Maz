@@ -10,6 +10,7 @@
 //   * determinism.
 #include "maz/math/ClosestPointCurve.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

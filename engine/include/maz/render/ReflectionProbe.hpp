@@ -2,6 +2,7 @@
 
 #include "maz/render/Cubemap.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 // maz::render reflection probe influence + box projection — the CPU math behind Godot's ReflectionProbe.

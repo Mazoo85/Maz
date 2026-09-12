@@ -5,6 +5,7 @@
 // sits at the reflected position of an original. Pure CPU, headless.
 #include "maz/render/MeshMirror.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

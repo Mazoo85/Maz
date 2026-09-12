@@ -8,6 +8,7 @@
 //   * APPLY: applyWindow multiplies a buffer by the window pointwise.
 #include "maz/audio/Window.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

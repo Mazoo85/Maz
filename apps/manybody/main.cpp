@@ -77,7 +77,6 @@ game::PhysicsWorld2D settlePile(float cx, float floorY) {
     w.add(right);
 
     // ~140 bodies rained in a grid; a tiny per-column offset breaks symmetry so they pack naturally.
-    int id = 0;
     for (int gy = 0; gy < 10; ++gy) {
         for (int gx = 0; gx < 14; ++gx) {
             game::Body2D b;
@@ -95,7 +94,6 @@ game::PhysicsWorld2D settlePile(float cx, float floorY) {
                 b.enableRotation();
             }
             w.add(b);
-            ++id;
         }
     }
     for (int s = 0; s < 480; ++s) {

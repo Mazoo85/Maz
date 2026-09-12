@@ -6,6 +6,7 @@
 // curvature — a flat grid would be degenerate for QEM. Pure CPU, headless.
 #include "maz/render/MeshSimplifyQuadric.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

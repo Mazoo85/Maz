@@ -48,11 +48,11 @@ public:
 
     void setBlocked(int x, int z, bool blocked) {
         if (inBounds(x, z)) {
-            m_blocked[index(x, z)] = blocked ? 1 : 0;
+            m_blocked[at(x, z)] = blocked ? 1 : 0;
         }
     }
-    bool blocked(int x, int z) const { return !inBounds(x, z) || m_blocked[index(x, z)] != 0; }
-    bool walkable(int x, int z) const { return inBounds(x, z) && m_blocked[index(x, z)] == 0; }
+    bool blocked(int x, int z) const { return !inBounds(x, z) || m_blocked[at(x, z)] != 0; }
+    bool walkable(int x, int z) const { return inBounds(x, z) && m_blocked[at(x, z)] == 0; }
 
     // Block every cell whose center lies inside the world-space X/Z box [minX,maxX]x[minZ,maxZ].
     // Convenience for stamping obstacles (walls, buildings) from their footprint.
@@ -61,7 +61,7 @@ public:
             for (int x = 0; x < m_w; ++x) {
                 const math::vec3 c = cellToWorld({x, z});
                 if (c.x >= minX && c.x <= maxX && c.z >= minZ && c.z <= maxZ) {
-                    m_blocked[index(x, z)] = 1;
+                    m_blocked[at(x, z)] = 1;
                 }
             }
         }
@@ -180,6 +180,10 @@ public:
 
 private:
     int index(int x, int z) const { return z * m_w + x; }
+    // The same index as a subscript. index() is only ever called for an in-bounds cell, so
+    // it is non-negative; the cast is explicit because clang's -Wsign-conversion (implied by
+    // its -Wconversion, unlike GCC's) rejects the implicit int -> size_type conversion.
+    size_t at(int x, int z) const { return static_cast<size_t>(index(x, z)); }
 
     // Octile distance: exact shortest 8-connected distance ignoring obstacles (admissible).
     float heuristic(const Cell& a, const Cell& b) const {

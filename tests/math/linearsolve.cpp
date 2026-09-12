@@ -9,6 +9,7 @@
 //   * determinism.
 #include "maz/math/LinearSolve.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

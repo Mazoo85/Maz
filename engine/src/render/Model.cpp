@@ -16,8 +16,11 @@
 #pragma warning(disable : 4996)  // cgltf calls fopen/strcpy/strncpy; it is third-party C
 #pragma warning(disable : 4244)  // conversion, possible loss of data
 #pragma warning(disable : 4245)  // signed/unsigned mismatch
+#pragma warning(disable : 4267)  // conversion from 'size_t', possible loss of data
 #pragma warning(disable : 4456)  // declaration hides previous local
 #pragma warning(disable : 4457)  // declaration hides function parameter
+#pragma warning(disable : 4100)  // unreferenced formal parameter
+#pragma warning(disable : 4189)  // local variable is initialized but not referenced
 #endif
 #include <cgltf.h>
 #include <stb_image.h>

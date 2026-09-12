@@ -71,7 +71,10 @@ inline std::uint64_t zigzagEncode(std::int64_t v) {
 }
 
 inline std::int64_t zigzagDecode(std::uint64_t u) {
-    const std::uint64_t mask = -(u & 1u);          // 0xFFFF… if the low bit is set, else 0
+    // Written as a subtraction from zero rather than a unary minus: the value is the same,
+    // but MSVC raises C4146 ("unary minus applied to unsigned type") on the latter and /WX
+    // makes it fatal.
+    const std::uint64_t mask = std::uint64_t{0} - (u & 1u); // 0xFFFF… if the low bit is set, else 0
     return static_cast<std::int64_t>((u >> 1) ^ mask);
 }
 

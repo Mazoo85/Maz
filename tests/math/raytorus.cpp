@@ -10,6 +10,7 @@
 #include "maz/math/RayTorus.hpp"
 #include "maz/math/Polynomial.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

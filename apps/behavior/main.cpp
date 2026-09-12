@@ -110,7 +110,9 @@ int main(int argc, char** argv) {
     for (int i = 0; i < kAgents; ++i) {
         auto ap = std::make_unique<Agent>();
         Agent* a = ap.get();
-        a->wp = static_cast<uint32_t>(i % patrol.size());
+        // i is int, patrol.size() is size_t: widen before the modulo rather than letting it
+        // convert. i is 0..count-1, so the value is unchanged.
+        a->wp = static_cast<uint32_t>(static_cast<size_t>(i) % patrol.size());
         a->body.pos = patrol[a->wp];
         a->body.maxSpeed = 5.5f + static_cast<float>(i % 2);
         a->body.maxForce = 28.0f;

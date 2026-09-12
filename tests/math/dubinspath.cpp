@@ -10,6 +10,7 @@
 //   * ANALYTIC: two poses aligned along +x give a pure straight line of length = the gap.
 #include "maz/math/DubinsPath.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

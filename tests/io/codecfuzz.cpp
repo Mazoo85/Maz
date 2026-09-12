@@ -17,6 +17,7 @@
 #include "maz/io/MessagePack.hpp"
 #include "maz/io/Varint.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <random>
@@ -51,7 +52,10 @@ static void feed(const std::vector<std::uint8_t>& b) {
 }
 
 static void truncate(const std::vector<std::uint8_t>& seed) {
-    for (std::size_t k = 0; k <= seed.size(); ++k) feed(std::vector<std::uint8_t>(seed.begin(), seed.begin() + k));
+    // seed.begin() + k: k is size_t and an iterator's difference_type is signed, so this is a
+    // signedness change. GCC's -Wconversion lets it pass; clang's implies -Wsign-conversion and
+    // does not, which is why it only ever showed up on macOS. k <= seed.size(), so the cast is safe.
+    for (std::size_t k = 0; k <= seed.size(); ++k) feed(std::vector<std::uint8_t>(seed.begin(), seed.begin() + static_cast<std::ptrdiff_t>(k)));
     std::vector<std::uint8_t> s = seed;
     for (std::size_t i = 0; i < s.size(); ++i) {
         const std::uint8_t orig = s[i];

@@ -4,6 +4,7 @@
 // right restitution energy loss, no sinking through the floor, tangential friction, and life recycling.
 #include "maz/fx/GpuParticles.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

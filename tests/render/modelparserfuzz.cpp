@@ -12,6 +12,7 @@
 #include "maz/render/GlbContainer.hpp"
 #include "maz/audio/Mp3.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <random>
@@ -39,7 +40,10 @@ static void truncateFbx(const std::string& seed) {
     for (std::size_t k = 0; k <= seed.size(); ++k) feedFbx(seed.substr(0, k));
 }
 static void truncateBytes(void (*fn)(const std::vector<std::uint8_t>&), const std::vector<std::uint8_t>& seed) {
-    for (std::size_t k = 0; k <= seed.size(); ++k) fn(std::vector<std::uint8_t>(seed.begin(), seed.begin() + k));
+    // seed.begin() + k: k is size_t and an iterator's difference_type is signed, so this is a
+    // signedness change. GCC's -Wconversion lets it pass; clang's implies -Wsign-conversion and
+    // does not, which is why it only ever showed up on macOS. k <= seed.size(), so the cast is safe.
+    for (std::size_t k = 0; k <= seed.size(); ++k) fn(std::vector<std::uint8_t>(seed.begin(), seed.begin() + static_cast<std::ptrdiff_t>(k)));
     std::vector<std::uint8_t> s = seed;
     for (std::size_t i = 0; i < s.size(); ++i) {
         const std::uint8_t orig = s[i];

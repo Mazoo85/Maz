@@ -7,6 +7,7 @@
 //   * determinism.
 #include "maz/math/ShapeFit.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

@@ -8,6 +8,7 @@
 //   * ARC LENGTH: integrating the speed of a circle of radius R over a quarter turn gives R*pi/2.
 #include "maz/math/Integrate.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 

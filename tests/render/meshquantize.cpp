@@ -5,6 +5,7 @@
 // headless.
 #include "maz/render/MeshQuantize.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

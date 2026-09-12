@@ -3,6 +3,7 @@
 #include "maz/math/Geometry3D.hpp" // math::Aabb3 (overload)
 #include "maz/math/Math.hpp"       // math::vec3, cross, dot
 
+#include <algorithm>
 #include <cmath>
 
 // maz::math TRIANGLE-AABB OVERLAP — does a triangle touch an axis-aligned box? The classic "is this triangle

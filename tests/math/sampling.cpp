@@ -10,6 +10,7 @@
 //     cube-root-warp signature that a naive radius=u would fail), centred, and deterministic.
 #include "maz/math/Sampling.hpp"
 
+#include <algorithm> // std::max — not guaranteed by <cmath>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

@@ -20,6 +20,7 @@ const path = require('path');
 const os = require('os');
 
 const ROOT = path.join(__dirname, '..', '..');
+const StorySeed = require(path.join(ROOT, 'film', 'js', 'story-seed.js'));
 
 let chromium = null;
 for (const spec of [
@@ -170,11 +171,102 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
     await page.waitForTimeout(150);
     check((await page.textContent('#libCount')) === '0', 'the library can be cleared');
 
-    console.log('\nEMPTY INPUT');
+    console.log('\nTHIN IDEA');
+    // Reopening the saved script above filled the title box with its title;
+    // clear it so this section sees the fallback's own title, not a leftover.
+    await page.fill('#titleInput', '');
     await page.fill('#idea', '');
     await page.click('#write');
     await page.waitForTimeout(150);
-    check(/type what your film is about/i.test(await page.textContent('#status')), 'an empty idea is refused politely');
+    const thin = await page.evaluate(() => ({
+      title: document.getElementById('scriptTitle').textContent.trim(),
+      logline: document.getElementById('scriptLogline').textContent.trim(),
+      ideaBox: document.getElementById('idea').value.trim()
+    }));
+    check(thin.title.length > 0, 'an empty idea still writes a script instead of being refused');
+    check(thin.logline.length > 20, `the borrowed story supplies its own logline (${JSON.stringify(thin.logline)})`);
+    // The old removed behavior refused to write at all; the current one used
+    // to substitute a whole unrelated story while the box kept showing the
+    // words the user typed (or nothing). "Surprise me" already writes its
+    // borrowed text into the box — a thin idea has to do the same, honestly,
+    // so what's on screen matches what the film is actually about.
+    check(thin.ideaBox.length > 0, 'a borrowed story is written into the idea box, not substituted silently');
+    check(thin.ideaBox.split(/\s+/).filter(Boolean).length >= 3,
+      `the idea box shows a real borrowed sentence, not the empty box (${JSON.stringify(thin.ideaBox)})`);
+
+    // An empty box used to seed from Parse.hashText('blank') every time, so
+    // "Write the script" on a bare box gave the exact same film forever.
+    // Two presses, both on an empty box, must not land on the same story.
+    await page.fill('#idea', '');
+    await page.click('#write');
+    await page.waitForTimeout(150);
+    const emptyFirst = await page.evaluate(() => ({
+      idea: document.getElementById('idea').value.trim(),
+      title: document.getElementById('scriptTitle').textContent.trim()
+    }));
+    await page.fill('#idea', '');
+    await page.click('#write');
+    await page.waitForTimeout(150);
+    const emptySecond = await page.evaluate(() => ({
+      idea: document.getElementById('idea').value.trim(),
+      title: document.getElementById('scriptTitle').textContent.trim()
+    }));
+    check(emptyFirst.idea !== emptySecond.idea || emptyFirst.title !== emptySecond.title,
+      `pressing Write twice on an empty box gives different films (${JSON.stringify(emptyFirst)} vs ${JSON.stringify(emptySecond)})`);
+
+    console.log('\nTHE THREE-WORD BOUNDARY');
+    await page.fill('#idea', 'ghost pirates');
+    await page.click('#write');
+    await page.waitForTimeout(150);
+    const twoWords = await page.evaluate(() => document.getElementById('idea').value.trim());
+    check(twoWords !== 'ghost pirates', 'two words is still too thin: the idea gets borrowed');
+
+    await page.fill('#idea', 'ghost pirates rising');
+    await page.click('#write');
+    await page.waitForTimeout(150);
+    const threeWords = await page.evaluate(() => document.getElementById('idea').value.trim());
+    check(threeWords === 'ghost pirates rising', 'three words is enough: the typed idea is kept as typed');
+
+    console.log('\nSURPRISE ME');
+    const surprised = await page.evaluate(() => {
+      const before = document.getElementById('idea').value;
+      document.getElementById('surprise').click();
+      return { before: before, after: document.getElementById('idea').value };
+    });
+    check(surprised.after.length > 20, `surprise me filled the idea box (${surprised.after.length} chars)`);
+    check(surprised.after !== surprised.before, 'surprise me changed the idea');
+
+    console.log('\nBORROWED TITLE');
+    // Pin the one legitimate random number so the seed Surprise me rolls is
+    // known, then check the exact story it borrowed reaches the finished
+    // script's title card, in MADLIBS's own words rather than a genre default.
+    const borrowedProof = await page.evaluate(() => {
+      const realRandom = Math.random;
+      const realNow = Date.now;
+      Math.random = () => 0.31415;
+      Date.now = () => 1717000000000;
+      document.getElementById('surprise').click();
+      Math.random = realRandom;
+      Date.now = realNow;
+      return {
+        idea: document.getElementById('idea').value,
+        title: document.getElementById('scriptTitle').textContent.trim()
+      };
+    });
+    const expectedSeed = (1717000000000 ^ Math.floor(0.31415 * 0xffffffff)) >>> 0;
+    const expectedStory = StorySeed.idea(expectedSeed);
+    check(borrowedProof.idea === expectedStory.text, 'the borrowed idea matches the seed the button rolled');
+    check(borrowedProof.title === expectedStory.title.toUpperCase(),
+      `MADLIBS's own title reaches the finished script (${JSON.stringify(borrowedProof.title)})`);
+
+    // Editing the idea box and writing again must not keep the borrowed
+    // title around — a stale title from a story that is no longer on screen.
+    await page.fill('#idea', 'A retired clockmaker builds a machine that repairs broken promises.');
+    await page.click('#write');
+    await page.waitForTimeout(150);
+    const editedTitle = (await page.textContent('#scriptTitle')).trim();
+    check(editedTitle !== expectedStory.title.toUpperCase(),
+      'a borrowed title does not persist once the user edits the idea and writes again');
 
     console.log('\nTHE FILM');
     await page.click('#tabFilm');
@@ -622,9 +714,17 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
     // These are exactly the combos a mood-0.4-only test (as this one used
     // to be) could never have caught the roll omission through: proving
     // them here is what makes this test able to catch that bug again.
+    // Assert the derivation, not the pixels. These three are the *marginal*
+    // cases the roll fix uncovered — 915, 36 and 32 fore pixels on screen at
+    // 540p — so whether a given sample of frames happens to catch a 32-pixel
+    // difference is luck, and pairing `anyFrameDiff` with them made this check
+    // fail about one run in four. `coverage` is the thing the roll fix
+    // actually changed and is fully deterministic, so it carries the whole
+    // intent. That the mechanism is alive at all is already proven above, and
+    // on non-marginal combos by the field/industrial/ward checks.
     ['bar:two', 'chapel:close', 'street:two'].forEach((key) => {
-      check(rack[key].coverage && rack[key].anyFrameDiff,
-        `${key} shows the effect once a rolled frame is sampled`);
+      check(rack[key].coverage,
+        `${key} is found once the derivation accounts for the tilt`);
     });
 
     console.log('\nTHE SCORE');

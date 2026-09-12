@@ -235,7 +235,10 @@
   ];
 
   var OBJECT_TRIGGER =
-    /\b(?:finds?|found|discovers?|discovered|receives?|received|inherits?|inherited|steals?|stole|buys?|bought|opens?|opened|loses?|lost|keeps?|kept|carries|carrying|holding|hides?|hid)\s+(?:a|an|the|their|his|her|its|one|some)?\s*([a-z][a-z'-]*(?:\s+[a-z][a-z'-]*)?)/i;
+    // The article group must be followed by whitespace. Without that, "the"
+    // matched inside "they" — "discovers they are the last heir" yielded the
+    // object "y are", and so the title "THE Y ARE".
+    /\b(?:finds?|found|discovers?|discovered|receives?|received|inherits?|inherited|steals?|stole|buys?|bought|opens?|opened|loses?|lost|keeps?|kept|carries|carrying|holding|hides?|hid)\s+(?:(?:a|an|the|their|his|her|its|one|some)\s+)?([a-z][a-z'-]*(?:\s+[a-z][a-z'-]*)?)/i;
 
   var OBJECT_TAIL = {
     that: 1, which: 1, who: 1, in: 1, on: 1, at: 1, to: 1, from: 1, with: 1,
@@ -338,19 +341,23 @@
     var foil = otherRole ? { role: otherRole } : pick(LEX.FOILS, rng);
     var other = { name: nameFor(1), role: foil.role };
 
-    /* where — up to two locations, so the film can cut between them */
+    /* where — three to five locations, so a film has somewhere to go. Places
+     * the idea named lead; then the hero's own workplace; then connectors that
+     * plausibly adjoin anywhere, so a lighthouse story does not cut to a
+     * hospital for no reason. */
     var placeKeys = findAll(hay, Object.keys(LEX.PLACES));
-    if (!placeKeys.length && heroRole && LEX.ROLES[heroRole].place) placeKeys = [LEX.ROLES[heroRole].place];
-    // A second location the film can cut to. Drawn from places that plausibly
-    // adjoin anywhere — a corridor, a car, the street outside — so a lighthouse
-    // story does not cut to a hospital for no reason.
+    if (heroRole && LEX.ROLES[heroRole].place &&
+        placeKeys.indexOf(LEX.ROLES[heroRole].place) === -1) {
+      placeKeys.push(LEX.ROLES[heroRole].place);
+    }
     var CONNECTORS = ['car', 'street', 'porch', 'hallway', 'parking lot', 'stairwell', 'alley', 'kitchen'];
+    var wanted = 3 + Math.floor(rng() * 3);          // 3, 4 or 5
     var guardPlaces = 0;
-    while (placeKeys.length < 2 && guardPlaces++ < 40) {
+    while (placeKeys.length < wanted && guardPlaces++ < 60) {
       var candidate = pick(CONNECTORS, rng);
       if (placeKeys.indexOf(candidate) === -1) placeKeys.push(candidate);
     }
-    var places = placeKeys.slice(0, 3).map(function (k) {
+    var places = placeKeys.slice(0, 5).map(function (k) {
       var entry = LEX.PLACES[k] || { slug: k.toUpperCase(), int: 'INT.' };
       return { key: k, slug: entry.slug, int: entry.int, word: entry.slug.split(' — ')[0] };
     });

@@ -1328,7 +1328,405 @@ test('the new framings are understood by the camera', () => {
   });
 });
 
+console.log('\nWHERE A FILM HAPPENS');
+
+test('a premise offers three to five places', () => {
+  for (let seed = 0; seed < 60; seed++) {
+    const p = Parse.parse('a courier takes a job in a city at night', { seed });
+    assert(p.places.length >= 3 && p.places.length <= 5,
+      'seed ' + seed + ' offered ' + p.places.length + ' places');
+  }
+});
+
+test('the places are distinct', () => {
+  for (let seed = 0; seed < 60; seed++) {
+    const p = Parse.parse('a lighthouse keeper finds a radio', { seed });
+    const keys = p.places.map((x) => x.key);
+    eq(new Set(keys).size, keys.length, 'seed ' + seed + ' repeated a place: ' + keys.join(','));
+  }
+});
+
+test('a place named in the idea is still used, and comes first', () => {
+  const p = Parse.parse('two sisters argue in a kitchen');
+  eq(p.places[0].key, 'kitchen', 'the typed place did not lead');
+});
+
+test('the same idea and seed give the same places', () => {
+  for (let seed = 0; seed < 20; seed++) {
+    const a = Parse.parse('a thief in a warehouse', { seed }).places.map((x) => x.key).join(',');
+    const b = Parse.parse('a thief in a warehouse', { seed }).places.map((x) => x.key).join(',');
+    eq(a, b, 'seed ' + seed + ' was not deterministic');
+  }
+});
+
+test('a festival film uses at least three distinct places', () => {
+  for (let seed = 0; seed < 40; seed++) {
+    const script = Writer.write(Parse.parse('a courier takes a job', { seed }), { length: 'festival', seed });
+    const used = new Set(script.scenes.map((s) => s.heading.place.key));
+    assert(used.size >= 3, 'seed ' + seed + ' used only ' + used.size + ' places');
+  }
+});
+
+test('a film ends where it began', () => {
+  // By *position*, not by beat id: festival's third shape ends
+  // ['... crisis, after, choice'] — 'after' is second-to-last there, not
+  // last, so an id-based 'after === open' check is only true by accident of
+  // the other two shapes. The real property, true of every shape, is that
+  // the first scene and the last scene share a place.
+  for (let seed = 0; seed < 40; seed++) {
+    const script = Writer.write(Parse.parse('a lighthouse keeper finds a radio', { seed }), { length: 'festival', seed });
+    const first = script.scenes[0].heading.place.key;
+    const last = script.scenes[script.scenes.length - 1].heading.place.key;
+    eq(last, first, 'seed ' + seed + ' did not return to the opening place');
+  }
+});
+
+test('the crisis happens somewhere the film has not been', () => {
+  // The old version of this test only checked byBeat.crisis !== byBeat.open —
+  // but placeForBeat put the crisis at the far index (placeCount - 1) and
+  // then spread spark/push/turn over [1, placeCount - 1], a range that
+  // *includes* the crisis's own index, so a middle beat routinely got there
+  // first while open (always index 0) never collided anyway. That made the
+  // assertion true by construction: open and crisis literally could not
+  // share an index, so it could never fail. The real property is that no
+  // beat *before* the crisis in the spine used the crisis's place — checked
+  // here directly against placesForSpine, for every shape this app ships, at
+  // every place count a premise can actually offer, over many seeds.
+  ['micro', 'short', 'festival'].forEach((len) => {
+    LEX.STRUCTURES[len].spines.forEach((spine, i) => {
+      const ci = spine.indexOf('crisis');
+      if (ci === -1) return;
+      for (let count = 3; count <= 5; count++) {
+        for (let seed = 0; seed < 100; seed++) {
+          const result = Writer.placesForSpine(spine, count, seed);
+          const crisisPlace = result.places[ci];
+          const usedBefore = new Set(result.places.slice(0, ci));
+          assert(result.degraded === 'crisis-unused' || !usedBefore.has(crisisPlace),
+            len + ' shape ' + i + ' (' + spine.join(' ') + ') at ' + count + ' places, seed ' + seed +
+            ': the crisis reused an earlier beat\'s place ' + crisisPlace + ' (degraded=' + result.degraded + ')');
+        }
+      }
+    });
+  });
+
+  // And the same property holds end to end, through the real writer, on
+  // real generated premises (3-5 places, never fewer).
+  let total = 0;
+  ['short', 'festival'].forEach((len) => {
+    for (let seed = 0; seed < 200; seed++) {
+      const script = Writer.write(Parse.parse('a thief in a warehouse', { seed }), { length: len, seed });
+      const crisisIndex = script.scenes.findIndex((s) => s.beat.id === 'crisis');
+      if (crisisIndex === -1) continue;
+      total++;
+      const crisisPlace = script.scenes[crisisIndex].heading.place.key;
+      const usedBefore = new Set(script.scenes.slice(0, crisisIndex).map((s) => s.heading.place.key));
+      assert(!usedBefore.has(crisisPlace),
+        len + ' seed ' + seed + ': the crisis landed back in ' + crisisPlace + ', already used');
+    }
+  });
+  assert(total > 0, 'no film reached a crisis');
+});
+
+test('placeForBeat stays inside the places it is given', () => {
+  ['open', 'spark', 'push', 'turn', 'crisis', 'choice', 'after'].forEach((beat) => {
+    for (let count = 1; count <= 5; count++) {
+      for (let seed = 0; seed < 20; seed++) {
+        const i = Writer.placeForBeat(beat, count, seed);
+        assert(Number.isInteger(i) && i >= 0 && i < count,
+          beat + ' with ' + count + ' places returned ' + i);
+      }
+    }
+  });
+});
+
+console.log('\nTHE SHAPE OF A STORY');
+
+test('every length offers more than one shape', () => {
+  Object.keys(LEX.STRUCTURES).forEach((len) => {
+    const spines = LEX.STRUCTURES[len].spines;
+    assert(Array.isArray(spines) && spines.length >= 2,
+      len + ' offers ' + (spines ? spines.length : 0) + ' shapes');
+  });
+});
+
+test('every shape is made of real beats and has a beginning', () => {
+  const known = ['open', 'spark', 'push', 'turn', 'crisis', 'choice', 'after'];
+  Object.keys(LEX.STRUCTURES).forEach((len) => {
+    LEX.STRUCTURES[len].spines.forEach((spine, i) => {
+      eq(spine[0], 'open', len + ' shape ' + i + ' does not open on the open beat');
+      eq(new Set(spine).size, spine.length, len + ' shape ' + i + ' repeats a beat');
+      spine.forEach((b) => assert(known.indexOf(b) !== -1, len + ' shape ' + i + ' has unknown beat ' + b));
+    });
+  });
+});
+
+test('a short film always reaches a crisis', () => {
+  ['short', 'festival'].forEach((len) => {
+    LEX.STRUCTURES[len].spines.forEach((spine, i) => {
+      assert(spine.indexOf('crisis') !== -1,
+        len + ' shape ' + i + ' has no crisis: ' + spine.join(' '));
+    });
+  });
+  // and the shipped default really does produce one
+  for (let seed = 0; seed < 30; seed++) {
+    const script = Writer.write(Parse.parse('a stranger arrives', { seed }), { length: 'short', seed });
+    assert(script.scenes.some((s) => s.beat.id === 'crisis'),
+      'a default-length film at seed ' + seed + ' had no crisis');
+  }
+});
+
+test('two films of the same length can be shaped differently', () => {
+  const shapes = new Set();
+  for (let seed = 0; seed < 40; seed++) shapes.add(Writer.spineFor('festival', seed).join(' '));
+  assert(shapes.size >= 2, 'every festival film had the same shape');
+});
+
+test('scene times never go backwards within a film', () => {
+  // headingFor used to advance the clock only for the beat id 'after' — a
+  // rule written back when 'after' was always the spine's last beat. Once a
+  // shape puts 'choice' after it (festival's third shape does:
+  // '... crisis, after, choice'), the closing scene reverted to the
+  // premise's original time, e.g. DUSK (after) followed by DAY (choice) on
+  // the last two cards. It now advances for 'after' and everything at or
+  // after it in the spine, so this checks the property directly: once a
+  // scene shows the advanced time, nothing later in the same film shows the
+  // original time again.
+  const NEXT_TIME = { NIGHT: 'DAWN', DAWN: 'DAY', DAY: 'DUSK', DUSK: 'NIGHT' };
+  ['micro', 'short', 'festival'].forEach((len) => {
+    for (let seed = 0; seed < 150; seed++) {
+      const premise = Parse.parse('a lighthouse keeper finds a radio', { seed });
+      const script = Writer.write(premise, { length: len, seed });
+      const base = premise.time;
+      const advanced = NEXT_TIME[base] || base;
+      let sawAdvanced = false;
+      script.scenes.forEach((s) => {
+        const t = s.heading.time;
+        if (t === 'CONTINUOUS' || t === 'LATER') return; // reads as the same clock as the scene before it
+        if (advanced !== base && t === advanced) sawAdvanced = true;
+        else if (t === base) {
+          assert(!sawAdvanced, len + ' seed ' + seed + ': the clock ran backwards, back to ' +
+            base + ' after already showing ' + advanced + ' (' +
+            script.scenes.map((x) => x.beat.id + '=' + x.heading.time).join(', ') + ')');
+        }
+      });
+    }
+  });
+});
+
+test('the same seed always gives the same shape', () => {
+  for (let seed = 0; seed < 20; seed++) {
+    eq(Writer.spineFor('short', seed).join(' '), Writer.spineFor('short', seed).join(' '));
+  }
+});
+
+test('every shape, at every length, ends where it began', () => {
+  // The other guard on this ('a film ends where it began') runs only at
+  // festival length and compares beat ids rather than positions, so the micro
+  // and short spines — two of which end on `choice` with no `after` beat at
+  // all — have no cover from it.
+  //
+  // This must assert against placesForSpine, the mapping write() actually
+  // calls. It used to call placeForBeat, which write() no longer uses, so it
+  // was pinning dead code: mutating the live path for micro spines left every
+  // test passing while micro films stopped ending where they began.
+  Object.keys(LEX.STRUCTURES).forEach((len) => {
+    LEX.STRUCTURES[len].spines.forEach((spine, i) => {
+      for (let count = 3; count <= 5; count++) {
+        for (let seed = 0; seed < 8; seed++) {
+          const places = Writer.placesForSpine(spine, count, seed).places;
+          eq(places[places.length - 1], places[0],
+            len + ' shape ' + i + ' (' + spine.join(' ') + ') ends on ' +
+            spine[spine.length - 1] + ' but opens on ' + spine[0] +
+            ', at ' + count + ' places, seed ' + seed);
+        }
+      }
+    });
+  });
+});
+
+console.log('\nSTORIES FROM MADLIBS');
+const Seed = require(path.join(__dirname, '..', 'js', 'story-seed.js'));
+const MADLIBS = require(path.join(__dirname, '..', '..', 'madlibs', 'js', 'generator.js'));
+const MAD_TEMPLATES = require(path.join(__dirname, '..', '..', 'madlibs', 'js', 'templates.js'));
+
+test('every MADLIBS genre maps to a genre SCRIPT FORGE actually has', () => {
+  const templates = MAD_TEMPLATES.templates || MAD_TEMPLATES;
+  const genres = new Set(templates.map((t) => t.genre));
+  assert(genres.size >= 5, 'expected several MADLIBS genres, found ' + genres.size);
+  genres.forEach((g) => {
+    const mapped = Seed.GENRE_FOR[g];
+    assert(mapped, 'no mapping for MADLIBS genre "' + g + '"');
+    assert(LEX.GENRES[mapped], g + ' maps to "' + mapped + '", which SCRIPT FORGE does not have');
+  });
+});
+
+test('every MADLIBS story yields an idea a film can be made from', () => {
+  for (let seed = 0; seed < 60; seed++) {
+    const idea = Seed.idea(seed);
+    assert(idea && typeof idea.text === 'string' && idea.text.length > 20,
+      'seed ' + seed + ' gave no usable idea');
+    assert(LEX.GENRES[idea.genre], 'seed ' + seed + ' gave genre ' + idea.genre);
+
+    const premise = Parse.parse(idea.text, { seed, genre: idea.genre });
+    const script = Writer.write(premise, { length: 'short', seed });
+    assert(script.scenes.length >= 3, 'seed ' + seed + ' produced ' + script.scenes.length + ' scenes');
+    assert(script.title && script.title.length, 'seed ' + seed + ' produced no title');
+    const reel = Reel.build(script);
+    assert(reel.duration > 30, 'seed ' + seed + ' produced a ' + reel.duration + 's film');
+  }
+});
+
+test('the same seed always gives the same story', () => {
+  for (let seed = 0; seed < 20; seed++) {
+    eq(Seed.idea(seed).text, Seed.idea(seed).text, 'seed ' + seed + ' was not deterministic');
+  }
+});
+
+test('different seeds give different stories', () => {
+  const seen = new Set();
+  for (let seed = 0; seed < 40; seed++) seen.add(Seed.idea(seed).text);
+  assert(seen.size >= 20, 'only ' + seen.size + ' distinct stories in 40 seeds');
+});
+
+test('a borrowed story never says "a" before a vowel sound', () => {
+  // MADLIBS decides its article before it knows which role fills the slot,
+  // so roughly 4-6% of borrowed loglines used to read "a astronaut", "a
+  // apothecary", "a archaeologist". Checked across a large sample rather
+  // than a handful of fixed strings, since the bug depends on which role
+  // MADLIBS happens to roll.
+  let offenders = [];
+  for (let seed = 0; seed < 4000; seed++) {
+    const text = Seed.idea(seed).text;
+    const bad = text.match(/(?:^|\s)[Aa] [aeiouAEIOU]\w*/g);
+    if (bad) offenders.push(seed + ': ' + JSON.stringify(bad));
+  }
+  eq(offenders.length, 0, offenders.length + ' of 4000 borrowed loglines say "a" before a vowel sound: ' +
+    offenders.slice(0, 5).join(' | '));
+});
+
+test('an article is only an article when a space follows it', () => {
+  // "the" used to match inside "they": "discovers they are the last heir"
+  // yielded the object "y are", and so a film titled "THE Y ARE". Any typed
+  // idea containing "they" after a find/discover verb hit this.
+  const p = Parse.parse('A brazen pilot named Cordelia discovers they are the last heir to Umberfall.',
+    { seed: 7, genre: 'fantasy' });
+  assert(!/\b(are|were|was|is|be|to|of|and|they)\b/i.test(p.object),
+    'object came back as ' + JSON.stringify(p.object));
+  assert(!/\bY ARE\b/.test(p.title), 'title came back as ' + JSON.stringify(p.title));
+
+  // and the objects it is supposed to find are still found
+  [['a lighthouse keeper finds a radio that plays tomorrow', 'radio'],
+   ['a kid finds a walkie-talkie in an attic', 'walkie-talkie'],
+   ['a thief steals the duffel bag', 'duffel bag'],
+   ['she discovers letters in the attic', 'letters']].forEach((pair) => {
+    eq(Parse.parse(pair[0], { seed: 1 }).object, pair[1], 'object from: ' + pair[0]);
+  });
+});
+
 /* ------------------------------------------------------------------ report */
+console.log('\nUNDER AN OPEN SKY');
+
+/* A film used to be two interiors. It now has three to five places and about a
+ * third of its scenes are exteriors, which is how "Rain finds the same crack in
+ * the sill it always finds" ended up in a parking lot. LEX.OUTDOORS gives those
+ * lines an outdoor twin and the writer swaps them when the scene is EXT. */
+
+const INTERIOR_WORDS = /\b(sill|floor|ceiling|walls?|doorway|hallway|rooms?|corridor|radiator|counter|fridge|floorboard|kettle)\b/i;
+
+// Everything the lexicon can put on a page, as raw strings: a key that matches
+// none of these is a typo and would swap nothing, silently.
+function everyLexiconLine() {
+  const out = new Set();
+  Object.keys(LEX.GENRES).forEach((g) => {
+    LEX.GENRES[g].details.forEach((x) => out.add(x));
+    LEX.GENRES[g].sounds.forEach((x) => out.add(x));
+  });
+  LEX.BEATS.forEach((b) => {
+    ['action', 'actions', 'lines', 'shots', 'openers'].forEach((field) => {
+      if (Array.isArray(b[field])) b[field].forEach((x) => out.add(x));
+    });
+  });
+  return out;
+}
+
+test('every outdoor swap replaces a line that really exists', () => {
+  const lines = everyLexiconLine();
+  const orphans = Object.keys(LEX.OUTDOORS).filter((k) => !lines.has(k));
+  eq(orphans.length, 0,
+    'these OUTDOORS keys match nothing in the lexicon, so they would never fire: ' +
+    JSON.stringify(orphans));
+});
+
+test('an outdoor twin is never itself swapped again', () => {
+  Object.keys(LEX.OUTDOORS).forEach((k) => {
+    const twin = LEX.OUTDOORS[k];
+    assert(LEX.OUTDOORS[twin] === undefined,
+      'the twin of "' + k + '" is itself a key, so the swap would chain');
+    assert(twin !== k, 'the twin of "' + k + '" is the same line');
+  });
+});
+
+test('an outdoor twin mentions nothing that needs a ceiling', () => {
+  Object.keys(LEX.OUTDOORS).forEach((k) => {
+    const twin = LEX.OUTDOORS[k];
+    assert(!INTERIOR_WORDS.test(twin),
+      '"' + twin + '" is the outdoor twin of "' + k + '" but still names an interior');
+  });
+});
+
+test('no exterior scene uses a line that needs a room around it', () => {
+  const keys = new Set(Object.keys(LEX.OUTDOORS));
+  const ideas = [
+    "A lighthouse keeper finds a radio that plays tomorrow's news.",
+    'A courier discovers a package that hums.',
+    'Two sisters inherit a house that remembers them.',
+    'A detective loses the only witness who believed her.',
+    'A diver finds a door on the seabed.'
+  ];
+  const offenders = [];
+  for (let seed = 0; seed < 300; seed++) {
+    const script = Writer.write(Parse.parse(ideas[seed % ideas.length], { seed }),
+      { length: 'short', seed });
+    script.scenes.forEach((scene) => {
+      if (scene.heading.int !== 'EXT.') return;
+      scene.elements.forEach((el) => {
+        if (el.type !== 'action') return;
+        keys.forEach((k) => {
+          // The raw line, and the way it reads once capitalised on the page.
+          const shown = k.charAt(0).toUpperCase() + k.slice(1);
+          if (el.text.indexOf(shown) !== -1 && offenders.length < 5) {
+            offenders.push(scene.heading.text + ' — ' + el.text);
+          }
+        });
+      });
+    });
+  }
+  eq(offenders.length, 0, 'exterior scenes still reading as interiors: ' +
+    JSON.stringify(offenders));
+});
+
+test('an interior scene keeps the interior line', () => {
+  // The swap must be per scene, not global: a lamp room should still have a
+  // radiator in it. Proven by finding at least one interior line still in use.
+  let found = false;
+  const keys = Object.keys(LEX.OUTDOORS);
+  for (let seed = 0; seed < 300 && !found; seed++) {
+    const script = Writer.write(Parse.parse('A lighthouse keeper finds a radio.', { seed }),
+      { length: 'festival', seed });
+    script.scenes.forEach((scene) => {
+      if (scene.heading.int !== 'INT.') return;
+      scene.elements.forEach((el) => {
+        if (el.type !== 'action') return;
+        keys.forEach((k) => {
+          const shown = k.charAt(0).toUpperCase() + k.slice(1);
+          if (el.text.indexOf(shown) !== -1) found = true;
+        });
+      });
+    });
+  }
+  assert(found, 'no interior scene used an interior line — the swap is firing everywhere');
+});
+
 console.log('');
 if (failures.length) {
   console.error('✖ ' + failures.length + ' failing test(s):');

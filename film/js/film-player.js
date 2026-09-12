@@ -632,8 +632,12 @@
     c.height = size;
     var g = c.getContext('2d');
     var img = g.createImageData(size, size);
+    // Seeded, not Math.random(): the same film is supposed to come out the same
+    // every time, and a randomised grain tile quietly broke that between page
+    // loads — two recordings of one film differed in every frame's pixels.
+    var grainRng = PARSE.makeRng(PARSE.hashText('film-grain'));
     for (var i = 0; i < img.data.length; i += 4) {
-      var v = 110 + Math.random() * 90;
+      var v = 110 + grainRng() * 90;
       img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
       img.data[i + 3] = 26;
     }

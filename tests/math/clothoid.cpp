@@ -10,6 +10,7 @@
 //   * determinism.
 #include "maz/math/Clothoid.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

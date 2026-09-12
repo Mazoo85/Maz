@@ -44,7 +44,10 @@ inline int64_t daysFromCivil(int64_t y, unsigned m, unsigned d) {
     y -= m <= 2;
     const int64_t era = (y >= 0 ? y : y - 399) / 400;
     const unsigned yoe = static_cast<unsigned>(y - era * 400);
-    const unsigned doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;
+    // Both ternary arms unsigned: the values are identical (m is 1..12, so this is 0..11
+    // either way), but a signed arm would convert to unsigned here and clang's
+    // -Wsign-conversion — which its -Wconversion implies and GCC's does not — makes that fatal.
+    const unsigned doy = (153 * (m > 2 ? m - 3u : m + 9u) + 2) / 5 + d - 1;
     const unsigned doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
     return era * 146097 + static_cast<int64_t>(doe) - 719468;
 }
@@ -58,7 +61,7 @@ inline void civilFromDays(int64_t z, int& y, int& m, int& d) {
     const unsigned doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
     const unsigned mp = (5 * doy + 2) / 153;
     d = static_cast<int>(doy - (153 * mp + 2) / 5 + 1);
-    m = static_cast<int>(mp + (mp < 10 ? 3 : -9));
+    m = static_cast<int>(mp < 10 ? mp + 3u : mp - 9u); // unsigned arms, same values (1..12)
     y = static_cast<int>(yy + (m <= 2));
 }
 } // namespace detail
@@ -141,7 +144,21 @@ inline std::string offsetString(int offsetMinutes) {
 inline bool parseIso(const std::string& s, DateTime& out) {
     int y = 0, mo = 0, da = 0, h = 0, mi = 0, se = 0;
     // %*c skips the T/space separator; n==3 for date-only, n==6 for full datetime.
+    //
+    // MSVC raises C4996 on sscanf and /WX makes it fatal. The deprecation is about the CRT's
+    // unbounded string conversions: every conversion here is %d into an int, and the one %c is
+    // suppressed with * so nothing is written for it, which leaves no buffer to overrun.
+    // sscanf_s would be identical here and is not portable, so the warning is silenced for this
+    // call rather than the grammar being rewritten — parseIso's accepted forms are pinned by a
+    // dozen assertions and a hand-rolled parser would risk changing them silently.
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4996)
+#endif
     const int n = std::sscanf(s.c_str(), "%d-%d-%d%*c%d:%d:%d", &y, &mo, &da, &h, &mi, &se);
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
     if (n != 3 && n != 6) {
         return false;
     }

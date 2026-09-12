@@ -8,6 +8,7 @@
 //   * determinism.
 #include "maz/math/SdfOps.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

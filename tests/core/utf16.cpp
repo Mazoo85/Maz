@@ -72,7 +72,7 @@ int main() {
     // --- 4. UTF-8 <-> UTF-16 convenience round-trip on a mixed string. ---
     {
         // "Hi €馬😀" — ASCII, BMP euro, CJK 'horse', astral emoji.
-        const std::u32string cps = U"Hi €馬\U0001F600";
+        const std::u32string cps = U"Hi \u20AC\u99AC\U0001F600";
         const std::string utf8 = maz::core::utf8Encode(cps);
         const std::u16string u16 = utf8ToUtf16(utf8);
         CHECK(utf16ToUtf8(u16) == utf8, "utf8 -> utf16 -> utf8 round-trips a multilingual string");

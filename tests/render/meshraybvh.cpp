@@ -11,6 +11,7 @@
 #include "maz/render/MeshIcosphere.hpp"
 #include "maz/render/MeshRayBvh.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

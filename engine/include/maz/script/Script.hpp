@@ -1313,7 +1313,7 @@ public:
             std::vector<Value> callArgs(a.begin() + 2, a.end());
             return callMethod(obj, n, callArgs, 0);
         });
-        registerNative("get_property", [this](std::vector<Value>& a) {
+        registerNative("get_property", [](std::vector<Value>& a) {
             if (a.size() < 2) return Value::nil();
             const std::string n = a[1].toString();
             if (a[0].type == Value::Type::Object && a[0].instance) {
@@ -1327,7 +1327,7 @@ public:
             }
             return Value::nil();
         });
-        registerNative("set_property", [this](std::vector<Value>& a) {
+        registerNative("set_property", [](std::vector<Value>& a) {
             if (a.size() < 3) return Value::nil();
             const std::string n = a[1].toString();
             if (a[0].type == Value::Type::Object && a[0].instance) {

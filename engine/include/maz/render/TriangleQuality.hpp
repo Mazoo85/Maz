@@ -2,6 +2,7 @@
 
 #include "maz/render/Shapes.hpp" // shapes::MeshData, MeshVertex
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>

@@ -9,6 +9,7 @@
 // Jacobi solve) as the box axes, then project the points onto those axes to size the box. Reuses the
 // engine's Obb type (Geometry3D). Godot fits neither spheres nor oriented boxes to point sets in
 // gameplay code, so this is a beyond-Godot geometry utility. Header-only, std-only, deterministic.
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <vector>

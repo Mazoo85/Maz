@@ -4,6 +4,7 @@
 // preserved within about one cell, and a cell size below the vertex spacing is a no-op. Pure CPU, headless.
 #include "maz/render/MeshSimplify.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>
