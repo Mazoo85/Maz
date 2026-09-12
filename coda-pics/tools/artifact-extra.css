@@ -1,0 +1,12 @@
+
+/* --- artifact-only adjustments ---------------------------------------------
+   The page ships inside the viewer, so it loses the arcade's nav pill and
+   gains a picture on load; nothing else about the look changes. */
+[hidden] { display: none !important; }
+#app { padding-block: 18px 32px; }
+.frame { min-height: 120px; }
+.foot { margin-top: 26px; }
+
+/* The picture leads, so it needs a little air under it before the controls. */
+.stage { margin-top: 0; margin-bottom: 22px; }
+.panel { margin-top: 0; }

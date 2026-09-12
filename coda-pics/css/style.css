@@ -238,3 +238,79 @@ canvas {
 .sheet { margin-top: 20px; }
 .gallery-tools { justify-content: flex-start; margin-top: 10px; }
 .gallery-tools button { font-size: 12.5px; padding: 8px 12px; }
+
+/* ---------------------------------------------------------------- photos */
+.photo {
+  margin-top: 13px; padding: 12px;
+  border: 1px solid var(--line); border-radius: 10px;
+}
+.photo legend {
+  padding: 0 6px; font-size: 10.5px; letter-spacing: 1.6px;
+  text-transform: uppercase; color: var(--muted);
+}
+.photo input[type="file"] {
+  font-size: 12.5px; padding: 8px; background: rgba(0, 0, 0, .28);
+}
+.photo-privacy { margin-top: 7px; font-size: 11.5px; color: var(--muted); }
+.photo-info { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; align-items: flex-start; }
+.photo-thumb {
+  width: 132px; height: auto; border-radius: 8px;
+  border: 1px solid var(--line); background: #07040e; flex: none;
+}
+.photo-uses { display: flex; flex-direction: column; gap: 7px; min-width: 190px; flex: 1; }
+.photo-uses label { display: flex; align-items: center; gap: 7px; font-size: 13px; color: #cdc4e2; }
+.photo-uses input { width: auto; accent-color: var(--accent); }
+.photo-buttons { margin-top: 4px; }
+.photo-buttons button { font-size: 12.5px; padding: 8px 12px; }
+.photo-note { width: 100%; margin-top: 2px; font-size: 12px; color: var(--accent-2); }
+
+/* ------------------------------------------------------- google photos */
+.gphotos {
+  margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--line);
+}
+.gphotos > summary {
+  cursor: pointer; font-size: 12.5px; color: var(--accent-2);
+  list-style: none; padding: 2px 0;
+}
+.gphotos > summary::-webkit-details-marker { display: none; }
+.gphotos > summary::before { content: "\25B8 "; color: var(--muted); }
+.gphotos[open] > summary::before { content: "\25BE "; }
+.gp-field {
+  display: block; margin-top: 10px; font-size: 11.5px;
+  letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted);
+}
+.gp-field input {
+  display: block; width: 100%; margin-top: 5px; font-size: 12.5px; padding: 8px;
+  letter-spacing: 0; text-transform: none;
+}
+.gp-redirect { margin-top: 9px; font-size: 11.5px; color: var(--muted); }
+.gp-redirect code {
+  display: block; margin-top: 4px; padding: 6px 8px; word-break: break-all;
+  background: rgba(0, 0, 0, .32); border: 1px solid var(--line); border-radius: 6px;
+  color: #cdc4e2; font-size: 11.5px;
+}
+.gphotos .buttons { margin-top: 11px; }
+.gphotos .buttons button { font-size: 12.5px; padding: 8px 12px; }
+
+/* -------------------------------------------------------- palette library */
+.palette-box {
+  margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+}
+.palette-label {
+  font-size: 10.5px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted);
+}
+.palette-chips { display: flex; flex-wrap: wrap; gap: 7px; flex: 1; }
+.swatch {
+  display: flex; align-items: center; gap: 7px; cursor: pointer;
+  padding: 4px 9px 4px 5px; border-radius: 999px;
+  background: rgba(255, 255, 255, .05); border: 1px solid var(--line); color: #cdc4e2;
+  font-size: 12px;
+}
+.swatch canvas { width: 34px; height: 16px; border-radius: 4px; display: block; }
+.swatch[aria-pressed="true"] { border-color: var(--accent); color: #fff; background: rgba(0, 214, 143, .12); }
+.swatch.mixture { font-weight: 700; }
+.palette-clear {
+  font-size: 11.5px; padding: 6px 10px; background: none; border: 1px solid var(--line); color: var(--muted);
+}
+.palette-clear:hover { color: var(--pink); border-color: var(--pink); }

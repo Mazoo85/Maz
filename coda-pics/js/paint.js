@@ -72,6 +72,22 @@
   function makePalette(spec, opts) {
     var sky = SKY[spec.time] || SKY.dusk;
     var scene = SCENE_COLOUR[spec.scene.id] || SCENE_COLOUR.plains;
+    /* A photograph the person chose replaces the built-in colour table: the
+     * hour and the setting still decide the shapes, the photograph decides what
+     * they are made of. */
+    if (spec.photo && spec.photo.use && spec.photo.use.colours && spec.photo.palette) {
+      var pal = spec.photo.palette;
+      sky = {
+        top: pal.sky.top, mid: pal.sky.mid, low: pal.sky.low,
+        light: pal.sky.light,
+        lightY: pal.sky.lightY == null ? sky.lightY : pal.sky.lightY,
+        haze: pal.sky.haze
+      };
+      scene = {
+        ink: pal.scene.ink, land: pal.scene.land, far: pal.scene.far,
+        sea: pal.scene.sea, water: scene.water
+      };
+    }
     var tint = spec.palette;
     var drama = spec.mood;
     /* How hard a colour word pulls. "A red dragon" should give you a red
@@ -161,6 +177,29 @@
         next.push(b);
       }
       pts = next;
+    }
+    return pts;
+  }
+
+  /*
+   * The ridge line out of a photograph, scaled to this frame — so the hills in
+   * the picture are the hills the person photographed. Returns null when there
+   * was no clear horizon to read, and the fractal one is used instead: a
+   * close-up of a wall has no skyline, and inventing one from it looks worse
+   * than not trying.
+   */
+  function photoRidge(spec, w, h, baseY, amplitude) {
+    if (!spec.photo || !spec.photo.use || !spec.photo.use.skyline) return null;
+    var sky = spec.photo.skyline;
+    if (!sky || !sky.line || sky.line.length < 8 || sky.confidence < 0.35) return null;
+    var line = sky.line;
+    var mean = sky.mean || 0.5;
+    var pts = [];
+    for (var i = 0; i < line.length; i++) {
+      var x = -w * 0.05 + (w * 1.10) * (i / (line.length - 1));
+      /* The photograph gives the shape; this frame gives where it sits and how
+       * tall it is, so a flat-ish horizon still reads as mountains. */
+      pts.push([x, baseY + (line[i] - mean) * amplitude * 2.4]);
     }
     return pts;
   }
@@ -393,8 +432,9 @@
       var depth = 1 - layer * 0.42;
       var baseY = hz + (h - hz) * layer * 0.30;
       var peak = (h * 0.44) * (1 - layer * 0.24);
-      var pts = ridge(-w * 0.05, baseY - peak * (0.4 + r() * 0.5), w * 1.05,
-        baseY - peak * (0.4 + r() * 0.5), peak * 1.1, r, 7);
+      var pts = photoRidge(spec, w, h, baseY - peak * 0.55, peak * (1 - layer * 0.3)) ||
+        ridge(-w * 0.05, baseY - peak * (0.4 + r() * 0.5), w * 1.05,
+          baseY - peak * (0.4 + r() * 0.5), peak * 1.1, r, 7);
       fillPoly(ctx, pts, h, P.ink(depth));
       crestLight(ctx, pts, w, h, P, 0.26 - layer * 0.07, [P.sky.haze[0], 22, 90]);
     }
@@ -407,7 +447,8 @@
     for (var layer = 0; layer < 3; layer++) {
       var baseY = hz + (h - hz) * layer * 0.26;
       var peak = h * 0.40 * (1 - layer * 0.20);
-      var pts = ridge(-w * 0.05, baseY - peak * 0.6, w * 1.05, baseY - peak * 0.85, peak * 0.95, r, 7);
+      var pts = photoRidge(spec, w, h, baseY - peak * 0.7, peak * (1 - layer * 0.3)) ||
+        ridge(-w * 0.05, baseY - peak * 0.6, w * 1.05, baseY - peak * 0.85, peak * 0.95, r, 7);
       fillPoly(ctx, pts, h, P.ink(0.85 - layer * 0.38));
       crestLight(ctx, pts, w, h, P, 0.40 - layer * 0.10, [P.sky.haze[0], 16, 94]);
     }
@@ -1110,23 +1151,52 @@
 
   /* ----------------------------------------------------------------- render */
 
-  function render(ctx, w, h, spec) {
+  /* Draw a photograph to fill the frame without squashing it. */
+  function coverDraw(ctx, media, w, h) {
+    var iw = media.width || media.videoWidth || w;
+    var ih = media.height || media.videoHeight || h;
+    var scale = Math.max(w / iw, h / ih);
+    var dw = iw * scale, dh = ih * scale;
+    ctx.drawImage(media, (w - dw) / 2, (h - dh) / 2, dw, dh);
+  }
+
+  function render(ctx, w, h, spec, media) {
     var P = makePalette(spec);                              // the world
     var PS = makePalette(spec, { tintStrength: 0.85 });     // the thing in it
     var r = PROMPT.rng(spec, 'scene');
     var hz = clamp(spec.scene.horizon + (r() - 0.5) * 0.05, 0.42, 1.3) * h;
 
+    /* Painting onto a photograph: the photograph is the sky and the ground, so
+     * neither is drawn. Everything after this — the subject, its shadow, its
+     * lit edge, the weather, the style — happens on top of it exactly as it
+     * would on a painted scene. */
+    var onPhoto = !!(media && media.backdrop && spec.photo && spec.photo.use &&
+      spec.photo.use.backdrop);
+
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = P.css(P.sky.top);
-    ctx.fillRect(0, 0, w, h);
 
-    paintSky(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'sky'));
-    var light = paintLight(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'light'));
-    P.light_at = PS.light_at = light;
-    clouds(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'cloud'));
+    var light;
+    if (onPhoto) {
+      coverDraw(ctx, media.backdrop, w, h);
+      hz = (spec.photo.skyline && spec.photo.skyline.confidence > 0.35)
+        ? spec.photo.skyline.mean * h
+        : h * 0.62;
+      light = spec.photo.light
+        ? { x: spec.photo.light.x * w, y: spec.photo.light.y * h, r: Math.min(w, h) * 0.06 }
+        : null;
+      P.light_at = PS.light_at = light;
+    } else {
+      ctx.fillStyle = P.css(P.sky.top);
+      ctx.fillRect(0, 0, w, h);
 
-    (GROUND[spec.scene.id] || GROUND.plains)(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'ground'), light);
+      paintSky(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'sky'));
+      light = paintLight(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'light'));
+      P.light_at = PS.light_at = light;
+      clouds(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'cloud'));
+
+      (GROUND[spec.scene.id] || GROUND.plains)(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'ground'), light);
+    }
 
     /* Subjects, furthest first so a nearer one overlaps it. */
     var sr = PROMPT.rng(spec, 'subject');
@@ -1148,7 +1218,7 @@
       paintSubject(ctx, item.s, item.box, P, PS, sr, spec, light, hz, h);
     });
 
-    foreground(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'fore'));
+    if (!onPhoto) foreground(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'fore'));
 
     paintWeather(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'weather'));
     ctx.restore();
@@ -1161,6 +1231,8 @@
     GROUND: GROUND,
     SKY: SKY,
     SCENE_COLOUR: SCENE_COLOUR,
+    photoRidge: photoRidge,
+    coverDraw: coverDraw,
     groundShadow: groundShadow,
     paintSubject: paintSubject,
     arrange: arrange,
