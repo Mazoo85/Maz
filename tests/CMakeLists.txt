@@ -1162,6 +1162,15 @@ target_include_directories(maz_film_render_tests PRIVATE ${CMAKE_SOURCE_DIR}/app
 add_test(NAME film_render COMMAND maz_film_render_tests ${CMAKE_CURRENT_SOURCE_DIR}/film/reel-fixture.json)
 set_tests_properties(film_render PROPERTIES TIMEOUT 120)
 
+# The demo reel is only a demonstration if it still shows everything: this counts the sets, palettes,
+# framings, camera moves and weather kinds the montage covers, so adding a set to the engine and not to
+# the reel is a failing test rather than a silent gap.
+add_executable(maz_film_showcase_tests film/showcase.cpp)
+target_include_directories(maz_film_showcase_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/filmshowcase)
+target_link_libraries(maz_film_showcase_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME film_showcase COMMAND maz_film_showcase_tests)
+set_tests_properties(film_showcase PROPERTIES TIMEOUT 30)
+
 # The scatter every set is furnished from, checked bit-for-bit against the browser: same set and same
 # seed must put the same bottles on the same shelf.
 add_executable(maz_film_noise_tests film/noise.cpp)
