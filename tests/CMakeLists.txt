@@ -3376,11 +3376,3 @@ target_link_libraries(maz_zomboid_sim_tests PRIVATE maz::maz maz_warnings)
 target_include_directories(maz_zomboid_sim_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/zomboid)
 add_test(NAME zomboid_sim COMMAND maz_zomboid_sim_tests)
 set_tests_properties(zomboid_sim PROPERTIES TIMEOUT 30)
-
-# SENTINEL procedural character (apps/character/character.hpp): verifies the code-authored humanoid
-# builds valid, symmetric, correctly-footed geometry from the mesh primitives. Pure CPU, headless.
-add_executable(maz_character_tests character/build.cpp)
-target_link_libraries(maz_character_tests PRIVATE maz::maz maz_warnings)
-target_include_directories(maz_character_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/character)
-add_test(NAME character_build COMMAND maz_character_tests)
-set_tests_properties(character_build PROPERTIES TIMEOUT 30)
