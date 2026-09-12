@@ -14,7 +14,8 @@
     "forge/",
     ".github/workflows/",
     "docs/ROADMAP.md",
-    "docs/FORGE.md"
+    "docs/FORGE.md",
+    "docs/FORGE-JOBS.md"
   ],
   "score_floor": 4.0,
   "weights": {

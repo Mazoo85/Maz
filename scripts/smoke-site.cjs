@@ -106,6 +106,7 @@ const APPS = [
   { id: 'shooter', url: '/shooter/', name: 'DEAD SECTOR', mode: 'overlay' },
   { id: 'music', url: '/music/', name: 'SONG FORGE', mode: 'inline' },
   { id: 'madlibs', url: '/madlibs/', name: 'MADLIBS STORY FORGE', mode: 'inline' },
+  { id: 'names', url: '/names/', name: 'NAME FORGE', mode: 'inline' },
   { id: 'film', url: '/film/', name: 'SCRIPT FORGE', mode: 'inline' }
 ];
 

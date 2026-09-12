@@ -186,3 +186,28 @@ def test_blank_base_branch_falls_back_to_default(tmp_path):
 def test_non_string_base_branch_falls_back_to_default(tmp_path):
     _write(tmp_path, {"base_branch": 3})
     assert load_config(root=tmp_path).base_branch == "main"
+
+
+def test_shipped_config_puts_the_jobs_file_out_of_reach():
+    """The Forge must not be able to edit the file that tells it what to do.
+
+    `docs/` is a safe zone, so `docs/FORGE-JOBS.md` is reachable unless the
+    shipped config says otherwise — and that file tells the reader, in so many
+    words, that it is off limits. This asserts the claim against the real
+    `forge.json` rather than a fixture, because a fixture would keep passing
+    while the shipped file drifted.
+    """
+    from pathlib import Path
+
+    from forge.zones import zone_for
+
+    root = Path(__file__).resolve().parents[2]
+    cfg = load_config(root=root)
+
+    assert "docs/" in cfg.safe_zones, "test is vacuous if docs/ stops being a zone"
+    assert zone_for(["docs/FORGE-JOBS.md"], cfg) is None
+    # The sibling documents it grew out of, guarded the same way.
+    assert zone_for(["docs/FORGE.md"], cfg) is None
+    assert zone_for(["docs/ROADMAP.md"], cfg) is None
+    # An ordinary doc is still fair game, or the zone would be pointless.
+    assert zone_for(["docs/some-other-note.md"], cfg) == "docs/"
