@@ -119,16 +119,35 @@ export function scanDocs(root) {
   });
 }
 
-/** The leading `/* ... *\/` or `// ...` comment of a script, as one line. */
+/**
+ * A script's own first line of description, whatever it writes comments in.
+ *
+ * Every comment style in `tools/` and `scripts/` has to be here or the checker
+ * lies: it reported tools/build_editor.bat as undocumented because a Windows
+ * batch file says REM, and the file opens with a better description than most
+ * of the ones that passed.
+ */
 export function firstBlockComment(text) {
   const block = text.match(/\/\*([\s\S]*?)\*\//);
   if (block) {
     const body = block[1].split('\n').map((l) => l.replace(/^\s*\*?\s?/, '').trim()).filter(Boolean);
     return { blurb: (body[0] || '').replace(/\s+/g, ' ') };
   }
+  // Python says it with a module docstring, not a comment.
+  const docstring = text.match(/^\s*(?:#![^\n]*\n)?\s*("""|''')([\s\S]*?)\1/);
+  if (docstring) {
+    const first = docstring[2].trim().split('\n')[0].trim();
+    if (first) return { blurb: first.replace(/\s+/g, ' ') };
+  }
+
   const lines = text.split('\n');
-  const start = lines.findIndex((l) => l.trim().startsWith('#') && !l.startsWith('#!'));
-  if (start >= 0) return { blurb: lines[start].replace(/^\s*#\s?/, '').trim() };
-  const slashes = lines.filter((l) => l.trim().startsWith('//'));
-  return { blurb: slashes.length ? slashes[0].replace(/^\s*\/\/\s?/, '').trim() : '' };
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (line.startsWith('#!') || line === '' || /^@echo\b/i.test(line)) continue;   // shebang, blank, batch header
+    if (line.startsWith('#')) return { blurb: line.replace(/^#\s?/, '').trim() };
+    if (line.startsWith('//')) return { blurb: line.replace(/^\/\/\s?/, '').trim() };
+    if (/^REM\b/i.test(line)) return { blurb: line.replace(/^REM\s?/i, '').trim() };
+    break;   // real code before any comment: this script documents nothing
+  }
+  return { blurb: '' };
 }

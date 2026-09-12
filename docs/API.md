@@ -2,7 +2,7 @@
 
 > Auto-generated from the engine headers by `tools/gen_api_docs.py`. Each module's summary is its header's own doc comment; the type and function lists are its public surface. This is a map — read the header for full signatures and semantics.
 
-_687 headers across 20 subsystems._
+_692 headers across 20 subsystems._
 
 ## Contents
 
@@ -2664,6 +2664,22 @@ Gamepad axis/button ids. Values match SDL_GamepadAxis / SDL_GamepadButton orderi
 
 **Types:** `Touch`, `Input`
 
+### `Motion`
+<sub>`engine/include/maz/platform/Motion.hpp`</sub>
+
+maz::platform motion-sensor policy — the pure math that turns a raw accelerometer/gyroscope reading (PlatformBackend::motionState()) into the things a game actually wants: a tilt steering vector, a shake gesture, and a "is the device lying flat?" test. Kept out of PlatformBackend.hpp so that header stays dependency-light, exactly like SafeArea.hpp / PowerState.hpp. Every helper is deterministic and unit-tested headlessly; on desktop/headless the backend reports an all-zero MotionState, so tiltVector() is the zero vector and isShaking() is false — a game can read tilt controls unconditionally and they simply do nothing where there is no IMU. Axes follow the POD: +x right, +y up, +z out of the glass; the accelerometer is in m/s^2 and includes gravity, so a device flat face-up reads ~+9.81 on z.
+
+**Functions:**
+
+- `inline float accelMagnitude(const MotionState& m)`
+- `inline float rotationRate(const MotionState& m)`
+- `inline bool hasMotionData(const MotionState& m, float epsilon = 1e-3f)`
+- `inline math::vec2 tiltVector(const MotionState& m, float fullTiltG = 1.0f)`
+- `inline float tiltAngleRad(const MotionState& m)`
+- `inline bool deviceIsFlat(const MotionState& m, float toleranceDeg = 15.0f)`
+- `inline bool isShaking(const MotionState& m, float thresholdG = 1.8f)`
+- `inline MotionState lowPassFilter(const MotionState& prev, const MotionState& current, float alpha)`
+
 ### `Network`
 <sub>`engine/include/maz/platform/Network.hpp`</sub>
 
@@ -2699,7 +2715,7 @@ A writable, per-user, per-application directory with `file` appended (created if
 
 maz::platform per-target backend seam — the single abstraction an engine crosses to reach a NEW platform (a console, a VR headset, a phone) without touching game or renderer code. Every target differs in exactly the same handful of ways: how it boots and tears down, what native surface handle the GPU renderer binds to, where its readable (bundled assets) and writable (save data) directories live, which input sources exist, and whether the OS can suspend/resume the app under you (mobile/console) versus running uninterrupted (desktop). `PlatformBackend` names that seam; a concrete backend implements it for one target. The engine talks only to the interface, so porting to a new platform is "write one backend", which is how Godot/Unity keep one codebase across a dozen devices.  This box can implement + unit-test the HEADLESS backend (pure CPU, no device) and the registry that selects a backend by id — that is verified here. The console/VR/mobile backends are stubs behind the same interface plus the exact human/hardware step to finish each (NDA SDK, physical headset, device + paid dev account), documented in docs/PLATFORMS.md — those can never be marked 100% from this environment.
 
-**Types:** `PlatformId`, `PlatformCaps`, `SafeAreaInsets`, `PowerState`, `ScreenOrientation`, `HapticFeedback`, `PlatformBackend`, `HeadlessBackend`, `PlatformRegistry`
+**Types:** `PlatformId`, `PlatformCaps`, `SafeAreaInsets`, `PowerState`, `ScreenOrientation`, `HapticFeedback`, `MotionState`, `PlatformBackend`, `HeadlessBackend`, `PlatformRegistry`
 
 ### `PowerState`
 <sub>`engine/include/maz/platform/PowerState.hpp`</sub>
@@ -2733,6 +2749,34 @@ maz::platform soft-keyboard helper — a name for each on-screen keyboard layout
 **Functions:**
 
 - `inline const char* softKeyboardTypeName(SoftKeyboardType t)`
+
+### `ThumbZone`
+<sub>`engine/include/maz/platform/ThumbZone.hpp`</sub>
+
+maz::platform thumb-zone control placement — the pure math for putting on-screen controls where a player's thumbs actually reach. Holding a phone in two hands, the thumbs sweep arcs anchored at the BOTTOM-LEFT and BOTTOM-RIGHT corners; the top of the screen and the far corners are awkward or impossible to hit one-handed. Every mobile game answers the same question — "where do the movement stick and the action buttons go?" — and the good answer is "in the bottom thumb zones, inside the safe area, sized for a fingertip." This header is the layout layer that sits between SafeArea.hpp (the usable rectangle) and TouchTarget.hpp (a comfortable control size): give it the safe rect and your control sizes and it returns the rects to draw and hit-test. Pure geometry, unit-tested headlessly; coordinates are drawable pixels with +y DOWN (top-left origin), the same space SafeArea.hpp produces. `apps/_template` anchors its controls this way.
+
+**Types:** `TouchControlLayout`
+
+**Functions:**
+
+- `inline math::Rect2 bottomLeftZone(const math::Rect2& safe, float w, float h, float margin = 0.0f)`
+- `inline math::Rect2 bottomRightZone(const math::Rect2& safe, float w, float h, float margin = 0.0f)`
+- `inline TouchControlLayout thumbControlLayout(const math::Rect2& safe, float stickPx, float clusterPx,`
+- `inline float thumbReachRadius(const math::Rect2& safe, float fraction = 0.62f)`
+- `inline bool withinThumbReach(const math::vec2& point, const math::vec2& corner, float radius)`
+
+### `TouchTarget`
+<sub>`engine/include/maz/platform/TouchTarget.hpp`</sub>
+
+maz::platform touch-target sizing — the pure math for making tappable controls a COMFORTABLE physical size on any phone or tablet, regardless of how many pixels that device packs per inch. A button authored as "88 pixels" is a fat thumb-friendly target on a 160-dpi tablet but a near-impossible speck on a 560-dpi flagship; sizing in physical millimetres and converting through the display's DPI fixes that. The platform accessibility guidelines converge on ~9 mm (Google Material's 48 dp at 160 dpi ≈ 7.6 mm, Apple's 44 pt ≈ 7 mm; 9 mm is a safe cross-platform floor). This is the deterministic, unit-tested consumer of a DPI value the caller reads from the display (SDL display content scale × 160, or an OS DPI query) — the same pure-policy split as DisplayScale.hpp (logical↔pixel) and SafeArea.hpp (insets→rect). Desktop mouse input has no such minimum, so a game simply passes a large DPI or skips these helpers there.
+
+**Functions:**
+
+- `inline float mmToPixels(float mm, float dpi)`
+- `inline float recommendedTouchTargetPx(float dpi, float mm = kMinTouchTargetMm)`
+- `inline bool meetsTouchTarget(float widthPx, float heightPx, float dpi, float mm = kMinTouchTargetMm)`
+- `inline math::Rect2 expandToTouchTarget(const math::Rect2& rect, float dpi, float mm = kMinTouchTargetMm)`
+- `inline float dpiFromDiagonal(int widthPx, int heightPx, float diagonalInches)`
 
 ### `WebLoop`
 <sub>`engine/include/maz/platform/WebLoop.hpp`</sub>
@@ -3690,6 +3734,17 @@ maz::render mesh LOD selection — the CPU half of Godot's automatic mesh level-
 **Functions:**
 
 - `inline float projectedRadiusPixels(float radius, float distance, float fovYRadians,`
+
+### `MeshLodBuilder`
+<sub>`engine/include/maz/render/MeshLodBuilder.hpp`</sub>
+
+maz::render LOD-ladder builder — the one-call import step that turns a single authored mesh into a full level-of-detail set, the equivalent of Godot's ImporterMesh.generate_lods(). The two halves already exist separately: simplifyQuadric() (MeshSimplifyQuadric.hpp) GENERATES one lower-poly mesh at a triangle budget, and LodChain (MeshLod.hpp) SELECTS which level to draw from an object's on-screen pixel size. buildMeshLods() assembles them: it runs the quadric decimator at a geometric sequence of triangle budgets to produce the mesh ladder AND fills a LodChain with a descending pixel threshold per level, so the result drops straight into the renderer — draw meshes[chain.selectForCamera(radius, dist, fov, viewportH)]. Each coarser level is decimated from the ORIGINAL mesh (not the level above), so error never compounds down the ladder. Pure CPU geometry + arithmetic; unit-tests headlessly.
+
+**Types:** `MeshLodSet`
+
+**Functions:**
+
+- `inline MeshLodSet buildMeshLods(const shapes::MeshData& base, float ratio = 0.5f,`
 
 ### `MeshMassProperties`
 <sub>`engine/include/maz/render/MeshMassProperties.hpp`</sub>
@@ -5004,7 +5059,7 @@ maz::game::ChunkStreamer — chunked streaming for large tilemaps / open worlds.
 ### `Collision`
 <sub>`engine/include/maz/game/Collision.hpp`</sub>
 
-Axis-aligned bounding box.
+maz::game COLLISION — the box-and-ray layer a 3D game moves through the world on. An `Aabb` is an axis-aligned box held as its two corners, built either from those directly or from a centre and a size (`fromCenterSize`), and able to say whether it `overlaps` another. `raycastAabb` fires a ray at a single box by the slab method and reports where it entered; `raycast` fires the same ray at a whole list and reports the nearest thing it struck, which is what a hitscan shot, a mouse pick or a line-of-sight check actually is. `slideMove` is the one that moves a character: it advances a box by a delta against a set of solids one axis at a time, so walking into a wall at an angle slides along it instead of stopping dead.  Scope note (honest): axis-aligned boxes only — no rotation, no capsules, no meshes. That is the deliberate trade. Everything here is a handful of comparisons with no broadphase and no allocation, so it stays exact and predictable; for rotated or curved shapes reach for the physics world, and for many thousands of boxes put a `Bvh` in front of `raycast` rather than widening this.  Header-only, std + GLM only, no GPU: usable from a unit test with no window open.
 
 **Types:** `Aabb`, `RayHit`
 
@@ -7136,8 +7191,23 @@ maz::io mobile export bundle planner — the Android/iOS analogue of io::planBun
 - `inline std::string bundleId(const std::string& appName)`
 - `inline std::string androidManifest(const std::string& appName, const std::string& version)`
 - `inline std::string iosInfoPlist(const std::string& appName, const std::string& version)`
+- `inline std::string androidSettingsGradle(const std::string& appName)`
+- `inline std::string androidBuildGradle(const std::string& appName, const std::string& version,`
 - `inline MobileBundlePlan planMobileBundle(const std::string& appName, const std::string& version, MobileOs os,`
 - `inline const BundleFile* findMobileDest(const MobileBundlePlan& plan, const std::string& dest)`
+
+### `MobileBundlePreflight`
+<sub>`engine/include/maz/io/MobileBundlePreflight.hpp`</sub>
+
+maz::io mobile bundle preflight — the "is this staged tree actually shippable?" check that runs between io::planMobileBundle (which decides the layout) and the on-device Gradle/Xcode step (which assembles the .apk/.ipa). tools/package_mobile.sh copies the planned files onto disk; a typo, a filtered-out shader, a half-finished copy, or a stale artifact from a previous run all produce a tree that Gradle will happily package into a broken app that only fails on the device. Preflight compares the plan against the paths that really exist under the bundle root and reports every gap BEFORE the slow toolchain runs. Pure set logic over bundle-relative path strings, no filesystem calls, so it unit-tests headlessly like the planner; the shell (or an in-editor "Export" button) supplies the on-disk listing. Errors mean "will not run"; warnings mean "probably a mistake, but legal".
+
+**Types:** `PreflightIssue`, `PreflightReport`
+
+**Functions:**
+
+- `inline PreflightReport preflightStagedTree(const std::vector<std::string>& plannedDests,`
+- `inline std::string mobileExecutableDest(const MobileBundlePlan& plan)`
+- `inline PreflightReport preflightMobileBundle(const MobileBundlePlan& plan,`
 
 ### `MoveToFront`
 <sub>`engine/include/maz/io/MoveToFront.hpp`</sub>

@@ -49,6 +49,13 @@ one is still missing, and what each could lend the others. It is generated — `
 tools/inventory/main.mjs --write` — and CI fails if it drifts from the repository it describes. Start
 there if you are wondering what to work on next.
 
+**How it measures up:** **[`docs/GODOT_PARITY.md`](docs/GODOT_PARITY.md)** is the feature-by-feature
+plan for matching Godot, and **[`docs/GODOT_GAPS.md`](docs/GODOT_GAPS.md)** is its deliberately
+self-critical other half — everything Godot has that Maz does not, kept so the engine never claims
+more than it can do. **[`docs/EVALUATION.md`](docs/EVALUATION.md)** is the running backlog those two
+feed. **[`docs/CODEBASE_MEMORY.md`](docs/CODEBASE_MEMORY.md)** explains the memory server that lets a
+new session recall what an earlier one learned about this repo.
+
 **API reference:** **[`docs/API.md`](docs/API.md)** is a browsable index of every module, type, and
 free function, generated from the header doc-comments by `python3 tools/gen_api_docs.py` (no external
 tools). For full HTML docs, contributors with Doxygen installed can run `doxygen Doxyfile`

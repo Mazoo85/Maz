@@ -9,6 +9,22 @@
 
 namespace maz::game {
 
+// maz::game COLLISION — the box-and-ray layer a 3D game moves through the world on. An `Aabb` is an
+// axis-aligned box held as its two corners, built either from those directly or from a centre and a
+// size (`fromCenterSize`), and able to say whether it `overlaps` another. `raycastAabb` fires a ray at
+// a single box by the slab method and reports where it entered; `raycast` fires the same ray at a
+// whole list and reports the nearest thing it struck, which is what a hitscan shot, a mouse pick or a
+// line-of-sight check actually is. `slideMove` is the one that moves a character: it advances a box by
+// a delta against a set of solids one axis at a time, so walking into a wall at an angle slides along
+// it instead of stopping dead.
+//
+// Scope note (honest): axis-aligned boxes only — no rotation, no capsules, no meshes. That is the
+// deliberate trade. Everything here is a handful of comparisons with no broadphase and no allocation,
+// so it stays exact and predictable; for rotated or curved shapes reach for the physics world, and for
+// many thousands of boxes put a `Bvh` in front of `raycast` rather than widening this.
+//
+// Header-only, std + GLM only, no GPU: usable from a unit test with no window open.
+
 // Axis-aligned bounding box.
 struct Aabb {
     math::vec3 min;

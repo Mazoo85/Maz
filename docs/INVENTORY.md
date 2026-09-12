@@ -14,7 +14,7 @@ size is in the wiring between the parts, not in any one part.
 | | Count | |
 |---|---:|---|
 | Native games and demos (`apps/`) | 161 | 31,861 lines |
-| Engine capabilities (`engine/include/maz/`) | 692 | 87,753 lines across 20 subsystems |
+| Engine capabilities (`engine/include/maz/`) | 692 | 87,768 lines across 20 subsystems |
 | C++ test files (`tests/`) | 372 | |
 | Browser apps and games | 6 | 17,201 lines |
 | Python tools | 3 | |
@@ -25,12 +25,12 @@ size is in the wiring between the parts, not in any one part.
 
 | Health signal | Score | |
 |---|---:|---|
-| Completeness checks passing | 80% | ████████░░ 2498 of 3110 |
+| Completeness checks passing | 81% | ████████░░ 2504 of 3110 |
 | Apps that run headless in CI | 76% | ████████░░ |
 | Apps with a golden screenshot | 97% | ██████████ |
 | Engine modules a test exercises | 99% | ██████████ |
 | Engine modules an app demonstrates | 20% | ██░░░░░░░░ |
-| Open tasks in the queue below | 19 | |
+| Open tasks in the queue below | 16 | |
 
 ## 1. Everything you have built
 
@@ -307,26 +307,26 @@ engine capability, a handful of them complete games.
 | `scripts/check-exchange.mjs` | check-exchange — proves the declared dependencies between projects are true. | — |
 | `scripts/check-links.mjs` | check-links — proves the repo is actually wired together. | no tests |
 | `scripts/smoke-site.cjs` | smoke-site — drives the whole site in a real browser. | no tests |
-| `tools/build_editor.bat` | — | no header comment |
+| `tools/build_editor.bat` | build_editor.bat - one command to turn the Maz Engine source code into the Editor program. | — |
 | `tools/build_editor.sh` | build_editor.sh — one command to turn the Maz Engine source code into the Editor program. | — |
 | `tools/build_web.sh` | tools/build_web.sh — build a Maz target to WebAssembly with Emscripten so a game runs in the browser. | — |
-| `tools/gen_api_docs.py` | Friendly names for each subsystem directory. | — |
-| `tools/gen_docs.cpp` | include "maz/docs/SiteGen.hpp" | — |
+| `tools/gen_api_docs.py` | Generate docs/API.md — a browsable API reference — straight from the engine headers. | — |
+| `tools/gen_docs.cpp` | tools/gen_docs.cpp — CLI for the maz::docs static site generator. Reads a directory of Markdown files and | — |
 | `tools/golden.sh` | Golden-image regression harness for the Maz Engine. | — |
-| `tools/make_house_gltf.py` | UV sub-rects (quadrants) of the 2x2 detail atlas, inset slightly to avoid bilinear bleed. | — |
-| `tools/make_village_gltf.py` | --------------------------------------------------------------------------- | — |
+| `tools/make_house_gltf.py` | Generate assets/models/house.gltf — a small low-poly house used to demo the engine's glTF | — |
+| `tools/make_village_gltf.py` | Generate assets/models/village.gltf — a small scene used to demo the engine's glTF *scene* | — |
 | `tools/new-game.sh` | new-game.sh — scaffold a new Maz game in one command. | — |
 | `tools/package.sh` | Maz Engine — game export / packaging, the equivalent of Godot's "Export Project". | — |
 | `tools/package_mobile.sh` | Maz Engine — mobile export, the Android/iOS counterpart to tools/package.sh. | — |
 | `docs/API.md` | Maz Engine — API Reference | — |
 | `docs/ARCHITECTURE.md` | Maz Engine — Architecture | — |
-| `docs/CODEBASE_MEMORY.md` | Codebase Memory (MCP) | nothing links to it |
+| `docs/CODEBASE_MEMORY.md` | Codebase Memory (MCP) | — |
 | `docs/EDITOR_GUIDE.md` | Maz Editor — plain-language getting-started guide | — |
-| `docs/EVALUATION.md` | Maz Engine — Evaluation & Enhancement Backlog | nothing links to it |
+| `docs/EVALUATION.md` | Maz Engine — Evaluation & Enhancement Backlog | — |
 | `docs/FORGE.md` | The Forge | — |
-| `docs/GODOT_GAPS.md` | What Maz Lacks Compared to Godot — an Honest Gap List | nothing links to it |
+| `docs/GODOT_GAPS.md` | What Maz Lacks Compared to Godot — an Honest Gap List | — |
 | `docs/GODOT_GAPS_ROADMAP.md` | Closing the Godot Gaps — the Work Plan (everything except ecosystem) | — |
-| `docs/GODOT_PARITY.md` | Maz vs Godot — complete parity plan | nothing links to it |
+| `docs/GODOT_PARITY.md` | Maz vs Godot — complete parity plan | — |
 | `docs/HARDWARE_HANDOFF.md` | Seeing & hearing it on your PC — the hardware hand-off | — |
 | `docs/MOBILE_BUILD.md` | Building Maz games for mobile (iOS + Android) | — |
 | `docs/PLATFORMS.md` | Platforms & Porting | — |
@@ -348,15 +348,15 @@ not by judging the work. Every failing check below is a specific, finishable job
 | gate | the checker itself is tested | 1/3 (33%) |
 | web-app | declared in shared/exchange.json | 3/6 (50%) |
 | app | runs headless for CI | 123/161 (76%) |
-| doc | reachable from somewhere | 14/18 (78%) |
-| build-tool | says what it does | 10/11 (91%) |
 | app | has a golden screenshot | 156/161 (97%) |
 | engine-module | covered by a test | 686/692 (99%) |
-| engine-module | header has a doc comment | 691/692 (100%) |
 | app | built by CMake | 161/161 (100%) |
 | app | has CMakeLists.txt | 161/161 (100%) |
 | app | header comment says what it shows | 161/161 (100%) |
 | app | exercises a named engine module | 161/161 (100%) |
+| build-tool | says what it does | 11/11 (100%) |
+| doc | reachable from somewhere | 18/18 (100%) |
+| engine-module | header has a doc comment | 692/692 (100%) |
 | gate | wired into a workflow | 3/3 (100%) |
 | py-tool | has a README | 3/3 (100%) |
 | py-tool | has tests | 3/3 (100%) |
@@ -396,13 +396,6 @@ apps without them are only ever proven by someone opening a window. The flag is 
 copied from apps/_template/main.cpp and it converts each app into a test.
 
 <sub>38 affected · effort: medium · value: ★★★ · queued below as the `app:headless` task</sub>
-
-#### 4 docs are not linked from anywhere
-
-A doc that nothing references is invisible to a newcomer and to a future session, however good
-it is. Link each from README.md or a sibling doc, or retire it.
-
-<sub>4 affected · effort: small · value: ★ · queued below as the `doc:linked` task</sub>
 
 ### Already wired together
 
@@ -533,12 +526,10 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
 - **SONG FORGE scores the two silent browser games**
   <br>ZOMBOID: ANCHORAGE and DEAD SECTOR are played in silence today, while SONG FORGE already writes and plays complete genre-tagged songs in the browser with no dependencies. Publish a small playback-only entry point from music/js/engine.js, declare it in shared/exchange.json as music/soundtrack, and have each game start a track that shifts with its state — calm while looting, driving during a horde. SCRIPT FORGE already consumes music/composer this way, so the wiring pattern exists and is tested.
 
-### P2 — coverage gaps (10)
+### P2 — coverage gaps (9)
 
 - **5 apps fail "has a golden screenshot"**
   <br>_template, mobilepack, orbs, sandbox, swarm. Example: Capture a golden frame for _template into tests/golden/_template.png so a rendering regression is caught automatically.
-- **4 docs are not linked from anywhere**
-  <br>A doc that nothing references is invisible to a newcomer and to a future session, however good it is. Link each from README.md or a sibling doc, or retire it. — CODEBASE_MEMORY.md, EVALUATION.md, GODOT_GAPS.md, GODOT_PARITY.md. Example: Nothing links to docs/CODEBASE_MEMORY.md. Link it from README.md, CLAUDE.md or a sibling doc, or delete it.
 - **6 engine modules fail "covered by a test"**
   <br>FlyCamera, Clipboard, Paths, Renderer, DebugOverlay, Font. Example: Add a unit test naming maz::game::FlyCamera under tests/ — nothing in the suite exercises it today.
 - **2 engine modules have neither a test nor a demo**
@@ -555,13 +546,6 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
   <br>DEAD SECTOR neither publishes a capability nor consumes one. Declare in shared/exchange.json what it can lend the other projects — that manifest is how they find each other.
 - **ZOMBOID: ANCHORAGE: declared in shared/exchange.json**
   <br>ZOMBOID: ANCHORAGE neither publishes a capability nor consumes one. Declare in shared/exchange.json what it can lend the other projects — that manifest is how they find each other.
-
-### P3 — polish (2)
-
-- **1 engine module fails "header has a doc comment"**
-  <br>Collision. Example: Give engine/include/maz/game/Collision.hpp a leading doc comment — docs/API.md is generated from it, so an undocumented header is a blank entry in the public API reference.
-- **build_editor.bat: says what it does**
-  <br>Open tools/build_editor.bat with a one-line comment saying what it builds or generates and how it is invoked.
 
 ---
 

@@ -12,15 +12,15 @@
     "docs": 18,
     "totalArtifacts": 894,
     "linesOfApps": 31861,
-    "linesOfEngine": 87753,
+    "linesOfEngine": 87768,
     "linesOfWeb": 17201,
     "appsHeadless": 76,
     "appsGolden": 97,
     "modulesTested": 99,
     "modulesDemoed": 20,
-    "checksPassed": 2498,
+    "checksPassed": 2504,
     "checksTotal": 3110,
-    "openTasks": 19
+    "openTasks": 16
   },
   "queue": [
     {
@@ -714,48 +714,6 @@
       ]
     },
     {
-      "id": "group:doc:linked",
-      "priority": 2,
-      "kind": "doc",
-      "check": "linked",
-      "title": "4 docs are not linked from anywhere",
-      "detail": "A doc that nothing references is invisible to a newcomer and to a future session, however good it is. Link each from README.md or a sibling doc, or retire it. — CODEBASE_MEMORY.md, EVALUATION.md, GODOT_GAPS.md, GODOT_PARITY.md. Example: Nothing links to docs/CODEBASE_MEMORY.md. Link it from README.md, CLAUDE.md or a sibling doc, or delete it.",
-      "paths": [
-        "docs/CODEBASE_MEMORY.md",
-        "docs/EVALUATION.md",
-        "docs/GODOT_GAPS.md",
-        "docs/GODOT_PARITY.md"
-      ],
-      "source": "inventory:doc:linked",
-      "memberCount": 4,
-      "members": [
-        {
-          "id": "doc:CODEBASE_MEMORY.md",
-          "name": "CODEBASE_MEMORY.md",
-          "path": "docs/CODEBASE_MEMORY.md",
-          "fix": "Nothing links to docs/CODEBASE_MEMORY.md. Link it from README.md, CLAUDE.md or a sibling doc, or delete it."
-        },
-        {
-          "id": "doc:EVALUATION.md",
-          "name": "EVALUATION.md",
-          "path": "docs/EVALUATION.md",
-          "fix": "Nothing links to docs/EVALUATION.md. Link it from README.md, CLAUDE.md or a sibling doc, or delete it."
-        },
-        {
-          "id": "doc:GODOT_GAPS.md",
-          "name": "GODOT_GAPS.md",
-          "path": "docs/GODOT_GAPS.md",
-          "fix": "Nothing links to docs/GODOT_GAPS.md. Link it from README.md, CLAUDE.md or a sibling doc, or delete it."
-        },
-        {
-          "id": "doc:GODOT_PARITY.md",
-          "name": "GODOT_PARITY.md",
-          "path": "docs/GODOT_PARITY.md",
-          "fix": "Nothing links to docs/GODOT_PARITY.md. Link it from README.md, CLAUDE.md or a sibling doc, or delete it."
-        }
-      ]
-    },
-    {
       "id": "group:engine-module:tested",
       "priority": 2,
       "kind": "engine-module",
@@ -898,39 +856,6 @@
         "zomboid"
       ],
       "source": "inventory:web:zomboid:exchange"
-    },
-    {
-      "id": "group:engine-module:documented",
-      "priority": 3,
-      "kind": "engine-module",
-      "check": "documented",
-      "title": "1 engine module fails \"header has a doc comment\"",
-      "detail": "Collision. Example: Give engine/include/maz/game/Collision.hpp a leading doc comment — docs/API.md is generated from it, so an undocumented header is a blank entry in the public API reference.",
-      "paths": [
-        "engine/include/maz/game/Collision.hpp"
-      ],
-      "source": "inventory:engine-module:documented",
-      "memberCount": 1,
-      "members": [
-        {
-          "id": "engine:game/Collision",
-          "name": "Collision",
-          "path": "engine/include/maz/game/Collision.hpp",
-          "fix": "Give engine/include/maz/game/Collision.hpp a leading doc comment — docs/API.md is generated from it, so an undocumented header is a blank entry in the public API reference."
-        }
-      ]
-    },
-    {
-      "id": "tool:build_editor.bat#documented",
-      "priority": 3,
-      "kind": "build-tool",
-      "check": "documented",
-      "title": "build_editor.bat: says what it does",
-      "detail": "Open tools/build_editor.bat with a one-line comment saying what it builds or generates and how it is invoked.",
-      "paths": [
-        "tools/build_editor.bat"
-      ],
-      "source": "inventory:tool:build_editor.bat:documented"
     }
   ],
   "pairings": [
