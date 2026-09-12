@@ -2022,6 +2022,86 @@ test('the vowels follow the words in order', () => {
   eq(v[1], 'i', 'the second vowel of "oh ee" should be i, got ' + v[1]);
 });
 
+/* ------------------------------------------------------------------------
+ * THE REEL AS A FILE
+ *
+ * The reel has been plain, browser-free data since the first sub-project so
+ * that something other than a browser could draw it. These check that it
+ * actually survives the trip out: a native renderer reading this JSON has to
+ * cut the film at exactly the moments the browser does, or the two renderers
+ * are drawing different films.
+ * ---------------------------------------------------------------------- */
+
+test('the exported reel is valid JSON carrying the whole film', () => {
+  const text = Reel.toJson(reel);
+  const doc = JSON.parse(text);
+  eq(doc.format, 'maz-film-reel', 'the document should name its format');
+  eq(doc.version, 1, 'the document should carry a version');
+  eq(doc.title, reel.title, 'the title should survive');
+  eq(doc.seed, reel.seed, 'the seed should survive — it is what makes the film repeatable');
+  eq(doc.genre, reel.genre, 'the genre should survive');
+  eq(doc.shots.length, reel.shots.length, 'every shot should survive');
+  eq(Math.abs(doc.duration - reel.duration) < 1e-9, true, 'the duration should survive');
+});
+
+test('every shot boundary survives the export exactly', () => {
+  const doc = JSON.parse(Reel.toJson(reel));
+  reel.shots.forEach((shot, i) => {
+    const out = doc.shots[i];
+    eq(out.start, shot.start, 'shot ' + i + ' should start at ' + shot.start);
+    eq(out.duration, shot.duration, 'shot ' + i + ' should run ' + shot.duration);
+    eq(out.kind, shot.kind, 'shot ' + i + ' should keep its kind');
+    eq(out.set, shot.set, 'shot ' + i + ' should keep its set');
+    eq(out.framing, shot.framing, 'shot ' + i + ' should keep its framing');
+    eq(out.camera, shot.camera, 'shot ' + i + ' should keep its camera move');
+    eq(out.time, shot.time, 'shot ' + i + ' should keep its hour');
+  });
+});
+
+test('the exported reel carries who is on screen and who is speaking', () => {
+  const doc = JSON.parse(Reel.toJson(reel));
+  const spoken = doc.shots.filter((s) => s.kind === 'line');
+  eq(spoken.length > 0, true, 'a film should have spoken shots to export');
+  spoken.forEach((s) => {
+    eq(typeof s.speaker === 'string' && s.speaker.length > 0, true,
+      'a spoken shot should name its speaker');
+    eq(doc.voices[s.speaker] !== undefined, true,
+      'the speaker ' + s.speaker + ' should have a voice in the export');
+    eq(Array.isArray(s.characters), true, 'a shot should list who is in frame');
+  });
+});
+
+test('every exported voice carries what a renderer needs to draw and sound it', () => {
+  const doc = JSON.parse(Reel.toJson(reel));
+  const names = Object.keys(doc.voices);
+  eq(names.length > 0, true, 'a film should export at least one voice');
+  names.forEach((n) => {
+    const v = doc.voices[n];
+    eq(typeof v.pitch, 'number', n + ' should export a pitch');
+    eq(typeof v.hue, 'number', n + ' should export a hue');
+    eq(v.side === -1 || v.side === 1, true, n + ' should export which side they stand on');
+  });
+});
+
+test('a reel with no captions still exports as valid JSON', () => {
+  // Captions carry the user's own words, which can be anything at all —
+  // quotes, backslashes, newlines. The export must not be breakable by them.
+  const awkward = Reel.build(Writer.write(Parse.parse('a "quote" and a \\ backslash'), { seed: 3 }));
+  const doc = JSON.parse(Reel.toJson(awkward));
+  eq(doc.shots.length, awkward.shots.length, 'an awkward title should still export every shot');
+});
+
+test('the exported shots run back to back with no gap and no overlap', () => {
+  const doc = JSON.parse(Reel.toJson(reel));
+  let at = 0;
+  doc.shots.forEach((s, i) => {
+    eq(Math.abs(s.start - at) < 1e-9, true,
+      'shot ' + i + ' should start where the last one ended (' + at + '), not ' + s.start);
+    at += s.duration;
+  });
+  eq(Math.abs(at - doc.duration) < 1e-9, true, 'the shots should add up to the whole film');
+});
+
 console.log('');
 if (failures.length) {
   console.error('✖ ' + failures.length + ' failing test(s):');

@@ -34,7 +34,7 @@
    'chipSeed', 'tabScript', 'tabShots', 'tabFilm', 'viewScript', 'viewShots', 'viewFilm',
    'copy', 'dlFountain', 'dlFdx', 'dlText', 'dlShots', 'print', 'save', 'status',
    'libraryList', 'libCount', 'libEmpty', 'clearLib', 'filmCanvas', 'bigPlay', 'playFilm',
-   'stopFilm', 'recordFilm', 'filmSize', 'speakAloud', 'scrubBar', 'scrubFill', 'filmClock',
+   'stopFilm', 'recordFilm', 'dlReel', 'filmSize', 'speakAloud', 'scrubBar', 'scrubFill', 'filmClock',
    'filmNote'].forEach(function (id) {
     el[id] = document.getElementById(id);
   });
@@ -637,6 +637,15 @@
     else stopFilm();
   });
   el.recordFilm.addEventListener('click', recordFilm);
+  /* The reel is the film as plain data: every shot, when it starts, how long it
+   * holds, which set, which framing, who is in it and what they say. It is what
+   * the picture is drawn *from*, so anything that can read it can draw the film
+   * — the Maz engine included, which is the point of keeping it browser-free. */
+  el.dlReel.addEventListener('click', function () {
+    if (!reel) return;
+    download(Format.slugify(current.title) + '.reel.json', Reel.toJson(reel), 'application/json');
+    say('Saved the reel — ' + reel.shots.length + ' shots, ' + Reel.clock(reel.duration) + ' of film.');
+  });
 
   el.scrubBar.addEventListener('click', function (e) {
     var box = el.scrubBar.getBoundingClientRect();

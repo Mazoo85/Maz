@@ -296,7 +296,72 @@
     return reel.shots[reel.shots.length - 1];
   }
 
-  var API = { build: build, setFor: setFor, clock: clock, shotAt: shotAt, SET_BY_PLACE: SET_BY_PLACE, MOOD: MOOD };
+  /* ------------------------------------------------------------- the file
+   * The reel has been kept free of the DOM from the start so that something
+   * other than a browser could draw it. This is how it leaves: an explicit,
+   * versioned document rather than a dump of whatever the builder happened to
+   * put on the object, because a native renderer reading this needs a contract
+   * that does not quietly change when the builder gains a field.
+   *
+   * Every field a renderer needs to place a shot in time, pick its set, light
+   * it, frame it, and know who is in it and who is talking. Nothing else.
+   */
+  var REEL_FORMAT = 'maz-film-reel';
+  var REEL_VERSION = 1;
+
+  function exportShot(shot) {
+    return {
+      index: shot.index,
+      start: shot.start,
+      duration: shot.duration,
+      kind: shot.kind,
+      set: shot.set,
+      time: shot.time,
+      framing: shot.framing,
+      camera: shot.camera,
+      caption: shot.caption == null ? '' : String(shot.caption),
+      subcaption: shot.subcaption == null ? '' : String(shot.subcaption),
+      parenthetical: shot.parenthetical == null ? '' : String(shot.parenthetical),
+      speaker: shot.speaker == null ? '' : String(shot.speaker),
+      side: shot.side == null ? 0 : shot.side,
+      characters: (shot.characters || []).slice(),
+      mood: shot.mood,
+      scene: shot.scene,
+      beat: shot.beat
+    };
+  }
+
+  function toDocument(reel) {
+    var voices = {};
+    Object.keys(reel.voices).forEach(function (name) {
+      var v = reel.voices[name];
+      voices[name] = { name: v.name, pitch: v.pitch, rate: v.rate, hue: v.hue, side: v.side };
+    });
+    return {
+      format: REEL_FORMAT,
+      version: REEL_VERSION,
+      title: reel.title,
+      genre: reel.genre,
+      genreLabel: reel.genreLabel,
+      seed: reel.seed,
+      duration: reel.duration,
+      object: reel.object,
+      characters: reel.characters.map(function (c) {
+        return { name: c.name, role: c.role, part: c.part };
+      }),
+      voices: voices,
+      shots: reel.shots.map(exportShot)
+    };
+  }
+
+  /* JSON.stringify escapes quotes, backslashes and control characters itself,
+   * so a caption carrying the user's own punctuation cannot break the file. */
+  function toJson(reel, indent) {
+    return JSON.stringify(toDocument(reel), null, indent === undefined ? 2 : indent);
+  }
+
+  var API = { build: build, setFor: setFor, clock: clock, shotAt: shotAt, SET_BY_PLACE: SET_BY_PLACE, MOOD: MOOD,
+    toJson: toJson, toDocument: toDocument, REEL_FORMAT: REEL_FORMAT, REEL_VERSION: REEL_VERSION };
   if (typeof module === 'object' && module.exports) module.exports = API;
   root.FilmReel = API;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
