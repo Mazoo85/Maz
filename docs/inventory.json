@@ -632,14 +632,14 @@
       "source": "inventory:opportunity:browser-projects-with-no-tests"
     },
     {
-      "id": "opportunity:helpers-written-out-in-every-project",
+      "id": "opportunity:helpers-copied-between-projects",
       "priority": 1,
       "kind": "opportunity",
       "check": "",
-      "title": "9 helpers are hand-written in three or more browser projects",
-      "detail": "Each of `download`, `generate`, `pick`, `clamp`, `draw`, `lerp`, `noise`, `render` and others exists separately in several projects. A single shared/maz-util.js, declared in shared/exchange.json and covered by one test, replaces every copy and means a fix to the seeded RNG or the clamp lands everywhere at once.",
+      "title": "4 helpers are written out identically in more than one browser project",
+      "detail": "`clamp(v, a, b)` in coda-pics and zomboid, `escapeHtml(s)` in coda-pics and music, `lerp(a, b, t)` in coda-pics and zomboid, `pick(list, rng)` in coda-pics and film. These are the same code in more than one place, so one shared/maz-util.js — declared in shared/exchange.json, covered by one test, loaded by each page — replaces every copy and means a fix lands everywhere at once. Start with these: they are proven identical, so moving them cannot change behaviour.",
       "paths": [],
-      "source": "inventory:opportunity:helpers-written-out-in-every-project"
+      "source": "inventory:opportunity:helpers-copied-between-projects"
     },
     {
       "id": "pairing:codapics-paints-for-the-others",

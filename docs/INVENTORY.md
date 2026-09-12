@@ -405,14 +405,15 @@ away from silent breakage.
 
 <sub>3 affected · effort: medium · value: ★★★ · queued below as the `web-app:tests` task</sub>
 
-#### 9 helpers are hand-written in three or more browser projects
+#### 4 helpers are written out identically in more than one browser project
 
-Each of `download`, `generate`, `pick`, `clamp`, `draw`, `lerp`, `noise`, `render` and others
-exists separately in several projects. A single shared/maz-util.js, declared in
-shared/exchange.json and covered by one test, replaces every copy and means a fix to the seeded
-RNG or the clamp lands everywhere at once.
+`clamp(v, a, b)` in coda-pics and zomboid, `escapeHtml(s)` in coda-pics and music, `lerp(a, b,
+t)` in coda-pics and zomboid, `pick(list, rng)` in coda-pics and film. These are the same code
+in more than one place, so one shared/maz-util.js — declared in shared/exchange.json, covered by
+one test, loaded by each page — replaces every copy and means a fix lands everywhere at once.
+Start with these: they are proven identical, so moving them cannot change behaviour.
 
-<sub>9 affected · effort: small · value: ★★★</sub>
+<sub>4 affected · effort: small · value: ★★★</sub>
 
 #### 4 docs are not linked from anywhere
 
@@ -545,8 +546,8 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
   <br>These are finished, working features that nobody can see. Each one is a small app away from being discoverable, and apps/ is how this engine documents itself. Grouping several related modules into one demo is usually better than one app each. — AdditiveBlend, BlendSpace, CubicBezierEasing, RootMotion, SpringBone, Transition, TriggerTrack, Dsp, EnvelopeFollower, G711, Goertzel, ImaAdpcm, and 540 more. Example: No app under apps/ demonstrates maz::anim::AdditiveBlend. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.
 - **3 browser projects have no tests at all**
   <br>film/tests/film-logic.test.js is the pattern: plain `node` over the project's pure logic, no dependencies, seconds to run, already wired into CI. Every project that lacks it is one refactor away from silent breakage.
-- **9 helpers are hand-written in three or more browser projects**
-  <br>Each of `download`, `generate`, `pick`, `clamp`, `draw`, `lerp`, `noise`, `render` and others exists separately in several projects. A single shared/maz-util.js, declared in shared/exchange.json and covered by one test, replaces every copy and means a fix to the seeded RNG or the clamp lands everywhere at once.
+- **4 helpers are written out identically in more than one browser project**
+  <br>`clamp(v, a, b)` in coda-pics and zomboid, `escapeHtml(s)` in coda-pics and music, `lerp(a, b, t)` in coda-pics and zomboid, `pick(list, rng)` in coda-pics and film. These are the same code in more than one place, so one shared/maz-util.js — declared in shared/exchange.json, covered by one test, loaded by each page — replaces every copy and means a fix lands everywhere at once. Start with these: they are proven identical, so moving them cannot change behaviour.
 - **CODA PICS paints backdrops for SCRIPT FORGE and illustrates MADLIBS**
   <br>CODA PICS turns a sentence into a finished picture in canvas 2D, offline. SCRIPT FORGE builds its sets from primitives and MADLIBS returns pure text. Publishing coda-pics/js as coda-pics/painter would let SCRIPT FORGE paint a title card and a establishing backdrop per location straight from its own scene description, and let MADLIBS show each story idea rather than only describing it.
 - **SONG FORGE supplies the one music layer the engine does not have**

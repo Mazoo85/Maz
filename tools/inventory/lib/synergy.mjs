@@ -233,20 +233,25 @@ export function computeOpportunities(model) {
     });
   }
 
-  const bigDupes = dupes.filter((d) => d.projects.length >= 3);
-  if (bigDupes.length) {
+  // Every entry here is the same normalised code in two or more projects, not
+  // merely the same name — six projects declare a `noise` and no two of them
+  // mean the same thing by it, so name-matching alone would send someone to
+  // merge functions that have nothing in common.
+  if (dupes.length) {
     out.push({
-      id: 'helpers-written-out-in-every-project',
+      id: 'helpers-copied-between-projects',
       kind: 'computed',
-      title: counted(bigDupes.length,
-        'One helper is hand-written in three or more browser projects',
-        '{n} helpers are hand-written in three or more browser projects'),
+      title: counted(dupes.length,
+        'One helper is written out identically in two browser projects',
+        '{n} helpers are written out identically in more than one browser project'),
       detail:
-        `Each of ${bigDupes.slice(0, 8).map((d) => '`' + d.name + '`').join(', ')}` +
-        `${bigDupes.length > 8 ? ' and others' : ''} exists separately in several projects. A single ` +
-        'shared/maz-util.js, declared in shared/exchange.json and covered by one test, replaces every ' +
-        'copy and means a fix to the seeded RNG or the clamp lands everywhere at once.',
-      subjects: bigDupes.map((d) => `helper:${d.name}`),
+        `${dupes.map((d) => '`' + d.name + '(' + d.params + ')`' +
+          ' in ' + d.projects.join(' and ')).join(', ')}. ` +
+        'These are the same code in more than one place, so one shared/maz-util.js — declared in ' +
+        'shared/exchange.json, covered by one test, loaded by each page — replaces every copy and ' +
+        'means a fix lands everywhere at once. Start with these: they are proven identical, so ' +
+        'moving them cannot change behaviour.',
+      subjects: dupes.map((d) => `helper:${d.name}`),
       effort: 'small',
       value: 3
     });

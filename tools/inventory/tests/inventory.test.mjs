@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 import assert from 'node:assert';
 
 import { parseHeaderComment, extractDocComment } from '../lib/scan-cpp.mjs';
-import { declaredFunctions, duplicateHelpers } from '../lib/scan-web.mjs';
+import { declaredFunctions, extractFunctions, duplicateHelpers } from '../lib/scan-web.mjs';
 import { validatePairings } from '../lib/synergy.mjs';
 import { buildModel } from '../lib/model.mjs';
 
@@ -160,13 +160,37 @@ await test('declaredFunctions sees both function and arrow declarations', () => 
   assert.deepStrictEqual([...fns].sort(), ['a', 'b', 'c']);
 });
 
-await test('duplicateHelpers names only helpers that appear in more than one project', () => {
+await test('extractFunctions returns each function with its body', () => {
+  const fns = extractFunctions('function add(a, b) { return a + b; }\nfunction wrap() { if (1) { return 2; } }\n');
+  assert.deepStrictEqual(fns.map((f) => f.name), ['add', 'wrap']);
+  assert.strictEqual(fns[0].body, 'return $0 + $1;'.replace('$0', 'a').replace('$1', 'b'));
+  // Nested braces must not end the body early.
+  assert.ok(fns[1].body.includes('return 2;'), fns[1].body);
+});
+
+await test('duplicateHelpers reports the same code in two projects', () => {
+  const clamp = 'function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }';
+  const clampRenamed = 'function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }';
   const dupes = duplicateHelpers([
-    { slug: 'alpha', functions: ['clamp', 'onlyAlpha'] },
-    { slug: 'beta', functions: ['clamp', 'onlyBeta'] }
+    { slug: 'alpha', definitions: extractFunctions(clamp).map((f) => ({ ...f, file: 'a.js' })) },
+    { slug: 'beta', definitions: extractFunctions(clampRenamed).map((f) => ({ ...f, file: 'b.js' })) }
   ]);
-  assert.deepStrictEqual(dupes.map((d) => d.name), ['clamp']);
+  assert.deepStrictEqual(dupes.map((d) => d.name), ['clamp'],
+    'the same function with different parameter names is still the same function');
   assert.deepStrictEqual(dupes[0].projects, ['alpha', 'beta']);
+});
+
+await test('duplicateHelpers does NOT report two different functions that share a name', () => {
+  // The bug this guards: `noise` generates text variation in SCRIPT FORGE and a
+  // burst of audio static in ZOMBOID. Matching on the name alone reported them
+  // as duplicated code and would have sent someone to merge them.
+  const textNoise = 'function noise(key, count) { return key.repeat(count); }';
+  const audioNoise = 'function noise(dur, gain) { return new AudioBuffer(dur * gain); }';
+  const dupes = duplicateHelpers([
+    { slug: 'film', definitions: extractFunctions(textNoise).map((f) => ({ ...f, file: 'a.js' })) },
+    { slug: 'zomboid', definitions: extractFunctions(audioNoise).map((f) => ({ ...f, file: 'b.js' })) }
+  ]);
+  assert.deepStrictEqual(dupes, []);
 });
 
 await test('validatePairings flags a pairing that names an artifact which does not exist', () => {
