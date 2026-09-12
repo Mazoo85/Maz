@@ -28,6 +28,7 @@ var SHELL = [
   'js/paint.js',
   'js/finish.js',
   'js/app.js',
+  'js/render-worker.js',
   'manifest.webmanifest',
   'icons/icon-192.png',
   'icons/icon-512.png',

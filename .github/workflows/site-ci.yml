@@ -73,6 +73,12 @@ jobs:
         run: node names/tests/names-browser.test.js
       - name: CODA PICS end to end (paint, restyle, keep, save)
         run: node coda-pics/tests/coda-browser.test.js
+      # Proves the pictures have not silently changed. A prompt and a seed are
+      # promised to give one picture forever — the gallery and every shared
+      # link rest on it — so a change here is a failure until it is re-recorded
+      # on purpose.
+      - name: CODA PICS pictures are unchanged
+        run: node coda-pics/tests/visual.test.js
       # A game can pass every unit test and still throw on frame two, so this
       # plays one: a real run, every biome, every screen, and a death.
       - name: NEON CELLS end to end (a real run)

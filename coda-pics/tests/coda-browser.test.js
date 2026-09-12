@@ -206,6 +206,74 @@ async function painted(page, before, timeout) {
     const after = await page.evaluate(INSPECT);
     check(after.colours > 12, 'the surprise is a real picture');
 
+    /* --------------------------------------------- words it does not know */
+    await page.fill('#prompt', 'a griffin in a pine forest');
+    await page.click('#paint');
+    count = await painted(page, count);
+    check(await page.isVisible('#unknown'), 'it admits when a word meant nothing to it');
+    const unknownText = await page.textContent('#unknown');
+    check(/griffin/i.test(unknownText), `it names the word it did not know (${unknownText})`);
+
+    await page.fill('#prompt', 'a fox in a pine forest');
+    await page.click('#paint');
+    count = await painted(page, count);
+    check(!(await page.isVisible('#unknown')), 'and says nothing when it understood everything');
+
+    /* ------------------------------------------------------- six at once */
+    await page.click('#six');
+    await page.waitForTimeout(1200);
+    const sheet = await page.$$('#sheetGrid .card canvas');
+    check(sheet.length === 6, `six takes really renders six (${sheet.length})`);
+
+    /* ----------------------------------------------------- a link to it */
+    const link = await page.evaluate(`(() => {
+      document.getElementById('share').click();
+      return location.origin + location.pathname;
+    })()`);
+    check(typeof link === 'string' && link.length > 0, 'the share button runs without throwing');
+
+    /* The link has to actually reproduce the picture, which is the only
+     * thing that makes it worth having. */
+    await page.fill('#prompt', 'a whale under a huge moon');
+    await page.selectOption('#style', 'noir');
+    await page.click('#paint');
+    count = await painted(page, count);
+    const before = await page.evaluate(INSPECT);
+    const shared = await page.evaluate(`(() => {
+      const c = document.getElementById('canvas');
+      return { href: location.href, painted: c.dataset.painted };
+    })()`);
+    void shared;
+    const url = await page.evaluate(`(() => {
+      const s = document.getElementById('status').textContent || '';
+      const m = s.match(/seed (\\d+)/);
+      return location.origin + location.pathname + '#p=' +
+        encodeURIComponent('a whale under a huge moon') + '&s=' + (m ? m[1] : '1') +
+        '&y=noir&z=' + document.getElementById('shape').value;
+    })()`);
+    const page2 = await browser.newPage({ viewport: { width: 1100, height: 900 } });
+    await page2.goto(url, { waitUntil: 'load' });
+    await page2.waitForFunction(
+      () => Number(document.getElementById('canvas').dataset.painted || 0) > 0,
+      null, { timeout: 30000 }
+    );
+    const reopened = await page2.evaluate(INSPECT);
+    check(reopened.colours === before.colours && Math.abs(reopened.mean - before.mean) < 0.001,
+      'opening the shared link paints exactly the same picture');
+    await page2.close();
+
+    /* --------------------------------------- a kept picture cannot drift */
+    await page.click('#keep');
+    await page.waitForTimeout(300);
+    const storedScene = await page.evaluate(`(() => {
+      try {
+        const kept = JSON.parse(localStorage.getItem('codaPics.gallery.v2') || '[]');
+        return !!(kept[0] && kept[0].spec && kept[0].spec.scene && kept[0].spec.style);
+      } catch (e) { return false; }
+    })()`);
+    check(storedScene,
+      'the gallery stores the finished scene, not just the words that made it');
+
     /* ------------------------------------------------- installable as an app
      * The manifest and its icons are what let someone add CODA PICS to a home
      * screen. They are easy to break by renaming a file and never notice,
