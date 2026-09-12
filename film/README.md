@@ -249,8 +249,55 @@ keeps the genre-and-hour palette and the film-stock grain and gate flicker;
 `js/film-sets.js` draws the fifteen sets, each in its own back/mid/fore planes;
 `js/film-figures.js` draws the characters as jointed figures and the insert
 objects; `js/film-weather.js` picks and draws the air over everything else.
+
+**How a character moves.** Ten joints, and four things acting on them every
+frame. They **look at** whoever else is in the scene — the head turns, the torso
+follows about a third as far, because people lead with the head; before this a
+two-shot was two people facing the camera, which is why it read as two portraits
+rather than a conversation. They are **never quite still**: the chest rises,
+weight rocks between the legs in opposition, the head settles after the weight
+does, all on slow cycles seeded per figure so two people are not a chorus line.
+At a cut they **ease** into the new pose over a third of a second instead of
+snapping to it. And on the **push** beat — the beat about momentum — they
+actually **walk** across part of the frame, one knee folding only on the swing
+leg so the stance leg keeps them on the floor.
+
+Everything here is a function of the shot clock and a seed, never
+`Math.random()`: two recordings of one film have to match frame for frame.
+
+**How the light works on them.** The set already knew where its light was and
+that it *moves* — a lighthouse beam sweeps, headlights pass — but the figures
+could not see it. Now the rim light offsets toward wherever the light actually
+is instead of always up-and-left, and the contact shadow falls away from it and
+stretches as it lowers. A character lit by the lamp is rimmed on the lamp's
+side, and the rim swings as the beam does.
+
+**Characters have no faces**, and that is a decision rather than an omission.
+Eyes and a mouth were built twice and dropped both times: the working version
+only appeared in close framings, so a face would blink in and out between cuts,
+and side by side the plain silhouette is the better image. `git log` has both
+attempts if you disagree.
 **The score** (`js/film-audio.js`) plays them — the composed music on one bus,
-the cut hits, the pulse and the character voices on another. **The camera**
+the cut hits, the pulse and the character voices on another.
+
+**Characters speak in vowels.** Every syllable used to be the same blip shaped
+by an arbitrary letter, so two different lines came out sounding identical. Each
+syllable now takes the vowel that is actually in the word and shapes a buzz at
+the character's pitch with the two resonances that tell one vowel from another —
+so "Say it" and "I can't" no longer sound the same, while a low voice and a high
+one saying the same vowel still sound like the same vowel.
+
+It is worth being plain about the ceiling: this is **a voice with character, not
+an actor reading lines**. You hear somebody speaking, not words you could
+transcribe. Real speech needs either audio files shipped with the app or a cloud
+service, and both would break the offline, self-contained thing the whole arcade
+is built on.
+
+There is a related trap the tests now guard. The browser has its own
+text-to-speech that would say real words for almost no effort — but it does not
+run through the audio engine the recorder listens to, so the dialogue would be
+audible while you preview and **silent in every film you downloaded**. A check
+renders a real line offline and measures that the sound actually arrives. **The camera**
 (`js/film-player.js`) puts the two together, frame by frame, and records them.
 **The file fixer** (`js/film-webm.js`) writes the duration into the finished
 video, which is the one thing the browser's recorder leaves out.

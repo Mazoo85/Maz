@@ -162,43 +162,76 @@
   /* ------------------------------------------------------------- voices
    * One blip per syllable-ish, at the character's own pitch, riding a little
    * up and down so a line has shape instead of being a flat beep. */
+  /* Vowels, as the two resonances that distinguish them.
+   *
+   * A voice is a buzz at the speaker's pitch, filtered by the shape of the
+   * mouth making it. Those two peaks — the first and second formants — are most
+   * of what tells one vowel from another, and they sit at roughly the same
+   * frequencies whatever the speaker's pitch, which is why a low voice and a
+   * high one saying "ee" both sound like "ee".
+   *
+   * Approximate mid-range adult values in Hz. Precision is not the point: the
+   * point is that "I can't" and "Say it" stop coming out identical.
+   */
+  var FORMANTS = {
+    a: [730, 1090],   // father
+    e: [530, 1840],   // bed
+    i: [270, 2290],   // see
+    o: [570, 840],    // law
+    u: [300, 870]     // boot
+  };
+
   Score.prototype.speak = function (text, voice, seconds) {
     if (!voice) return;
-    var clean = PARSE.cleanSpeech(text);
     var syllables = PARSE.syllablesFor(text);
+    var vowels = PARSE.vowelsFor(text, syllables);
     var span = Math.max(0.4, (seconds || 2) * 0.78);
     var gap = span / syllables;
     var now = this.ctx.currentTime;
 
     for (var i = 0; i < syllables; i++) {
-      this.blip(now + i * gap, voice, i / syllables, clean.charCodeAt(i % clean.length) || 65);
+      this.blip(now + i * gap, voice, i / syllables, vowels[i]);
     }
   };
 
-  Score.prototype.blip = function (when, voice, through, charCode) {
+  Score.prototype.blip = function (when, voice, through, vowel) {
     var ctx = this.ctx;
+    var pair = FORMANTS[vowel] || FORMANTS.a;
     var osc = ctx.createOscillator();
     var gain = ctx.createGain();
-    var filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.value = voice.pitch * 3.2;
-    filter.Q.value = 1.6;
+
+    // Two resonances in parallel over one buzz — the mouth shape, not a single
+    // fixed bandpass. The second is quieter, as it is in a real voice.
+    var f1 = ctx.createBiquadFilter();
+    f1.type = 'bandpass';
+    f1.frequency.value = pair[0];
+    f1.Q.value = 6;
+    var f2 = ctx.createBiquadFilter();
+    f2.type = 'bandpass';
+    f2.frequency.value = pair[1];
+    f2.Q.value = 9;
+    var g2 = ctx.createGain();
+    g2.gain.value = 0.55;
 
     // A statement falls at the end; a question rises. Cheap, and it works.
     var contour = 1 + Math.sin(through * Math.PI) * 0.10 - through * 0.06;
-    var jitter = ((charCode % 7) - 3) * 0.012;
-    osc.type = 'square';
-    osc.frequency.value = voice.pitch * contour * (1 + jitter);
+    // A sawtooth has the harmonics the formants need something to bite on; a
+    // square is hollow between them and the vowel does not come through.
+    osc.type = 'sawtooth';
+    osc.frequency.value = voice.pitch * contour;
 
     gain.gain.setValueAtTime(0.0001, when);
-    gain.gain.exponentialRampToValueAtTime(0.16, when + 0.012);
-    gain.gain.exponentialRampToValueAtTime(0.0001, when + 0.085);
+    gain.gain.exponentialRampToValueAtTime(0.20, when + 0.018);
+    gain.gain.exponentialRampToValueAtTime(0.0001, when + 0.105);
 
-    osc.connect(filter);
-    filter.connect(gain);
+    osc.connect(f1);
+    osc.connect(f2);
+    f2.connect(g2);
+    f1.connect(gain);
+    g2.connect(gain);
     gain.connect(this.effectsBus);
     osc.start(when);
-    osc.stop(when + 0.12);
+    osc.stop(when + 0.14);
     this.blipTimers.push(osc);
   };
 
@@ -343,7 +376,7 @@
     this.speakers.gain.value = muted ? 0 : 1;
   };
 
-  var API = { Score: Score, MUSIC: MUSIC, supported: supported };
+  var API = { Score: Score, MUSIC: MUSIC, supported: supported, FORMANTS: FORMANTS };
   if (typeof module === 'object' && module.exports) module.exports = API;
   root.FilmScore = API;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

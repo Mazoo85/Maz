@@ -339,6 +339,15 @@
    * the lift never touches anything outside the fore element means
    * comparing a frame against itself with only the lift switched off,
    * everything else about the call identical. */
+  /* How long a figure takes to settle into the pose a new shot puts them in.
+   * Short enough to read as a person moving, long enough not to be a snap. */
+  var POSE_EASE = 0.32;
+
+  /* A walk: strides per second, and how far across the frame it carries them.
+   * Travel is in the same world units drawFrame lays its figures out in. */
+  var WALK_RATE = 0.85;
+  var WALK_TRAVEL = 190;
+
   function drawFrame(ctx, width, height, reel, time, opts) {
     var shot = Reel.shotAt(reel, time);
     var elapsed = time - shot.start;
@@ -414,6 +423,12 @@
       plane(Sets.PARALLAX.mid, function () { set.mid(ctx, pal, grain); });
 
       var spots = figureLayout(shot);
+      // Where the light is, this instant. A lighthouse sweep and a passing car
+      // move it; a kitchen bulb does not. Computed once here rather than at the
+      // light-leak wash below, because the figures have to be lit by the same
+      // source that lights the room — that is the whole point.
+      var light = Sets.lightAt(Sets.LIGHT[shot.set] || 'none', time, shot.mood);
+
       function paintFigures(wantForeground) {
         spots.forEach(function (spot) {
           if (!!spot.foreground !== wantForeground) return;
@@ -424,6 +439,55 @@
           var shotKey = (reel.seed + Math.round(shot.start * 100)) >>> 0;
           var poseName = Figures.poseFor(shot.beat, shot.mood, speaking, shotKey);
           var pose = Figures.POSES[poseName];
+
+          // Ease in from the pose the previous shot left them in, rather than
+          // snapping at the cut. Derived from the reel, not remembered between
+          // frames: drawFrame has to stay a pure function of (reel, time) or
+          // seeking and recording would disagree with playback.
+          var prev = Reel.shotAt(reel, Math.max(0, shot.start - 0.001));
+          if (prev && prev !== shot) {
+            var into = time - shot.start;
+            if (into < POSE_EASE) {
+              var prevKey = (reel.seed + Math.round(prev.start * 100)) >>> 0;
+              var prevSpeaking = prev.kind === 'line' && spot.name === prev.speaker;
+              var prevPose = Figures.POSES[
+                Figures.poseFor(prev.beat, prev.mood, prevSpeaking, prevKey)];
+              pose = Figures.blendPoses(prevPose, pose, into / POSE_EASE);
+            }
+          }
+
+          // Look at whoever else is in the scene. Two figures used to face
+          // straight out of the screen no matter where the other one stood,
+          // which is what made a two-shot read as two portraits rather than a
+          // conversation. The speaker turns further than the listener; someone
+          // alone in the frame has nobody to turn to and stays as posed.
+          var other = null;
+          for (var s = 0; s < spots.length; s++) {
+            if (spots[s] !== spot) { other = spots[s]; break; }
+          }
+          if (other) pose = Figures.gazeAt(pose, spot.x, other.x, speaking ? 1 : 0.55);
+
+          // ...and is never perfectly still while doing it. Seeded off the
+          // figure's own x so two people in a two-shot are not a chorus line.
+          pose = Figures.aliveAt(pose, time, Math.round(spot.x));
+
+          // The push beat is the one about momentum, so on it a character
+          // actually crosses part of the frame rather than standing in it.
+          // Walking overrides the breath on the legs, which is why it comes
+          // after: you do not idly shift your weight while striding.
+          var driftX = 0;
+          if (shot.beat === 'push' && !spot.foreground) {
+            var walkInto = Math.max(0, time - shot.start);
+            // Walk from the walking pose, not from whatever the beat picked.
+            // The push beat's usual pose is 'reach', whose arm is 1.7 radians —
+            // straight out — and a stride on top of that is a zombie, which is
+            // exactly what the first render of this looked like.
+            pose = Figures.walkAt(Figures.aliveAt(Figures.POSES.walk, time, Math.round(spot.x)),
+                                  (walkInto * WALK_RATE) % 1);
+            if (other) pose = Figures.gazeAt(pose, spot.x, other.x, 0.35);
+            var across = Math.min(1, walkInto / Math.max(0.6, shot.duration));
+            driftX = (across - 0.5) * WALK_TRAVEL * (spot.x < 0.5 ? 1 : -1);
+          }
 
           // A speaking figure's head and hand move in time with their own voice
           // — the score fires a blip on this same clock, so the two must agree.
@@ -436,9 +500,9 @@
           }
 
           Figures.drawFigure(ctx, pal, {
-            x: spot.x, groundY: spot.ground, height: spot.height,
+            x: spot.x + driftX, groundY: spot.ground, height: spot.height,
             tint: voice.hue, speaking: speaking, wobble: wobble,
-            pose: pose
+            pose: pose, lightX: light.offset
           });
         });
       }
@@ -497,7 +561,6 @@
     // alpha and its offset into where the wash is centred, rather than
     // getting its own draw call — that keeps it out of the weather's and
     // the vignette's way, both of which are drawn in this same screen space.
-    var light = Sets.lightAt(Sets.LIGHT[shot.set] || 'none', time, shot.mood);
     var leakX = light.offset * frameW * 0.3;
     var leak = ctx.createLinearGradient(leakX, frameY, leakX + frameW * 0.7, frameY + frameH);
     leak.addColorStop(0, Art.rgb(pal.key, (0.10 + pal.tension * 0.05) * light.brightness));

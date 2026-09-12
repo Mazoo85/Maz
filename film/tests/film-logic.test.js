@@ -1727,6 +1727,301 @@ test('an interior scene keeps the interior line', () => {
   assert(found, 'no interior scene used an interior line — the swap is firing everywhere');
 });
 
+console.log('\nWHERE A CHARACTER IS LOOKING');
+
+/* Two figures in a scene used to stare straight ahead regardless of each other,
+ * which is why a two-shot read as two portraits rather than a conversation.
+ * gazeAt turns the head, and the torso less, toward the other figure. */
+
+function gazeWithinLimits(pose, where) {
+  Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+    const lo = Figures.POSE_LIMITS[joint][0];
+    const hi = Figures.POSE_LIMITS[joint][1];
+    assert(pose[joint] >= lo && pose[joint] <= hi,
+      where + ': ' + joint + ' = ' + pose[joint] + ' is outside [' + lo + ', ' + hi + ']');
+  });
+}
+
+test('a figure turns toward someone standing to their right', () => {
+  const rest = Figures.POSES.stand;
+  const turned = Figures.gazeAt(rest, 100, 400, 1);
+  assert(turned.head > rest.head,
+    'head should turn positive (toward +x) for a listener on the right, got ' + turned.head);
+  assert(turned.torso > rest.torso, 'the torso should follow the head, got ' + turned.torso);
+  assert(Math.abs(turned.torso - rest.torso) < Math.abs(turned.head - rest.head),
+    'the torso should turn less than the head');
+});
+
+test('a figure turns the other way for someone on their left', () => {
+  const rest = Figures.POSES.stand;
+  const right = Figures.gazeAt(rest, 100, 400, 1);
+  const left = Figures.gazeAt(rest, 400, 100, 1);
+  assert(left.head < rest.head, 'head should turn negative for a listener on the left');
+  assert(Math.abs(left.head - rest.head) - Math.abs(right.head - rest.head) < 1e-9,
+    'the turn should be symmetric either way');
+});
+
+test('nobody turns toward themselves', () => {
+  const rest = Figures.POSES.stand;
+  const same = Figures.gazeAt(rest, 250, 250, 1);
+  Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+    eq(same[joint], rest[joint], 'gazing at your own position should change ' + joint);
+  });
+});
+
+test('gaze never bends a neck further than a neck bends', () => {
+  // Absurd distances and amounts must still produce a pose a human could hold.
+  const names = Object.keys(Figures.POSES);
+  [-1e6, -500, -1, 0, 1, 500, 1e6].forEach((otherX) => {
+    [0, 0.5, 1, 4].forEach((amount) => {
+      names.forEach((name) => {
+        gazeWithinLimits(Figures.gazeAt(Figures.POSES[name], 0, otherX, amount),
+          'gazeAt(' + name + ', 0, ' + otherX + ', ' + amount + ')');
+      });
+    });
+  });
+});
+
+test('gaze leaves every joint but the head and torso alone', () => {
+  const rest = Figures.POSES['hands-in-pockets'];
+  const turned = Figures.gazeAt(rest, 0, 900, 1);
+  Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+    if (joint === 'head' || joint === 'torso') return;
+    eq(turned[joint], rest[joint], joint + ' should not move when someone looks sideways');
+  });
+});
+
+console.log('\nA STANDING PERSON IS NEVER STILL');
+
+/* A figure held one pose exactly until the next cut, which is most of what made
+ * them read as cardboard. aliveAt adds a slow weight shift, a shallow breath and
+ * a head settle — small, and driven by the clock and the character's seed so two
+ * recordings of one film still match frame for frame. */
+
+test('being alive is deterministic', () => {
+  for (let seed = 0; seed < 5; seed++) {
+    for (const t of [0, 0.37, 1.5, 9.25, 240]) {
+      const a = Figures.aliveAt(Figures.POSES.stand, t, seed);
+      const b = Figures.aliveAt(Figures.POSES.stand, t, seed);
+      Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+        eq(a[joint], b[joint], 'aliveAt(stand, ' + t + ', ' + seed + ') differed on ' + joint);
+      });
+    }
+  }
+});
+
+test('two characters do not breathe in lockstep', () => {
+  // Same moment, different seeds: if these matched, a two-shot would look like
+  // a chorus line.
+  const a = Figures.aliveAt(Figures.POSES.stand, 3.1, 1);
+  const b = Figures.aliveAt(Figures.POSES.stand, 3.1, 2);
+  const differs = Object.keys(Figures.POSE_LIMITS).some((j) => a[j] !== b[j]);
+  assert(differs, 'two seeds produced identical motion at the same instant');
+});
+
+test('being alive never leaves a pose a human could hold', () => {
+  const names = Object.keys(Figures.POSES);
+  for (const name of names) {
+    for (let seed = 0; seed < 4; seed++) {
+      for (let step = 0; step <= 40; step++) {
+        const pose = Figures.aliveAt(Figures.POSES[name], step * 0.31, seed);
+        gazeWithinLimits(pose, 'aliveAt(' + name + ', ' + (step * 0.31) + ', ' + seed + ')');
+      }
+    }
+  }
+});
+
+test('being alive is a breath, not a dance', () => {
+  // Every joint stays close to where the pose put it: this is life, not a new
+  // pose. Bounded at a tenth of each joint's own range.
+  const names = Object.keys(Figures.POSES);
+  let worst = 0, worstAt = '';
+  names.forEach((name) => {
+    const rest = Figures.POSES[name];
+    for (let seed = 0; seed < 4; seed++) {
+      for (let step = 0; step <= 40; step++) {
+        const pose = Figures.aliveAt(rest, step * 0.29, seed);
+        Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+          const range = Figures.POSE_LIMITS[joint][1] - Figures.POSE_LIMITS[joint][0];
+          const drift = Math.abs(pose[joint] - rest[joint]) / range;
+          if (drift > worst) { worst = drift; worstAt = name + '.' + joint; }
+        });
+      }
+    }
+  });
+  assert(worst <= 0.1, 'the largest drift was ' + worst.toFixed(3) + ' of range at ' + worstAt +
+    ' — that is a new pose, not a breath');
+});
+
+test('nobody is frozen', () => {
+  // The opposite failure: aliveAt that returns the pose unchanged would pass
+  // every test above and do nothing.
+  const rest = Figures.POSES.stand;
+  let moved = false;
+  for (let step = 0; step <= 40 && !moved; step++) {
+    const pose = Figures.aliveAt(rest, step * 0.23, 0);
+    moved = Object.keys(Figures.POSE_LIMITS).some((j) => Math.abs(pose[j] - rest[j]) > 1e-6);
+  }
+  assert(moved, 'aliveAt never moved anything across 40 samples');
+});
+
+console.log('\nA CUT NO LONGER SNAPS');
+
+/* Poses changed instantly at a cut. blendPoses eases between them. It existed
+ * once and was deleted as dead code when nothing called it; this is the caller
+ * it was waiting for. */
+
+test('a blend starts and ends exactly where it should', () => {
+  const a = Figures.POSES.stand, b = Figures.POSES['hands-in-pockets'];
+  const at0 = Figures.blendPoses(a, b, 0);
+  const at1 = Figures.blendPoses(a, b, 1);
+  Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+    eq(at0[joint], a[joint], 't=0 should be the first pose exactly, at ' + joint);
+    eq(at1[joint], b[joint], 't=1 should be the second pose exactly, at ' + joint);
+  });
+});
+
+test('a blend is monotonic between the two poses', () => {
+  const a = Figures.POSES.stand, b = Figures.POSES['turn-away'];
+  Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+    const lo = Math.min(a[joint], b[joint]), hi = Math.max(a[joint], b[joint]);
+    for (let step = 0; step <= 20; step++) {
+      const v = Figures.blendPoses(a, b, step / 20)[joint];
+      assert(v >= lo - 1e-9 && v <= hi + 1e-9,
+        joint + ' left the span between the two poses at t=' + (step / 20) + ': ' + v);
+    }
+  });
+});
+
+test('no blend of any two poses bends past a human', () => {
+  const names = Object.keys(Figures.POSES);
+  names.forEach((from) => {
+    names.forEach((to) => {
+      for (let step = 0; step <= 20; step++) {
+        gazeWithinLimits(Figures.blendPoses(Figures.POSES[from], Figures.POSES[to], step / 20),
+          'blendPoses(' + from + ', ' + to + ', ' + (step / 20) + ')');
+      }
+    });
+  });
+});
+
+test('a blend clamps a t outside 0..1 rather than overshooting', () => {
+  const a = Figures.POSES.stand, b = Figures.POSES.recoil;
+  const under = Figures.blendPoses(a, b, -3);
+  const over = Figures.blendPoses(a, b, 4);
+  Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+    eq(under[joint], a[joint], 't below 0 should hold at the first pose, at ' + joint);
+    eq(over[joint], b[joint], 't above 1 should hold at the second pose, at ' + joint);
+  });
+});
+
+console.log('\nWALKING');
+
+/* On the push beat — the beat that is about momentum — a character crosses part
+ * of the frame instead of standing in it. */
+
+test('a walk keeps a foot on the ground at every phase', () => {
+  // The planted-foot property the still poses already hold, extended to a
+  // moving figure: at no point in the cycle are both feet off the floor, or the
+  // figure is hopping rather than walking.
+  for (let step = 0; step <= 60; step++) {
+    const phase = step / 60;
+    const pose = Figures.walkAt(Figures.POSES.stand, phase);
+    // Reproduce drawBody's own foot arithmetic: 0 hangs straight down.
+    const footL = Math.cos(pose.legL) + Math.cos(pose.legL + pose.shinL);
+    const footR = Math.cos(pose.legR) + Math.cos(pose.legR + pose.shinR);
+    assert(Math.max(footL, footR) > 1.90,
+      'at phase ' + phase.toFixed(2) + ' the lower foot reaches only ' +
+      Math.max(footL, footR).toFixed(3) + ' of 2 leg-lengths — the figure is airborne');
+  }
+});
+
+test('a walk is a cycle: it ends where it began', () => {
+  const start = Figures.walkAt(Figures.POSES.stand, 0);
+  const end = Figures.walkAt(Figures.POSES.stand, 1);
+  Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+    assert(Math.abs(start[joint] - end[joint]) < 1e-9,
+      joint + ' does not return to its starting angle after a full cycle');
+  });
+});
+
+test('the legs alternate rather than moving together', () => {
+  // Both legs swinging in phase is a bunny hop, not a walk.
+  let opposed = 0;
+  for (let step = 0; step < 20; step++) {
+    const p = Figures.walkAt(Figures.POSES.stand, step / 20);
+    if ((p.legL - Figures.POSES.stand.legL) * (p.legR - Figures.POSES.stand.legR) < 0) opposed++;
+  }
+  assert(opposed >= 14, 'the legs were in opposition in only ' + opposed + ' of 20 samples');
+});
+
+test('a walk never bends past a human', () => {
+  Object.keys(Figures.POSES).forEach((name) => {
+    for (let step = 0; step <= 40; step++) {
+      gazeWithinLimits(Figures.walkAt(Figures.POSES[name], step / 40),
+        'walkAt(' + name + ', ' + (step / 40) + ')');
+    }
+  });
+});
+
+console.log('\nVOICES THAT SAY A VOWEL');
+
+/* Every syllable used to be the same blip, pitched by character and shaped by
+ * an arbitrary character code. Now each one takes the vowel that is actually in
+ * the word, so "I can't" and "Say it" stop sounding identical. */
+
+test('every vowel the lexicon can speak has a formant pair', () => {
+  const vowels = Object.keys(Score.FORMANTS);
+  assert(vowels.length >= 5, 'a voice needs at least the five vowels, saw ' + vowels.length);
+  vowels.forEach((v) => {
+    const f = Score.FORMANTS[v];
+    assert(Array.isArray(f) && f.length === 2, v + ' has no [F1, F2] pair');
+    assert(f[0] > 200 && f[0] < 1200, v + ' F1 of ' + f[0] + 'Hz is not a human first formant');
+    assert(f[1] > f[0], v + ' F2 (' + f[1] + ') must sit above F1 (' + f[0] + ')');
+    assert(f[1] < 3000, v + ' F2 of ' + f[1] + 'Hz is not a human second formant');
+  });
+});
+
+test('a caption yields one vowel per syllable, every time', () => {
+  const lines = ['Say it.', "I can't.", 'You were not there.',
+                 'That is the whole sentence. There is no rest of it.',
+                 'Then we are done here.'];
+  lines.forEach((line) => {
+    const n = Parse.syllablesFor(line);
+    const a = Parse.vowelsFor(line, n);
+    const b = Parse.vowelsFor(line, n);
+    eq(a.length, n, 'vowelsFor should return one vowel per syllable for ' + JSON.stringify(line));
+    eq(a.join(''), b.join(''), 'vowelsFor was not deterministic for ' + JSON.stringify(line));
+    a.forEach((v) => {
+      assert(Score.FORMANTS[v], JSON.stringify(line) + ' produced vowel ' + JSON.stringify(v) +
+        ' which has no formant pair');
+    });
+  });
+});
+
+test('two different lines do not sound the same', () => {
+  // The whole point: the blips were identical regardless of the words.
+  const a = Parse.vowelsFor('Say it.', Parse.syllablesFor('Say it.')).join('');
+  const b = Parse.vowelsFor("I can't.", Parse.syllablesFor("I can't.")).join('');
+  assert(a !== b, 'two different lines produced the same vowel sequence: ' + a);
+});
+
+test('a line with no vowels at all still speaks', () => {
+  ['...', '!!!', '', 'Hmm', 'Shh'].forEach((odd) => {
+    const n = Parse.syllablesFor(odd);
+    const v = Parse.vowelsFor(odd, n);
+    eq(v.length, n, JSON.stringify(odd) + ' should still produce ' + n + ' speakable syllables');
+    v.forEach((x) => assert(Score.FORMANTS[x], JSON.stringify(odd) + ' produced unspeakable ' + x));
+  });
+});
+
+test('the vowels follow the words in order', () => {
+  // "oh no" must not come out "no oh": the mouth has to match the caption.
+  const v = Parse.vowelsFor('oh ee', 2);
+  eq(v[0], 'o', 'the first vowel of "oh ee" should be o, got ' + v[0]);
+  eq(v[1], 'i', 'the second vowel of "oh ee" should be i, got ' + v[1]);
+});
+
 console.log('');
 if (failures.length) {
   console.error('✖ ' + failures.length + ' failing test(s):');

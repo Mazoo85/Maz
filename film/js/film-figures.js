@@ -105,9 +105,18 @@
     ctx.translate(spot.x, spot.groundY);
     ctx.rotate((spot.wobble || 0) * 0.004);
 
+    // Where the light is, as a signed position across the frame: -1 hard left,
+    // +1 hard right, 0 overhead. The set supplies it and it moves — a
+    // lighthouse beam sweeps, headlights pass — so the rim and the shadow below
+    // swing with the room rather than sitting where they were hardcoded.
+    var lightX = spot.lightX == null ? -1 : (spot.lightX < -1 ? -1 : (spot.lightX > 1 ? 1 : spot.lightX));
+
+    // The shadow falls away from the light and lengthens as the light drops
+    // toward the horizon, which is what makes a floor read as a floor.
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
     ctx.beginPath();
-    ctx.ellipse(0, 2, w * 0.75, h * 0.035, 0, 0, Math.PI * 2);
+    ctx.ellipse(-lightX * w * 0.42, 2,
+                w * (0.75 + Math.abs(lightX) * 0.35), h * 0.035, 0, 0, Math.PI * 2);
     ctx.fill();
 
     var halo = ctx.createRadialGradient(0, -h * 0.55, h * 0.05, 0, -h * 0.55, h * 0.75);
@@ -116,9 +125,11 @@
     ctx.fillStyle = halo;
     ctx.fillRect(-w * 1.6, -h * 1.25, w * 3.2, h * 1.4);
 
-    // rim light: the same body, offset up-left, in the key colour
+    // rim light: the same body, offset toward the light, in the key colour. This
+    // used to be a constant up-and-left — correct for exactly one set and wrong
+    // for the other fourteen.
     ctx.save();
-    ctx.translate(-w * 0.055, -h * 0.012);
+    ctx.translate(lightX * w * 0.055, -h * 0.012);
     ctx.fillStyle = Art.rgb(p.key, rim);
     drawBody(ctx, h, pose);
     ctx.restore();
@@ -273,6 +284,130 @@
   /* One syllable of movement: the head dips and the nearer hand lifts, both
    * returning to rest by the end so syllables can run back to back without the
    * body drifting. The score fires a blip on the same clock. */
+  /* Turn a figure toward whoever they are sharing the scene with.
+   *
+   * Two figures used to face straight out of the screen no matter where the
+   * other one stood, which is why a two-shot read as two portraits instead of a
+   * conversation. The head turns most, the torso follows about a third as far —
+   * people lead with the head — and both are clamped, so no distance and no
+   * amount can produce a neck a neck could not do.
+   *
+   * Positive angles turn toward +x, matching the head rotation that drawBody
+   * hands to the canvas. Distance is normalised against a nominal shoulder-to-
+   * shoulder span so a figure across the room and a figure an arm away both
+   * turn a sensible amount rather than the far one turning further.
+   */
+  var GAZE_SPAN = 320;   // px at which the turn is essentially full
+  var GAZE_HEAD = 0.34;  // radians of head turn at full
+  var GAZE_TORSO = 0.11; // the torso follows, less
+
+  /* A standing person is never still.
+   *
+   * Three slow cycles, all small, all on joints that already exist: weight
+   * rocks between the legs, the chest rises and falls, and the head settles
+   * after the weight does. This is most of what separates a puppet from
+   * somebody waiting for an answer.
+   *
+   * Everything is driven by the shot clock and the character's seed — no
+   * Math.random(), because two recordings of one film have to match frame for
+   * frame, and the grain tile already broke that guarantee once. The seed only
+   * shifts the phase, so two people in a two-shot are not a chorus line.
+   *
+   * Bounded to a tenth of each joint's range by the numbers below, and clamped
+   * on the way out, so this can never become a pose of its own.
+   */
+  var BREATH_RATE = 0.55;   // chest cycles per second, a resting adult
+  var WEIGHT_RATE = 0.21;   // the slower rock between one leg and the other
+  var SETTLE_RATE = 0.13;   // the head, slower still, trailing the weight
+
+  /* Ease from one pose to another instead of snapping at the cut.
+   *
+   * This existed once and was deleted when nothing called it; the shot-change
+   * easing below is the caller it was waiting for. Every joint is clamped on
+   * the way out, so a blend can never land somewhere neither pose could —
+   * which matters because the two ends are each inside POSE_LIMITS but the
+   * shortest path between two angles is not always inside anything.
+   *
+   * t is clamped rather than extrapolated: overshooting a pose is how you get
+   * an elbow through a ribcage.
+   */
+  /* A walk cycle on the legs that are already there.
+   *
+   * phase runs 0..1 over one full stride. The two legs are half a cycle apart —
+   * in phase they would be a bunny hop — and each knee bends only on its swing,
+   * because a knee that bends on the stance leg drops the figure through the
+   * floor.
+   *
+   * drawBody plants the figure by finding the lower foot and shifting the body
+   * down to meet the ground, so a cycle that always leaves one leg near
+   * straight keeps the walk on the floor instead of bobbing. The test asserts
+   * exactly that, using drawBody's own foot arithmetic.
+   */
+  var STRIDE = 0.34;   // radians the hip swings either side of rest
+
+  function walkAt(pose, phase) {
+    var out = {};
+    for (var i = 0; i < JOINTS.length; i++) out[JOINTS[i]] = pose[JOINTS[i]];
+    var a = (phase || 0) * Math.PI * 2;
+    var swingL = Math.sin(a);
+    var swingR = Math.sin(a + Math.PI);          // half a cycle behind
+
+    out.legL = clampJoint('legL', pose.legL + swingL * STRIDE);
+    out.legR = clampJoint('legR', pose.legR + swingR * STRIDE);
+    // The knee folds only while the leg is coming forward. max(0, ...) keeps the
+    // stance leg straight, which is what holds the figure on the floor.
+    out.shinL = clampJoint('shinL', pose.shinL - Math.max(0, swingL) * 0.44);
+    out.shinR = clampJoint('shinR', pose.shinR - Math.max(0, swingR) * 0.44);
+    // Arms counter-swing to the opposite leg, which is what makes it read as a
+    // walk rather than a shuffle.
+    out.armL = clampJoint('armL', pose.armL + swingR * 0.26);
+    out.armR = clampJoint('armR', pose.armR + swingL * 0.26);
+    return out;
+  }
+
+  function blendPoses(a, b, t) {
+    var k = t < 0 ? 0 : (t > 1 ? 1 : t);
+    var out = {};
+    for (var i = 0; i < JOINTS.length; i++) {
+      var joint = JOINTS[i];
+      out[joint] = clampJoint(joint, a[joint] + (b[joint] - a[joint]) * k);
+    }
+    return out;
+  }
+
+  function aliveAt(pose, seconds, seed) {
+    var out = {};
+    for (var i = 0; i < JOINTS.length; i++) out[JOINTS[i]] = pose[JOINTS[i]];
+    var t = seconds || 0;
+    var phase = ((seed || 0) % 17) * 0.37;        // a different point in the cycle each
+
+    var breath = Math.sin((t * BREATH_RATE + phase) * Math.PI * 2);
+    var weight = Math.sin((t * WEIGHT_RATE + phase * 0.61) * Math.PI * 2);
+    var settle = Math.sin((t * SETTLE_RATE + phase * 1.31) * Math.PI * 2);
+
+    out.torso = clampJoint('torso', pose.torso + breath * 0.022);
+    // The legs take the weight in opposition — one straightens as the other gives.
+    out.legL = clampJoint('legL', pose.legL + weight * 0.020);
+    out.legR = clampJoint('legR', pose.legR - weight * 0.020);
+    out.shinL = clampJoint('shinL', pose.shinL - weight * 0.010);
+    out.shinR = clampJoint('shinR', pose.shinR + weight * 0.010);
+    // The head trails the weight rather than leading it.
+    out.head = clampJoint('head', pose.head + settle * 0.026 + breath * 0.008);
+    return out;
+  }
+
+  function gazeAt(pose, selfX, otherX, amount) {
+    var out = {};
+    for (var i = 0; i < JOINTS.length; i++) out[JOINTS[i]] = pose[JOINTS[i]];
+    var dx = otherX - selfX;
+    if (!dx) return out;                       // nobody turns toward themselves
+    var strength = Math.max(0, Math.min(1, Math.abs(dx) / GAZE_SPAN));
+    var scale = (dx < 0 ? -1 : 1) * strength * Math.max(0, Math.min(1, amount || 0));
+    out.head = clampJoint('head', pose.head + GAZE_HEAD * scale);
+    out.torso = clampJoint('torso', pose.torso + GAZE_TORSO * scale);
+    return out;
+  }
+
   function gestureAt(pose, phase) {
     var clamped = Math.max(0, Math.min(1, phase));
     // Math.sin(Math.PI) is not exactly 0 in double precision, and that residue
@@ -316,7 +451,11 @@
     POSE_LIMITS: POSE_LIMITS,
     POSES_BY_BEAT: POSES_BY_BEAT,
     poseFor: poseFor,
-    gestureAt: gestureAt
+    gestureAt: gestureAt,
+    gazeAt: gazeAt,
+    aliveAt: aliveAt,
+    blendPoses: blendPoses,
+    walkAt: walkAt
   };
 
   if (typeof module === 'object' && module.exports) module.exports = API;
