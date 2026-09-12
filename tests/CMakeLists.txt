@@ -1108,6 +1108,11 @@ target_link_libraries(maz_imagedraw_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME image_draw COMMAND maz_imagedraw_tests)
 set_tests_properties(image_draw PROPERTIES TIMEOUT 30)
 
+add_executable(maz_pathfill_tests render/pathfill.cpp)
+target_link_libraries(maz_pathfill_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME path_fill COMMAND maz_pathfill_tests)
+set_tests_properties(path_fill PROPERTIES TIMEOUT 30)
+
 add_executable(maz_recoil_tests game/recoil.cpp)
 target_link_libraries(maz_recoil_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME recoil COMMAND maz_recoil_tests)
