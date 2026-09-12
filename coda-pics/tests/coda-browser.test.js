@@ -83,6 +83,25 @@ const INSPECT = `(() => {
   return { colours: seen.size, mean: sum / (d.length / (4 * 97) * 3), w: c.width, h: c.height };
 })()`;
 
+/* Read the canvas only once it has stopped changing.
+ *
+ * The painted counter says a render finished, but a render can be followed by
+ * another one the page started itself (a control that repaints on change), and
+ * reading between the two gives the previous picture. Two identical reads in a
+ * row means the canvas is at rest. */
+async function settled(page, inspect) {
+  let last = null;
+  for (let i = 0; i < 40; i++) {
+    const now = await page.evaluate(inspect);
+    if (last && now.colours === last.colours && Math.abs(now.mean - last.mean) < 1e-9) {
+      return now;
+    }
+    last = now;
+    await page.waitForTimeout(120);
+  }
+  return last;
+}
+
 /* Wait for one more finished picture than there were before. The page counts
  * them on the canvas itself, so this can never pass on a paint that has been
  * scheduled but not yet run. */
@@ -273,6 +292,73 @@ async function painted(page, before, timeout) {
     })()`);
     check(storedScene,
       'the gallery stores the finished scene, not just the words that made it');
+
+    /* ------------------------------------------------ one of your own photos
+     * The fixture is a generated landscape, not anyone's photograph — see
+     * tests/fixtures/README.md. It has a clear ridge and a sun to the right,
+     * so every branch here has something real to read. */
+    await page.setInputFiles('#photoFile', path.join(__dirname, 'fixtures', 'landscape.png'));
+    await page.waitForSelector('#photoInfo:not([hidden])', { timeout: 15000 });
+    check(true, 'a chosen photo is read and shown back');
+
+    const photoNote = await page.textContent('#photoNote');
+    check(/horizon found/i.test(photoNote), `it reports what it found (${photoNote})`);
+    check(!(await page.isDisabled('#usePhotoSkyline')),
+      'a photo with a clear horizon may lend it');
+
+    await page.fill('#prompt', 'a dragon over the mountains');
+    await page.selectOption('#style', 'poster');
+    await page.click('#paint');
+    count = await painted(page, count);
+    const withPhoto = await settled(page, INSPECT);
+
+    /* Its colours have to actually change the picture, or the checkbox lies. */
+    await page.uncheck('#usePhotoColours');
+    count = await painted(page, count);
+    const withoutPhoto = await settled(page, INSPECT);
+    check(Math.abs(withPhoto.mean - withoutPhoto.mean) > 0.5,
+      `painting in the photo's colours really changes the picture ` +
+      `(${withPhoto.mean.toFixed(1)} vs ${withoutPhoto.mean.toFixed(1)})`);
+    await page.check('#usePhotoColours');
+    count = await painted(page, count);
+
+    await page.check('#usePhotoSkyline');
+    count = await painted(page, count);
+    check(true, 'its horizon can be used without throwing');
+
+    await page.check('#usePhotoBackdrop');
+    count = await painted(page, count);
+    const onPhoto = await page.evaluate(INSPECT);
+    check(onPhoto.colours > 12, 'a subject can be painted onto the photo itself');
+
+    /* A picture painted onto a photo must not be kept, because the gallery
+     * stores scenes and not photographs — and saying so beats bringing it
+     * back wrong later. */
+    await page.click('#keep');
+    await page.waitForTimeout(250);
+    const keepMsg = await page.textContent('#status');
+    check(/gallery stores scenes/i.test(keepMsg),
+      'and the gallery says why it cannot keep that one');
+    await page.uncheck('#usePhotoBackdrop');
+    count = await painted(page, count);
+
+    /* The photo through the app's own styles, with nothing drawn on top. */
+    await page.selectOption('#style', 'ukiyo');
+    count = await painted(page, count);
+    await page.waitForTimeout(300);
+    await page.click('#stylePhoto');
+    await page.waitForFunction(
+      () => /Your photo, in/.test(document.getElementById('status').textContent || ''),
+      null, { timeout: 20000 }
+    );
+    const styled = await page.evaluate(INSPECT);
+    check(styled.colours > 8, 'the photo itself can be put through a style');
+    const styledAlt = await page.getAttribute('#canvas', 'aria-label');
+    check(/your photograph/i.test(styledAlt), `and says so for a screen reader (${styledAlt})`);
+
+    await page.click('#clearPhoto');
+    await page.waitForTimeout(200);
+    check(!(await page.isVisible('#photoInfo')), 'the photo can be forgotten again');
 
     /* ------------------------------------------------- installable as an app
      * The manifest and its icons are what let someone add CODA PICS to a home

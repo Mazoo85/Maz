@@ -23,6 +23,7 @@ var SHELL = [
   'index.html',
   'css/style.css',
   'js/lexicon.js',
+  'js/photo.js',
   'js/prompt.js',
   'js/subjects.js',
   'js/paint.js',

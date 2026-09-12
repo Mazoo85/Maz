@@ -54,6 +54,25 @@
         </div>
       </div>
 
+      <fieldset class="photo">
+        <legend>Use one of your photos</legend>
+        <input type="file" id="photoFile" accept="image/*" />
+        <p class="photo-privacy">It is read here on your device and never uploaded — the same as everything else in this app.</p>
+        <div id="photoInfo" class="photo-info" hidden>
+          <canvas id="photoThumb" class="photo-thumb" aria-label="The photo you chose"></canvas>
+          <div class="photo-uses">
+            <label><input type="checkbox" id="usePhotoColours" checked /> paint in its colours</label>
+            <label><input type="checkbox" id="usePhotoSkyline" /> use its horizon</label>
+            <label><input type="checkbox" id="usePhotoBackdrop" /> paint onto it</label>
+            <div class="buttons photo-buttons">
+              <button id="stylePhoto" type="button">🖌 Style the photo itself</button>
+              <button id="clearPhoto" type="button">✕ Forget this photo</button>
+            </div>
+          </div>
+          <p id="photoNote" class="photo-note"></p>
+        </div>
+      </fieldset>
+
       <fieldset class="locks">
         <legend>Keep when you take another</legend>
         <label><input type="checkbox" id="lockSubject" /> the subject</label>
@@ -120,6 +139,7 @@
   </div>
 
   <script src="js/lexicon.js"></script>
+  <script src="js/photo.js"></script>
   <script src="js/prompt.js"></script>
   <script src="js/subjects.js"></script>
   <script src="js/paint.js"></script>

@@ -16,6 +16,7 @@
   'use strict';
 
   var LEX = window.CodaLexicon;
+  var PHOTO = window.CodaPhoto;
   var PROMPT = window.CodaPrompt;
   var PAINT = window.CodaPaint;
   var FINISH = window.CodaFinish;
@@ -50,6 +51,7 @@
 
   var el = {};
   var current = null;             // the spec on screen right now
+  var photo = null;               // { image, analysis } — never leaves this page
   var seed = 1;
   var busy = false;
   var painted = 0;
@@ -70,14 +72,22 @@
   /* ---------------------------------------------------------------- paint */
   function sizeOf() { return SIZES[el.shape.value] || SIZES.wide; }
 
-  function draw(canvas, spec, w, h) {
+  function draw(canvas, spec, w, h, media) {
     canvas.width = w;
     canvas.height = h;
     var ctx = canvas.getContext('2d');
     if (!ctx) return false;
-    var palette = PAINT.render(ctx, w, h, spec);
+    var palette = PAINT.render(ctx, w, h, spec, media);
     FINISH.apply(ctx, w, h, spec, palette);
     return true;
+  }
+
+  /* The photo itself, for the passes that paint onto it. Kept out of the spec
+   * because an image is not data a gallery entry or a worker message can
+   * carry. */
+  function mediaNow(spec) {
+    if (!photo || !spec.photo || !spec.photo.use.backdrop) return null;
+    return { backdrop: photo.image };
   }
 
   /* ------------------------------------------------------ the render worker
@@ -128,6 +138,7 @@
   /* Paint into the visible canvas: a quick small version first so there is
    * something to look at, then the real one, from the worker where possible. */
   function drawProgressive(canvas, spec, w, h, whenDone) {
+    var media = mediaNow(spec);
     var ctx;
     canvas.width = w;
     canvas.height = h;
@@ -140,16 +151,18 @@
     var ph = Math.max(90, Math.round(h / 4));
     try {
       var small = document.createElement('canvas');
-      if (draw(small, spec, pw, ph)) {
+      if (draw(small, spec, pw, ph, media)) {
         ctx.imageSmoothingEnabled = true;
         ctx.drawImage(small, 0, 0, w, h);
       }
     } catch (e) { /* the full render below is what matters */ }
 
-    var w2 = getWorker();
+    /* A picture painted onto a photo stays on this thread: the photo is an
+     * image, and shipping one into a worker costs more than the paint saves. */
+    var w2 = media ? null : getWorker();
     if (!w2) {
       var ok = false;
-      try { ok = draw(canvas, spec, w, h); } catch (e) { ok = false; }
+      try { ok = draw(canvas, spec, w, h, media); } catch (e) { ok = false; }
       whenDone(ok);
       return;
     }
@@ -165,7 +178,7 @@
       },
       fail: function () {
         var made = false;
-        try { made = draw(canvas, spec, w, h); } catch (e) { made = false; }
+        try { made = draw(canvas, spec, w, h, media); } catch (e) { made = false; }
         whenDone(made);
       }
     };
@@ -174,7 +187,7 @@
     } catch (e) {
       delete workerJobs[id];
       var drawn = false;
-      try { drawn = draw(canvas, spec, w, h); } catch (e2) { drawn = false; }
+      try { drawn = draw(canvas, spec, w, h, media); } catch (e2) { drawn = false; }
       whenDone(drawn);
     }
   }
@@ -187,14 +200,106 @@
     };
   }
 
+  /*
+   * Read a photo the person chose. Every step happens in this page: the file is
+   * read by the browser, drawn to a canvas, and measured. Nothing is uploaded,
+   * and nothing is kept once the page is closed unless they save a picture.
+   */
+  function loadPhoto(file) {
+    if (!file || !PHOTO) return;
+    var reader = new FileReader();
+    reader.onerror = function () { setStatus('That file could not be read.'); };
+    reader.onload = function () {
+      var img = new Image();
+      img.onerror = function () { setStatus('That does not look like an image.'); };
+      img.onload = function () {
+        /* Measured at a modest size: the analysis wants colours and a horizon,
+         * not detail, and a 12-megapixel phone photo would be wasted work. */
+        var aw = 320;
+        var ah = Math.max(1, Math.round(aw * img.height / img.width));
+        var work = document.createElement('canvas');
+        work.width = aw; work.height = ah;
+        var wctx = work.getContext('2d');
+        if (!wctx) return;
+        wctx.drawImage(img, 0, 0, aw, ah);
+        var data;
+        try { data = wctx.getImageData(0, 0, aw, ah); } catch (e) { return; }
+
+        photo = { image: img, analysis: PHOTO.analyse(data, aw, ah) };
+        showPhoto();
+        if (current) repaint(seed);
+      };
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function showPhoto() {
+    if (!photo) { el.photoInfo.hidden = true; return; }
+    el.photoInfo.hidden = false;
+
+    var tw = 132;
+    var th = Math.max(1, Math.round(tw * photo.image.height / photo.image.width));
+    el.photoThumb.width = tw;
+    el.photoThumb.height = th;
+    var tctx = el.photoThumb.getContext('2d');
+    if (tctx) tctx.drawImage(photo.image, 0, 0, tw, th);
+
+    var sky = photo.analysis.skyline;
+    if (sky.confidence < 0.35) {
+      el.usePhotoSkyline.checked = false;
+      el.usePhotoSkyline.disabled = true;
+      el.photoNote.textContent =
+        'No clear horizon in this one, so it can lend its colours but not its skyline.';
+    } else {
+      el.usePhotoSkyline.disabled = false;
+      el.photoNote.textContent = 'Horizon found ' +
+        Math.round(sky.mean * 100) + '% down, and the light is coming from the ' +
+        (photo.analysis.light.x < 0.4 ? 'left' : photo.analysis.light.x > 0.6 ? 'right' : 'middle') + '.';
+    }
+  }
+
+  function forgetPhoto() {
+    photo = null;
+    el.photoInfo.hidden = true;
+    el.photoFile.value = '';
+    setStatus('Photo forgotten. It was never anywhere but this page.');
+    if (current) repaint(seed);
+  }
+
+  function photoUse() {
+    if (!photo) return null;
+    return {
+      colours: el.usePhotoColours.checked,
+      skyline: el.usePhotoSkyline.checked && !el.usePhotoSkyline.disabled,
+      backdrop: el.usePhotoBackdrop.checked
+    };
+  }
+
+  /* What the painter is told about the photo: plain measured numbers, so it
+   * travels into the render worker and into a kept gallery entry unchanged. */
+  function photoSpec() {
+    var use = photoUse();
+    if (!use || (!use.colours && !use.skyline && !use.backdrop)) return null;
+    return {
+      use: use,
+      palette: photo.analysis.palette,
+      skyline: photo.analysis.skyline,
+      light: photo.analysis.light
+    };
+  }
+
   function specFor(text, useSeed) {
     var locks = locksNow();
     var any = locks.subject || locks.sky || locks.land;
-    return PROMPT.parse(text, {
+    var spec = PROMPT.parse(text, {
       seed: useSeed,
       style: el.style.value,
       locked: (any && current) ? PROMPT.holdLocks(current.seed, locks) : null
     });
+    var ph = photoSpec();
+    if (ph) spec.photo = ph;
+    return spec;
   }
 
   function repaint(newSeed) {
@@ -369,6 +474,12 @@
 
   function keep() {
     if (!current) return;
+    if (current.photo && current.photo.use && current.photo.use.backdrop) {
+      setStatus('This one is painted onto your photo, and the gallery stores scenes ' +
+        'rather than photographs — so it could not bring this back as it is. ' +
+        'Use <b>Save the picture</b> instead.');
+      return;
+    }
     var kept = load(STORE_KEY, []);
     var entry = {
       prompt: current.prompt,
@@ -424,7 +535,8 @@
 
       var thumb = document.createElement('canvas');
       try {
-        draw(thumb, specOfEntry(entry), tw, th);
+        var espec = specOfEntry(entry);
+        draw(thumb, espec, tw, th, mediaNow(espec));
       } catch (e) { /* a thumbnail is not worth failing over */ }
       card.appendChild(thumb);
 
@@ -496,6 +608,51 @@
     reader.readAsText(file);
   }
 
+  /*
+   * The photograph, put through one of the app's own styles. Nothing is drawn
+   * on top: the finishing passes work on whatever pixels they are given, and a
+   * photograph is pixels. This is the shortest path from "a photo you took" to
+   * "a woodblock print of a photo you took".
+   */
+  function stylePhotoNow() {
+    if (!photo) return;
+    var size = sizeOf();
+    el.canvas.width = size.w;
+    el.canvas.height = size.h;
+    var ctx = el.canvas.getContext('2d');
+    if (!ctx) return;
+
+    var spec = specFor(el.prompt.value.trim() || 'a photograph', seed);
+    PAINT.coverDraw(ctx, photo.image, size.w, size.h);
+    try {
+      FINISH.apply(ctx, size.w, size.h, spec, PAINT.makePalette(spec));
+    } catch (e) {
+      setStatus('That style could not be applied to this photo.');
+      return;
+    }
+
+    current = spec;
+    el.placeholder.hidden = true;
+    el.outButtons.hidden = false;
+    el.canvas.dataset.painted = String(++painted);
+    el.canvas.setAttribute('aria-label', 'Your photograph, in the ' +
+      styleName(spec) + ' style.');
+    el.readout.innerHTML = '';
+    el.unknown.hidden = true;
+    setStatus('<b>Your photo, in ' + escapeHtml(styleName(spec)) + '</b> · ' +
+      size.w + ' × ' + size.h + ' — change the art style and press this again.');
+  }
+
+  function styleName(spec) {
+    var ids = spec.styles && spec.styles.length ? spec.styles : [spec.style];
+    return ids.map(function (id) {
+      for (var i = 0; i < LEX.STYLES.length; i++) {
+        if (LEX.STYLES[i].id === id) return LEX.STYLES[i].label;
+      }
+      return id;
+    }).join(' + ');
+  }
+
   /* ------------------------------------------------------------ six takes */
   function showSix() {
     var text = el.prompt.value.trim();
@@ -514,7 +671,7 @@
         card.type = 'button';
         card.title = 'Paint this one full size';
         var c = document.createElement('canvas');
-        try { draw(c, spec, tw, th); } catch (e) { /* skip this one */ }
+        try { draw(c, spec, tw, th, mediaNow(spec)); } catch (e) { /* skip this one */ }
         card.appendChild(c);
         var label = document.createElement('span');
         label.className = 'label';
@@ -558,7 +715,9 @@
       'canvas', 'placeholder', 'busy', 'status', 'readout', 'unknown', 'outButtons',
       'download', 'keep', 'share', 'sheet', 'sheetGrid', 'gallery', 'galleryWrap',
       'exportGallery', 'importGallery', 'importFile',
-      'lockSubject', 'lockSky', 'lockLand'].forEach(function (id) {
+      'lockSubject', 'lockSky', 'lockLand',
+      'photoFile', 'photoInfo', 'photoThumb', 'photoNote', 'stylePhoto', 'clearPhoto',
+      'usePhotoColours', 'usePhotoSkyline', 'usePhotoBackdrop'].forEach(function (id) {
       el[id] = document.getElementById(id);
     });
 
@@ -581,6 +740,15 @@
     el.importFile.addEventListener('change', function () {
       importGallery(el.importFile.files && el.importFile.files[0]);
       el.importFile.value = '';
+    });
+
+    el.photoFile.addEventListener('change', function () {
+      loadPhoto(el.photoFile.files && el.photoFile.files[0]);
+    });
+    el.clearPhoto.addEventListener('click', forgetPhoto);
+    el.stylePhoto.addEventListener('click', stylePhotoNow);
+    [el.usePhotoColours, el.usePhotoSkyline, el.usePhotoBackdrop].forEach(function (box) {
+      box.addEventListener('change', function () { if (current) repaint(seed); });
     });
 
     el.prompt.addEventListener('keydown', function (ev) {

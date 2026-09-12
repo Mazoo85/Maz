@@ -23,6 +23,7 @@ var PROMPT = require(path.join(__dirname, '..', 'js', 'prompt.js'));
 var SUBJECTS = require(path.join(__dirname, '..', 'js', 'subjects.js'));
 var PAINT = require(path.join(__dirname, '..', 'js', 'paint.js'));
 var FINISH = require(path.join(__dirname, '..', 'js', 'finish.js'));
+var PHOTO = require(path.join(__dirname, '..', 'js', 'photo.js'));
 var FakeContext = require(path.join(__dirname, 'fake-canvas.js')).FakeContext;
 
 var failures = 0;
@@ -144,6 +145,94 @@ section('Reading what people type');
     check(!!spec.subject, 'surprise ' + i + ' ("' + text + '") has nothing in it');
   }
   pass('40 surprise prompts all parse back into a picture');
+})();
+
+/* ------------------------------------------------- 2b. reading a photograph
+ * The analysis is pure arithmetic over pixels, so it can be checked against
+ * images built right here — no browser, and no real photographs needed to
+ * prove that reading one works.
+ */
+section('Reading a photograph');
+
+function buildImage(w, h, paint) {
+  var data = new Uint8ClampedArray(w * h * 4);
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      var rgb = paint(x / w, y / h);
+      var i = (y * w + x) * 4;
+      data[i] = rgb[0]; data[i + 1] = rgb[1]; data[i + 2] = rgb[2]; data[i + 3] = 255;
+    }
+  }
+  return { data: data, width: w, height: h };
+}
+
+(function () {
+  var W = 240, H = 160;
+
+  /* A landscape: blue sky, a bright sun to the right, dark land below 60%. */
+  var landscape = buildImage(W, H, function (u, v) {
+    var dx = u - 0.72, dy = v - 0.20;
+    if (Math.sqrt(dx * dx + dy * dy) < 0.08) return [255, 246, 210];
+    if (v < 0.60) return [60 + v * 60, 120 + v * 80, 200 + v * 30];
+    return [28, 34, 26];
+  });
+  var a = PHOTO.analyse(landscape, W, H);
+
+  check(Math.abs(a.skyline.mean - 0.60) < 0.05,
+    'the horizon is found where it is (' + a.skyline.mean.toFixed(2) + ', expected 0.60)');
+  check(a.skyline.confidence > 0.6,
+    'and a clear horizon is reported as clear (' + a.skyline.confidence.toFixed(2) + ')');
+  check(a.skyline.line.length >= 32, 'the horizon is a line, not one number');
+  check(Math.abs(a.light.x - 0.72) < 0.12 && Math.abs(a.light.y - 0.20) < 0.14,
+    'the light is found where the bright part is (' +
+    a.light.x.toFixed(2) + ',' + a.light.y.toFixed(2) + ')');
+  check(a.palette.sky.top[0] > 180 && a.palette.sky.top[0] < 250,
+    'the sky colour is the sky colour (hue ' + Math.round(a.palette.sky.top[0]) + ', expected blue)');
+  check(a.palette.scene.ink[2] < 30,
+    'the darkest tenth is dark enough to be a silhouette (l ' +
+    Math.round(a.palette.scene.ink[2]) + ')');
+  check(a.colours.length >= 2, 'it reports the colours the photo is made of');
+  pass('a landscape gives up its horizon, its light and its colours');
+
+  /* A flat wall: no horizon anywhere. Saying so is the point — inventing a
+   * ridge from a photograph that has none looks worse than not trying. */
+  var flat = buildImage(W, H, function () { return [128, 120, 118]; });
+  var f = PHOTO.analyse(flat, W, H);
+  check(f.skyline.confidence < 0.35,
+    'a photo with no horizon admits it (' + f.skyline.confidence.toFixed(2) + ')');
+
+  /* Noise: also no horizon, and no crash. */
+  var noise = buildImage(W, H, function (u, v) {
+    var n = ((u * 7919 + v * 104729) * 1000) % 255;
+    return [n, (n * 3) % 255, (n * 7) % 255];
+  });
+  var n2 = PHOTO.analyse(noise, W, H);
+  check(n2.skyline.confidence < 0.6, 'and so does noise');
+  check(n2.palette && n2.palette.sky && n2.palette.scene, 'noise still yields a usable palette');
+  pass('a photo with nothing to read says so instead of inventing one');
+
+  /* The painter accepts the analysis: a scene painted with a photo's colours
+   * and horizon must still paint. */
+  var spec = PROMPT.parse('a dragon over the mountains', { seed: 4 });
+  spec.photo = {
+    use: { colours: true, skyline: true, backdrop: false },
+    palette: a.palette, skyline: a.skyline, light: a.light
+  };
+  var ctx = new FakeContext(96, 72);
+  try {
+    var P = PAINT.render(ctx, 96, 72, spec);
+    FINISH.apply(ctx, 96, 72, spec, P);
+    check(ctx.calls > 20, 'a photo-coloured scene really paints');
+  } catch (e) {
+    check(false, 'painting with a photo threw: ' + e.message);
+  }
+
+  var ridge = PAINT.photoRidge(spec, 200, 120, 70, 30);
+  check(!!ridge && ridge.length >= 32, 'the photo horizon becomes a ridge the painter can draw');
+  var bare = PROMPT.parse('a dragon', { seed: 4 });
+  check(PAINT.photoRidge(bare, 200, 120, 70, 30) === null,
+    'and no photo means no photo ridge');
+  pass('the painter takes what the photograph gave it');
 })();
 
 /* ------------------------------------------------------------- 3. painting */

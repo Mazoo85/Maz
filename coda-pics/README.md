@@ -49,6 +49,32 @@ still gets you a dragon, and the readout says it read it that way.
 of tags saying what each word was understood as — and a line naming any word it
 did not know, so *"a griffin in a forest"* tells you why there is no griffin.
 
+## Using a photo you already have
+
+Four things it can do with one of your own photographs, all of them offline.
+**The photo is read by your browser, measured in the page, and never uploaded** —
+the same terms as everything else here.
+
+| | |
+|---|---|
+| **Paint in its colours** | The sky, land, haze, shadow and highlight are taken from the photo, so a dragon gets painted in the colours of an evening you actually stood in. |
+| **Use its horizon** | The skyline is read out of the photo — a ridge of hills, a city, the edge of the sea — and becomes the terrain the painter draws. |
+| **Paint onto it** | The photo is the picture, and the subject is drawn into it, lit from wherever the photo's own light is coming from. |
+| **Style the photo itself** | The photo through any of the 14 styles, with nothing drawn on top: your photograph as a woodblock print, a blueprint, stained glass, pixel art. |
+
+It says what it found — *"Horizon found 64% down, and the light is coming from
+the right"* — and when there is no horizon to find (a close-up, a flat wall) it
+says that too and switches that option off, rather than inventing a ridge out
+of nothing.
+
+None of this is a model. Nothing is learned or recognised; pixels are measured.
+It cannot put your face in a picture or make a photograph of something that
+never happened, and it does not pretend to.
+
+One honest limit: a picture painted **onto** a photo cannot be kept in the
+gallery, because the gallery stores scenes and not photographs. The app says so
+and points you at **Save the picture** instead of bringing it back wrong later.
+
 ## Buttons
 
 - **Paint it** — paint the words in the box (or just press Enter).
@@ -144,6 +170,7 @@ coda-pics/
   icons/                home-screen icons
   css/style.css         phone-first styling, MAZ ARCADE palette
   js/lexicon.js         the vocabulary          -> window.CodaLexicon
+  js/photo.js           reading a photograph    -> window.CodaPhoto
   js/prompt.js          words → a scene         -> window.CodaPrompt
   js/subjects.js        42 drawing routines     -> window.CodaSubjects
   js/paint.js           the scene painter       -> window.CodaPaint
