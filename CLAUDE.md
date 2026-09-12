@@ -12,7 +12,8 @@ to rough **Godot feature parity**. It is large and mostly **header-only**:
 
 - **~690 headers** under `engine/include/maz/`, organized by subsystem:
   `math/` · `core/` · `game/` · `render/` · `physics` · `ecs/` · `anim/` · `audio/` · `ui/` ·
-  `io/` · `net/` · `input/` · `platform/` · `scene/` · `script/` (a small scripting VM) · `fx/`.
+  `io/` · `net/` · `input/` · `platform/` · `scene/` · `script/` (a small scripting VM) · `fx/` ·
+  `ai/` (A* on grids and graphs, behavior trees, a blackboard, an FSM, steering).
 - **~160 sample games and demos** under `apps/` — including full games: `pong`, `catcher`,
   `platformer`, `adventure`, `zomboid` (the flagship), `orbs`, `village`, `world`, `swarm`.
 - **~370 tests** under `tests/`, and rich docs under `docs/`.
