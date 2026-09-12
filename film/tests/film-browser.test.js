@@ -1095,6 +1095,73 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
     check(arrived.idea.length > 0, 'the shared link fills the idea box in so it can be changed');
     await visitor.close();
 
+    /* ------------------------------------------------------- poster and phone
+     *
+     * Drawn, then measured on the pixels: a poster whose title runs off both
+     * edges passes every unit test there is, because the only thing that knows
+     * how wide "AFTER THE KEY" is at 126px is the canvas. */
+    console.log('\nOUTPUT');
+    const output = await page.evaluate(() => {
+      const app = window.__filmState;
+      const reel = app.reel();
+      const script = app.script();
+      const width = 800;
+      const cv = document.createElement('canvas');
+      cv.width = width;
+      cv.height = Math.round(width / window.FilmPoster.ASPECT);
+      const ctx = cv.getContext('2d');
+      const drawn = window.FilmPoster.draw(ctx, reel, window.FilmPlayer.drawFrame,
+        { width: width, logline: script.logline, runtime: (script.runtime || '').toUpperCase() });
+
+      // Is the title inside the margins? Measure it the way it was drawn.
+      ctx.font = '800 ' + drawn.titleSize + 'px system-ui, sans-serif';
+      const widest = Math.max.apply(null, drawn.titleLines
+        .map((line) => ctx.measureText(line.toUpperCase()).width));
+      const margin = Math.round(width * 0.075);
+
+      // Is there a picture up there at all, and type down here?
+      const px = ctx.getImageData(0, 0, cv.width, cv.height).data;
+      const ink = (y0, y1) => {
+        let lit = 0;
+        for (let y = y0; y < y1; y += 3) {
+          for (let x = 0; x < cv.width; x += 3) {
+            const i = (y * cv.width + x) * 4;
+            if (px[i] + px[i + 1] + px[i + 2] > 60) lit++;
+          }
+        }
+        return lit;
+      };
+      const L = window.FilmPoster.layout(reel, width);
+      return {
+        widest, margin, width,
+        picture: ink(0, L.pictureH),
+        type: ink(L.pictureH + 10, cv.height)
+      };
+    });
+    check(output.widest <= output.width - output.margin * 2,
+      `the poster title fits inside its margins (${Math.round(output.widest)}px of ` +
+      `${output.width - output.margin * 2}px)`);
+    check(output.picture > 500, `there is a picture on the poster (${output.picture} lit samples)`);
+    check(output.type > 100, `and type under it (${output.type} lit samples)`);
+
+    // The phone-shaped cut puts the title in the bands rather than leaving them black.
+    const portrait = await page.evaluate(() => {
+      const app = window.__filmState;
+      const cv = document.createElement('canvas');
+      cv.width = 540; cv.height = 960;
+      const ctx = cv.getContext('2d');
+      window.FilmPlayer.drawFrame(ctx, cv.width, cv.height, app.reel(), app.reel().duration * 0.4);
+      const frameH = Math.min(cv.height, cv.width / 2.35);
+      const frameY = Math.round((cv.height - frameH) / 2);
+      const px = ctx.getImageData(0, 0, cv.width, frameY).data;
+      let lit = 0;
+      for (let i = 0; i < px.length; i += 4) if (px[i] + px[i + 1] + px[i + 2] > 60) lit++;
+      return { lit, band: frameY };
+    });
+    check(portrait.lit > 200,
+      `a phone-shaped cut puts the title in the top band instead of leaving it black ` +
+      `(${portrait.lit} lit pixels in ${portrait.band}px of band)`);
+
     console.log('\nWORLD SOUND');
     const world = await page.evaluate(async () => {
       const W = window.FilmWorldSound;

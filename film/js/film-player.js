@@ -604,7 +604,13 @@
     ctx.fillStyle = vig;
     ctx.fillRect(0, frameY, frameW, frameH);
 
-    drawCaptions(ctx, frameW, frameH, frameY, shot, pal, progress, reel);
+    // A poster puts its own type over the picture, and two sets of type over
+    // one frame is a mistake rather than a design -- so the film's captions can
+    // be turned off by anything that is going to write its own.
+    if (!opts || opts.captions !== false) {
+      drawCaptions(ctx, frameW, frameH, frameY, shot, pal, progress, reel);
+    }
+
     drawGrain(ctx, frameW, frameH, frameY, time, pal);
 
     ctx.restore();
@@ -613,6 +619,16 @@
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, width, frameY);
     ctx.fillRect(0, frameY + frameH, width, height - frameY - frameH);
+
+    // A phone-shaped canvas letterboxes a 2.35:1 film into its middle third and
+    // leaves the other two thirds black -- correct, and sixty per cent of the
+    // screen spent on nothing. The bands become the title treatment instead,
+    // which is what every vertical cut of a film does. AFTER the bars, because
+    // the bars are painted over everything and the first attempt at this drew
+    // the title underneath them.
+    if (frameY > frameH * 0.12) {
+      drawPortraitBands(ctx, width, height, frameY, frameH, pal, reel);
+    }
 
     // dip to black across a cut between scenes, and at the two ends
     var fade = fadeAmount(reel, shot, time);
@@ -643,6 +659,34 @@
   }
 
   /* -------------------------------------------------------------- captions */
+  /* The bands above and below a letterboxed film on a tall canvas. Deliberately
+   * quiet: this is furniture around the picture, not a second picture. */
+  function drawPortraitBands(ctx, width, height, frameY, frameH, pal, reel) {
+    var unit = width / 1000;
+    ctx.save();
+    ctx.textAlign = 'center';
+
+    // Spaced off the TITLE'S OWN SIZE rather than off two hand-picked offsets:
+    // the first version put the genre 50 units above the title's baseline, which
+    // is inside a title 64 units tall, and the two printed on top of each other.
+    var titleSize = Math.round(58 * unit);
+    var titleBaseline = frameY - 52 * unit;
+
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.font = '800 ' + titleSize + 'px system-ui, sans-serif';
+    ctx.fillText(String(reel.title || '').toUpperCase(), width / 2, titleBaseline);
+
+    ctx.fillStyle = Art.rgb(pal.key, 0.75);
+    ctx.font = '600 ' + Math.round(22 * unit) + 'px system-ui, sans-serif';
+    ctx.fillText((reel.genreLabel || '').toUpperCase().split('').join(' '),
+      width / 2, titleBaseline - titleSize * 1.25);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.34)';
+    ctx.font = '500 ' + Math.round(20 * unit) + 'px system-ui, sans-serif';
+    ctx.fillText('MADE WITH SCRIPT FORGE', width / 2, frameY + frameH + 64 * unit);
+    ctx.restore();
+  }
+
   function drawCaptions(ctx, w, h, y, shot, pal, progress, reel) {
     var unit = h / 420;                       // type scales with the frame
     var fadeIn = clamp01(progress / 0.12);

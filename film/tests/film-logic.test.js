@@ -995,6 +995,7 @@ const World = require(path.join(__dirname, '..', 'js', 'world-sound.js'));
 const Director = require(path.join(__dirname, '..', 'js', 'director.js'));
 const Why = require(path.join(__dirname, '..', 'js', 'why.js'));
 const Library = require(path.join(__dirname, '..', 'js', 'library.js'));
+const Poster = require(path.join(__dirname, '..', 'js', 'poster.js'));
 
 console.log('\nHOW A CHARACTER STANDS');
 
@@ -3275,6 +3276,85 @@ test('importing rubbish says so instead of throwing', () => {
   eq(result.error, null);
   eq(result.added, 1, 'kept something that was not a film');
   eq(result.skipped, 3);
+});
+
+
+/* ----------------------------------------------------------- the poster */
+
+test('a poster is made from a moment with somebody in it', () => {
+  // Not the first frame, which is a title card over an empty set, and not a
+  // random one, which lands on somebody mid-blink in a corridor.
+  for (let seed = 1; seed <= 20; seed++) {
+    const script = Writer.write(Parse.parse('a night nurse buries a key in the woods'),
+      { length: 'short', seed });
+    const reel = Reel.build(script);
+    const at = Poster.bestMoment(reel);
+    const shot = reel.shots.filter((s) => s.start <= at && s.start + s.duration > at)[0];
+    assert(shot, 'seed ' + seed + ': the poster moment is not inside any shot');
+    assert(shot.characters && shot.characters.length,
+      'seed ' + seed + ': the poster is of an empty room');
+    assert(shot.kind !== 'title' && shot.kind !== 'end',
+      'seed ' + seed + ': the poster is of a card, not a scene');
+    assert(shot.framing !== 'insert', 'seed ' + seed + ': the poster is an insert');
+  }
+});
+
+test('the poster picks the tensest moment it can', () => {
+  const script = Writer.write(Parse.parse('a night nurse buries a key in the woods'),
+    { length: 'festival', seed: 5 });
+  const reel = Reel.build(script);
+  const at = Poster.bestMoment(reel);
+  const chosen = reel.shots.filter((s) => s.start <= at && s.start + s.duration > at)[0];
+  const eligible = reel.shots.filter((s) => s.characters && s.characters.length &&
+    s.kind !== 'title' && s.kind !== 'end' && s.framing !== 'insert');
+  const highest = eligible.reduce((m, s) => Math.max(m, s.mood), 0);
+  assert(chosen.mood >= highest - 0.01,
+    'the poster is at mood ' + chosen.mood + ' when ' + highest + ' was available');
+});
+
+test('the same film always posters the same moment', () => {
+  const script = Writer.write(Parse.parse('two brothers argue over a boat'), { length: 'short', seed: 3 });
+  const a = Poster.bestMoment(Reel.build(script));
+  const b = Poster.bestMoment(Reel.build(script));
+  eq(a, b, 're-exporting a poster gave a different picture');
+});
+
+test('a poster still happens for a film with nobody in it', () => {
+  // A poster is better than no poster.
+  const empty = { shots: [{ start: 0, duration: 4, characters: [], kind: 'establish', mood: 0.3 }], duration: 4 };
+  const at = Poster.bestMoment(empty);
+  assert(at >= 0 && at <= 4, 'no moment at all for a film with no people: ' + at);
+  eq(Poster.bestMoment(null), 0);
+  eq(Poster.bestMoment({ shots: [] }), 0);
+});
+
+test('the poster layout stays the same shape at any size', () => {
+  [600, 1000, 2400].forEach((width) => {
+    const L = Poster.layout({}, width);
+    eq(L.width, width);
+    eq(L.height, Math.round(width / Poster.ASPECT), 'not 2:3 at ' + width);
+    assert(L.pictureH < L.height, 'the picture fills the whole poster at ' + width);
+    assert(L.genreY < L.titleY && L.titleY < L.loglineY && L.loglineY < L.creditY,
+      'the type block is out of order at ' + width);
+    assert(L.creditY <= L.height, 'the credits fall off the bottom at ' + width);
+    assert(L.titleSize > L.loglineSize && L.loglineSize > L.creditSize,
+      'the hierarchy is inverted at ' + width);
+    // Every measurement scales together, so a poster looks the same at any size.
+    const ratio = width / 1000;
+    assert(Math.abs(L.titleSize - 105 * ratio) < 2, 'the title does not scale at ' + width);
+  });
+});
+
+test('a long title breaks across lines instead of shrinking away', () => {
+  eq(Poster.titleLines('AFTER THE KEY', 16).length, 1);
+  const long = Poster.titleLines('THE LONGEST TITLE THIS PROGRAM HAS EVER PRODUCED BY FAR', 16);
+  assert(long.length > 1, 'a long title stayed on one line');
+  assert(long.length <= 3, 'a title took ' + long.length + ' lines');
+  long.forEach((line) => assert(line.length <= 24, 'a line of ' + line.length + ' characters: ' + line));
+  // Nothing is lost until the third line.
+  eq(Poster.titleLines('A B C', 16).join(' '), 'A B C');
+  eq(Poster.titleLines('', 16).length, 1);
+  eq(Poster.titleLines('   ', 16)[0], '');
 });
 
 

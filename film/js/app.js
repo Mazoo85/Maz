@@ -34,7 +34,7 @@
    'chipSeed', 'tabScript', 'tabShots', 'tabFilm', 'tabWhy', 'viewScript', 'viewShots', 'viewFilm', 'viewWhy',
    'editToggle', 'rerollFree', 'undoEdit', 'directStatus', 'directBar',
    'copy', 'dlFountain', 'dlFdx', 'dlText', 'dlShots', 'print', 'save', 'status',
-   'libraryList', 'libCount', 'libEmpty', 'clearLib', 'exportLib', 'importLib', 'importFile', 'shareFilm', 'filmCanvas', 'bigPlay', 'playFilm',
+   'libraryList', 'libCount', 'libEmpty', 'clearLib', 'exportLib', 'importLib', 'importFile', 'shareFilm', 'dlPoster', 'filmCanvas', 'bigPlay', 'playFilm',
    'stopFilm', 'recordFilm', 'dlReel', 'filmSize', 'speakAloud', 'scrubBar', 'scrubFill', 'filmClock',
    'filmNote'].forEach(function (id) {
     el[id] = document.getElementById(id);
@@ -44,6 +44,7 @@
   var Director = window.FilmDirector;
   var Why = window.FilmWhy;
   var Library = window.FilmLibrary;
+  var Poster = window.FilmPoster;
   var PlayerLib = window.FilmPlayer;
   var ScoreLib = window.FilmScore;
 
@@ -867,6 +868,30 @@
     } else {
       window.prompt('Copy this link:', url);
     }
+  });
+
+  el.dlPoster.addEventListener('click', function () {
+    if (!current || !reel) return;
+    // Drawn with the film's own renderer, so a poster can never show something
+    // the film does not contain.
+    var canvas = document.createElement('canvas');
+    var width = 1200;
+    canvas.width = width;
+    canvas.height = Math.round(width / Poster.ASPECT);
+    Poster.draw(canvas.getContext('2d'), reel, PlayerLib.drawFrame,
+      { width: width, logline: current.logline, runtime: (current.runtime || '').toUpperCase() });
+    canvas.toBlob(function (blob) {
+      if (!blob) { say('Could not make the poster.'); return; }
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = Format.slugify(current.title) + '-poster.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      say('Poster saved.');
+    }, 'image/png');
   });
 
   el.exportLib.addEventListener('click', function () {
