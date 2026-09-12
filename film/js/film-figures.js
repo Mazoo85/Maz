@@ -105,9 +105,18 @@
     ctx.translate(spot.x, spot.groundY);
     ctx.rotate((spot.wobble || 0) * 0.004);
 
+    // Where the light is, as a signed position across the frame: -1 hard left,
+    // +1 hard right, 0 overhead. The set supplies it and it moves — a
+    // lighthouse beam sweeps, headlights pass — so the rim and the shadow below
+    // swing with the room rather than sitting where they were hardcoded.
+    var lightX = spot.lightX == null ? -1 : (spot.lightX < -1 ? -1 : (spot.lightX > 1 ? 1 : spot.lightX));
+
+    // The shadow falls away from the light and lengthens as the light drops
+    // toward the horizon, which is what makes a floor read as a floor.
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
     ctx.beginPath();
-    ctx.ellipse(0, 2, w * 0.75, h * 0.035, 0, 0, Math.PI * 2);
+    ctx.ellipse(-lightX * w * 0.42, 2,
+                w * (0.75 + Math.abs(lightX) * 0.35), h * 0.035, 0, 0, Math.PI * 2);
     ctx.fill();
 
     var halo = ctx.createRadialGradient(0, -h * 0.55, h * 0.05, 0, -h * 0.55, h * 0.75);
@@ -116,9 +125,11 @@
     ctx.fillStyle = halo;
     ctx.fillRect(-w * 1.6, -h * 1.25, w * 3.2, h * 1.4);
 
-    // rim light: the same body, offset up-left, in the key colour
+    // rim light: the same body, offset toward the light, in the key colour. This
+    // used to be a constant up-and-left — correct for exactly one set and wrong
+    // for the other fourteen.
     ctx.save();
-    ctx.translate(-w * 0.055, -h * 0.012);
+    ctx.translate(lightX * w * 0.055, -h * 0.012);
     ctx.fillStyle = Art.rgb(p.key, rim);
     drawBody(ctx, h, pose);
     ctx.restore();

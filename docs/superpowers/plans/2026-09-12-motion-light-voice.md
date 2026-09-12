@@ -82,7 +82,17 @@ weight shift on the legs, a shallow chest cycle on the torso, and a head settle.
 - [ ] Blend across the first ~0.3 s of a shot, from the previous shot's pose.
 - [ ] Run the suites; commit.
 
-### Task 4: Every set gets a light direction
+### Task 4: ~~Every set gets a light direction~~ — already existed
+
+> **Collapsed into Task 5 after reading the code, for the second correction in
+> this plan.** `film-sets.js` already exports `LIGHT` (a behaviour per set:
+> sweep, passing, flicker, cloud, none — all 15 covered) and `lightAt()`, which
+> returns a live `{ brightness, offset }` where **offset is a signed horizontal
+> light position that already moves**: a lighthouse beam sweeps across it, a
+> passing car runs it -1 to +1. The renderer already uses it to place the light
+> wash. Nothing needed inventing; the figures simply could not see it.
+
+### Task 4 (was): Every set gets a light direction
 
 **Files:** `film/js/film-sets.js`, `film/js/film-art.js`,
 `film/tests/film-logic.test.js`

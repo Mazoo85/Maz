@@ -100,12 +100,15 @@ contact sheet and a look before it is kept.
 
 ### Part 2 — the picture
 
-**Give the room a light direction.** This is the missing piece the other two
-depend on, and it does not exist today: a palette carries colours but no
-direction, and each set paints its lamp or window as artwork without saying
-where it is. Each of the 15 sets gains a light direction (and the hour of day
-already shifts it — a low sun is not an overhead bulb). One number per set,
-read by everything below.
+**Use the light direction that already exists.** *(Second correction: this
+section first said one had to be invented.)* `film-sets.js` exports `LIGHT`, a
+behaviour per set — sweep, passing, flicker, cloud, none, covering all 15 — and
+`lightAt()`, which returns `{ brightness, offset }` where **`offset` is a signed
+horizontal light position that already moves over time**. A lighthouse beam
+sweeps it; a passing car runs it from one side to the other. The renderer
+already places its light wash with it. The figures simply never saw it, which is
+the actual gap — and using it means the rim *swings with the beam* rather than
+sitting at a fixed angle, which is better than what was designed.
 
 **The rim light follows it.** The rim is currently a fixed offset up and left,
 which is right for exactly one set and wrong for the other fourteen. Offsetting

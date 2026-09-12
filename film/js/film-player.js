@@ -418,6 +418,12 @@
       plane(Sets.PARALLAX.mid, function () { set.mid(ctx, pal, grain); });
 
       var spots = figureLayout(shot);
+      // Where the light is, this instant. A lighthouse sweep and a passing car
+      // move it; a kitchen bulb does not. Computed once here rather than at the
+      // light-leak wash below, because the figures have to be lit by the same
+      // source that lights the room — that is the whole point.
+      var light = Sets.lightAt(Sets.LIGHT[shot.set] || 'none', time, shot.mood);
+
       function paintFigures(wantForeground) {
         spots.forEach(function (spot) {
           if (!!spot.foreground !== wantForeground) return;
@@ -473,7 +479,7 @@
           Figures.drawFigure(ctx, pal, {
             x: spot.x, groundY: spot.ground, height: spot.height,
             tint: voice.hue, speaking: speaking, wobble: wobble,
-            pose: pose
+            pose: pose, lightX: light.offset
           });
         });
       }
@@ -532,7 +538,6 @@
     // alpha and its offset into where the wash is centred, rather than
     // getting its own draw call — that keeps it out of the weather's and
     // the vignette's way, both of which are drawn in this same screen space.
-    var light = Sets.lightAt(Sets.LIGHT[shot.set] || 'none', time, shot.mood);
     var leakX = light.offset * frameW * 0.3;
     var leak = ctx.createLinearGradient(leakX, frameY, leakX + frameW * 0.7, frameY + frameH);
     leak.addColorStop(0, Art.rgb(pal.key, (0.10 + pal.tension * 0.05) * light.brightness));
