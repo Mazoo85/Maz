@@ -53,3 +53,34 @@ else
   echo "session-start: WARNING — could not install $PACKAGES." >&2
   echo "session-start: the repo's Python checks will fail until this succeeds." >&2
 fi
+
+# ---------------------------------------------------------------------------
+# Keep the inventory working alongside the other sessions, and continuously.
+#
+# Several Claude sessions edit this repo at once. Two things follow from that,
+# and both are set up here rather than left to whoever remembers.
+#
+# 1. docs/INVENTORY.md and docs/inventory.json are GENERATED. Two branches that
+#    both regenerate them conflict textually in a file nobody should hand-merge.
+#    .gitattributes names a merge driver that resolves it by rescanning the
+#    merged tree; git will not take a driver's command from a tracked file, so
+#    every checkout has to register it once. That is all this does — it adds a
+#    git config entry and runs nothing.
+if [ -x tools/inventory/install-merge-driver.sh ]; then
+  tools/inventory/install-merge-driver.sh || \
+    echo "session-start: WARNING — inventory merge driver not registered; a merge touching" >&2
+fi
+
+# 2. The catalogue is only true at commit time unless something keeps it true.
+#    `--watch` rescans on change and rewrites the two outputs, and writes only
+#    when the content actually differs — so it costs nothing while the tree is
+#    quiet, and another session regenerating the same bytes does not look like
+#    a change. Backgrounded: it must never delay or fail the session start.
+#
+#    MAZ_INVENTORY_WATCH=0 turns it off for a session that would rather the
+#    files held still.
+if [ "${MAZ_INVENTORY_WATCH:-1}" != "0" ] && command -v node >/dev/null 2>&1; then
+  mkdir -p .git/maz
+  nohup node tools/inventory/main.mjs --watch >.git/maz/inventory-watch.log 2>&1 &
+  echo "session-start: inventory watching (log: .git/maz/inventory-watch.log, MAZ_INVENTORY_WATCH=0 to disable)"
+fi

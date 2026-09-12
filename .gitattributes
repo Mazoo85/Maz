@@ -1,0 +1,16 @@
+# The inventory's two outputs are generated from the repository by
+# `node tools/inventory/main.mjs --write`. Two branches that both regenerate
+# them conflict textually in a file nobody should hand-merge: the right answer
+# is never a blend of two versions, it is a fresh scan of the merged tree.
+#
+# `merge=maz-inventory` names the driver that does exactly that. The driver's
+# command lives in each checkout's own git config, not here — git will not take
+# a command from a tracked file — so it is registered by
+# tools/inventory/install-merge-driver.sh, which the session-start hook runs.
+# Without that registration git falls back to an ordinary conflict, and the fix
+# is one command: node tools/inventory/main.mjs --write
+#
+# linguist-generated keeps them collapsed in GitHub diffs, where a 600-line
+# regenerated table is noise rather than review.
+docs/INVENTORY.md    merge=maz-inventory linguist-generated=true
+docs/inventory.json  merge=maz-inventory linguist-generated=true

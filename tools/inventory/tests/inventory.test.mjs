@@ -23,6 +23,7 @@ import { parseHeaderComment, extractDocComment } from '../lib/scan-cpp.mjs';
 import { declaredFunctions, extractFunctions, duplicateHelpers } from '../lib/scan-web.mjs';
 import { validatePairings } from '../lib/synergy.mjs';
 import { buildModel } from '../lib/model.mjs';
+import { watchRoots } from '../lib/watch.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MAIN = join(HERE, '..', 'main.mjs');
@@ -407,6 +408,51 @@ await test('the scanners survive a repo that is missing everything', async () =>
   // Every declared pairing names artifacts, and none of them exist here, so all
   // of them are stale — which is the honest answer, not a crash.
   assert.ok(m.stalePairings.length > 0);
+});
+
+/* ------------------------------------------ working beside other sessions */
+
+await test('writing twice in a row writes nothing the second time', () => {
+  // Not an optimisation. --watch watches a tree the outputs live inside, so an
+  // unconditional write is a loop; and another session regenerating the same
+  // bytes must not look like a change to this one.
+  inventory(ROOT, ['--write']);
+  const second = inventory(ROOT, ['--write']);
+  assert.ok(second.includes('already up to date'), second);
+});
+
+await test('--status says which tree it describes and whether the catalogue matches', () => {
+  inventory(ROOT, ['--write']);
+  const out = inventory(ROOT, ['--status']);
+  assert.ok(out.includes('catalogue'), out);
+  assert.ok(out.includes('matches this tree'), `a freshly written catalogue reported stale:\n${out}`);
+  assert.ok(out.includes('artifacts'), 'the summary should be there too');
+});
+
+await test('--status reports a stale catalogue rather than a fresh one', () => {
+  inventory(ROOT, ['--write']);
+  write(ROOT, 'apps/late/CMakeLists.txt', 'add_executable(late main.cpp)\n');
+  write(ROOT, 'apps/late/main.cpp', '// Maz Engine — "LATE" — added after the catalogue was written.\nint main(){}\n');
+  const out = inventory(ROOT, ['--status']);
+  assert.ok(out.includes('STALE'), `a changed tree was reported as current:\n${out}`);
+  assert.ok(out.includes('--write'), 'it should name the command that fixes it');
+  rmSync(join(ROOT, 'apps/late'), { recursive: true, force: true });
+  inventory(ROOT, ['--write']);
+});
+
+await test('the watched roots cover every project, including ones added later', async () => {
+  // The point of deriving them: a browser project or Python tool another
+  // session adds is watched without anyone editing watch.mjs.
+  const m = await buildModel(ROOT);
+  const roots = watchRoots(ROOT, m);
+  assert.ok(roots.includes('apps'), 'apps/ must be watched');
+  assert.ok(roots.includes('engine'), 'engine/ must be watched');
+  assert.ok(roots.includes('docs'), 'docs/ must be watched — a doc link is catalogued');
+  for (const w of m.webApps) {
+    assert.ok(roots.includes(w.path), `${w.path} is a project but is not watched`);
+  }
+  assert.strictEqual(new Set(roots).size, roots.length, 'a root is listed twice');
+  assert.ok(!roots.includes('nope'), 'a root that does not exist should be dropped');
 });
 
 for (const r of tmpRoots) rmSync(r, { recursive: true, force: true });

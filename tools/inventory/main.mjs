@@ -6,6 +6,8 @@
  *   node tools/inventory/main.mjs            # print the report to stdout
  *   node tools/inventory/main.mjs --write    # write docs/INVENTORY.md + docs/inventory.json
  *   node tools/inventory/main.mjs --check    # fail if those files are out of date
+ *   node tools/inventory/main.mjs --watch    # keep them current while you work
+ *   node tools/inventory/main.mjs --status   # which tree this describes, and is it current
  *   node tools/inventory/main.mjs --summary  # just the numbers
  *   node tools/inventory/main.mjs --json     # the machine-readable model to stdout
  *
@@ -21,6 +23,8 @@ import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildModel } from './lib/model.mjs';
 import { render } from './lib/render.mjs';
+import { watchTree, watchRoots } from './lib/watch.mjs';
+import { branchState, dirtyPaths, isRepo } from './lib/git.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(process.env.INVENTORY_ROOT || join(HERE, '..', '..'));
@@ -84,6 +88,143 @@ function warnStale(model) {
   }
 }
 
+/**
+ * Write both outputs, but only the ones whose content actually changed.
+ *
+ * Returns what it wrote. Skipping an identical write is not an optimisation:
+ * --watch watches a tree the outputs live inside, so an unconditional write is
+ * a loop, and another session regenerating the same bytes must not look like a
+ * change.
+ */
+function writeOutputs(md, js) {
+  const wrote = [];
+  mkdirSync(dirname(MD_PATH), { recursive: true });
+  if (readIfPresent(MD_PATH) !== md) {
+    writeFileSync(MD_PATH, md);
+    wrote.push('docs/INVENTORY.md');
+  }
+  if (readIfPresent(JSON_PATH) !== js) {
+    writeFileSync(JSON_PATH, js);
+    wrote.push('docs/inventory.json');
+  }
+  return wrote;
+}
+
+
+/**
+ * Where this checkout stands, and whether the committed catalogue still
+ * describes it.
+ *
+ * Deliberately not written into docs/INVENTORY.md: that file's content has to
+ * stay byte-identical for an unchanged tree or `--check` fails on every commit.
+ * Branch and commit are facts about the moment, so they are printed on demand
+ * instead.
+ */
+async function status(model, md, js) {
+  const lines = [];
+  const fresh = readIfPresent(MD_PATH) === md && readIfPresent(JSON_PATH) === js;
+
+  if (isRepo(ROOT)) {
+    const g = branchState(ROOT);
+    lines.push(`branch      ${g.branch}${g.isTrunk ? '  (the trunk)' : ''} at ${g.head}`);
+    if (g.behind === null) {
+      lines.push(`trunk       ${g.base} is not in this checkout — run: git fetch origin main`);
+    } else {
+      lines.push(`vs ${g.base}  ${g.behind} behind, ${g.ahead} ahead`);
+      // CLAUDE.md records what happened the last time nobody read this number:
+      // work aimed at the engine landed on a branch that could not reach it.
+      if (g.behind > 0) {
+        lines.push(`            ${g.behind} commit${g.behind === 1 ? '' : 's'} landed on the trunk ` +
+                   'while this branch was being written — merge before trusting a comparison');
+      }
+    }
+    const dirty = dirtyPaths(ROOT, ['apps/', 'engine/', 'tests/', 'tools/', 'scripts/', 'shared/', 'docs/']);
+    lines.push(`uncommitted ${dirty.length} scanned path${dirty.length === 1 ? '' : 's'}` +
+               (dirty.length ? `: ${dirty.slice(0, 4).join(', ')}${dirty.length > 4 ? ', …' : ''}` : ''));
+  } else {
+    lines.push('branch      (not a git checkout)');
+  }
+
+  lines.push(`catalogue   ${fresh ? 'matches this tree' : 'STALE — run: node tools/inventory/main.mjs --write'}`);
+  lines.push('');
+  lines.push(summary(model));
+  return lines.join('\n');
+}
+
+/**
+ * Keep the two outputs current while the repository is being worked on.
+ *
+ * Runs until interrupted. Prints a line only when something actually changed,
+ * so a long quiet session says nothing rather than scrolling.
+ */
+async function watch(initialModel, initialMd, initialJs) {
+  let model = initialModel;
+  writeOutputs(initialMd, initialJs);
+
+  const roots = watchRoots(ROOT, model);
+  process.stdout.write(
+    `watching ${roots.length} director${roots.length === 1 ? 'y' : 'ies'} — ` +
+    `${model.stats.totalArtifacts} artifacts, ${model.stats.openTasks} open tasks\n` +
+    'ctrl-c to stop\n');
+
+  let running = false;
+  let again = false;
+
+  const rescan = async () => {
+    // A scan takes about a second. If the tree changes while one is running,
+    // remember to go round again rather than starting a second scan on top of
+    // it — otherwise a busy merge queues dozens of overlapping scans.
+    if (running) { again = true; return; }
+    running = true;
+    try {
+      const next = await buildModel(ROOT);
+      const md = render(next);
+      const js = JSON.stringify(toJson(next), null, 2) + '\n';
+      const wrote = writeOutputs(md, js);
+      if (wrote.length) {
+        const before = model.stats;
+        const after = next.stats;
+        const moved = [];
+        if (after.totalArtifacts !== before.totalArtifacts) {
+          moved.push(`artifacts ${before.totalArtifacts} -> ${after.totalArtifacts}`);
+        }
+        if (after.openTasks !== before.openTasks) {
+          moved.push(`open tasks ${before.openTasks} -> ${after.openTasks}`);
+        }
+        if (after.checksPassed !== before.checksPassed) {
+          moved.push(`checks ${before.checksPassed} -> ${after.checksPassed}`);
+        }
+        process.stdout.write(
+          `${new Date().toTimeString().slice(0, 8)}  updated` +
+          `${moved.length ? ' — ' + moved.join(', ') : ''}\n`);
+        for (const st of next.stalePairings) {
+          process.stdout.write(`          warning: pairing "${st.id}" names ${st.missing.join(', ')}\n`);
+        }
+      }
+      model = next;
+    } catch (err) {
+      // A scan during a half-finished write can legitimately fail. Say so and
+      // keep watching; the next change will try again.
+      process.stdout.write(`${new Date().toTimeString().slice(0, 8)}  scan failed: ${err.message}\n`);
+    } finally {
+      running = false;
+      if (again) { again = false; await rescan(); }
+    }
+  };
+
+  const stop = watchTree(ROOT, roots, () => { void rescan(); });
+
+  return new Promise((resolve) => {
+    const finish = () => {
+      stop();
+      process.stdout.write('\nstopped watching\n');
+      resolve(0);
+    };
+    process.on('SIGINT', finish);
+    process.on('SIGTERM', finish);
+  });
+}
+
 function readIfPresent(path) {
   try {
     return readFileSync(path, 'utf8');
@@ -107,8 +248,18 @@ async function main(argv) {
     return 0;
   }
 
-  const md = render(model) ;
+  const md = render(model);
   const js = JSON.stringify(toJson(model), null, 2) + '\n';
+
+  if (flags.has('--status')) {
+    process.stdout.write((await status(model, md, js)) + '\n');
+    warnStale(model);
+    return 0;
+  }
+
+  if (flags.has('--watch')) {
+    return watch(model, md, js);
+  }
 
   if (flags.has('--check')) {
     const problems = [];
@@ -130,10 +281,9 @@ async function main(argv) {
   }
 
   if (flags.has('--write')) {
-    mkdirSync(dirname(MD_PATH), { recursive: true });
-    writeFileSync(MD_PATH, md);
-    writeFileSync(JSON_PATH, js);
-    process.stdout.write(`wrote docs/INVENTORY.md and docs/inventory.json\n${summary(model)}\n`);
+    const wrote = writeOutputs(md, js);
+    process.stdout.write(
+      `${wrote.length ? 'wrote ' + wrote.join(' and ') : 'already up to date'}\n${summary(model)}\n`);
     warnStale(model);
     // Writing the report is not the gate. A stale pairing is a real problem, but
     // refusing to exit 0 here would mean the command that FIXES a stale report

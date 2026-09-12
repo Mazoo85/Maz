@@ -20,6 +20,8 @@ The output is [`docs/INVENTORY.md`](../../docs/INVENTORY.md) for people and
 node tools/inventory/main.mjs            # print the report
 node tools/inventory/main.mjs --write    # write docs/INVENTORY.md and docs/inventory.json
 node tools/inventory/main.mjs --check    # fail if either file is out of date (this is the CI gate)
+node tools/inventory/main.mjs --watch    # keep them current while you work
+node tools/inventory/main.mjs --status   # which tree this describes, and is it current
 node tools/inventory/main.mjs --summary  # just the numbers
 node tools/inventory/main.mjs --json     # the machine-readable model on stdout
 node tools/inventory/tests/inventory.test.mjs   # the tests
@@ -32,6 +34,33 @@ A full scan of the repository takes well under a second.
 **Regenerate the report in the same commit as any change that moves its numbers**, or
 `--check` fails the build. That is the point of the gate: a catalogue nobody regenerates is worse
 than no catalogue, because it is confidently wrong.
+
+## Working beside other sessions
+
+Several Claude sessions edit this repository at once, and both consequences are handled rather than
+left to whoever remembers.
+
+**It stays current, not just correct at commit time.** `--watch` rescans when anything the scan
+reads changes and rewrites the two outputs — but only when the content actually differs. That is
+not an optimisation: the outputs live inside a watched tree, so an unconditional write would loop,
+and another session regenerating the same bytes must not look like a change to this one. Scans are
+debounced, so a checkout or a merge touching hundreds of files produces one rescan, once the burst
+ends. `.claude/hooks/session-start.sh` starts it for every web session; `MAZ_INVENTORY_WATCH=0`
+turns that off.
+
+**Two branches regenerating it do not conflict.** `docs/INVENTORY.md` and `docs/inventory.json` are
+generated, so a textual merge of two versions is meaningless — the right answer is always a fresh
+scan of the merged tree. `.gitattributes` names a merge driver that does exactly that. Git will not
+take a driver's command from a tracked file, so each checkout registers it once with
+`tools/inventory/install-merge-driver.sh` (the session-start hook runs it). Without the
+registration you get an ordinary conflict, and the fix is one command:
+`node tools/inventory/main.mjs --write`.
+
+**It says which tree it describes.** `--status` prints the branch, how far it is from the trunk, what
+is uncommitted, and whether the committed catalogue still matches. The number worth reading is how
+far *behind* the trunk you are — CLAUDE.md records what happened the last time nobody read it. That
+information is deliberately kept out of `docs/INVENTORY.md` itself, whose content has to be
+byte-identical for an unchanged tree or `--check` would fail on every commit.
 
 ## How it decides what an app demonstrates
 
