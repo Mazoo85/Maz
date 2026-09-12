@@ -20,6 +20,7 @@ in its corner that leads back to it.
 | | Project | What it is |
 |---|---|---|
 | 🎬 | **SCRIPT FORGE** — [open](film/) · [docs](film/README.md) | Type what your film is about and get the film: a formatted screenplay, a shot list, and an animated short with jointed characters, layered sets, weather, moving light and a composed score, that plays in the page and downloads. |
+| 🖼️ | **CODA PICS** — [open](coda-pics/) · [docs](coda-pics/README.md) | Type what you want to see and get a picture back: 60 subjects, 20 settings, every hour and weather, finished in one of 14 art styles. Every picture is drawn from scratch in the page — no model, no key, no network. |
 | 🎵 | **SONG FORGE** — [open](music/) · [docs](music/README.md) | Writes and plays complete songs — chords, bass, drums, arpeggio, melody — across 8 genres, with WAV and MIDI export. It is also the thing that scores a SCRIPT FORGE film. |
 | 🎮 | **ZOMBOID: ANCHORAGE** — [play](zomboid/) · [docs](zomboid/README.md) | Open-world zombie survival across a tile-built replica of downtown Anchorage, drawn as a 1990s SEGA arcade title. |
 | 🎮 | **DEAD SECTOR** — [play](shooter/) · [docs](shooter/README.md) | Phone-first top-down twin-stick shooter in one self-contained HTML file. |
