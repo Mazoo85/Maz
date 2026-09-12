@@ -964,10 +964,14 @@ input[type="range"]::-moz-range-thumb {
   color: var(--ink-dim);
 }
 .st-mute.on { background: var(--pink); border-color: var(--pink); color: #14000c; }
-/* Sized by flex-basis rather than width: the base rule for every range input
-   in the app sets width:100%, and a channel strip is the one place that is
-   wrong — the name has to fit beside it. Basis settles the used width outright
-   rather than leaving two width declarations to argue. */
+/* `.st-chan .st-vol`, not `.st-vol`, and the reason is worth knowing: an
+   attribute selector carries the same weight as a class, so the base rule
+   `input[type="range"]` is (0,1,1) and quietly beats a bare `.st-vol` at
+   (0,1,0). The slider took the full-width value meant for the big sliders, and
+   the drum name — a flex item that hides its overflow, so it is allowed to
+   shrink to nothing — did exactly that. Every row showed a mute button, a
+   slider, and no clue which drum it was. The same mistake is in the original
+   CJC Station's own stylesheet, for the same reason. */
 .st-chan .st-vol { flex: 0 0 52px; width: 52px; min-width: 52px; }
 /* And the name takes what is left instead of being squeezed to nothing. A flex
    item that hides its overflow may shrink to zero, which is exactly what it did:

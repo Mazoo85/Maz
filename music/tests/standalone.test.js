@@ -955,6 +955,58 @@ function launchOptions() {
   });
   check(overflow <= 1, 'no sideways scrolling at 390px (' + overflow + 'px)');
 
+  /* The CJC Station kept in the repo alongside the app. It is a separate page
+     with its own engine, so nothing else in this suite would notice if it
+     stopped working — and a broken file in a repository is worse than no file. */
+  console.log('\n— the original CJC Station —');
+  const cjcErrors = [];
+  const cjc = await browser.newPage();
+  cjc.on('pageerror', function (e) { cjcErrors.push(String(e)); });
+  cjc.on('console', function (m) {
+    if (m.type() === 'error' && !/fonts|ERR_|net::/.test(m.text())) cjcErrors.push(m.text());
+  });
+  await cjc.goto('file://' + path.join(__dirname, '..', 'cjc-station.html'));
+  await cjc.waitForTimeout(600);
+  const cjcBuilt = await cjc.evaluate(function () {
+    const names = Array.prototype.map.call(document.querySelectorAll('#rack .name'),
+      function (n) { return n.getBoundingClientRect().width; });
+    return {
+      rows: document.querySelectorAll('#rack .row').length,
+      pads: document.querySelectorAll('#rack .step').length,
+      lit: document.querySelectorAll('#rack .step.on, #rack .step.acc').length,
+      roll: document.querySelectorAll('#roll .prow').length,
+      notes: document.querySelectorAll('#roll .cell.on').length,
+      narrowest: names.length ? Math.min.apply(null, names) : 0
+    };
+  });
+  check(cjcBuilt.rows === 9 && cjcBuilt.pads === 144,
+    'the rack builds nine rows of sixteen pads (' + cjcBuilt.rows + '×' +
+    (cjcBuilt.pads / Math.max(1, cjcBuilt.rows)) + ')');
+  check(cjcBuilt.lit > 10 && cjcBuilt.notes > 0,
+    'the demo groove is loaded (' + cjcBuilt.lit + ' pads, ' + cjcBuilt.notes + ' notes)');
+  check(cjcBuilt.roll === 8, 'the note grid has eight rows (' + cjcBuilt.roll + ')');
+  /* The names rendered at zero width for the whole life of this app, because
+     input[type="range"] outranks a bare class. Nothing failed; you simply could
+     not tell which row was the kick. */
+  check(cjcBuilt.narrowest > 20,
+    'and every drum row is labelled (narrowest name ' +
+    Math.round(cjcBuilt.narrowest) + 'px)');
+  await cjc.click('#playBtn');
+  await cjc.waitForTimeout(900);
+  const cjcPlaying = await cjc.evaluate(function () {
+    return { label: document.getElementById('playLabel').textContent,
+             lit: document.querySelectorAll('#rack .step.playing').length };
+  });
+  check(cjcPlaying.label === 'STOP' && cjcPlaying.lit > 0,
+    'it plays, with the playhead moving across the rack');
+  await cjc.click('#playBtn');
+  await cjc.waitForTimeout(250);
+  check(await cjc.evaluate(function () {
+    return document.getElementById('playLabel').textContent;
+  }) === 'PLAY', 'and stops again');
+  check(cjcErrors.length === 0, 'with no page errors' +
+    (cjcErrors.length ? ':\n    ' + cjcErrors.slice(0, 4).join('\n    ') : ''));
+
   console.log('\n— console —');
   check(errors.length === 0, 'no page errors' + (errors.length ? ':\n    ' + errors.slice(0, 6).join('\n    ') : ''));
   if (offlineFonts.length) {
