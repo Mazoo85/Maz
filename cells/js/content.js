@@ -30,9 +30,11 @@
    * hold     the victim cannot act at all
    */
   const STATUSES = {
-    bleed:  { name: 'Bleeding', dps: 9,  dur: 3.0, hex: '#ff3b5c', stacks: true },
+    /* maxStacks matters most on the receiving end: an unbounded stack turns a
+     * few chip hits into an unavoidable death sentence. */
+    bleed:  { name: 'Bleeding', dps: 9,  dur: 3.0, hex: '#ff3b5c', stacks: true, maxStacks: 5 },
     fire:   { name: 'Burning',  dps: 14, dur: 2.2, hex: '#ff8a1e', stacks: false, spreads: true },
-    poison: { name: 'Poisoned', dps: 7,  dur: 4.0, hex: '#8ddb3a', stacks: true },
+    poison: { name: 'Poisoned', dps: 7,  dur: 3.5, hex: '#8ddb3a', stacks: true, maxStacks: 3 },
     frozen: { name: 'Frozen',   dps: 0,  dur: 2.0, hex: '#7fd8ff', stacks: false, hold: true },
     rooted: { name: 'Rooted',   dps: 0,  dur: 2.4, hex: '#c9a227', stacks: false, slow: 0 },
     stun:   { name: 'Stunned',  dps: 0,  dur: 0.9, hex: '#ffe600', stacks: false, hold: true }
@@ -218,10 +220,10 @@
     { id: 'archer',   name: 'Bone Archer',   ai: 'archer',   hp: 24,  dmg: 8,  speed: 40,  w: 12, h: 22, cells: 2, gold: 8,  range: 200, windup: 0.7, hex: '#cfc7a8' },
     { id: 'bat',      name: 'Cave Bat',      ai: 'flyer',    hp: 16,  dmg: 7,  speed: 92,  w: 13, h: 11, cells: 1, gold: 4,  reach: 14, windup: 0.2,  hex: '#9d6bff' },
     { id: 'shielder', name: 'Shieldbearer',  ai: 'shielder', hp: 44,  dmg: 11, speed: 38,  w: 15, h: 23, cells: 3, gold: 11, reach: 20, windup: 0.5,  hex: '#8fa7c4' },
-    { id: 'bomber',   name: 'Grenadier',     ai: 'bomber',   hp: 28,  dmg: 14, speed: 46,  w: 14, h: 21, cells: 3, gold: 10, range: 190, windup: 0.85, hex: '#ff8a1e' },
-    { id: 'caster',   name: 'Inquisitor',    ai: 'caster',   hp: 34,  dmg: 12, speed: 52,  w: 13, h: 24, cells: 4, gold: 14, range: 230, windup: 0.9,  hex: '#ff4fd8' },
+    { id: 'bomber',   name: 'Grenadier',     ai: 'bomber',   hp: 28,  dmg: 13, speed: 46,  w: 14, h: 21, cells: 3, gold: 10, range: 190, windup: 0.85, hex: '#ff8a1e' },
+    { id: 'caster',   name: 'Inquisitor',    ai: 'caster',   hp: 34,  dmg: 11, speed: 52,  w: 13, h: 24, cells: 4, gold: 14, range: 230, windup: 0.9,  hex: '#ff4fd8' },
     { id: 'slammer',  name: 'Protector',     ai: 'slammer',  hp: 70,  dmg: 17, speed: 36,  w: 20, h: 27, cells: 5, gold: 18, reach: 28, windup: 0.75, hex: '#e05c3a' },
-    { id: 'spitter',  name: 'Sewer Spitter', ai: 'archer',   hp: 30,  dmg: 10, speed: 34,  w: 14, h: 20, cells: 2, gold: 9,  range: 170, windup: 0.6, hex: '#8ddb3a', poisonShot: true }
+    { id: 'spitter',  name: 'Sewer Spitter', ai: 'archer',   hp: 30,  dmg: 8, speed: 34,  w: 14, h: 20, cells: 2, gold: 9,  range: 170, windup: 0.6, hex: '#8ddb3a', poisonShot: true }
   ];
 
   /* ------------------------------------------------------------------ bosses */
@@ -258,7 +260,7 @@
     },
     {
       id: 'sewers', name: 'Toxic Sewers', tag: 'mind the spikes',
-      cols: 4, rows: 3, pool: ['spitter', 'runner', 'bat', 'shielder'], density: 1.1,
+      cols: 4, rows: 3, pool: ['spitter', 'runner', 'bat', 'zombie'], density: 1.1,
       scrolls: 3, chests: 3, shop: true, spikes: 0.10, depth: 3,
       palette: { sky1: '#07140c', sky2: '#0e2417', rock: '#1c3326', rockLit: '#2a4a35', edge: '#55874f', moss: '#b6ff5a', torch: '#9dff4a', mote: 'rgba(182,255,90,.45)' }
     },

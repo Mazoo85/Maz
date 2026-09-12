@@ -37,7 +37,7 @@
         'A Dead Cells-style run: procedurally built biomes, permadeath, cells and gold, ' +
         'three scroll colours that decide what your run becomes, weapons with rolled ' +
         'affixes, skills, mutations, elites, two bosses, and blueprints that stay unlocked.',
-      badges: ['Phone + desktop', 'Touch + keyboard', 'Canvas 2D'],
+      badges: ['Phone + desktop', 'Controller · keyboard · touch', 'Canvas 2D'],
       docs: 'cells/README.md'
     },
     {

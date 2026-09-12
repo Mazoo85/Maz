@@ -52,6 +52,7 @@
   let toast = null;
   let titleT = 0;
   let stepsRan = 0;          // world steps in the last frame
+  let lastShake = 0;         // for deciding when to rumble a controller
   let heldPressT = 0;        // how long an unconsumed press has been waiting
 
   /* =========================================================================
@@ -65,22 +66,136 @@
     buttons: []
   };
 
+  /* A controller's buttons are fed in as codes of their own (PadA, PadLB, …)
+   * alongside the keyboard's. Everything downstream — playing, menus, and the
+   * latching that stops a press being swallowed on a frame with no world step —
+   * then works for a pad without knowing a pad exists. */
   const KEYMAP = {
-    left: ['ArrowLeft', 'KeyA'],
-    right: ['ArrowRight', 'KeyD'],
-    up: ['ArrowUp', 'KeyW'],
-    down: ['ArrowDown', 'KeyS'],
-    jump: ['Space', 'KeyW', 'ArrowUp'],
-    roll: ['ShiftLeft', 'ShiftRight', 'KeyL'],
-    atk1: ['KeyJ', 'KeyZ'],
-    atk2: ['KeyK', 'KeyX'],
-    skill1: ['KeyU', 'KeyC', 'Digit1'],
-    skill2: ['KeyI', 'KeyV', 'Digit2'],
-    flask: ['KeyQ', 'KeyH'],
-    interact: ['KeyE', 'Enter'],
-    pause: ['Escape', 'KeyP'],
-    mute: ['KeyM']
+    left: ['ArrowLeft', 'KeyA', 'PadLeft'],
+    right: ['ArrowRight', 'KeyD', 'PadRight'],
+    up: ['ArrowUp', 'KeyW', 'PadUp'],
+    down: ['ArrowDown', 'KeyS', 'PadDown'],
+    jump: ['Space', 'KeyW', 'ArrowUp', 'PadA'],
+    roll: ['ShiftLeft', 'ShiftRight', 'KeyL', 'PadB'],
+    atk1: ['KeyJ', 'KeyZ', 'PadX'],
+    atk2: ['KeyK', 'KeyX', 'PadY'],
+    skill1: ['KeyU', 'KeyC', 'Digit1', 'PadLB'],
+    skill2: ['KeyI', 'KeyV', 'Digit2', 'PadRB'],
+    flask: ['KeyQ', 'KeyH', 'PadRT'],
+    interact: ['KeyE', 'Enter', 'PadLT'],
+    pause: ['Escape', 'KeyP', 'PadStart'],
+    mute: ['KeyM', 'PadBack']
   };
+
+  /* Standard-mapping button numbers → the codes above. Directions are handled
+   * separately because the d-pad and the left stick both feed them. */
+  const PAD_BUTTONS = {
+    0: 'PadA', 1: 'PadB', 2: 'PadX', 3: 'PadY',
+    4: 'PadLB', 5: 'PadRB', 6: 'PadLT', 7: 'PadRT',
+    8: 'PadBack', 9: 'PadStart'
+  };
+  const STICK_DEADZONE = 0.45;
+
+  let padIndex = null;
+  let padConnected = false;
+  let lastDevice = 'key';       // key | pad | touch — decides the button hints
+  let calmMotion = false;       // set at boot from prefers-reduced-motion
+
+  function currentPad() {
+    if (!global.navigator || !navigator.getGamepads) return null;
+    let list = null;
+    try {
+      list = navigator.getGamepads();
+    } catch (e) {
+      return null;
+    }
+    if (!list) return null;
+    if (padIndex != null && list[padIndex] && list[padIndex].connected) return list[padIndex];
+    for (let i = 0; i < list.length; i++) {
+      if (list[i] && list[i].connected) {
+        padIndex = i;
+        return list[i];
+      }
+    }
+    padIndex = null;
+    return null;
+  }
+
+  /* Called once a frame, before anything reads the input. */
+  function pollPad() {
+    const gp = currentPad();
+    if (!gp) {
+      if (padConnected) {
+        padConnected = false;
+        for (const code of Object.values(PAD_BUTTONS)) keys[code] = false;
+        for (const code of ['PadLeft', 'PadRight', 'PadUp', 'PadDown']) keys[code] = false;
+      }
+      return;
+    }
+    padConnected = true;
+
+    let touched = false;
+
+    function set(code, down) {
+      if (down && !keys[code]) pressed[code] = true;
+      keys[code] = down;
+      if (down) touched = true;
+    }
+
+    const buttons = gp.buttons || [];
+    function held(i) {
+      const b = buttons[i];
+      if (!b) return false;
+      return typeof b === 'object' ? b.pressed || b.value > 0.45 : b > 0.45;
+    }
+
+    for (const index of Object.keys(PAD_BUTTONS)) set(PAD_BUTTONS[index], held(Number(index)));
+
+    /* d-pad or left stick, whichever the player reaches for */
+    const axes = gp.axes || [];
+    const ax = axes[0] || 0;
+    const ay = axes[1] || 0;
+    set('PadLeft', held(14) || ax < -STICK_DEADZONE);
+    set('PadRight', held(15) || ax > STICK_DEADZONE);
+    set('PadUp', held(12) || ay < -STICK_DEADZONE);
+    set('PadDown', held(13) || ay > STICK_DEADZONE);
+
+    if (touched) lastDevice = 'pad';
+  }
+
+  /* Physical feedback for the same moments that shake the screen. */
+  function rumble(strength, ms) {
+    if (calmMotion) return;
+    const gp = currentPad();
+    if (!gp) return;
+    const actuator = gp.vibrationActuator;
+    if (!actuator || !actuator.playEffect) return;
+    try {
+      actuator.playEffect('dual-rumble', {
+        startDelay: 0,
+        duration: Math.max(40, Math.min(400, ms)),
+        weakMagnitude: Math.max(0, Math.min(1, strength * 0.75)),
+        strongMagnitude: Math.max(0, Math.min(1, strength))
+      });
+    } catch (e) {
+      /* a controller that cannot rumble is not an error */
+    }
+  }
+
+  /* What to print on a button hint, for whichever thing they last touched. */
+  function hint(action) {
+    const pad = lastDevice === 'pad';
+    switch (action) {
+      case 'atk1':     return pad ? 'X' : 'J';
+      case 'atk2':     return pad ? 'Y' : 'K';
+      case 'skill1':   return pad ? 'LB' : 'U';
+      case 'skill2':   return pad ? 'RB' : 'I';
+      case 'interact': return pad ? 'LT' : 'E';
+      case 'flask':    return pad ? 'RT' : 'Q';
+      case 'confirm':  return pad ? 'A' : 'SPACE';
+      default:         return '';
+    }
+  }
 
   function keyDown(name) {
     for (const code of KEYMAP[name]) if (keys[code]) return true;
@@ -137,6 +252,7 @@
       }
       keys[e.code] = true;
       pressed[e.code] = true;
+      lastDevice = 'key';
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].indexOf(e.code) !== -1) e.preventDefault();
       AUDIO.resume();
     });
@@ -145,6 +261,19 @@
     });
     global.addEventListener('blur', function () {
       for (const k of Object.keys(keys)) keys[k] = false;
+    });
+
+    global.addEventListener('gamepadconnected', function (e) {
+      padIndex = e.gamepad ? e.gamepad.index : padIndex;
+      lastDevice = 'pad';
+      AUDIO.resume();
+      toastMessage('Controller connected — A jumps, X and Y swing, B rolls.');
+    });
+    global.addEventListener('gamepaddisconnected', function () {
+      padIndex = null;
+      padConnected = false;
+      lastDevice = 'key';
+      toastMessage('Controller disconnected.');
     });
 
     /* ---- touch: a move zone on the left, buttons on the right */
@@ -214,6 +343,7 @@
     e.preventDefault();
     AUDIO.resume();
     touch.active = true;
+    lastDevice = 'touch';
     const v = R.view();
     const list = e.touches;
 
@@ -726,6 +856,7 @@
   }
 
   function update(dt) {
+    pollPad();
     const input = readInput();
 
     if (keyPressed('mute')) AUDIO.toggleMute();
@@ -768,7 +899,7 @@
 
       case STATE.SHOP:
       case STATE.COLLECTOR:
-        if (keyPressed('pause')) state = STATE.PLAY;
+        if (keyPressed('pause') || pressed.PadB) state = STATE.PLAY;
         else menuNav();
         break;
 
@@ -812,6 +943,14 @@
       EN.updateProjectiles(world, STEP);
       EN.updateDrops(world, STEP);
       EN.updateEffects(world, STEP);
+
+      /* Anything that jolts the camera jolts the controller too. Reading it off
+       * the shake means every source — a hit taken, a crit landed, a boss slam
+       * — is covered without the entity code knowing about controllers. */
+      if (world.shake > lastShake + 1.5) {
+        rumble(Math.max(0.2, Math.min(1, world.shake / 11)), 70 + world.shake * 7);
+      }
+      lastShake = world.shake;
 
       world.shake = Math.max(0, world.shake - STEP * 22);
       handleEvents();
@@ -1138,7 +1277,7 @@
       const x = 8;
       const y = v.h - 40 + i * 18;
       R.panel(x, y, 112, 16, w ? CONTENT.COLORS[w.color].hex : 'rgba(255,255,255,.12)');
-      R.text(i === 0 ? 'J' : 'K', x + 6, y + 11, { size: 8, color: '#fff', bold: true });
+      R.text(hint(i === 0 ? 'atk1' : 'atk2'), x + 6, y + 11, { size: 8, color: '#fff', bold: true });
       if (w) {
         R.rect(x + 14, y + 2, 2, 12, CONTENT.COLORS[w.color].hex);
         R.text(trim(w.name, 15), x + 19, y + 11, { size: 7, color: '#e8e2f2' });
@@ -1155,7 +1294,7 @@
       const x = touch.active ? 8 : v.w - w - 8;
       const y = touch.active ? HUD_TOP + 26 + i * 18 : v.h - 40 + i * 18;
       R.panel(x, y, w, 16, s ? CONTENT.COLORS[s.color].hex : 'rgba(255,255,255,.12)');
-      R.text(i === 0 ? 'U' : 'I', x + 6, y + 11, { size: 8, color: '#fff', bold: true });
+      R.text(hint(i === 0 ? 'skill1' : 'skill2'), x + 6, y + 11, { size: 8, color: '#fff', bold: true });
       if (s) {
         R.text(trim(s.name, 11), x + 16, y + 11, { size: 7, color: '#e8e2f2' });
         if (p.skillCd[i] > 0) {
@@ -1259,9 +1398,10 @@
     const x = nearby.pos.x - R.ox();
     const y = nearby.pos.y - R.oy() - 46;
     if (x < 0 || x > v.w) return;
-    const w = R.measure(label, 7) + 22;
+    const key = hint('interact');
+    const w = R.measure(label, 7) + 18 + R.measure(key, 8, true);
     R.panel(x - w / 2, y, w, 13, 'rgba(255,255,255,.3)');
-    R.text('E', x - w / 2 + 5, y + 9, { size: 8, bold: true, color: '#ffe600' });
+    R.text(key, x - w / 2 + 5, y + 9, { size: 8, bold: true, color: '#ffe600' });
     R.text(label, x + 4, y + 9, { align: 'center', size: 7, color: '#fff' });
   }
 
@@ -1337,7 +1477,7 @@
       menuRects.push({ x: x, y: y, w: cw, h: ch, index: i });
     }
 
-    R.text('← → choose   ·   SPACE or tap to take', v.w / 2, y + ch + 16, {
+    R.text('← → choose   ·   ' + hint('confirm') + ' or tap to take', v.w / 2, y + ch + 16, {
       align: 'center', size: 7, color: 'rgba(255,255,255,.55)'
     });
   }
@@ -1444,7 +1584,7 @@
 
     const ly = y + 36 + items.length * rowH;
     const chosenLeave = menuIndex === items.length;
-    R.text((chosenLeave ? '> ' : '  ') + 'Leave  (E)', x + w / 2, ly + 10, {
+    R.text((chosenLeave ? '> ' : '  ') + 'Leave  (' + hint('interact') + ')', x + w / 2, ly + 10, {
       align: 'center', size: 8, color: chosenLeave ? '#fff' : 'rgba(255,255,255,.6)'
     });
     menuRects.push({ x: x + 4, y: ly, w: w - 8, h: 14, index: items.length });
@@ -1485,7 +1625,7 @@
 
     const ly = y + 46 + list.length * rowH;
     const chosenLeave = menuIndex === list.length;
-    R.text((chosenLeave ? '> ' : '  ') + 'Leave  (E)', x + w / 2, ly + 12, {
+    R.text((chosenLeave ? '> ' : '  ') + 'Leave  (' + hint('interact') + ')', x + w / 2, ly + 12, {
       align: 'center', size: 8, color: chosenLeave ? '#fff' : 'rgba(255,255,255,.6)'
     });
     menuRects.push({ x: x + 4, y: ly, w: w - 8, h: 14, index: list.length });
@@ -1510,7 +1650,7 @@
       R.text(line, v.w / 2, v.h / 2 + i * 11, { align: 'center', size: 8, color: 'rgba(255,255,255,.8)' });
     });
 
-    R.text('SPACE or tap — back to the top', v.w / 2, v.h / 2 + lines.length * 11 + 16, {
+    R.text(hint('confirm') + ' or tap — back to the top', v.w / 2, v.h / 2 + lines.length * 11 + 16, {
       align: 'center', size: 8, color: '#2fe6c8'
     });
   }
@@ -1529,7 +1669,7 @@
     lines.forEach(function (line, i) {
       R.text(line, v.w / 2, v.h * 0.5 + i * 11, { align: 'center', size: 8, color: 'rgba(255,255,255,.85)' });
     });
-    R.text('SPACE or tap — go again', v.w / 2, v.h * 0.5 + lines.length * 11 + 18, {
+    R.text(hint('confirm') + ' or tap — go again', v.w / 2, v.h * 0.5 + lines.length * 11 + 18, {
       align: 'center', size: 8, color: '#2fe6c8'
     });
   }
@@ -1573,6 +1713,11 @@
     R.text('a roguelite in the shape of Dead Cells', v.w / 2, cy + Math.min(48, v.w / 9), {
       align: 'center', size: 8, color: 'rgba(255,255,255,.65)'
     });
+    if (padConnected) {
+      R.text('controller ready — press A', v.w / 2, cy + Math.min(60, v.w / 9) + 10, {
+        align: 'center', size: 7, color: '#2fe6c8'
+      });
+    }
 
     const items = menuItems();
     const y0 = Math.min(v.h - 66, cy + Math.min(70, v.w / 7));
@@ -1599,37 +1744,56 @@
   }
 
   function drawHelp(ctx, v) {
-    const w = Math.min(320, v.w - 20);
+    const w = Math.min(374, v.w - 12);
     const x = (v.w - w) / 2;
+
+    /* action, keyboard, controller, touch */
     const rows = [
-      ['move', 'A / D  or  arrows', 'drag the left thumb'],
-      ['jump', 'SPACE  or  W', 'JMP'],
-      ['roll', 'SHIFT', 'ROLL'],
-      ['', 'invulnerable while rolling — roll through an enemy to hit its back', ''],
-      ['attack', 'J  (left hand)   K  (right hand)', 'ATK / ATK2'],
-      ['skills', 'U  and  I', 'S1 / S2'],
-      ['heal', 'Q', 'HEAL'],
-      ['use', 'E  — doors, chests, scrolls, shops', 'USE'],
-      ['drop', 'hold DOWN + jump to fall through a platform', ''],
-      ['pause', 'ESC', ''],
-      ['mute', 'M', '']
+      ['move', 'A / D  ·  arrows', 'stick / d-pad', 'left thumb'],
+      ['jump', 'SPACE  ·  W', 'A', 'JMP'],
+      ['roll', 'SHIFT', 'B', 'ROLL'],
+      ['', 'invulnerable while rolling — roll through an enemy to hit its back', '', ''],
+      ['attack', 'J  ·  K', 'X  ·  Y', 'ATK · ATK2'],
+      ['skills', 'U  ·  I', 'LB  ·  RB', 'S1 · S2'],
+      ['heal', 'Q', 'RT', 'HEAL'],
+      ['use', 'E', 'LT', 'USE'],
+      ['', 'doors, chests, scrolls, shops and the Collector', '', ''],
+      ['drop', 'hold DOWN and jump to fall through a platform', '', ''],
+      ['pause', 'ESC', 'START', ''],
+      ['mute', 'M', 'BACK', '']
     ];
-    const h = rows.length * 13 + 54;
-    const y = Math.max(6, (v.h - h) / 2);
+    const h = rows.length * 13 + 62;
+    const y = Math.max(4, (v.h - h) / 2);
+
+    const colKey = x + 56;
+    const colPad = x + w - 136;
+    const colTouch = x + w - 10;
 
     R.panel(x, y, w, h, 'rgba(47,230,200,.5)');
-    R.text('HOW TO PLAY', x + w / 2, y + 18, { align: 'center', size: 11, bold: true, color: '#fff' });
+    R.text('HOW TO PLAY', x + w / 2, y + 17, { align: 'center', size: 11, bold: true, color: '#fff' });
     R.text('Find the exit, fight what is in the way, read every scroll you find.',
-      x + w / 2, y + 30, { align: 'center', size: 7, color: 'rgba(255,255,255,.6)' });
+      x + w / 2, y + 28, { align: 'center', size: 7, color: 'rgba(255,255,255,.6)' });
+
+    R.text('keyboard', colKey, y + 40, { size: 7, color: 'rgba(255,255,255,.4)' });
+    R.text('controller', colPad, y + 40, { size: 7, color: padConnected ? '#2fe6c8' : 'rgba(255,255,255,.4)' });
+    R.text('touch', colTouch, y + 40, { align: 'right', size: 7, color: 'rgba(255,255,255,.4)' });
 
     rows.forEach(function (row, i) {
-      const ry = y + 42 + i * 13;
+      const ry = y + 52 + i * 13;
+      if (!row[0]) {
+        /* a note, not a binding: let it run the width of the panel */
+        R.text(row[1], x + 10, ry, { size: 7, color: 'rgba(255,255,255,.5)' });
+        return;
+      }
       R.text(row[0], x + 10, ry, { size: 7, color: '#2fe6c8', bold: true });
-      R.text(row[1], x + 54, ry, { size: 7, color: 'rgba(255,255,255,.82)' });
-      if (row[2]) R.text(row[2], x + w - 10, ry, { align: 'right', size: 7, color: 'rgba(255,255,255,.45)' });
+      R.text(row[1], colKey, ry, { size: 7, color: 'rgba(255,255,255,.82)' });
+      if (row[2]) R.text(row[2], colPad, ry, { size: 7, color: padConnected ? '#9ffff0' : 'rgba(255,255,255,.6)' });
+      if (row[3]) R.text(row[3], colTouch, ry, { align: 'right', size: 7, color: 'rgba(255,255,255,.45)' });
     });
 
-    R.text('SPACE or tap to go back', x + w / 2, y + h - 8, { align: 'center', size: 7, color: 'rgba(255,255,255,.5)' });
+    R.text(hint('confirm') + ' or tap to go back', x + w / 2, y + h - 8, {
+      align: 'center', size: 7, color: 'rgba(255,255,255,.5)'
+    });
   }
 
   /* =========================================================================
@@ -1637,6 +1801,7 @@
    * ====================================================================== */
   function boot() {
     canvas = document.getElementById('game');
+    calmMotion = !!(global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches);
     R.init(canvas);
     layoutTouchButtons();
     meta = META.load();
@@ -1679,6 +1844,8 @@
     interactNow: interact,
     nearby: function () { return nearby; },
     press: function (code) { keys[code] = true; pressed[code] = true; },
+    hint: hint,
+    padConnected: function () { return padConnected; },
     release: function (code) { keys[code] = false; }
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

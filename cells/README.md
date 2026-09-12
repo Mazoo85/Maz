@@ -34,17 +34,30 @@ half the cells you were carrying.
 
 ## Controls
 
-| | Keyboard | Touch |
-|---|---|---|
-| move | `A` `D` or arrows | drag your left thumb |
-| jump | `Space` or `W` | **JMP** |
-| drop through a platform | hold `S` + jump | drag down + **JMP** |
-| roll | `Shift` | **ROLL** |
-| left / right hand weapon | `J` / `K` | **ATK** / **ATK2** |
-| skills | `U` / `I` | **S1** / **S2** |
-| health flask | `Q` | **HEAL** |
-| interact | `E` | **USE** |
-| pause · mute | `Esc` · `M` | pause from the menu |
+Keyboard, controller and touch all work, and you can switch between them
+mid-run — the button hints on screen follow whichever you last touched.
+
+| | Keyboard | Controller | Touch |
+|---|---|---|---|
+| move | `A` `D` or arrows | left stick or d-pad | drag your left thumb |
+| jump | `Space` or `W` | **A** | **JMP** |
+| drop through a platform | hold `S` + jump | hold down + **A** | drag down + **JMP** |
+| roll | `Shift` | **B** | **ROLL** |
+| left / right hand weapon | `J` / `K` | **X** / **Y** | **ATK** / **ATK2** |
+| skills | `U` / `I` | **LB** / **RB** | **S1** / **S2** |
+| health flask | `Q` | **RT** | **HEAL** |
+| interact | `E` | **LT** | **USE** |
+| pause · mute | `Esc` · `M` | **Start** · **Back** | pause from the menu |
+
+Any standard-layout controller works — plug it in (or pair it) and press a
+button; the game says so when it sees one. Menus take the stick and **A**, **B**
+backs out of a shop, and the pad rumbles when the screen shakes. Rumble and
+screen shake both stand down if your system asks for reduced motion.
+
+Because there is no aim stick, **ranged weapons lean onto what is in front of
+you** — a shot inside a narrow cone of your facing tracks the nearest enemy. It
+is assist, not auto-aim: turn your back and the arrow still goes the way you are
+facing.
 
 **The roll is the whole game.** You are invulnerable during it, and it carries
 you *through* enemies — which is how you get behind a Shieldbearer, and how Twin
@@ -73,8 +86,13 @@ pick plus one more at random.
   Cold-Forged — so the sword you find is never quite the sword you found last run.
 - **Shields parry.** Raise one *into* a blow and it goes back harder; the Ice
   Shield freezes whatever threw it.
-- **Every enemy attack is telegraphed.** Bodies flare white before they strike.
-  If a hit surprised you, it was readable.
+- **Every enemy attack is telegraphed.** Bodies flare white before they strike —
+  bats included: they pull back out of a hover before diving. If a hit surprised
+  you, it was readable.
+- **Shields break.** A Shieldbearer blocks what it can face, but the shield is a
+  health pool of its own: keep hitting it and it shatters, staggering its owner.
+  Rolling behind is still quicker — and an explosion never cared about the shield
+  in the first place.
 - **Elites** glow pink, hit harder, and one of them is carrying the vault key.
 - **Cursed chests** hand you a free weapon and a curse: one hit kills you until
   you have killed ten things.
@@ -134,18 +152,41 @@ over hundreds of seeds.
 ## Checking it
 
 ```
-node cells/tests/cells-logic.test.js     # 49 checks, no dependencies, instant
-node cells/tests/cells-browser.test.js   # 50 checks, drives the real game in Chromium
+node cells/tests/cells-logic.test.js     # 60 checks, no dependencies, ~8s
+node cells/tests/cells-browser.test.js   # 62 checks, drives the real game in Chromium
 ```
 
 The logic suite covers seeded determinism, the content tables, level
 reachability, the damage maths and the save file. The browser suite boots the
 page, starts a run, moves and swings and hurts things, builds and draws **every
 biome including both boss arenas**, opens every screen by walking up and pressing
-`E`, and kills the player to check the run ends properly. Both run in
+`E`, plays a stretch **on a simulated controller**, and kills the player to check
+the run ends properly. Both run in
 [Site CI](../.github/workflows/site-ci.yml) on every push.
 
 Playwright, once: `npm --prefix ../music/tests install`.
+
+### The difficulty is measured, not guessed
+
+A fight is simulated, not eyeballed. The logic suite drops a **reference player**
+— geared the way a run actually is at that depth: the right scrolls, the skill
+its colour is built around, a mutation per biome cleared — into a room of that
+biome's enemies, and plays it: close, swing, roll through anything winding up,
+drink at a third health. Then it checks the numbers that matter: every biome is
+clearable, no biome eats most of your health as a matter of course, and the
+enemy scaling really does climb all the way down.
+
+Enemy behaviour rolls dice — attack timing, leaps, patrol direction — so
+`entities.js` and `combat.js` each expose a `setRandom` seam the tests point at
+a seeded source. Same seed, same fight, every time; a balance change can be
+measured instead of argued about.
+
+That machinery has already earned its keep. It found that **damage over time was
+ticking once per frame** — a fractional tick rounded up to a whole point turned a
+7-per-second poison into 60 — which is why the Toxic Sewers were killing
+reference runs outright. It also found bats dealing contact damage with no
+wind-up at all, and rooms that could be nothing but shooters, with no safe way
+in. All three are fixed, and each has a test.
 
 ---
 

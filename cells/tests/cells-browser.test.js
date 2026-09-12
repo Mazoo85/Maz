@@ -361,6 +361,160 @@ function launchOptions() {
     check(death.banked === 20, 'half the carried cells are banked (' + death.banked + ' of 40)');
     check(death.runs >= 1, 'the run is recorded in the save (' + death.runs + ' runs)');
 
+    /* --- a controller has to drive the whole game, menus included */
+    console.log('\nON A CONTROLLER');
+    const pad = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+    const padProblems = [];
+    pad.on('pageerror', (e) => padProblems.push('uncaught: ' + e.message));
+    pad.on('console', (m) => {
+      if (m.type() === 'error') padProblems.push('console: ' + m.text());
+    });
+
+    /* Chromium has no real pad attached, so stand one up before the page loads.
+     * Standard mapping: 0=A 1=B 2=X 3=Y 4=LB 5=RB 6=LT 7=RT 9=START,
+     * 12-15 = d-pad, axes[0]/[1] = left stick. */
+    await pad.addInitScript(() => {
+      const fake = {
+        id: 'Test Controller (STANDARD GAMEPAD)',
+        index: 0,
+        connected: true,
+        mapping: 'standard',
+        timestamp: 0,
+        axes: [0, 0, 0, 0],
+        buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 }))
+      };
+      window.__pad = fake;
+      navigator.getGamepads = () => [fake];
+      window.__padPress = (i, down) => {
+        fake.buttons[i].pressed = !!down;
+        fake.buttons[i].value = down ? 1 : 0;
+        fake.timestamp = performance.now();
+      };
+      window.__padStick = (x, y) => {
+        fake.axes[0] = x;
+        fake.axes[1] = y;
+        fake.timestamp = performance.now();
+      };
+    });
+
+    await pad.goto(base + '/cells/', { waitUntil: 'load' });
+    await pad.waitForTimeout(400);
+
+    /* A on the title starts a run, which also proves menus read the pad */
+    await pad.evaluate(async () => {
+      window.__padPress(0, true);
+      await new Promise((r) => requestAnimationFrame(r));
+      await new Promise((r) => requestAnimationFrame(r));
+      window.__padPress(0, false);
+      for (let f = 0; f < 4; f++) await new Promise((r) => requestAnimationFrame(r));
+    });
+    const padStarted = await pad.evaluate(() => window.NEON_CELLS.state());
+    check(padStarted === 'INTRO' || padStarted === 'PLAY', 'A on the title starts a run (state ' + padStarted + ')');
+
+    await pad.evaluate(() => window.NEON_CELLS.setState('PLAY'));
+
+    /* the left stick moves, and so does the d-pad */
+    const stick = await pad.evaluate(async () => {
+      const p = window.NEON_CELLS.world().player;
+      const x0 = p.x;
+      window.__padStick(1, 0);
+      for (let f = 0; f < 40; f++) await new Promise((r) => requestAnimationFrame(r));
+      const moved = p.x - x0;
+      window.__padStick(0, 0);
+      const x1 = p.x;
+      window.__padPress(14, true);           // d-pad left
+      for (let f = 0; f < 40; f++) await new Promise((r) => requestAnimationFrame(r));
+      window.__padPress(14, false);
+      return { stick: moved, dpad: p.x - x1 };
+    });
+    check(stick.stick > 30, 'the left stick moves the player right (' + Math.round(stick.stick) + 'px)');
+    check(stick.dpad < -20, 'the d-pad moves the player left (' + Math.round(stick.dpad) + 'px)');
+
+    /* a small stick nudge inside the dead zone must not creep */
+    const deadzone = await pad.evaluate(async () => {
+      const p = window.NEON_CELLS.world().player;
+      p.vx = 0;
+      const x0 = p.x;
+      window.__padStick(0.2, 0);
+      for (let f = 0; f < 30; f++) await new Promise((r) => requestAnimationFrame(r));
+      window.__padStick(0, 0);
+      return Math.abs(p.x - x0);
+    });
+    check(deadzone < 3, 'a stick inside the dead zone does not drift (' + deadzone.toFixed(1) + 'px)');
+
+    /* A jumps, B rolls, X swings */
+    const moves = await pad.evaluate(async (buttons) => {
+      const NC = window.NEON_CELLS;
+      const p = NC.world().player;
+      const out = {};
+      for (const [name, index] of Object.entries(buttons)) {
+        /* put the player back on the floor between tries */
+        for (let f = 0; f < 40 && !p.onGround; f++) await new Promise((r) => requestAnimationFrame(r));
+        p.vy = 0;
+        p.rollTimer = 0;
+        p.rollCd = 0;
+        p.attackTimer = 0;
+        p.swing = null;
+        window.__padPress(index, true);
+        let seen = false;
+        for (let f = 0; f < 8; f++) {
+          await new Promise((r) => requestAnimationFrame(r));
+          if (name === 'jump' && p.vy < -100) seen = true;
+          if (name === 'roll' && p.rollTimer > 0) seen = true;
+          if (name === 'attack' && p.swing) seen = true;
+        }
+        window.__padPress(index, false);
+        out[name] = seen;
+        await new Promise((r) => requestAnimationFrame(r));
+      }
+      return out;
+    }, { jump: 0, roll: 1, attack: 2 });
+    check(moves.jump, 'A jumps');
+    check(moves.roll, 'B rolls');
+    check(moves.attack, 'X swings the left-hand weapon');
+
+    /* the skill buttons fire the skills */
+    const padSkill = await pad.evaluate(async () => {
+      const w = window.NEON_CELLS.world();
+      w.player.skills[0] = window.CELLS_CONTENT.SKILL.grenade;
+      w.player.skillCd[0] = 0;
+      window.__padPress(4, true);            // LB
+      for (let f = 0; f < 6; f++) await new Promise((r) => requestAnimationFrame(r));
+      window.__padPress(4, false);
+      return w.player.skillCd[0];
+    });
+    check(padSkill > 0, 'LB uses the first skill');
+
+    /* START pauses, and the pad drives the pause menu */
+    const paused = await pad.evaluate(async () => {
+      const NC = window.NEON_CELLS;
+      window.__padPress(9, true);
+      await new Promise((r) => requestAnimationFrame(r));
+      window.__padPress(9, false);
+      for (let f = 0; f < 3; f++) await new Promise((r) => requestAnimationFrame(r));
+      const state = NC.state();
+      window.__padPress(13, true);           // d-pad down moves the highlight
+      await new Promise((r) => requestAnimationFrame(r));
+      window.__padPress(13, false);
+      for (let f = 0; f < 3; f++) await new Promise((r) => requestAnimationFrame(r));
+      return { state: state, still: NC.state() };
+    });
+    check(paused.state === 'PAUSE', 'START pauses the game');
+    check(paused.still === 'PAUSE', 'and the d-pad moves through the menu without leaving it');
+
+    /* the on-screen hints follow the controller */
+    const hints = await pad.evaluate(async () => {
+      const NC = window.NEON_CELLS;
+      NC.setState('PLAY');
+      for (let f = 0; f < 3; f++) await new Promise((r) => requestAnimationFrame(r));
+      /* read the hint the HUD would print for the left-hand weapon */
+      return NC.hint('atk1') + '/' + NC.hint('skill1') + '/' + NC.hint('interact');
+    });
+    check(hints === 'X/LB/LT', 'the HUD labels switch to controller buttons (' + hints + ')');
+
+    check(padProblems.length === 0, 'no errors on a controller' + (padProblems.length ? ' — ' + padProblems.join('; ') : ''));
+    await pad.close();
+
     /* --- a phone-shaped window must lay out and take touches */
     console.log('\nON A PHONE');
     const phone = await browser.newPage({

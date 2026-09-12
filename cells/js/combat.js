@@ -15,8 +15,16 @@
 
   const CONTENT = global.CELLS_CONTENT || require('./content.js');
 
+  /* Same indirection as entities.js: one seam for randomness, so a simulated
+   * fight can be replayed exactly. */
+  let rand = Math.random;
+
+  function setRandom(fn) {
+    rand = typeof fn === 'function' ? fn : Math.random;
+  }
+
   const SCALE_PER_POINT = 0.15;   // each scroll is +15% for its colour
-  const BASE_HEALTH = 58;
+  const BASE_HEALTH = 60;
   const HEALTH_PER_SURVIVAL = 11;
 
   /* ------------------------------------------------------------- scaling */
@@ -104,7 +112,7 @@
     let dmg = weapon.dmg * scaleFor(weapon.color, stats);
 
     let crit = critApplies(weapon, ctx);
-    if (!crit && player.critChance && Math.random() < player.critChance) crit = true;
+    if (!crit && player.critChance && rand() < player.critChance) crit = true;
     if (crit) dmg *= (weapon.crit && weapon.crit.mult) || 2.0;
 
     dmg *= playerDamageMultiplier(player);
@@ -163,7 +171,7 @@
     const life = dur || def.dur;
     if (cur && cur.t > 0) {
       cur.t = Math.max(cur.t, life);
-      if (def.stacks) cur.stacks = Math.min(8, cur.stacks + (stacks || 1));
+      if (def.stacks) cur.stacks = Math.min(def.maxStacks || 5, cur.stacks + (stacks || 1));
     } else {
       ent.status[id] = { t: life, stacks: stacks || 1 };
     }
@@ -200,16 +208,29 @@
   }
 
   /* ------------------------------------------------------- enemy scaling */
-  function enemyStats(def, depth, bossCells) {
-    const hpScale = (1 + 0.26 * (depth - 1)) * (1 + 0.35 * (bossCells || 0));
-    const dmgScale = (1 + 0.17 * (depth - 1)) * (1 + 0.25 * (bossCells || 0));
+  /* Health climbs steadily; damage climbs a little faster than linearly. A run
+   * that has been collecting scrolls all the way down gains damage *and* health
+   * at once, so a purely linear ramp makes the last biomes easier than the
+   * middle ones — which is the wrong shape for the end of a run. */
+  function enemyScaling(depth, bossCells) {
+    const steps = Math.max(0, depth - 1);
+    const cells = bossCells || 0;
     return {
-      hp: Math.round(def.hp * hpScale),
-      dmg: Math.round(def.dmg * dmgScale)
+      hp: (1 + 0.26 * steps) * (1 + 0.35 * cells),
+      dmg: (1 + 0.17 * steps + 0.02 * steps * steps) * (1 + 0.25 * cells)
+    };
+  }
+
+  function enemyStats(def, depth, bossCells) {
+    const scale = enemyScaling(depth, bossCells);
+    return {
+      hp: Math.round(def.hp * scale.hp),
+      dmg: Math.round(def.dmg * scale.dmg)
     };
   }
 
   const API = {
+    setRandom: setRandom,
     SCALE_PER_POINT: SCALE_PER_POINT,
     scaleFor: scaleFor,
     maxHealth: maxHealth,
@@ -226,6 +247,7 @@
     applyStatus: applyStatus,
     tickStatuses: tickStatuses,
     statusSpeedMultiplier: statusSpeedMultiplier,
+    enemyScaling: enemyScaling,
     enemyStats: enemyStats
   };
 

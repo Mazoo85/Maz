@@ -321,6 +321,49 @@ test('one-way platforms are used, so levels have vertical routes', () => {
   assert(platforms > 40, 'only ' + platforms + ' platform tiles — the level is probably flat');
 });
 
+test('a room is never nothing but shooters', () => {
+  /* Crossing the gap has to be possible: a room of pure ranged enemies means
+   * taking fire the whole way in with no way to answer it. */
+  const rng = RNG.Rng(31337);
+  for (const biome of CONTENT.BIOMES) {
+    if (biome.boss) continue;
+    for (let count = 1; count <= 5; count++) {
+      for (let t = 0; t < 40; t++) {
+        const lineup = LG.composeRoom(rng, biome, count);
+        eq(lineup.length, count, biome.id + ' room size');
+        const ranged = lineup.filter(LG.isRangedEnemy).length;
+        assert(
+          ranged <= Math.max(1, Math.floor(count / 2)),
+          biome.id + ': ' + ranged + ' of ' + count + ' are shooters (' + lineup.join(', ') + ')'
+        );
+        for (const id of lineup) assert(CONTENT.ENEMY[id], biome.id + ' picked unknown enemy ' + id);
+      }
+    }
+  }
+});
+
+test('a generated level obeys the same rule', () => {
+  for (const id of NORMAL_BIOMES) {
+    const level = LG.generate(id, 2468, {});
+    const byRoom = new Map();
+    for (const spawn of level.enemies) {
+      const room = level.rooms.find(function (r) {
+        return spawn.tile.x >= r.x0 && spawn.tile.x <= r.x1 && spawn.tile.y >= r.y0 && spawn.tile.y <= r.floorY;
+      });
+      if (!room) continue;
+      if (!byRoom.has(room)) byRoom.set(room, []);
+      byRoom.get(room).push(spawn.id);
+    }
+    for (const [, lineup] of byRoom) {
+      const ranged = lineup.filter(LG.isRangedEnemy).length;
+      assert(
+        ranged <= Math.max(1, Math.floor(lineup.length / 2)),
+        id + ': a room holds ' + ranged + ' shooters out of ' + lineup.length
+      );
+    }
+  }
+});
+
 test('the timed vault closes on a clock the player can beat', () => {
   const level = LG.generate('promenade', 606, {});
   assert(level.timeLimit > 60, 'the timed vault gives no time at all');
@@ -661,6 +704,35 @@ test('being frozen, rooted or stunned stops you moving', () => {
   eq(CB.statusSpeedMultiplier({ status: {} }), 1, 'an unaffected target moves freely');
 });
 
+test('damage over time does not tick once per frame', () => {
+  /* A status arrives a fraction of a point at a time, sixty times a second.
+   * Rounding each of those fractions up to a whole point made poison twelve
+   * times deadlier than its own numbers claim — and it killed reference runs
+   * outright, which is how it was found. */
+  const level = LG.generate('bridge', 12, {});
+  level.boss = null;
+  const world = emptyWorld(level);
+  const player = EN.makePlayer(level, {
+    stats: { brutality: 1, tactics: 1, survival: 1 }, mutations: [],
+    weapons: [CB.makeWeapon(CONTENT.WEAPON.rusty_sword, CONTENT.AFFIX.none), null], skills: [null, null]
+  });
+  world.player = player;
+  player.invuln = 0;
+
+  const before = player.hp;
+  CB.applyStatus(player, 'poison', 2);
+  for (let i = 0; i < 120; i++) EN.updatePlayer(world, Object.assign({}, IDLE_INPUT), 1 / 60);
+
+  const lost = before - player.hp;
+  const expected = CONTENT.STATUSES.poison.dps * 2;
+  assert(
+    Math.abs(lost - expected) < 2,
+    'two seconds of poison took ' + lost.toFixed(1) + ' health, but poison is ' +
+      CONTENT.STATUSES.poison.dps + ' a second'
+  );
+  assert(!player.dead, 'a single poison should not be lethal to a full-health player');
+});
+
 test('enemy numbers rise with depth and with boss cells', () => {
   const def = CONTENT.ENEMY.zombie;
   const d1 = CB.enemyStats(def, 1, 0);
@@ -669,6 +741,279 @@ test('enemy numbers rise with depth and with boss cells', () => {
   eq(d1.hp, def.hp, 'depth 1 is the baseline');
   assert(d5.hp > d1.hp && d5.dmg > d1.dmg, 'depth did not scale enemies');
   assert(d5bc.hp > d5.hp, 'boss cells did not scale enemies');
+});
+
+/* ------------------------------------------------------------- difficulty
+ * A fight, simulated. A reference player geared the way a run would be geared
+ * at that depth is dropped into a room of that biome's enemies and plays it
+ * straight: close, swing, and roll through anything winding up. The point is
+ * not that the numbers are perfect — only that the curve stays sane, so a
+ * balance change that makes a biome unsurvivable cannot land quietly.
+ */
+console.log('\nTHE DIFFICULTY CURVE');
+
+function scrollsBefore(index) {
+  let n = 0;
+  for (let i = 0; i < index; i++) n += CONTENT.BIOMES[i].scrolls || 0;
+  return n;
+}
+
+/* the usual shape of a run: most scrolls into your weapon's colour */
+function buildFor(index, color) {
+  const total = scrollsBefore(index);
+  const main = Math.round(total * 0.7);
+  const stats = { brutality: 1, tactics: 1, survival: 1 };
+  stats[color] += main;
+  stats.survival += total - main;
+  return stats;
+}
+
+/* What a run actually looks like at a given depth: a weapon, the skill its
+ * colour is built around, and one mutation per biome already cleared. A naked
+ * sword with nothing else is not a representative player by the third biome —
+ * the game hands you all three of those on the way down. */
+function kitFor(biomeIndex, color) {
+  const skill = CONTENT.SKILLS.filter(function (s) { return s.tier === 0 && s.color === color; })[0] ||
+                CONTENT.SKILL.shockwave;
+  const mutations = CONTENT.MUTATIONS
+    .filter(function (m) { return m.color === color; })
+    .slice(0, Math.max(0, Math.min(3, biomeIndex)));
+  return { skill: biomeIndex >= 1 ? skill : null, mutations: mutations };
+}
+
+function simulateRoom(biomeIndex, weaponId, seed, count, maxSeconds) {
+  const biome = CONTENT.BIOMES[biomeIndex];
+  const rng = RNG.Rng(seed);
+
+  /* Enemy behaviour rolls dice — attack timing, leaps, patrol direction. Point
+   * those dice at a seeded source for the duration of the fight, so the same
+   * seed always plays out the same way and these numbers can be compared
+   * between runs and between changes. */
+  const dice = RNG.Rng(seed ^ 0x5bf03635);
+  EN.setRandom(dice.next);
+  CB.setRandom(dice.next);
+  const level = LG.generate('bridge', seed, {});   // a flat arena to fight in
+  level.boss = null;
+
+  const world = emptyWorld(level);
+  const weapon = CB.makeWeapon(CONTENT.WEAPON[weaponId], CONTENT.AFFIX.none);
+  const kit = kitFor(biomeIndex, weapon.color);
+  const player = EN.makePlayer(level, {
+    stats: buildFor(biomeIndex, weapon.color),
+    mutations: kit.mutations,
+    weapons: [weapon, null],
+    skills: [kit.skill, null],
+    flasks: 2
+  });
+  world.player = player;
+  player.x = level.spawn.x + 40;
+  player.y = level.spawn.y;
+
+  for (const id of LG.composeRoom(rng, biome, count)) {
+    const def = CONTENT.ENEMY[id];
+    const stats = CB.enemyStats(def, biome.depth, 0);
+    const enemy = EN.makeEnemy({
+      id: id,
+      pos: { x: player.x + 150 + world.enemies.length * 60, y: level.spawn.y },
+      hp: stats.hp, dmg: stats.dmg
+    });
+    enemy.aggro = true;
+    world.enemies.push(enemy);
+  }
+
+  function done(result) {
+    EN.setRandom(null);
+    CB.setRandom(null);
+    return result;
+  }
+
+  let worstHp = player.hp;
+  const frames = Math.round(maxSeconds * 60);
+  for (let i = 0; i < frames; i++) {
+    const alive = world.enemies.filter(function (e) { return !e.dead; });
+    if (!alive.length) {
+      return done({ cleared: true, seconds: i / 60, hpLeft: player.hp / player.maxHp, worst: worstHp / player.maxHp });
+    }
+
+    let target = alive[0];
+    let best = Infinity;
+    for (const e of alive) {
+      const d = Math.hypot(e.x - player.x, e.y - player.y);
+      if (d < best) { best = d; target = e; }
+    }
+
+    const input = Object.assign({}, IDLE_INPUT);
+    const dir = Math.sign(target.x - player.x) || 1;
+    const threatened = alive.some(function (e) {
+      return e.state === 'windup' && Math.hypot(e.x - player.x, e.y - player.y) < 46;
+    });
+
+    if (threatened && player.rollCd <= 0) {
+      input.roll = true;
+      if (dir > 0) input.right = true; else input.left = true;
+    } else if (best > weapon.reach * 0.8) {
+      if (dir > 0) input.right = true; else input.left = true;
+    } else {
+      input.atk1 = true;
+      input.atk1Held = true;
+    }
+    if (kit.skill && player.skillCd[0] <= 0 && best < 140) input.skill1 = true;
+    if (player.hp < player.maxHp * 0.35 && player.flasks > 0) input.flask = true;
+
+    EN.updatePlayer(world, input, 1 / 60);
+    EN.updateEnemies(world, 1 / 60);
+    EN.updateProjectiles(world, 1 / 60);
+    EN.updateEffects(world, 1 / 60);
+    world.time += 1 / 60;
+
+    worstHp = Math.min(worstHp, player.hp);
+    if (player.dead) return done({ cleared: false, seconds: i / 60, hpLeft: 0, worst: 0, died: true });
+  }
+  return done({ cleared: false, seconds: maxSeconds, hpLeft: player.hp / player.maxHp, worst: worstHp / player.maxHp, timeout: true });
+}
+
+test('a reference player can clear a room in every biome', () => {
+  const trouble = [];
+  for (let b = 0; b < CONTENT.BIOMES.length; b++) {
+    const biome = CONTENT.BIOMES[b];
+    if (biome.boss) continue;
+    let cleared = 0;
+    let slowest = 0;
+    const tries = 5;
+    for (let t = 0; t < tries; t++) {
+      const result = simulateRoom(b, 'rusty_sword', 900 + t * 37, 3, 45);
+      if (result.cleared) {
+        cleared++;
+        slowest = Math.max(slowest, result.seconds);
+      } else {
+        trouble.push(biome.id + ' seed ' + t + (result.died ? ': died' : ': ran out of time'));
+      }
+    }
+    /* A clear majority, not every time: enemy behaviour is not seeded, and a
+     * roguelite that never kills you is not a roguelite. What this catches is a
+     * biome that has stopped being survivable. */
+    assert(cleared >= 3, biome.id + ' was cleared only ' + cleared + ' times in ' + tries + ' — ' + trouble.join(', '));
+    assert(slowest < 40, biome.id + ' took ' + slowest.toFixed(0) + 's to clear one room');
+  }
+});
+
+test('no biome is a health sink', () => {
+  /* The median of several fights, not the worst: one unlucky death is a
+   * roguelite working as intended, and a test that failed on it would only get
+   * muted. What must not happen is a biome that eats most of your health as a
+   * matter of course. */
+  for (let b = 0; b < CONTENT.BIOMES.length; b++) {
+    const biome = CONTENT.BIOMES[b];
+    if (biome.boss) continue;
+    const lost = [];
+    /* enough fights that the median is steady — enemy AI is not seeded */
+    for (let t = 0; t < 9; t++) {
+      lost.push(1 - simulateRoom(b, 'rusty_sword', 900 + t * 37, 3, 45).worst);
+    }
+    lost.sort(function (a, c) { return a - c; });
+    const median = lost[Math.floor(lost.length / 2)];
+    assert(
+      median < 0.75,
+      biome.id + ' costs ' + Math.round(median * 100) + '% of your health for one room, typically'
+    );
+  }
+});
+
+test('the run gets harder the deeper it goes', () => {
+  /* Asserted on the scaling itself rather than on a simulated fight: a bot that
+   * dodges every telegraphed blow perfectly makes slow, heavy enemies look
+   * easy, which says more about the bot than about the game. */
+  const zombie = CONTENT.ENEMY.zombie;
+  let last = null;
+  for (const biome of CONTENT.BIOMES) {
+    const stats = CB.enemyStats(zombie, biome.depth, 0);
+    if (last) {
+      assert(stats.hp > last.hp, biome.id + ' enemies are no tougher than the biome before');
+      assert(stats.dmg > last.dmg, biome.id + ' enemies hit no harder than the biome before');
+    }
+    last = stats;
+  }
+
+  /* and the last biome must ask a great deal more than the first */
+  const first = CB.enemyStats(zombie, CONTENT.BIOMES[0].depth, 0);
+  const deepest = CB.enemyStats(zombie, CONTENT.BIOMES[CONTENT.BIOMES.length - 1].depth, 0);
+  assert(deepest.hp > first.hp * 2, 'the deepest enemies are not even twice as tough');
+  assert(deepest.dmg > first.dmg * 2, 'the deepest enemies do not even hit twice as hard');
+
+  /* one formula, in one place: the level generator must agree with it */
+  const level = LG.generate('ramparts', 4242, {});
+  const biome = CONTENT.BIOME.ramparts;
+  for (const spawn of level.enemies) {
+    if (spawn.elite) continue;
+    const expected = CB.enemyStats(CONTENT.ENEMY[spawn.id], biome.depth, 0);
+    eq(spawn.hp, expected.hp, spawn.id + ' health as placed in a level');
+    eq(spawn.dmg, expected.dmg, spawn.id + ' damage as placed in a level');
+  }
+});
+
+test('a shieldbearer can be broken through as well as gone around', () => {
+  const level = LG.generate('bridge', 5, {});
+  level.boss = null;
+  const world = emptyWorld(level);
+  const player = EN.makePlayer(level, {
+    stats: { brutality: 1, tactics: 1, survival: 1 }, mutations: [],
+    weapons: [CB.makeWeapon(CONTENT.WEAPON.rusty_sword, CONTENT.AFFIX.none), null], skills: [null, null]
+  });
+  world.player = player;
+
+  const def = CONTENT.ENEMY.shielder;
+  const enemy = EN.makeEnemy({ id: 'shielder', pos: { x: 300, y: level.spawn.y }, hp: def.hp, dmg: def.dmg });
+  enemy.facing = -1;                 // facing the attacker, shield up
+  world.enemies.push(enemy);
+
+  assert(!enemy.shieldBroken, 'a shieldbearer starts behind its shield');
+  const hpBefore = enemy.hp;
+  EN.damageEnemy(world, enemy, 10, { knockDir: 1, silent: true });
+  assert(enemy.hp > hpBefore - 10, 'a frontal hit should mostly be blocked');
+
+  /* keep at it and the shield gives out */
+  for (let i = 0; i < 40 && !enemy.shieldBroken; i++) {
+    EN.damageEnemy(world, enemy, 10, { knockDir: 1, silent: true });
+  }
+  assert(enemy.shieldBroken, 'the shield never broke');
+  assert(CB.hasStatus(enemy, 'stun'), 'breaking a shield should stagger its owner');
+
+  const before = enemy.hp;
+  EN.damageEnemy(world, enemy, 10, { knockDir: 1, silent: true });
+  eq(Math.round(before - enemy.hp), 10, 'damage after the shield breaks');
+
+  /* and a hit from behind was never blocked in the first place */
+  const other = EN.makeEnemy({ id: 'shielder', pos: { x: 300, y: level.spawn.y }, hp: def.hp, dmg: def.dmg });
+  other.facing = 1;
+  world.enemies.push(other);
+  const backBefore = other.hp;
+  EN.damageEnemy(world, other, 10, { knockDir: 1, behind: true, silent: true });
+  eq(Math.round(backBefore - other.hp), 10, 'a backstab ignores the shield');
+});
+
+test('a shot leans onto what is in front of you, within a narrow cone', () => {
+  const level = LG.generate('bridge', 6, {});
+  level.boss = null;
+  const world = emptyWorld(level);
+  world.player = EN.makePlayer(level, {
+    stats: { brutality: 1, tactics: 1, survival: 1 }, mutations: [],
+    weapons: [CB.makeWeapon(CONTENT.WEAPON.bow, CONTENT.AFFIX.none), null], skills: [null, null]
+  });
+
+  const straight = EN.aimAngle(world, 100, 100, 1, 280, 0.5);
+  eq(straight, 0, 'with nothing in front, a shot goes straight ahead');
+
+  /* a bat hovering above head height: a flat shot could never reach it */
+  const bat = EN.makeEnemy({ id: 'bat', pos: { x: 200, y: 70 }, hp: 10, dmg: 1 });
+  world.enemies.push(bat);
+  const lifted = EN.aimAngle(world, 100, 100, 1, 280, 0.5);
+  assert(lifted < -0.05, 'the shot did not lift towards the bat (angle ' + lifted.toFixed(2) + ')');
+  assert(Math.abs(lifted) <= 0.5, 'assist must stay inside the cone, not turn into aimbotting');
+
+  /* something behind you is not a target */
+  world.enemies.length = 0;
+  world.enemies.push(EN.makeEnemy({ id: 'bat', pos: { x: 20, y: 70 }, hp: 10, dmg: 1 }));
+  eq(EN.aimAngle(world, 100, 100, 1, 280, 0.5), 0, 'a shot must not curve backwards');
 });
 
 /* ------------------------------------------------------------------- save */

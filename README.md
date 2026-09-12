@@ -22,7 +22,7 @@ is a dead end.
 | | Project | What it is | Open it |
 |---|---|---|---|
 | 🎮 | **ZOMBOID: ANCHORAGE** | Open-world zombie survival across a tile-built replica of downtown Anchorage, drawn as a 1990s SEGA arcade title. Five decaying needs, day/night hordes, looting, firearms. | [play](zomboid/) · [docs](zomboid/README.md) |
-| 🎮 | **NEON CELLS** | Roguelite action-platformer in the shape of Dead Cells: procedurally built biomes proved reachable before you enter them, permadeath, three scroll colours, weapons with rolled affixes, skills, mutations, two bosses, and blueprints that stay unlocked between runs. | [play](cells/) · [docs](cells/README.md) |
+| 🎮 | **NEON CELLS** | Roguelite action-platformer in the shape of Dead Cells: procedurally built biomes proved reachable before you enter them, permadeath, three scroll colours, weapons with rolled affixes, skills, mutations, two bosses, and blueprints that stay unlocked between runs. Plays on a controller, a keyboard or a phone. | [play](cells/) · [docs](cells/README.md) |
 | 🎮 | **DEAD SECTOR** | Phone-first, top-down twin-stick zombie shooter in one self-contained HTML file. Dual touch joysticks, escalating waves. | [play](shooter/) · [docs](shooter/README.md) |
 | 🎵 | **SONG FORGE** | Generative AI music maker: writes and plays complete songs — chords, bass, drums, arpeggio, melody — across 8 genres, with WAV and MIDI export. Offline, no API key. | [open](music/) · [docs](music/README.md) |
 | 🎬 | **SCRIPT FORGE** | Type what your film is about and get the film: a formatted screenplay, a shot list, and an animated short — sets, camera, voices, a real SONG FORGE score — that plays in the page and downloads as an MP4 or WebM. | [open](film/) · [docs](film/README.md) |

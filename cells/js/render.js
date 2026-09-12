@@ -725,13 +725,23 @@
         break;
       }
 
-      case 'shielder':
+      case 'shielder': {
         rect(e.x - e.w / 2, top + 4, e.w, e.h - 4, base);
         rect(e.x - e.w / 2, top + 4, e.w, 2, '#cfd6e4');
         rect(e.x - 3, top, 6, 5, '#2a3442');
-        rect(e.x + f * (e.w / 2), top + 3, 3, e.h - 6, '#cfd6e4');
-        rect(e.x + f * (e.w / 2), top + 3, 3, 2, '#ffffff');
+        if (!e.shieldBroken) {
+          /* the shield dims as it takes punishment, so "nearly broken" is readable */
+          const worn = Math.max(0, Math.min(1, e.shieldHp / Math.max(1, e.maxHp * 0.55)));
+          rect(e.x + f * (e.w / 2), top + 3, 3, e.h - 6, '#cfd6e4');
+          rect(e.x + f * (e.w / 2), top + 3 + (e.h - 6) * (1 - worn), 3, 2 + (e.h - 6) * worn * 0.1, '#ffffff');
+          ctx.save();
+          ctx.globalAlpha = 0.35 * (1 - worn);
+          ctx.fillStyle = '#3a2a2a';
+          ctx.fillRect(e.x + f * (e.w / 2), top + 3, 3, e.h - 6);
+          ctx.restore();
+        }
         break;
+      }
 
       case 'slammer':
         rect(e.x - e.w / 2, top + 6, e.w, e.h - 6, base);

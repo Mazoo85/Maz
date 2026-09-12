@@ -18,6 +18,15 @@
   const T = LG.T;
   const TILE = LG.TILE;
 
+  /* All randomness in here goes through one function so a test can replace it
+   * with a seeded one and replay a fight exactly. In the game it is
+   * Math.random, as it always was. */
+  let rand = Math.random;
+
+  function setRandom(fn) {
+    rand = typeof fn === 'function' ? fn : Math.random;
+  }
+
   const GRAVITY = 1500;
   const MAX_FALL = 780;
 
@@ -443,19 +452,49 @@
     if (p.swing.t <= 0) p.swing = null;
   }
 
+  /* Where a shot should go. There is no aiming stick — you fire where you face
+   * — so a shot leans onto whatever is in front of you within a narrow cone.
+   * Without this, a horizontal arrow physically cannot touch a bat hovering at
+   * head height, and a ranged run has no answer to half the roster. */
+  function aimAngle(world, ox, oy, facing, range, cone) {
+    const targets = world.enemies.concat(world.boss && !world.boss.dead ? [world.boss] : []);
+    let best = null;
+    let bestDist = range;
+
+    for (const e of targets) {
+      if (e.dead) continue;
+      const dx = e.x - ox;
+      const dy = (e.y - e.h / 2) - oy;
+      if (Math.sign(dx) !== facing && Math.abs(dx) > 8) continue;  // behind you
+      const dist = Math.hypot(dx, dy);
+      if (dist > bestDist) continue;
+      if (Math.abs(Math.atan2(dy, dx * facing)) > cone) continue;  // outside the cone
+      bestDist = dist;
+      best = { dx: dx, dy: dy };
+    }
+
+    if (!best) return facing > 0 ? 0 : Math.PI;
+    return Math.atan2(best.dy, best.dx);
+  }
+
   function fireWeapon(world, weapon) {
     const p = world.player;
     const proj = weapon.proj;
     const count = proj.count || 1;
+    const ox = p.x + p.facing * 8;
+    const oy = p.y - p.h * 0.55;
+    const aim = aimAngle(world, ox, oy, p.facing, 280, 0.5);
+
     for (let i = 0; i < count; i++) {
-      const spread = (proj.spread || 0) * (count > 1 ? (i - (count - 1) / 2) : 0);
+      const spread = (proj.spread || 0) * (count > 1 ? i - (count - 1) / 2 : 0);
+      const angle = aim + spread * p.facing;
       spawnProjectile(world, {
         from: 'player',
         kind: proj.kind,
-        x: p.x + p.facing * 8,
-        y: p.y - p.h * 0.55,
-        vx: Math.cos(spread) * proj.speed * p.facing,
-        vy: Math.sin(spread) * proj.speed,
+        x: ox,
+        y: oy,
+        vx: Math.cos(angle) * proj.speed,
+        vy: Math.sin(angle) * proj.speed,
         life: proj.life,
         pierce: proj.pierce || 0,
         weapon: weapon
@@ -527,7 +566,7 @@
         const d = Math.hypot(e.x - x, (e.y - e.h / 2) - y);
         if (d > radius + e.w / 2) continue;
         const dmg = Math.round(source.dmg * CB.scaleFor(source.color || 'tactics', p.stats) * CB.playerDamageMultiplier(p));
-        damageEnemy(world, e, dmg, { crit: false, knock: source.knock || 160, knockDir: Math.sign(e.x - x) || 1 });
+        damageEnemy(world, e, dmg, { crit: false, knock: source.knock || 160, knockDir: Math.sign(e.x - x) || 1, aoe: true });
         if (source.status) CB.applyStatus(e, source.status.status, source.status.dur);
       }
     } else {
@@ -544,6 +583,20 @@
     const p = world.player;
     if (p.dead) return;
     if (p.invuln > 0 && kind !== 'status') return;
+
+    /* Bleeding, burning and poison arrive a fraction of a point at a time, sixty
+     * times a second. They must not go through the rounding below — rounding a
+     * 0.08 tick up to a whole point turns a 5-per-second poison into 60, which
+     * is the difference between a status and a death sentence. */
+    if (kind === 'status') {
+      p.hp -= amount;
+      p.lastHurt = p.time;
+      p.recoveryDebt = (p.recoveryDebt || 0) + amount;
+      p.recoveryUntil = p.time + 3;
+      p.hitFlash = Math.max(p.hitFlash, 0.05);
+      if (p.hp <= 0) killPlayer(world);
+      return;
+    }
 
     /* A shield raised into the blow: the first moments are a parry. */
     if (p.blocking && kind !== 'status' && source) {
@@ -640,7 +693,7 @@
       state: 'idle',
       timer: 0,
       attackCd: 0,
-      anim: Math.random() * 6.28,
+      anim: rand() * 6.28,
       status: {},
       aggro: false,
       hurtT: 0,
@@ -648,8 +701,13 @@
       cells: def.cells * (spec.elite ? 4 : 1),
       gold: def.gold * (spec.elite ? 3 : 1),
       home: { x: spec.pos.x, y: spec.pos.y },
-      patrol: Math.random() < 0.5 ? -1 : 1,
-      onGround: false
+      patrol: rand() < 0.5 ? -1 : 1,
+      onGround: false,
+      /* A shieldbearer's shield is a health pool of its own: keep hitting it and
+       * it breaks, which staggers the enemy and leaves it open. Rolling behind
+       * is still the quick answer, but a ranged run now has one too. */
+      shieldHp: def.ai === 'shielder' ? Math.round(spec.hp * 0.55) : 0,
+      shieldBroken: def.ai !== 'shielder'
     };
   }
 
@@ -804,7 +862,7 @@
       e.vx *= 0.7;
       if (e.timer <= 0) {
         e.state = 'chase';
-        e.attackCd = 0.55 + Math.random() * 0.3;
+        e.attackCd = 0.55 + rand() * 0.3;
       }
       return true;
     }
@@ -843,7 +901,7 @@
         e.vy = -330;
       } else if (dy < -30 && Math.abs(dx(p, e)) < 60) {
         e.vy = -360;
-      } else if (e.def.leaps && dist > 44 && dist < 110 && Math.random() < 0.03) {
+      } else if (e.def.leaps && dist > 44 && dist < 110 && rand() < 0.03) {
         e.vy = -330;
         e.vx = dir * e.speed * 1.5;
       }
@@ -865,7 +923,7 @@
       e.facing = dir;
       if (e.timer <= 0) {
         e.state = 'idle';
-        e.attackCd = 1.5 + Math.random() * 0.8;
+        e.attackCd = 1.5 + rand() * 0.8;
         if (shot === 'bomb') {
           const t = Math.max(0.45, Math.min(1.2, dist / 260));
           spawnProjectile(world, {
@@ -880,7 +938,7 @@
             x: e.x + dir * 8, y: e.y - e.h * 0.6,
             vx: Math.cos(ang) * 300, vy: Math.sin(ang) * 300,
             life: 2.2, dmg: e.dmg,
-            status: e.def.poisonShot ? { status: 'poison', dur: 3.5 } : null
+            status: e.def.poisonShot ? { status: 'poison', dur: 3.0 } : null
           });
         }
         sfx(shot === 'bomb' ? 'bolt' : 'bow');
@@ -918,7 +976,7 @@
       if (e.timer <= 0) {
         e.state = 'idle';
         e.attackCd = 0.8;
-        const away = -dir * (90 + Math.random() * 50);
+        const away = -dir * (90 + rand() * 50);
         const tx = e.x + away;
         if (!blocked(level, tx, e.y, e.w, e.h, true, null)) {
           puff(world, e.x, e.y - e.h / 2, '#ff4fd8', 14);
@@ -935,7 +993,7 @@
       e.facing = dir;
       if (e.timer <= 0) {
         e.state = 'idle';
-        e.attackCd = 2.0 + Math.random();
+        e.attackCd = 2.0 + rand();
         const ang = Math.atan2((p.y - p.h * 0.5) - (e.y - e.h * 0.6), p.x - e.x);
         spawnProjectile(world, {
           from: 'enemy', kind: 'orb', x: e.x + dir * 8, y: e.y - e.h * 0.6,
@@ -968,9 +1026,43 @@
     }
   }
 
+  /* Bats hover, pull back, then dive. The pull-back is the tell — without one
+   * a flyer is just unavoidable contact damage, and the rule here is that every
+   * hit you take is a hit you could have read. */
   function aiFlyer(world, e, dt, dist, dir, dy) {
     const p = world.player;
-    e.vy = e.vy || 0;
+    const dive = e.speed * 2.8;
+
+    if (e.state === 'windup') {
+      e.timer -= dt;
+      /* drift back and up, winding the dive */
+      e.vx += (-Math.sign(p.x - e.x) * e.speed * 0.5 - e.vx) * 4 * dt;
+      e.vy += (-30 - e.vy) * 4 * dt;
+      if (e.timer <= 0) {
+        const ang = Math.atan2((p.y - p.h * 0.5) - (e.y - e.h / 2), p.x - e.x);
+        e.vx = Math.cos(ang) * dive;
+        e.vy = Math.sin(ang) * dive;
+        e.state = 'dive';
+        e.timer = 0.42;
+        e.diveHit = false;
+      }
+      return;
+    }
+
+    if (e.state === 'dive') {
+      e.timer -= dt;
+      if (!e.diveHit && hitBox(e, p, 2)) {
+        e.diveHit = true;
+        hurtPlayer(world, e.dmg, 'melee', e);
+        e.vx = -Math.sign(p.x - e.x) * 200;
+        e.vy = -110;
+      }
+      if (e.timer <= 0 || e.hitWall) {
+        e.state = 'hover';
+        e.attackCd = 1.1 + rand() * 0.6;
+      }
+      return;
+    }
 
     if (!e.aggro || p.dead) {
       e.vx = Math.cos(e.anim * 1.4) * e.speed * 0.5;
@@ -979,18 +1071,21 @@
       return;
     }
 
-    const targetY = (p.y - p.h / 2) - 14 + Math.sin(e.anim * 3) * 12;
-    e.vx += (Math.sign(p.x - e.x) * e.speed - e.vx) * 3 * dt;
+    /* hover at about head height, close enough to threaten */
+    const targetY = (p.y - p.h / 2) - 6 + Math.sin(e.anim * 3) * 8;
+    const keep = 34;                       // stand off a little between dives
+    const wantX = p.x - Math.sign(p.x - e.x) * keep;
+    e.vx += (Math.sign(wantX - e.x) * e.speed * 0.8 - e.vx) * 3 * dt;
     e.vy += (Math.sign(targetY - (e.y - e.h / 2)) * e.speed * 0.7 - e.vy) * 3 * dt;
     e.facing = Math.sign(p.x - e.x) || e.facing;
+    e.state = 'hover';
 
-    if (dist < (e.def.reach || 14) + e.w / 2 + 4 && e.attackCd <= 0) {
-      e.attackCd = 1.1;
-      hurtPlayer(world, e.dmg, 'melee', e);
-      e.vx = -Math.sign(p.x - e.x) * 180;
-      e.vy = -80;
+    if (dist < 76 && e.attackCd <= 0) {
+      e.state = 'windup';
+      e.timer = 0.34;
     }
     void dy;
+    void dir;
   }
 
   function aiSlammer(world, e, dt, dist, dir, dy) {
@@ -1076,7 +1171,7 @@
             const drop = moves.indexOf('rain');
             if (drop >= 0) moves.splice(drop, 1);
           }
-          b.move = moves[Math.floor(Math.random() * moves.length)];
+          b.move = moves[Math.floor(rand() * moves.length)];
           b.state = 'telegraph';
           b.timer = b.move === 'slam' ? 0.5 : 0.62;
         }
@@ -1148,7 +1243,7 @@
         b.rainT = (b.rainT || 0) - dt;
         if (b.rainT <= 0) {
           b.rainT = 0.22;
-          const x = 40 + Math.random() * (level.w * TILE - 80);
+          const x = 40 + rand() * (level.w * TILE - 80);
           spawnProjectile(world, {
             from: 'enemy', kind: 'shard', x: x, y: 40,
             vx: 0, vy: 230, life: 4, dmg: Math.round(b.dmg * 0.6), gravity: true
@@ -1226,7 +1321,7 @@
         const pool = b.id === 'warden' ? ['zombie', 'runner'] : ['shielder', 'caster', 'runner'];
         const n = b.phase === 2 ? 3 : 2;
         for (let i = 0; i < n; i++) {
-          const id = pool[Math.floor(Math.random() * pool.length)];
+          const id = pool[Math.floor(rand() * pool.length)];
           const def = CONTENT.ENEMY[id];
           const stats = CB.enemyStats(def, world.level.depth, world.bossCells || 0);
           const spawnX = b.x + (i - n / 2) * 34;
@@ -1273,7 +1368,7 @@
       behind: ctx && ctx.behind
     });
     for (const s of weapon.onHit || []) {
-      if (s.chance && Math.random() > s.chance) continue;
+      if (s.chance && rand() > s.chance) continue;
       CB.applyStatus(e, s.status, s.dur);
     }
     if (weapon.lifeOnHit) healPlayer(world, weapon.lifeOnHit);
@@ -1304,11 +1399,21 @@
      * is the side the enemy is facing, the shield is in the way. */
     let amount = dmg;
     let blockedHit = false;
-    if (e.ai === 'shielder' && !options.fromStatus && !options.behind) {
+    if (e.ai === 'shielder' && !e.shieldBroken && !options.fromStatus && !options.behind && !options.aoe) {
       const attackerSide = -(options.knockDir || 1);
       if (attackerSide === e.facing) {
-        amount = Math.max(1, Math.round(amount * 0.2));
-        blockedHit = true;
+        e.shieldHp -= dmg;
+        if (e.shieldHp <= 0) {
+          /* the shield goes, and the enemy reels */
+          e.shieldBroken = true;
+          CB.applyStatus(e, 'stun', 1.4);
+          floatText(world, e.x, e.y - e.h - 10, 'SHIELD BROKEN', '#ffe600', 1.2);
+          puff(world, e.x + e.facing * 8, e.y - e.h / 2, '#cfd6e4', 14);
+          sfx('parry');
+        } else {
+          amount = Math.max(1, Math.round(amount * 0.2));
+          blockedHit = true;
+        }
       }
     }
 
@@ -1348,7 +1453,7 @@
     const cells = e.cells;
     for (let i = 0; i < cells; i++) spawnDrop(world, e.x, e.y - e.h / 2, 'cell', 1);
     if (e.gold) spawnDrop(world, e.x, e.y - e.h / 2, 'gold', e.gold);
-    if (Math.random() < 0.06) spawnDrop(world, e.x, e.y - e.h / 2, 'heart', Math.round(p.maxHp * 0.12));
+    if (rand() < 0.06) spawnDrop(world, e.x, e.y - e.h / 2, 'heart', Math.round(p.maxHp * 0.12));
     if (e.hasKey) spawnDrop(world, e.x, e.y - e.h / 2, 'key', 1);
 
     if (CB.hasMutation(p.mutations, 'frenzy')) {
@@ -1371,7 +1476,7 @@
       world.events.push({ type: 'boss_killed' });
       world.shake = 16;
       sfx('win');
-      for (let i = 0; i < 40; i++) spawnDrop(world, e.x + (Math.random() - 0.5) * 40, e.y - 20, 'cell', 1);
+      for (let i = 0; i < 40; i++) spawnDrop(world, e.x + (rand() - 0.5) * 40, e.y - 20, 'cell', 1);
     } else {
       world.events.push({ type: 'enemy_killed', id: e.id });
     }
@@ -1585,12 +1690,12 @@
     world.drops.push({
       type: type, value: value,
       x: x, y: y,
-      vx: (Math.random() - 0.5) * 140,
-      vy: -120 - Math.random() * 120,
+      vx: (rand() - 0.5) * 140,
+      vy: -120 - rand() * 120,
       w: 6, h: 6,
       life: 26,
       settle: 0.25,
-      anim: Math.random() * 6.28
+      anim: rand() * 6.28
     });
   }
 
@@ -1675,22 +1780,22 @@
 
   function blood(world, x, y, n, color) {
     for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const s = 40 + Math.random() * 190;
+      const a = rand() * Math.PI * 2;
+      const s = 40 + rand() * 190;
       particle(world, {
         x: x, y: y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 40,
-        life: 0.4 + Math.random() * 0.5, color: color, size: 1 + Math.random() * 2.2
+        life: 0.4 + rand() * 0.5, color: color, size: 1 + rand() * 2.2
       });
     }
   }
 
   function puff(world, x, y, color, n) {
     for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const s = 20 + Math.random() * 90;
+      const a = rand() * Math.PI * 2;
+      const s = 20 + rand() * 90;
       particle(world, {
         x: x, y: y, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
-        life: 0.3 + Math.random() * 0.4, color: color, size: 1 + Math.random() * 2,
+        life: 0.3 + rand() * 0.4, color: color, size: 1 + rand() * 2,
         gravity: 0.1, glow: true
       });
     }
@@ -1706,7 +1811,7 @@
 
   function floatText(world, x, y, text, color, scale) {
     world.texts.push({
-      x: x + (Math.random() - 0.5) * 8, y: y,
+      x: x + (rand() - 0.5) * 8, y: y,
       text: String(text), color: color || '#fff',
       life: 0.8, total: 0.8, scale: scale || 1,
       vy: -34
@@ -1744,6 +1849,7 @@
   }
 
   const API = {
+    setRandom: setRandom,
     P: P,
     GRAVITY: GRAVITY,
     blocked: blocked,
@@ -1756,6 +1862,7 @@
     useSkill: useSkill,
     blast: blast,
     standingOnPlatform: standingOnPlatform,
+    aimAngle: aimAngle,
 
     makeEnemy: makeEnemy,
     makeBoss: makeBoss,

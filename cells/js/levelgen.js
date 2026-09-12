@@ -22,6 +22,7 @@
 
   const RNG = global.CELLS_RNG || require('./rng.js');
   const CONTENT = global.CELLS_CONTENT || require('./content.js');
+  const CB = global.CELLS_COMBAT || require('./combat.js');
 
   /* Tile kinds. SOLID blocks everything; PLATFORM is one-way (you can jump up
    * through it and drop down with Down+Jump); SPIKE hurts but holds you up. */
@@ -344,6 +345,33 @@
     }
   }
 
+  /* Who is in a room. A room that is nothing but shooters has no safe way in —
+   * you are under fire for the whole crossing and cannot answer any of it — so
+   * at most half of any room keeps its distance. The tests use this same
+   * function, so what they measure is what the generator actually builds. */
+  function isRangedEnemy(id) {
+    const ai = CONTENT.ENEMY[id].ai;
+    return ai === 'archer' || ai === 'bomber' || ai === 'caster';
+  }
+
+  function composeRoom(rng, biome, count) {
+    const pool = biome.pool || [];
+    const melee = pool.filter(function (id) { return !isRangedEnemy(id); });
+    const maxRanged = Math.max(1, Math.floor(count / 2));
+    const out = [];
+    let ranged = 0;
+
+    for (let i = 0; i < count; i++) {
+      let id = rng.pick(pool);
+      if (isRangedEnemy(id)) {
+        if (ranged >= maxRanged && melee.length) id = rng.pick(melee);
+        else ranged++;
+      }
+      out.push(id);
+    }
+    return out;
+  }
+
   /* ------------------------------------------------------------- populating */
   function standableTilesIn(level, room, reach) {
     const out = [];
@@ -466,8 +494,8 @@
   function populate(level, rng, biome, rooms, startRoom, exitRoom, options) {
     const depth = biome.depth;
     const bossCells = options.bossCells || 0;
-    const hpScale = (1 + 0.26 * (depth - 1)) * (1 + 0.35 * bossCells);
-    const dmgScale = (1 + 0.17 * (depth - 1)) * (1 + 0.25 * bossCells);
+    /* the one scaling formula lives in combat.js; an elite is a multiple on top */
+    const scale = CB.enemyScaling(depth, bossCells);
 
     /* room "slots": every reachable standing tile, room by room */
     const slots = new Map();
@@ -486,15 +514,16 @@
     }
 
     /* ---- enemies: none in the room you spawn in, so you get a moment */
-    const pool = biome.pool;
     for (const room of rooms) {
       if (room === startRoom) continue;
       let count = Math.round(rng.float(1.4, 3.4) * biome.density);
       if (room === exitRoom) count = Math.max(1, count - 1);
+      const lineup = composeRoom(rng, biome, count);
+
       for (let i = 0; i < count; i++) {
         const tile = take(room, null);
         if (!tile) break;
-        const id = rng.pick(pool);
+        const id = lineup[i];
         const base = CONTENT.ENEMY[id];
         const elite = rng.chance(0.07 + 0.01 * depth);
         level.enemies.push({
@@ -502,8 +531,8 @@
           tile: tile,
           pos: toPx(tile),
           elite: elite,
-          hp: Math.round(base.hp * hpScale * (elite ? 2.4 : 1)),
-          dmg: Math.round(base.dmg * dmgScale * (elite ? 1.5 : 1))
+          hp: Math.round(base.hp * scale.hp * (elite ? 2.4 : 1)),
+          dmg: Math.round(base.dmg * scale.dmg * (elite ? 1.5 : 1))
         });
       }
     }
@@ -661,6 +690,8 @@
     isBlocking: isBlocking,
     reachableFrom: reachableFrom,
     pathTo: pathTo,
+    composeRoom: composeRoom,
+    isRangedEnemy: isRangedEnemy,
     snapToFloor: snapToFloor,
     key: key
   };
