@@ -144,3 +144,40 @@ saturation curve with 20 dB of hidden gain that flattened the mix.
 ---
 
 ← Back to the [**MAZ ARCADE hub**](../index.html) · [repository README](../README.md) · [play/open this one](../music/)
+
+## Lending the soundtrack to another project
+
+SONG FORGE's own page is a studio — compose, inspect, re-roll a part, export. A game wants none of
+that. `music/js/soundtrack.js` is the small surface it does want, published as `music/soundtrack` in
+`shared/exchange.json`:
+
+```html
+<script src="../music/js/theory.js"></script>
+<script src="../music/js/genres.js"></script>
+<script src="../music/js/composer.js"></script>
+<script src="../music/js/synth.js"></script>
+<script src="../music/js/engine.js"></script>
+<script src="../music/js/soundtrack.js"></script>
+```
+
+```js
+const track = MazSoundtrack.create({
+  context: myAudioContext,   // share the game's context, so SFX and music cannot fight
+  destination: myMusicBus,   // play through the game's own volume and mute controls
+  genre: 'chiptune',         // MazSoundtrack.options() lists every genre and mood
+  mood: 'dark'
+});
+track.start();
+track.setMood('driving');    // composes a new track and crossfades; ~1-14ms
+```
+
+`setMood` ignores the mood it is already playing, so a game can call it every frame straight from
+its own state. With no WebAudio available every method is a quiet no-op — a game must never crash
+over its background music.
+
+ZOMBOID: ANCHORAGE consumes this. Its soundtrack follows the time of day and what is nearby, and
+its own mute key still turns the whole thing off. `music/tests/soundtrack.test.js` covers the
+surface headlessly; `zomboid/tests/zomboid-browser.test.js` proves it actually plays.
+
+DEAD SECTOR deliberately does not: it is one self-contained HTML file you can email to someone, and
+`shooter/tests/shooter-logic.test.js` fails if an external script appears in it.

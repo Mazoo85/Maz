@@ -546,6 +546,18 @@
 
     // night spawns more & faster waves
     const isNight = dayTime < 6 * 60 || dayTime > 21 * 60;
+
+    /* The soundtrack follows the two things that change how the city feels: the
+     * time of day, and whether anything is close enough to matter. SONG FORGE
+     * composes a new track on a change and crossfades, and ignores being asked
+     * for the mood it is already playing, so this can run every frame. */
+    let mood = isNight ? 'dark' : 'chill';
+    for (const z of zombies) {
+      if (z.dead) continue;
+      if (dist(z, player) < 14) { mood = 'driving'; break; }
+    }
+    AUDIO.setMusicMood(mood);
+
     waveTimer -= dt;
     if (waveTimer <= 0) {
       waveTimer = isNight ? 1.4 : 3.5;

@@ -16,7 +16,7 @@ size is in the wiring between the parts, not in any one part.
 | Native games and demos (`apps/`) | 161 | 31,861 lines |
 | Engine capabilities (`engine/include/maz/`) | 692 | 87,768 lines across 20 subsystems |
 | C++ test files (`tests/`) | 372 | |
-| Browser apps and games | 6 | 17,201 lines |
+| Browser apps and games | 6 | 17,417 lines |
 | Python tools | 3 | |
 | CI gates (`scripts/`) | 3 | |
 | Build and codegen helpers (`tools/`) | 11 | |
@@ -25,12 +25,12 @@ size is in the wiring between the parts, not in any one part.
 
 | Health signal | Score | |
 |---|---:|---|
-| Completeness checks passing | 81% | ████████░░ 2506 of 3110 |
+| Completeness checks passing | 81% | ████████░░ 2507 of 3110 |
 | Apps that run headless in CI | 76% | ████████░░ |
 | Apps with a golden screenshot | 97% | ██████████ |
 | Engine modules a test exercises | 99% | ██████████ |
 | Engine modules an app demonstrates | 20% | ██░░░░░░░░ |
-| Open tasks in the queue below | 14 | |
+| Open tasks in the queue below | 12 | |
 
 ## 1. Everything you have built
 
@@ -41,9 +41,9 @@ will ever see, and the ones that can most easily lend each other capabilities.
 
 | Project | What it is | Lines | Publishes | Consumes | Gaps |
 |---|---|---:|---|---|---|
-| **ZOMBOID: ANCHORAGE** <br>`zomboid/` | Open-world zombie survival across a tile-built replica of downtown Anchorage, rendered as a 1990s SEGA arcade title. Five decaying needs, day/night hordes, loo… | 1,628 | — | — | not in exchange.json |
+| **ZOMBOID: ANCHORAGE** <br>`zomboid/` | Open-world zombie survival across a tile-built replica of downtown Anchorage, rendered as a 1990s SEGA arcade title. Five decaying needs, day/night hordes, loo… | 1,658 | — | music/soundtrack | — |
 | **DEAD SECTOR** <br>`shooter/` | Top-down twin-stick zombie shooter in a single self-contained HTML file. Dual touch joysticks, escalating waves, three zombie types. | 1,084 | — | — | not in exchange.json |
-| **SONG FORGE** <br>`music/` | Writes and plays complete songs in the browser — chords, bass, drums, arpeggio and melody arranged into verses and choruses across 8 genres. WAV and MIDI expor… | 3,144 | music/composer | — | — |
+| **SONG FORGE** <br>`music/` | Writes and plays complete songs in the browser — chords, bass, drums, arpeggio and melody arranged into verses and choruses across 8 genres. WAV and MIDI expor… | 3,330 | music/composer, music/soundtrack | — | — |
 | **MADLIBS STORY FORGE** <br>`madlibs/` | Randomly forges story ideas broken into scene beats, ready to seed a storyboard or script. Zero dependencies. | 1,447 | madlibs/storyideas | — | — |
 | **SCRIPT FORGE** <br>`film/` | Type what your film is about and get the whole thing back: a formatted screenplay, a shot list, and an animated short film — performed by jointed characters an… | 6,163 | — | music/composer, madlibs/storyideas | — |
 | **CODA PICS** <br>`coda-pics/` | Type what you want to see and it paints it: 60 subjects, 20 settings, every hour and weather, finished in one of 14 art styles from pixel art to watercolour. D… | 3,735 | — | — | not in exchange.json |
@@ -345,7 +345,7 @@ not by judging the work. Every failing check below is a specific, finishable job
 | Kind | Check | Passing |
 |---|---|---:|
 | engine-module | shown by a sample app | 140/692 (20%) |
-| web-app | declared in shared/exchange.json | 3/6 (50%) |
+| web-app | declared in shared/exchange.json | 4/6 (67%) |
 | app | runs headless for CI | 123/161 (76%) |
 | app | has a golden screenshot | 156/161 (97%) |
 | engine-module | covered by a test | 686/692 (99%) |
@@ -411,6 +411,24 @@ composer SONG FORGE uses, and an empty idea box borrows one of MADLIBS's stories
 failing. Declared in shared/exchange.json as music/composer and madlibs/storyideas, and held to
 it by film/tests/film-logic.test.js and scripts/check-exchange.mjs.
 
+#### SONG FORGE writes the soundtrack for ZOMBOID: ANCHORAGE
+
+`web:music` → `web:zomboid`
+
+ZOMBOID used to loop an eight-step bassline against an eight-step lead for as long as you
+played, knowing nothing about the game. It now consumes music/soundtrack — a small playback-only
+surface over SONG FORGE's composer, published in shared/exchange.json — and plays composed,
+arranged chiptune that does not repeat and follows the city: calm by day, dark at night, driving
+when something is close. The music plays through ZOMBOID's own audio context and music bus, so
+its mute key and levels still apply, and its sound effects, which are its character, are
+untouched. Composing a new track on a mood change costs 1-14ms measured, so it happens mid-play
+without dropping a frame. DEAD SECTOR deliberately does NOT do this. Its whole identity is one
+self-contained HTML file you can email to someone — it says so on its card, and
+shooter/tests/shooter-logic.test.js fails if an external script appears in it. Loading six of
+SONG FORGE's modules would buy better music by spending the thing the project is for, and
+embedding a copy of the composer would be exactly the drifting duplicate this inventory exists
+to find. Its six-note scale walk stays.
+
 #### The inventory queue is a Forge signal, and Crew does the work
 
 `tool:inventory` → `py:forge`, `py:crew`
@@ -427,19 +445,6 @@ anyone asking, inside the zones the Forge is allowed to verify.
 
 These are judgement calls, kept in `tools/inventory/lib/synergy.mjs` so they can be read and
 argued with. Each names real artifacts; one that names something deleted fails `--check`.
-
-#### SONG FORGE scores the two silent browser games
-
-`web:music` → `web:zomboid`, `web:shooter`
-
-ZOMBOID: ANCHORAGE and DEAD SECTOR are played in silence today, while SONG FORGE already writes
-and plays complete genre-tagged songs in the browser with no dependencies. Publish a small
-playback-only entry point from music/js/engine.js, declare it in shared/exchange.json as
-music/soundtrack, and have each game start a track that shifts with its state — calm while
-looting, driving during a horde. SCRIPT FORGE already consumes music/composer this way, so the
-wiring pattern exists and is tested.
-
-<sub>effort: medium · value: ★★★</sub>
 
 #### CODA PICS paints backdrops for SCRIPT FORGE and illustrates MADLIBS
 
@@ -509,7 +514,7 @@ Every gap above, ranked. **P1** is something broken or unprotected, **P2** is a 
 gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list out of
 `docs/inventory.json`, so the nightly Forge can pick work straight off it.
 
-### P1 — broken or unprotected (5)
+### P1 — broken or unprotected (4)
 
 - **38 apps cannot run without a display**
   <br>Apps with --headless / --frames N are run by CI on every push and can be captured as goldens; apps without them are only ever proven by someone opening a window. The flag is a dozen lines copied from apps/_template/main.cpp and it converts each app into a test. — area2d, blackboard, boundary, bus, camera3d, capsule, ccd, contacts, convex, envelope, filter, flowfield, and 26 more. Example: Teach apps/area2d the --headless / --frames N flags so CI can run it without a display.
@@ -519,10 +524,8 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
   <br>CODA PICS turns a sentence into a finished picture in canvas 2D, offline. SCRIPT FORGE builds its sets from primitives and MADLIBS returns pure text. Publishing coda-pics/js as coda-pics/painter would let SCRIPT FORGE paint a title card and a establishing backdrop per location straight from its own scene description, and let MADLIBS show each story idea rather than only describing it.
 - **SONG FORGE supplies the one music layer the engine does not have**
   <br>The engine already has the layers underneath and above a composer: audio::MusicTheory does note/pitch conversion, audio::MusicScales the scale tables, audio::Oscillator and audio::BusGraph the synthesis and mixing, and audio::MusicSequencer switches between music segments on the beat as the action changes. What nothing under engine/include/maz/audio/ does is WRITE the segments — pick a progression, lay a bassline and a drum pattern under it, arrange verses and choruses. music/js/genres.js and music/js/composer.js do exactly that, as plain data and pure functions, for eight genres. Porting the…
-- **SONG FORGE scores the two silent browser games**
-  <br>ZOMBOID: ANCHORAGE and DEAD SECTOR are played in silence today, while SONG FORGE already writes and plays complete genre-tagged songs in the browser with no dependencies. Publish a small playback-only entry point from music/js/engine.js, declare it in shared/exchange.json as music/soundtrack, and have each game start a track that shifts with its state — calm while looting, driving during a horde. SCRIPT FORGE already consumes music/composer this way, so the wiring pattern exists and is tested.
 
-### P2 — coverage gaps (9)
+### P2 — coverage gaps (8)
 
 - **5 apps fail "has a golden screenshot"**
   <br>_template, mobilepack, orbs, sandbox, swarm. Example: Capture a golden frame for _template into tests/golden/_template.png so a rendering regression is caught automatically.
@@ -540,8 +543,6 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
   <br>CODA PICS neither publishes a capability nor consumes one. Declare in shared/exchange.json what it can lend the other projects — that manifest is how they find each other.
 - **DEAD SECTOR: declared in shared/exchange.json**
   <br>DEAD SECTOR neither publishes a capability nor consumes one. Declare in shared/exchange.json what it can lend the other projects — that manifest is how they find each other.
-- **ZOMBOID: ANCHORAGE: declared in shared/exchange.json**
-  <br>ZOMBOID: ANCHORAGE neither publishes a capability nor consumes one. Declare in shared/exchange.json what it can lend the other projects — that manifest is how they find each other.
 
 ---
 

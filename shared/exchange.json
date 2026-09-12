@@ -14,11 +14,23 @@
     },
     "madlibs/storyideas": {
       "project": "madlibs",
-      "summary": "Forge a random story idea — genre, characters, places and scene beats.",
+      "summary": "Forge a random story idea \u2014 genre, characters, places and scene beats.",
       "files": [
         "madlibs/js/dictionary.js",
         "madlibs/js/templates.js",
         "madlibs/js/generator.js"
+      ]
+    },
+    "music/soundtrack": {
+      "project": "music",
+      "summary": "Play a composed, non-repeating soundtrack inside another project, through that project's own audio context and volume bus, and change its mood as the action changes.",
+      "files": [
+        "music/js/theory.js",
+        "music/js/genres.js",
+        "music/js/composer.js",
+        "music/js/synth.js",
+        "music/js/engine.js",
+        "music/js/soundtrack.js"
       ]
     }
   },
@@ -36,6 +48,13 @@
       "via": "script",
       "page": "film/index.html",
       "contract": "film/tests/film-logic.test.js"
+    },
+    {
+      "project": "zomboid",
+      "id": "music/soundtrack",
+      "via": "script",
+      "page": "zomboid/index.html",
+      "contract": "zomboid/tests/zomboid-logic.test.js"
     }
   ]
 }

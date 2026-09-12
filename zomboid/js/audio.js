@@ -7,7 +7,6 @@
   let ctx = null;
   let master = null;
   let musicGain = null;
-  let musicTimer = null;
   let enabled = true;
 
   function init() {
@@ -73,36 +72,55 @@
     },
   };
 
-  // ---- looping bassline (Genesis-style) for the city ----
-  const BASS = [110, 110, 165, 110, 98, 98, 147, 165];
-  const LEAD = [440, 0, 523, 587, 0, 494, 440, 0];
-  let step = 0;
-  function tick() {
-    const t = ctx.currentTime;
-    const b = BASS[step % BASS.length];
-    const l = LEAD[step % LEAD.length];
-    if (b) {
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.type = 'triangle'; o.frequency.value = b;
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5, t + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
-      o.connect(g); g.connect(musicGain); o.start(); o.stop(t + 0.25);
-    }
-    if (l) {
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.type = 'square'; o.frequency.value = l;
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.22, t + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
-      o.connect(g); g.connect(musicGain); o.start(); o.stop(t + 0.2);
-    }
-    step++;
-  }
-  function startMusic() {
-    if (!enabled || !ctx || musicTimer) return;
-    musicTimer = setInterval(tick, 180);
-  }
-  function stopMusic() { if (musicTimer) { clearInterval(musicTimer); musicTimer = null; } }
-  function toggle() { enabled = !enabled; if (!enabled) stopMusic(); return enabled; }
+  /* ---- the city's soundtrack, written by SONG FORGE ----
+   *
+   * This used to be an eight-step bassline against an eight-step lead, looping
+   * for as long as you played and knowing nothing about the game. SONG FORGE
+   * already writes whole arranged songs in the browser with no dependencies, so
+   * ZOMBOID consumes it (declared as music/soundtrack in shared/exchange.json)
+   * and gets music that does not repeat and follows the night and the horde.
+   *
+   * It plays into `musicGain`, the same bus the old loop used, so the L key and
+   * every volume decision in this file still apply untouched — and the sound
+   * effects above, which are ZOMBOID's own character, are not touched at all.
+   *
+   * The genre is chiptune, which is what the old loop was reaching for.
+   */
+  let soundtrack = null;
 
-  global.AUDIO = { init, resume, SFX, startMusic, stopMusic, toggle, isEnabled: () => enabled };
+  function startMusic() {
+    if (!enabled || !ctx) return;
+    if (!global.MazSoundtrack) return;   // the page failed to load it: play on, silently
+    if (!soundtrack) {
+      soundtrack = global.MazSoundtrack.create({
+        context: ctx,
+        destination: musicGain,
+        genre: 'chiptune',
+        mood: 'dark',
+        volume: 1        // musicGain already sets the level for this bus
+      });
+    }
+    soundtrack.start();
+  }
+
+  function stopMusic() {
+    if (soundtrack) soundtrack.stop();
+  }
+
+  /* Called from the world update every frame. `setMood` ignores the mood it is
+   * already playing, so the caller does not have to track what changed. */
+  function setMusicMood(mood) {
+    if (soundtrack) soundtrack.setMood(mood);
+  }
+
+  function nowPlaying() {
+    return soundtrack ? soundtrack.current() : null;
+  }
+
+  function toggle() { enabled = !enabled; if (!enabled) stopMusic(); else startMusic(); return enabled; }
+
+  global.AUDIO = {
+    init, resume, SFX, startMusic, stopMusic, setMusicMood, nowPlaying, toggle,
+    isEnabled: () => enabled
+  };
 })(typeof window !== 'undefined' ? window : this);

@@ -13,14 +13,14 @@
     "totalArtifacts": 894,
     "linesOfApps": 31861,
     "linesOfEngine": 87768,
-    "linesOfWeb": 17201,
+    "linesOfWeb": 17417,
     "appsHeadless": 76,
     "appsGolden": 97,
     "modulesTested": 99,
     "modulesDemoed": 20,
-    "checksPassed": 2506,
+    "checksPassed": 2507,
     "checksTotal": 3110,
-    "openTasks": 14
+    "openTasks": 12
   },
   "queue": [
     {
@@ -627,20 +627,6 @@
       "source": "inventory:pairing:engine-gains-a-composer"
     },
     {
-      "id": "pairing:songforge-scores-the-silent-games",
-      "priority": 1,
-      "kind": "pairing",
-      "check": "",
-      "title": "SONG FORGE scores the two silent browser games",
-      "detail": "ZOMBOID: ANCHORAGE and DEAD SECTOR are played in silence today, while SONG FORGE already writes and plays complete genre-tagged songs in the browser with no dependencies. Publish a small playback-only entry point from music/js/engine.js, declare it in shared/exchange.json as music/soundtrack, and have each game start a track that shifts with its state — calm while looting, driving during a horde. SCRIPT FORGE already consumes music/composer this way, so the wiring pattern exists and is tested.",
-      "paths": [
-        "music",
-        "zomboid",
-        "shooter"
-      ],
-      "source": "inventory:pairing:songforge-scores-the-silent-games"
-    },
-    {
       "id": "group:app:golden",
       "priority": 2,
       "kind": "app",
@@ -820,34 +806,9 @@
         "shooter"
       ],
       "source": "inventory:web:shooter:exchange"
-    },
-    {
-      "id": "web:zomboid#exchange",
-      "priority": 2,
-      "kind": "web-app",
-      "check": "exchange",
-      "title": "ZOMBOID: ANCHORAGE: declared in shared/exchange.json",
-      "detail": "ZOMBOID: ANCHORAGE neither publishes a capability nor consumes one. Declare in shared/exchange.json what it can lend the other projects — that manifest is how they find each other.",
-      "paths": [
-        "zomboid"
-      ],
-      "source": "inventory:web:zomboid:exchange"
     }
   ],
   "pairings": [
-    {
-      "id": "songforge-scores-the-silent-games",
-      "title": "SONG FORGE scores the two silent browser games",
-      "from": [
-        "web:music"
-      ],
-      "to": [
-        "web:zomboid",
-        "web:shooter"
-      ],
-      "effort": "medium",
-      "value": 3
-    },
     {
       "id": "codapics-paints-for-the-others",
       "title": "CODA PICS paints backdrops for SCRIPT FORGE and illustrates MADLIBS",

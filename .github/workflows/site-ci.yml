@@ -52,6 +52,10 @@ jobs:
       # break in the generator is a break in two projects.
       - name: MADLIBS logic tests
         run: node madlibs/tests/madlibs-logic.test.js
+      # The soundtrack surface ZOMBOID consumes. It is loaded by two projects
+      # now, so a break in it is a break in both.
+      - name: SONG FORGE soundtrack surface
+        run: node music/tests/soundtrack.test.js
       # ZOMBOID's map, generator and loot tables run in a vm sandbox with a stub
       # window, so they are checked without a browser; game.js itself is covered
       # by the Chromium smoke test below.
@@ -93,3 +97,8 @@ jobs:
         run: node coda-pics/tests/coda-browser.test.js
       - name: DEAD SECTOR end to end (play, pause, twin-stick on a phone)
         run: node shooter/tests/shooter-browser.test.js
+      # Proves the SONG FORGE soundtrack actually plays in ZOMBOID. A
+      # cross-project dependency that loads but does nothing passes every other
+      # gate in this file: declared, present, boots clean — and silent.
+      - name: ZOMBOID end to end (play, soundtrack, mute)
+        run: node zomboid/tests/zomboid-browser.test.js

@@ -21,21 +21,6 @@
  */
 export const DECLARED_PAIRINGS = [
   {
-    id: 'songforge-scores-the-silent-games',
-    from: ['web:music'],
-    to: ['web:zomboid', 'web:shooter'],
-    title: 'SONG FORGE scores the two silent browser games',
-    detail:
-      'ZOMBOID: ANCHORAGE and DEAD SECTOR are played in silence today, while SONG FORGE already ' +
-      'writes and plays complete genre-tagged songs in the browser with no dependencies. Publish a ' +
-      'small playback-only entry point from music/js/engine.js, declare it in shared/exchange.json ' +
-      'as music/soundtrack, and have each game start a track that shifts with its state — calm while ' +
-      'looting, driving during a horde. SCRIPT FORGE already consumes music/composer this way, so ' +
-      'the wiring pattern exists and is tested.',
-    effort: 'medium',
-    value: 3
-  },
-  {
     id: 'codapics-paints-for-the-others',
     from: ['web:coda-pics'],
     to: ['web:film', 'web:madlibs'],
@@ -136,6 +121,27 @@ export const REALIZED_PAIRINGS = [
       'same composer SONG FORGE uses, and an empty idea box borrows one of MADLIBS\'s stories rather ' +
       'than failing. Declared in shared/exchange.json as music/composer and madlibs/storyideas, and ' +
       'held to it by film/tests/film-logic.test.js and scripts/check-exchange.mjs.'
+  },
+  {
+    id: 'songforge-scores-zomboid',
+    from: ['web:music'],
+    to: ['web:zomboid'],
+    title: 'SONG FORGE writes the soundtrack for ZOMBOID: ANCHORAGE',
+    detail:
+      'ZOMBOID used to loop an eight-step bassline against an eight-step lead for as long as you ' +
+      'played, knowing nothing about the game. It now consumes music/soundtrack — a small ' +
+      'playback-only surface over SONG FORGE\'s composer, published in shared/exchange.json — and ' +
+      'plays composed, arranged chiptune that does not repeat and follows the city: calm by day, ' +
+      'dark at night, driving when something is close. The music plays through ZOMBOID\'s own audio ' +
+      'context and music bus, so its mute key and levels still apply, and its sound effects, which ' +
+      'are its character, are untouched. Composing a new track on a mood change costs 1-14ms ' +
+      'measured, so it happens mid-play without dropping a frame.\n\n' +
+      'DEAD SECTOR deliberately does NOT do this. Its whole identity is one self-contained HTML file ' +
+      'you can email to someone — it says so on its card, and shooter/tests/shooter-logic.test.js ' +
+      'fails if an external script appears in it. Loading six of SONG FORGE\'s modules would buy ' +
+      'better music by spending the thing the project is for, and embedding a copy of the composer ' +
+      'would be exactly the drifting duplicate this inventory exists to find. Its six-note scale walk ' +
+      'stays.'
   },
   {
     id: 'inventory-feeds-the-forge',
