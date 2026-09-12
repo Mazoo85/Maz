@@ -75,6 +75,35 @@ int main() {
     const size_t tris = (m.body.indices.size() + m.dark.indices.size() + m.glow.indices.size()) / 3;
     check(tris > 2000 && tris < 40000, "triangle count in expected range");
 
+    // Rig/animation: every animation frame and theme must yield the SAME vertex/index counts as the
+    // rest pose (so the viewer can stream frames into one dynamic mesh via updateMesh), and each frame
+    // must be valid (indices in range, finite positions).
+    auto counts = [](const character::CharacterModel& c) {
+        return std::vector<std::size_t>{c.body.vertices.size(), c.body.indices.size(),
+                                        c.dark.vertices.size(), c.dark.indices.size(),
+                                        c.glow.vertices.size(), c.glow.indices.size()};
+    };
+    const std::vector<std::size_t> ref = counts(m);
+    bool invariant = true, framesValid = true;
+    const character::Anim anims[] = {character::Anim::Idle, character::Anim::Wave,
+                                     character::Anim::PowerUp, character::Anim::APose,
+                                     character::Anim::Action};
+    for (character::Anim a : anims) {
+        for (float t = 0.0f; t < 6.3f; t += 0.7f) {
+            for (int th = 0; th < character::kThemeCount; ++th) {
+                const character::CharacterModel f =
+                    character::buildCharacter(character::animate(a, t), static_cast<character::Theme>(th));
+                invariant = invariant && (counts(f) == ref);
+                for (const shapes::MeshData* g : {&f.body, &f.dark, &f.glow}) {
+                    for (uint32_t i : g->indices) framesValid = framesValid && (i < g->vertices.size());
+                    framesValid = framesValid && boundsOf(*g).finite;
+                }
+            }
+        }
+    }
+    check(invariant, "vertex/index counts invariant across all anims/times/themes");
+    check(framesValid, "every animated frame is valid (indices in range, finite)");
+
     std::printf("\n%s: %d failure(s)\n", g_failures == 0 ? "ALL PASS" : "FAILURES", g_failures);
     return g_failures == 0 ? 0 : 1;
 }

@@ -1,12 +1,14 @@
-// Maz Engine — "SENTINEL VIEWER" — an interactive 3D character showcase. The android (character.hpp)
-// is authored entirely from the engine's procedural mesh primitives and drawn on the Vulkan PBR path.
-// You can orbit and zoom the camera, toggle a turntable spin, cycle the pose (idle / A-pose / action),
-// and swap the colour theme (cyan / crimson / verdant). Because every pose+theme has identical vertex/
-// index counts, the three material groups are dynamic meshes streamed each frame via updateMesh — no
-// reallocation on a switch. --headless / --frames N runs the loop with no window for CI.
+// Maz Engine — "SENTINEL VIEWER" — an interactive, animated 3D character showcase. The android
+// (character.hpp) is authored entirely from the engine's procedural mesh primitives, rigged with
+// shoulder + elbow joints and a head look, and drawn on the Vulkan PBR path. You can orbit and zoom,
+// toggle a turntable, cycle the animation (breathing idle / wave / power-up / A-pose / action), and
+// swap the colour theme (cyan / crimson / verdant / gold / obsidian / ice). Every animation frame has
+// identical vertex/index counts, so the three material groups are dynamic meshes rebuilt from the
+// procedural rig and streamed each frame via updateMesh — no reallocation. --headless / --frames N
+// runs with no window for CI.
 //
-// Controls:  drag = orbit   wheel / W,S = zoom   arrows = orbit   Space = turntable
-//            P = next pose   C = next theme   R = reset view   Esc = quit
+// Controls:  drag/arrows = orbit   wheel / W,S = zoom   Space = turntable
+//            P = next animation   C = next theme   R = reset view   Esc = quit
 
 #include "maz/Engine.hpp"
 
@@ -36,10 +38,12 @@ void stream(render::Renderer& r, render::MeshHandle h, const render::shapes::Mes
     r.updateMesh(h, m.vertices.data(), static_cast<uint32_t>(m.vertices.size()));
 }
 
-const char* poseName(character::Pose p) {
-    switch (p) {
-        case character::Pose::APose: return "A-pose";
-        case character::Pose::Action: return "action";
+const char* animName(character::Anim a) {
+    switch (a) {
+        case character::Anim::Wave: return "wave";
+        case character::Anim::PowerUp: return "power-up";
+        case character::Anim::APose: return "A-pose";
+        case character::Anim::Action: return "action";
         default: return "idle";
     }
 }
@@ -47,6 +51,9 @@ const char* themeName(character::Theme t) {
     switch (t) {
         case character::Theme::Crimson: return "crimson";
         case character::Theme::Verdant: return "verdant";
+        case character::Theme::Gold: return "gold";
+        case character::Theme::Obsidian: return "obsidian";
+        case character::Theme::Ice: return "ice";
         default: return "cyan";
     }
 }
@@ -54,7 +61,7 @@ const char* themeName(character::Theme t) {
 
 int main(int argc, char** argv) {
     core::AppConfig cfg = core::parseArgs(argc, argv);
-    MAZ_LOG_INFO("SENTINEL VIEWER (interactive procedural character) starting");
+    MAZ_LOG_INFO("SENTINEL VIEWER (animated procedural character) starting");
 
     platform::Window window;
     platform::WindowConfig wc;
@@ -78,9 +85,10 @@ int main(int argc, char** argv) {
     core::Clock clock(1.0 / 60.0);
 
     // Viewer state.
-    character::Pose pose = character::Pose::Idle;
+    character::Anim anim = character::Anim::Idle;
     character::Theme theme = character::Theme::Cyan;
-    character::CharacterModel model = character::buildCharacter(pose, theme);
+    float animTime = 0.0f;
+    character::CharacterModel model = character::buildCharacter(character::animate(anim, 0.0f), theme);
 
     const render::MeshHandle bodyMesh = uploadDynamic(*renderer, model.body);
     const render::MeshHandle darkMesh = uploadDynamic(*renderer, model.dark);
@@ -120,14 +128,6 @@ int main(int argc, char** argv) {
     groundMat.specular = 0.2f;
     groundMat.roughness = 0.9f;
 
-    auto applyTheme = [&]() {
-        const character::Palette pal = character::paletteFor(theme);
-        glowMat.emissive[0] = pal.emissive[0];
-        glowMat.emissive[1] = pal.emissive[1];
-        glowMat.emissive[2] = pal.emissive[2];
-    };
-    applyTheme();
-
     render::SceneLighting light;
     light.ambient[0] = 0.10f;
     light.ambient[1] = 0.12f;
@@ -159,43 +159,34 @@ int main(int argc, char** argv) {
     renderer->setLighting(light);
 
     // Orbit camera state.
-    float yaw = 0.5f;    // radians around Y
-    float pitch = 0.12f; // radians up/down
-    float dist = 4.9f;   // distance from target
-    bool spin = true;    // turntable
+    float yaw = 0.5f, pitch = 0.12f, dist = 4.9f;
+    bool spin = true;
     const glm::vec3 target(0.0f, 1.05f, 0.0f);
-
-    auto resetView = [&]() {
-        yaw = 0.5f;
-        pitch = 0.12f;
-        dist = 4.9f;
-    };
 
     while (!window.shouldClose()) {
         window.pumpEvents(input);
         const float dt = static_cast<float>(clock.frameDelta());
+        animTime += dt;
 
         if (input.keyPressed(SDL_SCANCODE_ESCAPE)) {
             window.requestClose();
         }
-        // Pose / theme / view controls.
         if (input.keyPressed(SDL_SCANCODE_P)) {
-            pose = static_cast<character::Pose>((static_cast<int>(pose) + 1) % 3);
-            model = character::buildCharacter(pose, theme);
+            anim = static_cast<character::Anim>((static_cast<int>(anim) + 1) % character::kAnimCount);
+            animTime = 0.0f;
         }
         if (input.keyPressed(SDL_SCANCODE_C)) {
-            theme = static_cast<character::Theme>((static_cast<int>(theme) + 1) % 3);
-            model = character::buildCharacter(pose, theme);
-            applyTheme();
+            theme = static_cast<character::Theme>((static_cast<int>(theme) + 1) % character::kThemeCount);
         }
         if (input.keyPressed(SDL_SCANCODE_SPACE)) {
             spin = !spin;
         }
         if (input.keyPressed(SDL_SCANCODE_R)) {
-            resetView();
+            yaw = 0.5f;
+            pitch = 0.12f;
+            dist = 4.9f;
         }
 
-        // Orbit: left-drag or arrow keys. Zoom: wheel or W/S.
         const bool dragging = input.mouseDown(0);
         if (dragging) {
             yaw -= input.mouseDX() * 0.01f;
@@ -208,12 +199,19 @@ int main(int argc, char** argv) {
         dist -= input.wheel() * 0.4f;
         if (input.keyDown(SDL_SCANCODE_W)) dist -= dt * 3.0f;
         if (input.keyDown(SDL_SCANCODE_S)) dist += dt * 3.0f;
-        if (spin && !dragging) {
-            yaw += dt * 0.5f;
-        }
-        // Clamp so the camera stays sane.
+        if (spin && !dragging) yaw += dt * 0.5f;
         pitch = std::fmax(-1.30f, std::fmin(1.30f, pitch));
         dist = std::fmax(2.4f, std::fmin(9.0f, dist));
+
+        // Rebuild the animated character for this frame and update the glow's emissive (pulsing on
+        // power-up), then stream the fresh geometry into the dynamic meshes.
+        model = character::buildCharacter(character::animate(anim, animTime), theme);
+        const character::Palette pal = character::paletteFor(theme);
+        const float pulse =
+            anim == character::Anim::PowerUp ? 1.0f + 0.35f * std::sin(animTime * 4.0f) : 1.0f;
+        glowMat.emissive[0] = pal.emissive[0] * pulse;
+        glowMat.emissive[1] = pal.emissive[1] * pulse;
+        glowMat.emissive[2] = pal.emissive[2] * pulse;
 
         uint32_t bw = 0, bh = 0;
         window.drawableSize(bw, bh);
@@ -236,7 +234,6 @@ int main(int argc, char** argv) {
             renderer->setViewProjection3D(glm::value_ptr(viewProj));
             renderer->setCameraPosition(glm::value_ptr(eye));
 
-            // Stream the current pose/theme geometry into the dynamic meshes, then draw.
             stream(*renderer, bodyMesh, model.body);
             stream(*renderer, darkMesh, model.dark);
             stream(*renderer, glowMesh, model.glow);
@@ -252,11 +249,11 @@ int main(int argc, char** argv) {
             font.drawText(*renderer, 16.0f, 12.0f, "MAZ ENGINE  -  SENTINEL VIEWER",
                           render::Color{1, 1, 1, 1}, 0.55f);
             const std::string status =
-                std::string("pose: ") + poseName(pose) + "    theme: " + themeName(theme);
+                std::string("anim: ") + animName(anim) + "    theme: " + themeName(theme);
             font.drawText(*renderer, 16.0f, 44.0f, status.c_str(),
                           render::Color{0.72f, 0.82f, 0.95f, 1}, 0.36f);
             font.drawText(*renderer, 16.0f, 70.0f,
-                          "drag/arrows: orbit   wheel/W,S: zoom   Space: spin   P: pose   C: theme   R: reset",
+                          "drag/arrows: orbit   wheel/W,S: zoom   Space: spin   P: animation   C: theme   R: reset",
                           render::Color{0.60f, 0.66f, 0.78f, 1}, 0.28f);
 
             renderer->endFrame();
