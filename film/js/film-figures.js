@@ -273,6 +273,35 @@
   /* One syllable of movement: the head dips and the nearer hand lifts, both
    * returning to rest by the end so syllables can run back to back without the
    * body drifting. The score fires a blip on the same clock. */
+  /* Turn a figure toward whoever they are sharing the scene with.
+   *
+   * Two figures used to face straight out of the screen no matter where the
+   * other one stood, which is why a two-shot read as two portraits instead of a
+   * conversation. The head turns most, the torso follows about a third as far —
+   * people lead with the head — and both are clamped, so no distance and no
+   * amount can produce a neck a neck could not do.
+   *
+   * Positive angles turn toward +x, matching the head rotation that drawBody
+   * hands to the canvas. Distance is normalised against a nominal shoulder-to-
+   * shoulder span so a figure across the room and a figure an arm away both
+   * turn a sensible amount rather than the far one turning further.
+   */
+  var GAZE_SPAN = 320;   // px at which the turn is essentially full
+  var GAZE_HEAD = 0.34;  // radians of head turn at full
+  var GAZE_TORSO = 0.11; // the torso follows, less
+
+  function gazeAt(pose, selfX, otherX, amount) {
+    var out = {};
+    for (var i = 0; i < JOINTS.length; i++) out[JOINTS[i]] = pose[JOINTS[i]];
+    var dx = otherX - selfX;
+    if (!dx) return out;                       // nobody turns toward themselves
+    var strength = Math.max(0, Math.min(1, Math.abs(dx) / GAZE_SPAN));
+    var scale = (dx < 0 ? -1 : 1) * strength * Math.max(0, Math.min(1, amount || 0));
+    out.head = clampJoint('head', pose.head + GAZE_HEAD * scale);
+    out.torso = clampJoint('torso', pose.torso + GAZE_TORSO * scale);
+    return out;
+  }
+
   function gestureAt(pose, phase) {
     var clamped = Math.max(0, Math.min(1, phase));
     // Math.sin(Math.PI) is not exactly 0 in double precision, and that residue
@@ -316,7 +345,8 @@
     POSE_LIMITS: POSE_LIMITS,
     POSES_BY_BEAT: POSES_BY_BEAT,
     poseFor: poseFor,
-    gestureAt: gestureAt
+    gestureAt: gestureAt,
+    gazeAt: gazeAt
   };
 
   if (typeof module === 'object' && module.exports) module.exports = API;

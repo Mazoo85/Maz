@@ -80,26 +80,36 @@ weight shift on the legs, a shallow chest cycle on the torso, and a head settle.
 - [ ] Blend across the first ~0.3 s of a shot, from the previous shot's pose.
 - [ ] Run the suites; commit.
 
-### Task 4: Contact shadows
+### Task 4: Every set gets a light direction
+
+**Files:** `film/js/film-sets.js`, `film/js/film-art.js`,
+`film/tests/film-logic.test.js`
+
+> Rewritten after reading the code: there is no light direction anywhere today.
+> A palette carries colours only, and sets paint their lamps as artwork. The
+> original Task 4 ("add contact shadows") was dropped outright — `drawFigure`
+> has drawn a contact-shadow ellipse all along.
+
+**Produces:** a light direction per set, in radians, shifted by the hour.
+
+- [ ] Write failing tests: every set in `SETS` has a light direction; it is a
+      finite number in range; the same set and hour always give the same
+      direction; DAY and NIGHT differ for a set with a window.
+- [ ] Run, watch fail.
+- [ ] Add the direction to all 15 sets, chosen to match where each already
+      paints its lamp, window or beam.
+- [ ] Run the suites; commit.
+
+### Task 5: The rim light and the shadow follow the light
 
 **Files:** `film/js/film-figures.js`, `film/tests/film-browser.test.js`
 
-- [ ] `drawBody` already computes the lowest foot's y in order to plant the
-      figure. Return it so the shadow can reuse it rather than recomputing.
-- [ ] Draw a soft ellipse under that foot in **one** additional fill, before the
-      body so the body sits on top.
-- [ ] Prove the budget gate still passes at both resolutions.
-- [ ] Render a contact sheet, look at it, and only then commit.
-
-### Task 5: The room's light falls on the figure
-
-**Files:** `film/js/film-art.js` (expose the light direction),
-`film/js/film-figures.js`
-
-- [ ] Paint the body with a linear gradient along the set's light direction
-      instead of a flat ink. A gradient is a paint, **not** an extra fill — the
-      body stays one `fill()`.
-- [ ] Budget gate; contact sheet; look; commit.
+- [ ] Replace the rim's constant `translate(-w * 0.055, -h * 0.012)` with an
+      offset along the set's light direction. Same three-pass composite, same
+      fill count.
+- [ ] Make the contact shadow fall away from the light and stretch as the light
+      lowers, instead of sitting flat underfoot.
+- [ ] Budget gate at both resolutions; contact sheet; look; commit.
 
 ### Task 6: Faces — build, look, decide
 

@@ -8,8 +8,18 @@
 
 The films now look good, are cut well, and no longer feel like each other. What
 they still are is **expressive cardboard**: a figure holds one of ten fixed
-poses, sways once per syllable, casts no shadow, ignores the light in the room
-it is standing in, and speaks in uniform blips.
+poses, sways once per syllable, is lit from the upper left no matter where the
+room's light is, and speaks in uniform blips.
+
+> **Correction, made before any of this was built.** The first draft of this
+> spec said figures cast no shadow, that `drawBody` issues one fill per figure,
+> and that sets already carry a light direction. Reading the code found all
+> three wrong: `drawFigure` already paints a contact-shadow ellipse; it calls
+> `drawBody` **three times** (rim, body, tint) plus a shadow fill and a halo
+> rect, so a figure costs five fills, not one; and a palette carries colours
+> (`key accent sky deep ink shadow lift tension`) but **no direction at all** —
+> sets paint their lamps and beams as artwork, and nothing says where the light
+> is. The design below is the corrected one.
 
 This fixes those three things — how characters move, how they sit in the
 picture, and what they sound like.
@@ -47,8 +57,15 @@ the system knows where the other character is standing.
 
 **Drawing**: `drawBody` builds legs, torso, arms and head as sub-paths of **one
 path** and issues **one `fill()`**. That is not incidental — per-segment fills
-previously caused a 2.9-second stall, and the single fill is what fixed it. It
-also means a figure is one flat colour, which is why it reads as pasted on.
+previously caused a 2.9-second stall, and the single fill is what fixed it.
+
+`drawFigure` then composites that body **three times** — offset up-left in the
+key colour for a rim light, then near-black, then a tinted pass under
+`lighter` — plus a contact-shadow ellipse and a halo rect. So a figure already
+costs **five fills**, and already has both a shadow and a rim light. What it
+does not have is any relationship between those and the room: the rim is a
+fixed `translate(-w * 0.055, -h * 0.012)`, always upper-left, and the shadow is
+a flat ellipse directly underfoot, whatever the light is doing.
 
 **Voice**: one filtered blip per syllable at the character's pitch, riding a
 pitch contour. Everything audible is built in Web Audio and reaches a single
@@ -83,15 +100,23 @@ contact sheet and a look before it is kept.
 
 ### Part 2 — the picture
 
-**Contact shadows.** A figure currently floats: nothing joins it to the floor it
-is standing on. A soft ellipse under the planted foot, in one extra fill, seats
-it. `drawBody` already computes where the lowest foot lands in order to plant
-the figure — the shadow reuses that number rather than recomputing it.
+**Give the room a light direction.** This is the missing piece the other two
+depend on, and it does not exist today: a palette carries colours but no
+direction, and each set paints its lamp or window as artwork without saying
+where it is. Each of the 15 sets gains a light direction (and the hour of day
+already shifts it — a low sun is not an overhead bulb). One number per set,
+read by everything below.
 
-**Light on the figure.** Sets already carry a light direction and colour; the
-figure ignores both and is one flat ink. Painting the body with a gradient
-along the light direction keeps it to **one fill** (a gradient is a paint, not
-an extra draw) and seats the figure in the room's light.
+**The rim light follows it.** The rim is currently a fixed offset up and left,
+which is right for exactly one set and wrong for the other fourteen. Offsetting
+along the set's actual light direction instead means a character lit by the
+lighthouse lamp is rimmed on the side the lamp is on. No new fill — the same
+three-pass composite, with the offset computed rather than constant.
+
+**The contact shadow follows it too.** Today it is a flat ellipse directly
+underfoot. Falling *away* from the light, and stretching as the light gets
+lower, is what makes a floor look like a floor. Still one fill; it already
+exists, it just needs to know which way the light is coming from.
 
 **Faces, on probation.** Two eyes and a mouth line, oriented with the head
 angle, in one more fill. This could transform how much emotion reads, or it
@@ -149,9 +174,9 @@ both caught by looking, not by a test.
 
 ## Risks
 
-- **The single fill.** Shadows and faces each add a fill. Three fills per figure
-  instead of one, times two figures, is still far inside the measured budget —
-  but the budget gate is the check, and it runs on every push.
+- **Fill count.** A figure already costs five fills; a face would make it six.
+  Two figures at six fills is still far inside the measured 0.2 ms median — but
+  the budget gate is the check, and it runs on every push.
 - **Faces may cheapen it.** Mitigated by building them behind a decision point
   rather than assuming they stay.
 - **Walking may look wrong.** The most likely thing here to look bad. Contact
@@ -167,8 +192,8 @@ both caught by looking, not by a test.
 2. Gaze.
 3. Breath and weight.
 4. Pose easing (revive `blendPoses` with limits enforced).
-5. Contact shadows.
-6. Light on the figure.
+5. A light direction per set, varying with the hour.
+6. The rim light and the contact shadow both follow it.
 7. Faces — build, render, look, decide.
 8. Walking on the push beat — build, render, look, decide.
 9. Vowel formants; captions to vowels.

@@ -1727,6 +1727,70 @@ test('an interior scene keeps the interior line', () => {
   assert(found, 'no interior scene used an interior line — the swap is firing everywhere');
 });
 
+console.log('\nWHERE A CHARACTER IS LOOKING');
+
+/* Two figures in a scene used to stare straight ahead regardless of each other,
+ * which is why a two-shot read as two portraits rather than a conversation.
+ * gazeAt turns the head, and the torso less, toward the other figure. */
+
+function gazeWithinLimits(pose, where) {
+  Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+    const lo = Figures.POSE_LIMITS[joint][0];
+    const hi = Figures.POSE_LIMITS[joint][1];
+    assert(pose[joint] >= lo && pose[joint] <= hi,
+      where + ': ' + joint + ' = ' + pose[joint] + ' is outside [' + lo + ', ' + hi + ']');
+  });
+}
+
+test('a figure turns toward someone standing to their right', () => {
+  const rest = Figures.POSES.stand;
+  const turned = Figures.gazeAt(rest, 100, 400, 1);
+  assert(turned.head > rest.head,
+    'head should turn positive (toward +x) for a listener on the right, got ' + turned.head);
+  assert(turned.torso > rest.torso, 'the torso should follow the head, got ' + turned.torso);
+  assert(Math.abs(turned.torso - rest.torso) < Math.abs(turned.head - rest.head),
+    'the torso should turn less than the head');
+});
+
+test('a figure turns the other way for someone on their left', () => {
+  const rest = Figures.POSES.stand;
+  const right = Figures.gazeAt(rest, 100, 400, 1);
+  const left = Figures.gazeAt(rest, 400, 100, 1);
+  assert(left.head < rest.head, 'head should turn negative for a listener on the left');
+  assert(Math.abs(left.head - rest.head) - Math.abs(right.head - rest.head) < 1e-9,
+    'the turn should be symmetric either way');
+});
+
+test('nobody turns toward themselves', () => {
+  const rest = Figures.POSES.stand;
+  const same = Figures.gazeAt(rest, 250, 250, 1);
+  Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+    eq(same[joint], rest[joint], 'gazing at your own position should change ' + joint);
+  });
+});
+
+test('gaze never bends a neck further than a neck bends', () => {
+  // Absurd distances and amounts must still produce a pose a human could hold.
+  const names = Object.keys(Figures.POSES);
+  [-1e6, -500, -1, 0, 1, 500, 1e6].forEach((otherX) => {
+    [0, 0.5, 1, 4].forEach((amount) => {
+      names.forEach((name) => {
+        gazeWithinLimits(Figures.gazeAt(Figures.POSES[name], 0, otherX, amount),
+          'gazeAt(' + name + ', 0, ' + otherX + ', ' + amount + ')');
+      });
+    });
+  });
+});
+
+test('gaze leaves every joint but the head and torso alone', () => {
+  const rest = Figures.POSES['hands-in-pockets'];
+  const turned = Figures.gazeAt(rest, 0, 900, 1);
+  Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+    if (joint === 'head' || joint === 'torso') return;
+    eq(turned[joint], rest[joint], joint + ' should not move when someone looks sideways');
+  });
+});
+
 console.log('');
 if (failures.length) {
   console.error('✖ ' + failures.length + ' failing test(s):');
