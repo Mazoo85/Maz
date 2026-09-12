@@ -339,6 +339,10 @@
    * the lift never touches anything outside the fore element means
    * comparing a frame against itself with only the lift switched off,
    * everything else about the call identical. */
+  /* How long a figure takes to settle into the pose a new shot puts them in.
+   * Short enough to read as a person moving, long enough not to be a snap. */
+  var POSE_EASE = 0.32;
+
   function drawFrame(ctx, width, height, reel, time, opts) {
     var shot = Reel.shotAt(reel, time);
     var elapsed = time - shot.start;
@@ -425,6 +429,22 @@
           var poseName = Figures.poseFor(shot.beat, shot.mood, speaking, shotKey);
           var pose = Figures.POSES[poseName];
 
+          // Ease in from the pose the previous shot left them in, rather than
+          // snapping at the cut. Derived from the reel, not remembered between
+          // frames: drawFrame has to stay a pure function of (reel, time) or
+          // seeking and recording would disagree with playback.
+          var prev = Reel.shotAt(reel, Math.max(0, shot.start - 0.001));
+          if (prev && prev !== shot) {
+            var into = time - shot.start;
+            if (into < POSE_EASE) {
+              var prevKey = (reel.seed + Math.round(prev.start * 100)) >>> 0;
+              var prevSpeaking = prev.kind === 'line' && spot.name === prev.speaker;
+              var prevPose = Figures.POSES[
+                Figures.poseFor(prev.beat, prev.mood, prevSpeaking, prevKey)];
+              pose = Figures.blendPoses(prevPose, pose, into / POSE_EASE);
+            }
+          }
+
           // Look at whoever else is in the scene. Two figures used to face
           // straight out of the screen no matter where the other one stood,
           // which is what made a two-shot read as two portraits rather than a
@@ -435,6 +455,10 @@
             if (spots[s] !== spot) { other = spots[s]; break; }
           }
           if (other) pose = Figures.gazeAt(pose, spot.x, other.x, speaking ? 1 : 0.55);
+
+          // ...and is never perfectly still while doing it. Seeded off the
+          // figure's own x so two people in a two-shot are not a chorus line.
+          pose = Figures.aliveAt(pose, time, Math.round(spot.x));
 
           // A speaking figure's head and hand move in time with their own voice
           // — the score fires a blip on this same clock, so the two must agree.

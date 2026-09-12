@@ -1791,6 +1791,130 @@ test('gaze leaves every joint but the head and torso alone', () => {
   });
 });
 
+console.log('\nA STANDING PERSON IS NEVER STILL');
+
+/* A figure held one pose exactly until the next cut, which is most of what made
+ * them read as cardboard. aliveAt adds a slow weight shift, a shallow breath and
+ * a head settle — small, and driven by the clock and the character's seed so two
+ * recordings of one film still match frame for frame. */
+
+test('being alive is deterministic', () => {
+  for (let seed = 0; seed < 5; seed++) {
+    for (const t of [0, 0.37, 1.5, 9.25, 240]) {
+      const a = Figures.aliveAt(Figures.POSES.stand, t, seed);
+      const b = Figures.aliveAt(Figures.POSES.stand, t, seed);
+      Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+        eq(a[joint], b[joint], 'aliveAt(stand, ' + t + ', ' + seed + ') differed on ' + joint);
+      });
+    }
+  }
+});
+
+test('two characters do not breathe in lockstep', () => {
+  // Same moment, different seeds: if these matched, a two-shot would look like
+  // a chorus line.
+  const a = Figures.aliveAt(Figures.POSES.stand, 3.1, 1);
+  const b = Figures.aliveAt(Figures.POSES.stand, 3.1, 2);
+  const differs = Object.keys(Figures.POSE_LIMITS).some((j) => a[j] !== b[j]);
+  assert(differs, 'two seeds produced identical motion at the same instant');
+});
+
+test('being alive never leaves a pose a human could hold', () => {
+  const names = Object.keys(Figures.POSES);
+  for (const name of names) {
+    for (let seed = 0; seed < 4; seed++) {
+      for (let step = 0; step <= 40; step++) {
+        const pose = Figures.aliveAt(Figures.POSES[name], step * 0.31, seed);
+        gazeWithinLimits(pose, 'aliveAt(' + name + ', ' + (step * 0.31) + ', ' + seed + ')');
+      }
+    }
+  }
+});
+
+test('being alive is a breath, not a dance', () => {
+  // Every joint stays close to where the pose put it: this is life, not a new
+  // pose. Bounded at a tenth of each joint's own range.
+  const names = Object.keys(Figures.POSES);
+  let worst = 0, worstAt = '';
+  names.forEach((name) => {
+    const rest = Figures.POSES[name];
+    for (let seed = 0; seed < 4; seed++) {
+      for (let step = 0; step <= 40; step++) {
+        const pose = Figures.aliveAt(rest, step * 0.29, seed);
+        Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+          const range = Figures.POSE_LIMITS[joint][1] - Figures.POSE_LIMITS[joint][0];
+          const drift = Math.abs(pose[joint] - rest[joint]) / range;
+          if (drift > worst) { worst = drift; worstAt = name + '.' + joint; }
+        });
+      }
+    }
+  });
+  assert(worst <= 0.1, 'the largest drift was ' + worst.toFixed(3) + ' of range at ' + worstAt +
+    ' — that is a new pose, not a breath');
+});
+
+test('nobody is frozen', () => {
+  // The opposite failure: aliveAt that returns the pose unchanged would pass
+  // every test above and do nothing.
+  const rest = Figures.POSES.stand;
+  let moved = false;
+  for (let step = 0; step <= 40 && !moved; step++) {
+    const pose = Figures.aliveAt(rest, step * 0.23, 0);
+    moved = Object.keys(Figures.POSE_LIMITS).some((j) => Math.abs(pose[j] - rest[j]) > 1e-6);
+  }
+  assert(moved, 'aliveAt never moved anything across 40 samples');
+});
+
+console.log('\nA CUT NO LONGER SNAPS');
+
+/* Poses changed instantly at a cut. blendPoses eases between them. It existed
+ * once and was deleted as dead code when nothing called it; this is the caller
+ * it was waiting for. */
+
+test('a blend starts and ends exactly where it should', () => {
+  const a = Figures.POSES.stand, b = Figures.POSES['hands-in-pockets'];
+  const at0 = Figures.blendPoses(a, b, 0);
+  const at1 = Figures.blendPoses(a, b, 1);
+  Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+    eq(at0[joint], a[joint], 't=0 should be the first pose exactly, at ' + joint);
+    eq(at1[joint], b[joint], 't=1 should be the second pose exactly, at ' + joint);
+  });
+});
+
+test('a blend is monotonic between the two poses', () => {
+  const a = Figures.POSES.stand, b = Figures.POSES['turn-away'];
+  Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+    const lo = Math.min(a[joint], b[joint]), hi = Math.max(a[joint], b[joint]);
+    for (let step = 0; step <= 20; step++) {
+      const v = Figures.blendPoses(a, b, step / 20)[joint];
+      assert(v >= lo - 1e-9 && v <= hi + 1e-9,
+        joint + ' left the span between the two poses at t=' + (step / 20) + ': ' + v);
+    }
+  });
+});
+
+test('no blend of any two poses bends past a human', () => {
+  const names = Object.keys(Figures.POSES);
+  names.forEach((from) => {
+    names.forEach((to) => {
+      for (let step = 0; step <= 20; step++) {
+        gazeWithinLimits(Figures.blendPoses(Figures.POSES[from], Figures.POSES[to], step / 20),
+          'blendPoses(' + from + ', ' + to + ', ' + (step / 20) + ')');
+      }
+    });
+  });
+});
+
+test('a blend clamps a t outside 0..1 rather than overshooting', () => {
+  const a = Figures.POSES.stand, b = Figures.POSES.recoil;
+  const under = Figures.blendPoses(a, b, -3);
+  const over = Figures.blendPoses(a, b, 4);
+  Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+    eq(under[joint], a[joint], 't below 0 should hold at the first pose, at ' + joint);
+    eq(over[joint], b[joint], 't above 1 should hold at the second pose, at ' + joint);
+  });
+});
+
 console.log('');
 if (failures.length) {
   console.error('✖ ' + failures.length + ' failing test(s):');

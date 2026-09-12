@@ -290,6 +290,67 @@
   var GAZE_HEAD = 0.34;  // radians of head turn at full
   var GAZE_TORSO = 0.11; // the torso follows, less
 
+  /* A standing person is never still.
+   *
+   * Three slow cycles, all small, all on joints that already exist: weight
+   * rocks between the legs, the chest rises and falls, and the head settles
+   * after the weight does. This is most of what separates a puppet from
+   * somebody waiting for an answer.
+   *
+   * Everything is driven by the shot clock and the character's seed — no
+   * Math.random(), because two recordings of one film have to match frame for
+   * frame, and the grain tile already broke that guarantee once. The seed only
+   * shifts the phase, so two people in a two-shot are not a chorus line.
+   *
+   * Bounded to a tenth of each joint's range by the numbers below, and clamped
+   * on the way out, so this can never become a pose of its own.
+   */
+  var BREATH_RATE = 0.55;   // chest cycles per second, a resting adult
+  var WEIGHT_RATE = 0.21;   // the slower rock between one leg and the other
+  var SETTLE_RATE = 0.13;   // the head, slower still, trailing the weight
+
+  /* Ease from one pose to another instead of snapping at the cut.
+   *
+   * This existed once and was deleted when nothing called it; the shot-change
+   * easing below is the caller it was waiting for. Every joint is clamped on
+   * the way out, so a blend can never land somewhere neither pose could —
+   * which matters because the two ends are each inside POSE_LIMITS but the
+   * shortest path between two angles is not always inside anything.
+   *
+   * t is clamped rather than extrapolated: overshooting a pose is how you get
+   * an elbow through a ribcage.
+   */
+  function blendPoses(a, b, t) {
+    var k = t < 0 ? 0 : (t > 1 ? 1 : t);
+    var out = {};
+    for (var i = 0; i < JOINTS.length; i++) {
+      var joint = JOINTS[i];
+      out[joint] = clampJoint(joint, a[joint] + (b[joint] - a[joint]) * k);
+    }
+    return out;
+  }
+
+  function aliveAt(pose, seconds, seed) {
+    var out = {};
+    for (var i = 0; i < JOINTS.length; i++) out[JOINTS[i]] = pose[JOINTS[i]];
+    var t = seconds || 0;
+    var phase = ((seed || 0) % 17) * 0.37;        // a different point in the cycle each
+
+    var breath = Math.sin((t * BREATH_RATE + phase) * Math.PI * 2);
+    var weight = Math.sin((t * WEIGHT_RATE + phase * 0.61) * Math.PI * 2);
+    var settle = Math.sin((t * SETTLE_RATE + phase * 1.31) * Math.PI * 2);
+
+    out.torso = clampJoint('torso', pose.torso + breath * 0.022);
+    // The legs take the weight in opposition — one straightens as the other gives.
+    out.legL = clampJoint('legL', pose.legL + weight * 0.020);
+    out.legR = clampJoint('legR', pose.legR - weight * 0.020);
+    out.shinL = clampJoint('shinL', pose.shinL - weight * 0.010);
+    out.shinR = clampJoint('shinR', pose.shinR + weight * 0.010);
+    // The head trails the weight rather than leading it.
+    out.head = clampJoint('head', pose.head + settle * 0.026 + breath * 0.008);
+    return out;
+  }
+
   function gazeAt(pose, selfX, otherX, amount) {
     var out = {};
     for (var i = 0; i < JOINTS.length; i++) out[JOINTS[i]] = pose[JOINTS[i]];
@@ -346,7 +407,9 @@
     POSES_BY_BEAT: POSES_BY_BEAT,
     poseFor: poseFor,
     gestureAt: gestureAt,
-    gazeAt: gazeAt
+    gazeAt: gazeAt,
+    aliveAt: aliveAt,
+    blendPoses: blendPoses
   };
 
   if (typeof module === 'object' && module.exports) module.exports = API;
