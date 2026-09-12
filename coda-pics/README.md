@@ -281,6 +281,7 @@ coda-pics/
   js/render-worker.js   the same engine, off the main thread
   js/app.js             the page wiring
   tests/                the test suites
+  tools/                packs the app into one file for single-page hosts
 ```
 
 Big pictures are painted in a worker so the page never freezes, and a quarter
