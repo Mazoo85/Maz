@@ -1185,6 +1185,10 @@ add_executable(maz_film_motion_tests film/motion.cpp)
 target_link_libraries(maz_film_motion_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME film_motion COMMAND maz_film_motion_tests
          ${CMAKE_CURRENT_SOURCE_DIR}/film/motion-fixture.json)
+
+add_executable(maz_film_actor_tests film/actor.cpp)
+target_link_libraries(maz_film_actor_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME film_actor COMMAND maz_film_actor_tests)
 set_tests_properties(film_motion PROPERTIES TIMEOUT 30)
 
 add_executable(maz_film_showcase_tests film/showcase.cpp)
