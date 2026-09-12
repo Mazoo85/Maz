@@ -15,7 +15,7 @@ size is in the wiring between the parts, not in any one part.
 |---|---:|---|
 | Native games and demos (`apps/`) | 161 | 31,861 lines |
 | Engine capabilities (`engine/include/maz/`) | 692 | 87,768 lines across 20 subsystems |
-| C++ test files (`tests/`) | 374 | |
+| C++ test files (`tests/`) | 376 | |
 | Browser apps and games | 6 | 17,589 lines |
 | Python tools | 3 | |
 | CI gates (`scripts/`) | 3 | |
@@ -25,11 +25,11 @@ size is in the wiring between the parts, not in any one part.
 
 | Health signal | Score | |
 |---|---:|---|
-| Completeness checks passing | 82% | ████████░░ 2554 of 3110 |
+| Completeness checks passing | 84% | ████████░░ 2607 of 3110 |
 | Apps that run headless in CI | 100% | ██████████ |
 | Apps with a golden screenshot | 97% | ██████████ |
 | Engine modules a test exercises | 100% | ██████████ |
-| Engine modules an app demonstrates | 20% | ██░░░░░░░░ |
+| Engine modules an app demonstrates | 28% | ███░░░░░░░ |
 | Open tasks in the queue below | 7 | |
 
 ## 1. Everything you have built
@@ -64,64 +64,64 @@ module with neither is working code nobody can find.
 
 | Subsystem | Modules | Tested | Demonstrated |
 |---|---:|---:|---:|
-| `render` | 165 | 164 (99%) | 11 (7%) |
-| `math` | 132 | 132 (100%) | 6 (5%) |
-| `game` | 124 | 124 (100%) | 22 (18%) |
-| `core` | 104 | 104 (100%) | 23 (22%) |
-| `io` | 30 | 30 (100%) | 10 (33%) |
-| `audio` | 27 | 27 (100%) | 14 (52%) |
-| `ui` | 27 | 25 (93%) | 15 (56%) |
-| `platform` | 20 | 20 (100%) | 11 (55%) |
-| `anim` | 19 | 19 (100%) | 12 (63%) |
-| `net` | 16 | 16 (100%) | 2 (13%) |
-| `scene` | 7 | 7 (100%) | 4 (57%) |
-| `fx` | 4 | 4 (100%) | 2 (50%) |
+| `render` | 165 | 165 (100%) | 20 (12%) |
+| `math` | 132 | 132 (100%) | 15 (11%) |
+| `game` | 124 | 124 (100%) | 34 (27%) |
+| `core` | 104 | 104 (100%) | 28 (27%) |
+| `io` | 30 | 30 (100%) | 16 (53%) |
+| `audio` | 27 | 27 (100%) | 15 (56%) |
+| `ui` | 27 | 25 (93%) | 17 (63%) |
+| `platform` | 20 | 19 (95%) | 12 (60%) |
+| `anim` | 19 | 19 (100%) | 16 (84%) |
+| `net` | 16 | 16 (100%) | 1 (6%) |
+| `scene` | 7 | 7 (100%) | 5 (71%) |
+| `fx` | 4 | 4 (100%) | 3 (75%) |
 | `input` | 4 | 4 (100%) | 3 (75%) |
-| `script` | 4 | 4 (100%) | 0 (0%) |
-| `ecs` | 3 | 3 (100%) | 3 (100%) |
+| `script` | 4 | 4 (100%) | 3 (75%) |
+| `ecs` | 3 | 3 (100%) | 2 (67%) |
 | `ext` | 2 | 2 (100%) | 0 (0%) |
 | `(root)` | 1 | 1 (100%) | 1 (100%) |
-| `docs` | 1 | 1 (100%) | 0 (0%) |
+| `docs` | 1 | 1 (100%) | 1 (100%) |
 | `editor` | 1 | 1 (100%) | 1 (100%) |
 | `video` | 1 | 1 (100%) | 0 (0%) |
 
 <details><summary>Every engine module by name</summary>
 
-**`render`** — AtlasPacker, ~BilateralFilter, Billboard, Camera3D, ~CascadeSplits, ~CatmullClark, ~CieLab, ~ColladaLoader, ~ColorHarmony, ~ColorNames, ~ColorOps, ~ColorQuantize, ~ColorTemperature, ~ContrastRatio, ~Cubemap, ~CubemapCapture, ~Decal, ~Dither, ~DynamicResolution, ~Equirect, ~FbxLoader, ~GlbContainer, ~GlobalIllumination, ~GreedyVoxelMesh, ~Grid3D, ~HarrisCorners, ~Image, ~ImageAdjust, ~ImageBlend, ~ImageBlur, ~ImageCodecBmp, ~ImageCodecDds, ~ImageCodecDdsEncode, ~ImageCodecGif, ~ImageCodecPng, ~ImageCodecPnm, ~ImageCodecQoi, ~ImageCodecTga, ~ImageColorBlind, ~ImageDraw, ~ImageGradientMap, ~ImageNormalMap, ~ImagePatterns, ~Ktx2, ~Lightmap, Line2D, ~LineAA, ~MedianCut, ~MedianFilter, ~MeshAmbientOcclusion, ~MeshArrow, ~MeshBend, ~MeshBoundaryLoops, ~MeshBoundingCylinder, ~MeshCleanup, ~MeshClosestPoint, ~MeshComponentColor, ~MeshComponents, ~MeshContainment, ~MeshCurvature, ~MeshCurvatureColor, ~MeshDegenerate, ~MeshDisplace, ~MeshDominantPlane, ~MeshExplode, ~MeshExtrude, ~MeshExtrudePolygon, ~MeshFacet, ~MeshFeatureLines, ~MeshFlatten, ~MeshFlip, ~MeshGeodesic, ~MeshHardEdges, ~MeshHeightfield, ~MeshHoleFill, ~MeshIcosphere, ~MeshInset, ~MeshLod, ~MeshLodBuilder, ~MeshMassProperties, ~MeshMerge, ~MeshMirror, ~MeshNormalize, ~MeshPlanarRegions, ~MeshPoissonPrune, ~MeshPrincipalAxes, ~MeshProjectedArea, ~MeshQuantize, ~MeshRayBvh, ~MeshRecenter, ~MeshReindex, ~MeshRevolve, ~MeshRipple, ~MeshSdf, ~MeshSelfIntersect, ~MeshSharpEdges, ~MeshSilhouette, ~MeshSimplify, ~MeshSimplifyQuadric, ~MeshSkin, ~MeshSlice, ~MeshSliceLayers, ~MeshSmooth, ~MeshSnapGrid, ~MeshSolidify, ~MeshSolidity, ~MeshSpherify, ~MeshStats, ~MeshStrip, ~MeshSurfaceSample, ~MeshSweep, ~MeshSymmetry, ~MeshTaper, ~MeshThickness, ~MeshTools, ~MeshTopology, ~MeshTopologySummary, ~MeshTransform, ~MeshTwist, ~MeshUvProject, ~MeshUvRadial, ~MeshUvSeams, ~MeshValence, ~MeshVertexColorAo, ~MeshVertexColorCavity, ~MeshVertexColorGradient, ~MeshVertexColorSmooth, ~MeshVoxelize, ~MeshWatertight, ~MeshWeld, ~MeshWeldAuto, ~MeshWinding, ~MeshWireframe, Model, ~MtlLoader, MultiMesh2D, ~ObjLoader, ~Occlusion, ~OtsuThreshold, ~OverdrawOptimize, ~PlyLoader, ~PolyTriangulate, ~PresentMode, ~Radiosity, ~ReflectionProbe, Renderer, ~ScreenSpaceIndirectLight, ~ScreenSpaceReflection, ~SeamCarve, ~SeamlessClone, Shapes, ~Shapes2D, Shapes3D, ~SobelEdge, ~SpriteOrder, ~StlLoader, ~Subdivision, ~SurfaceNets, ~Thinning, Tonemap, Trail, ~TriangleQuality, ~UvDensity, ~VertexCacheOptimize, ~VolumetricFog
+**`render`** — AtlasPacker, ~BilateralFilter, Billboard, Camera3D, ~CascadeSplits, ~CatmullClark, ~CieLab, ~ColladaLoader, ~ColorHarmony, ~ColorNames, ColorOps, ~ColorQuantize, ~ColorTemperature, ~ContrastRatio, ~Cubemap, ~CubemapCapture, ~Decal, ~Dither, ~DynamicResolution, ~Equirect, ~FbxLoader, ~GlbContainer, ~GlobalIllumination, ~GreedyVoxelMesh, Grid3D, ~HarrisCorners, ~Image, ImageAdjust, ~ImageBlend, ~ImageBlur, ~ImageCodecBmp, ~ImageCodecDds, ~ImageCodecDdsEncode, ~ImageCodecGif, ~ImageCodecPng, ~ImageCodecPnm, ~ImageCodecQoi, ~ImageCodecTga, ~ImageColorBlind, ImageDraw, ~ImageGradientMap, ~ImageNormalMap, ImagePatterns, ~Ktx2, ~Lightmap, Line2D, ~LineAA, ~MedianCut, ~MedianFilter, ~MeshAmbientOcclusion, ~MeshArrow, ~MeshBend, ~MeshBoundaryLoops, ~MeshBoundingCylinder, ~MeshCleanup, ~MeshClosestPoint, ~MeshComponentColor, ~MeshComponents, ~MeshContainment, ~MeshCurvature, ~MeshCurvatureColor, ~MeshDegenerate, ~MeshDisplace, ~MeshDominantPlane, ~MeshExplode, ~MeshExtrude, ~MeshExtrudePolygon, ~MeshFacet, ~MeshFeatureLines, ~MeshFlatten, ~MeshFlip, ~MeshGeodesic, ~MeshHardEdges, ~MeshHeightfield, ~MeshHoleFill, ~MeshIcosphere, ~MeshInset, ~MeshLod, ~MeshLodBuilder, ~MeshMassProperties, ~MeshMerge, ~MeshMirror, ~MeshNormalize, ~MeshPlanarRegions, ~MeshPoissonPrune, ~MeshPrincipalAxes, ~MeshProjectedArea, ~MeshQuantize, ~MeshRayBvh, ~MeshRecenter, ~MeshReindex, ~MeshRevolve, ~MeshRipple, ~MeshSdf, ~MeshSelfIntersect, ~MeshSharpEdges, ~MeshSilhouette, ~MeshSimplify, ~MeshSimplifyQuadric, ~MeshSkin, ~MeshSlice, ~MeshSliceLayers, ~MeshSmooth, ~MeshSnapGrid, ~MeshSolidify, ~MeshSolidity, ~MeshSpherify, ~MeshStats, ~MeshStrip, ~MeshSurfaceSample, ~MeshSweep, ~MeshSymmetry, ~MeshTaper, ~MeshThickness, MeshTools, ~MeshTopology, ~MeshTopologySummary, ~MeshTransform, ~MeshTwist, ~MeshUvProject, ~MeshUvRadial, ~MeshUvSeams, ~MeshValence, ~MeshVertexColorAo, ~MeshVertexColorCavity, ~MeshVertexColorGradient, ~MeshVertexColorSmooth, ~MeshVoxelize, ~MeshWatertight, ~MeshWeld, ~MeshWeldAuto, ~MeshWinding, ~MeshWireframe, Model, ~MtlLoader, MultiMesh2D, ~ObjLoader, ~Occlusion, ~OtsuThreshold, ~OverdrawOptimize, ~PlyLoader, PolyTriangulate, ~PresentMode, ~Radiosity, ~ReflectionProbe, Renderer, ~ScreenSpaceIndirectLight, ~ScreenSpaceReflection, ~SeamCarve, ~SeamlessClone, Shapes, Shapes2D, Shapes3D, ~SobelEdge, SpriteOrder, ~StlLoader, ~Subdivision, ~SurfaceNets, ~Thinning, Tonemap, Trail, ~TriangleQuality, ~UvDensity, ~VertexCacheOptimize, ~VolumetricFog
 
-**`math`** — ~AhrsFilter, ~AlphaShape, ~ArcLength, ~BSpline, ~Ballistics, ~BezierIntersect, ~BezierSurface, ~BoundingSphere, ~CapsuleAabb, ~CapsuleTriangle, ~Catenary, ~CatmullRomSpline, ~CircularMean, ~Circumsphere, ~ClosestPointCurve, ~ClosestPointObb, ~Clothoid, ~ColorLab, ~CompensatedSum, ~CoonsPatch, ~CubicSpline, Curve2D, ~Curve3D, ~Damp, ~Delaunay, ~DistanceTransform, ~DualContour2D, ~DualQuaternion, ~DubinsPath, ~EllipseDistance, ~Epa, ~EulerOrder, ~FitObb, ~FixedAabb3, ~FixedMath, ~FixedQuat, ~FixedRect2, ~FixedTrig, ~FixedVec2, ~FixedVec3, Geometry2D, ~Geometry3D, ~GjkDistance, ~GreatCircle, ~Grid3DSample, ~GridSample, ~HalfFloat, Integrate, ~Integrator, ~Intercept, ~InverseBilinear, ~Involute, ~KMeans, ~Kabsch, ~LeastSquares, ~LinearSolve, ~LogSpiral, ~LowDiscrepancy, ~Loxodrome, ~MarchingSquares, ~MarchingTetrahedra, ~Math, ~MathFuncs, ~MinkowskiSum, ~MonotoneCubic, ~NelderMead, ~NurbsCurve, ~ObbDistance, ~OctahedralNormal, ~Optics, ~OrientedRect2, ~OrthonormalBasis, ~PackNorm, ~ParallelTransport, ~PointDistribution, ~Poisson, ~PolarDecompose, ~PolygonBoolean, ~PolygonNewell, ~PolylineStroke, ~Polynomial, ~Projection, ~Quadrature, ~Quaternion, ~QuaternionAverage, ~QuaternionSquad, ~QuaternionSwingTwist, ~Ransac, ~RayCapsule, ~RayCone, ~RayCylinder, ~RayEllipsoid, ~RayPlanar, ~RayTorus, ~Rbf, Rect2, ~Rect2i, ~ResamplePolyline, ~Reuleaux, ~RootFind, ~RotationMinimizingFrame, ~Roulette, ~Sampling, ~SavitzkyGolay, ~Sdf2D, ~SdfOps, ~SegmentDistance, ~ShapeFit, ~SimplifyPolyline, ~SolarPosition, ~SphericalCoords, ~SphericalHarmonics, ~SphericalTriangle, ~Statistics, ~Superellipse, ~Superformula, ~Superquadric, ~SweptAabb, ~SweptSphere, ~TcbSpline, ~Tetrahedron, ~Tractrix, Transform2D, Transform3D, ~TriangleBox, ~TriangleIntersect, ~Vector4, ~VectorInt, ~VectorOps, ~Voronoi, ~Wavelet, ~WindingNumber
+**`math`** — ~AhrsFilter, ~AlphaShape, ~ArcLength, ~BSpline, ~Ballistics, ~BezierIntersect, BezierSurface, BoundingSphere, ~CapsuleAabb, ~CapsuleTriangle, ~Catenary, ~CatmullRomSpline, ~CircularMean, ~Circumsphere, ClosestPointCurve, ~ClosestPointObb, ~Clothoid, ~ColorLab, ~CompensatedSum, ~CoonsPatch, ~CubicSpline, Curve2D, ~Curve3D, ~Damp, ~Delaunay, ~DistanceTransform, ~DualContour2D, ~DualQuaternion, ~DubinsPath, ~EllipseDistance, ~Epa, ~EulerOrder, ~FitObb, ~FixedAabb3, ~FixedMath, ~FixedQuat, ~FixedRect2, FixedTrig, ~FixedVec2, ~FixedVec3, Geometry2D, Geometry3D, ~GjkDistance, ~GreatCircle, ~Grid3DSample, ~GridSample, ~HalfFloat, Integrate, ~Integrator, ~Intercept, InverseBilinear, ~Involute, ~KMeans, ~Kabsch, ~LeastSquares, ~LinearSolve, ~LogSpiral, ~LowDiscrepancy, ~Loxodrome, ~MarchingSquares, ~MarchingTetrahedra, Math, ~MathFuncs, ~MinkowskiSum, ~MonotoneCubic, ~NelderMead, ~NurbsCurve, ~ObbDistance, ~OctahedralNormal, ~Optics, ~OrientedRect2, ~OrthonormalBasis, ~PackNorm, ~ParallelTransport, ~PointDistribution, ~Poisson, ~PolarDecompose, ~PolygonBoolean, ~PolygonNewell, ~PolylineStroke, ~Polynomial, ~Projection, ~Quadrature, ~Quaternion, ~QuaternionAverage, ~QuaternionSquad, ~QuaternionSwingTwist, ~Ransac, ~RayCapsule, ~RayCone, ~RayCylinder, ~RayEllipsoid, ~RayPlanar, ~RayTorus, ~Rbf, Rect2, ~Rect2i, ~ResamplePolyline, ~Reuleaux, ~RootFind, ~RotationMinimizingFrame, ~Roulette, ~Sampling, ~SavitzkyGolay, ~Sdf2D, ~SdfOps, ~SegmentDistance, ~ShapeFit, ~SimplifyPolyline, ~SolarPosition, ~SphericalCoords, ~SphericalHarmonics, ~SphericalTriangle, Statistics, ~Superellipse, ~Superformula, ~Superquadric, ~SweptAabb, ~SweptSphere, ~TcbSpline, ~Tetrahedron, ~Tractrix, Transform2D, Transform3D, ~TriangleBox, ~TriangleIntersect, ~Vector4, ~VectorInt, VectorOps, ~Voronoi, ~Wavelet, ~WindingNumber
 
-**`game`** — AStar2D, ~AStar3D, ~AStarGrid2D, ~Achievements, ~AggroTable, ~AimAssist, ~AllPairsShortestPath, Area2D, ~AutoTile, Avoidance, ~Ballistics, ~BarnesHut, BehaviorTree, ~BspDungeon, ~Bvh, CameraController2D, ~ChargePool, ~ChunkStreamer, Collision, CollisionLayers, ~CombineMode, ~ComboMeter, ~ConvexHull3D, ~ConvexShape2D, ~Cooldown, ~Crafting, ~Csg, ~Damage, ~DayNightCycle, ~DetectionMeter, ~Dialogue, ~DiamondSquare, ~Dice, ~DijkstraMap, ~Elo, ~Erosion, ~ExposureMap, ~FieldOfView, ~FillDepressions, ~FireSpread, ~FloodFill, ~FlowAccumulation, FlowField, FlyCamera, ~FogOfWar, ~Formation, ~Goap, ~GravityField2D, ~GridLine, ~GridMap, ~GridRaycast, Health, ~HeightField3D, ~HexGrid, ~HexPath, ~InfluenceMap, ~InputSequencer, ~InterceptAim, ~Inventory, ~IsoGrid, ~JumpAssist, ~JumpPointSearch, ~KinematicBody2D, ~LSystem, ~Leaderboard, ~Leveling, ~LootTable, ~Magazine, ~MarkovName, ~MazeGen, ~Minimax, NavGrid, NavMesh, ~NavMesh3D, ~NormalLight2D, ~Octree, ~OneWayPlatform, ~Overlap3D, Parallax, ~PathFollow2D, ~PathFollow3D, ~PatrolRoute, ~Physics2D, ~Physics3D, ~PhysicsQuery2D, ~Poise, ~Quadtree, Quest, ~Ragdoll, ~ReactionDiffusion, ~Recoil, ~Reputation, Shake, ShapeCast2D, ~Shop, ~SkillTree, ~SoftBody, ~SoftShadow2D, ~SoundPropagation, ~SpanningTree, SpatialGrid, ~Sph2D, ~Spread, ~Stat, StateMachine, ~StatusEffect, Steering, ~SweepPrune2D, ~ThetaStar, TileSet, Tilemap, ~TimeControl, ~Timer, ~TriMesh3D, ~TurnOrder, ~UtilityAI, ~ViewCone, Visibility2D, ~VisibleOnScreenNotifier2D, ~VoxelRaycast, ~WangTiles, ~WaveField2D, ~WaveFunctionCollapse, ~WaveSpawner
+**`game`** — AStar2D, ~AStar3D, ~AStarGrid2D, ~Achievements, ~AggroTable, ~AimAssist, ~AllPairsShortestPath, Area2D, AutoTile, Avoidance, ~Ballistics, ~BarnesHut, BehaviorTree, ~BspDungeon, ~Bvh, CameraController2D, ~ChargePool, ~ChunkStreamer, Collision, CollisionLayers, ~CombineMode, ~ComboMeter, ~ConvexHull3D, ConvexShape2D, ~Cooldown, ~Crafting, Csg, ~Damage, ~DayNightCycle, ~DetectionMeter, ~Dialogue, ~DiamondSquare, ~Dice, ~DijkstraMap, ~Elo, ~Erosion, ~ExposureMap, ~FieldOfView, ~FillDepressions, ~FireSpread, ~FloodFill, ~FlowAccumulation, FlowField, FlyCamera, ~FogOfWar, ~Formation, Goap, GravityField2D, ~GridLine, ~GridMap, ~GridRaycast, Health, ~HeightField3D, ~HexGrid, ~HexPath, ~InfluenceMap, ~InputSequencer, ~InterceptAim, ~Inventory, ~IsoGrid, ~JumpAssist, ~JumpPointSearch, KinematicBody2D, ~LSystem, ~Leaderboard, ~Leveling, ~LootTable, ~Magazine, ~MarkovName, ~MazeGen, ~Minimax, NavGrid, NavMesh, ~NavMesh3D, NormalLight2D, ~Octree, OneWayPlatform, ~Overlap3D, Parallax, ~PathFollow2D, ~PathFollow3D, ~PatrolRoute, Physics2D, Physics3D, PhysicsQuery2D, ~Poise, ~Quadtree, Quest, ~Ragdoll, ~ReactionDiffusion, ~Recoil, ~Reputation, Shake, ShapeCast2D, ~Shop, ~SkillTree, ~SoftBody, SoftShadow2D, ~SoundPropagation, ~SpanningTree, SpatialGrid, ~Sph2D, ~Spread, ~Stat, StateMachine, ~StatusEffect, Steering, ~SweepPrune2D, ~ThetaStar, TileSet, Tilemap, ~TimeControl, ~Timer, ~TriMesh3D, ~TurnOrder, ~UtilityAI, ~ViewCone, Visibility2D, ~VisibleOnScreenNotifier2D, ~VoxelRaycast, ~WangTiles, ~WaveField2D, ~WaveFunctionCollapse, ~WaveSpawner
 
-**`core`** — ~AhoCorasick, ~AliasTable, ~Assert, AssetServer, ~BitSet, ~BloomFilter, CVars, ~CellularNoise, ~Checkpoints, Config, Containers, ~CountMinSketch, ~CurlNoise, ~DamerauLevenshtein, ~DateTime, ~Diff, ~DisjointSet, Events, Expression, ~FenwickTree, Fixed, ~FixedTimestep, FramePacer, ~FuzzyMatch, ~GapBuffer, ~GrayCode, ~Halton, Hash, ~Histogram, ~Hungarian, ~HyperLogLog, ~IndexedHeap, ~Interpolate, ~IntervalTree, ~JaroWinkler, ~Jobs, ~Kalman, ~KdTree2D, ~KdTree3D, KeyValueStore, Log, ~LogSinks, ~LruCache, ~Memory, ~MovingAverage, ~Murmur3, ~NodePath, Noise, ~NumberFormat, ~ObjectPool, ~OneEuroFilter, ~P2Quantile, ~Pcg32, ~PerfBudget, ~PidController, ~PoissonDisk, Profiler, ~ProjectSettings, ~RadixSort, Random, ~RandomDistributions, ~Reflect, Replay, ~ReservoirSampler, Resources, RingBuffer, ~RollingWindow, ~RunningMedian, ~RunningStats, SceneStack, Scheduler, ~SegmentTree, ~ShuffleBag, Signal, ~SimplexNoise, ~SimulatedAnnealing, SlotMap, ~SmoothDamp, ~SpaceFilling, ~SparseTable, Spring, ~StringFormat, ~StringHash, StringId, ~StringUtils, ~StronglyConnected, ~SuffixArray, ~SummedAreaTable, ~Telemetry, ~Time, ~TokenBucket, ~TopologicalSort, ~Trie, ~Utf16, ~Utf8, ~Uuid, ~ValueNoise, ~Variant, ~VariantContainerText, ~VariantContainers, ~VariantText, ~Version, ~WeightedReservoir, ~WorleyNoise
+**`core`** — ~AhoCorasick, ~AliasTable, ~Assert, AssetServer, ~BitSet, ~BloomFilter, CVars, ~CellularNoise, ~Checkpoints, Config, Containers, ~CountMinSketch, ~CurlNoise, ~DamerauLevenshtein, ~DateTime, Diff, ~DisjointSet, Events, Expression, ~FenwickTree, Fixed, ~FixedTimestep, FramePacer, ~FuzzyMatch, ~GapBuffer, ~GrayCode, ~Halton, Hash, ~Histogram, ~Hungarian, ~HyperLogLog, ~IndexedHeap, Interpolate, ~IntervalTree, ~JaroWinkler, Jobs, ~Kalman, ~KdTree2D, ~KdTree3D, KeyValueStore, Log, ~LogSinks, ~LruCache, ~Memory, ~MovingAverage, ~Murmur3, ~NodePath, Noise, ~NumberFormat, ~ObjectPool, ~OneEuroFilter, ~P2Quantile, ~Pcg32, ~PerfBudget, ~PidController, ~PoissonDisk, Profiler, ~ProjectSettings, ~RadixSort, Random, ~RandomDistributions, ~Reflect, Replay, ~ReservoirSampler, Resources, RingBuffer, ~RollingWindow, ~RunningMedian, ~RunningStats, SceneStack, Scheduler, ~SegmentTree, ~ShuffleBag, Signal, ~SimplexNoise, ~SimulatedAnnealing, SlotMap, ~SmoothDamp, ~SpaceFilling, ~SparseTable, Spring, ~StringFormat, ~StringHash, StringId, StringUtils, ~StronglyConnected, ~SuffixArray, ~SummedAreaTable, ~Telemetry, Time, ~TokenBucket, ~TopologicalSort, ~Trie, ~Utf16, ~Utf8, ~Uuid, ~ValueNoise, ~Variant, ~VariantContainerText, ~VariantContainers, ~VariantText, ~Version, ~WeightedReservoir, ~WorleyNoise
 
-**`io`** — Base64, ~BinaryDiff, ~BundlePlan, ~Bwt, ~Compression, Config, ConfigFile, ~ExportConfig, ~GettextPo, ~Gzip, ~Hdr, ~Huffman, ~ImportFile, ~Inflate, ~Json, Localization, ~Lzw, ~MessagePack, MobileBundlePlan, MobileBundlePreflight, ~MoveToFront, ~PrefabText, ~RangeCoder, ResourcePack, SceneSerializer, Serialize, ~StreamPeer, ~Varint, VirtualFileSystem, ~Xml
+**`io`** — Base64, ~BinaryDiff, BundlePlan, ~Bwt, Compression, Config, ConfigFile, ~ExportConfig, ~GettextPo, ~Gzip, ~Hdr, ~Huffman, ~ImportFile, Inflate, Json, Localization, ~Lzw, ~MessagePack, MobileBundlePlan, MobileBundlePreflight, ~MoveToFront, PrefabText, ~RangeCoder, ResourcePack, SceneSerializer, Serialize, ~StreamPeer, ~Varint, VirtualFileSystem, Xml
 
-**`audio`** — Audio, BusGraph, ~Dsp, Envelope, ~EnvelopeFollower, ~G711, ~Goertzel, ~ImaAdpcm, ~KarplusStrong, ~Mp3, ~MusicScales, MusicSequencer, ~MusicTheory, Noise, Oscillator, ~PitchDetect, PitchShifter, ~Qoa, Randomizer, SampleMixer, ~Spatial2D, Spatial3D, Spectrum, Stereo, ~TempoEstimate, Wav, Window
+**`audio`** — Audio, BusGraph, Dsp, Envelope, ~EnvelopeFollower, ~G711, ~Goertzel, ~ImaAdpcm, ~KarplusStrong, ~Mp3, MusicScales, MusicSequencer, ~MusicTheory, ~Noise, Oscillator, ~PitchDetect, PitchShifter, ~Qoa, Randomizer, SampleMixer, Spatial2D, Spatial3D, Spectrum, Stereo, ~TempoEstimate, Wav, ~Window
 
-**`ui`** — ~ColorPicker, Container, Controls, DebugOverlay, ~DragAndDrop, FileDialog, Font, ~FontFallback, ~GlyphCache, ~GraphEdit, ItemList, Layout, PopupMenu, Range, Rect, ~RichText, ~RichTextEffects, ~Sdf, StyleBox, ~TabContainer, ~TextInput, TextLayout, ~TextServer, ~TextShaping, Theme, Tree, UI
+**`ui`** — ~ColorPicker, Container, Controls, DebugOverlay, ~DragAndDrop, FileDialog, Font, ~FontFallback, ~GlyphCache, ~GraphEdit, ItemList, Layout, PopupMenu, Range, Rect, RichText, ~RichTextEffects, ~Sdf, StyleBox, ~TabContainer, TextInput, TextLayout, ~TextServer, ~TextShaping, Theme, Tree, UI
 
-**`platform`** — ~AppFocus, ~Clipboard, CrashHandler, DesktopBackend, ~DisplayScale, ~Displays, Haptics, Input, Motion, ~Network, Orientation, ~Paths, PlatformBackend, PowerState, SafeArea, ~SoftKeyboard, ~ThumbZone, ~TouchTarget, WebLoop, Window
+**`platform`** — ~AppFocus, ~Clipboard, CrashHandler, DesktopBackend, ~DisplayScale, ~Displays, Haptics, Input, Motion, ~Network, Orientation, Paths, PlatformBackend, PowerState, SafeArea, ~SoftKeyboard, ~ThumbZone, ~TouchTarget, WebLoop, Window
 
-**`anim`** — ~AdditiveBlend, AnimClip, AnimStateMachine, Animator, ~BlendSpace, BlendTree, ~CubicBezierEasing, Curve, Gradient, IK, ~RootMotion, Skeleton, ~SpringBone, SpriteAnim, Timeline, ~Transition, ~TriggerTrack, Tween, TweenPlayer
+**`anim`** — AdditiveBlend, AnimClip, AnimStateMachine, Animator, BlendSpace, BlendTree, ~CubicBezierEasing, Curve, Gradient, IK, RootMotion, Skeleton, ~SpringBone, SpriteAnim, Timeline, ~Transition, TriggerTrack, Tween, TweenPlayer
 
-**`net`** — ~BitStream, ~ClockSync, ~Connection, ~FloatQuant, Interpolation, ~NetSim, ~Prediction, ~QuatCompress, ~Reliability, ~ReliableChannel, ~Replication, ~Rpc, Snapshot, ~Spawner, ~UdpSocket, ~WebSocket
+**`net`** — ~BitStream, ~ClockSync, ~Connection, ~FloatQuant, Interpolation, ~NetSim, ~Prediction, ~QuatCompress, ~Reliability, ~ReliableChannel, ~Replication, ~Rpc, ~Snapshot, ~Spawner, ~UdpSocket, ~WebSocket
 
-**`scene`** — ~CanvasLayer, GroupRegistry, Prefab, ~RemoteTransform2D, ~SceneSerialize, SceneTree, TransformGraph
+**`scene`** — ~CanvasLayer, GroupRegistry, Prefab, ~RemoteTransform2D, SceneSerialize, SceneTree, TransformGraph
 
-**`fx`** — ForceField2D, ~GpuParticles, ~ParticleEmitter, Particles
+**`fx`** — ForceField2D, ~GpuParticles, ParticleEmitter, Particles
 
 **`input`** — ActionMap, Analog, ~GestureDetector, VirtualControls
 
-**`script`** — ~Debugger, ~Script, ~ScriptSystem, ~Tooling
+**`script`** — ~Debugger, Script, ScriptSystem, Tooling
 
-**`ecs`** — Components, Scheduler, World
+**`ecs`** — Components, ~Scheduler, World
 
 **`ext`** — ~DynamicLibrary, ~Extension
 
 **`(root)`** — Engine
 
-**`docs`** — ~SiteGen
+**`docs`** — SiteGen
 
 **`editor`** — Scene
 
@@ -344,7 +344,7 @@ not by judging the work. Every failing check below is a specific, finishable job
 
 | Kind | Check | Passing |
 |---|---|---:|
-| engine-module | shown by a sample app | 140/692 (20%) |
+| engine-module | shown by a sample app | 193/692 (28%) |
 | app | has a golden screenshot | 157/161 (98%) |
 | app | built by CMake | 161/161 (100%) |
 | app | has CMakeLists.txt | 161/161 (100%) |
@@ -373,13 +373,13 @@ projects without declaring it. Everything below is written to end up in that man
 
 ### Found by the scan
 
-#### 552 engine modules are tested but no app shows them
+#### 499 engine modules are tested but no app shows them
 
 These are finished, working features that nobody can see. Each one is a small app away from
 being discoverable, and apps/ is how this engine documents itself. Grouping several related
 modules into one demo is usually better than one app each.
 
-<sub>552 affected · effort: medium · value: ★★★ · queued below as the `engine-module:demoed` task</sub>
+<sub>499 affected · effort: medium · value: ★★★ · queued below as the `engine-module:demoed` task</sub>
 
 ### Already wired together
 
@@ -520,8 +520,8 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
 
 ### P1 — broken or unprotected (2)
 
-- **552 engine modules are tested but no app shows them**
-  <br>These are finished, working features that nobody can see. Each one is a small app away from being discoverable, and apps/ is how this engine documents itself. Grouping several related modules into one demo is usually better than one app each. — AdditiveBlend, BlendSpace, CubicBezierEasing, RootMotion, SpringBone, Transition, TriggerTrack, Dsp, EnvelopeFollower, G711, Goertzel, ImaAdpcm, and 540 more. Example: No app under apps/ demonstrates maz::anim::AdditiveBlend. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.
+- **499 engine modules are tested but no app shows them**
+  <br>These are finished, working features that nobody can see. Each one is a small app away from being discoverable, and apps/ is how this engine documents itself. Grouping several related modules into one demo is usually better than one app each. — CubicBezierEasing, SpringBone, Transition, EnvelopeFollower, G711, Goertzel, ImaAdpcm, KarplusStrong, Mp3, MusicTheory, Noise, PitchDetect, and 487 more. Example: No app under apps/ demonstrates maz::anim::CubicBezierEasing. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.
 - **SONG FORGE supplies the one music layer the engine does not have**
   <br>The engine already has the layers underneath and above a composer: audio::MusicTheory does note/pitch conversion, audio::MusicScales the scale tables, audio::Oscillator and audio::BusGraph the synthesis and mixing, and audio::MusicSequencer switches between music segments on the beat as the action changes. What nothing under engine/include/maz/audio/ does is WRITE the segments — pick a progression, lay a bassline and a drum pattern under it, arrange verses and choruses. music/js/genres.js and music/js/composer.js do exactly that, as plain data and pure functions, for eight genres. Porting the…
 

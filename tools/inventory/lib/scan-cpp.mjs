@@ -18,6 +18,7 @@ import { join } from 'node:path';
 import { readText, subdirs, filesIn, walkFiles, exists, countLines } from './fs.mjs';
 
 const IDENT_RE = /[A-Za-z_][A-Za-z0-9_]*/g;
+const QUALIFIED_RE = /\b([A-Za-z_]\w*)::([A-Za-z_]\w*)/g;
 
 /**
  * Build `identifier -> [files that mention it]` over a set of source files.
@@ -29,6 +30,10 @@ export function indexIdentifiers(root, relPaths) {
     const text = readText(join(root, rel));
     if (!text) continue;
     const seen = new Set(text.match(IDENT_RE) || []);
+    // Qualified uses too — `audio::applyWindow` is unambiguous where a bare
+    // `Window` is not, and apps write the qualified form because they say
+    // `using namespace maz;` and nothing narrower.
+    for (const m of text.matchAll(QUALIFIED_RE)) seen.add(`${m[1]}::${m[2]}`);
     for (const id of seen) {
       let bucket = index.get(id);
       if (!bucket) index.set(id, (bucket = []));
@@ -90,6 +95,57 @@ export function extractDocComment(source, maxLines = 200) {
   return run.join(' ').replace(/\s+/g, ' ').trim();
 }
 
+/*
+ * A header's public surface: the types and free functions it declares.
+ *
+ * Matching a module by its FILE name misses more than it finds. Plenty of
+ * headers declare no type of their own name at all — anim/AdditiveBlend.hpp
+ * declares makeAdditiveDelta, applyAdditiveDelta and additiveBlendJoint;
+ * math/VectorOps.hpp declares isFinite and isEqualApprox; render/MtlLoader.hpp
+ * declares MtlMaterial — so no app could ever be seen to use them, whether it
+ * does or not. That alone inflated "no app demonstrates this" to 552 modules.
+ *
+ * The two patterns are the ones tools/gen_api_docs.py already uses to build
+ * docs/API.md from the same headers, so the inventory and the published API
+ * reference agree on what a module's surface is.
+ */
+// The trailing (?![;]) drops forward declarations: `class Window;` in render/
+// Renderer.hpp names platform's Window, it does not declare one, and counting
+// it made every app that opens a window look like a demo of the audio module
+// that happens to share the name.
+const TYPE_RE = /^(?:template\s*<[^>]*>\s*)?(?:class|struct|enum class)\s+([A-Za-z_]\w*)\s*(?![;\s]*;)/gm;
+const FUNC_RE = /^inline\s+.*?\b([A-Za-z_]\w*)\s*\(/gm;
+// A free function DECLARED in the header and implemented in a .cpp — the shape
+// every SDL-backed shim takes: `AppConfig parseArgs(int, char**);`,
+// `std::string clipboardText();`, `std::string prefPath(...)`. Anchored at
+// column zero, which is what separates a free function inside a namespace from
+// a member declaration inside an indented class body.
+const DECL_RE = /^([A-Za-z_][\w:<>,&*\s]*?)\s+([A-Za-z_]\w*)\s*\([^)]*\)\s*(?:const\s*)?;/gm;
+
+// Names too common to be evidence of anything: an app writing `size` or `data`
+// is not thereby demonstrating a module that happens to declare one.
+const AMBIGUOUS = new Set([
+  'begin', 'end', 'size', 'data', 'clear', 'reset', 'get', 'set', 'at', 'count',
+  'empty', 'value', 'add', 'remove', 'find', 'next', 'prev', 'init', 'update',
+  'draw', 'run', 'step', 'apply', 'build', 'make', 'load', 'save', 'read', 'write',
+  'push', 'pop', 'front', 'back', 'first', 'last', 'min', 'max', 'abs', 'length'
+]);
+
+export function publicSymbols(source, headerName) {
+  const out = new Set([headerName]);
+  for (const { re, group } of [{ re: TYPE_RE, group: 1 }, { re: FUNC_RE, group: 1 },
+                               { re: DECL_RE, group: 2 }]) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(source)) !== null) {
+      const name = m[group];
+      // A three-letter free function is as likely to be a coincidence as a use.
+      if (name.length >= 4 && !AMBIGUOUS.has(name)) out.add(name);
+    }
+  }
+  return [...out];
+}
+
 /** Every engine module: one header under engine/include/maz/. */
 export function scanEngine(root) {
   const base = join(root, 'engine', 'include', 'maz');
@@ -103,6 +159,7 @@ export function scanEngine(root) {
     const blurb = extractDocComment(text);
     return {
       kind: 'engine-module',
+      symbols: publicSymbols(text, name),
       id: `engine:${subsystem}/${name}`,
       name,
       subsystem,
@@ -180,9 +237,38 @@ export function linkUsage(root, modules, apps, cppTests) {
   const byApp = new Map(apps.map((a) => [a.mainRel, a]));
   for (const a of apps) a.usesModules = [];
 
+  /*
+   * Which modules declare each symbol. A name only one module declares is
+   * evidence on its own; a name several share (`Window` is both platform's
+   * window and audio's windowing function; `Config`, `Time` and `Input` all
+   * repeat) is only evidence when written with its namespace. Without this,
+   * every app that opens a window counted as a demo of the audio module.
+   */
+  const owners = new Map();
   for (const m of modules) {
-    m.demoedBy = (appIndex.get(m.name) || []).slice().sort();
-    m.testedBy = (testIndex.get(m.name) || []).slice().sort();
+    for (const sym of m.symbols) {
+      if (!owners.has(sym)) owners.set(sym, new Set());
+      owners.get(sym).add(m.id);
+    }
+  }
+
+  const lookup = (index, mod) => {
+    const hits = new Set();
+    for (const sym of mod.symbols) {
+      // Always accept the qualified form.
+      for (const rel of index.get(`${mod.subsystem}::${sym}`) || []) hits.add(rel);
+      // Accept the bare form only when no other module claims the same name.
+      if ((owners.get(sym) || new Set()).size === 1) {
+        for (const rel of index.get(sym) || []) hits.add(rel);
+      }
+    }
+    return [...hits].sort();
+  };
+
+  for (const m of modules) {
+    // Any of the module's public names appearing in a file counts as using it.
+    m.demoedBy = lookup(appIndex, m);
+    m.testedBy = lookup(testIndex, m);
     // A module demonstrated by an app that has a committed golden frame is
     // covered by the `golden_images` ctest, which renders that app on software
     // Vulkan and compares the result. That is real coverage — it is what

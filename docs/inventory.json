@@ -4,7 +4,7 @@
     "apps": 161,
     "engineModules": 692,
     "engineSubsystems": 20,
-    "cppTests": 374,
+    "cppTests": 376,
     "webApps": 6,
     "pyTools": 3,
     "gates": 3,
@@ -17,8 +17,8 @@
     "appsHeadless": 100,
     "appsGolden": 97,
     "modulesTested": 100,
-    "modulesDemoed": 20,
-    "checksPassed": 2554,
+    "modulesDemoed": 28,
+    "checksPassed": 2607,
     "checksTotal": 3110,
     "openTasks": 7
   },
@@ -28,29 +28,24 @@
       "priority": 1,
       "kind": "engine-module",
       "check": "demoed",
-      "title": "552 engine modules are tested but no app shows them",
-      "detail": "These are finished, working features that nobody can see. Each one is a small app away from being discoverable, and apps/ is how this engine documents itself. Grouping several related modules into one demo is usually better than one app each. — AdditiveBlend, BlendSpace, CubicBezierEasing, RootMotion, SpringBone, Transition, TriggerTrack, Dsp, EnvelopeFollower, G711, Goertzel, ImaAdpcm, and 540 more. Example: No app under apps/ demonstrates maz::anim::AdditiveBlend. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.",
+      "title": "499 engine modules are tested but no app shows them",
+      "detail": "These are finished, working features that nobody can see. Each one is a small app away from being discoverable, and apps/ is how this engine documents itself. Grouping several related modules into one demo is usually better than one app each. — CubicBezierEasing, SpringBone, Transition, EnvelopeFollower, G711, Goertzel, ImaAdpcm, KarplusStrong, Mp3, MusicTheory, Noise, PitchDetect, and 487 more. Example: No app under apps/ demonstrates maz::anim::CubicBezierEasing. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.",
       "paths": [
-        "engine/include/maz/anim/AdditiveBlend.hpp",
-        "engine/include/maz/anim/BlendSpace.hpp",
         "engine/include/maz/anim/CubicBezierEasing.hpp",
-        "engine/include/maz/anim/RootMotion.hpp",
         "engine/include/maz/anim/SpringBone.hpp",
         "engine/include/maz/anim/Transition.hpp",
-        "engine/include/maz/anim/TriggerTrack.hpp",
-        "engine/include/maz/audio/Dsp.hpp",
         "engine/include/maz/audio/EnvelopeFollower.hpp",
         "engine/include/maz/audio/G711.hpp",
         "engine/include/maz/audio/Goertzel.hpp",
         "engine/include/maz/audio/ImaAdpcm.hpp",
         "engine/include/maz/audio/KarplusStrong.hpp",
         "engine/include/maz/audio/Mp3.hpp",
-        "engine/include/maz/audio/MusicScales.hpp",
         "engine/include/maz/audio/MusicTheory.hpp",
+        "engine/include/maz/audio/Noise.hpp",
         "engine/include/maz/audio/PitchDetect.hpp",
         "engine/include/maz/audio/Qoa.hpp",
-        "engine/include/maz/audio/Spatial2D.hpp",
         "engine/include/maz/audio/TempoEstimate.hpp",
+        "engine/include/maz/audio/Window.hpp",
         "engine/include/maz/core/AhoCorasick.hpp",
         "engine/include/maz/core/AliasTable.hpp",
         "engine/include/maz/core/Assert.hpp",
@@ -62,7 +57,6 @@
         "engine/include/maz/core/CurlNoise.hpp",
         "engine/include/maz/core/DamerauLevenshtein.hpp",
         "engine/include/maz/core/DateTime.hpp",
-        "engine/include/maz/core/Diff.hpp",
         "engine/include/maz/core/DisjointSet.hpp",
         "engine/include/maz/core/FenwickTree.hpp",
         "engine/include/maz/core/FixedTimestep.hpp",
@@ -70,34 +64,22 @@
         "engine/include/maz/core/GapBuffer.hpp",
         "engine/include/maz/core/GrayCode.hpp",
         "engine/include/maz/core/Halton.hpp",
-        "engine/include/maz/core/Histogram.hpp"
+        "engine/include/maz/core/Histogram.hpp",
+        "engine/include/maz/core/Hungarian.hpp",
+        "engine/include/maz/core/HyperLogLog.hpp",
+        "engine/include/maz/core/IndexedHeap.hpp",
+        "engine/include/maz/core/IntervalTree.hpp",
+        "engine/include/maz/core/JaroWinkler.hpp",
+        "engine/include/maz/core/Kalman.hpp"
       ],
       "source": "inventory:engine-module:demoed",
-      "memberCount": 552,
+      "memberCount": 499,
       "members": [
-        {
-          "id": "engine:anim/AdditiveBlend",
-          "name": "AdditiveBlend",
-          "path": "engine/include/maz/anim/AdditiveBlend.hpp",
-          "fix": "No app under apps/ demonstrates maz::anim::AdditiveBlend. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
-        },
-        {
-          "id": "engine:anim/BlendSpace",
-          "name": "BlendSpace",
-          "path": "engine/include/maz/anim/BlendSpace.hpp",
-          "fix": "No app under apps/ demonstrates maz::anim::BlendSpace. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
-        },
         {
           "id": "engine:anim/CubicBezierEasing",
           "name": "CubicBezierEasing",
           "path": "engine/include/maz/anim/CubicBezierEasing.hpp",
           "fix": "No app under apps/ demonstrates maz::anim::CubicBezierEasing. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
-        },
-        {
-          "id": "engine:anim/RootMotion",
-          "name": "RootMotion",
-          "path": "engine/include/maz/anim/RootMotion.hpp",
-          "fix": "No app under apps/ demonstrates maz::anim::RootMotion. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
         },
         {
           "id": "engine:anim/SpringBone",
@@ -110,18 +92,6 @@
           "name": "Transition",
           "path": "engine/include/maz/anim/Transition.hpp",
           "fix": "No app under apps/ demonstrates maz::anim::Transition. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
-        },
-        {
-          "id": "engine:anim/TriggerTrack",
-          "name": "TriggerTrack",
-          "path": "engine/include/maz/anim/TriggerTrack.hpp",
-          "fix": "No app under apps/ demonstrates maz::anim::TriggerTrack. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
-        },
-        {
-          "id": "engine:audio/Dsp",
-          "name": "Dsp",
-          "path": "engine/include/maz/audio/Dsp.hpp",
-          "fix": "No app under apps/ demonstrates maz::audio::Dsp. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
         },
         {
           "id": "engine:audio/EnvelopeFollower",
@@ -160,16 +130,16 @@
           "fix": "No app under apps/ demonstrates maz::audio::Mp3. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
         },
         {
-          "id": "engine:audio/MusicScales",
-          "name": "MusicScales",
-          "path": "engine/include/maz/audio/MusicScales.hpp",
-          "fix": "No app under apps/ demonstrates maz::audio::MusicScales. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
-        },
-        {
           "id": "engine:audio/MusicTheory",
           "name": "MusicTheory",
           "path": "engine/include/maz/audio/MusicTheory.hpp",
           "fix": "No app under apps/ demonstrates maz::audio::MusicTheory. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:audio/Noise",
+          "name": "Noise",
+          "path": "engine/include/maz/audio/Noise.hpp",
+          "fix": "No app under apps/ demonstrates maz::audio::Noise. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
         },
         {
           "id": "engine:audio/PitchDetect",
@@ -184,16 +154,16 @@
           "fix": "No app under apps/ demonstrates maz::audio::Qoa. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
         },
         {
-          "id": "engine:audio/Spatial2D",
-          "name": "Spatial2D",
-          "path": "engine/include/maz/audio/Spatial2D.hpp",
-          "fix": "No app under apps/ demonstrates maz::audio::Spatial2D. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
-        },
-        {
           "id": "engine:audio/TempoEstimate",
           "name": "TempoEstimate",
           "path": "engine/include/maz/audio/TempoEstimate.hpp",
           "fix": "No app under apps/ demonstrates maz::audio::TempoEstimate. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:audio/Window",
+          "name": "Window",
+          "path": "engine/include/maz/audio/Window.hpp",
+          "fix": "No app under apps/ demonstrates maz::audio::Window. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
         },
         {
           "id": "engine:core/AhoCorasick",
@@ -262,12 +232,6 @@
           "fix": "No app under apps/ demonstrates maz::core::DateTime. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
         },
         {
-          "id": "engine:core/Diff",
-          "name": "Diff",
-          "path": "engine/include/maz/core/Diff.hpp",
-          "fix": "No app under apps/ demonstrates maz::core::Diff. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
-        },
-        {
           "id": "engine:core/DisjointSet",
           "name": "DisjointSet",
           "path": "engine/include/maz/core/DisjointSet.hpp",
@@ -314,6 +278,42 @@
           "name": "Histogram",
           "path": "engine/include/maz/core/Histogram.hpp",
           "fix": "No app under apps/ demonstrates maz::core::Histogram. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/Hungarian",
+          "name": "Hungarian",
+          "path": "engine/include/maz/core/Hungarian.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::Hungarian. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/HyperLogLog",
+          "name": "HyperLogLog",
+          "path": "engine/include/maz/core/HyperLogLog.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::HyperLogLog. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/IndexedHeap",
+          "name": "IndexedHeap",
+          "path": "engine/include/maz/core/IndexedHeap.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::IndexedHeap. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/IntervalTree",
+          "name": "IntervalTree",
+          "path": "engine/include/maz/core/IntervalTree.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::IntervalTree. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/JaroWinkler",
+          "name": "JaroWinkler",
+          "path": "engine/include/maz/core/JaroWinkler.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::JaroWinkler. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/Kalman",
+          "name": "Kalman",
+          "path": "engine/include/maz/core/Kalman.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::Kalman. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
         }
       ]
     },

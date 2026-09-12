@@ -3394,3 +3394,22 @@ add_executable(maz_clipboard_paths_tests platform/clipboard_paths.cpp)
 target_link_libraries(maz_clipboard_paths_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME clipboard_paths COMMAND maz_clipboard_paths_tests)
 set_tests_properties(clipboard_paths PROPERTIES TIMEOUT 30)
+
+# The command-line parser every app under apps/ is started through, and which nothing exercised. It
+# is what turns --headless into a run that opens no window and --frames N into a run that ends, so
+# CI depends on it before it depends on anything else: a flag it silently stopped recognising would
+# turn every headless run into an interactive one that never exits, and the suite would hang rather
+# than fail.
+add_executable(maz_appconfig_tests core/appconfig.cpp)
+target_link_libraries(maz_appconfig_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME app_config COMMAND maz_appconfig_tests)
+set_tests_properties(app_config PROPERTIES TIMEOUT 30)
+
+# The ECS system runner — the last module in the engine with neither a test nor a golden frame
+# behind it. Ordering is the whole contract: phase, then order, then registration, stably, so a
+# frame stays reproducible. The parallel path runs against a real core::JobSystem rather than a
+# mock, because the barrier between phases is the part worth proving.
+add_executable(maz_ecs_scheduler_tests ecs/scheduler.cpp)
+target_link_libraries(maz_ecs_scheduler_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ecs_scheduler COMMAND maz_ecs_scheduler_tests)
+set_tests_properties(ecs_scheduler PROPERTIES TIMEOUT 30)
