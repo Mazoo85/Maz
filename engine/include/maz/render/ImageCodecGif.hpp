@@ -210,77 +210,64 @@ inline Image decodeGif(const std::uint8_t* d, std::size_t n) {
 
 inline Image decodeGif(const std::vector<std::uint8_t>& bytes) { return decodeGif(bytes.data(), bytes.size()); }
 
-// Encode a single-frame GIF89a from an Image. Lossless for images with <= 256 distinct colors (exact
-// palette); otherwise the palette is the 256 most-distinct colors (nearest-match remap). Alpha is ignored.
-inline std::vector<std::uint8_t> encodeGif(const Image& img) {
-    std::vector<std::uint8_t> out;
-    if (img.empty()) return out;
+namespace detail {
+
+// One frame reduced to GIF's wire form: a power-of-two RGB palette, the palette bit-depth, and the
+// LZW-compressed index stream (pre-sub-blocking). Shared by the single-frame and animated encoders so
+// the palette-build + LZW is written once. Lossless for <= 256 distinct colours (exact palette);
+// otherwise colours past 256 fall back to index 0 (the documented lossy path). Alpha is ignored.
+struct GifFrameData {
+    std::vector<std::uint8_t> palette; // RGB, resized to (1<<bits) entries
+    int bits = 1;
+    std::vector<std::uint8_t> lzw; // compressed index bytes (before 255-byte sub-blocking)
+};
+
+inline GifFrameData gifQuantizeAndCompress(const Image& img) {
+    GifFrameData f;
     const int w = img.width(), h = img.height();
     const std::vector<std::uint8_t>& px = img.data(); // RGBA8
 
-    // Build a palette from the distinct colors (exact if <=256).
     std::map<std::uint32_t, int> colorIndex;
-    std::vector<std::uint8_t> palette; // RGB
     std::vector<std::uint8_t> indices(static_cast<std::size_t>(w) * static_cast<std::size_t>(h));
-    bool overflow = false;
     for (std::size_t i = 0; i < indices.size(); ++i) {
         const std::uint8_t r = px[i * 4 + 0], g = px[i * 4 + 1], b = px[i * 4 + 2];
-        const std::uint32_t key = (static_cast<std::uint32_t>(r) << 16) | (static_cast<std::uint32_t>(g) << 8) | b;
+        const std::uint32_t key =
+            (static_cast<std::uint32_t>(r) << 16) | (static_cast<std::uint32_t>(g) << 8) | b;
         auto it = colorIndex.find(key);
         int ci;
         if (it == colorIndex.end()) {
-            if (colorIndex.size() >= 256) { overflow = true; ci = 0; }
-            else {
+            if (colorIndex.size() >= 256) {
+                ci = 0; // overflow: documented lossy fallback
+            } else {
                 ci = static_cast<int>(colorIndex.size());
                 colorIndex[key] = ci;
-                palette.push_back(r); palette.push_back(g); palette.push_back(b);
+                f.palette.push_back(r);
+                f.palette.push_back(g);
+                f.palette.push_back(b);
             }
         } else {
             ci = it->second;
         }
         indices[i] = static_cast<std::uint8_t>(ci);
     }
-    (void)overflow; // >256-color images fall back to index 0 for the overflow (documented lossy path)
 
     // Round palette size up to a power of two (>= 2 entries), min bits 1 -> code size 2.
-    int bits = 1;
-    while ((1 << bits) < static_cast<int>(palette.size() / 3)) ++bits;
-    if (bits < 1) bits = 1;
-    const int paletteCount = 1 << bits;
-    palette.resize(static_cast<std::size_t>(paletteCount) * 3, 0);
+    f.bits = 1;
+    while ((1 << f.bits) < static_cast<int>(f.palette.size() / 3)) ++f.bits;
+    const int paletteCount = 1 << f.bits;
+    f.palette.resize(static_cast<std::size_t>(paletteCount) * 3, 0);
 
-    // Header + logical screen descriptor.
-    const char* magic = "GIF89a";
-    out.insert(out.end(), magic, magic + 6);
-    detail::putU16(out, static_cast<unsigned>(w));
-    detail::putU16(out, static_cast<unsigned>(h));
-    out.push_back(static_cast<std::uint8_t>(0x80 | ((bits - 1) & 0x07))); // GCT present, size
-    out.push_back(0); // background color index
-    out.push_back(0); // aspect ratio
-    out.insert(out.end(), palette.begin(), palette.end());
-
-    // Image descriptor.
-    out.push_back(0x2C);
-    detail::putU16(out, 0); detail::putU16(out, 0); // left, top
-    detail::putU16(out, static_cast<unsigned>(w));
-    detail::putU16(out, static_cast<unsigned>(h));
-    out.push_back(0); // no local color table, no interlace
-
-    // LZW encode.
-    const int minCodeSize = bits < 2 ? 2 : bits; // GIF requires >= 2
-    out.push_back(static_cast<std::uint8_t>(minCodeSize));
+    // LZW encode. Integer-keyed dictionary: a multi-symbol string is identified by its (prefix code,
+    // appended symbol) pair -> (prefixCode << 8) | symbol. Single symbols are implicit (code == palette
+    // index), so only strings of length >= 2 live in the map (avoids a std::map keyed on std::vector,
+    // whose three-way compare trips a GCC false positive, and is the canonical faster form).
+    const int minCodeSize = f.bits < 2 ? 2 : f.bits; // GIF requires >= 2
     const std::uint32_t clearCode = 1u << minCodeSize;
     const std::uint32_t eoiCode = clearCode + 1;
-
-    // Standard integer-keyed LZW dictionary: a multi-symbol string is identified by its (prefix code,
-    // appended symbol) pair, so the key is (prefixCode << 8) | symbol -> assigned code. Single symbols are
-    // implicit (their code equals the palette index), so only strings of length >= 2 live in the map. This
-    // avoids a std::map keyed on std::vector (whose three-way compare trips a GCC false positive) and is the
-    // canonical, faster LZW encoder form.
     std::map<std::uint32_t, std::uint32_t> dict;
     std::uint32_t nextCode = eoiCode + 1;
     int codeSize = minCodeSize + 1;
-    detail::GifBitWriter bw;
+    GifBitWriter bw;
     bw.put(clearCode, codeSize);
 
     std::uint32_t curCode = indices[0]; // indices is non-empty (w,h >= 1)
@@ -306,9 +293,12 @@ inline std::vector<std::uint8_t> encodeGif(const Image& img) {
     bw.put(curCode, codeSize);
     bw.put(eoiCode, codeSize);
     bw.flush();
+    f.lzw = std::move(bw.out);
+    return f;
+}
 
-    // Emit LZW data as sub-blocks (<=255 bytes each) + block terminator.
-    const std::vector<std::uint8_t>& lzw = bw.out;
+// Emit an LZW byte stream as GIF data sub-blocks (<= 255 bytes each) followed by the block terminator.
+inline void writeGifSubBlocks(std::vector<std::uint8_t>& out, const std::vector<std::uint8_t>& lzw) {
     std::size_t off = 0;
     while (off < lzw.size()) {
         const std::size_t chunk = (lzw.size() - off) < 255 ? (lzw.size() - off) : 255;
@@ -318,6 +308,107 @@ inline std::vector<std::uint8_t> encodeGif(const Image& img) {
         off += chunk;
     }
     out.push_back(0x00); // block terminator
+}
+
+} // namespace detail
+
+// Encode a single-frame GIF89a from an Image. Lossless for images with <= 256 distinct colors (exact
+// palette); otherwise colours past 256 fall back to index 0. Alpha is ignored.
+inline std::vector<std::uint8_t> encodeGif(const Image& img) {
+    std::vector<std::uint8_t> out;
+    if (img.empty()) return out;
+    const int w = img.width(), h = img.height();
+    const detail::GifFrameData f = detail::gifQuantizeAndCompress(img);
+
+    // Header + logical screen descriptor (global color table = this frame's palette).
+    const char* magic = "GIF89a";
+    out.insert(out.end(), magic, magic + 6);
+    detail::putU16(out, static_cast<unsigned>(w));
+    detail::putU16(out, static_cast<unsigned>(h));
+    out.push_back(static_cast<std::uint8_t>(0x80 | ((f.bits - 1) & 0x07))); // GCT present, size
+    out.push_back(0);                                                       // background color index
+    out.push_back(0);                                                       // aspect ratio
+    out.insert(out.end(), f.palette.begin(), f.palette.end());
+
+    // Image descriptor (no local color table, no interlace).
+    out.push_back(0x2C);
+    detail::putU16(out, 0);
+    detail::putU16(out, 0); // left, top
+    detail::putU16(out, static_cast<unsigned>(w));
+    detail::putU16(out, static_cast<unsigned>(h));
+    out.push_back(0);
+
+    out.push_back(static_cast<std::uint8_t>(f.bits < 2 ? 2 : f.bits)); // min code size
+    detail::writeGifSubBlocks(out, f.lzw);
+    out.push_back(0x3B); // trailer
+    return out;
+}
+
+// Encode a multi-frame (animated) GIF89a from a list of equally-sized frames. Each frame carries its
+// OWN local color table (so frames need not share a palette) and a Graphic Control Extension giving its
+// display time; a NETSCAPE2.0 application extension sets the loop count (0 = loop forever). This is the
+// self-contained "video" deliverable for a rendered cutscene frame sequence — no external encoder.
+//
+// `delayCentiseconds` is the per-frame delay in 1/100 s (e.g. 4 ≈ 25 fps, 2 ≈ 50 fps; GIF's timing
+// granularity is a centisecond). Frames whose dimensions differ from the first are skipped. Returns an
+// empty buffer if there are no usable frames. Per-frame quantization is lossless for <= 256 colours.
+inline std::vector<std::uint8_t> encodeGifAnimation(const std::vector<Image>& frames,
+                                                    int delayCentiseconds, int loopCount = 0) {
+    std::vector<std::uint8_t> out;
+    if (frames.empty() || frames.front().empty()) {
+        return out;
+    }
+    const int w = frames.front().width(), h = frames.front().height();
+    const unsigned delay = delayCentiseconds < 0 ? 0u : static_cast<unsigned>(delayCentiseconds);
+    const unsigned loops = loopCount < 0 ? 0u : static_cast<unsigned>(loopCount);
+
+    // Header + logical screen descriptor (no global color table; each frame brings a local one).
+    const char* magic = "GIF89a";
+    out.insert(out.end(), magic, magic + 6);
+    detail::putU16(out, static_cast<unsigned>(w));
+    detail::putU16(out, static_cast<unsigned>(h));
+    out.push_back(0x00); // no GCT
+    out.push_back(0);    // background color index
+    out.push_back(0);    // aspect ratio
+
+    // NETSCAPE2.0 looping application extension.
+    const char* netscape = "NETSCAPE2.0";
+    out.push_back(0x21);
+    out.push_back(0xFF);
+    out.push_back(0x0B);
+    out.insert(out.end(), netscape, netscape + 11);
+    out.push_back(0x03); // sub-block length
+    out.push_back(0x01); // sub-block id
+    detail::putU16(out, loops);
+    out.push_back(0x00); // block terminator
+
+    for (const Image& frame : frames) {
+        if (frame.empty() || frame.width() != w || frame.height() != h) {
+            continue; // only equally-sized frames
+        }
+        const detail::GifFrameData f = detail::gifQuantizeAndCompress(frame);
+
+        // Graphic Control Extension: disposal 0, no transparency, this frame's delay.
+        out.push_back(0x21);
+        out.push_back(0xF9);
+        out.push_back(0x04);
+        out.push_back(0x00); // packed: no disposal / transparency
+        detail::putU16(out, delay);
+        out.push_back(0x00); // transparent color index (unused)
+        out.push_back(0x00); // block terminator
+
+        // Image descriptor with a local color table (0x80 | size bits).
+        out.push_back(0x2C);
+        detail::putU16(out, 0);
+        detail::putU16(out, 0); // left, top
+        detail::putU16(out, static_cast<unsigned>(w));
+        detail::putU16(out, static_cast<unsigned>(h));
+        out.push_back(static_cast<std::uint8_t>(0x80 | ((f.bits - 1) & 0x07)));
+        out.insert(out.end(), f.palette.begin(), f.palette.end());
+
+        out.push_back(static_cast<std::uint8_t>(f.bits < 2 ? 2 : f.bits)); // min code size
+        detail::writeGifSubBlocks(out, f.lzw);
+    }
     out.push_back(0x3B); // trailer
     return out;
 }

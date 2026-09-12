@@ -60,6 +60,22 @@ target_link_libraries(maz_assetdef_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME asset_def COMMAND maz_assetdef_tests)
 set_tests_properties(asset_def PROPERTIES TIMEOUT 30)
 
+# Frame sequence: anim::FrameSequence turns a keyframe Timeline into the discrete frames a cutscene
+# export renders — frame counts/times at a fixed fps (inclusive endpoint), single-still degenerates,
+# and track sampling across the sequence. Pure CPU, headless.
+add_executable(maz_framesequence_tests anim/framesequence.cpp)
+target_link_libraries(maz_framesequence_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME frame_sequence COMMAND maz_framesequence_tests)
+set_tests_properties(frame_sequence PROPERTIES TIMEOUT 30)
+
+# Animated GIF: the single-frame encoder still round-trips losslessly after the shared-helper refactor,
+# and encodeGifAnimation writes a looping multi-frame GIF89a whose first frame decodes back and whose
+# odd-sized frames are skipped — the self-contained "video" output for a rendered frame sequence.
+add_executable(maz_gifanim_tests render/gifanim.cpp)
+target_link_libraries(maz_gifanim_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME gif_animation COMMAND maz_gifanim_tests)
+set_tests_properties(gif_animation PROPERTIES TIMEOUT 30)
+
 # GPU-driven particle simulation + plane collision (fx::GpuParticleSystem). The CPU step is the exact
 # arithmetic the compute shader runs, so bounce energy, no-sink, friction, lifecycle and the instance
 # buffer are all verified headlessly here; the GPU dispatch + instanced draw are owner-verified.
