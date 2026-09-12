@@ -17,8 +17,10 @@ reaching the same `master` gain the recorder already listens to.
 
 Copied from the spec; every task's requirements implicitly include these.
 
-- **`drawBody` issues one `fill()` for the body.** Shadows and faces may each add
-  exactly one more. Per-segment fills caused a 2.9-second stall once already.
+- **`drawBody` issues one `fill()` for the body**, and `drawFigure` composites it
+  three times (rim, body, tint) alongside a shadow fill and a halo rect — five
+  fills per figure today. A face would make it six. Do not multiply that further
+  without measuring: per-segment fills caused a 2.9-second stall once already.
 - **Frame budget: 4 ms at 540p, 6 ms at 1080p.** Baseline median is 0.2 ms.
 - **Determinism.** Every motion term comes from the shot clock and the
   character's seed. No `Math.random()` anywhere in the renderer — the grain tile

@@ -425,6 +425,17 @@
           var poseName = Figures.poseFor(shot.beat, shot.mood, speaking, shotKey);
           var pose = Figures.POSES[poseName];
 
+          // Look at whoever else is in the scene. Two figures used to face
+          // straight out of the screen no matter where the other one stood,
+          // which is what made a two-shot read as two portraits rather than a
+          // conversation. The speaker turns further than the listener; someone
+          // alone in the frame has nobody to turn to and stays as posed.
+          var other = null;
+          for (var s = 0; s < spots.length; s++) {
+            if (spots[s] !== spot) { other = spots[s]; break; }
+          }
+          if (other) pose = Figures.gazeAt(pose, spot.x, other.x, speaking ? 1 : 0.55);
+
           // A speaking figure's head and hand move in time with their own voice
           // — the score fires a blip on this same clock, so the two must agree.
           if (speaking && shot.kind === 'line') {
