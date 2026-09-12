@@ -9,6 +9,7 @@
 //   * determinism (same seed -> same model).
 #include "maz/math/Ransac.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

@@ -9,6 +9,7 @@
 //   * determinism.
 #include "maz/math/RayCylinder.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

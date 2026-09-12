@@ -7,6 +7,7 @@
 //   * erosion is deterministic.
 #include "maz/game/Erosion.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

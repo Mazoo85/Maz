@@ -10,6 +10,7 @@
 //     shooter (|aim - shooter| == projectileSpeed * time), and the target really is at the aim point.
 #include "maz/math/Ballistics.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

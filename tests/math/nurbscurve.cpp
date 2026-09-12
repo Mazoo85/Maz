@@ -8,6 +8,7 @@
 //   * determinism.
 #include "maz/math/NurbsCurve.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

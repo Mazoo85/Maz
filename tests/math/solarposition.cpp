@@ -10,6 +10,7 @@
 //   * determinism.
 #include "maz/math/SolarPosition.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 

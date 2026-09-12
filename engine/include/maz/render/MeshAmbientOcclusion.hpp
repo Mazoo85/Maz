@@ -3,6 +3,7 @@
 #include "maz/math/Math.hpp"     // math::vec3, cross, dot, normalize
 #include "maz/render/Shapes.hpp" // shapes::MeshData, MeshVertex
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>

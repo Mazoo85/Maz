@@ -11,6 +11,7 @@
 #include "maz/math/Grid3DSample.hpp"
 #include "maz/math/Math.hpp" // vec3
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

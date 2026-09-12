@@ -3,6 +3,7 @@
 // face its own unit-square UVs, splits into 3 verts per triangle, and picks the face's dominant axis. Headless.
 #include "maz/render/MeshUvProject.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

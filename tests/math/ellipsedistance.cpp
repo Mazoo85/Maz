@@ -8,6 +8,7 @@
 //   * CIRCLE special case (a==b): distance = | |p| − r |, closest point = r * p/|p|; axis-vertex cases.
 #include "maz/math/EllipseDistance.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

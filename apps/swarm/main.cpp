@@ -7,6 +7,7 @@
 
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_scancode.h>
+#include <algorithm>
 
 #include <cmath>
 #include <cstdint>

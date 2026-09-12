@@ -4,6 +4,7 @@
 // value is about -0.5 (the inradius). Pure CPU, headless.
 #include "maz/render/MeshSdf.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

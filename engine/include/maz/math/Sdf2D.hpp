@@ -2,6 +2,7 @@
 
 #include "maz/math/Math.hpp" // vec2
 
+#include <algorithm>
 #include <cmath>
 
 // maz::math analytic 2D signed distance functions — for each point, the exact distance to a shape's outline,

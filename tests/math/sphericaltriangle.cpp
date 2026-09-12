@@ -8,6 +8,7 @@
 //   * determinism.
 #include "maz/math/SphericalTriangle.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

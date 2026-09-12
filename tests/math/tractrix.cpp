@@ -8,6 +8,7 @@
 //   * SHAPE: starts at (0,a), y decreases monotonically toward 0, x increases; determinism.
 #include "maz/math/Tractrix.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

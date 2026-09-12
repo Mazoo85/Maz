@@ -8,6 +8,7 @@
 //   * an even/invalid side count is bumped to a valid odd one that still has constant width; determinism.
 #include "maz/math/Reuleaux.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

@@ -10,6 +10,7 @@
 //   * determinism.
 #include "maz/math/ParallelTransport.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>

@@ -10,6 +10,7 @@
 //   * DEGENERATE spine (a==b) behaves as a sphere.
 #include "maz/math/RayCapsule.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

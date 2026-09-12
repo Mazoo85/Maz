@@ -10,6 +10,7 @@
 //   * determinism.
 #include "maz/math/Tetrahedron.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>

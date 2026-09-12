@@ -2,6 +2,7 @@
 
 #include "maz/math/Math.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <vector>

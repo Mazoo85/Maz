@@ -9,6 +9,7 @@
 //     full square (encoded points reach the corners).
 #include "maz/math/OctahedralNormal.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
