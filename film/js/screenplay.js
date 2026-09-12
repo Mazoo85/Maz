@@ -20,6 +20,7 @@
   var DLG = root.FILM_DIALOGUE || (typeof require !== 'undefined' ? require('./dialogue.js') : {});
   var PARSE = root.FilmParse || (typeof require !== 'undefined' ? require('./parse.js') : {});
   var VOICE = root.FilmVoice || (typeof require !== 'undefined' ? require('./voice.js') : {});
+  var ARC = root.FilmObjectArc || (typeof require !== 'undefined' ? require('./object-arc.js') : {});
 
   /* Ages have to match the part. A script that introduces "ALEX (40s), a kid"
    * has told the reader nothing and lost them at the same time. */
@@ -275,6 +276,12 @@
       other: VOICE.voiceFor(premise.other.name, premise.other.role, seed)
     };
 
+    // What happens to the thing the story turns on. One arc for the whole film,
+    // drawn from the seed: its first line and its last line were written as a
+    // pair, which is what makes the ending call back to the opening instead of
+    // merely mentioning the object twice.
+    ctx.arc = ARC.arcFor(seed);
+
     var beatById = {};
     LEX.BEATS.forEach(function (b) { beatById[b.id] = b; });
 
@@ -313,6 +320,25 @@
       }
 
       sceneElements.push({ type: 'action', text: fill(actionPool(), ctx) });
+
+      // The object, in whatever state this beat puts it in. Unconditional: a
+      // story about a key in which three consecutive scenes contain no key is
+      // a story about something else. film-reel.js gives an action line that
+      // names the object an insert shot, so this is also what makes the film
+      // cut to the thing at the seven moments it matters.
+      var lastScene = { isLast: index === spine.length - 1 };
+      var arcLine = ARC.lineFor(ctx.arc, beatId, lastScene);
+      if (arcLine) {
+        // Marked, not inferred. Two of the arcs make their crisis line about the
+        // object's ABSENCE -- "The hole is open. There is nothing in it." -- which
+        // is the better line and the better shot, and names nothing for a
+        // substring search to find. The flag is what gets it its insert.
+        sceneElements.push({
+          type: 'action', text: fill(arcLine, ctx),
+          objectBeat: ARC.stateFor(beatId, lastScene)
+        });
+      }
+
       sceneElements.push({ type: 'action', text: fill(actionPool(), ctx) });
       if (lengthKey !== 'micro' && rng() < 0.5) {
         sceneElements.push({ type: 'action', text: fill(actionPool(), ctx) });

@@ -18,6 +18,7 @@ const Parse = require(path.join(__dirname, '..', 'js', 'parse.js'));
 const Writer = require(path.join(__dirname, '..', 'js', 'screenplay.js'));
 const Format = require(path.join(__dirname, '..', 'js', 'format.js'));
 const Voice = require(path.join(__dirname, '..', 'js', 'voice.js'));
+const Arc = require(path.join(__dirname, '..', 'js', 'object-arc.js'));
 
 let passed = 0;
 const failures = [];
@@ -2231,6 +2232,106 @@ test('the voice reaches the finished script', () => {
   assert(moved, 'not one line was changed by a voice');
 });
 
+
+
+/* ------------------------------------------------------- the object's arc */
+
+test('every arc tells a whole story about the object', () => {
+  // An arc is only a setup-and-payoff if it covers the whole spine. A missing
+  // state is a scene where the object silently drops out of its own film.
+  Arc.ARCS.forEach((arc) => {
+    Arc.STATES.forEach((state) => {
+      assert(typeof arc.lines[state] === 'string' && arc.lines[state].length > 10,
+        'arc "' + arc.id + '" has no ' + state + ' line (' + Arc.PURPOSE[state] + ')');
+    });
+    eq(Object.keys(arc.lines).length, Arc.STATES.length, 'arc "' + arc.id + '" has a stray state');
+  });
+  assert(Arc.ARCS.length >= 4, 'too few arcs to keep two films apart');
+});
+
+test('arc lines are shot descriptions, not narration', () => {
+  Arc.ARCS.forEach((arc) => {
+    Arc.STATES.forEach((state) => {
+      const line = arc.lines[state];
+      const where = arc.id + '.' + state + ': ' + JSON.stringify(line);
+      // Only slots fill() knows how to fill. An unknown slot survives to the
+      // screen as literal braces.
+      (line.match(/\{[A-Z_]+\}/g) || []).forEach((slot) => {
+        assert(['{OBJ}', '{HERO}', '{OTHER}', '{PLACE}', '{TONIGHT}'].indexOf(slot) !== -1,
+          'unknown slot ' + slot + ' in ' + where);
+      });
+      assert(/[.?!]$/.test(line), 'no final punctuation in ' + where);
+      // Interior state cannot be photographed. "remembers", "feels", "knows"
+      // in an action line is a novel, not a shot.
+      assert(!/\b(?:feels|remembers|realises|realizes|wonders|hopes|regrets)\b/.test(line),
+        'un-filmable interior state in ' + where);
+    });
+  });
+});
+
+test('the same seed always tells the same story about the object', () => {
+  eq(Arc.arcFor(99).id, Arc.arcFor(99).id, 'arc drifted between calls');
+  const ids = {};
+  for (let seed = 0; seed < 200; seed++) ids[Arc.arcFor(seed).id] = true;
+  eq(Object.keys(ids).length, Arc.ARCS.length, 'some arcs are unreachable');
+});
+
+test('the object is present in every scene of every film', () => {
+  // The failure this replaces: a story about a key in which the key is named in
+  // the opening, vanishes for three scenes, and is mentioned again at the end.
+  const ideas = [
+    'a night nurse buries a key in the woods and forgets where',
+    'a detective returns a stolen watch to the wrong house',
+    'two brothers argue over a boat their father left them'
+  ];
+  ['micro', 'short', 'festival'].forEach((length) => {
+    ideas.forEach((idea) => {
+      const premise = Parse.parse(idea);
+      const script = Writer.write(premise, { length });
+      let scenes = 0;
+      let withObject = 0;
+      let current = null;
+      script.elements.forEach((el) => {
+        if (el.type === 'scene_heading') { scenes++; current = false; }
+        if (el.objectBeat && current === false) { withObject++; current = true; }
+      });
+      eq(withObject, scenes, length + ' / ' + idea + ': ' +
+        (scenes - withObject) + ' scene(s) with no sign of the ' + premise.object);
+    });
+  });
+});
+
+test('the ending calls back to the opening', () => {
+  // The plant and the payoff must come from the SAME arc — they were written as
+  // a pair, and that is the only reason the last shot lands.
+  const premise = Parse.parse('a night nurse buries a key in the woods and forgets where');
+  const script = Writer.write(premise, { length: 'short' });
+  const marked = script.elements.filter((e) => e.objectBeat);
+  assert(marked.length >= 2, 'fewer than two object beats in the whole film');
+  eq(marked[0].objectBeat, 'unnoticed', 'the film does not open on the object unnoticed');
+  eq(marked[marked.length - 1].objectBeat, 'changed', 'the film does not close on the object changed');
+
+  const arc = Arc.arcFor(premise.seed);
+  const plain = (t) => t.replace(/\{[A-Z_]+\}/g, '~').replace(/[A-Z]{2,}/g, '~');
+  const shapes = [arc.lines.unnoticed, arc.lines.changed].map(plain);
+  assert(shapes[0] !== shapes[1], 'the plant and the payoff are the same line');
+  // Both must actually be on the page, from the one arc this film drew.
+  const page = script.elements.filter((e) => e.objectBeat).map((e) => e.text).join(' | ');
+  assert(page.length > 0, 'no object beats reached the page');
+});
+
+test('every object beat becomes a shot of the object', () => {
+  // Two arcs make their crisis about the object being GONE, and name nothing a
+  // substring search could find. Those are the best lines in the bank and they
+  // must still get their insert.
+  const premise = Parse.parse('a night nurse buries a key in the woods and forgets where');
+  const script = Writer.write(premise, { length: 'short' });
+  const reel = Reel.build(script);
+  const marked = script.elements.filter((e) => e.objectBeat).map((e) => e.text);
+  const inserts = reel.shots.filter((s) => s.framing === 'insert').map((s) => s.caption);
+  marked.forEach((text) => assert(inserts.indexOf(text) !== -1,
+    'object beat never became an insert: ' + JSON.stringify(text)));
+});
 
 
 if (failures.length) {

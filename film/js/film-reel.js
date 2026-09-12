@@ -178,9 +178,13 @@
 
       scene.elements.forEach(function (element) {
         if (element.type === 'action') {
-          // An action line that names the object earns an insert of it.
-          var isInsert = script.premise && element.text.toLowerCase()
-            .indexOf(String(script.premise.object).toLowerCase()) !== -1 && rng() < 0.7;
+          // An action line that names the object earns an insert of it -- and a
+          // line the writer MARKED as the object's beat always gets one, because
+          // the two arcs whose crisis is about the object being gone do not name
+          // it ("The hole is open. There is nothing in it."), and an insert on an
+          // empty hole is the whole point of that shot.
+          var isInsert = !!element.objectBeat || (script.premise && element.text.toLowerCase()
+            .indexOf(String(script.premise.object).toLowerCase()) !== -1 && rng() < 0.7);
           var framing = isInsert ? 'insert' : (rng() < 0.45 ? 'wide' : 'mid');
           // Whoever the line names is in frame for it.
           var present = script.characters
