@@ -15,7 +15,17 @@ Continuous integration builds the engine and runs the full test suite (8900+ che
 Alongside the engine, a set of browser projects that run offline from a static
 file server with no build step and no dependencies. The front door is
 **[`index.html`](index.html)** — the hub — and every app carries a small MAZ pill
-in its corner that leads back to it.
+in its corner that leads back to it. It is live on GitHub Pages:
+
+### ▶ **https://mazoo85.github.io/Maz/**
+
+Publishing is GitHub Pages' own **"deploy from a branch"**, serving the repo root,
+so every push to the branch Pages is set to republishes the site with no workflow
+in the loop. The empty [`.nojekyll`](.nojekyll) file at the root tells Pages to
+serve the tree verbatim rather than running Jekyll over it. Pages has its **own**
+branch setting: changing the repository's default branch does not move it, so if
+the trunk moves, Pages must be pointed at the new branch too or the site keeps
+serving the old one.
 
 | | Project | What it is |
 |---|---|---|
