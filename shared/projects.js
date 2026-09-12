@@ -27,6 +27,20 @@
       docs: 'zomboid/README.md'
     },
     {
+      id: 'cells',
+      name: 'NEON CELLS',
+      kind: 'play',
+      path: 'cells/',
+      tag: 'roguelite action platformer',
+      accent: '#2fe6c8',
+      blurb:
+        'A Dead Cells-style run: procedurally built biomes, permadeath, cells and gold, ' +
+        'three scroll colours that decide what your run becomes, weapons with rolled ' +
+        'affixes, skills, mutations, elites, two bosses, and blueprints that stay unlocked.',
+      badges: ['Phone + desktop', 'Controller · keyboard · touch', 'Canvas 2D'],
+      docs: 'cells/README.md'
+    },
+    {
       id: 'shooter',
       name: 'DEAD SECTOR',
       kind: 'play',
@@ -65,6 +79,20 @@
         'or script. Zero dependencies.',
       badges: ['Phone + desktop', 'Zero deps'],
       docs: 'madlibs/README.md'
+    },
+    {
+      id: 'names',
+      name: 'NAME FORGE',
+      kind: 'app',
+      path: 'names/',
+      tag: 'random name maker',
+      accent: '#ff8a3d',
+      blurb:
+        'Rolls names out of 1000 adjectives and 1000 nouns — a random adjective ' +
+        'and then a random noun, a million of them, in six styles with batches ' +
+        'and export.',
+      badges: ['Phone + desktop', '1000 × 1000 words', 'Zero deps'],
+      docs: 'names/README.md'
     },
     {
       id: 'film',

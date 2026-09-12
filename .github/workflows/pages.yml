@@ -1,0 +1,53 @@
+name: Pages
+
+# Publishes the site — the MAZ ARCADE hub at index.html and every project
+# beside it — to GitHub Pages on each push to the trunk.
+#
+# Why a workflow rather than Pages' own "deploy from a branch": that setting
+# tracks one named branch, and it does not follow the repository's default
+# branch when the trunk moves. The repo learned that the hard way — the site
+# sat frozen on a branch nobody was pushing to any more while the trunk went
+# on without it. This follows `main` by definition, so the published site and
+# the trunk cannot drift apart again.
+#
+# For this to run, Settings → Pages → Source must be "GitHub Actions".
+#
+# The whole repository is published, not just the browser projects: the hub
+# links out to README.md, docs/ and each tool's own README, so trimming the
+# upload to the app folders would publish a site full of dead links.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Least privilege: read the tree, write a Pages deployment, and mint the
+# OIDC token deploy-pages exchanges for one. Nothing else.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time, and never cancel one in flight — a half-finished
+# deploy would leave the live site serving a partial tree.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build & deploy
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - name: Upload the repository as the site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

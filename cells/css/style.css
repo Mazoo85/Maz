@@ -1,0 +1,114 @@
+/* =============================================================================
+ *  NEON CELLS  —  the shell around the canvas
+ *
+ *  The canvas is the whole viewport and is scaled up by whole pixels from a
+ *  small internal resolution (see render.js), so everything here has to do is
+ *  stay out of the way: no scrolling, no text selection, no browser gestures
+ *  stealing a swipe meant for the game.
+ * ========================================================================== */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #05040a;
+  color: #ece6f7;
+  font-family: 'Courier New', monospace;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  overscroll-behavior: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#frame { position: fixed; inset: 0; }
+
+#game {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: #0b0714;
+  touch-action: none;
+}
+
+/* ------------------------------------------------------------ boot splash */
+#loading {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #0b0714;
+}
+
+.boot-logo {
+  font-size: clamp(24px, 8vw, 48px);
+  font-weight: bold;
+  letter-spacing: 6px;
+  color: #2fe6c8;
+  text-shadow: 0 0 18px rgba(47, 230, 200, .7);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.boot-sub {
+  font-size: 12px;
+  letter-spacing: 3px;
+  color: #6f6486;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-logo { animation: none; }
+}
+
+/* -------------------------------------------- a hint for upright phones */
+#rotate {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 9;
+  display: none;
+  padding: 8px 12px;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: #2fe6c8;
+  background: rgba(11, 7, 20, .8);
+}
+
+@media (orientation: portrait) and (max-width: 760px) {
+  #rotate { display: block; }
+}
+
+/* ------------------------------------------------------------- no-script */
+#noscript {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  background: #0b0714;
+}
+
+#noscript h1 { color: #2fe6c8; letter-spacing: 4px; }
+#noscript a { color: #ff3b5c; }

@@ -182,7 +182,7 @@ def test_run_checks_for_files_fails_closed_on_an_unreadable_declaration(tmp_path
 def test_run_checks_for_files_fails_closed_on_a_consumer_with_no_checks(tmp_path):
     # Minor 2 from the third review, exercised through the real production
     # path: a music/ change would previously report checks: green having
-    # never run a single command against a declared consumer ("zomboid")
+    # never run a single command against a declared consumer
     # that has no entry in checks.PROJECT_CHECKS — the ZONE_PROJECT gap the
     # previous wave closed, left open one map over. This must now fail
     # closed instead, the same way an unreadable declaration does.
@@ -196,8 +196,12 @@ def test_run_checks_for_files_fails_closed_on_a_consumer_with_no_checks(tmp_path
             },
         },
         "consumes": [
-            {"project": "zomboid", "id": "music/composer", "via": "script",
-             "page": "zomboid/index.html", "contract": "zomboid/tests/t.js"},
+            # Deliberately a name that will never appear in PROJECT_CHECKS:
+            # this test is about an UNMAPPED consumer, and naming a real
+            # project means it stops testing that the day the project gets a
+            # test suite. "zomboid" was the old example and now has one.
+            {"project": "not-a-real-project", "id": "music/composer", "via": "script",
+             "page": "not-a-real-project/index.html", "contract": "not-a-real-project/tests/t.js"},
         ],
     }), encoding="utf-8")
 
@@ -205,7 +209,7 @@ def test_run_checks_for_files_fails_closed_on_a_consumer_with_no_checks(tmp_path
                                   runner=lambda cmd, root: (0, "ok"))
     assert result.ok is False
     assert result.ran == ()
-    assert "zomboid" in result.output
+    assert "not-a-real-project" in result.output
 
 
 def test_run_checks_for_files_fails_closed_when_a_file_resolves_to_no_zone(tmp_path):

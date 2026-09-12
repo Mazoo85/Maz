@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0714" />
+  <meta name="description" content="NEON CELLS — a roguelite action-platformer in the shape of Dead Cells, running entirely in the browser." />
+  <title>NEON CELLS — Roguelite Action Platformer</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230b0714'/><circle cx='8' cy='6' r='3' fill='%232fe6c8'/><rect x='6' y='9' width='4' height='6' fill='%231b2430'/><rect x='10' y='8' width='5' height='1.5' fill='%23dfe6f2'/></svg>" />
+</head>
+<body>
+  <div id="frame">
+    <canvas id="game"></canvas>
+    <div id="loading">
+      <div class="boot-logo">NEON CELLS</div>
+      <div class="boot-sub">waking the beheaded&hellip;</div>
+    </div>
+    <div id="rotate">↻ turn your phone sideways to play</div>
+  </div>
+
+  <noscript>
+    <div id="noscript">
+      <h1>NEON CELLS</h1>
+      <p>This game is all JavaScript — it needs scripting switched on to run.</p>
+      <p><a href="../index.html">Back to MAZ ARCADE</a></p>
+    </div>
+  </noscript>
+
+  <!-- the game, in dependency order: data and maths first, then the world,
+       then the things that move in it, then what draws it and drives it -->
+  <script src="js/rng.js"></script>
+  <script src="js/content.js"></script>
+  <script src="js/combat.js"></script>
+  <script src="js/levelgen.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/meta.js"></script>
+  <script src="js/entities.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/game.js"></script>
+
+<!-- shared MAZ ARCADE nav: back to the hub + jump to any other project -->
+<script src="../shared/maz-nav.js" data-current="cells" data-mode="overlay" defer></script>
+</body>
+</html>

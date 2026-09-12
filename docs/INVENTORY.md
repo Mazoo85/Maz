@@ -16,21 +16,21 @@ size is in the wiring between the parts, not in any one part.
 | Native games and demos (`apps/`) | 168 | 33,711 lines |
 | Engine capabilities (`engine/include/maz/`) | 692 | 87,768 lines across 20 subsystems |
 | C++ test files (`tests/`) | 376 | |
-| Browser apps and games | 6 | 17,600 lines |
+| Browser apps and games | 8 | 24,525 lines |
 | Python tools | 3 | |
 | CI gates (`scripts/`) | 3 | |
 | Build and codegen helpers (`tools/`) | 11 | |
-| Documents (`docs/`) | 18 | |
-| **Catalogued artifacts** | **901** | |
+| Documents (`docs/`) | 19 | |
+| **Catalogued artifacts** | **904** | |
 
 | Health signal | Score | |
 |---|---:|---|
-| Completeness checks passing | 85% | █████████░ 2688 of 3152 |
+| Completeness checks passing | 85% | █████████░ 2695 of 3161 |
 | Apps that run headless in CI | 100% | ██████████ |
 | Apps with a golden screenshot | 93% | █████████░ |
 | Engine modules a test exercises | 100% | ██████████ |
 | Engine modules an app demonstrates | 35% | ████░░░░░░ |
-| Open tasks in the queue below | 7 | |
+| Open tasks in the queue below | 10 | |
 
 ## 1. Everything you have built
 
@@ -42,9 +42,11 @@ will ever see, and the ones that can most easily lend each other capabilities.
 | Project | What it is | Lines | Publishes | Consumes | Gaps |
 |---|---|---:|---|---|---|
 | **ZOMBOID: ANCHORAGE** <br>`zomboid/` | Open-world zombie survival across a tile-built replica of downtown Anchorage, rendered as a 1990s SEGA arcade title. Five decaying needs, day/night hordes, loo… | 1,658 | — | music/soundtrack | — |
+| **NEON CELLS** <br>`cells/` | A Dead Cells-style run: procedurally built biomes, permadeath, cells and gold, three scroll colours that decide what your run becomes, weapons with rolled affi… | 5,985 | — | — | not in exchange.json |
 | **DEAD SECTOR** <br>`shooter/` | Top-down twin-stick zombie shooter in a single self-contained HTML file. Dual touch joysticks, escalating waves, three zombie types. | 1,084 | — | — | — |
 | **SONG FORGE** <br>`music/` | Writes and plays complete songs in the browser — chords, bass, drums, arpeggio and melody arranged into verses and choruses across 8 genres. WAV and MIDI expor… | 3,330 | music/composer, music/soundtrack | — | — |
 | **MADLIBS STORY FORGE** <br>`madlibs/` | Randomly forges story ideas broken into scene beats, ready to seed a storyboard or script. Zero dependencies. | 1,458 | madlibs/storyideas, madlibs/templates | — | — |
+| **NAME FORGE** <br>`names/` | Rolls names out of 1000 adjectives and 1000 nouns — a random adjective and then a random noun, a million of them, in six styles with batches and export. | 940 | — | — | not in exchange.json |
 | **SCRIPT FORGE** <br>`film/` | Type what your film is about and get the whole thing back: a formatted screenplay, a shot list, and an animated short film — performed by jointed characters an… | 6,163 | — | music/composer, madlibs/storyideas | — |
 | **CODA PICS** <br>`coda-pics/` | Type what you want to see and it paints it: 60 subjects, 20 settings, every hour and weather, finished in one of 14 art styles from pixel art to watercolour. D… | 3,907 | coda-pics/painter | — | — |
 
@@ -53,7 +55,7 @@ will ever see, and the ones that can most easily lend each other capabilities.
 | Tool | What it does | Lines | Commands | Tests | CI | Gaps |
 |---|---|---:|---|---:|---|---|
 | **crew** | A personal CLI that orchestrates a team of AI coding agents (planner, coder, reviewer, tester) on the Claude Agent SDK. | 1,048 | crew | 14 | crew-ci.yml | — |
-| **forge** | The Forge: a nightly loop that reads the Maz repo's own state, does one useful thing, and records what happened. | 3,519 | forge | 22 | forge-ci.yml, forge-nightly.yml | — |
+| **forge** | The Forge: a nightly loop that reads the Maz repo's own state, does one useful thing, and records what happened. | 3,589 | forge | 22 | forge-ci.yml, forge-nightly.yml | — |
 | **scraper** | A general-purpose, recipe-driven scraper for static HTML pages: crawl, extract with CSS selectors, and write JSONL/CSV/… | 944 | scrape | 8 | scraper-ci.yml | — |
 
 ### The engine, by capability
@@ -330,6 +332,7 @@ engine capability, a handful of them complete games.
 | `docs/CODEBASE_MEMORY.md` | Codebase Memory (MCP) | — |
 | `docs/EDITOR_GUIDE.md` | Maz Editor — plain-language getting-started guide | — |
 | `docs/EVALUATION.md` | Maz Engine — Evaluation & Enhancement Backlog | — |
+| `docs/FORGE-JOBS.md` | The Forge's jobs | — |
 | `docs/FORGE.md` | The Forge | — |
 | `docs/GODOT_GAPS.md` | What Maz Lacks Compared to Godot — an Honest Gap List | — |
 | `docs/GODOT_GAPS_ROADMAP.md` | Closing the Godot Gaps — the Work Plan (everything except ecosystem) | — |
@@ -352,6 +355,7 @@ not by judging the work. Every failing check below is a specific, finishable job
 | Kind | Check | Passing |
 |---|---|---:|
 | engine-module | shown by a sample app | 239/692 (35%) |
+| web-app | declared in shared/exchange.json | 6/8 (75%) |
 | app | has a golden screenshot | 157/168 (93%) |
 | app | built by CMake | 168/168 (100%) |
 | app | has CMakeLists.txt | 168/168 (100%) |
@@ -359,7 +363,7 @@ not by judging the work. Every failing check below is a specific, finishable job
 | app | runs headless for CI | 168/168 (100%) |
 | app | exercises a named engine module | 168/168 (100%) |
 | build-tool | says what it does | 11/11 (100%) |
-| doc | reachable from somewhere | 18/18 (100%) |
+| doc | reachable from somewhere | 19/19 (100%) |
 | engine-module | header has a doc comment | 692/692 (100%) |
 | engine-module | covered by a test or a golden image | 692/692 (100%) |
 | gate | rule-encoding checkers are tested | 3/3 (100%) |
@@ -367,10 +371,9 @@ not by judging the work. Every failing check below is a specific, finishable job
 | py-tool | has a README | 3/3 (100%) |
 | py-tool | has tests | 3/3 (100%) |
 | py-tool | runs in CI | 3/3 (100%) |
-| web-app | has a README | 6/6 (100%) |
-| web-app | has a logic test | 6/6 (100%) |
-| web-app | links back to the hub | 6/6 (100%) |
-| web-app | declared in shared/exchange.json | 6/6 (100%) |
+| web-app | has a README | 8/8 (100%) |
+| web-app | has a logic test | 8/8 (100%) |
+| web-app | links back to the hub | 8/8 (100%) |
 
 ## 3. How each program can make the others better
 
@@ -391,6 +394,16 @@ for the least-squares family — so the work is closer to a few dozen apps than 
 the count is highest and the modules cluster most naturally.
 
 <sub>453 affected · effort: medium · value: ★★★ · queued below as the `engine-module:demoed` task</sub>
+
+#### 3 helpers are written out identically in more than one browser project
+
+`makeRng(seed)` in madlibs and names, `pickFrom(list, rng)` in madlibs and names, `toast(msg)`
+in madlibs and names. These are the same code in more than one place, so one shared/maz-util.js
+— declared in shared/exchange.json, covered by one test, loaded by each page — replaces every
+copy and means a fix lands everywhere at once. Start with these: they are proven identical, so
+moving them cannot change behaviour.
+
+<sub>3 affected · effort: small · value: ★★★</sub>
 
 ### Already wired together
 
@@ -528,14 +541,16 @@ Every gap above, ranked. **P1** is something broken or unprotected, **P2** is a 
 gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list out of
 `docs/inventory.json`, so the nightly Forge can pick work straight off it.
 
-### P1 — broken or unprotected (2)
+### P1 — broken or unprotected (3)
 
 - **453 engine modules are tested but no app shows them**
   <br>These are finished, working features that nobody can see, and `apps/` is how this engine documents itself. They are not spread evenly: 145 in `render`, 117 in `math`, 75 in `game`, 57 in `core`, 12 in `audio`, 10 in `ui`, and 11 other subsystems. Writing 499 apps is not the answer and never was: one demo can show a dozen related modules at once — a single "mesh repair" app for the degenerate, self-intersection and closest-point analysers, one "curve fitting" app for the least-squares family — so the work is closer to a few dozen apps than 499. Start where the count is highest and the modules…
+- **3 helpers are written out identically in more than one browser project**
+  <br>`makeRng(seed)` in madlibs and names, `pickFrom(list, rng)` in madlibs and names, `toast(msg)` in madlibs and names. These are the same code in more than one place, so one shared/maz-util.js — declared in shared/exchange.json, covered by one test, loaded by each page — replaces every copy and means a fix lands everywhere at once. Start with these: they are proven identical, so moving them cannot change behaviour.
 - **SONG FORGE supplies the one music layer the engine does not have**
   <br>The engine already has the layers underneath and above a composer: audio::MusicTheory does note/pitch conversion, audio::MusicScales the scale tables, audio::Oscillator and audio::BusGraph the synthesis and mixing, and audio::MusicSequencer switches between music segments on the beat as the action changes. What nothing under engine/include/maz/audio/ does is WRITE the segments — pick a progression, lay a bassline and a drum pattern under it, arrange verses and choruses. music/js/genres.js and music/js/composer.js do exactly that, as plain data and pure functions, for eight genres. Porting the…
 
-### P2 — coverage gaps (5)
+### P2 — coverage gaps (7)
 
 - **11 apps fail "has a golden screenshot"**
   <br>_template, economy, genworld, lookup, orbs, rpgstats, sandbox, squeeze, swarm, telemetry, wire. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.
@@ -547,6 +562,10 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
   <br>The scraper turns a YAML recipe into JSONL/CSV/SQLite from static HTML. ZOMBOID's Anchorage, apps/village and apps/world are all populated by hand-written name and place tables today. A recipe that harvests real street, business and place names into a JSON table the games load would make all three worlds larger without a line of new game code.
 - **MADLIBS' template filler is lendable now — and CODA PICS no longer needs it**
   <br>This entry has been wrong twice, and both corrections are the useful part of it. It first said MADLIBS could hand CODA PICS a "surprise me" prompt. Tried: MADLIBS writes story prose and CODA PICS parses scene descriptions, so a story beat painted "a sword in stone in an island at sunset". It then said the machinery underneath was the real shared thing, and that CODA PICS's own copy of it got articles wrong — "a orange fish", about one prompt in forty.  Both halves are now done, and they did not need to meet. CODA PICS's article bug is fixed where it lived, with a regression test. And madlibs/…
+- **NEON CELLS: declared in shared/exchange.json**
+  <br>NEON CELLS neither publishes a capability nor consumes one. Declare in shared/exchange.json what it can lend the other projects — that manifest is how they find each other.
+- **NAME FORGE: declared in shared/exchange.json**
+  <br>NAME FORGE neither publishes a capability nor consumes one. Declare in shared/exchange.json what it can lend the other projects — that manifest is how they find each other.
 
 ---
 

@@ -99,21 +99,25 @@ function watch(page) {
  * here. A hand-written list is a list someone has to remember to add to, and
  * the one in check-links.mjs was missed for the whole life of CODA PICS — so a
  * new app would have shipped unsmoked in exactly the same way. Derived, an app
- * is covered the moment it has a page.
+ * is covered the moment it has a page: NEON CELLS and NAME FORGE, added on the
+ * trunk while this was being written, needed no edit here at all.
  *
  * `mode` is read out of the page's own nav tag for the same reason: it is
- * already declared there, and a copy here could only ever disagree with it. */
-const APPS = (() => {
-  const { PROJECTS } = require(path.join(ROOT, 'shared', 'projects.js'));
-  return (PROJECTS || []).flatMap((p) => {
-    const dir = String(p.path || '').replace(/\/$/, '');
-    const entry = path.join(ROOT, dir, 'index.html');
-    if (!dir || !fs.existsSync(entry)) return [];   // docs-only projects have no page
-    const html = fs.readFileSync(entry, 'utf8');
-    const mode = (html.match(/data-mode=["']([^"']+)["']/) || [])[1] || 'inline';
-    return [{ id: p.id, url: `/${dir}/`, name: p.name, mode }];
-  });
-})();
+ * already declared there, and a copy here could only ever disagree with it.
+ *
+ * How many projects there are is the manifest's business too — a hard-coded
+ * count means adding a project fails CI for no real reason. */
+const { PROJECTS } = require(path.join(ROOT, 'shared', 'projects.js'));
+const PROJECT_COUNT = PROJECTS.length;
+
+const APPS = (PROJECTS || []).flatMap((p) => {
+  const dir = String(p.path || '').replace(/\/$/, '');
+  const entry = path.join(ROOT, dir, 'index.html');
+  if (!dir || !fs.existsSync(entry)) return [];   // docs-only projects have no page
+  const html = fs.readFileSync(entry, 'utf8');
+  const mode = (html.match(/data-mode=["']([^"']+)["']/) || [])[1] || 'inline';
+  return [{ id: p.id, url: `/${dir}/`, name: p.name, mode }];
+});
 
 if (APPS.length === 0) {
   console.error('No apps found in shared/projects.js — the smoke test would pass by doing nothing.');
@@ -140,7 +144,7 @@ if (APPS.length === 0) {
       const cards = await page.$$eval('a.card', (els) =>
         els.map((e) => ({ href: e.getAttribute('href'), name: e.querySelector('h2').textContent }))
       );
-      check(cards.length === 9, `lists all 9 projects (found ${cards.length})`);
+      check(cards.length === PROJECT_COUNT, `lists all ${PROJECT_COUNT} projects (found ${cards.length})`);
 
       // Every card must lead somewhere the server will actually serve.
       let dead = [];
@@ -215,7 +219,7 @@ if (APPS.length === 0) {
       const items = await page.$$eval('.mazNav-item', (els) =>
         els.map((e) => ({ href: e.getAttribute('href'), current: e.getAttribute('aria-current') }))
       );
-      check(items.length === 9, `nav menu lists all 9 projects (found ${items.length})`);
+      check(items.length === PROJECT_COUNT, `nav menu lists all ${PROJECT_COUNT} projects (found ${items.length})`);
       check(
         items.some((i) => i.current === 'page'),
         'nav marks the current project'

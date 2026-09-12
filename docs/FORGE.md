@@ -48,8 +48,15 @@ conservative design working as intended, not something to fix in a hurry.
 
 ## How to give it a job
 
-Write one line in **Phase 14** of [`docs/ROADMAP.md`](ROADMAP.md) and put the
-file it should change in backticks:
+Jobs live in their own file rather than in `docs/ROADMAP.md`. They used to
+live there, as a "Phase 14", until the repo's two trunks were unified: the
+merge kept the engine's roadmap and the intake section vanished, taking the
+one job in it and leaving this guide pointing at a heading that no longer
+existed. A file no other line of the project edits cannot be lost that way.
+The roadmap is still read as context; no job is expected to live in it.
+
+Write one line in [`docs/FORGE-JOBS.md`](FORGE-JOBS.md) and put the file it
+should change in backticks:
 
     - [ ] Add a volume slider to `music/js/player.js`
 
@@ -70,7 +77,7 @@ Four things make this safe to do casually:
 - **Naming a file is not permission to change it.** `safe_zones` still
   decides, and `forge/` and `.github/workflows/` are refused outright. An
   item pointing at `engine/` is skipped every night, however you word it.
-- **Examples inside a fenced code block are ignored**, so the roadmap can
+- **Examples inside a fenced code block are ignored**, so the file can
   document its own conventions without commissioning them. Fence handling
   follows CommonMark rather than counting ``` lines, so a nested block or a
   line-opening inline span cannot reach inside an example — and the examples
@@ -80,7 +87,7 @@ Four things make this safe to do casually:
 - **Everything still lands as a draft PR.** One job a night, nothing merged
   for you.
 
-Verified through SENSE and DECIDE against this repo: a Phase 14 item naming
+Verified through SENSE and DECIDE against this repo: a job naming
 `music/js/theory.js` is picked, placed in zone `music/`, and scored 10.5
 against a floor of 4.0. Removing the line puts the night straight back to
 `considered: 97 / outside_zone: 97`. The Crew hand-off and the draft PR that
@@ -198,12 +205,17 @@ tree is checked out back to it both when a run fails and after a run
 succeeds — so if it names the wrong branch, every PR is opened against the
 wrong line of the project, and every successful night silently moves the
 working tree there too, before tomorrow's branch is even cut. `main` is the
-right default for most repositories, which is why it's the default — but
-this repo's actual default branch is not `main` (`main` here is a separate,
-unrelated line of the project), so **this repo's `forge.json` sets
-`base_branch` explicitly**. If you copy the Forge into another repository,
-check what that repo's default branch actually is before trusting the
-default.
+right default for most repositories, which is why it's the default, and it
+is right here too — `main` is this repo's trunk.
+
+It was not always. When the Forge was built this repo had two trunks and
+`main` was a separate, unrelated line of the project, so `forge.json` set
+`base_branch` to the arcade branch explicitly; the two were later unified
+onto `main` and the setting followed. `forge.json` still names it
+explicitly rather than leaning on the default, because a silent default is
+exactly what makes this the easiest field to get wrong. If you copy the
+Forge into another repository, check what that repo's default branch
+actually is before trusting anything.
 
 **The budget cap does not bind in production.** Crew doesn't currently report
 its cost in any machine-readable way, so a real run always records
@@ -518,6 +530,6 @@ Nothing in `forge/` knows how it was invoked, so this is a drop-in swap.
 
 | | What runs | What you do |
 |---|---|---|
-| **Week 1** | `forge run --dry-run` nightly | Read `forge ledger` over coffee. As configured today expect `no_task` every night (see *What it will actually do tonight*) — that's the leash working. To watch it act, add one Phase 14 roadmap line naming a real file in a safe zone (see *How to give it a job*) and read the ledger the next morning |
+| **Week 1** | `forge run --dry-run` nightly | Read `forge ledger` over coffee. As configured today expect `no_task` every night (see *What it will actually do tonight*) — that's the leash working. To watch it act, add one line to `docs/FORGE-JOBS.md` naming a real file in a safe zone (see *How to give it a job*) and read the ledger the next morning |
 | **Week 2** | `forge run --live`, safe zones only | Review the draft PRs |
 | **Week 3+** | Widen `safe_zones` as the ledger justifies — and give each new zone an entry in `checks.py`'s `ZONE_PROJECT` (plus a real check command in `PROJECT_CHECKS` if it has code of its own worth testing) first, or the run fails closed the first live night and the work landing there is unverified even after that's fixed (see *The leash* above) | Then start P2, the Exchange |

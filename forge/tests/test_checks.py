@@ -45,7 +45,10 @@ def _repo(root, data=GOOD):
 
 def test_commands_for_is_unchanged_for_known_zones_and_takes_no_root():
     # The pure, own-zone map, for zones ZONE_PROJECT actually knows about.
-    assert commands_for("music/") == (("node", "music/tests/music-logic.test.js"),)
+    assert commands_for("music/") == (
+        ("node", "music/tests/music-logic.test.js"),
+        ("node", "music/tests/soundtrack.test.js"),
+    )
     assert commands_for("docs/") == ()
 
 
@@ -136,19 +139,24 @@ def test_a_zone_with_no_checks_of_its_own_still_runs_the_exchange_gate(tmp_path)
 
 
 def test_a_consumer_with_no_known_checks_fails_closed(tmp_path):
-    # Minor 2 from the third review: zomboid consumes music but has no entry
-    # in PROJECT_CHECKS. This used to silently contribute zero commands for
-    # it (`PROJECT_CHECKS.get(consumer, ())`) — the exact shape of the
+    # Minor 2 from the third review: a project that consumes music but has no
+    # entry in PROJECT_CHECKS. This used to silently contribute zero commands
+    # for it (`PROJECT_CHECKS.get(consumer, ())`) — the exact shape of the
     # ZONE_PROJECT gap the previous wave closed, left open one map over.
     # Inventing a command for it would be the `tests/` mistake all over
     # again; the honest answer is to fail closed, the same way an unmapped
     # zone does, not to verify nothing while still recording checks: green.
+    #
+    # The example used to be "zomboid", which was unmapped when this was
+    # written and has real checks now. A stand-in for "unmapped" has to be a
+    # name nobody will ever map, or this test quietly stops testing anything
+    # the day someone gives the example project a test suite.
     data = json.loads(json.dumps(GOOD))
     data["consumes"].append({
-        "project": "zomboid", "id": "music/composer", "via": "script",
-        "page": "zomboid/index.html", "contract": "zomboid/tests/t.js",
+        "project": "not-a-real-project", "id": "music/composer", "via": "script",
+        "page": "not-a-real-project/index.html", "contract": "not-a-real-project/tests/t.js",
     })
-    assert "zomboid" not in PROJECT_CHECKS
+    assert "not-a-real-project" not in PROJECT_CHECKS
     with pytest.raises(UnmappedConsumerError):
         all_commands("music/", _repo(tmp_path, data))
 

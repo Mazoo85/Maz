@@ -32,6 +32,7 @@ from pathlib import Path
 
 import pytest
 
+from forge.checks import all_commands
 from forge.config import ForgeConfig
 from forge.verify import run_checks_for_files
 
@@ -49,9 +50,16 @@ def _scratch_copy(tmp_path: Path) -> Path:
     check-exchange.mjs verifies every declared file exists, so leaving madlibs
     out makes it fail on the fixture for a reason that has nothing to do with
     the breakage the test is actually about.
+
+    `zomboid/` and `coda-pics/` are here for the same reason, one manifest
+    entry later: zomboid consumes music/soundtrack, and coda-pics publishes
+    coda-pics/painter. The list below is not arbitrary — it is every project
+    shared/exchange.json names — so adding a publisher or a consumer to that
+    manifest means adding it here too, or every test using this fixture fails
+    on eight missing-file complaints that have nothing to do with it.
     """
     root = tmp_path / "repo"
-    for rel in ("shared", "music", "film", "madlibs", "scripts"):
+    for rel in ("shared", "music", "film", "madlibs", "zomboid", "coda-pics", "scripts"):
         shutil.copytree(REPO_ROOT / rel, root / rel)
     return root
 
@@ -80,7 +88,16 @@ def test_renaming_a_player_playback_method_fails_verify(tmp_path, method):
         f"film/js/film-player.js and film/js/film-audio.js both call it to run a film. "
         f"ran={result.ran!r} output={result.output!r}"
     )
-    assert "node film/tests/film-logic.test.js" in result.ran
+    # A music change must still put film's tests in the verification set —
+    # film consumes music/composer, and that chain is the point of this test.
+    # It is asserted over all_commands rather than over result.ran because
+    # run_checks_for_files stops at the FIRST failing command, and since
+    # music/tests/soundtrack.test.js was added (the playback surface ZOMBOID
+    # consumes) a broken Player is caught there, one step before film's suite
+    # is reached. The break is still caught and verify still fails; a nearer
+    # test simply reports it first, which is better rather than worse.
+    assert any("film/tests/film-logic.test.js" in " ".join(cmd)
+               for cmd in all_commands("music/", root))
     assert f"{method}" in result.output.lower()
 
 

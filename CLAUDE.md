@@ -38,7 +38,7 @@ escaped literal pipe and the search silently returns nothing.
 build. You can ignore them while working on the engine — but know they exist, because two of their
 CI gates run on **every** push, engine changes included:
 
-- `film/` `music/` `madlibs/` `zomboid/` `shooter/` — MAZ ARCADE, dependency-free browser apps
+- `film/` `music/` `madlibs/` `names/` `zomboid/` `shooter/` — MAZ ARCADE, dependency-free browser apps
   behind the hub at `index.html`. Tests are plain Node: `node film/tests/film-logic.test.js`.
 - `crew/` `scraper/` `forge/` — Python tools. `forge/` is **the Forge**, a nightly loop that picks
   one task, hands it to Maz Crew and opens a draft PR (`docs/FORGE.md`).

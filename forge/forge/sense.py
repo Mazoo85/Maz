@@ -33,6 +33,10 @@ PULSE_FILENAME = "pulse.json"
 DEFAULT_COLLECTORS = {
     "ci": ci_signal.collect,
     "roadmap": roadmap_signal.collect,
+    # Registered separately from "roadmap" so the pulse says plainly whether
+    # the human's intake was read, rather than folding it into a count
+    # dominated by the project roadmap.
+    "jobs": roadmap_signal.collect_jobs,
     "todo": todo_signal.collect,
     "memory": memory_signal.collect,
     "inventory": inventory_signal.collect,
@@ -50,15 +54,22 @@ def _default_collectors(config: ForgeConfig) -> dict:
     that knowledge out of a module-level constant that cannot see a
     `config` at import time — and, not incidentally, out of yet another
     place `base_branch` could be silently forgotten and default to `main`.
+
+    Derived from `DEFAULT_COLLECTORS` rather than retyped, so the set of
+    signals exists in exactly one place. Spelling both lists out meant a new
+    collector added to one and not the other simply never ran: no error, no
+    failing test, just a signal that was never read. That is the same shape
+    as the trunk defect — one fact written twice, agreeing only while someone
+    keeps remembering — and it is worth removing rather than testing for.
     """
     return {
+        **DEFAULT_COLLECTORS,
         "ci": lambda root: ci_signal.collect(root, base_branch=config.base_branch),
-        "roadmap": roadmap_signal.collect,
-        "todo": todo_signal.collect,
-        "memory": memory_signal.collect,
         # Like `ci` above, this one needs a piece of config the others do not:
         # it drops any task whose scope already exceeds what a single run is
         # allowed to touch, rather than proposing work the leash must reject.
+        # Only the binding is overridden here; the collector itself stays in
+        # DEFAULT_COLLECTORS so the set of signals is still written once.
         "inventory": lambda root: inventory_signal.collect(
             root, max_files=config.max_files_touched
         ),

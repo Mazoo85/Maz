@@ -15,16 +15,31 @@ Continuous integration builds the engine and runs the full test suite (8900+ che
 Alongside the engine, a set of browser projects that run offline from a static
 file server with no build step and no dependencies. The front door is
 **[`index.html`](index.html)** — the hub — and every app carries a small MAZ pill
-in its corner that leads back to it.
+in its corner that leads back to it. It is live on GitHub Pages:
+
+### ▶ **https://mazoo85.github.io/Maz/**
+
+Publishing is **[`pages.yml`](.github/workflows/pages.yml)**: every push to `main`
+uploads the repository and deploys it, so the live site is whatever the trunk
+currently says. It needs *Settings → Pages → Source* set to **GitHub Actions**.
+
+It is a workflow rather than Pages' own "deploy from a branch" for one reason,
+learned the hard way: that setting tracks one **named** branch and does not
+follow the repository's default branch. When the trunk moved, the site kept
+serving a branch nobody was pushing to and quietly went stale for days, with
+nothing failing to say so. Following `main` by definition is what stops that
+happening twice.
 
 | | Project | What it is |
 |---|---|---|
 | 🎬 | **SCRIPT FORGE** — [open](film/) · [docs](film/README.md) | Type what your film is about and get the film: a formatted screenplay, a shot list, and an animated short with jointed characters, layered sets, weather, moving light and a composed score, that plays in the page and downloads. |
 | 🖼️ | **CODA PICS** — [open](coda-pics/) · [docs](coda-pics/README.md) | Type what you want to see and get a picture back: 60 subjects, 20 settings, every hour and weather, finished in one of 14 art styles. Every picture is drawn from scratch in the page — no model, no key, no network. |
 | 🎵 | **SONG FORGE** — [open](music/) · [docs](music/README.md) | Writes and plays complete songs — chords, bass, drums, arpeggio, melody — across 8 genres, with WAV and MIDI export. It is also the thing that scores a SCRIPT FORGE film. |
+| 🎮 | **NEON CELLS** — [play](cells/) · [docs](cells/README.md) | Roguelite action-platformer in the shape of Dead Cells: procedurally built biomes proved reachable before you enter them, permadeath, three scroll colours, weapons with rolled affixes, skills, mutations and two bosses. Plays on a controller, a keyboard or a phone. |
 | 🎮 | **ZOMBOID: ANCHORAGE** — [play](zomboid/) · [docs](zomboid/README.md) | Open-world zombie survival across a tile-built replica of downtown Anchorage, drawn as a 1990s SEGA arcade title. |
 | 🎮 | **DEAD SECTOR** — [play](shooter/) · [docs](shooter/README.md) | Phone-first top-down twin-stick shooter in one self-contained HTML file. |
 | ✍️ | **MADLIBS STORY FORGE** — [open](madlibs/) · [docs](madlibs/README.md) | Forges story ideas broken into scene beats, ready to seed a script. |
+| 🎲 | **NAME FORGE** — [open](names/) · [docs](names/README.md) | Random name maker: a random adjective and then a random noun, drawn from 1000 of each — a million names, in six styles, in batches, exportable. |
 | 🕸️ | **maz-scrape** — [docs](scraper/README.md) | Recipe-driven scraper for static HTML: point it at a YAML recipe, get JSONL/CSV/SQLite. |
 | 🧰 | **crew** — [docs](crew/README.md) | Small shared tooling. |
 | ⚒️ | **The Forge** — [docs](docs/FORGE.md) | The repo's own nightly loop: reads the roadmap, CI and `TODO` markers, picks one task, hands it to Maz Crew, and opens a draft PR. Verifies against every project declared to depend on what it changed. Never pushes to the default branch, never merges. |

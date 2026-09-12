@@ -68,9 +68,28 @@ from .exchange import load
 # What verifies each project, whether or not it is a safe zone. `film` is not
 # a safe zone and is not expected to become one — it is here because a change
 # in `music/` must run film's tests, not because the Forge may edit film.
+#
+# Only dependency-free commands belong here. Every project below also has a
+# browser suite, and none of them is listed: the Forge runs unattended and
+# must not need Playwright and a Chromium download to verify a one-line
+# change. The browser suites are CI's job (.github/workflows/site-ci.yml).
 PROJECT_CHECKS: dict[str, tuple[tuple[str, ...], ...]] = {
-    "music": (("node", "music/tests/music-logic.test.js"),),
+    "music": (
+        ("node", "music/tests/music-logic.test.js"),
+        # The playback surface ZOMBOID consumes. music-logic covers the
+        # composer; nothing covered the small API another project loads.
+        ("node", "music/tests/soundtrack.test.js"),
+    ),
     "film": (("node", "film/tests/film-logic.test.js"),),
+    "madlibs": (("node", "madlibs/tests/madlibs-logic.test.js"),),
+    "zomboid": (("node", "zomboid/tests/zomboid-logic.test.js"),),
+    "shooter": (("node", "shooter/tests/shooter-logic.test.js"),),
+    "coda-pics": (
+        ("node", "coda-pics/tests/coda-logic.test.js"),
+        ("node", "coda-pics/tests/painter.test.js"),
+    ),
+    "cells": (("node", "cells/tests/cells-logic.test.js"),),
+    "names": (("node", "names/tests/names-logic.test.js"),),
     "scraper": (
         ("python", "-m", "pytest", "-q", "scraper/tests"),
         ("python", "-m", "compileall", "-q", "scraper/scraper"),
@@ -81,7 +100,7 @@ PROJECT_CHECKS: dict[str, tuple[tuple[str, ...], ...]] = {
 # Which project a safe zone belongs to. `None` means "no project owns this",
 # which is how docs get their correct empty command list. `madlibs/` and
 # `shooter/` are real projects (both have ids in `shared/projects.js`) that
-# simply have no tests of their own today — `None` here used to conflate
+# had no tests of their own when this was written and have them now — `None` here used to conflate
 # "not a project" with "a project with nothing to run", and the second
 # reading is wrong: it skipped `consumers_of` entirely (see `all_commands`
 # below), so a declared consumer of madlibs or shooter would never have its
