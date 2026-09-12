@@ -1915,6 +1915,55 @@ test('a blend clamps a t outside 0..1 rather than overshooting', () => {
   });
 });
 
+console.log('\nWALKING');
+
+/* On the push beat — the beat that is about momentum — a character crosses part
+ * of the frame instead of standing in it. */
+
+test('a walk keeps a foot on the ground at every phase', () => {
+  // The planted-foot property the still poses already hold, extended to a
+  // moving figure: at no point in the cycle are both feet off the floor, or the
+  // figure is hopping rather than walking.
+  for (let step = 0; step <= 60; step++) {
+    const phase = step / 60;
+    const pose = Figures.walkAt(Figures.POSES.stand, phase);
+    // Reproduce drawBody's own foot arithmetic: 0 hangs straight down.
+    const footL = Math.cos(pose.legL) + Math.cos(pose.legL + pose.shinL);
+    const footR = Math.cos(pose.legR) + Math.cos(pose.legR + pose.shinR);
+    assert(Math.max(footL, footR) > 1.90,
+      'at phase ' + phase.toFixed(2) + ' the lower foot reaches only ' +
+      Math.max(footL, footR).toFixed(3) + ' of 2 leg-lengths — the figure is airborne');
+  }
+});
+
+test('a walk is a cycle: it ends where it began', () => {
+  const start = Figures.walkAt(Figures.POSES.stand, 0);
+  const end = Figures.walkAt(Figures.POSES.stand, 1);
+  Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+    assert(Math.abs(start[joint] - end[joint]) < 1e-9,
+      joint + ' does not return to its starting angle after a full cycle');
+  });
+});
+
+test('the legs alternate rather than moving together', () => {
+  // Both legs swinging in phase is a bunny hop, not a walk.
+  let opposed = 0;
+  for (let step = 0; step < 20; step++) {
+    const p = Figures.walkAt(Figures.POSES.stand, step / 20);
+    if ((p.legL - Figures.POSES.stand.legL) * (p.legR - Figures.POSES.stand.legR) < 0) opposed++;
+  }
+  assert(opposed >= 14, 'the legs were in opposition in only ' + opposed + ' of 20 samples');
+});
+
+test('a walk never bends past a human', () => {
+  Object.keys(Figures.POSES).forEach((name) => {
+    for (let step = 0; step <= 40; step++) {
+      gazeWithinLimits(Figures.walkAt(Figures.POSES[name], step / 40),
+        'walkAt(' + name + ', ' + (step / 40) + ')');
+    }
+  });
+});
+
 console.log('');
 if (failures.length) {
   console.error('✖ ' + failures.length + ' failing test(s):');

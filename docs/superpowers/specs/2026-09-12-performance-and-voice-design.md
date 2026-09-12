@@ -92,11 +92,19 @@ window instead. `blendPoses` existed for this and was deleted as dead code when
 nothing called it; this is the caller it was waiting for. Blending must respect
 `POSE_LIMITS`, so a blend can never produce a pose a human could not hold.
 
-**Walking.** On the **push** beat — the beat that is about momentum — a
-character crosses part of the frame instead of standing. Needs a walk cycle
-(legs already have knees) and an x offset over the shot. This is the largest
-piece of the three and the one most likely to look wrong; it gets its own
-contact sheet and a look before it is kept.
+**Walking — kept, after the first render looked wrong.** On the **push** beat a
+character crosses part of the frame instead of standing in it: a stride on the
+legs, counter-swinging arms, and an x offset over the shot.
+
+The first version applied the cycle to whatever pose the beat had chosen. The
+push beat's usual pose is `reach`, whose arm sits at 1.7 radians — straight out
+— so a stride on top of it produced a striding zombie with one arm held
+horizontally. Every test was green; it was the contact sheet that caught it.
+The walk now starts from the `walk` pose that already existed in the table.
+
+The knee folds only on the swing leg (`max(0, swing)`), which keeps the stance
+leg near-straight and the figure on the floor — the planted-foot property the
+still poses already had, and now a test asserts it at every phase of the cycle.
 
 ### Part 2 — the picture
 
@@ -121,11 +129,29 @@ underfoot. Falling *away* from the light, and stretching as the light gets
 lower, is what makes a floor look like a floor. Still one fill; it already
 exists, it just needs to know which way the light is coming from.
 
-**Faces, on probation.** Two eyes and a mouth line, oriented with the head
-angle, in one more fill. This could transform how much emotion reads, or it
-could wreck the silhouette style the films have. It is **built, rendered to a
-contact sheet, and looked at** before anyone decides to keep it. If it cheapens
-the look, it is dropped and the spec records that it was tried.
+**Faces — tried twice, dropped.** *(Outcome recorded after building and
+looking, which is what this section asked for.)*
+
+The first attempt put two eyes and a mouth in one path. At a close framing the
+three ellipses merged into an unreadable smudge; at mid and wide it was a white
+speck that read as dirt on the lens. The second attempt separated the fills,
+shrank the features and drew nothing below a head size of 300px, which fixed the
+smudge and produced something that genuinely reads as a face in a close-up.
+
+It was still dropped, for three reasons:
+
+1. **It only appears in close framings**, which are a minority of shots. A face
+   that is present in one shot and gone in the next cut reads as a mistake, and
+   inconsistency is worse than absence.
+2. **It changes what the films are.** Side by side, the faceless silhouette is
+   the better image — moodier, and of a piece with the noir style the sets, the
+   palette and the rim light are all built for. The face pulls it toward
+   cartoon.
+3. Nothing else depended on it except the mouth-sync task, which goes with it.
+
+Recorded rather than quietly abandoned: this is a taste call made by looking at
+a rendered comparison, not a technical impossibility. Anyone who wants faces can
+have them — the second version worked. `git log` has both attempts.
 
 ### Part 3 — voices
 

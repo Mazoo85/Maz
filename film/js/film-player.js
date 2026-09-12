@@ -343,6 +343,11 @@
    * Short enough to read as a person moving, long enough not to be a snap. */
   var POSE_EASE = 0.32;
 
+  /* A walk: strides per second, and how far across the frame it carries them.
+   * Travel is in the same world units drawFrame lays its figures out in. */
+  var WALK_RATE = 0.85;
+  var WALK_TRAVEL = 190;
+
   function drawFrame(ctx, width, height, reel, time, opts) {
     var shot = Reel.shotAt(reel, time);
     var elapsed = time - shot.start;
@@ -466,6 +471,24 @@
           // figure's own x so two people in a two-shot are not a chorus line.
           pose = Figures.aliveAt(pose, time, Math.round(spot.x));
 
+          // The push beat is the one about momentum, so on it a character
+          // actually crosses part of the frame rather than standing in it.
+          // Walking overrides the breath on the legs, which is why it comes
+          // after: you do not idly shift your weight while striding.
+          var driftX = 0;
+          if (shot.beat === 'push' && !spot.foreground) {
+            var walkInto = Math.max(0, time - shot.start);
+            // Walk from the walking pose, not from whatever the beat picked.
+            // The push beat's usual pose is 'reach', whose arm is 1.7 radians —
+            // straight out — and a stride on top of that is a zombie, which is
+            // exactly what the first render of this looked like.
+            pose = Figures.walkAt(Figures.aliveAt(Figures.POSES.walk, time, Math.round(spot.x)),
+                                  (walkInto * WALK_RATE) % 1);
+            if (other) pose = Figures.gazeAt(pose, spot.x, other.x, 0.35);
+            var across = Math.min(1, walkInto / Math.max(0.6, shot.duration));
+            driftX = (across - 0.5) * WALK_TRAVEL * (spot.x < 0.5 ? 1 : -1);
+          }
+
           // A speaking figure's head and hand move in time with their own voice
           // — the score fires a blip on this same clock, so the two must agree.
           if (speaking && shot.kind === 'line') {
@@ -477,7 +500,7 @@
           }
 
           Figures.drawFigure(ctx, pal, {
-            x: spot.x, groundY: spot.ground, height: spot.height,
+            x: spot.x + driftX, groundY: spot.ground, height: spot.height,
             tint: voice.hue, speaking: speaking, wobble: wobble,
             pose: pose, lightX: light.offset
           });

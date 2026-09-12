@@ -331,6 +331,40 @@
    * t is clamped rather than extrapolated: overshooting a pose is how you get
    * an elbow through a ribcage.
    */
+  /* A walk cycle on the legs that are already there.
+   *
+   * phase runs 0..1 over one full stride. The two legs are half a cycle apart —
+   * in phase they would be a bunny hop — and each knee bends only on its swing,
+   * because a knee that bends on the stance leg drops the figure through the
+   * floor.
+   *
+   * drawBody plants the figure by finding the lower foot and shifting the body
+   * down to meet the ground, so a cycle that always leaves one leg near
+   * straight keeps the walk on the floor instead of bobbing. The test asserts
+   * exactly that, using drawBody's own foot arithmetic.
+   */
+  var STRIDE = 0.34;   // radians the hip swings either side of rest
+
+  function walkAt(pose, phase) {
+    var out = {};
+    for (var i = 0; i < JOINTS.length; i++) out[JOINTS[i]] = pose[JOINTS[i]];
+    var a = (phase || 0) * Math.PI * 2;
+    var swingL = Math.sin(a);
+    var swingR = Math.sin(a + Math.PI);          // half a cycle behind
+
+    out.legL = clampJoint('legL', pose.legL + swingL * STRIDE);
+    out.legR = clampJoint('legR', pose.legR + swingR * STRIDE);
+    // The knee folds only while the leg is coming forward. max(0, ...) keeps the
+    // stance leg straight, which is what holds the figure on the floor.
+    out.shinL = clampJoint('shinL', pose.shinL - Math.max(0, swingL) * 0.44);
+    out.shinR = clampJoint('shinR', pose.shinR - Math.max(0, swingR) * 0.44);
+    // Arms counter-swing to the opposite leg, which is what makes it read as a
+    // walk rather than a shuffle.
+    out.armL = clampJoint('armL', pose.armL + swingR * 0.26);
+    out.armR = clampJoint('armR', pose.armR + swingL * 0.26);
+    return out;
+  }
+
   function blendPoses(a, b, t) {
     var k = t < 0 ? 0 : (t > 1 ? 1 : t);
     var out = {};
@@ -420,7 +454,8 @@
     gestureAt: gestureAt,
     gazeAt: gazeAt,
     aliveAt: aliveAt,
-    blendPoses: blendPoses
+    blendPoses: blendPoses,
+    walkAt: walkAt
   };
 
   if (typeof module === 'object' && module.exports) module.exports = API;
