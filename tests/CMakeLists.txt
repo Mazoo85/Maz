@@ -1148,6 +1148,15 @@ add_test(NAME film_camera COMMAND maz_film_camera_tests
          ${CMAKE_CURRENT_SOURCE_DIR}/film/camera-fixture.json)
 set_tests_properties(film_camera PROPERTIES TIMEOUT 30)
 
+# The native frame renderer, including a SPEED guard. The whole point of rendering natively is to beat
+# a realtime capture, and the first version was three times slower than the browser while every
+# correctness test passed. Written as a ratio, so it means the same on a fast laptop and a slow runner.
+add_executable(maz_film_render_tests film/render.cpp)
+target_link_libraries(maz_film_render_tests PRIVATE maz::maz maz_warnings)
+target_include_directories(maz_film_render_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/filmreel)
+add_test(NAME film_render COMMAND maz_film_render_tests ${CMAKE_CURRENT_SOURCE_DIR}/film/reel-fixture.json)
+set_tests_properties(film_render PROPERTIES TIMEOUT 120)
+
 add_executable(maz_recoil_tests game/recoil.cpp)
 target_link_libraries(maz_recoil_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME recoil COMMAND maz_recoil_tests)

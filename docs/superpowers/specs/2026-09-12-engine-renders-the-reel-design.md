@@ -190,12 +190,19 @@ a contact sheet and looking at it, with every test green:**
 
 **One was found by measuring, and it was the important one.** The first version
 rendered at **0.3× realtime** — three times slower than the browser it exists to
-beat, which would have made the entire sub-project pointless. Two causes:
-`fillPath` tested every edge against every sub-scanline (fine for a triangle,
-ruinous for a line of text, which is one path of thousands of edges), and the
-full-frame washes were rebuilt for every frame of a shot instead of once. With
-an active edge table and a per-shot wash cache it runs the whole film at
-**1.9× realtime**, and the picture is unchanged.
+beat, which would have made the entire sub-project pointless. It now runs the
+whole film at **1.9× realtime** with the picture unchanged.
+
+Two fixes, and the split between them was itself worth measuring, because the
+first write-up of this had it wrong. Rebuilding the full-frame washes for every
+frame of a shot instead of once was almost all of it: caching them alone takes
+0.3× to 1.8×. Giving `fillPath` an active edge table — so a row looks only at
+the edges crossing it — is the rest, 1.8× to 2.3× on the same stretch. The edge
+table was expected to be the dominant one, on the reasoning that a line of text
+is a single path of some nine thousand edges; measuring showed it is worth about
+1.6× on that path alone, because a caption occupies forty rows and most of its
+edges cross most of them. **Measuring which of two fixes mattered is not the same
+as measuring that the pair of them worked**, and only the second had been done.
 
 The lesson is the one this project keeps relearning: **the claim in the spec was
 "it runs as fast as the machine allows", and nothing tested it.** Correctness had

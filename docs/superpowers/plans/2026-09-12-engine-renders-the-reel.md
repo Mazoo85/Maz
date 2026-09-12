@@ -151,3 +151,9 @@ The plan should have had a performance task. Task 7 measured at the END, which
 is where the problem was found — late, and only because the measurement happened
 to be part of the deliverable. Had it not been, this would have shipped slower
 than the thing it replaces.
+
+That gap is now closed: `tests/film/render.cpp` guards it, as a ratio rather
+than a wall-clock budget so it means the same thing on any machine. Forty frames
+of one shot cost about 12x the first with the wash cached and about 41x without,
+so it fires at 22 — both numbers measured, and the test confirmed to fail when
+the cache is deliberately disabled.
