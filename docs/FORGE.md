@@ -170,12 +170,17 @@ tree is checked out back to it both when a run fails and after a run
 succeeds — so if it names the wrong branch, every PR is opened against the
 wrong line of the project, and every successful night silently moves the
 working tree there too, before tomorrow's branch is even cut. `main` is the
-right default for most repositories, which is why it's the default — but
-this repo's actual default branch is not `main` (`main` here is a separate,
-unrelated line of the project), so **this repo's `forge.json` sets
-`base_branch` explicitly**. If you copy the Forge into another repository,
-check what that repo's default branch actually is before trusting the
-default.
+right default for most repositories, which is why it's the default, and it
+is right here too — `main` is this repo's trunk.
+
+It was not always. When the Forge was built this repo had two trunks and
+`main` was a separate, unrelated line of the project, so `forge.json` set
+`base_branch` to the arcade branch explicitly; the two were later unified
+onto `main` and the setting followed. `forge.json` still names it
+explicitly rather than leaning on the default, because a silent default is
+exactly what makes this the easiest field to get wrong. If you copy the
+Forge into another repository, check what that repo's default branch
+actually is before trusting anything.
 
 **The budget cap does not bind in production.** Crew doesn't currently report
 its cost in any machine-readable way, so a real run always records
