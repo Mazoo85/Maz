@@ -32,6 +32,7 @@ PULSE_FILENAME = "pulse.json"
 DEFAULT_COLLECTORS = {
     "ci": ci_signal.collect,
     "roadmap": roadmap_signal.collect,
+    "jobs": roadmap_signal.collect_jobs,
     "todo": todo_signal.collect,
     "memory": memory_signal.collect,
 }
@@ -52,6 +53,10 @@ def _default_collectors(config: ForgeConfig) -> dict:
     return {
         "ci": lambda root: ci_signal.collect(root, base_branch=config.base_branch),
         "roadmap": roadmap_signal.collect,
+        # Registered separately from "roadmap" so the pulse says plainly
+        # whether the human's intake was read, rather than folding it into
+        # a count dominated by the project roadmap.
+        "jobs": roadmap_signal.collect_jobs,
         "todo": todo_signal.collect,
         "memory": memory_signal.collect,
     }

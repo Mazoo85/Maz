@@ -23,6 +23,21 @@ from ..models import Candidate
 
 ROADMAP_PATH = "docs/ROADMAP.md"
 
+# The Forge's own intake, deliberately NOT the project roadmap.
+#
+# It lived in the roadmap once, as a "Phase 14", and that arrangement lasted
+# until the repo's two trunks were unified: the merge kept the engine's
+# roadmap, and the Forge's intake section — and the one job sitting in it —
+# vanished without anyone noticing, leaving docs/FORGE.md pointing at a
+# heading that no longer existed. A file nobody else edits cannot be lost
+# that way.
+JOBS_PATH = "docs/FORGE-JOBS.md"
+
+# Items in the jobs file belong to no phase. This stands in for one so the
+# same parser can read both files, and is what `source` and the
+# current-milestone flag key off.
+JOBS_PHASE = "jobs"
+
 _PHASE_RE = re.compile(r"^##\s+Phase\s+(\d+)\b")
 _ITEM_RE = re.compile(r"^-\s+\[([ x~])\]\s+(.+?)\s*$")
 # CommonMark fenced code blocks, close enough for a backlog file. A naive
@@ -123,19 +138,28 @@ def _clean(text: str) -> str:
     return text.strip()
 
 
-def parse(text: str, exists=None) -> list[Candidate]:
+def parse(text: str, exists=None, default_phase: str | None = None) -> list[Candidate]:
     """Turn roadmap markdown into candidates. Never raises.
 
     `exists` answers "is this a real file in the repo?" and is what lets an
     item name the files it touches. Left out — as every caller that has only
     a string can do — nothing is ever claimed as a path, which is the same
     conservative result as an item that names nothing.
+
+    `default_phase` is the phase items are filed under before any `## Phase`
+    heading. `None` — the roadmap's case — means such items are ignored
+    entirely, because a checkbox above the first heading is prose. The jobs
+    file passes `JOBS_PHASE`, since it has no phases and every line in it is
+    deliberate.
     """
-    phase: str | None = None
+    phase: str | None = default_phase
     fence: tuple[str, int] | None = None
     # phase -> list of (state, task, paths)
     per_phase: dict[str, list[tuple[str, str, tuple[str, ...]]]] = {}
     order: list[str] = []
+    if phase is not None:
+        per_phase[phase] = []
+        order.append(phase)
 
     for line in text.splitlines():
         # A fenced block is illustration, not backlog. Without this, a roadmap
@@ -182,25 +206,27 @@ def parse(text: str, exists=None) -> list[Candidate]:
             out.append(
                 Candidate(
                     task=task,
-                    source=f"roadmap:phase-{phase}",
+                    source="jobs" if phase == JOBS_PHASE else f"roadmap:phase-{phase}",
                     kind="roadmap",
                     paths=paths,
-                    current_milestone=phase in current,
+                    # A job someone wrote by hand is the current milestone by
+                    # definition — it is the most deliberate signal there is.
+                    current_milestone=True if phase == JOBS_PHASE else phase in current,
                     detail="in progress" if state == "~" else "",
                 )
             )
     return out
 
 
-def collect(root: Path) -> list[Candidate]:
-    """Read docs/ROADMAP.md under ``root``. Missing or unreadable is not an error.
+def _collect_file(root: Path, rel: str, default_phase: str | None) -> list[Candidate]:
+    """Read one markdown file under ``root``. Missing or unreadable is not an error.
 
     ``UnicodeDecodeError`` is caught alongside ``OSError``: it is a
     ``ValueError`` subclass, not an ``OSError``, so a roadmap file containing
     invalid UTF-8 would otherwise slip past an ``except OSError`` and break
     the "never raises" contract every collector in this package promises.
     """
-    p = root / ROADMAP_PATH
+    p = root / rel
     try:
         root_real = root.resolve()
     except OSError:
@@ -223,6 +249,30 @@ def collect(root: Path) -> list[Candidate]:
             return False
 
     try:
-        return parse(p.read_text(encoding="utf-8"), exists=exists)
+        return parse(p.read_text(encoding="utf-8"), exists=exists,
+                     default_phase=default_phase)
     except (OSError, UnicodeDecodeError):
         return []
+
+
+def collect(root: Path) -> list[Candidate]:
+    """The project's appetite: unchecked boxes in docs/ROADMAP.md.
+
+    These carry paths only when an item names one, which the engine roadmap
+    does not do — so in practice they are context the Forge considers and
+    correctly declines to act on. Kept for exactly that reason: the count of
+    what was considered, and skipped, is the evidence in the ledger that the
+    leash is working.
+    """
+    return _collect_file(root, ROADMAP_PATH, default_phase=None)
+
+
+def collect_jobs(root: Path) -> list[Candidate]:
+    """The human's intake: docs/FORGE-JOBS.md.
+
+    Separate from the roadmap on purpose. This is the file a person writes a
+    line in to point the Forge at work, and it is not shared with any other
+    line of the project — see JOBS_PATH above for why that separation was
+    bought the hard way.
+    """
+    return _collect_file(root, JOBS_PATH, default_phase=JOBS_PHASE)
