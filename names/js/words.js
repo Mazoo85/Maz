@@ -2,8 +2,8 @@
  * NAME FORGE — the word bank
  * --------------------------
  * Two flat lists: 1000 adjectives and 1000 nouns. That is the whole raw
- * material of the app — every name it makes is one word from each list, in
- * whichever order the dice land.
+ * material of the app — every name it makes is one word drawn at random from
+ * each list: the adjective, and then the noun.
  *
  * The lists are grouped under comments purely so a human can read and extend
  * them; the generator sees one long array each. Rules the tests enforce
