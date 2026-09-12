@@ -1,5 +1,6 @@
 #pragma once
 
+#include "maz/render/ColorQuantize.hpp"
 #include "maz/render/Image.hpp"
 
 #include <cstddef>
@@ -187,10 +188,13 @@ inline Image decodeGif(const std::uint8_t* d, std::size_t n) {
             dict.push_back(newEntry);
         }
         prev = code;
-        // Grow the read width one entry BEFORE the table is full: the decoder's dictionary lags the
-        // encoder's by exactly one string (the first code after a clear adds nothing), so it must widen
-        // one step early to stay byte-aligned with the encoder's variable-width output.
-        if (dict.size() == (static_cast<std::size_t>(1) << codeSize) - 1 && codeSize < 12) ++codeSize;
+        // Widen when the table has filled the current width. The decoder's dictionary lags the
+        // encoder's by exactly one string (the first code after a clear adds nothing), and the encoder
+        // widens once it has ASSIGNED the code 1<<codeSize -- so the decoder, one behind, widens when
+        // its own next free code reaches 1<<codeSize. Getting this off by one costs nothing against
+        // our own encoder and makes every other decoder on earth lose the stream; see the reference
+        // fixture in tests/render/gif.cpp, which is a GIF this file did not write.
+        if (dict.size() == (static_cast<std::size_t>(1) << codeSize) && codeSize < 12) ++codeSize;
     }
 
     Image img(static_cast<int>(w), static_cast<int>(h), Color{0, 0, 0, 1});
@@ -210,8 +214,105 @@ inline Image decodeGif(const std::uint8_t* d, std::size_t n) {
 
 inline Image decodeGif(const std::vector<std::uint8_t>& bytes) { return decodeGif(bytes.data(), bytes.size()); }
 
-// Encode a single-frame GIF89a from an Image. Lossless for images with <= 256 distinct colors (exact
-// palette); otherwise the palette is the 256 most-distinct colors (nearest-match remap). Alpha is ignored.
+// Encode a single-frame GIF89a from an Image. Lossless for images with <= 256 distinct colors (the
+// palette is then exactly those colors, in first-seen order); beyond that the palette is quantised and
+// every pixel is mapped to its nearest entry. Alpha is ignored. For something that moves, see
+// ImageCodecGifAnim.hpp.
+namespace detail {
+
+// LZW-encode a stream of palette indices and emit it as GIF sub-blocks (each at most 255 bytes),
+// terminated by the zero-length block. This is the whole compressed-data portion of one GIF image
+// block, after its min-code-size byte.
+//
+// Shared by the single-frame and animated encoders on purpose: an LZW writer with a dictionary reset
+// and a growing code size is precisely the sort of code that goes subtly wrong in a second copy.
+// A 5-bits-per-channel lookup cube from an RGB value to its nearest palette entry.
+//
+// The reason for the cube: mapping a frame by searching the palette per pixel is 256 distance
+// computations each, and a few hundred frames of a 480x270 animation is tens of billions of them. The
+// cube pays 32768 searches once and then answers every pixel with an array index.
+inline std::vector<std::uint8_t> buildPaletteCube(const std::vector<Rgb8>& palette) {
+    std::vector<std::uint8_t> cube(32u * 32u * 32u);
+    for (int r = 0; r < 32; ++r) {
+        for (int g = 0; g < 32; ++g) {
+            for (int b = 0; b < 32; ++b) {
+                // The centre of the cell, so a cell is not biased toward its dark corner.
+                const Rgb8 c{static_cast<std::uint8_t>(r * 8 + 4),
+                             static_cast<std::uint8_t>(g * 8 + 4),
+                             static_cast<std::uint8_t>(b * 8 + 4)};
+                cube[(static_cast<std::size_t>(r) * 32u + static_cast<std::size_t>(g)) * 32u +
+                     static_cast<std::size_t>(b)] =
+                    static_cast<std::uint8_t>(nearestPaletteIndex(c, palette));
+            }
+        }
+    }
+    return cube;
+}
+
+inline std::vector<std::uint8_t> gifLzwBlocks(const std::vector<std::uint8_t>& indices,
+                                              int minCodeSize) {
+    std::vector<std::uint8_t> out;
+    if (indices.empty()) {
+        out.push_back(0x00);
+        return out;
+    }
+    const std::uint32_t clearCode = 1u << minCodeSize;
+    const std::uint32_t eoiCode = clearCode + 1;
+
+    // Standard integer-keyed LZW dictionary: a multi-symbol string is identified by its (prefix code,
+    // appended symbol) pair, so the key is (prefixCode << 8) | symbol -> assigned code. Single symbols
+    // are implicit (their code equals the palette index), so only strings of length >= 2 live in the
+    // map.
+    std::map<std::uint32_t, std::uint32_t> dict;
+    std::uint32_t nextCode = eoiCode + 1;
+    int codeSize = minCodeSize + 1;
+    GifBitWriter bw;
+    bw.put(clearCode, codeSize);
+
+    std::uint32_t curCode = indices[0];
+    for (std::size_t i = 1; i < indices.size(); ++i) {
+        const std::uint8_t sym = indices[i];
+        const std::uint32_t key = (curCode << 8) | sym;
+        auto it = dict.find(key);
+        if (it != dict.end()) {
+            curCode = it->second;
+        } else {
+            bw.put(curCode, codeSize);
+            dict[key] = nextCode++;
+            // Widen only once the code just assigned has used up the current width. `>` and not `==`:
+            // with `==` the next code goes out one bit wide while a conformant decoder is still
+            // reading the old width, and the stream desynchronises from there to the end of the file.
+            if (nextCode > (static_cast<std::uint32_t>(1) << codeSize) && codeSize < 12) {
+                ++codeSize;
+            }
+            if (nextCode >= 4096) { // dictionary full: reset
+                bw.put(clearCode, codeSize);
+                dict.clear();
+                nextCode = eoiCode + 1;
+                codeSize = minCodeSize + 1;
+            }
+            curCode = sym;
+        }
+    }
+    bw.put(curCode, codeSize);
+    bw.put(eoiCode, codeSize);
+    bw.flush();
+
+    const std::vector<std::uint8_t>& lzw = bw.out;
+    std::size_t off = 0;
+    while (off < lzw.size()) {
+        const std::size_t chunk = (lzw.size() - off) < 255 ? (lzw.size() - off) : 255;
+        out.push_back(static_cast<std::uint8_t>(chunk));
+        out.insert(out.end(), lzw.begin() + static_cast<std::ptrdiff_t>(off),
+                   lzw.begin() + static_cast<std::ptrdiff_t>(off + chunk));
+        off += chunk;
+    }
+    out.push_back(0x00); // block terminator
+    return out;
+}
+
+} // namespace detail
+
 inline std::vector<std::uint8_t> encodeGif(const Image& img) {
     std::vector<std::uint8_t> out;
     if (img.empty()) return out;
@@ -240,7 +341,36 @@ inline std::vector<std::uint8_t> encodeGif(const Image& img) {
         }
         indices[i] = static_cast<std::uint8_t>(ci);
     }
-    (void)overflow; // >256-color images fall back to index 0 for the overflow (documented lossy path)
+    // More than 256 distinct colours: there is no exact palette, so quantise and map every pixel to
+    // its nearest entry. The old behaviour here was to send every colour past the 256th to palette
+    // entry 0, which turns a photograph into a picture of entry 0 -- and the function's own comment
+    // claimed a nearest-match remap, so the code was not doing what it said.
+    if (overflow) {
+        std::vector<Rgb8> sample;
+        // Sample rather than sweep: a large image has far more pixels than the palette needs to see,
+        // and quantizePalette is the expensive part.
+        const std::size_t stride =
+            indices.size() > 200000u ? indices.size() / 200000u : static_cast<std::size_t>(1);
+        for (std::size_t i = 0; i < indices.size(); i += stride) {
+            sample.push_back(Rgb8{px[i * 4 + 0], px[i * 4 + 1], px[i * 4 + 2]});
+        }
+        std::vector<Rgb8> chosen = quantizePalette(sample, 256u);
+        if (chosen.empty()) {
+            chosen.push_back(Rgb8{0, 0, 0});
+        }
+        const std::vector<std::uint8_t> cube = detail::buildPaletteCube(chosen);
+        palette.clear();
+        for (const Rgb8& c : chosen) {
+            palette.push_back(c.r);
+            palette.push_back(c.g);
+            palette.push_back(c.b);
+        }
+        for (std::size_t i = 0; i < indices.size(); ++i) {
+            indices[i] = cube[(static_cast<std::size_t>(px[i * 4 + 0] >> 3) * 32u +
+                               static_cast<std::size_t>(px[i * 4 + 1] >> 3)) * 32u +
+                              static_cast<std::size_t>(px[i * 4 + 2] >> 3)];
+        }
+    }
 
     // Round palette size up to a power of two (>= 2 entries), min bits 1 -> code size 2.
     int bits = 1;
@@ -266,58 +396,13 @@ inline std::vector<std::uint8_t> encodeGif(const Image& img) {
     detail::putU16(out, static_cast<unsigned>(h));
     out.push_back(0); // no local color table, no interlace
 
-    // LZW encode.
+    // LZW encode. The encoder itself lives in detail::gifLzwBlocks so that the animated encoder can
+    // use the same one -- an LZW writer is exactly the kind of thing that must not exist twice.
     const int minCodeSize = bits < 2 ? 2 : bits; // GIF requires >= 2
     out.push_back(static_cast<std::uint8_t>(minCodeSize));
-    const std::uint32_t clearCode = 1u << minCodeSize;
-    const std::uint32_t eoiCode = clearCode + 1;
+    const std::vector<std::uint8_t> blocks = detail::gifLzwBlocks(indices, minCodeSize);
+    out.insert(out.end(), blocks.begin(), blocks.end());
 
-    // Standard integer-keyed LZW dictionary: a multi-symbol string is identified by its (prefix code,
-    // appended symbol) pair, so the key is (prefixCode << 8) | symbol -> assigned code. Single symbols are
-    // implicit (their code equals the palette index), so only strings of length >= 2 live in the map. This
-    // avoids a std::map keyed on std::vector (whose three-way compare trips a GCC false positive) and is the
-    // canonical, faster LZW encoder form.
-    std::map<std::uint32_t, std::uint32_t> dict;
-    std::uint32_t nextCode = eoiCode + 1;
-    int codeSize = minCodeSize + 1;
-    detail::GifBitWriter bw;
-    bw.put(clearCode, codeSize);
-
-    std::uint32_t curCode = indices[0]; // indices is non-empty (w,h >= 1)
-    for (std::size_t i = 1; i < indices.size(); ++i) {
-        const std::uint8_t sym = indices[i];
-        const std::uint32_t key = (curCode << 8) | sym;
-        auto it = dict.find(key);
-        if (it != dict.end()) {
-            curCode = it->second;
-        } else {
-            bw.put(curCode, codeSize);
-            dict[key] = nextCode++;
-            if (nextCode == (static_cast<std::uint32_t>(1) << codeSize) && codeSize < 12) ++codeSize;
-            if (nextCode >= 4096) { // dictionary full: reset
-                bw.put(clearCode, codeSize);
-                dict.clear();
-                nextCode = eoiCode + 1;
-                codeSize = minCodeSize + 1;
-            }
-            curCode = sym;
-        }
-    }
-    bw.put(curCode, codeSize);
-    bw.put(eoiCode, codeSize);
-    bw.flush();
-
-    // Emit LZW data as sub-blocks (<=255 bytes each) + block terminator.
-    const std::vector<std::uint8_t>& lzw = bw.out;
-    std::size_t off = 0;
-    while (off < lzw.size()) {
-        const std::size_t chunk = (lzw.size() - off) < 255 ? (lzw.size() - off) : 255;
-        out.push_back(static_cast<std::uint8_t>(chunk));
-        out.insert(out.end(), lzw.begin() + static_cast<std::ptrdiff_t>(off),
-                   lzw.begin() + static_cast<std::ptrdiff_t>(off + chunk));
-        off += chunk;
-    }
-    out.push_back(0x00); // block terminator
     out.push_back(0x3B); // trailer
     return out;
 }
