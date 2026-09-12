@@ -1,7 +1,8 @@
 name: All Checks
 
-# One button that runs every suite in the repo — engine, site, music, scraper
-# and crew — in parallel. Each of those workflows still runs on its own triggers;
+# One button that runs every suite in the repo — engine, site, music, scraper,
+# crew and consolidate — in parallel. Each of those workflows still runs on its
+# own triggers;
 # this one just gathers them so "is the whole repository healthy?" has a single
 # answer. Run it from the Actions tab, or on a schedule if you want a weekly pulse.
 
@@ -33,9 +34,13 @@ jobs:
     name: Maz Crew
     uses: ./.github/workflows/crew-ci.yml
 
+  consolidate:
+    name: consolidate
+    uses: ./.github/workflows/consolidate-ci.yml
+
   summary:
     name: Everything green
-    needs: [engine, site, music, scraper, crew]
+    needs: [engine, site, music, scraper, crew, consolidate]
     runs-on: ubuntu-latest
     steps:
       - name: Report
