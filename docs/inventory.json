@@ -20,7 +20,7 @@
     "modulesDemoed": 20,
     "checksPassed": 2495,
     "checksTotal": 3110,
-    "openTasks": 26
+    "openTasks": 24
   },
   "queue": [
     {
@@ -94,7 +94,238 @@
         "apps/tree",
         "apps/xform2d"
       ],
-      "source": "inventory:app:headless"
+      "source": "inventory:app:headless",
+      "memberCount": 38,
+      "members": [
+        {
+          "id": "app:area2d",
+          "name": "area2d",
+          "path": "apps/area2d",
+          "fix": "Teach apps/area2d the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:blackboard",
+          "name": "blackboard",
+          "path": "apps/blackboard",
+          "fix": "Teach apps/blackboard the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:boundary",
+          "name": "boundary",
+          "path": "apps/boundary",
+          "fix": "Teach apps/boundary the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:bus",
+          "name": "bus",
+          "path": "apps/bus",
+          "fix": "Teach apps/bus the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:camera3d",
+          "name": "camera3d",
+          "path": "apps/camera3d",
+          "fix": "Teach apps/camera3d the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:capsule",
+          "name": "capsule",
+          "path": "apps/capsule",
+          "fix": "Teach apps/capsule the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:ccd",
+          "name": "ccd",
+          "path": "apps/ccd",
+          "fix": "Teach apps/ccd the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:contacts",
+          "name": "contacts",
+          "path": "apps/contacts",
+          "fix": "Teach apps/contacts the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:convex",
+          "name": "convex",
+          "path": "apps/convex",
+          "fix": "Teach apps/convex the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:envelope",
+          "name": "envelope",
+          "path": "apps/envelope",
+          "fix": "Teach apps/envelope the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:filter",
+          "name": "filter",
+          "path": "apps/filter",
+          "fix": "Teach apps/filter the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:flowfield",
+          "name": "flowfield",
+          "path": "apps/flowfield",
+          "fix": "Teach apps/flowfield the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:goap",
+          "name": "goap",
+          "path": "apps/goap",
+          "fix": "Teach apps/goap the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:gradient",
+          "name": "gradient",
+          "path": "apps/gradient",
+          "fix": "Teach apps/gradient the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:inifile",
+          "name": "inifile",
+          "path": "apps/inifile",
+          "fix": "Teach apps/inifile the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:interp",
+          "name": "interp",
+          "path": "apps/interp",
+          "fix": "Teach apps/interp the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:itemlist",
+          "name": "itemlist",
+          "path": "apps/itemlist",
+          "fix": "Teach apps/itemlist the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:manybody",
+          "name": "manybody",
+          "path": "apps/manybody",
+          "fix": "Teach apps/manybody the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:mobilepack",
+          "name": "mobilepack",
+          "path": "apps/mobilepack",
+          "fix": "Teach apps/mobilepack the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:motor",
+          "name": "motor",
+          "path": "apps/motor",
+          "fix": "Teach apps/motor the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:normalmap",
+          "name": "normalmap",
+          "path": "apps/normalmap",
+          "fix": "Teach apps/normalmap the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:physics3d",
+          "name": "physics3d",
+          "path": "apps/physics3d",
+          "fix": "Teach apps/physics3d the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:polyline",
+          "name": "polyline",
+          "path": "apps/polyline",
+          "fix": "Teach apps/polyline the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:popupmenu",
+          "name": "popupmenu",
+          "path": "apps/popupmenu",
+          "fix": "Teach apps/popupmenu the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:reverb",
+          "name": "reverb",
+          "path": "apps/reverb",
+          "fix": "Teach apps/reverb the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:ring",
+          "name": "ring",
+          "path": "apps/ring",
+          "fix": "Teach apps/ring the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:scene3d",
+          "name": "scene3d",
+          "path": "apps/scene3d",
+          "fix": "Teach apps/scene3d the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:sequencer",
+          "name": "sequencer",
+          "path": "apps/sequencer",
+          "fix": "Teach apps/sequencer the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:sleep",
+          "name": "sleep",
+          "path": "apps/sleep",
+          "fix": "Teach apps/sleep the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:softshadow",
+          "name": "softshadow",
+          "path": "apps/softshadow",
+          "fix": "Teach apps/softshadow the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:solver",
+          "name": "solver",
+          "path": "apps/solver",
+          "fix": "Teach apps/solver the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:spectrum",
+          "name": "spectrum",
+          "path": "apps/spectrum",
+          "fix": "Teach apps/spectrum the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:stack",
+          "name": "stack",
+          "path": "apps/stack",
+          "fix": "Teach apps/stack the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:statemachine",
+          "name": "statemachine",
+          "path": "apps/statemachine",
+          "fix": "Teach apps/statemachine the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:stylebox",
+          "name": "stylebox",
+          "path": "apps/stylebox",
+          "fix": "Teach apps/stylebox the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:theme",
+          "name": "theme",
+          "path": "apps/theme",
+          "fix": "Teach apps/theme the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:tree",
+          "name": "tree",
+          "path": "apps/tree",
+          "fix": "Teach apps/tree the --headless / --frames N flags so CI can run it without a display."
+        },
+        {
+          "id": "app:xform2d",
+          "name": "xform2d",
+          "path": "apps/xform2d",
+          "fix": "Teach apps/xform2d the --headless / --frames N flags so CI can run it without a display."
+        }
+      ]
     },
     {
       "id": "group:engine-module:demoed",
@@ -145,7 +376,250 @@
         "engine/include/maz/core/Halton.hpp",
         "engine/include/maz/core/Histogram.hpp"
       ],
-      "source": "inventory:engine-module:demoed"
+      "source": "inventory:engine-module:demoed",
+      "memberCount": 552,
+      "members": [
+        {
+          "id": "engine:anim/AdditiveBlend",
+          "name": "AdditiveBlend",
+          "path": "engine/include/maz/anim/AdditiveBlend.hpp",
+          "fix": "No app under apps/ demonstrates maz::anim::AdditiveBlend. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:anim/BlendSpace",
+          "name": "BlendSpace",
+          "path": "engine/include/maz/anim/BlendSpace.hpp",
+          "fix": "No app under apps/ demonstrates maz::anim::BlendSpace. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:anim/CubicBezierEasing",
+          "name": "CubicBezierEasing",
+          "path": "engine/include/maz/anim/CubicBezierEasing.hpp",
+          "fix": "No app under apps/ demonstrates maz::anim::CubicBezierEasing. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:anim/RootMotion",
+          "name": "RootMotion",
+          "path": "engine/include/maz/anim/RootMotion.hpp",
+          "fix": "No app under apps/ demonstrates maz::anim::RootMotion. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:anim/SpringBone",
+          "name": "SpringBone",
+          "path": "engine/include/maz/anim/SpringBone.hpp",
+          "fix": "No app under apps/ demonstrates maz::anim::SpringBone. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:anim/Transition",
+          "name": "Transition",
+          "path": "engine/include/maz/anim/Transition.hpp",
+          "fix": "No app under apps/ demonstrates maz::anim::Transition. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:anim/TriggerTrack",
+          "name": "TriggerTrack",
+          "path": "engine/include/maz/anim/TriggerTrack.hpp",
+          "fix": "No app under apps/ demonstrates maz::anim::TriggerTrack. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:audio/Dsp",
+          "name": "Dsp",
+          "path": "engine/include/maz/audio/Dsp.hpp",
+          "fix": "No app under apps/ demonstrates maz::audio::Dsp. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:audio/EnvelopeFollower",
+          "name": "EnvelopeFollower",
+          "path": "engine/include/maz/audio/EnvelopeFollower.hpp",
+          "fix": "No app under apps/ demonstrates maz::audio::EnvelopeFollower. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:audio/G711",
+          "name": "G711",
+          "path": "engine/include/maz/audio/G711.hpp",
+          "fix": "No app under apps/ demonstrates maz::audio::G711. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:audio/Goertzel",
+          "name": "Goertzel",
+          "path": "engine/include/maz/audio/Goertzel.hpp",
+          "fix": "No app under apps/ demonstrates maz::audio::Goertzel. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:audio/ImaAdpcm",
+          "name": "ImaAdpcm",
+          "path": "engine/include/maz/audio/ImaAdpcm.hpp",
+          "fix": "No app under apps/ demonstrates maz::audio::ImaAdpcm. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:audio/KarplusStrong",
+          "name": "KarplusStrong",
+          "path": "engine/include/maz/audio/KarplusStrong.hpp",
+          "fix": "No app under apps/ demonstrates maz::audio::KarplusStrong. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:audio/Mp3",
+          "name": "Mp3",
+          "path": "engine/include/maz/audio/Mp3.hpp",
+          "fix": "No app under apps/ demonstrates maz::audio::Mp3. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:audio/MusicScales",
+          "name": "MusicScales",
+          "path": "engine/include/maz/audio/MusicScales.hpp",
+          "fix": "No app under apps/ demonstrates maz::audio::MusicScales. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:audio/MusicTheory",
+          "name": "MusicTheory",
+          "path": "engine/include/maz/audio/MusicTheory.hpp",
+          "fix": "No app under apps/ demonstrates maz::audio::MusicTheory. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:audio/PitchDetect",
+          "name": "PitchDetect",
+          "path": "engine/include/maz/audio/PitchDetect.hpp",
+          "fix": "No app under apps/ demonstrates maz::audio::PitchDetect. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:audio/Qoa",
+          "name": "Qoa",
+          "path": "engine/include/maz/audio/Qoa.hpp",
+          "fix": "No app under apps/ demonstrates maz::audio::Qoa. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:audio/Spatial2D",
+          "name": "Spatial2D",
+          "path": "engine/include/maz/audio/Spatial2D.hpp",
+          "fix": "No app under apps/ demonstrates maz::audio::Spatial2D. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:audio/TempoEstimate",
+          "name": "TempoEstimate",
+          "path": "engine/include/maz/audio/TempoEstimate.hpp",
+          "fix": "No app under apps/ demonstrates maz::audio::TempoEstimate. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/AhoCorasick",
+          "name": "AhoCorasick",
+          "path": "engine/include/maz/core/AhoCorasick.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::AhoCorasick. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/AliasTable",
+          "name": "AliasTable",
+          "path": "engine/include/maz/core/AliasTable.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::AliasTable. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/Assert",
+          "name": "Assert",
+          "path": "engine/include/maz/core/Assert.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::Assert. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/BitSet",
+          "name": "BitSet",
+          "path": "engine/include/maz/core/BitSet.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::BitSet. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/BloomFilter",
+          "name": "BloomFilter",
+          "path": "engine/include/maz/core/BloomFilter.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::BloomFilter. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/CellularNoise",
+          "name": "CellularNoise",
+          "path": "engine/include/maz/core/CellularNoise.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::CellularNoise. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/Checkpoints",
+          "name": "Checkpoints",
+          "path": "engine/include/maz/core/Checkpoints.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::Checkpoints. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/CountMinSketch",
+          "name": "CountMinSketch",
+          "path": "engine/include/maz/core/CountMinSketch.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::CountMinSketch. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/CurlNoise",
+          "name": "CurlNoise",
+          "path": "engine/include/maz/core/CurlNoise.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::CurlNoise. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/DamerauLevenshtein",
+          "name": "DamerauLevenshtein",
+          "path": "engine/include/maz/core/DamerauLevenshtein.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::DamerauLevenshtein. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/DateTime",
+          "name": "DateTime",
+          "path": "engine/include/maz/core/DateTime.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::DateTime. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/Diff",
+          "name": "Diff",
+          "path": "engine/include/maz/core/Diff.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::Diff. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/DisjointSet",
+          "name": "DisjointSet",
+          "path": "engine/include/maz/core/DisjointSet.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::DisjointSet. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/FenwickTree",
+          "name": "FenwickTree",
+          "path": "engine/include/maz/core/FenwickTree.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::FenwickTree. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/FixedTimestep",
+          "name": "FixedTimestep",
+          "path": "engine/include/maz/core/FixedTimestep.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::FixedTimestep. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/FuzzyMatch",
+          "name": "FuzzyMatch",
+          "path": "engine/include/maz/core/FuzzyMatch.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::FuzzyMatch. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/GapBuffer",
+          "name": "GapBuffer",
+          "path": "engine/include/maz/core/GapBuffer.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::GapBuffer. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/GrayCode",
+          "name": "GrayCode",
+          "path": "engine/include/maz/core/GrayCode.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::GrayCode. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/Halton",
+          "name": "Halton",
+          "path": "engine/include/maz/core/Halton.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::Halton. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/Histogram",
+          "name": "Histogram",
+          "path": "engine/include/maz/core/Histogram.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::Histogram. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        }
+      ]
     },
     {
       "id": "opportunity:browser-projects-with-no-tests",
@@ -195,18 +669,6 @@
         "apps/music"
       ],
       "source": "inventory:pairing:engine-gains-a-composer"
-    },
-    {
-      "id": "pairing:inventory-feeds-the-forge",
-      "priority": 1,
-      "kind": "pairing",
-      "check": "",
-      "title": "The inventory work queue becomes a Forge signal",
-      "detail": "The Forge already senses the repo through pluggable collectors (ci, roadmap, todo, memory) and picks one task a night. This inventory produces exactly that shape of thing — a ranked list of concrete, path-scoped tasks — so a forge/forge/signals/inventory.py collector reading docs/inventory.json turns every gap found here into work the Forge can pick up unattended.",
-      "paths": [
-        "forge"
-      ],
-      "source": "inventory:pairing:inventory-feeds-the-forge"
     },
     {
       "id": "pairing:songforge-scores-the-silent-games",
@@ -272,7 +734,40 @@
         "apps/sandbox",
         "apps/swarm"
       ],
-      "source": "inventory:app:golden"
+      "source": "inventory:app:golden",
+      "memberCount": 5,
+      "members": [
+        {
+          "id": "app:_template",
+          "name": "_template",
+          "path": "apps/_template",
+          "fix": "Capture a golden frame for _template into tests/golden/_template.png so a rendering regression is caught automatically."
+        },
+        {
+          "id": "app:mobilepack",
+          "name": "mobilepack",
+          "path": "apps/mobilepack",
+          "fix": "Capture a golden frame for mobilepack into tests/golden/mobilepack.png so a rendering regression is caught automatically."
+        },
+        {
+          "id": "app:orbs",
+          "name": "orbs",
+          "path": "apps/orbs",
+          "fix": "Capture a golden frame for orbs into tests/golden/orbs.png so a rendering regression is caught automatically."
+        },
+        {
+          "id": "app:sandbox",
+          "name": "sandbox",
+          "path": "apps/sandbox",
+          "fix": "Capture a golden frame for sandbox into tests/golden/sandbox.png so a rendering regression is caught automatically."
+        },
+        {
+          "id": "app:swarm",
+          "name": "swarm",
+          "path": "apps/swarm",
+          "fix": "Capture a golden frame for swarm into tests/golden/swarm.png so a rendering regression is caught automatically."
+        }
+      ]
     },
     {
       "id": "group:doc:linked",
@@ -287,7 +782,34 @@
         "docs/GODOT_GAPS.md",
         "docs/GODOT_PARITY.md"
       ],
-      "source": "inventory:doc:linked"
+      "source": "inventory:doc:linked",
+      "memberCount": 4,
+      "members": [
+        {
+          "id": "doc:CODEBASE_MEMORY.md",
+          "name": "CODEBASE_MEMORY.md",
+          "path": "docs/CODEBASE_MEMORY.md",
+          "fix": "Nothing links to docs/CODEBASE_MEMORY.md. Link it from README.md, CLAUDE.md or a sibling doc, or delete it."
+        },
+        {
+          "id": "doc:EVALUATION.md",
+          "name": "EVALUATION.md",
+          "path": "docs/EVALUATION.md",
+          "fix": "Nothing links to docs/EVALUATION.md. Link it from README.md, CLAUDE.md or a sibling doc, or delete it."
+        },
+        {
+          "id": "doc:GODOT_GAPS.md",
+          "name": "GODOT_GAPS.md",
+          "path": "docs/GODOT_GAPS.md",
+          "fix": "Nothing links to docs/GODOT_GAPS.md. Link it from README.md, CLAUDE.md or a sibling doc, or delete it."
+        },
+        {
+          "id": "doc:GODOT_PARITY.md",
+          "name": "GODOT_PARITY.md",
+          "path": "docs/GODOT_PARITY.md",
+          "fix": "Nothing links to docs/GODOT_PARITY.md. Link it from README.md, CLAUDE.md or a sibling doc, or delete it."
+        }
+      ]
     },
     {
       "id": "group:engine-module:tested",
@@ -304,7 +826,46 @@
         "engine/include/maz/ui/DebugOverlay.hpp",
         "engine/include/maz/ui/Font.hpp"
       ],
-      "source": "inventory:engine-module:tested"
+      "source": "inventory:engine-module:tested",
+      "memberCount": 6,
+      "members": [
+        {
+          "id": "engine:game/FlyCamera",
+          "name": "FlyCamera",
+          "path": "engine/include/maz/game/FlyCamera.hpp",
+          "fix": "Add a unit test naming maz::game::FlyCamera under tests/ — nothing in the suite exercises it today."
+        },
+        {
+          "id": "engine:platform/Clipboard",
+          "name": "Clipboard",
+          "path": "engine/include/maz/platform/Clipboard.hpp",
+          "fix": "Add a unit test naming maz::platform::Clipboard under tests/ — nothing in the suite exercises it today."
+        },
+        {
+          "id": "engine:platform/Paths",
+          "name": "Paths",
+          "path": "engine/include/maz/platform/Paths.hpp",
+          "fix": "Add a unit test naming maz::platform::Paths under tests/ — nothing in the suite exercises it today."
+        },
+        {
+          "id": "engine:render/Renderer",
+          "name": "Renderer",
+          "path": "engine/include/maz/render/Renderer.hpp",
+          "fix": "Add a unit test naming maz::render::Renderer under tests/ — nothing in the suite exercises it today."
+        },
+        {
+          "id": "engine:ui/DebugOverlay",
+          "name": "DebugOverlay",
+          "path": "engine/include/maz/ui/DebugOverlay.hpp",
+          "fix": "Add a unit test naming maz::ui::DebugOverlay under tests/ — nothing in the suite exercises it today."
+        },
+        {
+          "id": "engine:ui/Font",
+          "name": "Font",
+          "path": "engine/include/maz/ui/Font.hpp",
+          "fix": "Add a unit test naming maz::ui::Font under tests/ — nothing in the suite exercises it today."
+        }
+      ]
     },
     {
       "id": "opportunity:engine-features-with-neither",
@@ -315,19 +876,6 @@
       "detail": "Nothing in the repo names these types. They are either genuinely unused — in which case they are unproven code that will rot — or they are used through another module's API and only look unused. Both readings are worth resolving: a test settles it either way.",
       "paths": [],
       "source": "inventory:opportunity:engine-features-with-neither"
-    },
-    {
-      "id": "pairing:crew-executes-the-queue",
-      "priority": 2,
-      "kind": "pairing",
-      "check": "",
-      "title": "MAZ CREW is the hands for the queue the inventory writes",
-      "detail": "Crew runs a task through planner → coder → reviewer → tester with a bounded repair loop, and the Forge already hands it work. Every task in this inventory is written as a single scoped instruction with the files it touches, which is precisely Crew's input contract — so the inventory, the Forge and Crew compose into a loop that closes its own gaps.",
-      "paths": [
-        "crew",
-        "forge"
-      ],
-      "source": "inventory:pairing:crew-executes-the-queue"
     },
     {
       "id": "pairing:goldens-become-the-arcade-shelf",
@@ -417,7 +965,16 @@
       "paths": [
         "engine/include/maz/game/Collision.hpp"
       ],
-      "source": "inventory:engine-module:documented"
+      "source": "inventory:engine-module:documented",
+      "memberCount": 1,
+      "members": [
+        {
+          "id": "engine:game/Collision",
+          "name": "Collision",
+          "path": "engine/include/maz/game/Collision.hpp",
+          "fix": "Give engine/include/maz/game/Collision.hpp a leading doc comment — docs/API.md is generated from it, so an undocumented header is a blank entry in the public API reference."
+        }
+      ]
     },
     {
       "id": "tool:build_editor.bat#documented",
@@ -468,31 +1025,6 @@
       "to": [
         "web:zomboid",
         "web:coda-pics"
-      ],
-      "effort": "small",
-      "value": 2
-    },
-    {
-      "id": "inventory-feeds-the-forge",
-      "title": "The inventory work queue becomes a Forge signal",
-      "from": [
-        "tool:inventory"
-      ],
-      "to": [
-        "py:forge"
-      ],
-      "effort": "small",
-      "value": 3
-    },
-    {
-      "id": "crew-executes-the-queue",
-      "title": "MAZ CREW is the hands for the queue the inventory writes",
-      "from": [
-        "py:crew"
-      ],
-      "to": [
-        "py:forge",
-        "tool:inventory"
       ],
       "effort": "small",
       "value": 2

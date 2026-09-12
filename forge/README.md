@@ -4,6 +4,8 @@ A nightly loop that reads the Maz repository's own state, decides what needs doi
 
 Forge wakes daily, scans your code and issues, evaluates options, picks one actionable improvement, executes it on a branch, and logs the run — all hands-off. It makes steady progress on debt and improvements without your constant attention.
 
+It senses the repo through five signals: unchecked roadmap boxes, red CI runs, `TODO` markers, codebase memory, and the work queue that `tools/inventory/main.mjs` writes to `docs/inventory.json` — the repository's own catalogue of what every program is still missing. See `docs/FORGE.md` for how each is scored.
+
 The primary way to run Forge is a Claude Code Routine (a scheduled trigger) that wakes a fresh
 session nightly and runs `forge run`. No API key to manage, no CI minutes, and it inherits the
 repo's Superpowers skills. A `.github/workflows/forge.yml` cron is a later, optional path for a

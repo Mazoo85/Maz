@@ -32,6 +32,12 @@ const ITEMISED = new Set(['web-app', 'py-tool', 'gate', 'build-tool']);
 // How many subjects to name inline in a grouped task's text.
 const NAMED_SUBJECTS = 12;
 
+// How many members a grouped task carries in full (name + path). This is the
+// list the Forge fans out over to pick one member a night, so it needs to be
+// long enough to offer real choice and short enough that docs/inventory.json
+// does not become a 500-entry file that churns on every new header.
+const CARRIED_MEMBERS = 40;
+
 function priorityOf(kind, checkId) {
   const key = `${kind}:${checkId}`;
   if (P1.has(key)) return 1;
@@ -103,8 +109,17 @@ export function buildQueue(model) {
       // The fix text of the first member is written per-artifact, so it reads
       // as a worked example of what each of the others needs.
       detail: `${why ? why.detail + ' — ' : ''}${shown}${more}. Example: ${g.check.fix}`,
-      paths: dedupe(g.members.map((m) => m.path)).slice(0, 40),
-      members: g.members.map((m) => m.id),
+      paths: dedupe(g.members.map((m) => m.path)).slice(0, CARRIED_MEMBERS),
+      memberCount: g.members.length,
+      members: g.members.slice(0, CARRIED_MEMBERS).map((m) => ({
+        id: m.id,
+        name: m.name,
+        path: m.path,
+        // Each member's own fix sentence, not the group's: the fix names the
+        // artifact ("Teach apps/area2d the --headless flags"), so handing every
+        // member the first one's text would send a consumer to the wrong file.
+        fix: (m.checks.find((c) => c.id === g.check.id) || {}).fix || ''
+      })),
       source: `inventory:${key}`
     });
   }

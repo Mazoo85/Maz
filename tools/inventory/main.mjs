@@ -46,7 +46,11 @@ function toJson(model) {
       title: t.title,
       detail: t.detail,
       paths: t.paths,
-      source: t.source
+      source: t.source,
+      // Grouped tasks carry their members so a consumer can fan out over them —
+      // "38 apps need a headless mode" is not one night's work, but any one of
+      // those 38 apps is. memberCount is the true total; members is capped.
+      ...(t.members ? { memberCount: t.memberCount, members: t.members } : {})
     })),
     pairings: model.pairings.map((p) => ({
       id: p.id, title: p.title, from: p.from, to: p.to, effort: p.effort, value: p.value

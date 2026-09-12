@@ -11,7 +11,11 @@ import { scanEngine, scanApps, scanCppTests, linkUsage } from './scan-cpp.mjs';
 import { scanWeb, duplicateHelpers } from './scan-web.mjs';
 import { scanPythonTools, scanGates, scanBuildTools, scanDocs } from './scan-repo.mjs';
 import { checkAll } from './checks.mjs';
-import { computeOpportunities, validatePairings } from './synergy.mjs';
+import {
+  computeOpportunities,
+  validatePairings,
+  REALIZED_PAIRINGS
+} from './synergy.mjs';
 import { buildQueue } from './queue.mjs';
 
 export async function buildModel(root) {
@@ -54,7 +58,12 @@ export async function buildModel(root) {
   model.opportunities = computeOpportunities(model);
   const { pairings, stale } = validatePairings(model);
   model.pairings = pairings;
-  model.stalePairings = stale;
+  // Wiring that already exists is validated by the same rule: a "these two are
+  // connected" claim that names a deleted artifact is exactly the kind of
+  // confident falsehood this report must not carry.
+  const realized = validatePairings(model, REALIZED_PAIRINGS);
+  model.realized = realized.pairings;
+  model.stalePairings = [...stale, ...realized.stale];
   model.queue = buildQueue(model);
   model.stats = summarise(model);
   return model;

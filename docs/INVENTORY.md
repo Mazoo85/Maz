@@ -30,7 +30,7 @@ size is in the wiring between the parts, not in any one part.
 | Apps with a golden screenshot | 97% | ██████████ |
 | Engine modules a test exercises | 99% | ██████████ |
 | Engine modules an app demonstrates | 20% | ██░░░░░░░░ |
-| Open tasks in the queue below | 26 | |
+| Open tasks in the queue below | 24 | |
 
 ## 1. Everything you have built
 
@@ -53,7 +53,7 @@ will ever see, and the ones that can most easily lend each other capabilities.
 | Tool | What it does | Lines | Commands | Tests | CI | Gaps |
 |---|---|---:|---|---:|---|---|
 | **crew** | A personal CLI that orchestrates a team of AI coding agents (planner, coder, reviewer, tester) on the Claude Agent SDK. | 1,048 | crew | 14 | crew-ci.yml | — |
-| **forge** | The Forge: a nightly loop that reads the Maz repo's own state, does one useful thing, and records what happened. | 3,380 | forge | 21 | forge-ci.yml, forge-nightly.yml | — |
+| **forge** | The Forge: a nightly loop that reads the Maz repo's own state, does one useful thing, and records what happened. | 3,519 | forge | 22 | forge-ci.yml, forge-nightly.yml | — |
 | **scraper** | A general-purpose, recipe-driven scraper for static HTML pages: crawl, extract with CSS selectors, and write JSONL/CSV/… | 944 | scrape | 8 | scraper-ci.yml | — |
 
 ### The engine, by capability
@@ -421,6 +421,32 @@ it is. Link each from README.md or a sibling doc, or retire it.
 
 <sub>4 affected · effort: small · value: ★ · queued below as the `doc:linked` task</sub>
 
+### Already wired together
+
+What the programs here lend each other today. Nothing to do — this is the section that says
+the wiring works, and the shape the proposals below are aiming for.
+
+#### SCRIPT FORGE is scored by SONG FORGE and seeded by MADLIBS
+
+`web:music`, `web:madlibs` → `web:film`
+
+film/index.html loads music/js and madlibs/js directly: every short film is scored by the same
+composer SONG FORGE uses, and an empty idea box borrows one of MADLIBS's stories rather than
+failing. Declared in shared/exchange.json as music/composer and madlibs/storyideas, and held to
+it by film/tests/film-logic.test.js and scripts/check-exchange.mjs.
+
+#### The inventory queue is a Forge signal, and Crew does the work
+
+`tool:inventory` → `py:forge`, `py:crew`
+
+forge/forge/signals/inventory.py reads the ranked queue out of docs/inventory.json and turns it
+into candidates for the nightly run, fanning a grouped task ("38 apps have no headless mode")
+out into one candidate per app so each night gets a job it can finish. The Forge hands the pick
+to Maz Crew — planner, coder, reviewer, tester — which is the same
+single-scoped-instruction-with-paths shape the inventory writes. So the catalogue, the scheduler
+and the coding team close a loop: what this report finds becomes work that gets done without
+anyone asking, inside the zones the Forge is allowed to verify.
+
 ### Reviewed pairings
 
 These are judgement calls, kept in `tools/inventory/lib/synergy.mjs` so they can be read and
@@ -459,28 +485,6 @@ madlibs/storyideas is already published and already consumed by SCRIPT FORGE. Th
 can hand CODA PICS a "surprise me" prompt that is a real scene rather than a random noun, and
 give ZOMBOID the radio broadcasts and note scraps its world is missing. Consuming an
 already-published capability is the cheapest integration in the repo.
-
-<sub>effort: small · value: ★★</sub>
-
-#### The inventory work queue becomes a Forge signal
-
-`tool:inventory` → `py:forge`
-
-The Forge already senses the repo through pluggable collectors (ci, roadmap, todo, memory) and
-picks one task a night. This inventory produces exactly that shape of thing — a ranked list of
-concrete, path-scoped tasks — so a forge/forge/signals/inventory.py collector reading
-docs/inventory.json turns every gap found here into work the Forge can pick up unattended.
-
-<sub>effort: small · value: ★★★</sub>
-
-#### MAZ CREW is the hands for the queue the inventory writes
-
-`py:crew` → `py:forge`, `tool:inventory`
-
-Crew runs a task through planner → coder → reviewer → tester with a bounded repair loop, and the
-Forge already hands it work. Every task in this inventory is written as a single scoped
-instruction with the files it touches, which is precisely Crew's input contract — so the
-inventory, the Forge and Crew compose into a loop that closes its own gaps.
 
 <sub>effort: small · value: ★★</sub>
 
@@ -529,7 +533,7 @@ Every gap above, ranked. **P1** is something broken or unprotected, **P2** is a 
 gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list out of
 `docs/inventory.json`, so the nightly Forge can pick work straight off it.
 
-### P1 — broken or unprotected (13)
+### P1 — broken or unprotected (12)
 
 - **check-links.mjs: the checker itself is tested**
   <br>Add scripts/tests/check-links.test.mjs — a gate with no tests of its own can pass for the wrong reason.
@@ -547,8 +551,6 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
   <br>CODA PICS turns a sentence into a finished picture in canvas 2D, offline. SCRIPT FORGE builds its sets from primitives and MADLIBS returns pure text. Publishing coda-pics/js as coda-pics/painter would let SCRIPT FORGE paint a title card and a establishing backdrop per location straight from its own scene description, and let MADLIBS show each story idea rather than only describing it.
 - **SONG FORGE supplies the one music layer the engine does not have**
   <br>The engine already has the layers underneath and above a composer: audio::MusicTheory does note/pitch conversion, audio::MusicScales the scale tables, audio::Oscillator and audio::BusGraph the synthesis and mixing, and audio::MusicSequencer switches between music segments on the beat as the action changes. What nothing under engine/include/maz/audio/ does is WRITE the segments — pick a progression, lay a bassline and a drum pattern under it, arrange verses and choruses. music/js/genres.js and music/js/composer.js do exactly that, as plain data and pure functions, for eight genres. Porting the…
-- **The inventory work queue becomes a Forge signal**
-  <br>The Forge already senses the repo through pluggable collectors (ci, roadmap, todo, memory) and picks one task a night. This inventory produces exactly that shape of thing — a ranked list of concrete, path-scoped tasks — so a forge/forge/signals/inventory.py collector reading docs/inventory.json turns every gap found here into work the Forge can pick up unattended.
 - **SONG FORGE scores the two silent browser games**
   <br>ZOMBOID: ANCHORAGE and DEAD SECTOR are played in silence today, while SONG FORGE already writes and plays complete genre-tagged songs in the browser with no dependencies. Publish a small playback-only entry point from music/js/engine.js, declare it in shared/exchange.json as music/soundtrack, and have each game start a track that shifts with its state — calm while looting, driving during a horde. SCRIPT FORGE already consumes music/composer this way, so the wiring pattern exists and is tested.
 - **MADLIBS STORY FORGE: has a logic test**
@@ -558,7 +560,7 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
 - **ZOMBOID: ANCHORAGE: has a logic test**
   <br>Add zomboid/tests/ with a dependency-free Node test over its pure logic, in the style of film/tests/film-logic.test.js, and run it in CI.
 
-### P2 — coverage gaps (11)
+### P2 — coverage gaps (10)
 
 - **5 apps fail "has a golden screenshot"**
   <br>_template, mobilepack, orbs, sandbox, swarm. Example: Capture a golden frame for _template into tests/golden/_template.png so a rendering regression is caught automatically.
@@ -568,8 +570,6 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
   <br>FlyCamera, Clipboard, Paths, Renderer, DebugOverlay, Font. Example: Add a unit test naming maz::game::FlyCamera under tests/ — nothing in the suite exercises it today.
 - **2 engine modules have neither a test nor a demo**
   <br>Nothing in the repo names these types. They are either genuinely unused — in which case they are unproven code that will rot — or they are used through another module's API and only look unused. Both readings are worth resolving: a test settles it either way.
-- **MAZ CREW is the hands for the queue the inventory writes**
-  <br>Crew runs a task through planner → coder → reviewer → tester with a bounded repair loop, and the Forge already hands it work. Every task in this inventory is written as a single scoped instruction with the files it touches, which is precisely Crew's input contract — so the inventory, the Forge and Crew compose into a loop that closes its own gaps.
 - **The golden screenshots become the arcade's cover art**
   <br>tests/golden/ holds a deterministic captured frame for most apps, produced purely to catch rendering regressions. That is also a ready-made, always-current screenshot library: the hub at index.html lists every project as text today, and could show each native demo's golden frame as its tile art at zero maintenance cost, because CI regenerates them.
 - **MADLIBS seeds prompts and in-game flavour text**

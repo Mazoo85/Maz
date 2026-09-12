@@ -235,7 +235,10 @@ await test('engine-module failures are grouped into one task, not one task each'
   assert.strictEqual(perModule.length, 0, 'no task should name a single engine module');
   assert.ok(grouped.length > 0, 'the shared failures should collapse into grouped tasks');
   const demoed = grouped.find((t) => t.check === 'demoed');
-  assert.ok(demoed.members.includes('engine:game/Ghost'), 'the group should list its members for the JSON consumers');
+  assert.ok(
+    demoed.members.some((m) => m.id === 'engine:game/Hidden' && m.path && m.fix),
+    'each member should carry the path and the fix a consumer needs to act on it'
+  );
 });
 
 await test('an opportunity that explains a grouped check is merged into it, not queued twice', async () => {

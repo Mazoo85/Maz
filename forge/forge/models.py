@@ -18,9 +18,10 @@ class Candidate:
 
     # The words that will be handed to Crew, verbatim.
     task: str
-    # Where the idea came from: "roadmap:phase-0", "ci:music-ci", "todo:js/game.js:412".
+    # Where the idea came from: "roadmap:phase-0", "ci:music-ci", "todo:js/game.js:412",
+    # "inventory:app:headless:app:area2d".
     source: str
-    # One of: "ci", "roadmap", "todo", "memory".
+    # One of: "ci", "roadmap", "todo", "memory", "inventory".
     kind: str
     # Files the work is expected to touch. Empty means "unknown", which zone
     # checking treats as unsafe — the Forge does not work blind.

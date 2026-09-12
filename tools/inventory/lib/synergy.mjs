@@ -63,32 +63,6 @@ export const DECLARED_PAIRINGS = [
     value: 2
   },
   {
-    id: 'inventory-feeds-the-forge',
-    from: ['tool:inventory'],
-    to: ['py:forge'],
-    title: 'The inventory work queue becomes a Forge signal',
-    detail:
-      'The Forge already senses the repo through pluggable collectors (ci, roadmap, todo, memory) and ' +
-      'picks one task a night. This inventory produces exactly that shape of thing — a ranked list of ' +
-      'concrete, path-scoped tasks — so a forge/forge/signals/inventory.py collector reading ' +
-      'docs/inventory.json turns every gap found here into work the Forge can pick up unattended.',
-    effort: 'small',
-    value: 3
-  },
-  {
-    id: 'crew-executes-the-queue',
-    from: ['py:crew'],
-    to: ['py:forge', 'tool:inventory'],
-    title: 'MAZ CREW is the hands for the queue the inventory writes',
-    detail:
-      'Crew runs a task through planner → coder → reviewer → tester with a bounded repair loop, and ' +
-      'the Forge already hands it work. Every task in this inventory is written as a single scoped ' +
-      'instruction with the files it touches, which is precisely Crew\'s input contract — so the ' +
-      'inventory, the Forge and Crew compose into a loop that closes its own gaps.',
-    effort: 'small',
-    value: 2
-  },
-  {
     id: 'scraper-fills-the-worlds',
     from: ['py:scraper'],
     to: ['web:zomboid', 'app:village', 'app:world'],
@@ -143,6 +117,41 @@ export const DECLARED_PAIRINGS = [
 function counted(n, one, many) {
   return n === 1 ? one : many.replace('{n}', String(n));
 }
+
+/**
+ * Pairings that are already built. These generate no work — they are here so
+ * the report says how the programs currently feed each other, not only how they
+ * could. A wiring that stops being true should be moved back up to
+ * DECLARED_PAIRINGS rather than quietly deleted; both lists are validated the
+ * same way, so neither can name an artifact that no longer exists.
+ */
+export const REALIZED_PAIRINGS = [
+  {
+    id: 'film-consumes-music-and-madlibs',
+    from: ['web:music', 'web:madlibs'],
+    to: ['web:film'],
+    title: 'SCRIPT FORGE is scored by SONG FORGE and seeded by MADLIBS',
+    detail:
+      'film/index.html loads music/js and madlibs/js directly: every short film is scored by the ' +
+      'same composer SONG FORGE uses, and an empty idea box borrows one of MADLIBS\'s stories rather ' +
+      'than failing. Declared in shared/exchange.json as music/composer and madlibs/storyideas, and ' +
+      'held to it by film/tests/film-logic.test.js and scripts/check-exchange.mjs.'
+  },
+  {
+    id: 'inventory-feeds-the-forge',
+    from: ['tool:inventory'],
+    to: ['py:forge', 'py:crew'],
+    title: 'The inventory queue is a Forge signal, and Crew does the work',
+    detail:
+      'forge/forge/signals/inventory.py reads the ranked queue out of docs/inventory.json and turns ' +
+      'it into candidates for the nightly run, fanning a grouped task ("38 apps have no headless ' +
+      'mode") out into one candidate per app so each night gets a job it can finish. The Forge hands ' +
+      'the pick to Maz Crew — planner, coder, reviewer, tester — which is the same single-scoped-' +
+      'instruction-with-paths shape the inventory writes. So the catalogue, the scheduler and the ' +
+      'coding team close a loop: what this report finds becomes work that gets done without anyone ' +
+      'asking, inside the zones the Forge is allowed to verify.'
+  }
+];
 
 /** Opportunities the scan can prove, regenerated every run. */
 export function computeOpportunities(model) {

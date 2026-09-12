@@ -45,6 +45,13 @@ DEFAULT_WEIGHTS = {
     "value_todo_stale": 2.0,
     "value_roadmap_later": 3.0,
     "value_memory": 4.0,
+    # The inventory's own priorities: P1 is something broken or unprotected, P2
+    # a real coverage gap, P3 polish. Pitched around the other signals — a
+    # broken gate matters more than a roadmap item, polish less than a stale
+    # TODO — so one signal cannot crowd the others out of every night.
+    "value_inventory_p1": 8.0,
+    "value_inventory_p2": 5.0,
+    "value_inventory_p3": 1.5,
     "confidence_base": 5.0,
     "confidence_tests_nearby": 2.0,
     "confidence_small_scope": 2.0,

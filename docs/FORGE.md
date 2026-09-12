@@ -100,11 +100,39 @@ SENSE -> DECIDE -> DO -> VERIFY -> LEARN -> (tomorrow)
 
 | Step | What it does |
 |------|--------------|
-| **SENSE** | Reads unchecked roadmap boxes, red CI runs, `TODO` markers, and codebase-memory into `forge/state/pulse.json` |
+| **SENSE** | Reads unchecked roadmap boxes, red CI runs, `TODO` markers, codebase-memory, and the inventory's work queue into `forge/state/pulse.json` |
 | **DECIDE** | Scores every candidate, applies three strikes / variety / floor, writes the pick and the reasoning to `forge/state/tonight.json` |
 | **DO** | Refuses to start if the working tree has uncommitted changes anywhere but the Forge's own bookkeeping (see *Outcomes* below); otherwise creates a branch and hands the single task to Maz Crew |
 | **VERIFY** | Runs the union of the checks for every zone the *changed files* actually touch (not just the zone DECIDE chose — see the exchange-checks section below); green pushes the branch and opens a draft PR, red abandons the branch — either way, the tree is back on the base branch when the run ends |
 | **LEARN** | Appends one line to `forge/ledger/YYYY-MM.jsonl` |
+
+### The inventory signal
+
+`tools/inventory/main.mjs` catalogues every artifact in the repository — apps, engine headers,
+browser projects, Python tools, CI gates, docs — measures each against a list of mechanical
+completeness checks, and writes the gaps to `docs/inventory.json` as a ranked queue. CI fails when
+that file drifts from the repository, so it is always a true statement about the repo, and
+`forge/forge/signals/inventory.py` reads it as candidates.
+
+Two things it does on the way in:
+
+- **Grouped tasks are fanned out.** "38 apps have no headless mode" is not one night's work, so the
+  collector emits one candidate per app instead, each with that app's own path and its own fix
+  sentence. The group itself is never offered, or the same work would be proposed twice.
+- **Work the leash would reject is dropped, not proposed.** A pairing with no file scope (`zone_for`
+  correctly treats unknown scope as unsafe) and any task already wider than `max_files_touched`
+  never reach the pulse.
+
+Candidates are scored by the inventory's own priority, carried in `detail` as `p1`/`p2`/`p3`:
+`value_inventory_p1` (8.0) sits below a red CI run and above a current-milestone roadmap item,
+`value_inventory_p2` (5.0) beside a recent `TODO`, and `value_inventory_p3` (1.5) below a stale one.
+Tune them in `forge.json` like any other weight.
+
+Most of what the inventory finds today is under `apps/` and `engine/`, neither of which is a safe
+zone — the Forge cannot run a Vulkan build, so it cannot verify work there. Those candidates are
+collected and then correctly refused. The ones it can act on tonight are in `docs/`, `madlibs/`,
+`music/`, `shooter/` and `scraper/`. Widening the zones is a decision for the ledger to earn, not
+one to make because a new signal wants more room.
 
 ## GITHUB_TOKEN
 

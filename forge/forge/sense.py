@@ -23,6 +23,7 @@ from pathlib import Path
 from .config import ForgeConfig
 from .models import Candidate
 from .signals import ci as ci_signal
+from .signals import inventory as inventory_signal
 from .signals import memory as memory_signal
 from .signals import roadmap as roadmap_signal
 from .signals import todos as todo_signal
@@ -34,6 +35,7 @@ DEFAULT_COLLECTORS = {
     "roadmap": roadmap_signal.collect,
     "todo": todo_signal.collect,
     "memory": memory_signal.collect,
+    "inventory": inventory_signal.collect,
 }
 
 
@@ -54,6 +56,12 @@ def _default_collectors(config: ForgeConfig) -> dict:
         "roadmap": roadmap_signal.collect,
         "todo": todo_signal.collect,
         "memory": memory_signal.collect,
+        # Like `ci` above, this one needs a piece of config the others do not:
+        # it drops any task whose scope already exceeds what a single run is
+        # allowed to touch, rather than proposing work the leash must reject.
+        "inventory": lambda root: inventory_signal.collect(
+            root, max_files=config.max_files_touched
+        ),
     }
 
 

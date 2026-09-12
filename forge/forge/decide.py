@@ -45,6 +45,11 @@ def _value(candidate: Candidate, weights: dict) -> float:
     if candidate.kind == "todo":
         key = "value_todo_recent" if candidate.detail == "recent" else "value_todo_stale"
         return weights[key]
+    if candidate.kind == "inventory":
+        # The inventory writes its own priority into `detail` as "p1"/"p2"/"p3".
+        # An unrecognised value falls to the lowest band rather than raising:
+        # a malformed candidate should cost itself the night, not the run.
+        return weights.get(f"value_inventory_{candidate.detail}", weights["value_inventory_p3"])
     return weights["value_memory"]
 
 

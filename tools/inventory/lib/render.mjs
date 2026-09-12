@@ -177,6 +177,20 @@ export function render(model) {
     p('');
   }
 
+  p('### Already wired together');
+  p('');
+  p('What the programs here lend each other today. Nothing to do — this is the section that says');
+  p('the wiring works, and the shape the proposals below are aiming for.');
+  p('');
+  for (const pr of model.realized) {
+    p(`#### ${pr.title}`);
+    p('');
+    p(`\`${pr.from.join('`, `')}\` → \`${pr.to.join('`, `')}\``);
+    p('');
+    p(wrap(pr.detail));
+    p('');
+  }
+
   p('### Reviewed pairings');
   p('');
   p('These are judgement calls, kept in `tools/inventory/lib/synergy.mjs` so they can be read and');
