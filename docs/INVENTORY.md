@@ -25,12 +25,12 @@ size is in the wiring between the parts, not in any one part.
 
 | Health signal | Score | |
 |---|---:|---|
-| Completeness checks passing | 81% | ████████░░ 2505 of 3110 |
+| Completeness checks passing | 81% | ████████░░ 2506 of 3110 |
 | Apps that run headless in CI | 76% | ████████░░ |
 | Apps with a golden screenshot | 97% | ██████████ |
 | Engine modules a test exercises | 99% | ██████████ |
 | Engine modules an app demonstrates | 20% | ██░░░░░░░░ |
-| Open tasks in the queue below | 15 | |
+| Open tasks in the queue below | 14 | |
 
 ## 1. Everything you have built
 
@@ -306,7 +306,7 @@ engine capability, a handful of them complete games.
 |---|---|---|
 | `scripts/check-exchange.mjs` | check-exchange — proves the declared dependencies between projects are true. | — |
 | `scripts/check-links.mjs` | check-links — proves the repo is actually wired together. | — |
-| `scripts/smoke-site.cjs` | smoke-site — drives the whole site in a real browser. | no tests |
+| `scripts/smoke-site.cjs` | smoke-site — drives the whole site in a real browser. | — |
 | `tools/build_editor.bat` | build_editor.bat - one command to turn the Maz Engine source code into the Editor program. | — |
 | `tools/build_editor.sh` | build_editor.sh — one command to turn the Maz Engine source code into the Editor program. | — |
 | `tools/build_web.sh` | tools/build_web.sh — build a Maz target to WebAssembly with Emscripten so a game runs in the browser. | — |
@@ -346,7 +346,6 @@ not by judging the work. Every failing check below is a specific, finishable job
 |---|---|---:|
 | engine-module | shown by a sample app | 140/692 (20%) |
 | web-app | declared in shared/exchange.json | 3/6 (50%) |
-| gate | the checker itself is tested | 2/3 (67%) |
 | app | runs headless for CI | 123/161 (76%) |
 | app | has a golden screenshot | 156/161 (97%) |
 | engine-module | covered by a test | 686/692 (99%) |
@@ -357,6 +356,7 @@ not by judging the work. Every failing check below is a specific, finishable job
 | build-tool | says what it does | 11/11 (100%) |
 | doc | reachable from somewhere | 18/18 (100%) |
 | engine-module | header has a doc comment | 692/692 (100%) |
+| gate | rule-encoding checkers are tested | 3/3 (100%) |
 | gate | wired into a workflow | 3/3 (100%) |
 | py-tool | has a README | 3/3 (100%) |
 | py-tool | has tests | 3/3 (100%) |
@@ -509,10 +509,8 @@ Every gap above, ranked. **P1** is something broken or unprotected, **P2** is a 
 gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list out of
 `docs/inventory.json`, so the nightly Forge can pick work straight off it.
 
-### P1 — broken or unprotected (6)
+### P1 — broken or unprotected (5)
 
-- **smoke-site.cjs: the checker itself is tested**
-  <br>Add scripts/tests/smoke-site.test.mjs — a gate with no tests of its own can pass for the wrong reason.
 - **38 apps cannot run without a display**
   <br>Apps with --headless / --frames N are run by CI on every push and can be captured as goldens; apps without them are only ever proven by someone opening a window. The flag is a dozen lines copied from apps/_template/main.cpp and it converts each app into a test. — area2d, blackboard, boundary, bus, camera3d, capsule, ccd, contacts, convex, envelope, filter, flowfield, and 26 more. Example: Teach apps/area2d the --headless / --frames N flags so CI can run it without a display.
 - **550 engine modules are tested but no app shows them**

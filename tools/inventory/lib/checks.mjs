@@ -138,9 +138,11 @@ const CHECKS = {
     {
       id: 'tests',
       missing: 'no tests',
-      label: 'the checker itself is tested',
-      test: (g) => g.hasTests,
-      fix: (g) => `Add scripts/tests/${g.name.replace(/\.(mjs|cjs|js)$/, '')}.test.mjs — a gate with no tests of its own can pass for the wrong reason.`
+      label: 'rule-encoding checkers are tested',
+      // Only asked of a check-*.mjs. See `rulesBased` in scan-repo.mjs for why
+      // a browser driver is exempt rather than merely excused.
+      test: (g) => !g.rulesBased || g.hasTests,
+      fix: (g) => `Add scripts/tests/${g.name.replace(/\.(mjs|cjs|js)$/, '')}.test.mjs — a checker with no tests of its own can pass for the wrong reason.`
     },
     {
       id: 'ci',

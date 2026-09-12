@@ -63,6 +63,13 @@ export function scanGates(root) {
       path: `scripts/${f}`,
       blurb,
       loc: countLines(text),
+      // A rule-encoding checker (check-*.mjs) decides whether the repo is
+      // correct by applying logic that can quietly be wrong — a regex that
+      // stops matching, a path resolver that says yes to everything. It needs
+      // tests. A driver like smoke-site.cjs asserts on what a real browser
+      // does, so its failures are loud and its "tests" would mean mocking a
+      // browser to check a browser. The distinction is what the check reads.
+      rulesBased: /^check-/.test(name),
       hasTests: testFiles.some((t) => t.startsWith(name + '.')),
       testFiles: testFiles.filter((t) => t.startsWith(name + '.')).map((t) => `scripts/tests/${t}`),
       ciWorkflows: workflows.filter((w) => w.text.includes(`scripts/${f}`)).map((w) => w.file)

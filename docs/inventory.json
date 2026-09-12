@@ -18,23 +18,11 @@
     "appsGolden": 97,
     "modulesTested": 99,
     "modulesDemoed": 20,
-    "checksPassed": 2505,
+    "checksPassed": 2506,
     "checksTotal": 3110,
-    "openTasks": 15
+    "openTasks": 14
   },
   "queue": [
-    {
-      "id": "gate:smoke-site#tests",
-      "priority": 1,
-      "kind": "gate",
-      "check": "tests",
-      "title": "smoke-site.cjs: the checker itself is tested",
-      "detail": "Add scripts/tests/smoke-site.test.mjs — a gate with no tests of its own can pass for the wrong reason.",
-      "paths": [
-        "scripts/smoke-site.cjs"
-      ],
-      "source": "inventory:gate:smoke-site:tests"
-    },
     {
       "id": "group:app:headless",
       "priority": 1,

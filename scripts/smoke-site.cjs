@@ -95,14 +95,30 @@ function watch(page) {
   return problems;
 }
 
-const APPS = [
-  { id: 'zomboid', url: '/zomboid/', name: 'ZOMBOID: ANCHORAGE', mode: 'overlay' },
-  { id: 'shooter', url: '/shooter/', name: 'DEAD SECTOR', mode: 'overlay' },
-  { id: 'music', url: '/music/', name: 'SONG FORGE', mode: 'inline' },
-  { id: 'madlibs', url: '/madlibs/', name: 'MADLIBS STORY FORGE', mode: 'inline' },
-  { id: 'film', url: '/film/', name: 'SCRIPT FORGE', mode: 'inline' },
-  { id: 'coda-pics', url: '/coda-pics/', name: 'CODA PICS', mode: 'inline' }
-];
+/* Which apps to drive, taken from shared/projects.js rather than written out
+ * here. A hand-written list is a list someone has to remember to add to, and
+ * the one in check-links.mjs was missed for the whole life of CODA PICS — so a
+ * new app would have shipped unsmoked in exactly the same way. Derived, an app
+ * is covered the moment it has a page.
+ *
+ * `mode` is read out of the page's own nav tag for the same reason: it is
+ * already declared there, and a copy here could only ever disagree with it. */
+const APPS = (() => {
+  const { PROJECTS } = require(path.join(ROOT, 'shared', 'projects.js'));
+  return (PROJECTS || []).flatMap((p) => {
+    const dir = String(p.path || '').replace(/\/$/, '');
+    const entry = path.join(ROOT, dir, 'index.html');
+    if (!dir || !fs.existsSync(entry)) return [];   // docs-only projects have no page
+    const html = fs.readFileSync(entry, 'utf8');
+    const mode = (html.match(/data-mode=["']([^"']+)["']/) || [])[1] || 'inline';
+    return [{ id: p.id, url: `/${dir}/`, name: p.name, mode }];
+  });
+})();
+
+if (APPS.length === 0) {
+  console.error('No apps found in shared/projects.js — the smoke test would pass by doing nothing.');
+  process.exit(1);
+}
 
 (async () => {
   await new Promise((r) => server.listen(PORT, '127.0.0.1', r));
