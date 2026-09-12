@@ -990,6 +990,7 @@ test('playing from the middle of a line starts already ducked', () => {
 
 /* ================================================================== figures */
 const Figures = require(path.join(__dirname, '..', 'js', 'film-figures.js'));
+const Dress = require(path.join(__dirname, '..', 'js', 'set-dress.js'));
 
 console.log('\nHOW A CHARACTER STANDS');
 
@@ -2684,6 +2685,110 @@ test('the reel says who is holding the object, and only while they have it', () 
   });
   assert(held > 0, 'nobody ever holds the object');
   assert(held < reel.shots.length, 'the object is held in every shot of the film');
+});
+
+
+/* ------------------------------------------------------ dressing the set */
+
+test('dressing never lands where the actors stand', () => {
+  // This is the whole reason one dressing layer can be switched on for all
+  // fifteen sets without looking at all fifteen. Figures stand between x=250
+  // and x=660 of the 1000-unit stage (figureLayout in film-player.js), and set
+  // painters put their furniture in the middle; dressing keeps to the outer
+  // bands. If that ever stops being true, a crate grows out of somebody's chest.
+  const setKeys = ['ward', 'room', 'kitchen', 'corridor', 'office', 'bar', 'ship',
+                   'chapel', 'industrial', 'vehicle', 'lighthouse',
+                   'woods', 'street', 'field', 'water'];
+  const genres = Object.keys(LEX.GENRES);
+  let checked = 0;
+  setKeys.forEach((setKey) => genres.forEach((genre) => {
+    for (let seed = 0; seed < 12; seed++) {
+      const d = Dress.dressingFor(setKey, genre, seed);
+      const where = setKey + '/' + genre + '/' + seed;
+      d.props.concat(d.marks).forEach((item) => {
+        checked++;
+        const right = item.x + (item.w || 0);
+        assert(item.x >= 0 && right <= Dress.STAGE_W,
+          'dressing ran off the stage at ' + where + ': x=' + item.x.toFixed(0));
+        const intrudes = right > Dress.LEFT_BAND[1] && item.x < Dress.RIGHT_BAND[0];
+        assert(!intrudes, 'dressing landed in the acting area at ' + where +
+          ': x=' + item.x.toFixed(0) + '..' + right.toFixed(0));
+      });
+      if (d.lamp) {
+        assert(d.lamp.x > Dress.LEFT_BAND[0] && d.lamp.x < Dress.RIGHT_BAND[1],
+          'a lamp hung outside the stage at ' + where);
+      }
+    }
+  }));
+  assert(checked > 500, 'barely anything was dressed: ' + checked);
+});
+
+test('a genre treats a room the way that genre would', () => {
+  const tally = (genre) => {
+    const counts = { kept: 0, worn: 0, abandoned: 0 };
+    for (let seed = 0; seed < 400; seed++) counts[Dress.conditionFor(genre, seed)]++;
+    return counts;
+  };
+  eq(tally('horror').kept, 0, 'horror got a tidy room');
+  assert(tally('horror').abandoned > 200, 'horror is not derelict enough');
+  assert(tally('comedy').kept > tally('comedy').abandoned * 2,
+    'comedy rooms are as derelict as they are kept');
+  assert(tally('romance').kept > 100, 'romance never gets a room somebody looks after');
+});
+
+test('two rooms in one film are dressed differently', () => {
+  // Keyed on the set as well as the film. Otherwise every room in a film is the
+  // same room, which is the bug one level up from the one this fixes.
+  let differ = 0;
+  for (let seed = 0; seed < 30; seed++) {
+    const a = Dress.dressingFor('ward', 'drama', seed);
+    const b = Dress.dressingFor('corridor', 'drama', seed);
+    if (JSON.stringify(a.props) !== JSON.stringify(b.props)) differ++;
+  }
+  eq(differ, 30, 'only ' + differ + ' of 30 films dressed their two rooms differently');
+});
+
+test('a crate in a field is a mistake, not a mood', () => {
+  Object.keys(Dress.OUTDOORS).forEach((setKey) => {
+    for (let seed = 0; seed < 40; seed++) {
+      const d = Dress.dressingFor(setKey, 'drama', seed);
+      eq(d.marks.length, 0, 'damp on a wall outdoors, in ' + setKey);
+      eq(d.lamp, null, 'a table lamp outdoors, in ' + setKey);
+      d.props.forEach((prop) => assert(['post', 'rock', 'scrub', 'plank'].indexOf(prop.kind) !== -1,
+        'a ' + prop.kind + ' turned up outdoors in ' + setKey));
+    }
+  });
+});
+
+test('the same film always dresses the same room the same way', () => {
+  const a = Dress.dressingFor('ward', 'horror', 77);
+  const b = Dress.dressingFor('ward', 'horror', 77);
+  eq(JSON.stringify(a), JSON.stringify(b), 'dressing drifted between calls');
+});
+
+test('an abandoned room has more in it than a kept one', () => {
+  let kept = 0;
+  let abandoned = 0;
+  for (let seed = 0; seed < 300; seed++) {
+    const k = Dress.dressingFor('room', 'comedy', seed);
+    const a = Dress.dressingFor('room', 'horror', seed);
+    if (k.condition === 'kept') kept += k.props.length + k.marks.length;
+    if (a.condition === 'abandoned') abandoned += a.props.length + a.marks.length;
+  }
+  assert(abandoned > kept * 1.5,
+    'a derelict room is no more cluttered than a kept one: ' + abandoned + ' vs ' + kept);
+});
+
+test('dressing actually draws something', () => {
+  const ctx = stubContext();
+  const rgb = () => '#fff';
+  const d = Dress.dressingFor('ward', 'horror', 5);
+  Dress.draw(ctx, { key: [1, 1, 1], ink: [0, 0, 0], shadow: [0, 0, 0] }, d, rgb);
+  assert(ctx.calls.length > d.props.length, 'dressing drew nothing for ' + d.props.length + ' props');
+  // And nothing at all when there is nothing to draw.
+  const empty = stubContext();
+  Dress.draw(empty, { key: [1, 1, 1], ink: [0, 0, 0], shadow: [0, 0, 0] }, null, rgb);
+  eq(empty.calls.length, 0, 'drawing no dressing still drew something');
 });
 
 

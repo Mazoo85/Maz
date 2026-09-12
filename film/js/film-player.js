@@ -14,6 +14,7 @@
   'use strict';
 
   var Art = root.FilmArt || (typeof require !== 'undefined' ? require('./film-art.js') : {});
+  var Dress = root.FilmSetDress || (typeof require !== 'undefined' ? require('./set-dress.js') : {});
   var Sets = root.FilmSets || (typeof require !== 'undefined' ? require('./film-sets.js') : {});
   var Figures = root.FilmFigures || (typeof require !== 'undefined' ? require('./film-figures.js') : {});
   var Weather = root.FilmWeather || (typeof require !== 'undefined' ? require('./film-weather.js') : {});
@@ -429,9 +430,17 @@
     // Found by porting this renderer to the engine and rendering a film that has an insert in it.
     var light = Sets.lightAt(Sets.LIGHT[shot.set] || 'none', time, shot.mood);
 
+    // How this film has treated this room. Fifteen sets drawn identically every
+    // time is the one thing you cannot un-notice once you have seen two films;
+    // this is a layer over all fifteen rather than fifteen rewrites.
+    var dressing = Dress.dressingFor(setKey, reel.genre, reel.seed);
+
     if (shot.framing !== 'insert') {
       plane(Sets.PARALLAX.back, function () { set.back(ctx, pal, grain); });
-      plane(Sets.PARALLAX.mid, function () { set.mid(ctx, pal, grain); });
+      plane(Sets.PARALLAX.mid, function () {
+        set.mid(ctx, pal, grain);
+        Dress.draw(ctx, pal, dressing, Art.rgb);
+      });
 
       var spots = figureLayout(shot);
 
