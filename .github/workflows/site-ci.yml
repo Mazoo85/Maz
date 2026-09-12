@@ -50,6 +50,11 @@ jobs:
       # break in the generator is a break in two projects.
       - name: MADLIBS logic tests
         run: node madlibs/tests/madlibs-logic.test.js
+      # ZOMBOID's map, generator and loot tables run in a vm sandbox with a stub
+      # window, so they are checked without a browser; game.js itself is covered
+      # by the Chromium smoke test below.
+      - name: ZOMBOID logic tests
+        run: node zomboid/tests/zomboid-logic.test.js
       # The inventory catalogues every artifact in the repo and ranks what each
       # one is still missing. It is committed, so it can drift: this fails the
       # build when docs/INVENTORY.md and the repository disagree, which is the

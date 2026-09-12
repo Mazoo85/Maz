@@ -51,6 +51,22 @@
     outdoor:  [['machete',3],['moosejerky',4],['parka',4],['water',4],['shotgun',2],['shells',4],['map',3],['granola',3]],
     mall:     [['chips',4],['soda',4],['bat',3],['bandage',3],['parka',3],['granola',3],['flashlight',2]],
     hotel:    [['water',5],['granola',4],['bandage',3],['pills',3],['chips',3]],
+
+    // Nine more of downtown's building kinds. Each of these stood in the city
+    // looting like a bus shelter — `rollLoot` falls back to `default` for any
+    // kind with no table of its own, so a museum, an armoury-adjacent
+    // government building and the rail depot all dropped the same bottled
+    // water and granola. Every id below is an existing item; the weights say
+    // what that kind of place would plausibly still have in it after a month.
+    theatre:  [['soda',5],['chips',5],['flashlight',3],['bat',2],['water',3],['pizza',2]],
+    gov:      [['pistol',2],['ammo9',4],['firstaid',3],['flashlight',4],['water',4],['map',4]],
+    civic:    [['water',5],['coffee',4],['bandage',3],['flashlight',3],['granola',4],['map',2]],
+    museum:   [['machete',2],['flashlight',3],['map',5],['water',3],['granola',3],['crowbar',2]],
+    shop:     [['chips',5],['soda',5],['granola',4],['parka',3],['flashlight',3],['water',4]],
+    arena:    [['bat',4],['soda',5],['chips',5],['water',4],['energy',4],['bandage',2]],
+    industrial:[['crowbar',5],['axe',4],['flashlight',4],['branch',3],['machete',2],['water',3]],
+    campus:   [['coffee',5],['energy',4],['granola',4],['water',4],['bandage',3],['flashlight',2]],
+    transit:  [['map',5],['coffee',4],['water',4],['granola',3],['flashlight',3],['crowbar',2]],
     default:  [['water',4],['granola',4],['chips',4],['branch',3],['bandage',2],['soda',3]],
   };
 

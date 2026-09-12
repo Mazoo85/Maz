@@ -13,14 +13,14 @@
     "totalArtifacts": 894,
     "linesOfApps": 31861,
     "linesOfEngine": 87753,
-    "linesOfWeb": 17172,
+    "linesOfWeb": 17187,
     "appsHeadless": 76,
     "appsGolden": 97,
     "modulesTested": 99,
     "modulesDemoed": 20,
-    "checksPassed": 2496,
+    "checksPassed": 2497,
     "checksTotal": 3110,
-    "openTasks": 22
+    "openTasks": 21
   },
   "queue": [
     {
@@ -626,7 +626,7 @@
       "priority": 1,
       "kind": "opportunity",
       "check": "",
-      "title": "2 browser projects have no tests at all",
+      "title": "One browser project has no tests at all",
       "detail": "film/tests/film-logic.test.js is the pattern: plain `node` over the project's pure logic, no dependencies, seconds to run, already wired into CI. Every project that lacks it is one refactor away from silent breakage.",
       "paths": [],
       "source": "inventory:opportunity:browser-projects-with-no-tests"
@@ -685,18 +685,6 @@
         "shooter"
       ],
       "source": "inventory:web:shooter:tests"
-    },
-    {
-      "id": "web:zomboid#tests",
-      "priority": 1,
-      "kind": "web-app",
-      "check": "tests",
-      "title": "ZOMBOID: ANCHORAGE: has a logic test",
-      "detail": "Add zomboid/tests/ with a dependency-free Node test over its pure logic, in the style of film/tests/film-logic.test.js, and run it in CI.",
-      "paths": [
-        "zomboid"
-      ],
-      "source": "inventory:web:zomboid:tests"
     },
     {
       "id": "group:app:golden",
