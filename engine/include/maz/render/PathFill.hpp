@@ -150,14 +150,44 @@ inline void fillPath(Image& img, const Path& path, const Color& color,
     std::vector<std::pair<float, int>> crossings;
     const float weight = 1.0f / static_cast<float>(samples);
 
+    // An ACTIVE EDGE TABLE, because the obvious loop is quadratic where it hurts most. Testing every
+    // edge against every sub-scanline is fine for a triangle and ruinous for a line of text, which is
+    // one path of several thousand edges spread over forty rows: that is millions of tests per caption
+    // for the handful that actually cross each row. Edges are visited in top-to-bottom order and kept
+    // in a list only while the sweep is inside them, so each row looks at its own edges and no others.
+    std::vector<std::size_t> byTop(edges.size());
+    for (std::size_t i = 0; i < byTop.size(); ++i) {
+        byTop[i] = i;
+    }
+    std::sort(byTop.begin(), byTop.end(),
+              [&edges](std::size_t a, std::size_t b) { return edges[a].ytop < edges[b].ytop; });
+    std::size_t pending = 0;
+    std::vector<std::size_t> active;
+
     for (int y = rowFirst; y <= rowLast; ++y) {
+        const float rowTop = static_cast<float>(y);
+        const float rowBottom = rowTop + 1.0f;
+        while (pending < byTop.size() && edges[byTop[pending]].ytop < rowBottom) {
+            active.push_back(byTop[pending]);
+            ++pending;
+        }
+        active.erase(std::remove_if(active.begin(), active.end(),
+                                    [&edges, rowTop](std::size_t i) {
+                                        return edges[i].ybot <= rowTop;
+                                    }),
+                     active.end());
+        if (active.empty()) {
+            continue;
+        }
+
         int lo = width;
         int hi = -1;
         for (int s = 0; s < samples; ++s) {
             const float sy =
                 static_cast<float>(y) + (static_cast<float>(s) + 0.5f) * weight;
             crossings.clear();
-            for (const auto& e : edges) {
+            for (const std::size_t ei : active) {
+                const detail::FillEdge& e = edges[ei];
                 // Half-open in y: an edge owns its top endpoint and not its bottom, so two edges
                 // meeting at a vertex contribute exactly one crossing, not two or none.
                 if (sy < e.ytop || sy >= e.ybot) {

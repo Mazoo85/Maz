@@ -371,3 +371,72 @@ Both run in **[Site CI](../.github/workflows/site-ci.yml)** on every push.
   exact would mean a variant of every image for every one of the 15 sets,
   which is a much larger machine than the problem deserves.
 - It reads English, and reads it plainly. Sarcasm and metaphor go over its head.
+
+## The engine can draw the film too
+
+The reel — the ordered list of timed shots that *is* the film — has been kept as
+plain data with no browser in it since the very first sub-project, so that
+something other than a browser could one day draw it. The **⬇ .reel.json**
+button beside the video one saves exactly that, and `apps/filmreel` in this same
+repo draws it natively:
+
+```sh
+filmreel --reel my-film.reel.json --out frames/ --fps 24 --width 1280
+filmreel --reel my-film.reel.json --contact sheet.qoi      # one sheet of the whole film
+```
+
+### Why bother, when the browser already makes a video
+
+Because the browser records a film by **playing it**. It points `MediaRecorder`
+at the canvas and captures in real time, and three things follow from that:
+
+- a three-minute film takes three minutes to record;
+- a frame the browser misses is simply missing from the file, and nothing
+  notices;
+- the file comes out with no duration in it, which is why `film-webm.js` exists
+  at all — it walks the container afterwards and patches one in.
+
+The native renderer draws frame *n* at time *n*/fps and writes it. It cannot drop
+a frame, it knows the duration before it starts, and it runs as fast as the
+machine allows:
+
+| | speed |
+|---|---|
+| 540p | **3.3× realtime** |
+| 720p | **2.2× realtime** |
+| 1080p | **1.1× realtime** |
+
+### What is faithful, and what is plain
+
+This matters, so it is stated plainly rather than left to be discovered.
+
+**Faithful — checked against the browser, not merely similar:**
+
+- the **figures** match its geometry to 1.9e-05 of a pixel, in all ten poses;
+- the **palette** matches every channel of 241 cases — every genre, hour and mood;
+- the **camera** matches 200 cases to machine epsilon — every framing and move;
+- the **cutting** happens at exactly the same instants, shot for shot.
+
+**Plain — deliberately not ported yet:**
+
+- the **sets**. `film-sets.js` is 25KB of per-set artwork across fifteen sets,
+  and porting it is a sub-project of its own. The native renderer draws a
+  palette-correct room instead: a wall, a window on the side the light is on, a
+  floor, a vignette — and a low horizon for the handful of sets that are actually
+  outdoors. It is right in colour, light and composition, and plain in detail.
+- the **weather**, for the same reason.
+- **sound.** Still the browser's job entirely.
+
+**Not attempted:** a video file. The output is a lossless frame sequence (QOI),
+because the engine has an IVF *demuxer* and no video codec, and writing one is
+not a film feature. Any tool will turn a frame sequence into a video.
+
+### What it needed from the engine
+
+Two things that were simply missing, and that anything else can now use:
+
+- **`render::Path` + `render::fillPath`** — a filled shape. The CPU raster could
+  draw a line, a rectangle, a circle outline and a single triangle, and the GPU
+  renderer's polygon fill is convex-only. Every single thing a film draws is a
+  filled path, so that one gap was the whole job.
+- **`render::StrokeFont`** — text on a CPU image with no GPU and no font file.

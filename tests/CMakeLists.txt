@@ -1139,6 +1139,15 @@ target_link_libraries(maz_film_figure_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME film_figure COMMAND maz_film_figure_tests ${CMAKE_CURRENT_SOURCE_DIR}/film/body-fixture.json)
 set_tests_properties(film_figure PROPERTIES TIMEOUT 30)
 
+# The camera is checked against 200 cases from the browser's own framingFor() and fadeAmount(): every
+# shot of a real film at five points through each.
+add_executable(maz_film_camera_tests film/camera.cpp)
+target_link_libraries(maz_film_camera_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME film_camera COMMAND maz_film_camera_tests
+         ${CMAKE_CURRENT_SOURCE_DIR}/film/reel-fixture.json
+         ${CMAKE_CURRENT_SOURCE_DIR}/film/camera-fixture.json)
+set_tests_properties(film_camera PROPERTIES TIMEOUT 30)
+
 add_executable(maz_recoil_tests game/recoil.cpp)
 target_link_libraries(maz_recoil_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME recoil COMMAND maz_recoil_tests)
