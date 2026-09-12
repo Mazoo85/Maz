@@ -25,6 +25,7 @@ is a dead end.
 | 🎮 | **DEAD SECTOR** | Phone-first, top-down twin-stick zombie shooter in one self-contained HTML file. Dual touch joysticks, escalating waves. | [play](shooter/) · [docs](shooter/README.md) |
 | 🎵 | **SONG FORGE** | Generative AI music maker: writes and plays complete songs — chords, bass, drums, arpeggio, melody — across 8 genres, with WAV and MIDI export. Offline, no API key. | [open](music/) · [docs](music/README.md) |
 | 🎬 | **SCRIPT FORGE** | Type what your film is about and get the film: a formatted screenplay, a shot list, and an animated short — sets, camera, voices, a real SONG FORGE score — that plays in the page and downloads as an MP4 or WebM. | [open](film/) · [docs](film/README.md) |
+| 🖼️ | **CODA PICS** | Type what you want to see and get a picture back: 60 subjects, 20 settings, every hour and weather, finished in one of 14 art styles. Drawn from scratch in the browser — offline, no API key. | [open](coda-pics/) · [docs](coda-pics/README.md) |
 | ✍️ | **MADLIBS STORY FORGE** | Randomly forges story ideas broken into scene beats, ready to seed a storyboard or script. | [open](madlibs/) · [docs](madlibs/README.md) |
 | ⚙️ | **Maz Engine** | Native **C++20 + Vulkan + SDL3** game engine, 2D-first but architected so 3D drops in later. | [roadmap](docs/ROADMAP.md) · [architecture](docs/ARCHITECTURE.md) |
 | 🕸️ | **maz-scrape** | Recipe-driven scraper for static HTML — point it at a YAML recipe, get JSONL/CSV/SQLite. | [docs](scraper/README.md) |
@@ -42,7 +43,7 @@ both the hub and the in-app nav. Add a project there and it appears everywhere.
 index.html              # the MAZ ARCADE hub — links to everything
 shared/projects.js      # THE list of projects (hub + nav both read this)
 shared/maz-nav.js       # the in-app nav pill, one <script> line per app
-zomboid/  shooter/  music/  madlibs/  film/   # the browser projects
+zomboid/  shooter/  music/  madlibs/  film/  coda-pics/   # the browser projects
 engine/   apps/  tests/  docs/           # Maz Engine (C++)
 scraper/  crew/  forge/                  # Python tools
 scripts/check-links.mjs # proves every link in the repo resolves
@@ -64,8 +65,9 @@ Adding a project is three steps: drop its folder in, add an entry to
 
 ```
 node scripts/check-links.mjs     # every link + the project manifest (no deps, instant)
-node scripts/smoke-site.cjs      # boots the hub and all five apps in Chromium
+node scripts/smoke-site.cjs      # boots the hub and all six apps in Chromium
 node film/tests/film-logic.test.js   # SCRIPT FORGE's reader, writer, edit and exports
+node coda-pics/tests/coda-logic.test.js   # CODA PICS: every subject, setting and style
 ```
 
 The second one needs Playwright once: `npm --prefix music/tests install`.
@@ -78,7 +80,7 @@ crew — together.
 | Workflow | Covers |
 |---|---|
 | [`ci.yml`](.github/workflows/ci.yml) | Maz Engine: builds under `-Werror`, headless ctest |
-| [`site-ci.yml`](.github/workflows/site-ci.yml) | Links, the project manifest, SCRIPT FORGE logic, hub + every app in Chromium |
+| [`site-ci.yml`](.github/workflows/site-ci.yml) | Links, the project manifest, SCRIPT FORGE and CODA PICS logic, hub + every app in Chromium |
 | [`music-ci.yml`](.github/workflows/music-ci.yml) | SONG FORGE composition logic + real-audio browser tests |
 | [`scraper-ci.yml`](.github/workflows/scraper-ci.yml) | maz-scrape, offline (mocked transport) |
 | [`crew-ci.yml`](.github/workflows/crew-ci.yml) | Maz Crew, offline (fake client) |

@@ -81,6 +81,20 @@
       docs: 'film/README.md'
     },
     {
+      id: 'coda-pics',
+      name: 'CODA PICS',
+      kind: 'app',
+      path: 'coda-pics/',
+      tag: 'words \u2192 picture',
+      accent: '#00d68f',
+      blurb:
+        'Type what you want to see and it paints it: 60 subjects, 20 settings, every hour ' +
+        'and weather, finished in one of 14 art styles from pixel art to watercolour. ' +
+        'Drawn from scratch in the browser \u2014 offline, no API key, free.',
+      badges: ['Phone + desktop', 'Canvas 2D', 'PNG download'],
+      docs: 'coda-pics/README.md'
+    },
+    {
       id: 'engine',
       name: 'MAZ ENGINE',
       kind: 'code',
