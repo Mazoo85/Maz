@@ -54,7 +54,7 @@ static std::vector<Frame> walkFrames(const film::Build& b, float speed, int fram
         mv.walkSpeed = speed;
         mv.travelled = speed * t;
         mv.position = math::vec3(0.0f, 0.0f, speed * t);
-        const film::Pose pose = film::performAt(b, mv, t);
+        const film::BodyPose pose = film::performAt(b, mv, t);
         Frame f;
         f.time = t;
         f.sk = film::skeletonOf(b, pose);
@@ -138,7 +138,7 @@ int main() {
             film::Motive mv;
             mv.walkSpeed = speed;
             mv.travelled = stride * 2.0f * static_cast<float>(i) / static_cast<float>(N); // two strides
-            const film::Pose p = film::performAt(b, mv, mv.travelled / speed);
+            const film::BodyPose p = film::performAt(b, mv, mv.travelled / speed);
             up[static_cast<std::size_t>(i)] = p.hips.y;
             side[static_cast<std::size_t>(i)] = p.hips.x;
         }
@@ -175,7 +175,7 @@ int main() {
             film::Motive mv;
             mv.walkSpeed = speed;
             mv.travelled = 2.0f * film::kStep * H * static_cast<float>(i) / 60.0f;
-            const film::Pose p = film::performAt(b, mv, 0.0f);
+            const film::BodyPose p = film::performAt(b, mv, 0.0f);
             if (std::fabs(p.pelvisTwist) > 0.01f) {
                 if (p.pelvisTwist * p.twist < 0.0f) {
                     everOpposed = true;
@@ -196,7 +196,7 @@ int main() {
             film::Motive mv;
             mv.walkSpeed = speed;
             mv.travelled = 2.0f * film::kStep * H * static_cast<float>(i) / 60.0f;
-            const film::Pose p = film::performAt(b, mv, 0.0f);
+            const film::BodyPose p = film::performAt(b, mv, 0.0f);
             // The right foot's forward position against the right arm's swing.
             agreement += p.ankle[film::kRight].z * p.arm[film::kRight].swing;
         }
@@ -258,7 +258,7 @@ int main() {
 
         // Whichever leg has the weight, both feet stay on the floor.
         for (int i = 0; i <= 200; ++i) {
-            const film::Pose p = film::performAt(b, mv, static_cast<float>(i) * 0.13f);
+            const film::BodyPose p = film::performAt(b, mv, static_cast<float>(i) * 0.13f);
             near(p.ankle[0].y, b.m(b.yAnkle), 1e-5f, "a standing foot stays on the floor");
             near(p.ankle[1].y, b.m(b.yAnkle), 1e-5f, "both of them, flat, with no heel lifted");
         }
@@ -301,8 +301,8 @@ int main() {
         small.lookYaw = 0.5f;
         film::Motive big = small;
         big.lookYaw = 1.5f;
-        const film::Pose ps = film::performAt(b, small, 0.0f);
-        const film::Pose pb = film::performAt(b, big, 0.0f);
+        const film::BodyPose ps = film::performAt(b, small, 0.0f);
+        const film::BodyPose pb = film::performAt(b, big, 0.0f);
         film::Motive ahead;
         near(ps.twist, film::performAt(b, ahead, 0.0f).twist, 1e-6f,
              "a small look is done with the neck alone, and leaves the trunk exactly as it was");
@@ -320,8 +320,8 @@ int main() {
         mv.travelled = 3.77f;
         mv.speaking = 0.4f;
         mv.syllable = 0.3f;
-        const film::Pose a = film::performAt(b, mv, 1.234f);
-        const film::Pose c = film::performAt(b, mv, 1.234f);
+        const film::BodyPose a = film::performAt(b, mv, 1.234f);
+        const film::BodyPose c = film::performAt(b, mv, 1.234f);
         near(a.hips.y, c.hips.y, 0.0f, "a performance is the same performance every time it is asked for");
         near(a.arm[0].elbow, c.arm[0].elbow, 0.0f, "down to the last joint");
     }

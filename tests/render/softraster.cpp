@@ -349,6 +349,44 @@ int main() {
               "a point on the floor is shaded for where it actually is, not for where it is on screen");
     }
 
+    // ------------------------------------------------------------------ 10. aerial perspective
+    {
+        // Two identical quads, one near and one far, under fog. The far one must sit closer to the
+        // colour of the air; the near one must be untouched by it. Without this a film has no depth
+        // outdoors and the ground plane has to stop somewhere the audience can see.
+        Surface s = plainSurface();
+        s.fog = Color{0.0f, 0.0f, 1.0f, 1.0f}; // a colour nothing else in this test is
+        s.fogStart = 3.0f;
+        s.fogEnd = 9.0f;
+        s.fogMax = 1.0f;
+
+        Image img(W, H, Color{0.0f, 0.0f, 0.0f, 1.0f});
+        SoftRaster r(W, H);
+        r.clearDepth();
+        // The camera is 4 units out, so the quad at z=+1 is 3 units away (at the fog's start) and the
+        // one at z=-5 is 9 (at its end).
+        // Red, with no blue in it at all: any blue in the result can only have come from the air.
+        r.draw(img, quadAt(1.0f, 0.35f, Color{1.0f, 0.0f, 0.0f, 1.0f}), math::mat4(1.0f), vp, s);
+        const Color near_ = img.getPixel(W / 2, H / 2);
+        Image far(W, H, Color{0.0f, 0.0f, 0.0f, 1.0f});
+        SoftRaster r2(W, H);
+        r2.clearDepth();
+        r2.draw(far, quadAt(-5.0f, 2.4f, Color{1.0f, 0.0f, 0.0f, 1.0f}), math::mat4(1.0f), vp, s);
+        const Color farC = far.getPixel(W / 2, H / 2);
+
+        check(near_.b < 0.05f, "a surface at the near edge of the fog is not touched by it");
+        check(farC.b > 0.9f, "one at the far edge has gone the whole way to the colour of the air");
+        check(farC.r < near_.r, "and has lost its own colour on the way");
+
+        // Switched off, the same far quad keeps its colour exactly.
+        Surface clear = plainSurface();
+        Image plain(W, H, Color{0.0f, 0.0f, 0.0f, 1.0f});
+        SoftRaster r3(W, H);
+        r3.clearDepth();
+        r3.draw(plain, quadAt(-5.0f, 2.4f, Color{1.0f, 0.0f, 0.0f, 1.0f}), math::mat4(1.0f), vp, clear);
+        check(plain.getPixel(W / 2, H / 2).b < 0.05f, "with no fog set, nothing fades");
+    }
+
     if (!failures.empty()) {
         for (const std::string& f : failures) {
             std::printf("FAIL: %s\n", f.c_str());

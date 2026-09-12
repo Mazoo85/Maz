@@ -36,10 +36,29 @@ struct Surface {
     // points down, right and back). Normalised on use.
     math::vec3 keyDirection{-0.45f, -0.75f, -0.48f};
     Color key{1.0f, 0.97f, 0.92f, 1.0f}; // the key's own colour, multiplied into the surface colour
+    // What the ambient and the fill are coloured by, which is NOT the key: the fill is light that has
+    // bounced off the room and the sky, so it carries their colour, not the lamp's. Giving the ambient
+    // the key's colour tints every surface in the frame the same hue and the picture comes out
+    // monochrome — which is exactly what happened the first time, and is the difference between a
+    // scene lit green and a scene printed on green stock.
+    Color ambientTint{0.86f, 0.90f, 1.0f, 1.0f};
     float ambient = 0.22f;               // floor brightness: what a surface gets facing nowhere
     float fill = 0.16f;                  // a soft bounce from directly opposite the key
     float emissive = 0.0f;               // 0..1 of the vertex colour that ignores light entirely
     float alpha = 1.0f;                  // < 1 blends and stops writing depth
+
+    // AERIAL PERSPECTIVE. Everything far away is paler and closer to the colour of the air, because
+    // there is air in between — it is how the eye reads distance outdoors, and how a painter has
+    // faked it since the fifteenth century. In a renderer it does three jobs at once: it gives a
+    // frame depth, it separates a figure from the ground behind them, and it hides the edge of the
+    // world, so a ground plane no longer has to stop somewhere visible.
+    //
+    // Measured in world distance ALONG THE VIEW AXIS, not in depth-buffer units, so the numbers are
+    // metres and mean the same thing at every focal length. fogEnd <= fogStart turns it off.
+    Color fog{0.5f, 0.55f, 0.62f, 1.0f};
+    float fogStart = 0.0f;
+    float fogEnd = 0.0f;
+    float fogMax = 0.85f;                // how far toward the air colour the furthest thing goes
 };
 
 class SoftRaster {
@@ -242,7 +261,17 @@ class SoftRaster {
                                        b.color * static_cast<float>(pb) +
                                        c.color * static_cast<float>(pc);
 
-                const Color lit = shade(nrm, col, key, surf);
+                Color lit = shade(nrm, col, key, surf);
+                if (surf.fogEnd > surf.fogStart) {
+                    // 1/iw is the perspective-correct distance along the view axis at this pixel.
+                    const float away = static_cast<float>(1.0 / iw);
+                    float f = (away - surf.fogStart) / (surf.fogEnd - surf.fogStart);
+                    f = f < 0.0f ? 0.0f : (f > 1.0f ? 1.0f : f);
+                    f *= surf.fogMax;
+                    lit.r += (surf.fog.r - lit.r) * f;
+                    lit.g += (surf.fog.g - lit.g) * f;
+                    lit.b += (surf.fog.b - lit.b) * f;
+                }
                 if (surf.alpha >= 1.0f) {
                     target.setPixel(px, py, lit);
                     m_depth[di] = z;
@@ -272,11 +301,11 @@ class SoftRaster {
         const float toKey = -(nrm.x * key.x + nrm.y * key.y + nrm.z * key.z);
         const float kLit = toKey > 0.0f ? toKey : 0.0f;
         const float fLit = toKey < 0.0f ? -toKey : 0.0f;
-        const float amount = surf.ambient + kLit + fLit * surf.fill;
+        const float soft = surf.ambient + fLit * surf.fill;
         Color out;
-        out.r = clamp01(albedo.x * (amount * surf.key.r + surf.emissive));
-        out.g = clamp01(albedo.y * (amount * surf.key.g + surf.emissive));
-        out.b = clamp01(albedo.z * (amount * surf.key.b + surf.emissive));
+        out.r = clamp01(albedo.x * (kLit * surf.key.r + soft * surf.ambientTint.r + surf.emissive));
+        out.g = clamp01(albedo.y * (kLit * surf.key.g + soft * surf.ambientTint.g + surf.emissive));
+        out.b = clamp01(albedo.z * (kLit * surf.key.b + soft * surf.ambientTint.b + surf.emissive));
         out.a = 1.0f;
         return out;
     }

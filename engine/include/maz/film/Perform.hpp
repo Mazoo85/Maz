@@ -108,8 +108,8 @@ inline FootState footAt(float phase, float stepMetres) {
 }
 
 // The whole performance, as a pose this body can be built in.
-inline Pose performAt(const Build& b, const Motive& mv, float seconds) {
-    Pose p;
+inline BodyPose performAt(const Build& b, const Motive& mv, float seconds) {
+    BodyPose p;
     p.position = mv.position;
     p.facing = mv.facing;
     p.ankleSet = true;

@@ -137,10 +137,10 @@ int main() {
     //                                                                        off it, and nothing else
     {
         const film::Build b = film::adultMale();
-        const film::Pose rest = film::restPose(b);
+        const film::BodyPose rest = film::restPose(b);
         const film::Skeleton before = film::skeletonOf(b, rest);
 
-        film::Pose bent = rest;
+        film::BodyPose bent = rest;
         bent.arm[film::kRight].elbow = 1.2f;
         const film::Skeleton after = film::skeletonOf(b, bent);
 
@@ -157,18 +157,18 @@ int main() {
         near(dist(after.crown(b), before.crown(b)), 0.0f, 1e-5f, "nor the head");
 
         // An elbow that bends backwards is the most alarming thing a figure can do, so it cannot.
-        film::Pose backwards = rest;
+        film::BodyPose backwards = rest;
         backwards.arm[film::kRight].elbow = -1.2f;
         const film::Skeleton hyper = film::skeletonOf(b, backwards);
         near(dist(hyper.handAt(b, film::kRight), film::skeletonOf(b, [&] {
-                     film::Pose z = rest;
+                     film::BodyPose z = rest;
                      z.arm[film::kRight].elbow = 0.0f;
                      return z;
                  }()).handAt(b, film::kRight)),
              0.0f, 1e-5f, "an elbow will not bend backwards, however hard it is asked to");
 
         // The head turns the head, not the chest.
-        film::Pose looking = rest;
+        film::BodyPose looking = rest;
         looking.headYaw = 0.6f;
         const film::Skeleton turned = film::skeletonOf(b, looking);
         check(dist(turned.eyes(b), before.eyes(b)) > 0.01f, "turning the head moves the eyes");
@@ -187,7 +187,7 @@ int main() {
         // Walk one foot forward, back, and lift the hips up and down — the bones must not stretch.
         for (int step = -6; step <= 6; ++step) {
             for (int drop = 0; drop <= 4; ++drop) {
-                film::Pose p = film::restPose(b);
+                film::BodyPose p = film::restPose(b);
                 p.ankle[film::kRight].z = static_cast<float>(step) * 0.06f;
                 p.hips.y = b.m(b.yPelvis) - static_cast<float>(drop) * 0.035f;
                 const film::Skeleton sk = film::skeletonOf(b, p);
@@ -209,7 +209,7 @@ int main() {
 
         // A bent knee points FORWARD. A knee that solves to the other side is the single most
         // recognisable way a walk goes wrong.
-        film::Pose crouch = film::restPose(b);
+        film::BodyPose crouch = film::restPose(b);
         crouch.hips.y = b.m(b.yPelvis) - 0.20f;
         const film::Skeleton sk = film::skeletonOf(b, crouch);
         check(film::Skeleton::at(sk.knee[film::kRight]).z > 0.02f,
@@ -220,7 +220,7 @@ int main() {
     //                                                                        person, once
     {
         const film::Build b = film::adultMale();
-        film::Pose p = film::restPose(b);
+        film::BodyPose p = film::restPose(b);
         const math::vec3 straightOn = film::skeletonOf(b, p).eyes(b);
         p.facing = 3.14159265f;
         const film::Skeleton turned = film::skeletonOf(b, p);
@@ -230,7 +230,7 @@ int main() {
               "and their right shoulder has come round to the other side");
 
         // Standing somewhere else moves everything by exactly that much.
-        film::Pose moved = film::restPose(b);
+        film::BodyPose moved = film::restPose(b);
         moved.position = math::vec3(2.0f, 0.0f, -3.0f);
         const film::Skeleton there = film::skeletonOf(b, moved);
         near(there.crown(b).x, straightOn.x + 2.0f, 1e-4f, "standing two metres over puts them there");

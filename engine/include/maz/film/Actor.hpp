@@ -166,7 +166,10 @@ inline Build child() {
 //
 // Everything except `position` and `facing` is in the character's OWN space: the floor at y = 0, +Z the
 // way they are facing, +X their left.
-struct Pose {
+// Named BodyPose rather than Pose because the flat renderer already has a maz::film::Pose: a set of 2D
+// limb angles for a silhouette. This is a different thing entirely — a whole skeleton's worth of
+// placement — and the two live side by side while both renderers do.
+struct BodyPose {
     math::vec3 position{0.0f, 0.0f, 0.0f}; // where they stand in the world, in metres
     float facing = 0.0f;                   // yaw about Y; 0 faces +Z
 
@@ -200,8 +203,8 @@ struct Pose {
 
 // Standing at rest: weight even, feet a hip's width apart, arms hanging with the small bend an arm
 // actually has.
-inline Pose restPose(const Build& b) {
-    Pose p;
+inline BodyPose restPose(const Build& b) {
+    BodyPose p;
     p.hips = math::vec3(0.0f, b.m(b.yPelvis), 0.0f);
     for (int s = 0; s < 2; ++s) {
         p.ankle[s] = math::vec3(sideSign(s) * b.m(b.hipHalf), b.m(b.yAnkle), 0.0f);
@@ -285,11 +288,11 @@ inline math::mat4 boneFrame(const math::vec3& from, const math::vec3& to, const 
 } // namespace detail
 
 // Where every joint of this body is, for this pose.
-inline Skeleton skeletonOf(const Build& b, const Pose& poseIn) {
+inline Skeleton skeletonOf(const Build& b, const BodyPose& poseIn) {
     using namespace detail;
-    Pose pose = poseIn;
+    BodyPose pose = poseIn;
     if (!pose.ankleSet) {
-        const Pose r = restPose(b);
+        const BodyPose r = restPose(b);
         pose.ankle[0] = r.ankle[0];
         pose.ankle[1] = r.ankle[1];
         pose.ankleSet = true;
@@ -323,7 +326,7 @@ inline Skeleton skeletonOf(const Build& b, const Pose& poseIn) {
     const float foreArm = b.m(b.yElbow - b.yWrist);
     for (int s = 0; s < 2; ++s) {
         const float sx = sideSign(s);
-        const Pose::Arm& a = pose.arm[s];
+        const BodyPose::Arm& a = pose.arm[s];
         sk.shoulder[s] = sk.yoke * move(sx * b.m(b.shoulderHalf), 0.0f, 0.0f) * rotZ(sx * a.spread) *
                          rotX(a.swing) * rotY(sx * a.twist);
         // An elbow bends one way only: the forearm comes forward, never backward through the arm.
@@ -586,7 +589,7 @@ inline render::shapes::MeshData buildBody(const Build& b, const Skeleton& sk) {
 }
 
 // The whole thing in one call, for when the caller has no use for the joints.
-inline render::shapes::MeshData buildActor(const Build& b, const Pose& p) {
+inline render::shapes::MeshData buildActor(const Build& b, const BodyPose& p) {
     return buildBody(b, skeletonOf(b, p));
 }
 
