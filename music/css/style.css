@@ -421,6 +421,12 @@ input[type="range"]::-moz-range-thumb {
   margin-bottom: 4px;
 }
 .song-controls .tool-field { flex: 1 1 190px; min-width: 0; }
+/* Keep a control's label on one line and out of its neighbour's way. Left to
+   wrap, "Swirl type" and "Colour type" split across two lines and sat against
+   the control before them, which read as an overlap rather than as a label —
+   a row that was fine with four controls stopped being fine with nine. */
+.song-controls .tool-field > span { flex: none; white-space: nowrap; }
+.song-controls .tool-field select { flex: 1 1 auto; min-width: 0; }
 .song-controls input[type="range"] { flex: 1 1 auto; min-width: 80px; }
 .ctl-value {
   font-family: var(--font-data);
@@ -914,7 +920,7 @@ input[type="range"]::-moz-range-thumb {
 
 .st-row {
   display: grid;
-  grid-template-columns: 148px max-content;
+  grid-template-columns: 186px max-content;
   align-items: center;
   gap: 12px;
   padding: 5px 0;
@@ -943,7 +949,15 @@ input[type="range"]::-moz-range-thumb {
   color: var(--ink-dim);
 }
 .st-mute.on { background: var(--pink); border-color: var(--pink); color: #14000c; }
-.st-vol { width: 48px; flex: none; }
+/* Sized by flex-basis rather than width: the base rule for every range input
+   in the app sets width:100%, and a channel strip is the one place that is
+   wrong — the name has to fit beside it. Basis settles the used width outright
+   rather than leaving two width declarations to argue. */
+.st-chan .st-vol { flex: 0 0 52px; width: 52px; min-width: 52px; }
+/* And the name takes what is left instead of being squeezed to nothing. A flex
+   item that hides its overflow may shrink to zero, which is exactly what it did:
+   the rows showed a mute button, a slider, and no clue which drum it was. */
+.st-chan .st-name { flex: 1 1 auto; min-width: 78px; }
 
 .st-steps { display: flex; gap: 4px; min-width: max-content; }
 .st-steps .st-grp { display: flex; gap: 4px; }
@@ -991,6 +1005,6 @@ input[type="range"]::-moz-range-thumb {
 }
 
 @media (max-width: 560px) {
-  .st-row { grid-template-columns: 104px max-content; }
+  .st-row { grid-template-columns: 124px max-content; }
   .st-vol { display: none; }
 }
