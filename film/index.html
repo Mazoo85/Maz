@@ -77,6 +77,7 @@
           <button class="tab is-on" id="tabScript" role="tab" aria-selected="true" aria-controls="viewScript">Screenplay</button>
           <button class="tab" id="tabShots" role="tab" aria-selected="false" aria-controls="viewShots">Shot list</button>
           <button class="tab" id="tabFilm" role="tab" aria-selected="false" aria-controls="viewFilm">🎬 The film</button>
+          <button class="tab" id="tabWhy" role="tab" aria-selected="false" aria-controls="viewWhy" title="Every choice the program made, and why">💡 Why</button>
         </div>
 
         <div class="direct no-print" id="directBar">
@@ -88,6 +89,7 @@
         </div>
         <div id="viewScript" class="page" role="tabpanel" aria-labelledby="tabScript"></div>
         <div id="viewShots" class="shots hidden" role="tabpanel" aria-labelledby="tabShots"></div>
+        <div id="viewWhy" class="why hidden" role="tabpanel" aria-labelledby="tabWhy"></div>
 
         <!-- ------------------------------------------------------- the film -->
         <div id="viewFilm" class="film hidden" role="tabpanel" aria-labelledby="tabFilm">
@@ -192,6 +194,7 @@
   <script src="../madlibs/js/templates.js"></script>
   <script src="../madlibs/js/generator.js"></script>
   <script src="js/story-seed.js"></script>
+  <script src="js/why.js"></script>
   <script src="js/app.js"></script>
 
 <!-- shared MAZ ARCADE nav: back to the hub + jump to any other project -->

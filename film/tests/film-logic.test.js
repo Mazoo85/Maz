@@ -993,6 +993,7 @@ const Figures = require(path.join(__dirname, '..', 'js', 'film-figures.js'));
 const Dress = require(path.join(__dirname, '..', 'js', 'set-dress.js'));
 const World = require(path.join(__dirname, '..', 'js', 'world-sound.js'));
 const Director = require(path.join(__dirname, '..', 'js', 'director.js'));
+const Why = require(path.join(__dirname, '..', 'js', 'why.js'));
 
 console.log('\nHOW A CHARACTER STANDS');
 
@@ -3045,6 +3046,111 @@ test('a reroll never loses a scene somebody deliberately kept', () => {
         'seed ' + seed + ': a locked scene was lost when the film got shorter');
     });
   }
+});
+
+
+/* ------------------------------------------------------ why it did that */
+
+test('the panel explains every film, of every length and genre', () => {
+  // A panel that explains the film must never be the thing that breaks it.
+  Object.keys(LEX.GENRES).forEach((genre) => {
+    ['micro', 'short', 'festival'].forEach((length) => {
+      const premise = Parse.parse('somebody loses a watch in a bar', { genre });
+      const script = Writer.write(premise, { length, seed: 11 });
+      const sections = Why.explain(script, Reel.build(script));
+      assert(sections.length >= 5, genre + '/' + length + ': only ' + sections.length + ' sections');
+      sections.forEach((section) => {
+        assert(section.title && section.lines.length,
+          genre + '/' + length + ': empty section "' + section.title + '"');
+        section.lines.forEach((line) => {
+          assert(typeof line === 'string' && line.length > 4,
+            genre + '/' + length + ': a stub line in ' + section.title);
+          assert(line.indexOf('undefined') === -1 && line.indexOf('[object') === -1,
+            genre + '/' + length + ': ' + line);
+          assert(!/\{[A-Z_]+\}/.test(line), genre + '/' + length + ': unfilled slot in ' + line);
+        });
+      });
+    });
+  });
+});
+
+test('the panel reads the decisions rather than restating the rules', () => {
+  // An explanation written separately from the decision drifts from it, and a
+  // WRONG explanation is worse than none: it teaches somebody something untrue
+  // about their own film. So each claim is checked against the film itself.
+  const script = Writer.write(Parse.parse('a night nurse buries a key in the woods'),
+    { length: 'short', seed: 5 });
+  const reel = Reel.build(script);
+  const text = Why.toText(script, reel);
+
+  assert(text.indexOf(String(script.seed)) !== -1, 'the panel never says the seed');
+  assert(text.indexOf(script.premise.object) !== -1, 'the panel never names the object');
+  script.characters.forEach((c) => assert(text.indexOf(c.name) !== -1,
+    c.name + ' is missing from the panel'));
+  // The tempo it quotes has to be the tempo the score is actually asked for.
+  const bpm = require(path.join(__dirname, '..', 'js', 'film-score.js')).request(reel).bpm;
+  assert(text.indexOf(String(bpm)) !== -1, 'the panel quotes a tempo the score never asked for');
+  // The set names it lists have to be the sets the reel actually uses.
+  const used = new Set(reel.shots.map((s) => s.set));
+  let named = 0;
+  used.forEach((setKey) => { if (text.indexOf(setKey) !== -1) named++; });
+  eq(named, used.size, 'the panel does not account for every set in the film');
+});
+
+test('the panel never explains a beat the film does not contain', () => {
+  // The first draft said the film "holds longest on the choice" for every film,
+  // including the ones whose spine has no choice beat in it.
+  for (let seed = 1; seed <= 20; seed++) {
+    const script = Writer.write(Parse.parse('two brothers argue over a boat'), { length: 'short', seed });
+    const reel = Reel.build(script);
+    const beats = new Set(reel.shots.map((s) => s.beat));
+    const cutting = Why.explain(script, reel).filter((s) => s.title === 'How it is cut')[0];
+    cutting.lines.forEach((line) => {
+      const claim = /(?:Fastest at the|slowest at the) (\w+)/g;
+      let m;
+      while ((m = claim.exec(line)) !== null) {
+        assert(beats.has(m[1]), 'seed ' + seed + ': the panel named the ' + m[1] +
+          ', which this film does not have');
+      }
+    });
+  }
+});
+
+test('two voices in one film are far enough apart to hear', () => {
+  // The dials come from the name and the role, and roles can collapse two people
+  // onto the same register -- a night nurse is formal and a stranger is guarded,
+  // so one film gave both leads formal 0.95 and 0.93.
+  const lead = Voice.voiceFor('SHAY', 'night nurse', 5);
+  const flat = Voice.voiceFor('SAM', 'stranger', 5);
+  const apart = (a, b) => Voice.DIALS.reduce((m, k) => Math.max(m, Math.abs(a[k] - b[k])), 0);
+  assert(apart(lead, flat) < Voice.MIN_APART, 'this pair no longer demonstrates the problem');
+  assert(apart(lead, Voice.contrast(lead, flat)) >= Voice.MIN_APART - 1e-9,
+    'contrast did not pull them apart');
+  // And it never pushes a dial off the scale.
+  Voice.DIALS.forEach((k) => {
+    const out = Voice.contrast({ formal: 1, terse: 1, hedging: 1, warmth: 1 },
+      { formal: 1, terse: 1, hedging: 1, warmth: 1 });
+    assert(out[k] >= 0 && out[k] <= 1, k + ' went off the scale: ' + out[k]);
+  });
+});
+
+test('every film has two audible voices in it now', () => {
+  let heard = 0;
+  const ideas = [
+    'a night nurse buries a key in the woods',
+    'two brothers argue over a boat their father left them',
+    'a detective returns a stolen watch to the wrong house',
+    'a teenager hides a letter from her grandmother',
+    'a surgeon and a drifter share a waiting room'
+  ];
+  ideas.forEach((idea) => {
+    const premise = Parse.parse(idea);
+    const a = Voice.voiceFor(premise.hero.name, premise.hero.role, premise.seed);
+    const b = Voice.contrast(a, Voice.voiceFor(premise.other.name, premise.other.role, premise.seed));
+    const apart = Voice.DIALS.reduce((m, k) => Math.max(m, Math.abs(a[k] - b[k])), 0);
+    if (apart >= Voice.MIN_APART - 1e-9) heard++;
+  });
+  eq(heard, ideas.length, 'only ' + heard + ' of ' + ideas.length + ' films have two audible voices');
 });
 
 

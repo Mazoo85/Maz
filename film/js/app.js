@@ -31,7 +31,7 @@
   var el = {};
   ['idea', 'examples', 'length', 'genre', 'titleInput', 'write', 'reroll', 'surprise', 'placeholder',
    'result', 'scriptTitle', 'scriptLogline', 'chipGenre', 'chipScenes', 'chipRuntime',
-   'chipSeed', 'tabScript', 'tabShots', 'tabFilm', 'viewScript', 'viewShots', 'viewFilm',
+   'chipSeed', 'tabScript', 'tabShots', 'tabFilm', 'tabWhy', 'viewScript', 'viewShots', 'viewFilm', 'viewWhy',
    'editToggle', 'rerollFree', 'undoEdit', 'directStatus', 'directBar',
    'copy', 'dlFountain', 'dlFdx', 'dlText', 'dlShots', 'print', 'save', 'status',
    'libraryList', 'libCount', 'libEmpty', 'clearLib', 'filmCanvas', 'bigPlay', 'playFilm',
@@ -42,6 +42,7 @@
 
   var Reel = window.FilmReel;
   var Director = window.FilmDirector;
+  var Why = window.FilmWhy;
   var PlayerLib = window.FilmPlayer;
   var ScoreLib = window.FilmScore;
 
@@ -174,6 +175,7 @@
     renderPage(script);
     renderShots(script);
     buildFilm(script);
+    renderWhy(script);
     el.result.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -320,6 +322,43 @@
     });
   }
 
+  /* Every choice the program made, in the order somebody would want to read
+   * them. Rendered after the film is built, because half of what it explains --
+   * the cutting, the tempo, the room tone -- is a property of the reel rather
+   * than of the script. */
+  function renderWhy(script) {
+    if (!Why || !el.viewWhy) return;
+    el.viewWhy.textContent = '';
+    var sections;
+    try {
+      sections = Why.explain(script, reel);
+    } catch (e) {
+      // A panel that explains the film must never be the thing that breaks it.
+      el.viewWhy.textContent = 'Could not work out why: ' + e.message;
+      return;
+    }
+    sections.forEach(function (section) {
+      var box = document.createElement('section');
+      box.className = 'why-section';
+      var heading = document.createElement('h3');
+      heading.textContent = section.title;
+      box.appendChild(heading);
+      var list = document.createElement('ul');
+      section.lines.forEach(function (line) {
+        var item = document.createElement('li');
+        item.textContent = line;
+        list.appendChild(item);
+      });
+      box.appendChild(list);
+      el.viewWhy.appendChild(box);
+    });
+    var foot = document.createElement('p');
+    foot.className = 'why-foot';
+    foot.textContent = 'Every line above is read from the decision itself, not written about it ' +
+      'afterwards — so it cannot drift out of step with the film you are watching.';
+    el.viewWhy.appendChild(foot);
+  }
+
   function renderShots(script) {
     var host = el.viewShots;
     host.textContent = '';
@@ -351,8 +390,8 @@
   }
 
   function showTab(which) {
-    var tabs = { script: el.tabScript, shots: el.tabShots, film: el.tabFilm };
-    var views = { script: el.viewScript, shots: el.viewShots, film: el.viewFilm };
+    var tabs = { script: el.tabScript, shots: el.tabShots, film: el.tabFilm, why: el.tabWhy };
+    var views = { script: el.viewScript, shots: el.viewShots, film: el.viewFilm, why: el.viewWhy };
     Object.keys(tabs).forEach(function (key) {
       var on = key === which;
       tabs[key].classList.toggle('is-on', on);
@@ -796,6 +835,7 @@
   el.tabScript.addEventListener('click', function () { showTab('script'); });
   el.tabShots.addEventListener('click', function () { showTab('shots'); });
   el.tabFilm.addEventListener('click', function () { showTab('film'); });
+  el.tabWhy.addEventListener('click', function () { showTab('why'); });
 
   el.playFilm.addEventListener('click', playFilm);
   el.bigPlay.addEventListener('click', playFilm);

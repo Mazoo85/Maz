@@ -155,12 +155,11 @@
 
   /* In a sentence, for the "why" panel. */
   function describe(dressing, setKey) {
-    var how = {
-      kept: 'looked after — almost nothing out of place',
-      worn: 'lived in — things left where they were put down',
-      abandoned: 'nobody has been here in a while'
-    }[dressing.condition];
-    return 'The ' + setKey + ' is ' + how + '.';
+    return {
+      kept: 'The ' + setKey + ' is looked after: almost nothing out of place.',
+      worn: 'The ' + setKey + ' is lived in: things left where they were put down.',
+      abandoned: 'Nobody has been in the ' + setKey + ' for a while.'
+    }[dressing.condition] || ('The ' + setKey + ' is as it is.');
   }
 
   /* ------------------------------------------------------------- drawing */

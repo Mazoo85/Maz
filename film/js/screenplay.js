@@ -272,9 +272,15 @@
     // How each of them talks. Derived from the name and the role rather than
     // drawn from `rng`, so adding a scene above this line cannot change the way
     // a character speaks in the scene below it.
+    var heroVoice = VOICE.voiceFor(premise.hero.name, premise.hero.role, seed);
     ctx.voices = {
-      hero: VOICE.voiceFor(premise.hero.name, premise.hero.role, seed),
-      other: VOICE.voiceFor(premise.other.name, premise.other.role, seed)
+      hero: heroVoice,
+      // Pushed away from the lead where the roles happened to land them on the
+      // same register -- a night nurse and a stranger both come out formal and
+      // terse, which is two people sounding the same in the one feature whose
+      // purpose is that they do not.
+      other: VOICE.contrast(heroVoice,
+        VOICE.voiceFor(premise.other.name, premise.other.role, seed))
     };
 
     // What happens to the thing the story turns on. One arc for the whole film,

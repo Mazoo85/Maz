@@ -101,7 +101,63 @@
     if (v.hedging > 0.62) bits.push('softens things');
     else if (v.hedging < 0.3) bits.push('says it flat');
     if (v.warmth > 0.62) bits.push('uses your name');
-    return bits.join(', ');
+
+    // Two people can land on the same side of every threshold and get the same
+    // sentence, which makes the description useless exactly where it matters:
+    // in the panel that claims they sound different. So whatever else is true,
+    // name the dial this person is furthest along.
+    var dials = [
+      ['formal', v.formal, 'careful with words', 'blunt'],
+      ['terse', v.terse, 'brief', 'takes their time'],
+      ['hedging', v.hedging, 'hesitant', 'certain'],
+      ['warmth', v.warmth, 'warm', 'distant']
+    ];
+    var strongest = dials[0];
+    var furthest = -1;
+    dials.forEach(function (d) {
+      var away = Math.abs(d[1] - 0.5);
+      if (away > furthest) { furthest = away; strongest = d; }
+    });
+    return bits.join(', ') + '; above all, ' +
+      (strongest[1] >= 0.5 ? strongest[2] : strongest[3]);
+  }
+
+  var DIALS = ['formal', 'terse', 'hedging', 'warmth'];
+
+  /* Push a second voice away from the first.
+   *
+   * The dials come from the name and the role, and roles can collapse two people
+   * onto the same register: a night nurse is a FORMAL_ROLE and a stranger is a
+   * GUARDED_ROLE, so one film gave both its leads formal 0.95 / 0.93 and terse
+   * 0.72 / 0.66 -- which is two people who sound the same, in the feature whose
+   * whole purpose is that they do not.
+   *
+   * So the supporting character is moved. The dial they are already furthest
+   * apart on is pushed further, which keeps whatever the role earned and only
+   * sharpens it; nobody is turned into somebody else to satisfy a number.
+   */
+  var MIN_APART = 0.3;
+
+  function contrast(lead, second) {
+    var out = { name: second.name };
+    DIALS.forEach(function (k) { out[k] = second[k]; });
+
+    var widest = DIALS[0];
+    var apart = -1;
+    DIALS.forEach(function (k) {
+      var gap = Math.abs(lead[k] - second[k]);
+      if (gap > apart) { apart = gap; widest = k; }
+    });
+    if (apart >= MIN_APART) return out;
+
+    // Away from the lead, and past the threshold. Clamped, so a lead already at
+    // an extreme does not push the other off the end of the scale -- in that
+    // case they land at the far end, which is as far apart as the dial goes.
+    var target = lead[widest] >= 0.5
+      ? Math.min(lead[widest], 1) - MIN_APART
+      : Math.max(lead[widest], 0) + MIN_APART;
+    out[widest] = clamp01(target);
+    return out;
   }
 
   /* ------------------------------------------------------------- transforms */
@@ -230,6 +286,9 @@
   }
 
   var API = {
+    DIALS: DIALS,
+    MIN_APART: MIN_APART,
+    contrast: contrast,
     voiceFor: voiceFor,
     describe: describe,
     speak: speak,
