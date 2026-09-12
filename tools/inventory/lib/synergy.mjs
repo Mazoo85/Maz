@@ -35,16 +35,26 @@ export const DECLARED_PAIRINGS = [
     value: 3
   },
   {
-    id: 'madlibs-seeds-the-games',
+    id: 'one-template-filler-instead-of-two',
     from: ['web:madlibs'],
-    to: ['web:zomboid', 'web:coda-pics'],
-    title: 'MADLIBS seeds prompts and in-game flavour text',
+    to: ['web:coda-pics'],
+    title: 'MADLIBS and CODA PICS fill templates twice, and only one of them does it correctly',
     detail:
-      'madlibs/storyideas is already published and already consumed by SCRIPT FORGE. The same ' +
-      'generator can hand CODA PICS a "surprise me" prompt that is a real scene rather than a random ' +
-      'noun, and give ZOMBOID the radio broadcasts and note scraps its world is missing. Consuming an ' +
-      'already-published capability is the cheapest integration in the repo.',
-    effort: 'small',
+      'This entry replaces a wrong one, and how it was wrong is the useful part. It used to say ' +
+      'MADLIBS could hand CODA PICS a "surprise me" prompt that is a real scene. Tried, it does not ' +
+      'work: MADLIBS writes story prose ("A brazen pilot named Cordelia discovers they are the last ' +
+      'heir to Umberfall") and CODA PICS parses scene descriptions, so feeding one to the other ' +
+      'painted "a sword in stone in an island at sunset" — words it recognised, a picture of nothing ' +
+      'anyone asked for. The vocabularies are not compatible and no amount of wiring makes them so.\n\n' +
+      'What IS shared is the machinery underneath. Both projects fill a template from a seeded ' +
+      'random source and both have to choose "a" or "an" for a word they picked at random. MADLIBS ' +
+      'does that properly, in applyArticles, and is tested on it. CODA PICS had its own four-line ' +
+      'copy that always wrote "a", which produced "a orange fish" about once every forty prompts ' +
+      'until it was fixed. The real opportunity is to make madlibs/js/generator.js\'s fillTemplate ' +
+      'take its dictionary as an argument rather than reading MADLIBS_DICT at load time. It would ' +
+      'then be publishable as madlibs/templates, and CODA PICS could fill its surprise prompts with ' +
+      'the generator that already has the grammar right, instead of the second copy that did not.',
+    effort: 'medium',
     value: 2
   },
   {

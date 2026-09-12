@@ -356,6 +356,13 @@
   var SURPRISE_ADJ = ['a lonely', 'an ancient', 'a giant', 'a tiny', 'a glowing', 'a ruined', 'a peaceful', 'an epic'];
   var SURPRISE_PREP = ['over', 'in', 'above', 'beside', 'deep in', 'at the edge of'];
 
+  /* "an orange fish", not "a orange fish". The adjective list above is written
+   * with its article already attached ('an ancient', 'a giant'), but a palette
+   * name is picked at random and a tenth of them begin with a vowel. */
+  function article(word) {
+    return /^[aeiou]/i.test(String(word)) ? 'an' : 'a';
+  }
+
   function surprise(seed) {
     var r = rngFrom(hash('surprise|' + (seed == null ? Date.now() : seed)));
     var shape = pick(SURPRISE_SHAPES, r);
@@ -366,7 +373,7 @@
     var colour = pick(LEX.PALETTES, r);
     return shape
       .replace('{adj}', pick(SURPRISE_ADJ, r))
-      .replace('{colour}', 'a ' + colour.words[0])
+      .replace('{colour}', article(colour.words[0]) + ' ' + colour.words[0])
       .replace('{subject}', subject.words[0])
       .replace('{prep}', pick(SURPRISE_PREP, r))
       .replace('{scene}', scene.words[0])

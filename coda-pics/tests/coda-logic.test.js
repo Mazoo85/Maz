@@ -144,6 +144,17 @@ section('Reading what people type');
     check(!!spec.subject, 'surprise ' + i + ' ("' + text + '") has nothing in it');
   }
   pass('40 surprise prompts all parse back into a picture');
+
+  /* A palette name is picked at random and a tenth of them start with a vowel,
+   * so this wrote "a orange fish" roughly once every forty prompts — often
+   * enough that anyone pressing Surprise me a few times would see it. */
+  var misarticled = [];
+  for (var a = 0; a < 400; a++) {
+    var line = PROMPT.surprise(a);
+    if (/\ba [aeiou]/i.test(line)) misarticled.push(line);
+  }
+  check(misarticled.length === 0, 'wrong article in: ' + misarticled.slice(0, 3).join(' | '));
+  pass('400 surprise prompts all read as English ("an orange fish", not "a orange fish")');
 })();
 
 /* ------------------------------------------------------------- 3. painting */

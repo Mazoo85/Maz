@@ -16,7 +16,7 @@ size is in the wiring between the parts, not in any one part.
 | Native games and demos (`apps/`) | 161 | 31,861 lines |
 | Engine capabilities (`engine/include/maz/`) | 692 | 87,768 lines across 20 subsystems |
 | C++ test files (`tests/`) | 372 | |
-| Browser apps and games | 6 | 17,417 lines |
+| Browser apps and games | 6 | 17,423 lines |
 | Python tools | 3 | |
 | CI gates (`scripts/`) | 3 | |
 | Build and codegen helpers (`tools/`) | 11 | |
@@ -46,7 +46,7 @@ will ever see, and the ones that can most easily lend each other capabilities.
 | **SONG FORGE** <br>`music/` | Writes and plays complete songs in the browser — chords, bass, drums, arpeggio and melody arranged into verses and choruses across 8 genres. WAV and MIDI expor… | 3,330 | music/composer, music/soundtrack | — | — |
 | **MADLIBS STORY FORGE** <br>`madlibs/` | Randomly forges story ideas broken into scene beats, ready to seed a storyboard or script. Zero dependencies. | 1,447 | madlibs/storyideas | — | — |
 | **SCRIPT FORGE** <br>`film/` | Type what your film is about and get the whole thing back: a formatted screenplay, a shot list, and an animated short film — performed by jointed characters an… | 6,163 | — | music/composer, madlibs/storyideas | — |
-| **CODA PICS** <br>`coda-pics/` | Type what you want to see and it paints it: 60 subjects, 20 settings, every hour and weather, finished in one of 14 art styles from pixel art to watercolour. D… | 3,735 | — | — | not in exchange.json |
+| **CODA PICS** <br>`coda-pics/` | Type what you want to see and it paints it: 60 subjects, 20 settings, every hour and weather, finished in one of 14 art styles from pixel art to watercolour. D… | 3,741 | — | — | not in exchange.json |
 
 ### Python tools
 
@@ -458,16 +458,26 @@ than only describing it.
 
 <sub>effort: medium · value: ★★★</sub>
 
-#### MADLIBS seeds prompts and in-game flavour text
+#### MADLIBS and CODA PICS fill templates twice, and only one of them does it correctly
 
-`web:madlibs` → `web:zomboid`, `web:coda-pics`
+`web:madlibs` → `web:coda-pics`
 
-madlibs/storyideas is already published and already consumed by SCRIPT FORGE. The same generator
-can hand CODA PICS a "surprise me" prompt that is a real scene rather than a random noun, and
-give ZOMBOID the radio broadcasts and note scraps its world is missing. Consuming an
-already-published capability is the cheapest integration in the repo.
+This entry replaces a wrong one, and how it was wrong is the useful part. It used to say MADLIBS
+could hand CODA PICS a "surprise me" prompt that is a real scene. Tried, it does not work:
+MADLIBS writes story prose ("A brazen pilot named Cordelia discovers they are the last heir to
+Umberfall") and CODA PICS parses scene descriptions, so feeding one to the other painted "a
+sword in stone in an island at sunset" — words it recognised, a picture of nothing anyone asked
+for. The vocabularies are not compatible and no amount of wiring makes them so. What IS shared
+is the machinery underneath. Both projects fill a template from a seeded random source and both
+have to choose "a" or "an" for a word they picked at random. MADLIBS does that properly, in
+applyArticles, and is tested on it. CODA PICS had its own four-line copy that always wrote "a",
+which produced "a orange fish" about once every forty prompts until it was fixed. The real
+opportunity is to make madlibs/js/generator.js's fillTemplate take its dictionary as an argument
+rather than reading MADLIBS_DICT at load time. It would then be publishable as
+madlibs/templates, and CODA PICS could fill its surprise prompts with the generator that already
+has the grammar right, instead of the second copy that did not.
 
-<sub>effort: small · value: ★★</sub>
+<sub>effort: medium · value: ★★</sub>
 
 #### MAZ-SCRAPE fills the game worlds with real data
 
@@ -535,8 +545,8 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
   <br>Nothing in the repo names these types. They are either genuinely unused — in which case they are unproven code that will rot — or they are used through another module's API and only look unused. Both readings are worth resolving: a test settles it either way.
 - **The golden screenshots become the arcade's cover art**
   <br>tests/golden/ holds a deterministic captured frame for most apps, produced purely to catch rendering regressions. That is also a ready-made, always-current screenshot library: the hub at index.html lists every project as text today, and could show each native demo's golden frame as its tile art at zero maintenance cost, because CI regenerates them.
-- **MADLIBS seeds prompts and in-game flavour text**
-  <br>madlibs/storyideas is already published and already consumed by SCRIPT FORGE. The same generator can hand CODA PICS a "surprise me" prompt that is a real scene rather than a random noun, and give ZOMBOID the radio broadcasts and note scraps its world is missing. Consuming an already-published capability is the cheapest integration in the repo.
+- **MADLIBS and CODA PICS fill templates twice, and only one of them does it correctly**
+  <br>This entry replaces a wrong one, and how it was wrong is the useful part. It used to say MADLIBS could hand CODA PICS a "surprise me" prompt that is a real scene. Tried, it does not work: MADLIBS writes story prose ("A brazen pilot named Cordelia discovers they are the last heir to Umberfall") and CODA PICS parses scene descriptions, so feeding one to the other painted "a sword in stone in an island at sunset" — words it recognised, a picture of nothing anyone asked for. The vocabularies are not compatible and no amount of wiring makes them so.  What IS shared is the machinery underneath. Bot…
 - **MAZ-SCRAPE fills the game worlds with real data**
   <br>The scraper turns a YAML recipe into JSONL/CSV/SQLite from static HTML. ZOMBOID's Anchorage, apps/village and apps/world are all populated by hand-written name and place tables today. A recipe that harvests real street, business and place names into a JSON table the games load would make all three worlds larger without a line of new game code.
 - **CODA PICS: declared in shared/exchange.json**
