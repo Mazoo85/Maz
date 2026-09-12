@@ -10,6 +10,177 @@
    * WAV
    * ------------------------------------------------------------------ */
 
+  /* ------------------------------------------------------------------ *
+   * Loudness, to ITU-R BS.1770
+   *
+   * "How loud is this" is not peak level and it is not average level. A track
+   * can peak at full scale and still sound quiet, and a quiet passage full of
+   * bass reads louder on a plain average than it sounds. BS.1770 is the
+   * measurement every streaming service uses to decide how much to turn a
+   * track down, so it is the one worth reporting.
+   *
+   * Three parts: filter the audio the way an ear weights frequency, average
+   * the energy in short overlapping blocks, then throw away the blocks that
+   * are mostly silence before averaging what is left. That last step — the
+   * gate — is why a song with a long quiet intro does not read as quiet.
+   * ------------------------------------------------------------------ */
+
+  /**
+   * One biquad pass, in place over a copy.
+   *
+   * Written out rather than run through a BiquadFilterNode because the
+   * coefficients here are given by the standard directly, and a Web Audio
+   * filter takes a frequency and a Q instead — with `Q` meaning different
+   * things for different filter types, which is exactly the trap the mix bus
+   * crossover fell into.
+   */
+  function biquad(src, b0, b1, b2, a1, a2) {
+    const out = new Float32Array(src.length);
+    let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    for (let i = 0; i < src.length; i++) {
+      const x0 = src[i];
+      const y0 = b0 * x0 + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+      out[i] = y0;
+      x2 = x1; x1 = x0;
+      y2 = y1; y1 = y0;
+    }
+    return out;
+  }
+
+  /**
+   * K-weighting: a shelf that lifts the treble about 4 dB, then a highpass
+   * that rolls off below about 38 Hz.
+   *
+   * The shelf stands in for the head — sound arriving from in front is
+   * boosted at high frequencies by the shape of the skull — and the highpass
+   * for the fact that very low bass contributes far less to loudness than its
+   * energy suggests. The standard publishes coefficients for 48 kHz only, so
+   * these are built from the filter's design parameters instead and come out
+   * right at whatever rate the render happens to use.
+   */
+  function kWeight(data, rate) {
+    const shelfF = 1681.974450955533;
+    const shelfG = 3.999843853973347;
+    const shelfQ = 0.7071752369554196;
+    let K = Math.tan(Math.PI * shelfF / rate);
+    const Vh = Math.pow(10, shelfG / 20);
+    const Vb = Math.pow(Vh, 0.4996667741545416);
+    let a0 = 1 + K / shelfQ + K * K;
+    const s = biquad(data,
+      (Vh + Vb * K / shelfQ + K * K) / a0,
+      2 * (K * K - Vh) / a0,
+      (Vh - Vb * K / shelfQ + K * K) / a0,
+      2 * (K * K - 1) / a0,
+      (1 - K / shelfQ + K * K) / a0);
+
+    const hpF = 38.13547087602444;
+    const hpQ = 0.5003270373238773;
+    K = Math.tan(Math.PI * hpF / rate);
+    a0 = 1 + K / hpQ + K * K;
+    return biquad(s, 1, -2, 1,
+      2 * (K * K - 1) / a0,
+      (1 - K / hpQ + K * K) / a0);
+  }
+
+  /**
+   * Integrated loudness in LUFS, plus the sample peak.
+   *
+   * Reported as the sample peak rather than the true peak, which would need
+   * the signal resampled four times over to catch the peaks that fall between
+   * samples. Calling it what it is beats reporting a number that is quietly
+   * optimistic by a fraction of a decibel.
+   */
+  function loudness(buffer) {
+    const rate = buffer.sampleRate;
+    const chans = [];
+    let peak = 0;
+    for (let c = 0; c < buffer.numberOfChannels; c++) {
+      const d = buffer.getChannelData(c);
+      for (let i = 0; i < d.length; i++) {
+        const v = Math.abs(d[i]);
+        if (v > peak) peak = v;
+      }
+      chans.push(kWeight(d, rate));
+    }
+    const block = Math.round(rate * 0.4);
+    const hop = Math.round(rate * 0.1);
+    const n = buffer.length;
+    if (n < block || !chans.length) return { lufs: -Infinity, peak: peak, blocks: 0 };
+
+    /* Mean square per channel per block. Kept per channel because the gate
+       averages the energy, not the finished loudness figures. */
+    const zs = [];
+    const ls = [];
+    for (let start = 0; start + block <= n; start += hop) {
+      const z = [];
+      let sum = 0;
+      for (let c = 0; c < chans.length; c++) {
+        const d = chans[c];
+        let s2 = 0;
+        for (let i = start; i < start + block; i++) s2 += d[i] * d[i];
+        const zc = s2 / block;
+        z.push(zc);
+        sum += zc;                     // left and right both weigh 1
+      }
+      zs.push(z);
+      ls.push(-0.691 + 10 * Math.log10(sum || 1e-30));
+    }
+
+    function meanOver(keep) {
+      const z = new Array(chans.length).fill(0);
+      let count = 0;
+      for (let j = 0; j < zs.length; j++) {
+        if (!keep(j)) continue;
+        for (let c = 0; c < chans.length; c++) z[c] += zs[j][c];
+        count++;
+      }
+      if (!count) return null;
+      let sum = 0;
+      for (let c = 0; c < chans.length; c++) sum += z[c] / count;
+      return sum;
+    }
+
+    // Absolute gate: anything below -70 LUFS is silence, not quiet music.
+    const ABS = -70;
+    const absMean = meanOver(function (j) { return ls[j] > ABS; });
+    if (absMean === null) return { lufs: -Infinity, peak: peak, blocks: ls.length };
+    /* Relative gate: 10 dB below the average of what is left, which is what
+       stops a long fade or a silent intro from dragging the figure down. */
+    const rel = -0.691 + 10 * Math.log10(absMean) - 10;
+    const gated = meanOver(function (j) { return ls[j] > ABS && ls[j] > rel; });
+    if (gated === null) return { lufs: -Infinity, peak: peak, blocks: ls.length };
+    return { lufs: -0.691 + 10 * Math.log10(gated), peak: peak, blocks: ls.length };
+  }
+
+  /**
+   * The gain that would bring a render to a target loudness, held back short
+   * of clipping.
+   *
+   * Loudness and peak are different things, so asking for a loud target can
+   * demand more gain than the peaks leave room for. Rather than clip — or
+   * quietly squash the track to get there — the gain stops at the ceiling and
+   * says so, and the caller can report the loudness actually reached.
+   */
+  function gainForTarget(measure, targetLufs, ceiling) {
+    const top = ceiling === undefined ? 0.99 : ceiling;
+    if (!isFinite(measure.lufs)) return { gain: 1, limited: false, reached: measure.lufs };
+    const want = Math.pow(10, (targetLufs - measure.lufs) / 20);
+    const most = measure.peak > 0 ? top / measure.peak : want;
+    const gain = Math.min(want, most);
+    return { gain: gain, limited: gain < want - 1e-9,
+             reached: measure.lufs + 20 * Math.log10(gain) };
+  }
+
+  /** Multiply every sample of a rendered buffer in place. */
+  function applyGain(buffer, gain) {
+    if (gain === 1) return buffer;
+    for (let c = 0; c < buffer.numberOfChannels; c++) {
+      const d = buffer.getChannelData(c);
+      for (let i = 0; i < d.length; i++) d[i] *= gain;
+    }
+    return buffer;
+  }
+
   function encodeWav(buffer) {
     const channels = buffer.numberOfChannels;
     const frames = buffer.length;
@@ -41,12 +212,31 @@
     const data = [];
     for (let c = 0; c < channels; c++) data.push(buffer.getChannelData(c));
 
+    /*
+     * Quantise to 16 bits, with dither.
+     *
+     * Rounding every sample to the nearest of 65,536 steps leaves an error,
+     * and that error is not random — it follows the signal, which makes it
+     * *distortion* rather than noise. On a fade-out, where the signal is using
+     * only the last few steps, it is plainly audible as a gritty, grainy tail.
+     *
+     * Adding a tiny amount of noise before rounding breaks the correlation: the
+     * error becomes an even hiss some 90 dB down, which is inaudible, instead
+     * of distortion riding on the music. The noise is triangular — the
+     * difference of two flat random numbers — because a triangular spread is
+     * the one that leaves no trace of the signal behind in the error at all.
+     *
+     * The old code also never rounded; it truncated toward zero, which is a
+     * half-step bias on every sample as well as a half-step of extra error.
+     */
+    const LSB = 1 / 32768;
     let offset = 44;
     for (let i = 0; i < frames; i++) {
       for (let c = 0; c < channels; c++) {
-        let s = data[c][i];
-        if (s > 1) s = 1; else if (s < -1) s = -1;
-        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+        const s = data[c][i] + (Math.random() - Math.random()) * LSB;
+        let v = Math.round(s * 32768);
+        if (v > 32767) v = 32767; else if (v < -32768) v = -32768;
+        view.setInt16(offset, v, true);
         offset += 2;
       }
     }
@@ -375,6 +565,9 @@
 
   global.Exporter = {
     encodeWav: encodeWav,
+    loudness: loudness,
+    gainForTarget: gainForTarget,
+    applyGain: applyGain,
     buildMidi: buildMidi,
     makeZip: makeZip,
     download: download,

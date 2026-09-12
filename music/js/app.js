@@ -1471,7 +1471,25 @@
         E.renderOffline(state.song, player.mix, function (p) {
           el('exportBar').style.width = Math.round(5 + p * 55) + '%';
         }).then(function (buffer) {
-          el('exportBar').style.width = '85%';
+          el('exportBar').style.width = '75%';
+          /* Measure before encoding, so the figure reported is the finished
+             file's. Normalising is a single multiply, held short of clipping —
+             see gainForTarget. */
+          const target = el('loudTarget').value;
+          let heard = X.loudness(buffer);
+          let note = '';
+          if (target) {
+            const g = X.gainForTarget(heard, parseFloat(target));
+            X.applyGain(buffer, g.gain);
+            heard = { lufs: g.reached, peak: heard.peak * g.gain };
+            note = g.limited
+              ? ' (as loud as its peaks allow — ' + heard.lufs.toFixed(1) + ' LUFS)'
+              : ' at ' + heard.lufs.toFixed(1) + ' LUFS';
+          } else if (isFinite(heard.lufs)) {
+            note = ' at ' + heard.lufs.toFixed(1) + ' LUFS, peaking ' +
+              (20 * Math.log10(heard.peak || 1e-9)).toFixed(1) + ' dB';
+          }
+          el('exportBar').style.width = '90%';
           const blob = X.encodeWav(buffer);
           el('exportBar').style.width = '100%';
           return X.deliver(blob, X.safeName(state.song.title) + '-' + X.safeName(state.song.seed) + '.wav')
@@ -1479,7 +1497,7 @@
               status(r === 'declined' ? 'Download cancelled.'
                 : r === 'busy' ? 'Another download is still open — try again in a moment.'
                 : r === 'unavailable' ? 'This browser would not accept the file.'
-                : 'Audio saved.');
+                : 'Audio saved' + note + '.');
             });
         }).catch(function (err) {
           status('Render failed: ' + err.message, true);

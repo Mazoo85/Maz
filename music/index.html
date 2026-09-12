@@ -438,6 +438,16 @@
       <button type="button" class="wide-btn" id="midiBtn">⬇ Download MIDI (.mid)</button>
       <button type="button" class="wide-btn" id="stemsBtn">⬇ Download stems (.zip)</button>
     </div>
+    <div class="song-controls">
+      <label class="tool-field" for="loudTarget"><span>Loudness</span>
+        <select id="loudTarget">
+          <option value="">As mixed</option>
+          <option value="-14">−14 LUFS (streaming)</option>
+          <option value="-16">−16 LUFS (podcast)</option>
+          <option value="-9">−9 LUFS (loud)</option>
+        </select>
+      </label>
+    </div>
     <p class="panel-hint" id="exportNote">
       The WAV is the finished track. The MIDI holds every note on separate tracks, so you can
       open it in GarageBand, Ableton, FL Studio, Logic or MuseScore and change anything.

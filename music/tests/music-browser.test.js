@@ -1428,6 +1428,132 @@ function launchOptions() {
     'and leaves the stereo above it alone (' + monoProof.off.sideHigh.toFixed(4) +
     ' → ' + monoProof.on.sideHigh.toFixed(4) + ')');
 
+  console.log('\n— loudness and dither —');
+  /* Loudness is measured against signals whose answer is known in advance
+     rather than against a song, because a song has no right answer to check
+     against. The anchor is the calibration point the standard is built around:
+     a full-scale 1 kHz sine in both channels is 0 LUFS exactly. */
+  const meter = await page.evaluate(async function () {
+    const rate = 44100;
+    function make(seconds, fill) {
+      const ctx = new OfflineAudioContext(2, Math.round(rate * seconds), rate);
+      const buf = ctx.createBuffer(2, Math.round(rate * seconds), rate);
+      fill(buf.getChannelData(0), buf.getChannelData(1), rate);
+      return buf;
+    }
+    function sine(amp, freq) {
+      return function (L, R, sr) {
+        for (let i = 0; i < L.length; i++) L[i] = R[i] = amp * Math.sin(2 * Math.PI * freq * i / sr);
+      };
+    }
+    const out = {};
+    out.full = window.Exporter.loudness(make(5, sine(1, 1000)));
+    out.half = window.Exporter.loudness(make(5, sine(0.5, 1000)));
+    out.oneChannel = window.Exporter.loudness(make(5, function (L, R, sr) {
+      for (let i = 0; i < L.length; i++) { L[i] = Math.sin(2 * Math.PI * 1000 * i / sr); R[i] = 0; }
+    }));
+    out.bass = window.Exporter.loudness(make(5, sine(0.5, 60)));
+    out.treble = window.Exporter.loudness(make(5, sine(0.5, 8000)));
+    out.silence = window.Exporter.loudness(make(5, function () {}));
+    /* Two seconds of tone then ten of silence. Ungated this would average out
+       to about 14 dB down; the whole point of the gate is that it does not. */
+    out.gated = window.Exporter.loudness(make(12, function (L, R, sr) {
+      for (let i = 0; i < sr * 2; i++) L[i] = R[i] = 0.5 * Math.sin(2 * Math.PI * 1000 * i / sr);
+    }));
+    /* Normalising. The second case is a quiet piece that nonetheless already
+       touches full scale — a sparse track with sharp transients — which is
+       exactly when a loud target asks for gain the peaks cannot give. */
+    out.lift = window.Exporter.gainForTarget(out.half, -14);
+    out.spiky = window.Exporter.loudness(make(5, function (L, R, sr) {
+      for (let i = 0; i < L.length; i++) {
+        L[i] = R[i] = 0.05 * Math.sin(2 * Math.PI * 1000 * i / sr);
+      }
+      for (let k = 1; k < 5; k++) { L[k * sr] = 1; R[k * sr] = 1; }
+    }));
+    out.capped = window.Exporter.gainForTarget(out.spiky, -9);
+    return out;
+  });
+
+  check(Math.abs(meter.full.lufs) < 0.1,
+    'a full-scale 1 kHz stereo sine reads 0 LUFS, as the standard defines it (' +
+    meter.full.lufs.toFixed(2) + ')');
+  check(Math.abs((meter.full.lufs - meter.half.lufs) - 6.02) < 0.1,
+    'halving the level reads exactly 6 dB quieter (' +
+    (meter.full.lufs - meter.half.lufs).toFixed(2) + ')');
+  check(Math.abs((meter.full.lufs - meter.oneChannel.lufs) - 3.01) < 0.1,
+    'one channel instead of two reads 3 dB quieter (' +
+    (meter.full.lufs - meter.oneChannel.lufs).toFixed(2) + ')');
+  /* The weighting is the difference between loudness and level: deep bass
+     counts for less than its energy and treble for more. */
+  check(meter.bass.lufs < meter.half.lufs - 1 && meter.treble.lufs > meter.half.lufs + 1,
+    'bass counts for less and treble for more at the same level (60 Hz ' +
+    meter.bass.lufs.toFixed(2) + ', 1 kHz ' + meter.half.lufs.toFixed(2) +
+    ', 8 kHz ' + meter.treble.lufs.toFixed(2) + ')');
+  check(!isFinite(meter.silence.lufs), 'silence has no loudness at all');
+  check(Math.abs(meter.gated.lufs - meter.half.lufs) < 0.5,
+    'ten seconds of silence do not make a track quieter (' +
+    meter.half.lufs.toFixed(2) + ' → ' + meter.gated.lufs.toFixed(2) + ')');
+  check(Math.abs(meter.lift.reached + 14) < 0.01 && !meter.lift.limited,
+    'normalising hits the target it was given (' + meter.lift.reached.toFixed(2) + ')');
+  /* A loudness target is not a peak target, so a loud enough one asks for more
+     gain than the peaks leave. Stopping short and saying so beats clipping. */
+  check(meter.capped.limited && meter.capped.gain * meter.spiky.peak <= 0.99 + 1e-9,
+    'and stops short of clipping rather than asking for the impossible (' +
+    meter.spiky.lufs.toFixed(1) + ' LUFS asked to reach −9, got to ' +
+    meter.capped.reached.toFixed(1) + ')');
+
+  const dither = await page.evaluate(async function () {
+    const rate = 44100, n = rate * 4, LSB = 1 / 32768;
+    function make(amp) {
+      const c = new OfflineAudioContext(2, n, rate);
+      const b = c.createBuffer(2, n, rate);
+      const L = b.getChannelData(0), R = b.getChannelData(1);
+      for (let i = 0; i < n; i++) L[i] = R[i] = amp * Math.sin(2 * Math.PI * 500 * i / rate);
+      return b;
+    }
+    function corr(a, b) {
+      let sa = 0, sb = 0, sab = 0, s2a = 0, s2b = 0;
+      for (let i = 0; i < a.length; i++) { sa += a[i]; sb += b[i]; }
+      const ma = sa / a.length, mb = sb / a.length;
+      for (let i = 0; i < a.length; i++) {
+        const x = a[i] - ma, y = b[i] - mb;
+        sab += x * y; s2a += x * x; s2b += y * y;
+      }
+      return s2a > 0 && s2b > 0 ? sab / Math.sqrt(s2a * s2b) : 0;
+    }
+    async function through(amp) {
+      const src = make(amp);
+      const ab = await window.Exporter.encodeWav(src).arrayBuffer();
+      const v = new DataView(ab);
+      const got = new Float32Array(n);
+      let peak = 0;
+      for (let i = 0; i < n; i++) {
+        got[i] = v.getInt16(44 + i * 4, true) / 32768;
+        if (Math.abs(got[i]) > peak) peak = Math.abs(got[i]);
+      }
+      // The same quantisation with no dither, for comparison.
+      const ref = src.getChannelData(0);
+      const plain = new Float32Array(n);
+      for (let i = 0; i < n; i++) plain[i] = Math.round(ref[i] * 32768) / 32768;
+      return { dithered: corr(ref, got), plain: corr(ref, plain), peak: peak };
+    }
+    return { tiny: await through(0.3 * LSB), loud: await through(0.5) };
+  });
+
+  /* The point of dither, in one measurement: a signal smaller than the
+     smallest step a 16-bit file can hold still survives, because the noise
+     makes the file step *more often* where the signal is bigger, and that
+     averages back out. Without it the signal is simply gone. */
+  check(dither.tiny.plain === 0,
+    'without dither a signal under one bit is lost completely (correlation ' +
+    dither.tiny.plain.toFixed(3) + ')');
+  check(dither.tiny.dithered > 0.2,
+    'with dither it survives the 16-bit file (correlation ' +
+    dither.tiny.dithered.toFixed(3) + ')');
+  check(dither.loud.dithered > 0.9999 && dither.loud.peak <= 1,
+    'and ordinary music passes through untouched (correlation ' +
+    dither.loud.dithered.toFixed(6) + ', peak ' + dither.loud.peak.toFixed(4) + ')');
+
   console.log('\n— exports —');
   const ex = await page.evaluate(async function () {
     const song = window.Composer.compose({ seed: 'EXPORT-1', genre: 'house', length: 'short' });
