@@ -922,6 +922,49 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
     check(overflow <= 1, `no sideways scrolling at 390px (overflow ${overflow}px)`);
     check((await phone.$$('#viewScript .scene_heading')).length === 5, 'the script renders on a phone');
     await phone.close();
+
+    /* --------------------------------------------------------------------
+     * EVERY SHOT OF A FILM CAN BE DRAWN
+     *
+     * drawFrame used to throw on any INSERT shot. `light` was computed inside
+     * the branch that paints the figures -- which an insert skips -- while the
+     * light-leak wash reads `light.offset` unconditionally 130 lines further
+     * down. `var` being function-scoped is what hid it: the name existed, so
+     * nothing complained until it was read.
+     *
+     * Nothing caught it because nothing ever drew an insert. The existing
+     * checks draw the poster frame and a few chosen moments, and an insert is
+     * roughly one shot in forty. So this walks EVERY shot of a film that has
+     * one, at three moments each, and fails on the first exception.
+     * ------------------------------------------------------------------ */
+    const shotSweep = await page.evaluate(() => {
+      const script = FilmWriter.write(FilmParse.parse('a lighthouse keeper finds a message in a bottle',
+        { seed: 20260912 }), { seed: 20260912, length: 'short' });
+      const reel = FilmReel.build(script);
+      const cv = document.createElement('canvas');
+      cv.width = 480; cv.height = 270;
+      const ctx = cv.getContext('2d');
+      const kinds = {};
+      const failures = [];
+      reel.shots.forEach((shot) => {
+        kinds[shot.framing] = (kinds[shot.framing] || 0) + 1;
+        [0.01, 0.5, 0.99].forEach((f) => {
+          try {
+            window.FilmPlayer.drawFrame(ctx, cv.width, cv.height, reel,
+              shot.start + shot.duration * f);
+          } catch (e) {
+            failures.push(shot.index + '/' + shot.framing + '/' + shot.kind + ': ' + e.message);
+          }
+        });
+      });
+      return { failures: failures.slice(0, 5), total: reel.shots.length, kinds: kinds };
+    });
+    check(shotSweep.failures.length === 0,
+      `every shot of a film draws without throwing (${shotSweep.total} shots; ` +
+      `${shotSweep.failures.length ? shotSweep.failures.join(' | ') : 'none failed'})`);
+    check((shotSweep.kinds.insert || 0) > 0,
+      `the swept film actually contains an insert shot, the case that used to throw ` +
+      `(${shotSweep.kinds.insert || 0} of them)`);
   } finally {
     await browser.close();
     server.close();

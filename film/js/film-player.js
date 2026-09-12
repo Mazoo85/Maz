@@ -418,16 +418,22 @@
     var set = Sets.SETS[setKey];
     var grain = Art.noise('set-' + shot.set + '-' + reel.seed, 80);
 
+    // Where the light is, this instant. A lighthouse sweep and a passing car move it; a kitchen
+    // bulb does not. The figures have to be lit by the same source that lights the room — that is
+    // the whole point — and the light-leak wash further down needs it too.
+    //
+    // Declared HERE rather than inside the branch below. It used to sit with the figures, which are
+    // only painted for a non-insert shot, while the light leak reads `light.offset` unconditionally
+    // 130 lines later: so every insert shot threw "Cannot read properties of undefined". `var` being
+    // function-scoped is what hid it — the name existed, so nothing complained until it was read.
+    // Found by porting this renderer to the engine and rendering a film that has an insert in it.
+    var light = Sets.lightAt(Sets.LIGHT[shot.set] || 'none', time, shot.mood);
+
     if (shot.framing !== 'insert') {
       plane(Sets.PARALLAX.back, function () { set.back(ctx, pal, grain); });
       plane(Sets.PARALLAX.mid, function () { set.mid(ctx, pal, grain); });
 
       var spots = figureLayout(shot);
-      // Where the light is, this instant. A lighthouse sweep and a passing car
-      // move it; a kitchen bulb does not. Computed once here rather than at the
-      // light-leak wash below, because the figures have to be lit by the same
-      // source that lights the room — that is the whole point.
-      var light = Sets.lightAt(Sets.LIGHT[shot.set] || 'none', time, shot.mood);
 
       function paintFigures(wantForeground) {
         spots.forEach(function (spot) {
