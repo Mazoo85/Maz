@@ -46,27 +46,27 @@ export const DECLARED_PAIRINGS = [
     value: 2
   },
   {
-    id: 'one-template-filler-instead-of-two',
+    id: 'the-template-filler-is-lendable-now',
     from: ['web:madlibs'],
     to: ['web:coda-pics'],
-    title: 'MADLIBS and CODA PICS fill templates twice, and only one of them does it correctly',
+    title: 'MADLIBS\' template filler is lendable now — and CODA PICS no longer needs it',
     detail:
-      'This entry replaces a wrong one, and how it was wrong is the useful part. It used to say ' +
-      'MADLIBS could hand CODA PICS a "surprise me" prompt that is a real scene. Tried, it does not ' +
-      'work: MADLIBS writes story prose ("A brazen pilot named Cordelia discovers they are the last ' +
-      'heir to Umberfall") and CODA PICS parses scene descriptions, so feeding one to the other ' +
-      'painted "a sword in stone in an island at sunset" — words it recognised, a picture of nothing ' +
-      'anyone asked for. The vocabularies are not compatible and no amount of wiring makes them so.\n\n' +
-      'What IS shared is the machinery underneath. Both projects fill a template from a seeded ' +
-      'random source and both have to choose "a" or "an" for a word they picked at random. MADLIBS ' +
-      'does that properly, in applyArticles, and is tested on it. CODA PICS had its own four-line ' +
-      'copy that always wrote "a", which produced "a orange fish" about once every forty prompts ' +
-      'until it was fixed. The real opportunity is to make madlibs/js/generator.js\'s fillTemplate ' +
-      'take its dictionary as an argument rather than reading MADLIBS_DICT at load time. It would ' +
-      'then be publishable as madlibs/templates, and CODA PICS could fill its surprise prompts with ' +
-      'the generator that already has the grammar right, instead of the second copy that did not.',
-    effort: 'medium',
-    value: 2
+      'This entry has been wrong twice, and both corrections are the useful part of it. It first ' +
+      'said MADLIBS could hand CODA PICS a "surprise me" prompt. Tried: MADLIBS writes story prose ' +
+      'and CODA PICS parses scene descriptions, so a story beat painted "a sword in stone in an ' +
+      'island at sunset". It then said the machinery underneath was the real shared thing, and that ' +
+      'CODA PICS\'s own copy of it got articles wrong — "a orange fish", about one prompt in forty.\n\n' +
+      'Both halves are now done, and they did not need to meet. CODA PICS\'s article bug is fixed ' +
+      'where it lived, with a regression test. And madlibs/js/generator.js\'s fillTemplate and pick ' +
+      'now take a dictionary instead of reading MADLIBS_DICT at load time, so the filler is ' +
+      'published as madlibs/templates: seeded, reproducible, tagged words consistent across beats, ' +
+      'and the articles right — for anyone\'s vocabulary.\n\n' +
+      'CODA PICS is deliberately NOT wired to it. What it would gain now is tag consistency and ' +
+      'sentence capitalisation, and its four surprise templates need neither; what it would pay is a ' +
+      'cross-project dependency for a button. The capability is there for the next caller that has a ' +
+      'real template to fill, which is the right place for it to wait.',
+    effort: 'small',
+    value: 1
   },
   {
     id: 'scraper-fills-the-worlds',
@@ -180,6 +180,17 @@ export const REALIZED_PAIRINGS = [
   }
 ];
 
+/** "145 in render, 117 in math, …" — so the biggest number in the report is plannable. */
+function bySubsystem(modules) {
+  const counts = new Map();
+  for (const m of modules) counts.set(m.subsystem, (counts.get(m.subsystem) || 0) + 1);
+  const parts = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([sub, n]) => `${n} in \`${sub}\``);
+  return `They are not spread evenly: ${parts.slice(0, 6).join(', ')}` +
+    `${parts.length > 6 ? `, and ${parts.length - 6} other subsystems` : ''}.`;
+}
+
 /** Opportunities the scan can prove, regenerated every run. */
 export function computeOpportunities(model) {
   const out = [];
@@ -195,9 +206,12 @@ export function computeOpportunities(model) {
         'One engine module is tested but no app shows it',
         '{n} engine modules are tested but no app shows them'),
       detail:
-        'These are finished, working features that nobody can see. Each one is a small app away from ' +
-        'being discoverable, and apps/ is how this engine documents itself. Grouping several related ' +
-        'modules into one demo is usually better than one app each.',
+        'These are finished, working features that nobody can see, and `apps/` is how this engine ' +
+        'documents itself. ' + bySubsystem(testedNotDemoed) + ' Writing 499 apps is not the answer ' +
+        'and never was: one demo can show a dozen related modules at once — a single "mesh repair" ' +
+        'app for the degenerate, self-intersection and closest-point analysers, one "curve fitting" ' +
+        'app for the least-squares family — so the work is closer to a few dozen apps than 499. ' +
+        'Start where the count is highest and the modules cluster most naturally.',
       subjects: testedNotDemoed.map((m) => m.id),
       effort: 'medium',
       value: 3

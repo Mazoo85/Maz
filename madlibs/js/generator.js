@@ -45,9 +45,18 @@
     return list[Math.floor(rng() * list.length)];
   }
 
-  // Public: draw one random word from a dictionary category.
-  function pick(category, rng) {
-    var list = DICT[category];
+  /*
+   * Public: draw one random word from a dictionary category.
+   *
+   * `dict` defaults to MADLIBS' own words. It is a parameter because the
+   * template filler below is worth more than the vocabulary it happens to be
+   * bound to: CODA PICS writes its "Surprise me" prompts with its own four-line
+   * copy of this machinery, and that copy always wrote "a" — "a orange fish" —
+   * where applyArticles here gets it right. A filler that takes its dictionary
+   * can be shared; one that reads a global at load time cannot.
+   */
+  function pick(category, rng, dict) {
+    var list = (dict || DICT)[category];
     if (!list || !list.length) return '{' + category + '}';
     return pickFrom(list, rng || Math.random);
   }
@@ -87,6 +96,7 @@
     opts = opts || {};
     var seed = (opts.seed != null) ? (opts.seed >>> 0) : randomSeed();
     var rng = makeRng(seed);
+    var dict = opts.dict || DICT;      // another project's words, or MADLIBS' own
     var tagMap = {};
     var picks = [];
 
@@ -96,10 +106,10 @@
         var word;
         if (tag) {
           var key = category + '#' + tag;
-          if (tagMap[key] == null) tagMap[key] = pick(category, rng);
+          if (tagMap[key] == null) tagMap[key] = pick(category, rng, dict);
           word = tagMap[key];
         } else {
-          word = pick(category, rng);
+          word = pick(category, rng, dict);
         }
         picks.push(word);
         return word;
@@ -239,6 +249,7 @@
     randomSeed: randomSeed,
     pick: pick,
     fillTemplate: fillTemplate,
+    applyArticles: applyArticles,
     generate: generate,
     generateMany: generateMany,
     estimateCombinations: estimateCombinations,

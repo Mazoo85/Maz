@@ -16,7 +16,7 @@ size is in the wiring between the parts, not in any one part.
 | Native games and demos (`apps/`) | 161 | 31,861 lines |
 | Engine capabilities (`engine/include/maz/`) | 692 | 87,768 lines across 20 subsystems |
 | C++ test files (`tests/`) | 376 | |
-| Browser apps and games | 6 | 17,589 lines |
+| Browser apps and games | 6 | 17,600 lines |
 | Python tools | 3 | |
 | CI gates (`scripts/`) | 3 | |
 | Build and codegen helpers (`tools/`) | 11 | |
@@ -44,7 +44,7 @@ will ever see, and the ones that can most easily lend each other capabilities.
 | **ZOMBOID: ANCHORAGE** <br>`zomboid/` | Open-world zombie survival across a tile-built replica of downtown Anchorage, rendered as a 1990s SEGA arcade title. Five decaying needs, day/night hordes, loo… | 1,658 | — | music/soundtrack | — |
 | **DEAD SECTOR** <br>`shooter/` | Top-down twin-stick zombie shooter in a single self-contained HTML file. Dual touch joysticks, escalating waves, three zombie types. | 1,084 | — | — | — |
 | **SONG FORGE** <br>`music/` | Writes and plays complete songs in the browser — chords, bass, drums, arpeggio and melody arranged into verses and choruses across 8 genres. WAV and MIDI expor… | 3,330 | music/composer, music/soundtrack | — | — |
-| **MADLIBS STORY FORGE** <br>`madlibs/` | Randomly forges story ideas broken into scene beats, ready to seed a storyboard or script. Zero dependencies. | 1,447 | madlibs/storyideas | — | — |
+| **MADLIBS STORY FORGE** <br>`madlibs/` | Randomly forges story ideas broken into scene beats, ready to seed a storyboard or script. Zero dependencies. | 1,458 | madlibs/storyideas, madlibs/templates | — | — |
 | **SCRIPT FORGE** <br>`film/` | Type what your film is about and get the whole thing back: a formatted screenplay, a shot list, and an animated short film — performed by jointed characters an… | 6,163 | — | music/composer, madlibs/storyideas | — |
 | **CODA PICS** <br>`coda-pics/` | Type what you want to see and it paints it: 60 subjects, 20 settings, every hour and weather, finished in one of 14 art styles from pixel art to watercolour. D… | 3,907 | coda-pics/painter | — | — |
 
@@ -375,9 +375,13 @@ projects without declaring it. Everything below is written to end up in that man
 
 #### 499 engine modules are tested but no app shows them
 
-These are finished, working features that nobody can see. Each one is a small app away from
-being discoverable, and apps/ is how this engine documents itself. Grouping several related
-modules into one demo is usually better than one app each.
+These are finished, working features that nobody can see, and `apps/` is how this engine
+documents itself. They are not spread evenly: 145 in `render`, 117 in `math`, 90 in `game`, 76
+in `core`, 15 in `net`, 14 in `io`, and 11 other subsystems. Writing 499 apps is not the answer
+and never was: one demo can show a dozen related modules at once — a single "mesh repair" app
+for the degenerate, self-intersection and closest-point analysers, one "curve fitting" app for
+the least-squares family — so the work is closer to a few dozen apps than 499. Start where the
+count is highest and the modules cluster most naturally.
 
 <sub>499 affected · effort: medium · value: ★★★ · queued below as the `engine-module:demoed` task</sub>
 
@@ -452,26 +456,25 @@ of integration code improves that.
 
 <sub>effort: large · value: ★★</sub>
 
-#### MADLIBS and CODA PICS fill templates twice, and only one of them does it correctly
+#### MADLIBS' template filler is lendable now — and CODA PICS no longer needs it
 
 `web:madlibs` → `web:coda-pics`
 
-This entry replaces a wrong one, and how it was wrong is the useful part. It used to say MADLIBS
-could hand CODA PICS a "surprise me" prompt that is a real scene. Tried, it does not work:
-MADLIBS writes story prose ("A brazen pilot named Cordelia discovers they are the last heir to
-Umberfall") and CODA PICS parses scene descriptions, so feeding one to the other painted "a
-sword in stone in an island at sunset" — words it recognised, a picture of nothing anyone asked
-for. The vocabularies are not compatible and no amount of wiring makes them so. What IS shared
-is the machinery underneath. Both projects fill a template from a seeded random source and both
-have to choose "a" or "an" for a word they picked at random. MADLIBS does that properly, in
-applyArticles, and is tested on it. CODA PICS had its own four-line copy that always wrote "a",
-which produced "a orange fish" about once every forty prompts until it was fixed. The real
-opportunity is to make madlibs/js/generator.js's fillTemplate take its dictionary as an argument
-rather than reading MADLIBS_DICT at load time. It would then be publishable as
-madlibs/templates, and CODA PICS could fill its surprise prompts with the generator that already
-has the grammar right, instead of the second copy that did not.
+This entry has been wrong twice, and both corrections are the useful part of it. It first said
+MADLIBS could hand CODA PICS a "surprise me" prompt. Tried: MADLIBS writes story prose and CODA
+PICS parses scene descriptions, so a story beat painted "a sword in stone in an island at
+sunset". It then said the machinery underneath was the real shared thing, and that CODA PICS's
+own copy of it got articles wrong — "a orange fish", about one prompt in forty. Both halves are
+now done, and they did not need to meet. CODA PICS's article bug is fixed where it lived, with a
+regression test. And madlibs/js/generator.js's fillTemplate and pick now take a dictionary
+instead of reading MADLIBS_DICT at load time, so the filler is published as madlibs/templates:
+seeded, reproducible, tagged words consistent across beats, and the articles right — for
+anyone's vocabulary. CODA PICS is deliberately NOT wired to it. What it would gain now is tag
+consistency and sentence capitalisation, and its four surprise templates need neither; what it
+would pay is a cross-project dependency for a button. The capability is there for the next
+caller that has a real template to fill, which is the right place for it to wait.
 
-<sub>effort: medium · value: ★★</sub>
+<sub>effort: small · value: ★</sub>
 
 #### MAZ-SCRAPE fills the game worlds with real data
 
@@ -521,7 +524,7 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
 ### P1 — broken or unprotected (2)
 
 - **499 engine modules are tested but no app shows them**
-  <br>These are finished, working features that nobody can see. Each one is a small app away from being discoverable, and apps/ is how this engine documents itself. Grouping several related modules into one demo is usually better than one app each. — CubicBezierEasing, SpringBone, Transition, EnvelopeFollower, G711, Goertzel, ImaAdpcm, KarplusStrong, Mp3, MusicTheory, Noise, PitchDetect, and 487 more. Example: No app under apps/ demonstrates maz::anim::CubicBezierEasing. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.
+  <br>These are finished, working features that nobody can see, and `apps/` is how this engine documents itself. They are not spread evenly: 145 in `render`, 117 in `math`, 90 in `game`, 76 in `core`, 15 in `net`, 14 in `io`, and 11 other subsystems. Writing 499 apps is not the answer and never was: one demo can show a dozen related modules at once — a single "mesh repair" app for the degenerate, self-intersection and closest-point analysers, one "curve fitting" app for the least-squares family — so the work is closer to a few dozen apps than 499. Start where the count is highest and the modules cl…
 - **SONG FORGE supplies the one music layer the engine does not have**
   <br>The engine already has the layers underneath and above a composer: audio::MusicTheory does note/pitch conversion, audio::MusicScales the scale tables, audio::Oscillator and audio::BusGraph the synthesis and mixing, and audio::MusicSequencer switches between music segments on the beat as the action changes. What nothing under engine/include/maz/audio/ does is WRITE the segments — pick a progression, lay a bassline and a drum pattern under it, arrange verses and choruses. music/js/genres.js and music/js/composer.js do exactly that, as plain data and pure functions, for eight genres. Porting the…
 
@@ -533,10 +536,10 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
   <br>The surface exists: coda-pics/painter is published, takes a sentence and a canvas, and — unlike the studio page — reports how much of the picture came from the words. It refuses rather than guessing when asked to, because CODA PICS invents a subject for anything it does not recognise and a caller cannot otherwise tell a picture of the thing it asked for from a picture of something else.  What is NOT true is the obvious next step, and it was measured rather than assumed. Fed SCRIPT FORGE's scene headings, about half paint something unrelated — "EXT. SHORELINE — DAY" becomes a wolf in a cavern…
 - **The golden screenshots become the arcade's cover art**
   <br>tests/golden/ holds a deterministic captured frame for most apps, produced purely to catch rendering regressions. That is also a ready-made, always-current screenshot library: the hub at index.html lists every project as text today, and could show each native demo's golden frame as its tile art at zero maintenance cost, because CI regenerates them.
-- **MADLIBS and CODA PICS fill templates twice, and only one of them does it correctly**
-  <br>This entry replaces a wrong one, and how it was wrong is the useful part. It used to say MADLIBS could hand CODA PICS a "surprise me" prompt that is a real scene. Tried, it does not work: MADLIBS writes story prose ("A brazen pilot named Cordelia discovers they are the last heir to Umberfall") and CODA PICS parses scene descriptions, so feeding one to the other painted "a sword in stone in an island at sunset" — words it recognised, a picture of nothing anyone asked for. The vocabularies are not compatible and no amount of wiring makes them so.  What IS shared is the machinery underneath. Bot…
 - **MAZ-SCRAPE fills the game worlds with real data**
   <br>The scraper turns a YAML recipe into JSONL/CSV/SQLite from static HTML. ZOMBOID's Anchorage, apps/village and apps/world are all populated by hand-written name and place tables today. A recipe that harvests real street, business and place names into a JSON table the games load would make all three worlds larger without a line of new game code.
+- **MADLIBS' template filler is lendable now — and CODA PICS no longer needs it**
+  <br>This entry has been wrong twice, and both corrections are the useful part of it. It first said MADLIBS could hand CODA PICS a "surprise me" prompt. Tried: MADLIBS writes story prose and CODA PICS parses scene descriptions, so a story beat painted "a sword in stone in an island at sunset". It then said the machinery underneath was the real shared thing, and that CODA PICS's own copy of it got articles wrong — "a orange fish", about one prompt in forty.  Both halves are now done, and they did not need to meet. CODA PICS's article bug is fixed where it lived, with a regression test. And madlibs/…
 
 ---
 

@@ -93,3 +93,29 @@ exactly — handy for sharing or regenerating a specific idea.
 ---
 
 ← Back to the [**MAZ ARCADE hub**](../index.html) · [repository README](../README.md) · [play/open this one](../madlibs/)
+
+## Lending the template filler
+
+`madlibs/js/generator.js` is published as `madlibs/templates` in `shared/exchange.json`. Its
+`fillTemplate` takes a dictionary, so it fills anyone's templates, not just MADLIBS' own:
+
+```js
+const dict = { colour: ['orange', 'black'], thing: ['fish', 'tower'] };
+const tpl  = { id: 't', title: 'T', genre: 'g',
+               beats: [{ label: 'B', text: '{a} {colour} {thing}.' }] };
+
+MadlibsGenerator.fillTemplate(tpl, { seed: 3, dict });
+// → "An orange fish."
+```
+
+What you get that a four-line filler of your own will not have:
+
+- **The articles are right.** `{a}` becomes "a" or "an" from the word that actually follows it, so a
+  randomly chosen word beginning with a vowel does not come out as "a orange fish".
+- **Tagged words stay the same person.** `{name#hero}` in beat one and beat four resolve to one
+  word, so the story is about someone.
+- **The same seed gives the same text**, every time, which is what makes a result shareable.
+- **Sentences are capitalised**, including after a full stop mid-beat.
+
+Omit `dict` and it uses MADLIBS' own words, exactly as before.
+

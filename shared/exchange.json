@@ -44,6 +44,13 @@
         "coda-pics/js/finish.js",
         "coda-pics/js/painter.js"
       ]
+    },
+    "madlibs/templates": {
+      "project": "madlibs",
+      "summary": "Fill a template from a seeded random source using YOUR dictionary: tagged words stay the same across every beat, {a} becomes \"a\" or \"an\" by the word that follows, and the same seed always gives the same text.",
+      "files": [
+        "madlibs/js/generator.js"
+      ]
     }
   },
   "consumes": [

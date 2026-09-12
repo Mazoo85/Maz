@@ -296,6 +296,65 @@ test('pick on an unknown category returns the placeholder rather than crashing',
   eq(Gen.pick('no-such-category', Gen.makeRng(1)), '{no-such-category}');
 });
 
+/* -------------------------------------------------- lending the filler out */
+console.log('\nFILLING SOMEBODY ELSE\'S TEMPLATE');
+
+test('fillTemplate can be given another project\'s dictionary', () => {
+  // The machinery is worth more than the vocabulary it grew up with. Welded to
+  // MADLIBS_DICT it could only ever write MADLIBS stories; taking a dictionary,
+  // it can fill anyone's templates — which is the whole of madlibs/templates.
+  const dict = { colour: ['orange', 'black'], thing: ['fish', 'tower'] };
+  const tpl = { id: 't', title: 'T', genre: 'g', beats: [{ label: 'B', text: '{colour} {thing}.' }] };
+  const seen = new Set();
+  for (let seed = 0; seed < 40; seed++) {
+    const text = Gen.fillTemplate(tpl, { seed, dict }).beats[0].text;
+    assert(!LEFTOVER.test(text), 'a borrowed dictionary left a placeholder: ' + text);
+    seen.add(text);
+    const words = text.replace('.', '').toLowerCase().split(' ');
+    assert(dict.colour.includes(words[0]), 'word came from somewhere other than the given dictionary: ' + text);
+    assert(dict.thing.includes(words[1]), 'word came from somewhere other than the given dictionary: ' + text);
+  }
+  assert(seen.size > 1, 'a borrowed dictionary produced only one result');
+});
+
+test('a borrowed dictionary gets the articles right too', () => {
+  // This is the reason to lend it rather than let each project write its own.
+  // CODA PICS' four-line copy always wrote "a", so a palette name beginning
+  // with a vowel came out as "a orange fish".
+  const dict = { colour: ['orange', 'azure', 'black'], thing: ['fish'] };
+  const tpl = { id: 't', title: 'T', genre: 'g', beats: [{ label: 'B', text: '{a} {colour} {thing}.' }] };
+  for (let seed = 0; seed < 60; seed++) {
+    const text = Gen.fillTemplate(tpl, { seed, dict }).beats[0].text;
+    assert(!/\ba [aeiou]/i.test(text), 'wrong article: ' + text);
+    assert(/^(A|An) /.test(text), 'no article at all: ' + text);
+  }
+});
+
+test('a borrowed dictionary keeps tagged words consistent', () => {
+  const dict = { name: ['Ada', 'Bo', 'Cass'], place: ['Rome', 'Oslo'] };
+  const tpl = { id: 't', title: 'T', genre: 'g', beats: [
+    { label: 'One', text: '{name#hero} arrives in {place#home}.' },
+    { label: 'Two', text: '{name#hero} leaves {place#home} behind.' }
+  ] };
+  for (let seed = 0; seed < 30; seed++) {
+    const b = Gen.fillTemplate(tpl, { seed, dict }).beats;
+    const hero = b[0].text.split(' ')[0];
+    assert(b[1].text.startsWith(hero), 'the hero changed between beats: ' + b[0].text + ' / ' + b[1].text);
+  }
+});
+
+test('omitting the dictionary still uses MADLIBS\' own', () => {
+  const story = Gen.fillTemplate(TEMPLATES[0], { seed: 5 });
+  assert(!LEFTOVER.test(story.beats[0].text), 'the default dictionary stopped working');
+  const same = Gen.fillTemplate(TEMPLATES[0], { seed: 5, dict: null });
+  eq(same.beats[0].text, story.beats[0].text, 'an explicit null dictionary should mean "use mine"');
+});
+
+test('pick takes a dictionary too, and still falls back without one', () => {
+  eq(Gen.pick('fruit', Gen.makeRng(1), { fruit: ['plum'] }), 'plum');
+  eq(Gen.pick('fruit', Gen.makeRng(1)), '{fruit}', 'MADLIBS has no "fruit", so the placeholder comes back');
+});
+
 /* ------------------------------------------------------------------ result */
 console.log('');
 if (failures.length) {
