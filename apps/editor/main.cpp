@@ -106,7 +106,8 @@ int main(int argc, char** argv) {
             for (int x = 0; x < size; ++x) {
                 const bool line = (x % step < 2) || (y % step < 2); // 2px lines on cell edges
                 const uint8_t r = line ? 188 : 150, g = line ? 191 : 150, b = line ? 198 : 155;
-                const size_t i = (static_cast<size_t>(y) * size + x) * 4;
+                // x needs the same widen y already has; both are non-negative loop counters.
+                const size_t i = (static_cast<size_t>(y) * size + static_cast<size_t>(x)) * 4;
                 px[i] = r;
                 px[i + 1] = g;
                 px[i + 2] = b;
