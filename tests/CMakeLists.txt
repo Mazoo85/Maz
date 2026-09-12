@@ -1127,6 +1127,13 @@ target_link_libraries(maz_film_palette_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME film_palette COMMAND maz_film_palette_tests ${CMAKE_CURRENT_SOURCE_DIR}/film/palette-fixture.json)
 set_tests_properties(film_palette PROPERTIES TIMEOUT 30)
 
+# The ported figure is checked against the exact path the browser's drawFigure emits for all ten
+# poses, captured by handing it a canvas that records instead of drawing.
+add_executable(maz_film_figure_tests film/figure.cpp)
+target_link_libraries(maz_film_figure_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME film_figure COMMAND maz_film_figure_tests ${CMAKE_CURRENT_SOURCE_DIR}/film/body-fixture.json)
+set_tests_properties(film_figure PROPERTIES TIMEOUT 30)
+
 add_executable(maz_recoil_tests game/recoil.cpp)
 target_link_libraries(maz_recoil_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME recoil COMMAND maz_recoil_tests)

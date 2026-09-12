@@ -234,6 +234,64 @@ int main() {
         CHECK(std::fabs(ink(img) - 128.0) < 1.0, "a half-alpha fill lays down half the ink");
     }
 
+    // --- 13. Transforms move the shape, not the ink. ---
+    {
+        // Translating a rect by whole pixels moves it exactly, with the same total ink.
+        Image a(64, 64, kBlack), b(64, 64, kBlack);
+        Path p1, p2;
+        p1.rect(8.0f, 8.0f, 12.0f, 10.0f);
+        p2.rect(8.0f, 8.0f, 12.0f, 10.0f);
+        p2.translate(20.0f, 15.0f);
+        maz::render::fillPath(a, p1, kWhite);
+        maz::render::fillPath(b, p2, kWhite);
+        CHECK(std::fabs(ink(a) - ink(b)) < 0.01, "translating a shape does not change how much ink it lays");
+        bool moved = true;
+        for (int y = 8; y < 18; ++y) {
+            for (int x = 8; x < 20; ++x) {
+                if (std::fabs(cov(a, x, y) - cov(b, x + 20, y + 15)) > 0.002f) moved = false;
+            }
+        }
+        CHECK(moved, "a translated shape is the same shape, in the new place");
+    }
+    {
+        // Scaling by 2 quadruples the area.
+        Image a(128, 128, kBlack), b(128, 128, kBlack);
+        Path p1, p2;
+        p1.moveTo(10.0f, 10.0f).lineTo(30.0f, 14.0f).lineTo(16.0f, 34.0f).close();
+        p2.moveTo(10.0f, 10.0f).lineTo(30.0f, 14.0f).lineTo(16.0f, 34.0f).close();
+        p2.scale(2.0f, 2.0f);
+        maz::render::fillPath(a, p1, kWhite);
+        maz::render::fillPath(b, p2, kWhite);
+        CHECK(std::fabs(ink(b) - 4.0 * ink(a)) < 2.0, "scaling a shape by two quadruples its area");
+    }
+    {
+        // Rotating a square about its own centre keeps its area.
+        Image a(128, 128, kBlack), b(128, 128, kBlack);
+        Path p1, p2;
+        p1.rect(-20.0f, -20.0f, 40.0f, 40.0f);
+        p2.rect(-20.0f, -20.0f, 40.0f, 40.0f);
+        p2.rotate(0.7f);
+        p1.translate(64.0f, 64.0f);
+        p2.translate(64.0f, 64.0f);
+        maz::render::fillPath(a, p1, kWhite);
+        maz::render::fillPath(b, p2, kWhite);
+        CHECK(std::fabs(ink(a) - 1600.0) < 0.5, "the unrotated square is exactly its area");
+        CHECK(std::fabs(ink(b) - 1600.0) < 2.0, "rotating a square about its centre keeps its area");
+    }
+    {
+        // A full turn returns a shape to where it started.
+        Path p;
+        p.moveTo(3.0f, 5.0f).lineTo(40.0f, 9.0f).lineTo(11.0f, 33.0f).close();
+        const auto before = p.contours()[0];
+        p.rotate(3.14159265f).rotate(3.14159265f);
+        bool back = true;
+        for (std::size_t i = 0; i < before.size(); ++i) {
+            if (std::fabs(before[i].x - p.contours()[0][i].x) > 1e-3f ||
+                std::fabs(before[i].y - p.contours()[0][i].y) > 1e-3f) back = false;
+        }
+        CHECK(back, "two half turns put a shape back where it started");
+    }
+
     if (g_fail == 0) {
         std::printf("pathfill: all checks passed\n");
     }

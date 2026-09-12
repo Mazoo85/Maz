@@ -149,6 +149,38 @@ public:
         m_open = false;
     }
 
+    // --- transforming -----------------------------------------------------------------------------
+    //
+    // Applied to the points already built, not to a stored matrix: a path is a finished shape here,
+    // not a recording of drawing commands, so there is no transform stack to get out of step with the
+    // contents. Build in the shape's own convenient space, then move it where it goes.
+
+    // The 2x3 affine [a c e; b d f]: x' = a*x + c*y + e, y' = b*x + d*y + f. Matches the argument
+    // order of every canvas-style setTransform, so a transform copied from one reads the same here.
+    Path& transform(float a, float b, float c, float d, float e, float f) {
+        for (auto& contour : m_contours) {
+            for (auto& p : contour) {
+                const float x = p.x;
+                const float y = p.y;
+                p.x = a * x + c * y + e;
+                p.y = b * x + d * y + f;
+            }
+        }
+        return *this;
+    }
+
+    Path& translate(float dx, float dy) { return transform(1.0f, 0.0f, 0.0f, 1.0f, dx, dy); }
+
+    Path& scale(float sx, float sy) { return transform(sx, 0.0f, 0.0f, sy, 0.0f, 0.0f); }
+
+    // Rotate about the origin. Positive angles turn +x toward +y, which is CLOCKWISE on screen,
+    // because y grows downward here.
+    Path& rotate(float radians) {
+        const float c = std::cos(radians);
+        const float s = std::sin(radians);
+        return transform(c, s, -s, c, 0.0f, 0.0f);
+    }
+
     // --- reading ----------------------------------------------------------------------------------
 
     bool empty() const { return m_contours.empty(); }
