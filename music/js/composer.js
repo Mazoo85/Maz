@@ -51,7 +51,8 @@
 
   /* Instruments fall into three jobs, and each one moves differently when the
      bar changes length. */
-  const PULSE_INSTS = ['hh', 'oh', 'shaker', 'ride', 'tamb', 'perc', 'conga', 'cowbell'];
+  const PULSE_INSTS = ['hh', 'oh', 'shaker', 'ride', 'tamb', 'perc', 'conga', 'cowbell',
+                       'clave', 'block', 'bongo', 'cabasa', 'triangle'];
   const BACKBEAT_INSTS = ['snare', 'clap', 'rim'];
 
   /**
@@ -1734,8 +1735,20 @@
   const SAVE_VERSION = 2;
   /* Fixed order: a drum piece is stored as its index here. Only ever append to
      this list — renumbering it would silently turn old saves into nonsense. */
+  /*
+   * Drum names, packed into a saved song as their index here.
+   *
+   * Append only, never reorder: the index *is* the saved value, so moving a
+   * name shifts every drum in every song anyone has already saved.
+   *
+   * `rim` was missing from this list for its whole life, which meant
+   * indexOf returned -1 and every sidestick in every saved song came back as
+   * a kick drum. Nothing complained — seven genres write rim patterns and all
+   * of them were quietly rewritten on save.
+   */
   const DRUM_INSTS = ['kick', 'snare', 'clap', 'hh', 'oh', 'ride', 'tom', 'conga',
-                      'perc', 'shaker', 'tamb', 'cowbell', 'crash', 'riser', 'impact'];
+                      'perc', 'shaker', 'tamb', 'cowbell', 'crash', 'riser', 'impact',
+                      'rim', 'clave', 'block', 'bongo', 'timbale', 'triangle', 'cabasa'];
 
   function r4(n) { return Math.round(n * 1e4) / 1e4; }
   function r3(n) { return Math.round(n * 1e3) / 1e3; }
@@ -2354,6 +2367,7 @@
     shiftOctave: shiftOctave,
     harmonise: harmonise,
     doubleOctave: doubleOctave,
+    DRUM_INSTS: DRUM_INSTS,
     packSong: packSong,
     unpackSong: unpackSong,
     SAVE_VERSION: SAVE_VERSION,

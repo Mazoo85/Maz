@@ -666,7 +666,7 @@
         intro:  { kick: 'x.......x.......', hh: 'x.x.x.x.x.x.x.x.' },
         groove: { kick: 'x......x..x.....', snare: '....x.......x...', hh: 'x.x.x.x.x.x.x.x.' },
         full:   { kick: 'x..x...x..x...x.', snare: '....x.......x...', hh: 'xxx.xxx.xxx.xxx.',
-                  oh: '..............x.' },
+                  oh: '..............x.', clave: '..x...x...x.....' },
         fill:   { kick: 'x.......x.......', snare: '....x.....x.x.xx', hh: 'x.x.x.x.........' }
       },
       fx: { reverb: 0.3, delay: 0.18, delayTime: 0.375, vinyl: 0.35, modFx: 'phaser',
@@ -884,7 +884,7 @@
         kit: 'latin',
         intro:  { conga: 'o...o...o...o...', shaker: 'x.x.x.x.x.x.x.x.' },
         groove: { kick: 'x.....x...x.....', rim: '....x.......x...', shaker: 'xoxoxoxoxoxoxoxo', conga: '..o.o...o.o.o...' },
-        full:   { kick: 'x..x..x...x..x..', rim: '....x.......x...', shaker: 'xoxoxoxoxoxoxoxo', conga: 'o.oo.o.oo.o.oo.o', cowbell: 'x...x...x...x...', tamb: '..x...x...x...x.' },
+        full:   { kick: 'x..x..x...x..x..', rim: '....x.......x...', shaker: 'xoxoxoxoxoxoxoxo', conga: 'o.oo.o.oo.o.oo.o', cowbell: 'x...x...x...x...', tamb: '..x...x...x...x.', bongo: '..x..x....x..x..' },
         fill:   { conga: 'oo.oo.oooo.ooooo', kick: 'x.......x.......', crash: '...............x' }
       },
       fx: { reverb: 0.28, delay: 0.16, delayTime: 0.375, vinyl: 0.05, modFx: 'rotary', glue: 0.35, master: 1.05, sidechain: 0.08, brightness: 1.05 }
@@ -911,7 +911,7 @@
         kit: 'latin',
         intro:  { rim: '..x...x...x...x.', shaker: 'x.x.x.x.x.x.x.x.' },
         groove: { kick: 'x.....x.x.....x.', rim: '..x..x..x..x..x.', shaker: 'xoxoxoxoxoxoxoxo' },
-        full:   { kick: 'x.....x.x.....x.', rim: '..x..x..x..x..x.', shaker: 'xoxoxoxoxoxoxoxo', conga: '....o.......o...', tamb: '........x.......' },
+        full:   { kick: 'x.....x.x.....x.', rim: '..x..x..x..x..x.', shaker: 'xoxoxoxoxoxoxoxo', conga: '....o.......o...', tamb: '........x.......', clave: '..x...x...x.x...' },
         fill:   { rim: '..x.x.x.xx.xxx.x', conga: '..........o.o...' }
       },
       fx: { reverb: 0.4, delay: 0.14, delayTime: 0.5, vinyl: 0.1, modFx: 'rotary', glue: 0.15, master: 1.22, sidechain: 0, brightness: 0.95 }

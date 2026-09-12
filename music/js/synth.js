@@ -953,7 +953,8 @@
   const DRUM_PAN = {
     kick: 0, snare: 0, clap: 0.06, hh: 0.24, oh: 0.2,
     tom: -0.28, perc: -0.32, shaker: 0.34, crash: -0.18, rim: 0.26,
-    riser: 0, impact: 0, ride: 0.3, tamb: -0.26, cowbell: 0.18, conga: -0.24
+    riser: 0, impact: 0, ride: 0.3, tamb: -0.26, cowbell: 0.18, conga: -0.24,
+    clave: 0.3, block: 0.3, bongo: -0.34, timbale: -0.3, triangle: 0.36, cabasa: -0.36
   };
 
   function playDrum(ctx, out, t, inst, vel, kitId, dur) {
@@ -1294,6 +1295,123 @@
       percEnv(ng.gain, t, 0.08 * vel, 0.02);
       n.connect(hp).connect(ng);
       toOut(ng, 0);
+      return;
+    }
+
+    /* Clave and woodblock: wood, which is two short tuned modes and no noise
+       at all. What makes it read as wood rather than as a beep is how fast it
+       stops — a block is dead in a twentieth of a second. */
+    if (inst === 'clave' || inst === 'block') {
+      const p = kit[inst] || (inst === 'clave'
+        ? { f: 2200, dec: 0.05, gain: 0.34 }
+        : { f: 1150, dec: 0.06, gain: 0.32 });
+      const dec = p.dec || 0.05;
+      [[1, 1], [2.71, 0.35]].forEach(function (m) {
+        const o = ctx.createOscillator();
+        o.type = 'triangle';
+        o.frequency.setValueAtTime((p.f || 2200) * m[0], t);
+        o.frequency.exponentialRampToValueAtTime((p.f || 2200) * m[0] * 0.88, t + dec);
+        const g = ctx.createGain();
+        percEnv(g.gain, t, (p.gain || 0.34) * m[1] * vel, dec * (m[0] > 1 ? 0.6 : 1));
+        o.connect(g);
+        toOut(g, 0.14);
+        o.start(t); o.stop(t + dec + 0.05);
+      });
+      return;
+    }
+
+    /* Bongo: a conga's smaller, higher cousin, and tighter with it — the pitch
+       falls further and faster, which is what a small head under high tension
+       does. */
+    if (inst === 'bongo') {
+      const p = kit.bongo || { f0: 520, f1: 330, dec: 0.16, gain: 0.42 };
+      const dec = p.dec || 0.16;
+      const o = ctx.createOscillator();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(p.f0 || 520, t);
+      o.frequency.exponentialRampToValueAtTime(p.f1 || 330, t + dec * 0.45);
+      const g = ctx.createGain();
+      percEnv(g.gain, t, (p.gain || 0.42) * vel, dec);
+      o.connect(g);
+      toOut(g, 0.18);
+      o.start(t); o.stop(t + dec + 0.08);
+      const n = noiseSource(ctx, t, 0.025);
+      const hp = ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = 2600;
+      const ng = ctx.createGain();
+      percEnv(ng.gain, t, 0.1 * vel, 0.018);
+      n.connect(hp).connect(ng);
+      toOut(ng, 0);
+      return;
+    }
+
+    /* Timbale: a shallow drum with a metal shell, so it is a pitched body and
+       a ring of metal at once — neither on its own sounds like one. */
+    if (inst === 'timbale') {
+      const p = kit.timbale || { f0: 400, f1: 300, dec: 0.3, gain: 0.44 };
+      const dec = p.dec || 0.3;
+      const o = ctx.createOscillator();
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(p.f0 || 400, t);
+      o.frequency.exponentialRampToValueAtTime(p.f1 || 300, t + dec * 0.6);
+      const g = ctx.createGain();
+      percEnv(g.gain, t, (p.gain || 0.44) * vel, dec);
+      o.connect(g);
+      toOut(g, 0.2);
+      o.start(t); o.stop(t + dec + 0.1);
+
+      const m = metalSource(ctx, t, dec, 0.8);
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 3200;
+      bp.Q.value = 0.7;
+      const mg = ctx.createGain();
+      percEnv(mg.gain, t, (p.gain || 0.44) * vel * 0.3, dec * 0.5);
+      m.connect(bp).connect(mg);
+      toOut(mg, 0.18);
+      return;
+    }
+
+    /* Triangle: the longest-ringing thing in any kit, and almost pure metal.
+       Very little noise, filtered high, and left to ring for a second. */
+    if (inst === 'triangle') {
+      const p = kit.triangle || { dec: 1.1, hp: 5200, gain: 0.16 };
+      const dec = p.dec || 1.1;
+      const g = ctx.createGain();
+      percEnv(g.gain, t, (p.gain || 0.16) * vel, dec);
+      const hp = ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = p.hp || 5200;
+      hp.connect(g);
+      const m = metalSource(ctx, t, dec + 0.1, 1.6);
+      const mg = ctx.createGain();
+      mg.gain.value = 0.9;
+      m.connect(mg).connect(hp);
+      const n = noiseSource(ctx, t, 0.05);
+      const ng = ctx.createGain();
+      ng.gain.value = 0.15;
+      n.connect(ng).connect(hp);
+      toOut(g, 0.3);
+      return;
+    }
+
+    /* Cabasa: steel beads dragged across a steel cylinder. A burst, then a
+       shorter rattle as the beads settle — two noise layers, like the snare,
+       for the same reason. */
+    if (inst === 'cabasa') {
+      const p = kit.cabasa || { dec: 0.11, hp: 5000, gain: 0.16 };
+      const dec = p.dec || 0.11;
+      [[1, 0.03, 1], [0.55, dec, 0.75]].forEach(function (layer) {
+        const n = noiseSource(ctx, t, layer[1] + 0.04);
+        const hp = ctx.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.value = (p.hp || 5000) * layer[2];
+        const g = ctx.createGain();
+        percEnv(g.gain, t, (p.gain || 0.16) * layer[0] * vel, layer[1]);
+        n.connect(hp).connect(g);
+        toOut(g, 0.1);
+      });
       return;
     }
 

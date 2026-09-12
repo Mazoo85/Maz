@@ -433,6 +433,52 @@ Object.keys(Genres.GENRES).forEach(function (gid) {
   check(Composer.shiftOctave(s, 'drums', 1) === false, 'drums have no octave to move');
 })();
 
+/* --- every drum a genre writes survives being saved --- */
+(function () {
+  /* A saved song stores each drum as its index in one list, so a drum missing
+     from that list packs as -1 and comes back as whatever index -1 unpacks to.
+     `rim` was missing for its whole life: seven genres write sidestick
+     patterns and every one of them came back from a save as a kick drum.
+     Nothing else in the program had any reason to notice. */
+  const used = {};
+  Object.keys(Genres.GENRES).forEach(function (gid) {
+    const d = Genres.GENRES[gid].drums;
+    if (!d) return;
+    ['intro', 'groove', 'full', 'fill'].forEach(function (sec) {
+      if (!d[sec]) return;
+      Object.keys(d[sec]).forEach(function (inst) { used[inst] = gid; });
+    });
+  });
+  const names = Object.keys(used);
+  check(names.length > 10, 'the genres between them use a lot of drums (' + names.length + ')');
+
+  /* Round-trip a song carrying one note of every drum any genre asks for. */
+  const s = Composer.compose({ seed: 'DRUMPACK', genre: 'lofi', length: 'short' });
+  s.tracks.drums = names.map(function (inst, i) {
+    return { t: i * 0.25, d: 0.25, p: 60, v: 0.8, inst: inst };
+  });
+  const back = Composer.unpackSong(JSON.parse(JSON.stringify(Composer.packSong(s))));
+  const lost = [];
+  names.forEach(function (inst, i) {
+    const got = back.tracks.drums[i];
+    if (!got || got.inst !== inst) {
+      lost.push(inst + '→' + (got ? got.inst : 'gone') + ' (used by ' + used[inst] + ')');
+    }
+  });
+  check(lost.length === 0,
+    'every drum a genre writes comes back from a save as itself (' + lost.join(', ') + ')');
+
+  /* And the same list has to be append-only, since the index is the saved
+     value: reordering it would rewrite the drums in every song already saved. */
+  const order = Composer.DRUM_INSTS;
+  check(order[0] === 'kick' && order[1] === 'snare' && order[2] === 'clap' &&
+        order[3] === 'hh' && order[4] === 'oh' && order[5] === 'ride' &&
+        order[6] === 'tom' && order[7] === 'conga' && order[8] === 'perc' &&
+        order[9] === 'shaker' && order[10] === 'tamb' && order[11] === 'cowbell' &&
+        order[12] === 'crash' && order[13] === 'riser' && order[14] === 'impact',
+    'the first fifteen drum slots are still what older saves think they are');
+})();
+
 /* --- every scale, and every chord built on every degree of it --- */
 (function () {
   const ids = Object.keys(Theory.SCALES);

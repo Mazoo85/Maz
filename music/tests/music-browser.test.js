@@ -361,7 +361,9 @@ function launchOptions() {
                     ['snare', 'acoustic'], ['snare', 'boombap'], ['snare', 'electro'],
                     ['hh', 'acoustic'], ['oh', 'acoustic'], ['ride', 'jazz'],
                     ['tom', 'acoustic'], ['clap', 'electro'], ['crash', 'rock'],
-                    ['shaker', 'acoustic'], ['rim', 'boombap'], ['conga', 'latin']];
+                    ['shaker', 'acoustic'], ['rim', 'boombap'], ['conga', 'latin'],
+                    ['clave', 'latin'], ['block', 'latin'], ['bongo', 'latin'],
+                    ['timbale', 'latin'], ['triangle', 'acoustic'], ['cabasa', 'latin']];
     const out = {};
     for (const spec of PIECES) {
       const L = await render(spec[0], spec[1], spec[0] === 'crash' ? 3 : 1.2);
@@ -373,7 +375,7 @@ function launchOptions() {
   });
 
   const pieces = Object.keys(kit);
-  check(pieces.length >= 15, 'every drum in the kit renders (' + pieces.length + ')');
+  check(pieces.length >= 21, 'every drum in the kit renders (' + pieces.length + ')');
   let silent = [], clipped = [], broken = [], clicked = [];
   pieces.forEach(function (k) {
     const d = kit[k];
