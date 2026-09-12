@@ -87,7 +87,13 @@ class LinearArena {
     size_t remaining() const { return m_capacity - m_offset; }
 
   private:
-    static constexpr size_t kMaxAlign = alignof(std::max_align_t);
+    // The strongest alignment this arena backs, used both to align the buffer and to bound what
+    // allocate() will accept. Deliberately NOT alignof(std::max_align_t): that is 16 on the
+    // Linux/glibc ABI but 8 on MSVC, so tying the bound to it made every request above 8 return
+    // nullptr on Windows — including the 16-byte alignment the SIMD types need. Pin it to at least
+    // 16 so the guarantee is the same on every platform.
+    static constexpr size_t kMaxAlign =
+        alignof(std::max_align_t) > 16 ? alignof(std::max_align_t) : static_cast<size_t>(16);
     uint8_t* m_buffer;
     size_t m_capacity;
     size_t m_offset = 0;

@@ -20936,7 +20936,7 @@ void testFontFallback() {
         FontFallback fb;
         fb.addFont(1);
         fb.coverRange(1, 0x41, 0x5A);
-        std::u32string s = U"A☃☃B";
+        std::u32string s = U"A\u2603\u2603B";
         auto r = fb.runs(s);
         CHECK(r.size() == 3);
         CHECK(r[0].fontId == 1 && r[0].length == 1);
