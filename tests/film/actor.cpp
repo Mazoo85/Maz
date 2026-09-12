@@ -50,14 +50,16 @@ int main() {
         near(frac(sk.shoulder[film::kRight]), 0.815f, 0.002f, "the shoulder is at 0.815 of the height");
         near(frac(sk.elbow[film::kRight]), 0.625f, 0.004f, "the elbow is level with the navel, 0.625");
         near(frac(sk.wrist[film::kRight]), 0.485f, 0.006f, "the wrist is level with the crotch, 0.485");
-        near(frac(sk.hip[film::kRight]), 0.500f, 0.002f, "the hip joint is halfway up");
+        // The femoral head, not the crotch. Halfway up is the crotch; the joint the leg swings from
+        // is higher, and the difference is a leg that can reach the end of a stride.
+        near(frac(sk.hip[film::kRight]), 0.530f, 0.002f, "the hip joint is at 0.53, inside the pelvis");
         near(frac(sk.knee[film::kRight]), 0.285f, 0.003f,
              "the knee is BELOW halfway down the leg, at 0.285");
-        near(frac(sk.ankle[film::kRight]), 0.045f, 0.002f, "the ankle is 0.045 above the floor");
+        near(frac(sk.ankle[film::kRight]), 0.039f, 0.002f, "the ankle is 0.039 above the floor");
         near(sk.crown(b).y / H, 1.000f, 0.002f, "the crown is the top of the figure");
 
         // The drawing rule for arm length: with the arms hanging, the fingertips reach mid-thigh.
-        const float midThigh = (0.500f + 0.285f) * 0.5f;
+        const float midThigh = (0.480f + 0.285f) * 0.5f; // between the crotch and the knee
         near(sk.fingertipAt(b, film::kRight).y / H, midThigh, 0.035f,
              "the fingertips reach mid-thigh with the arms down");
 

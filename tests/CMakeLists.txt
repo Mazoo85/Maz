@@ -1189,6 +1189,10 @@ add_test(NAME film_motion COMMAND maz_film_motion_tests
 add_executable(maz_film_actor_tests film/actor.cpp)
 target_link_libraries(maz_film_actor_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME film_actor COMMAND maz_film_actor_tests)
+
+add_executable(maz_film_perform_tests film/perform.cpp)
+target_link_libraries(maz_film_perform_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME film_perform COMMAND maz_film_perform_tests)
 set_tests_properties(film_motion PROPERTIES TIMEOUT 30)
 
 add_executable(maz_film_showcase_tests film/showcase.cpp)

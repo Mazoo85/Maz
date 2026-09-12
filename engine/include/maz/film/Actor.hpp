@@ -27,9 +27,17 @@
 //        chin  0.867   ·  eyes sit halfway up the head, not near the top
 //     shoulder 0.815   ·  shoulders are two head-widths across for a man, less for a woman
 //        elbow 0.625   ·  the elbow is level with the navel
+//    hip joint 0.530   ·  the FEMORAL HEAD, which is NOT the crotch and NOT the halfway line
 //        wrist 0.485   ·  the wrist is level with the crotch, and the arms reach mid-thigh
 //         knee 0.285   ·  the knee is NOT halfway down the leg; it is below halfway
-//        ankle 0.045
+//        ankle 0.039
+//
+// The hip joint is the one worth spelling out, because getting it wrong is invisible standing still
+// and impossible to recover from in a walk. "Halfway up" is the CROTCH, at about 0.48; the joint the
+// leg actually swings from is the head of the femur, 0.53 up, tucked inside the pelvis. Put the joint
+// at the crotch and the leg comes out 7% short — which nobody can see in a photograph, and which means
+// the leg cannot reach the floor at the end of a normal stride, so the foot skates or the shin
+// stretches. Half a walk cycle's worth of trouble, from one landmark.
 //
 // The arms hang forward-kinematically from the shoulders (angles at the shoulder and elbow, which is
 // how an arm is posed), and the legs run backward from the feet (the foot is placed on the ground and
@@ -53,10 +61,10 @@ struct Build {
     float heads = 7.5f;   // how many head-heights tall; children are fewer, and it shows
 
     // the landmarks, as fractions of height
-    float yAnkle = 0.045f;
+    float yAnkle = 0.039f;
     float yKnee = 0.285f;
-    float yHip = 0.500f;
-    float yPelvis = 0.520f;
+    float yHip = 0.530f;   // the femoral head, inside the pelvis
+    float yPelvis = 0.545f;
     float yWaist = 0.620f;
     float yChest = 0.720f;
     float yShoulder = 0.815f;
@@ -131,11 +139,12 @@ inline Build child() {
     b.yNeck = 0.832f;
     b.yElbow = 0.608f;
     b.yWrist = 0.462f;
-    b.yHip = 0.492f;
-    b.yPelvis = 0.512f;
+    b.yHip = 0.516f;
+    b.yPelvis = 0.532f;
     b.yWaist = 0.608f;
     b.yChest = 0.706f;
     b.yKnee = 0.272f;
+    b.yAnkle = 0.038f;
     b.shoulderHalf = 0.094f;
     b.yokeHalfW = 0.100f;
     b.chestHalfW = 0.086f;
@@ -164,7 +173,11 @@ struct Pose {
     math::vec3 hips{0.0f, 0.0f, 0.0f}; // pelvis, in their own space; y = 0 means "use the rest height"
     float lean = 0.0f;                 // forward/back through the spine, radians
     float sway = 0.0f;                 // sideways through the spine
-    float twist = 0.0f;                // around, through the spine
+    float twist = 0.0f;                // around, through the spine, from the waist up
+    // The pelvis turns on its own, because in a walk the hips and the shoulders turn OPPOSITE ways —
+    // the hips follow the swinging leg and the ribcage counters it. One twist for the whole trunk
+    // gives a figure that turns like a plank, which is the most obvious tell of a bad walk.
+    float pelvisTwist = 0.0f;
     float neckPitch = 0.0f;
     float headYaw = 0.0f, headPitch = 0.0f;
 
@@ -291,11 +304,11 @@ inline Skeleton skeletonOf(const Build& b, const Pose& poseIn) {
     // The spine takes the lean in three helpings rather than one hinge at the waist, because a back
     // is a curve: bending it all at one joint is what makes a figure look like a hinged doll.
     sk.pelvis = root * move(pose.hips.x, pose.hips.y, pose.hips.z) * rotZ(pose.sway * 0.30f) *
-                rotY(pose.twist * 0.25f) * rotX(pose.lean * 0.30f);
+                rotY(pose.pelvisTwist) * rotX(pose.lean * 0.30f);
     sk.waist = sk.pelvis * move(0.0f, b.m(b.yWaist - b.yPelvis), 0.0f) * rotZ(pose.sway * 0.35f) *
-               rotY(pose.twist * 0.35f) * rotX(pose.lean * 0.35f);
+               rotY(pose.twist * 0.45f) * rotX(pose.lean * 0.35f);
     sk.chest = sk.waist * move(0.0f, b.m(b.yChest - b.yWaist), 0.0f) * rotZ(pose.sway * 0.35f) *
-               rotY(pose.twist * 0.40f) * rotX(pose.lean * 0.35f);
+               rotY(pose.twist * 0.55f) * rotX(pose.lean * 0.35f);
     sk.yoke = sk.chest * move(0.0f, b.m(b.yShoulder - b.yChest), 0.0f);
     sk.neck = sk.yoke * move(0.0f, b.m(b.yNeck - b.yShoulder), 0.0f) * rotX(pose.neckPitch);
     // The head sits a neck's length above, and its centre is half a head-height above the chin. The
