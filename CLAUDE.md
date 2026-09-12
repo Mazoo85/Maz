@@ -81,6 +81,30 @@ scratchpad for the headers); the **CI workflow does the full Vulkan build and th
 suite**. Never weaken CI or the renderer to make it build here — split GPU glue from pure logic and
 verify the logic locally, the glue in CI.
 
+## The arcade apps, and where the music comes from
+
+Alongside the engine this repo carries the browser apps of MAZ ARCADE, listed in `shared/projects.js`.
+Two of them are joined:
+
+- **SCRIPT FORGE** (`film/`) — an idea becomes a screenplay, a reel, and a film.
+- **SONG FORGE** (`music/`) — the AI music app: `composer.js` writes a song, `engine.js` plays it.
+
+**The film's score is SONG FORGE's job, and must stay that way.** Do not write a second music
+generator, and do not synthesise the score inside the film app. The division that already exists is
+the one to keep:
+
+- `film/js/film-score.js` (`FilmConductor`) turns a reel into a **score request** — genre, mood,
+  seed, bpm chosen so bars land on the cuts, a section per scene, instruments following the tension
+  — plus a **duck envelope** that keeps the music under the dialogue. Pure data; no audio in it.
+- `music/js/composer.js` (`Composer.compose`) **composes** from that request, and
+  `music/js/engine.js` (`Engine.Player`) **plays** it into a destination the film supplies.
+- `film/js/film-audio.js` owns only what is not music: the character voices, the film's two buses,
+  and the ducking.
+
+So when the score is wanted somewhere new — the native renderer's soundtrack, an export, anything
+else — the work is to give SONG FORGE a destination and let it compose, never to reimplement it.
+Whatever composes a Maz film's music is SONG FORGE.
+
 ## Git
 
 Work happens on branch `claude/game-engine-roadmap-mxfa9r` (this branch carries the mature engine;
