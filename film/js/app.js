@@ -331,7 +331,9 @@
     score = null;
     if (ScoreLib.supported()) {
       try {
-        score = new ScoreLib.Score(reel);
+        // The stride rate comes from the player so the footsteps land on the
+        // same beat the legs do. One number, one owner.
+        score = new ScoreLib.Score(reel, { walkRate: PlayerLib.WALK_RATE });
       } catch (e) {
         score = null; // a film with no sound still plays
       }

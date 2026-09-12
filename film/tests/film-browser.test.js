@@ -965,6 +965,53 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
     check((shotSweep.kinds.insert || 0) > 0,
       `the swept film actually contains an insert shot, the case that used to throw ` +
       `(${shotSweep.kinds.insert || 0} of them)`);
+    /* -------------------------------------------------- the sound of the place
+     *
+     * Rendered offline and measured, because "there is a room tone now" is the
+     * kind of claim that stays true in the source long after it stopped being
+     * true in the speakers. A ward, a chapel and a rainy street have to measure
+     * differently from each other, and a footstep has to be a transient rather
+     * than part of the bed.
+     */
+    console.log('\nWORLD SOUND');
+    const world = await page.evaluate(async () => {
+      const W = window.FilmWorldSound;
+      async function render(setKey, weather, shot, walk) {
+        const ctx = new OfflineAudioContext(1, 44100 * 3, 44100);
+        const out = ctx.createGain();
+        out.gain.value = 1;
+        out.connect(ctx.destination);
+        const amb = new W.Ambience(ctx, out);
+        amb.start();
+        amb.enter(setKey, weather, shot);
+        if (walk) W.footfallsFor(shot, 0.85).forEach((f) => amb.step(f.at, setKey, 1));
+        const buf = await ctx.startRendering();
+        const d = buf.getChannelData(0);
+        let rms = 0;
+        let peak = 0;
+        // Skip the first second: the bed glides in, and measuring the glide
+        // measures the ramp rather than the room.
+        for (let i = 44100; i < d.length; i++) { rms += d[i] * d[i]; peak = Math.max(peak, Math.abs(d[i])); }
+        return { rms: Math.sqrt(rms / (d.length - 44100)), peak };
+      }
+      const quiet = { kind: 'action', mood: 0.4, beat: 'open', characters: ['A'], duration: 3, framing: 'wide' };
+      const walking = { kind: 'action', mood: 0.4, beat: 'push', characters: ['A'], duration: 3, framing: 'wide' };
+      return {
+        ship: await render('ship', 'none', quiet, false),
+        chapel: await render('chapel', 'none', quiet, false),
+        street: await render('street', 'rain', quiet, false),
+        steps: await render('corridor', 'none', walking, true),
+        nosteps: await render('corridor', 'none', quiet, false)
+      };
+    });
+    check(world.chapel.rms > 0, `a quiet room still makes a sound (rms ${world.chapel.rms.toFixed(5)})`);
+    check(world.ship.rms > world.chapel.rms * 1.5,
+      `an engine room rumbles louder than a chapel (${world.ship.rms.toFixed(5)} vs ${world.chapel.rms.toFixed(5)})`);
+    check(world.street.rms > world.ship.rms * 3,
+      `rain on a street is the loudest thing in the film (${world.street.rms.toFixed(5)})`);
+    check(world.steps.peak > world.nosteps.peak * 5,
+      `a footstep is a transient, not part of the bed (peak ${world.steps.peak.toFixed(3)} ` +
+      `walking against ${world.nosteps.peak.toFixed(3)} standing still)`);
   } finally {
     await browser.close();
     server.close();

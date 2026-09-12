@@ -22,6 +22,8 @@
   'use strict';
 
   var PARSE = root.FilmParse || (typeof require !== 'undefined' ? require('./parse.js') : {});
+  var WEATHER = root.FilmWeather || (typeof require !== 'undefined' ? require('./film-weather.js') : {});
+  var WORLD = root.FilmWorldSound || (typeof require !== 'undefined' ? require('./world-sound.js') : {});
 
   /* Which genres keep a pulse going under the picture (read by `tick`). The
    * fast, driving ones do; the ones that live on silence do not, and only get
@@ -90,12 +92,23 @@
     this.pulseNext = 0;
     this.currentShot = null;
     this.blipTimers = [];
+
+    // The sound of the place: a room tone per set, whatever is hanging in the
+    // air, and feet. Not music, and not the score -- the score is SONG FORGE's
+    // job and stays that way. This is the bed the picture sits on, and it goes
+    // on the effects bus next to the voices.
+    this.world = null;
+    this.walkRate = opts.walkRate || null;
   }
 
   Score.prototype.start = function () {
     if (this.started) return;
     this.started = true;
     if (this.ctx.state === 'suspended' && this.ctx.resume) this.ctx.resume();
+    if (!this.world && WORLD.Ambience) {
+      this.world = new WORLD.Ambience(this.ctx, this.effectsBus);
+      this.world.start();
+    }
   };
 
   /* Called when the film cuts to a new shot. */
@@ -108,7 +121,31 @@
       this.hit(0.5 + tension * 0.5);
     }
 
+    // ...and so does a turn of the object's arc, which is the film reacting to
+    // what is actually on screen rather than to the clock. This lives on the
+    // effects bus on purpose: making the MUSIC react would mean composing in
+    // here, and the music is SONG FORGE's job (CLAUDE.md).
+    if (shot.objectBeat && (!this.currentShot || this.currentShot.objectBeat !== shot.objectBeat)) {
+      this.hit(0.32 + tension * 0.3);
+    }
+
     this.currentShot = shot;
+
+    // Move the world to this room, and walk anybody who is walking.
+    if (this.world) {
+      var weatherKind = WEATHER.forShot
+        ? WEATHER.forShot(this.reel.genre, shot.time, shot.set)
+        : 'none';
+      this.world.enter(shot.set, weatherKind, shot);
+      var now = this.ctx.currentTime;
+      var setKey = shot.set;
+      var self = this;
+      WORLD.footfallsFor(shot, this.walkRate).forEach(function (fall) {
+        // Left and right are not the same weight -- everybody favours a side,
+        // and identical footfalls read as a metronome rather than a person.
+        self.world.step(now + fall.at, setKey, fall.foot === 'left' ? 1 : 0.86);
+      });
+    }
 
     // Speak the line.
     this.clearBlips();
@@ -351,6 +388,7 @@
   };
 
   Score.prototype.stop = function () {
+    if (this.world) { this.world.stop(); this.world = null; }
     // The music player is stopped unconditionally: `close()` calls through
     // here, and a score that was never `start()`ed can still have a player
     // loaded and running — an early return would leave it playing.

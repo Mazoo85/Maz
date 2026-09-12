@@ -346,7 +346,7 @@
 
   /* A walk: strides per second, and how far across the frame it carries them.
    * Travel is in the same world units drawFrame lays its figures out in. */
-  var WALK_RATE = 0.85;
+  var WALK_RATE = 0.85;   // exported below: the sound of feet has to use this same number
   var WALK_TRAVEL = 190;
 
   function drawFrame(ctx, width, height, reel, time, opts) {
@@ -988,6 +988,7 @@
   }
 
   var API = {
+    WALK_RATE: WALK_RATE,
     drawFrame: drawFrame,
     Player: Player,
     record: record,

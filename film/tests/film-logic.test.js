@@ -991,6 +991,7 @@ test('playing from the middle of a line starts already ducked', () => {
 /* ================================================================== figures */
 const Figures = require(path.join(__dirname, '..', 'js', 'film-figures.js'));
 const Dress = require(path.join(__dirname, '..', 'js', 'set-dress.js'));
+const World = require(path.join(__dirname, '..', 'js', 'world-sound.js'));
 
 console.log('\nHOW A CHARACTER STANDS');
 
@@ -2789,6 +2790,101 @@ test('dressing actually draws something', () => {
   const empty = stubContext();
   Dress.draw(empty, { key: [1, 1, 1], ink: [0, 0, 0], shadow: [0, 0, 0] }, null, rgb);
   eq(empty.calls.length, 0, 'drawing no dressing still drew something');
+});
+
+
+/* ------------------------------------------------------ the sound of it */
+
+test('every buildable set has a sound of its own', () => {
+  // Fifteen sets that all sound the same is the same bug as fifteen sets that
+  // all look the same, and harder to notice.
+  const setKeys = ['ward', 'corridor', 'industrial', 'ship', 'office', 'kitchen', 'room',
+                   'bar', 'chapel', 'vehicle', 'lighthouse', 'woods', 'field', 'street', 'water'];
+  const hums = new Set();
+  setKeys.forEach((setKey) => {
+    const tone = World.ROOM_TONE[setKey];
+    assert(tone, setKey + ' has no room tone at all');
+    assert(tone.hum >= 40 && tone.hum <= 400, setKey + ' hums at ' + tone.hum + ' Hz');
+    assert(tone.level > 0 && tone.level < 0.2, setKey + ' room tone level is ' + tone.level);
+    hums.add(tone.hum);
+  });
+  assert(hums.size >= 12, 'only ' + hums.size + ' distinct room tones across fifteen sets');
+  // A set nobody listed still gets a room rather than silence.
+  eq(World.toneFor('nowhere-in-particular'), World.DEFAULT_TONE);
+});
+
+test('every kind of weather the picture can show, the sound has too', () => {
+  // A picture with rain in it and no rain under it is worse than one with
+  // neither. These names come from film-weather.js and must not drift.
+  ['rain', 'dust', 'fog', 'haze', 'shimmer', 'embers', 'none'].forEach((kind) => {
+    assert(World.WEATHER_SOUND[kind], 'no sound for ' + kind);
+  });
+  assert(World.WEATHER_SOUND.rain.level > World.WEATHER_SOUND.fog.level,
+    'fog is louder than rain');
+  eq(World.WEATHER_SOUND.none.level, 0, 'clear air makes a noise');
+});
+
+test('the world gets out of the way of the dialogue', () => {
+  const spoken = World.levelFor({ kind: 'line', speaker: 'X', mood: 0.5 });
+  const silent = World.levelFor({ kind: 'action', mood: 0.5 });
+  assert(spoken < silent * 0.7, 'the room is as loud under a line as under an image');
+  // And a tense room is louder than a calm one.
+  assert(World.levelFor({ kind: 'action', mood: 0.9 }) >
+         World.levelFor({ kind: 'action', mood: 0.1 }),
+    'tension does not reach the room tone');
+  // But not by much: a bed that moves a lot stops being a bed.
+  assert(World.levelFor({ kind: 'action', mood: 0.9 }) <
+         World.levelFor({ kind: 'action', mood: 0.1 }) * 1.8,
+    'the room tone swings so far it is an effect, not a bed');
+});
+
+test('feet land on the same stride the legs walk', () => {
+  // The player owns the rate; the sound takes it as an argument. Two numbers
+  // that must agree are one number too many.
+  const rate = 0.85;
+  const shot = { beat: 'push', characters: ['A'], duration: 6, framing: 'wide' };
+  const falls = World.footfallsFor(shot, rate);
+  assert(falls.length > 4, 'nobody walked: ' + falls.length);
+  for (let i = 1; i < falls.length; i++) {
+    const gap = falls[i].at - falls[i - 1].at;
+    assert(Math.abs(gap - 1 / rate / 2) < 1e-9,
+      'a step landed ' + gap.toFixed(3) + 's after the last, not ' + (1 / rate / 2).toFixed(3));
+    assert(falls[i].foot !== falls[i - 1].foot, 'two lefts in a row');
+  }
+  assert(falls[0].at > 0.05, 'a foot landed on the cut itself, which sounds like the edit');
+  falls.forEach((f) => assert(f.at < shot.duration, 'a step landed after the shot ended'));
+});
+
+test('only the people who walk make footsteps', () => {
+  const base = { characters: ['A'], duration: 6, framing: 'wide' };
+  eq(World.footfallsFor(Object.assign({}, base, { beat: 'open' }), 0.85).length, 0,
+    'somebody walked through a beat nobody walks in');
+  eq(World.footfallsFor(Object.assign({}, base, { beat: 'push', characters: [] }), 0.85).length, 0,
+    'an empty frame made footsteps');
+  eq(World.footfallsFor(Object.assign({}, base, { beat: 'push', framing: 'insert' }), 0.85).length, 0,
+    'a shot of an object made footsteps');
+});
+
+test('you can hear whether somebody is indoors', () => {
+  // Most of what tells you where somebody is walking is how bright the step is.
+  const outside = World.surfaceFor('woods');
+  const inside = World.surfaceFor('corridor');
+  assert(inside.cutoff > outside.cutoff * 2,
+    'a corridor sounds as soft underfoot as a forest');
+  assert(World.surfaceFor('chapel').decay > World.surfaceFor('street').decay,
+    'stone does not ring longer than a street');
+  eq(World.surfaceFor('nowhere'), World.DEFAULT_SURFACE);
+});
+
+test('the seven turns of the object reach the soundtrack', () => {
+  // The film reacting to what is on screen rather than to the clock.
+  const script = Writer.write(Parse.parse('a night nurse buries a key in the woods'),
+    { length: 'festival', seed: 5 });
+  const reel = Reel.build(script);
+  const marked = reel.shots.filter((s) => s.objectBeat);
+  assert(marked.length >= 5, 'only ' + marked.length + ' object beats reached the reel');
+  marked.forEach((shot) => assert(Arc.STATES.indexOf(shot.objectBeat) !== -1,
+    'unknown object state on a shot: ' + shot.objectBeat));
 });
 
 

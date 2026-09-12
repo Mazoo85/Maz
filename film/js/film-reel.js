@@ -347,6 +347,9 @@
             speaker: null,
             characters: framing === 'insert' ? [] : present.slice(),
             holding: framing === 'insert' ? null : holder,
+            // Which turn of the object's arc this shot is, if any. The sound
+            // accents these: they are the seven moments the story is about.
+            objectBeat: element.objectBeat || null,
             mood: mood,
             scene: scene.number,
             beat: scene.beat.id
