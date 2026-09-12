@@ -22,6 +22,16 @@ namespace zomboid {
 // coupling: g_player (the survivor), g_bullets / g_zombies (the pools), g_director (the wave spawner),
 // and the score / wave / clock the whole world reads.
 inline const char* scripts() {
+    // The whole game's script, 173 KB of it. -Wpedantic's -Woverlength-strings objects that the
+    // standard only requires a compiler to support 65,536 characters in one literal; clang raises
+    // it and GCC does not, which is why it surfaced only on macOS. Every compiler the project
+    // targets handles this literal — it is a portability floor, not a defect — and splitting a
+    // script into concatenated chunks to satisfy the floor would put arbitrary seams through the
+    // game's source for nothing. Silenced here, around this literal only.
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Woverlength-strings"
+#endif
     return R"MAZ(
 var g_player = nil;
 var g_director = nil;
@@ -3649,6 +3659,9 @@ class Loot {
     }
 }
 )MAZ";
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 }
 
 // True when a run's (wave, score) beats the stored best as a single ranked pair — score is the primary

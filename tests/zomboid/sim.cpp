@@ -999,7 +999,9 @@ int main() {
         const double nades0 = sField(survivor, "grenades")->number;
         const double loot0 = sField(survivor, "loot_collected")->number;
         double r0[5];
-        for (int i = 0; i < 5; ++i) r0[i] = reserves[i].number;
+        // reserves is a script array, so the subscript is size_t; i is a plain int loop
+        // counter. Explicitly widened for clang's -Wsign-conversion.
+        for (size_t i = 0; i < 5; ++i) r0[i] = reserves[i].number;
         std::vector<Value> kind0 = {Value::fromNum(0.0)};
         vm.callOn(sv, "collect", kind0);
         CHECK(sField(survivor, "food")->number == food0 + 1.0);
@@ -1017,7 +1019,9 @@ int main() {
         vm.callOn(sv, "set_weapon", smg);
         const double magSmg = (*sField(survivor, "mag_sizes")->array)[2].number;   // 30
         double b0[5];
-        for (int i = 0; i < 5; ++i) b0[i] = reserves[i].number;
+        // reserves is a script array, so the subscript is size_t; i is a plain int loop
+        // counter. Explicitly widened for clang's -Wsign-conversion.
+        for (size_t i = 0; i < 5; ++i) b0[i] = reserves[i].number;
         vm.callOn(sv, "collect_ammo", none);
         CHECK(reserves[2].number == b0[2] + magSmg * 2.0);   // active weapon: +2 mags
         CHECK(reserves[0].number == b0[0] + 4.0);            // others: +4 each
@@ -1034,7 +1038,9 @@ int main() {
         const double sentries1 = sField(survivor, "sentries")->number;
         const double molotovs1 = sField(survivor, "molotovs")->number;
         double c0[5];
-        for (int i = 0; i < 5; ++i) c0[i] = reserves[i].number;
+        // reserves is a script array, so the subscript is size_t; i is a plain int loop
+        // counter. Explicitly widened for clang's -Wsign-conversion.
+        for (size_t i = 0; i < 5; ++i) c0[i] = reserves[i].number;
         vm.callOn(sv, "collect_crate", none);
         CHECK(sField(survivor, "health")->number == std::min(40.0 + 50.0, maxHp)); // +50 heal, capped
         CHECK(sField(survivor, "food")->number == food1 + 2.0);
