@@ -13,7 +13,9 @@ weather, mountains, the dragon, and a neon finish over the top.
 It runs **entirely in your browser**. No account, no API key, no uploads, no
 cost, no queue, and it keeps working with the wifi off. Every picture is drawn
 from scratch with maths: there are no photographs in this repository and no
-model weights to download.
+model weights to download. (One optional extra — [bringing photos in from
+Google Photos](#google-photos) — is the single thing here that uses a network,
+and the painting still happens in your browser.)
 
 ```
 cd coda-pics
@@ -88,6 +90,81 @@ One honest limit: a picture painted **onto** a photo cannot be kept in the
 gallery, because the gallery stores scenes and not photographs. The app says so
 and points you at **Save the picture** instead of bringing it back wrong later.
 
+## Google Photos
+
+<a id="google-photos"></a>
+
+Everything above works with photos already on your phone or computer. If your
+photos live in **Google Photos** instead, CODA PICS can bring them straight in.
+
+This is the **only** part of CODA PICS that uses the internet, and it is opt-in:
+nothing here talks to anyone until you set it up and press the button.
+
+### What it actually does
+
+You press *Connect*, Google asks you to say yes, and then *Choose photos* opens
+**Google's own picker**. You choose. Only the photos you chose ever come to this
+page — CODA PICS cannot see the rest of your gallery, and could not list it even
+if it tried. Once they arrive they are treated exactly like a photo off the
+disk: measured here, their colours kept, the photos themselves thrown away.
+
+That restriction is Google's, not ours, and it is a good one. Google switched
+off the old "read someone's whole library" permissions on 31 March 2025; the
+picker is what replaced them, and it is built so that a human has to choose.
+
+### Setting it up — once, about five minutes, free
+
+CODA PICS ships with no Google key in it. It cannot: a key is tied to one
+Google project and one website, so a shared one would either not work for you or
+hand strangers somebody else's project. So you make your own, and this page
+keeps it in your browser and nowhere else.
+
+1. Go to <https://console.cloud.google.com/> and sign in with the Google account
+   whose photos you want. Make a new project — call it anything, "coda pics" is
+   fine.
+2. In the search bar at the top, type **Photos Picker API**, open it, and press
+   **Enable**.
+3. Go to **APIs & Services → OAuth consent screen**. Choose **External**, fill in
+   an app name and your own email where it asks, and save. When it asks for test
+   users, add your own email address. You do **not** need to publish or submit
+   anything for review — a test user is you, using your own photos.
+4. Go to **APIs & Services → Credentials → Create credentials → OAuth client ID**.
+   Application type: **Web application**.
+5. Under **Authorised JavaScript origins**, add the site you open CODA PICS from:
+   `https://mazoo85.github.io`
+6. Under **Authorised redirect URIs**, paste the address the app shows you in the
+   Google Photos box. It is exactly the page address — for the live site,
+   `https://mazoo85.github.io/Maz/coda-pics/`. It has to match character for
+   character, trailing slash included.
+7. Press create. Copy the **client ID** (it ends in
+   `.apps.googleusercontent.com`) and paste it into the box in CODA PICS.
+
+Then: **Connect Google Photos** → say yes at Google → **Choose photos**.
+
+### What is stored, and where
+
+| | |
+|---|---|
+| Your client ID | in this browser's local storage. It is not a secret — it is public by design. |
+| The sign-in proof | in this browser's session storage, for the few seconds of the redirect, then deleted. |
+| The access token | in memory only. Closing the tab ends it. |
+| The photos | not stored. Measured, then dropped. |
+| Their colours | kept, as about twenty numbers each — same as any other photo. |
+
+There is no server in this. The sign-in uses **PKCE**, which is the flow Google
+asks browser apps to use precisely because a web page cannot keep a secret.
+
+### If it does not work
+
+- **"Google refused that (403)"** — the Photos Picker API is not enabled on that
+  project, or you are signed in as an account that is not a test user.
+- **"redirect_uri_mismatch"** on Google's own page — the redirect URI in the
+  credential does not match the one the app shows. Copy it again, exactly.
+- **Nothing opens when you press Choose photos** — a pop-up blocker. Allow
+  pop-ups for this site; the picker is a new tab by design.
+- **Offline** — the rest of CODA PICS still works with the wifi off. Only this
+  box needs a network.
+
 ## Buttons
 
 - **Paint it** — paint the words in the box (or just press Enter).
@@ -150,6 +227,8 @@ can run the real pipeline with no browser at all.
 node coda-pics/tests/coda-logic.test.js     # the engine, no browser needed
 node coda-pics/tests/coda-browser.test.js   # the real page in Chromium
 node coda-pics/tests/visual.test.js         # the pictures have not changed
+node coda-pics/tests/gphotos.test.js        # the Google Photos flow, offline
+node coda-pics/tests/gphotos-browser.test.js # ...and the same flow through the page
 ```
 
 No browser, no dependencies, no network. It checks that every word in the
@@ -169,7 +248,15 @@ shows exactly which pictures moved:
 node coda-pics/tests/visual.test.js --update
 ```
 
-All three run on every push as part of
+The Google Photos suites never touch Google: the connector takes its `fetch`
+and its navigation as arguments, so the whole flow — sign-in, the state check,
+the token swap, polling, paging, fetching pixels — is driven against a fake
+Google, in Node and then again in a real browser with real storage and a real
+redirect. What cannot be tested here is whether *your* Google project is set up
+correctly; that only the real thing can tell you, and the messages above are
+written for exactly that moment.
+
+They all run on every push as part of
 [Site CI](../.github/workflows/site-ci.yml), which also drives the live page in
 a real Chromium.
 
@@ -188,6 +275,7 @@ coda-pics/
   js/subjects.js        42 drawing routines     -> window.CodaSubjects
   js/paint.js           the scene painter       -> window.CodaPaint
   js/finish.js          14 style passes         -> window.CodaFinish
+  js/gphotos.js         the Google Photos link  -> window.CodaGPhotos
   js/render-worker.js   the same engine, off the main thread
   js/app.js             the page wiring
   tests/                the test suites

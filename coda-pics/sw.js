@@ -13,9 +13,9 @@
  */
 'use strict';
 
-var CACHE = 'coda-pics-v1';
+var CACHE = 'coda-pics-v2';
 
-/* The whole app: its page, its look, its five engine files, its icons — and
+/* The whole app: its page, its look, its engine files, its icons — and
  * the shared arcade nav, which lives outside this worker's scope but is still
  * worth having offline so the way back out keeps working. */
 var SHELL = [
@@ -28,6 +28,7 @@ var SHELL = [
   'js/subjects.js',
   'js/paint.js',
   'js/finish.js',
+  'js/gphotos.js',
   'js/app.js',
   'js/render-worker.js',
   'manifest.webmanifest',
@@ -64,11 +65,15 @@ self.addEventListener('activate', function (event) {
 self.addEventListener('fetch', function (event) {
   var req = event.request;
   if (req.method !== 'GET') return;
-  if (new URL(req.url).origin !== self.location.origin) return;
+  var url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+  /* A sign-in comes back as index.html?code=… and that code is a secret with
+   * one use in it. Answer such a request, never keep a copy of it. */
+  var keep = !url.search;
 
   event.respondWith(
     fetch(req).then(function (res) {
-      if (res && res.ok) {
+      if (keep && res && res.ok) {
         var copy = res.clone();
         caches.open(CACHE).then(function (c) { c.put(req, copy); });
       }

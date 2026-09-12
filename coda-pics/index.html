@@ -78,6 +78,28 @@
           </div>
           <p id="photoNote" class="photo-note"></p>
         </div>
+
+        <details id="gphotos" class="gphotos">
+          <summary>…or bring them in from Google Photos</summary>
+          <p class="photo-privacy">This is the one part of CODA PICS that uses the internet. Google shows you
+            your own gallery, you choose the photos yourself, and only the photos you chose ever come here.
+            They are measured in this page like any other photo — nothing is uploaded, and only their colours
+            are kept.</p>
+          <label class="gp-field" for="gpClientId">Your Google client ID
+            <input type="text" id="gpClientId" spellcheck="false" autocomplete="off"
+              placeholder="000000-abcdef.apps.googleusercontent.com" />
+          </label>
+          <p class="gp-redirect">Google will ask you for a redirect URI. It is exactly this:
+            <code id="gpRedirect"></code></p>
+          <div class="buttons">
+            <button id="gpConnect" type="button">🔗 Connect Google Photos</button>
+            <button id="gpPick" type="button" hidden>🖼 Choose photos</button>
+            <button id="gpForget" type="button" hidden>✕ Disconnect</button>
+          </div>
+          <p id="gpNote" class="photo-note"></p>
+          <p class="hint">First time? <a href="README.md#google-photos">How to set this up</a> — it is a
+            one-off, takes about five minutes, and costs nothing.</p>
+        </details>
       </fieldset>
 
       <fieldset class="locks">
@@ -93,8 +115,9 @@
         <button id="six" type="button" title="Six takes at once">▦ Show me six</button>
         <button id="surprise" type="button" title="Write me a prompt">✨ Surprise me</button>
       </div>
-      <p class="hint">Everything is drawn in your browser. Nothing is uploaded, no account, no key, no cost —
-        and it works with the wifi off.</p>
+      <p class="hint">Everything is drawn in your browser. Nothing is uploaded, no account, no cost —
+        and it works with the wifi off. (Bringing photos in from Google Photos is the one thing here
+        that uses the internet, and it is optional.)</p>
     </section>
 
     <!-- ------------------------------------------------------------ output -->
@@ -139,7 +162,7 @@
     </main>
 
     <footer class="foot">
-      <p>CODA PICS draws every picture from scratch with maths — no photographs, no model, no network.
+      <p>CODA PICS draws every picture from scratch with maths — no photographs, no model, no training data.
         Part of <a href="../index.html">MAZ ARCADE</a> · <a href="README.md">how it works</a></p>
     </footer>
 
@@ -151,6 +174,7 @@
   <script src="js/subjects.js"></script>
   <script src="js/paint.js"></script>
   <script src="js/finish.js"></script>
+  <script src="js/gphotos.js"></script>
   <script src="js/app.js"></script>
   <script src="../shared/maz-nav.js" data-current="coda-pics" defer></script>
   <script>

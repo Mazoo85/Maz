@@ -838,6 +838,166 @@
     });
   }
 
+  /* -------------------------------------------------------- google photos
+   * The only part of CODA PICS that touches a network, and it is opt-in,
+   * folded away, and works exactly like choosing a file once the photos land:
+   * measured here, colours kept, pixels forgotten.
+   *
+   * There is no client ID baked into this repo on purpose. A client ID is tied
+   * to one Google project and one set of allowed origins, so a shared one would
+   * either not work for anybody else or hand strangers a project. The person
+   * makes their own, once, and this page keeps it in their browser.
+   */
+  var GP_KEY = 'codaPics.gphotos.clientId';
+  var gp = null;               // the live connector, once connected
+  var gpPickerWindow = null;   // opened on the click, filled in when we know where
+
+  function gpRedirectUri() {
+    return window.location.origin + window.location.pathname;
+  }
+
+  /* Kept for the length of the redirect and no longer. sessionStorage, not
+   * localStorage: the verifier is a secret for one sign-in, not a setting. */
+  var gpStore = {
+    get: function (k) { try { return window.sessionStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { window.sessionStorage.setItem(k, v); } catch (e) {} },
+    remove: function (k) { try { window.sessionStorage.removeItem(k); } catch (e) {} }
+  };
+
+  function gpConnector(clientId) {
+    if (!window.CodaGPhotos) return null;
+    return new window.CodaGPhotos.Connector({
+      /* Both of these are replaceable so the whole flow can be driven in a
+       * test without Google, and without a real window ever moving. */
+      fetch: window.CODA_GPHOTOS_TRANSPORT || function (url, opts) {
+        return window.fetch(url, opts);
+      },
+      go: window.CODA_GPHOTOS_GO || function (url) { window.location.href = url; },
+      store: gpStore,
+      clientId: clientId,
+      redirectUri: gpRedirectUri()
+    });
+  }
+
+  function gpSay(msg) { if (el.gpNote) el.gpNote.textContent = msg; }
+
+  function gpShowState() {
+    var connected = !!(gp && gp.token);
+    el.gpPick.hidden = !connected;
+    el.gpForget.hidden = !connected;
+    el.gpConnect.hidden = connected;
+  }
+
+  function gpConnect() {
+    var id = String(el.gpClientId.value || '').trim();
+    if (!id) {
+      gpSay('Paste your Google client ID above first — the README shows where to get one.');
+      el.gpClientId.focus();
+      return;
+    }
+    if (!window.CodaGPhotos) { gpSay('The connector did not load. Reload the page.'); return; }
+    save(GP_KEY, id);
+    gp = gpConnector(id);
+    gpSay('Sending you to Google to say yes…');
+    gp.beginSignIn().catch(function (err) {
+      gpSay(err && err.message ? err.message : 'That sign-in could not be started.');
+    });
+  }
+
+  /* Back from Google. The code in the address bar is single-use and must not
+   * survive in history, so it is swapped and then wiped from the URL. */
+  function gpFinishSignIn(code, state) {
+    var id = load(GP_KEY, '') || '';
+    gp = gpConnector(id);
+    if (!gp) return;
+    gpSay('Finishing the sign-in…');
+    gp.completeSignIn(code, state).then(function () {
+      gpCleanUrl();
+      gpShowState();
+      gpSay('Connected. Choose photos whenever you like.');
+      if (el.gphotos) el.gphotos.open = true;
+    }).catch(function (err) {
+      gpCleanUrl();
+      gp = null;
+      gpShowState();
+      gpSay(err && err.message ? err.message : 'That sign-in did not finish.');
+      if (el.gphotos) el.gphotos.open = true;
+    });
+  }
+
+  function gpCleanUrl() {
+    try {
+      window.history.replaceState({}, '', gpRedirectUri() + window.location.hash);
+    } catch (e) {}
+  }
+
+  function gpPick() {
+    if (!gp || !gp.token) { gpSay('Connect first.'); return; }
+    /* Opened on the click itself, before anything is awaited: a window opened
+     * after a network round-trip is a popup, and gets blocked. */
+    gpPickerWindow = null;
+    if (!window.CODA_GPHOTOS_GO) {
+      try { gpPickerWindow = window.open('', '_blank'); } catch (e) { gpPickerWindow = null; }
+    }
+    gpSay('Opening your gallery — choose the photos you want, then come back here.');
+    el.gpPick.disabled = true;
+
+    gp.pick({
+      limit: 12,
+      size: 640,
+      onPicker: function (uri) {
+        if (gpPickerWindow) { try { gpPickerWindow.location.href = uri; } catch (e) {} }
+        else if (window.CODA_GPHOTOS_GO) window.CODA_GPHOTOS_GO(uri);
+        else window.open(uri, '_blank');
+      }
+    }).then(function (picked) {
+      el.gpPick.disabled = false;
+      if (gpPickerWindow) { try { gpPickerWindow.close(); } catch (e) {} }
+      gpSay('Brought in ' + picked.length + ' photo' + (picked.length > 1 ? 's' : '') + '.');
+      /* From here they are ordinary photos: the same reader, the same
+       * measurement, the same palettes. Nothing about the rest of the app
+       * knows or cares that these came from Google. */
+      loadPhotos(picked.map(function (item) {
+        try { return new File([item.blob], item.name, { type: item.blob.type }); }
+        catch (e) { item.blob.name = item.name; return item.blob; }
+      }));
+    }).catch(function (err) {
+      el.gpPick.disabled = false;
+      if (gpPickerWindow) { try { gpPickerWindow.close(); } catch (e) {} }
+      gpSay(err && err.message ? err.message : 'Nothing came back.');
+    });
+  }
+
+  function gpForget() {
+    gp = null;
+    gpStore.remove('gphotos.verifier');
+    gpStore.remove('gphotos.state');
+    gpShowState();
+    gpSay('Disconnected. The colours you already kept are still here.');
+  }
+
+  function gpStart() {
+    if (!el.gpConnect) return;
+    el.gpRedirect.textContent = gpRedirectUri();
+    el.gpClientId.value = load(GP_KEY, '') || '';
+    el.gpConnect.addEventListener('click', gpConnect);
+    el.gpPick.addEventListener('click', gpPick);
+    el.gpForget.addEventListener('click', gpForget);
+    gpShowState();
+
+    var q = new URLSearchParams(window.location.search);
+    if (q.get('error')) {
+      gpCleanUrl();
+      if (el.gphotos) el.gphotos.open = true;
+      gpSay('Google said no: ' + q.get('error') + '.');
+      return;
+    }
+    if (q.get('code') && q.get('state')) {
+      if (el.gphotos) el.gphotos.open = true;
+      gpFinishSignIn(q.get('code'), q.get('state'));
+    }
+  }
+
   function start() {
     ['prompt', 'style', 'shape', 'examples', 'paint', 'reroll', 'six', 'surprise',
       'canvas', 'placeholder', 'busy', 'status', 'readout', 'unknown', 'outButtons',
@@ -846,7 +1006,9 @@
       'lockSubject', 'lockSky', 'lockLand',
       'photoFile', 'photoInfo', 'photoThumb', 'photoNote', 'stylePhoto', 'clearPhoto',
       'usePhotoColours', 'usePhotoSkyline', 'usePhotoBackdrop',
-      'paletteBox', 'paletteChips', 'clearPalettes'].forEach(function (id) {
+      'paletteBox', 'paletteChips', 'clearPalettes',
+      'gphotos', 'gpClientId', 'gpRedirect', 'gpConnect', 'gpPick', 'gpForget',
+      'gpNote'].forEach(function (id) {
       el[id] = document.getElementById(id);
     });
 
@@ -894,6 +1056,7 @@
      * every path through this function — a shared link included. */
     library = load(PALETTE_KEY, []) || [];
     renderPalettes();
+    gpStart();
 
     /* A shared link wins over whatever this browser was last doing. */
     var shared = readLink();
