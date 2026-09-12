@@ -19,6 +19,7 @@ const Writer = require(path.join(__dirname, '..', 'js', 'screenplay.js'));
 const Format = require(path.join(__dirname, '..', 'js', 'format.js'));
 const Voice = require(path.join(__dirname, '..', 'js', 'voice.js'));
 const Arc = require(path.join(__dirname, '..', 'js', 'object-arc.js'));
+const Subtext = require(path.join(__dirname, '..', 'js', 'subtext.js'));
 
 let passed = 0;
 const failures = [];
@@ -2123,6 +2124,9 @@ function everyBankLine() {
   Object.keys(DLG.BY_GENRE).forEach((genre) => Object.keys(DLG.BY_GENRE[genre]).forEach((beat) =>
     DLG.BY_GENRE[genre][beat].forEach((exchange) => exchange.forEach((l) =>
       lines.push([genre + ' ' + beat, l.line])))));
+  // The dodges are dialogue too, and go through the same voices.
+  Subtext.all().forEach(({ beat, exchange }) => exchange.lines.forEach((l) =>
+    lines.push(['subtext ' + beat, l.line])));
   return lines;
 }
 
@@ -2356,6 +2360,84 @@ test('the object always moves forwards, on every spine', () => {
       eq(new Set(states).size, states.length, 'a state plays twice: ' + where);
     });
   });
+});
+
+
+/* ------------------------------------------------------ what is not said */
+
+test('every dodge comes with a tell', () => {
+  // The pairing IS the technique: the line denies something and the action
+  // straight after shows it. An exchange with no tell is just a short scene.
+  const all = Subtext.all();
+  assert(all.length >= 12, 'too few dodges to keep two films apart: ' + all.length);
+  all.forEach(({ beat, exchange }) => {
+    const where = 'subtext ' + beat + ': ' + JSON.stringify(exchange.lines[0].line);
+    assert(Array.isArray(exchange.lines) && exchange.lines.length >= 2, 'not an exchange: ' + where);
+    assert(typeof exchange.tell === 'string' && exchange.tell.length > 8, 'no tell: ' + where);
+    exchange.lines.forEach((l) => {
+      assert(l.who === 'hero' || l.who === 'other', 'unknown speaker in ' + where);
+      assert(/[.?!—…]$/.test(l.line), 'unpunctuated line in ' + where);
+    });
+    // Somebody has to answer somebody. A monologue cannot dodge.
+    assert(new Set(exchange.lines.map((l) => l.who)).size === 2, 'only one person speaks in ' + where);
+  });
+});
+
+test('a tell is a shot, not a thought', () => {
+  // "{HERO} already knows what they would do" is a novel. "{HERO} answers too
+  // quickly" is a shot. A camera cannot photograph the first one.
+  const interior = /\b(?:feels|felt|remembers|realises|realizes|wonders|hopes|regrets|knows|wants|thinks|believes|understands)\b/;
+  Subtext.all().forEach(({ beat, exchange }) => {
+    const where = 'subtext ' + beat + ' tell: ' + JSON.stringify(exchange.tell);
+    assert(!interior.test(exchange.tell), 'un-filmable interior state in ' + where);
+    assert(/[.?!]$/.test(exchange.tell), 'no final punctuation in ' + where);
+    (exchange.tell.match(/\{[A-Z_]+\}/g) || []).forEach((slot) => {
+      assert(['{OBJ}', '{HERO}', '{OTHER}', '{PLACE}', '{TONIGHT}'].indexOf(slot) !== -1,
+        'unknown slot ' + slot + ' in ' + where);
+    });
+  });
+});
+
+test('a dodge only happens where it belongs', () => {
+  // Not the opening — a film that starts evasive has nothing to become — and
+  // not the closing scene, where the point is that somebody finally says it.
+  assert(!Subtext.hasBeat('open'), 'the opening should not dodge');
+  assert(!Subtext.hasBeat('after'), 'the last scene should not dodge');
+  Subtext.BEATS.forEach((beat) => assert(Subtext.hasBeat(beat), 'declared beat ' + beat + ' is empty'));
+});
+
+test('the tell lands immediately after the words it contradicts', () => {
+  // A beat of anything in between and the tell stops answering the line.
+  let found = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const script = Writer.write(Parse.parse('a night nurse buries a key in the woods'),
+      { length: 'festival', seed });
+    script.elements.forEach((el, i) => {
+      if (!el.tell) return;
+      found++;
+      const before = script.elements[i - 1];
+      assert(before && before.type === 'dialogue',
+        'a tell followed a ' + (before && before.type) + ' instead of a line, at seed ' + seed);
+    });
+  }
+  assert(found > 10, 'dodges are not reaching films at all: ' + found + ' tells in 40 films');
+});
+
+test('a film has both registers in it', () => {
+  // People who evade every single line are as characterless as people who
+  // evade none. Across a spread of films, some scenes must dodge and some
+  // must not.
+  let dodged = 0;
+  let direct = 0;
+  for (let seed = 1; seed <= 30; seed++) {
+    const script = Writer.write(Parse.parse('two brothers argue over a boat'), { length: 'festival', seed });
+    const tells = script.elements.filter((e) => e.tell).length;
+    const scenes = script.elements.filter((e) => e.type === 'scene_heading').length;
+    dodged += tells;
+    direct += scenes - tells;
+  }
+  assert(dodged > 20, 'almost nothing dodges: ' + dodged);
+  assert(direct > 20, 'almost everything dodges: ' + direct);
 });
 
 

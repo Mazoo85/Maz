@@ -21,6 +21,7 @@
   var PARSE = root.FilmParse || (typeof require !== 'undefined' ? require('./parse.js') : {});
   var VOICE = root.FilmVoice || (typeof require !== 'undefined' ? require('./voice.js') : {});
   var ARC = root.FilmObjectArc || (typeof require !== 'undefined' ? require('./object-arc.js') : {});
+  var SUB = root.FilmSubtext || (typeof require !== 'undefined' ? require('./subtext.js') : {});
 
   /* Ages have to match the part. A script that introduces "ALEX (40s), a kid"
    * has told the reader nothing and lost them at the same time. */
@@ -348,7 +349,11 @@
         sceneElements.push({ type: 'action', text: fill(actionPool(), ctx) });
       }
 
-      var exchange = exchangesFor(premise.genre, beatId, rng);
+      // A dodge, where the beat takes one. Roughly half the time, so a film has
+      // both registers in it: people who evade every single line are as
+      // characterless as people who evade none.
+      var dodge = SUB.hasBeat(beatId) && rng() < 0.5 ? SUB.pick(beatId, rng) : null;
+      var exchange = dodge ? dodge.lines : exchangesFor(premise.genre, beatId, rng);
       if (exchange) {
         var otherSpeaks = exchange.some(function (l) { return l.who === 'other'; });
         if (otherSpeaks && !introduced[premise.other.name]) {
@@ -361,6 +366,12 @@
           });
         }
         stageExchange(exchange, sceneElements, premise, ctx);
+        // The tell: what the words just denied, shown. It has to land straight
+        // after the exchange -- a beat of action in between and it is no longer
+        // answering anything.
+        if (dodge && dodge.tell) {
+          sceneElements.push({ type: 'action', text: fill(dodge.tell, ctx), tell: true });
+        }
       }
 
       // A second exchange where there is room for one: the middle of a longer
