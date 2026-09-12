@@ -318,6 +318,90 @@ function launchOptions() {
   check(quietHits.length === 0, 'every drum piece sounds' +
     (quietHits.length ? ': ' + quietHits.map(function (h) { return h.name; }).join(', ') : ''));
 
+  console.log('\n— the instruments, close up —');
+  /* The synthesised instruments, rendered bare like the drums: no mixer, no
+     master chain, one note at a time. */
+  const inst = await page.evaluate(async function () {
+    const rate = 44100, T0 = 0.02;
+    async function note(presetId, midi) {
+      const ctx = new OfflineAudioContext(2, Math.round(rate * 1.2), rate);
+      const dry = ctx.createGain();
+      dry.connect(ctx.destination);
+      const f = 440 * Math.pow(2, (midi - 69) / 12);
+      window.Synth.playNote(ctx, { dry: dry, rev: null, del: null, cho: null },
+        T0, 0.6, f, window.Genres.PRESETS[presetId], 0.85, { brightness: 1 });
+      return { data: (await ctx.startRendering()).getChannelData(0), f: f };
+    }
+    /* Harmonic content relative to the note's own pitch. Dividing by the
+       fundamental is what makes octaves comparable: a note an octave up is
+       twice the frequency and reads twice as bright through an identical
+       filter, which would hide exactly the effect being measured. */
+    function rich(L, f0) {
+      let s2 = 0, hf = 0, peak = 0, bad = 0;
+      for (let i = 1; i < L.length; i++) {
+        if (!isFinite(L[i])) { bad++; continue; }
+        s2 += L[i] * L[i];
+        hf += Math.abs(L[i] - L[i - 1]);
+        const v = Math.abs(L[i]); if (v > peak) peak = v;
+      }
+      const n = L.length - 1;
+      const rms = Math.sqrt(s2 / n);
+      const bright = rms > 0 ? (hf / n) / rms : 0;
+      return { rms: rms, peak: peak, bad: bad, rich: bright / (f0 / rate) / 4 };
+    }
+    const out = { track: {}, attack: {} };
+    for (const id of ['sawLead', 'warmPad', 'synthBass', 'supersaw']) {
+      const low = await note(id, 36), high = await note(id, 84);
+      const a = rich(low.data, low.f), b = rich(high.data, high.f);
+      out.track[id] = { low: a.rich, high: b.rich, bad: a.bad + b.bad,
+                        peak: Math.max(a.peak, b.peak),
+                        rms: Math.min(a.rms, b.rms) };
+    }
+    for (const id of ['supersaw', 'reese']) {
+      let mean = 0, n = 0;
+      for (const midi of [43, 55, 64, 72]) {
+        const r = await note(id, midi);
+        const L = r.data;
+        const a0 = Math.floor(T0 * rate), a1 = Math.floor((T0 + 0.025) * rate);
+        let peak = 0;
+        for (let i = a0; i < a1; i++) { const v = Math.abs(L[i]); if (v > peak) peak = v; }
+        const s0 = Math.floor((T0 + 0.25) * rate), s1 = Math.floor((T0 + 0.5) * rate);
+        let s2 = 0;
+        for (let i = s0; i < s1; i++) s2 += L[i] * L[i];
+        const sus = Math.sqrt(s2 / (s1 - s0));
+        mean += sus > 0 ? peak / sus : 0;
+        n++;
+      }
+      out.attack[id] = mean / n;
+    }
+    return out;
+  });
+
+  Object.keys(inst.track).forEach(function (id) {
+    const t = inst.track[id];
+    check(t.bad === 0, id + ': never produces a broken sample');
+    check(t.peak < 1 && t.rms > 1e-3,
+      id + ': audible without clipping (peak ' + t.peak.toFixed(3) + ')');
+    /* The filter follows the note up the keyboard. With one fixed cutoff for
+       the whole range, a low note's harmonics sit below it untouched while a
+       high note loses most of its own — the top octave comes out dull and
+       thin, and the bass preset was giving up sixty per cent of its harmonic
+       content by the top of its range. */
+    const kept = t.high / t.low;
+    check(kept > 0.55,
+      id + ': the top of the range keeps its harmonics (' +
+      Math.round(kept * 100) + '% of the bottom)');
+  });
+  /* Oscillators in a stack no longer all begin at phase zero together. Aligned,
+     they rise as one coherent surge and the attack spikes; started a fraction
+     of a millisecond apart they arrive as a swarm, which is both what a real
+     ensemble does and several decibels less peak for the same loudness. */
+  check(inst.attack.supersaw < 3,
+    'a seven-oscillator stack does not spike on its attack (' +
+    inst.attack.supersaw.toFixed(2) + ')');
+  check(inst.attack.reese < 2.5,
+    'nor does a detuned bass (' + inst.attack.reese.toFixed(2) + ')');
+
   console.log('\n— the kit, close up —');
   /* Each drum rendered on its own, with no mixer and no master chain, so what
      is measured is the instrument and nothing else. */
@@ -1308,19 +1392,34 @@ function launchOptions() {
       'splitting and rejoining leaves the ' + label + ' where it was (' +
       (db >= 0 ? '+' : '') + db.toFixed(2) + ' dB)');
   });
-  /* And the point of the whole thing: with one compressor the kick drags the
-     hats down with it, and with three it mostly does not. */
+  /*
+   * What split glue actually buys, measured.
+   *
+   * The obvious claim — that three bands stop the kick dragging the hats down
+   * — was asserted here for a while on the strength of one measurement, and it
+   * does not survive being measured properly. Across four combinations of hat
+   * level and glue amount the split is *worse* on that count in three of them,
+   * because the high band hears only the hats and so compresses them against
+   * their own level, where a wideband compressor had them as a small part of a
+   * much bigger signal. The earlier reading was a single configuration that
+   * happened to favour it.
+   *
+   * What is reliably true is the other half of why engineers reach for a
+   * multiband: more level out for the same amount of squeeze, because each
+   * band gives up only what that band needs to. That holds in every
+   * configuration tried, and it is what is asserted now.
+   */
   const bias = function (k) { return 1 - glue[k].hold / glue.none.hold; };
   check(bias('single') > 0.03,
-    'one compressor lets the kick drag the hats down (' +
+    'a wideband compressor lets the kick drag the hats down (' +
     (bias('single') * 100).toFixed(1) + '%)');
-  check(bias('split') < bias('single') * 0.85,
-    'and splitting the bands holds them up better (' +
-    (bias('split') * 100).toFixed(1) + '% against ' +
-    (bias('single') * 100).toFixed(1) + '%)');
-  check(glue.split.rms > glue.single.rms,
-    'with more level for the same squeeze (' + glue.single.rms.toFixed(4) +
-    ' → ' + glue.split.rms.toFixed(4) + ')');
+  check(glue.split.rms > glue.single.rms * 1.03,
+    'splitting the bands gets more level for the same glue setting (' +
+    glue.single.rms.toFixed(4) + ' → ' + glue.split.rms.toFixed(4) + ', ' +
+    ((glue.split.rms / glue.single.rms - 1) * 100).toFixed(1) + '% louder)');
+  check(glue.split.peak <= glue.single.peak * 1.25,
+    'without buying it with peaks (' + glue.single.peak.toFixed(3) +
+    ' → ' + glue.split.peak.toFixed(3) + ')');
 
   console.log('\n— compression —');
   /* Compression is the one effect that can quietly ruin everything. This chain
