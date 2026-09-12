@@ -278,10 +278,71 @@
     return relStart + r;
   }
 
-  function percEnv(param, t, peak, decay) {
-    param.setValueAtTime(Math.max(EPS, peak), t);
-    param.exponentialRampToValueAtTime(EPS, t + decay);
-    return t + decay;
+  /**
+   * The envelope every drum is shaped by: up fast, then a decay curve.
+   *
+   * The attack is short but it is not zero, and that matters more than it
+   * sounds like it should. Jumping from silence to full level between one
+   * sample and the next is a step, and a step contains every frequency there
+   * is — including all the ones above half the sample rate, which fold back
+   * down as a thin metallic edge on top of the hit. A ramp of a millisecond
+   * and a half is still far too fast to hear as a fade, and it takes that edge
+   * off every drum in the kit.
+   */
+  function percEnv(param, t, peak, decay, attack) {
+    const a = attack === undefined ? 0.0015 : attack;
+    param.setValueAtTime(EPS, t);
+    param.linearRampToValueAtTime(Math.max(EPS, peak), t + a);
+    param.exponentialRampToValueAtTime(EPS, t + a + decay);
+    return t + a + decay;
+  }
+
+  /**
+   * A cymbal, as metal rather than as noise.
+   *
+   * Filtered white noise is the usual shortcut for a hi-hat and it is why
+   * drum machines that use it sound like escaping steam. A struck piece of
+   * metal does not make noise; it rings at a handful of frequencies that are
+   * *inharmonic* — not whole-number multiples of anything — and that clash is
+   * the whole sound. These six ratios are the ones the classic drum machines
+   * used, for the good reason that they work.
+   *
+   * Built once per context into a buffer rather than six live oscillators per
+   * hit: a busy hat pattern is several hundred hits a minute and this is the
+   * difference between six nodes each and one.
+   */
+  function metalBuffer(ctx) {
+    if (ctx._mazMetal) return ctx._mazMetal;
+    const rate = ctx.sampleRate;
+    const len = Math.floor(rate * 0.7);
+    const buf = ctx.createBuffer(1, len, rate);
+    const d = buf.getChannelData(0);
+    const RATIOS = [2, 3, 4.16, 5.43, 6.79, 8.21];
+    const base = 263;
+    for (let r = 0; r < RATIOS.length; r++) {
+      const f = base * RATIOS[r];
+      const step = 2 * Math.PI * f / rate;
+      for (let i = 0; i < len; i++) {
+        // Square, not sine: a struck edge is not a pure tone.
+        d[i] += (Math.sin(step * i) >= 0 ? 1 : -1) * 0.14;
+      }
+    }
+    ctx._mazMetal = buf;
+    return buf;
+  }
+
+  function metalSource(ctx, t, dur, detune) {
+    const src = ctx.createBufferSource();
+    src.buffer = metalBuffer(ctx);
+    src.loop = true;
+    /* Every hit reads the metal at a slightly different speed, which moves all
+       six partials together — the same shift a real cymbal gives you for being
+       struck in a slightly different place. */
+    src.playbackRate.value = (detune === undefined ? 1 : detune) *
+      (0.94 + ((t * 5701) % 100) / 800);
+    src.start(t, ((t * 53) % 0.5));
+    src.stop(t + dur + 0.05);
+    return src;
   }
 
   /** StereoPannerNode where available; a plain gain elsewhere (mono, but audible). */
@@ -917,7 +978,11 @@
       o.frequency.setValueAtTime(p.f0, t);
       o.frequency.exponentialRampToValueAtTime(p.f1, t + p.pDec);
       const g = ctx.createGain();
-      percEnv(g.gain, t, p.gain * vel, p.dec);
+      /* The body takes a little less than the kit asks for, because the beater
+         below is about to be added on top of it. A kick that clips on its own,
+         before it has even met the rest of the mix, is a kick with nowhere
+         left to go. */
+      percEnv(g.gain, t, p.gain * vel * 0.8, p.dec);
       let node = g;
       o.connect(g);
       if (p.drive) {
@@ -929,6 +994,23 @@
       }
       toOut(node, 0.04);
       o.start(t); o.stop(t + p.dec + 0.1);
+
+      /* The beater.
+       *
+       * A kick drum is two sounds: the head moving, which is the long low note
+       * above, and the beater striking it, which is a short mid-range thump an
+       * octave or two up and gone in a twentieth of a second. Leave it out and
+       * the kick is felt but not heard — it disappears the moment anything
+       * else is playing, which is exactly what "no punch" means. */
+      const punch = ctx.createOscillator();
+      punch.type = 'sine';
+      punch.frequency.setValueAtTime(p.f0 * 2.6, t);
+      punch.frequency.exponentialRampToValueAtTime(p.f1 * 1.8, t + 0.03);
+      const pg = ctx.createGain();
+      percEnv(pg.gain, t, p.gain * vel * 0.24, 0.045);
+      punch.connect(pg);
+      toOut(pg, 0);
+      punch.start(t); punch.stop(t + 0.12);
 
       if (p.click) {
         const n = noiseSource(ctx, t, 0.03);
@@ -944,23 +1026,51 @@
     if (inst === 'snare' || inst === 'rim') {
       const p = (inst === 'rim' && kit.rim) ? Object.assign({}, kit.snare, kit.rim) : kit.snare;
       const dec = inst === 'rim' ? (kit.rim && kit.rim.dec ? kit.rim.dec : 0.05) : p.dec;
-      const n = noiseSource(ctx, t, dec + 0.05);
-      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = p.bp; bp.Q.value = 0.7;
-      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = p.hp;
-      const ng = ctx.createGain();
-      percEnv(ng.gain, t, p.gain * vel * p.noise, dec);
-      n.connect(bp).connect(hp).connect(ng);
-      toOut(ng, 0.18);
+      /*
+       * A snare is a drum with a bed of wire snares rattling against the
+       * underside, and it takes two layers of noise to sound like one.
+       *
+       * The crack is the stick on the head: bright, and gone in a few
+       * hundredths of a second. The rattle is the snares themselves, lower and
+       * much longer — it is what keeps ringing after the hit and what a single
+       * band of noise can never give you, because one band cannot be both
+       * bright-and-short and low-and-long at once. The old version chained a
+       * bandpass into a highpass, which narrowed the sound to a single thin
+       * band and is why it read as a burst of hiss.
+       */
+      const crack = noiseSource(ctx, t, 0.09);
+      const crackHp = ctx.createBiquadFilter();
+      crackHp.type = 'highpass';
+      crackHp.frequency.value = Math.max(p.hp, 1800);
+      const cg = ctx.createGain();
+      percEnv(cg.gain, t, p.gain * vel * p.noise * 0.72, Math.min(dec, 0.07));
+      crack.connect(crackHp).connect(cg);
+      toOut(cg, 0.12);
 
-      const o = ctx.createOscillator();
-      o.type = 'triangle';
-      o.frequency.setValueAtTime(p.tone, t);
-      o.frequency.exponentialRampToValueAtTime(p.tone * 0.6, t + dec);
-      const og = ctx.createGain();
-      percEnv(og.gain, t, p.gain * vel * 0.5, dec * 0.7);
-      o.connect(og);
-      toOut(og, 0.12);
-      o.start(t); o.stop(t + dec + 0.08);
+      const rattle = noiseSource(ctx, t, dec + 0.08);
+      const rbp = ctx.createBiquadFilter();
+      rbp.type = 'bandpass';
+      rbp.frequency.value = p.bp;
+      rbp.Q.value = 0.6;
+      const rg = ctx.createGain();
+      percEnv(rg.gain, t, p.gain * vel * p.noise * 0.6, dec);
+      rattle.connect(rbp).connect(rg);
+      toOut(rg, 0.22);
+
+      /* Two tuned heads, not one. A drum shell resonates at more than one
+         frequency, and the interval between the top head and the bottom is
+         what stops the tone reading as a plain beep under the noise. */
+      [[1, 0.5, 0.7], [1.47, 0.26, 0.45]].forEach(function (m) {
+        const o = ctx.createOscillator();
+        o.type = 'triangle';
+        o.frequency.setValueAtTime(p.tone * m[0], t);
+        o.frequency.exponentialRampToValueAtTime(p.tone * m[0] * 0.6, t + dec);
+        const og = ctx.createGain();
+        percEnv(og.gain, t, p.gain * vel * m[1], dec * m[2]);
+        o.connect(og);
+        toOut(og, 0.12);
+        o.start(t); o.stop(t + dec + 0.08);
+      });
       return;
     }
 
@@ -986,12 +1096,24 @@
 
     if (inst === 'hh' || inst === 'oh' || inst === 'shaker') {
       const p = inst === 'hh' ? kit.hh : inst === 'oh' ? (kit.oh || kit.hh) : (kit.shaker || kit.hh);
-      const n = noiseSource(ctx, t, p.dec + 0.05);
-      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = p.hp;
-      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = p.hp * 1.3; bp.Q.value = 0.6;
       const g = ctx.createGain();
       percEnv(g.gain, t, p.gain * vel, p.dec);
-      n.connect(hp).connect(bp).connect(g);
+      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = p.hp;
+      hp.connect(g);
+
+      const n = noiseSource(ctx, t, p.dec + 0.05);
+      const nGain = ctx.createGain();
+      /* A shaker really is noise — beads in a shell, no metal in it — so it
+         keeps the old recipe. Hats are metal and get the ringing partials. */
+      nGain.gain.value = inst === 'shaker' ? 0.65 : 0.45;
+      n.connect(nGain).connect(hp);
+
+      if (inst !== 'shaker') {
+        const m = metalSource(ctx, t, p.dec + 0.05, p.hp / 6800);
+        const mGain = ctx.createGain();
+        mGain.gain.value = 0.75;
+        m.connect(mGain).connect(hp);
+      }
       toOut(g, inst === 'oh' ? 0.12 : 0.05);
       return;
     }
@@ -1007,6 +1129,18 @@
       o.connect(g);
       toOut(g, 0.2);
       o.start(t); o.stop(t + p.dec + 0.1);
+
+      /* The stick hitting the skin. A tom without it is a falling sine, which
+         is a sound effect rather than a drum. */
+      const stick = noiseSource(ctx, t, 0.04);
+      const sbp = ctx.createBiquadFilter();
+      sbp.type = 'bandpass';
+      sbp.frequency.value = p.f0 * 6;
+      sbp.Q.value = 0.8;
+      const sg = ctx.createGain();
+      percEnv(sg.gain, t, p.gain * vel * 0.22, 0.025);
+      stick.connect(sbp).connect(sg);
+      toOut(sg, 0.08);
       return;
     }
 
@@ -1073,17 +1207,21 @@
          the same on all of them. */
       const p = kit.ride || { dec: 0.75, hp: 6000, gain: 0.16 };
       const dec = p.dec || 0.75;
-      const n = noiseSource(ctx, t, dec + 0.15);
       const hp = ctx.createBiquadFilter();
       hp.type = 'highpass';
       hp.frequency.value = p.hp || 6000;
-      const bp = ctx.createBiquadFilter();
-      bp.type = 'bandpass';
-      bp.frequency.value = (p.hp || 6000) * 1.5;
-      bp.Q.value = 0.5;
       const g = ctx.createGain();
       percEnv(g.gain, t, (p.gain || 0.16) * vel, dec);
-      n.connect(hp).connect(bp).connect(g);
+      hp.connect(g);
+      // Metal and air together, the same way the hats are built.
+      const n = noiseSource(ctx, t, dec + 0.15);
+      const nGain = ctx.createGain();
+      nGain.gain.value = 0.5;
+      n.connect(nGain).connect(hp);
+      const m = metalSource(ctx, t, dec + 0.15, (p.hp || 6000) / 7400);
+      const mGain = ctx.createGain();
+      mGain.gain.value = 0.7;
+      m.connect(mGain).connect(hp);
       // The bell of the ride, which is what makes it a ride and not a long hat.
       const o = ctx.createOscillator();
       o.type = 'triangle';

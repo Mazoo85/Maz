@@ -318,6 +318,100 @@ function launchOptions() {
   check(quietHits.length === 0, 'every drum piece sounds' +
     (quietHits.length ? ': ' + quietHits.map(function (h) { return h.name; }).join(', ') : ''));
 
+  console.log('\n— the kit, close up —');
+  /* Each drum rendered on its own, with no mixer and no master chain, so what
+     is measured is the instrument and nothing else. */
+  const kit = await page.evaluate(async function () {
+    const rate = 44100, T0 = 0.02;
+    async function render(inst, kitId, seconds) {
+      const ctx = new OfflineAudioContext(2, Math.round(rate * (seconds || 1.2)), rate);
+      const dry = ctx.createGain();
+      dry.connect(ctx.destination);
+      window.Synth.playDrum(ctx, { dry: dry, rev: null }, T0, inst, 1, kitId, 0.25);
+      return (await ctx.startRendering()).getChannelData(0);
+    }
+    function win(L, fromSec, toSec) {
+      const a = Math.floor((T0 + fromSec) * rate);
+      const b = Math.min(L.length, Math.floor((T0 + toSec) * rate));
+      let s2 = 0, hf = 0;
+      for (let i = a + 1; i < b; i++) { s2 += L[i] * L[i]; hf += Math.abs(L[i] - L[i - 1]); }
+      const n = Math.max(1, b - a - 1);
+      const rms = Math.sqrt(s2 / n);
+      return { rms: rms, bright: rms > 0 ? (hf / n) / rms : 0 };
+    }
+    function whole(L) {
+      let peak = 0, bad = 0;
+      for (let i = 0; i < L.length; i++) {
+        if (!isFinite(L[i])) { bad++; continue; }
+        const v = Math.abs(L[i]);
+        if (v > peak) peak = v;
+      }
+      /* A click is the signal appearing out of nowhere — a first sample that
+         is already loud. It is not the same thing as a bright drum, which is
+         what measuring the biggest jump over the first millisecond would
+         find. */
+      /* The very first sample of the hit, and only that one. A ramp of a
+         millisecond and a half is about sixty-six samples long, so by the
+         third sample it is legitimately three per cent of the way up — reading
+         a window of samples would be measuring the ramp, not a click. */
+      const first = Math.floor(T0 * rate);
+      return { peak: peak, bad: bad, onset: Math.abs(L[first] || 0) };
+    }
+    const PIECES = [['kick', 'acoustic'], ['kick', 'boombap'], ['kick', 'house'],
+                    ['snare', 'acoustic'], ['snare', 'boombap'], ['snare', 'electro'],
+                    ['hh', 'acoustic'], ['oh', 'acoustic'], ['ride', 'jazz'],
+                    ['tom', 'acoustic'], ['clap', 'electro'], ['crash', 'rock'],
+                    ['shaker', 'acoustic'], ['rim', 'boombap'], ['conga', 'latin']];
+    const out = {};
+    for (const spec of PIECES) {
+      const L = await render(spec[0], spec[1], spec[0] === 'crash' ? 3 : 1.2);
+      out[spec[0] + '/' + spec[1]] = Object.assign(whole(L), {
+        early: win(L, 0, 0.05), late: win(L, 0.06, 0.16)
+      });
+    }
+    return out;
+  });
+
+  const pieces = Object.keys(kit);
+  check(pieces.length >= 15, 'every drum in the kit renders (' + pieces.length + ')');
+  let silent = [], clipped = [], broken = [], clicked = [];
+  pieces.forEach(function (k) {
+    const d = kit[k];
+    if (d.bad) broken.push(k);
+    if (d.peak < 0.005) silent.push(k);
+    if (d.peak >= 1) clipped.push(k + ' ' + d.peak.toFixed(3));
+    if (d.onset > d.peak * 0.01) clicked.push(k + ' ' + (d.onset / d.peak).toFixed(3));
+  });
+  check(broken.length === 0, 'none of them produces a broken sample');
+  check(silent.length === 0, 'and none of them is silent (' + silent.join(', ') + ')');
+  /* A drum that clips on its own, before it has met the rest of the mix, has
+     nowhere left to go. */
+  check(clipped.length === 0, 'no drum reaches full scale by itself (' + clipped.join(', ') + ')');
+  /* Every drum starts from silence. Jumping to full level between one sample
+     and the next is a step, and a step contains every frequency there is —
+     including the ones above half the sample rate, which fold back down as a
+     thin metallic edge. Before the envelopes were given an attack, the kick
+     started a third of the way up full scale. */
+  check(clicked.length === 0,
+    'and every one of them starts from silence rather than with a click (' +
+    clicked.join(', ') + ')');
+
+  /* A snare is two sounds: the stick on the head, which is bright and gone in
+     a few hundredths of a second, and the wire snares rattling underneath,
+     which are lower and last much longer. One band of noise cannot be both, and
+     with only one the snare got *brighter* as it decayed — backwards. */
+  ['snare/acoustic', 'snare/boombap', 'snare/electro'].forEach(function (k) {
+    const r = kit[k].early.bright / kit[k].late.bright;
+    check(r > 1.1, k + ': the crack comes before the rattle, not after (' + r.toFixed(2) + ')');
+  });
+  /* A kick is the head moving — the long low note — plus the beater striking
+     it, which is a short mid-range thump. Without the beater the kick is felt
+     but not heard, and disappears the moment anything else plays. */
+  ['kick/acoustic', 'kick/boombap', 'kick/house'].forEach(function (k) {
+    const r = kit[k].early.bright / kit[k].late.bright;
+    check(r > 2, k + ': there is a beater on it, not just a falling sine (' + r.toFixed(2) + ')');
+  });
+
   console.log('\n— the kick pumps the mix —');
   const pump = await page.evaluate(async function () {
     /* Measure the duck directly rather than inferring it from loudness spread.
