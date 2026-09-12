@@ -19,13 +19,16 @@ in its corner that leads back to it. It is live on GitHub Pages:
 
 ### ▶ **https://mazoo85.github.io/Maz/**
 
-Publishing is GitHub Pages' own **"deploy from a branch"**, serving the repo root,
-so every push to the branch Pages is set to republishes the site with no workflow
-in the loop. The empty [`.nojekyll`](.nojekyll) file at the root tells Pages to
-serve the tree verbatim rather than running Jekyll over it. Pages has its **own**
-branch setting: changing the repository's default branch does not move it, so if
-the trunk moves, Pages must be pointed at the new branch too or the site keeps
-serving the old one.
+Publishing is **[`pages.yml`](.github/workflows/pages.yml)**: every push to `main`
+uploads the repository and deploys it, so the live site is whatever the trunk
+currently says. It needs *Settings → Pages → Source* set to **GitHub Actions**.
+
+It is a workflow rather than Pages' own "deploy from a branch" for one reason,
+learned the hard way: that setting tracks one **named** branch and does not
+follow the repository's default branch. When the trunk moved, the site kept
+serving a branch nobody was pushing to and quietly went stale for days, with
+nothing failing to say so. Following `main` by definition is what stops that
+happening twice.
 
 | | Project | What it is |
 |---|---|---|
