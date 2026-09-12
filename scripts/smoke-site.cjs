@@ -95,8 +95,14 @@ function watch(page) {
   return problems;
 }
 
+/* How many projects there are is the manifest's business, not this file's: a
+ * hard-coded count here means adding a project fails CI for no real reason. */
+const { PROJECTS } = require(path.join(ROOT, 'shared', 'projects.js'));
+const PROJECT_COUNT = PROJECTS.length;
+
 const APPS = [
   { id: 'zomboid', url: '/zomboid/', name: 'ZOMBOID: ANCHORAGE', mode: 'overlay' },
+  { id: 'cells', url: '/cells/', name: 'NEON CELLS', mode: 'overlay' },
   { id: 'shooter', url: '/shooter/', name: 'DEAD SECTOR', mode: 'overlay' },
   { id: 'music', url: '/music/', name: 'SONG FORGE', mode: 'inline' },
   { id: 'madlibs', url: '/madlibs/', name: 'MADLIBS STORY FORGE', mode: 'inline' },
@@ -125,7 +131,7 @@ const APPS = [
       const cards = await page.$$eval('a.card', (els) =>
         els.map((e) => ({ href: e.getAttribute('href'), name: e.querySelector('h2').textContent }))
       );
-      check(cards.length === 10, `lists all 10 projects (found ${cards.length})`);
+      check(cards.length === PROJECT_COUNT, `lists all ${PROJECT_COUNT} projects (found ${cards.length})`);
 
       // Every card must lead somewhere the server will actually serve.
       let dead = [];
@@ -200,7 +206,7 @@ const APPS = [
       const items = await page.$$eval('.mazNav-item', (els) =>
         els.map((e) => ({ href: e.getAttribute('href'), current: e.getAttribute('aria-current') }))
       );
-      check(items.length === 10, `nav menu lists all 10 projects (found ${items.length})`);
+      check(items.length === PROJECT_COUNT, `nav menu lists all ${PROJECT_COUNT} projects (found ${items.length})`);
       check(
         items.some((i) => i.current === 'page'),
         'nav marks the current project'
