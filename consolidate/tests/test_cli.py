@@ -2,7 +2,7 @@ import json
 
 from typer.testing import CliRunner
 
-from conftest import PADDING, commit, make_repo, needs_git, repos_file
+from conftest import PADDING, commit, git, make_repo, needs_git, repos_file
 from consolidate import gitops
 from consolidate.cli import app
 
@@ -181,3 +181,104 @@ def test_check_on_something_that_is_not_a_repository_says_so(tmp_path):
     result = runner.invoke(app, ["check", str(plain)])
     assert result.exit_code == 2
     assert "not a git repository" in flat(result.output)
+
+
+# --------------------------------------------------------------------------
+# adopting a repo you already have, and folding others into it
+# --------------------------------------------------------------------------
+
+def a_home(tmp_path):
+    repo = tmp_path / "home"
+    make_repo(repo, {"README.md": "# My Project\n\nYears of work.\n", "engine/core.cpp": PADDING})
+    return repo
+
+
+def test_adopt_is_a_dry_run_by_default(tmp_path):
+    repo = a_home(tmp_path)
+    result = runner.invoke(app, ["adopt", str(repo), "--name", "Home"])
+    assert result.exit_code == 0, result.output
+    assert "Dry run" in flat(result.output)
+    assert not (repo / "PROJECTS.md").exists()
+
+
+def test_adopt_says_the_readme_is_left_alone(tmp_path):
+    repo = a_home(tmp_path)
+    result = runner.invoke(app, ["adopt", str(repo), "--name", "Home", "--yes"])
+    assert result.exit_code == 0, result.output
+    assert "README.md is left alone" in flat(result.output)
+    assert (repo / "README.md").read_text().startswith("# My Project")
+    assert (repo / "PROJECTS.md").exists()
+
+
+def test_adopt_refuses_a_repo_with_uncommitted_changes(tmp_path):
+    repo = a_home(tmp_path)
+    (repo / "scratch.txt").write_text("half-finished")
+    result = runner.invoke(app, ["adopt", str(repo)])
+    assert result.exit_code == 2
+    assert "uncommitted" in flat(result.output)
+
+
+def test_adopt_refuses_something_that_is_not_a_repository(tmp_path):
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    result = runner.invoke(app, ["adopt", str(plain)])
+    assert result.exit_code == 2
+    assert "not a git repository" in flat(result.output)
+
+
+def test_adopting_twice_points_you_at_add_instead(tmp_path):
+    repo = a_home(tmp_path)
+    runner.invoke(app, ["adopt", str(repo), "--yes"])
+    result = runner.invoke(app, ["adopt", str(repo), "--yes"])
+    assert "already a consolidation home" in flat(result.output)
+
+
+def test_add_folds_a_repo_into_the_home_keeping_the_readme(tmp_path):
+    src, repos = local_repos(tmp_path)
+    repo = a_home(tmp_path)
+    runner.invoke(app, ["adopt", str(repo), "--name", "Home", "--yes"])
+    result = runner.invoke(app, ["add", str(repo), "--from-json", str(repos), "--yes"])
+    assert result.exit_code == 0, result.output
+    assert (repo / "projects/alpha/lib/util.js").exists()
+    assert (repo / "README.md").read_text().startswith("# My Project")
+    assert "projects/alpha" in (repo / "PROJECTS.md").read_text()
+
+
+def test_add_is_a_dry_run_by_default(tmp_path):
+    src, repos = local_repos(tmp_path)
+    repo = a_home(tmp_path)
+    runner.invoke(app, ["adopt", str(repo), "--yes"])
+    result = runner.invoke(app, ["add", str(repo), "--from-json", str(repos)])
+    assert "Dry run" in flat(result.output)
+    assert not (repo / "projects").exists()
+
+
+def test_add_on_a_repo_that_is_not_a_home_says_what_to_do(tmp_path):
+    src, repos = local_repos(tmp_path)
+    repo = a_home(tmp_path)
+    result = runner.invoke(app, ["add", str(repo), "--from-json", str(repos)])
+    assert result.exit_code == 2
+    assert "adopt" in flat(result.output)
+
+
+def test_adding_the_same_repo_twice_changes_nothing(tmp_path):
+    src, repos = local_repos(tmp_path)
+    repo = a_home(tmp_path)
+    runner.invoke(app, ["adopt", str(repo), "--yes"])
+    runner.invoke(app, ["add", str(repo), "--from-json", str(repos), "--yes"])
+    before = git(repo, "rev-parse", "HEAD")
+    result = runner.invoke(app, ["add", str(repo), "--from-json", str(repos), "--yes"])
+    assert "already here" in flat(result.output)
+    assert git(repo, "rev-parse", "HEAD") == before
+
+
+def test_update_works_on_an_adopted_home_too(tmp_path):
+    src, repos = local_repos(tmp_path)
+    repo = a_home(tmp_path)
+    runner.invoke(app, ["adopt", str(repo), "--yes"])
+    runner.invoke(app, ["add", str(repo), "--from-json", str(repos), "--yes"])
+    commit(src / "alpha", {"lib/later.js": PADDING + "later"}, "alpha: later work")
+    result = runner.invoke(app, ["update", str(repo), "alpha", "--yes"])
+    assert result.exit_code == 0, result.output
+    assert (repo / "projects/alpha/lib/later.js").exists()
+    assert (repo / "README.md").read_text().startswith("# My Project")

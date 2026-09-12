@@ -307,6 +307,119 @@ def update(
 
 
 @app.command()
+def adopt(
+    folder: Path = typer.Argument(Path("."), help="An existing repository to make the home."),
+    name: Optional[str] = typer.Option(None, "--name", "-n", help="What to call it in the index."),
+    prefix: str = PREFIX_OPT,
+    yes: bool = typer.Option(False, "--yes", "-y", help="Actually do it. Without this it is a dry run."),
+) -> None:
+    """Make a repository you already have the home everything else folds into.
+
+    Nothing in it is moved or rewritten. It gains a project index, a
+    consolidation record, and a note of what it is — and its own README is left
+    exactly as it is.
+    """
+    if not build_mod.gitops.is_repo(folder):
+        console.print(f"[red]{folder} is not a git repository.[/red]")
+        raise typer.Exit(code=2)
+    if not build_mod.gitops.is_clean(folder):
+        console.print(f"[red]{folder} has uncommitted changes. Commit or stash them first.[/red]")
+        raise typer.Exit(code=2)
+
+    existing = layout.read_manifest(folder)
+    if existing is not None:
+        console.print(f"[yellow]{folder} is already a consolidation home.[/yellow] Use `add` to fold a repo in.")
+        raise typer.Exit(code=0)
+
+    the_plan = build_mod.adopt_plan(folder, name=name or "", prefix=prefix)
+    clash = layout.conflicts(folder, the_plan)
+    if clash:
+        console.print(f"[red]These files already exist and are not ours to rewrite: {', '.join(clash)}[/red]")
+        raise typer.Exit(code=2)
+
+    console.print(
+        f"[bold]{the_plan.dest_name}[/bold] becomes the home repository."
+        + (f" It is {the_plan.host}." if the_plan.host else "")
+    )
+    console.print(f"  index written to [bold]{the_plan.index_file}[/bold]"
+                  + (" (your README.md is left alone)" if the_plan.index_file != "README.md" else ""))
+    console.print(f"  repositories folded in later land in [bold]{the_plan.prefix}/[/bold]")
+
+    result = build_mod.adopt(folder, the_plan, dry_run=not yes)
+    _print_steps(result)
+    if not yes:
+        console.print("\n[bold]Dry run.[/bold] Add [bold]--yes[/bold] to do it for real.")
+        return
+    if not result.ok:
+        raise typer.Exit(code=1)
+    console.print(
+        f"\n[green]Done.[/green] Fold a repository in with:\n"
+        f"  [dim]consolidate add {folder} --repo owner/name --yes[/dim]"
+    )
+
+
+@app.command("add")
+def add_repo(
+    folder: Path = typer.Argument(..., help="The consolidation home."),
+    user: Optional[str] = USER_OPT,
+    repo: Optional[list[str]] = REPO_OPT,
+    from_json: Optional[Path] = JSON_OPT,
+    include_forks: bool = FORKS_OPT,
+    include_archived: bool = ARCHIVED_OPT,
+    squash: bool = typer.Option(False, "--squash"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Actually do it. Without this it is a dry run."),
+) -> None:
+    """Fold another repository into a home, keeping its whole history."""
+    saved = layout.read_manifest(folder)
+    if saved is None:
+        console.print(
+            f"[red]{folder} is not a consolidation home yet.[/red] "
+            f"Run `consolidate adopt {folder} --yes` first."
+        )
+        raise typer.Exit(code=2)
+
+    try:
+        sources = _gather(user, repo or [], from_json)
+    except discover.DiscoveryError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=2)
+
+    merged = build_mod.merge_plans(saved, sources, root=folder)
+    newcomers = [p for p in merged.placements if p not in saved.placements]
+    if not newcomers:
+        console.print("[yellow]Nothing new to fold in — every one of those is already here.[/yellow]")
+        raise typer.Exit(code=0)
+
+    merged = build_mod.probe(merged)
+    acting = merged.with_placements(
+        [p for p in merged.placements if any(p.dest == n.dest for n in newcomers)]
+    )
+    _print_plan(acting)
+
+    problems = build_mod.preflight(folder, update=True)
+    if problems:
+        for problem in problems:
+            console.print(f"[red]✗[/red] {problem}")
+        raise typer.Exit(code=2)
+
+    result = build_mod.build(
+        folder, acting, dry_run=not yes, update=True, squash=squash, index_plan=merged
+    )
+    _print_steps(result)
+    if not yes:
+        console.print("\n[bold]Dry run.[/bold] Add [bold]--yes[/bold] to fold them in for real.")
+        return
+    if not result.ok:
+        raise typer.Exit(code=1)
+    issues = build_mod.verify(folder, result)
+    for issue in issues:
+        console.print(f"[red]✗[/red] {issue}")
+    if issues:
+        raise typer.Exit(code=1)
+    console.print(f"\n[green]Done.[/green] Nothing was pushed.")
+
+
+@app.command()
 def check(
     folder: Path = typer.Argument(Path("."), help="A repository that already holds several projects."),
     directory: Optional[list[str]] = typer.Option(

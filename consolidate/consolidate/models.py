@@ -93,6 +93,16 @@ class Plan:
     dest_name: str
     prefix: str
     placements: tuple[Placement, ...] = ()
+    #: Where the generated project index is written. A repo that already has a
+    #: README of its own gets "PROJECTS.md" instead, so its own front page
+    #: survives being adopted as the consolidation home.
+    index_file: str = "README.md"
+    #: True when an existing repository was adopted as the home rather than a
+    #: new one created. Its own directories are then part of the index too.
+    adopted: bool = False
+    #: ``owner/name`` of the repo that *is* the home, when an existing repo was
+    #: adopted rather than a new one created. It is never folded into itself.
+    host: str = ""
 
     @property
     def included(self) -> tuple[Placement, ...]:
@@ -109,6 +119,9 @@ class Plan:
         return {
             "dest_name": self.dest_name,
             "prefix": self.prefix,
+            "index_file": self.index_file,
+            "adopted": self.adopted,
+            "host": self.host,
             "placements": [p.to_dict() for p in self.placements],
         }
 
@@ -120,6 +133,9 @@ class Plan:
         return cls(
             dest_name=d["dest_name"],
             prefix=d.get("prefix", "projects"),
+            index_file=d.get("index_file", "README.md"),
+            adopted=bool(d.get("adopted", False)),
+            host=d.get("host", ""),
             placements=tuple(Placement.from_dict(p) for p in d.get("placements", ())),
         )
 

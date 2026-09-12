@@ -88,3 +88,97 @@ def test_recorded_commits_are_read_back(tmp_path):
 def test_a_corrupt_manifest_does_not_crash_the_build(tmp_path):
     (tmp_path / layout.MANIFEST_NAME).write_text("{ not json")
     assert layout.read_manifest_commits(tmp_path) == {}
+
+
+# --------------------------------------------------------------------------
+# never overwriting a file we did not write
+# --------------------------------------------------------------------------
+
+def test_a_file_we_generated_is_ours_to_rewrite(tmp_path):
+    layout.write_scaffold(tmp_path, a_plan())
+    assert layout.is_generated(tmp_path / "README.md")
+
+
+def test_someone_elses_readme_is_not_ours_to_rewrite(tmp_path):
+    (tmp_path / "README.md").write_text("# My Project\n\nYears of work.\n")
+    assert not layout.is_generated(tmp_path / "README.md")
+
+
+def test_a_file_that_is_not_there_yet_is_free(tmp_path):
+    assert layout.is_generated(tmp_path / "nothing-here.md")
+
+
+def test_an_existing_readme_is_reported_as_a_conflict_before_anything_runs(tmp_path):
+    (tmp_path / "README.md").write_text("# My Project\n")
+    assert layout.conflicts(tmp_path, a_plan()) == ["README.md"]
+
+
+def test_an_existing_readme_is_never_overwritten(tmp_path):
+    mine = "# My Project\n\nYears of work.\n"
+    (tmp_path / "README.md").write_text(mine)
+    written = layout.write_scaffold(tmp_path, a_plan())
+    assert (tmp_path / "README.md").read_text() == mine
+    assert "README.md" not in written
+
+
+def test_routing_the_index_elsewhere_removes_the_conflict(tmp_path):
+    mine = "# My Project\n"
+    (tmp_path / "README.md").write_text(mine)
+    plan = a_plan()
+    adopted = plan.__class__(plan.dest_name, plan.prefix, plan.placements, index_file="PROJECTS.md")
+    assert layout.conflicts(tmp_path, adopted) == []
+    written = layout.write_scaffold(tmp_path, adopted)
+    assert "PROJECTS.md" in written
+    assert (tmp_path / "README.md").read_text() == mine
+
+
+def test_the_manifest_records_where_the_index_went(tmp_path):
+    plan = a_plan()
+    adopted = plan.__class__(plan.dest_name, plan.prefix, plan.placements,
+                             index_file="PROJECTS.md", host="o/home")
+    layout.write_scaffold(tmp_path, adopted)
+    assert layout.read_manifest(tmp_path) == adopted
+
+
+# --------------------------------------------------------------------------
+# the index of a repository that was adopted rather than created
+# --------------------------------------------------------------------------
+
+def an_adopted_plan(**kwargs):
+    plan = a_plan()
+    return plan.__class__(plan.dest_name, plan.prefix, plan.placements,
+                          index_file="PROJECTS.md", adopted=True, **kwargs)
+
+
+def test_an_adopted_index_lists_what_was_already_in_the_repo():
+    text = layout.render_readme(an_adopted_plan(), existing=["engine", "apps", "docs"])
+    assert "Already here" in text
+    assert "[`engine`](engine)" in text
+    assert "[`apps`](apps)" in text
+
+
+def test_an_adopted_index_still_lists_what_was_folded_in():
+    text = layout.render_readme(an_adopted_plan(), existing=["engine"])
+    assert "Folded in from another repository" in text
+    assert "projects/alpha" in text
+
+
+def test_an_adopted_index_with_nothing_folded_in_is_not_an_empty_page():
+    plan = build_plan([], dest_name="Home")
+    adopted = plan.__class__(plan.dest_name, plan.prefix, (), index_file="PROJECTS.md", adopted=True)
+    text = layout.render_readme(adopted, existing=["engine", "apps"])
+    assert "This repository is the home" in text
+    assert "[`engine`](engine)" in text
+
+
+def test_a_newly_created_repo_has_no_already_here_section():
+    text = layout.render_readme(a_plan(), existing=["ignored"])
+    assert "Already here" not in text
+
+
+def test_an_adopted_index_does_not_tell_you_to_cd_into_projects():
+    plan = build_plan([], dest_name="Home")
+    adopted = plan.__class__(plan.dest_name, plan.prefix, (), index_file="PROJECTS.md", adopted=True)
+    text = layout.render_readme(adopted, existing=["engine"])
+    assert "cd projects/<project>" not in text
+    assert "still works unchanged" in text

@@ -12,17 +12,27 @@ nothing at all until you add `--yes`.
 ```sh
 pip install typer rich                  # one-time
 cd consolidate
+```
 
-python -m consolidate.cli report --user YOUR-GITHUB-NAME      # what am I doing twice?
-python -m consolidate.cli plan   --user YOUR-GITHUB-NAME      # what would happen?
+**If one repo is already your main one** (the usual case — it is how Maz is set
+up), make it the home and fold the others into it:
+
+```sh
+python -m consolidate.cli adopt ~/my-main-repo --name "My Project" --yes
+python -m consolidate.cli add   ~/my-main-repo --repo owner/other-repo --yes
+```
+
+**If you want a brand new repo instead**, built out of several existing ones:
+
+```sh
+python -m consolidate.cli report --user YOUR-GITHUB-NAME       # what am I doing twice?
 python -m consolidate.cli build  ~/one-repo --user YOUR-GITHUB-NAME --yes
 ```
 
-The third command creates `~/one-repo` on your own machine. Nothing is online
-until you choose to push it, and the last thing it prints is the exact command
-for that.
+Either way it all happens on your own machine. Nothing is online until you
+choose to push it, and the last thing it prints is the exact command for that.
 
-## The five commands
+## The commands
 
 ### `report` — find the work you are doing twice
 
@@ -80,6 +90,38 @@ one-repo/
     ├── beta/
     └── gamma/
 ```
+
+### `adopt` — make a repo you already have the home
+
+If one of your repos is already the main one, you don't want a *new* repo —
+you want that one to become the home everything else folds into:
+
+```sh
+python -m consolidate.cli adopt ~/my-main-repo --name "My Project"        # dry run
+python -m consolidate.cli adopt ~/my-main-repo --name "My Project" --yes
+```
+
+Nothing in it moves. Every path, build and command that worked before still
+works. It gains three small files:
+
+- `PROJECTS.md` — an index of what's in here, existing folders included
+- `CONSOLIDATION.md` — the record of anything folded in later
+- `consolidate.json` — the same, for the tool to read next time
+
+**Your own `README.md` is never touched.** Every file this tool generates carries
+a marker in its first line, and a file without that marker is never overwritten —
+so a repo with years of history in its front page keeps it. That check runs
+*before* anything is written, and it will stop and tell you rather than guess.
+
+### `add` — fold another repo into the home
+
+```sh
+python -m consolidate.cli add ~/my-main-repo --repo owner/name --yes
+```
+
+The home repo is never folded into itself, a repo already folded in is not
+added twice, and a newcomer whose name clashes with a folder you already have
+gets a different one.
 
 ### `check` — find duplication *inside* one repo you already have
 
@@ -168,7 +210,7 @@ python -m consolidate.cli build ~/one-repo --from-json repos.json --yes
 cd consolidate && python -m pytest -q
 ```
 
-125 tests. The ones in `tests/test_build.py` create real git repositories in a
+163 tests. The ones in `tests/test_build.py` create real git repositories in a
 temporary folder, consolidate them, and then go looking for every original
 commit — because "keeps all your history" is a claim worth checking rather than
 asserting.
@@ -181,7 +223,7 @@ asserting.
 | `discover.py` | where the list of repos comes from (GitHub, a file, the CLI) |
 | `plan.py` | naming, collisions, and the include/skip decisions |
 | `overlap.py` | finds the duplicated work |
-| `layout.py` | writes the generated README, record and manifest |
+| `layout.py` | writes the generated index, record and manifest — and refuses to overwrite a file it did not write |
 | `gitops.py` | the only module that shells out to git |
 | `build.py` | runs the plan; every step is recorded, dry-run included |
 | `cli.py` | the commands you type |

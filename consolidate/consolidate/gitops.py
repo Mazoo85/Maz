@@ -127,6 +127,18 @@ def add_remote(repo: str | Path, name: str, url: str) -> tuple[bool, str]:
     return code == 0, err
 
 
+def remote_url(repo: str | Path, name: str = "origin") -> str | None:
+    """The url of a remote, or None when there isn't one."""
+    code, out, _ = run_git(["remote", "get-url", name], cwd=repo)
+    return out if code == 0 and out else None
+
+
+def top_level_dirs(repo: str | Path, ref: str = "HEAD") -> list[str]:
+    """Directory names at the root of ``ref`` — the names a new project must avoid."""
+    code, out, _ = run_git(["ls-tree", "--name-only", "-d", ref], cwd=repo)
+    return sorted(out.splitlines()) if code == 0 and out else []
+
+
 def fetch(repo: str | Path, remote: str, ref: str, *, depth: int = 0) -> tuple[bool, str]:
     """Download one branch. ``depth=1`` grabs only the latest commit, which is
     all the overlap report needs and far faster on a large repo."""

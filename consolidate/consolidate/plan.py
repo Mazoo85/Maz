@@ -40,14 +40,14 @@ def _candidates(repo: SourceRepo) -> Iterable[str]:
         yield f"{base}-{n}"
 
 
-def assign_dirs(repos: Iterable[SourceRepo]) -> dict[str, str]:
+def assign_dirs(repos: Iterable[SourceRepo], *, reserved: Iterable[str] = ()) -> dict[str, str]:
     """Map each repo slug to a unique directory name.
 
     Ordering is the caller's, and it is stable: the first repo to want a name
     keeps it, so re-running against a grown list never renames what already
     landed.
     """
-    taken: set[str] = set(RESERVED)
+    taken: set[str] = set(RESERVED) | {name.strip("/") for name in reserved}
     out: dict[str, str] = {}
     for repo in repos:
         for candidate in _candidates(repo):
@@ -89,10 +89,18 @@ def build_plan(
     prefix: str = "projects",
     include_forks: bool = False,
     include_archived: bool = True,
+    reserved: Iterable[str] = (),
+    index_file: str = "README.md",
+    host: str = "",
+    adopted: bool = False,
 ) -> Plan:
-    """Build the full plan: every repo gets a decision and a destination."""
+    """Build the full plan: every repo gets a decision and a destination.
+
+    ``reserved`` names directories that are already spoken for — the top-level
+    folders of a repository being adopted as the home, for instance.
+    """
     repos = list(repos)
-    dirs = assign_dirs(repos)
+    dirs = assign_dirs(repos, reserved=reserved)
     placements = []
     for repo in repos:
         disposition, reason = classify(
@@ -101,4 +109,11 @@ def build_plan(
         directory = dirs[repo.slug]
         dest = f"{prefix}/{directory}" if prefix else directory
         placements.append(Placement(repo=repo, dest=dest, disposition=disposition, reason=reason))
-    return Plan(dest_name=dest_name, prefix=prefix, placements=tuple(placements))
+    return Plan(
+        dest_name=dest_name,
+        prefix=prefix,
+        placements=tuple(placements),
+        index_file=index_file,
+        host=host,
+        adopted=adopted,
+    )

@@ -269,3 +269,155 @@ def test_local_trees_of_a_repo_with_no_subdirectories_is_empty(tmp_path):
     repo = tmp_path / "repo"
     make_repo(repo, {"only.txt": PADDING})
     assert build_mod.local_trees(repo) == {}
+
+
+# --------------------------------------------------------------------------
+# adopting a repository you already have as the home
+# --------------------------------------------------------------------------
+
+def an_existing_project(tmp_path, readme="# My Project\n\nYears of work.\n"):
+    """A repo that already has a life of its own before being adopted."""
+    repo = tmp_path / "home"
+    make_repo(repo, {"README.md": readme, "engine/core.cpp": PADDING, "docs/guide.md": PADDING})
+    return repo
+
+
+def test_adopting_sends_the_index_elsewhere_when_a_readme_exists(tmp_path):
+    repo = an_existing_project(tmp_path)
+    plan = build_mod.adopt_plan(repo, name="Home")
+    assert plan.index_file == "PROJECTS.md"
+
+
+def test_adopting_an_empty_repo_uses_readme_for_the_index(tmp_path):
+    repo = tmp_path / "home"
+    make_repo(repo, {"code.py": PADDING})
+    assert build_mod.adopt_plan(repo).index_file == "README.md"
+
+
+def test_adopting_reserves_the_directories_already_in_use(tmp_path):
+    repo = an_existing_project(tmp_path)
+    plan = build_mod.adopt_plan(repo, name="Home")
+    newcomer = SourceRepo("o", "engine", "u")
+    merged = build_mod.merge_plans(plan, [newcomer], root=repo)
+    assert merged.placements[0].dest != "projects/engine"
+    assert merged.placements[0].dest == "projects/o-engine"
+
+
+def test_adopting_leaves_the_existing_readme_exactly_as_it_was(tmp_path):
+    repo = an_existing_project(tmp_path)
+    before = (repo / "README.md").read_text()
+    build_mod.adopt(repo, build_mod.adopt_plan(repo, name="Home"))
+    assert (repo / "README.md").read_text() == before
+    assert (repo / "PROJECTS.md").exists()
+
+
+def test_adopting_does_not_disturb_anything_already_in_the_repo(tmp_path):
+    repo = an_existing_project(tmp_path)
+    build_mod.adopt(repo, build_mod.adopt_plan(repo, name="Home"))
+    assert (repo / "engine/core.cpp").read_text() == PADDING
+    assert (repo / "docs/guide.md").exists()
+    assert gitops.is_clean(repo)
+
+
+def test_adopting_keeps_the_repos_own_history(tmp_path):
+    repo = an_existing_project(tmp_path)
+    before = git(repo, "rev-parse", "HEAD")
+    build_mod.adopt(repo, build_mod.adopt_plan(repo, name="Home"))
+    assert gitops.contains_commit(repo, before)
+
+
+def test_an_adopted_repo_can_read_its_own_plan_back(tmp_path):
+    repo = an_existing_project(tmp_path)
+    plan = build_mod.adopt_plan(repo, name="Home")
+    build_mod.adopt(repo, plan)
+    assert layout.read_manifest(repo) == plan
+
+
+def test_a_repo_folded_into_an_adopted_home_keeps_its_history(tmp_path, sources):
+    src, shas = sources
+    repo = an_existing_project(tmp_path)
+    plan = build_mod.adopt_plan(repo, name="Home")
+    build_mod.adopt(repo, plan)
+
+    newcomer = SourceRepo("t", "alpha", str(src / "alpha"))
+    merged = build_mod.probe(build_mod.merge_plans(plan, [newcomer], root=repo))
+    result = build_mod.build(repo, merged, update=True, index_plan=merged)
+
+    assert result.ok, result.failures
+    assert (repo / "projects/alpha/lib/util.js").exists()
+    assert gitops.contains_commit(repo, shas["alpha2"])
+    assert (repo / "README.md").read_text().startswith("# My Project")
+
+
+def test_the_home_repo_is_never_folded_into_itself(tmp_path):
+    repo = an_existing_project(tmp_path)
+    plan = build_mod.adopt_plan(repo, name="Home")
+    plan = plan.__class__(plan.dest_name, plan.prefix, plan.placements,
+                          index_file=plan.index_file, host="me/home")
+    itself = SourceRepo("me", "home", "https://github.com/me/home.git")
+    other = SourceRepo("me", "other", "https://github.com/me/other.git")
+    merged = build_mod.merge_plans(plan, [itself, other], root=repo)
+    assert [p.repo.slug for p in merged.placements] == ["me/other"]
+
+
+def test_a_repo_already_folded_in_is_not_added_twice(tmp_path, sources):
+    src, _ = sources
+    repo = an_existing_project(tmp_path)
+    plan = build_mod.adopt_plan(repo, name="Home")
+    newcomer = SourceRepo("t", "alpha", str(src / "alpha"))
+    once = build_mod.merge_plans(plan, [newcomer], root=repo)
+    twice = build_mod.merge_plans(once, [newcomer], root=repo)
+    assert len(twice.placements) == len(once.placements) == 1
+
+
+def test_host_slug_is_read_from_the_origin_remote(tmp_path):
+    repo = an_existing_project(tmp_path)
+    git(repo, "remote", "add", "origin", "https://github.com/Someone/Thing.git")
+    assert build_mod.host_slug(repo) == "Someone/Thing"
+
+
+def test_a_repo_with_no_origin_simply_has_no_slug(tmp_path):
+    assert build_mod.host_slug(an_existing_project(tmp_path)) == ""
+
+
+def test_existing_dirs_skips_the_folder_projects_land_in(tmp_path):
+    repo = an_existing_project(tmp_path)
+    plan = build_mod.adopt_plan(repo, name="Home")
+    build_mod.adopt(repo, plan)
+    (repo / "projects").mkdir(exist_ok=True)
+    (repo / "projects" / "x.txt").write_text(PADDING)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "add projects dir")
+    assert "projects" not in build_mod.existing_dirs(repo, plan)
+    assert "engine" in build_mod.existing_dirs(repo, plan)
+
+
+def test_a_newly_built_repo_is_not_marked_adopted(tmp_path, sources):
+    src, _ = sources
+    out = tmp_path / "out"
+    build_mod.build(out, plan_for(src, ["alpha"]))
+    assert layout.read_manifest(out).adopted is False
+
+
+def test_an_adopted_home_stays_adopted_after_folding_a_repo_in(tmp_path, sources):
+    src, _ = sources
+    repo = an_existing_project(tmp_path)
+    plan = build_mod.adopt_plan(repo, name="Home")
+    build_mod.adopt(repo, plan)
+    merged = build_mod.probe(
+        build_mod.merge_plans(plan, [SourceRepo("t", "alpha", str(src / "alpha"))], root=repo)
+    )
+    build_mod.build(repo, merged, update=True, index_plan=merged)
+    saved = layout.read_manifest(repo)
+    assert saved.adopted is True
+    assert saved.index_file == "PROJECTS.md"
+    assert "Already here" in (repo / "PROJECTS.md").read_text()
+
+
+def test_config_directories_are_not_listed_as_projects(tmp_path):
+    repo = tmp_path / "home"
+    make_repo(repo, {"README.md": "# Mine\n", "engine/a.cpp": PADDING, ".github/workflows/ci.yml": PADDING})
+    plan = build_mod.adopt_plan(repo, name="Home")
+    here = build_mod.existing_dirs(repo, plan)
+    assert "engine" in here
+    assert ".github" not in here

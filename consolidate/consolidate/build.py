@@ -14,9 +14,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Iterable
 
 from . import gitops, layout, overlap
-from .models import Placement, Plan, Step
+from .models import Placement, Plan, SourceRepo, Step
 
 
 @dataclass
@@ -211,8 +212,9 @@ def build(
                   lambda p=placement, remote=remote: gitops.subtree_add(
                       root, p.dest, remote, p.repo.default_branch, squash=squash))
 
-    _step(result, "index", "refresh README.md and CONSOLIDATION.md from the result",
-          lambda: (bool(layout.write_scaffold(root, index, shas=result.merged)), ""))
+    _step(result, "index", f"refresh {index.index_file} and CONSOLIDATION.md from the result",
+          lambda: (bool(layout.write_scaffold(
+              root, index, shas=result.merged, existing=existing_dirs(root, index))), ""))
     _step(result, "commit", "commit the generated index",
           lambda: gitops.commit_all(root, "consolidate: refresh the project index"))
 
@@ -279,3 +281,98 @@ def local_trees(repo: str | Path, *, dirs: list[str] | None = None, ref: str = "
         if sub:
             out[name] = sub
     return out
+
+
+def host_slug(root: str | Path) -> str:
+    """``owner/name`` of the repo at ``root``, read from its origin remote."""
+    url = gitops.remote_url(root)
+    if not url:
+        return ""
+    from .discover import DiscoveryError, parse_spec
+
+    try:
+        owner, name = parse_spec(url)
+    except DiscoveryError:
+        return ""
+    return f"{owner}/{name}"
+
+
+def adopt_plan(root: str | Path, *, name: str = "", prefix: str = "projects") -> Plan:
+    """The plan for making an existing repository the consolidation home.
+
+    The repo keeps everything it already has. Its own README is left alone and
+    the generated index goes to PROJECTS.md instead; its existing top-level
+    directories are reserved so nothing folded in later can land on top of one.
+    """
+    root = Path(root)
+    from .plan import build_plan as _build_plan
+
+    existing = gitops.top_level_dirs(root)
+    readme = root / "README.md"
+    index_file = "PROJECTS.md" if readme.exists() and not layout.is_generated(readme) else "README.md"
+    return _build_plan(
+        [],
+        dest_name=name or root.name,
+        prefix=prefix,
+        reserved=existing,
+        index_file=index_file,
+        host=host_slug(root),
+        adopted=True,
+    )
+
+
+def merge_plans(existing: Plan, newcomers: Iterable[SourceRepo], *, root: str | Path) -> Plan:
+    """Add repositories to a plan an existing consolidated repo already has.
+
+    Anything already folded in keeps its directory, the host repo is never
+    folded into itself, and new names avoid every directory in use.
+    """
+    from .plan import build_plan as _build_plan
+
+    known = {p.repo.slug for p in existing.placements}
+    wanted = [
+        repo
+        for repo in newcomers
+        if repo.slug not in known and repo.slug.lower() != existing.host.lower()
+    ]
+    if not wanted:
+        return existing
+
+    reserved = set(gitops.top_level_dirs(root))
+    reserved |= {p.dest.rsplit("/", 1)[-1] for p in existing.placements}
+    fresh = _build_plan(
+        wanted,
+        dest_name=existing.dest_name,
+        prefix=existing.prefix,
+        reserved=reserved,
+        index_file=existing.index_file,
+        host=existing.host,
+        adopted=existing.adopted,
+    )
+    return existing.with_placements(list(existing.placements) + list(fresh.placements))
+
+
+def existing_dirs(root: str | Path, plan: Plan) -> list[str]:
+    """Directories an adopted repo already had, excluding the one we fold into."""
+    if not plan.adopted:
+        return []
+    prefix = (plan.prefix or "").strip("/")
+    return [
+        name
+        for name in gitops.top_level_dirs(root)
+        if name != prefix and not name.startswith(".")  # .github, .claude: config, not projects
+    ]
+
+
+def adopt(root: str | Path, plan: Plan, *, dry_run: bool = False) -> BuildResult:
+    """Write the consolidation files into an existing repository."""
+    root = Path(root)
+    result = BuildResult(plan=plan, root=str(root), dry_run=dry_run)
+    if not dry_run:
+        gitops.ensure_identity(root)
+    here = existing_dirs(root, plan)
+    _step(result, "scaffold", f"write {plan.index_file}, CONSOLIDATION.md, {layout.MANIFEST_NAME}",
+          lambda: (bool(layout.write_scaffold(root, plan, existing=here)), ""))
+    _step(result, "commit", f"record {plan.dest_name} as the consolidation home",
+          lambda: gitops.commit_all(root, f"consolidate: make {plan.dest_name} the home repository"))
+    return result
