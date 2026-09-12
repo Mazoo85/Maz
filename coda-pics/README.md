@@ -67,6 +67,19 @@ the right"* — and when there is no horizon to find (a close-up, a flat wall) i
 says that too and switches that option off, rather than inventing a ridge out
 of nothing.
 
+### A mixture of all of them
+
+Pick as many photos as you like at once. Each leaves a **palette** behind, and
+all of them together make one more: **Mixture**, the colour your pictures have
+in common. Paint anything in it, or in any single photo's colours, by tapping
+the swatch.
+
+The palettes are kept; **the photographs are not**. A palette is about twenty
+numbers, so a year of them costs a few kilobytes — and next month the app can
+still paint in the colours of your summer without ever having stored a photo of
+it. *Forget all of them* clears the numbers; there was never anything else to
+clear.
+
 None of this is a model. Nothing is learned or recognised; pixels are measured.
 It cannot put your face in a picture or make a photograph of something that
 never happened, and it does not pretend to.

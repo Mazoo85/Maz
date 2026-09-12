@@ -215,8 +215,64 @@
     };
   }
 
+  /* --------------------------------------------------------------- mixing
+   * Many photographs, one palette. Hues are averaged as directions on a circle
+   * rather than as numbers — averaging 350 and 10 the naive way gives 180,
+   * which is the exact opposite colour.
+   */
+  function averageHsl(list, weights) {
+    if (!list.length) return [0, 0, 50];
+    var x = 0, y = 0, s = 0, l = 0, total = 0;
+    list.forEach(function (c, i) {
+      var wgt = (weights && weights[i]) || 1;
+      var rad = c[0] * Math.PI / 180;
+      /* A grey has no meaningful hue, so it pulls the average by its
+       * saturation rather than as hard as a vivid colour. */
+      var pull = wgt * (0.25 + (c[1] / 100) * 0.75);
+      x += Math.cos(rad) * pull;
+      y += Math.sin(rad) * pull;
+      s += c[1] * wgt;
+      l += c[2] * wgt;
+      total += wgt;
+    });
+    var h = Math.atan2(y, x) * 180 / Math.PI;
+    if (h < 0) h += 360;
+    return [h, s / total, l / total];
+  }
+
+  /*
+   * Blend the palettes of several photographs into one. What comes out is not
+   * any of them: it is the colour a person's pictures have in common, which is
+   * a more useful thing to paint with than any single photo.
+   */
+  function mix(analyses) {
+    var list = (analyses || []).filter(function (a) { return a && a.palette; });
+    if (!list.length) return null;
+    function slot(get) { return averageHsl(list.map(get)); }
+    return {
+      sky: {
+        top: slot(function (a) { return a.palette.sky.top; }),
+        mid: slot(function (a) { return a.palette.sky.mid; }),
+        low: slot(function (a) { return a.palette.sky.low; }),
+        light: slot(function (a) { return a.palette.sky.light; }),
+        haze: slot(function (a) { return a.palette.sky.haze; }),
+        lightY: list.reduce(function (sum, a) {
+          return sum + (a.palette.sky.lightY == null ? 0.3 : a.palette.sky.lightY);
+        }, 0) / list.length
+      },
+      scene: {
+        ink: slot(function (a) { return a.palette.scene.ink; }),
+        land: slot(function (a) { return a.palette.scene.land; }),
+        far: slot(function (a) { return a.palette.scene.far; }),
+        sea: slot(function (a) { return a.palette.scene.sea; })
+      }
+    };
+  }
+
   var API = {
     analyse: analyse,
+    mix: mix,
+    averageHsl: averageHsl,
     dominant: dominant,
     skyline: skyline,
     lightPosition: lightPosition,

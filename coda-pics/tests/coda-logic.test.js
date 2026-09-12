@@ -227,6 +227,27 @@ function buildImage(w, h, paint) {
     check(false, 'painting with a photo threw: ' + e.message);
   }
 
+  /* --- mixing several photographs into one palette --- */
+  var warm = PHOTO.analyse(buildImage(W, H, function (u, v) {
+    return v < 0.6 ? [230, 120, 90] : [60, 30, 30];
+  }), W, H);
+  var cool = PHOTO.analyse(buildImage(W, H, function (u, v) {
+    return v < 0.6 ? [80, 140, 230] : [20, 40, 60];
+  }), W, H);
+  var mixed = PHOTO.mix([warm, cool]);
+  check(!!mixed && !!mixed.sky && !!mixed.scene, 'two photos mix into one palette');
+  var warmL = warm.palette.sky.mid[2], coolL = cool.palette.sky.mid[2];
+  check(mixed.sky.mid[2] >= Math.min(warmL, coolL) - 1 &&
+        mixed.sky.mid[2] <= Math.max(warmL, coolL) + 1,
+    'the mixture sits between the photos it came from');
+  check(PHOTO.mix([]) === null, 'and mixing nothing gives nothing');
+
+  /* Hue is a circle: 350 and 10 average to red, not to its opposite. */
+  var wrapped = PHOTO.averageHsl([[350, 80, 50], [10, 80, 50]])[0] % 360;
+  check(wrapped < 12 || wrapped > 348,
+    'hues average the short way round the circle (' + wrapped.toFixed(1) + ', not 180)');
+  pass('a mixture of photos is a palette of its own');
+
   var ridge = PAINT.photoRidge(spec, 200, 120, 70, 30);
   check(!!ridge && ridge.length >= 32, 'the photo horizon becomes a ridge the painter can draw');
   var bare = PROMPT.parse('a dragon', { seed: 4 });

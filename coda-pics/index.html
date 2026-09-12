@@ -56,8 +56,15 @@
 
       <fieldset class="photo">
         <legend>Use one of your photos</legend>
-        <input type="file" id="photoFile" accept="image/*" />
-        <p class="photo-privacy">It is read here on your device and never uploaded — the same as everything else in this app.</p>
+        <input type="file" id="photoFile" accept="image/*" multiple />
+        <p class="photo-privacy">Pick as many as you like. They are read here on your device and never uploaded —
+      and only the colours they gave are remembered, never the photos themselves.</p>
+
+    <div id="paletteBox" class="palette-box" hidden>
+      <span class="palette-label">Paint in</span>
+      <div id="paletteChips" class="palette-chips"></div>
+      <button id="clearPalettes" type="button" class="palette-clear">Forget all of them</button>
+    </div>
         <div id="photoInfo" class="photo-info" hidden>
           <canvas id="photoThumb" class="photo-thumb" aria-label="The photo you chose"></canvas>
           <div class="photo-uses">

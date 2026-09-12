@@ -44,6 +44,7 @@
     'a hot air balloon over a canyon, poster'
   ];
 
+  var PALETTE_KEY = 'codaPics.palettes.v1';
   var STORE_KEY = 'codaPics.gallery.v2';
   var LEGACY_KEY = 'codaPics.gallery.v1';
   var LAST_KEY = 'codaPics.last.v1';
@@ -52,6 +53,8 @@
   var el = {};
   var current = null;             // the spec on screen right now
   var photo = null;               // { image, analysis } — never leaves this page
+  var library = [];               // palettes kept from photos: numbers, not pixels
+  var chosenPalette = 'latest';   // 'latest' | 'mixture' | an index into library
   var seed = 1;
   var busy = false;
   var painted = 0;
@@ -205,13 +208,41 @@
    * read by the browser, drawn to a canvas, and measured. Nothing is uploaded,
    * and nothing is kept once the page is closed unless they save a picture.
    */
-  function loadPhoto(file) {
-    if (!file || !PHOTO) return;
+  /* Several photographs at once: each is measured, each leaves a palette
+   * behind, and the mixture of all of them becomes a palette of its own. */
+  function loadPhotos(files) {
+    if (!files || !files.length) return;
+    var list = Array.prototype.slice.call(files);
+    var done = 0;
+    setStatus('Reading ' + list.length + ' photo' + (list.length > 1 ? 's' : '') + '…');
+    list.forEach(function (file) {
+      loadPhoto(file, function () {
+        done++;
+        if (done === list.length) {
+          chosenPalette = list.length > 1 ? 'mixture' : 'latest';
+          renderPalettes();
+          setStatus(list.length > 1
+            ? 'Kept the colours of ' + list.length + ' photos. <b>Mixture</b> paints in all of them at once.'
+            : 'Kept the colours of that photo.');
+          if (el.prompt.value.trim()) repaint(seed);
+        }
+      });
+    });
+  }
+
+  function loadPhoto(file, whenDone) {
+    if (!file || !PHOTO) { if (whenDone) whenDone(); return; }
     var reader = new FileReader();
-    reader.onerror = function () { setStatus('That file could not be read.'); };
+    reader.onerror = function () {
+      setStatus('That file could not be read.');
+      if (whenDone) whenDone();
+    };
     reader.onload = function () {
       var img = new Image();
-      img.onerror = function () { setStatus('That does not look like an image.'); };
+      img.onerror = function () {
+        setStatus('That does not look like an image.');
+        if (whenDone) whenDone();
+      };
       img.onload = function () {
         /* Measured at a modest size: the analysis wants colours and a horizon,
          * not detail, and a 12-megapixel phone photo would be wasted work. */
@@ -220,18 +251,110 @@
         var work = document.createElement('canvas');
         work.width = aw; work.height = ah;
         var wctx = work.getContext('2d');
-        if (!wctx) return;
+        if (!wctx) { if (whenDone) whenDone(); return; }
         wctx.drawImage(img, 0, 0, aw, ah);
         var data;
-        try { data = wctx.getImageData(0, 0, aw, ah); } catch (e) { return; }
+        try { data = wctx.getImageData(0, 0, aw, ah); } catch (e) {
+          if (whenDone) whenDone();
+          return;
+        }
 
-        photo = { image: img, analysis: PHOTO.analyse(data, aw, ah) };
+        var analysis = PHOTO.analyse(data, aw, ah);
+        photo = { image: img, analysis: analysis };
+        rememberPalette(file.name || 'a photo', analysis);
         showPhoto();
+        if (whenDone) { whenDone(); return; }
+        renderPalettes();
         if (current) repaint(seed);
       };
       img.src = String(reader.result);
     };
     reader.readAsDataURL(file);
+  }
+
+  /*
+   * Keep what a photograph gave, and nothing else. A palette is about twenty
+   * numbers; the photograph is megabytes and is not ours to store. This is why
+   * the app can still paint in the colours of your summer next month without
+   * ever having held a photo of it.
+   */
+  function rememberPalette(name, analysis) {
+    library = library.filter(function (p) { return p.name !== name; });
+    library.unshift({ name: String(name).slice(0, 40), palette: analysis.palette, at: Date.now() });
+    if (library.length > 12) library.length = 12;
+    save(PALETTE_KEY, library);
+  }
+
+  function paletteSwatch(palette, w, h) {
+    var c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    var ctx = c.getContext('2d');
+    if (!ctx) return c;
+    function css(hsl) {
+      return 'hsl(' + hsl[0].toFixed(1) + ',' + hsl[1].toFixed(1) + '%,' + hsl[2].toFixed(1) + '%)';
+    }
+    var g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, css(palette.sky.top));
+    g.addColorStop(0.5, css(palette.sky.mid));
+    g.addColorStop(1, css(palette.sky.low));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = css(palette.scene.land);
+    ctx.fillRect(0, h * 0.62, w, h * 0.38);
+    ctx.fillStyle = css(palette.scene.ink);
+    ctx.fillRect(0, h * 0.82, w, h * 0.18);
+    return c;
+  }
+
+  function mixedPalette() {
+    if (library.length < 2 || !PHOTO.mix) return null;
+    return PHOTO.mix(library.map(function (p) { return { palette: p.palette }; }));
+  }
+
+  function activePalette() {
+    if (chosenPalette === 'mixture') return mixedPalette();
+    if (chosenPalette === 'latest') return photo ? photo.analysis.palette : (library[0] && library[0].palette);
+    var entry = library[chosenPalette];
+    return entry ? entry.palette : null;
+  }
+
+  function renderPalettes() {
+    el.paletteBox.hidden = library.length === 0;
+    el.paletteChips.innerHTML = '';
+    if (!library.length) return;
+
+    function chip(key, label, palette, isMix) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'swatch' + (isMix ? ' mixture' : '');
+      b.setAttribute('aria-pressed', String(chosenPalette === key));
+      b.appendChild(paletteSwatch(palette, 34, 16));
+      var span = document.createElement('span');
+      span.textContent = label;
+      b.appendChild(span);
+      b.addEventListener('click', function () {
+        chosenPalette = key;
+        el.usePhotoColours.checked = true;
+        renderPalettes();
+        if (current) repaint(seed);
+      });
+      el.paletteChips.appendChild(b);
+    }
+
+    var mixed = mixedPalette();
+    if (mixed) chip('mixture', 'Mixture of ' + library.length, mixed, true);
+    library.forEach(function (entry, i) {
+      chip(i, entry.name.replace(/\.[a-z0-9]+$/i, ''), entry.palette, false);
+    });
+  }
+
+  function forgetPalettes() {
+    library = [];
+    chosenPalette = 'latest';
+    save(PALETTE_KEY, library);
+    renderPalettes();
+    setStatus('All of those colours are forgotten. The photos were never here to forget.');
+    if (current) repaint(seed);
   }
 
   function showPhoto() {
@@ -279,13 +402,18 @@
   /* What the painter is told about the photo: plain measured numbers, so it
    * travels into the render worker and into a kept gallery entry unchanged. */
   function photoSpec() {
-    var use = photoUse();
-    if (!use || (!use.colours && !use.skyline && !use.backdrop)) return null;
+    /* Colours can come from the library with no photo loaded at all — that is
+     * the point of keeping them. The horizon and the backdrop need the actual
+     * photograph, so they are only offered while one is in hand. */
+    var pal = el.usePhotoColours && el.usePhotoColours.checked ? activePalette() : null;
+    var use = photoUse() || { colours: !!pal, skyline: false, backdrop: false };
+    if (!pal) use.colours = false;
+    if (!use.colours && !use.skyline && !use.backdrop) return null;
     return {
       use: use,
-      palette: photo.analysis.palette,
-      skyline: photo.analysis.skyline,
-      light: photo.analysis.light
+      palette: pal || (photo && photo.analysis.palette),
+      skyline: photo ? photo.analysis.skyline : null,
+      light: photo ? photo.analysis.light : null
     };
   }
 
@@ -717,7 +845,8 @@
       'exportGallery', 'importGallery', 'importFile',
       'lockSubject', 'lockSky', 'lockLand',
       'photoFile', 'photoInfo', 'photoThumb', 'photoNote', 'stylePhoto', 'clearPhoto',
-      'usePhotoColours', 'usePhotoSkyline', 'usePhotoBackdrop'].forEach(function (id) {
+      'usePhotoColours', 'usePhotoSkyline', 'usePhotoBackdrop',
+      'paletteBox', 'paletteChips', 'clearPalettes'].forEach(function (id) {
       el[id] = document.getElementById(id);
     });
 
@@ -743,8 +872,9 @@
     });
 
     el.photoFile.addEventListener('change', function () {
-      loadPhoto(el.photoFile.files && el.photoFile.files[0]);
+      loadPhotos(el.photoFile.files);
     });
+    el.clearPalettes.addEventListener('click', forgetPalettes);
     el.clearPhoto.addEventListener('click', forgetPhoto);
     el.stylePhoto.addEventListener('click', stylePhotoNow);
     [el.usePhotoColours, el.usePhotoSkyline, el.usePhotoBackdrop].forEach(function (box) {
@@ -759,6 +889,11 @@
     });
     el.style.addEventListener('change', function () { if (current) repaint(seed); });
     el.shape.addEventListener('change', function () { if (current) repaint(seed); });
+
+    /* The colours kept from photos come back before anything is painted, on
+     * every path through this function — a shared link included. */
+    library = load(PALETTE_KEY, []) || [];
+    renderPalettes();
 
     /* A shared link wins over whatever this browser was last doing. */
     var shared = readLink();

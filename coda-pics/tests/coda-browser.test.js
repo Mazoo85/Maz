@@ -113,6 +113,8 @@ async function painted(page, before, timeout) {
   return page.evaluate(() => Number(document.getElementById('canvas').dataset.painted || 0));
 }
 
+let paintsThisLoad = 0;
+
 (async () => {
   await new Promise((r) => server.listen(PORT, '127.0.0.1', r));
   const browser = await chromium.launch(launchOptions());
@@ -360,6 +362,58 @@ async function painted(page, before, timeout) {
     await page.waitForTimeout(200);
     check(!(await page.isVisible('#photoInfo')), 'the photo can be forgotten again');
 
+    /* ------------------------------------------- a mixture of several photos
+     * Three photos in three obviously different colour worlds, so a blend of
+     * them is visibly not any one of them. */
+    await page.setInputFiles('#photoFile', [
+      path.join(__dirname, 'fixtures', 'landscape.png'),
+      path.join(__dirname, 'fixtures', 'seafront.png'),
+      path.join(__dirname, 'fixtures', 'forest.png')
+    ]);
+    await page.waitForSelector('#paletteBox:not([hidden])', { timeout: 20000 });
+    const chips = await page.$$eval('.swatch span', (els) => els.map((e) => e.textContent));
+    check(chips.length >= 4, `every photo leaves a palette behind (${chips.join(', ')})`);
+    check(chips.some((c) => /mixture of 3/i.test(c)), 'and the three of them make a mixture');
+
+    await page.fill('#prompt', 'a stag in a meadow at dawn');
+    await page.selectOption('#style', 'poster');
+    await page.click('#paint');
+    count = await painted(page, count);
+
+    async function paintIn(label) {
+      const before = count;
+      await page.click(`.swatch:has-text("${label}")`);
+      count = await painted(page, before);
+      return settled(page, INSPECT);
+    }
+    const mixture = await paintIn('Mixture of 3');
+    const seafront = await paintIn('seafront');
+    const forest = await paintIn('forest');
+    check(Math.abs(mixture.mean - seafront.mean) > 0.5 &&
+          Math.abs(mixture.mean - forest.mean) > 0.5,
+      'the mixture paints as none of the photos it came from');
+    check(Math.abs(seafront.mean - forest.mean) > 0.5,
+      'and each photo paints as itself');
+
+    /* The reload below starts the page again, so the running tally of pictures
+     * is taken before it rather than after. */
+    paintsThisLoad = count;
+
+    /* The colours outlive the photos, which is the whole point of keeping
+     * numbers rather than pixels. */
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForSelector('#paletteBox:not([hidden])', { timeout: 15000 });
+    const afterReload = await page.$$eval('.swatch span', (els) => els.map((e) => e.textContent));
+    check(afterReload.some((c) => /mixture of 3/i.test(c)),
+      'the kept colours come back after a reload, with no photos stored');
+
+    await page.click('#clearPalettes');
+    await page.waitForTimeout(250);
+    check(!(await page.isVisible('#paletteBox')), 'and they can all be forgotten');
+    count = await page.evaluate(
+      () => Number(document.getElementById('canvas').dataset.painted || 0)
+    );
+
     /* ------------------------------------------------- installable as an app
      * The manifest and its icons are what let someone add CODA PICS to a home
      * screen. They are easy to break by renaming a file and never notice,
@@ -395,7 +449,8 @@ async function painted(page, before, timeout) {
     const sw = await page.request.get(`http://127.0.0.1:${PORT}/coda-pics/sw.js`);
     check(sw.ok(), 'the offline worker is served');
 
-    check(count >= 7, `every button and control painted a fresh picture (${count} in all)`);
+    check(paintsThisLoad >= 7,
+      `every button and control painted a fresh picture (${paintsThisLoad} in all)`);
     check(problems.length === 0, 'nothing threw anywhere in all of that' +
       (problems.length ? ' — ' + problems.join('; ') : ''));
   } catch (err) {
