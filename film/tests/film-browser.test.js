@@ -859,6 +859,50 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
       `the saved film reports its length on playback (${playsBack.duration}s)`);
     check(playsBack.lit > 20, 'the saved film shows a picture when played');
 
+    console.log('\nTHE DIALOGUE IS IN THE RECORDING');
+
+    // The specific trap the design records: the browser's own text-to-speech
+    // would say real words for almost no work, but it does not run through Web
+    // Audio, so it never reaches the gain that feeds the recorder. The dialogue
+    // would be audible while previewing and silent in every downloaded film.
+    //
+    // This renders the voice offline through the real Score and measures the
+    // signal that arrives. speechSynthesis would render pure silence here, so
+    // this is the regression guard for that whole class of mistake.
+    const heard = await page.evaluate(async () => {
+      const script = FilmWriter.write(FilmParse.parse('A courier finds a package that hums.',
+        { seed: 5 }), { length: 'short', seed: 5 });
+      const reel = FilmReel.build(script);
+      const line = reel.shots.filter((s) => s.kind === 'line' && s.caption)[0];
+      if (!line) return { noLine: true };
+
+      function rmsOf(caption, seconds) {
+        const Off = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+        const off = new Off(1, Math.ceil(44100 * seconds), 44100);
+        const score = new FilmScore.Score(reel, { context: off });
+        score.speak(caption, reel.voices[line.speaker] || { pitch: 180 }, seconds);
+        return off.startRendering().then((buf) => {
+          const d = buf.getChannelData(0);
+          let sum = 0;
+          for (let i = 0; i < d.length; i++) sum += d[i] * d[i];
+          return Math.sqrt(sum / d.length);
+        });
+      }
+
+      const spoken = await rmsOf(line.caption, 2.2);
+      const silent = await rmsOf('', 0.25);
+      return { spoken, silent, caption: line.caption };
+    });
+
+    if (heard.noLine) {
+      check(false, 'the film produced no spoken line to test');
+    } else {
+      check(heard.spoken > 0.0005,
+        `a spoken line reaches the recorder's own audio graph (rms ${heard.spoken.toExponential(2)} for ${JSON.stringify(heard.caption)})`);
+      check(heard.spoken > heard.silent * 4,
+        `speech is louder than an empty caption (${heard.spoken.toExponential(2)} vs ${heard.silent.toExponential(2)})`);
+    }
+
     console.log('\nPHONE LAYOUT');
     const phone = await context.newPage();
     await phone.setViewportSize({ width: 390, height: 780 });
