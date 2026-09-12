@@ -173,6 +173,12 @@ export async function scanWeb(root) {
       blurb: (p.blurb || '').trim(),
       tag: p.tag || '',
       badges: p.badges || [],
+      // A project whose card says "Single file" is one self-contained HTML
+      // document on purpose — DEAD SECTOR is a game you can email to someone,
+      // and shooter/tests/shooter-logic.test.js fails if an external script
+      // appears in it. It cannot publish or consume through a <script> tag
+      // without spending the thing it is for, so it is not asked to.
+      selfContained: (p.badges || []).some((b) => /single file/i.test(String(b))),
       loc,
       jsFiles,
       testFiles,

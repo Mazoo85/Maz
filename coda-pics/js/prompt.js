@@ -279,7 +279,48 @@
       style: style,
       palette: palette,
       mood: Math.max(0, Math.min(1, mood)),
-      read: read
+      read: read,
+      // How much of the picture came from the words, and how much CODA PICS
+      // chose. `read` has recorded this all along — an entry with a null
+      // `word` is something invented — but nothing summarised it, so there was
+      // no way to tell "a red dragon over snowy mountains" (four of five parts
+      // read from the prompt) from "a police station" (none of three, and the
+      // result is a knight in the open sky). Standalone, inventing is right:
+      // a blank page is never a blank page. Lent to another project, it is the
+      // difference between a picture of the thing asked for and a picture of
+      // something else entirely, so the caller is told which it got.
+      grounded: groundedIn(read)
+    };
+  }
+
+  /*
+   * A summary of what the prompt actually said, derived from the read trail.
+   *   parts     how many decisions were made in all
+   *   fromWords how many of them came from the prompt rather than the seed
+   *   ratio     fromWords / parts, 0..1
+   *   invented  the categories chosen rather than read
+   *   subject   true when the thing in the picture was named, which is the one
+   *             that decides whether the picture is of what was asked for
+   */
+  function groundedIn(read) {
+    var parts = read.length;
+    var fromWords = 0;
+    var invented = [];
+    var subject = false;
+    read.forEach(function (r) {
+      if (r.word) {
+        fromWords += 1;
+        if (r.category === 'subject') subject = true;
+      } else {
+        invented.push(r.category);
+      }
+    });
+    return {
+      parts: parts,
+      fromWords: fromWords,
+      ratio: parts ? fromWords / parts : 0,
+      invented: invented,
+      subject: subject
     };
   }
 

@@ -13,14 +13,14 @@
     "totalArtifacts": 894,
     "linesOfApps": 31861,
     "linesOfEngine": 87768,
-    "linesOfWeb": 17423,
+    "linesOfWeb": 17589,
     "appsHeadless": 76,
     "appsGolden": 97,
     "modulesTested": 100,
     "modulesDemoed": 20,
-    "checksPassed": 2513,
+    "checksPassed": 2515,
     "checksTotal": 3110,
-    "openTasks": 10
+    "openTasks": 8
   },
   "queue": [
     {
@@ -598,20 +598,6 @@
       ]
     },
     {
-      "id": "pairing:codapics-paints-for-the-others",
-      "priority": 1,
-      "kind": "pairing",
-      "check": "",
-      "title": "CODA PICS paints backdrops for SCRIPT FORGE and illustrates MADLIBS",
-      "detail": "CODA PICS turns a sentence into a finished picture in canvas 2D, offline. SCRIPT FORGE builds its sets from primitives and MADLIBS returns pure text. Publishing coda-pics/js as coda-pics/painter would let SCRIPT FORGE paint a title card and a establishing backdrop per location straight from its own scene description, and let MADLIBS show each story idea rather than only describing it.",
-      "paths": [
-        "coda-pics",
-        "film",
-        "madlibs"
-      ],
-      "source": "inventory:pairing:codapics-paints-for-the-others"
-    },
-    {
       "id": "pairing:engine-gains-a-composer",
       "priority": 1,
       "kind": "pairing",
@@ -676,6 +662,20 @@
       ]
     },
     {
+      "id": "pairing:codapics-painter-needs-a-caller-that-speaks-its-language",
+      "priority": 2,
+      "kind": "pairing",
+      "check": "",
+      "title": "CODA PICS can be lent now — but not to SCRIPT FORGE or MADLIBS as they speak today",
+      "detail": "The surface exists: coda-pics/painter is published, takes a sentence and a canvas, and — unlike the studio page — reports how much of the picture came from the words. It refuses rather than guessing when asked to, because CODA PICS invents a subject for anything it does not recognise and a caller cannot otherwise tell a picture of the thing it asked for from a picture of something else.\n\nWhat is NOT true is the obvious next step, and it was measured rather than assumed. Fed SCRIPT FORGE's scene headings, about half paint something unrelated — \"EXT. SHORELINE — DAY\" becomes a wolf in a cavern, \"INT. POLICE STATION — NIGHT\" a serpent in the open sea. Fed MADLIBS loglines, six of twelve are refused outright and the six that paint are only loosely related. The cause is vocabulary: CODA PICS knows 60 subjects and 20 settings chosen for being paintable, and neither a screenplay nor a story generator draws from that list.\n\nSo the work is not wiring, it is words. Either CODA PICS's lexicon grows the interiors and institutions a screenplay is full of — stairwells, offices, police stations, hospital rooms — or a caller translates its own vocabulary into CODA PICS's before asking. Until one of those happens, a consumer would get a refusal half the time and a wrong picture some of the rest, and no amount of integration code improves that.",
+      "paths": [
+        "coda-pics",
+        "film",
+        "madlibs"
+      ],
+      "source": "inventory:pairing:codapics-painter-needs-a-caller-that-speaks-its-language"
+    },
+    {
       "id": "pairing:goldens-become-the-arcade-shelf",
       "priority": 2,
       "kind": "pairing",
@@ -715,36 +715,12 @@
         "apps/world"
       ],
       "source": "inventory:pairing:scraper-fills-the-worlds"
-    },
-    {
-      "id": "web:coda-pics#exchange",
-      "priority": 2,
-      "kind": "web-app",
-      "check": "exchange",
-      "title": "CODA PICS: declared in shared/exchange.json",
-      "detail": "CODA PICS neither publishes a capability nor consumes one. Declare in shared/exchange.json what it can lend the other projects — that manifest is how they find each other.",
-      "paths": [
-        "coda-pics"
-      ],
-      "source": "inventory:web:coda-pics:exchange"
-    },
-    {
-      "id": "web:shooter#exchange",
-      "priority": 2,
-      "kind": "web-app",
-      "check": "exchange",
-      "title": "DEAD SECTOR: declared in shared/exchange.json",
-      "detail": "DEAD SECTOR neither publishes a capability nor consumes one. Declare in shared/exchange.json what it can lend the other projects — that manifest is how they find each other.",
-      "paths": [
-        "shooter"
-      ],
-      "source": "inventory:web:shooter:exchange"
     }
   ],
   "pairings": [
     {
-      "id": "codapics-paints-for-the-others",
-      "title": "CODA PICS paints backdrops for SCRIPT FORGE and illustrates MADLIBS",
+      "id": "codapics-painter-needs-a-caller-that-speaks-its-language",
+      "title": "CODA PICS can be lent now — but not to SCRIPT FORGE or MADLIBS as they speak today",
       "from": [
         "web:coda-pics"
       ],
@@ -752,8 +728,8 @@
         "web:film",
         "web:madlibs"
       ],
-      "effort": "medium",
-      "value": 3
+      "effort": "large",
+      "value": 2
     },
     {
       "id": "one-template-filler-instead-of-two",

@@ -16,7 +16,7 @@ size is in the wiring between the parts, not in any one part.
 | Native games and demos (`apps/`) | 161 | 31,861 lines |
 | Engine capabilities (`engine/include/maz/`) | 692 | 87,768 lines across 20 subsystems |
 | C++ test files (`tests/`) | 374 | |
-| Browser apps and games | 6 | 17,423 lines |
+| Browser apps and games | 6 | 17,589 lines |
 | Python tools | 3 | |
 | CI gates (`scripts/`) | 3 | |
 | Build and codegen helpers (`tools/`) | 11 | |
@@ -25,12 +25,12 @@ size is in the wiring between the parts, not in any one part.
 
 | Health signal | Score | |
 |---|---:|---|
-| Completeness checks passing | 81% | ████████░░ 2513 of 3110 |
+| Completeness checks passing | 81% | ████████░░ 2515 of 3110 |
 | Apps that run headless in CI | 76% | ████████░░ |
 | Apps with a golden screenshot | 97% | ██████████ |
 | Engine modules a test exercises | 100% | ██████████ |
 | Engine modules an app demonstrates | 20% | ██░░░░░░░░ |
-| Open tasks in the queue below | 10 | |
+| Open tasks in the queue below | 8 | |
 
 ## 1. Everything you have built
 
@@ -42,11 +42,11 @@ will ever see, and the ones that can most easily lend each other capabilities.
 | Project | What it is | Lines | Publishes | Consumes | Gaps |
 |---|---|---:|---|---|---|
 | **ZOMBOID: ANCHORAGE** <br>`zomboid/` | Open-world zombie survival across a tile-built replica of downtown Anchorage, rendered as a 1990s SEGA arcade title. Five decaying needs, day/night hordes, loo… | 1,658 | — | music/soundtrack | — |
-| **DEAD SECTOR** <br>`shooter/` | Top-down twin-stick zombie shooter in a single self-contained HTML file. Dual touch joysticks, escalating waves, three zombie types. | 1,084 | — | — | not in exchange.json |
+| **DEAD SECTOR** <br>`shooter/` | Top-down twin-stick zombie shooter in a single self-contained HTML file. Dual touch joysticks, escalating waves, three zombie types. | 1,084 | — | — | — |
 | **SONG FORGE** <br>`music/` | Writes and plays complete songs in the browser — chords, bass, drums, arpeggio and melody arranged into verses and choruses across 8 genres. WAV and MIDI expor… | 3,330 | music/composer, music/soundtrack | — | — |
 | **MADLIBS STORY FORGE** <br>`madlibs/` | Randomly forges story ideas broken into scene beats, ready to seed a storyboard or script. Zero dependencies. | 1,447 | madlibs/storyideas | — | — |
 | **SCRIPT FORGE** <br>`film/` | Type what your film is about and get the whole thing back: a formatted screenplay, a shot list, and an animated short film — performed by jointed characters an… | 6,163 | — | music/composer, madlibs/storyideas | — |
-| **CODA PICS** <br>`coda-pics/` | Type what you want to see and it paints it: 60 subjects, 20 settings, every hour and weather, finished in one of 14 art styles from pixel art to watercolour. D… | 3,741 | — | — | not in exchange.json |
+| **CODA PICS** <br>`coda-pics/` | Type what you want to see and it paints it: 60 subjects, 20 settings, every hour and weather, finished in one of 14 art styles from pixel art to watercolour. D… | 3,907 | coda-pics/painter | — | — |
 
 ### Python tools
 
@@ -345,7 +345,6 @@ not by judging the work. Every failing check below is a specific, finishable job
 | Kind | Check | Passing |
 |---|---|---:|
 | engine-module | shown by a sample app | 140/692 (20%) |
-| web-app | declared in shared/exchange.json | 4/6 (67%) |
 | app | runs headless for CI | 123/161 (76%) |
 | app | has a golden screenshot | 156/161 (97%) |
 | app | built by CMake | 161/161 (100%) |
@@ -364,6 +363,7 @@ not by judging the work. Every failing check below is a specific, finishable job
 | web-app | has a README | 6/6 (100%) |
 | web-app | has a logic test | 6/6 (100%) |
 | web-app | links back to the hub | 6/6 (100%) |
+| web-app | declared in shared/exchange.json | 6/6 (100%) |
 
 ## 3. How each program can make the others better
 
@@ -438,17 +438,27 @@ anyone asking, inside the zones the Forge is allowed to verify.
 These are judgement calls, kept in `tools/inventory/lib/synergy.mjs` so they can be read and
 argued with. Each names real artifacts; one that names something deleted fails `--check`.
 
-#### CODA PICS paints backdrops for SCRIPT FORGE and illustrates MADLIBS
+#### CODA PICS can be lent now — but not to SCRIPT FORGE or MADLIBS as they speak today
 
 `web:coda-pics` → `web:film`, `web:madlibs`
 
-CODA PICS turns a sentence into a finished picture in canvas 2D, offline. SCRIPT FORGE builds
-its sets from primitives and MADLIBS returns pure text. Publishing coda-pics/js as
-coda-pics/painter would let SCRIPT FORGE paint a title card and a establishing backdrop per
-location straight from its own scene description, and let MADLIBS show each story idea rather
-than only describing it.
+The surface exists: coda-pics/painter is published, takes a sentence and a canvas, and — unlike
+the studio page — reports how much of the picture came from the words. It refuses rather than
+guessing when asked to, because CODA PICS invents a subject for anything it does not recognise
+and a caller cannot otherwise tell a picture of the thing it asked for from a picture of
+something else. What is NOT true is the obvious next step, and it was measured rather than
+assumed. Fed SCRIPT FORGE's scene headings, about half paint something unrelated — "EXT.
+SHORELINE — DAY" becomes a wolf in a cavern, "INT. POLICE STATION — NIGHT" a serpent in the open
+sea. Fed MADLIBS loglines, six of twelve are refused outright and the six that paint are only
+loosely related. The cause is vocabulary: CODA PICS knows 60 subjects and 20 settings chosen for
+being paintable, and neither a screenplay nor a story generator draws from that list. So the
+work is not wiring, it is words. Either CODA PICS's lexicon grows the interiors and institutions
+a screenplay is full of — stairwells, offices, police stations, hospital rooms — or a caller
+translates its own vocabulary into CODA PICS's before asking. Until one of those happens, a
+consumer would get a refusal half the time and a wrong picture some of the rest, and no amount
+of integration code improves that.
 
-<sub>effort: medium · value: ★★★</sub>
+<sub>effort: large · value: ★★</sub>
 
 #### MADLIBS and CODA PICS fill templates twice, and only one of them does it correctly
 
@@ -516,31 +526,27 @@ Every gap above, ranked. **P1** is something broken or unprotected, **P2** is a 
 gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list out of
 `docs/inventory.json`, so the nightly Forge can pick work straight off it.
 
-### P1 — broken or unprotected (4)
+### P1 — broken or unprotected (3)
 
 - **38 apps cannot run without a display**
   <br>Apps with --headless / --frames N are run by CI on every push and can be captured as goldens; apps without them are only ever proven by someone opening a window. The flag is a dozen lines copied from apps/_template/main.cpp and it converts each app into a test. — area2d, blackboard, boundary, bus, camera3d, capsule, ccd, contacts, convex, envelope, filter, flowfield, and 26 more. Example: Teach apps/area2d the --headless / --frames N flags so CI can run it without a display.
 - **552 engine modules are tested but no app shows them**
   <br>These are finished, working features that nobody can see. Each one is a small app away from being discoverable, and apps/ is how this engine documents itself. Grouping several related modules into one demo is usually better than one app each. — AdditiveBlend, BlendSpace, CubicBezierEasing, RootMotion, SpringBone, Transition, TriggerTrack, Dsp, EnvelopeFollower, G711, Goertzel, ImaAdpcm, and 540 more. Example: No app under apps/ demonstrates maz::anim::AdditiveBlend. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.
-- **CODA PICS paints backdrops for SCRIPT FORGE and illustrates MADLIBS**
-  <br>CODA PICS turns a sentence into a finished picture in canvas 2D, offline. SCRIPT FORGE builds its sets from primitives and MADLIBS returns pure text. Publishing coda-pics/js as coda-pics/painter would let SCRIPT FORGE paint a title card and a establishing backdrop per location straight from its own scene description, and let MADLIBS show each story idea rather than only describing it.
 - **SONG FORGE supplies the one music layer the engine does not have**
   <br>The engine already has the layers underneath and above a composer: audio::MusicTheory does note/pitch conversion, audio::MusicScales the scale tables, audio::Oscillator and audio::BusGraph the synthesis and mixing, and audio::MusicSequencer switches between music segments on the beat as the action changes. What nothing under engine/include/maz/audio/ does is WRITE the segments — pick a progression, lay a bassline and a drum pattern under it, arrange verses and choruses. music/js/genres.js and music/js/composer.js do exactly that, as plain data and pure functions, for eight genres. Porting the…
 
-### P2 — coverage gaps (6)
+### P2 — coverage gaps (5)
 
 - **5 apps fail "has a golden screenshot"**
   <br>_template, mobilepack, orbs, sandbox, swarm. Example: Capture a golden frame for _template into tests/golden/_template.png so a rendering regression is caught automatically.
+- **CODA PICS can be lent now — but not to SCRIPT FORGE or MADLIBS as they speak today**
+  <br>The surface exists: coda-pics/painter is published, takes a sentence and a canvas, and — unlike the studio page — reports how much of the picture came from the words. It refuses rather than guessing when asked to, because CODA PICS invents a subject for anything it does not recognise and a caller cannot otherwise tell a picture of the thing it asked for from a picture of something else.  What is NOT true is the obvious next step, and it was measured rather than assumed. Fed SCRIPT FORGE's scene headings, about half paint something unrelated — "EXT. SHORELINE — DAY" becomes a wolf in a cavern…
 - **The golden screenshots become the arcade's cover art**
   <br>tests/golden/ holds a deterministic captured frame for most apps, produced purely to catch rendering regressions. That is also a ready-made, always-current screenshot library: the hub at index.html lists every project as text today, and could show each native demo's golden frame as its tile art at zero maintenance cost, because CI regenerates them.
 - **MADLIBS and CODA PICS fill templates twice, and only one of them does it correctly**
   <br>This entry replaces a wrong one, and how it was wrong is the useful part. It used to say MADLIBS could hand CODA PICS a "surprise me" prompt that is a real scene. Tried, it does not work: MADLIBS writes story prose ("A brazen pilot named Cordelia discovers they are the last heir to Umberfall") and CODA PICS parses scene descriptions, so feeding one to the other painted "a sword in stone in an island at sunset" — words it recognised, a picture of nothing anyone asked for. The vocabularies are not compatible and no amount of wiring makes them so.  What IS shared is the machinery underneath. Bot…
 - **MAZ-SCRAPE fills the game worlds with real data**
   <br>The scraper turns a YAML recipe into JSONL/CSV/SQLite from static HTML. ZOMBOID's Anchorage, apps/village and apps/world are all populated by hand-written name and place tables today. A recipe that harvests real street, business and place names into a JSON table the games load would make all three worlds larger without a line of new game code.
-- **CODA PICS: declared in shared/exchange.json**
-  <br>CODA PICS neither publishes a capability nor consumes one. Declare in shared/exchange.json what it can lend the other projects — that manifest is how they find each other.
-- **DEAD SECTOR: declared in shared/exchange.json**
-  <br>DEAD SECTOR neither publishes a capability nor consumes one. Declare in shared/exchange.json what it can lend the other projects — that manifest is how they find each other.
 
 ---
 

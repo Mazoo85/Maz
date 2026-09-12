@@ -118,3 +118,40 @@ here, so it will not give you a photograph of something that never existed. It
 gives you an **illustration** — bold, graphic, poster-like — of what you asked
 for, instantly, for free, forever, with nothing sent anywhere. Those turn out
 to be different and quite good things to have.
+
+## Lending the painter to another project
+
+`coda-pics/js/painter.js` is the small surface CODA PICS publishes as `coda-pics/painter` in
+`shared/exchange.json`. Words in, picture on a canvas:
+
+```html
+<script src="../coda-pics/js/lexicon.js"></script>
+<script src="../coda-pics/js/prompt.js"></script>
+<script src="../coda-pics/js/subjects.js"></script>
+<script src="../coda-pics/js/paint.js"></script>
+<script src="../coda-pics/js/finish.js"></script>
+<script src="../coda-pics/js/painter.js"></script>
+```
+
+```js
+MazPainter.read('a lighthouse on a stormy sea');        // what would it make of this?
+MazPainter.paint(ctx, w, h, text, { seed, style });     // always paints
+MazPainter.paintIfRecognised(ctx, w, h, text);          // paints only if it understood
+```
+
+The one thing a consumer needs that the studio page does not is honesty about the result. CODA PICS
+is built so a blank page is never a blank page: given words it does not know, it invents a subject,
+a setting and a style from the prompt's own hash and paints those. On this page that is right — you
+always get a picture. Handed to another project it is a trap, because "a police station" paints a
+knight in the open sky and the caller cannot tell that apart from a picture of what it asked for.
+
+So every call reports `grounded`: how many parts of the picture came from the words
+(`fromWords` / `parts`, and `ratio`), which were invented, and whether the subject itself was named.
+`paintIfRecognised` refuses when the bar is not met and leaves the canvas untouched, so a caller can
+fall back to its own artwork without getting two pictures on top of each other.
+
+Worth knowing before you wire it up: CODA PICS knows 60 subjects and 20 settings, chosen for being
+paintable. A project whose words come from somewhere else will be refused a lot — measured against
+SCRIPT FORGE's scene headings and MADLIBS' loglines, roughly half. That is the surface working
+correctly, not failing; the fix is vocabulary, not integration code.
+

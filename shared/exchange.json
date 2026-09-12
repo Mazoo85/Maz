@@ -32,6 +32,18 @@
         "music/js/engine.js",
         "music/js/soundtrack.js"
       ]
+    },
+    "coda-pics/painter": {
+      "project": "coda-pics",
+      "summary": "Paint a picture from a sentence onto any 2D canvas, and say how much of it came from the words rather than being invented \u2014 so a caller can refuse a confident picture of the wrong thing.",
+      "files": [
+        "coda-pics/js/lexicon.js",
+        "coda-pics/js/prompt.js",
+        "coda-pics/js/subjects.js",
+        "coda-pics/js/paint.js",
+        "coda-pics/js/finish.js",
+        "coda-pics/js/painter.js"
+      ]
     }
   },
   "consumes": [

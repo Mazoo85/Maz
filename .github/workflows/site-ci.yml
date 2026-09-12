@@ -48,6 +48,10 @@ jobs:
       # is checked here without a browser too.
       - name: CODA PICS logic tests
         run: node coda-pics/tests/coda-logic.test.js
+      # The painter surface CODA PICS publishes for other projects, and the one
+      # behaviour that exists only for them: refusing rather than guessing.
+      - name: CODA PICS painter surface
+        run: node coda-pics/tests/painter.test.js
       # MADLIBS publishes madlibs/storyideas and SCRIPT FORGE consumes it, so a
       # break in the generator is a break in two projects.
       - name: MADLIBS logic tests

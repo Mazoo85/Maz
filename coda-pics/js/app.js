@@ -132,8 +132,23 @@
   function setStatus(html) { el.status.innerHTML = html; }
 
   function showReadout(spec, size) {
+    /* Each tag below already says whether it came from the words or was CODA
+     * PICS' own choice. What the tags cannot say at a glance is when NONE of it
+     * came from the words — type "a police station" and you get a knight in the
+     * open sky, every tag a guess, and nothing at the top admitting it. That is
+     * the one case worth a sentence: the picture is fine, it is just not of
+     * what you asked for, and you should know that before you save it. */
+    var g = spec.grounded;
+    var note = '';
+    if (g && g.parts) {
+      if (g.fromWords === 0) {
+        note = ' · <b>none of your words were in my vocabulary, so this one is my idea</b>';
+      } else if (!g.subject) {
+        note = ' · I did not recognise what to put in it, so I chose';
+      }
+    }
     setStatus('<b>' + escapeHtml(PROMPT.describe(spec)) + '</b> · ' +
-      size.w + ' × ' + size.h + ' · seed ' + spec.seed);
+      size.w + ' × ' + size.h + ' · seed ' + spec.seed + note);
 
     el.readout.innerHTML = '';
     spec.read.forEach(function (item) {

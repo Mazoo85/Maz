@@ -110,7 +110,10 @@ const CHECKS = {
       id: 'exchange',
       missing: 'not in exchange.json',
       label: 'declared in shared/exchange.json',
-      test: (w) => w.publishes.length > 0 || w.consumes.length > 0,
+      // Waived for a deliberately self-contained project — see `selfContained`
+      // in scan-web.mjs. That is a design decision declared on the project's
+      // own card, not an omission.
+      test: (w) => w.publishes.length > 0 || w.consumes.length > 0 || w.selfContained,
       fix: (w) => `${w.name} neither publishes a capability nor consumes one. Declare in shared/exchange.json what it can lend the other projects — that manifest is how they find each other.`
     }
   ],

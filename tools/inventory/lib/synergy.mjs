@@ -21,18 +21,29 @@
  */
 export const DECLARED_PAIRINGS = [
   {
-    id: 'codapics-paints-for-the-others',
+    id: 'codapics-painter-needs-a-caller-that-speaks-its-language',
     from: ['web:coda-pics'],
     to: ['web:film', 'web:madlibs'],
-    title: 'CODA PICS paints backdrops for SCRIPT FORGE and illustrates MADLIBS',
+    title: 'CODA PICS can be lent now — but not to SCRIPT FORGE or MADLIBS as they speak today',
     detail:
-      'CODA PICS turns a sentence into a finished picture in canvas 2D, offline. SCRIPT FORGE builds ' +
-      'its sets from primitives and MADLIBS returns pure text. Publishing coda-pics/js as ' +
-      'coda-pics/painter would let SCRIPT FORGE paint a title card and a establishing backdrop per ' +
-      'location straight from its own scene description, and let MADLIBS show each story idea rather ' +
-      'than only describing it.',
-    effort: 'medium',
-    value: 3
+      'The surface exists: coda-pics/painter is published, takes a sentence and a canvas, and — ' +
+      'unlike the studio page — reports how much of the picture came from the words. It refuses ' +
+      'rather than guessing when asked to, because CODA PICS invents a subject for anything it does ' +
+      'not recognise and a caller cannot otherwise tell a picture of the thing it asked for from a ' +
+      'picture of something else.\n\n' +
+      'What is NOT true is the obvious next step, and it was measured rather than assumed. Fed ' +
+      'SCRIPT FORGE\'s scene headings, about half paint something unrelated — "EXT. SHORELINE — ' +
+      'DAY" becomes a wolf in a cavern, "INT. POLICE STATION — NIGHT" a serpent in the open sea. ' +
+      'Fed MADLIBS loglines, six of twelve are refused outright and the six that paint are only ' +
+      'loosely related. The cause is vocabulary: CODA PICS knows 60 subjects and 20 settings chosen ' +
+      'for being paintable, and neither a screenplay nor a story generator draws from that list.\n\n' +
+      'So the work is not wiring, it is words. Either CODA PICS\'s lexicon grows the interiors and ' +
+      'institutions a screenplay is full of — stairwells, offices, police stations, hospital rooms — ' +
+      'or a caller translates its own vocabulary into CODA PICS\'s before asking. Until one of those ' +
+      'happens, a consumer would get a refusal half the time and a wrong picture some of the rest, ' +
+      'and no amount of integration code improves that.',
+    effort: 'large',
+    value: 2
   },
   {
     id: 'one-template-filler-instead-of-two',
