@@ -49,7 +49,7 @@ void dot(render::Renderer& r, math::vec2 c, float radius, render::Color col) {
 
 void ring(render::Renderer& r, math::vec2 c, float radius, float w, render::Color col) {
     const int n = 48;
-    math::vec2 prev;
+    math::vec2 prev{};
     for (int i = 0; i <= n; ++i) {
         const float a = 6.2831853f * static_cast<float>(i) / static_cast<float>(n);
         const math::vec2 p(c.x + std::cos(a) * radius, c.y + std::sin(a) * radius);

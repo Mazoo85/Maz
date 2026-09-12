@@ -48,7 +48,7 @@ void dot(render::Renderer& r, math::vec2 c, float radius, render::Color col) {
 
 void ring(render::Renderer& r, math::vec2 c, float radius, float w, render::Color col) {
     const int n = 56;
-    math::vec2 prev;
+    math::vec2 prev{};
     for (int i = 0; i <= n; ++i) {
         const float a = 6.2831853f * static_cast<float>(i) / static_cast<float>(n);
         const math::vec2 p(c.x + std::cos(a) * radius, c.y + std::sin(a) * radius);
@@ -172,7 +172,7 @@ int main(int argc, char** argv) {
             const render::Point2 band[4] = {{bandL, py0}, {bandR, py0}, {bandR, py1}, {bandL, py1}};
             renderer->drawConvexPolygon(band, 4, rgba(1.0f, 0.45f, 0.4f, 0.12f));
 
-            math::vec2 prev;
+            math::vec2 prev{};
             const int samples = 128;
             for (int i = 0; i <= samples; ++i) {
                 const float in = -1.0f + 2.0f * static_cast<float>(i) / static_cast<float>(samples);
