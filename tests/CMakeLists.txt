@@ -76,6 +76,27 @@ target_link_libraries(maz_gifanim_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME gif_animation COMMAND maz_gifanim_tests)
 set_tests_properties(gif_animation PROPERTIES TIMEOUT 30)
 
+# CPU mesh rasterizer (render::renderMeshPreview): centre fill + flat shading, the z-buffer occluding a
+# farther triangle either submission order, and near-plane culling. Pure CPU, headless.
+add_executable(maz_softwarerender_tests render/softwarerender.cpp)
+target_link_libraries(maz_softwarerender_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME software_render COMMAND maz_softwarerender_tests)
+set_tests_properties(software_render PROPERTIES TIMEOUT 30)
+
+# Cutscene export pipeline end-to-end, in-process: compose -> prefab text -> reload -> bake -> render
+# an orbit of CPU frames -> animated GIF -> decode. The same chain apps/cutscene_export drives.
+add_executable(maz_cutscene_pipeline_tests render/cutscene_pipeline.cpp)
+target_link_libraries(maz_cutscene_pipeline_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME cutscene_pipeline COMMAND maz_cutscene_pipeline_tests)
+set_tests_properties(cutscene_pipeline PROPERTIES TIMEOUT 30)
+
+# Run the real cutscene_export binary on a committed sample character prefab (exercises arg parsing +
+# file IO + the whole export chain). Writes a small GIF into the test working dir; exit 0 on success.
+add_test(NAME cutscene_export_run
+         COMMAND cutscene_export ${CMAKE_SOURCE_DIR}/assets/samples/figure.mazprefab
+                 --out figure.gif --frames 3 --size 48)
+set_tests_properties(cutscene_export_run PROPERTIES TIMEOUT 60)
+
 # GPU-driven particle simulation + plane collision (fx::GpuParticleSystem). The CPU step is the exact
 # arithmetic the compute shader runs, so bounce energy, no-sink, friction, lifecycle and the instance
 # buffer are all verified headlessly here; the GPU dispatch + instanced draw are owner-verified.
