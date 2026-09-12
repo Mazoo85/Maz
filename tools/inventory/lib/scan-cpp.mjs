@@ -133,7 +133,21 @@ export function scanApps(root) {
       hasMain: source !== '',
       hasCMake: exists(join(dir, 'CMakeLists.txt')),
       registered: cmake.includes(`add_subdirectory(apps/${name})`),
-      headless: source.includes('--headless'),
+      // An app that never opens a platform::Window is a command-line tool
+      // (mobilepack, the mobile exporter, is the one here). It runs in CI
+      // already, has no frame to capture, and asking it for a headless mode or
+      // a golden screenshot is asking the wrong question.
+      windowed: /platform::Window\b/.test(source),
+      // Whether it can run with no display.
+      //
+      // This used to test for the literal string "--headless" in the source,
+      // and reported 38 apps as unable to run in CI. Every one of them could:
+      // they call core::parseArgs, which owns the flag, and pass cfg.headless
+      // into the window and renderer configs. All the check actually measured
+      // was whether an app's comment happened to mention the flag by name.
+      // What makes an app headless is the wiring, so that is what is read.
+      headless: !/platform::Window\b/.test(source) ||
+        (/\bparseArgs\b/.test(source) && /headless/i.test(source)),
       demoFlag: source.includes('--demo'),
       // The template is the mobile-ready starting point; an app that never
       // mentions touch or a safe area cannot be played on a phone.

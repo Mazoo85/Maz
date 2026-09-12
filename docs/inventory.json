@@ -14,295 +14,15 @@
     "linesOfApps": 31861,
     "linesOfEngine": 87768,
     "linesOfWeb": 17589,
-    "appsHeadless": 76,
+    "appsHeadless": 100,
     "appsGolden": 97,
     "modulesTested": 100,
     "modulesDemoed": 20,
-    "checksPassed": 2515,
+    "checksPassed": 2554,
     "checksTotal": 3110,
-    "openTasks": 8
+    "openTasks": 7
   },
   "queue": [
-    {
-      "id": "group:app:headless",
-      "priority": 1,
-      "kind": "app",
-      "check": "headless",
-      "title": "38 apps cannot run without a display",
-      "detail": "Apps with --headless / --frames N are run by CI on every push and can be captured as goldens; apps without them are only ever proven by someone opening a window. The flag is a dozen lines copied from apps/_template/main.cpp and it converts each app into a test. — area2d, blackboard, boundary, bus, camera3d, capsule, ccd, contacts, convex, envelope, filter, flowfield, and 26 more. Example: Teach apps/area2d the --headless / --frames N flags so CI can run it without a display.",
-      "paths": [
-        "apps/area2d",
-        "apps/blackboard",
-        "apps/boundary",
-        "apps/bus",
-        "apps/camera3d",
-        "apps/capsule",
-        "apps/ccd",
-        "apps/contacts",
-        "apps/convex",
-        "apps/envelope",
-        "apps/filter",
-        "apps/flowfield",
-        "apps/goap",
-        "apps/gradient",
-        "apps/inifile",
-        "apps/interp",
-        "apps/itemlist",
-        "apps/manybody",
-        "apps/mobilepack",
-        "apps/motor",
-        "apps/normalmap",
-        "apps/physics3d",
-        "apps/polyline",
-        "apps/popupmenu",
-        "apps/reverb",
-        "apps/ring",
-        "apps/scene3d",
-        "apps/sequencer",
-        "apps/sleep",
-        "apps/softshadow",
-        "apps/solver",
-        "apps/spectrum",
-        "apps/stack",
-        "apps/statemachine",
-        "apps/stylebox",
-        "apps/theme",
-        "apps/tree",
-        "apps/xform2d"
-      ],
-      "source": "inventory:app:headless",
-      "memberCount": 38,
-      "members": [
-        {
-          "id": "app:area2d",
-          "name": "area2d",
-          "path": "apps/area2d",
-          "fix": "Teach apps/area2d the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:blackboard",
-          "name": "blackboard",
-          "path": "apps/blackboard",
-          "fix": "Teach apps/blackboard the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:boundary",
-          "name": "boundary",
-          "path": "apps/boundary",
-          "fix": "Teach apps/boundary the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:bus",
-          "name": "bus",
-          "path": "apps/bus",
-          "fix": "Teach apps/bus the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:camera3d",
-          "name": "camera3d",
-          "path": "apps/camera3d",
-          "fix": "Teach apps/camera3d the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:capsule",
-          "name": "capsule",
-          "path": "apps/capsule",
-          "fix": "Teach apps/capsule the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:ccd",
-          "name": "ccd",
-          "path": "apps/ccd",
-          "fix": "Teach apps/ccd the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:contacts",
-          "name": "contacts",
-          "path": "apps/contacts",
-          "fix": "Teach apps/contacts the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:convex",
-          "name": "convex",
-          "path": "apps/convex",
-          "fix": "Teach apps/convex the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:envelope",
-          "name": "envelope",
-          "path": "apps/envelope",
-          "fix": "Teach apps/envelope the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:filter",
-          "name": "filter",
-          "path": "apps/filter",
-          "fix": "Teach apps/filter the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:flowfield",
-          "name": "flowfield",
-          "path": "apps/flowfield",
-          "fix": "Teach apps/flowfield the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:goap",
-          "name": "goap",
-          "path": "apps/goap",
-          "fix": "Teach apps/goap the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:gradient",
-          "name": "gradient",
-          "path": "apps/gradient",
-          "fix": "Teach apps/gradient the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:inifile",
-          "name": "inifile",
-          "path": "apps/inifile",
-          "fix": "Teach apps/inifile the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:interp",
-          "name": "interp",
-          "path": "apps/interp",
-          "fix": "Teach apps/interp the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:itemlist",
-          "name": "itemlist",
-          "path": "apps/itemlist",
-          "fix": "Teach apps/itemlist the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:manybody",
-          "name": "manybody",
-          "path": "apps/manybody",
-          "fix": "Teach apps/manybody the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:mobilepack",
-          "name": "mobilepack",
-          "path": "apps/mobilepack",
-          "fix": "Teach apps/mobilepack the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:motor",
-          "name": "motor",
-          "path": "apps/motor",
-          "fix": "Teach apps/motor the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:normalmap",
-          "name": "normalmap",
-          "path": "apps/normalmap",
-          "fix": "Teach apps/normalmap the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:physics3d",
-          "name": "physics3d",
-          "path": "apps/physics3d",
-          "fix": "Teach apps/physics3d the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:polyline",
-          "name": "polyline",
-          "path": "apps/polyline",
-          "fix": "Teach apps/polyline the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:popupmenu",
-          "name": "popupmenu",
-          "path": "apps/popupmenu",
-          "fix": "Teach apps/popupmenu the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:reverb",
-          "name": "reverb",
-          "path": "apps/reverb",
-          "fix": "Teach apps/reverb the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:ring",
-          "name": "ring",
-          "path": "apps/ring",
-          "fix": "Teach apps/ring the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:scene3d",
-          "name": "scene3d",
-          "path": "apps/scene3d",
-          "fix": "Teach apps/scene3d the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:sequencer",
-          "name": "sequencer",
-          "path": "apps/sequencer",
-          "fix": "Teach apps/sequencer the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:sleep",
-          "name": "sleep",
-          "path": "apps/sleep",
-          "fix": "Teach apps/sleep the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:softshadow",
-          "name": "softshadow",
-          "path": "apps/softshadow",
-          "fix": "Teach apps/softshadow the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:solver",
-          "name": "solver",
-          "path": "apps/solver",
-          "fix": "Teach apps/solver the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:spectrum",
-          "name": "spectrum",
-          "path": "apps/spectrum",
-          "fix": "Teach apps/spectrum the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:stack",
-          "name": "stack",
-          "path": "apps/stack",
-          "fix": "Teach apps/stack the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:statemachine",
-          "name": "statemachine",
-          "path": "apps/statemachine",
-          "fix": "Teach apps/statemachine the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:stylebox",
-          "name": "stylebox",
-          "path": "apps/stylebox",
-          "fix": "Teach apps/stylebox the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:theme",
-          "name": "theme",
-          "path": "apps/theme",
-          "fix": "Teach apps/theme the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:tree",
-          "name": "tree",
-          "path": "apps/tree",
-          "fix": "Teach apps/tree the --headless / --frames N flags so CI can run it without a display."
-        },
-        {
-          "id": "app:xform2d",
-          "name": "xform2d",
-          "path": "apps/xform2d",
-          "fix": "Teach apps/xform2d the --headless / --frames N flags so CI can run it without a display."
-        }
-      ]
-    },
     {
       "id": "group:engine-module:demoed",
       "priority": 1,
@@ -617,47 +337,40 @@
       "priority": 2,
       "kind": "app",
       "check": "golden",
-      "title": "5 apps fail \"has a golden screenshot\"",
-      "detail": "_template, mobilepack, orbs, sandbox, swarm. Example: Capture a golden frame for _template into tests/golden/_template.png so a rendering regression is caught automatically.",
+      "title": "4 apps fail \"has a golden screenshot\"",
+      "detail": "_template, orbs, sandbox, swarm. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.",
       "paths": [
         "apps/_template",
-        "apps/mobilepack",
         "apps/orbs",
         "apps/sandbox",
         "apps/swarm"
       ],
       "source": "inventory:app:golden",
-      "memberCount": 5,
+      "memberCount": 4,
       "members": [
         {
           "id": "app:_template",
           "name": "_template",
           "path": "apps/_template",
-          "fix": "Capture a golden frame for _template into tests/golden/_template.png so a rendering regression is caught automatically."
-        },
-        {
-          "id": "app:mobilepack",
-          "name": "mobilepack",
-          "path": "apps/mobilepack",
-          "fix": "Capture a golden frame for mobilepack into tests/golden/mobilepack.png so a rendering regression is caught automatically."
+          "fix": "Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test."
         },
         {
           "id": "app:orbs",
           "name": "orbs",
           "path": "apps/orbs",
-          "fix": "Capture a golden frame for orbs into tests/golden/orbs.png so a rendering regression is caught automatically."
+          "fix": "Capture a golden frame for orbs into tests/golden/orbs.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test."
         },
         {
           "id": "app:sandbox",
           "name": "sandbox",
           "path": "apps/sandbox",
-          "fix": "Capture a golden frame for sandbox into tests/golden/sandbox.png so a rendering regression is caught automatically."
+          "fix": "Capture a golden frame for sandbox into tests/golden/sandbox.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test."
         },
         {
           "id": "app:swarm",
           "name": "swarm",
           "path": "apps/swarm",
-          "fix": "Capture a golden frame for swarm into tests/golden/swarm.png so a rendering regression is caught automatically."
+          "fix": "Capture a golden frame for swarm into tests/golden/swarm.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test."
         }
       ]
     },

@@ -37,14 +37,15 @@ const CHECKS = {
       missing: 'no headless mode',
       label: 'runs headless for CI',
       test: (a) => a.headless,
-      fix: (a) => `Teach apps/${a.name} the --headless / --frames N flags so CI can run it without a display.`
+      fix: (a) => `apps/${a.name} opens a window but never passes cfg.headless through to it. Call core::parseArgs and set wc.headless / rc.allowHeadless from it, as apps/_template does, so CI can run it without a display.`
     },
     {
       id: 'golden',
       missing: 'no golden screenshot',
       label: 'has a golden screenshot',
-      test: (a) => a.golden,
-      fix: (a) => `Capture a golden frame for ${a.name} into tests/golden/${a.name}.png so a rendering regression is caught automatically.`
+      // A command-line tool draws no frame, so there is nothing to capture.
+      test: (a) => a.golden || !a.windowed,
+      fix: (a) => `Capture a golden frame for ${a.name} into tests/golden/${a.name}.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.`
     },
     {
       id: 'uses-engine',

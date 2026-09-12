@@ -25,12 +25,12 @@ size is in the wiring between the parts, not in any one part.
 
 | Health signal | Score | |
 |---|---:|---|
-| Completeness checks passing | 81% | ████████░░ 2515 of 3110 |
-| Apps that run headless in CI | 76% | ████████░░ |
+| Completeness checks passing | 82% | ████████░░ 2554 of 3110 |
+| Apps that run headless in CI | 100% | ██████████ |
 | Apps with a golden screenshot | 97% | ██████████ |
 | Engine modules a test exercises | 100% | ██████████ |
 | Engine modules an app demonstrates | 20% | ██░░░░░░░░ |
-| Open tasks in the queue below | 8 | |
+| Open tasks in the queue below | 7 | |
 
 ## 1. Everything you have built
 
@@ -144,7 +144,7 @@ engine capability, a handful of them complete games.
 | **adventure** | a complete top-down ADVENTURE built from the engine's 2D primitives: the polygon renderer, a follow camera (Camera2D center + world scroll), the font… | 377 | ✓ | ✓ | — |
 | **animator** | animation controller demo) A skinned tube is driven by maz::anim::Animator, which holds three named clips (idle / wave / coil) and auto-switches betw… | 252 | ✓ | ✓ | — |
 | **animclip** | keyframe animation + blending demo) Two authored, looping clips drive an 8-bone skinned tube: "wave" (a travelling ripple of keyframed joint rotation… | 237 | ✓ | ✓ | — |
-| **area2d** | sensor / trigger regions with enter/exit events, toward Godot Area2D) Two trigger zones — a circular "aura" and a rectangular "gate" — sit in the sce… | 233 | · | ✓ | no headless mode |
+| **area2d** | sensor / trigger regions with enter/exit events, toward Godot Area2D) Two trigger zones — a circular "aura" and a rectangular "gate" — sit in the sce… | 233 | ✓ | ✓ | — |
 | **assetcache** | resource-cache / asset-manager demo) Builds a mosaic of 240 tiles that only use 8 distinct colors. Every tile's texture is requested through a maz::c… | 130 | ✓ | ✓ | — |
 | **astar** | game::AStar2D general weighted-graph pathfinding, toward Godot's AStar2D) A free-form waypoint graph: nodes placed anywhere, edges you draw yourself… | 206 | ✓ | ✓ | — |
 | **atlas** | render::AtlasPacker skyline rectangle bin-packing, toward Godot's atlas importer) The layout step that turns a pile of separate sprites/glyphs into o… | 140 | ✓ | ✓ | — |
@@ -152,24 +152,24 @@ engine capability, a handful of them complete games.
 | **base64** | base64 encode/decode, toward Godot's Marshalls raw<->base64) Base64 carries BINARY data through TEXT channels — embedding a blob inside JSON, a .tres… | 121 | ✓ | ✓ | — |
 | **behavior** | behavior-tree AI demo) Each agent's decisions come from a maz::game::bt behavior tree, not a hand-written state machine: selector( sequence(intruder… | 225 | ✓ | ✓ | — |
 | **billboard** | 3D billboard modes, toward Godot's SpriteBase3D / GeometryInstance3D billboards) Three rows of flat quad "cards" stand in a 3D scene, each row using… | 143 | ✓ | ✓ | — |
-| **blackboard** | behavior-tree blackboard + parallel/decorator nodes, toward Godot BT AI) A sentry's behavior tree drawn as a node graph, TWICE — once with the blackb… | 174 | · | ✓ | no headless mode |
+| **blackboard** | behavior-tree blackboard + parallel/decorator nodes, toward Godot BT AI) A sentry's behavior tree drawn as a node graph, TWICE — once with the blackb… | 174 | ✓ | ✓ | — |
 | **blendspace** | animation blend spaces, toward Godot's AnimationTree BlendSpace2D) Four corner poses of a stick-figure skeleton are placed at the corners of a 2-D pa… | 188 | ✓ | ✓ | — |
 | **blendtree** | animation blend TREE, toward Godot's AnimationNodeBlendTree) One evaluable node graph drives a stick-figure skeleton. The tree nests three kinds of n… | 201 | ✓ | ✓ | — |
-| **boundary** | infinite WorldBoundary half-planes, toward Godot WorldBoundaryShape2D) A floor or wall doesn't need to be a thick box — it can be an infinite line (a… | 184 | · | ✓ | no headless mode |
+| **boundary** | infinite WorldBoundary half-planes, toward Godot WorldBoundaryShape2D) A floor or wall doesn't need to be a thick box — it can be an infinite line (a… | 184 | ✓ | ✓ | — |
 | **boxes** | 2D box physics + friction demo) A mix of dynamic boxes and balls drops onto static platforms and stacks. maz::game::PhysicsWorld2D now resolves box-b… | 165 | ✓ | ✓ | — |
-| **bus** | audio DSP effects + mix buses, toward Godot's AudioEffectFilter/Delay + bus layout) A signal-processing scope: one rich source "note" (a plucked sawt… | 170 | · | ✓ | no headless mode |
+| **bus** | audio DSP effects + mix buses, toward Godot's AudioEffectFilter/Delay + bus layout) A signal-processing scope: one rich source "note" (a plucked sawt… | 170 | ✓ | ✓ | — |
 | **busmixer** | audio::BusGraph, toward Godot's AudioServer bus layout) A3 of the audio deep-dive: the multi-bus router. Every voice plays into a named bus; each bus… | 227 | ✓ | ✓ | — |
 | **camera** | 2D follow-camera demo) A world much larger than the screen: a grid of markers across a 2600x1800 level, a bordered edge, and an avatar that moves on… | 184 | ✓ | ✓ | — |
-| **camera3d** | render::Camera3D, toward Godot's Camera3D projection API) Godot's Camera3D turns a 3D scene into screen pixels and back: unproject_position (world->s… | 209 | · | ✓ | no headless mode |
-| **capsule** | capsule collision shape, toward Godot's CapsuleShape2D) A 2D capsule is a segment swept by a radius — the standard character/pill collider. This adds… | 184 | · | ✓ | no headless mode |
+| **camera3d** | render::Camera3D, toward Godot's Camera3D projection API) Godot's Camera3D turns a 3D scene into screen pixels and back: unproject_position (world->s… | 209 | ✓ | ✓ | — |
+| **capsule** | capsule collision shape, toward Godot's CapsuleShape2D) A 2D capsule is a segment swept by a radius — the standard character/pill collider. This adds… | 184 | ✓ | ✓ | — |
 | **catcher** | a complete little game, integrating many engine systems) Move the paddle to catch gold coins (+score) and dodge red hazards (-life). It's a full game… | 409 | ✓ | ✓ | — |
 | **cave** | procedural generation + tilemap autotiling, toward Godot's TileMap terrains) A cavern is grown by cellular automata (game::CellularCave): random fill… | 115 | ✓ | ✓ | — |
-| **ccd** | continuous collision detection, toward Godot's continuous_cd) A discrete solver only checks for overlap at the START and END of a step, so a body mov… | 143 | · | ✓ | no headless mode |
+| **ccd** | continuous collision detection, toward Godot's continuous_cd) A discrete solver only checks for overlap at the START and END of a step, so a body mov… | 143 | ✓ | ✓ | — |
 | **choreo** | tween sequencer / property animator, toward Godot's SceneTreeTween) A TweenPlayer choreographs bound values over time: property tweens chained in seq… | 155 | ✓ | ✓ | — |
 | **config** | cvar / config-system demo) Every subsystem registers named, typed, documented tunables in a core::CVarRegistry. A JSON config document then overrides… | 211 | ✓ | ✓ | — |
-| **contacts** | contact begin/persist/end events, toward Godot body_entered/body_exited) A game needs to KNOW when things touch — to play a thud, deal damage, trip a… | 175 | · | ✓ | no headless mode |
+| **contacts** | contact begin/persist/end events, toward Godot body_entered/body_exited) A game needs to KNOW when things touch — to play a thud, deal damage, trip a… | 175 | ✓ | ✓ | — |
 | **containers** | auto-layout container controls, toward Godot's Container nodes) Four labeled cards, each demonstrating one ui::Container layout with NO hand-typed ch… | 185 | ✓ | ✓ | — |
-| **convex** | arbitrary convex polygon dynamic bodies, toward Godot ConvexPolygonShape2D) Until now only circles, boxes, and capsules could be dynamic bodies. This… | 174 | · | ✓ | no headless mode |
+| **convex** | arbitrary convex polygon dynamic bodies, toward Godot ConvexPolygonShape2D) Until now only circles, boxes, and capsules could be dynamic bodies. This… | 174 | ✓ | ✓ | — |
 | **crowd** | steering + pathfinding demo) A flock of agents navigates a shared maze toward a roving goal. Each agent plans its own A* route (maz::game::NavGrid)… | 214 | ✓ | ✓ | — |
 | **cube** | 3D demo) A lit, depth-tested spinning cube rendered through the engine's 3D mesh path, with 2D HUD text drawn over it — proving 2D and 3D compose in… | 134 | ✓ | ✓ | — |
 | **curve** | cubic Bézier path, toward Godot's Curve2D / Path2D) A Curve2D is authored from points with in/out control handles and drawn as a smooth spline. On to… | 177 | ✓ | ✓ | — |
@@ -179,30 +179,30 @@ engine capability, a handful of them complete games.
 | **ecsave** | ECS scene save / load round-trip) Everything on screen is proof that a live entity world survives a JSON round-trip. At startup the app builds a sour… | 205 | ✓ | ✓ | — |
 | **editor** | a minimal in-engine scene editor, toward Godot's editor) A 3D viewport showing an editable scene, a scene-tree panel listing the nodes (click a row t… | 882 | ✓ | ✓ | — |
 | **emitter** | a particle emitter RESOURCE, toward Godot's CPUParticles2D) The old fx::ParticleSystem emits point bursts with a linear start->end colour/size. A rea… | 190 | ✓ | ✓ | — |
-| **envelope** | ADSR envelope generator, for synth voice shaping) The amplitude contour every synth note is shaped by: on note-on the level ramps up over ATTACK, fal… | 204 | · | ✓ | no headless mode |
+| **envelope** | ADSR envelope generator, for synth voice shaping) The amplitude contour every synth note is shaped by: on note-on the level ramps up over ATTACK, fal… | 204 | ✓ | ✓ | — |
 | **equalizer** | audio::Equalizer, toward Godot's AudioEffectEQ10) A2 of the audio deep-dive: a multiband graphic equalizer — a bank of peaking bands at fixed center… | 189 | ✓ | ✓ | — |
 | **events** | event-bus / pub-sub demo) A single emitter fires an ImpactEvent on a timer; three INDEPENDENT subscribers react to it through maz::core::EventBus wit… | 200 | ✓ | ✓ | — |
 | **expr** | core::Expression runtime formula parser/evaluator, toward Godot's Expression) Data-driven math: parse a formula STRING once, then evaluate it thousan… | 180 | ✓ | ✓ | — |
-| **filter** | collision layer/mask filtering, toward Godot collision_layer/collision_mask) Overlap tests answer "do these shapes touch?"; layers answer "should the… | 156 | · | ✓ | no headless mode |
+| **filter** | collision layer/mask filtering, toward Godot collision_layer/collision_mask) Overlap tests answer "do these shapes touch?"; layers answer "should the… | 156 | ✓ | ✓ | — |
 | **filters** | audio::Biquad gallery, toward Godot's AudioEffectFilter + dB units) A1 of the audio deep-dive completes the RBJ biquad set (low/high/band-pass alread… | 177 | ✓ | ✓ | — |
 | **fireworks** | time scheduler + sequence demo) The whole show is driven by core::Scheduler timers: every 0.4s a rocket launches from the bottom; each rocket schedul… | 213 | ✓ | ✓ | — |
 | **floatcurve** | anim::Curve float-curve resource, toward Godot's Curve) A Curve maps one scalar to another (y = f(x) over [0,1]) — the editable shape behind particle… | 162 | ✓ | ✓ | — |
-| **flowfield** | flow-field / vector-field pathfinding, for crowds) One Dijkstra outward from the GOAL bakes a direction into every grid cell (game::FlowField); then… | 227 | · | ✓ | no headless mode |
+| **flowfield** | flow-field / vector-field pathfinding, for crowds) One Dijkstra outward from the GOAL bakes a direction into every grid cell (game::FlowField); then… | 227 | ✓ | ✓ | — |
 | **forcefield** | fx::ForceField2D composable particle force field, toward Godot's GPUParticlesAttractor2D family + wind). A field of 800 particles is seeded across th… | 148 | ✓ | ✓ | — |
 | **form** | UI text input + focus navigation, toward Godot's LineEdit + Control focus) A settings form of editable single-line fields (ui::TextField) wired into… | 150 | ✓ | ✓ | — |
 | **geometry** | math::Geometry2D helpers, toward Godot's Geometry2D class) The workhorse 2D geometry queries behind AI line-of-sight, mouse picking, and trigger zone… | 189 | ✓ | ✓ | — |
 | **glass** | transparent-mesh demo) Opaque pillars behind a wall of overlapping colored glass panes. The panes are drawn with drawMeshTransparent: alpha-blended… | 183 | ✓ | ✓ | — |
-| **goap** | goal-oriented action planning, toward planner-grade AI beyond Godot's BT) A survival agent is given only a GOAL ("have fire") and a LIBRARY of action… | 211 | · | ✓ | no headless mode |
-| **gradient** | anim::Gradient, toward Godot's Gradient resource) Godot's Gradient is a colour ramp — sorted (offset, colour) stops sampled over [0,1] — behind CPUPa… | 179 | · | ✓ | no headless mode |
+| **goap** | goal-oriented action planning, toward planner-grade AI beyond Godot's BT) A survival agent is given only a GOAL ("have fire") and a LIBRARY of action… | 211 | ✓ | ✓ | — |
+| **gradient** | anim::Gradient, toward Godot's Gradient resource) Godot's Gradient is a colour ramp — sorted (offset, colour) stops sampled over [0,1] — behind CPUPa… | 179 | ✓ | ✓ | — |
 | **gravzones** | area gravity fields, toward Godot's Area2D gravity override) Three zones change the gravity a body feels inside them: a WIND field (directional, adde… | 214 | ✓ | ✓ | — |
 | **grid3d** | 3D editor-viewport reference demo) The ground grid + RGB origin gizmo every 3D editor draws (Godot's Node3D viewport): a world-space XZ grid so you c… | 105 | ✓ | ✓ | — |
 | **groove** | groove / slider joints, toward Godot's GrooveJoint2D) Three tilted rails. On each, a box is pinned to the rail by a GROOVE joint (game::Joint2D::Groo… | 152 | ✓ | ✓ | — |
 | **groups** | node groups, toward Godot's SceneTree add_to_group / get_nodes_in_group) A grid of 36 nodes, each tagged into named groups (enemies / pickups / scene… | 157 | ✓ | ✓ | — |
 | **guard** | finite-state-machine AI demo) Guards walk a patrol loop until an intruder wanders close, then a maz::game::StateMachine flips them Patrol -> Chase (s… | 245 | ✓ | ✓ | — |
-| **inifile** | io::ConfigFile, toward Godot's ConfigFile) Godot's ConfigFile is the INI-style `[section]` + `key=value` store behind project settings, input maps, a… | 146 | · | ✓ | no headless mode |
+| **inifile** | io::ConfigFile, toward Godot's ConfigFile) Godot's ConfigFile is the INI-style `[section]` + `key=value` store behind project settings, input maps, a… | 146 | ✓ | ✓ | — |
 | **instances** | instanced-rendering demo) A field of hundreds of cubes rendered in a SINGLE instanced draw call (one model matrix per instance, supplied as per-insta… | 152 | ✓ | ✓ | — |
-| **interp** | fixed-timestep render interpolation, toward Godot's physics interpolation) Physics runs on the fixed step; the display refreshes between steps. Drawi… | 124 | · | ✓ | no headless mode |
-| **itemlist** | ui::ItemList, toward Godot's ItemList control) Godot's ItemList is the scrollable box of choosable rows behind its FileDialog, audio-bus picker, inve… | 226 | · | ✓ | no headless mode |
+| **interp** | fixed-timestep render interpolation, toward Godot's physics interpolation) Physics runs on the fixed step; the display refreshes between steps. Drawi… | 124 | ✓ | ✓ | — |
+| **itemlist** | ui::ItemList, toward Godot's ItemList control) Godot's ItemList is the scrollable box of choosable rows behind its FileDialog, audio-bus picker, inve… | 226 | ✓ | ✓ | — |
 | **jobs** | job-system / parallelism demo) Computes a Julia-set fractal twice at startup — once single-threaded, once via maz::core::JobSystem::parallelFor acros… | 158 | ✓ | ✓ | — |
 | **joints** | 2D physics constraints, toward Godot's PinJoint2D / DampedSpringJoint2D) The rigid-body world gained joints: a Pin forces two anchor points together… | 210 | ✓ | ✓ | — |
 | **kinematic** | game::moveAndSlide, toward Godot's CharacterBody2D.move_and_slide) A kinematic character is driven directly by a velocity and must slide along the st… | 160 | ✓ | ✓ | — |
@@ -212,18 +212,18 @@ engine capability, a handful of them complete games.
 | **limiter** | audio::Limiter, toward Godot's AudioEffectHardLimiter) A4 of the audio deep-dive: a brickwall lookahead limiter — an absolute ceiling the output can… | 174 | ✓ | ✓ | — |
 | **line2d** | 2D polyline stroking, toward Godot's Line2D) The engine could FILL polygons; this STROKES a path — turning a point list into a thick ribbon with shap… | 159 | ✓ | ✓ | — |
 | **locale** | CSV localization, toward Godot's Translation / CSV import) One in-memory translation CSV (keys + en/es/fr/de columns) drives four side-by-side render… | 125 | ✓ | ✓ | — |
-| **manybody** | integrated spatial-hash broadphase, toward Godot's many-body scaling) The warm solver found contact pairs with an O(n^2) all-pairs scan — fine for a… | 173 | · | ✓ | no headless mode |
+| **manybody** | integrated spatial-hash broadphase, toward Godot's many-body scaling) The warm solver found contact pairs with an O(n^2) all-pairs scan — fine for a… | 173 | ✓ | ✓ | — |
 | **maze** | A* pathfinding demo) A walker crosses an obstacle field, re-planning its route with maz::game::NavGrid (grid A*) whenever it reaches its goal. The co… | 206 | ✓ | ✓ | — |
 | **menu** | immediate-mode UI demo) A settings menu built from maz::ui::Context widgets: a panel, buttons, a toggle, and a volume slider. A synthetic auto-cursor… | 143 | ✓ | ✓ | — |
-| **mobilepack** | bundle (a lib/<abi>/ tree per ABI, with the shared assets + manifest written once). It then re-checks that every planned file actually landed at its… | 490 | · | · | no headless mode; no golden screenshot |
+| **mobilepack** | bundle (a lib/<abi>/ tree per ABI, with the shared assets + manifest written once). It then re-checks that every planned file actually landed at its… | 490 | ✓ | · | — |
 | **model** | glTF loading demo) Loads a low-poly house from a glTF 2.0 file at runtime (assets/models/house.gltf) and renders it on a ground plane with shadows, s… | 118 | ✓ | ✓ | — |
 | **modfx** | chorus / flanger / phaser modulated-delay effects, toward Godot's AudioEffect*) The signal scope (see apps/bus, apps/reverb) for the three time-modul… | 167 | ✓ | ✓ | — |
-| **motor** | pin-joint angular motor + limit, toward Godot PinJoint2D motor/angular_limit) A hinge isn't just a pivot — it can be DRIVEN (a motor spinning to a ta… | 163 | · | ✓ | no headless mode |
+| **motor** | pin-joint angular motor + limit, toward Godot PinJoint2D motor/angular_limit) A hinge isn't just a pivot — it can be DRIVEN (a motor spinning to a ta… | 163 | ✓ | ✓ | — |
 | **multimesh** | 2D multi-mesh instancing, toward Godot's MultiMeshInstance2D) One base shape (a small dart) is stamped hundreds of times through a single render::Mul… | 125 | ✓ | ✓ | — |
 | **music** | audio::MusicSequencer, toward Godot's AudioStreamInteractive) A7 of the audio deep-dive: adaptive/interactive music. Game music is a set of SEGMENTS… | 183 | ✓ | ✓ | — |
 | **navmesh** | navigation-mesh pathfinding, toward Godot's NavigationServer) A room with a solid pillar in the middle, whose walkable area is described as a navigat… | 190 | ✓ | ✓ | — |
 | **noise** | procedural terrain from Perlin/fbm noise) A terrain heightmap generated entirely from core::Noise: for each texel, fractal Brownian motion (several o… | 159 | ✓ | ✓ | — |
-| **normalmap** | normal-mapped 2D lighting, toward Godot Light2D normal maps) A flat surface painted one colour is given a NORMAL MAP — a field of dome bumps — and li… | 158 | · | ✓ | no headless mode |
+| **normalmap** | normal-mapped 2D lighting, toward Godot Light2D normal maps) A flat surface painted one colour is given a NORMAL MAP — a field of dome bumps — and li… | 158 | ✓ | ✓ | — |
 | **normals** | render::computeNormals, toward Godot's SurfaceTool.generate_normals) Given only positions + indices, computeNormals derives a smooth per-vertex norma… | 163 | ✓ | ✓ | — |
 | **oneway** | one-way platforms, toward Godot's one_way_collision) A one-way platform is solid only from above: a ball dropped onto it LANDS, but a ball launched u… | 176 | ✓ | ✓ | — |
 | **orbs** | sample arcade game) An original, genre-neutral mini-game showing the engine can ship a real title: a game-state machine (title -> play -> win/lose ->… | 481 | ✓ | · | no golden screenshot |
@@ -233,14 +233,14 @@ engine capability, a handful of them complete games.
 | **pbrballs** | the classic physically-based-rendering test grid) A 6x6 grid of spheres: columns sweep roughness left(glossy)->right(rough), rows sweep metallic bott… | 148 | ✓ | ✓ | — |
 | **persist** | serialization / scene save-load demo) Builds a scene of colored props, serializes it to a binary file on disk with maz::io, clears the in-memory scen… | 202 | ✓ | ✓ | — |
 | **physics** | 2D rigid-body dynamics demo) A box of balls falls under gravity, bounces off the walls and floor, and collides and stacks on each other via maz::game… | 137 | ✓ | ✓ | — |
-| **physics3d** | 3D rigid-body dynamics, toward Godot RigidBody3D) The 3D physics deep-dive, sibling of the 2D solver. game::PhysicsWorld3D simulates spheres and orie… | 216 | · | ✓ | no headless mode |
+| **physics3d** | 3D rigid-body dynamics, toward Godot RigidBody3D) The 3D physics deep-dive, sibling of the 2D solver. game::PhysicsWorld3D simulates spheres and orie… | 216 | ✓ | ✓ | — |
 | **pitch** | audio::PitchShifter, toward Godot's AudioEffectPitchShift) A8 of the audio deep-dive: raise or lower pitch WITHOUT changing playback speed. This demo… | 150 | ✓ | ✓ | — |
 | **platformer** | a complete side-scrolling PLATFORMER built from the engine's 2D primitives: the polygon renderer, a follow camera (Camera2D center + world scroll), t… | 315 | ✓ | ✓ | — |
 | **polycollide** | 2D convex polygon collision via SAT, toward Godot's ConvexPolygonShape2D) A central PROBE polygon (a pentagon) is tested against a ring of other conv… | 172 | ✓ | ✓ | — |
 | **polyfill** | render::triangulatePolygon, toward Godot's Polygon2D fill) Maz could already fill CONVEX polygons (drawConvexPolygon fans from vertex 0), but a fan s… | 191 | ✓ | ✓ | — |
-| **polyline** | static chain / polyline terrain collider, toward Godot ConcavePolygonShape2D) Level terrain is rarely a single box or line — it's a run of connected… | 204 | · | ✓ | no headless mode |
+| **polyline** | static chain / polyline terrain collider, toward Godot ConcavePolygonShape2D) Level terrain is rarely a single box or line — it's a run of connected… | 204 | ✓ | ✓ | — |
 | **pong** | a complete, classic two-paddle game built from the engine's 2D primitives: the sprite/polygon renderer, pixel-space camera, font HUD, and the fixed-t… | 177 | ✓ | ✓ | — |
-| **popupmenu** | ui::PopupMenu, toward Godot's PopupMenu) PopupMenu is the vertical item list behind right-click context menus, OptionButton dropdowns and menu bars… | 187 | · | ✓ | no headless mode |
+| **popupmenu** | ui::PopupMenu, toward Godot's PopupMenu) PopupMenu is the vertical item list behind right-click context menus, OptionButton dropdowns and menu bars… | 187 | ✓ | ✓ | — |
 | **prefab** | prefabs / instancing, toward Godot's PackedScene) One turret PREFAB — a chassis with a nested turret and barrel, each carrying exported properties… | 199 | ✓ | ✓ | — |
 | **primitives** | procedural mesh primitives, toward Godot's built-in meshes) A lit gallery of the four new procedural solids — cylinder, cone, torus, capsule — built… | 125 | ✓ | ✓ | — |
 | **profiler** | hierarchical CPU profiler view) A core::Profiler records nested timing zones and reports each zone's inclusive time (whole span) and self time (minus… | 171 | ✓ | ✓ | — |
@@ -251,43 +251,43 @@ engine capability, a handful of them complete games.
 | **rects** | Rect2 geometry, toward Godot's Rect2) A static gallery of the axis-aligned rectangle operations: two overlapping rects show their intersection (clip)… | 152 | ✓ | ✓ | — |
 | **respack** | binary resource-pack archive, toward Godot's .pck / PackedData) A game ships ONE archive, not a loose tree of files. This bundles four resources — a… | 178 | ✓ | ✓ | — |
 | **restext** | text resource save/load, toward Godot's .tscn / .tres) A prefab isn't only an in-memory template — Godot stores scenes as human-readable TEXT you can… | 162 | ✓ | ✓ | — |
-| **reverb** | reverb / distortion / compressor DSP effects, toward Godot's AudioEffect*) The signal scope again (see apps/bus), now for the dynamics + space effect… | 172 | · | ✓ | no headless mode |
+| **reverb** | reverb / distortion / compressor DSP effects, toward Godot's AudioEffect*) The signal scope again (see apps/bus), now for the dynamics + space effect… | 172 | ✓ | ✓ | — |
 | **richtext** | BBCode rich text, toward Godot's RichTextLabel) A plain label draws one string in one style. A RichTextLabel mixes styles WITHIN a string via BBCode… | 140 | ✓ | ✓ | — |
-| **ring** | core::RingBuffer, toward Godot's RingBuffer) A ring buffer is the container behind rolling histories and bounded queues. This demo drives two: * a FR… | 191 | · | ✓ | no headless mode |
+| **ring** | core::RingBuffer, toward Godot's RingBuffer) A ring buffer is the container behind rolling histories and bounded queues. This demo drives two: * a FR… | 191 | ✓ | ✓ | — |
 | **rootmotion** | root motion, toward Godot's AnimationMixer root-motion track) A walk clip that TRAVELS: the character's forward motion and turning are read straight… | 168 | ✓ | ✓ | — |
 | **sampler** | sample-playback mixer, toward Godot's AudioStreamPlayer over AudioStreamWAV) Two short clips are synthesized and round-tripped through the WAV codec… | 195 | ✓ | ✓ | — |
 | **sandbox** | Maz Engine — Sandbox A small top-down demo: a tile world you walk around with WASD, wall/water collision, and a camera that follows the player. Prove… | 296 | ✓ | · | no golden screenshot |
 | **scatter** | deterministic procedural generation demo) A field of tokens scattered with a single seeded core::Random: positions sampled uniformly in a disc, each… | 180 | ✓ | ✓ | — |
-| **scene3d** | ECS + 3D demo) A small 3D scene: a ground plane and a ring of spinning spheres and boxes, each an ECS entity (Transform3D + Renderable), lit and dept… | 160 | · | ✓ | no headless mode |
+| **scene3d** | ECS + 3D demo) A small 3D scene: a ground plane and a ring of spinning spheres and boxes, each an ECS entity (Transform3D + Renderable), lit and dept… | 160 | ✓ | ✓ | — |
 | **scenes** | scene-stack / game-state demo) A tiny app shell built on maz::core::SceneStack: a Menu scene replaces itself with a Game scene, which pushes a transp… | 240 | ✓ | ✓ | — |
-| **sequencer** | call-method / trigger tracks, toward Godot AnimationPlayer method tracks) M100's Timeline gave VALUE tracks (interpolate a property); this shows the… | 195 | · | ✓ | no headless mode |
+| **sequencer** | call-method / trigger tracks, toward Godot AnimationPlayer method tracks) M100's Timeline gave VALUE tracks (interpolate a property); this shows the… | 195 | ✓ | ✓ | — |
 | **shapecast** | game::shapeCastCircle, toward Godot's ShapeCast2D / cast_motion) Continuous collision detection: unlike a ray (a zero-width line) a shape-cast sweeps… | 202 | ✓ | ✓ | — |
 | **signals** | per-object named signals, toward Godot's signal/connect/emit) Each object owns named channels that carry typed args; others connect handlers to a SPE… | 210 | ✓ | ✓ | — |
 | **skeleton** | skeletal-animation demo) A tapered tube is bound to a chain of 8 bones (maz::anim::Skeleton). Each frame a travelling wave bends the joints, the skel… | 205 | ✓ | ✓ | — |
-| **sleep** | body sleeping / islands, toward Godot's can_sleep) A settled pile shouldn't keep burning CPU. This adds opt-in body sleeping (PhysicsWorld2D::allowSl… | 165 | · | ✓ | no headless mode |
+| **sleep** | body sleeping / islands, toward Godot's can_sleep) A settled pile shouldn't keep burning CPU. This adds opt-in body sleeping (PhysicsWorld2D::allowSl… | 165 | ✓ | ✓ | — |
 | **slotmap** | generational-handle slot-map, toward Godot's RID / stable handles) A live core::SlotMap<char> is driven through a scripted sequence — insert A,B,C; f… | 148 | ✓ | ✓ | — |
-| **softshadow** | soft/penumbra 2D shadows via area-light sampling, toward Godot Light2D) The SAME scene — one occluder box and one light — drawn twice for comparison… | 161 | · | ✓ | no headless mode |
+| **softshadow** | soft/penumbra 2D shadows via area-light sampling, toward Godot Light2D) The SAME scene — one occluder box and one light — drawn twice for comparison… | 161 | ✓ | ✓ | — |
 | **solar** | 2D transform hierarchy demo) A solar system built entirely from a scene::TransformGraph: the sun is the root, each planet hangs off an orbit pivot th… | 204 | ✓ | ✓ | — |
-| **solver** | warm-started accumulated-impulse solver, toward Box2D/Godot GodotPhysics2D) The earlier solver recomputed a fresh contact impulse from scratch every… | 160 | · | ✓ | no headless mode |
+| **solver** | warm-started accumulated-impulse solver, toward Box2D/Godot GodotPhysics2D) The earlier solver recomputed a fresh contact impulse from scratch every… | 160 | ✓ | ✓ | — |
 | **spatial2d** | 2D positional audio, toward Godot's AudioStreamPlayer2D) A listener sits in a room with several sound sources around it. For each source, audio::spat… | 195 | ✓ | ✓ | — |
 | **spatial3d** | 3D positional audio, toward Godot's AudioStreamPlayer3D) You can't hear a golden image, so this VISUALISES what audio::Spatial3D computes for a set o… | 221 | ✓ | ✓ | — |
-| **spectrum** | audio::SpectrumAnalyzer, toward Godot's AudioEffectSpectrumAnalyzer) A spectrum analyzer turns audio samples into a frequency spectrum so a game can… | 167 | · | ✓ | no headless mode |
+| **spectrum** | audio::SpectrumAnalyzer, toward Godot's AudioEffectSpectrumAnalyzer) A spectrum analyzer turns audio samples into a frequency spectrum so a game can… | 167 | ✓ | ✓ | — |
 | **sprites** | sprite-sheet / flipbook animation demo) Generates an 8-frame sprite sheet at runtime (a dot orbiting a ring), then plays it back with maz::anim::Spri… | 181 | ✓ | ✓ | — |
 | **ssao** | screen-space ambient occlusion showcase, toward Godot's SSAO) A cluster of matte boxes and spheres sitting on a floor, deliberately arranged so objec… | 140 | ✓ | ✓ | — |
-| **stack** | 2-point contact manifolds for stable box stacks, toward Godot/Box2D contacts) The oriented rigid-body solver used a SINGLE contact point per box pair… | 149 | · | ✓ | no headless mode |
-| **statemachine** | animation state machine, toward Godot's AnimationNodeStateMachine) A locomotion state machine — idle / move / jump — is stepped over a scripted "spee… | 211 | · | ✓ | no headless mode |
+| **stack** | 2-point contact manifolds for stable box stacks, toward Godot/Box2D contacts) The oriented rigid-body solver used a SINGLE contact point per box pair… | 149 | ✓ | ✓ | — |
+| **statemachine** | animation state machine, toward Godot's AnimationNodeStateMachine) A locomotion state machine — idle / move / jump — is stepped over a scripted "spee… | 211 | ✓ | ✓ | — |
 | **stereo** | audio::StereoEnhance + Panner, toward Godot's AudioEffectStereoEnhance/Panner) A5 of the audio deep-dive: stereo width + balance. This demo draws a G… | 168 | ✓ | ✓ | — |
 | **streaming** | async streaming loader, toward Godot's ResourceLoader threaded API) A loading screen that streams a batch of assets on background threads via core::A… | 161 | ✓ | ✓ | — |
 | **strtable** | string interning, toward Godot's StringName) A game refers to the same names over and over (tags, signals, actions). This demo INTERNS a stream of re… | 134 | ✓ | ✓ | — |
-| **stylebox** | nine-patch / StyleBox UI, toward Godot's StyleBoxTexture / theming) A themed-panel gallery. Each panel is drawn with ui::ninePatch: the destination r… | 123 | · | ✓ | no headless mode |
+| **stylebox** | nine-patch / StyleBox UI, toward Godot's StyleBoxTexture / theming) A themed-panel gallery. Each panel is drawn with ui::ninePatch: the destination r… | 123 | ✓ | ✓ | — |
 | **swarm** | ECS demo) Hundreds of entities, each with Transform / Velocity / Visual components, moved and bounced by tiny systems iterating maz::ecs views, then… | 146 | ✓ | · | no golden screenshot |
 | **tentacle** | multi-bone FABRIK IK, toward Godot's SkeletonModification2DFABRIK) A row of many-jointed chains anchored along the floor, each reaching for its own t… | 157 | ✓ | ✓ | — |
 | **textwrap** | text layout: word-wrap + alignment, toward Godot's Label autowrap) The Font can draw and measure a single line; ui::layoutText FITS a paragraph into… | 121 | ✓ | ✓ | — |
-| **theme** | StyleBoxFlat + Theme server, toward Godot StyleBoxFlat/Theme) The other half of Godot's theming (M103 gave the nine-patch StyleBoxTexture): a StyleBo… | 169 | · | ✓ | no headless mode |
+| **theme** | StyleBoxFlat + Theme server, toward Godot StyleBoxFlat/Theme) The other half of Godot's theming (M103 gave the nine-patch StyleBoxTexture): a StyleBo… | 169 | ✓ | ✓ | — |
 | **tileset** | a TileSet resource + per-tile collision, toward Godot's TileMap/TileSet) A Tilemap is just a grid of numbers; a TileSet gives each number MEANING — w… | 210 | ✓ | ✓ | — |
 | **timeline** | keyframe timeline / sequencer, toward Godot's AnimationPlayer) One animation, many named tracks. A little arrow is driven by keyframed x / y / rotati… | 234 | ✓ | ✓ | — |
 | **tonemap** | filmic tonemap operator showcase, toward Godot's tonemapper) A deliberately high-dynamic-range scene: bright saturated emissive spheres over a dark f… | 168 | ✓ | ✓ | — |
-| **tree** | Tree / TreeItem widget, toward Godot's Tree control) Godot's scene dock, inspector, and FileSystem dock are all Trees: a hierarchy of collapsible row… | 194 | · | ✓ | no headless mode |
+| **tree** | Tree / TreeItem widget, toward Godot's Tree control) Godot's scene dock, inspector, and FileSystem dock are all Trees: a hierarchy of collapsible row… | 194 | ✓ | ✓ | — |
 | **tumble** | 2D rigid-body ROTATION, toward Godot's RigidBody2D angular dynamics) The 2D physics gained real angular dynamics: oriented boxes carry an orientation… | 149 | ✓ | ✓ | — |
 | **tween** | easing showcase) One shared ping-pong Tween drives a column of markers, each rendered with a different easing curve (maz::anim). Because they share t… | 162 | ✓ | ✓ | — |
 | **uilayout** | retained anchor + container UI, toward Godot's Control system) A responsive interface laid out entirely by ui::LayoutNode: a top bar anchored across… | 186 | ✓ | ✓ | — |
@@ -296,7 +296,7 @@ engine capability, a handful of them complete games.
 | **water** | dynamic-mesh demo) A lit grid whose vertices are re-uploaded every frame with summed sine waves, proving the engine's dynamic-mesh path (createDynami… | 193 | ✓ | ✓ | — |
 | **wav** | WAV audio load/save, toward Godot's AudioStreamWAV) Until now every Maz sound was synthesized on the fly — there was no way to read (or write) an act… | 156 | ✓ | ✓ | — |
 | **world** | explorable 3D demo) A textured ground and a field of 3D blocks you fly through with a first-person camera (WASD move, Space/Shift up-down, mouse look… | 427 | ✓ | ✓ | — |
-| **xform2d** | math::Transform2D, toward Godot's Transform2D) Transform2D is the 2x3 affine matrix behind every Node2D: it places, rotates, scales and skews things… | 140 | · | ✓ | no headless mode |
+| **xform2d** | math::Transform2D, toward Godot's Transform2D) Transform2D is the 2x3 affine matrix behind every Node2D: it places, rotates, scales and skews things… | 140 | ✓ | ✓ | — |
 | **xml** | io::XmlParser, toward Godot's XMLParser) A pull/streaming XML reader: read() walks the document node by node (elements, attributes, text, comments, s… | 167 | ✓ | ✓ | — |
 | **zomboid** | ZOMBOID — the flagship native game, a top-down twin-stick zombie SHOOTER on the Maz Engine. Every rule of this game (the survivor, aiming/firing, bul… | 1,105 | ✓ | ✓ | — |
 
@@ -345,11 +345,11 @@ not by judging the work. Every failing check below is a specific, finishable job
 | Kind | Check | Passing |
 |---|---|---:|
 | engine-module | shown by a sample app | 140/692 (20%) |
-| app | runs headless for CI | 123/161 (76%) |
-| app | has a golden screenshot | 156/161 (97%) |
+| app | has a golden screenshot | 157/161 (98%) |
 | app | built by CMake | 161/161 (100%) |
 | app | has CMakeLists.txt | 161/161 (100%) |
 | app | header comment says what it shows | 161/161 (100%) |
+| app | runs headless for CI | 161/161 (100%) |
 | app | exercises a named engine module | 161/161 (100%) |
 | build-tool | says what it does | 11/11 (100%) |
 | doc | reachable from somewhere | 18/18 (100%) |
@@ -380,14 +380,6 @@ being discoverable, and apps/ is how this engine documents itself. Grouping seve
 modules into one demo is usually better than one app each.
 
 <sub>552 affected · effort: medium · value: ★★★ · queued below as the `engine-module:demoed` task</sub>
-
-#### 38 apps cannot run without a display
-
-Apps with --headless / --frames N are run by CI on every push and can be captured as goldens;
-apps without them are only ever proven by someone opening a window. The flag is a dozen lines
-copied from apps/_template/main.cpp and it converts each app into a test.
-
-<sub>38 affected · effort: medium · value: ★★★ · queued below as the `app:headless` task</sub>
 
 ### Already wired together
 
@@ -526,10 +518,8 @@ Every gap above, ranked. **P1** is something broken or unprotected, **P2** is a 
 gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list out of
 `docs/inventory.json`, so the nightly Forge can pick work straight off it.
 
-### P1 — broken or unprotected (3)
+### P1 — broken or unprotected (2)
 
-- **38 apps cannot run without a display**
-  <br>Apps with --headless / --frames N are run by CI on every push and can be captured as goldens; apps without them are only ever proven by someone opening a window. The flag is a dozen lines copied from apps/_template/main.cpp and it converts each app into a test. — area2d, blackboard, boundary, bus, camera3d, capsule, ccd, contacts, convex, envelope, filter, flowfield, and 26 more. Example: Teach apps/area2d the --headless / --frames N flags so CI can run it without a display.
 - **552 engine modules are tested but no app shows them**
   <br>These are finished, working features that nobody can see. Each one is a small app away from being discoverable, and apps/ is how this engine documents itself. Grouping several related modules into one demo is usually better than one app each. — AdditiveBlend, BlendSpace, CubicBezierEasing, RootMotion, SpringBone, Transition, TriggerTrack, Dsp, EnvelopeFollower, G711, Goertzel, ImaAdpcm, and 540 more. Example: No app under apps/ demonstrates maz::anim::AdditiveBlend. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.
 - **SONG FORGE supplies the one music layer the engine does not have**
@@ -537,8 +527,8 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
 
 ### P2 — coverage gaps (5)
 
-- **5 apps fail "has a golden screenshot"**
-  <br>_template, mobilepack, orbs, sandbox, swarm. Example: Capture a golden frame for _template into tests/golden/_template.png so a rendering regression is caught automatically.
+- **4 apps fail "has a golden screenshot"**
+  <br>_template, orbs, sandbox, swarm. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.
 - **CODA PICS can be lent now — but not to SCRIPT FORGE or MADLIBS as they speak today**
   <br>The surface exists: coda-pics/painter is published, takes a sentence and a canvas, and — unlike the studio page — reports how much of the picture came from the words. It refuses rather than guessing when asked to, because CODA PICS invents a subject for anything it does not recognise and a caller cannot otherwise tell a picture of the thing it asked for from a picture of something else.  What is NOT true is the obvious next step, and it was measured rather than assumed. Fed SCRIPT FORGE's scene headings, about half paint something unrelated — "EXT. SHORELINE — DAY" becomes a wolf in a cavern…
 - **The golden screenshots become the arcade's cover art**

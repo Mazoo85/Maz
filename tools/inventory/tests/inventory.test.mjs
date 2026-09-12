@@ -71,10 +71,26 @@ function makeFixture() {
   write(root, 'apps/shown/main.cpp',
     '// Maz Engine — "SHOWN" — demonstrates the widget module end to end, with a moving camera\n' +
     '// and a HUD. Run --headless / --frames N for CI.\n' +
-    '#include "maz/Engine.hpp"\nint main() { game::Widget w; return 0; }\n');
+    '#include "maz/Engine.hpp"\n' +
+    'int main(int argc, char** argv) {\n' +
+    '  core::AppConfig cfg = core::parseArgs(argc, argv);\n' +
+    '  platform::Window w; wc.headless = cfg.headless; w.init(wc);\n' +
+    '  game::Widget widget; return 0;\n}\n');
   write(root, 'apps/hidden/CMakeLists.txt', 'add_executable(hidden main.cpp)\n');
-  write(root, 'apps/hidden/main.cpp', '#include "maz/Engine.hpp"\nint main() { return 0; }\n');
+  write(root, 'apps/hidden/main.cpp',
+    '#include "maz/Engine.hpp"\nint main() { platform::Window w; w.init({}); return 0; }\n');
   write(root, 'tests/golden/shown.png', 'not really a png');
+
+  // A command-line tool that lives in apps/ but never opens a window — the
+  // mobile exporter is the real one. It cannot be asked for a headless mode it
+  // already has by definition, nor for a screenshot of a frame it never draws.
+  write(root, 'CMakeLists.txt',
+    'add_subdirectory(apps/shown)\nadd_subdirectory(apps/hidden)\nadd_subdirectory(apps/tool)\n');
+  write(root, 'apps/tool/CMakeLists.txt', 'add_executable(tool main.cpp)\n');
+  write(root, 'apps/tool/main.cpp',
+    '// Maz Engine — "TOOL" — a command-line exporter that stages files on disk and never\n' +
+    '// opens a window at all; --selftest runs it end to end in CI.\n' +
+    '#include "maz/Engine.hpp"\nint main() { game::Widget w; return 0; }\n');
 
   // Two engine modules: Widget is demoed and tested, Ghost is neither.
   write(root, 'engine/include/maz/game/Widget.hpp',
@@ -210,7 +226,7 @@ await test('a module named by an app is demonstrated; one named by nothing is no
   const m = await buildModel(ROOT);
   const widget = m.modules.find((x) => x.name === 'Widget');
   const ghost = m.modules.find((x) => x.name === 'Ghost');
-  assert.deepStrictEqual(widget.demoedBy, ['apps/shown/main.cpp']);
+  assert.deepStrictEqual(widget.demoedBy, ['apps/shown/main.cpp', 'apps/tool/main.cpp']);
   assert.deepStrictEqual(widget.testedBy, ['tests/unit/main.cpp']);
   assert.deepStrictEqual(ghost.demoedBy, []);
   assert.deepStrictEqual(ghost.testedBy, []);
@@ -237,6 +253,24 @@ await test('the app that demonstrates nothing fails exactly the checks it should
   const failing = (a) => a.checks.filter((c) => !c.ok).map((c) => c.id).sort();
   assert.deepStrictEqual(failing(hidden), ['documented', 'golden', 'headless', 'uses-engine']);
   assert.deepStrictEqual(failing(shown), []);
+});
+
+await test('a command-line tool is not asked for a headless mode or a screenshot', async () => {
+  // The bug this guards, and it was the report's largest finding: "runs
+  // headless" tested for the literal string "--headless" in the source, and
+  // named 38 apps that could all run headless already — they call parseArgs,
+  // which owns the flag, and pass cfg.headless through. All it measured was
+  // whether a comment happened to mention the flag. And apps/ holds one thing
+  // that is not a windowed app at all: a command-line exporter with no frame
+  // to capture and nothing to run headlessly, because it never opens a window.
+  const m = await buildModel(ROOT);
+  const tool = m.apps.find((a) => a.name === 'tool');
+  const shown = m.apps.find((a) => a.name === 'shown');
+  assert.strictEqual(tool.windowed, false, 'an app with no platform::Window is a command-line tool');
+  assert.strictEqual(shown.windowed, true);
+  assert.deepStrictEqual(tool.checks.filter((c) => !c.ok).map((c) => c.id), [],
+    'the command-line tool was asked for something it cannot have');
+  assert.strictEqual(shown.headless, true, 'wiring cfg.headless through is what makes an app headless');
 });
 
 await test('an unregistered app is reported as not built', async () => {
