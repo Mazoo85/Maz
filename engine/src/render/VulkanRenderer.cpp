@@ -3,29 +3,22 @@
 #include "maz/core/Log.hpp"
 #include "maz/platform/Window.hpp"
 #include "render/MeshRenderer.hpp"
+#include "render/DebugDraw.hpp"
+#include "render/Particles3D.hpp"
+#include "render/BloomChain.hpp"
+#include "render/SsaoPass.hpp"
+#include "render/PostProcess.hpp"
 #include "render/SpriteRenderer.hpp"
+#include "render/TextureStore.hpp"
 #include "render/VulkanContext.hpp"
 #include "render/VulkanSwapchain.hpp"
 
-// Dear ImGui headers contain inline code that trips the engine's strict warning flags
-// (-Wconversion etc.); silence those diagnostics just for these third-party includes.
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wconversion"
-#pragma GCC diagnostic ignored "-Wsign-conversion"
-#pragma GCC diagnostic ignored "-Wold-style-cast"
-#pragma GCC diagnostic ignored "-Wshadow"
-#pragma GCC diagnostic ignored "-Wpedantic"
-#endif
-#include "imgui.h"
-#include "backends/imgui_impl_sdl3.h"
-#include "backends/imgui_impl_vulkan.h"
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/mat4x4.hpp>
 
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <vector>
 
@@ -46,12 +39,48 @@ public:
     bool beginFrame() override;
     void setClearColor(const Color& color) override { m_clearColor = color; }
     void endFrame() override;
-    int uploadModel(const assets::Model& model) override;
-    void drawModel(int handle, const math::mat4& mvp, const math::mat4& model) override;
-    int uploadTexture(const uint8_t* rgba, uint32_t width, uint32_t height) override;
-    void drawSprite(int texture, const Sprite& sprite) override;
-    bool initGui(platform::Window& window) override;
-    void guiNewFrame() override;
+
+    TextureHandle loadTexture(const char* path) override;
+    TextureHandle createTexture(uint32_t width, uint32_t height, const void* rgbaPixels) override;
+    void setCamera2D(const Camera2D& camera) override;
+    void drawSprite(TextureHandle texture, const SpriteDesc& sprite) override;
+    void drawConvexPolygon(const Point2* points, uint32_t count, Color color,
+                           BlendMode blend) override;
+    void drawPolygonFan(const PolyVertex* verts, uint32_t count, BlendMode blend) override;
+
+    MeshHandle createMesh(const MeshVertex* vertices, uint32_t vertexCount,
+                          const uint32_t* indices, uint32_t indexCount) override;
+    MeshHandle createDynamicMesh(const MeshVertex* vertices, uint32_t vertexCount,
+                                 const uint32_t* indices, uint32_t indexCount) override;
+    void updateMesh(MeshHandle mesh, const MeshVertex* vertices, uint32_t vertexCount) override;
+    void setViewProjection3D(const float* viewProj16) override;
+    void setCameraPosition(const float* pos3) override;
+    void setLighting(const SceneLighting& lighting) override;
+    void setBloom(float strength, float threshold) override;
+    void setSsao(bool enabled, float radius, float strength) override;
+    void setTonemap(float exposure, bool enabled, TonemapOp op = TonemapOp::ACES) override;
+    void setColorGrade(float vignette, float saturation, float contrast, bool enabled) override;
+    void setChromaticAberration(float strength) override;
+    void setFilmGrain(float strength, float time) override;
+    void setWireframe(bool enabled) override;
+    void setCameraBasis(const float right3[3], const float up3[3]) override;
+    void drawParticle3D(const float pos3[3], float size, const float color4[4],
+                        bool additive) override;
+    using Renderer::drawParticle3D; // keep the additive-default overload visible
+    void drawMesh(MeshHandle mesh, const float* model16, TextureHandle albedo,
+                  TextureHandle normal) override;
+    using Renderer::drawMesh; // keep the 3-arg convenience overload visible
+    void drawMeshEmissive(MeshHandle mesh, const float* model16, TextureHandle albedo,
+                          TextureHandle normal, const float emissive3[3]) override;
+    void drawMeshMaterial(MeshHandle mesh, const float* model16, const Material& mat) override;
+    void drawMeshInstanced(MeshHandle mesh, const float* models16, uint32_t count,
+                           const Material& mat) override;
+    void drawMeshTransparent(MeshHandle mesh, const float* model16, const Material& mat,
+                             float opacity) override;
+    void drawLine(const float a3[3], const float b3[3], const float color4[4]) override;
+    void drawAabb(const float min3[3], const float max3[3], const float color4[4]) override;
+
+    RenderStats renderStats() const override { return m_stats; }
     bool isActive() const override { return m_active; }
 
 private:
@@ -62,9 +91,21 @@ private:
 
     VulkanContext m_ctx;
     VulkanSwapchain m_swapchain;
-    MeshRenderer m_mesh;
-    SpriteRenderer m_sprite;
+    TextureStore m_textureStore;
+    SpriteRenderer m_sprites;
+    MeshRenderer m_meshes;
+    Particles3D m_particles;
+    DebugDraw m_debug;
+    PostProcess m_post;
+    BloomChain m_bloom;
+    SsaoPass m_ssao;
     RendererConfig m_cfg;
+
+    float m_viewProj3D[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+    float m_camRight[3] = {1, 0, 0};
+    float m_camPos3[3] = {0, 0, 0}; // cached for the SSAO pass
+    float m_camUp[3] = {0, 1, 0};
+    RenderStats m_stats{};
 
     VkCommandPool m_commandPool = VK_NULL_HANDLE;
     std::array<VkCommandBuffer, kMaxFramesInFlight> m_commandBuffers{};
@@ -77,7 +118,8 @@ private:
     uint32_t m_currentFrame = 0;
     uint32_t m_imageIndex = 0;
     bool m_active = false;
-    bool m_guiReady = false;
+    bool m_skipBloom = false; // mobile tier: prime the bloom target's layout but skip the blur passes
+    TextureHandle m_whiteTex = kInvalidTexture; // 1x1 white, for flat polygon fills
 };
 
 bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
@@ -104,105 +146,83 @@ bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
 
     uint32_t w = 0, h = 0;
     window.drawableSize(w, h);
+    // Mobile tier: force MSAA off in the swapchain before it chooses a sample count.
+    m_swapchain.setForceSingleSample(cfg.tier == RenderTier::Mobile);
     if (!m_swapchain.create(m_ctx, w, h, cfg.vsync)) {
         return false;
     }
     if (!createCommands() || !createSync()) {
         return false;
     }
-
-    // The mesh pipeline is optional: if shaders are missing the renderer still clears + presents.
-    if (!m_mesh.init(m_ctx, m_swapchain.renderPass())) {
-        MAZ_LOG_WARN("mesh renderer unavailable; running clear-only");
+    if (!m_textureStore.init(m_ctx)) {
+        MAZ_LOG_ERROR("texture store init failed");
+        return false;
     }
-    // The sprite pipeline is likewise optional; 2D just no-ops if its shaders are missing.
-    if (!m_sprite.init(m_ctx, m_swapchain.renderPass(), kMaxFramesInFlight)) {
-        MAZ_LOG_WARN("sprite renderer unavailable; 2D disabled");
+    if (!m_sprites.init(m_ctx, m_textureStore, m_swapchain.renderPass(), kMaxFramesInFlight,
+                        m_swapchain.samples())) {
+        MAZ_LOG_ERROR("sprite renderer init failed");
+        return false;
+    }
+    if (!m_meshes.init(m_ctx, m_textureStore, m_swapchain.renderPass(), m_swapchain.samples(),
+                       kMaxFramesInFlight)) {
+        MAZ_LOG_ERROR("mesh renderer init failed");
+        return false;
+    }
+    if (!m_particles.init(m_ctx, m_swapchain.renderPass(), kMaxFramesInFlight,
+                          m_swapchain.samples())) {
+        MAZ_LOG_ERROR("particle renderer init failed");
+        return false;
+    }
+    if (!m_debug.init(m_ctx, m_swapchain.renderPass(), kMaxFramesInFlight, m_swapchain.samples())) {
+        MAZ_LOG_ERROR("debug-draw renderer init failed");
+        return false;
+    }
+    if (!m_bloom.init(m_ctx, m_swapchain.sceneFormat(), m_swapchain.extent(),
+                      m_swapchain.sceneColorView(), m_swapchain.sceneSampler())) {
+        MAZ_LOG_ERROR("bloom chain init failed");
+        return false;
+    }
+    // SSAO needs a sampleable camera depth: create the prepass target eagerly, then init the SSAO
+    // pass against it. The prepass is only *rendered* when an app enables SSAO.
+    if (!m_meshes.createPrepass(m_ctx, m_swapchain.extent().width, m_swapchain.extent().height)) {
+        MAZ_LOG_ERROR("depth prepass target init failed");
+        return false;
+    }
+    if (!m_ssao.init(m_ctx, m_swapchain.extent(), m_meshes.depthPrepassView(),
+                     m_meshes.depthPrepassSampler())) {
+        MAZ_LOG_ERROR("ssao pass init failed");
+        return false;
+    }
+    if (!m_post.init(m_ctx, m_swapchain.compositePass(), m_swapchain.sceneColorView(),
+                     m_swapchain.sceneSampler(), m_bloom.bloomView(), m_bloom.sampler(),
+                     m_ssao.aoView(), m_ssao.sampler())) {
+        MAZ_LOG_ERROR("post-process init failed");
+        return false;
+    }
+    m_sprites.setViewport(m_swapchain.extent().width, m_swapchain.extent().height);
+
+    // A 1x1 white texture backs flat polygon fills (sampled white * vertex color = the fill color).
+    {
+        const uint8_t white[4] = {255, 255, 255, 255};
+        m_whiteTex = m_textureStore.createFromPixels(m_ctx, 1, 1, white);
+    }
+
+    // Mobile tier: MSAA is already off (swapchain, above). Here we drop the two post effects — SSAO (its
+    // whole depth-prepass + AO passes are skipped, gated by m_ssao.enabled()) and bloom (composited at
+    // strength 0). These are the heaviest bandwidth users on a tiler. The scene still tonemaps through the
+    // composite pass, so colors stay correct — just without the post-process bloom/AO.
+    if (cfg.tier == RenderTier::Mobile) {
+        m_post.setBloom(0.0f, 1.0f); // composite adds no bloom
+        m_ssao.setEnabled(false);
+        m_post.setSsaoStrength(0.0f);
+        m_skipBloom = true; // skip the three blur passes; only prime the target's layout each frame
+        MAZ_LOG_INFO("render tier: mobile (MSAA off, bloom + SSAO disabled)");
     }
 
     m_active = true;
     MAZ_LOG_INFO("renderer active (%ux%u, vsync %s)", m_swapchain.extent().width,
                  m_swapchain.extent().height, cfg.vsync ? "on" : "off");
     return true;
-}
-
-int VulkanRenderer::uploadModel(const assets::Model& model) {
-    if (!m_active || !m_mesh.ready()) {
-        return -1;
-    }
-    return m_mesh.uploadModel(m_ctx, model);
-}
-
-void VulkanRenderer::drawModel(int handle, const math::mat4& mvp, const math::mat4& model) {
-    if (!m_active || !m_mesh.hasModels()) {
-        return;
-    }
-    m_mesh.draw(m_commandBuffers[m_currentFrame], handle, mvp, model, m_swapchain.extent());
-}
-
-int VulkanRenderer::uploadTexture(const uint8_t* rgba, uint32_t width, uint32_t height) {
-    if (!m_active || !m_sprite.ready()) {
-        return -1;
-    }
-    return m_sprite.createTexture(m_ctx, rgba, width, height);
-}
-
-void VulkanRenderer::drawSprite(int texture, const Sprite& sprite) {
-    if (!m_active || !m_sprite.ready()) {
-        return;
-    }
-    // Queued now; recorded (batched) in endFrame() after the 3D meshes, before the ImGui overlay.
-    m_sprite.draw(texture, sprite);
-}
-
-bool VulkanRenderer::initGui(platform::Window& window) {
-    if (!m_active) {
-        return false; // no render pass to draw the UI into
-    }
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable; // dockable editor panels
-    io.IniFilename = nullptr;                          // don't write imgui.ini in the cwd
-    ImGui::StyleColorsDark();
-
-    if (!ImGui_ImplSDL3_InitForVulkan(window.sdl())) {
-        MAZ_LOG_ERROR("ImGui_ImplSDL3_InitForVulkan failed");
-        ImGui::DestroyContext();
-        return false;
-    }
-
-    ImGui_ImplVulkan_InitInfo init{};
-    init.Instance = m_ctx.instance();
-    init.PhysicalDevice = m_ctx.physicalDevice();
-    init.Device = m_ctx.device();
-    init.QueueFamily = m_ctx.graphicsFamily();
-    init.Queue = m_ctx.graphicsQueue();
-    init.DescriptorPool = VK_NULL_HANDLE; // let the backend own an internal pool
-    init.DescriptorPoolSize = 16;
-    init.RenderPass = m_swapchain.renderPass();
-    init.MinImageCount = 2;
-    init.ImageCount = m_swapchain.imageCount();
-    init.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-    if (!ImGui_ImplVulkan_Init(&init)) {
-        MAZ_LOG_ERROR("ImGui_ImplVulkan_Init failed");
-        ImGui_ImplSDL3_Shutdown();
-        ImGui::DestroyContext();
-        return false;
-    }
-
-    m_guiReady = true;
-    MAZ_LOG_INFO("editor UI (ImGui) initialized");
-    return true;
-}
-
-void VulkanRenderer::guiNewFrame() {
-    if (!m_guiReady) {
-        return;
-    }
-    ImGui_ImplVulkan_NewFrame();
-    ImGui_ImplSDL3_NewFrame();
-    ImGui::NewFrame();
 }
 
 bool VulkanRenderer::createCommands() {
@@ -257,6 +277,15 @@ void VulkanRenderer::recreateSwapchain(uint32_t width, uint32_t height) {
         m_active = false;
         return;
     }
+    // The scene color image changed; rebuild the bloom targets and re-point both samplers.
+    m_bloom.resize(m_ctx, m_swapchain.extent(), m_swapchain.sceneColorView(),
+                   m_swapchain.sceneSampler());
+    // Rebuild the SSAO depth prepass target + AO targets at the new size.
+    m_meshes.createPrepass(m_ctx, m_swapchain.extent().width, m_swapchain.extent().height);
+    m_ssao.resize(m_ctx, m_swapchain.extent(), m_meshes.depthPrepassView(),
+                  m_meshes.depthPrepassSampler());
+    m_post.updateSource(m_ctx, m_swapchain.sceneColorView(), m_swapchain.sceneSampler(),
+                        m_bloom.bloomView(), m_bloom.sampler(), m_ssao.aoView(), m_ssao.sampler());
     m_imagesInFlight.assign(m_swapchain.imageCount(), VK_NULL_HANDLE);
 }
 
@@ -299,23 +328,19 @@ bool VulkanRenderer::beginFrame() {
     begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     vkBeginCommandBuffer(cmd, &begin);
 
-    std::array<VkClearValue, 2> clears{};
-    clears[0].color = {{m_clearColor.r, m_clearColor.g, m_clearColor.b, m_clearColor.a}};
-    clears[1].depthStencil = {1.0f, 0};
-
-    VkRenderPassBeginInfo rp{};
-    rp.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    rp.renderPass = m_swapchain.renderPass();
-    rp.framebuffer = m_swapchain.framebuffer(m_imageIndex);
-    rp.renderArea.extent = m_swapchain.extent();
-    rp.clearValueCount = static_cast<uint32_t>(clears.size());
-    rp.pClearValues = clears.data();
-    vkCmdBeginRenderPass(cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
-
-    // Start this frame's 2D batch; drawSprite() appends to it, endFrame() records it.
-    m_sprite.begin(m_currentFrame, m_swapchain.extent());
-
-    // Mesh draws are recorded by drawModel(), called between beginFrame() and endFrame().
+    // The main render pass begins in endFrame() (after the shadow pass). Here we only reset the
+    // per-frame 3D and 2D draw lists; draw* calls accumulate until endFrame() flushes them.
+    const uint32_t w = m_swapchain.extent().width;
+    const uint32_t h = m_swapchain.extent().height;
+    m_meshes.setFrameIndex(m_currentFrame); // select this frame's dynamic-mesh buffers (post fence)
+    m_meshes.setViewport(w, h);
+    m_meshes.begin();
+    m_particles.setViewport(w, h);
+    m_particles.begin();
+    m_debug.setViewport(w, h);
+    m_debug.begin();
+    m_sprites.setViewport(w, h);
+    m_sprites.begin();
     return true;
 }
 
@@ -325,18 +350,56 @@ void VulkanRenderer::endFrame() {
     }
     VkCommandBuffer cmd = m_commandBuffers[m_currentFrame];
 
-    // Record queued 2D sprites on top of the 3D scene, still inside the render pass.
-    m_sprite.flush(m_ctx, cmd);
+    // Snapshot this frame's draw counts for the debug overlay to read next frame.
+    m_stats.meshDraws = m_meshes.drawCount();
+    m_stats.culled = m_meshes.culledCount();
+    m_stats.particles = m_particles.particleCount();
+    m_stats.sprites = m_sprites.spriteCount();
 
-    // Record the ImGui overlay on top of the scene, still inside the render pass.
-    if (m_guiReady) {
-        ImGui::Render();
-        if (ImDrawData* drawData = ImGui::GetDrawData()) {
-            ImGui_ImplVulkan_RenderDrawData(drawData, cmd);
-        }
+    // 1) Shadow pass — depth-only, into the mesh renderer's shadow map (skipped if no meshes).
+    m_meshes.renderShadow(cmd);
+
+    // 1b) SSAO — a camera depth prepass then the AO passes (both no-op unless an app enabled SSAO).
+    if (m_ssao.enabled()) {
+        m_meshes.renderDepthPrepass(m_ctx, cmd);
+        const glm::mat4 vp = glm::make_mat4(m_viewProj3D);
+        const glm::mat4 inv = glm::inverse(vp);
+        m_ssao.record(m_ctx, cmd, m_viewProj3D, glm::value_ptr(inv), m_camPos3);
     }
 
+    // 2) Scene pass — renders sky/3D/2D into the offscreen sceneColor.
+    VkClearValue clears[2]{};
+    clears[0].color = {{m_clearColor.r, m_clearColor.g, m_clearColor.b, m_clearColor.a}};
+    clears[1].depthStencil = {1.0f, 0};
+    VkRenderPassBeginInfo rp{};
+    rp.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    rp.renderPass = m_swapchain.renderPass();
+    rp.framebuffer = m_swapchain.sceneFramebuffer();
+    rp.renderArea.extent = m_swapchain.extent();
+    rp.clearValueCount = 2;
+    rp.pClearValues = clears;
+    vkCmdBeginRenderPass(cmd, &rp, VK_SUBPASS_CONTENTS_INLINE);
+
+    m_meshes.renderSky(cmd);              // gradient sky behind the 3D scene (no-op if no meshes)
+    m_meshes.flush(cmd);                  // 3D (depth-tested)
+    m_particles.flush(cmd, m_currentFrame, m_viewProj3D, m_camRight, m_camUp); // billboards
+    m_debug.flush(cmd, m_currentFrame, m_viewProj3D);                          // debug lines
+    m_sprites.flush(cmd, m_currentFrame); // then the 2D layer on top
     vkCmdEndRenderPass(cmd);
+
+    // 3) Bloom chain — bright-pass + separable blur of sceneColor into a half-res target. On the mobile tier
+    // we skip the three blur passes entirely: primeSkip() runs a single empty render pass that only leaves
+    // the bloom target in a defined (SHADER_READ_ONLY) layout for the composite's sampler — the composite
+    // discards bloom (strength 0) there, so its contents are never used. This is the real bandwidth win over
+    // recording the full chain just to throw it away.
+    if (m_skipBloom) {
+        m_bloom.primeSkip(cmd);
+    } else {
+        m_bloom.record(cmd);
+    }
+
+    // 4) Composite pass — add bloom + tonemap sceneColor into the swapchain image.
+    m_post.record(cmd, m_swapchain.compositeFramebuffer(m_imageIndex), m_swapchain.extent());
     vkEndCommandBuffer(cmd);
 
     VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -370,6 +433,199 @@ void VulkanRenderer::endFrame() {
     m_currentFrame = (m_currentFrame + 1) % kMaxFramesInFlight;
 }
 
+TextureHandle VulkanRenderer::loadTexture(const char* path) {
+    if (!m_active) {
+        return kInvalidTexture;
+    }
+    return m_textureStore.createFromFile(m_ctx, path);
+}
+
+TextureHandle VulkanRenderer::createTexture(uint32_t width, uint32_t height,
+                                            const void* rgbaPixels) {
+    if (!m_active) {
+        return kInvalidTexture;
+    }
+    return m_textureStore.createFromPixels(m_ctx, width, height, rgbaPixels);
+}
+
+void VulkanRenderer::setCamera2D(const Camera2D& camera) {
+    if (m_active) {
+        m_sprites.setCamera(camera);
+    }
+}
+
+void VulkanRenderer::drawSprite(TextureHandle texture, const SpriteDesc& sprite) {
+    if (m_active) {
+        m_sprites.draw(texture, sprite);
+    }
+}
+
+void VulkanRenderer::drawConvexPolygon(const Point2* points, uint32_t count, Color color,
+                                       BlendMode blend) {
+    if (m_active) {
+        m_sprites.fillPolygon(m_whiteTex, points, count, color, blend);
+    }
+}
+
+void VulkanRenderer::drawPolygonFan(const PolyVertex* verts, uint32_t count, BlendMode blend) {
+    if (m_active) {
+        m_sprites.fillPolygonFan(m_whiteTex, verts, count, blend);
+    }
+}
+
+MeshHandle VulkanRenderer::createMesh(const MeshVertex* vertices, uint32_t vertexCount,
+                                      const uint32_t* indices, uint32_t indexCount) {
+    if (!m_active) {
+        return kInvalidMesh;
+    }
+    return m_meshes.createMesh(m_ctx, vertices, vertexCount, indices, indexCount);
+}
+
+MeshHandle VulkanRenderer::createDynamicMesh(const MeshVertex* vertices, uint32_t vertexCount,
+                                             const uint32_t* indices, uint32_t indexCount) {
+    if (!m_active) {
+        return kInvalidMesh;
+    }
+    return m_meshes.createDynamicMesh(m_ctx, vertices, vertexCount, indices, indexCount);
+}
+
+void VulkanRenderer::updateMesh(MeshHandle mesh, const MeshVertex* vertices, uint32_t vertexCount) {
+    if (m_active) {
+        m_meshes.updateMesh(m_ctx, mesh, vertices, vertexCount);
+    }
+}
+
+void VulkanRenderer::setViewProjection3D(const float* viewProj16) {
+    if (m_active) {
+        m_meshes.setViewProjection(viewProj16);
+        std::memcpy(m_viewProj3D, viewProj16, sizeof(m_viewProj3D));
+    }
+}
+
+void VulkanRenderer::setCameraBasis(const float right3[3], const float up3[3]) {
+    if (m_active) {
+        std::memcpy(m_camRight, right3, sizeof(m_camRight));
+        std::memcpy(m_camUp, up3, sizeof(m_camUp));
+    }
+}
+
+void VulkanRenderer::drawParticle3D(const float pos3[3], float size, const float color4[4],
+                                   bool additive) {
+    if (m_active) {
+        m_particles.draw(pos3, size, color4, additive);
+    }
+}
+
+void VulkanRenderer::drawLine(const float a3[3], const float b3[3], const float color4[4]) {
+    if (m_active) {
+        m_debug.line(a3, b3, color4);
+    }
+}
+
+void VulkanRenderer::drawAabb(const float min3[3], const float max3[3], const float color4[4]) {
+    if (m_active) {
+        m_debug.aabb(min3, max3, color4);
+    }
+}
+
+void VulkanRenderer::setCameraPosition(const float* pos3) {
+    m_camPos3[0] = pos3[0];
+    m_camPos3[1] = pos3[1];
+    m_camPos3[2] = pos3[2];
+    if (m_active) {
+        m_meshes.setCameraPosition(pos3);
+    }
+}
+
+void VulkanRenderer::setSsao(bool enabled, float radius, float strength) {
+    if (m_active) {
+        m_ssao.setEnabled(enabled);
+        m_ssao.setParams(radius, 1.0f, 0.025f, 1.5f); // AO strength lives in the composite multiply
+        m_meshes.setDepthPrepass(enabled);
+        m_post.setSsaoStrength(enabled ? strength : 0.0f);
+    }
+}
+
+void VulkanRenderer::setLighting(const SceneLighting& lighting) {
+    if (m_active) {
+        m_meshes.setLighting(m_ctx, lighting);
+    }
+}
+
+void VulkanRenderer::setWireframe(bool enabled) {
+    if (m_active) {
+        m_meshes.setWireframe(enabled);
+    }
+}
+
+void VulkanRenderer::setTonemap(float exposure, bool enabled, TonemapOp op) {
+    if (m_active) {
+        m_post.setTonemap(exposure, enabled, static_cast<int>(op));
+    }
+}
+
+void VulkanRenderer::setColorGrade(float vignette, float saturation, float contrast, bool enabled) {
+    if (m_active) {
+        m_post.setColorGrade(vignette, saturation, contrast, enabled);
+    }
+}
+
+void VulkanRenderer::setChromaticAberration(float strength) {
+    if (m_active) {
+        m_post.setChromatic(strength);
+    }
+}
+
+void VulkanRenderer::setFilmGrain(float strength, float time) {
+    if (m_active) {
+        m_post.setFilmGrain(strength, time);
+    }
+}
+
+void VulkanRenderer::setBloom(float strength, float threshold) {
+    if (m_active) {
+        m_post.setBloom(strength, threshold);
+        m_bloom.setThreshold(threshold);
+    }
+}
+
+void VulkanRenderer::drawMesh(MeshHandle mesh, const float* model16, TextureHandle albedo,
+                             TextureHandle normal) {
+    if (m_active) {
+        m_meshes.draw(mesh, model16, albedo, normal);
+    }
+}
+
+void VulkanRenderer::drawMeshEmissive(MeshHandle mesh, const float* model16, TextureHandle albedo,
+                                      TextureHandle normal, const float emissive3[3]) {
+    if (m_active) {
+        m_meshes.draw(mesh, model16, albedo, normal, emissive3);
+    }
+}
+
+void VulkanRenderer::drawMeshMaterial(MeshHandle mesh, const float* model16, const Material& mat) {
+    if (m_active) {
+        m_meshes.draw(mesh, model16, mat.albedo, mat.normal, mat.emissive, mat.roughness,
+                      mat.specular, mat.metallic);
+    }
+}
+
+void VulkanRenderer::drawMeshInstanced(MeshHandle mesh, const float* models16, uint32_t count,
+                                       const Material& mat) {
+    if (m_active) {
+        m_meshes.drawInstanced(mesh, models16, count, mat.albedo, mat.normal, mat.emissive,
+                               mat.roughness, mat.specular, mat.metallic);
+    }
+}
+
+void VulkanRenderer::drawMeshTransparent(MeshHandle mesh, const float* model16, const Material& mat,
+                                         float opacity) {
+    if (m_active) {
+        m_meshes.drawTransparent(mesh, model16, mat.albedo, mat.normal, mat.emissive, mat.roughness,
+                                 mat.specular, opacity, mat.metallic);
+    }
+}
+
 void VulkanRenderer::destroySync() {
     for (uint32_t i = 0; i < kMaxFramesInFlight; ++i) {
         if (m_imageAvailable[i]) {
@@ -391,15 +647,15 @@ void VulkanRenderer::shutdown() {
     if (m_ctx.valid()) {
         vkDeviceWaitIdle(m_ctx.device());
     }
-    if (m_guiReady) {
-        ImGui_ImplVulkan_Shutdown();
-        ImGui_ImplSDL3_Shutdown();
-        ImGui::DestroyContext();
-        m_guiReady = false;
-    }
     if (m_active) {
-        m_sprite.destroy(m_ctx);
-        m_mesh.destroy(m_ctx);
+        m_post.shutdown(m_ctx);
+        m_ssao.shutdown(m_ctx);
+        m_bloom.shutdown(m_ctx);
+        m_debug.shutdown(m_ctx);
+        m_particles.shutdown(m_ctx);
+        m_meshes.shutdown(m_ctx);
+        m_sprites.shutdown(m_ctx);
+        m_textureStore.shutdown(m_ctx); // owns textures used by both; after their pipelines
         destroySync();
         if (m_commandPool) {
             vkDestroyCommandPool(m_ctx.device(), m_commandPool, nullptr);

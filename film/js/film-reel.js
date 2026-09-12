@@ -135,12 +135,28 @@
       beat: 'title'
     });
 
+    /* A two-hander reads as a conversation when the camera changes sides. Never
+     * the same framing three times running. `ots` needs two people in frame, so
+     * it is only on the table when both of them are. */
+    var spokenFramings = [];
+    function nextLineFraming(both) {
+      var options = both ? ['two', 'ots', 'close'] : ['close', 'low'];
+      var last = spokenFramings[spokenFramings.length - 1];
+      var prev = spokenFramings[spokenFramings.length - 2];
+      var fresh = options.filter(function (f) { return !(last === f && prev === f); });
+      if (!fresh.length) fresh = options;
+      var pick = fresh[Math.floor(rng() * fresh.length) % fresh.length];
+      spokenFramings.push(pick);
+      return pick;
+    }
+
     /* -------------------------------------------------------------- scenes */
     script.scenes.forEach(function (scene) {
       var set = setFor(scene.heading.place);
       var light = lightFor(scene.heading.time);
       var mood = MOOD[scene.beat.id] == null ? 0.4 : MOOD[scene.beat.id];
       var onScreen = [];
+      var shotsThisScene = 0;
 
       // Establishing shot: the slug line, held, so the audience knows where
       // they are before anyone speaks.
@@ -158,6 +174,7 @@
         scene: scene.number,
         beat: scene.beat.id
       });
+      shotsThisScene++;
 
       scene.elements.forEach(function (element) {
         if (element.type === 'action') {
@@ -171,13 +188,21 @@
             .map(function (c) { return c.name; });
           present.forEach(function (n) { if (onScreen.indexOf(n) === -1) onScreen.push(n); });
 
+          // The choice should sit a beat longer than is comfortable.
+          var hold = scene.beat.id === 'choice' ? 1.35 : 1;
           push({
             kind: 'action',
-            duration: Math.max(MIN_ACTION, words(element.text) * ACTION_SECONDS_PER_WORD),
+            duration: Math.max(MIN_ACTION, words(element.text) * ACTION_SECONDS_PER_WORD) * hold,
             set: set,
             time: light,
             framing: framing,
-            camera: framing === 'insert' ? 'push-slow' : (rng() < 0.5 ? 'push' : 'static'),
+            // The whip pan is a transition *between* two shots, so it only
+            // ever takes over a shot that is not the scene's first.
+            camera: (shotsThisScene > 1 && rng() < 0.18) ? 'whip'
+                  : scene.beat.id === 'crisis' ? 'handheld'
+                  : scene.beat.id === 'push' ? (rng() < 0.5 ? 'track-l' : 'track-r')
+                  : framing === 'insert' ? 'push-slow'
+                  : (rng() < 0.5 ? 'push' : 'static'),
             caption: element.text,
             speaker: null,
             characters: framing === 'insert' ? [] : present.slice(),
@@ -185,6 +210,7 @@
             scene: scene.number,
             beat: scene.beat.id
           });
+          shotsThisScene++;
         } else if (element.type === 'character') {
           if (onScreen.indexOf(element.text) === -1) onScreen.push(element.text);
           shots._pendingSpeaker = element.text;
@@ -194,22 +220,27 @@
         } else if (element.type === 'dialogue') {
           var speaker = shots._pendingSpeaker || script.characters[0].name;
           var both = onScreen.length > 1 && rng() < 0.35;
+          var lineFraming = nextLineFraming(both);
+          var pair = lineFraming === 'two' || lineFraming === 'ots';
           push({
             kind: 'line',
             duration: Math.max(MIN_LINE, words(element.text) * LINE_SECONDS_PER_WORD) + 0.25,
             set: set,
             time: light,
-            framing: both ? 'two' : 'close',
-            camera: both ? 'static' : 'push-slow',
+            framing: lineFraming,
+            // A tense conversation is unsteady too.
+            camera: scene.beat.id === 'crisis' ? 'handheld'
+                  : pair ? 'static' : 'push-slow',
             caption: element.text,
             parenthetical: shots._pendingParen || null,
             speaker: speaker,
             side: voices[speaker] ? voices[speaker].side : 0,
-            characters: both ? onScreen.slice(0, 2) : [speaker],
+            characters: pair ? onScreen.slice(0, 2) : [speaker],
             mood: mood,
             scene: scene.number,
             beat: scene.beat.id
           });
+          shotsThisScene++;
           shots._pendingParen = null;
         }
         // Transitions inside the script (FADE IN:/FADE OUT.) are the player's

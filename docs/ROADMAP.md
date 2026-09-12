@@ -1,5 +1,3 @@
-<!-- Part of MAZ ARCADE — see the repo root README for every project. -->
-
 # Maz Engine — Roadmap ("the massive list")
 
 A native **C++20 + Vulkan + SDL3** game engine, built **2D-first but architected so 3D drops
@@ -9,9 +7,122 @@ This document is the master to-do list. It's organized into phases; **each bulle
 buildable task**. Phases are ordered roughly by dependency, but many items inside a phase can be
 done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 
-> **Current milestone: M0 — walking skeleton.** Window opens, fixed-timestep loop runs, Vulkan
-> clears the screen, clean shutdown. Everything marked `[x]` below is done in the initial
-> scaffold; everything else is the road ahead.
+> **M0 — walking skeleton (done).** Window opens, fixed-timestep loop runs, Vulkan clears the
+> screen, clean shutdown.
+>
+> **M1 — 2D sprite renderer (done).** Textured, tinted, rotated sprites via a batched Vulkan
+> pipeline (buffers, staging uploads, descriptor sets, dynamic viewport/scissor, alpha blend);
+> `Camera2D`; stb_image loading. Verified validation-clean end-to-end on a software Vulkan
+> device (llvmpipe).
+>
+> **M2 — playable top-down demo (done).** A `Tilemap` module + a sandbox that renders a
+> view-culled tile world, moves a player with WASD, blocks movement into solid tiles
+> (axis-separated sliding), and follows the player with the camera.
+>
+> **M3 — text + HUD (done).** TrueType text via `stb_truetype` baked to an atlas (`ui::Font`,
+> `drawText`), a bundled DejaVu Sans, and multi-camera batching so a pixel-space HUD (title,
+> controls, animated health bar) draws over the world-space follow camera. Fixed the Vulkan
+> clip-space Y orientation to true top-left/y-down.
+>
+> **M4 — a complete sample game (done).** `apps/orbs` ("ORB RUN") — an original, genre-neutral
+> arcade game with a full game-state machine (title → play → win/lose → restart), player
+> movement, collectible orbs, roving hazards, a countdown timer, and a HUD. Proves the engine
+> ships a real title and runs more than one app.
+>
+> **M5 — audio (done).** `maz::audio::Audio` — an SDL3 audio device with a real-time mixer that
+> synthesizes voices (sine/square/triangle/noise, attack/decay envelope, frequency glide) plus a
+> looping arpeggio music bed; thread-safe `play`, master volume, graceful with no device. Wired
+> into ORB RUN (start/pickup/hit/win SFX + music). Verified by capturing 3s of generated audio
+> to a file and rendering its waveform.
+>
+> **M6 — particles (done).** `maz::fx::ParticleSystem` — a pooled 2D particle system (burst
+> emitters with speed/angle/life/size ranges, start→end color, gravity, drag), drawn as
+> size/alpha-faded sprites through the Renderer. Wired into ORB RUN: a player spark trail, pickup
+> bursts, and win/lose bursts.
+>
+> **M7 — persistence (done).** `maz::core::KeyValueStore` (stdlib-only ini-style load/save) +
+> `maz::platform::prefPath` (SDL user-data dir). ORB RUN now keeps a **high score across runs** —
+> verified by writing a value from one process and loading it in another.
+>
+> **M8 — ECS (done).** `maz::ecs::World` — a lightweight entity-component system (entity
+> free-list, type-erased sparse-set component pools, `add/get/has/remove`, `each<T>` and
+> `view<A,B>` iteration). A third sample app, `apps/swarm`, runs 800 entities through movement +
+> render systems.
+>
+> **M9 — 3D rendering (done).** Depth buffer added to the render pass; a `MeshRenderer` (indexed
+> position/normal/color meshes, MVP+model push constants, directional lighting) behind a new
+> Renderer 3D API (`createMesh` / `setViewProjection3D` / `drawMesh`); `math::perspective`
+> camera. `apps/cube` spins a lit cube with 2D HUD text over it — 2D and 3D compose in one frame.
+> The 2D path is unchanged (sprites disable depth).
+>
+> **M10 — 3D scene (done).** Procedural mesh primitives (`render::shapes` — box / sphere /
+> plane) and `apps/scene3d`: a ground plane plus a ring of 20 spinning, lit spheres and cubes,
+> each an **ECS entity** (Transform3D + Renderable), viewed by an orbiting camera with a 2D HUD —
+> the 3D renderer, procedural geometry, and the ECS composed together.
+>
+> **M11 — textured 3D (done).** A shared `TextureStore` (one descriptor layout/pool) now backs
+> both the sprite and mesh renderers, so a texture handle works in 2D or 3D. Meshes gained UVs
+> and a sampler; the mesh shader does texture × vertex-color × lighting. `apps/cube` is now a
+> checkerboard cube and `apps/scene3d` has a tiled floor. The 2D games are unchanged (verified).
+>
+> **M12 — explorable 3D (done).** `maz::game::FlyCamera` — a first-person camera (position +
+> yaw/pitch, `move`/`look`, view matrix) + `Window::setRelativeMouse` for mouse-look. `apps/world`
+> is a navigable field of 3D blocks over a textured floor (WASD + mouse-look; `--demo` autopilots
+> a fly-through).
+>
+> **M13 — 3D collision (done).** `maz::game::Collision` — `Aabb` + `slideMove` (per-axis resolve
+> so you slide along surfaces). `apps/world` is now solid and walkable, turned into a
+> first-person collect-em-up (glowing pickups + a HUD counter; autopilot steers around blocks it
+> bumps).
+>
+> **M14 — shadows (done).** Shadow mapping in the `MeshRenderer`: a depth-only pass renders
+> casters from a directional light into a 2048² shadow map, sampled with 2×2 PCF in the mesh
+> shader. The frame runs shadow-pass → main-pass; 2D games skip the shadow pass and are
+> unaffected.
+>
+> **M15 — skybox (done).** A gradient sky drawn behind the 3D scene: a fullscreen pass
+> reconstructs the per-pixel view ray from the inverse view-projection and shades a
+> zenith→horizon→ground gradient with a sun glow. Drawn automatically for any 3D scene (no meshes
+> queued → no sky), so 2D is unaffected.
+>
+> **M16 — MSAA (done).** Multisample anti-aliasing smooths jagged edges everywhere, 2D and 3D.
+> The swapchain picks the best supported sample count (≤4×), renders into a multisampled
+> color+depth target, and resolves into the swapchain image for presentation. All pipelines
+> (sprites, meshes, sky) rasterize at that sample count; the shadow-map pass stays single-sample.
+> A single-sample fallback path keeps devices without MSAA working.
+>
+> **M17 — glTF model loading (done).** `maz::render::loadGltf` parses glTF 2.0 files (via cgltf),
+> merges every scene mesh into one `MeshData` with each node's world transform baked into
+> positions/normals, and maps POSITION/NORMAL/TEXCOORD_0/COLOR_0 to the engine's mesh vertex. The
+> `model` demo loads a bundled `house.gltf` at runtime and renders it with shadows, sky, and a HUD
+> — the engine now shows artist-authored models, not just procedural shapes.
+>
+> **M18 — textured glTF (done).** `loadGltf` now also decodes the first material's base-color
+> texture — embedded via a bufferView (stb_image decodes the PNG bytes) or referenced as an
+> external image file — into `ModelData`. The bundled `house.gltf` carries a 4-quadrant detail
+> atlas (brick / shingle / plank / glass) with per-face UVs, so its walls read as brick, the roof
+> as shingle, the door as planks, and the windows as glass.
+>
+> **M19 — glTF scene loading (done).** `maz::render::loadGltfScene` reads a glTF file as a *scene*:
+> each node with a mesh becomes a `SceneNode` carrying that mesh's geometry (in local space), its
+> world transform, and its base-color texture — nothing is merged, so one source mesh can appear
+> many times at different positions. The `village` app loads a bundled `village.gltf` (a ground
+> plane, six textured houses, and nine trees — 16 nodes over 3 shared meshes). This is the
+> data-driven step: a whole level lives in one asset file, not in C++.
+>
+> **M20 — VILLAGE QUEST (done).** The village scene becomes a playable game: the houses turn into
+> solid AABB collision (built from each node's world bounds), golden coins are scattered in the open
+> spaces, and you walk the village first-person (WASD + mouse-look) collecting every coin against a
+> timer — with a win state and a best time saved across runs. It composes scene loading + collision
+> + audio + save into one game, the proof the engine ships real games.
+>
+> **M21 — point lights (done).** The 3D mesh path gains real positional lighting: a lights UBO
+> (descriptor set 2) carries ambient + one shadow-mapped directional "sun" plus up to eight point
+> lights, and the fragment shader accumulates each point light with smooth distance attenuation.
+> `Renderer::setLighting(SceneLighting)` drives it; the defaults reproduce the prior daytime look so
+> every other app is untouched. VILLAGE QUEST uses it for dusk — a low warm sun over dim ambient
+> with a warm lamp glowing at each house. Everything marked `[x]` below is done; everything else is
+> the road ahead.
 
 ---
 
@@ -23,43 +134,219 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] `.clang-format`, `.gitignore` for build artifacts
 - [x] Logging system (levels: trace/info/warn/error, `MAZ_LOG*` macros)
 - [x] Assertion macros (`MAZ_ASSERT`, `MAZ_VERIFY`) with message + abort
+- [x] **Crash handler** (`platform::CrashHandler`, toward Godot's `CrashHandler`): installs fatal-
+  signal handlers (SIGSEGV/SIGABRT/SIGFPE/SIGILL/SIGBUS) that dump a labelled banner + backtrace to
+  stderr **and** a `*.crash.log` file via async-signal-safe `backtrace_symbols_fd`, then re-raise for
+  a core dump; a `demangleSymbol()` helper turns mangled frames into readable C++ names for log
+  post-processing, and `captureBacktrace()` grabs the live stack for diagnostics. Wired into ZOMBOID;
+  builds pass `-rdynamic` so frames resolve. Verified by an actual SIGSEGV producing a full trace
+  (M177)
 - [x] Command-line argument parsing (`--headless`, `--frames N`, `--vsync`)
-- [ ] clang-tidy config + CI lint gate
-- [ ] Address/UB sanitizer presets (Debug), leak checks
-- [~] CI matrix (Linux/Windows/macOS) running the headless smoke test — **Linux CI landed**
-      (`.github/workflows/ci.yml`: installs the Vulkan SDK + glslang, builds under `-Werror`,
-      runs ctest headless). Windows/macOS still to add.
-- [ ] Config system (CVars / ini / json), persisted settings
-- [ ] Crash handler / stack-trace dump, structured log sinks (file, console)
-- [ ] Semantic-version header, `CHANGELOG.md`
+- [x] clang-tidy config + CI lint gate (M197 — a `.clang-tidy` with a focused, high-signal check
+  set (bugprone/performance/portability/misc + a curated readability/modernize slice), scoped to
+  first-party headers via HeaderFilterRegex and strict in CI (`WarningsAsErrors '*'`). A new CI
+  `tidy` job runs it over every `engine/src/**/*.cpp` on push/PR; a companion `sanitizers` job builds
+  the unit suite with `-DMAZ_SANITIZE=address,undefined` and runs it under ASan+UBSan+LeakSanitizer,
+  and a `sanitizers-thread` job builds it with `-DMAZ_SANITIZE=thread` and runs it under
+  ThreadSanitizer to guard the concurrent code (the `core::JobSystem` thread pool + `parallelFor`/
+  `parallelRanges`, the multi-threaded `LogSinks` fan-out) against data races — verified clean
+  (0 warnings across the full unit suite) at introduction.
+  Verified locally: clang-tidy reports **zero diagnostics** across all engine sources after fixing
+  the genuine finds it surfaced — dead `using`, a cloned switch branch, a misplaced-const handle, an
+  int→size_t sign conversion, and a redundant boolean return.)
+- [x] Address/UB sanitizer presets (Debug), leak checks (M196 — `-DMAZ_SANITIZE=address,undefined`
+  instruments first-party targets only, compile + link, keeping fetched deps clean; ASan bundles
+  LeakSanitizer on Linux. Verified by building + running the full unit suite under
+  ASan+UBSan+LSan: no memory-safety or UB findings, and **leak-clean** after fixing a pre-existing
+  shared_ptr reference cycle in the script VM — top-level functions and class methods capture the
+  global scope which holds them back, so a `~Vm()` now breaks those cycles at teardown.)
+- [x] CI matrix (Linux/Windows/macOS) running the headless smoke test (`.github/workflows/ci.yml`,
+  M274 + extended M197: a Linux job builds with warnings-as-errors and runs the **full ctest suite**
+  including the headless render smokes on software Vulkan/lavapipe; a macOS + Windows matrix builds
+  the engine and runs the GPU-free unit tests for genuine cross-platform compile coverage; plus
+  `tidy` (clang-tidy gate) and `sanitizers` (ASan+UBSan+LSan) jobs.)
+- [x] Persistent key-value store (ini-style, user-data path) — `maz::core::KeyValueStore`
+- [x] **CVars / config system** (`maz::core::CVarRegistry`: named typed tunables — bool/int/float/string
+  with descriptions + numeric range clamps + string coercion for CLI flags; the `io::Config` bridge
+  loads/saves them as JSON so `config.json` drives the engine; the `config` demo runs a cvar-driven
+  scene; M77)
+- [x] **INI ConfigFile** (`io::ConfigFile`: Godot's ConfigFile — ordered `[section]` + `key=value` store with
+  typed get/set (bool synonyms, int, float, quote-stripped strings), lenient `parse()` (comments, blank lines,
+  global section) and stable insertion-ordered `encode()` that round-trips; the `inifile` demo parses a
+  settings.cfg into a table, edits it, and shows the re-encoded text; M165) — full Variant-literal values +
+  direct file-path load/save later
+- [x] Crash handler / stack-trace dump, structured log sinks (file, console) (crash handler =
+  `platform::CrashHandler`, M177; structured sinks = `core::LogSinks`, M195: a thread-safe
+  `FileLogSink` that appends `"[LEVEL] message"` lines to a log file (optional timestamp / append /
+  flush-each-line, safe no-op on a bad path — Godot's `user://logs/godot.log`, engine-native), plus a
+  `MultiSink` that fans one log stream out to several sinks so a file sink and the editor Output panel
+  both receive it (the base `setLogSink` holds only one). Console output is always on; these are
+  additive. Unit-tested.)
+- [x] **Semantic version + CHANGELOG** — `core::Version` (a parse/compare semver type with
+  `MAZ_VERSION_*` macros, `engineVersion()`, `atLeast()` for "requires engine ≥ X" gates, and a
+  monotonic `number()`), plus a root `CHANGELOG.md` (Keep-a-Changelog format). Games stamp saves/crash
+  reports with the exact build and compare a save's authoring version against the running one.
+  Verified: parse leniencies (leading `v`, partials, `-pre`/`+build` suffixes), rejection of malformed
+  input, and semver ordering (M188)
 
 ## Phase 1 — Platform layer
 - [x] Window creation, resize, close (SDL3)
 - [x] Event pump; quit/resize handling
 - [x] Keyboard + mouse state, just-pressed / just-released edge detection
 - [x] Fixed-timestep clock (accumulator) + frame delta
-- [ ] Fullscreen / borderless, multi-monitor, DPI / content scaling
-- [ ] Focus / minimize / occlusion handling (pause when unfocused)
-- [ ] Gamepad / controller support + haptics (rumble)
-- [ ] Action-mapping layer (bind abstract actions like "Jump" to keys/buttons/axes)
-- [ ] Text input / IME, clipboard, drag-and-drop
-- [ ] vsync toggle, frame pacing, present-mode selection
-- [ ] Filesystem abstraction, virtual paths, save-directory resolution
-- [ ] Thread pool + job/task system, lock-free work queues
+- [~] Fullscreen / borderless, multi-monitor, DPI / content scaling (M207 — `platform::Window` now
+  supports borderless-desktop fullscreen (`WindowConfig::fullscreen`, `setFullscreen`/
+  `toggleFullscreen`/`isFullscreen` via SDL3), requests a HiDPI pixel-dense surface
+  (`WindowConfig::highDpi` → `SDL_WINDOW_HIGH_PIXEL_DENSITY`), and reports the live display content
+  scale (`contentScale()` via `SDL_GetWindowDisplayScale`). `platform::DisplayScale` is the pure,
+  unit-tested HiDPI math — `logicalToPixels`/`pixelsToLogical`/`scaledSize` for resolution-
+  independent UI (Godot's `content_scale_factor`). Multi-monitor is now covered too (M208):
+  `platform::Displays` is the pure, unit-tested geometry — `displayContainingPoint`, `overlapArea`,
+  `displayForRect` (the largest-overlap rule an OS uses to decide a window's "current" monitor), and
+  `centerRectOnDisplay`; `Window::displays()`/`currentDisplay()` enumerate live monitors via SDL3
+  (bounds + per-display content scale). Godot's `DisplayServer.get_screen_*`. Per-monitor window
+  *moves* (SDL_SetWindowPosition to a chosen display) remain a thin follow-up.)
+- [x] Focus / minimize / occlusion handling (pause when unfocused) (M205 — `platform::Window` now
+  tracks keyboard focus and minimized state from SDL window events (`activation()`/`isFocused()`/
+  `isMinimized()`), and `platform::AppFocus` provides a pure `decideFrame(activation, FocusPolicy)`
+  that tells the main loop whether to advance the sim, whether to render, and how long to sleep to
+  hit a background frame rate — so the engine throttles/pauses instead of pinning a CPU core and the
+  battery while unfocused, and skips rendering entirely while minimized (no surface). Godot's
+  run/pause-when-unfocused + low-processor mode, as an explicit deterministic policy. Unit-tested
+  (focused full-speed, unfocused throttle, pause-sim, minimized skip-render, fps=0 disables sleep).)
+- [x] **Gamepad / controller support** (SDL3, sticks/buttons/triggers + deadzone; M23) — haptics TODO
+- [x] **Action-mapping layer** (`maz::input::ActionMap`: named button actions with any-of
+  keyboard/mouse/gamepad sources + pressed/held/released edges, and axis actions from key pairs +
+  analog pad axes clamped to -1..1; SDL-free via sampler callbacks; the `actions` demo drives an
+  avatar by mapped actions; M80)
+- [x] **Analog-stick deadzone conditioning** (`input::analogVector` / `input::applyDeadzone`: Godot's
+  `Input.get_vector`/`get_axis` maths — a *radial* deadzone on the whole stick vector, magnitude rescaled so
+  the deadzone edge maps to 0 and full tilt to 1, and clamped to the unit circle so diagonals aren't faster;
+  stateless, pairs with any input source; the `deadzone` demo shows a stick field + the 1-D response curve;
+  M157) — a 2D get_vector convenience over ActionMap's four directional actions + per-action deadzone config
+  later
+- [x] Text input / IME, clipboard, drag-and-drop (M210 — `Input` now accumulates per-frame UTF-8
+  text input (`textInput()`, fed by SDL_EVENT_TEXT_INPUT — IME/compose aware) and dropped file
+  paths (`droppedFiles()`, from SDL_EVENT_DROP_FILE), both cleared each `newFrame()`;
+  `Window::setTextInputActive(bool)` starts/stops OS text input (SDL_StartTextInput/StopTextInput)
+  so a focused text field receives typed characters and the IME. `platform::Clipboard`
+  (`clipboardText`/`setClipboardText`/`hasClipboardText`, SDL3-backed) gives copy/cut/paste against
+  other apps — Godot's DisplayServer clipboard + Input text/IME + files_dropped. Unit-tested: text +
+  file accumulation, null-safety, per-frame clear, and a multi-byte UTF-8 sequence stored verbatim.)
+- [~] vsync toggle, frame pacing, present-mode selection (M206 — present-mode selection is now a
+  pure, unit-tested policy (`render::choosePresentMode` in `PresentMode.hpp`): vsync-on prefers
+  adaptive FIFO-relaxed then hard FIFO; vsync-off prefers MAILBOX (low-latency, tear-free) then
+  IMMEDIATE (if tearing allowed) then FIFO — a smarter order than the old "IMMEDIATE-first" pick.
+  The Vulkan swapchain maps its real `VK_PRESENT_MODE_*` set onto this and back, so the choice is
+  testable without a GPU. vsync toggle already exists (`RendererConfig::vsync`); frame pacing is the
+  AppFocus throttle (M205). Runtime present-mode switching + a proper frame-pacing clock remain.)
+- [x] **Virtual filesystem / scheme paths** (`io::VirtualFileSystem`, toward Godot's `res://` /
+  `user://`): mount a scheme to a real directory (`mount("res", installDir)` / `mount("user",
+  saveDir)`) and `resolve("res://textures/hero.png")` to a real path — so game code never hard-codes
+  OS paths and the same build runs from a dev tree, an installed bundle, or a mod mount. Pure,
+  testable path core: `normalizePath` collapses `.`/`..`/`//`, plus `joinPath`/`fileName`/`extension`/
+  `fileStem`/`parentPath`, and a **traversal guard** that refuses any `..` escaping the mount root
+  (`res://../../etc/passwd` → rejected, not followed). Verified: normalization edges, all helpers,
+  scheme parse, resolution, re-mount/unmount, and the escape guard (M187)
+- [x] **Thread pool + job system** (`core::JobSystem`: worker pool, `submit`/`parallelFor`/
+  `parallelRanges`; the `jobs` demo shows a ~3.8x fractal speedup; M65) — lock-free queues later
 
 ## Phase 2 — Core utilities
 - [x] Math via GLM (vectors, matrices, quaternions) re-exported under `maz::math`
-- [ ] Transform helpers, AABB/OBB, ray, plane, frustum
-- [ ] Easing / interpolation, deterministic RNG (PCG/xoshiro)
-- [ ] Memory: linear / stack / pool / frame allocators, arenas
-- [ ] Handles / generational indices, object pools
-- [ ] Containers: `small_vector`, sparse set, ring buffer
-- [ ] String interning / `StringId` (hashed), fixed strings
-- [ ] Event bus / signals, delegates / typed callbacks
-- [ ] Minimal reflection (type ids, property registration) for serialization + editor
-- [ ] Serialization (binary + JSON), versioned schemas
-- [ ] Profiling: scoped timers, frame markers, Tracy integration
-- [ ] Unit-test framework wiring (doctest/Catch2)
+- [x] **Cubic Bézier path** (`math::Curve2D`: points with in/out handles joined by cubic Béziers; `sample`/
+  `sampleSegment`/`tangent`/`length`, plus **arc-length baking** — `bake(interval)` lays down constant-speed
+  points and `sampleBaked(distance)` moves at uniform speed regardless of curvature; Godot Curve2D/Path2D; the
+  `curve` demo draws the spline + handles + baked dots + a traveller with its tangent; M142) — a 3D `Curve3D`,
+  per-point tilt, and a Path2D/PathFollow2D scene node that advances a transform along it later
+- [x] **Rect2** (`math::Rect2`: axis-aligned rectangle by position+size with `hasPoint` (min-incl/max-excl),
+  `intersects`/`intersection` (clip), `merge` (union), `encloses`, `grow`/`growIndividual`, `expand`, `abs` —
+  Godot Rect2; the `rects` demo draws overlapping rects with their intersection, union bounds, grow halo, and
+  point tests; M149) — an integer `Rect2i` + a 3D `AABB` type + retrofitting UI/culling to use it later
+- [x] **Geometry2D helpers** (`math::Geometry2D`: `segmentIntersect` (segment×segment → point + params),
+  `closestPointOnSegment` / `distanceToSegment`, `pointInPolygon` (even-odd, concave-safe), and
+  `segmentIntersectsCircle` — the workhorse queries behind line-of-sight, hit-picking, and trigger zones;
+  Godot's `Geometry2D`; the `geometry` demo shows segment intersections + a point-in-polygon grid + closest-
+  point projections; M160) — convex hull + polygon boolean clip/merge/offset (Clipper) + Delaunay later
+- [x] **Transform2D** (`math::Transform2D`: Godot's 2×3 affine — two basis columns + origin; builders
+  (identity/rotation/scaling/translation + the `compose(rot,scale,pos,skew)` node constructor), `xform`/
+  `basisXform`/`xformInv`, `operator*` (parent×child), `affineInverse`, `getRotation`/`getScale`/`getSkew`,
+  `orthonormalized`, `determinant`, `interpolateWith`; the `xform2d` demo draws an arrow under rotate/scale/
+  skew/mirror with basis gizmos; M167) — a 3D `Transform3D`/`Basis` sibling + retrofitting sprites/TransformGraph later
+- [x] AABB/OBB, ray, plane, frustum (M193 — `math::Geometry3D`: first-class `Plane` (unit-normal,
+  `distanceTo`/`project`/`isPointOver`, ray/segment intersection, three-plane corner), `Ray3`,
+  `Aabb3` (contains/intersects/merge/support + slab ray test), and `Obb` (15-axis SAT box-vs-box,
+  point containment, world-AABB) — the Godot `Plane`/`AABB` vocabulary plus a proper oriented box;
+  frustum planes already live in `render::Camera3D` (`FrustumPlanes`/`isSphereVisible`). Unit-tested.)
+- [x] Easing / interpolation, deterministic RNG (PCG/xoshiro) (easing = `anim`'s 15 easing curves
+  (M59) + `math` lerp / `core::Interpolated` (M151); deterministic RNG = **both** named generators:
+  `core::Random` is xoshiro256** seeded through SplitMix64 (M84), and **`core::Pcg32` (M202)** is a
+  bit-exact port of O'Neill's pcg32 (64-bit LCG + xorshift-rotate output permutation) with
+  independent streams, unbiased `nextBounded`, inclusive `range`, and `nextFloat` — verified against
+  PCG's canonical reference test vector.)
+- [x] **Memory allocators** (`core::LinearArena` + `core::PoolAllocator`): the bump/frame arena and
+  fixed-size pool an engine uses to avoid per-object malloc/free churn (fragmentation + frame-time
+  spikes). `LinearArena` is an O(1) bump allocator with correct alignment — `reset()` frees a whole
+  frame's scratch at once, and `marker()`/`rewind()` give stack-scoped release. `PoolAllocator` is an
+  O(1) free-list of fixed-size blocks that reuses the same slots (particles/bullets/entities never
+  fragment the heap) and returns nullptr on exhaustion. Verified: alignment correctness, OOM, marker
+  rewind, frame reset, LIFO slot reuse, and `owns()` bounds (M181)
+- [x] **Handles / generational indices, object pools** (`core::SlotMap<T>` + `SlotHandle{index,
+  generation}`: insert into recycled free slots, `get`/`contains`/`erase` with stale-handle (ABA)
+  detection via a generation bump on free, double-free safe, `forEach` over live values — Godot's `RID` /
+  stable entity handles; the `slotmap` demo drives insert/free/reuse and flags live vs stale handles;
+  M137) — a typed multi-resource RID server + retrofitting texture/mesh/ECS handles onto it later
+- [x] **Containers** (`core::SmallVector<T,N>` + `core::SparseSet<T>`): the two structures an engine
+  needs that the STL omits. `SmallVector` keeps its first N elements **inline** (no heap) and only
+  spills past N — killing the malloc/free per short-lived list (node children, contacts, query hits),
+  with full std::vector-style API and correct move/copy (inline-move + heap-steal). `SparseSet` maps
+  integer keys to values with **O(1) insert/remove/lookup** and a densely-packed, hole-free value
+  array to iterate (swap-erase removal) — the backbone of an archetype-free ECS component store.
+  Verified: inline→heap spill preserving elements, move/copy of a non-trivial element type, and a
+  1000-key sparse-set insert/remove stress (M183)
+- [x] **Ring / circular buffer** (`core::RingBuffer<T>`: fixed-capacity, serving a rolling window
+  (`push` overwrites the oldest when full) and a bounded FIFO (`pushBack`/`popFront`); logical `at(0)`=oldest
+  indexing hides the wrap; `toVector`/`front`/`back`/`clear`/`reset` — Godot's `RingBuffer`, behind frame-time
+  graphs, input/replay buffers, moving averages; the `ring` demo plots a 96-slot frame-time history bar graph
+  + an 8-slot input buffer; M164) — a lock-free MPSC variant + a byte/bit stream view later
+- [x] **String interning / `StringId`** (`core::StringTable`: intern-or-find each unique name once →
+  a stable 32-bit `StringId` handle so name equality is an int compare; `find` (non-inserting) / `str`
+  (reverse) / `hash` (stored FNV-1a-32) / `contains` / `clear`; a `std::hash<StringId>` for unordered
+  containers; the free `fnv1a32` content hash — Godot `StringName`; the `strtable` demo interns a repeated
+  tag stream into a dedup pool; M132) — a global process-wide registry + retrofitting subsystems to use it later
+- [x] **Event bus / signals** (`core::EventBus`: type-safe subscribe/emit/unsubscribe, per-type
+  isolation, re-entrancy-safe snapshot dispatch; the `events` demo fans one event to 3 subscribers; M64)
+- [x] **Per-object named signals** (`core::Signal<Args...>`: each object owns typed named channels others
+  `connect` to — Godot signal/connect/emit; `connect`/`connectOnce`/`connectDeferred(Once)` +
+  `disconnect`/`isConnected`/`connectionCount`, immediate `emit`, snapshot-safe dispatch, and a deferred
+  queue drained by `flushDeferred`; the `signals` demo wires a Button→Player→died graph with an event log;
+  M128) — string-keyed emit-by-name + connect binds + object-lifetime auto-disconnect later
+- [x] **Minimal reflection** (`core::TypeDesc<T>`, the useful slice of Godot's ClassDB/property
+  system): register a struct's fields once **by member pointer** (`prop("hp", &Enemy::hp)`, type
+  deduced + compile-time checked, no byte-offset UB) — then read/write them generically by name
+  (`get`/`set` via a tagged `PropValue`), enumerate them for an editor inspector (`properties()`/
+  `read()`), and **`serialize()`/`deserialize()`** every field to a compact text blob (the runtime
+  of reflection-driven save/load; unknown keys skipped for forward-compat). Supports bool / integral
+  / floating / string fields with type coercion. Verified: typed get/set, full round-trip incl.
+  escaped newlines, forward-compat skips, and float→int coercion (M185)
+- [x] **Serialization** (`maz::io` ByteWriter/ByteReader: POD/string/vector, versioned magic
+  headers, bounds-checked reads + file IO; the `persist` demo round-trips a scene to disk; M61)
+- [x] **JSON / text format** (`maz::io::JsonValue` + never-throwing recursive-descent `parseJson`
+  with line/column errors + compact/pretty `dump`; insertion-ordered objects for stable round-trips;
+  the `data` demo builds an entire scene from an embedded JSON document; M75)
+  + **JSON file IO** (`parseJsonFile`/`writeJsonFile`/`readTextFile`/`writeTextFile`); the `level`
+  demo loads `assets/levels/arena.json` from disk into a tilemap + pickups and round-trips it back
+  to the save directory — the editable-content pipeline end to end (M76)
+- [x] **Base64** (`io::base64Encode` / `base64Decode`: RFC 4648 raw↔text so binary rides through JSON/.tres/
+  URLs — encode overloads for bytes/vector/string; validating, whitespace-tolerant decode — Godot Marshalls;
+  the `base64` demo shows text + byte buffers with their encodings + a round-trip check; M154) — a URL-safe
+  variant, a streaming encoder, and Godot-style `var_to_bytes` variant marshalling later
+- [x] **Debug stats overlay** (`ui::DebugOverlay`: smoothed FPS/frame-ms + per-frame draw counts
+      via `Renderer::renderStats`; M29)
+- [x] **Profiling: scoped timers** (`maz::core::Profiler`: nestable begin/end timing zones with
+  inclusive + self time, call counts, depth, and EMA smoothing; a `ScopedZone` RAII over steady_clock;
+  the `profiler` demo draws the zone tree as an indented bar chart; M78) — frame graph / Tracy later
+- [x] **Unit tests** (dependency-free runner: math, collision, spatial grid, ECS, shake, particles;
+  `maz_unit_tests` via ctest; M50)
 
 ## Phase 3 — Rendering (Vulkan)
 - [x] Instance + validation layers (debug), debug messenger
@@ -69,159 +356,1020 @@ done in parallel. Status legend: `[ ]` todo · `[~]` in progress · `[x]` done.
 - [x] `beginFrame` / clear / `endFrame` present loop (clear color)
 - [x] Swapchain recreation on resize / out-of-date
 - [x] Graceful degrade when no GPU/ICD present (headless safe)
-- [~] VMA (Vulkan Memory Allocator), buffer/image helpers, staging uploads — **staging uploads
-      landed** for textures (`SpriteRenderer::createTexture`: host-visible staging buffer → one-time
-      layout transition + copy → device-local sampled image). VMA + shared buffer/image helpers
-      (mesh buffers are still host-visible) still to do.
-- [~] Graphics pipeline + descriptor-set management, push constants, dynamic state — **pipeline +
-      push constants + dynamic viewport/scissor landed** (MeshRenderer), and **descriptor-set
-      management landed** (SpriteRenderer: a combined image-sampler set layout + pool, one set per
-      texture). A general per-frame/per-material descriptor system is still to do.
-- [~] Shader module loading from SPIR-V + reflection + hot reload — **SPIR-V load landed** (mesh
-      shaders loaded from beside the exe). Reflection + hot reload still to do.
-- [~] **2D:** sprite batch renderer, texture atlas, `Camera2D`, line/shape debug draw — **sprite
-      batch renderer landed** (`SpriteRenderer`): textured, alpha-blended, tinted, rotatable quads
-      in pixel space (`maz::math::ortho2D`, top-left origin), coalesced into one draw per run of
-      same-texture sprites, uploaded via the public `Renderer::uploadTexture`/`drawSprite` API. Atlas
-      sub-rects are supported through per-sprite UVs. Verified off-screen by `ctest sprite_probe`
-      (lavapipe) and demoed live with `sandbox --sprite-demo`. See [`SPRITES.md`](SPRITES.md). Still
-      to do: image-file loading (stb_image), a pannable/zoomable `Camera2D`, and line/shape debug draw.
-- [ ] **2D:** tilemap renderer (chunked), sprite sorting / layers
-- [ ] Text rendering (bitmap + SDF fonts, glyph atlas, layout)
-- [~] Mesh renderer (indexed draw), vertex layouts, instancing — **indexed draw + vertex layout
-      landed** (`MeshRenderer` draws a `maz::assets::Model` with per-mesh vertex/index buffers).
-      Instancing + staging-buffer uploads (currently host-visible) still to do.
-- [~] **3D:** `Camera3D`, perspective/ortho, depth buffer, back-face cull — **perspective camera +
-      depth buffer landed** (`maz::scene::Camera`; swapchain has a D32 depth attachment, pipeline
-      depth-tests). Ortho + back-face cull (currently cull-none) still to do.
-- [ ] Materials + PBR groundwork, texture sampling / mipmaps
-- [ ] Lighting: directional / point / spot; forward+ or deferred path
-- [ ] Shadow maps, skybox / image-based lighting
-- [ ] Post-processing stack (tonemap, bloom, FXAA/TAA), HDR
-- [ ] Render-to-texture, multiple viewports, MSAA
+- [x] Shared `TextureStore` (one descriptor layout/pool) used by both 2D sprites and 3D meshes
+- [x] Textured meshes (UVs + sampler; texture × vertex-color × lighting; REPEAT tiling)
+- [x] Buffer + image helpers, staging uploads, `findMemoryType` (manual alloc; VMA swap-in later)
+- [x] Graphics pipeline + descriptor-set management, push constants, dynamic state
+- [x] **Per-frame scene UBO** (camera/light matrices in set-2 UBO; slim ≤96-byte per-draw push
+  with named material fields, under the 128-byte limit; M54)
+- [x] Shader module loading from SPIR-V  ·  [ ] reflection + hot reload
+- [x] **2D:** sprite batch renderer, `Camera2D`, per-sprite tint/rotation, uv sub-rects (atlas-ready)
+- [x] **2D:** tilemap rendering (view-culled, via atlas uv sub-rects)
+- [x] **2D:** multi-camera passes (world-space + pixel-space HUD in one frame)
+- [x] **2D:** follow camera (`game::CameraController2D`: deadzone + frame-rate-independent smoothing +
+  world-bounds clamp + shake offset + worldToScreen; the `camera` demo tracks an avatar in a large world; M82)
+- [x] **2D:** parallax scrolling backgrounds (`game::Parallax`: a `ParallaxLayer` scrolls by its
+  `motionScale` relative to the camera and mirror-tiles by a period — `layerOffset` computes the on-screen
+  offset, `firstTile`/`tileCount`/`pmod` place seamless tiles; the `parallax` demo shows one scene at three
+  scrolls so far layers barely move while near ones sweep — Godot ParallaxBackground/ParallaxLayer; M123) —
+  a texture-tiling draw call + CameraController2D integration later
+- [x] **2D:** filled convex polygons (`Renderer::drawConvexPolygon`: triangle-fan flat shapes streamed
+  through the sprite batch via a 1×1 white texture — Godot Polygon2D-style vector shapes; the `vectors`
+  demo draws N-gons + a disc + translucent overlaps; M88)
+- [x] **2D:** concave polygon fill via ear clipping (`render::triangulatePolygon`: the O(n²) ear-clipping
+  algorithm tiles an arbitrary *simple* polygon — concave included — into triangles, detecting winding via the
+  shoelace area and normalising to CCW, returning vertex indices three-per-triangle that the convex-fill path
+  draws; a triangle fan can only fill convex shapes — Godot Polygon2D; the `polyfill` demo fills a star, a
+  block arrow, a plus/cross, and a thick C-ring with the triangle mesh + outline overlaid; M156) — polygons
+  with holes + self-intersecting input + per-vertex UV/colour for a textured Polygon2D later
+- [x] **2D:** polyline stroking (`render::buildPolyline`: thicken a point path to a ribbon of a given width
+  with Miter/Bevel/Round joints + None/Box/Round caps + closed loops → a triangle soup for
+  `drawConvexPolygon` — Godot Line2D; the `line2d` demo strokes zig-zags per joint mode, bars per cap mode,
+  a sampled sine curve, and a closed star; M126) — per-vertex gradient/width + texture-along-the-line + AA
+  edges later
+- [x] **2D:** multi-mesh instancing (`render::MultiMesh2D`: one convex base polygon + a per-instance buffer
+  of `Instance2D{position, rotation, scale, colour}`; `transformInstance` applies scale→rotate→translate,
+  `transformedPolygon(i)` yields one instance's world polygon, `bakeTriangles()` flattens all instances to one
+  triangle soup — Godot MultiMesh/MultiMeshInstance2D; the `multimesh` demo stamps one dart 540× into a
+  colour-swirled spiral field; M143) — a real GPU instanced draw call, per-instance texture/atlas + custom-data
+  channels, and a 3D MultiMesh later
+- [x] **2D:** lights + shadows (`game::Visibility2D` angle-sweep visibility polygon + a per-vertex-color
+  gradient fan `Renderer::drawPolygonFan` — Godot Light2D / LightOccluder2D-style; occluder boxes carve
+  real hard-edged shadow notches out of each light pool; the `lights2d` demo lights a dark room with three
+  colored lights; M89)
+- [x] **2D:** additive blending (`BlendMode::Additive` on `drawConvexPolygon`/`drawPolygonFan`: a second
+  blend pipeline where src·alpha is ADDED to the destination, batched per blend mode — overlapping 2D
+  lights brighten instead of averaging, matching Godot's Light2D compositing; also for glows/fire/energy;
+  M90)
+- [x] **2D:** soft/penumbra shadows (`game::SoftShadow2D`: model a light as a disc, spread `diskSamples`
+  Vogel-spiral samples across it, `softVisibility` = fraction of the disc visible from a point — Godot
+  Light2D soft shadows; the `softshadow` demo contrasts a hard point light with an area light whose
+  shadow feathers into a penumbra; M101)
+- [x] **2D:** normal-mapped lighting (`game::PointLight2D` + `shadeSurface`: a per-texel surface normal
+  shaded by a 3D N·L Lambert term — the light taken at a height above the plane — plus smooth distance
+  falloff and ambient, so a flat surface with a normal map reads as embossed relief — Godot Light2D
+  normal maps; the `normalmap` demo lights a field of dome bumps with three coloured point lights; M111)
+  — texture-projected light cookies + a CanvasItem material/shader hook later
+- [x] Text rendering (TTF baked to an atlas via stb_truetype, tinted glyph sprites)
+- [x] **2D:** line/shape debug draw, chunked tilemap streaming, sprite sorting / layers (line/shape
+  debug draw = `render::DebugDraw` (M36); **sprite sorting / layers** = `render::SpriteOrder` (M199):
+  back-to-front draw ordering by canvas **layer**, then per-item **z-index**, then optional **Y-sort**
+  (larger world-Y draws in front, for top-down depth), with a stable insertion tie-break — Godot's
+  CanvasLayer.layer + Node2D.z_index + Y-Sort as a pure algorithm; **chunked tilemap streaming** =
+  `game::ChunkStreamer` (M200): cuts a huge world into fixed-size square chunks and, as the focus
+  point moves, reports which chunks to LOAD (entered range) and UNLOAD (left range) so a giant map
+  pages in/out around the camera — square or circular window, floor-division chunk coords, `clear()`
+  for teleports; the load/unload delta feeds the asset loader/renderer. Something Godot's TileMap
+  doesn't provide. All three unit-tested.)
+- [x] **Text layout / wrapping** (`ui::layoutText` + `ui::TextLayout`: greedy word-wrap to a max width
+  via an injected measure callback + `\n` hard breaks + L/C/R alignment → positioned `TextLine` list;
+  renderer-independent — Godot `Label` autowrap; the `textwrap` demo fits one paragraph three ways + a
+  hard-break log; M134) — SDF text for crisp scaling, mid-word/hyphenation breaks, rich-text spans, and
+  RTL/complex-script shaping later
+- [ ] VMA (Vulkan Memory Allocator) to replace the manual allocator
+- [~] Text rendering (bitmap + SDF fonts, glyph atlas, layout) (bitmap fonts + glyph atlas =
+  `ui::Font` (stb_truetype, M12); layout = `ui::layoutText` word-wrap/align (M134); **SDF generation**
+  = new `ui::Sdf` (M203): `generateSdf` turns a rasterized glyph's coverage into a signed distance
+  field via **dead reckoning** (O(n) two-pass, accurate to <0.7 texel vs a brute-force exact
+  transform), and `packSdf` lays it out as bytes with 0.5 on the edge — the bake step for
+  scale-independent crisp text (Godot's SDF/MSDF font mode). Unit-tested against the exact transform.
+  The SDF *sampling shader* (thresholding the distance at draw time) is a GPU step, not yet wired into
+  the Vulkan text path.)
+- [x] Mesh renderer (indexed position/normal/color, MVP+model push constants) — `MeshRenderer`
+- [x] **3D:** perspective camera (`math::perspective`) + depth buffer in the shared render pass
+- [x] Procedural mesh primitives (box / sphere / plane) — `render::shapes`
+- [x] **More procedural mesh primitives** (`render::shapes::makeCylinder` / `makeCone` / `makeTorus` /
+  `makeCapsule` in `Shapes3D.hpp`: outward-normal + UV solids added alongside the untouched box/sphere/
+  plane — Godot CylinderMesh/CapsuleMesh/TorusMesh + cone; the `primitives` demo renders a lit gallery;
+  M136) — prism/quad-sphere/heightmap variants + tangents + LOD auto-tessellation later
+- [x] First-person fly camera controller (`maz::game::FlyCamera`) + relative-mouse look
+- [x] **Dynamic meshes** (`createDynamicMesh` + `updateMesh`, per-frame-in-flight vertex buffers;
+  the `water` demo animates a summed-sine grid; M35)
+- [x] **Instanced rendering** (`drawMeshInstanced`: per-instance model matrix via a second vertex
+  binding, one `vkCmdDrawIndexed` for N copies; the `instances` demo draws 484 cubes in one call; M55)
+- [x] **Billboard modes** (`render::buildBillboard`: model matrix orienting a quad toward the camera from the
+  view matrix — Disabled / Enabled (full-facing) / YBillboard (yaws but stays upright) — Godot SpriteBase3D/
+  GeometryInstance3D billboards; the `billboard` demo shows three rows of cards, one per mode; M144) — a
+  Sprite3D/AnimatedSprite3D node (atlas+billboard+alpha) and velocity-aligned particle billboards later
+- [x] **Orthographic 3D camera** (`math::orthographic` / `orthographicSize`: Vulkan-correct parallel
+  projection — no perspective divide, equal-size objects at every depth, parallel edges never converge —
+  Godot Camera3D Orthogonal; the `ortho3d` demo renders an isometric field of lit cube columns; M153) — a
+  runtime perspective↔ortho toggle on a camera object + an ortho frustum for culling later
+- [x] **Camera3D projection** (`render::Camera3D`: view+projection+viewport → `worldToScreen` (unproject),
+  `screenToRay` (world pick ray), `screenToWorld`, and `frustum()`/`isPointVisible`/`isSphereVisible`
+  (Gribb-Hartmann six planes) — Godot's Camera3D `unproject_position`/`project_ray_*`/`project_position`/
+  `is_position_in_frustum` for mouse picking, world-space UI labels, aim rays; the `camera3d` demo projects a
+  grid + axes + wireframe cube to 2D, colours points by frustum containment, and unprojects a centre ray to
+  the ground; M163) — retrofitting the mesh renderer's private frustum onto it + near-plane segment clipping later
+- [ ] Back-face cull toggle
+- [x] Material groundwork: base-color texture, tangent-space normal map, **emissive** term
+  (`drawMeshEmissive`; M37) + **specular/roughness** (`Material` + `drawMeshMaterial`, Blinn-Phong;
+  M42)
+- [x] **Texture mipmaps** (blit-generated chain, trilinear min sampling, NEAREST mag; M52)
+- [x] **Transparency** (`drawMeshTransparent`: alpha-blended, depth-tested/no-write, back-to-front
+  sorted; the `glass` demo layers 3 panes over opaque pillars; M56)
+- [~] **Physically-based rendering** (a 3D-rendering deep-dive, R-milestones): **R1 — Cook-Torrance
+  GGX specular** — the mesh shader's sun specular is an energy-correct microfacet BRDF (GGX normal
+  distribution + Schlick-GGX geometry + Fresnel-Schlick), driven by the metallic/roughness workflow
+  (`F0 = mix(0.04, albedo, metallic)`; dielectric by default), replacing the old Blinn-Phong lobe for
+  materials that opt into `specular`. **R2 — full metallic/roughness PBR** — `metallic` is exposed on
+  `Renderer::Material` and packed to the shader (`material1.z`); the Cook-Torrance BRDF now applies to
+  the point/spot lights too (not just the sun), diffuse is energy-conserving (metals lose their diffuse
+  term), and a flat ambient-reflection stand-in keeps metals from going pure black before IBL. The new
+  `pbrballs` demo renders the classic 6×6 sphere grid (glossy→rough across, dielectric→metal up).
+  **R3 — analytic image-based lighting** — the sky gradient is mirrored into the mesh Scene UBO, and
+  PBR materials now draw their ambient from it: diffuse uses a hemispheric sky irradiance and specular
+  reflects the sky in the mirror direction (blurred toward the irradiance as roughness rises), weighted
+  by Karis' analytic environment BRDF. Metals now reflect the environment instead of relying on a flat
+  stand-in, and `pbrballs` shows the sky gradient curving across each chrome ball. Matte materials are
+  untouched (IBL is gated on `specular`); the six PBR goldens were re-baselined. **R4 — selectable
+  filmic tonemap operators** — the composite pass now offers the three operators Godot exposes: ACES
+  (Narkowicz curve, the historical default), ACES fitted (Stephen Hill's accurate RRT+ODT with proper
+  color matrices), and **AgX** (Godot 4.2+'s default — log-encode, sigmoid contrast, outset matrix;
+  desaturates highlights gracefully and avoids ACES' hue twists). `setTonemap` gains an operator arg
+  (defaulting to ACES so existing scenes are byte-identical); the new `tonemap` demo renders a hot HDR
+  scene selectable with `--op N` for side-by-side comparison. This closes the core 3D render-look gap
+  with Godot; screen-space/ray-traced reflections and a full IBL prefilter remain honest structural
+  gaps beyond a from-scratch analytic engine.
+- [x] **Normal mapping** (tangent-space, derivative-based TBN, glTF `normalTexture`; M26)
+- [x] Lighting: directional (Lambert) + ambient in the mesh shader
+- [x] **Point lights** (up to 8, distance-attenuated, via a lights UBO + `setLighting`; M21)
+- [x] **Distance fog** (exponential, camera-distance, blends meshes into the sky; M22)
+- [x] **Dynamic sky + day/night** (sky colors + sun are `SceneLighting` params; `village` animates
+      a full sun arc with responding sky/ambient/fog/lamps; M24)
+- [x] **Spot lights** (point lights gain an optional cone: direction + inner/outer angle; M25)
+- [ ] Forward+ or deferred path
+- [x] Shadow maps (directional light, depth-only pass, **5×5 PCF** soft penumbra; M44)
+- [x] Gradient skybox (per-pixel view-ray sky + sun glow)
+- [~] Image-based lighting, cascaded / point-light shadows (analytic IBL shipped in R3; **cascaded
+  shadow-map split math** = M211 `render::cascadeSplits`/`cascadeRanges`: the PSSM practical split
+  scheme (uniform↔logarithmic `lambda` blend) that decides where to slice the view frustum into N
+  cascades — near cascades crisp, far cascades cover more — with the last split pinned to the far
+  plane and contiguous per-cascade ranges. Pure, unit-tested (increasing splits, uniform/log limits,
+  log packs nearer, contiguous ranges, invalid-input safety). The per-cascade depth passes + shader
+  cascade selection are the GPU half; prefiltered-environment IBL + point-light cube shadows remain
+  GPU work.)
+- [x] **Post-processing** (offscreen scene target + composite pass with threshold **bloom**; M27)
+- [x] **HDR scene target + ACES tonemap/exposure** (16-bit float scene color, `setTonemap`; M38)
+- [x] **Separable downsampled bloom** (`BloomChain`: bright-pass + ½-res 2-pass Gaussian; M41)
+- [x] **Color grade** (composite vignette + saturation + contrast, `setColorGrade`; M45)
+- [x] **Chromatic aberration** (composite radial RGB split, `setChromaticAberration`; M46)
+- [x] **Film grain** (composite animated hashed noise, `setFilmGrain`; M48)
+- [x] **Screen-space ambient occlusion** (`setSsao`) — a camera depth prepass (reusing the shadow
+  depth pass/pipeline at full res) feeds a world-space `SsaoPass`: it reconstructs position + a
+  camera-facing face normal from depth, samples a 16-point hemisphere with a per-pixel rotation and a
+  range check, and 4×4-blurs the result; the composite multiplies the blurred AO into the scene so
+  contact creases and corners darken. Off by default (byte-identical passthrough — verified); the
+  `ssao` demo (`--noao` to compare) shows objects grounded in their contact shading. Applied in the
+  composite (darkens the whole scene, not the ambient term alone) — a pragmatic approximation until a
+  deferred/G-buffer path exists.
+- [ ] FXAA/TAA, lens dirt / bloom-dirt mask; ambient-only AO once a deferred path lands
+- [x] **MSAA** (multisampled color+depth + resolve, ≤4×; M16)
+- [x] Render-to-texture (offscreen scene color target for post-processing; M27)
+- [x] **Wireframe debug draw** (`setWireframe`, `VK_POLYGON_MODE_LINE` mesh pipeline; F4 in `world`; M34)
+- [x] **Debug line draw** (`drawLine` / `drawAabb`, world-space `LINE_LIST` pipeline; F5 collider
+  overlay in `world`; M36)
+- [x] **3D reference grid + RGB gizmo axes** (`render::buildGrid` / `render::buildWireBox`: an XZ-plane
+  ground grid with brighter center-axis lines + the X=red/Y=green/Z=blue origin gizmo, and a placeable
+  12-edge wireframe box — colored `Line3` lists drawn via `drawLine`, no shared shader change — Godot
+  Node3D viewport; the `grid3d` demo draws them under a fixed camera; M130) — interactive translate/rotate/
+  scale gizmo handles + screen-constant sizing + snapping + picking need the shipping editor UI
+- [ ] Multiple viewports, gizmos
 - [ ] GPU profiling, keep validation-clean baseline
 
 ## Phase 4 — Scene & ECS
-- [ ] Entity Component System (sparse-set or archetype), entity handles
-- [ ] Core components: `Transform`, `Hierarchy/Parent`, `Name`, `Tag`
-- [ ] Scene graph, world-transform propagation, dirty flags
-- [ ] System scheduler (ordered + parallel execution)
-- [ ] Scene serialization (save/load), prefabs / blueprints
-- [ ] Spatial partitioning (grid / quadtree / octree / BVH) for culling + queries
+- [x] Entity Component System (sparse-set pools, `each<T>` / `view<A,B>`) — `maz::ecs::World`
+- [x] Core engine components: `Transform`, `Hierarchy/Parent`, `Name`, `Tag` (M194 —
+  `maz::ecs::Components`: a `Transform` (TRS + `matrix()`), a cached `WorldTransform`, a `Parent`
+  link, a `Name`, and a 64-bit `Tag` bitmask (`has`/`set`/`anyOf`/`allOf`), plus
+  `propagateTransforms(World&)` — the hierarchy system that computes world matrices parent-first in
+  cycle-safe passes regardless of entity order. Godot Node3D/name/groups as plain ECS data. Unit-tested.)
+- [x] **Scene graph / transform hierarchy** (`maz::scene::TransformGraph`: nodes with local
+  pos/rot/scale + parent; `update()` propagates world transforms parent-first via decomposed TRS;
+  `localToWorld`; the `solar` demo runs a sun→planets→moons hierarchy; M81) — dirty-flag caching later
+- [x] System scheduler (ordered + parallel execution) (M194 — `maz::ecs::Scheduler`: systems
+  register into ordered PHASES with an intra-phase order; `run()` executes them deterministically
+  phase-by-phase, and `runParallel(World&, JobSystem&)` runs `parallelSafe` systems concurrently
+  within a phase on the thread pool with a hard barrier between phases. Deterministic cross-phase
+  ordering WITH opt-in in-phase parallelism — beyond Godot's single-threaded `_process`. Unit-tested.)
+- [x] **Scene loading from data** (glTF scene: nodes + transforms + textures via `loadGltfScene`; M19)
+- [x] **Native scene serialization (ECS save/load)** (`io::SceneSerializer`: register per-component
+  JSON converters, then `saveWorld`/`loadWorld` a live `ecs::World` to/from JSON — the reflection-lite
+  content backbone for save games, prefabs, and an editor; the `ecsave` demo round-trips a world; M79)
+- [x] **Prefabs / instancing** (`scene::Prefab`: a `PrefabNode` tree of named nodes each with an exported
+  `PropBag` (Float/Int/Bool/Vec2/Color/Text `PropValue`s); `instantiate(prefab, overrides)` deep-copies the
+  template and applies per-node-path property overrides → an independent instance — Godot PackedScene; the
+  `prefab` demo instances one turret template six times with per-instance overrides; M125)
+- [x] **Node groups** (`scene::GroupRegistry`: tag any integer node id into named groups (unique, insertion-
+  ordered) with a reverse node→groups index; `add`/`remove`/`removeNode`/`isInGroup`/`nodesInGroup`/`groupsOf`/
+  `groupSize` + `call(group, fn)` broadcasting over a snapshot so the callback may add/free members mid-walk —
+  Godot SceneTree add_to_group/get_nodes_in_group/call_group; the `groups` demo tags a 6×6 grid and drives a
+  `nodesInGroup` query + a `call` broadcast; M148) — auto-join/leave on SceneTree enter/exit + group
+  persistence in scene (de)serialization later
+- [x] **Text resource save/load** (`io::savePrefabText` / `io::loadPrefabText`: round-trip a `scene::Prefab`
+  to Godot-`.tscn`-style text — `[node name/parent]` sections + typed `key = TYPE value` lines — diffable,
+  version-control-friendly, idempotent; the `restext` demo serializes an Enemy prefab + confirms the
+  parse-back; M127) — full `.tscn` parsing (ExtResource/SubResource refs, arrays) + SceneSerializer bridge
+  later
+- [x] **Frustum culling** (per-mesh world AABB vs viewProj planes; culled count in stats; M30)
+- [~] **Spatial partitioning** — the uniform **spatial grid** (`game::SpatialGrid`, M40) for evenly-
+  spread objects, plus a **quadtree** (`game::Quadtree`, M182) that adapts to CLUSTERED scenes: dense
+  regions subdivide deep, empty space stays one node, so a range query only visits cells that could
+  overlap. Exact overlap results (verified against brute force over 250 boxes incl. a tight cluster),
+  with `query`/`queryPoint`/`queryCircle` for culling, picking, and neighbour finding. The 3D
+  counterpart, an **octree** (`game::Octree`, M184), applies the same adaptive 8-way subdivision to
+  3D AABBs for 3D frustum/box culling, physics broadphase, and 3D neighbour/AoE queries
+  (`query`/`queryPoint`/`querySphere`, exact overlap verified against brute force). A **BVH**
+  (`game::Bvh`, M189) completes the set — a bounding-volume hierarchy that partitions the OBJECTS
+  (not space) by longest-axis centroid median, purpose-built for **ray casting**: `raycast` returns
+  every AABB a ray enters (slab test, tMax-bounded) and `raycastNearest` the closest hit (id +
+  distance), plus `queryBox`. That's what makes bullet / line-of-sight / mouse-pick against a whole
+  level sublinear. Verified: box + ray queries vs brute force, nearest-hit distance, tMax bounds, and
+  empty-tree safety
 
 ## Phase 5 — Asset pipeline
-- [ ] Asset manager: async load, ref counting, GUIDs, hot reload
-- [ ] Image loading (stb_image), compressed textures (KTX2), mipmaps
-- [~] Model import (glTF via cgltf/tinygltf; optional assimp) — **Blender→glTF pipeline landed**:
-      `maz::assets::loadModel` (cgltf) loads meshes/normals/UVs + bounds; Blender export helper in
-      `tools/blender/`. See [`BLENDER_PIPELINE.md`](BLENDER_PIPELINE.md). Still to do: GPU upload +
-      draw (needs the Phase 3 mesh renderer), materials/textures, async loading via the asset manager.
-- [ ] Audio asset loading (wav / ogg), font import, shader assets
-- [ ] Asset cooking / packing pipeline, pak archives, streaming
-- [ ] Import settings + dependency graph + reimport
+- [x] **Asset manager core** (`core::ResourceCache<Key,T>`: load-once/dedup-by-key + ref counting +
+  evict callback + stats; the `assetcache` demo dedups 240 tiles to 8 textures; M66)
+- [x] **Async streaming loader** (`core::AssetServer<T>`, toward Godot's `ResourceLoader`
+  threaded API): `request(path)` enqueues a decode job on the `JobSystem` and returns immediately;
+  `poll()` finalizes finished jobs on the game thread (where GPU upload belongs); `status()` /
+  `progress()` drive a loading screen; identical paths **dedupe** to one ref-counted entry. The
+  `streaming` demo streams 24 assets in on background threads and fills a progress bar to
+  `READY 24/24` (M176)
+- [x] Image loading (stb_image PNG/JPEG) + **blit-generated mipmaps** (M52)
+- [~] Compressed textures (KTX2), anisotropic filtering (M209 — `render::Ktx2` parses the KTX2
+  (Khronos Texture 2) container: validates the 12-byte identifier, reads the header (vkFormat,
+  typeSize, dimensions, layer/face/level counts, supercompression scheme) and the per-mip level
+  index (byte offset / length / uncompressed length), all little-endian and bounds-checked —
+  returns `{valid,error}` on truncated/corrupt input instead of reading OOB. That's what lets the
+  loader see a texture is e.g. BC7 with a full mip chain and locate each level's bytes for a
+  no-decode GPU upload (Godot ships `.ktx2`). Pure/std-only, unit-tested against a hand-built KTX2
+  buffer (valid parse, bad identifier, truncation, out-of-bounds level). Basis/Zstd transcoding +
+  the actual VulkanTexture GPU upload + anisotropic sampler flag remain — they need the transcoder
+  and a real device.)
+- [x] **Model import** (glTF 2.0 via cgltf: `maz::render::loadGltf`; M17)
+- [x] **glTF material base-color textures** (embedded or external, decoded via stb_image; M18)
+- [x] Audio asset loading — **WAV** (`audio::decodeWav`/`encodeWav`, 8/16-bit PCM; M129); OGG/font-import/
+  shader-assets still pending
+- [~] Asset cooking / packing pipeline, **pak archives** (`io::packResources` + `io::ResourcePack`: bundle
+  named blobs into one `.pck`-style archive — magic+version header, `(path, offset, size)` directory,
+  concatenated data — and read them back by path with bounds-checked loading; Godot `.pck`/`PackedData`; the
+  `respack` demo packs level JSON + text + a synthesized WAV + a raw blob and draws the directory + hex header
+  + round-trip check; M140) — DEFLATE/gzip compression, per-file checksums/encryption, streaming reads, and a
+  mount-pack virtual filesystem still pending
+- [x] **Reimport / hot reload** (`AssetServer::reimportChanged()` re-decodes every asset whose
+  source *stamp* — an mtime or content hash — moved, and `version()` bumps so a renderer knows to
+  re-upload; `reimport(id)` forces one, the editor "Reimport" button. The runtime half of Godot's
+  `.import` reimport; M176) — import-settings sidecar files + full dependency graph still pending
 
 ## Phase 6 — Physics & collision
-- [ ] 2D: AABB / circle, broadphase (grid / sweep-and-prune), resolution
-- [ ] 2D physics integration (custom or Box2D)
-- [ ] 3D collision shapes, raycasts / queries, triggers / overlaps
-- [ ] 3D physics integration (Jolt or Bullet), character controller
-- [ ] Continuous collision, layers / masks, physics materials
-- [ ] Collider / contact debug visualization
+- [~] 2D: tile-grid AABB collision with axis-separated sliding (done in demo)
+- [x] 2D: circle, broadphase (grid / sweep-and-prune), general resolution (circle + box collision
+  and warm-started impulse resolution live in `game::PhysicsWorld2D` (M69/P1); the grid broadphase is
+  `game::SpatialGrid` (M40) and integrated into the physics world (P2); the **sweep-and-prune**
+  broadphase is new — `game::SweepPrune2D` (M198): sorts AABBs on the higher-variance axis and sweeps
+  a moving window, returning the exact overlapping-pair set (sort-axis prune + other-axis confirm, no
+  false positives) plus a single-probe `query()`. Adapts to varied object sizes / unbounded worlds
+  where a fixed grid cell can't. Unit-tested against brute force.)
+- [x] **2D physics** (`game::PhysicsWorld2D`: circle + **box** rigid bodies, gravity, impulse +
+  **Coulomb friction** + positional correction, static-box bounce; the `physics` demo stacks 45
+  balls, `boxes` stacks mixed boxes/balls on ledges; M69, M72)
+- [x] **2D kinematic character controller** (`game::moveAndSlide` + `sweptAabb`: velocity-driven AABB body
+  swept against a static AABB list (Minkowski-expand + ray-slab), sliding the leftover motion along contacts
+  over several iterations, with floor / wall / ceiling classification against an `up` direction + max floor
+  angle → `SlideResult` with `onFloor`/`onWall`/`onCeiling` — Godot `CharacterBody2D.move_and_slide`; the
+  `kinematic` demo runs a character through an obstacle course, colouring its path by contact state; M159) —
+  rotated/circle shapes + moving platforms + floor snapping/stair-stepping + `move_and_collide` later
+- [x] **2D rigid-body rotation** (oriented boxes: orientation + spin + moment of inertia via
+  `Body2D::enableRotation()`; oriented-box SAT contacts + rotational impulses about the contact point +
+  linear/angular damping — Godot RigidBody2D-style angular dynamics; opt-in so non-rotating scenes are
+  unchanged; the `tumble` demo drops tilted boxes that topple and settle; M91)
+- [x] **2D physics joints** (`game::Joint2D`: a **Pin** point-to-point constraint (2×2 effective mass +
+  Baumgarte), a **damped Spring**, and a **Groove**/slider (a body pinned to a line, free to slide along
+  it) — Godot PinJoint2D / DampedSpringJoint2D / GrooveJoint2D; solved by sequential impulses in the
+  oriented step; either end may be a fixed world anchor; the `joints` demo builds a pin-chain rope bridge
+  + spring-hung masses and the `groove` demo slides boxes down tilted rails; M93, M102)
+- [x] **2-point contact manifolds** (`PhysicsWorld2D::solveManifolds`: reference/incident-face clipping
+  gives oriented box-box contacts TWO points along the shared face, so a stacked box has the torque
+  balance to stay square instead of rotating off — Box2D/Godot-style stable stacks; opt-in so existing
+  rotating scenes keep their single-point numerics; the `stack` demo drops two identical towers, one
+  stable, one toppling; M110) — cross-frame warm starting / a block solver later
+- [x] **2D sensor / trigger regions** (`game::Area2D`: a circle-or-box zone that detects overlap without
+  applying any force; `overlaps()` covers circle-circle, box-box (AABB), and mixed circle-box via
+  closest-point; an `AreaMonitor` diffs each frame's overlapping set to fire **enter / exit** events — a
+  monitoring `Area2D` in Godot terms; the `area2d` demo streams agents through a circular aura + a box gate,
+  showing live membership + enter/exit counts per zone; M116) — body-vs-body sensor pairs later
+- [x] **Collision layers & masks** (`game::CollisionLayers`: 32-bit `LayerMask`; a directional
+  `detects(observerMask, targetLayer)` for Area2D/ray-style filtering + a symmetric
+  `interact(aLayer,aMask,bLayer,bMask)` for physics pairing; a `CollisionObject2D` with per-bit editing;
+  a named-layer `LayerRegistry` — Godot's collision_layer / collision_mask, the "which things does this
+  react to" half of the collision system; the `layers` demo streams player/enemy/pickup species through
+  a hurtbox watching only enemies + a magnet watching only pickups; M118) — per-shape layers + a
+  layer-filtered broadphase query later
+- [x] 3D: AABB collision with axis-separated sliding (`maz::game::Collision`) + camera collision
+- [x] **Broadphase: uniform spatial grid** (`maz::game::SpatialGrid`, X/Z hash + `slideMove`; M40)
+- [x] **Ray vs AABB queries** (`raycastAabb` / `raycast` nearest-hit, slab method; look-at targeting
+  in `world`; M53)
+- [x] **2D physics-space queries** (`game::queryRay` / `querySegment` / `queryPoint` in `PhysicsQuery2D`:
+  cast a ray/segment against circle + **oriented-box** shapes and get the nearest `RayHit2D`
+  (t / point / normal / index / id), filtered by a 32-bit collision **mask**; `queryPoint` / `pointInShape`
+  answer which shapes contain a point — Godot `PhysicsDirectSpaceState2D.intersect_ray` / `intersect_point`,
+  the primitive behind hitscan, line-of-sight, ground probes, and mouse picking; pure geometry, no sim step;
+  the `rayquery` demo fans mask-filtered rays through a glass layer onto solids with contact normals + a
+  point-pick; M131) — convex/capsule shapes, `intersect_shape` / shape-casts, and a broadphase-accelerated
+  query later
+- [x] **2D convex polygon collision** (`game::satOverlap`: Separating-Axis Theorem over both polygons'
+  edge normals → overlap + minimum-translation vector (axis+depth); `polyContains` point-in-poly;
+  `makeRegularPoly`/`makeBoxPoly` builders — Godot `ConvexPolygonShape2D`/`CollisionPolygon2D`; the
+  `polycollide` demo tests a probe against a ring of shapes with MTV arrows; M138) — rigid-body-solver
+  integration (polygon contact manifolds), concave auto-decomposition, and polygon-vs-circle/shape-casts later
+- [x] **One-way platforms** (`game::resolveOneWayPlatform` / `resolveOneWayPlatforms`: a ledge solid only
+  from above — a swept test lands a body descending across the surface from above and passes a body launched
+  from below (or already under it) straight through, with a snap tolerance; the multi-platform form returns
+  the topmost landing — Godot `one_way_collision`; the `oneway` demo drops three balls onto ledges while a
+  fourth is launched up through one; M145) — wiring the flag into the `Physics2D` rigid-body solver as a
+  per-shape property, a down-press drop-through gesture, and arbitrarily-angled one-way surfaces later
+- [x] **Area gravity fields** (`game::GravityArea2D` + `gravityAt`: a `Rect2` zone overrides the gravity a
+  body feels inside it — Directional (wind/updraft) or Point (toward a centre with inverse-square falloff),
+  combined across overlapping zones by priority with Replace/Add modes over the world default — Godot Area2D
+  gravity_space_override; the `gravzones` demo drops balls through a wind field, an updraft, and an attractor
+  and their trails drift/U-turn/orbit; M152) — wiring it into the Physics2D integrator so bodies read it every
+  step + circle/polygon zones + the full five space-override modes later
+- [x] **Full 2D rigid-body-solver shape story** (a 2D physics deep-dive, P1–P13, targeting Box2D/Godot
+  parity in `game::Physics2D`): a warm-started accumulated-impulse solver with split-impulse position
+  correction (P1); an integrated spatial-hash broadphase (P2); body sleeping / islands (P3); collision
+  **layer/mask** filtering in the world (P4); **capsule** (P5, Godot `CapsuleShape2D`), infinite
+  **world-boundary** half-plane (P6, `WorldBoundaryShape2D`) and **convex-polygon** (P10,
+  `ConvexPolygonShape2D`) shapes as first-class solver bodies with two-point clipped manifolds; contact
+  **begin/persist/end** events (P7, `body_entered`/`body_exited`); integrated **continuous collision**
+  for fast bodies (P8, `continuous_cd`); pin-joint **motor + angular limit** (P9); two-point capsule
+  manifolds that kill resting micro-rock (P11); **physics-material combine modes** (P12, Godot
+  `PhysicsMaterial` friction/restitution combine); and a static **polyline / chain terrain collider**
+  (P13, Godot `ConcavePolygonShape2D` / a `SegmentShape2D` chain — `game::makePolyline(points, thickness)`;
+  each segment is a swept-capsule collider, contact points pooled across segments and reduced to the
+  widest-base pair so a box straddling a joint rests flat; the `polyline` demo drops circles/boxes/capsules
+  onto rolling terrain and they settle on hills, slopes and in the valley)
+- [~] Other collision shapes (sphere/capsule casts), triggers / overlaps (M201 — `game::Overlap3D`:
+  **exact** sphere overlap queries (`sphereVsAabb` via closest-point, `sphereVsSphere`, and
+  `overlapSphere` returning every AABB a sphere touches — Godot's `intersect_shape` for a
+  SphereShape3D, the trigger/overlap query), plus a **conservative** swept-sphere `sphereCast`
+  against AABBs (each box grown by the radius and ray-tested — exact on faces, square-not-rounded at
+  corners, so no false negatives; the standard safe first-pass character/projectile sweep). Complements
+  the existing ray queries in `game::Collision` (M53). Unit-tested. Capsule casts and corner-exact
+  sphere sweeps still pending.)
+- [~] **3D physics** (a from-scratch 3D deep-dive in `game::Physics3D`, sibling of the 2D solver):
+  **D1 — rigid-body foundation** — `PhysicsWorld3D` with dynamic **Spheres** + an infinite static
+  ground **Plane** (Godot WorldBoundaryShape3D), semi-implicit-Euler gravity integration, and
+  sphere-sphere + sphere-plane **impulse resolution** (restitution + Coulomb friction + split
+  positional correction); orientation/inertia fields carried but locked, ready for angular dynamics.
+  **D2 — boxes + angular dynamics** — the solver is now rotation-aware: a per-body inverse-inertia
+  tensor (rotated into world space each step), quaternion orientation integration, and contact
+  impulses applied at the contact point (lever arms). Adds the **Box** (OBB) shape (Godot
+  BoxShape3D) with `enableRotation()`, sphere-box contacts, and multi-corner box-vs-plane contacts,
+  so a tilted box tumbles and settles flat and a ball landing off-centre imparts spin.
+  **D3 — box-vs-box (3D SAT) + stacking** — oriented-box vs oriented-box via the Separating-Axis
+  Theorem over 15 axes (3+3 face normals + 9 edge-edge cross products, faces preferred by a small
+  tolerance); a face contact produces up to four points by clipping the incident face against the
+  reference face's side planes (Sutherland-Hodgman), an edge contact a single closest-approach point,
+  so boxes stack squarely (Godot BoxShape3D).
+  **D4 — warm-started accumulated-impulse solver** — the velocity solve is now constraint-based: each
+  contact carries a normal + two-tangent frame, accumulated normal/friction impulses clamped inside
+  the Coulomb cone, and is warm-started from the previous frame's matching contact (paired by body
+  ids + contact-point proximity). This is the modern Box2D/Godot solve — a six-high box tower stays
+  dead vertical at a handful of iterations, where the non-warm-started solver leaned and jittered.
+  The `physics3d` demo settles a six-cube and a four-cube tower plus a tumbling box and a pile of
+  balls (golden-verified).
+  **D5 — capsule shape** — the **Capsule** (Godot CapsuleShape3D): a segment along local Y swept by
+  `radius`, with a cylinder-approximated inertia tensor (`makeCapsule`). Contacts: capsule-vs-plane
+  (both caps → a horizontal capsule rests flat on two points), sphere-capsule, capsule-capsule
+  (closest-segment), and capsule-box (segment/box closest point → sphere-box), all flowing through the
+  warm solver. The `physics3d` demo adds two capsules that fall and rest flat on the ground.
+  **D6 — broadphase (sweep-and-prune)** — candidate pairs come from a sweep-and-prune over world-space
+  AABBs (spheres/boxes/capsules bounded; infinite planes tested against all), sorted to the same
+  (i,j) order as brute force so the simulation is bit-identical — it only skips pairs whose AABBs are
+  disjoint, cutting the O(n^2) narrow-phase down for spread-out scenes. Toggle via `broadphase`
+  (default on). Verified by a test that runs a scene with it on and off to identical results.
+  **D7 — body sleeping / islands** — opt-in via `allowSleep`: bodies connected by contacts form
+  islands (union-find over last frame's constraints); an island sleeps once every dynamic member has
+  stayed below the linear + angular thresholds for `sleepTime`. A sleeping body is made temporarily
+  immovable so it's skipped by integration and acts as a static obstacle in the solve (zero CPU),
+  and an island-mate touched by a mover wakes on the next step with no tunneling (Godot can_sleep).
+  Verified by a test where a settled stack falls asleep and a dropped box wakes it.
+  **D8 — physics ray queries** (`PhysicsWorld3D::queryRay`, Godot
+  `PhysicsDirectSpaceState3D.intersect_ray`): cast a ray and get the nearest body it enters within a
+  max distance — `RayHit3{t, point, normal, index}` — with analytic ray-vs-sphere / oriented-box /
+  capsule / half-plane intersections and 32-bit collision-**mask** filtering; pure geometry, no sim
+  step. The primitive behind hitscan weapons, line-of-sight, ground probes and mouse picking.
+  **D9 — kinematic character controller** (`game::moveAndSlide3`, Godot
+  `CharacterBody3D.move_and_slide`): advance a kinematic mover (sphere/box/capsule) by a velocity,
+  then collide-and-slide against static colliders — push out of penetrations and strip the
+  into-surface velocity component so the body slides along walls instead of stopping dead — returning
+  a `MoveResult3{position, velocity, onFloor, onWall, onCeiling, floorNormal}` with floor/wall/ceiling
+  classified against an up vector. The shape-vs-shape dispatch is shared with the world's narrow-phase.
+  Verified by a test where a capsule lands on a floor (on_floor) and slides along a wall while still
+  advancing sideways.
+  **D10 — physics materials** — friction and restitution combine modes (`CombineMode` +
+  `combineValue`, extracted into a shared header so the 2D and 3D solvers use identical material
+  semantics — Godot PhysicsMaterial): `PhysicsWorld3D::frictionCombine` / `restitutionCombine`
+  (GeometricMean / Average / Multiply / Min / Max) select how two bodies' scalars combine into the
+  effective pair value; defaults (geometric-mean friction, min restitution) reproduce the prior
+  hardcoded behaviour exactly. Verified by a test where Max-restitution makes a ball bounce far
+  higher than Min. This brings the 3D deep-dive (D1–D10) to a complete rigid-body core.
+  **D11 — pin joints** (`game::Joint3D` + `makePinJoint3`, Godot PinJoint3D): a point-to-point (ball)
+  constraint holding two bodies' local anchor points together, solved in the velocity loop as a 3-DOF
+  effective-mass impulse (`K = ΣinvMass·I − S(rA)·invIA·S(rA) − S(rB)·invIB·S(rB)`) with a Baumgarte
+  position bias; either body may be static (a pendulum pinned to the world), and jointed bodies share
+  a sleep island. Verified by a swinging pendulum that preserves its rod length and a two-link chain
+  that hangs vertical.
+  **D12 — distance / rod joints** (`Joint3D::Distance` + `makeDistanceJoint3`): a 1-DOF constraint
+  holding two anchor points a fixed `restLength` apart along the line between them (rigid rods, rope
+  links, ragdoll bones — Godot Generic6DOF distance), solved along the contact axis with a Baumgarte
+  bias in the same joint loop. Verified by a ball on a rod hanging at exactly the rod length and a rod
+  keeping two free-falling balls a fixed distance apart every step.
+  **D13 — hinge (revolute) joint** (`Joint3D::Hinge` + `makeHingeJoint3`, Godot HingeJoint3D): the
+  point-to-point linear constraint plus a 2-DOF angular lock so the bodies may only rotate relative to
+  each other about the hinge axis, with a cross-product axis-realignment Baumgarte bias — doors,
+  wheels, elbows/knees. Verified by a box hinged along world Z that swings down under gravity while its
+  local Z axis never leaves the hinge axis and the hinge point stays pinned. Convex/trimesh colliders
+  and full shape-vs-shape CCD remain honestly-noted extras.
+- [x] Continuous collision (P8), **layers / masks** (`game::CollisionLayers`, M118 + world P4), physics
+  materials (P12) — all landed by the P1–P13 deep-dive
+- [x] Collider / grid debug visualization (`world` F5 colliders, F6 broadphase grid; M36/M40)
 
 ## Phase 7 — Audio
-- [ ] Audio device + mixer (SDL audio / miniaudio / OpenAL)
-- [ ] Sound instances, buses / categories, volume / pitch / loop
-- [ ] Streaming music vs one-shot SFX
-- [ ] 2D panning + 3D spatialization, attenuation, doppler
-- [ ] DSP effects (reverb, filter), ducking
+- [x] Audio device + real-time float mixer (SDL3, on the audio thread)
+- [x] Synthesized voices (sine/square/triangle/noise), envelope, frequency glide, master volume
+- [x] Looping arpeggio music bed; thread-safe `play`; graceful with no device
+- [x] **Stereo mixer + 2D positional audio** (`audio::spatialize`: listener/source distance attenuation
+  (linear / inverse-distance) + constant-power stereo pan; the mixer is stereo with per-voice L/R gain
+  (`SoundDesc::leftGain`/`rightGain`) — Godot AudioStreamPlayer2D; the `spatial2d` demo visualizes the
+  field; M94)
+- [x] **DSP effects + mix buses** (`audio::Biquad` RBJ low/high/band-pass + `audio::Delay` feedback echo
+  + `audio::Bus` ordered effect chain with output gain — Godot AudioEffectFilter/AudioEffectDelay + bus
+  layout; pure per-sample math, the `bus` demo scopes source/low-pass/high-pass/low-pass→delay as
+  stacked waveforms; M99)
+- [x] **Reverb + distortion + compressor** (`audio::Reverb` Schroeder/Freeverb (4 combs + 2 allpasses),
+  `audio::Distortion` tanh waveshaper, `audio::Compressor` peak-envelope dynamics — Godot AudioEffect
+  Reverb/Distortion/Compressor; drop into the `Bus`; the `reverb` demo scopes a note through each; M106)
+- [x] **Chorus + flanger + phaser** (`audio::Chorus` multi-voice detuned modulated delay, `audio::Flanger`
+  swept feedback comb, `audio::Phaser` swept all-pass cascade — the three LFO-driven "time-modulation"
+  effects, built on a shared `Lfo` + `fracTap` interpolated delay read; all slot onto the `Bus` — Godot
+  AudioEffectChorus/AudioEffectPhaser; the `modfx` demo scopes one note through each; M146) — real-time
+  per-voice insertion into the mixer callback + stereo widening + tempo-synced LFO later
+- [x] **ADSR envelope** (`audio::ADSR`: attack/decay/sustain/release amplitude contour as a note-on/off
+  gated state machine, `process(dt)`→level — the shape every synth voice is multiplied by; the `envelope`
+  demo contrasts pluck/pad/stab presets as curves + shaped tones; M114) — real-time per-voice bus routing
+  in the live mixer + LFOs / mod matrix later
+- [x] **Spectrum analyzer / FFT** (`audio::SpectrumAnalyzer` + standalone radix-2 `fft`: window+FFT a sample
+  frame → single-sided per-bin magnitudes, `peakBin`, `binFrequency`, and `magnitudeForRange(lowHz,highHz)` —
+  Godot AudioEffectSpectrumAnalyzer's `get_magnitude_for_frequency_range` for rhythm games / VU + equalizer
+  visualizers / beat-reactive FX; the `spectrum` demo plots a chord's spectrum + bass/mid/treble band meters;
+  M166) — a live streaming analyzer in the mixer callback + mel/bark perceptual banding later
+- [x] **WAV load/save** (`audio::decodeWav`/`encodeWav`: RIFF/WAVE PCM codec — parse 8-bit-unsigned +
+  16-bit-signed PCM into float samples and write them back as 16-bit `.wav` bytes, byte-in/out — Godot
+  AudioStreamWAV; the `wav` demo synthesizes → encodes → decodes → scopes the waveform; M129) — OGG/MP3
+  decode + per-sound categories/ducking later
+- [x] **Sample-playback mixer** (`audio::SampleMixer`: plays decoded `WavData` clips as voices — `play(clip,
+  gain, pan, loop, speed)` → voice id, `stop`/`activeVoices`/`clear`, and `mix(out, frames, outRate)` sums
+  every active voice into an interleaved-stereo buffer with linear-interpolated resampling/pitch, per-voice
+  gain + stereo pan, mono→both-channels / stereo passthrough, auto-stop at clip end + loop wrap — Godot
+  `AudioStreamPlayer` over `AudioStreamWAV`; the `sampler` demo plays a tone (left) + noise blip (right) and
+  scopes the mixed L/R output; M139) — wiring it into the live SDL device callback + bus routing / DSP-insert
+  + streaming decode later
+- [x] **3D spatialization + doppler** (`audio::Spatial3D`: a `Listener3D` (pos + forward/up basis +
+  velocity) and `Source3D`; four Godot AudioStreamPlayer3D attenuation models (None / Linear / Inverse /
+  InverseSquare via `attenuation3D`), a listener-*orientation*-relative stereo pan (`panPosition` projects
+  onto the listener's right axis `forward × up`) split constant-power (`equalPowerPan`), and doppler
+  pitch (`dopplerPitch`, `(c−v_listener)/(c−v_source)`); `computeSpatialMix` bundles it into a
+  left/right/pitch/distance/pan `SpatialMix`; the `spatial3d` demo is a top-down radar of six sources
+  around one listener; M121) — real-time per-voice 3D bus wiring + HRTF/binaural + occlusion/reverb zones
+  later
+- [x] **Stream randomizer** (`audio::StreamRandomizer`: a weighted clip pool with Random / RandomNoRepeat /
+  Sequential pick modes + per-trigger pitch (log-symmetric `[1/p, p]`) and volume (`±dB`) jitter — Godot's
+  `AudioStreamRandomizer` that breaks up repetitive one-shots; each `next()` returns a `{index, pitchScale,
+  volumeDb}` pick; deterministic via seeded `core::Random`; the `randomizer` demo shows a pick histogram +
+  pitch×volume scatter + a no-repeat tick strip; M158) — auto-registering the picked clip as a live
+  `SampleMixer` voice + a `.tres` resource wrapper later
 
 ## Phase 8 — Animation
-- [ ] Sprite / flipbook animation, frame events
-- [ ] Skeletal animation (glTF skins), GPU skinning, blend trees
-- [ ] Animation state machine, transitions, IK (later)
-- [ ] Tween / timeline system, curves
+- [x] **Sprite / flipbook animation** (`anim::SpriteAnim` + `gridFrames`: fps-timed loop/one-shot
+  UV-frame playback; the `sprites` demo plays a phase-staggered wave; M63) — frame events later
+- [x] **Skeletal animation core** (`anim::Skeleton`: joint hierarchy + bind/inverse-bind + skinning
+  matrices; the `skeleton` demo CPU-skins a tapered tube on an 8-bone chain; M67) — glTF skins /
+  GPU skinning later
+- [x] **Keyframe clips + blending** (`anim::AnimClip`: per-joint TRS tracks, lerp/slerp sampling +
+  loop, `blendPoses` cross-fade; the `animclip` demo blends a wave and a coil clip; M68) — blend
+  trees later
+- [x] **Animation controller** (`anim::Animator`: named clips + timed cross-fade transitions via
+  play/update/pose; the `animator` demo cycles idle/wave/coil clips; M70) — full state graph / IK later
+- [x] **Blend spaces** (`anim::BlendSpace1D` linear-neighbour blend + `anim::BlendSpace2D` barycentric
+  blend over a triangulation + `blendPosesWeighted` N-way pose mix — Godot AnimationTree BlendSpace1D/2D;
+  the `blendspace` demo morphs a skeleton across a grid of four corner poses; M92)
+- [x] **Animation state machine** (`anim::AnimStateMachine`: named states + cross-fading transitions
+  (fade time + condition + `travel()`) whose `active()` weights sum to 1 like a blend space, so states
+  compose with blend spaces — Godot AnimationNodeStateMachine; the `statemachine` demo cross-fades a
+  locomotion machine over a scripted timeline; M105) — nested sub-state-machines / root-motion later
+- [x] **Animation blend tree** (`anim::BlendTree`: a node graph that NESTS the above — leaf `Input`
+  nodes + `Blend2` (cross-fade) / `Add2` (additive layer) / `BlendSpace1` (1-D blend space over child
+  nodes) interior nodes, each driven by a named blend parameter, evaluated recursively into one pose —
+  Godot AnimationNodeBlendTree; the `blendtree` demo drives a stick figure through a gait blend-space
+  layered with an additive wave and cross-faded into a jump; M117) — Add3/BlendN + a StateMachine node +
+  a live parameter editor later
+- [x] **Additive/layered pose blending** (`anim::makeAdditiveDelta` + `applyAdditiveDelta` /
+  `additiveBlend`: compute a per-joint delta of an additive clip *relative to a reference pose*
+  (translation subtract / rotation `inverse(ref)*add` / scale ratio) and layer it on a base at a weight —
+  weight 0 returns the base, a zero delta leaves it untouched — Godot AnimationNodeAdd2 + the "additive"
+  import that produces the delta; complements M117's BlendTree Add2 which consumes an already-delta pose;
+  the `addblend` demo layers an elbow-bend onto a fixed arm at rising weights; M135) — per-bone-mask layers
+  + reference extraction from imported clips later
+- [x] **2-bone inverse kinematics** (`anim::solveTwoBoneIK`: law-of-cosines elbow solve + bend-side
+  select + straight-arm overreach — Godot SkeletonModification2DTwoBoneIK; the `reach` demo is a grid of
+  arms solving toward targets; M97)
+- [x] **Multi-bone FABRIK IK** (`anim::solveFabrik`: Forward-And-Backward-Reaching IK over an N-joint
+  chain — backward/forward passes preserve every bone length and reach the target, straighten when out
+  of reach — Godot SkeletonModification2DFABRIK; the `tentacle` demo curls/straightens 8-bone chains
+  toward targets; M107) — CCD + pole targets / bone constraints later
+- [x] **Root motion** (`anim::RootMotionTrack`: cumulative clip-local position + heading; `delta` reports the
+  root's per-step travel with a loop-seam sum; `advance` applies it to a world pose, rotating the clip-local
+  step by the character's current facing so the feet don't slide — Godot AnimationMixer root-motion track; the
+  `rootmotion` demo walks a character along a swept arc with footprints planted on it; M147) — auto-extract
+  from a glTF/AnimClip root joint + blend root motion across a state-machine transition + full 3D later
+- [x] **Float Curve resource** (`anim::Curve`: an editable `y=f(x)` curve of sorted control points with
+  Constant / Linear / Cubic-Hermite interpolation, per-point left/right tangents, and value clamping to a
+  `[min,max]` range — Godot's `Curve` resource, distinct from the `Curve2D` Bézier path; `sample(x)` holds
+  the end values outside the domain; the `floatcurve` demo plots a linear ramp, a cubic ease-in-out S-curve,
+  an ease-out, and a particle-size-over-life profile; M155) — bake-to-LUT + editor handles later
+- [x] **Colour Gradient resource** (`anim::Gradient`: sorted `(offset, colour)` stops sampled over [0,1]
+  with Constant / Linear / Cubic (Catmull-Rom, clamped) modes, a two-colour constructor, `setOffset` re-sort,
+  and `bake(N)` → an N-colour ramp (GradientTexture1D) — Godot's `Gradient`, the colour analogue of `Curve`;
+  the `gradient` demo shows a spectrum under all three modes plus fire / health / ocean ramps and a baked
+  swatch strip; M162) — a selectable interpolation colour space (sRGB/OKLab), a GPU GradientTexture, and
+  wiring it into the particle colour track later
+- [x] **Tween / easing curves** (`maz::anim`: 15 easing functions + a once/repeat/ping-pong Tween
+  with generic `sample`; the `tween` demo compares curves side by side; M59)
+- [x] **Tween sequencer / property animator** (`anim::TweenPlayer`: chains Property/Interval/Callback
+  tweeners into sequential groups that run in parallel within a group, loops the sequence, and writes bound
+  `void(float)` setters every `update(dt)` — Godot SceneTreeTween (`create_tween` + `tween_property` /
+  `tween_interval` / `tween_callback` + `parallel` + `set_loops`); the `choreo` demo snapshots five
+  choreographies at a fixed time; M124) — vector/colour-in-one-call + `from_current`/relative + speed-scale
+  later
+- [x] **Keyframe timeline / sequencer** (`anim::Timeline`: named `Track`s of `Keyframe`s (time→value +
+  per-segment easing) with endpoint-holding `sample`, plus a Once/Repeat/PingPong playhead — Godot
+  AnimationPlayer; the `timeline` demo animates an arrow from keyed x/y/rot/scale/colour tracks with an
+  editor-style track panel; M100)
+- [x] **Call-method / trigger tracks** (`anim::TriggerTrack` + `MethodTimeline`: timed markers that FIRE
+  as a playhead sweeps — the event half of Godot's AnimationPlayer, alongside M100's value tracks — with
+  fire-once half-open semantics and correct loop-wrap; the `sequencer` demo is a four-lane drum machine
+  firing kick/snare/hat/clap markers; M113) — a track editor UI later
 
 ## Phase 9 — UI
+- [x] Font rendering (`ui::Font`) + a pixel-space HUD (text + health bar) in the demo
 - [ ] Dear ImGui integration for tools / debug overlays
-- [ ] Retained/immediate game-UI: widgets, layout, anchoring, scaling
-- [ ] Text input, focus / navigation, controller UI nav
-- [ ] Nine-slice, fonts, localization-aware text
+- [x] **Immediate-mode game-UI** (`ui::Context`: panel/label/button/toggle/slider with hot/active
+  tracking; the `menu` demo is an interactive settings screen; M60)
+- [x] **Retained UI layout** (`ui::LayoutNode`: Godot-style anchors + margins + HBox/VBox/Center
+  containers with expand/spacing/padding; resolution-responsive computed rects; the `uilayout` demo
+  builds a top-bar + sidebar + content + modal UI with no hand-placed pixels; M86)
+- [x] **Auto-layout containers** (`ui::Container`: Godot's BoxContainer/GridContainer/MarginContainer/
+  CenterContainer — per-axis `SizeFlag` (Fill/Expand/ShrinkBegin/Center/End) + stretch ratios;
+  `hbox`/`vbox` grow only Expand children and split leftover by ratio, `grid` sizes columns/rows from the
+  widest/tallest cell with expanding tracks sharing the surplus, `margin`/`center` handle single children,
+  and `hboxMinSize`/`vboxMinSize`/`gridMinSize` compute a container's own min size for bottom-up sizing;
+  the `containers` demo lays out four labelled cards; M122) — ScrollContainer/TabContainer + wiring into
+  the LayoutNode tree with live min-size propagation later
+- [x] **Text input + focus navigation** (`ui::TextField` single-line edit model: caret + insert/
+  backspace/delete/arrows/home/end + max length; `ui::FocusChain`: ordered focusable ids with Tab/
+  Shift+Tab wraparound; `Context::textField` widget draws box+text+caret + click-to-focus — Godot
+  LineEdit + Control focus; the `form` demo is an editable account-settings form; M95) — controller UI nav later
+- [x] **Nine-patch / StyleBox** (`ui::ninePatch`: slice a destination rect into a 3×3 grid by border
+  insets — fixed corners, edges stretching one axis, center stretching both — mapping to matching source
+  regions, so a themed panel scales without distorting its corner art; Godot StyleBoxTexture; the
+  `stylebox` demo themes differently-sized panels + a button row from one style; M103)
+- [x] **StyleBoxFlat + Theme server** (`ui::StyleBoxFlat`: procedural rounded-corner panel — fill +
+  border + per-corner radius + soft drop shadow, no texture; `roundedRectPolygon` builds the convex
+  outline and `drawStyleBoxFlat` layers shadow→border→fill — and `ui::Theme`: named styles/colours per
+  control class + state with "type/state"→"type/normal"→default fallback, Godot StyleBoxFlat/Theme; the
+  `theme` demo draws a button per state through one dark theme + a feature gallery; M109)
+- [x] **Tree / TreeItem widget** (`ui::Tree`: hierarchical collapsible rows — a `TreeItem` holds
+  text/id/colour/`collapsed` + heap-owned children, `visibleRows()` flattens the expanded items
+  depth-first into rows carrying depth + hasChildren; folding hides a whole subtree — Godot's Tree control
+  (scene dock / inspector / file browser); the `tree` demo shows a project file tree in a StyleBoxFlat
+  panel with fold arrows + a selected-row highlight; M115) — scroll container / drag-reorder + a full
+  per-control-class theme cascade later
+- [x] **ItemList control** (`ui::ItemList`: scrollable box of selectable rows — each row has text/id +
+  `selectable`/`disabled` flags; `Single` (radio) or `Multi` selection; fixed row height + separation +
+  clamped `scroll` give `itemRect(i)`, `itemAtPoint()` (rejecting separator gaps), `ensureVisible()`,
+  `visibleRange()`, and `selectNext`/`selectPrevious` keyboard nav that skips disabled rows — Godot's
+  ItemList (file lists / inventory / level-select); the `itemlist` demo draws a scrolled single-select
+  saved-games list with a scrollbar thumb + a multi-select loadout with checked rows; M161) — icon columns,
+  per-item widget colours, multi-column grid, and drag-reorder later
+- [x] **PopupMenu control** (`ui::PopupMenu`: vertical item list behind context menus / OptionButton dropdowns
+  / menu bars — items with checkbox/radio state, disabled, separator, submenu-arrow, and accelerator hints;
+  `itemRect`/`itemAtPoint` geometry, `hoverNext`/`hoverPrev` nav skipping separators+disabled, `checkRadio`
+  single-choice groups, and `activate()` (toggle check / switch radio / return id) — Godot's PopupMenu; the
+  `popupmenu` demo draws an open context menu with a hovered row, a checked item, a radio dot, a disabled row,
+  separators, shortcuts and a submenu arrow; M168) — nested submenu popups + theme-font auto-width + an
+  OptionButton wrapper later
+- [x] **Range + ProgressBar** (`ui::Range`: the clamped/stepped scalar value model behind Godot's
+  ProgressBar/HSlider/ScrollBar/SpinBox — min/max/step/page → a 0..1 `ratio`, `setRatio`/`step_` +
+  allow-greater/lesser; `ui::ProgressBar` wraps it with `fillFraction`/`percent`; the `progress` demo draws
+  six bars incl. a ratio-tinted health bar and a step-snapped bar; M150) — making the slider a Range subclass
+  + an interactive ScrollBar/SpinBox + a fill/under/over StyleBox skin later
+- [x] **BBCode rich text** (`ui::parseBBCode`: markup → resolved styled runs — `[b]`/`[i]`/`[u]`,
+  `[color=…]` (hex `#rgb`/`#rrggbb`/`#rrggbbaa` + named), `[size=N]`, nested tags stacked, lenient
+  (unclosed→to-end, stray-close ignored, `[lb]`/`[rb]` literal brackets, unknown tags/invalid colours pass
+  through); `ui::stripBBCode` returns plain text; Godot RichTextLabel; the `richtext` demo shows six BBCode
+  strings above their formatted results; M141) — wrapped rich layout, `[url]`/inline-image/table tags,
+  `[center]`/`[right]` alignment, real bold/italic faces, and `[wave]`/`[shake]` effects later
 
 ## Phase 10 — Scripting & gameplay framework
-- [ ] Scripting VM (Lua via sol2, or C# hosting) + engine bindings
-- [ ] Script hot-reload, sandboxing
-- [ ] Gameplay: state machines, behavior trees, AI steering
-- [ ] Pathfinding (A* / nav grid; navmesh later)
-- [ ] Particle system (CPU + GPU), emitters, affectors
-- [ ] Tilemap tools, procedural generation utilities
-- [ ] Save/load game state, checkpoints
-- [ ] Localization + string tables, deterministic time / RNG
+- [x] Game-state machine (title / play / win / lose / restart) in the ORB RUN sample
+- [x] **Scripting VM** (`maz::script`) — a from-scratch, dependency-free, deterministic,
+  sandboxed tree-walking interpreter (chosen over embedding Lua/C#: zero coupling, safe for mods,
+  reproducible for lockstep/replay). **SC1–SC11 shipped — the full scripting roadmap is complete**: lexer / recursive-descent parser / interpreter
+  with numbers·strings·bools·nil, the full arithmetic·comparison·logical operator set, `var` /
+  assignment, `if`/`else`, `while`, C-style `for`, `func`s with params + `return`, native host
+  functions (`registerNative` / `setGlobal` / `call`), a stdlib (string / math / conversion /
+  seedable RNG / `assert`), line-numbered error reporting, arrays / dictionaries / `for..in` /
+  `range` / indexing / methods / `break` / `continue` / the `in` operator, plus **first-class
+  functions**: lambdas (`func(x){...}`), real closures that capture and mutate their defining
+  scope, and higher-order array methods (`map` / `filter` / `reduce` / `any` / `all` / `sort` /
+  `sort_custom`), plus **classes** (`class Foo { var fields; func methods }`, `self`, `_init`,
+  `Foo.new(...)` / `Foo(...)`, `extends` + `super`, reference semantics, bound methods), plus
+  **host binding** (`bindClass().property().method()`, live C++ objects via safe weak handles,
+  and `_ready`/`_process(dt)`/`_physics_process(dt)` lifecycle hooks driven from the engine), plus
+  **signals** (class-level `signal` decls + standalone `Signal()`, `connect`/`emit`/one-shot,
+  and sync-vs-deferred dispatch via `emit_deferred` + `flushDeferred` for netcode ordering), plus
+  **safety & diagnostics** (call-stack traces on error, an execution step budget + recursion limit
+  that turn a modder's infinite loop into a catchable error, and a warnings pass for shadowing /
+  unreachable code), plus **hot reload** (`reload()` swaps function/method bodies in place, keeping
+  live instance state; a parse failure keeps the previous version live), plus **gradual typing**
+  (type hints `var x: int` / `func f(a: int) -> T` / `Array[int]` + inference `:=`, a static
+  type-checker over literals via `typeErrors()`, and opt-in `setStrictTypes()` enforcement; untyped
+  code stays fully dynamic), plus **modules & tooling** (`import "name"` over a host module registry
+  with transitive + cycle-safe loading; introspection `has_method`/`call`/`get_property`/`set_property`/
+  `class_name`; and debugger hooks `onStep` + breakpoints) — **the full SC1–SC11 roadmap, all
+  unit-tested.** The only deferred edges are a true coroutine `await` and a typed fast-path, both
+  needing a bytecode/fiber VM (a future VM-core rewrite); see `docs/SCRIPTING.md`.
+- [x] **Script ↔ engine bridge** (`script::ScriptSystem` + `script::Node2D`) — attach a script
+  class to a game node, and the system drives its `_ready` / `_process(dt)` / `_physics_process(dt)`
+  hooks each frame while exposing the node's transform (x / y / rotation / scale / visible / name +
+  `translate()`) to the script through a bound `Node2D` host type. The Godot "script-on-node" model,
+  sandboxed and deterministic; `spawn()` / `process()` / `broadcast()` all unit-tested.
+- [x] **Scene serialization** (`scene::saveTree` / `scene::loadTree`) — a whole `SceneTree`
+  (structure + per-node transform / visibility / groups / script-class reference) round-trips to a
+  compact, human-readable text format, Maz's `.tscn` analog. Load rebuilds the identical hierarchy
+  and re-attaches scripts by class name; re-saving a loaded scene reproduces byte-identical text.
+  Round-trip, group/transform fidelity, script re-attach, and malformed-input handling unit-tested.
+- [x] **AI steering** (`game::Steering`: seek/flee/arrive/separation/path-follow + integrate; the
+  `crowd` demo flocks 14 agents through the maze; M58)
+- [x] **Finite state machines** (`game::StateMachine`: enter/update/exit + guarded/any transitions;
+  the `guard` demo runs patrol/chase/return AI; M62)
+- [x] **Behavior trees** (`game::bt`: reactive Sequence/Selector/Inverter + Action/Condition leaves;
+  the `behavior` demo runs a flee/chase/patrol priority tree; M71) + a **Blackboard** (typed shared
+  memory), a **Parallel** composite (RequireOne/RequireAll), and **Repeater/AlwaysSucceed/AlwaysFail/
+  Tap** decorators; the `blackboard` demo colours a sentry's tree by live per-node status as one flag
+  flips it between patrol and engage; M104)
+- [x] **GOAP planner** (`game::goap`: goal-oriented action planning — A* over a 64-bit-bitmask world
+  state, each `Action` a precondition/effects/cost triple, returning the cheapest action sequence from
+  the current world to a goal `Condition`; the `goap` demo has a survival agent plan "make fire" and
+  shows the flow + fact-by-fact world-state, skipping a pricey shortcut; M108) — a planner beyond the
+  behaviour tree, which Godot ships no built-in equivalent for; utility AI / HTN later
+- [x] **Pathfinding** (`game::NavGrid`: 8-directional A* over a walkable/blocked grid, octile
+  heuristic, no corner-cutting, world↔cell mapping; the `maze` demo re-plans a walker's route; M57)
+- [x] **Navigation mesh** (`game::NavMesh`: convex-cell mesh with shared-edge adjacency, A* over cells
+  + Mononen funnel string-pulling into a smooth corner-hugging path — polygon navigation like Godot's
+  NavigationServer, beyond grid A*; the `navmesh` demo routes around a pillar; M87)
+- [x] **Flow-field pathfinding** (`game::FlowField`: one Dijkstra outward from the goal → an integration
+  cost field, then a baked per-cell unit flow direction down the gradient, so a whole crowd routes to a
+  shared goal for the price of one search — the vector-field crowd technique Godot's per-agent
+  NavigationServer lacks; the `flowfield` demo streams 90 agents around two barriers with a cost heat map
+  + flow arrows; M112) — flow-field steering/avoidance blend + dynamic goal-move re-bake later
+- [x] **Local collision avoidance** (`game::rvoVelocity`: reciprocal-velocity-obstacle candidate
+  sampling scored on time-to-collision using the shared relative velocity `2·c − vA − vB` — Godot
+  NavigationAgent2D avoidance; the `avoid` demo crosses 14 agents through a crowded centre; M98) —
+  static-obstacle ORCA half-planes later
+- [x] Particle system (CPU pool, burst emitters, color/size/alpha fade, gravity, drag) — `maz::fx`
+- [x] Particle **attractor / vortex** affector (`setAttractor`: radial pull + tangential swirl; M49)
+- [x] **Particle emitter resource** (`fx::Emitter`: emission **shape** (point/disk/ring/rect) +
+  per-lifetime scale/alpha **curves** (`fx::Curve`) + multi-stop colour **gradient** (`fx::Gradient`) +
+  direction/spread/speed + gravity + explosiveness; a deterministic `simulate(seed, t)` returns every
+  live particle's pos/size/colour — Godot CPUParticles2D; the `emitter` demo shows a gravity fountain, a
+  ring burst, and rect rain from three authored resources; M120) — GPU sim + trails + sub-emitters later
+- [x] **World-space 3D particles** (camera-facing additive billboards, depth-tested; M28)
+- [ ] GPU-simulated particles, affectors/attractors
+- [x] **Procedural generation: noise** (`maz::core::Noise`: seeded Perlin `noise2` + fractal-Brownian
+  `fbm2`; deterministic, 0 at lattice points, ~[-1,1]; the `noise` demo builds a terrain heightmap; M85)
+- [x] **Procedural caves + tilemap autotiling** (`game::CellularCave` seeded cellular-automata cavern +
+  `game::autotileMask4` 4-bit edge bitmask (out-of-bounds = solid) — Godot TileMap terrain sets; both
+  deterministic pure logic; the `cave` demo generates a cave + autotiles its wall borders; M96)
+- [x] **TileSet resource + per-tile collision** (`game::TileSet`: `TileDef` maps a tile id to an atlas
+  source cell + a None/Full/**Box** (sub-cell) collision — Godot TileSet, where a single grid mixes full
+  walls with half-height ledges the Tilemap's binary solid bit can't express; `collectSolids` →
+  world-space collision boxes, `solidAt` point test, `dropY` drop-to-ground; the `tileset` demo drops
+  probe balls that rest on full tiles and mid-cell on ledges; M119) — slope/polygon tile shapes +
+  one-way platforms + a real atlas texture bind later
+- [x] Save/load via `KeyValueStore` (ORB RUN high score persists across runs)
+- [x] **Camera juice**: trauma-based screen shake (`maz::game::Shake`, deterministic; M39)
+- [x] **Scene / game-state stack** (`core::SceneStack`: push/pop/replace + enter/pause/resume/exit
+  lifecycle, modal + transparent-overlay support, deferred mutation; the `scenes` demo runs a
+  menu→game→pause flow; M73)
+- [x] **Game-state checkpoints** (`core::Checkpoints`): named save slots — `save("chapter2", bytes)`
+  / `load(...)` over opaque serialized state (from `io::Serialize`, `io::SceneSerializer`, script
+  fields, anything) — plus a versioned, little-endian whole-**save-file** round-trip of all slots in
+  one call. On top of that, a fixed-capacity **rewind ring**: `autosave(frame, bytes)` keeps the last
+  N snapshots and `rewind(k)` / `rewindToFrame(f)` restore a recent past state — the backbone of
+  rewind mechanics, rollback netcode, and sandbox undo (which Godot has no built-in equivalent for).
+  Serialization-scheme-agnostic (opaque bytes); verified: slot save/overwrite/erase, byte-stable
+  file round-trip + corruption rejection, and capacity-bounded rewind by steps and by frame (M180)
+- [x] **Time scheduler + sequences** (`maz::core::Scheduler`: after/every/cancel timers; `core::Sequence`:
+  ordered wait/call/span script with looping; deterministic on the fixed-step clock; the `fireworks`
+  demo spawns and explodes rockets on timers; M83)
+- [x] **Deterministic RNG** (`maz::core::Random`: xoshiro256** + SplitMix64 seeding; nextU32/64,
+  float/double, inclusive int range + float range, chance, weighted pick, Fisher-Yates shuffle,
+  gaussian, angle; same seed → same stream; the `scatter` demo generates a seeded token field; M84)
+- [x] **Localization + string tables** (`io::parseCsv` — RFC-4180 CSV reader: quoted fields, embedded
+  commas/newlines, `""` escapes, CRLF/LF; + `io::TranslationTable` — a Godot-style translation CSV
+  (key + per-locale columns) with `setLocale` + `tr(key)` and empty-cell→source / unknown-key→key
+  fallback — Godot `Translation`; the `locale` demo renders one menu in four languages from one CSV;
+  M133) — plural forms / message contexts / `%s` argument interpolation + OS-locale detection + a global
+  auto-consulted TranslationServer later
+- [x] **Deterministic time/date** (`core::DateTime` + `core::GameClock`, toward Godot's Time
+  singleton): `fromUnix`/`toUnix` convert between an epoch value and UTC calendar fields via the
+  standard proleptic-Gregorian civil↔days algorithm (correct for any year, leap years, pre-epoch
+  negatives), plus `formatIso` and `daysInMonth`/`isLeapYear`. **Nothing reads the system clock** —
+  the caller supplies the epoch or advances a `GameClock` by the fixed-step dt (with a time-scale for
+  fast-forward/slow-mo), so in-game clocks, day counters, and save timestamps stay bit-reproducible
+  across a replay and across machines. Verified: known-date round-trips, leap-year edges, Feb-29-2000,
+  negative timestamps, and GameClock day/hour/time-of-day + scaling (M186)
 
 ## Phase 11 — Editor & tooling
-- [ ] Standalone editor app (engine + ImGui docking)
-- [ ] Viewport with gizmos (translate/rotate/scale), grid, snapping
-- [~] Scene hierarchy panel, reflection-driven entity inspector, asset browser — **editor window
-      landed** (Dear ImGui): `maz::scene::Scene`/`Entity`/`Transform` + `.mazscene` save/load
-      (`ctest unit_scene`), multi-entity rendering (`sandbox --scene`), and the `editor` app with
-      Hierarchy + Inspector panels over a live 3D viewport. Still to do: transform gizmos, asset
-      browser, docked render-to-texture viewport. See [`EDITOR.md`](EDITOR.md).
-- [ ] Play-in-editor, undo/redo (command stack), multi-select
-- [ ] Content-pipeline UI, build / package button
-- [ ] Profiler + log panels
+- [x] **In-engine editor** (`editor` app on a new `maz::editor` module): a 3D viewport plus editor
+  panels built from the existing immediate-mode UI. **E1** — `editor::Scene` is a renderer-agnostic,
+  unit-tested model (nodes carry a transform, a local AABB, a mesh id, and PBR material params;
+  `modelMatrix`/`worldAabb`/`pickNode`/`screenRay` are pure logic). The app renders the scene, a
+  **scene-tree panel** listing the nodes (click a row to select), and outlines the selection with a
+  wire AABB. **E2** — an **inspector panel** live-edits the selected node: transform (position /
+  rotation / scale sliders) and PBR material (roughness / metallic / emissive sliders, colour
+  swatches, a visibility toggle), all writing straight into the node each frame. **E3** — **viewport
+  click-to-pick**: a left click in the 3D viewport unprojects a ray (`screenRay` via the inverse
+  view-projection) and selects the nearest node its AABB hits (unit-tested against the live camera to
+  pin the Vulkan NDC-y sign); arrow keys / Q / E nudge the selection. **E4** — a **translate gizmo**:
+  press-and-drag a node to slide it across the ground (`rayPlaneY` ray-vs-plane), with RGB axis lines
+  from its origin. **E5** — **undo/redo** (`editor::History`): a drag / nudge / slider grab is one
+  bracketed step; Ctrl+Z / Ctrl+Y walk the snapshot stack (unit-tested incl. redo-branch discard).
+  **E6** — **scene save/load**: `toJson`/`fromJson` round-trip the scene to human-readable JSON
+  (unit-tested round-trip via `Node::operator==`), wired to Ctrl+S / Ctrl+O on a per-user file.
+  **E7** — **node operations**: a SCENE-panel toolbar (+Box / +Sph / Dup / Del) and keyboard
+  shortcuts (Ctrl+D duplicate, Delete remove) add, copy, and erase nodes; each is one undo step via
+  `History::commit(before, after)` (unit-tested), re-basing any open gesture so it isn't double-counted.
+  **E8** — **reference grid + snap**: a Grid toggle draws a floor grid (baked into a tiling ground
+  texture, so objects occlude it correctly — the debug-line path draws over geometry) and a Snap
+  toggle rounds drag / arrow-nudge translation to a 0.5-unit grid (`snap1`/`snapToGrid`, unit-tested).
+  **E9** — **multi-select**: shift-click (viewport or tree) toggles nodes in a `Scene::selection`
+  set (set-ops unit-tested, including index re-fixing after a delete/undo); a plain drag or arrow-
+  nudge moves the whole group by one delta, and Delete / Duplicate act on the entire selection.
+  **E10** — **rotate / scale gizmo**: a Move / Rotate / Scale tool selector (keys 1/2/3 or the SCENE
+  toolbar) switches what a drag does — Move slides on the ground, Rotate spins yaw by the angle the
+  cursor sweeps around the object's on-screen centre (a ring widget; 15° snap), Scale multiplies size
+  by the cursor's distance ratio (0.25 snap). Built on `editor::worldToScreen` (the inverse of the
+  pick unproject, unit-tested by round-trip). All three act on the whole multi-selection.
+  **E11** — **asset browser**: a bottom dock with a clickable palette of primitives (Box, Sphere,
+  Cylinder, Cone, Torus, Capsule — each a data-driven catalog entry carrying its mesh + pick-AABB)
+  that spawns a node resting on the floor as one undo step; the Grid/Snap view toggles moved into the
+  dock. Extends the editor's mesh set to all six `render::shapes` primitives.
+  **E12** — **play-in-editor**: a Play/Stop control (button or Space) simulates the scene with
+  `game::PhysicsWorld3D` — each node becomes a rigid body (sphere / capsule / box from its mesh +
+  scale) on a ground plane under gravity; simulated position + orientation feed a live per-node
+  transform each frame. Editing is disabled while playing, and Stop restores the authored snapshot so
+  runtime motion is discarded (Godot's play/stop semantics). **The editor now covers the core Godot
+  loop: build a scene, arrange it with gizmos, and press Play to watch it run.**
+  **E13** — **profiler + output panels**: the bottom dock is now a tabbed panel (Godot's bottom
+  panel) — **Assets** (the palette), **Profiler** (live FPS / frame-time readout plus a rolling
+  frame-time bar graph), and **Output** (a live log view). A new engine log sink
+  (`core::setLogSink`) mirrors every emitted line into the editor's Output tab.
+  **E14** — **content pipeline / package**: a **Package** button (or Ctrl+B) exports the scene into a
+  single distributable resource pack — a `.mazpack` (`io::ResourcePack`, Maz's `.pck` equivalent)
+  holding the scene JSON plus a manifest (engine tag, node count, per-primitive counts) — that a
+  shipped runtime could mount and load from; the pack round-trip (scene → JSON → pack → scene) is
+  unit-tested, including clean rejection of a truncated archive. **This closes Phase 11: the editor
+  now runs the full Godot loop — author, arrange, inspect, save/load, Play, and package to ship.**
+- [x] Profiler + log panels — **E13** above.
+- [x] Content-pipeline UI, build / package button — **E14** above.
 
 ## Phase 12 — Cross-cutting quality
-- [ ] Unit + golden-image render tests, CI gates
-- [ ] Deterministic fixed-step simulation, replay
-- [ ] Performance budgets + profiling dashboards
-- [ ] Docs site, API docs (Doxygen), tutorials / samples
-- [ ] Packaging / installers per platform, asset signing
-- [ ] Opt-in telemetry / crash reporting
+- [x] **Unit tests** (M50) + **golden-image render tests** (`tools/golden.sh`, per-app RMSE
+  tolerance, ctest-integrated, self-skips without a GPU; M51)
+- [x] CI gates / cross-platform build matrix (`.github/workflows/ci.yml`, M274 + M197: Linux full
+  build+ctest, macOS/Windows build+unit-tests, clang-tidy lint gate, ASan/UBSan sanitizer job — all
+  required on push/PR)
+- [x] **Render interpolation** (`core::Interpolated<T>`: a previous/current pair pushed once per fixed step
+  and blended by `Clock::interpolationAlpha()` each render frame, so motion stays smooth when the display
+  rate doesn't divide the fixed rate — the missing consumer of the clock's alpha; `lerpAngle` shortest-arc +
+  a `Transform2DState` pose blend — Godot physics interpolation; the `interp` demo ghosts previous+current
+  poses with the interpolated pose between for four motions; M151) — auto-wiring into the ECS/TransformGraph
+  so every moving node interpolates for free + 3D quaternion transform interpolation later
+- [x] **Deterministic replay** (`core::Replay<T>`, toward Godot's reproducible fixed-step sim):
+  records one small input snapshot per fixed step and replays them bit-for-bit — the basis of
+  replays, ghosts, netcode rollback, and automated play-tests (works with the seeded `core::Random`
+  + fixed timestep, no wall-clock reads). `serialize()` writes a versioned, little-endian, **RLE-
+  compressed** blob (identical consecutive frames fold to one run — an idle minute costs a few
+  bytes), `load()` restores it and rejects a wrong tag/version/frame-size. Verified: 100 frames →
+  3 runs, byte-stable round-trip, and the same stream fed through a seeded integrator twice yields
+  identical results (M179)
+- [~] Performance budgets + profiling dashboards (**budgets** = new `core::PerfBudget` (M204): set a
+  per-section time budget and a whole-frame budget over the hierarchical `core::Profiler`, then
+  `check()` reports every OVERAGE — which section blew its budget and by how much — judging on this
+  frame's inclusive time (spikes) or the profiler's smoothed EMA (sustained regressions); assert it
+  in tests / log it in CI / flash it on the debug overlay. Beyond Godot, which has no formal budget
+  layer. Unit-tested with synthetic frame timings. The visual profiling **dashboard** UI (a live
+  on-screen flame graph) is a GPU/overlay step; the profiler already feeds the M29 debug overlay.)
+- [~] **API docs** — `tools/gen_api_docs.py` harvests every header's module doc-comment + public
+  types/functions into **[`docs/API.md`](API.md)** (144 headers, 16 subsystems, 307 types), a
+  browsable reference with no external tools that a CI test keeps runnable; a committed `Doxyfile`
+  gives contributors full HTML docs (`doxygen Doxyfile`). Hosted docs site + tutorials/samples still
+  pending
+- [~] **Packaging / export** (`tools/package.sh`, toward Godot's "Export Project"): bundles one
+  built app into a self-contained, redistributable folder — the executable, its SDL3 runtime
+  (`lib/` with the SONAME symlink chain), compiled shaders, runtime assets, a `run-<app>.sh`
+  launcher that sets `LD_LIBRARY_PATH`, a player README, and a size MANIFEST — then tars it to
+  `dist/<app>-<ver>-<os>-<arch>.tar.gz` and **verifies** it by launching the packaged game headless
+  from a scratch dir (proving self-containment). Verified end-to-end on ZOMBOID (6.6 MiB bundle,
+  clean self-contained launch); Windows/macOS bundling + installers + code signing still pending
+- [x] **Opt-in telemetry** (`core::Telemetry`, toward Godot's opt-in usage reporting): **off by
+  default** — nothing is recorded until `enable(true)` with explicit consent, and events while
+  disabled are dropped and counted. Events (name + small string/number fields) buffer locally and
+  serialize to deterministic **JSONL**; there is **no built-in network transport** — `flush()` hands
+  the batch to a sink callback the game installs (write a file, upload, or drop it), so the engine
+  never phones home on its own. No PII (opaque caller-supplied session id), JSON-escaped, sequence-
+  numbered for byte-stable output. Verified by the privacy contract, escaping, and consent-revocation
+  tests (M178)
 
-## Phase 13 — Demos & the first real game
+## Phase 13 — Demos & a first complete sample game
 - [x] `sandbox`: window + animated clear color (proves the loop + renderer)
-- [ ] `sandbox`: textured sprite + rotating cube (proves 2D + 3D)
-- [ ] Sample scenes: pong, platformer, top-down shooter
-- [ ] **Port ZOMBOID: ANCHORAGE** natively onto Maz Engine — tilemap, entities, needs/stats,
-      loot, hordes, audio — the flagship proof the engine ships a full game (the existing
-      `index.html` / `js/` browser version is the design reference)
+- [x] `sandbox`: bouncing textured sprites (proves 2D)
+- [x] `apps/cube`: lit, depth-tested spinning cube + 2D HUD (proves 3D, and 2D+3D together)
+- [x] `apps/scene3d`: a 3D scene (ground + ring of shapes) driven by the ECS, orbiting camera
+- [x] `apps/world`: a solid, walkable first-person 3D collect-em-up (collision, pickups, HUD)
+- [x] `sandbox`: top-down tile world — WASD movement, wall/water collision, camera follow
+- [x] `sandbox`: HUD overlay — title, controls, animated health bar (pixel-space text)
+- [x] **ORB RUN** (`apps/orbs`) — a complete original arcade game: title → play → win/lose →
+      restart, score + timer HUD, collectibles, hazards
+- [x] **VILLAGE QUEST** (`apps/village`) — a first-person 3D game built on a data-loaded glTF
+      scene: solid house collision, coins to collect against the clock, a win state, and a
+      best-time saved across runs (scene loading + collision + audio + save composed; M20)
+- [x] **Data-driven scene** (`apps/data`) — every sprite (shape, position, size, tint, bob/spin) plus
+      the clear color and title come from an embedded JSON document parsed at runtime; proves the
+      engine can be driven by human-editable data, not just code (M75)
+- [x] **On-disk JSON level** (`apps/level`) — reads `assets/levels/arena.json` from disk into a
+      `game::Tilemap` (tile rows + palette + solidity) plus pickups, renders it top-down, and
+      round-trips the level back to the save directory; the editable-content pipeline end to end (M76)
+- [x] **Config / CVars** (`apps/config`) — registers typed tunables, applies a JSON config, and draws
+      a scene whose orb count/speed/hue/brightness/grid are all cvar-driven, beside a live cvar table (M77)
+- [x] **CPU profiler** (`apps/profiler`) — feeds a fixed synthetic frame into `core::Profiler` and draws
+      the nested zone tree as an indented bar chart (inclusive vs self time per zone) (M78)
+- [x] **ECS save/load** (`apps/ecsave`) — builds an entity world, serializes it to JSON, reloads that
+      JSON into a fresh world, and renders the reload — proving the round-trip (M79)
+- [x] **Input actions** (`apps/actions`) — an avatar driven by named actions (MoveX/MoveY axes,
+      Fire/Dash buttons) bound to keyboard + gamepad, with a live action-state HUD (M80)
+- [x] **Transform hierarchy** (`apps/solar`) — a solar system (sun → planets → moons) where only pivot
+      rotations are set and the scene graph sweeps the whole tree into place (M81)
+- [x] **Follow camera** (`apps/camera`) — a large world with a moving avatar the camera tracks with a
+      deadzone, smoothing, and world-bounds clamp (M82)
+- [x] **Fireworks** (`apps/fireworks`) — timers spawn rockets that each explode into particle bursts
+      after a delay; the whole show is scheduler-driven (M83)
+- [x] **Particle emitters** (`apps/emitter`) — a gravity fountain, an omnidirectional ring burst, and
+      angled rect rain, each an authored `fx::Emitter` resource simulated deterministically (M120)
+- [x] **Procedural scatter** (`apps/scatter`) — a seeded RNG generates a token field with weighted
+      rarity (Common/Uncommon/Rare/Epic) and a distribution legend; same seed → same field (M84)
+- [x] **Procedural terrain** (`apps/noise`) — a heightmap from fbm noise, colored by a terrain ramp
+      with hillshade; same seed → same continent (M85)
+- [x] **UI layout** (`apps/uilayout`) — a responsive app UI (top bar + sidebar + content + modal) from
+      anchors and containers (M86)
+- [x] **Nine-patch StyleBox** (`apps/stylebox`) — differently-sized themed panels + a button row from
+      one style; fixed corners, stretching edges/center (`ui::ninePatch`) (M103)
+- [x] **StyleBoxFlat + Theme** (`apps/theme`) — a dark theme drawing a button in each state
+      (normal/hover/pressed/disabled) + a gallery of rounded/bordered/shadowed/pill/tab panels
+      (`ui::StyleBoxFlat` + `ui::Theme`) (M109)
+- [x] **Tree widget** (`apps/tree`) — a project file tree in a StyleBoxFlat panel: indented rows, fold
+      arrows, two collapsed folders, and a selected-row highlight (`ui::Tree`) (M115)
+- [x] **Area2D sensors** (`apps/area2d`) — agents stream through a circular aura + a box gate; each zone
+      shows live membership + enter/exit counts, agents inside a zone lit + ringed (`game::Area2D`) (M116)
+- [x] **Collision layers** (`apps/layers`) — player/enemy/pickup species stream through a hurtbox watching
+      only enemies + a magnet watching only pickups; matches light up, ignored overlaps go dashed
+      (`game::CollisionLayers`) (M118)
+- [x] **Behavior-tree blackboard** (`apps/blackboard`) — a sentry's tree drawn twice (patrol vs engage),
+      each node coloured by live status as one blackboard flag flips the branch (`game::bt`) (M104)
+- [x] **GOAP planner** (`apps/goap`) — a survival agent plans "make fire" from an action library; the
+      computed optimal plan is drawn as a flow with the world-state changing fact-by-fact until fire
+      lights, and the expensive shortcut dimmed as skipped (`game::goap`) (M108)
+- [x] **Animation state machine** (`apps/statemachine`) — a locomotion machine's active-state weights as
+      stacked cross-fading colour bands over a scripted timeline (`anim::AnimStateMachine`) (M105)
+- [x] **Navigation mesh** (`apps/navmesh`) — an agent path routed around a pillar with A* + funnel
+      string-pulling (M87)
+- [x] **Filled polygons** (`apps/vectors`) — regular N-gons, a 64-gon circle, and translucent
+      overlapping triangles via `drawConvexPolygon` (M88)
+- [x] **2D lights + shadows** (`apps/lights2d`) — a dark room lit by three colored lights, each a
+      visibility polygon (`game::Visibility2D`) rendered as a gradient fan, with solid occluder boxes
+      casting real hard-edged shadows; lights composite additively so overlaps brighten (M89, M90)
+- [x] **2D rotation** (`apps/tumble`) — tilted rectangles dropped into a bin that fall, tumble on
+      their corners, and settle into a leaning pile via the oriented rigid-body solver (M91)
+- [x] **Animation blend space** (`apps/blendspace`) — a grid of stick-figure skeletons whose pose is
+      blended across a 2D parameter space from four corner poses (`anim::BlendSpace2D`) (M92)
+- [x] **Animation blend tree** (`apps/blendtree`) — a stick figure driven by a nested node graph: a gait
+      blend-space, an additive wave layer, cross-faded into a jump; a grid sweeps gait × air
+      (`anim::BlendTree`) (M117)
+- [x] **Physics joints** (`apps/joints`) — a pin-jointed rope bridge sagging into a catenary + masses
+      hung from damped springs of increasing stiffness (`game::Joint2D`) (M93)
+- [x] **Groove/slider joints** (`apps/groove`) — three boxes pinned to tilted rails, each sliding down
+      its incline (not straight down) and settling against a stop (`game::Joint2D::Groove`) (M102)
+- [x] **Stable box stacks** (`apps/stack`) — two identical five-box towers dropped side by side; with
+      two-point manifolds on the tower stays square, with them off it topples (`solveManifolds`) (M110)
+- [x] **Positional audio** (`apps/spatial2d`) — a listener + sound sources with per-source distance
+      attenuation and stereo pan visualized as halos + L/R bars + a master meter (`audio::spatialize`) (M94)
+- [x] **Text input form** (`apps/form`) — an editable account-settings form: click/Tab to focus a
+      field (accent border + caret), type to edit (`ui::TextField` + `ui::FocusChain`) (M95)
+- [x] **Procedural cave** (`apps/cave`) — a seeded cellular-automata cavern with autotiled wall borders
+      (`game::CellularCave` + `game::autotileMask4`) (M96)
+- [x] **TileSet & per-tile collision** (`apps/tileset`) — one grid mixing full ground/wall tiles with
+      half-height ledges, every tile's collision box drawn, and probe balls resting on what they hit
+      (`game::TileSet`) (M119)
+- [x] **Inverse kinematics** (`apps/reach`) — a grid of 2-bone arms whose elbows are solved so each hand
+      reaches its target, with out-of-reach targets shown extended (`anim::solveTwoBoneIK`) (M97)
+- [x] **RVO avoidance** (`apps/avoid`) — 14 agents crossing a circle to antipodal goals, their trails
+      bulging around the crowded centre as reciprocal velocity obstacles route them apart
+      (`game::rvoVelocity`) (M98)
+- [x] **Audio DSP buses** (`apps/bus`) — one plucked-sawtooth note scoped as four stacked waveforms:
+      source, low-pass, high-pass, and a low-pass→delay bus (filtered note + echoes) (`audio::Biquad`
+      / `audio::Delay` / `audio::Bus`) (M99)
+- [x] **Keyframe timeline** (`apps/timeline`) — an arrow driven by keyed x/y/rotation/scale/colour
+      tracks, shown as an onion-skin trail plus an editor track panel with keyframe dots + a playhead
+      (`anim::Timeline`) (M100)
+- [x] **Trigger / method tracks** (`apps/sequencer`) — a four-lane drum machine whose kick/snare/hat/clap
+      markers fire as one playhead sweeps the loop, with fire counts + a recent-fires strip
+      (`anim::MethodTimeline`) (M113)
+- [x] **Reverb/distortion/compressor** (`apps/reverb`) — one note scoped through a Schroeder reverb, a
+      tanh distortion, and a compressor as stacked waveforms (`audio::Reverb/Distortion/Compressor`) (M106)
+- [x] **ADSR envelope** (`apps/envelope`) — pluck/pad/stab presets, each as an attack/decay/sustain/release
+      curve + the sine tone shaped by it (`audio::ADSR`) (M114)
+- [x] **FABRIK IK chains** (`apps/tentacle`) — a row of 8-bone chains reaching for targets; reachable
+      ones curl to touch (green), out-of-reach ones straighten and point (red) (`anim::solveFabrik`) (M107)
+- [x] **Soft 2D shadows** (`apps/softshadow`) — the same box+light drawn hard (point light, crisp edge)
+      vs soft (area light, 24 samples) so the shadow feathers into a penumbra (`game::SoftShadow2D`) (M101)
+- [x] **Normal-mapped lighting** (`apps/normalmap`) — a field of dome bumps lit by three coloured point
+      lights, each dome shaded on the side facing a light so it reads as 3D relief (`game::shadeSurface`) (M111)
+- [x] **Flow-field pathfinding** (`apps/flowfield`) — a cost heat map + baked flow arrows + 90 agents
+      streaming around two barriers to a shared goal from one Dijkstra (`game::FlowField`) (M112)
+- [x] **CATCHER** (`apps/catcher`) — a complete 2D game composed from the engine's own systems:
+      the scene stack (menu → play → game-over), the event bus (catch/miss events fan out to
+      scoring, particle bursts, and screen-shake), 2D contact tests (paddle vs. falling coins /
+      hazards), the pooled particle system, screen-shake juice, and a high score persisted across
+      runs via the KeyValueStore — with a deterministic attract-mode AI so the golden is stable (M74)
+- [x] **ZOMBOID** (`apps/zomboid`) — the flagship: a top-down zombie-survival game whose **entire
+      simulation is written in `maz::script`** (the engine's own from-scratch language) and driven on a
+      `scene::SceneTree`, exactly the way you author a game in Godot. A `Survivor` class runs hunger →
+      health needs and eats rations; a `Zombie` class chases the player and bites on a cooldown; loot
+      nodes sit in the world — with cross-object gameplay (every zombie reads the shared player through a
+      script global, zero host coupling). Logic lives in `apps/zomboid/game.hpp` and is verified **headless
+      in CI** by the unit suite (scene builds, hunger/health pressure, eating, horde AI, lethal combat);
+      `apps/zomboid/main.cpp` is a thin presentation layer that walks the same tree and draws a sprite per
+      node plus a health/hunger/rations HUD. This is the proof the engine's scripting + scene stack ship a
+      real game end to end. **A full gameplay loop**: the survivor **collects loot** by walking over it
+      (a script-only pickup that grants rations and marks itself taken), while a shared **day/night
+      cycle** — one clock the survivor advances, read by every zombie — makes the **horde faster and
+      hit harder at night** (a 1.7× aggression multiplier) and darkens the world; the HUD shows DAY /
+      NIGHT, rations, and loot collected. Forage by day, survive the night — verified headless (loot
+      pickup + night-vs-day horde speed) and shown rendering the arc through to "YOU DIED".
+- [x] More sample scenes: pong, platformer, top-down adventure (M190–M192)
+    - [x] **PONG** (M190) — a complete classic two-paddle game built from the 2D primitives
+      (polygon renderer, pixel-space camera, font HUD, fixed-timestep loop): a player paddle (W/S or
+      arrows) versus a tracking-AI paddle, a ball that bounces off walls and paddles, speeds up 1.04×
+      per hit and takes "english" off the paddle it strikes, wall-to-wall scoring with a dashed
+      center net and score HUD. `--demo` drives both paddles by AI for a deterministic offscreen
+      capture; `--headless`/`--frames N` for CI. Headless smoke + golden-image tested.
+    - [x] **SKIP** (M191) — a complete side-scrolling **platformer** built from the 2D primitives: a
+      gravity-driven character (A/D or arrows to run, Space/W/Up to jump) with per-axis AABB tile
+      collision and resolution, a **follow camera** (`Camera2D` center + world scroll) that tracks it
+      through a level wider than the screen, coins collected on touch, and a goal flag that wins the
+      level. Loaded from a little ASCII tile map. `--demo` runs a deterministic autopilot (run right,
+      auto-jump at walls/ledges) that freezes after a fixed number of steps so the offscreen capture
+      is pixel-identical; `--headless`/`--frames N` for CI. Headless smoke + golden-image tested
+      (deterministic, RMSE 0).
+    - [x] **GROTTO** (M192) — a complete top-down **action-adventure** built from the 2D primitives:
+      a hero that walks freely in four directions (WASD/arrows) with per-axis wall collision (slides
+      along walls), a **follow camera** through a walled dungeon larger than the screen, gems
+      collected on touch, patrolling "wisp" enemies that bounce off walls and cost a heart (and warp
+      the hero back to start) on contact, and a locked **exit rune** that only opens once every gem
+      is gathered. Loaded from a little ASCII dungeon map. `--demo` runs a deterministic autopilot
+      (greedy walk toward the nearest gem) that freezes after a fixed number of steps for a
+      pixel-identical capture; `--headless`/`--frames N` for CI. Headless smoke + golden-image tested
+      (deterministic, RMSE 0).
 
-## Phase 14 — Arcade upkeep (the Forge's intake)
-
-This phase is the steering wheel for [**the Forge**](FORGE.md), the nightly
-loop. Phases 0–13 describe engine work in prose, which the Forge deliberately
-refuses to touch: it will not act on anything it cannot name a file for.
-
-To hand it a job, write a normal item here and put the file it should change
-in backticks:
-
-```markdown
-- [ ] Add a volume slider to `music/js/player.js`
-- [ ] Fix the broken recipe link in `scraper/recipes/README.md`
-```
-
-Rules worth knowing before you write one:
-
-- **The file must already exist**, spelled exactly as it sits in the repo.
-  A name it cannot find is treated as prose, and the item is skipped.
-- **Naming a file is not permission to change it.** The safe zones in
-  `forge.json` still decide, and `forge/` and `.github/workflows/` can never
-  be touched at all. An item pointing at `engine/` will be skipped every night.
-- **One job a night, as a draft pull request.** Nothing is merged for you.
-- **Examples in fenced blocks are ignored**, which is why the two lines above
-  are illustrations rather than tonight's work. They also name files that do
-  not exist, so they stay inert even if that rule ever breaks.
-- **This file and `FORGE.md` are off limits to it.** The Forge cannot edit the
-  file that decides what it works on.
-
-### Open
-
-- [ ] Add direct unit tests for `scraper/scraper/robots.py` covering host keying, the cache, user-agent matching, and the fetch-failure case that must fall back to allowing the URL — it is currently only exercised indirectly, through the crawl tests
-
-Write each item on a single line. The parser reads one line per item, so a
-wrapped continuation line is silently dropped and the job reaches the Forge as
-a truncated sentence.
-
-An empty list here means a quiet night, and a quiet night is a correct one.
+> Scope note: Maz Engine is a general-purpose engine and is **not** tied to any specific game.
+> The *ZOMBOID* sample above is an **original, engine-native** survival game written in `maz::script`
+> to exercise the scripting VM and scene tree; it shares only a name/theme with the unrelated
+> *ZOMBOID: ANCHORAGE* browser game in this repo, and does not use that game's code or assets. Sample
+> games built to exercise the engine are original and genre-neutral.
 
 ---
 
@@ -229,9 +1377,5 @@ An empty list here means a quiet night, and a quiet night is a correct one.
 1. Finish **Phase 3** rendering (VMA → pipeline → sprite batch) — it unblocks everything visual.
 2. In parallel, stand up **Phase 4 ECS** — it unblocks scenes and gameplay.
 3. Then **Phase 5 assets** so you can load real textures/models.
-4. Everything after is genre-driven; the Zomboid port (Phase 13) is the forcing function that
-   keeps the API honest.
-
----
-
-← Back to the [**MAZ ARCADE hub**](../index.html) · [repository README](../README.md)
+4. Everything after is genre-driven; a small original sample game (Phase 13) is the forcing
+   function that keeps the API honest.

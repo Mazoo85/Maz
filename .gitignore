@@ -2,32 +2,37 @@
 node_modules/
 *.log
 
-# Playwright is installed on demand for the browser suites
-# (npm --prefix music/tests install), so its lockfile is local scratch.
-package-lock.json
-
 # C++ / CMake build artifacts
 build/
 build-*/
 out/
 cmake-build-*/
+
+# Packaged game bundles (tools/package.sh output)
+dist/
+
+# Doxygen HTML output (docs/API.md is the committed, tool-free reference)
+docs/api-html/
 *.o
 *.obj
 *.spv
 compile_commands.json
 CMakeUserPresets.json
 _deps/
+Testing/
 
-# Python
+# Playwright is installed on demand for the arcade's browser suites
+# (npm --prefix music/tests install), so its lockfile is local scratch.
+package-lock.json
+
+# Python (crew, the Forge, maz-scrape)
 __pycache__/
 *.pyc
 
-# Test scratch output
-unit_scene_*.mazscene
-
-# maz-scrape run state + default output directory
+# maz-scrape run state + its default output directory
 .scraper/
 /scraped/
 
-# Forge run state (the ledger under forge/ledger/ IS committed)
+# The Forge's run state. Its ledger under forge/ledger/ IS committed — that is
+# the record of what the nightly loop did; only the scratch state is ignored.
 forge/state/

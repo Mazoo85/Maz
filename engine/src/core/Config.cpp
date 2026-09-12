@@ -17,18 +17,16 @@ AppConfig parseArgs(int argc, char** argv) {
             cfg.vsync = false;
         } else if (std::strcmp(arg, "--vsync") == 0) {
             cfg.vsync = true;
+        } else if (std::strcmp(arg, "--demo") == 0) {
+            cfg.demo = true;
+        } else if (std::strcmp(arg, "--mobile") == 0) {
+            cfg.mobile = true;
         } else if (std::strcmp(arg, "--frames") == 0 && i + 1 < argc) {
             cfg.frames = std::atoi(argv[++i]);
         } else if (std::strcmp(arg, "--width") == 0 && i + 1 < argc) {
             cfg.width = static_cast<uint32_t>(std::atoi(argv[++i]));
         } else if (std::strcmp(arg, "--height") == 0 && i + 1 < argc) {
             cfg.height = static_cast<uint32_t>(std::atoi(argv[++i]));
-        } else if (std::strcmp(arg, "--load-model") == 0 && i + 1 < argc) {
-            cfg.modelPath = argv[++i];
-        } else if (std::strcmp(arg, "--scene") == 0 && i + 1 < argc) {
-            cfg.scenePath = argv[++i];
-        } else if (std::strcmp(arg, "--sprite-demo") == 0) {
-            cfg.spriteDemo = true;
         } else {
             MAZ_LOG_WARN("ignoring unknown argument: %s", arg);
         }

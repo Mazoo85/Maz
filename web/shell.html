@@ -1,0 +1,49 @@
+<!doctype html>
+<!-- web/shell.html — Emscripten HTML shell that hosts a Maz WebAssembly game. Emscripten substitutes
+     {{{ SCRIPT }}} with the generated module loader at build time (see tools/build_web.sh). The <canvas>
+     with id="canvas" is the render surface the engine draws into via WebGL2. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Maz Engine — Web Build</title>
+  <style>
+    :root { color-scheme: dark light; }
+    body { margin: 0; background: #0f1420; color: #e6edf3;
+           font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+           display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; }
+    h1 { font-size: 1.1rem; font-weight: 600; margin: 4px 0; letter-spacing: .02em; }
+    #canvas { border: 1px solid #26304a; border-radius: 8px; background: #000;
+              max-width: 100%; image-rendering: pixelated; outline: none; }
+    #status { font-size: .85rem; color: #9fb0c8; min-height: 1.2em; }
+    progress { width: 320px; max-width: 90%; height: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Maz Engine</h1>
+  <canvas id="canvas" width="1280" height="720" tabindex="-1"
+          oncontextmenu="event.preventDefault()"></canvas>
+  <div id="status">Loading…</div>
+  <progress id="progress" value="0" max="100"></progress>
+  <script>
+    var statusEl = document.getElementById('status');
+    var progressEl = document.getElementById('progress');
+    var Module = {
+      canvas: (function () { return document.getElementById('canvas'); })(),
+      print: function (text) { console.log(text); },
+      printErr: function (text) { console.error(text); },
+      setStatus: function (text) {
+        statusEl.textContent = text || 'Running';
+        var m = text && text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+        if (m) { progressEl.value = parseInt(m[2], 10); progressEl.max = parseInt(m[4], 10); }
+        else { progressEl.removeAttribute('value'); if (!text) progressEl.style.display = 'none'; }
+      },
+      totalDependencies: 0,
+      monitorRunDependencies: function () {}
+    };
+    Module.setStatus('Downloading…');
+    window.onerror = function () { Module.setStatus('Error — see console.'); };
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>
