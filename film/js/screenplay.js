@@ -19,6 +19,7 @@
   var LEX = root.FILM_LEXICON || (typeof require !== 'undefined' ? require('./lexicon.js') : {});
   var DLG = root.FILM_DIALOGUE || (typeof require !== 'undefined' ? require('./dialogue.js') : {});
   var PARSE = root.FilmParse || (typeof require !== 'undefined' ? require('./parse.js') : {});
+  var VOICE = root.FilmVoice || (typeof require !== 'undefined' ? require('./voice.js') : {});
 
   /* Ages have to match the part. A script that introduces "ALEX (40s), a kid"
    * has told the reader nothing and lost them at the same time. */
@@ -266,6 +267,14 @@
       }(pool(genre.sounds, rng)))
     };
 
+    // How each of them talks. Derived from the name and the role rather than
+    // drawn from `rng`, so adding a scene above this line cannot change the way
+    // a character speaks in the scene below it.
+    ctx.voices = {
+      hero: VOICE.voiceFor(premise.hero.name, premise.hero.role, seed),
+      other: VOICE.voiceFor(premise.other.name, premise.other.role, seed)
+    };
+
     var beatById = {};
     LEX.BEATS.forEach(function (b) { beatById[b.id] = b; });
 
@@ -380,11 +389,23 @@
   }
 
   function stageExchange(exchange, out, premise, ctx) {
-    exchange.forEach(function (line) {
-      var who = line.who === 'hero' ? premise.hero : premise.other;
+    exchange.forEach(function (line, at) {
+      var isHero = line.who === 'hero';
+      var who = isHero ? premise.hero : premise.other;
       out.push({ type: 'character', text: who.name });
       if (line.paren) out.push({ type: 'parenthetical', text: fill(line.paren, ctx) });
-      out.push({ type: 'dialogue', text: fill(line.line, ctx) });
+      // The bank is written in one neutral voice because an exchange has to work
+      // for whoever ends up saying it; this is where it stops being neutral. The
+      // voice runs on the TEMPLATE, before fill(), so a character who uses your
+      // name can be handed the slot for whoever they are talking to.
+      var spoken = line.line;
+      if (ctx.voices) {
+        spoken = VOICE.speak(spoken, isHero ? ctx.voices.hero : ctx.voices.other, {
+          at: at,
+          listenerSlot: isHero ? '{OTHER}' : '{HERO}'
+        });
+      }
+      out.push({ type: 'dialogue', text: fill(spoken, ctx) });
     });
   }
 

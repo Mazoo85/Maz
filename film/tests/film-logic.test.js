@@ -17,6 +17,7 @@ const DLG = require(path.join(__dirname, '..', 'js', 'dialogue.js'));
 const Parse = require(path.join(__dirname, '..', 'js', 'parse.js'));
 const Writer = require(path.join(__dirname, '..', 'js', 'screenplay.js'));
 const Format = require(path.join(__dirname, '..', 'js', 'format.js'));
+const Voice = require(path.join(__dirname, '..', 'js', 'voice.js'));
 
 let passed = 0;
 const failures = [];
@@ -2103,6 +2104,135 @@ test('the exported shots run back to back with no gap and no overlap', () => {
 });
 
 console.log('');
+/* ------------------------------------------------------------------ voices */
+
+/* Every line in the bank, in every mouth the program can build.
+ *
+ * A voice transform that mangles English is worse than no voice transform at
+ * all, and the failure would be invisible: one line in one film in one genre
+ * comes out as "Maybe i am not sure ,{HERO}." and nobody sees it until a person
+ * reads the script. So this walks the whole dialogue bank through a spread of
+ * voices covering every corner of the four dials, and demands the result still
+ * be a line somebody could say.
+ */
+function everyBankLine() {
+  const lines = [];
+  Object.keys(DLG.SHARED).forEach((beat) => DLG.SHARED[beat].forEach((exchange) =>
+    exchange.forEach((l) => lines.push(['shared ' + beat, l.line]))));
+  Object.keys(DLG.BY_GENRE).forEach((genre) => Object.keys(DLG.BY_GENRE[genre]).forEach((beat) =>
+    DLG.BY_GENRE[genre][beat].forEach((exchange) => exchange.forEach((l) =>
+      lines.push([genre + ' ' + beat, l.line])))));
+  return lines;
+}
+
+/* The sixteen corners of the four dials, plus the middle: a voice that is at an
+ * extreme on every dial at once is the one most likely to break a line. */
+function everyVoiceShape() {
+  const out = [];
+  const ends = [0.1, 0.9];
+  ends.forEach((formal) => ends.forEach((terse) => ends.forEach((hedging) => ends.forEach((warmth) =>
+    out.push({ name: 'TEST', formal, terse, hedging, warmth })))));
+  out.push({ name: 'TEST', formal: 0.5, terse: 0.5, hedging: 0.5, warmth: 0.5 });
+  return out;
+}
+
+test('every line in the bank survives every voice', () => {
+  const lines = everyBankLine();
+  const voices = everyVoiceShape();
+  assert(lines.length > 100, 'expected a bank of real size, got ' + lines.length);
+  let checked = 0;
+
+  lines.forEach(([where, line]) => {
+    voices.forEach((voice) => {
+      for (let at = 0; at < 3; at++) {
+        const said = Voice.speak(line, voice, { at, listenerSlot: '{OTHER}' });
+        const at_ = where + ' @' + at + ' :: ' + JSON.stringify(line) + ' -> ' + JSON.stringify(said);
+        checked++;
+
+        assert(said.length > 0, 'became empty: ' + at_);
+        // A line must end the way it started. A question that stops being a
+        // question makes the answer a non sequitur; an interruption that loses
+        // its em dash stops being an interruption. Checking the character
+        // itself covers every ending the bank uses without listing them.
+        eq(said.slice(-1), line.slice(-1), 'changed how the line ends: ' + at_);
+        assert(said.indexOf('  ') === -1, 'has a double space: ' + at_);
+        assert(!/\s[,.?!]/.test(said), 'has a space before punctuation: ' + at_);
+        assert(!/\bi\b/.test(said), 'lowercased a standalone I: ' + at_);
+        assert(/^[A-Z0-9{"'(—…]/.test(said), 'does not start cleanly: ' + at_);
+
+        // Slots must come through whole, and no new one may be invented.
+        const slotsIn = (line.match(/\{[A-Z_]+\}/g) || []).slice().sort();
+        const slotsOut = (said.match(/\{[A-Z_]+\}/g) || []).slice().sort();
+        slotsOut.forEach((slot) => assert(slotsIn.indexOf(slot) !== -1 || slot === '{OTHER}',
+          'invented a slot: ' + at_));
+        eq((said.match(/\{/g) || []).length, (said.match(/\}/g) || []).length,
+          'unbalanced braces: ' + at_);
+
+        // It must still be recognisably the same line, not a new one.
+        const grew = said.split(/\s+/).length - line.split(/\s+/).length;
+        assert(grew <= 3, 'grew by ' + grew + ' words: ' + at_);
+      }
+    });
+  });
+  assert(checked > 5000, 'expected thousands of combinations, ran ' + checked);
+});
+
+test('a voice is the same every time it is derived', () => {
+  const a = Voice.voiceFor('SHAY', 'night nurse', 1234);
+  const b = Voice.voiceFor('SHAY', 'night nurse', 1234);
+  ['formal', 'terse', 'hedging', 'warmth'].forEach((k) => eq(a[k], b[k], 'dial ' + k));
+  const c = Voice.voiceFor('SAM', 'night nurse', 1234);
+  assert(['formal', 'terse', 'hedging', 'warmth'].some((k) => a[k] !== c[k]),
+    'two different people came out with identical voices');
+});
+
+test('a role moves the dials, not just the seed', () => {
+  // Someone whose job is a register should land on that register whatever the
+  // dice say — a surgeon who talks like a drifter is a casting error.
+  const doctor = Voice.voiceFor('X', 'surgeon', 7);
+  const kid = Voice.voiceFor('X', 'kid', 7);
+  assert(doctor.formal > 0.6, 'a surgeon should speak in full words, got ' + doctor.formal);
+  assert(kid.formal < 0.45, 'a kid should clip their words, got ' + kid.formal);
+});
+
+test('two characters in the same film do not sound the same', () => {
+  // The whole point. Across a spread of films, the two leads must differ on at
+  // least one dial far enough to hear.
+  let heard = 0;
+  const ideas = [
+    'a night nurse buries a key in the woods and forgets where',
+    'two brothers argue over a boat their father left them',
+    'a detective returns a stolen watch to the wrong house',
+    'a teenager hides a letter from her grandmother'
+  ];
+  ideas.forEach((idea) => {
+    const premise = Parse.parse(idea);
+    const a = Voice.voiceFor(premise.hero.name, premise.hero.role, premise.seed);
+    const b = Voice.voiceFor(premise.other.name, premise.other.role, premise.seed);
+    const apart = ['formal', 'terse', 'hedging', 'warmth']
+      .reduce((m, k) => Math.max(m, Math.abs(a[k] - b[k])), 0);
+    if (apart > 0.25) heard++;
+  });
+  assert(heard >= 3, 'only ' + heard + ' of ' + ideas.length + ' films had two audible voices');
+});
+
+test('the voice reaches the finished script', () => {
+  // A formal character's lines must actually come out expanded in the film, not
+  // just in the module: the wiring is the part that breaks.
+  const premise = Parse.parse('a surgeon and a kid trade a stolen watch in a hospital');
+  const script = Writer.write(premise, { length: 'festival', seed: 4242 });
+  const spoken = script.elements.filter((e) => e.type === 'dialogue').map((e) => e.text);
+  assert(spoken.length > 0, 'no dialogue in the script at all');
+  const bank = everyBankLine().map(([, l]) => l);
+  // At least one line must differ from every neutral form in the bank, which is
+  // only possible if a voice changed it.
+  const filled = (t) => t.replace(/\{[A-Z_]+\}/g, '');
+  const moved = spoken.some((line) => !bank.some((raw) => filled(raw).trim() === filled(line).trim()));
+  assert(moved, 'not one line was changed by a voice');
+});
+
+
+
 if (failures.length) {
   console.error('✖ ' + failures.length + ' failing test(s):');
   failures.forEach((f) => console.error('  - ' + f));
