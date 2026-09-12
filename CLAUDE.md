@@ -118,6 +118,35 @@ node film/tests/film-logic.test.js                               # and music/, m
 `.claude/hooks/session-start.sh` installs the Python packages those suites need when the session
 starts; if it didn't run, `pip install pytest httpx selectolax pyyaml typer rich` is the same set.
 
+## This repo is the home
+
+**Maz is the one repo.** Everything Cody works on lives here rather than in a repo per
+project, and new work belongs in this repo unless he says otherwise. `PROJECTS.md` is the
+index of what is here; `CONSOLIDATION.md` records anything folded in from elsewhere.
+
+To fold another repository in — keeping every one of its commits, not copying files:
+
+```sh
+cd consolidate
+python3 -m consolidate.cli add /path/to/Maz --repo owner/name        # dry run
+python3 -m consolidate.cli add /path/to/Maz --repo owner/name --yes
+```
+
+It lands in `projects/<name>/` via `git subtree`, so its full history comes with it.
+`consolidate update <folder> <project>` pulls in later changes from the original.
+
+Two things worth knowing before touching it:
+
+- `PROJECTS.md`, `CONSOLIDATION.md` and `consolidate.json` are **generated** — the first
+  two carry a marker line and are rewritten on every `adopt`/`add`. Don't hand-edit them.
+  Anything *without* that marker is never overwritten, which is why `README.md` is safe.
+- Forks are deliberately left out: folding one in ends the ability to pull upstream fixes
+  or send changes back. `Mazoo85/codebase-memory-mcp` is a fork and should stay separate.
+
+`consolidate check .` compares this repo's own directories against each other and reports
+duplicated files and code that has drifted apart — run it when something feels like it
+already exists somewhere else in here.
+
 ## Git
 
 **`main` is the trunk, and it is the repo's default branch.** Branch off `main`, commit in small
