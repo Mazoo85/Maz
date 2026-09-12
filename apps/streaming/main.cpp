@@ -133,15 +133,18 @@ int main(int argc, char** argv) {
 
             // Asset grid: grey while loading, decoded colour once ready.
             for (int i = 0; i < kCount; ++i) {
+                // ids is a vector, so its subscript is size_t while i is an int loop counter.
+                // Widened once here; i is 0..kCount-1, so the value is unchanged.
+                const size_t idx = static_cast<size_t>(i);
                 const int cx = i % cols;
                 const int cy = i / cols;
                 const float x = gridX + static_cast<float>(cx) * (cell + pad);
                 const float y = gridY + static_cast<float>(cy) * (cell + pad);
-                const bool loaded = server.status(ids[i]) == core::AssetStatus::Loaded;
+                const bool loaded = server.status(ids[idx]) == core::AssetStatus::Loaded;
                 quad(*renderer, x - 2, y - 2, cell + 4, cell + 4,
                      render::Color{0.24f, 0.27f, 0.33f, 1.0f});
                 if (loaded) {
-                    quad(*renderer, x, y, cell, cell, server.tryGet(ids[i])->color);
+                    quad(*renderer, x, y, cell, cell, server.tryGet(ids[idx])->color);
                 } else {
                     quad(*renderer, x, y, cell, cell, render::Color{0.15f, 0.16f, 0.20f, 1.0f});
                     font.drawText(*renderer, x + 28, y + 34, "...",
