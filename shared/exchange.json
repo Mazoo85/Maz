@@ -1,0 +1,41 @@
+{
+  "_comment": "Which projects publish something other projects use, and who uses it. Read by scripts/check-exchange.mjs and by forge/forge/exchange.py. Adding a cross-project <script> tag without declaring it here fails CI.",
+  "publishes": {
+    "music/composer": {
+      "project": "music",
+      "summary": "Compose and play a song from a genre, mood and length.",
+      "files": [
+        "music/js/theory.js",
+        "music/js/genres.js",
+        "music/js/synth.js",
+        "music/js/composer.js",
+        "music/js/engine.js"
+      ]
+    },
+    "madlibs/storyideas": {
+      "project": "madlibs",
+      "summary": "Forge a random story idea — genre, characters, places and scene beats.",
+      "files": [
+        "madlibs/js/dictionary.js",
+        "madlibs/js/templates.js",
+        "madlibs/js/generator.js"
+      ]
+    }
+  },
+  "consumes": [
+    {
+      "project": "film",
+      "id": "music/composer",
+      "via": "script",
+      "page": "film/index.html",
+      "contract": "film/tests/film-logic.test.js"
+    },
+    {
+      "project": "film",
+      "id": "madlibs/storyideas",
+      "via": "script",
+      "page": "film/index.html",
+      "contract": "film/tests/film-logic.test.js"
+    }
+  ]
+}

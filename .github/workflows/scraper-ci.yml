@@ -1,0 +1,45 @@
+name: Scraper CI
+
+# Runs the maz-scrape Python test suite. The scraper tests are offline by design
+# (they drive the fetcher with httpx.MockTransport and never touch the network),
+# so CI installs only the libraries the tests actually import plus pytest — no
+# credentials and no live sites required, which keeps this job fast and reliable.
+
+on:
+  push:
+    paths:
+      - "scraper/**"
+      - ".github/workflows/scraper-ci.yml"
+  pull_request:
+    paths:
+      - "scraper/**"
+      - ".github/workflows/scraper-ci.yml"
+  workflow_call:
+
+concurrency:
+  group: scraper-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Scraper tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scraper
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install test dependencies
+        run: python -m pip install --upgrade pip pytest httpx selectolax pyyaml typer rich
+
+      - name: Run tests
+        run: pytest -q

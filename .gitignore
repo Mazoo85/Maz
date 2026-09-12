@@ -24,3 +24,15 @@ Testing/
 # Playwright is installed on demand for the arcade's browser suites
 # (npm --prefix music/tests install), so its lockfile is local scratch.
 package-lock.json
+
+# Python (crew, the Forge, maz-scrape)
+__pycache__/
+*.pyc
+
+# maz-scrape run state + its default output directory
+.scraper/
+/scraped/
+
+# The Forge's run state. Its ledger under forge/ledger/ IS committed — that is
+# the record of what the nightly loop did; only the scratch state is ignored.
+forge/state/

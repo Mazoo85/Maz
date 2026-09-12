@@ -21,6 +21,22 @@ Because it's this large, **the first move for any new feature is to search `engi
 for what already exists** — reuse it, don't reinvent it. (There is already a `math::Geometry2D`,
 a physics world, an audio DSP stack, an animation system, a UI toolkit, and much more.)
 
+## The rest of the repo (not the engine)
+
+`main` also carries a set of browser projects and Python tools that have nothing to do with the C++
+build. You can ignore them while working on the engine — but know they exist, because two of their
+CI gates run on **every** push, engine changes included:
+
+- `film/` `music/` `madlibs/` `zomboid/` `shooter/` — MAZ ARCADE, dependency-free browser apps
+  behind the hub at `index.html`. Tests are plain Node: `node film/tests/film-logic.test.js`.
+- `crew/` `scraper/` `forge/` — Python tools. `forge/` is **the Forge**, a nightly loop that picks
+  one task, hands it to Maz Crew and opens a draft PR (`docs/FORGE.md`).
+- `shared/exchange.json` — the manifest of which project may use another's files.
+  **`scripts/check-exchange.mjs` fails CI if a page loads another project's script without
+  declaring it here**, and `scripts/check-links.mjs` fails on a dangling local link. Both are
+  dependency-free and take seconds — run them before pushing anything that touches an HTML page,
+  a README, or a cross-project import.
+
 ## Starting a new game — the workflow
 
 ```sh
@@ -81,8 +97,36 @@ scratchpad for the headers); the **CI workflow does the full Vulkan build and th
 suite**. Never weaken CI or the renderer to make it build here — split GPU glue from pure logic and
 verify the logic locally, the glue in CI.
 
+That limit is the **engine's** only. Everything in "the rest of the repo" above runs here in full
+and in seconds, so there is no excuse for pushing it unverified:
+
+```sh
+node scripts/check-links.mjs && node scripts/check-exchange.mjs   # both repo-wide gates
+node film/tests/film-logic.test.js                               # and music/, madlibs/, …
+(cd forge && python3 -m pytest -q)                               # also crew/, scraper/
+```
+
+`.claude/hooks/session-start.sh` installs the Python packages those suites need when the session
+starts; if it didn't run, `pip install pytest httpx selectolax pyyaml typer rich` is the same set.
+
 ## Git
 
-Work happens on branch `claude/game-engine-roadmap-mxfa9r` (this branch carries the mature engine;
-the repo's default branch is an older skeleton). Commit in small, verified increments and push to
-this branch. Do not open a PR unless Cody asks.
+**`main` is the trunk, and it is the repo's default branch.** Branch off `main`, commit in small
+verified increments, and push the branch. Do not open a PR unless Cody asks.
+
+Until 12 September this was not true, and the damage is worth knowing so nobody rebuilds it. The
+repo had **two** mainlines, forked at the scaffold commit and never rejoined: `main` grew the
+engine (1,339 commits), while `claude/zomboid-sega-neon-anchorage-i5emkk` grew the arcade projects
+and the Forge — and *that* branch was the default. So every fresh clone and every new web session
+started on a July engine skeleton 1,339 commits behind the real engine. Work aimed at the engine
+landed where it could never reach the engine, and the same bugs were found and fixed twice on
+branches that could not see each other. They are merged now and `main` carries both.
+
+The lesson that outlives the merge: **a branch that looks like a trunk may not be one.** Before
+building on any branch, check it against `main` rather than trusting its name or commit count:
+
+```sh
+git rev-list --left-right --count origin/main...<branch>   # prints: <behind-by>  <ahead-of-main>
+```
+
+A large left-hand number means that branch cannot see most of the engine, whatever it is called.
