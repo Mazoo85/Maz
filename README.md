@@ -26,11 +26,18 @@ in its corner that leads back to it.
 | ✍️ | **MADLIBS STORY FORGE** — [open](madlibs/) · [docs](madlibs/README.md) | Forges story ideas broken into scene beats, ready to seed a script. |
 | 🕸️ | **maz-scrape** — [docs](scraper/README.md) | Recipe-driven scraper for static HTML: point it at a YAML recipe, get JSONL/CSV/SQLite. |
 | 🧰 | **crew** — [docs](crew/README.md) | Small shared tooling. |
+| ⚒️ | **The Forge** — [docs](docs/FORGE.md) | The repo's own nightly loop: reads the roadmap, CI and `TODO` markers, picks one task, hands it to Maz Crew, and opens a draft PR. Verifies against every project declared to depend on what it changed. Never pushes to the default branch, never merges. |
 
 The arcade has its own CI — [`site-ci.yml`](.github/workflows/site-ci.yml) checks
-that every cross-link resolves and drives the hub and each app in a real
-Chromium; [`music-ci.yml`](.github/workflows/music-ci.yml) covers SONG FORGE.
-Neither touches the engine build.
+that every cross-link resolves, that no project reaches into another without
+declaring it, and drives the hub and each app in a real Chromium;
+[`music-ci.yml`](.github/workflows/music-ci.yml) covers SONG FORGE,
+[`scraper-ci.yml`](.github/workflows/scraper-ci.yml) maz-scrape,
+[`crew-ci.yml`](.github/workflows/crew-ci.yml) Maz Crew, and
+[`forge-ci.yml`](.github/workflows/forge-ci.yml) the Forge itself. None of them
+touch the engine build. [`all-checks.yml`](.github/workflows/all-checks.yml)
+runs every suite in the repository — engine included — behind one button, so
+"is the whole repository healthy?" has a single answer.
 
 See **[`docs/ROADMAP.md`](docs/ROADMAP.md)** for the full build plan (the "massive list") and
 **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** for the module map and design principles.

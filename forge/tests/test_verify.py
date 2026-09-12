@@ -1,0 +1,318 @@
+"""VERIFY: run the zone's checks, then open a draft PR if they pass."""
+
+import json
+
+import pytest
+
+from forge.checks import EXCHANGE_CHECK_CMD, UnmappedZoneError, commands_for
+from forge.config import ForgeConfig
+from forge.do import CrewOutcome
+from forge.verify import open_draft_pr, run_checks, run_checks_for_files
+from forge.zones import zone_for
+
+
+def _exchange(root):
+    """Give a tmp_path repo the declaration run_checks now requires."""
+    shared = root / "shared"
+    shared.mkdir(parents=True, exist_ok=True)
+    (shared / "exchange.json").write_text(
+        json.dumps({"publishes": {}, "consumes": []}), encoding="utf-8"
+    )
+    return root
+
+
+OUTCOME = CrewOutcome(ok=True, branch="forge/2026-09-11-write-docs",
+                      files=("docs/a.md",), cost_usd=0.5, duration_min=3.0)
+CHOSEN = {
+    "candidate": {"task": "Write the loot table docs", "source": "todo:docs/a.md:1",
+                  "kind": "todo", "paths": ["docs/a.md"], "key": "abc"},
+    "score": 17.5, "value": 5.0, "confidence": 7.0, "risk": 1.0, "zone": "docs/",
+}
+
+
+def test_music_zone_runs_the_music_tests():
+    cmds = commands_for("music/")
+    assert any("music" in " ".join(c) for c in cmds)
+
+
+def test_docs_zone_has_no_own_commands_but_still_runs_the_exchange_gate(tmp_path):
+    # docs/ has no project of its own — no own-zone commands — but Important
+    # 2 means it is never truly empty: the whole-repo exchange gate always
+    # runs, regardless of zone. The runner must see exactly that one call.
+    assert commands_for("docs/") == ()
+    calls = []
+
+    def runner(cmd, root):
+        calls.append(cmd)
+        return (0, "ok")
+
+    result = run_checks("docs/", _exchange(tmp_path), runner=runner)
+    assert result.ok is True
+    assert result.ran == (" ".join(EXCHANGE_CHECK_CMD),)
+    assert calls == [EXCHANGE_CHECK_CMD]
+
+
+def test_unknown_zone_fails_closed_rather_than_answering_no_commands(tmp_path):
+    # Important 1: a zone with no entry in ZONE_PROJECT at all must not read
+    # the same as docs/'s deliberate "no project" — see checks.UnmappedZoneError.
+    with pytest.raises(UnmappedZoneError):
+        commands_for("nowhere/")
+
+
+def test_tests_zone_has_no_wrong_command_mapped_and_fails_closed_if_ever_asked():
+    """This repo's `tests/` directory is C++ (CMake/ctest, needs the Vulkan
+    SDK the sandbox lacks), not the Python suite `forge/tests`. There is no
+    command this module can honestly run for it, so it must not claim one —
+    `commands_for` must not map `tests/` to the Forge's own pytest suite,
+    which verifies nothing about C++ changes. It is also absent from
+    `config.ForgeConfig.safe_zones` by default, so nothing in production
+    ever calls `commands_for("tests/")` — but if it ever did, it must fail
+    closed (UnmappedZoneError) rather than silently answer "nothing to
+    check", the same as any other zone nobody has classified.
+    """
+    with pytest.raises(UnmappedZoneError):
+        commands_for("tests/")
+
+
+def test_all_commands_must_pass(tmp_path):
+    calls = []
+
+    def runner(cmd, root):
+        calls.append(cmd)
+        return (0, "ok")
+
+    result = run_checks("scraper/", _exchange(tmp_path), runner=runner)
+    assert result.ok is True
+    # scraper/'s own two commands, plus the exchange gate every
+    # project-owning zone now runs (see checks.EXCHANGE_CHECK_CMD).
+    assert len(commands_for("scraper/")) == 2
+    assert len(calls) == 3
+
+
+def test_a_failing_command_stops_the_run(tmp_path):
+    calls = []
+
+    def runner(cmd, root):
+        calls.append(cmd)
+        return (1, "2 failed")
+
+    result = run_checks("scraper/", _exchange(tmp_path), runner=runner)
+    assert result.ok is False
+    assert "2 failed" in result.output
+    assert len(calls) == 1  # stopped at the first failure, did not run the second
+
+
+# --- run_checks_for_files: derive checks from what actually changed ------
+#
+# Important 3's reproduction: a candidate DECIDE scopes to docs/ (the
+# broadest zone) whose agent also edits music/. `run_checks("docs/", ...)`
+# runs zero commands because docs/ has none of its own — the exact defect
+# this function exists to remove.
+
+
+def test_run_checks_for_files_runs_every_touched_zones_checks(tmp_path):
+    files = ("docs/ARCHITECTURE.md", "music/js/composer.js")
+    cfg = ForgeConfig()
+    # Pin the old bug: the broadest zone across these files has no checks.
+    assert zone_for(files, cfg) == "docs/"
+    assert commands_for("docs/") == ()
+
+    _exchange(tmp_path)  # a valid, empty declaration — no downstream needed to make the point
+    calls = []
+    result = run_checks_for_files(
+        files, cfg, tmp_path,
+        runner=lambda cmd, root: (calls.append(cmd), (0, "ok"))[1],
+    )
+    assert result.ok is True
+    assert ("node", "music/tests/music-logic.test.js") in calls
+
+
+def test_run_checks_for_files_includes_downstream_consumers_of_a_touched_zone(tmp_path):
+    shared = tmp_path / "shared"
+    shared.mkdir(parents=True)
+    shared.joinpath("exchange.json").write_text(json.dumps({
+        "publishes": {
+            "music/composer": {
+                "project": "music", "summary": "Compose.",
+                "files": ["music/js/composer.js"],
+            },
+        },
+        "consumes": [
+            {"project": "film", "id": "music/composer", "via": "script",
+             "page": "film/index.html", "contract": "film/tests/film-logic.test.js"},
+        ],
+    }), encoding="utf-8")
+
+    files = ("docs/ARCHITECTURE.md", "music/js/composer.js")
+    calls = []
+    result = run_checks_for_files(
+        files, ForgeConfig(), tmp_path,
+        runner=lambda cmd, root: (calls.append(cmd), (0, "ok"))[1],
+    )
+    assert result.ok is True
+    assert ("node", "music/tests/music-logic.test.js") in calls
+    assert ("node", "film/tests/film-logic.test.js") in calls
+
+
+def test_run_checks_for_files_stops_at_the_first_failure(tmp_path):
+    _exchange(tmp_path)
+    calls = []
+
+    def runner(cmd, root):
+        calls.append(cmd)
+        return (1, "boom")
+
+    result = run_checks_for_files(("music/js/composer.js",), ForgeConfig(), tmp_path,
+                                  runner=runner)
+    assert result.ok is False
+    assert len(calls) == 1
+
+
+def test_run_checks_for_files_fails_closed_on_an_unreadable_declaration(tmp_path):
+    shared = tmp_path / "shared"
+    shared.mkdir(parents=True)
+    shared.joinpath("exchange.json").write_text("{ not json", encoding="utf-8")
+
+    result = run_checks_for_files(("music/js/composer.js",), ForgeConfig(), tmp_path,
+                                  runner=lambda cmd, root: (0, "ok"))
+    assert result.ok is False
+    assert "exchange" in result.output.lower() or "break" in result.output.lower()
+
+
+def test_run_checks_for_files_fails_closed_on_a_consumer_with_no_checks(tmp_path):
+    # Minor 2 from the third review, exercised through the real production
+    # path: a music/ change would previously report checks: green having
+    # never run a single command against a declared consumer ("zomboid")
+    # that has no entry in checks.PROJECT_CHECKS — the ZONE_PROJECT gap the
+    # previous wave closed, left open one map over. This must now fail
+    # closed instead, the same way an unreadable declaration does.
+    shared = tmp_path / "shared"
+    shared.mkdir(parents=True)
+    shared.joinpath("exchange.json").write_text(json.dumps({
+        "publishes": {
+            "music/composer": {
+                "project": "music", "summary": "Compose.",
+                "files": ["music/js/composer.js"],
+            },
+        },
+        "consumes": [
+            {"project": "zomboid", "id": "music/composer", "via": "script",
+             "page": "zomboid/index.html", "contract": "zomboid/tests/t.js"},
+        ],
+    }), encoding="utf-8")
+
+    result = run_checks_for_files(("music/js/composer.js",), ForgeConfig(), tmp_path,
+                                  runner=lambda cmd, root: (0, "ok"))
+    assert result.ok is False
+    assert result.ran == ()
+    assert "zomboid" in result.output
+
+
+def test_run_checks_for_files_fails_closed_when_a_file_resolves_to_no_zone(tmp_path):
+    # do.py already refuses to report success for a change like this — this
+    # pins that run_checks_for_files does not rely on that "by luck": called
+    # directly with such a file, it must still fail closed, not silently
+    # verify only the files it could place.
+    _exchange(tmp_path)
+    result = run_checks_for_files(
+        ("music/js/composer.js", "engine/src/core/app.cpp"), ForgeConfig(), tmp_path,
+        runner=lambda cmd, root: (0, "ok"),
+    )
+    assert result.ok is False
+
+
+def test_open_draft_pr_posts_a_draft(tmp_path):
+    posted = {}
+
+    def poster(path, body):
+        posted["path"] = path
+        posted["body"] = body
+        return {"number": 42}
+
+    number = open_draft_pr(OUTCOME, CHOSEN, tmp_path, slug="Mazoo85/Maz", poster=poster)
+    assert number == 42
+    assert posted["path"] == "/repos/Mazoo85/Maz/pulls"
+    assert posted["body"]["draft"] is True
+    assert posted["body"]["head"] == OUTCOME.branch
+    assert posted["body"]["base"] == "main"
+
+
+def test_pr_body_explains_the_pick():
+    posted = {}
+
+    def poster(path, body):
+        posted["body"] = body
+        return {"number": 1}
+
+    open_draft_pr(OUTCOME, CHOSEN, None, slug="a/b", poster=poster)
+    text = posted["body"]["body"]
+    assert "todo:docs/a.md:1" in text
+    assert "17.5" in text
+    assert "docs/a.md" in text
+
+
+def test_open_draft_pr_returns_none_when_github_refuses(tmp_path):
+    assert open_draft_pr(OUTCOME, CHOSEN, tmp_path, slug="a/b", poster=lambda p, b: {}) is None
+
+
+def test_open_draft_pr_returns_none_without_a_slug(tmp_path):
+    assert open_draft_pr(OUTCOME, CHOSEN, tmp_path, slug=None,
+                         poster=lambda p, b: {"number": 1}) is None
+
+
+def test_pr_body_renders_sensibly_with_no_cost_reported():
+    # cost_usd=None ("not reported", per do.CrewOutcome) must never render as
+    # "$None" or crash the f-string formatting.
+    outcome = CrewOutcome(ok=True, branch="forge/x", files=("a.py",),
+                          cost_usd=None, duration_min=2.0)
+    posted = {}
+
+    def poster(path, body):
+        posted["body"] = body
+        return {"number": 1}
+
+    open_draft_pr(outcome, CHOSEN, None, slug="a/b", poster=poster)
+    text = posted["body"]["body"]
+    assert "$None" not in text
+    assert "None" not in text
+
+
+def test_open_draft_pr_uses_the_configured_base_branch(tmp_path):
+    """The PR's `base` must be whatever base_branch the caller passes, not
+    the module's own "main" default — a lingering hard-coded fallback here
+    is exactly the bug this fix removes.
+    """
+    posted = {}
+
+    def poster(path, body):
+        posted["body"] = body
+        return {"number": 7}
+
+    open_draft_pr(OUTCOME, CHOSEN, tmp_path, slug="a/b", poster=poster,
+                  base_branch="claude/zomboid-sega-neon-anchorage-i5emkk")
+    assert posted["body"]["base"] == "claude/zomboid-sega-neon-anchorage-i5emkk"
+
+
+def test_open_draft_pr_defaults_base_branch_to_main_when_not_given(tmp_path):
+    posted = {}
+
+    def poster(path, body):
+        posted["body"] = body
+        return {"number": 8}
+
+    open_draft_pr(OUTCOME, CHOSEN, tmp_path, slug="a/b", poster=poster)
+    assert posted["body"]["base"] == "main"
+
+
+def test_pr_body_renders_sensibly_with_no_files():
+    outcome = CrewOutcome(ok=True, branch="forge/x", files=(),
+                          cost_usd=1.23, duration_min=2.0)
+    posted = {}
+
+    def poster(path, body):
+        posted["body"] = body
+        return {"number": 1}
+
+    open_draft_pr(outcome, CHOSEN, None, slug="a/b", poster=poster)
+    text = posted["body"]["body"]
+    assert "(none recorded)" in text

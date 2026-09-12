@@ -17,9 +17,23 @@ import { join, dirname, resolve, relative, extname, posix } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+// This list is intentionally NOT identical to check-exchange.mjs's SKIP_DIRS,
+// even though both walk the repo for HTML — the two checkers skip `fixtures` for
+// different reasons, and only one of those reasons applies here. This checker
+// cares about dangling links, and the scraper's test fixtures are fake pages full
+// of deliberately dangling URLs — real fixture noise for *this* rule, so
+// `fixtures` stays skipped. check-exchange.mjs cares about undeclared
+// cross-project <script>/<link> coupling, which a fixture page can produce
+// exactly as easily as a real one, so it does NOT skip `fixtures` — see the
+// comment on its own SKIP_DIRS. Do not "fix" this divergence back into alignment.
 const SKIP_DIRS = new Set([
   '.git', 'node_modules', 'build', 'dist', '__pycache__', '.venv', 'venv',
   '.pytest_cache', '.mypy_cache', '.claude',
+  // Subagent working notes: gitignored scratch, absent on CI, and full of quoted
+  // regexes and example paths that are not links at all. Skipping it keeps a
+  // stray local file from turning a locally-green night red for a failure CI
+  // could never reproduce.
+  '.superpowers',
   // Scraper test fixtures are fake pages full of deliberately dangling URLs.
   'fixtures'
 ]);
@@ -100,7 +114,7 @@ function resolves(fromFile, target) {
  * larger, it has its own CI, and its API reference legitimately contains
  * things like [links](url) as prose describing Markdown syntax, which is not a
  * link at all. So scan the arcade roots rather than the whole repository. */
-const ARCADE_ROOTS = ['zomboid', 'shooter', 'music', 'madlibs', 'film', 'scraper', 'crew', 'shared', 'docs/superpowers'];
+const ARCADE_ROOTS = ['zomboid', 'shooter', 'music', 'madlibs', 'film', 'scraper', 'crew', 'forge', 'shared', 'docs/superpowers'];
 
 const scanned = ARCADE_ROOTS
   .map((r) => join(ROOT, r))

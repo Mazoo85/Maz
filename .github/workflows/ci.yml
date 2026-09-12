@@ -9,6 +9,9 @@ on:
     branches: ["**"]
   pull_request:
   workflow_dispatch:
+  # all-checks.yml gathers every suite in the repo behind one button; it can only
+  # reuse this workflow if this workflow says it may be called.
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.ref }}
