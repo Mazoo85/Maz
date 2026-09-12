@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "stats": {
-    "apps": 163,
+    "apps": 164,
     "engineModules": 692,
     "engineSubsystems": 20,
     "cppTests": 376,
@@ -10,16 +10,16 @@
     "gates": 3,
     "buildTools": 11,
     "docs": 18,
-    "totalArtifacts": 896,
-    "linesOfApps": 32375,
+    "totalArtifacts": 897,
+    "linesOfApps": 32622,
     "linesOfEngine": 87768,
     "linesOfWeb": 17600,
     "appsHeadless": 100,
-    "appsGolden": 96,
+    "appsGolden": 95,
     "modulesTested": 100,
-    "modulesDemoed": 29,
-    "checksPassed": 2627,
-    "checksTotal": 3122,
+    "modulesDemoed": 30,
+    "checksPassed": 2638,
+    "checksTotal": 3128,
     "openTasks": 7
   },
   "queue": [
@@ -28,8 +28,8 @@
       "priority": 1,
       "kind": "engine-module",
       "check": "demoed",
-      "title": "489 engine modules are tested but no app shows them",
-      "detail": "These are finished, working features that nobody can see, and `apps/` is how this engine documents itself. They are not spread evenly: 145 in `render`, 117 in `math`, 81 in `game`, 75 in `core`, 15 in `net`, 14 in `io`, and 11 other subsystems. Writing 499 apps is not the answer and never was: one demo can show a dozen related modules at once — a single \"mesh repair\" app for the degenerate, self-intersection and closest-point analysers, one \"curve fitting\" app for the least-squares family — so the work is closer to a few dozen apps than 499. Start where the count is highest and the modules cluster most naturally. — CubicBezierEasing, SpringBone, Transition, EnvelopeFollower, G711, Goertzel, ImaAdpcm, KarplusStrong, Mp3, MusicTheory, Noise, PitchDetect, and 477 more. Example: No app under apps/ demonstrates maz::anim::CubicBezierEasing. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.",
+      "title": "483 engine modules are tested but no app shows them",
+      "detail": "These are finished, working features that nobody can see, and `apps/` is how this engine documents itself. They are not spread evenly: 145 in `render`, 117 in `math`, 81 in `game`, 75 in `core`, 15 in `net`, 12 in `audio`, and 11 other subsystems. Writing 499 apps is not the answer and never was: one demo can show a dozen related modules at once — a single \"mesh repair\" app for the degenerate, self-intersection and closest-point analysers, one \"curve fitting\" app for the least-squares family — so the work is closer to a few dozen apps than 499. Start where the count is highest and the modules cluster most naturally. — CubicBezierEasing, SpringBone, Transition, EnvelopeFollower, G711, Goertzel, ImaAdpcm, KarplusStrong, Mp3, MusicTheory, Noise, PitchDetect, and 471 more. Example: No app under apps/ demonstrates maz::anim::CubicBezierEasing. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.",
       "paths": [
         "engine/include/maz/anim/CubicBezierEasing.hpp",
         "engine/include/maz/anim/SpringBone.hpp",
@@ -73,7 +73,7 @@
         "engine/include/maz/core/Kalman.hpp"
       ],
       "source": "inventory:engine-module:demoed",
-      "memberCount": 489,
+      "memberCount": 483,
       "members": [
         {
           "id": "engine:anim/CubicBezierEasing",
@@ -337,18 +337,19 @@
       "priority": 2,
       "kind": "app",
       "check": "golden",
-      "title": "6 apps fail \"has a golden screenshot\"",
-      "detail": "_template, economy, orbs, rpgstats, sandbox, swarm. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.",
+      "title": "7 apps fail \"has a golden screenshot\"",
+      "detail": "_template, economy, orbs, rpgstats, sandbox, squeeze, swarm. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.",
       "paths": [
         "apps/_template",
         "apps/economy",
         "apps/orbs",
         "apps/rpgstats",
         "apps/sandbox",
+        "apps/squeeze",
         "apps/swarm"
       ],
       "source": "inventory:app:golden",
-      "memberCount": 6,
+      "memberCount": 7,
       "members": [
         {
           "id": "app:_template",
@@ -379,6 +380,12 @@
           "name": "sandbox",
           "path": "apps/sandbox",
           "fix": "Capture a golden frame for sandbox into tests/golden/sandbox.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test."
+        },
+        {
+          "id": "app:squeeze",
+          "name": "squeeze",
+          "path": "apps/squeeze",
+          "fix": "Capture a golden frame for squeeze into tests/golden/squeeze.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test."
         },
         {
           "id": "app:swarm",

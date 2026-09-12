@@ -13,7 +13,7 @@ size is in the wiring between the parts, not in any one part.
 
 | | Count | |
 |---|---:|---|
-| Native games and demos (`apps/`) | 163 | 32,375 lines |
+| Native games and demos (`apps/`) | 164 | 32,622 lines |
 | Engine capabilities (`engine/include/maz/`) | 692 | 87,768 lines across 20 subsystems |
 | C++ test files (`tests/`) | 376 | |
 | Browser apps and games | 6 | 17,600 lines |
@@ -21,15 +21,15 @@ size is in the wiring between the parts, not in any one part.
 | CI gates (`scripts/`) | 3 | |
 | Build and codegen helpers (`tools/`) | 11 | |
 | Documents (`docs/`) | 18 | |
-| **Catalogued artifacts** | **896** | |
+| **Catalogued artifacts** | **897** | |
 
 | Health signal | Score | |
 |---|---:|---|
-| Completeness checks passing | 84% | ████████░░ 2627 of 3122 |
+| Completeness checks passing | 84% | ████████░░ 2638 of 3128 |
 | Apps that run headless in CI | 100% | ██████████ |
-| Apps with a golden screenshot | 96% | ██████████ |
+| Apps with a golden screenshot | 95% | ██████████ |
 | Engine modules a test exercises | 100% | ██████████ |
-| Engine modules an app demonstrates | 29% | ███░░░░░░░ |
+| Engine modules an app demonstrates | 30% | ███░░░░░░░ |
 | Open tasks in the queue below | 7 | |
 
 ## 1. Everything you have built
@@ -68,7 +68,7 @@ module with neither is working code nobody can find.
 | `math` | 132 | 132 (100%) | 15 (11%) |
 | `game` | 124 | 124 (100%) | 43 (35%) |
 | `core` | 104 | 104 (100%) | 29 (28%) |
-| `io` | 30 | 30 (100%) | 16 (53%) |
+| `io` | 30 | 30 (100%) | 22 (73%) |
 | `audio` | 27 | 27 (100%) | 15 (56%) |
 | `ui` | 27 | 25 (93%) | 17 (63%) |
 | `platform` | 20 | 19 (95%) | 12 (60%) |
@@ -95,7 +95,7 @@ module with neither is working code nobody can find.
 
 **`core`** — ~AhoCorasick, ~AliasTable, ~Assert, AssetServer, ~BitSet, ~BloomFilter, CVars, ~CellularNoise, ~Checkpoints, Config, Containers, ~CountMinSketch, ~CurlNoise, ~DamerauLevenshtein, ~DateTime, Diff, ~DisjointSet, Events, Expression, ~FenwickTree, Fixed, ~FixedTimestep, FramePacer, ~FuzzyMatch, ~GapBuffer, ~GrayCode, ~Halton, Hash, ~Histogram, ~Hungarian, ~HyperLogLog, ~IndexedHeap, Interpolate, ~IntervalTree, ~JaroWinkler, Jobs, ~Kalman, ~KdTree2D, ~KdTree3D, KeyValueStore, Log, ~LogSinks, ~LruCache, ~Memory, ~MovingAverage, ~Murmur3, ~NodePath, Noise, ~NumberFormat, ~ObjectPool, ~OneEuroFilter, ~P2Quantile, Pcg32, ~PerfBudget, ~PidController, ~PoissonDisk, Profiler, ~ProjectSettings, ~RadixSort, Random, ~RandomDistributions, ~Reflect, Replay, ~ReservoirSampler, Resources, RingBuffer, ~RollingWindow, ~RunningMedian, ~RunningStats, SceneStack, Scheduler, ~SegmentTree, ~ShuffleBag, Signal, ~SimplexNoise, ~SimulatedAnnealing, SlotMap, ~SmoothDamp, ~SpaceFilling, ~SparseTable, Spring, ~StringFormat, ~StringHash, StringId, StringUtils, ~StronglyConnected, ~SuffixArray, ~SummedAreaTable, ~Telemetry, Time, ~TokenBucket, ~TopologicalSort, ~Trie, ~Utf16, ~Utf8, ~Uuid, ~ValueNoise, ~Variant, ~VariantContainerText, ~VariantContainers, ~VariantText, ~Version, ~WeightedReservoir, ~WorleyNoise
 
-**`io`** — Base64, ~BinaryDiff, BundlePlan, ~Bwt, Compression, Config, ConfigFile, ~ExportConfig, ~GettextPo, ~Gzip, ~Hdr, ~Huffman, ~ImportFile, Inflate, Json, Localization, ~Lzw, ~MessagePack, MobileBundlePlan, MobileBundlePreflight, ~MoveToFront, PrefabText, ~RangeCoder, ResourcePack, SceneSerializer, Serialize, ~StreamPeer, ~Varint, VirtualFileSystem, Xml
+**`io`** — Base64, BinaryDiff, BundlePlan, Bwt, Compression, Config, ConfigFile, ~ExportConfig, ~GettextPo, ~Gzip, ~Hdr, Huffman, ~ImportFile, Inflate, Json, Localization, Lzw, ~MessagePack, MobileBundlePlan, MobileBundlePreflight, MoveToFront, PrefabText, ~RangeCoder, ResourcePack, SceneSerializer, Serialize, ~StreamPeer, Varint, VirtualFileSystem, Xml
 
 **`audio`** — Audio, BusGraph, Dsp, Envelope, ~EnvelopeFollower, ~G711, ~Goertzel, ~ImaAdpcm, ~KarplusStrong, ~Mp3, MusicScales, MusicSequencer, ~MusicTheory, ~Noise, Oscillator, ~PitchDetect, PitchShifter, ~Qoa, Randomizer, SampleMixer, Spatial2D, Spatial3D, Spectrum, Stereo, ~TempoEstimate, Wav, ~Window
 
@@ -275,6 +275,7 @@ engine capability, a handful of them complete games.
 | **spatial3d** | 3D positional audio, toward Godot's AudioStreamPlayer3D) You can't hear a golden image, so this VISUALISES what audio::Spatial3D computes for a set o… | 221 | ✓ | ✓ | — |
 | **spectrum** | audio::SpectrumAnalyzer, toward Godot's AudioEffectSpectrumAnalyzer) A spectrum analyzer turns audio samples into a frequency spectrum so a game can… | 167 | ✓ | ✓ | — |
 | **sprites** | sprite-sheet / flipbook animation demo) Generates an 8-frame sprite sheet at runtime (a dot orbiting a ring), then plays it back with maz::anim::Spri… | 181 | ✓ | ✓ | — |
+| **squeeze** | io::Huffman, io::Lzw, io::Bwt, io::MoveToFront, io::Varint, io::BinaryDiff — the engine's byte-squeezing shelf, toward Godot's FileAccess compression… | 247 | ✓ | · | no golden screenshot |
 | **ssao** | screen-space ambient occlusion showcase, toward Godot's SSAO) A cluster of matte boxes and spheres sitting on a floor, deliberately arranged so objec… | 140 | ✓ | ✓ | — |
 | **stack** | 2-point contact manifolds for stable box stacks, toward Godot/Box2D contacts) The oriented rigid-body solver used a SINGLE contact point per box pair… | 149 | ✓ | ✓ | — |
 | **statemachine** | animation state machine, toward Godot's AnimationNodeStateMachine) A locomotion state machine — idle / move / jump — is stepped over a scripted "spee… | 211 | ✓ | ✓ | — |
@@ -346,13 +347,13 @@ not by judging the work. Every failing check below is a specific, finishable job
 
 | Kind | Check | Passing |
 |---|---|---:|
-| engine-module | shown by a sample app | 203/692 (29%) |
-| app | has a golden screenshot | 157/163 (96%) |
-| app | built by CMake | 163/163 (100%) |
-| app | has CMakeLists.txt | 163/163 (100%) |
-| app | header comment says what it shows | 163/163 (100%) |
-| app | runs headless for CI | 163/163 (100%) |
-| app | exercises a named engine module | 163/163 (100%) |
+| engine-module | shown by a sample app | 209/692 (30%) |
+| app | has a golden screenshot | 157/164 (96%) |
+| app | built by CMake | 164/164 (100%) |
+| app | has CMakeLists.txt | 164/164 (100%) |
+| app | header comment says what it shows | 164/164 (100%) |
+| app | runs headless for CI | 164/164 (100%) |
+| app | exercises a named engine module | 164/164 (100%) |
 | build-tool | says what it does | 11/11 (100%) |
 | doc | reachable from somewhere | 18/18 (100%) |
 | engine-module | header has a doc comment | 692/692 (100%) |
@@ -375,17 +376,17 @@ projects without declaring it. Everything below is written to end up in that man
 
 ### Found by the scan
 
-#### 489 engine modules are tested but no app shows them
+#### 483 engine modules are tested but no app shows them
 
 These are finished, working features that nobody can see, and `apps/` is how this engine
 documents itself. They are not spread evenly: 145 in `render`, 117 in `math`, 81 in `game`, 75
-in `core`, 15 in `net`, 14 in `io`, and 11 other subsystems. Writing 499 apps is not the answer
-and never was: one demo can show a dozen related modules at once — a single "mesh repair" app
-for the degenerate, self-intersection and closest-point analysers, one "curve fitting" app for
-the least-squares family — so the work is closer to a few dozen apps than 499. Start where the
-count is highest and the modules cluster most naturally.
+in `core`, 15 in `net`, 12 in `audio`, and 11 other subsystems. Writing 499 apps is not the
+answer and never was: one demo can show a dozen related modules at once — a single "mesh repair"
+app for the degenerate, self-intersection and closest-point analysers, one "curve fitting" app
+for the least-squares family — so the work is closer to a few dozen apps than 499. Start where
+the count is highest and the modules cluster most naturally.
 
-<sub>489 affected · effort: medium · value: ★★★ · queued below as the `engine-module:demoed` task</sub>
+<sub>483 affected · effort: medium · value: ★★★ · queued below as the `engine-module:demoed` task</sub>
 
 ### Already wired together
 
@@ -525,15 +526,15 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
 
 ### P1 — broken or unprotected (2)
 
-- **489 engine modules are tested but no app shows them**
-  <br>These are finished, working features that nobody can see, and `apps/` is how this engine documents itself. They are not spread evenly: 145 in `render`, 117 in `math`, 81 in `game`, 75 in `core`, 15 in `net`, 14 in `io`, and 11 other subsystems. Writing 499 apps is not the answer and never was: one demo can show a dozen related modules at once — a single "mesh repair" app for the degenerate, self-intersection and closest-point analysers, one "curve fitting" app for the least-squares family — so the work is closer to a few dozen apps than 499. Start where the count is highest and the modules cl…
+- **483 engine modules are tested but no app shows them**
+  <br>These are finished, working features that nobody can see, and `apps/` is how this engine documents itself. They are not spread evenly: 145 in `render`, 117 in `math`, 81 in `game`, 75 in `core`, 15 in `net`, 12 in `audio`, and 11 other subsystems. Writing 499 apps is not the answer and never was: one demo can show a dozen related modules at once — a single "mesh repair" app for the degenerate, self-intersection and closest-point analysers, one "curve fitting" app for the least-squares family — so the work is closer to a few dozen apps than 499. Start where the count is highest and the modules…
 - **SONG FORGE supplies the one music layer the engine does not have**
   <br>The engine already has the layers underneath and above a composer: audio::MusicTheory does note/pitch conversion, audio::MusicScales the scale tables, audio::Oscillator and audio::BusGraph the synthesis and mixing, and audio::MusicSequencer switches between music segments on the beat as the action changes. What nothing under engine/include/maz/audio/ does is WRITE the segments — pick a progression, lay a bassline and a drum pattern under it, arrange verses and choruses. music/js/genres.js and music/js/composer.js do exactly that, as plain data and pure functions, for eight genres. Porting the…
 
 ### P2 — coverage gaps (5)
 
-- **6 apps fail "has a golden screenshot"**
-  <br>_template, economy, orbs, rpgstats, sandbox, swarm. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.
+- **7 apps fail "has a golden screenshot"**
+  <br>_template, economy, orbs, rpgstats, sandbox, squeeze, swarm. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.
 - **CODA PICS can be lent now — but not to SCRIPT FORGE or MADLIBS as they speak today**
   <br>The surface exists: coda-pics/painter is published, takes a sentence and a canvas, and — unlike the studio page — reports how much of the picture came from the words. It refuses rather than guessing when asked to, because CODA PICS invents a subject for anything it does not recognise and a caller cannot otherwise tell a picture of the thing it asked for from a picture of something else.  What is NOT true is the obvious next step, and it was measured rather than assumed. Fed SCRIPT FORGE's scene headings, about half paint something unrelated — "EXT. SHORELINE — DAY" becomes a wolf in a cavern…
 - **The golden screenshots become the arcade's cover art**
