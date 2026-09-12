@@ -1178,6 +1178,15 @@ target_link_libraries(maz_film_sets_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME film_sets COMMAND maz_film_sets_tests ${CMAKE_CURRENT_SOURCE_DIR}/film/sets-fixture.json)
 set_tests_properties(film_sets PROPERTIES TIMEOUT 120)
 
+# The air between the audience and the picture, and the object an insert shot holds on. Both are
+# lookup tables over a few strings, so both are checked exhaustively against the browser: every
+# genre x hour x set for the weather, and 75 words for the object -- including the ones where the
+# ORDER the patterns are tried in decides the answer.
+add_executable(maz_film_air_tests film/air.cpp)
+target_link_libraries(maz_film_air_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME film_air COMMAND maz_film_air_tests ${CMAKE_CURRENT_SOURCE_DIR}/film/air-fixture.json)
+set_tests_properties(film_air PROPERTIES TIMEOUT 60)
+
 add_executable(maz_recoil_tests game/recoil.cpp)
 target_link_libraries(maz_recoil_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME recoil COMMAND maz_recoil_tests)

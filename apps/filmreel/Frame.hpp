@@ -24,13 +24,16 @@
 // camera (200 cases, to machine epsilon), the scatter every set is furnished from (bit for bit), and
 // the cutting (the same instants, shot for shot).
 //
-// WHAT IS STILL MISSING, said plainly: the weather and air (rain, dust, fog, embers), the film-stock
-// grain and light leak, the rack-focus decision for a fore element covering a close-up, and the insert
-// shot's object glyphs. Sound is the browser's job. Output is a lossless frame sequence, not a video
-// file: the engine has an IVF demuxer and no codec.
+// WHAT IS STILL MISSING, said plainly: the rack-focus decision for a fore element covering a
+// close-up, and the typeface -- the browser picks a different real face per caption kind and the
+// stroke font has one, so the distinction is carried by size and spacing instead. Sound is the
+// browser's job. Output is a lossless frame sequence, not a video file: the engine has an IVF
+// demuxer and no codec.
+#include "maz/film/Air.hpp"
 #include "maz/film/Camera.hpp"
 #include "maz/film/Canvas.hpp"
 #include "maz/film/Figure.hpp"
+#include "maz/film/Glyphs.hpp"
 #include "maz/film/Noise.hpp"
 #include "maz/film/Palette.hpp"
 #include "maz/film/Reel.hpp"
@@ -488,67 +491,46 @@ inline Image drawFrame(const maz::film::Reel& reel, double time, int width, int 
         glow.addStop(1.0f, pal.key.toColor(0.0f));
         canvas.setFillGradient(glow);
         canvas.fillRect(120, 0, 760, maz::film::kWorldH);
+
+        // The thing the story turns on, lit on the dark surface. The one shot in a film with no
+        // people in it.
+        canvas.save();
+        canvas.concat(0.9f, 0.0f, 0.0f, 0.9f, 500.0f, 220.0f);
+        maz::film::glyphFor(reel.object).draw(canvas, pal);
+        canvas.restore();
     }
 
-    // The room's own light folded into a wash over the picture, and a vignette to hold the eye in
-    // the middle. Screen space, after the roll, so both keep covering the frame exactly.
+    // Everything between the audience and the picture, in SCREEN space with the roll undone, so none
+    // of it tilts with the lens or slides with a pan. Weather reads as air in front of the lens
+    // rather than part of the set, so a camera move leaving it alone is the point, not an oversight.
     {
-        const int top = std::max(0, static_cast<int>(frameY));
-        const int bottom = std::min(img.height(), static_cast<int>(frameY + frameH));
-
-        // The vignette's shape depends only on the frame's geometry, so it is built once per size
-        // and kept. Recomputing a square root for a million pixels every frame is the kind of cost
-        // that is invisible in the code and half the frame budget in a profile.
-        static int maskW = 0, maskH = 0, maskTop = 0, maskBottom = 0;
-        static std::vector<std::uint8_t> vignette;
-        if (maskW != img.width() || maskH != img.height() || maskTop != top || maskBottom != bottom) {
-            maskW = img.width();
-            maskH = img.height();
-            maskTop = top;
-            maskBottom = bottom;
-            vignette.assign(static_cast<std::size_t>(maskW) *
-                                static_cast<std::size_t>(std::max(0, bottom - top)),
-                            0u);
-            const float maxR = std::sqrt(centreX * centreX + frameH * 0.5f * frameH * 0.5f);
-            for (int y = top; y < bottom; ++y) {
-                for (int x = 0; x < maskW; ++x) {
-                    const float vx = (static_cast<float>(x) - centreX) / maxR;
-                    const float vy = (static_cast<float>(y) - centreY) / maxR;
-                    const float vd = std::sqrt(vx * vx + vy * vy);
-                    const float vig = vd < 0.55f ? 0.0f : (vd - 0.55f) / 0.45f;
-                    vignette[static_cast<std::size_t>(y - top) * static_cast<std::size_t>(maskW) +
-                             static_cast<std::size_t>(x)] =
-                        static_cast<std::uint8_t>(vig * vig * 0.62f * 255.0f + 0.5f);
-                }
-            }
-        }
-
-        // The light leak only exists where a set owns a light that moves, which is five of fifteen,
-        // and only while it is brighter than its rest state -- so most frames skip it entirely.
-        const float amount = static_cast<float>(light.brightness - 1.0) * 0.22f;
-        if (amount > 0.0f) {
-            const Color key = pal.key.toColor();
-            const float lx = centreX + static_cast<float>(light.offset) * frameW * 0.42f;
-            for (int y = top; y < bottom; ++y) {
-                const float dy = (static_cast<float>(y) - centreY) / (frameH * 0.9f);
-                for (int x = 0; x < img.width(); ++x) {
-                    const float dx = (static_cast<float>(x) - lx) / (frameW * 0.7f);
-                    const float d = std::sqrt(dx * dx + dy * dy);
-                    if (d < 1.0f) {
-                        img.blendPixel(x, y, key, (1.0f - d) * (1.0f - d) * amount);
-                    }
-                }
-            }
-        }
-
-        for (int y = top; y < bottom; ++y) {
-            img.blendSpanMasked(0, img.width(), y, Color{0.0f, 0.0f, 0.0f, 1.0f},
-                                vignette.data() + static_cast<std::size_t>(y - top) *
-                                                      static_cast<std::size_t>(maskW));
-        }
+        maz::film::Canvas air(img, static_cast<int>(frameY), static_cast<int>(frameH));
+        air.setTransform(1.0f, 0.0f, 0.0f, 1.0f, 0.0f, frameY);
+        maz::film::drawWeather(air, maz::film::weatherFor(reel.genre, shot->time, shot->set), pal,
+                               time, reel.seed, frameW, frameH);
+        // A set that owns a moving light folds its brightness into the leak's alpha and its offset
+        // into where the leak starts, rather than getting a draw call of its own -- which is what
+        // keeps it out of the weather's and the vignette's way, all three being drawn right here.
+        maz::film::drawLightLeak(air, pal, light.offset, light.brightness, frameW, frameH);
     }
+    maz::film::drawVignette(img, pal, static_cast<int>(frameY),
+                            static_cast<int>(frameY + frameH));
 
     drawCaptions(img, pal, *shot, frameW, frameH, frameY, progress);
+
+    // Film stock, last of all: grain and a gate flicker, both stepping twelve times a second.
+    maz::film::drawGrain(img, time, static_cast<int>(frameY),
+                         static_cast<int>(frameY + frameH));
+
+    // The letterbox bars sit over everything, so nothing can spill into them.
+    for (int y = 0; y < static_cast<int>(frameY) && y < img.height(); ++y) {
+        img.blendSpan(0, img.width(), y, Color{0.0f, 0.0f, 0.0f, 1.0f}, 1.0f);
+    }
+    for (int y = static_cast<int>(frameY + frameH); y < img.height(); ++y) {
+        if (y >= 0) {
+            img.blendSpan(0, img.width(), y, Color{0.0f, 0.0f, 0.0f, 1.0f}, 1.0f);
+        }
+    }
 
     // Black at the head and tail of the film, and a dip on every scene change.
     const float fade = static_cast<float>(maz::film::fadeAt(reel, *shot, time));

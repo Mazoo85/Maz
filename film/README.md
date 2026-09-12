@@ -400,12 +400,16 @@ The native renderer draws frame *n* at time *n*/fps and writes it. It cannot dro
 a frame, it knows the duration before it starts, and it runs as fast as the
 machine allows:
 
-Rendering the whole of a real 2:39 film — 3,823 frames at 720p, with the full
-sets in — takes **110 seconds**, which is **1.5× realtime**. That is the figure
-to believe: the whole job, every cut, every set. Some shots are much more
-expensive than others (a corridor, whose back wall is a receding perspective
-under a Dutch tilt, costs five times a lighthouse), so a short sample taken
-from an easy stretch flatters it.
+Rendering the whole of a real 2:39 film — 3,823 frames at 720p, with everything
+in — takes **108 seconds**, which is **1.5× realtime**. That is the figure to
+believe: the whole job, every cut, every set, the weather and the grain. Some
+shots cost far more than others (a corridor, whose back wall is a receding
+perspective under a Dutch tilt, costs five times a lighthouse), so a short
+sample from an easy stretch flatters it.
+
+Encoding each frame losslessly costs about 9ms on top of the 24ms it takes to
+draw one, so that happens on worker threads while the next frame is being drawn.
+Two runs of the same film still come out byte-identical.
 
 ### What is faithful, and what is plain
 
@@ -430,12 +434,26 @@ This matters, so it is stated plainly rather than left to be discovered.
 - the **light each place owns**: a lighthouse beam that sweeps, headlights that
   pass, a failing bulb, moving cloud.
 
-**Plain — deliberately not ported yet:**
+- the **air**: rain, dust, fog, haze, shimmer or embers, chosen by genre, hour
+  and whether the scene is outdoors — all **600** combinations checked against
+  the browser. It deliberately doesn't move with the camera: it reads as air in
+  front of the lens, not part of the set.
+- the **light leak** across the frame, the **vignette**, and the **film grain**,
+  which steps twelve times a second rather than sixty so that it crawls like
+  film without making every single frame different.
+- the **ten object shapes** an insert shot holds on — the radio, the letter, the
+  photograph, the gun, the tape — and which of them a word picks, checked
+  against the browser for **75** words.
 
-- the **weather and air** — rain, dust, fog, embers. Screen-space, on top of the
-  picture.
-- the **film-stock grain and light leak**.
-- the **insert shot's object glyphs** — the radio, the phone, the letter.
+Whole frames, engine against browser, average difference **3.4 levels out of
+255** — and most of what remains is the typeface.
+
+**Plain — deliberately not ported:**
+
+- the **typeface**. The browser picks a real face per caption kind (bold sans
+  for a title, monospace for a slug line, italic serif for action); the stroke
+  font has one face, so the distinction is carried by size and letter-spacing.
+- the **rack focus** on a fore element covering a close-up.
 - **sound.** Still the browser's job entirely.
 
 **Not attempted:** a video file. The output is a lossless frame sequence (QOI),

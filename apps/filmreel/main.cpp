@@ -13,11 +13,14 @@
 // looks like, and carries the honest note on what is ported faithfully and what is still plain.
 #include "Frame.hpp"
 
+#include "maz/core/Jobs.hpp"
 #include "maz/render/ImageCodecPnm.hpp"
 #include "maz/render/ImageCodecQoi.hpp"
 
 #include <chrono>
 #include <cmath>
+#include <deque>
+#include <future>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -140,20 +143,49 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    for (int i = 0; i < total; ++i) {
+    // Encoding and writing a frame happen on worker threads while the next frame is being drawn.
+    // Measured: drawing a 720p frame costs about 24ms and encoding it losslessly about 9ms, so doing
+    // the two in sequence spent a quarter of the run on work that had nothing to wait for. A couple
+    // of workers is plenty -- the encode is the shorter job, and the point is only to hide it.
+    maz::core::JobSystem jobs(2);
+    std::deque<std::future<std::string>> pending;
+    const std::size_t maxInFlight = 4; // bounds memory: each holds one frame's pixels
+    bool failed = false;
+    std::string failure;
+
+    auto reap = [&](std::size_t keep) {
+        while (pending.size() > keep) {
+            const std::string err = pending.front().get();
+            pending.pop_front();
+            if (!err.empty() && failure.empty()) {
+                failure = err;
+                failed = true;
+            }
+        }
+    };
+
+    for (int i = 0; i < total && !failed; ++i) {
         const double t = static_cast<double>(firstFrame + i) / static_cast<double>(fps);
-        const Image frame = drawFrame(reel, t, width, height);
+        Image frame = drawFrame(reel, t, width, height);
         char name[64];
         std::snprintf(name, sizeof(name), "/frame-%06d.%s", firstFrame + i, format.c_str());
-        if (!writeBytes(outDir + name, format == "ppm" ? maz::render::encodePnmP6(frame)
-                                                       : maz::render::encodeQoi(frame))) {
-            std::printf("filmreel: could not write %s%s\n", outDir.c_str(), name);
-            return 1;
-        }
+        const std::string path = outDir + name;
+        const bool ppm = format == "ppm";
+        pending.push_back(jobs.submit([img = std::move(frame), path, ppm]() -> std::string {
+            const std::vector<std::uint8_t> bytes =
+                ppm ? maz::render::encodePnmP6(img) : maz::render::encodeQoi(img);
+            return writeBytes(path, bytes) ? std::string() : path;
+        }));
+        reap(maxInFlight);
         if ((i + 1) % 25 == 0 || i + 1 == total) {
             std::printf("\r  %d / %d frames", i + 1, total);
             std::fflush(stdout);
         }
+    }
+    reap(0);
+    if (failed) {
+        std::printf("\nfilmreel: could not write %s\n", failure.c_str());
+        return 1;
     }
 
     const double seconds =

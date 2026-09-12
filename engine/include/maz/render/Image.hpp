@@ -31,6 +31,86 @@ public:
 
     bool inBounds(int x, int y) const { return x >= 0 && y >= 0 && x < m_w && y < m_h; }
 
+    // Composite a run of PER-PIXEL RGBA bytes. The most general of the span writers, and the one a
+    // gradient wants: the colour changes every pixel, so there is nothing to hoist except the
+    // conversion out of floats -- which the caller has already done by handing over bytes. Doing that
+    // conversion per pixel instead was most of the cost of a full-frame gradient.
+    void blendRgbaSpan(int x0, int x1, int y, const std::uint8_t* rgba) {
+        if (y < 0 || y >= m_h || rgba == nullptr) {
+            return;
+        }
+        int skip = 0;
+        if (x0 < 0) {
+            skip = -x0;
+            x0 = 0;
+        }
+        if (x1 > m_w) {
+            x1 = m_w;
+        }
+        if (x1 <= x0) {
+            return;
+        }
+        std::uint8_t* px = m_px.data() + idx(x0, y);
+        const std::uint8_t* src = rgba + static_cast<std::size_t>(skip) * 4u;
+        for (int x = x0; x < x1; ++x) {
+            const int a = static_cast<int>(src[3]);
+            if (a >= 255) {
+                px[0] = src[0];
+                px[1] = src[1];
+                px[2] = src[2];
+                px[3] = 255u;
+            } else if (a > 0) {
+                const int inv = 255 - a;
+                px[0] = static_cast<std::uint8_t>(
+                    (static_cast<int>(src[0]) * a + static_cast<int>(px[0]) * inv + 127) / 255);
+                px[1] = static_cast<std::uint8_t>(
+                    (static_cast<int>(src[1]) * a + static_cast<int>(px[1]) * inv + 127) / 255);
+                px[2] = static_cast<std::uint8_t>(
+                    (static_cast<int>(src[2]) * a + static_cast<int>(px[2]) * inv + 127) / 255);
+                px[3] = static_cast<std::uint8_t>(a + (static_cast<int>(px[3]) * inv + 127) / 255);
+            }
+            px += 4;
+            src += 4;
+        }
+    }
+
+    // Composite a run of PER-PIXEL GREYS at one constant alpha. The counterpart to blendSpanMasked,
+    // which varies the coverage and fixes the colour: this fixes the coverage and varies the colour.
+    // It is what a noise overlay wants -- film grain, dither, a static tile -- where every pixel has
+    // its own value and they all go on at the same strength.
+    void blendGraySpan(int x0, int x1, int y, const std::uint8_t* greys, int alpha255) {
+        if (y < 0 || y >= m_h || greys == nullptr || alpha255 <= 0) {
+            return;
+        }
+        int skip = 0;
+        if (x0 < 0) {
+            skip = -x0;
+            x0 = 0;
+        }
+        if (x1 > m_w) {
+            x1 = m_w;
+        }
+        if (x1 <= x0) {
+            return;
+        }
+        if (alpha255 > 255) {
+            alpha255 = 255;
+        }
+        const int inv = 255 - alpha255;
+        std::uint8_t* px = m_px.data() + idx(x0, y);
+        const std::uint8_t* g = greys + skip;
+        for (int x = x0; x < x1; ++x) {
+            const int v = static_cast<int>(*g) * alpha255;
+            px[0] = static_cast<std::uint8_t>((v + static_cast<int>(px[0]) * inv + 127) / 255);
+            px[1] = static_cast<std::uint8_t>((v + static_cast<int>(px[1]) * inv + 127) / 255);
+            px[2] = static_cast<std::uint8_t>((v + static_cast<int>(px[2]) * inv + 127) / 255);
+            px[3] = static_cast<std::uint8_t>(alpha255 +
+                                              (static_cast<int>(px[3]) * inv + 127) / 255);
+            px += 4;
+            ++g;
+        }
+    }
+
     // Composite one colour across a horizontal run with a PER-PIXEL coverage taken from `mask`
     // (0..255, one byte per pixel, starting at x0). This is how a precomputed mask -- a vignette, a
     // soft shadow, a light falloff -- gets applied without recomputing its shape every frame.

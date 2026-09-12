@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstddef>
 #include <utility>
 #include <vector>
@@ -37,7 +38,13 @@ struct Gradient {
     // The baked ramp. Mutable because baking is a cache of what the stops already say, not a change
     // to the gradient -- `at()` on a const gradient must still be able to fill it.
     mutable std::array<render::Color, 256> ramp{};
+    mutable std::array<std::uint8_t, 256 * 4> rampBytes{};
     mutable bool baked = false;
+
+    static std::uint8_t toByte(float v) {
+        const int i = static_cast<int>(v * 255.0f + 0.5f);
+        return static_cast<std::uint8_t>(i < 0 ? 0 : (i > 255 ? 255 : i));
+    }
 
     void addStop(float offset, const render::Color& c) {
         stops.emplace_back(offset, c);
@@ -58,10 +65,26 @@ struct Gradient {
             return;
         }
         for (int i = 0; i < kRampSize; ++i) {
-            ramp[static_cast<std::size_t>(i)] =
-                sample(static_cast<float>(i) / static_cast<float>(kRampSize - 1));
+            const render::Color c = sample(static_cast<float>(i) / static_cast<float>(kRampSize - 1));
+            ramp[static_cast<std::size_t>(i)] = c;
+            // And again as bytes, so a row of gradient pixels can be composited without converting
+            // a float colour to bytes for each one.
+            const std::size_t k = static_cast<std::size_t>(i) * 4u;
+            rampBytes[k + 0] = toByte(c.r);
+            rampBytes[k + 1] = toByte(c.g);
+            rampBytes[k + 2] = toByte(c.b);
+            rampBytes[k + 3] = toByte(c.a);
         }
         baked = true;
+    }
+
+    // The ramp index for a parameter, clamped.
+    int rampIndex(float t) const {
+        int i = static_cast<int>(t * static_cast<float>(kRampSize - 1) + 0.5f);
+        return i < 0 ? 0 : (i >= kRampSize ? kRampSize - 1 : i);
+    }
+    const std::uint8_t* rampBytesAt(int i) const {
+        return rampBytes.data() + static_cast<std::size_t>(i) * 4u;
     }
 
     // The colour at a parameter already reduced to 0..1 along the ramp.
@@ -125,6 +148,14 @@ public:
     // --- the transform -------------------------------------------------------------------------
     //
     // One affine from world space to the image, set per plane. The sets never touch it.
+    // Compose a further transform INSIDE the current one, the way a canvas translate or scale does:
+    // coordinates given after this are interpreted through `t` first and the existing transform
+    // second. Wrap it in save()/restore() to get back where you were.
+    void concat(float a, float b, float c, float d, float e, float f) {
+        setTransform(m_a * a + m_c * b, m_b * a + m_d * b, m_a * c + m_c * d, m_b * c + m_d * d,
+                     m_a * e + m_c * f + m_e, m_b * e + m_d * f + m_f);
+    }
+
     void setTransform(float a, float b, float c, float d, float e, float f) {
         m_a = a; m_b = b; m_c = c; m_d = d; m_e = e; m_f = f;
         // Invert once, here. A gradient has to be evaluated in the world space it was defined in
@@ -164,7 +195,7 @@ public:
 
     void save() {
         m_stack.push_back(State{m_fill, m_stroke, m_gradient, m_useGradient, m_lineWidth, m_clipTop,
-                                m_clipBottom, m_clipLeft, m_clipRight});
+                                m_clipBottom, m_clipLeft, m_clipRight, m_a, m_b, m_c, m_d, m_e, m_f});
     }
     void restore() {
         if (m_stack.empty()) {
@@ -180,6 +211,7 @@ public:
         m_clipBottom = s.clipBottom;
         m_clipLeft = s.clipLeft;
         m_clipRight = s.clipRight;
+        setTransform(s.a, s.b, s.c, s.d, s.e, s.f);
         m_stack.pop_back();
     }
 
@@ -267,18 +299,26 @@ public:
                         dt = (m_ia * gx + m_ib * gy) / len2;
                     }
                 }
+                m_rowRgba.resize(static_cast<std::size_t>(right - left) * 4u);
                 for (int px = left; px < right; ++px) {
                     const float colLo = std::fmax(dx0, static_cast<float>(px));
                     const float colHi = std::fmin(dx1, static_cast<float>(px + 1));
                     const float cov = (colHi - colLo) * rowCov;
-                    if (cov > 0.0f) {
-                        m_img.blendPixel(px, py, linear ? grad.atT(t) : grad.atT(grad.rawT(wx, wy)),
-                                         cov);
-                    }
+                    const std::uint8_t* src =
+                        grad.rampBytesAt(grad.rampIndex(linear ? t : grad.rawT(wx, wy)));
+                    const std::size_t k = static_cast<std::size_t>(px - left) * 4u;
+                    m_rowRgba[k + 0] = src[0];
+                    m_rowRgba[k + 1] = src[1];
+                    m_rowRgba[k + 2] = src[2];
+                    // Coverage folds into the alpha, which is what makes this one span call rather
+                    // than a per-pixel composite with a separate coverage argument.
+                    const float a = static_cast<float>(src[3]) * (cov < 0.0f ? 0.0f : cov);
+                    m_rowRgba[k + 3] = static_cast<std::uint8_t>(a > 255.0f ? 255.0f : a + 0.5f);
                     wx += m_ia;
                     wy += m_ib;
                     t += dt;
                 }
+                m_img.blendRgbaSpan(left, right, py, m_rowRgba.data());
                 continue;
             }
             // A flat rectangle splits into at most three runs: a part-covered pixel at each end and
@@ -416,6 +456,7 @@ private:
         bool useGradient;
         float lineWidth;
         int clipTop, clipBottom, clipLeft, clipRight;
+        float a, b, c, d, e, f;
     };
 
     void toDevice(float x, float y, float& ox, float& oy) const {
@@ -473,6 +514,7 @@ private:
     render::Image& m_img;
     render::Path m_path;
     std::vector<State> m_stack;
+    std::vector<std::uint8_t> m_rowRgba; // scratch for a row of gradient pixels
 
     render::Color m_fill{1.0f, 1.0f, 1.0f, 1.0f};
     render::Color m_stroke{1.0f, 1.0f, 1.0f, 1.0f};
