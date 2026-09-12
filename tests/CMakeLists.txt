@@ -376,6 +376,11 @@ target_link_libraries(maz_gif_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME gif_codec COMMAND maz_gif_tests)
 set_tests_properties(gif_codec PROPERTIES TIMEOUT 30)
 
+add_executable(maz_gifanim_tests render/gifanim.cpp)
+target_link_libraries(maz_gifanim_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME gif_animation COMMAND maz_gifanim_tests)
+set_tests_properties(gif_animation PROPERTIES TIMEOUT 30)
+
 add_executable(maz_meshsimplifyquadric_tests render/meshsimplifyquadric.cpp)
 target_link_libraries(maz_meshsimplifyquadric_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME mesh_simplify_quadric COMMAND maz_meshsimplifyquadric_tests)
