@@ -501,7 +501,16 @@
                                   (walkInto * WALK_RATE) % 1);
             if (other) pose = Figures.gazeAt(pose, spot.x, other.x, 0.35);
             var across = Math.min(1, walkInto / Math.max(0.6, shot.duration));
-            driftX = (across - 0.5) * WALK_TRAVEL * (spot.x < 0.5 ? 1 : -1);
+            // Which way they walk: somebody on the left of frame crosses to the
+            // right and somebody on the right crosses to the left, so a walk
+            // moves through the picture rather than out of it.
+            //
+            // The test was `spot.x < 0.5` -- and spot.x is in WORLD units, 0 to
+            // 1000, so it was false for every figure that has ever been drawn
+            // and everybody walked left regardless of where they started. Found
+            // porting this to the engine, where the same line had to be written
+            // out again and stopped making sense.
+            driftX = (across - 0.5) * WALK_TRAVEL * (spot.x < WORLD_W / 2 ? 1 : -1);
           }
 
           // A speaking figure's head and hand move in time with their own voice

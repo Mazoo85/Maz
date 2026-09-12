@@ -33,6 +33,7 @@
 #include "maz/film/Camera.hpp"
 #include "maz/film/Canvas.hpp"
 #include "maz/film/Figure.hpp"
+#include "maz/film/Motion.hpp"
 #include "maz/film/Glyphs.hpp"
 #include "maz/film/Noise.hpp"
 #include "maz/film/Palette.hpp"
@@ -388,6 +389,88 @@ inline void drawCaptions(Image& img, const maz::film::Palette& pal, const maz::f
 
 // One frame of the film at `time`, drawn from the reel and nothing else. Pure: the same reel and the
 // same time always give the same pixels.
+// Everything that turns a pose into a performance, for one figure at one instant.
+//
+// This is the browser's own chain (film-player.js paintFigures), in its order, because the order is
+// load-bearing: the walk REPLACES the beat's pose rather than adding to it -- the push beat's usual
+// pose is 'reach', whose arm is straight out, and a stride on top of that is a zombie -- and the
+// breath goes on before the walk for the same reason, so the legs end up with the stride and not the
+// idle sway.
+//
+// Returns the pose and how far across the frame the figure has drifted, in world units.
+struct Performance {
+    maz::film::Pose pose;
+    double driftX = 0.0;
+};
+
+inline Performance performanceFor(const maz::film::Reel& reel, const maz::film::Shot& shot,
+                                  const Spot& spot, const Spot* other, double time) {
+    Performance out;
+    const bool speaking = shot.kind == "line" && !shot.speaker.empty() && spot.name == shot.speaker;
+    const std::uint32_t key = maz::film::shotKey(reel.seed, shot.start);
+    out.pose = maz::film::poseFor(shot.beat, shot.mood, speaking, key);
+
+    // Ease out of whatever the previous shot left them in, rather than snapping at the cut. Derived
+    // from the reel, never remembered between frames: drawFrame has to stay a pure function of
+    // (reel, time) or seeking and recording would disagree with playback.
+    const maz::film::Shot* prev = maz::film::shotAt(reel, std::fmax(0.0, shot.start - 0.001));
+    if (prev != nullptr && prev->index != shot.index) {
+        const double into = time - shot.start;
+        if (into < maz::film::kPoseEase) {
+            const bool prevSpeaking =
+                prev->kind == "line" && !prev->speaker.empty() && spot.name == prev->speaker;
+            const maz::film::Pose& was =
+                maz::film::poseFor(prev->beat, prev->mood, prevSpeaking,
+                                   maz::film::shotKey(reel.seed, prev->start));
+            out.pose = maz::film::blendPoses(was, out.pose, into / maz::film::kPoseEase);
+        }
+    }
+
+    // Look at whoever else is in the scene. The speaker turns further than the listener; somebody
+    // alone in the frame has nobody to turn to and stays as posed.
+    if (other != nullptr) {
+        out.pose = maz::film::gazeAt(out.pose, spot.x, other->x, speaking ? 1.0 : 0.55);
+    }
+
+    // ...and is never perfectly still while doing it. Seeded off the figure's own x, so two people in
+    // a two-shot are not a chorus line.
+    const std::uint32_t sway = static_cast<std::uint32_t>(
+        static_cast<std::int64_t>(std::floor(spot.x + 0.5)) & 0xFFFFFFFF);
+    out.pose = maz::film::aliveAt(out.pose, time, sway);
+
+    // The push beat is the one about momentum, so on it a character actually crosses part of the
+    // frame rather than standing in it.
+    if (shot.beat == "push" && !spot.foreground) {
+        const double walkInto = std::fmax(0.0, time - shot.start);
+        const maz::film::Pose* walk = maz::film::poseNamed("walk");
+        if (walk != nullptr) {
+            out.pose = maz::film::walkAt(maz::film::aliveAt(*walk, time, sway),
+                                         std::fmod(walkInto * maz::film::kWalkRate, 1.0));
+            if (other != nullptr) {
+                out.pose = maz::film::gazeAt(out.pose, spot.x, other->x, 0.35);
+            }
+            const double across = std::fmin(1.0, walkInto / std::fmax(0.6, shot.duration));
+            // Somebody on the left of frame crosses to the right and vice versa, so a walk moves
+            // through the picture rather than out of it.
+            out.driftX = (across - 0.5) * maz::film::kWalkTravel *
+                         (spot.x < maz::film::kWorldW / 2.0 ? 1.0 : -1.0);
+        }
+    }
+
+    // A speaking figure's head and hand move in time with their own voice -- the score fires a blip on
+    // this same clock, so the two must agree.
+    if (speaking) {
+        const int syllables = maz::film::syllablesFor(shot.caption);
+        const double span = std::fmax(0.4, shot.duration * 0.78);
+        const double gap = span / static_cast<double>(syllables);
+        const double into = time - shot.start;
+        if (into < span && gap > 0.0) {
+            out.pose = maz::film::gestureAt(out.pose, std::fmod(into, gap) / gap);
+        }
+    }
+    return out;
+}
+
 inline Image drawFrame(const maz::film::Reel& reel, double time, int width, int height) {
     Image img(width, height, Color{0.0f, 0.0f, 0.0f, 1.0f});
     const maz::film::Shot* shot = maz::film::shotAt(reel, time);
@@ -454,16 +537,26 @@ inline Image drawFrame(const maz::film::Reel& reel, double time, int width, int 
         // The figures, at the mid rate -- so at rest they land exactly where a single-plane renderer
         // would have put them.
         const auto spots = layoutFor(*shot);
-        const maz::film::Voice* dummy = nullptr;
-        (void)dummy;
+        // Whoever else is in the scene, for the gaze. The first spot that is not this one, which is
+        // how the browser picks it too.
+        auto otherThan = [&spots](const Spot& self) -> const Spot* {
+            for (const Spot& candidate : spots) {
+                if (&candidate != &self) {
+                    return &candidate;
+                }
+            }
+            return nullptr;
+        };
         for (const Spot& spot : spots) {
             if (spot.foreground) {
                 continue;
             }
             const bool speaking = !shot->speaker.empty() && spot.name == shot->speaker;
-            drawFigure(canvas, pal, maz::film::voiceFor(reel, spot.name), spot,
-                       poseForBeat(shot->beat, spot.name, reel.seed), speaking,
-                       static_cast<float>(light.offset));
+            const Performance act = performanceFor(reel, *shot, spot, otherThan(spot), time);
+            Spot moved = spot;
+            moved.x = static_cast<float>(spot.x + act.driftX);
+            drawFigure(canvas, pal, maz::film::voiceFor(reel, spot.name), moved,
+                       act.pose, speaking, static_cast<float>(light.offset));
         }
 
         usePlane(maz::film::Parallax::kFore);
@@ -473,9 +566,11 @@ inline Image drawFrame(const maz::film::Reel& reel, double time, int width, int 
                 continue;
             }
             const bool speaking = !shot->speaker.empty() && spot.name == shot->speaker;
-            drawFigure(canvas, pal, maz::film::voiceFor(reel, spot.name), spot,
-                       poseForBeat(shot->beat, spot.name, reel.seed), speaking,
-                       static_cast<float>(light.offset));
+            const Performance act = performanceFor(reel, *shot, spot, otherThan(spot), time);
+            Spot moved = spot;
+            moved.x = static_cast<float>(spot.x + act.driftX);
+            drawFigure(canvas, pal, maz::film::voiceFor(reel, spot.name), moved,
+                       act.pose, speaking, static_cast<float>(light.offset));
         }
     } else {
         // An insert has no camera depth to it: the set shows faintly behind the object, on one plane.
