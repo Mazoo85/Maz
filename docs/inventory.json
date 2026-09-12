@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "stats": {
-    "apps": 170,
+    "apps": 171,
     "engineModules": 692,
     "engineSubsystems": 20,
     "cppTests": 376,
@@ -10,16 +10,16 @@
     "gates": 3,
     "buildTools": 11,
     "docs": 19,
-    "totalArtifacts": 906,
-    "linesOfApps": 34547,
+    "totalArtifacts": 907,
+    "linesOfApps": 34977,
     "linesOfEngine": 87806,
     "linesOfWeb": 25254,
     "appsHeadless": 100,
-    "appsGolden": 92,
+    "appsGolden": 91,
     "modulesTested": 100,
-    "modulesDemoed": 37,
-    "checksPassed": 2727,
-    "checksTotal": 3173,
+    "modulesDemoed": 39,
+    "checksPassed": 2740,
+    "checksTotal": 3179,
     "openTasks": 7
   },
   "queue": [
@@ -28,24 +28,16 @@
       "priority": 1,
       "kind": "engine-module",
       "check": "demoed",
-      "title": "433 engine modules are tested but no app shows them",
-      "detail": "These are finished, working features that nobody can see, and `apps/` is how this engine documents itself. They are not spread evenly: 135 in `render`, 116 in `math`, 66 in `game`, 57 in `core`, 12 in `audio`, 10 in `ui`, and 11 other subsystems. Writing 499 apps is not the answer and never was: one demo can show a dozen related modules at once — a single \"mesh repair\" app for the degenerate, self-intersection and closest-point analysers, one \"curve fitting\" app for the least-squares family — so the work is closer to a few dozen apps than 499. Start where the count is highest and the modules cluster most naturally. — CubicBezierEasing, SpringBone, Transition, EnvelopeFollower, G711, Goertzel, ImaAdpcm, KarplusStrong, Mp3, MusicTheory, Noise, PitchDetect, and 421 more. Example: No app under apps/ demonstrates maz::anim::CubicBezierEasing. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.",
+      "title": "425 engine modules are tested but no app shows them",
+      "detail": "These are finished, working features that nobody can see, and `apps/` is how this engine documents itself. They are not spread evenly: 135 in `render`, 116 in `math`, 66 in `game`, 57 in `core`, 10 in `ui`, 9 in `net`, and 11 other subsystems. Writing 499 apps is not the answer and never was: one demo can show a dozen related modules at once — a single \"mesh repair\" app for the degenerate, self-intersection and closest-point analysers, one \"curve fitting\" app for the least-squares family — so the work is closer to a few dozen apps than 499. Start where the count is highest and the modules cluster most naturally. — CubicBezierEasing, SpringBone, Transition, G711, ImaAdpcm, Mp3, Qoa, AliasTable, Assert, BitSet, CellularNoise, Checkpoints, and 413 more. Example: No app under apps/ demonstrates maz::anim::CubicBezierEasing. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.",
       "paths": [
         "engine/include/maz/anim/CubicBezierEasing.hpp",
         "engine/include/maz/anim/SpringBone.hpp",
         "engine/include/maz/anim/Transition.hpp",
-        "engine/include/maz/audio/EnvelopeFollower.hpp",
         "engine/include/maz/audio/G711.hpp",
-        "engine/include/maz/audio/Goertzel.hpp",
         "engine/include/maz/audio/ImaAdpcm.hpp",
-        "engine/include/maz/audio/KarplusStrong.hpp",
         "engine/include/maz/audio/Mp3.hpp",
-        "engine/include/maz/audio/MusicTheory.hpp",
-        "engine/include/maz/audio/Noise.hpp",
-        "engine/include/maz/audio/PitchDetect.hpp",
         "engine/include/maz/audio/Qoa.hpp",
-        "engine/include/maz/audio/TempoEstimate.hpp",
-        "engine/include/maz/audio/Window.hpp",
         "engine/include/maz/core/AliasTable.hpp",
         "engine/include/maz/core/Assert.hpp",
         "engine/include/maz/core/BitSet.hpp",
@@ -70,10 +62,18 @@
         "engine/include/maz/core/Memory.hpp",
         "engine/include/maz/core/Murmur3.hpp",
         "engine/include/maz/core/NodePath.hpp",
-        "engine/include/maz/core/ObjectPool.hpp"
+        "engine/include/maz/core/ObjectPool.hpp",
+        "engine/include/maz/core/OneEuroFilter.hpp",
+        "engine/include/maz/core/PerfBudget.hpp",
+        "engine/include/maz/core/PidController.hpp",
+        "engine/include/maz/core/PoissonDisk.hpp",
+        "engine/include/maz/core/ProjectSettings.hpp",
+        "engine/include/maz/core/RadixSort.hpp",
+        "engine/include/maz/core/RandomDistributions.hpp",
+        "engine/include/maz/core/Reflect.hpp"
       ],
       "source": "inventory:engine-module:demoed",
-      "memberCount": 433,
+      "memberCount": 425,
       "members": [
         {
           "id": "engine:anim/CubicBezierEasing",
@@ -94,22 +94,10 @@
           "fix": "No app under apps/ demonstrates maz::anim::Transition. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
         },
         {
-          "id": "engine:audio/EnvelopeFollower",
-          "name": "EnvelopeFollower",
-          "path": "engine/include/maz/audio/EnvelopeFollower.hpp",
-          "fix": "No app under apps/ demonstrates maz::audio::EnvelopeFollower. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
-        },
-        {
           "id": "engine:audio/G711",
           "name": "G711",
           "path": "engine/include/maz/audio/G711.hpp",
           "fix": "No app under apps/ demonstrates maz::audio::G711. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
-        },
-        {
-          "id": "engine:audio/Goertzel",
-          "name": "Goertzel",
-          "path": "engine/include/maz/audio/Goertzel.hpp",
-          "fix": "No app under apps/ demonstrates maz::audio::Goertzel. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
         },
         {
           "id": "engine:audio/ImaAdpcm",
@@ -118,52 +106,16 @@
           "fix": "No app under apps/ demonstrates maz::audio::ImaAdpcm. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
         },
         {
-          "id": "engine:audio/KarplusStrong",
-          "name": "KarplusStrong",
-          "path": "engine/include/maz/audio/KarplusStrong.hpp",
-          "fix": "No app under apps/ demonstrates maz::audio::KarplusStrong. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
-        },
-        {
           "id": "engine:audio/Mp3",
           "name": "Mp3",
           "path": "engine/include/maz/audio/Mp3.hpp",
           "fix": "No app under apps/ demonstrates maz::audio::Mp3. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
         },
         {
-          "id": "engine:audio/MusicTheory",
-          "name": "MusicTheory",
-          "path": "engine/include/maz/audio/MusicTheory.hpp",
-          "fix": "No app under apps/ demonstrates maz::audio::MusicTheory. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
-        },
-        {
-          "id": "engine:audio/Noise",
-          "name": "Noise",
-          "path": "engine/include/maz/audio/Noise.hpp",
-          "fix": "No app under apps/ demonstrates maz::audio::Noise. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
-        },
-        {
-          "id": "engine:audio/PitchDetect",
-          "name": "PitchDetect",
-          "path": "engine/include/maz/audio/PitchDetect.hpp",
-          "fix": "No app under apps/ demonstrates maz::audio::PitchDetect. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
-        },
-        {
           "id": "engine:audio/Qoa",
           "name": "Qoa",
           "path": "engine/include/maz/audio/Qoa.hpp",
           "fix": "No app under apps/ demonstrates maz::audio::Qoa. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
-        },
-        {
-          "id": "engine:audio/TempoEstimate",
-          "name": "TempoEstimate",
-          "path": "engine/include/maz/audio/TempoEstimate.hpp",
-          "fix": "No app under apps/ demonstrates maz::audio::TempoEstimate. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
-        },
-        {
-          "id": "engine:audio/Window",
-          "name": "Window",
-          "path": "engine/include/maz/audio/Window.hpp",
-          "fix": "No app under apps/ demonstrates maz::audio::Window. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
         },
         {
           "id": "engine:core/AliasTable",
@@ -314,6 +266,54 @@
           "name": "ObjectPool",
           "path": "engine/include/maz/core/ObjectPool.hpp",
           "fix": "No app under apps/ demonstrates maz::core::ObjectPool. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/OneEuroFilter",
+          "name": "OneEuroFilter",
+          "path": "engine/include/maz/core/OneEuroFilter.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::OneEuroFilter. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/PerfBudget",
+          "name": "PerfBudget",
+          "path": "engine/include/maz/core/PerfBudget.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::PerfBudget. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/PidController",
+          "name": "PidController",
+          "path": "engine/include/maz/core/PidController.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::PidController. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/PoissonDisk",
+          "name": "PoissonDisk",
+          "path": "engine/include/maz/core/PoissonDisk.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::PoissonDisk. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/ProjectSettings",
+          "name": "ProjectSettings",
+          "path": "engine/include/maz/core/ProjectSettings.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::ProjectSettings. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/RadixSort",
+          "name": "RadixSort",
+          "path": "engine/include/maz/core/RadixSort.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::RadixSort. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/RandomDistributions",
+          "name": "RandomDistributions",
+          "path": "engine/include/maz/core/RandomDistributions.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::RandomDistributions. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
+        },
+        {
+          "id": "engine:core/Reflect",
+          "name": "Reflect",
+          "path": "engine/include/maz/core/Reflect.hpp",
+          "fix": "No app under apps/ demonstrates maz::core::Reflect. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified."
         }
       ]
     },
@@ -337,10 +337,11 @@
       "priority": 2,
       "kind": "app",
       "check": "golden",
-      "title": "13 apps fail \"has a golden screenshot\"",
-      "detail": "_template, economy, genworld, lookup, meshdoctor, orbs, rpgstats, sandbox, squeeze, swarm, tactics, telemetry, and 1 more. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.",
+      "title": "14 apps fail \"has a golden screenshot\"",
+      "detail": "_template, earshot, economy, genworld, lookup, meshdoctor, orbs, rpgstats, sandbox, squeeze, swarm, tactics, and 2 more. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.",
       "paths": [
         "apps/_template",
+        "apps/earshot",
         "apps/economy",
         "apps/genworld",
         "apps/lookup",
@@ -355,13 +356,19 @@
         "apps/wire"
       ],
       "source": "inventory:app:golden",
-      "memberCount": 13,
+      "memberCount": 14,
       "members": [
         {
           "id": "app:_template",
           "name": "_template",
           "path": "apps/_template",
           "fix": "Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test."
+        },
+        {
+          "id": "app:earshot",
+          "name": "earshot",
+          "path": "apps/earshot",
+          "fix": "Capture a golden frame for earshot into tests/golden/earshot.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test."
         },
         {
           "id": "app:economy",

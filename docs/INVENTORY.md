@@ -13,7 +13,7 @@ size is in the wiring between the parts, not in any one part.
 
 | | Count | |
 |---|---:|---|
-| Native games and demos (`apps/`) | 170 | 34,547 lines |
+| Native games and demos (`apps/`) | 171 | 34,977 lines |
 | Engine capabilities (`engine/include/maz/`) | 692 | 87,806 lines across 20 subsystems |
 | C++ test files (`tests/`) | 376 | |
 | Browser apps and games | 8 | 25,254 lines |
@@ -21,15 +21,15 @@ size is in the wiring between the parts, not in any one part.
 | CI gates (`scripts/`) | 3 | |
 | Build and codegen helpers (`tools/`) | 11 | |
 | Documents (`docs/`) | 19 | |
-| **Catalogued artifacts** | **906** | |
+| **Catalogued artifacts** | **907** | |
 
 | Health signal | Score | |
 |---|---:|---|
-| Completeness checks passing | 86% | █████████░ 2727 of 3173 |
+| Completeness checks passing | 86% | █████████░ 2740 of 3179 |
 | Apps that run headless in CI | 100% | ██████████ |
-| Apps with a golden screenshot | 92% | █████████░ |
+| Apps with a golden screenshot | 91% | █████████░ |
 | Engine modules a test exercises | 100% | ██████████ |
-| Engine modules an app demonstrates | 37% | ████░░░░░░ |
+| Engine modules an app demonstrates | 39% | ████░░░░░░ |
 | Open tasks in the queue below | 7 | |
 
 ## 1. Everything you have built
@@ -71,7 +71,7 @@ module with neither is working code nobody can find.
 | `game` | 124 | 124 (100%) | 58 (47%) |
 | `core` | 104 | 104 (100%) | 47 (45%) |
 | `io` | 30 | 30 (100%) | 22 (73%) |
-| `audio` | 27 | 27 (100%) | 15 (56%) |
+| `audio` | 27 | 27 (100%) | 23 (85%) |
 | `ui` | 27 | 25 (93%) | 17 (63%) |
 | `platform` | 20 | 19 (95%) | 12 (60%) |
 | `anim` | 19 | 19 (100%) | 16 (84%) |
@@ -99,7 +99,7 @@ module with neither is working code nobody can find.
 
 **`io`** — Base64, BinaryDiff, BundlePlan, Bwt, Compression, Config, ConfigFile, ~ExportConfig, ~GettextPo, ~Gzip, ~Hdr, Huffman, ~ImportFile, Inflate, Json, Localization, Lzw, ~MessagePack, MobileBundlePlan, MobileBundlePreflight, MoveToFront, PrefabText, ~RangeCoder, ResourcePack, SceneSerializer, Serialize, ~StreamPeer, Varint, VirtualFileSystem, Xml
 
-**`audio`** — Audio, BusGraph, Dsp, Envelope, ~EnvelopeFollower, ~G711, ~Goertzel, ~ImaAdpcm, ~KarplusStrong, ~Mp3, MusicScales, MusicSequencer, ~MusicTheory, ~Noise, Oscillator, ~PitchDetect, PitchShifter, ~Qoa, Randomizer, SampleMixer, Spatial2D, Spatial3D, Spectrum, Stereo, ~TempoEstimate, Wav, ~Window
+**`audio`** — Audio, BusGraph, Dsp, Envelope, EnvelopeFollower, ~G711, Goertzel, ~ImaAdpcm, KarplusStrong, ~Mp3, MusicScales, MusicSequencer, MusicTheory, Noise, Oscillator, PitchDetect, PitchShifter, ~Qoa, Randomizer, SampleMixer, Spatial2D, Spatial3D, Spectrum, Stereo, TempoEstimate, Wav, Window
 
 **`ui`** — ~ColorPicker, Container, Controls, DebugOverlay, ~DragAndDrop, FileDialog, Font, ~FontFallback, ~GlyphCache, ~GraphEdit, ItemList, Layout, PopupMenu, Range, Rect, RichText, ~RichTextEffects, ~Sdf, StyleBox, ~TabContainer, TextInput, TextLayout, ~TextServer, ~TextShaping, Theme, Tree, UI
 
@@ -178,6 +178,7 @@ engine capability, a handful of them complete games.
 | **data** | data-driven scene from JSON) Nothing on screen is hard-coded: the entire scene — clear color, title, and every sprite (its shape, position, size, tin… | 186 | ✓ | ✓ | — |
 | **deadzone** | input::analogVector / applyDeadzone, toward Godot's Input.get_vector) A raw thumbstick drifts near centre and reaches ~√2 at the diagonals, so naive… | 173 | ✓ | ✓ | — |
 | **distort** | audio::MultiDistortion, toward Godot's AudioEffectDistortion.Mode) A9 (final audio milestone): the full distortion-mode set. The LEFT chart is the tr… | 186 | ✓ | ✓ | — |
+| **earshot** | audio::karplusStrongPluck, detectPitchYin, midiToNoteName / noteNameToFrequency / frequencyToMidi, goertzelMagnitudeHz, applyWindow / coherentGain, E… | 430 | ✓ | · | no golden screenshot |
 | **economy** | game::Inventory, game::LootTable, game::Crafting, game::Shop — the loop between killing something and carrying the result, toward Godot's lack of one… | 266 | ✓ | · | no golden screenshot |
 | **ecsave** | ECS scene save / load round-trip) Everything on screen is proof that a live entity world survives a JSON round-trip. At startup the app builds a sour… | 205 | ✓ | ✓ | — |
 | **editor** | a minimal in-engine scene editor, toward Godot's editor) A 3D viewport showing an editable scene, a scene-tree panel listing the nodes (click a row t… | 882 | ✓ | ✓ | — |
@@ -356,13 +357,13 @@ not by judging the work. Every failing check below is a specific, finishable job
 
 | Kind | Check | Passing |
 |---|---|---:|
-| engine-module | shown by a sample app | 259/692 (37%) |
-| app | has a golden screenshot | 157/170 (92%) |
-| app | built by CMake | 170/170 (100%) |
-| app | has CMakeLists.txt | 170/170 (100%) |
-| app | header comment says what it shows | 170/170 (100%) |
-| app | runs headless for CI | 170/170 (100%) |
-| app | exercises a named engine module | 170/170 (100%) |
+| engine-module | shown by a sample app | 267/692 (39%) |
+| app | has a golden screenshot | 157/171 (92%) |
+| app | built by CMake | 171/171 (100%) |
+| app | has CMakeLists.txt | 171/171 (100%) |
+| app | header comment says what it shows | 171/171 (100%) |
+| app | runs headless for CI | 171/171 (100%) |
+| app | exercises a named engine module | 171/171 (100%) |
 | build-tool | says what it does | 11/11 (100%) |
 | doc | reachable from somewhere | 19/19 (100%) |
 | engine-module | header has a doc comment | 692/692 (100%) |
@@ -385,17 +386,17 @@ projects without declaring it. Everything below is written to end up in that man
 
 ### Found by the scan
 
-#### 433 engine modules are tested but no app shows them
+#### 425 engine modules are tested but no app shows them
 
 These are finished, working features that nobody can see, and `apps/` is how this engine
 documents itself. They are not spread evenly: 135 in `render`, 116 in `math`, 66 in `game`, 57
-in `core`, 12 in `audio`, 10 in `ui`, and 11 other subsystems. Writing 499 apps is not the
-answer and never was: one demo can show a dozen related modules at once — a single "mesh repair"
-app for the degenerate, self-intersection and closest-point analysers, one "curve fitting" app
-for the least-squares family — so the work is closer to a few dozen apps than 499. Start where
-the count is highest and the modules cluster most naturally.
+in `core`, 10 in `ui`, 9 in `net`, and 11 other subsystems. Writing 499 apps is not the answer
+and never was: one demo can show a dozen related modules at once — a single "mesh repair" app
+for the degenerate, self-intersection and closest-point analysers, one "curve fitting" app for
+the least-squares family — so the work is closer to a few dozen apps than 499. Start where the
+count is highest and the modules cluster most naturally.
 
-<sub>433 affected · effort: medium · value: ★★★ · queued below as the `engine-module:demoed` task</sub>
+<sub>425 affected · effort: medium · value: ★★★ · queued below as the `engine-module:demoed` task</sub>
 
 ### Already wired together
 
@@ -535,15 +536,15 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
 
 ### P1 — broken or unprotected (2)
 
-- **433 engine modules are tested but no app shows them**
-  <br>These are finished, working features that nobody can see, and `apps/` is how this engine documents itself. They are not spread evenly: 135 in `render`, 116 in `math`, 66 in `game`, 57 in `core`, 12 in `audio`, 10 in `ui`, and 11 other subsystems. Writing 499 apps is not the answer and never was: one demo can show a dozen related modules at once — a single "mesh repair" app for the degenerate, self-intersection and closest-point analysers, one "curve fitting" app for the least-squares family — so the work is closer to a few dozen apps than 499. Start where the count is highest and the modules…
+- **425 engine modules are tested but no app shows them**
+  <br>These are finished, working features that nobody can see, and `apps/` is how this engine documents itself. They are not spread evenly: 135 in `render`, 116 in `math`, 66 in `game`, 57 in `core`, 10 in `ui`, 9 in `net`, and 11 other subsystems. Writing 499 apps is not the answer and never was: one demo can show a dozen related modules at once — a single "mesh repair" app for the degenerate, self-intersection and closest-point analysers, one "curve fitting" app for the least-squares family — so the work is closer to a few dozen apps than 499. Start where the count is highest and the modules clu…
 - **SONG FORGE supplies the one music layer the engine does not have**
   <br>The engine already has the layers underneath and above a composer: audio::MusicTheory does note/pitch conversion, audio::MusicScales the scale tables, audio::Oscillator and audio::BusGraph the synthesis and mixing, and audio::MusicSequencer switches between music segments on the beat as the action changes. What nothing under engine/include/maz/audio/ does is WRITE the segments — pick a progression, lay a bassline and a drum pattern under it, arrange verses and choruses. music/js/genres.js and music/js/composer.js do exactly that, as plain data and pure functions, for eight genres. Porting the…
 
 ### P2 — coverage gaps (5)
 
-- **13 apps fail "has a golden screenshot"**
-  <br>_template, economy, genworld, lookup, meshdoctor, orbs, rpgstats, sandbox, squeeze, swarm, tactics, telemetry, and 1 more. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.
+- **14 apps fail "has a golden screenshot"**
+  <br>_template, earshot, economy, genworld, lookup, meshdoctor, orbs, rpgstats, sandbox, squeeze, swarm, tactics, and 2 more. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.
 - **CODA PICS can be lent now — but not to SCRIPT FORGE or MADLIBS as they speak today**
   <br>The surface exists: coda-pics/painter is published, takes a sentence and a canvas, and — unlike the studio page — reports how much of the picture came from the words. It refuses rather than guessing when asked to, because CODA PICS invents a subject for anything it does not recognise and a caller cannot otherwise tell a picture of the thing it asked for from a picture of something else.  What is NOT true is the obvious next step, and it was measured rather than assumed. Fed SCRIPT FORGE's scene headings, about half painted something unrelated, and fed MADLIBS loglines, six of twelve were refu…
 - **The golden screenshots become the arcade's cover art**

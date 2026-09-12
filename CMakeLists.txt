@@ -63,6 +63,7 @@ include(Dependencies)
 include(CompileShaders)
 
 add_subdirectory(engine)
+add_subdirectory(apps/earshot)
 add_subdirectory(apps/economy)
 add_subdirectory(apps/genworld)
 add_subdirectory(apps/lookup)
