@@ -434,6 +434,9 @@
     disco:      [[1, 4, 0, 5], [0, 5, 1, 4], [5, 1, 4, 0], [0, 3, 1, 4]],
     // Two-chord loops with a minor pull, the backbone of drill and afrobeat.
     loop2:      [[0, 5, 0, 5], [0, 3, 0, 3], [0, 6, 0, 6], [0, 4, 0, 4]],
+    // Hip-hop: a short loop that sits still, so the drums and the voice carry
+    // it. Minor-leaning, and it does not resolve so much as come back round.
+    hiphop:     [[0, 5, 0, 5], [0, 3, 5, 5], [1, 4, 0, 0], [0, 6, 5, 5], [5, 4, 0, 0]],
     // Country: major, honest, and home by the end of the bar.
     country:    [[0, 4, 0, 0], [0, 3, 4, 0], [0, 0, 4, 4], [5, 3, 0, 4]]
   };
@@ -626,6 +629,48 @@
         fill:   { kick: 'x.......x.......', snare: '....x...x.x.xxxx', hh: '................' }
       },
       fx: { reverb: 0.45, delay: 0.28, delayTime: 0.375, vinyl: 0, modFx: 'flanger', glue: 0.35, master: 1.19, sidechain: 0.34, brightness: 1.05 }
+    },
+
+    /*
+     * Hip-hop, the boom-bap kind: an unhurried loop with the drums out front.
+     *
+     * Slow enough that the sixteenths between the beats have room, and swung,
+     * because a straight hip-hop drum loop sounds like a drum machine rather
+     * than a record. The harmony barely moves — two chords held for two bars
+     * each — since the point of the loop is to stay put and let everything
+     * else happen over it. The Rhodes and the upright-ish bass are the sound
+     * of a sampled record, which is where the whole genre came from.
+     */
+    hiphop: {
+      id: 'hiphop', name: 'Hip-Hop', blurb: 'Boom-bap drums, a dusty loop, head-nod tempo.',
+      bpm: [84, 96], swing: 0.3,
+      meters: [['4/4', 1]],
+      modulates: 0.04, borrow: 0.14,
+      riff: 0.5,
+      halfTime: 0.1,
+      scales: [['aeolianPent', 3], ['minor', 3], ['dorian', 3], ['blues', 2], ['phrygian', 1]],
+      progressions: PROG.hiphop.concat(PROG.jazzy),
+      chordShapes: [['seventh', 4], ['ninth', 3], ['sixth', 2], ['triad', 1]],
+      barsPerChord: [2, 2],
+      bass: { style: 'walk', octave: 2, preset: 'pickBass', alts: ['softBass', 'organBass'] },
+      chords: { style: 'keys', preset: 'rhodes', octaveLow: 52, octaveHigh: 76,
+                alts: ['piano', 'fmKeys', 'vibes'] },
+      pad: { preset: 'warmPad', gain: 0.22 },
+      counter: { chance: 0.45, preset: 'vibes', octave: 5, alts: ['marimba', 'pluck'] },
+      lead: { preset: 'vibes', octave: 5, density: 0.4, restBias: 0.5,
+              alts: ['rhodes', 'marimba', 'harp'] },
+      arp: { preset: 'pluck', rate: 0.5, octave: 4, chance: 0.3 },
+      builds: false,
+      drums: {
+        kit: 'boombap',
+        intro:  { kick: 'x.......x.......', hh: 'x.x.x.x.x.x.x.x.' },
+        groove: { kick: 'x......x..x.....', snare: '....x.......x...', hh: 'x.x.x.x.x.x.x.x.' },
+        full:   { kick: 'x..x...x..x...x.', snare: '....x.......x...', hh: 'xxx.xxx.xxx.xxx.',
+                  oh: '..............x.' },
+        fill:   { kick: 'x.......x.......', snare: '....x.....x.x.xx', hh: 'x.x.x.x.........' }
+      },
+      fx: { reverb: 0.3, delay: 0.18, delayTime: 0.375, vinyl: 0.35, modFx: 'phaser',
+            glue: 0.35, master: 1.05, sidechain: 0.12, brightness: 0.88 }
     },
 
     trap: {

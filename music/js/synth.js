@@ -788,6 +788,28 @@
        the kick has a long woody decay instead of a synthetic click, the snare
        is mostly noise across a wide band rather than a tuned tone, and the
        cymbals ring for seconds. */
+    /* Boom bap: a kit heard through a sampler.
+     *
+     * The kick is short and round rather than long and deep — a record played
+     * back, not a sine wave — and the snare is mostly crack. Both are driven,
+     * because the sound is a loop pushed hard into twelve-bit hardware, and the
+     * hats are small and dry so the snare has all the room. */
+    boombap: {
+      kick:  { f0: 120, f1: 52, pDec: 0.045, dec: 0.3, gain: 1.0, click: 0.18, drive: 0.45 },
+      snare: { tone: 210, dec: 0.2, noise: 0.95, hp: 1100, bp: 2200, gain: 0.82 },
+      rim:   { f: 1900, dec: 0.035, gain: 0.44 },
+      hh:    { dec: 0.026, hp: 7600, gain: 0.2 },
+      oh:    { dec: 0.2, hp: 6400, gain: 0.18 },
+      ride:  { dec: 1.1, hp: 5400, gain: 0.15 },
+      tom:   { f0: 190, f1: 78, dec: 0.4, gain: 0.6 },
+      conga: { f0: 310, f1: 205, dec: 0.26, gain: 0.38 },
+      tamb:  { dec: 0.07, hp: 8800, gain: 0.14 },
+      perc:  { f: 700, dec: 0.1, gain: 0.26 },
+      shaker:{ dec: 0.045, hp: 9800, gain: 0.11 },
+      clap:  { dec: 0.2, bp: 1600, gain: 0.6 },
+      crash: { dec: 1.6, hp: 4600, gain: 0.22 }
+    },
+
     acoustic: {
       kick:  { f0: 95, f1: 48, pDec: 0.11, dec: 0.5, gain: 0.95, click: 0.12, drive: 0.08 },
       snare: { tone: 185, dec: 0.24, noise: 0.9, hp: 800, bp: 1700, gain: 0.72 },

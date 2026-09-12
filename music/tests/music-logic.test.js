@@ -433,6 +433,164 @@ Object.keys(Genres.GENRES).forEach(function (gid) {
   check(Composer.shiftOctave(s, 'drums', 1) === false, 'drums have no octave to move');
 })();
 
+/* --- every scale, and every chord built on every degree of it --- */
+(function () {
+  const ids = Object.keys(Theory.SCALES);
+  check(ids.length >= 40, 'there are a lot of scales (' + ids.length + ')');
+
+  let badShape = 0, badParent = 0, dupName = 0;
+  const names = {};
+  ids.forEach(function (id) {
+    const sc = Theory.SCALES[id];
+    const st = sc.steps;
+    if (!sc.name || typeof sc.minorish !== 'boolean') badShape++;
+    if (st[0] !== 0 || st.length < 5 || st.length > 12) badShape++;
+    for (let i = 1; i < st.length; i++) {
+      if (st[i] <= st[i - 1] || st[i] > 11 || st[i] !== Math.round(st[i])) badShape++;
+    }
+    if (sc.chords && !Theory.SCALES[sc.chords]) badParent++;
+    if (names[sc.name]) dupName++;
+    names[sc.name] = true;
+  });
+  check(badShape === 0, 'every scale is a rising run of whole semitones from the root');
+
+  /* The picker is built from the groups, so a scale left out of them is a
+     scale that exists in the code and nowhere a person can reach. Nothing else
+     in the app would complain. */
+  const grouped = {};
+  let dupGroup = 0, ghost = [];
+  Theory.SCALE_GROUPS.forEach(function (g) {
+    g.ids.forEach(function (id) {
+      if (grouped[id]) dupGroup++;
+      grouped[id] = true;
+      if (!Theory.SCALES[id]) ghost.push(id);
+    });
+  });
+  const missing = ids.filter(function (id) { return !grouped[id]; });
+  check(missing.length === 0, 'every scale is reachable from the picker (' + missing.join(', ') + ')');
+  check(ghost.length === 0, 'and the picker lists no scale that does not exist (' + ghost.join(', ') + ')');
+  check(dupGroup === 0, 'with none of them listed twice');
+  check(badParent === 0, 'every scale that borrows its chords names a scale that exists');
+  check(dupName === 0, 'and no two scales share a name');
+
+  /* Chords are built by stacking every other note, which only makes triads out
+     of a seven-note scale. Anything else has to say where its harmony comes
+     from, or the chord track is fourths and clusters. */
+  let unparented = [];
+  ids.forEach(function (id) {
+    const sc = Theory.SCALES[id];
+    if (sc.steps.length !== 7 && !sc.chords) unparented.push(id);
+  });
+  check(unparented.length === 0,
+    'every scale that is not seven notes long borrows its harmony (' +
+    unparented.join(', ') + ')');
+  check(Theory.chordStepsFor('blues').length === 7,
+    'so a blues melody is harmonised with seven-note chords');
+  check(Theory.chordStepsFor('major') === Theory.SCALES.major.steps,
+    'and a seven-note scale uses its own notes');
+
+  /* Every shape on every degree of every scale. What matters is not that each
+     one is usable — plenty are not, which is what chordIsSound is for — but
+     that every one that *is* accepted has a name a musician would recognise
+     and no note doubled at the octave inside it. */
+  const shapes = Object.keys(Theory.CHORD_SHAPES);
+  check(shapes.length >= 12, 'there are a lot of chord shapes (' + shapes.length + ')');
+  let built = 0, sound = 0, badName = 0, notRising = 0, clash = 0;
+  ids.forEach(function (id) {
+    const steps = Theory.chordStepsFor(id);
+    for (let deg = 0; deg < steps.length; deg++) {
+      shapes.forEach(function (sh) {
+        const p = Theory.sweetenChord(Theory.buildChord(steps, 60, deg, sh));
+        built++;
+        for (let i = 1; i < p.length; i++) if (p[i] <= p[i - 1]) notRising++;
+        const nm = Theory.chordName(p);
+        if (!nm || /undefined|NaN|null/.test(nm) || nm.length > 12) badName++;
+        if (!Theory.chordIsSound(p)) return;
+        sound++;
+        /* The clash test has to look at the notes as stacked, not at their
+           pitch classes: a major seventh chord holds a B against a C and is
+           the most consonant chord there is, because they are eleven semitones
+           apart. It is one semitone — or thirteen, which is the same harshness
+           an octave up — that no voicing survives. */
+        for (let i = 0; i < p.length; i++) {
+          for (let j = i + 1; j < p.length; j++) {
+            const gap = Math.abs(p[j] - p[i]);
+            if (gap === 1 || gap === 13) { clash++; i = p.length; break; }
+          }
+        }
+      });
+    }
+  });
+  check(built > 3000, 'every shape on every degree of every scale was built (' + built + ')');
+  check(notRising === 0, 'every chord comes out in rising order');
+  check(badName === 0, 'and every one of them gets a readable name');
+  check(sound > built * 0.5, 'most of them are usable (' + sound + ' of ' + built + ')');
+  check(clash === 0, 'and none of them is voiced with a semitone or a minor ninth in it');
+
+  /* The names themselves, against chords whose names are not a matter of
+     opinion. This is the part that would silently rot if the naming rules
+     were ever rearranged. */
+  const NAMED = [
+    [[0, 7], 'C5'], [[0, 4, 7], 'C'], [[0, 3, 7], 'Cm'],
+    [[0, 3, 6], 'Cdim'], [[0, 4, 8], 'Caug'],
+    [[0, 2, 7], 'Csus2'], [[0, 5, 7], 'Csus4'],
+    [[0, 4, 7, 9], 'C6'], [[0, 3, 7, 9], 'Cm6'], [[0, 4, 7, 9, 14], 'C6/9'],
+    [[0, 4, 7, 11], 'Cmaj7'], [[0, 4, 7, 10], 'C7'], [[0, 3, 7, 10], 'Cm7'],
+    [[0, 3, 7, 11], 'Cm(maj7)'], [[0, 3, 6, 10], 'Cm7♭5'], [[0, 3, 6, 9], 'Cdim7'],
+    [[0, 4, 8, 10], 'Caug7'], [[0, 4, 7, 14], 'Cadd9'],
+    [[0, 4, 7, 10, 14], 'C9'], [[0, 4, 7, 11, 14], 'Cmaj9'],
+    [[0, 3, 7, 10, 14], 'Cm9'], [[0, 3, 7, 10, 14, 17], 'Cm11'],
+    [[0, 4, 7, 10, 14, 21], 'C13'], [[0, 4, 7, 11, 14, 21], 'Cmaj13'],
+    [[0, 5, 7, 10], 'C7sus4'], [[0, 7, 11], 'Cmaj7'], [[0, 7, 10], 'C7']
+  ];
+  const wrong = NAMED.filter(function (c) {
+    return Theory.chordName(c[0].map(function (x) { return x + 60; })) !== c[1];
+  });
+  check(wrong.length === 0, 'the standard chords are named the standard way (' +
+    wrong.map(function (c) {
+      return Theory.chordName(c[0].map(function (x) { return x + 60; })) + '≠' + c[1];
+    }).join(', ') + ')');
+
+  /* An eleventh over a major third is the one clash that theory books allow on
+     paper and no player ever voices. */
+  check(!Theory.chordIsSound([60, 64, 67, 70, 74, 77]),
+    'an eleventh over a major third is refused');
+  check(Theory.chordIsSound([60, 63, 67, 70, 74, 77]),
+    'but over a minor third it is the everyday m11');
+
+  /* And a whole song in every one of them, because a scale that cannot be
+     composed in is not a scale this program has. */
+  let broke = [];
+  ids.forEach(function (id) {
+    let song;
+    try {
+      song = Composer.compose({ seed: 'SCALE-' + id, genre: 'lofi', scale: id, length: 'short' });
+    } catch (e) {
+      broke.push(id + ' threw ' + e.message);
+      return;
+    }
+    if (song.scaleId !== id) { broke.push(id + ' did not take'); return; }
+    if (!song.chords || !song.chords.length) { broke.push(id + ' has no chords'); return; }
+    let notes = 0, outOfRange = 0, past = 0;
+    Object.keys(song.tracks).forEach(function (t) {
+      song.tracks[t].forEach(function (e) {
+        notes++;
+        if (e.p < 12 || e.p > 108) outOfRange++;
+        /* Onset, not end: a note may start inside the song and ring out past
+           it — the render leaves a tail for exactly that. What must never
+           happen is a note *starting* after the song is over. */
+        if (e.t >= song.totalBeats) past++;
+      });
+    });
+    if (notes < 20) broke.push(id + ' is nearly empty (' + notes + ')');
+    if (outOfRange) broke.push(id + ' wrote ' + outOfRange + ' unplayable notes');
+    if (past) broke.push(id + ' wrote ' + past + ' notes past the end');
+    if (song.chords.some(function (c) { return !c.name; })) broke.push(id + ' has a nameless chord');
+  });
+  check(broke.length === 0, 'a whole song can be written in every scale (' +
+    broke.slice(0, 4).join('; ') + ')');
+})();
+
 /* --- harmony lines and octave doubling --- */
 (function () {
   /* A harmony is not a fixed number of semitones. A third in a major key is

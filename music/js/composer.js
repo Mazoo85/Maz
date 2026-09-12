@@ -259,7 +259,11 @@
 
   function buildHarmony(rng, song, genre, mood) {
     const beatsPerBar = bpb(song);
-    const scaleSteps = song.scaleSteps;
+    /* Harmony is built from the chord scale, not the melody scale. For any
+       seven-note scale they are the same thing; for a pentatonic, a blues or
+       the whole-tone scale they are not, and stacking the melody's own notes
+       into chords is how you get fourths and clusters where triads belong. */
+    const scaleSteps = song.chordSteps || song.scaleSteps;
     const rootMidi = T.midi(song.rootPc, 4);        // chord construction octave
     const progression = rng.pick(genre.progressions);
     const bridgeProg = rng.pick(genre.progressions);
@@ -1833,6 +1837,7 @@
     song.rootPc = p.rootPc;
     song.scaleId = p.scaleId;
     song.scaleSteps = T.SCALES[p.scaleId].steps;
+    song.chordSteps = T.chordStepsFor(p.scaleId);
     song.keyName = p.keyName;
     song.meter = METERS[p.meter] ? p.meter : '4/4';
     song.beatsPerBar = METERS[song.meter].beats;
@@ -2216,6 +2221,7 @@
     song.rootPc = (typeof opts.key === 'number' && opts.key >= 0) ? opts.key : rng.int(12);
     song.scaleId = opts.scale && T.SCALES[opts.scale] ? opts.scale : pickScale(rng, genre, mood);
     song.scaleSteps = T.SCALES[song.scaleId].steps;
+    song.chordSteps = T.chordStepsFor(song.scaleId);
     song.keyName = T.NOTE_NAMES[song.rootPc] + ' ' + T.SCALES[song.scaleId].name;
 
     // Length → bar count, rounded to whole 4-bar blocks.

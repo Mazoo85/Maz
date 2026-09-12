@@ -275,7 +275,10 @@
     cinematic: { bass: 43, chords: 48, arp: 0,  lead: 0,  pad: 51 },
     chiptune:  { bass: 80, chords: 80, arp: 80, lead: 80, pad: 81 },
     dnb:       { bass: 39, chords: 89, arp: 81, lead: 98, pad: 91 },
-    trap:      { bass: 38, chords: 89, arp: 9,  lead: 9,  pad: 91 }
+    trap:      { bass: 38, chords: 89, arp: 9,  lead: 9,  pad: 91 },
+    /* Fingered bass, Rhodes, vibraphone: the instruments a hip-hop loop is
+       usually sampled from, so the MIDI opens sounding like the track. */
+    hiphop:    { bass: 33, chords: 4,  arp: 45, lead: 11, pad: 89 }
   };
 
   function vlq(n) {

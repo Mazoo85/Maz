@@ -143,12 +143,20 @@
       status('Looseness set — it takes effect on the next song, or when you re-roll a part.');
     });
 
+    /* Grouped, because there are more than forty of them and a flat list of
+       forty scale names is a wall nobody reads. */
     const scaleSel = el('scaleSelect');
-    Object.keys(T.SCALES).forEach(function (id) {
-      const o = document.createElement('option');
-      o.value = id;
-      o.textContent = T.SCALES[id].name;
-      scaleSel.appendChild(o);
+    T.SCALE_GROUPS.forEach(function (g) {
+      const grp = document.createElement('optgroup');
+      grp.label = g.name;
+      g.ids.forEach(function (id) {
+        if (!T.SCALES[id]) return;
+        const o = document.createElement('option');
+        o.value = id;
+        o.textContent = T.SCALES[id].name;
+        grp.appendChild(o);
+      });
+      scaleSel.appendChild(grp);
     });
     scaleSel.addEventListener('change', function () {
       state.scale = this.value;
