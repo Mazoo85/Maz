@@ -400,11 +400,19 @@ The native renderer draws frame *n* at time *n*/fps and writes it. It cannot dro
 a frame, it knows the duration before it starts, and it runs as fast as the
 machine allows:
 
+Rendering the whole of a real 2:39 film — 3,823 frames at 720p — takes **82
+seconds**, which is **1.9× realtime**. Measured over shorter stretches, where
+there are fewer cuts to set up:
+
 | | speed |
 |---|---|
-| 540p | **3.3× realtime** |
-| 720p | **2.2× realtime** |
-| 1080p | **1.1× realtime** |
+| 540p | 3.3× realtime |
+| 720p | 2.2× realtime |
+| 1080p | 1.1× realtime |
+
+The whole-film figure is the lower one and the one to believe: it is the whole
+job, cuts included. 1080p is only just faster than realtime, which is worth
+saying plainly rather than quoting the 540p number and leaving it there.
 
 ### What is faithful, and what is plain
 
