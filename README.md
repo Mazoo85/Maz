@@ -26,6 +26,7 @@ is a dead end.
 | 🎮 | **DEAD SECTOR** | Phone-first, top-down twin-stick zombie shooter in one self-contained HTML file. Dual touch joysticks, escalating waves. | [play](shooter/) · [docs](shooter/README.md) |
 | 🎵 | **SONG FORGE** | Generative AI music maker: writes and plays complete songs — chords, bass, drums, arpeggio, melody — across 8 genres, with WAV and MIDI export. Offline, no API key. | [open](music/) · [docs](music/README.md) |
 | 🎬 | **SCRIPT FORGE** | Type what your film is about and get the film: a formatted screenplay, a shot list, and an animated short — sets, camera, voices, a real SONG FORGE score — that plays in the page and downloads as an MP4 or WebM. | [open](film/) · [docs](film/README.md) |
+| 🎲 | **NAME MAKER** | Press a button, get a name: one adjective, one noun, from a thousand of each. Installs to a phone home screen and works offline. | [open](namemaker/) · [docs](namemaker/README.md) |
 | ✍️ | **MADLIBS STORY FORGE** | Randomly forges story ideas broken into scene beats, ready to seed a storyboard or script. | [open](madlibs/) · [docs](madlibs/README.md) |
 | ⚙️ | **Maz Engine** | Native **C++20 + Vulkan + SDL3** game engine, 2D-first but architected so 3D drops in later. | [roadmap](docs/ROADMAP.md) · [architecture](docs/ARCHITECTURE.md) |
 | 🕸️ | **maz-scrape** | Recipe-driven scraper for static HTML — point it at a YAML recipe, get JSONL/CSV/SQLite. | [docs](scraper/README.md) |
@@ -43,7 +44,7 @@ both the hub and the in-app nav. Add a project there and it appears everywhere.
 index.html              # the MAZ ARCADE hub — links to everything
 shared/projects.js      # THE list of projects (hub + nav both read this)
 shared/maz-nav.js       # the in-app nav pill, one <script> line per app
-zomboid/  cells/  shooter/  music/  madlibs/  film/   # the browser projects
+zomboid/  cells/  shooter/  music/  madlibs/  film/  namemaker/   # the browser projects
 engine/   apps/  tests/  docs/           # Maz Engine (C++)
 scraper/  crew/  forge/                  # Python tools
 scripts/check-links.mjs # proves every link in the repo resolves

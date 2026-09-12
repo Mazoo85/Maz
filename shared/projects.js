@@ -68,6 +68,19 @@
       docs: 'music/README.md'
     },
     {
+      id: 'namemaker',
+      name: 'NAME MAKER',
+      kind: 'app',
+      path: 'namemaker/',
+      tag: 'a million random names',
+      accent: '#ff4d2e',
+      blurb:
+        'Press a button, get a name: one adjective, one noun, drawn from a thousand ' +
+        'of each. Installs to a phone home screen and works with no signal at all.',
+      badges: ['Phone + desktop', 'Installable', 'Single file'],
+      docs: 'namemaker/README.md'
+    },
+    {
       id: 'madlibs',
       name: 'MADLIBS STORY FORGE',
       kind: 'app',
