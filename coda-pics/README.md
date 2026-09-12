@@ -131,7 +131,8 @@ keeps it in your browser and nowhere else.
 4. Go to **APIs & Services → Credentials → Create credentials → OAuth client ID**.
    Application type: **Web application**.
 5. Under **Authorised JavaScript origins**, add the site you open CODA PICS from:
-   `https://mazoo85.github.io`
+   `https://mazoo85.github.io` — and `http://localhost:8000` too if you ever run
+   it on your own machine. Google allows both.
 6. Under **Authorised redirect URIs**, paste the address the app shows you in the
    Google Photos box. It is exactly the page address — for the live site,
    `https://mazoo85.github.io/Maz/coda-pics/`. It has to match character for
@@ -164,6 +165,10 @@ asks browser apps to use precisely because a web page cannot keep a secret.
   credential does not match the one the app shows. Copy it again, exactly.
 - **Nothing opens when you press Choose photos** — a pop-up blocker. Allow
   pop-ups for this site; the picker is a new tab by design.
+- **It worked earlier and now asks again** — expected. The app asks Google for a
+  short-lived pass and never for a permanent one, so after about an hour you
+  press **Connect** again. That is one click, and it is the safer trade: there
+  is no long-lived key sitting in your browser to lose.
 - **Offline** — the rest of CODA PICS still works with the wifi off. Only this
   box needs a network.
 
