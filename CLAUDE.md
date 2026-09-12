@@ -102,11 +102,42 @@ headless under the dummy SDL drivers.
 ## This environment (cloud box)
 
 This session runs on a headless cloud box **without the Vulkan SDK / glslangValidator**, so a full
-CMake build cannot run here. Verify header-only logic locally by compiling the relevant `tests/*`
-file directly with `g++ -std=c++20 -Iengine/include -I<glm> <flags>` (clone GLM 1.0.1 to the
-scratchpad for the headers); the **CI workflow does the full Vulkan build and the complete test
-suite**. Never weaken CI or the renderer to make it build here — split GPU glue from pure logic and
-verify the logic locally, the glue in CI.
+CMake build cannot run here. Two things can still be verified locally, and both are worth doing
+before pushing — the **CI workflow does the full Vulkan build and the complete test suite**, but a
+round trip through it costs a lot more than a `g++` invocation:
+
+1. **Header-only logic runs.** Compile the relevant `tests/*` file directly and execute it:
+
+   ```sh
+   git clone --depth 1 -b 1.0.1 https://github.com/g-truc/glm.git "$SCRATCH/glm"
+   g++ -std=c++20 -Iengine/include -I"$SCRATCH/glm" \
+       -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror \
+       -o /tmp/t tests/game/flycamera.cpp && /tmp/t
+   ```
+
+   For a module implemented in a `.cpp` (the SDL-backed platform shims, `core::parseArgs`), link the
+   real `engine/src/...cpp` and stub only what it calls into — that still exercises the code under
+   test rather than a mock of it.
+
+2. **A whole app type-checks.** SDL3's headers are enough for `-fsyntax-only`; no Vulkan SDK is
+   needed, because the renderer is behind an interface:
+
+   ```sh
+   git clone --depth 1 -b release-3.4.12 https://github.com/libsdl-org/SDL.git "$SCRATCH/SDL"
+   g++ -std=c++20 -fsyntax-only -Iengine/include -I"$SCRATCH/glm" -I"$SCRATCH/SDL/include" \
+       -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wno-unused-parameter -Werror \
+       apps/<name>/main.cpp
+   ```
+
+   Those are CI's exact flags (`CMakeLists.txt`, `maz_warnings`). Pin SDL and GLM to the versions in
+   `cmake/Dependencies.cmake` or you will be checking against the wrong API.
+
+   A demo app's *numbers* can be checked too, without a GPU: lift the computation out of `main()`
+   into a scratch program, link the same headers, and print what it would draw. That is how
+   `apps/rpgstats` was found to be promising a critical hit that never fired.
+
+Never weaken CI or the renderer to make it build here — split GPU glue from pure logic and verify
+the logic locally, the glue in CI.
 
 That limit is the **engine's** only. Everything in "the rest of the repo" above runs here in full
 and in seconds, so there is no excuse for pushing it unverified:
