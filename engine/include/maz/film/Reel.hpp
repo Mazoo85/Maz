@@ -63,7 +63,9 @@ struct Shot {
     int side = 0;        // which side the speaker is on
 
     std::vector<std::string> characters; // who is in frame
-    float mood = 0.0f;                   // 0 calm .. 1 wound up; drives light, score and cutting
+    // Double, not float: this feeds paletteFor, and the browser computes in doubles. Narrowing here
+    // and widening there is enough to round a colour channel differently -- see Palette.hpp.
+    double mood = 0.0;                   // 0 calm .. 1 wound up; drives light, score and cutting
     int scene = 0;
     std::string beat; // open | spark | push | turn | crisis | choice | after | title | end
 
@@ -184,7 +186,7 @@ inline Reel parseReel(const std::string& text) {
         shot.speaker = s["speaker"].asString();
         shot.side = s["side"].asInt(0);
         shot.characters = detail::stringArray(s["characters"]);
-        shot.mood = s["mood"].asFloat(0.0f);
+        shot.mood = s["mood"].asNumber(0.0);
         shot.scene = s["scene"].asInt(0);
         shot.beat = s["beat"].asString();
         reel.shots.push_back(std::move(shot));

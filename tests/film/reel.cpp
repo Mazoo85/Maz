@@ -137,7 +137,7 @@ int main(int argc, char** argv) {
     {
         bool known = true;
         for (const Shot& s : reel.shots) {
-            if (s.mood < 0.0f || s.mood > 1.0f) {
+            if (s.mood < 0.0 || s.mood > 1.0) {
                 known = false;
             }
             if (s.duration <= 0.0) {
