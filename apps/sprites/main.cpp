@@ -130,7 +130,6 @@ int main(int argc, char** argv) {
     anim::SpriteAnim hero;
     hero.play(anim::gridFrames(kFrames, 1, 0, kFrames), 10.0f, true);
 
-    float t = 0.0f;
     while (!window.shouldClose()) {
         window.pumpEvents(input);
         if (input.keyPressed(SDL_SCANCODE_ESCAPE)) {
@@ -145,7 +144,6 @@ int main(int argc, char** argv) {
         clock.beginFrame();
         while (clock.consumeFixedStep()) {
             const float dt = static_cast<float>(clock.fixedDelta());
-            t += dt;
             hero.update(dt);
             for (auto& a : grid) {
                 a.update(dt);
