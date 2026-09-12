@@ -1041,6 +1041,60 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
     check(hourChanged.lit.every((t) => t === 'DAWN'),
       `and the artist lights it at dawn (${[...new Set(hourChanged.lit)].join(',')})`);
 
+    /* ------------------------------------------------------- a shared link
+     *
+     * Opened as a real navigation, because the whole point is that somebody
+     * else's browser can arrive at this URL cold and get the same film. */
+    console.log('\nSHARING');
+
+    // The film on screen has just been edited by the directing checks above, so
+    // it is the case a link must REFUSE: rebuilding from its seed would open the
+    // original and nobody would be told. (This is not hypothetical -- sharing
+    // the edited film here produced a link that opened a different film, and
+    // that is what the guard is for.)
+    const refuses = await page.evaluate(() => {
+      const app = window.__filmState;
+      const script = app.script();
+      const rebuilt = window.FilmWriter.write(
+        window.FilmParse.parse(script.idea,
+          { genre: script.premise.genreAuto ? undefined : script.genre }),
+        { length: script.length, seed: script.seed });
+      return window.FilmLibrary.shareableBySeed(script, rebuilt);
+    });
+    check(refuses === false, 'an edited film refuses to be shared as a link');
+
+    // Now a clean one, written from the box, which is the shareable case.
+    await page.fill('#idea', 'a lighthouse keeper finds a radio that answers back');
+    await page.click('#write');
+    await page.waitForSelector('#result:not(.hidden)');
+    await page.waitForTimeout(150);
+
+    const shareUrl = await page.evaluate(() => {
+      const app = window.__filmState;
+      return window.FilmLibrary.toShareUrl(app.script(), window.location.href);
+    });
+    const shared = await page.evaluate(() => {
+      const app = window.__filmState;
+      return { title: app.script().title, seed: app.script().seed,
+               body: app.script().elements.map((e) => e.text).join('|') };
+    });
+    check(shareUrl.length < 400, `a shared link is ${shareUrl.length} characters`);
+
+    const visitor = await context.newPage();
+    await visitor.goto(shareUrl, { waitUntil: 'load' });
+    await visitor.waitForSelector('#result:not(.hidden)', { timeout: 15000 });
+    const arrived = await visitor.evaluate(() => {
+      const app = window.__filmState;
+      return { title: app.script().title, seed: app.script().seed,
+               body: app.script().elements.map((e) => e.text).join('|'),
+               idea: document.getElementById('idea').value };
+    });
+    check(arrived.seed === shared.seed, `a cold browser rebuilds the same seed (${arrived.seed})`);
+    check(arrived.title === shared.title, `and the same title (${arrived.title})`);
+    check(arrived.body === shared.body, 'and the same film, line for line');
+    check(arrived.idea.length > 0, 'the shared link fills the idea box in so it can be changed');
+    await visitor.close();
+
     console.log('\nWORLD SOUND');
     const world = await page.evaluate(async () => {
       const W = window.FilmWorldSound;

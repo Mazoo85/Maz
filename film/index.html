@@ -108,6 +108,7 @@
             <button id="stopFilm">⏹ Stop</button>
             <button id="recordFilm" class="accent">⬇ Make the video file</button>
             <button id="dlReel" title="The film as plain data — what it is made of, shot by shot">⬇ .reel.json</button>
+            <button id="shareFilm" title="A link that rebuilds this exact film on any device">🔗 Copy link</button>
           </div>
 
           <div class="film-options">
@@ -150,7 +151,12 @@
     <section class="library no-print">
       <div class="library-head">
         <h3>Saved scripts <span id="libCount" class="count">0</span></h3>
-        <button id="clearLib" class="link">clear all</button>
+        <span class="library-tools">
+          <button id="exportLib" class="link" title="Save every film in this library to a file">⬇ export</button>
+          <button id="importLib" class="link" title="Add films from a library file">⬆ import</button>
+          <input type="file" id="importFile" accept="application/json,.json" hidden />
+          <button id="clearLib" class="link">clear all</button>
+        </span>
       </div>
       <ul id="libraryList" class="library-list"></ul>
       <p id="libEmpty" class="muted">Nothing saved yet. Write one you like and press <strong>Save</strong>.</p>
@@ -194,6 +200,7 @@
   <script src="../madlibs/js/templates.js"></script>
   <script src="../madlibs/js/generator.js"></script>
   <script src="js/story-seed.js"></script>
+  <script src="js/library.js"></script>
   <script src="js/why.js"></script>
   <script src="js/app.js"></script>
 

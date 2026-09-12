@@ -326,3 +326,5 @@ button.accent { border-color: var(--green); color: var(--green); }
   border-left: 2px solid rgba(255,255,255,0.12);
 }
 .why-foot { font-size: 12px; opacity: 0.55; line-height: 1.6; }
+
+.library-tools { display: inline-flex; gap: 12px; align-items: center; }

@@ -994,6 +994,7 @@ const Dress = require(path.join(__dirname, '..', 'js', 'set-dress.js'));
 const World = require(path.join(__dirname, '..', 'js', 'world-sound.js'));
 const Director = require(path.join(__dirname, '..', 'js', 'director.js'));
 const Why = require(path.join(__dirname, '..', 'js', 'why.js'));
+const Library = require(path.join(__dirname, '..', 'js', 'library.js'));
 
 console.log('\nHOW A CHARACTER STANDS');
 
@@ -3151,6 +3152,129 @@ test('every film has two audible voices in it now', () => {
     if (apart >= Voice.MIN_APART - 1e-9) heard++;
   });
   eq(heard, ideas.length, 'only ' + heard + ' of ' + ideas.length + ' films have two audible voices');
+});
+
+
+/* --------------------------------------------- getting films off one device */
+
+test('a link rebuilds the exact film it came from', () => {
+  // The whole program is deterministic, so a shareable film needs no server and
+  // no upload -- about eighty characters of seed.
+  const ideas = [
+    'a night nurse buries a key in the woods and forgets where',
+    'two brothers argue over a boat their father left them',
+    'a lighthouse keeper finds a radio that answers back'
+  ];
+  ideas.forEach((idea) => ['micro', 'short', 'festival'].forEach((length) => {
+    const script = Writer.write(Parse.parse(idea), { length });
+    const url = Library.toShareUrl(script, 'https://example.com/film/');
+    assert(url.length < 400, 'a link of ' + url.length + ' characters is not a link');
+
+    const card = Library.fromHash(url.split('#')[1]);
+    assert(card, 'the link did not read back at all');
+    eq(card.idea, script.idea, 'the idea changed in transit');
+    eq(card.seed, script.seed, 'the seed changed in transit');
+
+    const rebuilt = Writer.write(
+      Parse.parse(card.idea, { genre: card.genre === 'auto' ? undefined : card.genre }),
+      { length: card.length, seed: card.seed });
+    eq(rebuilt.elements.map((e) => e.text).join('|'),
+       script.elements.map((e) => e.text).join('|'),
+       idea + '/' + length + ': the link rebuilt a different film');
+  }));
+});
+
+test('an edited film refuses to be shared as a link', () => {
+  // The worst available bug: the link works, opens a film, and it is quietly a
+  // different one.
+  const script = Writer.write(Parse.parse('a night nurse buries a key in the woods'),
+    { length: 'short', seed: 5 });
+  assert(Library.shareableBySeed(script, script), 'an untouched film would not share');
+
+  const edited = Director.editLine(script, 1, 1, 'Something else entirely, and at length.');
+  assert(!Library.shareableBySeed(edited, script), 'a rewritten line still claimed to be its seed');
+  assert(!Library.shareableBySeed(Director.deleteScene(script, 2), script),
+    'a film with a scene cut out still claimed to be its seed');
+  assert(!Library.shareableBySeed(Director.moveScene(script, 1, 2), script),
+    'a reordered film still claimed to be its seed');
+});
+
+test('a hash that is not ours is not an error', () => {
+  [null, undefined, '', '#', '#top', '#film=', '#film=!!!!', '#film=' + Library.toBase64('nonsense'),
+   '#film=' + Library.toBase64('{"i":5}')].forEach((hash) => {
+    eq(Library.fromHash(hash), null, 'read something out of ' + JSON.stringify(hash));
+  });
+});
+
+test('a link survives every character somebody might type', () => {
+  // Ideas are free text. Quotes, accents, emoji and ampersands all have to make
+  // the trip, or the link opens somebody else's film.
+  const awkward = [
+    'a café owner & her "friend" — the last night',
+    'ある鍵と森',
+    'a diver loses a ring 🪸 in a lake',
+    "it's 50% done, she said; nobody believed her"
+  ];
+  awkward.forEach((idea) => {
+    const script = Writer.write(Parse.parse(idea), { length: 'micro' });
+    const card = Library.fromHash(Library.toShareHash(script));
+    assert(card, 'no link at all for ' + JSON.stringify(idea));
+    eq(card.idea, script.idea, 'mangled: ' + JSON.stringify(idea));
+  });
+});
+
+test('an exported library imports back with nothing lost', () => {
+  const films = [
+    { title: 'A', idea: 'one', genre: 'auto', length: 'short', seed: 1, runtime: '2 min', savedAt: 100 },
+    { title: 'B', idea: 'two', genre: 'horror', length: 'micro', seed: 2, runtime: '1 min', savedAt: 200 }
+  ];
+  const result = Library.importLibrary(Library.exportLibrary(films), []);
+  eq(result.error, null);
+  eq(result.added, 2);
+  eq(result.films.length, 2);
+  films.forEach((film) => assert(result.films.some((f) => f.seed === film.seed && f.idea === film.idea),
+    film.title + ' did not survive the round trip'));
+});
+
+test('importing merges rather than replacing', () => {
+  // Somebody importing their laptop's library onto their phone has films on the
+  // phone too, and the obvious implementation throws them away.
+  const onPhone = [{ title: 'PHONE', idea: 'p', genre: 'auto', length: 'short', seed: 9, savedAt: 500 }];
+  const fromLaptop = [{ title: 'LAPTOP', idea: 'l', genre: 'auto', length: 'short', seed: 8, savedAt: 400 }];
+  const result = Library.importLibrary(Library.exportLibrary(fromLaptop), onPhone);
+  eq(result.added, 1);
+  eq(result.films.length, 2, 'the merge lost a film');
+  assert(result.films.some((f) => f.title === 'PHONE'), 'the phone film was thrown away');
+  assert(result.films[0].savedAt >= result.films[1].savedAt, 'the merged list is out of order');
+});
+
+test('importing the same file twice adds nothing the second time', () => {
+  const films = [{ title: 'A', idea: 'one', genre: 'auto', length: 'short', seed: 1, savedAt: 100 }];
+  const text = Library.exportLibrary(films);
+  const once = Library.importLibrary(text, []);
+  const twice = Library.importLibrary(text, once.films);
+  eq(twice.added, 0, 'a second import duplicated the library');
+  eq(twice.skipped, 1);
+  eq(twice.films.length, 1);
+});
+
+test('importing rubbish says so instead of throwing', () => {
+  // An import is a file somebody chose, and the file may be anything at all.
+  ['', 'not json at all', '{}', '[]', '{"format":"something-else","films":[]}',
+   '{"format":"script-forge-library","films":"nope"}'].forEach((text) => {
+    const result = Library.importLibrary(text, [{ title: 'MINE', idea: 'm', seed: 3, savedAt: 1 }]);
+    assert(result.error, 'no complaint about ' + JSON.stringify(text.slice(0, 30)));
+    eq(result.films.length, 1, 'a bad import destroyed the library it was given');
+  });
+  // And an entry inside a valid file that is not a film is skipped, not fatal.
+  const mixed = JSON.stringify({
+    format: Library.FORMAT, version: 1,
+    films: [{ idea: 'good', seed: 7 }, null, { idea: 'no seed' }, { seed: 8 }]
+  });
+  const result = Library.importLibrary(mixed, []);
+  eq(result.error, null);
+  eq(result.added, 1, 'kept something that was not a film');
+  eq(result.skipped, 3);
 });
 
 

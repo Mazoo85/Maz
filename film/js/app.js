@@ -34,7 +34,7 @@
    'chipSeed', 'tabScript', 'tabShots', 'tabFilm', 'tabWhy', 'viewScript', 'viewShots', 'viewFilm', 'viewWhy',
    'editToggle', 'rerollFree', 'undoEdit', 'directStatus', 'directBar',
    'copy', 'dlFountain', 'dlFdx', 'dlText', 'dlShots', 'print', 'save', 'status',
-   'libraryList', 'libCount', 'libEmpty', 'clearLib', 'filmCanvas', 'bigPlay', 'playFilm',
+   'libraryList', 'libCount', 'libEmpty', 'clearLib', 'exportLib', 'importLib', 'importFile', 'shareFilm', 'filmCanvas', 'bigPlay', 'playFilm',
    'stopFilm', 'recordFilm', 'dlReel', 'filmSize', 'speakAloud', 'scrubBar', 'scrubFill', 'filmClock',
    'filmNote'].forEach(function (id) {
     el[id] = document.getElementById(id);
@@ -43,6 +43,7 @@
   var Reel = window.FilmReel;
   var Director = window.FilmDirector;
   var Why = window.FilmWhy;
+  var Library = window.FilmLibrary;
   var PlayerLib = window.FilmPlayer;
   var ScoreLib = window.FilmScore;
 
@@ -837,6 +838,64 @@
   el.tabFilm.addEventListener('click', function () { showTab('film'); });
   el.tabWhy.addEventListener('click', function () { showTab('why'); });
 
+  /* ------------------------------------------------- getting films off here */
+
+  el.shareFilm.addEventListener('click', function () {
+    if (!current) return;
+    // A film is its seed -- but only until somebody edits it. Rebuild from the
+    // card and compare: if the link would open a DIFFERENT film, say so rather
+    // than handing over a link that quietly lies.
+    var rebuilt = null;
+    try {
+      rebuilt = Writer.write(
+        Parse.parse(current.idea, { genre: current.premise.genreAuto ? undefined : current.genre }),
+        { length: current.length, seed: current.seed });
+    } catch (e) { rebuilt = null; }
+
+    if (!Library.shareableBySeed(current, rebuilt)) {
+      say('This film has been edited, so a link would rebuild the original. ' +
+          'Use ⬇ .reel.json to share exactly what you have.');
+      return;
+    }
+    var url = Library.toShareUrl(current, window.location.href);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(function () {
+        say('Link copied. It rebuilds this exact film on any device.');
+      }, function () {
+        window.prompt('Copy this link:', url);
+      });
+    } else {
+      window.prompt('Copy this link:', url);
+    }
+  });
+
+  el.exportLib.addEventListener('click', function () {
+    var list = readLibrary();
+    if (!list.length) { say('Nothing saved yet.'); return; }
+    download('script-forge-library.json', Library.exportLibrary(list), 'application/json');
+    say('Exported ' + list.length + ' film' + (list.length === 1 ? '' : 's') + '.');
+  });
+
+  el.importLib.addEventListener('click', function () { el.importFile.click(); });
+
+  el.importFile.addEventListener('change', function () {
+    var file = el.importFile.files && el.importFile.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      // MERGE, never replace: somebody importing their laptop's library onto
+      // their phone has films on the phone too.
+      var result = Library.importLibrary(reader.result, readLibrary());
+      if (result.error) { say(result.error); return; }
+      writeLibrary(result.films.slice(0, 50));
+      renderLibrary();
+      say('Added ' + result.added + ' film' + (result.added === 1 ? '' : 's') +
+          (result.skipped ? ', skipped ' + result.skipped + ' already here' : '') + '.');
+    };
+    reader.readAsText(file);
+    el.importFile.value = '';
+  });
+
   el.playFilm.addEventListener('click', playFilm);
   el.bigPlay.addEventListener('click', playFilm);
   el.stopFilm.addEventListener('click', function () {
@@ -897,4 +956,19 @@
   buildGenreOptions();
   buildExamples();
   renderLibrary();
+
+  /* A shared link, opened. Fill the box in as well as building the film, so the
+   * person who arrived here can see what it was made from and change it -- a
+   * link that produces a film you cannot edit is a video, and there are better
+   * ways to send somebody a video. */
+  (function openSharedLink() {
+    var shared = Library.fromHash(window.location.hash);
+    if (!shared) return;
+    el.idea.value = shared.idea;
+    if (shared.genre && shared.genre !== 'auto') el.genre.value = shared.genre;
+    if (shared.length) el.length.value = shared.length;
+    if (shared.title) el.titleInput.value = shared.title;
+    generate({ seed: shared.seed });
+    say('Opened a shared film. Change the sentence to make it yours.');
+  }());
 })();
