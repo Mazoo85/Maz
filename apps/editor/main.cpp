@@ -6,6 +6,7 @@
 
 #include "maz/Engine.hpp"
 #include "maz/editor/Composite.hpp" // bakeComposite, sceneToPrefab / prefabToScene
+#include "maz/game/AssetDef.hpp"    // game::AssetDef (character/item kind + stats)
 #include "maz/io/PrefabText.hpp"    // io::savePrefabText / loadPrefabText
 
 #include <SDL3/SDL_filesystem.h>
@@ -146,6 +147,7 @@ int main(int argc, char** argv) {
 
     // Build the editable scene.
     editor::Scene scene;
+    game::AssetDef assetDef; // character/item kind + stats, saved alongside the composition
     auto addNode = [&](const char* name, uint32_t mesh, math::vec3 pos, int color, float rough,
                        float metal) {
         editor::Node n;
@@ -446,8 +448,10 @@ int main(int argc, char** argv) {
             MAZ_LOG_INFO("saved scene -> %s", scenePath.c_str());
         }
         if (!playing && ctrl && shift && input.keyPressed(SDL_SCANCODE_S)) {
-            io::writeTextFile(prefabPath, io::savePrefabText(editor::sceneToPrefab(scene, "asset")));
-            MAZ_LOG_INFO("saved prefab (%zu parts) -> %s", scene.nodes.size(), prefabPath.c_str());
+            io::writeTextFile(prefabPath, io::savePrefabText(editor::sceneToPrefab(
+                                              scene, assetDef.name, game::assetDefToProps(assetDef))));
+            MAZ_LOG_INFO("saved %s \"%s\" (%zu parts) -> %s", game::assetKindName(assetDef.kind),
+                         assetDef.name.c_str(), scene.nodes.size(), prefabPath.c_str());
         }
         if (!playing && ctrl && !shift && input.keyPressed(SDL_SCANCODE_O)) {
             std::string txt;
@@ -463,8 +467,11 @@ int main(int argc, char** argv) {
             scene::Prefab pf;
             if (io::readTextFile(prefabPath, txt) && io::loadPrefabText(txt, pf)) {
                 editor::prefabToScene(pf, scene);
+                assetDef = game::assetDefFromProps(pf.root.props);
+                assetDef.name = pf.root.name;
                 scene.sanitizeSelection();
-                MAZ_LOG_INFO("loaded prefab (%zu parts) <- %s", scene.nodes.size(), prefabPath.c_str());
+                MAZ_LOG_INFO("loaded %s \"%s\" (%zu parts) <- %s", game::assetKindName(assetDef.kind),
+                             assetDef.name.c_str(), scene.nodes.size(), prefabPath.c_str());
             }
         }
         // Package the scene into a distributable resource pack (Ctrl+B).
@@ -480,6 +487,12 @@ int main(int argc, char** argv) {
             MAZ_LOG_INFO("baked composite: %zu verts, %zu tris (mesh #%u)", baked.vertices.size(),
                          baked.indices.size() / 3, h);
             dockTab = DockTab::Log;
+        }
+        // Toggle the asset's kind between item and character (Ctrl+Shift+K); saved with the asset.
+        if (!playing && ctrl && shift && input.keyPressed(SDL_SCANCODE_K)) {
+            assetDef.kind = assetDef.kind == game::AssetKind::Character ? game::AssetKind::Item
+                                                                        : game::AssetKind::Character;
+            MAZ_LOG_INFO("asset kind -> %s", game::assetKindName(assetDef.kind));
         }
 
         // Undo bracketing: a drag / keyboard-nudge / slider grab is one undo step. Snapshot the scene

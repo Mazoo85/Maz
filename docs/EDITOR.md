@@ -26,6 +26,7 @@ reusable asset or bake it into a single mesh.
 | `Ctrl+Shift+S` / `Ctrl+Shift+O` | Save / open the composition as a reusable **asset** (`asset.mazprefab`) |
 | `Ctrl+B` | Package the scene into a distributable resource pack (`scene.mazpack`) |
 | `Ctrl+Shift+B` | Bake the visible parts into one merged, per-part-tinted mesh (reported in the Output dock) |
+| `Ctrl+Shift+K` | Toggle the asset's kind between **item** and **character** (saved with the asset) |
 
 Files are written under the per-user preference directory (`SDL_GetPrefPath("MazEngine", "editor")`).
 
@@ -35,8 +36,14 @@ Saving an asset serializes the node list as a `scene::Prefab` (the engine's `.ts
 resource, via `maz::io::PrefabText`): the root is the asset and each part is a child node whose
 property bag carries its mesh index, colour, transform, local AABB, and material. It round-trips back
 into the editor with `Ctrl+Shift+O`, and any game can load it with `io::loadPrefabText` +
-`scene::instantiate`. Asset metadata (character vs item, stats) is stored on the **root** node's
-property bag — see `maz::game::AssetDef`.
+`scene::instantiate`.
+
+Asset metadata — whether the asset is a **character** or an **item**, plus its typed **stats** (hp,
+damage, heal, weight, …) — is stored on the **root** node's property bag by `maz::game::AssetDef`
+(`assetDefToProps` / `assetDefFromProps`). In the editor the kind is toggled with `Ctrl+Shift+K`;
+stats are authored directly in the `.mazprefab` text (as `key = TYPE value` lines on the root node)
+and read back with the asset. A game turns the loaded definition into behaviour via
+`AssetDef::statF/statI/statB`.
 
 ## Baking
 

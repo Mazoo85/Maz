@@ -52,6 +52,14 @@ target_link_libraries(maz_editor_composite_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME editor_composite COMMAND maz_editor_composite_tests)
 set_tests_properties(editor_composite PROPERTIES TIMEOUT 30)
 
+# Character/item definition: game::AssetDef (kind + typed stats) serialized onto a prefab root's
+# property bag, round-tripped in memory and through the full editor::Composite + io::PrefabText text
+# path (so a composed asset carries its definition alongside its parts). Pure CPU, headless.
+add_executable(maz_assetdef_tests game/assetdef.cpp)
+target_link_libraries(maz_assetdef_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME asset_def COMMAND maz_assetdef_tests)
+set_tests_properties(asset_def PROPERTIES TIMEOUT 30)
+
 # GPU-driven particle simulation + plane collision (fx::GpuParticleSystem). The CPU step is the exact
 # arithmetic the compute shader runs, so bounce energy, no-sink, friction, lifecycle and the instance
 # buffer are all verified headlessly here; the GPU dispatch + instanced draw are owner-verified.
