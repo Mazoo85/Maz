@@ -2334,6 +2334,31 @@ test('every object beat becomes a shot of the object', () => {
 });
 
 
+test('the object always moves forwards, on every spine', () => {
+  // The bug this pins: LEX.STRUCTURES has a seven-scene spine that runs
+  // open, PUSH, SPARK, turn, ... so a per-beat arc had the object CARRIED in
+  // scene two and NOTICED in scene three -- taken along before anybody picked
+  // it up -- and, because that spine ends on 'choice' with 'after' before it,
+  // played the payoff line twice in a row.
+  const order = {};
+  Arc.STATES.forEach((state, i) => { order[state] = i; });
+
+  Object.keys(LEX.STRUCTURES).forEach((length) => {
+    LEX.STRUCTURES[length].spines.forEach((spine) => {
+      const states = Arc.statesForSpine(spine);
+      const where = length + ' [' + spine.join(',') + '] -> ' + states.join('>');
+      eq(states.length, spine.length, 'one state per scene: ' + where);
+      eq(states[states.length - 1], 'changed', 'the last scene is the payoff: ' + where);
+      for (let i = 1; i < states.length; i++) {
+        assert(order[states[i]] > order[states[i - 1]],
+          'the object goes backwards at scene ' + (i + 1) + ': ' + where);
+      }
+      eq(new Set(states).size, states.length, 'a state plays twice: ' + where);
+    });
+  });
+});
+
+
 if (failures.length) {
   console.error('✖ ' + failures.length + ' failing test(s):');
   failures.forEach((f) => console.error('  - ' + f));

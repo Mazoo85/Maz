@@ -292,6 +292,10 @@
 
     var spine = spineFor(lengthKey, seed);
     var placement = placesForSpine(spine, premise.places.length, seed);
+    // The object's arc, laid along this spine in the order it can happen in —
+    // not beat by beat, which lets a reordered spine carry the thing before
+    // anyone has picked it up. See object-arc.js.
+    var objectStates = ARC.statesForSpine(spine);
     var afterIndex = spine.indexOf('after');
     spine.forEach(function (beatId, index) {
       var beat = beatById[beatId];
@@ -326,8 +330,8 @@
       // a story about something else. film-reel.js gives an action line that
       // names the object an insert shot, so this is also what makes the film
       // cut to the thing at the seven moments it matters.
-      var lastScene = { isLast: index === spine.length - 1 };
-      var arcLine = ARC.lineFor(ctx.arc, beatId, lastScene);
+      var objectState = objectStates[index];
+      var arcLine = ARC.lineForState(ctx.arc, objectState);
       if (arcLine) {
         // Marked, not inferred. Two of the arcs make their crisis line about the
         // object's ABSENCE -- "The hole is open. There is nothing in it." -- which
@@ -335,7 +339,7 @@
         // substring search to find. The flag is what gets it its insert.
         sceneElements.push({
           type: 'action', text: fill(arcLine, ctx),
-          objectBeat: ARC.stateFor(beatId, lastScene)
+          objectBeat: objectState
         });
       }
 

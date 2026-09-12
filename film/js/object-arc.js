@@ -143,25 +143,57 @@
     return ARCS[Math.floor(rng() * ARCS.length) % ARCS.length];
   }
 
-  function stateFor(beatId, opts) {
-    if (opts && opts.isLast) return 'changed';
+  function stateFor(beatId) {
     return BY_BEAT[beatId] || null;
   }
 
-  /* The object's line for one beat, or null if this beat has no state — which
-   * is not a failure, it is a title card or a beat outside the seven.
+  /* The whole arc laid along one spine: a state per scene, in the order the
+   * scenes play.
    *
-   * `opts.isLast` forces the payoff. Not every spine ends on 'after': two of the
-   * three five-scene spines end on 'choice', and one three-scene spine ends
-   * there too (see LEX.STRUCTURES). Keying the payoff to a beat that half the
-   * films never reach means half the films have a plant and no payoff, which is
-   * worse than having neither. The payoff belongs to the LAST SCENE, whatever
-   * beat that scene happens to be. */
-  function lineFor(arc, beatId, opts) {
-    var state = (opts && opts.isLast) ? 'changed' : stateFor(beatId);
+   * Doing this per beat does not work, and the way it fails is invisible until
+   * somebody reads the film. Spines are not all in the same order — the third
+   * seven-scene spine in LEX.STRUCTURES runs open, PUSH, SPARK, turn, crisis,
+   * after, choice — so a per-beat mapping had the object CARRIED in scene two
+   * and NOTICED in scene three: taken along before anybody picked it up. That
+   * same spine ends on 'choice' with 'after' before it, which handed the film
+   * its payoff line twice in a row.
+   *
+   * So the beats choose WHICH states a film uses, and this puts them in the
+   * order the object can actually happen in. Two rules are enough: canonical
+   * order always, and the last scene is always the payoff.
+   */
+  function statesForSpine(spine) {
+    var wanted = {};
+    var i;
+    for (i = 0; i < spine.length; i++) {
+      var st = BY_BEAT[spine[i]];
+      if (st) wanted[st] = true;
+    }
+    var ordered = [];
+    for (i = 0; i < STATES.length; i++) {
+      if (wanted[STATES[i]]) ordered.push(STATES[i]);
+    }
+    // Exactly one state per scene, whatever the spine hands over: pad from the
+    // front if a beat was unknown, trim if one repeated.
+    while (ordered.length < spine.length) ordered.unshift(STATES[0]);
+    ordered = ordered.slice(0, spine.length);
+    // The last scene is the payoff, whatever beat it turns out to be. Keying
+    // this to 'after' left half of all films with a plant and nothing to pay it
+    // off: two of the three five-scene spines end on 'choice'.
+    if (ordered.length) ordered[ordered.length - 1] = 'changed';
+    return ordered;
+  }
+
+  function lineForState(arc, state) {
     if (!state || !arc || !arc.lines) return null;
     return arc.lines[state] || null;
   }
+
+  /* The object's line for one beat, for callers that have a beat and no spine. */
+  function lineFor(arc, beatId) {
+    return lineForState(arc, stateFor(beatId));
+  }
+
 
   /* For the "why" panel: what this film is doing with its object, in a sentence
    * anybody can read. */
@@ -179,6 +211,8 @@
     PURPOSE: PURPOSE,
     arcFor: arcFor,
     stateFor: stateFor,
+    statesForSpine: statesForSpine,
+    lineForState: lineForState,
     lineFor: lineFor,
     describe: describe
   };
