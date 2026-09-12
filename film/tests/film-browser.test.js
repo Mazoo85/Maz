@@ -1100,6 +1100,30 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
      * Drawn, then measured on the pixels: a poster whose title runs off both
      * edges passes every unit test there is, because the only thing that knows
      * how wide "AFTER THE KEY" is at 126px is the canvas. */
+    // The shape at the edge of an over-the-shoulder shot must stay a dark mass.
+    // Checked in the real player rather than in the artist, because the bug was
+    // that the player never told the artist which figure it was.
+    const ots = await page.evaluate(() => {
+      const app = window.__filmState;
+      const reel = app.reel();
+      const shot = reel.shots.filter((s) => s.framing === 'ots')[0];
+      if (!shot) return { skipped: true };
+      let sawForeground = false;
+      const real = window.FilmFigures.drawFigure;
+      window.FilmFigures.drawFigure = function (ctx, pal, spot) {
+        if (spot.foreground) sawForeground = true;
+        return real.apply(this, arguments);
+      };
+      const cv = document.createElement('canvas');
+      cv.width = 640; cv.height = 272;
+      window.FilmPlayer.drawFrame(cv.getContext('2d'), cv.width, cv.height, reel,
+        shot.start + shot.duration * 0.5);
+      window.FilmFigures.drawFigure = real;
+      return { sawForeground };
+    });
+    check(ots.skipped || ots.sawForeground,
+      'the artist is told which figure is the shape at the edge of an OTS shot');
+
     console.log('\nOUTPUT');
     const output = await page.evaluate(() => {
       const app = window.__filmState;

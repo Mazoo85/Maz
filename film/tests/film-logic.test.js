@@ -2621,6 +2621,14 @@ test('a face is drawn when the head is big enough to hold one, and not before', 
   assert(large >= 3, 'no face on a close-up: ' + large + ' marks');
 });
 
+test('the shape at the edge of an over-the-shoulder shot has no face', () => {
+  // That figure is what the shot is looking PAST: a dark mass at the edge of
+  // frame. It is also drawn big, so the size gate happily put a face on it and
+  // turned it into a second person staring down the lens.
+  eq(faceMarks(drawOne(430, { foreground: true })), 0, 'the foreground shape grew a face');
+  assert(faceMarks(drawOne(430)) >= 3, 'and the figure it is looking past lost hers');
+});
+
 test('the mouth opens when somebody speaks', () => {
   const shut = drawOne(420, { speaking: true, mouthOpen: 0 });
   const open = drawOne(420, { speaking: true, mouthOpen: 1 });

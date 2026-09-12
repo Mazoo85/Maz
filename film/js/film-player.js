@@ -534,6 +534,10 @@
             x: spot.x + driftX, groundY: spot.ground, height: spot.height,
             tint: voice.hue, speaking: speaking, wobble: wobble,
             pose: pose, lightX: light.offset,
+            // The artist needs to know this one is the shape at the edge of an
+            // over-the-shoulder shot: it is drawn big, and without this the face
+            // gate lets a face onto the thing the shot is looking PAST.
+            foreground: !!spot.foreground,
             // For the face: the clock it blinks and speaks on, and a seed of its
             // own so two people in a two-shot never blink together.
             seconds: time, seed: Figures.hashName(spot.name),

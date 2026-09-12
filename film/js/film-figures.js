@@ -271,7 +271,11 @@
       var hand = joints.handR.x >= joints.handL.x ? joints.handR : joints.handL;
       drawHeld(ctx, p, hand, h, spot.holding);
     }
-    if (joints.head.rx >= FACE_MIN_HEAD) {
+    // Not on the foreground of an over-the-shoulder shot. That figure is
+    // deliberately a dark mass at the edge of frame -- it is what the shot is
+    // looking PAST -- and it is drawn big, so the size gate lets a face onto it
+    // and the mass becomes a second person staring at the camera.
+    if (joints.head.rx >= FACE_MIN_HEAD && !spot.foreground) {
       drawFace(ctx, p, joints.head, spot);
     }
 
