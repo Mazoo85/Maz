@@ -2555,6 +2555,138 @@ test('no caption is ever rushed, at any pace', () => {
 });
 
 
+/* ------------------------------------------------------- faces and hands */
+
+/* A canvas that draws nothing and remembers everything.
+ *
+ * Drawing code is usually tested by looking at it, which is right and which is
+ * also how a change that silently stops drawing the eyes goes unnoticed for a
+ * month. A recording context gives the parts that are decisions -- did a face
+ * get drawn at this size, did the held object get drawn at all -- somewhere to
+ * be checked without a browser.
+ */
+function stubContext() {
+  const calls = [];
+  const ctx = {
+    calls,
+    globalCompositeOperation: '',
+    fillStyle: '',
+    save() { calls.push(['save']); },
+    restore() { calls.push(['restore']); },
+    translate(x, y) { calls.push(['translate', x, y]); },
+    rotate(a) { calls.push(['rotate', a]); },
+    beginPath() { calls.push(['beginPath']); },
+    closePath() { calls.push(['closePath']); },
+    moveTo(x, y) { calls.push(['moveTo', x, y]); },
+    lineTo(x, y) { calls.push(['lineTo', x, y]); },
+    fill() { calls.push(['fill', ctx.fillStyle]); },
+    fillRect(x, y, w, h) { calls.push(['fillRect', x, y, w, h, ctx.fillStyle]); },
+    ellipse(x, y, rx, ry) { calls.push(['ellipse', x, y, rx, ry, ctx.fillStyle]); },
+    arc(x, y, r) { calls.push(['arc', x, y, r, ctx.fillStyle]); },
+    createRadialGradient() { return { addColorStop() {} }; }
+  };
+  return ctx;
+}
+
+function drawOne(height, extra) {
+  const ctx = stubContext();
+  const spot = Object.assign({
+    x: 0, groundY: 0, height, tint: 200, speaking: false, wobble: 0,
+    pose: Figures.POSES.stand, lightX: -1, seconds: 0, seed: 1, mouthOpen: 0
+  }, extra || {});
+  Figures.drawFigure(ctx, { key: [200, 220, 255], accent: [255, 170, 90] }, spot);
+  return ctx.calls;
+}
+
+/* How many ellipses the face added. A figure with no face draws exactly four:
+ * the contact shadow, and one head per body pass (rim, body, tint). A face adds
+ * two eyes and a mouth on top of that. */
+const ELLIPSES_WITHOUT_A_FACE = 4;
+function faceMarks(calls) {
+  return calls.filter((c) => c[0] === 'ellipse').length - ELLIPSES_WITHOUT_A_FACE;
+}
+
+test('a face is drawn when the head is big enough to hold one, and not before', () => {
+  // Gated on size rather than on framing: a rule expressed in framings has to be
+  // plumbed from the director through the artist and kept in step forever.
+  const small = faceMarks(drawOne(90));     // head radius ~4.7px — a wide shot
+  const large = faceMarks(drawOne(420));    // head radius ~22px — a close-up
+  eq(small, 0, 'a face was drawn on a head too small to hold one');
+  assert(large >= 3, 'no face on a close-up: ' + large + ' marks');
+});
+
+test('the mouth opens when somebody speaks', () => {
+  const shut = drawOne(420, { speaking: true, mouthOpen: 0 });
+  const open = drawOne(420, { speaking: true, mouthOpen: 1 });
+  const mouthOf = (calls) => {
+    const ellipses = calls.filter((c) => c[0] === 'ellipse');
+    return ellipses[ellipses.length - 1];     // the mouth is drawn last
+  };
+  assert(mouthOf(open)[4] > mouthOf(shut)[4],
+    'the mouth is the same height open as shut: ' + mouthOf(open)[4] + ' vs ' + mouthOf(shut)[4]);
+});
+
+test('two people never blink together', () => {
+  // Off each figure's own name. Two silhouettes blinking in lockstep is the
+  // single most obvious tell that they are the same puppet twice.
+  const a = Figures.hashName('SHAY');
+  const b = Figures.hashName('SAM');
+  let together = 0;
+  let apart = 0;
+  for (let t = 0; t < 600; t += 0.05) {
+    const x = Figures.blinkAt(t, a);
+    const y = Figures.blinkAt(t, b);
+    if (x && y) together++;
+    else if (x || y) apart++;
+  }
+  assert(apart > 50, 'nobody blinks at all: ' + apart);
+  assert(together / apart < 0.1, 'they blink together ' + together + ' times against ' + apart);
+});
+
+test('a blink is a blink, not a stare', () => {
+  const seed = Figures.hashName('SHAY');
+  let shut = 0;
+  const span = 600;
+  for (let t = 0; t < span; t += 0.02) shut += Figures.blinkAt(t, seed) * 0.02;
+  // A person blinks for well under a tenth of their waking life.
+  assert(shut / span < 0.06, 'eyes shut ' + (100 * shut / span).toFixed(1) + '% of the time');
+  assert(shut > 1, 'eyes never shut at all');
+});
+
+test('the thing the story turns on is actually held', () => {
+  // The whole film is about an object and until now nobody ever touched one:
+  // the insert shot drew it floating on its own.
+  const empty = drawOne(420).length;
+  const holding = drawOne(420, { holding: 'key' }).length;
+  assert(holding > empty, 'holding an object drew nothing extra');
+});
+
+test('a held object is shaped like the thing it is', () => {
+  eq(Figures.heldShapeFor('key'), 'long');
+  eq(Figures.heldShapeFor('letter'), 'flat');
+  eq(Figures.heldShapeFor('photograph'), 'flat');
+  eq(Figures.heldShapeFor('ring'), 'round');
+  eq(Figures.heldShapeFor('watch'), 'round');
+  eq(Figures.heldShapeFor('something nobody listed'), 'box');
+});
+
+test('the reel says who is holding the object, and only while they have it', () => {
+  const script = Writer.write(Parse.parse('a night nurse buries a key in the woods'),
+    { length: 'festival', seed: 5 });
+  const reel = Reel.build(script);
+  const lead = script.characters[0].name;
+  let held = 0;
+  reel.shots.forEach((shot) => {
+    if (!shot.holding) return;
+    held++;
+    eq(shot.holding.by, lead, 'somebody other than the lead is carrying the object');
+    assert(shot.framing !== 'insert', 'an insert shot claimed somebody was holding the object');
+  });
+  assert(held > 0, 'nobody ever holds the object');
+  assert(held < reel.shots.length, 'the object is held in every shot of the film');
+});
+
+
 if (failures.length) {
   console.error('✖ ' + failures.length + ' failing test(s):');
   failures.forEach((f) => console.error('  - ' + f));

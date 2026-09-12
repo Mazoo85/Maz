@@ -497,18 +497,31 @@
 
           // A speaking figure's head and hand move in time with their own voice
           // — the score fires a blip on this same clock, so the two must agree.
+          // The mouth is on that same clock, for the same reason: a mouth that
+          // opens out of step with the gesture and the sound reads as a dub.
+          var mouthOpen = 0;
           if (speaking && shot.kind === 'line') {
             var syllables = syllablesForShot(shot);
             var span = Math.max(0.4, shot.duration * 0.78);
             var gap = span / syllables;
             var into = time - shot.start;
-            if (into < span) pose = Figures.gestureAt(pose, (into % gap) / gap);
+            if (into < span) {
+              var phase = (into % gap) / gap;
+              pose = Figures.gestureAt(pose, phase);
+              mouthOpen = Math.sin(phase * Math.PI);
+            }
           }
 
           Figures.drawFigure(ctx, pal, {
             x: spot.x + driftX, groundY: spot.ground, height: spot.height,
             tint: voice.hue, speaking: speaking, wobble: wobble,
-            pose: pose, lightX: light.offset
+            pose: pose, lightX: light.offset,
+            // For the face: the clock it blinks and speaks on, and a seed of its
+            // own so two people in a two-shot never blink together.
+            seconds: time, seed: Figures.hashName(spot.name),
+            mouthOpen: mouthOpen,
+            // And the thing they are carrying, if this scene says they have it.
+            holding: (shot.holding && shot.holding.by === spot.name) ? shot.holding.what : null
           });
         });
       }

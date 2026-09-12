@@ -81,18 +81,139 @@
 
     // arms, hung off the shoulders
     var elbowL = segment(ctx, torsoTip.x - unit * 5, torsoTip.y + unit * 1.5, pose.armL, h * 0.19, unit * 3, unit * 2.2);
-    segment(ctx, elbowL.x, elbowL.y, pose.armL + pose.foreL, h * 0.18, unit * 2.2, unit * 1.6);
+    var handL = segment(ctx, elbowL.x, elbowL.y, pose.armL + pose.foreL, h * 0.18, unit * 2.2, unit * 1.6);
     var elbowR = segment(ctx, torsoTip.x + unit * 5, torsoTip.y + unit * 1.5, pose.armR, h * 0.19, unit * 3, unit * 2.2);
-    segment(ctx, elbowR.x, elbowR.y, pose.armR + pose.foreR, h * 0.18, unit * 2.2, unit * 1.6);
+    var handR = segment(ctx, elbowR.x, elbowR.y, pose.armR + pose.foreR, h * 0.18, unit * 2.2, unit * 1.6);
 
     // head — same rotation the old save/translate/rotate did, folded into the
     // ellipse call itself so the head is one more sub-path of the same fill.
     var headX = torsoTip.x + h * 0.055 * Math.sin(pose.head);
     var headY = torsoTip.y - h * 0.055 * Math.cos(pose.head);
-    ctx.ellipse(headX, headY, h * 0.052, h * 0.062, pose.head, 0, Math.PI * 2);
+    var headRx = h * 0.052, headRy = h * 0.062;
+    ctx.ellipse(headX, headY, headRx, headRy, pose.head, 0, Math.PI * 2);
 
     ctx.fill();
-    return { shoulderY: shoulderY };
+    // Where the parts ended up, so a face and a held object can be put on top of
+    // the silhouette afterwards. Returned rather than recomputed by the caller:
+    // the planted-foot shift above moves the whole body, and a face computed
+    // from the pose alone would float where the head used to be.
+    return {
+      shoulderY: shoulderY,
+      head: { x: headX, y: headY, rx: headRx, ry: headRy, angle: pose.head },
+      handL: { x: handL.x, y: handL.y, angle: pose.armL + pose.foreL },
+      handR: { x: handR.x, y: handR.y, angle: pose.armR + pose.foreR }
+    };
+  }
+
+  /* ----------------------------------------------------------------- faces
+   *
+   * The figures are silhouettes, and that is the look — so this is not a face
+   * drawn on a silhouette, it is LIGHT CATCHING one: two small highlights where
+   * the eyes are and a line where the mouth is, in the room's own key colour.
+   * From across a room you see a shape; up close you see somebody thinking.
+   *
+   * It is gated on SIZE, not on framing, and that is deliberate: a head six
+   * pixels across cannot hold a face, and any rule expressed in framings has to
+   * be plumbed from the director down through the artist and kept in step
+   * forever. "Draw it when it is big enough to read" needs no plumbing and
+   * cannot fall out of step.
+   *
+   * Without this there is no reaction shot, and the reaction shot is half of
+   * film grammar: the whole point of cutting to somebody is to watch them take
+   * something in.
+   */
+  var FACE_MIN_HEAD = 13;    // px of head radius below which a face is mud
+
+  /* Eyes shut for a moment, about every four seconds, off the figure's own seed
+   * so two people in a two-shot never blink together. */
+  function blinkAt(seconds, seed) {
+    var period = 3.4 + ((seed >>> 3) % 24) * 0.1;
+    var phase = ((seconds + (seed % 100) * 0.037) % period) / period;
+    return phase > 0.972 ? 1 : 0;
+  }
+
+  function drawFace(ctx, p, head, spot) {
+    var rx = head.rx, ry = head.ry;
+    var open = spot.mouthOpen == null ? 0 : Math.max(0, Math.min(1, spot.mouthOpen));
+    var shut = blinkAt(spot.seconds || 0, spot.seed || 0);
+    // Eyes look where the head is turning. The head already rotates; shifting
+    // the pupils on top of that is the difference between a head pointed at
+    // somebody and a person looking at them.
+    var lookX = Math.sin(head.angle) * rx * 0.34;
+
+    ctx.save();
+    ctx.translate(head.x, head.y);
+    ctx.rotate(head.angle);
+
+    var lit = spot.speaking ? 0.85 : 0.6;
+    ctx.fillStyle = Art.rgb(p.key, lit);
+
+    var eyeY = -ry * 0.16;
+    var eyeDx = rx * 0.36;
+    var eyeR = rx * 0.112;
+    [-1, 1].forEach(function (side) {
+      var x = side * eyeDx + lookX;
+      if (shut) {
+        // A closed eye is a line, not a dot. Drawing nothing reads as a skull.
+        ctx.fillRect(x - eyeR * 1.3, eyeY - eyeR * 0.32, eyeR * 2.6, eyeR * 0.64);
+      } else {
+        ctx.beginPath();
+        ctx.ellipse(x, eyeY, eyeR, eyeR * 1.05, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
+
+    // The mouth. Shut it is a line; open it is the same line given height, on
+    // the syllable clock the gesture and the score already share.
+    var mouthY = ry * 0.40;
+    var mouthW = rx * 0.36;
+    var mouthH = rx * 0.055 + open * rx * 0.34;
+    ctx.fillStyle = Art.rgb(p.key, spot.speaking ? 0.7 : 0.34);
+    ctx.beginPath();
+    ctx.ellipse(0, mouthY, mouthW * (0.8 + open * 0.2), mouthH * 0.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  /* ------------------------------------------------------- something held
+   *
+   * The whole story turns on an object and until now no character ever touched
+   * one: the insert shot drew it floating on its own. A held thing is small, so
+   * it is a shape and a colour rather than a drawing — at this size the insert
+   * glyphs are mud — and it is drawn in the key colour so it reads against a
+   * near-black body.
+   */
+  var HELD_SHAPES = {
+    long: function (ctx, u) { ctx.fillRect(-u * 0.25, -u * 1.5, u * 0.5, u * 3); ctx.fillRect(-u * 0.9, -u * 1.5, u * 1.8, u * 0.9); },
+    flat: function (ctx, u) { ctx.fillRect(-u * 1.5, -u, u * 3, u * 2); },
+    round: function (ctx, u) { ctx.beginPath(); ctx.arc(0, 0, u * 1.25, 0, Math.PI * 2); ctx.fill(); },
+    box: function (ctx, u) { ctx.fillRect(-u * 1.2, -u * 1.1, u * 2.4, u * 2.2); }
+  };
+
+  var HELD_FOR = [
+    [/key|knife|pen|screwdriver|wrench|torch|flashlight|bottle/, 'long'],
+    [/letter|photo|photograph|card|note|map|ticket|page|book|file|receipt/, 'flat'],
+    [/ring|coin|watch|stone|ball|locket|medal|disc|record/, 'round']
+  ];
+
+  function heldShapeFor(object) {
+    var word = String(object || '').toLowerCase();
+    for (var i = 0; i < HELD_FOR.length; i++) {
+      if (HELD_FOR[i][0].test(word)) return HELD_FOR[i][1];
+    }
+    return 'box';
+  }
+
+  function drawHeld(ctx, p, hand, h, object) {
+    var u = h * 0.016;
+    if (u < 1.1) return;                       // too small to be anything but a speck
+    ctx.save();
+    ctx.translate(hand.x, hand.y);
+    ctx.rotate(hand.angle);
+    ctx.fillStyle = Art.rgb(p.accent, 0.92);
+    (HELD_SHAPES[heldShapeFor(object)] || HELD_SHAPES.box)(ctx, u);
+    ctx.restore();
   }
 
   function drawFigure(ctx, p, spot) {
@@ -140,8 +261,19 @@
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     ctx.fillStyle = 'hsla(' + spot.tint + ',65%,58%,' + (spot.speaking ? 0.16 : 0.08) + ')';
-    drawBody(ctx, h, pose);
+    var joints = drawBody(ctx, h, pose);
     ctx.restore();
+
+    // On top of the silhouette, and only when the camera is close enough for
+    // either to be anything but a smudge.
+    if (spot.holding) {
+      // Whichever hand is nearer the camera, so the object is not behind them.
+      var hand = joints.handR.x >= joints.handL.x ? joints.handR : joints.handL;
+      drawHeld(ctx, p, hand, h, spot.holding);
+    }
+    if (joints.head.rx >= FACE_MIN_HEAD) {
+      drawFace(ctx, p, joints.head, spot);
+    }
 
     ctx.restore();
   }
@@ -442,7 +574,19 @@
     return pool[Math.floor(bias * pool.length) % pool.length];
   }
 
+  /* A figure's own number, from its name: used to stagger the blinks so two
+   * people in a two-shot are not a chorus line. */
+  function hashName(name) {
+    return PARSE.hashText(String(name || ''));
+  }
+
   var API = {
+    hashName: hashName,
+    drawFace: drawFace,
+    drawHeld: drawHeld,
+    heldShapeFor: heldShapeFor,
+    blinkAt: blinkAt,
+    FACE_MIN_HEAD: FACE_MIN_HEAD,
     GLYPHS: GLYPHS,
     glyphFor: glyphFor,
     drawFigure: drawFigure,

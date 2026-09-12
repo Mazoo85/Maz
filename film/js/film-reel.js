@@ -269,6 +269,21 @@
       var light = lightFor(scene.heading.time);
       var mood = MOOD[scene.beat.id] == null ? 0.4 : MOOD[scene.beat.id];
       var pace = PACE[scene.beat.id] == null ? 1 : PACE[scene.beat.id];
+
+      /* Who has the thing, this scene.
+       *
+       * The whole story turns on an object and until now no character ever
+       * touched one -- the insert shot drew it floating on its own, which is
+       * an odd way to film a story about somebody holding something. The
+       * writer marks each scene with the object's state (see object-arc.js);
+       * three of those states mean it is in the lead's hand. */
+      var objectState = null;
+      scene.elements.forEach(function (el) { if (el.objectBeat) objectState = el.objectBeat; });
+      var inHand = objectState === 'noticed' || objectState === 'carried' ||
+                   objectState === 'reclaimed';
+      var holder = inHand && script.characters.length
+        ? { by: script.characters[0].name, what: script.premise ? script.premise.object : '' }
+        : null;
       var onScreen = [];
       var shotsThisScene = 0;
       resetConversation();
@@ -331,6 +346,7 @@
             caption: element.text,
             speaker: null,
             characters: framing === 'insert' ? [] : present.slice(),
+            holding: framing === 'insert' ? null : holder,
             mood: mood,
             scene: scene.number,
             beat: scene.beat.id
@@ -382,6 +398,7 @@
             speaker: speaker,
             side: voices[speaker] ? voices[speaker].side : 0,
             characters: pair ? onScreen.slice(0, 2) : [speaker],
+            holding: holder,
             mood: mood,
             scene: scene.number,
             beat: scene.beat.id
