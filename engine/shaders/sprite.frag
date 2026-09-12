@@ -1,6 +1,5 @@
 #version 450
-// Sprite fragment shader: sample the bound texture and modulate by the per-vertex tint.
-// Straight-alpha; the pipeline does the src-alpha / one-minus-src-alpha blend.
+// Sample the sprite texture and modulate by the per-vertex tint color.
 
 layout(location = 0) in vec2 vUV;
 layout(location = 1) in vec4 vColor;

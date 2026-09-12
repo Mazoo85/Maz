@@ -1,45 +1,32 @@
-# Vendored cgltf (glTF 2.0 parser) as its own target so its implementation compiles
-# with relaxed warnings, independent of the engine's -Werror first-party flags.
-add_library(maz_cgltf STATIC third_party/cgltf/cgltf_impl.c)
-target_include_directories(maz_cgltf PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_party/cgltf)
-if(NOT MSVC)
-    target_compile_options(maz_cgltf PRIVATE -w)
-endif()
-
-# Vendored Dear ImGui (docking) + its SDL3 and Vulkan backends, for the editor UI. Compiled
-# with relaxed warnings for the same reason as cgltf.
-set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/imgui)
-add_library(maz_imgui STATIC
-    ${IMGUI_DIR}/imgui.cpp
-    ${IMGUI_DIR}/imgui_draw.cpp
-    ${IMGUI_DIR}/imgui_tables.cpp
-    ${IMGUI_DIR}/imgui_widgets.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_sdl3.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp)
-target_include_directories(maz_imgui PUBLIC ${IMGUI_DIR})
-target_link_libraries(maz_imgui PUBLIC SDL3::SDL3 Vulkan::Vulkan)
-if(NOT MSVC)
-    target_compile_options(maz_imgui PRIVATE -w)
-endif()
-
 add_library(maz STATIC
     src/core/Log.cpp
     src/core/Time.cpp
     src/core/Config.cpp
-    src/io/TextFormat.cpp
-    src/assets/Model.cpp
-    src/assets/Primitives.cpp
-    src/assets/CompositeAsset.cpp
-    src/scene/Camera.cpp
-    src/scene/Scene.cpp
+    src/core/KeyValueStore.cpp
     src/platform/Window.cpp
     src/platform/Input.cpp
+    src/platform/Paths.cpp
+    src/platform/DesktopBackend.cpp
     src/render/VulkanContext.cpp
     src/render/VulkanSwapchain.cpp
-    src/render/VulkanRenderer.cpp
-    src/render/MeshRenderer.cpp
+    src/render/TextureStore.cpp
+    src/render/VulkanBuffer.cpp
+    src/render/VulkanTexture.cpp
     src/render/SpriteRenderer.cpp
-    src/render/OffscreenRenderer.cpp)
+    src/render/MeshRenderer.cpp
+    src/render/Particles3D.cpp
+    src/render/DebugDraw.cpp
+    src/render/BloomChain.cpp
+    src/render/SsaoPass.cpp
+    src/render/PostProcess.cpp
+    src/render/Shapes.cpp
+    src/render/Model.cpp
+    src/render/VulkanRenderer.cpp
+    src/game/Tilemap.cpp
+    src/ui/Font.cpp
+    src/ui/DebugOverlay.cpp
+    src/audio/Audio.cpp
+    src/fx/Particles.cpp)
 
 target_include_directories(maz
     PUBLIC
@@ -53,11 +40,55 @@ target_link_libraries(maz
         glm::glm
         Vulkan::Vulkan
     PRIVATE
-        maz_cgltf
-        maz_imgui
+        stb
+        cgltf
         maz_warnings)
 
 # Enable validation-layer plumbing in debug builds.
 target_compile_definitions(maz PUBLIC $<$<CONFIG:Debug>:MAZ_DEBUG=1>)
+
+# Stage runtime assets next to the executables (bin/) so every app that links maz can load them
+# via a relative path: shaders compiled to SPIR-V, and the bundled HUD font.
+maz_compile_shaders(maz
+    SOURCES
+        ${CMAKE_SOURCE_DIR}/engine/shaders/fullscreen.vert
+        ${CMAKE_SOURCE_DIR}/engine/shaders/fullscreen.frag
+        ${CMAKE_SOURCE_DIR}/engine/shaders/sprite.vert
+        ${CMAKE_SOURCE_DIR}/engine/shaders/sprite.frag
+        ${CMAKE_SOURCE_DIR}/engine/shaders/mesh.vert
+        ${CMAKE_SOURCE_DIR}/engine/shaders/mesh.frag
+        ${CMAKE_SOURCE_DIR}/engine/shaders/mesh_instanced.vert
+        ${CMAKE_SOURCE_DIR}/engine/shaders/shadow.vert
+        ${CMAKE_SOURCE_DIR}/engine/shaders/shadow.frag
+        ${CMAKE_SOURCE_DIR}/engine/shaders/sky.vert
+        ${CMAKE_SOURCE_DIR}/engine/shaders/sky.frag
+        ${CMAKE_SOURCE_DIR}/engine/shaders/composite.vert
+        ${CMAKE_SOURCE_DIR}/engine/shaders/composite.frag
+        ${CMAKE_SOURCE_DIR}/engine/shaders/particle.vert
+        ${CMAKE_SOURCE_DIR}/engine/shaders/particle.frag
+        ${CMAKE_SOURCE_DIR}/engine/shaders/debugline.vert
+        ${CMAKE_SOURCE_DIR}/engine/shaders/debugline.frag
+        ${CMAKE_SOURCE_DIR}/engine/shaders/bloom_down.frag
+        ${CMAKE_SOURCE_DIR}/engine/shaders/bloom_blur.frag
+        ${CMAKE_SOURCE_DIR}/engine/shaders/ssao.frag
+        ${CMAKE_SOURCE_DIR}/engine/shaders/ssao_blur.frag)
+
+add_custom_command(TARGET maz POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/fonts
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_SOURCE_DIR}/assets/fonts/DejaVuSans.ttf
+        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/fonts/DejaVuSans.ttf
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/models
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_SOURCE_DIR}/assets/models/house.gltf
+        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/models/house.gltf
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_SOURCE_DIR}/assets/models/village.gltf
+        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/models/village.gltf
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/levels
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_SOURCE_DIR}/assets/levels/arena.json
+        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/levels/arena.json
+    COMMENT "Staging font + model + level assets into bin/assets")
 
 add_library(maz::maz ALIAS maz)

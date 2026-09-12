@@ -1,0 +1,106 @@
+name: Windows Editor Download
+
+# Builds the Maz Editor on a real Windows machine in the cloud and publishes a ready-to-run,
+# double-click package as a downloadable Release asset — so someone with no build tools installed
+# can just download the .zip, extract it, and run editor.exe. No compiler, no CMake, no Vulkan SDK
+# needed on the player's side (a normal Windows PC with up-to-date graphics drivers is enough).
+
+on:
+  workflow_dispatch: {}        # lets you trigger it by hand from the Actions tab
+  push:
+    branches: [ claude/game-engine-roadmap-mxfa9r ]
+    paths:
+      - 'apps/editor/**'
+      - 'engine/**'
+      - 'cmake/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/windows-editor.yml'
+
+permissions:
+  contents: write               # needed to publish the Release
+
+jobs:
+  build-windows-editor:
+    name: Build ready-to-run Windows Editor
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the Vulkan SDK
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          vulkan_version: latest
+          install_runtime: true
+          cache: true
+
+      - name: Configure
+        # MAZ_WERROR=OFF so MSVC's cosmetic warnings (unknown GCC pragmas, cgltf's use of
+        # fopen/strcpy) don't fail this download build — they're harmless and Linux-silent.
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DMAZ_WERROR=OFF
+
+      - name: Build the editor
+        run: cmake --build build --config Release --target editor --parallel
+
+      - name: Assemble the ready-to-run package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $stage = "MazEditor-Windows"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+
+          # 1) the editor executable (search the build tree wherever the generator put it)
+          $exe = Get-ChildItem -Path build -Recurse -Filter editor.exe | Select-Object -First 1
+          if (-not $exe) { throw "editor.exe not found in build tree" }
+          Copy-Item $exe.FullName (Join-Path $stage "editor.exe")
+
+          # 2) the SDL3 runtime DLL the editor links against
+          $dll = Get-ChildItem -Path build -Recurse -Filter SDL3.dll | Select-Object -First 1
+          if ($dll) { Copy-Item $dll.FullName (Join-Path $stage "SDL3.dll") }
+
+          # 3) compiled shaders (.spv) next to the exe, in a shaders/ folder
+          New-Item -ItemType Directory -Force -Path (Join-Path $stage "shaders") | Out-Null
+          Get-ChildItem -Path build -Recurse -Filter *.spv |
+            ForEach-Object { Copy-Item $_.FullName (Join-Path $stage "shaders") -Force }
+
+          # 4) runtime assets (fonts / models / levels) the editor loads at startup
+          if (Test-Path assets) { Copy-Item assets (Join-Path $stage "assets") -Recurse -Force }
+
+          # 5) a plain-language readme for the player
+          @"
+          MAZ EDITOR — how to run
+          =======================
+          1. Keep every file in this folder together (editor.exe, SDL3.dll, shaders\, assets\).
+          2. Double-click editor.exe.
+          3. If Windows shows a blue 'protected your PC' box, click 'More info' -> 'Run anyway'.
+
+          If it opens then closes instantly, your graphics drivers may be out of date — update them
+          (Windows Update, or the NVIDIA/AMD/Intel app) and try again. The editor needs Vulkan, which
+          ships with modern graphics drivers.
+
+          Controls:  click to select | 1/2/3 = Move/Rotate/Scale | arrows nudge | Ctrl+Z undo
+                     Ctrl+D duplicate | Delete | Ctrl+S save | Ctrl+O open | PLAY button simulates
+          "@ | Set-Content -Path (Join-Path $stage "README.txt") -Encoding UTF8
+
+          Compress-Archive -Path "$stage/*" -DestinationPath "MazEditor-Windows.zip" -Force
+          Write-Host "Package contents:"
+          Get-ChildItem -Recurse $stage | Select-Object FullName
+
+      - name: Upload as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MazEditor-Windows
+          path: MazEditor-Windows.zip
+
+      - name: Publish as a downloadable Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: editor-windows-latest
+          name: Maz Editor — Windows (latest)
+          body: |
+            A ready-to-run Windows build of the Maz Editor.
+
+            **To use it:** download `MazEditor-Windows.zip` below, right-click it → Extract All,
+            then double-click `editor.exe` inside the extracted folder. No install, no build tools.
+            (A normal Windows PC with up-to-date graphics drivers is all you need.)
+          files: MazEditor-Windows.zip
+          make_latest: true

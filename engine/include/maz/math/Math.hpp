@@ -33,14 +33,26 @@ inline mat4 perspective(float fovYRadians, float aspect, float zNear, float zFar
     return proj;
 }
 
-// 2D pixel-space orthographic projection with a top-left origin: pixel (0,0) is the top-left
-// corner, +X right, +Y down. Depth is Vulkan's 0..1.
-//
-// The engine renders with a positive-height viewport and bakes the Vulkan Y-flip into the
-// projection (see perspective() above). For an ortho that means using the OpenGL-style
-// bottom-origin form `glm::ortho(0, w, 0, h)`: on Vulkan's Y-down NDC + positive viewport that
-// lands pixel y=0 at the top of the framebuffer, i.e. a top-left origin — the natural convention
-// for 2D sprites, tilemaps and HUDs.
+// Vulkan-correct 3D orthographic projection (parallel projection — no perspective divide, so equal-size
+// objects at every depth: the isometric / CAD / 2.5D-strategy camera). Clip-space Y points down vs OpenGL
+// (flip [1][1]) and depth is 0..1, matching `perspective`. Bounds are in eye-space units.
+inline mat4 orthographic(float left, float right, float bottom, float top, float zNear, float zFar) {
+    mat4 proj = glm::ortho(left, right, bottom, top, zNear, zFar);
+    proj[1][1] *= -1.0f;
+    return proj;
+}
+
+// Convenience ortho sized by its VERTICAL extent + aspect ratio, centred — Godot's Camera3D `size` in
+// Orthogonal mode. `verticalSize` world units fill the viewport height; width follows the aspect.
+inline mat4 orthographicSize(float verticalSize, float aspect, float zNear, float zFar) {
+    const float halfH = verticalSize * 0.5f;
+    const float halfW = halfH * aspect;
+    return orthographic(-halfW, halfW, -halfH, halfH, zNear, zFar);
+}
+
+// 2D pixel-space orthographic projection, origin top-left, y increasing downward.
+// Vulkan clip-space y points down (opposite of OpenGL), so top maps to the near-clip edge:
+// glm::ortho(l, r, bottom, top) sends `bottom` -> -1; we pass 0 as bottom so y=0 is the top.
 inline mat4 ortho2D(float width, float height) {
     return glm::ortho(0.0f, width, 0.0f, height, -1.0f, 1.0f);
 }

@@ -1,0 +1,60 @@
+name: Bug report
+description: Report something in the Maz engine that behaves incorrectly.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Please fill in as much as you can — a small
+        reproducer and the exact commands you ran are worth more than a long description.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What went wrong, and what did you expect instead?
+      placeholder: "Launching the `world` app crashes on startup; I expected the window to open."
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The exact steps/commands. Include a minimal code snippet if it's an API issue.
+      placeholder: |
+        1. cmake -S . -B build && cmake --build build
+        2. ./build/bin/world
+        3. See the crash below
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / backtrace
+      description: Paste any console output or crash backtrace (the engine prints one on crash).
+      render: shell
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: Output of `git rev-parse --short HEAD`, or a release tag.
+      placeholder: "e.g. 1.0.0 or a1b2c3d"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Platform
+      options:
+        - Linux
+        - Windows
+        - macOS
+        - Web / WASM
+        - Other (describe above)
+    validations:
+      required: true
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU / driver
+      description: For rendering issues, your GPU and driver version (e.g. output of `vulkaninfo | head`).

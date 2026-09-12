@@ -1,0 +1,45 @@
+# clang-tidy configuration for the Maz Engine.
+#
+# A focused, high-signal check set aimed at real defects and portability — not stylistic churn.
+# bugprone/performance/portability catch correctness and speed hazards; a curated slice of
+# readability + modernize keeps the code current without fighting the house style (which clang-format
+# already owns). Noisy or opinionated checks that clash with the engine's idioms are disabled
+# explicitly below so the signal stays high.
+#
+# The CI "tidy" job runs this over the first-party translation units via compile_commands.json and
+# fails on any diagnostic (WarningsAsErrors '*'), so violations block merge. Run locally with:
+#   cmake -S . -B build            # exports compile_commands.json
+#   clang-tidy -p build engine/src/**/*.cpp
+Checks: >
+  -*,
+  bugprone-*,
+  performance-*,
+  portability-*,
+  misc-*,
+  readability-container-size-empty,
+  readability-misleading-indentation,
+  readability-redundant-control-flow,
+  readability-simplify-boolean-expr,
+  modernize-use-nullptr,
+  modernize-use-override,
+  modernize-use-using,
+  modernize-loop-convert,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  -misc-non-private-member-variables-in-classes,
+  -misc-no-recursion,
+  -misc-include-cleaner,
+  -misc-use-anonymous-namespace,
+  -misc-const-correctness,
+  -performance-avoid-endl,
+  -performance-enum-size,
+  -performance-move-const-arg,
+  -readability-identifier-length
+
+# Only diagnose the engine's own headers/sources, never fetched third-party deps (SDL, GLM, stb, ...).
+HeaderFilterRegex: 'engine/(include|src)/maz/.*'
+
+# In CI the gate is strict: any surviving diagnostic fails the job.
+WarningsAsErrors: '*'
+
+FormatStyle: file

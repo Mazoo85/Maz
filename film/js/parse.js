@@ -63,6 +63,68 @@
     return hay.indexOf(' ' + phrase + ' ') !== -1;
   }
 
+  /* ------------------------------------------------------------ syllable clock
+   * The single arithmetic behind a spoken line's rhythm — the audio's blips
+   * and the speaking figure's head/hand gesture both run off this, so they
+   * must never be computed two different ways. */
+  function cleanSpeech(text) {
+    return String(text).replace(/[^A-Za-z0-9' ]/g, ' ');
+  }
+
+  /* The vowel sounds of a line, one per syllable, in the order they are said.
+   *
+   * The voice used to shape every syllable from an arbitrary character code, so
+   * two different lines came out identical. Taking the vowels that are actually
+   * in the words means "I can't" and "Say it" no longer sound the same, and the
+   * count comes from syllablesFor so the audio and the caption stay in step —
+   * they are the same clock, and they were separated once already.
+   *
+   * Spelling is not pronunciation and this does not pretend otherwise: a rough
+   * letter-to-vowel map is enough to give a line shape. Digraphs are folded
+   * first ("ee" is one sound, not two) and anything with no vowel at all still
+   * gets something speakable, because a line of "..." still takes time.
+   */
+  var VOWEL_RUNS = [
+    ['ee', 'i'], ['ea', 'i'], ['oo', 'u'], ['ou', 'u'], ['ow', 'o'],
+    ['oa', 'o'], ['ai', 'e'], ['ay', 'e'], ['ie', 'i'], ['igh', 'i']
+  ];
+  var SINGLE_VOWEL = { a: 'a', e: 'e', i: 'i', o: 'o', u: 'u', y: 'i' };
+
+  function vowelsFor(text, count) {
+    var lower = cleanSpeech(text).toLowerCase();
+    var found = [];
+    var i = 0;
+    while (i < lower.length) {
+      var matched = false;
+      for (var r = 0; r < VOWEL_RUNS.length; r++) {
+        var run = VOWEL_RUNS[r][0];
+        if (lower.substr(i, run.length) === run) {
+          found.push(VOWEL_RUNS[r][1]);
+          i += run.length;
+          matched = true;
+          break;
+        }
+      }
+      if (matched) continue;
+      var single = SINGLE_VOWEL[lower.charAt(i)];
+      if (single) found.push(single);
+      i++;
+    }
+    // A line can be shorter in vowels than in syllables, or have none at all.
+    // Cycling keeps the mouth moving for the whole line rather than stopping
+    // partway through it.
+    var n = Math.max(0, count || 0);
+    var out = [];
+    for (var k = 0; k < n; k++) {
+      out.push(found.length ? found[k % found.length] : 'a');
+    }
+    return out;
+  }
+
+  function syllablesFor(text) {
+    return Math.max(2, Math.round(cleanSpeech(text).split(/\s+/).filter(Boolean).length * 1.7));
+  }
+
   // Longest keys first, so "lighthouse keeper" beats "keeper" and
   // "parking garage" beats "garage".
   function byLengthDesc(keys) {
@@ -223,7 +285,10 @@
   ];
 
   var OBJECT_TRIGGER =
-    /\b(?:finds?|found|discovers?|discovered|receives?|received|inherits?|inherited|steals?|stole|buys?|bought|opens?|opened|loses?|lost|keeps?|kept|carries|carrying|holding|hides?|hid)\s+(?:a|an|the|their|his|her|its|one|some)?\s*([a-z][a-z'-]*(?:\s+[a-z][a-z'-]*)?)/i;
+    // The article group must be followed by whitespace. Without that, "the"
+    // matched inside "they" — "discovers they are the last heir" yielded the
+    // object "y are", and so the title "THE Y ARE".
+    /\b(?:finds?|found|discovers?|discovered|receives?|received|inherits?|inherited|steals?|stole|buys?|bought|opens?|opened|loses?|lost|keeps?|kept|carries|carrying|holding|hides?|hid)\s+(?:(?:a|an|the|their|his|her|its|one|some)\s+)?([a-z][a-z'-]*(?:\s+[a-z][a-z'-]*)?)/i;
 
   var OBJECT_TAIL = {
     that: 1, which: 1, who: 1, in: 1, on: 1, at: 1, to: 1, from: 1, with: 1,
@@ -326,19 +391,23 @@
     var foil = otherRole ? { role: otherRole } : pick(LEX.FOILS, rng);
     var other = { name: nameFor(1), role: foil.role };
 
-    /* where — up to two locations, so the film can cut between them */
+    /* where — three to five locations, so a film has somewhere to go. Places
+     * the idea named lead; then the hero's own workplace; then connectors that
+     * plausibly adjoin anywhere, so a lighthouse story does not cut to a
+     * hospital for no reason. */
     var placeKeys = findAll(hay, Object.keys(LEX.PLACES));
-    if (!placeKeys.length && heroRole && LEX.ROLES[heroRole].place) placeKeys = [LEX.ROLES[heroRole].place];
-    // A second location the film can cut to. Drawn from places that plausibly
-    // adjoin anywhere — a corridor, a car, the street outside — so a lighthouse
-    // story does not cut to a hospital for no reason.
+    if (heroRole && LEX.ROLES[heroRole].place &&
+        placeKeys.indexOf(LEX.ROLES[heroRole].place) === -1) {
+      placeKeys.push(LEX.ROLES[heroRole].place);
+    }
     var CONNECTORS = ['car', 'street', 'porch', 'hallway', 'parking lot', 'stairwell', 'alley', 'kitchen'];
+    var wanted = 3 + Math.floor(rng() * 3);          // 3, 4 or 5
     var guardPlaces = 0;
-    while (placeKeys.length < 2 && guardPlaces++ < 40) {
+    while (placeKeys.length < wanted && guardPlaces++ < 60) {
       var candidate = pick(CONNECTORS, rng);
       if (placeKeys.indexOf(candidate) === -1) placeKeys.push(candidate);
     }
-    var places = placeKeys.slice(0, 3).map(function (k) {
+    var places = placeKeys.slice(0, 5).map(function (k) {
       var entry = LEX.PLACES[k] || { slug: k.toUpperCase(), int: 'INT.' };
       return { key: k, slug: entry.slug, int: entry.int, word: entry.slug.split(' — ')[0] };
     });
@@ -408,7 +477,10 @@
     hashText: hashText,
     article: article,
     withArticle: withArticle,
-    titleCase: titleCase
+    titleCase: titleCase,
+    cleanSpeech: cleanSpeech,
+    vowelsFor: vowelsFor,
+    syllablesFor: syllablesFor
   };
 
   if (typeof module === 'object' && module.exports) module.exports = API;
