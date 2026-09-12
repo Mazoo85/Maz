@@ -8,6 +8,13 @@
   <title>CODA PICS — Type it, see it</title>
   <link rel="stylesheet" href="css/style.css" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230b0714'/><rect x='2' y='3' width='12' height='10' rx='1.5' fill='none' stroke='%2300d68f' stroke-width='1.4'/><circle cx='6' cy='6.6' r='1.2' fill='%23ffd166'/><path d='M3 12l3.4-3.6 2.2 2.2L11 8.2 13 12z' fill='%2300d68f'/></svg>" />
+  <!-- Installable: add it to a home screen and it opens like any other app,
+       and keeps working with no network. -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="CODA PICS" />
 </head>
 <body>
   <div id="app">
@@ -96,5 +103,14 @@
   <script src="js/finish.js"></script>
   <script src="js/app.js"></script>
   <script src="../shared/maz-nav.js" data-current="coda-pics" defer></script>
+  <script>
+    /* Offline support is a bonus, never a requirement: if the browser has no
+       service workers, or refuses to register one, the app is unaffected. */
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function () {});
+      });
+    }
+  </script>
 </body>
 </html>

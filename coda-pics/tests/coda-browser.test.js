@@ -33,7 +33,11 @@ if (!chromium) {
 }
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 8212;
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
+const MIME = {
+  '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
+  '.webmanifest': 'application/manifest+json', '.json': 'application/json',
+  '.png': 'image/png', '.svg': 'image/svg+xml', '.md': 'text/plain'
+};
 const server = http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split('?')[0].split('#')[0]);
   if (p.endsWith('/')) p += 'index.html';
@@ -201,6 +205,41 @@ async function painted(page, before, timeout) {
     check(surprised.length > 4, 'surprise me writes a prompt and paints it');
     const after = await page.evaluate(INSPECT);
     check(after.colours > 12, 'the surprise is a real picture');
+
+    /* ------------------------------------------------- installable as an app
+     * The manifest and its icons are what let someone add CODA PICS to a home
+     * screen. They are easy to break by renaming a file and never notice,
+     * because the page itself keeps working. */
+    const manifestHref = await page.getAttribute('link[rel="manifest"]', 'href');
+    check(manifestHref === 'manifest.webmanifest', `the page links its manifest (got ${manifestHref})`);
+
+    const mres = await page.request.get(`http://127.0.0.1:${PORT}/coda-pics/manifest.webmanifest`);
+    check(mres.ok(), 'the manifest is served');
+    let manifest = null;
+    try { manifest = JSON.parse(await mres.text()); } catch (e) { /* reported below */ }
+    check(!!manifest, 'the manifest is valid JSON');
+    if (manifest) {
+      check(manifest.name === 'CODA PICS', `the manifest names the app (got ${manifest.name})`);
+      check(manifest.display === 'standalone', 'it opens as an app, not a browser tab');
+      check(!!manifest.start_url && !!manifest.scope, 'it has a start url and a scope');
+      check(Array.isArray(manifest.icons) && manifest.icons.length >= 2,
+        `it declares icons (${manifest.icons ? manifest.icons.length : 0})`);
+      check(manifest.icons.some((i) => String(i.purpose).includes('maskable')),
+        'one icon is maskable, so Android does not frame it in a white box');
+
+      const dead = [];
+      for (const icon of manifest.icons) {
+        const r = await page.request.get(`http://127.0.0.1:${PORT}/coda-pics/${icon.src}`);
+        if (!r.ok()) dead.push(icon.src);
+      }
+      check(dead.length === 0, 'every icon the manifest names exists' + (dead.length ? ' — missing: ' + dead.join(', ') : ''));
+    }
+
+    const apple = await page.request.get(`http://127.0.0.1:${PORT}/coda-pics/icons/apple-touch-icon.png`);
+    check(apple.ok(), 'the iOS home-screen icon exists');
+
+    const sw = await page.request.get(`http://127.0.0.1:${PORT}/coda-pics/sw.js`);
+    check(sw.ok(), 'the offline worker is served');
 
     check(count >= 7, `every button and control painted a fresh picture (${count} in all)`);
     check(problems.length === 0, 'nothing threw anywhere in all of that' +
