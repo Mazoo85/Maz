@@ -63,6 +63,7 @@ include(Dependencies)
 include(CompileShaders)
 
 add_subdirectory(engine)
+add_subdirectory(apps/economy)
 add_subdirectory(apps/rpgstats)
 add_subdirectory(apps/sandbox)
 add_subdirectory(apps/orbs)
