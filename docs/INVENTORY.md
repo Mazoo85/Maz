@@ -30,7 +30,7 @@ size is in the wiring between the parts, not in any one part.
 | Apps with a golden screenshot | 97% | ██████████ |
 | Engine modules a test exercises | 99% | ██████████ |
 | Engine modules an app demonstrates | 20% | ██░░░░░░░░ |
-| Open tasks in the queue below | 29 | |
+| Open tasks in the queue below | 26 | |
 
 ## 1. Everything you have built
 
@@ -379,7 +379,7 @@ These are finished, working features that nobody can see. Each one is a small ap
 being discoverable, and apps/ is how this engine documents itself. Grouping several related
 modules into one demo is usually better than one app each.
 
-<sub>550 affected · effort: medium · value: ★★★</sub>
+<sub>550 affected · effort: medium · value: ★★★ · queued below as the `engine-module:demoed` task</sub>
 
 #### 2 engine modules have neither a test nor a demo
 
@@ -395,7 +395,7 @@ Apps with --headless / --frames N are run by CI on every push and can be capture
 apps without them are only ever proven by someone opening a window. The flag is a dozen lines
 copied from apps/_template/main.cpp and it converts each app into a test.
 
-<sub>38 affected · effort: medium · value: ★★★</sub>
+<sub>38 affected · effort: medium · value: ★★★ · queued below as the `app:headless` task</sub>
 
 #### 3 browser projects have no tests at all
 
@@ -403,7 +403,7 @@ film/tests/film-logic.test.js is the pattern: plain `node` over the project's pu
 dependencies, seconds to run, already wired into CI. Every project that lacks it is one refactor
 away from silent breakage.
 
-<sub>3 affected · effort: medium · value: ★★★</sub>
+<sub>3 affected · effort: medium · value: ★★★ · queued below as the `web-app:tests` task</sub>
 
 #### 9 helpers are hand-written in three or more browser projects
 
@@ -419,7 +419,7 @@ RNG or the clamp lands everywhere at once.
 A doc that nothing references is invisible to a newcomer and to a future session, however good
 it is. Link each from README.md or a sibling doc, or retire it.
 
-<sub>4 affected · effort: small · value: ★</sub>
+<sub>4 affected · effort: small · value: ★ · queued below as the `doc:linked` task</sub>
 
 ### Reviewed pairings
 
@@ -536,11 +536,11 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
 - **smoke-site.cjs: the checker itself is tested**
   <br>Add scripts/tests/smoke-site.test.mjs — a gate with no tests of its own can pass for the wrong reason.
 - **38 apps cannot run without a display**
-  <br>Apps with --headless / --frames N are run by CI on every push and can be captured as goldens; apps without them are only ever proven by someone opening a window. The flag is a dozen lines copied from apps/_template/main.cpp and it converts each app into a test.
+  <br>Apps with --headless / --frames N are run by CI on every push and can be captured as goldens; apps without them are only ever proven by someone opening a window. The flag is a dozen lines copied from apps/_template/main.cpp and it converts each app into a test. — area2d, blackboard, boundary, bus, camera3d, capsule, ccd, contacts, convex, envelope, filter, flowfield, and 26 more. Example: Teach apps/area2d the --headless / --frames N flags so CI can run it without a display.
+- **550 engine modules are tested but no app shows them**
+  <br>These are finished, working features that nobody can see. Each one is a small app away from being discoverable, and apps/ is how this engine documents itself. Grouping several related modules into one demo is usually better than one app each. — AdditiveBlend, BlendSpace, CubicBezierEasing, RootMotion, SpringBone, Transition, TriggerTrack, Dsp, EnvelopeFollower, G711, Goertzel, ImaAdpcm, and 540 more. Example: No app under apps/ demonstrates maz::anim::AdditiveBlend. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.
 - **3 browser projects have no tests at all**
   <br>film/tests/film-logic.test.js is the pattern: plain `node` over the project's pure logic, no dependencies, seconds to run, already wired into CI. Every project that lacks it is one refactor away from silent breakage.
-- **550 engine modules are tested but no app shows them**
-  <br>These are finished, working features that nobody can see. Each one is a small app away from being discoverable, and apps/ is how this engine documents itself. Grouping several related modules into one demo is usually better than one app each.
 - **9 helpers are hand-written in three or more browser projects**
   <br>Each of `download`, `generate`, `pick`, `clamp`, `draw`, `lerp`, `noise`, `render` and others exists separately in several projects. A single shared/maz-util.js, declared in shared/exchange.json and covered by one test, replaces every copy and means a fix to the seeded RNG or the clamp lands everywhere at once.
 - **CODA PICS paints backdrops for SCRIPT FORGE and illustrates MADLIBS**
@@ -558,18 +558,14 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
 - **ZOMBOID: ANCHORAGE: has a logic test**
   <br>Add zomboid/tests/ with a dependency-free Node test over its pure logic, in the style of film/tests/film-logic.test.js, and run it in CI.
 
-### P2 — coverage gaps (13)
+### P2 — coverage gaps (11)
 
 - **5 apps fail "has a golden screenshot"**
   <br>_template, mobilepack, orbs, sandbox, swarm. Example: Capture a golden frame for _template into tests/golden/_template.png so a rendering regression is caught automatically.
-- **38 apps fail "runs headless for CI"**
-  <br>area2d, blackboard, boundary, bus, camera3d, capsule, ccd, contacts, convex, envelope, filter, flowfield, and 26 more. Example: Teach apps/area2d the --headless / --frames N flags so CI can run it without a display.
-- **552 engine modules fail "shown by a sample app"**
-  <br>AdditiveBlend, BlendSpace, CubicBezierEasing, RootMotion, SpringBone, Transition, TriggerTrack, Dsp, EnvelopeFollower, G711, Goertzel, ImaAdpcm, and 540 more. Example: No app under apps/ demonstrates maz::anim::AdditiveBlend. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.
+- **4 docs are not linked from anywhere**
+  <br>A doc that nothing references is invisible to a newcomer and to a future session, however good it is. Link each from README.md or a sibling doc, or retire it. — CODEBASE_MEMORY.md, EVALUATION.md, GODOT_GAPS.md, GODOT_PARITY.md. Example: Nothing links to docs/CODEBASE_MEMORY.md. Link it from README.md, CLAUDE.md or a sibling doc, or delete it.
 - **6 engine modules fail "covered by a test"**
   <br>FlyCamera, Clipboard, Paths, Renderer, DebugOverlay, Font. Example: Add a unit test naming maz::game::FlyCamera under tests/ — nothing in the suite exercises it today.
-- **4 docs are not linked from anywhere**
-  <br>A doc that nothing references is invisible to a newcomer and to a future session, however good it is. Link each from README.md or a sibling doc, or retire it.
 - **2 engine modules have neither a test nor a demo**
   <br>Nothing in the repo names these types. They are either genuinely unused — in which case they are unproven code that will rot — or they are used through another module's API and only look unused. Both readings are worth resolving: a test settles it either way.
 - **MAZ CREW is the hands for the queue the inventory writes**
@@ -587,11 +583,9 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
 - **ZOMBOID: ANCHORAGE: declared in shared/exchange.json**
   <br>ZOMBOID: ANCHORAGE neither publishes a capability nor consumes one. Declare in shared/exchange.json what it can lend the other projects — that manifest is how they find each other.
 
-### P3 — polish (3)
+### P3 — polish (2)
 
-- **4 docs fail "reachable from somewhere"**
-  <br>CODEBASE_MEMORY.md, EVALUATION.md, GODOT_GAPS.md, GODOT_PARITY.md. Example: Nothing links to docs/CODEBASE_MEMORY.md. Link it from README.md, CLAUDE.md or a sibling doc, or delete it.
-- **1 engine module fail "header has a doc comment"**
+- **1 engine module fails "header has a doc comment"**
   <br>Collision. Example: Give engine/include/maz/game/Collision.hpp a leading doc comment — docs/API.md is generated from it, so an undocumented header is a blank entry in the public API reference.
 - **build_editor.bat: says what it does**
   <br>Open tools/build_editor.bat with a one-line comment saying what it builds or generates and how it is invoked.

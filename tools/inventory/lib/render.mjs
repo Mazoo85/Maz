@@ -172,7 +172,8 @@ export function render(model) {
     p('');
     p(wrap(o.detail));
     p('');
-    p(`<sub>${o.subjects.length} affected · effort: ${o.effort} · value: ${'★'.repeat(o.value)}</sub>`);
+    p(`<sub>${o.subjects.length} affected · effort: ${o.effort} · value: ${'★'.repeat(o.value)}` +
+      `${o.covers ? ` · queued below as the \`${o.covers}\` task` : ''}</sub>`);
     p('');
   }
 

@@ -153,6 +153,7 @@ export function computeOpportunities(model) {
   if (testedNotDemoed.length) {
     out.push({
       id: 'engine-features-with-no-demo',
+      covers: 'engine-module:demoed',
       kind: 'computed',
       title: counted(testedNotDemoed.length,
         'One engine module is tested but no app shows it',
@@ -189,6 +190,7 @@ export function computeOpportunities(model) {
   if (noHeadless.length) {
     out.push({
       id: 'apps-that-cannot-run-in-ci',
+      covers: 'app:headless',
       kind: 'computed',
       title: counted(noHeadless.length,
         'One app cannot run without a display',
@@ -207,6 +209,7 @@ export function computeOpportunities(model) {
   if (untestedWeb.length) {
     out.push({
       id: 'browser-projects-with-no-tests',
+      covers: 'web-app:tests',
       kind: 'computed',
       title: counted(untestedWeb.length,
         'One browser project has no tests at all',
@@ -244,6 +247,7 @@ export function computeOpportunities(model) {
   if (orphanDocs.length) {
     out.push({
       id: 'docs-nothing-links-to',
+      covers: 'doc:linked',
       kind: 'computed',
       title: counted(orphanDocs.length,
         'One doc is not linked from anywhere',

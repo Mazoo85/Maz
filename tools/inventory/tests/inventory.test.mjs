@@ -83,7 +83,14 @@ function makeFixture() {
     '// length to clear the doc-comment threshold.\nstruct Widget {};\n}\n');
   write(root, 'engine/include/maz/game/Ghost.hpp',
     '#pragma once\nnamespace maz::game { struct Ghost {}; }\n');
-  write(root, 'tests/unit/main.cpp', 'int main() { maz::game::Widget w; return 0; }\n');
+  // Tested but demonstrated by nothing — the repo's single most common state,
+  // and the one the "no app shows them" opportunity is about.
+  write(root, 'engine/include/maz/game/Hidden.hpp',
+    '#pragma once\nnamespace maz::game {\n\n' +
+    '// maz::game HIDDEN — a finished, tested feature that no sample app puts on screen,\n' +
+    '// which is exactly the gap this fixture exists to reproduce.\nstruct Hidden {};\n}\n');
+  write(root, 'tests/unit/main.cpp',
+    'int main() { maz::game::Widget w; maz::game::Hidden h; return 0; }\n');
 
   // Two browser projects sharing a helper; only one has tests.
   write(root, 'shared/projects.js',
@@ -229,6 +236,29 @@ await test('engine-module failures are grouped into one task, not one task each'
   assert.ok(grouped.length > 0, 'the shared failures should collapse into grouped tasks');
   const demoed = grouped.find((t) => t.check === 'demoed');
   assert.ok(demoed.members.includes('engine:game/Ghost'), 'the group should list its members for the JSON consumers');
+});
+
+await test('an opportunity that explains a grouped check is merged into it, not queued twice', async () => {
+  const m = await buildModel(ROOT);
+  const titles = m.queue.map((t) => t.title);
+  const dupes = titles.filter((t, i) => titles.indexOf(t) !== i);
+  assert.deepStrictEqual(dupes, [], `the queue repeats itself: ${dupes.join(' | ')}`);
+
+  // The "no demo app" opportunity carries the reasoning; the grouped task
+  // carries the member list. After merging, one task has both.
+  const demoed = m.queue.find((t) => t.id === 'group:engine-module:demoed');
+  assert.ok(demoed.title.includes('no app shows'), `title lost the reasoning: ${demoed.title}`);
+  assert.ok(demoed.detail.includes('Hidden'), 'detail lost the member list');
+});
+
+await test('an opportunity with no group to merge into is still queued', async () => {
+  const m = await buildModel(ROOT);
+  // Browser projects are itemised — one task each — so nothing absorbs the
+  // "projects have no tests" opportunity and it must survive on its own.
+  assert.ok(
+    m.queue.some((t) => t.id === 'opportunity:browser-projects-with-no-tests'),
+    'the unabsorbed opportunity was silently dropped'
+  );
 });
 
 await test('every queued task carries the paths it touches, so the Forge can zone-check it', async () => {

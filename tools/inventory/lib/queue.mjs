@@ -72,27 +72,46 @@ export function buildQueue(model) {
     }
   }
 
+  // An opportunity that sets `covers` is the *reasoning* behind a grouped check —
+  // "38 apps cannot run without a display" explains why `app:headless` matters.
+  // Emitting both would put the same job in the queue twice, once with the
+  // reasoning and once with the member list, so they are merged into one task
+  // that carries both.
+  const explained = new Map(
+    model.opportunities.filter((o) => o.covers).map((o) => [o.covers, o])
+  );
+  // Only an opportunity a grouped task actually absorbed may be dropped below.
+  // An itemised kind (one task per browser project, say) produces no group for
+  // it to merge into, and silently swallowing it would lose the reasoning.
+  const absorbed = new Set();
+
   for (const [key, g] of grouped) {
     const names = g.members.map((m) => m.name);
     const shown = names.slice(0, NAMED_SUBJECTS).join(', ');
     const more = names.length > NAMED_SUBJECTS ? `, and ${names.length - NAMED_SUBJECTS} more` : '';
+    const one = g.members.length === 1;
+    const why = explained.get(key);
+    if (why) absorbed.add(why.id);
     tasks.push({
       id: `group:${key}`,
-      priority: priorityOf(g.kind, g.check.id),
+      priority: why ? (why.value >= 3 ? 1 : 2) : priorityOf(g.kind, g.check.id),
       kind: g.kind,
       check: g.check.id,
-      title: `${g.members.length} ${label(g.kind)}${g.members.length === 1 ? '' : 's'} fail "${g.check.label}"`,
+      title: why
+        ? why.title
+        : `${g.members.length} ${label(g.kind)}${one ? '' : 's'} ${one ? 'fails' : 'fail'} "${g.check.label}"`,
       // The fix text of the first member is written per-artifact, so it reads
       // as a worked example of what each of the others needs.
-      detail: `${shown}${more}. Example: ${g.check.fix}`,
+      detail: `${why ? why.detail + ' — ' : ''}${shown}${more}. Example: ${g.check.fix}`,
       paths: dedupe(g.members.map((m) => m.path)).slice(0, 40),
       members: g.members.map((m) => m.id),
       source: `inventory:${key}`
     });
   }
 
-  // --- opportunities ------------------------------------------------------
+  // --- opportunities that do not map onto a check --------------------------
   for (const o of model.opportunities) {
+    if (absorbed.has(o.id)) continue;   // already merged into its grouped task above
     tasks.push({
       id: `opportunity:${o.id}`,
       priority: o.value >= 3 ? 1 : 2,
