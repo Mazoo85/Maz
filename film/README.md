@@ -484,3 +484,39 @@ the light-leak wash read it unconditionally 130 lines later. About one shot in
 forty is an insert, so most films had one, and the player stopped drawing the
 moment it came up. Nothing caught it because nothing had ever drawn an insert.
 Fixed, and there is now a check that walks *every* shot of a film.
+
+### The demo reel, and a file an iPhone can play
+
+The recorder in the browser writes **VP9 in a WebM container** — that is what
+Chromium's `MediaRecorder` can actually produce, no matter what you ask it for.
+It plays on a desktop and on Android and an **iPhone will not play it at all**,
+so a film recorded here cannot simply be handed to a phone.
+
+The native path can now write a file that plays anywhere:
+
+```sh
+cmake --build build --target filmshowcase
+./build/bin/filmshowcase --out demo.gif --width 480 --fps 12
+./build/bin/filmshowcase --contact sheet.qoi        # every shot on one sheet
+```
+
+`apps/filmshowcase` is not the film — it is a **montage**, written as data in
+`Montage.hpp`: a chapter per genre, chosen between them so that all fifteen sets,
+all ten palettes, all seven framings, all ten camera moves and all seven kinds of
+weather appear in about thirty seconds. It is drawn by the same `drawFrame` a real
+film uses, so it demonstrates the renderer rather than being a demo of its own.
+
+An **animated GIF** is the format because it is the only moving one the engine can
+write honestly: its entire compressed form is LZW over palette indices, which the
+engine already had. The cost is real and worth knowing — 256 colours for the whole
+animation, every frame stored whole, so about 7 MB for thirty seconds at 480 px —
+and it is silent. **The score and the voices only exist in the browser's WebM**,
+because the score is SONG FORGE's job and SONG FORGE is a Web Audio program; see
+`docs/superpowers/specs` for what giving it a native destination would mean.
+
+Making that file also found two shipped bugs in the engine's GIF writer: the LZW
+code width grew one entry too early (in the encoder *and* the decoder, so they
+agreed with each other and with nothing else), and `encodeGif` flattened every
+colour past the 256th to palette entry 0 while claiming a nearest-match remap.
+Both fixed, and `tests/render/gif.cpp` now checks against a reference GIF this
+repository did not write, byte for byte.

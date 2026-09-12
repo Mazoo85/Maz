@@ -146,6 +146,17 @@ int main() {
         // A truncated sequence at the end must not read past the string.
         const float truncated = maz::render::textWidth("ok\xE2\x80", style);
         CHECK(truncated > 0.0f, "a truncated UTF-8 tail does not run off the end of the string");
+
+        // Every character a caption is allowed to contain has a glyph. An unknown one falls back to a
+        // space, which is silent: the word simply loses a letter and nobody notices until they read
+        // the picture. "C++20" losing its plus signs is how this one was found.
+        const std::string used =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,:;'\"!?-_()/&+";
+        std::string missing;
+        for (char c : used) {
+            if (maz::render::detail::glyphs().count(c) == 0) missing += c;
+        }
+        CHECK(missing.empty(), ("caption characters all have glyphs (missing: " + missing + ")").c_str());
     }
 
     // --- 6. Centring puts the middle of the text on the mark. ---

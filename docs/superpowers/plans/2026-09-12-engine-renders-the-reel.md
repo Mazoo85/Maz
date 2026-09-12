@@ -157,3 +157,40 @@ than a wall-clock budget so it means the same thing on any machine. Forty frames
 of one shot cost about 12x the first with the wash cached and about 41x without,
 so it fires at 22 — both numbers measured, and the test confirmed to fail when
 the cache is deliberately disabled.
+
+## Afterword: the demo reel, and a GIF nobody could read
+
+Asked to show what the renderer can do, the answer was not the film — one film is
+one genre, four sets, one kind of weather. So `apps/filmshowcase` builds a
+MONTAGE as data (`Montage.hpp`): a chapter per genre, chosen between them to
+cover all fifteen sets, all ten palettes, all seven framings, all ten camera
+moves and all seven weather kinds, drawn by the same `drawFrame` a real film uses.
+
+Delivering it needed a moving file, and the engine had none: it carries an IVF
+*demuxer* and no codec. An animated GIF is the one moving format whose entire
+compressed form is LZW over palette indices, which the engine already had — so
+`render::ImageCodecGifAnim.hpp` is that, honestly scoped (one global palette,
+every frame whole, no interframe compression).
+
+**And then the file would not play.** The engine's GIFs decoded perfectly with
+the engine's own decoder and were rejected by every other decoder on the machine.
+The cause: the variable-width LZW code size widened one entry too early, in the
+encoder AND in the decoder, consistently — so a round-trip test could never see
+it. `tests/render/gif.cpp` only ever round-tripped against itself.
+
+Two bugs, both shipped, both in code with passing tests:
+
+1. `nextCode == (1 << codeSize)` should be `>`. Every GIF the engine ever wrote
+   with more than ~250 dictionary entries — which is any real picture — was
+   unreadable outside this repository.
+2. `encodeGif` sent every colour past the 256th to **palette entry 0**, while its
+   own doc comment claimed a nearest-match remap. A photograph encoded to a
+   picture of entry 0: mean error 124/255. It now quantises, like the animated
+   encoder next door.
+
+The fix to the TEST is the durable part: `tests/render/gif-reference.gif` is a
+file this repository did not write, produced by a reference encoder and verified
+pixel for pixel by an unrelated decoder. Check 5 demands that we read it back
+exactly and that our encoder reproduces it **byte for byte**. A codec test that
+only talks to itself proves the two halves agree, which is not what a file format
+is for.
