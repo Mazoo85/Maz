@@ -361,6 +361,7 @@ test('runtime and page count are sane', () => {
  */
 const Reel = require(path.join(__dirname, '..', 'js', 'film-reel.js'));
 const Art = require(path.join(__dirname, '..', 'js', 'film-art.js'));
+const Sets = require(path.join(__dirname, '..', 'js', 'film-sets.js'));
 const Score = require(path.join(__dirname, '..', 'js', 'film-audio.js'));
 const PlayerLib = require(path.join(__dirname, '..', 'js', 'film-player.js'));
 const Webm = require(path.join(__dirname, '..', 'js', 'film-webm.js'));
@@ -424,14 +425,18 @@ test('CONTINUOUS is turned into a real time of day for the lighting', () => {
 });
 
 test('every location maps to a set that can be drawn', () => {
+  function drawable(name) {
+    const entry = Sets.SETS[name];
+    return !!entry && ['back', 'mid', 'fore'].every((layer) => typeof entry[layer] === 'function');
+  }
   Object.keys(Reel.SET_BY_PLACE).forEach((place) => {
     const set = Reel.SET_BY_PLACE[place];
-    assert(typeof Art.SETS[set] === 'function', place + ' maps to "' + set + '", which nothing draws');
+    assert(drawable(set), place + ' maps to "' + set + '", which nothing draws');
   });
   // And every place in the lexicon resolves, mapped or not.
   Object.keys(LEX.PLACES).forEach((key) => {
     const set = Reel.setFor({ key, int: LEX.PLACES[key].int });
-    assert(typeof Art.SETS[set] === 'function', key + ' resolves to an undrawable set');
+    assert(drawable(set), key + ' resolves to an undrawable set');
   });
 });
 
@@ -460,10 +465,26 @@ test('every genre has a palette and a piece of music', () => {
 });
 
 test('the camera never leaves the frame empty', () => {
+  // `plane()` multiplies panX (and panYMove) by up to PARALLAX.fore before it
+  // ever reaches the screen, so a raw panX check against the same bound
+  // `plane()` itself uses is checking the wrong number — this checks what a
+  // viewer actually sees on the widest-swinging plane instead. And a single
+  // progress = 0.5 sample missed the camera moves that peak elsewhere in the
+  // shot (the whip pan is at 0.043 of its full swing by the midpoint), so
+  // every move gets checked across the whole shot, not just its middle.
+  const FORE = Sets.PARALLAX.fore;
   reel.shots.forEach((shot) => {
-    const f = PlayerLib.framingFor(shot, 0.5);
-    assert(f.zoom >= 0.9 && f.zoom <= 3, 'odd zoom on shot ' + shot.index + ': ' + f.zoom);
-    assert(Math.abs(f.panX) < 0.35 && Math.abs(f.panY) < 0.35, 'camera panned off the set');
+    [0, 0.15, 0.3, 0.5, 0.75, 1].forEach((progress) => {
+      const time = shot.start + progress * shot.duration;
+      const f = PlayerLib.framingFor(shot, progress, time);
+      assert(f.zoom >= 0.9 && f.zoom <= 3,
+        'odd zoom on shot ' + shot.index + ' at progress ' + progress + ': ' + f.zoom);
+      const screenPanX = Math.abs(f.panX) * FORE;
+      const screenPanY = Math.abs(f.panY) + Math.abs(f.panYMove) * FORE;
+      assert(screenPanX < 0.5 && screenPanY < 0.5,
+        'camera panned off the set on shot ' + shot.index + ' at progress ' + progress +
+        ' (fore-plane screen panX ' + screenPanX.toFixed(3) + ', panY ' + screenPanY.toFixed(3) + ')');
+    });
     if (shot.kind === 'line') {
       const layout = PlayerLib.figureLayout(shot);
       assert(layout.length >= 1, 'nobody in frame for a spoken line');
@@ -1498,7 +1519,1043 @@ test('playing from the middle of a line starts already ducked', () => {
   score.calls.forEach((c) => assert(c.at >= NOW, 'an event was scheduled in the past: ' + c.at));
 });
 
+/* ================================================================== figures */
+const Figures = require(path.join(__dirname, '..', 'js', 'film-figures.js'));
+
+console.log('\nHOW A CHARACTER STANDS');
+
+test('every pose defines every joint, inside a human range', () => {
+  const joints = Figures.JOINTS;
+  assert(joints.length >= 10, 'not enough joints to make a body');
+
+  Object.keys(Figures.POSES).forEach((name) => {
+    const pose = Figures.POSES[name];
+    joints.forEach((joint) => {
+      eq(typeof pose[joint], 'number', name + ' does not say what ' + joint + ' does');
+      const limit = Figures.POSE_LIMITS[joint];
+      assert(limit, 'no limit declared for ' + joint);
+      assert(pose[joint] >= limit[0] && pose[joint] <= limit[1],
+        name + '.' + joint + ' is ' + pose[joint].toFixed(2) + ', outside ' + JSON.stringify(limit));
+    });
+  });
+});
+
+test('the library covers the bearings the story needs', () => {
+  ['stand', 'turn-away', 'reach', 'recoil', 'sit', 'slump',
+   'hands-in-pockets', 'point', 'head-in-hands', 'walk'].forEach((name) => {
+    assert(Figures.POSES[name], 'no pose called ' + name);
+  });
+});
+
+test('the beat decides how a character carries themselves', () => {
+  const allowed = Figures.POSES_BY_BEAT;
+  ['open', 'spark', 'push', 'turn', 'crisis', 'choice', 'after'].forEach((beat) => {
+    assert(allowed[beat] && allowed[beat].length, 'no poses for the ' + beat + ' beat');
+    allowed[beat].forEach((name) => assert(Figures.POSES[name], beat + ' asks for a pose that does not exist: ' + name));
+
+    for (let seed = 0; seed < 20; seed++) {
+      const chosen = Figures.poseFor(beat, 0.5, false, seed);
+      assert(allowed[beat].indexOf(chosen) !== -1,
+        beat + ' chose ' + chosen + ', which is not one of its poses');
+    }
+  });
+});
+
+test('the crisis breaks a character and the choice straightens them up', () => {
+  const crisis = [];
+  const choice = [];
+  for (let seed = 0; seed < 30; seed++) {
+    crisis.push(Figures.poseFor('crisis', 0.88, false, seed));
+    choice.push(Figures.poseFor('choice', 0.5, false, seed));
+  }
+  crisis.forEach((p) => assert(['recoil', 'slump', 'head-in-hands'].indexOf(p) !== -1,
+    'the crisis produced ' + p));
+  choice.forEach((p) => assert(['stand', 'point', 'reach'].indexOf(p) !== -1,
+    'the choice produced ' + p));
+});
+
+test('the same film poses the same way twice', () => {
+  for (let seed = 0; seed < 10; seed++) {
+    eq(Figures.poseFor('push', 0.52, true, seed), Figures.poseFor('push', 0.52, true, seed));
+  }
+});
+
+test('a speaker is never turned away from the room', () => {
+  ['open', 'spark', 'push', 'turn', 'crisis', 'choice', 'after'].forEach((beat) => {
+    for (let seed = 0; seed < 20; seed++) {
+      assert(Figures.poseFor(beat, 0.5, true, seed) !== 'turn-away',
+        'a speaking character turned away during ' + beat);
+    }
+  });
+});
+
+test('high tension biases the pose toward more extreme expressions', () => {
+  // The poseFor function uses tension to bias selection toward later (more extreme)
+  // entries in a beat's pool. For the crisis beat, 'recoil' is the first/least extreme
+  // entry. At low tension it should be chosen more often than at high tension.
+  const pool = Figures.POSES_BY_BEAT.crisis;
+  const leastExtreme = pool[0];
+
+  let countLow = 0;
+  let countHigh = 0;
+  const samples = 300;
+
+  for (let seed = 0; seed < samples; seed++) {
+    const poseAtLowTension = Figures.poseFor('crisis', 0.1, false, seed);
+    const poseAtHighTension = Figures.poseFor('crisis', 0.88, false, seed);
+
+    if (poseAtLowTension === leastExtreme) countLow++;
+    if (poseAtHighTension === leastExtreme) countHigh++;
+  }
+
+  const shareLow = countLow / samples;
+  const shareHigh = countHigh / samples;
+
+  assert(shareLow > 0, 'no samples of least extreme pose at low tension');
+  assert(shareHigh > 0, 'no samples of least extreme pose at high tension');
+  assert(shareLow >= shareHigh * 2,
+    'least extreme pose (' + leastExtreme + ') should appear at least twice as often at low tension: ' +
+    'low=' + (shareLow * 100).toFixed(1) + '%, high=' + (shareHigh * 100).toFixed(1) + '%');
+});
+
+test('a gesture moves the head and hand and nothing else', () => {
+  const rest = Figures.POSES.stand;
+  const mid = Figures.gestureAt(rest, 0.5);
+
+  assert(Math.abs(mid.head - rest.head) > 0.001, 'the head did not move on a syllable');
+  assert(Math.abs(mid.armL - rest.armL) > 0.001 || Math.abs(mid.armR - rest.armR) > 0.001,
+    'neither hand moved on a syllable');
+  ['legL', 'legR', 'shinL', 'shinR'].forEach((joint) => {
+    eq(mid[joint], rest[joint], 'a syllable moved the ' + joint);
+  });
+
+  Figures.JOINTS.forEach((joint) => {
+    const limit = Figures.POSE_LIMITS[joint];
+    [0, 0.25, 0.5, 0.75, 1].forEach((phase) => {
+      const g = Figures.gestureAt(rest, phase);
+      assert(g[joint] >= limit[0] && g[joint] <= limit[1],
+        'a gesture at phase ' + phase + ' put ' + joint + ' outside its range');
+    });
+  });
+});
+
+test('a gesture starts and finishes at rest', () => {
+  const rest = Figures.POSES.stand;
+  Figures.JOINTS.forEach((joint) => {
+    eq(Figures.gestureAt(rest, 0)[joint].toFixed(4), rest[joint].toFixed(4), joint + ' at phase 0');
+    eq(Figures.gestureAt(rest, 1)[joint].toFixed(4), rest[joint].toFixed(4), joint + ' at phase 1');
+  });
+});
+
+test('the voice and the gesture agree on syllable count for a line with a standalone dash', () => {
+  // "Wait — what?" has a standalone em-dash token: raw-word counting sees it
+  // as a word, punctuation-stripped counting does not. The two clocks must
+  // still land on the same number, because Parse.syllablesFor is the only
+  // place either of them is allowed to compute it.
+  const caption = 'Wait — what? I said no...';
+  const reference = Parse.syllablesFor(caption);
+
+  // The picture: film-player.js's gesture wiring calls Parse.syllablesFor(shot.caption).
+  const pictureSyllables = Parse.syllablesFor(caption);
+
+  // The audio: invoke the real Score.prototype.speak (film-audio.js) and count
+  // the blips it actually schedules — one per syllable — with a stub `this`
+  // so no AudioContext is needed.
+  const blips = [];
+  Score.Score.prototype.speak.call(
+    { ctx: { currentTime: 0 }, blip: function (when, voice, through, charCode) { blips.push(charCode); } },
+    caption, { pitch: 220 }, 2
+  );
+  const audioSyllables = blips.length;
+
+  eq(audioSyllables, reference, 'the audio scheduled ' + audioSyllables +
+    ' blips but Parse.syllablesFor(caption) says ' + reference);
+  eq(pictureSyllables, reference, 'the gesture clock used ' + pictureSyllables +
+    ' syllables but Parse.syllablesFor(caption) says ' + reference);
+  assert(audioSyllables === pictureSyllables,
+    'the voice and the gesture disagree on syllable count: audio=' + audioSyllables +
+    ' picture=' + pictureSyllables);
+});
+
+console.log('\nSETS WITH DEPTH');
+
+test('every set is built in three layers', () => {
+  const names = Object.keys(Sets.SETS);
+  assert(names.length >= 15, 'expected fifteen sets, found ' + names.length);
+  names.forEach((name) => {
+    ['back', 'mid', 'fore'].forEach((layer) => {
+      eq(typeof Sets.SETS[name][layer], 'function', name + ' has no ' + layer + ' layer');
+    });
+  });
+});
+
+test('the layers move at different speeds, in the right order', () => {
+  const p = Sets.PARALLAX;
+  assert(p.back < p.mid && p.mid < p.fore,
+    'parallax is not ordered back < mid < fore: ' + JSON.stringify(p));
+  assert(p.back > 0 && p.fore < 4, 'parallax rates are out of a sane range');
+});
+
+test('every set a scene can ask for still exists', () => {
+  Object.keys(Reel.SET_BY_PLACE).forEach((place) => {
+    const set = Reel.SET_BY_PLACE[place];
+    assert(Sets.SETS[set], place + ' maps to "' + set + '", which no longer exists');
+  });
+});
+
+test('light moves within a scene, and stays in a sane range', () => {
+  Object.keys(Sets.SETS).forEach((set) => {
+    const kind = Sets.LIGHT[set];
+    assert(['sweep', 'passing', 'flicker', 'cloud', 'none'].indexOf(kind) !== -1,
+      set + ' declares light "' + kind + '", which nothing draws');
+  });
+
+  ['sweep', 'passing', 'flicker', 'cloud', 'none'].forEach((kind) => {
+    for (let t = 0; t < 40; t++) {
+      [0.15, 0.5, 0.88].forEach((tension) => {
+        const light = Sets.lightAt(kind, t * 0.37, tension);
+        assert(light.brightness > 0.4 && light.brightness < 2.2,
+          kind + ' went to brightness ' + light.brightness.toFixed(2));
+        assert(light.offset >= -1 && light.offset <= 1,
+          kind + ' put its light at ' + light.offset.toFixed(2));
+      });
+    }
+  });
+});
+
+test('a bulb flickers harder when the story is tense', () => {
+  const spread = (tension) => {
+    let lo = 2, hi = 0;
+    for (let t = 0; t < 200; t++) {
+      const b = Sets.lightAt('flicker', t * 0.11, tension).brightness;
+      if (b < lo) lo = b;
+      if (b > hi) hi = b;
+    }
+    return hi - lo;
+  };
+  assert(spread(0.88) > spread(0.15) * 1.5,
+    'the crisis flickers no harder than the opening');
+});
+
+const Weather = require(path.join(__dirname, '..', 'js', 'film-weather.js'));
+
+console.log('\nWEATHER');
+
+test('every genre and hour gets air the artist can draw', () => {
+  const drawable = ['rain', 'dust', 'fog', 'shimmer', 'embers', 'haze', 'none'];
+  Object.keys(LEX.GENRES).forEach((genre) => {
+    ['NIGHT', 'DAY', 'DUSK', 'DAWN'].forEach((time) => {
+      Object.keys(Sets.SETS).forEach((set) => {
+        const kind = Weather.forShot(genre, time, set);
+        assert(drawable.indexOf(kind) !== -1,
+          genre + '/' + time + '/' + set + ' asked for "' + kind + '", which nothing draws');
+      });
+    });
+  });
+});
+
+test('the obvious cases land where they should', () => {
+  eq(Weather.forShot('thriller', 'NIGHT', 'street'), 'rain');
+  eq(Weather.forShot('western', 'DAY', 'field'), 'shimmer');
+  eq(Weather.forShot('fantasy', 'NIGHT', 'woods'), 'embers');
+  eq(Weather.forShot('drama', 'DAY', 'kitchen'), 'dust');
+  eq(Weather.forShot('horror', 'NIGHT', 'woods'), 'fog');
+});
+
+test('the same shot always has the same weather', () => {
+  for (let i = 0; i < 5; i++) {
+    eq(Weather.forShot('mystery', 'DUSK', 'office'), Weather.forShot('mystery', 'DUSK', 'office'));
+  }
+});
+
+console.log('\nTHE CAMERA');
+
+test('every camera the reel can ask for is one the player knows', () => {
+  const known = ['push', 'push-slow', 'pull', 'pan-l', 'pan-r', 'static',
+                 'handheld', 'track-l', 'track-r', 'whip'];
+  ['micro', 'short', 'festival'].forEach((length) => {
+    for (let seed = 0; seed < 8; seed++) {
+      const reel = Reel.build(Writer.write(Parse.parse('a ghost in the attic', { seed }), { length, seed }));
+      reel.shots.forEach((shot) => {
+        assert(known.indexOf(shot.camera) !== -1, 'unknown camera: ' + shot.camera);
+      });
+    }
+  });
+});
+
+test('the camera stays pointed at the set, whatever the move', () => {
+  const known = ['push', 'push-slow', 'pull', 'pan-l', 'pan-r', 'static',
+                 'handheld', 'track-l', 'track-r', 'whip'];
+  known.forEach((camera) => {
+    [0, 0.25, 0.5, 0.75, 1].forEach((progress) => {
+      const f = PlayerLib.framingFor({ camera, framing: 'mid', mood: 0.88, kind: 'action' }, progress, progress * 3);
+      assert(f.zoom > 0.8 && f.zoom < 3.2, camera + ' zoomed to ' + f.zoom.toFixed(2));
+      assert(Math.abs(f.panX) < 0.5 && Math.abs(f.panY) < 0.5, camera + ' panned off the set');
+      assert(Math.abs(f.roll || 0) < 0.09, camera + ' rolled ' + (f.roll || 0).toFixed(3) + ' radians');
+    });
+  });
+});
+
+test('handheld is steady when the story is calm and unsteady when it is not', () => {
+  const wobble = (mood) => {
+    let lo = 9, hi = -9;
+    for (let i = 0; i < 200; i++) {
+      const f = PlayerLib.framingFor({ camera: 'handheld', framing: 'mid', mood, kind: 'action' }, 0.5, i * 0.05);
+      if (f.panX < lo) lo = f.panX;
+      if (f.panX > hi) hi = f.panX;
+    }
+    return hi - lo;
+  };
+  assert(wobble(0.88) > wobble(0.15) * 1.8, 'the crisis is no shakier than the opening');
+});
+
+test('only the crisis is allowed to tilt', () => {
+  const calm = PlayerLib.framingFor({ camera: 'handheld', framing: 'mid', mood: 0.2, kind: 'action' }, 0.5, 1);
+  const crisis = PlayerLib.framingFor({ camera: 'handheld', framing: 'mid', mood: 0.88, kind: 'action' }, 0.5, 1);
+  assert(Math.abs(calm.roll || 0) < 0.005, 'a calm shot was tilted');
+  assert(Math.abs(crisis.roll || 0) > 0.01, 'the crisis was not tilted');
+});
+
+test('the whip pan is actually used somewhere', () => {
+  let seen = false;
+  for (let seed = 0; seed < 40 && !seen; seed++) {
+    const reel = Reel.build(Writer.write(Parse.parse('two thieves argue in a warehouse', { seed }), { length: 'festival', seed }));
+    seen = reel.shots.some((s) => s.camera === 'whip');
+  }
+  assert(seen, 'no film in forty used a whip pan');
+});
+
+test('a conversation alternates rather than repeating one framing', () => {
+  ['short', 'festival'].forEach((length) => {
+    for (let seed = 0; seed < 6; seed++) {
+      const reel = Reel.build(Writer.write(Parse.parse('two sisters argue in a kitchen', { seed }), { length, seed }));
+      const lines = reel.shots.filter((s) => s.kind === 'line');
+      for (let i = 2; i < lines.length; i++) {
+        assert(!(lines[i].framing === lines[i - 1].framing && lines[i].framing === lines[i - 2].framing),
+          'three spoken shots in a row used ' + lines[i].framing);
+      }
+    }
+  });
+});
+
+test('the choice is held longer than the push', () => {
+  const reel = Reel.build(Writer.write(Parse.parse('a lighthouse keeper finds a radio'), { length: 'festival' }));
+  // Compare seconds per word, not raw duration: a wordier push line would
+  // otherwise run longer than a held choice and the test would prove nothing.
+  const pace = (beat) => {
+    const shots = reel.shots.filter((s) => s.beat === beat && s.kind === 'action');
+    assert(shots.length, 'no action shots on the ' + beat + ' beat to measure');
+    const secs = shots.reduce((a, s) => a + s.duration, 0);
+    const words = shots.reduce((a, s) => a + String(s.caption).trim().split(/\s+/).length, 0);
+    return secs / words;
+  };
+  assert(pace('choice') > pace('push') * 1.2,
+    'the choice is cut at the same pace as the push');
+});
+
+test('the new framings are understood by the camera', () => {
+  ['ots', 'low'].forEach((framing) => {
+    const f = PlayerLib.framingFor({ camera: 'static', framing, mood: 0.4, kind: 'line', speaker: 'A' }, 0.5, 1);
+    assert(f.zoom > 0.8 && f.zoom < 3.2, framing + ' zoomed to ' + f.zoom.toFixed(2));
+    const layout = PlayerLib.figureLayout({ framing, characters: ['A', 'B'], speaker: 'A', kind: 'line' });
+    assert(layout.length >= 1, framing + ' put nobody in frame');
+  });
+});
+
+console.log('\nWHERE A FILM HAPPENS');
+
+test('a premise offers three to five places', () => {
+  for (let seed = 0; seed < 60; seed++) {
+    const p = Parse.parse('a courier takes a job in a city at night', { seed });
+    assert(p.places.length >= 3 && p.places.length <= 5,
+      'seed ' + seed + ' offered ' + p.places.length + ' places');
+  }
+});
+
+test('the places are distinct', () => {
+  for (let seed = 0; seed < 60; seed++) {
+    const p = Parse.parse('a lighthouse keeper finds a radio', { seed });
+    const keys = p.places.map((x) => x.key);
+    eq(new Set(keys).size, keys.length, 'seed ' + seed + ' repeated a place: ' + keys.join(','));
+  }
+});
+
+test('a place named in the idea is still used, and comes first', () => {
+  const p = Parse.parse('two sisters argue in a kitchen');
+  eq(p.places[0].key, 'kitchen', 'the typed place did not lead');
+});
+
+test('the same idea and seed give the same places', () => {
+  for (let seed = 0; seed < 20; seed++) {
+    const a = Parse.parse('a thief in a warehouse', { seed }).places.map((x) => x.key).join(',');
+    const b = Parse.parse('a thief in a warehouse', { seed }).places.map((x) => x.key).join(',');
+    eq(a, b, 'seed ' + seed + ' was not deterministic');
+  }
+});
+
+test('a festival film uses at least three distinct places', () => {
+  for (let seed = 0; seed < 40; seed++) {
+    const script = Writer.write(Parse.parse('a courier takes a job', { seed }), { length: 'festival', seed });
+    const used = new Set(script.scenes.map((s) => s.heading.place.key));
+    assert(used.size >= 3, 'seed ' + seed + ' used only ' + used.size + ' places');
+  }
+});
+
+test('a film ends where it began', () => {
+  // By *position*, not by beat id: festival's third shape ends
+  // ['... crisis, after, choice'] — 'after' is second-to-last there, not
+  // last, so an id-based 'after === open' check is only true by accident of
+  // the other two shapes. The real property, true of every shape, is that
+  // the first scene and the last scene share a place.
+  for (let seed = 0; seed < 40; seed++) {
+    const script = Writer.write(Parse.parse('a lighthouse keeper finds a radio', { seed }), { length: 'festival', seed });
+    const first = script.scenes[0].heading.place.key;
+    const last = script.scenes[script.scenes.length - 1].heading.place.key;
+    eq(last, first, 'seed ' + seed + ' did not return to the opening place');
+  }
+});
+
+test('the crisis happens somewhere the film has not been', () => {
+  // The old version of this test only checked byBeat.crisis !== byBeat.open —
+  // but placeForBeat put the crisis at the far index (placeCount - 1) and
+  // then spread spark/push/turn over [1, placeCount - 1], a range that
+  // *includes* the crisis's own index, so a middle beat routinely got there
+  // first while open (always index 0) never collided anyway. That made the
+  // assertion true by construction: open and crisis literally could not
+  // share an index, so it could never fail. The real property is that no
+  // beat *before* the crisis in the spine used the crisis's place — checked
+  // here directly against placesForSpine, for every shape this app ships, at
+  // every place count a premise can actually offer, over many seeds.
+  ['micro', 'short', 'festival'].forEach((len) => {
+    LEX.STRUCTURES[len].spines.forEach((spine, i) => {
+      const ci = spine.indexOf('crisis');
+      if (ci === -1) return;
+      for (let count = 3; count <= 5; count++) {
+        for (let seed = 0; seed < 100; seed++) {
+          const result = Writer.placesForSpine(spine, count, seed);
+          const crisisPlace = result.places[ci];
+          const usedBefore = new Set(result.places.slice(0, ci));
+          assert(result.degraded === 'crisis-unused' || !usedBefore.has(crisisPlace),
+            len + ' shape ' + i + ' (' + spine.join(' ') + ') at ' + count + ' places, seed ' + seed +
+            ': the crisis reused an earlier beat\'s place ' + crisisPlace + ' (degraded=' + result.degraded + ')');
+        }
+      }
+    });
+  });
+
+  // And the same property holds end to end, through the real writer, on
+  // real generated premises (3-5 places, never fewer).
+  let total = 0;
+  ['short', 'festival'].forEach((len) => {
+    for (let seed = 0; seed < 200; seed++) {
+      const script = Writer.write(Parse.parse('a thief in a warehouse', { seed }), { length: len, seed });
+      const crisisIndex = script.scenes.findIndex((s) => s.beat.id === 'crisis');
+      if (crisisIndex === -1) continue;
+      total++;
+      const crisisPlace = script.scenes[crisisIndex].heading.place.key;
+      const usedBefore = new Set(script.scenes.slice(0, crisisIndex).map((s) => s.heading.place.key));
+      assert(!usedBefore.has(crisisPlace),
+        len + ' seed ' + seed + ': the crisis landed back in ' + crisisPlace + ', already used');
+    }
+  });
+  assert(total > 0, 'no film reached a crisis');
+});
+
+test('placeForBeat stays inside the places it is given', () => {
+  ['open', 'spark', 'push', 'turn', 'crisis', 'choice', 'after'].forEach((beat) => {
+    for (let count = 1; count <= 5; count++) {
+      for (let seed = 0; seed < 20; seed++) {
+        const i = Writer.placeForBeat(beat, count, seed);
+        assert(Number.isInteger(i) && i >= 0 && i < count,
+          beat + ' with ' + count + ' places returned ' + i);
+      }
+    }
+  });
+});
+
+console.log('\nTHE SHAPE OF A STORY');
+
+test('every length offers more than one shape', () => {
+  Object.keys(LEX.STRUCTURES).forEach((len) => {
+    const spines = LEX.STRUCTURES[len].spines;
+    assert(Array.isArray(spines) && spines.length >= 2,
+      len + ' offers ' + (spines ? spines.length : 0) + ' shapes');
+  });
+});
+
+test('every shape is made of real beats and has a beginning', () => {
+  const known = ['open', 'spark', 'push', 'turn', 'crisis', 'choice', 'after'];
+  Object.keys(LEX.STRUCTURES).forEach((len) => {
+    LEX.STRUCTURES[len].spines.forEach((spine, i) => {
+      eq(spine[0], 'open', len + ' shape ' + i + ' does not open on the open beat');
+      eq(new Set(spine).size, spine.length, len + ' shape ' + i + ' repeats a beat');
+      spine.forEach((b) => assert(known.indexOf(b) !== -1, len + ' shape ' + i + ' has unknown beat ' + b));
+    });
+  });
+});
+
+test('a short film always reaches a crisis', () => {
+  ['short', 'festival'].forEach((len) => {
+    LEX.STRUCTURES[len].spines.forEach((spine, i) => {
+      assert(spine.indexOf('crisis') !== -1,
+        len + ' shape ' + i + ' has no crisis: ' + spine.join(' '));
+    });
+  });
+  // and the shipped default really does produce one
+  for (let seed = 0; seed < 30; seed++) {
+    const script = Writer.write(Parse.parse('a stranger arrives', { seed }), { length: 'short', seed });
+    assert(script.scenes.some((s) => s.beat.id === 'crisis'),
+      'a default-length film at seed ' + seed + ' had no crisis');
+  }
+});
+
+test('two films of the same length can be shaped differently', () => {
+  const shapes = new Set();
+  for (let seed = 0; seed < 40; seed++) shapes.add(Writer.spineFor('festival', seed).join(' '));
+  assert(shapes.size >= 2, 'every festival film had the same shape');
+});
+
+test('scene times never go backwards within a film', () => {
+  // headingFor used to advance the clock only for the beat id 'after' — a
+  // rule written back when 'after' was always the spine's last beat. Once a
+  // shape puts 'choice' after it (festival's third shape does:
+  // '... crisis, after, choice'), the closing scene reverted to the
+  // premise's original time, e.g. DUSK (after) followed by DAY (choice) on
+  // the last two cards. It now advances for 'after' and everything at or
+  // after it in the spine, so this checks the property directly: once a
+  // scene shows the advanced time, nothing later in the same film shows the
+  // original time again.
+  const NEXT_TIME = { NIGHT: 'DAWN', DAWN: 'DAY', DAY: 'DUSK', DUSK: 'NIGHT' };
+  ['micro', 'short', 'festival'].forEach((len) => {
+    for (let seed = 0; seed < 150; seed++) {
+      const premise = Parse.parse('a lighthouse keeper finds a radio', { seed });
+      const script = Writer.write(premise, { length: len, seed });
+      const base = premise.time;
+      const advanced = NEXT_TIME[base] || base;
+      let sawAdvanced = false;
+      script.scenes.forEach((s) => {
+        const t = s.heading.time;
+        if (t === 'CONTINUOUS' || t === 'LATER') return; // reads as the same clock as the scene before it
+        if (advanced !== base && t === advanced) sawAdvanced = true;
+        else if (t === base) {
+          assert(!sawAdvanced, len + ' seed ' + seed + ': the clock ran backwards, back to ' +
+            base + ' after already showing ' + advanced + ' (' +
+            script.scenes.map((x) => x.beat.id + '=' + x.heading.time).join(', ') + ')');
+        }
+      });
+    }
+  });
+});
+
+test('the same seed always gives the same shape', () => {
+  for (let seed = 0; seed < 20; seed++) {
+    eq(Writer.spineFor('short', seed).join(' '), Writer.spineFor('short', seed).join(' '));
+  }
+});
+
+test('every shape, at every length, ends where it began', () => {
+  // The other guard on this ('a film ends where it began') runs only at
+  // festival length and compares beat ids rather than positions, so the micro
+  // and short spines — two of which end on `choice` with no `after` beat at
+  // all — have no cover from it.
+  //
+  // This must assert against placesForSpine, the mapping write() actually
+  // calls. It used to call placeForBeat, which write() no longer uses, so it
+  // was pinning dead code: mutating the live path for micro spines left every
+  // test passing while micro films stopped ending where they began.
+  Object.keys(LEX.STRUCTURES).forEach((len) => {
+    LEX.STRUCTURES[len].spines.forEach((spine, i) => {
+      for (let count = 3; count <= 5; count++) {
+        for (let seed = 0; seed < 8; seed++) {
+          const places = Writer.placesForSpine(spine, count, seed).places;
+          eq(places[places.length - 1], places[0],
+            len + ' shape ' + i + ' (' + spine.join(' ') + ') ends on ' +
+            spine[spine.length - 1] + ' but opens on ' + spine[0] +
+            ', at ' + count + ' places, seed ' + seed);
+        }
+      }
+    });
+  });
+});
+
+console.log('\nSTORIES FROM MADLIBS');
+const Seed = require(path.join(__dirname, '..', 'js', 'story-seed.js'));
+const MADLIBS = require(path.join(__dirname, '..', '..', 'madlibs', 'js', 'generator.js'));
+const MAD_TEMPLATES = require(path.join(__dirname, '..', '..', 'madlibs', 'js', 'templates.js'));
+
+test('every MADLIBS genre maps to a genre SCRIPT FORGE actually has', () => {
+  const templates = MAD_TEMPLATES.templates || MAD_TEMPLATES;
+  const genres = new Set(templates.map((t) => t.genre));
+  assert(genres.size >= 5, 'expected several MADLIBS genres, found ' + genres.size);
+  genres.forEach((g) => {
+    const mapped = Seed.GENRE_FOR[g];
+    assert(mapped, 'no mapping for MADLIBS genre "' + g + '"');
+    assert(LEX.GENRES[mapped], g + ' maps to "' + mapped + '", which SCRIPT FORGE does not have');
+  });
+});
+
+test('every MADLIBS story yields an idea a film can be made from', () => {
+  for (let seed = 0; seed < 60; seed++) {
+    const idea = Seed.idea(seed);
+    assert(idea && typeof idea.text === 'string' && idea.text.length > 20,
+      'seed ' + seed + ' gave no usable idea');
+    assert(LEX.GENRES[idea.genre], 'seed ' + seed + ' gave genre ' + idea.genre);
+
+    const premise = Parse.parse(idea.text, { seed, genre: idea.genre });
+    const script = Writer.write(premise, { length: 'short', seed });
+    assert(script.scenes.length >= 3, 'seed ' + seed + ' produced ' + script.scenes.length + ' scenes');
+    assert(script.title && script.title.length, 'seed ' + seed + ' produced no title');
+    const reel = Reel.build(script);
+    assert(reel.duration > 30, 'seed ' + seed + ' produced a ' + reel.duration + 's film');
+  }
+});
+
+test('the same seed always gives the same story', () => {
+  for (let seed = 0; seed < 20; seed++) {
+    eq(Seed.idea(seed).text, Seed.idea(seed).text, 'seed ' + seed + ' was not deterministic');
+  }
+});
+
+test('different seeds give different stories', () => {
+  const seen = new Set();
+  for (let seed = 0; seed < 40; seed++) seen.add(Seed.idea(seed).text);
+  assert(seen.size >= 20, 'only ' + seen.size + ' distinct stories in 40 seeds');
+});
+
+test('a borrowed story never says "a" before a vowel sound', () => {
+  // MADLIBS decides its article before it knows which role fills the slot,
+  // so roughly 4-6% of borrowed loglines used to read "a astronaut", "a
+  // apothecary", "a archaeologist". Checked across a large sample rather
+  // than a handful of fixed strings, since the bug depends on which role
+  // MADLIBS happens to roll.
+  let offenders = [];
+  for (let seed = 0; seed < 4000; seed++) {
+    const text = Seed.idea(seed).text;
+    const bad = text.match(/(?:^|\s)[Aa] [aeiouAEIOU]\w*/g);
+    if (bad) offenders.push(seed + ': ' + JSON.stringify(bad));
+  }
+  eq(offenders.length, 0, offenders.length + ' of 4000 borrowed loglines say "a" before a vowel sound: ' +
+    offenders.slice(0, 5).join(' | '));
+});
+
+test('an article is only an article when a space follows it', () => {
+  // "the" used to match inside "they": "discovers they are the last heir"
+  // yielded the object "y are", and so a film titled "THE Y ARE". Any typed
+  // idea containing "they" after a find/discover verb hit this.
+  const p = Parse.parse('A brazen pilot named Cordelia discovers they are the last heir to Umberfall.',
+    { seed: 7, genre: 'fantasy' });
+  assert(!/\b(are|were|was|is|be|to|of|and|they)\b/i.test(p.object),
+    'object came back as ' + JSON.stringify(p.object));
+  assert(!/\bY ARE\b/.test(p.title), 'title came back as ' + JSON.stringify(p.title));
+
+  // and the objects it is supposed to find are still found
+  [['a lighthouse keeper finds a radio that plays tomorrow', 'radio'],
+   ['a kid finds a walkie-talkie in an attic', 'walkie-talkie'],
+   ['a thief steals the duffel bag', 'duffel bag'],
+   ['she discovers letters in the attic', 'letters']].forEach((pair) => {
+    eq(Parse.parse(pair[0], { seed: 1 }).object, pair[1], 'object from: ' + pair[0]);
+  });
+});
+
 /* ------------------------------------------------------------------ report */
+console.log('\nUNDER AN OPEN SKY');
+
+/* A film used to be two interiors. It now has three to five places and about a
+ * third of its scenes are exteriors, which is how "Rain finds the same crack in
+ * the sill it always finds" ended up in a parking lot. LEX.OUTDOORS gives those
+ * lines an outdoor twin and the writer swaps them when the scene is EXT. */
+
+const INTERIOR_WORDS = /\b(sill|floor|ceiling|walls?|doorway|hallway|rooms?|corridor|radiator|counter|fridge|floorboard|kettle)\b/i;
+
+// Everything the lexicon can put on a page, as raw strings: a key that matches
+// none of these is a typo and would swap nothing, silently.
+function everyLexiconLine() {
+  const out = new Set();
+  Object.keys(LEX.GENRES).forEach((g) => {
+    LEX.GENRES[g].details.forEach((x) => out.add(x));
+    LEX.GENRES[g].sounds.forEach((x) => out.add(x));
+  });
+  LEX.BEATS.forEach((b) => {
+    ['action', 'actions', 'lines', 'shots', 'openers'].forEach((field) => {
+      if (Array.isArray(b[field])) b[field].forEach((x) => out.add(x));
+    });
+  });
+  return out;
+}
+
+test('every outdoor swap replaces a line that really exists', () => {
+  const lines = everyLexiconLine();
+  const orphans = Object.keys(LEX.OUTDOORS).filter((k) => !lines.has(k));
+  eq(orphans.length, 0,
+    'these OUTDOORS keys match nothing in the lexicon, so they would never fire: ' +
+    JSON.stringify(orphans));
+});
+
+test('an outdoor twin is never itself swapped again', () => {
+  Object.keys(LEX.OUTDOORS).forEach((k) => {
+    const twin = LEX.OUTDOORS[k];
+    assert(LEX.OUTDOORS[twin] === undefined,
+      'the twin of "' + k + '" is itself a key, so the swap would chain');
+    assert(twin !== k, 'the twin of "' + k + '" is the same line');
+  });
+});
+
+test('an outdoor twin mentions nothing that needs a ceiling', () => {
+  Object.keys(LEX.OUTDOORS).forEach((k) => {
+    const twin = LEX.OUTDOORS[k];
+    assert(!INTERIOR_WORDS.test(twin),
+      '"' + twin + '" is the outdoor twin of "' + k + '" but still names an interior');
+  });
+});
+
+test('no exterior scene uses a line that needs a room around it', () => {
+  const keys = new Set(Object.keys(LEX.OUTDOORS));
+  const ideas = [
+    "A lighthouse keeper finds a radio that plays tomorrow's news.",
+    'A courier discovers a package that hums.',
+    'Two sisters inherit a house that remembers them.',
+    'A detective loses the only witness who believed her.',
+    'A diver finds a door on the seabed.'
+  ];
+  const offenders = [];
+  for (let seed = 0; seed < 300; seed++) {
+    const script = Writer.write(Parse.parse(ideas[seed % ideas.length], { seed }),
+      { length: 'short', seed });
+    script.scenes.forEach((scene) => {
+      if (scene.heading.int !== 'EXT.') return;
+      scene.elements.forEach((el) => {
+        if (el.type !== 'action') return;
+        keys.forEach((k) => {
+          // The raw line, and the way it reads once capitalised on the page.
+          const shown = k.charAt(0).toUpperCase() + k.slice(1);
+          if (el.text.indexOf(shown) !== -1 && offenders.length < 5) {
+            offenders.push(scene.heading.text + ' — ' + el.text);
+          }
+        });
+      });
+    });
+  }
+  eq(offenders.length, 0, 'exterior scenes still reading as interiors: ' +
+    JSON.stringify(offenders));
+});
+
+test('an interior scene keeps the interior line', () => {
+  // The swap must be per scene, not global: a lamp room should still have a
+  // radiator in it. Proven by finding at least one interior line still in use.
+  let found = false;
+  const keys = Object.keys(LEX.OUTDOORS);
+  for (let seed = 0; seed < 300 && !found; seed++) {
+    const script = Writer.write(Parse.parse('A lighthouse keeper finds a radio.', { seed }),
+      { length: 'festival', seed });
+    script.scenes.forEach((scene) => {
+      if (scene.heading.int !== 'INT.') return;
+      scene.elements.forEach((el) => {
+        if (el.type !== 'action') return;
+        keys.forEach((k) => {
+          const shown = k.charAt(0).toUpperCase() + k.slice(1);
+          if (el.text.indexOf(shown) !== -1) found = true;
+        });
+      });
+    });
+  }
+  assert(found, 'no interior scene used an interior line — the swap is firing everywhere');
+});
+
+console.log('\nWHERE A CHARACTER IS LOOKING');
+
+/* Two figures in a scene used to stare straight ahead regardless of each other,
+ * which is why a two-shot read as two portraits rather than a conversation.
+ * gazeAt turns the head, and the torso less, toward the other figure. */
+
+function gazeWithinLimits(pose, where) {
+  Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+    const lo = Figures.POSE_LIMITS[joint][0];
+    const hi = Figures.POSE_LIMITS[joint][1];
+    assert(pose[joint] >= lo && pose[joint] <= hi,
+      where + ': ' + joint + ' = ' + pose[joint] + ' is outside [' + lo + ', ' + hi + ']');
+  });
+}
+
+test('a figure turns toward someone standing to their right', () => {
+  const rest = Figures.POSES.stand;
+  const turned = Figures.gazeAt(rest, 100, 400, 1);
+  assert(turned.head > rest.head,
+    'head should turn positive (toward +x) for a listener on the right, got ' + turned.head);
+  assert(turned.torso > rest.torso, 'the torso should follow the head, got ' + turned.torso);
+  assert(Math.abs(turned.torso - rest.torso) < Math.abs(turned.head - rest.head),
+    'the torso should turn less than the head');
+});
+
+test('a figure turns the other way for someone on their left', () => {
+  const rest = Figures.POSES.stand;
+  const right = Figures.gazeAt(rest, 100, 400, 1);
+  const left = Figures.gazeAt(rest, 400, 100, 1);
+  assert(left.head < rest.head, 'head should turn negative for a listener on the left');
+  assert(Math.abs(left.head - rest.head) - Math.abs(right.head - rest.head) < 1e-9,
+    'the turn should be symmetric either way');
+});
+
+test('nobody turns toward themselves', () => {
+  const rest = Figures.POSES.stand;
+  const same = Figures.gazeAt(rest, 250, 250, 1);
+  Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+    eq(same[joint], rest[joint], 'gazing at your own position should change ' + joint);
+  });
+});
+
+test('gaze never bends a neck further than a neck bends', () => {
+  // Absurd distances and amounts must still produce a pose a human could hold.
+  const names = Object.keys(Figures.POSES);
+  [-1e6, -500, -1, 0, 1, 500, 1e6].forEach((otherX) => {
+    [0, 0.5, 1, 4].forEach((amount) => {
+      names.forEach((name) => {
+        gazeWithinLimits(Figures.gazeAt(Figures.POSES[name], 0, otherX, amount),
+          'gazeAt(' + name + ', 0, ' + otherX + ', ' + amount + ')');
+      });
+    });
+  });
+});
+
+test('gaze leaves every joint but the head and torso alone', () => {
+  const rest = Figures.POSES['hands-in-pockets'];
+  const turned = Figures.gazeAt(rest, 0, 900, 1);
+  Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+    if (joint === 'head' || joint === 'torso') return;
+    eq(turned[joint], rest[joint], joint + ' should not move when someone looks sideways');
+  });
+});
+
+console.log('\nA STANDING PERSON IS NEVER STILL');
+
+/* A figure held one pose exactly until the next cut, which is most of what made
+ * them read as cardboard. aliveAt adds a slow weight shift, a shallow breath and
+ * a head settle — small, and driven by the clock and the character's seed so two
+ * recordings of one film still match frame for frame. */
+
+test('being alive is deterministic', () => {
+  for (let seed = 0; seed < 5; seed++) {
+    for (const t of [0, 0.37, 1.5, 9.25, 240]) {
+      const a = Figures.aliveAt(Figures.POSES.stand, t, seed);
+      const b = Figures.aliveAt(Figures.POSES.stand, t, seed);
+      Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+        eq(a[joint], b[joint], 'aliveAt(stand, ' + t + ', ' + seed + ') differed on ' + joint);
+      });
+    }
+  }
+});
+
+test('two characters do not breathe in lockstep', () => {
+  // Same moment, different seeds: if these matched, a two-shot would look like
+  // a chorus line.
+  const a = Figures.aliveAt(Figures.POSES.stand, 3.1, 1);
+  const b = Figures.aliveAt(Figures.POSES.stand, 3.1, 2);
+  const differs = Object.keys(Figures.POSE_LIMITS).some((j) => a[j] !== b[j]);
+  assert(differs, 'two seeds produced identical motion at the same instant');
+});
+
+test('being alive never leaves a pose a human could hold', () => {
+  const names = Object.keys(Figures.POSES);
+  for (const name of names) {
+    for (let seed = 0; seed < 4; seed++) {
+      for (let step = 0; step <= 40; step++) {
+        const pose = Figures.aliveAt(Figures.POSES[name], step * 0.31, seed);
+        gazeWithinLimits(pose, 'aliveAt(' + name + ', ' + (step * 0.31) + ', ' + seed + ')');
+      }
+    }
+  }
+});
+
+test('being alive is a breath, not a dance', () => {
+  // Every joint stays close to where the pose put it: this is life, not a new
+  // pose. Bounded at a tenth of each joint's own range.
+  const names = Object.keys(Figures.POSES);
+  let worst = 0, worstAt = '';
+  names.forEach((name) => {
+    const rest = Figures.POSES[name];
+    for (let seed = 0; seed < 4; seed++) {
+      for (let step = 0; step <= 40; step++) {
+        const pose = Figures.aliveAt(rest, step * 0.29, seed);
+        Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+          const range = Figures.POSE_LIMITS[joint][1] - Figures.POSE_LIMITS[joint][0];
+          const drift = Math.abs(pose[joint] - rest[joint]) / range;
+          if (drift > worst) { worst = drift; worstAt = name + '.' + joint; }
+        });
+      }
+    }
+  });
+  assert(worst <= 0.1, 'the largest drift was ' + worst.toFixed(3) + ' of range at ' + worstAt +
+    ' — that is a new pose, not a breath');
+});
+
+test('nobody is frozen', () => {
+  // The opposite failure: aliveAt that returns the pose unchanged would pass
+  // every test above and do nothing.
+  const rest = Figures.POSES.stand;
+  let moved = false;
+  for (let step = 0; step <= 40 && !moved; step++) {
+    const pose = Figures.aliveAt(rest, step * 0.23, 0);
+    moved = Object.keys(Figures.POSE_LIMITS).some((j) => Math.abs(pose[j] - rest[j]) > 1e-6);
+  }
+  assert(moved, 'aliveAt never moved anything across 40 samples');
+});
+
+console.log('\nA CUT NO LONGER SNAPS');
+
+/* Poses changed instantly at a cut. blendPoses eases between them. It existed
+ * once and was deleted as dead code when nothing called it; this is the caller
+ * it was waiting for. */
+
+test('a blend starts and ends exactly where it should', () => {
+  const a = Figures.POSES.stand, b = Figures.POSES['hands-in-pockets'];
+  const at0 = Figures.blendPoses(a, b, 0);
+  const at1 = Figures.blendPoses(a, b, 1);
+  Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+    eq(at0[joint], a[joint], 't=0 should be the first pose exactly, at ' + joint);
+    eq(at1[joint], b[joint], 't=1 should be the second pose exactly, at ' + joint);
+  });
+});
+
+test('a blend is monotonic between the two poses', () => {
+  const a = Figures.POSES.stand, b = Figures.POSES['turn-away'];
+  Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+    const lo = Math.min(a[joint], b[joint]), hi = Math.max(a[joint], b[joint]);
+    for (let step = 0; step <= 20; step++) {
+      const v = Figures.blendPoses(a, b, step / 20)[joint];
+      assert(v >= lo - 1e-9 && v <= hi + 1e-9,
+        joint + ' left the span between the two poses at t=' + (step / 20) + ': ' + v);
+    }
+  });
+});
+
+test('no blend of any two poses bends past a human', () => {
+  const names = Object.keys(Figures.POSES);
+  names.forEach((from) => {
+    names.forEach((to) => {
+      for (let step = 0; step <= 20; step++) {
+        gazeWithinLimits(Figures.blendPoses(Figures.POSES[from], Figures.POSES[to], step / 20),
+          'blendPoses(' + from + ', ' + to + ', ' + (step / 20) + ')');
+      }
+    });
+  });
+});
+
+test('a blend clamps a t outside 0..1 rather than overshooting', () => {
+  const a = Figures.POSES.stand, b = Figures.POSES.recoil;
+  const under = Figures.blendPoses(a, b, -3);
+  const over = Figures.blendPoses(a, b, 4);
+  Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+    eq(under[joint], a[joint], 't below 0 should hold at the first pose, at ' + joint);
+    eq(over[joint], b[joint], 't above 1 should hold at the second pose, at ' + joint);
+  });
+});
+
+console.log('\nWALKING');
+
+/* On the push beat — the beat that is about momentum — a character crosses part
+ * of the frame instead of standing in it. */
+
+test('a walk keeps a foot on the ground at every phase', () => {
+  // The planted-foot property the still poses already hold, extended to a
+  // moving figure: at no point in the cycle are both feet off the floor, or the
+  // figure is hopping rather than walking.
+  for (let step = 0; step <= 60; step++) {
+    const phase = step / 60;
+    const pose = Figures.walkAt(Figures.POSES.stand, phase);
+    // Reproduce drawBody's own foot arithmetic: 0 hangs straight down.
+    const footL = Math.cos(pose.legL) + Math.cos(pose.legL + pose.shinL);
+    const footR = Math.cos(pose.legR) + Math.cos(pose.legR + pose.shinR);
+    assert(Math.max(footL, footR) > 1.90,
+      'at phase ' + phase.toFixed(2) + ' the lower foot reaches only ' +
+      Math.max(footL, footR).toFixed(3) + ' of 2 leg-lengths — the figure is airborne');
+  }
+});
+
+test('a walk is a cycle: it ends where it began', () => {
+  const start = Figures.walkAt(Figures.POSES.stand, 0);
+  const end = Figures.walkAt(Figures.POSES.stand, 1);
+  Object.keys(Figures.POSE_LIMITS).forEach((joint) => {
+    assert(Math.abs(start[joint] - end[joint]) < 1e-9,
+      joint + ' does not return to its starting angle after a full cycle');
+  });
+});
+
+test('the legs alternate rather than moving together', () => {
+  // Both legs swinging in phase is a bunny hop, not a walk.
+  let opposed = 0;
+  for (let step = 0; step < 20; step++) {
+    const p = Figures.walkAt(Figures.POSES.stand, step / 20);
+    if ((p.legL - Figures.POSES.stand.legL) * (p.legR - Figures.POSES.stand.legR) < 0) opposed++;
+  }
+  assert(opposed >= 14, 'the legs were in opposition in only ' + opposed + ' of 20 samples');
+});
+
+test('a walk never bends past a human', () => {
+  Object.keys(Figures.POSES).forEach((name) => {
+    for (let step = 0; step <= 40; step++) {
+      gazeWithinLimits(Figures.walkAt(Figures.POSES[name], step / 40),
+        'walkAt(' + name + ', ' + (step / 40) + ')');
+    }
+  });
+});
+
+console.log('\nVOICES THAT SAY A VOWEL');
+
+/* Every syllable used to be the same blip, pitched by character and shaped by
+ * an arbitrary character code. Now each one takes the vowel that is actually in
+ * the word, so "I can't" and "Say it" stop sounding identical. */
+
+test('every vowel the lexicon can speak has a formant pair', () => {
+  const vowels = Object.keys(Score.FORMANTS);
+  assert(vowels.length >= 5, 'a voice needs at least the five vowels, saw ' + vowels.length);
+  vowels.forEach((v) => {
+    const f = Score.FORMANTS[v];
+    assert(Array.isArray(f) && f.length === 2, v + ' has no [F1, F2] pair');
+    assert(f[0] > 200 && f[0] < 1200, v + ' F1 of ' + f[0] + 'Hz is not a human first formant');
+    assert(f[1] > f[0], v + ' F2 (' + f[1] + ') must sit above F1 (' + f[0] + ')');
+    assert(f[1] < 3000, v + ' F2 of ' + f[1] + 'Hz is not a human second formant');
+  });
+});
+
+test('a caption yields one vowel per syllable, every time', () => {
+  const lines = ['Say it.', "I can't.", 'You were not there.',
+                 'That is the whole sentence. There is no rest of it.',
+                 'Then we are done here.'];
+  lines.forEach((line) => {
+    const n = Parse.syllablesFor(line);
+    const a = Parse.vowelsFor(line, n);
+    const b = Parse.vowelsFor(line, n);
+    eq(a.length, n, 'vowelsFor should return one vowel per syllable for ' + JSON.stringify(line));
+    eq(a.join(''), b.join(''), 'vowelsFor was not deterministic for ' + JSON.stringify(line));
+    a.forEach((v) => {
+      assert(Score.FORMANTS[v], JSON.stringify(line) + ' produced vowel ' + JSON.stringify(v) +
+        ' which has no formant pair');
+    });
+  });
+});
+
+test('two different lines do not sound the same', () => {
+  // The whole point: the blips were identical regardless of the words.
+  const a = Parse.vowelsFor('Say it.', Parse.syllablesFor('Say it.')).join('');
+  const b = Parse.vowelsFor("I can't.", Parse.syllablesFor("I can't.")).join('');
+  assert(a !== b, 'two different lines produced the same vowel sequence: ' + a);
+});
+
+test('a line with no vowels at all still speaks', () => {
+  ['...', '!!!', '', 'Hmm', 'Shh'].forEach((odd) => {
+    const n = Parse.syllablesFor(odd);
+    const v = Parse.vowelsFor(odd, n);
+    eq(v.length, n, JSON.stringify(odd) + ' should still produce ' + n + ' speakable syllables');
+    v.forEach((x) => assert(Score.FORMANTS[x], JSON.stringify(odd) + ' produced unspeakable ' + x));
+  });
+});
+
+test('the vowels follow the words in order', () => {
+  // "oh no" must not come out "no oh": the mouth has to match the caption.
+  const v = Parse.vowelsFor('oh ee', 2);
+  eq(v[0], 'o', 'the first vowel of "oh ee" should be o, got ' + v[0]);
+  eq(v[1], 'i', 'the second vowel of "oh ee" should be i, got ' + v[1]);
+});
+
 console.log('');
 if (failures.length) {
   console.error('✖ ' + failures.length + ' failing test(s):');

@@ -45,10 +45,16 @@ def _scratch_copy(tmp_path: Path) -> Path:
     """A scratch copy of just enough of the real repo to run the real
     `film/tests/film-logic.test.js`, `music/tests/music-logic.test.js` and
     `scripts/check-exchange.mjs` against: the real `shared/`, `music/`,
-    `film/` and `scripts/` directories, copied straight off disk.
+    `film/`, `madlibs/` and `scripts/` directories, copied straight off disk.
+
+    `madlibs/` is here because film's idea box borrows a MADLIBS story, so
+    film/index.html loads madlibs/js/*.js and shared/exchange.json declares it.
+    check-exchange.mjs verifies every declared file exists, so leaving madlibs
+    out makes it fail on the fixture for a reason that has nothing to do with
+    the breakage the test is actually about.
     """
     root = tmp_path / "repo"
-    for rel in ("shared", "music", "film", "scripts"):
+    for rel in ("shared", "music", "film", "madlibs", "scripts"):
         shutil.copytree(REPO_ROOT / rel, root / rel)
     return root
 

@@ -1,3 +1,1365 @@
+# Unit tests for the pure-logic modules (math, collision, spatial grid, ECS, shake, particles).
+# No GPU/window needed — fast, deterministic, and the first line of defence against logic bugs.
+add_executable(maz_unit_tests unit/main.cpp)
+target_link_libraries(maz_unit_tests PRIVATE maz::maz maz_warnings)
+# The ZOMBOID game logic (scripts + scene builder) is shared between its app and these tests.
+target_include_directories(maz_unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/zomboid)
+# unit/main.cpp is one 33k-line translation unit and overruns the number of sections a COFF
+# object file can hold, which MSVC reports as C1128 and tells you to fix with this exact flag.
+# It raises a format limit; it does not relax a warning or a check.
+if(MSVC)
+    target_compile_options(maz_unit_tests PRIVATE /bigobj)
+endif()
+add_test(NAME unit_tests COMMAND maz_unit_tests)
+set_tests_properties(unit_tests PROPERTIES TIMEOUT 30)
+
+# Networking transport: a REAL UDP round-trip between two sockets on the loopback interface. This is
+# the "networking between two machines" proof at its smallest honest scale — actual OS sockets, not a
+# mock — the same code path two physical machines use, only the destination IP differs. No GPU needed.
+add_executable(maz_net_tests net/loopback.cpp)
+target_link_libraries(maz_net_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME net_loopback COMMAND maz_net_tests)
+set_tests_properties(net_loopback PROPERTIES TIMEOUT 30)
+
+# Reliability wired onto the transport: net::ReliableChannel delivers whole messages reliably and
+# in order over real UDP even across a 40%-packet-loss link (retransmit + ack + reorder). The proof
+# that the ack layer (AckSender/AckReceiver) + UdpSocket compose into real reliable networking.
+add_executable(maz_net_reliable_tests net/reliable.cpp)
+target_link_libraries(maz_net_reliable_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME net_reliable COMMAND maz_net_reliable_tests)
+set_tests_properties(net_reliable PROPERTIES TIMEOUT 30)
+
+# FBX geometry import: parse an ASCII .fbx mesh (Vertices + PolygonVertexIndex, ~i polygon terminator,
+# fan-triangulation) into shapes::MeshData. Pure CPU — verifies a hand-authored unit cube headlessly.
+add_executable(maz_fbx_tests render/fbx.cpp)
+target_link_libraries(maz_fbx_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME fbx_import COMMAND maz_fbx_tests)
+set_tests_properties(fbx_import PROPERTIES TIMEOUT 30)
+
+# Netpbm (PNM) image codec: decode P1..P6 + encode P6/P3, checked against hand-authored byte streams
+# (independent of the implementation) plus an encode->decode round-trip. Pure CPU, headless.
+add_executable(maz_pnm_tests render/pnm.cpp)
+target_link_libraries(maz_pnm_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME pnm_codec COMMAND maz_pnm_tests)
+set_tests_properties(pnm_codec PROPERTIES TIMEOUT 30)
+
+# GPU-driven particle simulation + plane collision (fx::GpuParticleSystem). The CPU step is the exact
+# arithmetic the compute shader runs, so bounce energy, no-sink, friction, lifecycle and the instance
+# buffer are all verified headlessly here; the GPU dispatch + instanced draw are owner-verified.
+add_executable(maz_gpu_particles_tests fx/gpu_particles.cpp)
+target_link_libraries(maz_gpu_particles_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME gpu_particles COMMAND maz_gpu_particles_tests)
+set_tests_properties(gpu_particles PROPERTIES TIMEOUT 30)
+
+# Screen-space reflections (render::ssrTrace): reflection ray-march projected against a hand-built depth
+# buffer — wall-hit UV/depth, sky miss, off-screen miss, thickness gate, reflect/project. The trace math is
+# exactly what the SSR shader runs; producing the reflected image is the owner-verified GPU pass.
+add_executable(maz_ssr_tests render/ssr.cpp)
+target_link_libraries(maz_ssr_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ssr_trace COMMAND maz_ssr_tests)
+set_tests_properties(ssr_trace PROPERTIES TIMEOUT 30)
+
+# One-bounce global-illumination gather (render::gatherIrradiance / bakeIndirect): cosine-weighted
+# hemisphere path-trace of indirect + sky irradiance. Verified headlessly — open sky returns exactly the sky
+# color, facing a bright patch beats facing away, a dark ceiling darkens the gather, energy stays bounded.
+add_executable(maz_gi_tests render/gi.cpp)
+target_link_libraries(maz_gi_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME gi_gather COMMAND maz_gi_tests)
+set_tests_properties(gi_gather PROPERTIES TIMEOUT 30)
+
+# Dynamic extension loader (maz::ext::DynamicLibrary / loadExtensionLibrary). End-to-end, NOT a mock: build
+# the sample plugin as a real shared library (a MODULE), then the test dlopen/LoadLibrary's it at runtime and
+# calls a class it registered across the C ABI. The plugin path is injected as MAZ_COUNTER_PLUGIN_PATH.
+add_library(maz_counter_plugin MODULE ${CMAKE_SOURCE_DIR}/examples/plugins/counter_plugin.cpp)
+target_link_libraries(maz_counter_plugin PRIVATE maz::maz)
+set_target_properties(maz_counter_plugin PROPERTIES PREFIX "" OUTPUT_NAME "counter_plugin")
+
+add_executable(maz_ext_dynamic_tests ext/dynamic.cpp)
+target_link_libraries(maz_ext_dynamic_tests PRIVATE maz::maz maz_warnings ${CMAKE_DL_LIBS})
+target_compile_definitions(maz_ext_dynamic_tests PRIVATE
+    MAZ_COUNTER_PLUGIN_PATH="$<TARGET_FILE:maz_counter_plugin>")
+add_dependencies(maz_ext_dynamic_tests maz_counter_plugin)
+add_test(NAME ext_dynamic COMMAND maz_ext_dynamic_tests)
+set_tests_properties(ext_dynamic PROPERTIES TIMEOUT 30)
+
+# Static docs-site generator (maz::docs): Markdown subset -> linked HTML site. Verified headlessly on
+# in-memory strings — heading/list/code/bold/inline-code rendering, HTML escaping, .md->.html link rewrite,
+# and index + per-page + shared-nav site assembly.
+add_executable(maz_docs_tests docs/site.cpp)
+target_link_libraries(maz_docs_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME docs_site COMMAND maz_docs_tests)
+set_tests_properties(docs_site PROPERTIES TIMEOUT 30)
+
+# Web/native main-loop driver (platform::runMainLoop / runMainLoopBounded). The native path — the loop that
+# runs, stops on request, and honors the iteration cap — is verified here; the __EMSCRIPTEN__ browser-callback
+# path compiles only under the Emscripten toolchain (see docs/WEB_BUILD.md).
+add_executable(maz_webloop_tests platform/webloop.cpp)
+target_link_libraries(maz_webloop_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME webloop COMMAND maz_webloop_tests)
+set_tests_properties(webloop PROPERTIES TIMEOUT 30)
+
+# Per-platform backend seam (platform::PlatformBackend + HeadlessBackend + PlatformRegistry). The headless
+# backend + registry are pure CPU: capabilities, init/shutdown lifecycle, directory resolution, suspend/
+# resume transitions, and backend-by-id selection are verified here (console/VR/mobile backends are the
+# documented human step, see docs/PLATFORMS.md).
+add_executable(maz_platform_backend_tests platform/backend.cpp)
+target_link_libraries(maz_platform_backend_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME platform_backend COMMAND maz_platform_backend_tests)
+set_tests_properties(platform_backend PROPERTIES TIMEOUT 30)
+
+# Multi-touch input model (platform::Input touch points). Touch is the primary input on mobile, so the engine
+# tracks several contacts at once with the same per-frame edge detection keys/buttons use. Pure CPU (onTouch()
+# driven directly, as Window::pumpEvents does from SDL finger events): press/move/release lifecycle, stable
+# per-finger ids, motion-delta accumulation, pressed/released edges, and multi-touch capacity are verified here.
+# Display safe-area geometry (platform::SafeArea) — keeps virtual controls + HUD clear of the phone notch,
+# rounded corners, status bar, and home indicator. Pure deterministic math (the live inset values come from
+# the mobile backend): inset sanitize, the usable safe rectangle, point-clamp / rect-fit, orientation
+# rotation, and the PlatformBackend::safeAreaInsets() zero default on desktop are verified here.
+add_executable(maz_platform_safearea_tests platform/safearea.cpp)
+target_link_libraries(maz_platform_safearea_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME platform_safearea COMMAND maz_platform_safearea_tests)
+set_tests_properties(platform_safearea PROPERTIES TIMEOUT 30)
+
+# Power-aware policy (platform::PowerState) — the battery/thermal snapshot a mobile game consults to ease off
+# (cap fps, shrink budgets) plus the recommendsPowerSave / recommendedFps / powerBudgetScale helpers and the
+# PlatformBackend::powerState() neutral default on desktop. Pure deterministic decisions, verified here.
+add_executable(maz_platform_powerstate_tests platform/powerstate.cpp)
+target_link_libraries(maz_platform_powerstate_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME platform_powerstate COMMAND maz_platform_powerstate_tests)
+set_tests_properties(platform_powerstate PROPERTIES TIMEOUT 30)
+
+# Screen orientation (platform::Orientation) — classify portrait/landscape, map a ScreenOrientation to the
+# quarter-turns SafeArea::rotateInsets consumes, and re-derive safe-area insets for the current orientation
+# from portrait-authored values; plus the PlatformBackend::orientation() Unknown default on desktop.
+add_executable(maz_platform_orientation_tests platform/orientation.cpp)
+target_link_libraries(maz_platform_orientation_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME platform_orientation COMMAND maz_platform_orientation_tests)
+set_tests_properties(platform_orientation PROPERTIES TIMEOUT 30)
+
+# Haptic feedback seam (PlatformBackend::triggerHaptic + platform::Haptics) — the vibration-request API a
+# mobile game calls for game feel. Pure/headless: HeadlessBackend records dispatches, DesktopBackend no-ops,
+# and the hapticName / hapticIntensity / isImpact helpers are verified here (real buzz is the mobile backend).
+add_executable(maz_platform_haptics_tests platform/haptics.cpp)
+target_link_libraries(maz_platform_haptics_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME platform_haptics COMMAND maz_platform_haptics_tests)
+set_tests_properties(platform_haptics PROPERTIES TIMEOUT 30)
+
+# On-screen (soft) keyboard seam (PlatformBackend::show/hideSoftKeyboard + platform::SoftKeyboard) — the IME
+# control a mobile game needs for text entry. Pure/headless: HeadlessBackend records show requests + tracks
+# visibility/type, DesktopBackend tracks the logical state, and softKeyboardTypeName() is verified here.
+add_executable(maz_platform_softkeyboard_tests platform/softkeyboard.cpp)
+target_link_libraries(maz_platform_softkeyboard_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME platform_softkeyboard COMMAND maz_platform_softkeyboard_tests)
+set_tests_properties(platform_softkeyboard PROPERTIES TIMEOUT 30)
+
+# Network reachability policy (PlatformBackend::reachability + platform::Network) — the connection-type gate a
+# mobile game uses to hold large downloads for Wi-Fi and avoid metered cellular data. Pure deterministic
+# decisions (isOnline/isMetered/isUnmeteredOnline) + names + the desktop Unknown default, verified here.
+add_executable(maz_platform_network_tests platform/network.cpp)
+target_link_libraries(maz_platform_network_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME platform_network COMMAND maz_platform_network_tests)
+set_tests_properties(platform_network PROPERTIES TIMEOUT 30)
+
+# Motion sensors (platform::Motion) — turns a raw accelerometer/gyroscope MotionState into a tilt steering
+# vector, a shake gesture, a flat-device test, and a low-pass smoother, with the desktop all-zero (no IMU)
+# default. Pure deterministic math, verified headlessly; the live reading comes from a mobile backend.
+add_executable(maz_platform_motion_tests platform/motion.cpp)
+target_link_libraries(maz_platform_motion_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME platform_motion COMMAND maz_platform_motion_tests)
+set_tests_properties(platform_motion PROPERTIES TIMEOUT 30)
+
+# Touch-target sizing (platform::TouchTarget) — converts a comfortable physical touch size (mm) to pixels
+# across DPIs, with meets/expand accessibility helpers and dpi-from-diagonal. Pure deterministic math.
+add_executable(maz_platform_touchtarget_tests platform/touchtarget.cpp)
+target_link_libraries(maz_platform_touchtarget_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME platform_touchtarget COMMAND maz_platform_touchtarget_tests)
+set_tests_properties(platform_touchtarget PROPERTIES TIMEOUT 30)
+
+# Thumb-zone control placement (platform::ThumbZone) — puts a movement stick + action cluster in the natural
+# bottom thumb zones inside the safe area (right/left-handed), with size clamping and thumb-reach helpers.
+add_executable(maz_platform_thumbzone_tests platform/thumbzone.cpp)
+target_link_libraries(maz_platform_thumbzone_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME platform_thumbzone COMMAND maz_platform_thumbzone_tests)
+set_tests_properties(platform_thumbzone PROPERTIES TIMEOUT 30)
+
+add_executable(maz_platform_touch_tests platform/touch.cpp)
+target_link_libraries(maz_platform_touch_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME platform_touch COMMAND maz_platform_touch_tests)
+set_tests_properties(platform_touch PROPERTIES TIMEOUT 30)
+
+# On-screen virtual controls (input::VirtualStick / VirtualButton / VirtualControls) — the touch equivalent of
+# a gamepad so phone/tablet builds play a stick+buttons game without a physical controller. Pure CPU (a
+# platform::Input driven with synthetic touch points): fixed-stick offset->vector with screen-Y inverted,
+# floating-stick recenter, button held/pressed/released edges, and multi-touch one-claim-per-widget are here.
+add_executable(maz_input_virtualcontrols_tests input/virtualcontrols.cpp)
+target_link_libraries(maz_input_virtualcontrols_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME input_virtualcontrols COMMAND maz_input_virtualcontrols_tests)
+set_tests_properties(input_virtualcontrols PROPERTIES TIMEOUT 30)
+
+# Touch gesture recognizer (input::GestureDetector) — tap / double-tap / long-press / swipe / pinch on top of
+# the WS1 touch points. Pure CPU, deterministic (dt-driven): synthetic finger sequences exercise each gesture
+# and the negative cases (slow drag is neither tap nor swipe; taps far apart in time aren't a double-tap).
+add_executable(maz_input_gestures_tests input/gestures.cpp)
+target_link_libraries(maz_input_gestures_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME input_gestures COMMAND maz_input_gestures_tests)
+set_tests_properties(input_gestures PROPERTIES TIMEOUT 30)
+
+# QOA (Quite OK Audio) codec (audio::encodeQoa / decodeQoa) — a full spec-accurate encoder + decoder,
+# verified headlessly by an encode->decode round-trip (mono + stereo) that checks header/metadata/sample
+# count, bounded lossy error, and that the stream is smaller than 16-bit PCM. No external reference file.
+add_executable(maz_qoa_tests audio/qoa.cpp)
+target_link_libraries(maz_qoa_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME qoa_codec COMMAND maz_qoa_tests)
+set_tests_properties(qoa_codec PROPERTIES TIMEOUT 30)
+
+# Malformed-input robustness fuzz for the binary audio + container decoders (decodeWav/decodeQoa/
+# decodeImaAdpcm/parseGlb): truncations, mutations, random buffers, and a large declared sample count vs a
+# short data block. In the Release gate it catches crashes/hangs/OOM on corrupt assets; under the ASan/UBSan
+# job it also catches out-of-bounds reads and integer UB. Found (and this now guards) two real QOA bugs: a
+# signed-overflow in the encoder's qoaDiv and an unbounded allocation in decodeQoa on a hostile header.
+add_executable(maz_audiocontainerfuzz_tests audio/audiocontainerfuzz.cpp)
+target_link_libraries(maz_audiocontainerfuzz_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME audiocontainer_fuzz COMMAND maz_audiocontainerfuzz_tests)
+set_tests_properties(audiocontainer_fuzz PROPERTIES TIMEOUT 120)
+
+# Malformed-input robustness fuzz for the text/structured parsers (parseJson/XmlParser/base64Decode/
+# parsePly/parseObj/parseMtl): random buffers, truncations/mutations, and structural stressors (deeply
+# nested JSON, an absurd PLY element count). Release gate catches crashes/hangs/OOM; ASan/UBSan job catches
+# OOB + UB. Found (and now guards) two real bugs: unbounded JSON recursion (stack overflow) and an unbounded
+# PLY reserve (OOM), both fixable only under adversarial input the valid-input tests never reach.
+add_executable(maz_textparserfuzz_tests io/textparserfuzz.cpp)
+target_link_libraries(maz_textparserfuzz_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME textparser_fuzz COMMAND maz_textparserfuzz_tests)
+set_tests_properties(textparser_fuzz PROPERTIES TIMEOUT 120)
+
+# Malformed-input robustness fuzz for the binary resource-pack archive (io::ResourcePack::load), the .pck a
+# shipping/mobile game loads every asset from: truncations, mutations, random buffers, and a header with an
+# absurd entry count. Release gate catches crashes/hangs/OOM; the ASan/UBSan job catches OOB + UB. Found (and
+# now guards) an unbounded dir.reserve(count) that OOM-crashed on a hostile header.
+add_executable(maz_resourcepackfuzz_tests io/resourcepackfuzz.cpp)
+target_link_libraries(maz_resourcepackfuzz_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME resourcepack_fuzz COMMAND maz_resourcepackfuzz_tests)
+set_tests_properties(resourcepack_fuzz PROPERTIES TIMEOUT 120)
+
+# G.711 mu-law / A-law companding codec (audio::encodeMuLaw / decodeMuLaw / encodeALaw / decodeALaw) — the
+# ITU-T telephony/VoIP audio format (a common .wav payload). Verified against spec anchors (mu-law silence ->
+# 0xFF), sign + monotonicity, and a 2:1 encode->decode round-trip with bounded log-quantization error.
+add_executable(maz_g711_tests audio/g711.cpp)
+target_link_libraries(maz_g711_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME g711_codec COMMAND maz_g711_tests)
+set_tests_properties(g711_codec PROPERTIES TIMEOUT 30)
+
+# WebSocket (RFC 6455) handshake + frame codec (net::wsAcceptKey / wsEncodeFrame / wsDecodeFrame) — the
+# transport a browser/WASM build must use (raw UDP is unavailable in a browser). Verified against RFC 6455's
+# own golden vectors: the canonical accept key and the canonical masked/unmasked "Hello" frames, plus a
+# round-trip and the partial-buffer "need more" case. No live socket.
+add_executable(maz_websocket_tests net/websocket.cpp)
+target_link_libraries(maz_websocket_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME websocket COMMAND maz_websocket_tests)
+set_tests_properties(websocket PROPERTIES TIMEOUT 30)
+
+# Malformed-input robustness fuzz for the WebSocket frame decoder (net::wsDecodeFrame), the parser a Maz
+# server runs on every byte a remote browser client sends — the most exposed untrusted surface. Feeds the
+# length-field overflow that crashed it, truncations/mutations of valid frames, and random buffers. Release
+# gate catches crashes/hangs; the ASan/UBSan job catches OOB + UB. Found (and now guards) a remote DoS: a
+# 64-bit frame length near UINT64_MAX overflowed the bounds check and threw std::length_error out of resize.
+add_executable(maz_websocketfuzz_tests net/websocketfuzz.cpp)
+target_link_libraries(maz_websocketfuzz_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME websocket_fuzz COMMAND maz_websocketfuzz_tests)
+set_tests_properties(websocket_fuzz PROPERTIES TIMEOUT 120)
+
+# Malformed-input robustness fuzz for the scripting VM's recursive-descent parser (script::Vm::run), which a
+# shipping game runs on untrusted third-party MOD scripts — a highly exposed surface. Feeds deep-nesting
+# structural stressors (parens/brackets/blocks/if/type params that overflow the native stack), plus
+# truncations/mutations of valid programs and random buffers. The ASan/UBSan job catches stack overflow +
+# OOB + UB. Found (and now guards) a stack-overflow DoS: unbounded recursion in Parser::primary()/
+# expression()/statement(), fixed with a parse-depth guard mirroring the JSON parser.
+add_executable(maz_scriptparserfuzz_tests script/scriptparserfuzz.cpp)
+target_link_libraries(maz_scriptparserfuzz_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME scriptparser_fuzz COMMAND maz_scriptparserfuzz_tests)
+set_tests_properties(scriptparser_fuzz PROPERTIES TIMEOUT 120)
+
+# Malformed-input robustness fuzz for the compression / entropy / binary-serialization decoders a game runs on
+# untrusted assets, saves, and downloaded content: inflate/zlib, gzip, LZW, Huffman, LZ77, BWT inverse, the
+# range (arithmetic) coder, MessagePack, and varints. Feeds absurd length/count headers, truncations/mutations
+# of valid seeds, and random buffers. The ASan/UBSan job catches OOB + OOM + UB. Found (and now guards) an OOM
+# DoS: rangeDecode reserve()d ~17 GB from a hostile 4-byte symbol-count header.
+add_executable(maz_codecfuzz_tests io/codecfuzz.cpp)
+target_link_libraries(maz_codecfuzz_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME codec_fuzz COMMAND maz_codecfuzz_tests)
+set_tests_properties(codec_fuzz PROPERTIES TIMEOUT 120)
+
+# Malformed-input robustness fuzz for the 3D-asset container/model parsers a game imports from untrusted
+# files: the ASCII FBX geometry importer (render::parseFbxAscii), the GLB binary container splitter
+# (render::parseGlb), and the MP3 frame scanner (audio::scanMp3). Feeds absurd length/count fields,
+# truncations/mutations of valid seeds, and random buffers. The ASan/UBSan job catches OOB + OOM + UB (with
+# float-cast-overflow enabled). Found (and now guards) a UB: parseFbxAscii static_cast<int>'d a polygon index
+# parsed from text, so a NaN / out-of-int-range value in PolygonVertexIndex was undefined behavior.
+add_executable(maz_modelparserfuzz_tests render/modelparserfuzz.cpp)
+target_link_libraries(maz_modelparserfuzz_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME modelparser_fuzz COMMAND maz_modelparserfuzz_tests)
+set_tests_properties(modelparser_fuzz PROPERTIES TIMEOUT 120)
+
+# Malformed-input robustness fuzz for the binary save-file deserializers a game loads from untrusted bytes:
+# the input-replay reader (core::Replay<T>::load), the checkpoint save-file reader (core::Checkpoints::loadFile),
+# and the move-to-front inverse (io::mtfDecode). Feeds absurd count/length headers, truncations/mutations of
+# valid seeds, and random buffers. The ASan/UBSan job catches OOB + OOM + UB. Found (and now guards) an OOM
+# DoS: Replay::load reserve()d frameCount frames from a hostile 4-byte header and expanded runs unboundedly.
+add_executable(maz_savefilefuzz_tests core/savefilefuzz.cpp)
+target_link_libraries(maz_savefilefuzz_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME savefile_fuzz COMMAND maz_savefilefuzz_tests)
+set_tests_properties(savefile_fuzz PROPERTIES TIMEOUT 120)
+
+# Malformed-input robustness fuzz for the HDR image decoder (io::decodeHdr) and the .tres-style prefab text
+# loader (io::loadPrefabText) — both consume untrusted asset files (an .hdr skybox/IBL, a prefab resource).
+# Feeds absurd resolution headers, truncations/mutations of valid seeds, and random buffers. The ASan/UBSan
+# job catches OOB + OOM + UB. Found (and now guards) an OOM DoS: decodeHdr allocated width*height*3 floats
+# straight from the resolution line, so a tiny "-Y 100000 +X 100000" file forced a ~120 GB allocation.
+add_executable(maz_hdrfuzz_tests io/hdrfuzz.cpp)
+target_link_libraries(maz_hdrfuzz_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME hdr_fuzz COMMAND maz_hdrfuzz_tests)
+set_tests_properties(hdr_fuzz PROPERTIES TIMEOUT 120)
+
+# Malformed-input robustness fuzz for the binary patch applier (io::binaryPatch), which reconstructs a target
+# from a base + a delta patch a game applies to update assets/saves (patch can come from a download/mod).
+# Feeds COPY/ADD length varints near UINT64_MAX, truncations/mutations of valid patches, and random buffers.
+# The ASan/UBSan job catches OOB + UB. Found (and now guards) an OOB: `srcOff + len` / `off + len` overflowed,
+# slipping a huge length past the bounds check into an out-of-range insert().
+add_executable(maz_binarydifffuzz_tests io/binarydifffuzz.cpp)
+target_link_libraries(maz_binarydifffuzz_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME binarydiff_fuzz COMMAND maz_binarydifffuzz_tests)
+set_tests_properties(binarydiff_fuzz PROPERTIES TIMEOUT 120)
+
+# Reflection-probe / cubemap CAPTURE matrices (render::cubeFaceView / cubeFaceProjection). Verified for
+# self-consistency with the Cubemap.hpp sampler: each face's look axis maps back to that face and projects
+# to the face center, the projection is a true 90-degree FOV, and the six frustums tile the sphere. Pure
+# matrix math; the six GPU render passes are owner-verified.
+add_executable(maz_cubemap_capture_tests render/cubemap_capture.cpp)
+target_link_libraries(maz_cubemap_capture_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME cubemap_capture COMMAND maz_cubemap_capture_tests)
+set_tests_properties(cubemap_capture PROPERTIES TIMEOUT 30)
+
+# GLB (binary glTF) container parser (render::parseGlb / buildGlb) — split a .glb byte buffer into its JSON
+# and BIN chunks without a file device or cgltf. Verified against hand-built buffers: build->parse
+# round-trip, JSON-only files, header magic/version/length validation, spec chunk padding, unknown-chunk skip.
+add_executable(maz_glb_tests render/glb.cpp)
+target_link_libraries(maz_glb_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME glb_container COMMAND maz_glb_tests)
+set_tests_properties(glb_container PROPERTIES TIMEOUT 30)
+
+# Multi-bounce global illumination / progressive radiosity (render::bakeRadiosity) on the tested hemisphere
+# gather: verifies the signature of a correct solve — total light grows across bounces but the increments
+# shrink (converges), zero albedo means no indirect, and energy stays within the geometric-series bound.
+add_executable(maz_radiosity_tests render/radiosity.cpp)
+target_link_libraries(maz_radiosity_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME radiosity COMMAND maz_radiosity_tests)
+set_tests_properties(radiosity PROPERTIES TIMEOUT 60)
+
+# Vertex-cache optimization (render::optimizeVertexCache, Forsyth's algorithm): reorders triangle indices
+# for GPU post-transform cache locality. Verified headlessly — the reordering is a lossless permutation of
+# the exact same triangle set, and the simulated-cache ACMR drops versus the naive row-major grid order.
+add_executable(maz_vertexcache_tests render/vertexcache.cpp)
+target_link_libraries(maz_vertexcache_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME vertex_cache COMMAND maz_vertexcache_tests)
+set_tests_properties(vertex_cache PROPERTIES TIMEOUT 30)
+
+# Mesh simplification by vertex clustering (render::simplifyClustering) — grid-based decimation for LODs and
+# collision hulls. Verified headlessly: output has fewer verts/tris, every triangle is non-degenerate and
+# in range, the bbox is preserved within one cell, coarser cells reduce more, and a sub-spacing cell no-ops.
+add_executable(maz_meshsimplify_tests render/meshsimplify.cpp)
+target_link_libraries(maz_meshsimplify_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_simplify COMMAND maz_meshsimplify_tests)
+set_tests_properties(mesh_simplify PROPERTIES TIMEOUT 30)
+
+add_executable(maz_gif_tests render/gif.cpp)
+target_link_libraries(maz_gif_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME gif_codec COMMAND maz_gif_tests)
+set_tests_properties(gif_codec PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshsimplifyquadric_tests render/meshsimplifyquadric.cpp)
+target_link_libraries(maz_meshsimplifyquadric_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_simplify_quadric COMMAND maz_meshsimplifyquadric_tests)
+set_tests_properties(mesh_simplify_quadric PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshlodbuilder_tests render/meshlodbuilder.cpp)
+target_link_libraries(maz_meshlodbuilder_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_lod_builder COMMAND maz_meshlodbuilder_tests)
+set_tests_properties(mesh_lod_builder PROPERTIES TIMEOUT 30)
+
+# Malformed-input robustness fuzz for the hand-written image decoders (BMP/TGA/GIF/PNM/DDS/PNG): feeds
+# truncated, mutated, and random byte buffers to each decode* entry point. In the plain Release gate it
+# catches crashes/hangs on corrupt assets; under the ASan/UBSan sanitizer job it also catches out-of-bounds
+# reads and integer UB (that job builds + runs this target too). Verified clean at introduction.
+add_executable(maz_imagecodecfuzz_tests render/imagecodecfuzz.cpp)
+target_link_libraries(maz_imagecodecfuzz_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME imagecodec_fuzz COMMAND maz_imagecodecfuzz_tests)
+set_tests_properties(imagecodec_fuzz PROPERTIES TIMEOUT 120)
+
+add_executable(maz_meshraybvh_tests render/meshraybvh.cpp)
+target_link_libraries(maz_meshraybvh_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_ray_bvh COMMAND maz_meshraybvh_tests)
+set_tests_properties(mesh_ray_bvh PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshselfintersect_tests render/meshselfintersect.cpp)
+target_link_libraries(maz_meshselfintersect_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_self_intersect COMMAND maz_meshselfintersect_tests)
+set_tests_properties(mesh_self_intersect PROPERTIES TIMEOUT 30)
+
+add_executable(maz_frustumcull_tests render/frustumcull.cpp)
+target_link_libraries(maz_frustumcull_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME frustum_cull COMMAND maz_frustumcull_tests)
+set_tests_properties(frustum_cull PROPERTIES TIMEOUT 30)
+
+add_executable(maz_overdraw_tests render/overdraw.cpp)
+target_link_libraries(maz_overdraw_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME overdraw_optimize COMMAND maz_overdraw_tests)
+set_tests_properties(overdraw_optimize PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshtopology_tests render/meshtopology.cpp)
+target_link_libraries(maz_meshtopology_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_topology COMMAND maz_meshtopology_tests)
+set_tests_properties(mesh_topology PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshcomponents_tests render/meshcomponents.cpp)
+target_link_libraries(maz_meshcomponents_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_components COMMAND maz_meshcomponents_tests)
+set_tests_properties(mesh_components PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshquantize_tests render/meshquantize.cpp)
+target_link_libraries(maz_meshquantize_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_quantize COMMAND maz_meshquantize_tests)
+set_tests_properties(mesh_quantize PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshplanarregions_tests render/meshplanarregions.cpp)
+target_link_libraries(maz_meshplanarregions_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_planar_regions COMMAND maz_meshplanarregions_tests)
+set_tests_properties(mesh_planar_regions PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshmassproperties_tests render/meshmassproperties.cpp)
+target_link_libraries(maz_meshmassproperties_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_mass_properties COMMAND maz_meshmassproperties_tests)
+set_tests_properties(mesh_mass_properties PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshao_tests render/meshao.cpp)
+target_link_libraries(maz_meshao_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_ambient_occlusion COMMAND maz_meshao_tests)
+set_tests_properties(mesh_ambient_occlusion PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshsdf_tests render/meshsdf.cpp)
+target_link_libraries(maz_meshsdf_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_sdf COMMAND maz_meshsdf_tests)
+set_tests_properties(mesh_sdf PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshhardedges_tests render/meshhardedges.cpp)
+target_link_libraries(maz_meshhardedges_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_hard_edges COMMAND maz_meshhardedges_tests)
+set_tests_properties(mesh_hard_edges PROPERTIES TIMEOUT 30)
+
+add_executable(maz_uvdensity_tests render/uvdensity.cpp)
+target_link_libraries(maz_uvdensity_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME uv_density COMMAND maz_uvdensity_tests)
+set_tests_properties(uv_density PROPERTIES TIMEOUT 30)
+
+add_executable(maz_trianglequality_tests render/trianglequality.cpp)
+target_link_libraries(maz_trianglequality_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME triangle_quality COMMAND maz_trianglequality_tests)
+set_tests_properties(triangle_quality PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshboundaryloops_tests render/meshboundaryloops.cpp)
+target_link_libraries(maz_meshboundaryloops_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_boundary_loops COMMAND maz_meshboundaryloops_tests)
+set_tests_properties(mesh_boundary_loops PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshcurvature_tests render/meshcurvature.cpp)
+target_link_libraries(maz_meshcurvature_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_curvature COMMAND maz_meshcurvature_tests)
+set_tests_properties(mesh_curvature PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshvoxelize_tests render/meshvoxelize.cpp)
+target_link_libraries(maz_meshvoxelize_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_voxelize COMMAND maz_meshvoxelize_tests)
+set_tests_properties(mesh_voxelize PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshcleanup_tests render/meshcleanup.cpp)
+target_link_libraries(maz_meshcleanup_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_cleanup COMMAND maz_meshcleanup_tests)
+set_tests_properties(mesh_cleanup PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshgeodesic_tests render/meshgeodesic.cpp)
+target_link_libraries(maz_meshgeodesic_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_geodesic COMMAND maz_meshgeodesic_tests)
+set_tests_properties(mesh_geodesic PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshslice_tests render/meshslice.cpp)
+target_link_libraries(maz_meshslice_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_slice COMMAND maz_meshslice_tests)
+set_tests_properties(mesh_slice PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshstrip_tests render/meshstrip.cpp)
+target_link_libraries(maz_meshstrip_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_strip COMMAND maz_meshstrip_tests)
+set_tests_properties(mesh_strip PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshtopologysummary_tests render/meshtopologysummary.cpp)
+target_link_libraries(maz_meshtopologysummary_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_topology_summary COMMAND maz_meshtopologysummary_tests)
+set_tests_properties(mesh_topology_summary PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshcontainment_tests render/meshcontainment.cpp)
+target_link_libraries(maz_meshcontainment_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_containment COMMAND maz_meshcontainment_tests)
+set_tests_properties(mesh_containment PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshmirror_tests render/meshmirror.cpp)
+target_link_libraries(maz_meshmirror_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_mirror COMMAND maz_meshmirror_tests)
+set_tests_properties(mesh_mirror PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshsharpedges_tests render/meshsharpedges.cpp)
+target_link_libraries(maz_meshsharpedges_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_sharp_edges COMMAND maz_meshsharpedges_tests)
+set_tests_properties(mesh_sharp_edges PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshfacet_tests render/meshfacet.cpp)
+target_link_libraries(maz_meshfacet_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_facet COMMAND maz_meshfacet_tests)
+set_tests_properties(mesh_facet PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshuvseams_tests render/meshuvseams.cpp)
+target_link_libraries(maz_meshuvseams_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_uv_seams COMMAND maz_meshuvseams_tests)
+set_tests_properties(mesh_uv_seams PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshuvproject_tests render/meshuvproject.cpp)
+target_link_libraries(maz_meshuvproject_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_uv_project COMMAND maz_meshuvproject_tests)
+set_tests_properties(mesh_uv_project PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshuvradial_tests render/meshuvradial.cpp)
+target_link_libraries(maz_meshuvradial_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_uv_radial COMMAND maz_meshuvradial_tests)
+set_tests_properties(mesh_uv_radial PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshvertexcolorao_tests render/meshvertexcolorao.cpp)
+target_link_libraries(maz_meshvertexcolorao_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_vertex_color_ao COMMAND maz_meshvertexcolorao_tests)
+set_tests_properties(mesh_vertex_color_ao PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshstats_tests render/meshstats.cpp)
+target_link_libraries(maz_meshstats_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_stats COMMAND maz_meshstats_tests)
+set_tests_properties(mesh_stats PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshsurfacesample_tests render/meshsurfacesample.cpp)
+target_link_libraries(maz_meshsurfacesample_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_surface_sample COMMAND maz_meshsurfacesample_tests)
+set_tests_properties(mesh_surface_sample PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshvertexcolorcavity_tests render/meshvertexcolorcavity.cpp)
+target_link_libraries(maz_meshvertexcolorcavity_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_vertex_color_cavity COMMAND maz_meshvertexcolorcavity_tests)
+set_tests_properties(mesh_vertex_color_cavity PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshthickness_tests render/meshthickness.cpp)
+target_link_libraries(maz_meshthickness_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_thickness COMMAND maz_meshthickness_tests)
+set_tests_properties(mesh_thickness PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshfeaturelines_tests render/meshfeaturelines.cpp)
+target_link_libraries(maz_meshfeaturelines_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_feature_lines COMMAND maz_meshfeaturelines_tests)
+set_tests_properties(mesh_feature_lines PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshweldauto_tests render/meshweldauto.cpp)
+target_link_libraries(maz_meshweldauto_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_weld_auto COMMAND maz_meshweldauto_tests)
+set_tests_properties(mesh_weld_auto PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshsymmetry_tests render/meshsymmetry.cpp)
+target_link_libraries(maz_meshsymmetry_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_symmetry COMMAND maz_meshsymmetry_tests)
+set_tests_properties(mesh_symmetry PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshvalence_tests render/meshvalence.cpp)
+target_link_libraries(maz_meshvalence_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_valence COMMAND maz_meshvalence_tests)
+set_tests_properties(mesh_valence PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshwinding_tests render/meshwinding.cpp)
+target_link_libraries(maz_meshwinding_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_winding COMMAND maz_meshwinding_tests)
+set_tests_properties(mesh_winding PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshorient_tests render/meshorient.cpp)
+target_link_libraries(maz_meshorient_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_orient COMMAND maz_meshorient_tests)
+set_tests_properties(mesh_orient PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshdegenerate_tests render/meshdegenerate.cpp)
+target_link_libraries(maz_meshdegenerate_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_degenerate COMMAND maz_meshdegenerate_tests)
+set_tests_properties(mesh_degenerate PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshvertexcolorsmooth_tests render/meshvertexcolorsmooth.cpp)
+target_link_libraries(maz_meshvertexcolorsmooth_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_vertex_color_smooth COMMAND maz_meshvertexcolorsmooth_tests)
+set_tests_properties(mesh_vertex_color_smooth PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshsolidity_tests render/meshsolidity.cpp)
+target_link_libraries(maz_meshsolidity_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_solidity COMMAND maz_meshsolidity_tests)
+set_tests_properties(mesh_solidity PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshwatertight_tests render/meshwatertight.cpp)
+target_link_libraries(maz_meshwatertight_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_watertight COMMAND maz_meshwatertight_tests)
+set_tests_properties(mesh_watertight PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshholefill_tests render/meshholefill.cpp)
+target_link_libraries(maz_meshholefill_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_hole_fill COMMAND maz_meshholefill_tests)
+set_tests_properties(mesh_hole_fill PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshdominantplane_tests render/meshdominantplane.cpp)
+target_link_libraries(maz_meshdominantplane_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_dominant_plane COMMAND maz_meshdominantplane_tests)
+set_tests_properties(mesh_dominant_plane PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshrecenter_tests render/meshrecenter.cpp)
+target_link_libraries(maz_meshrecenter_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_recenter COMMAND maz_meshrecenter_tests)
+set_tests_properties(mesh_recenter PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshnormalize_tests render/meshnormalize.cpp)
+target_link_libraries(maz_meshnormalize_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_normalize COMMAND maz_meshnormalize_tests)
+set_tests_properties(mesh_normalize PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshtransform_tests render/meshtransform.cpp)
+target_link_libraries(maz_meshtransform_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_transform COMMAND maz_meshtransform_tests)
+set_tests_properties(mesh_transform PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshmerge_tests render/meshmerge.cpp)
+target_link_libraries(maz_meshmerge_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_merge COMMAND maz_meshmerge_tests)
+set_tests_properties(mesh_merge PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshflip_tests render/meshflip.cpp)
+target_link_libraries(maz_meshflip_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_flip COMMAND maz_meshflip_tests)
+set_tests_properties(mesh_flip PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshvertexcolorgradient_tests render/meshvertexcolorgradient.cpp)
+target_link_libraries(maz_meshvertexcolorgradient_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_vertex_color_gradient COMMAND maz_meshvertexcolorgradient_tests)
+set_tests_properties(mesh_vertex_color_gradient PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshreindex_tests render/meshreindex.cpp)
+target_link_libraries(maz_meshreindex_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_reindex COMMAND maz_meshreindex_tests)
+set_tests_properties(mesh_reindex PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshpoissonprune_tests render/meshpoissonprune.cpp)
+target_link_libraries(maz_meshpoissonprune_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_poisson_prune COMMAND maz_meshpoissonprune_tests)
+set_tests_properties(mesh_poisson_prune PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshsnapgrid_tests render/meshsnapgrid.cpp)
+target_link_libraries(maz_meshsnapgrid_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_snap_grid COMMAND maz_meshsnapgrid_tests)
+set_tests_properties(mesh_snap_grid PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshexplode_tests render/meshexplode.cpp)
+target_link_libraries(maz_meshexplode_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_explode COMMAND maz_meshexplode_tests)
+set_tests_properties(mesh_explode PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshsolidify_tests render/meshsolidify.cpp)
+target_link_libraries(maz_meshsolidify_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_solidify COMMAND maz_meshsolidify_tests)
+set_tests_properties(mesh_solidify PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshdisplace_tests render/meshdisplace.cpp)
+target_link_libraries(maz_meshdisplace_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_displace COMMAND maz_meshdisplace_tests)
+set_tests_properties(mesh_displace PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshtwist_tests render/meshtwist.cpp)
+target_link_libraries(maz_meshtwist_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_twist COMMAND maz_meshtwist_tests)
+set_tests_properties(mesh_twist PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshtaper_tests render/meshtaper.cpp)
+target_link_libraries(maz_meshtaper_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_taper COMMAND maz_meshtaper_tests)
+set_tests_properties(mesh_taper PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshspherify_tests render/meshspherify.cpp)
+target_link_libraries(maz_meshspherify_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_spherify COMMAND maz_meshspherify_tests)
+set_tests_properties(mesh_spherify PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshbend_tests render/meshbend.cpp)
+target_link_libraries(maz_meshbend_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_bend COMMAND maz_meshbend_tests)
+set_tests_properties(mesh_bend PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshripple_tests render/meshripple.cpp)
+target_link_libraries(maz_meshripple_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_ripple COMMAND maz_meshripple_tests)
+set_tests_properties(mesh_ripple PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshboundingcylinder_tests render/meshboundingcylinder.cpp)
+target_link_libraries(maz_meshboundingcylinder_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_bounding_cylinder COMMAND maz_meshboundingcylinder_tests)
+set_tests_properties(mesh_bounding_cylinder PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshflatten_tests render/meshflatten.cpp)
+target_link_libraries(maz_meshflatten_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_flatten COMMAND maz_meshflatten_tests)
+set_tests_properties(mesh_flatten PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshcomponentcolor_tests render/meshcomponentcolor.cpp)
+target_link_libraries(maz_meshcomponentcolor_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_component_color COMMAND maz_meshcomponentcolor_tests)
+set_tests_properties(mesh_component_color PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshprincipalaxes_tests render/meshprincipalaxes.cpp)
+target_link_libraries(maz_meshprincipalaxes_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_principal_axes COMMAND maz_meshprincipalaxes_tests)
+set_tests_properties(mesh_principal_axes PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshinset_tests render/meshinset.cpp)
+target_link_libraries(maz_meshinset_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_inset COMMAND maz_meshinset_tests)
+set_tests_properties(mesh_inset PROPERTIES TIMEOUT 30)
+
+# Dynamic-resolution scaling (render::DynamicResolution) — the adaptive render-scale controller that trades
+# resolution for frame rate on constrained mobile GPUs. Pure deterministic policy (no GPU): scale down when
+# the smoothed frame time misses the budget, up when there's headroom, hold in the deadband, respect the
+# [min,max] clamp + cooldown, and map a scale onto a floored pixel size — all verified here.
+add_executable(maz_dynamicresolution_tests render/dynamicresolution.cpp)
+target_link_libraries(maz_dynamicresolution_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME dynamic_resolution COMMAND maz_dynamicresolution_tests)
+set_tests_properties(dynamic_resolution PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshcurvaturecolor_tests render/meshcurvaturecolor.cpp)
+target_link_libraries(maz_meshcurvaturecolor_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_curvature_color COMMAND maz_meshcurvaturecolor_tests)
+set_tests_properties(mesh_curvature_color PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshextrude_tests render/meshextrude.cpp)
+target_link_libraries(maz_meshextrude_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_extrude COMMAND maz_meshextrude_tests)
+set_tests_properties(mesh_extrude PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshslicelayers_tests render/meshslicelayers.cpp)
+target_link_libraries(maz_meshslicelayers_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_slice_layers COMMAND maz_meshslicelayers_tests)
+set_tests_properties(mesh_slice_layers PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshrevolve_tests render/meshrevolve.cpp)
+target_link_libraries(maz_meshrevolve_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_revolve COMMAND maz_meshrevolve_tests)
+set_tests_properties(mesh_revolve PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshsweep_tests render/meshsweep.cpp)
+target_link_libraries(maz_meshsweep_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_sweep COMMAND maz_meshsweep_tests)
+set_tests_properties(mesh_sweep PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshheightfield_tests render/meshheightfield.cpp)
+target_link_libraries(maz_meshheightfield_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_heightfield COMMAND maz_meshheightfield_tests)
+set_tests_properties(mesh_heightfield PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshskin_tests render/meshskin.cpp)
+target_link_libraries(maz_meshskin_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_skin COMMAND maz_meshskin_tests)
+set_tests_properties(mesh_skin PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshicosphere_tests render/meshicosphere.cpp)
+target_link_libraries(maz_meshicosphere_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_icosphere COMMAND maz_meshicosphere_tests)
+set_tests_properties(mesh_icosphere PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshsilhouette_tests render/meshsilhouette.cpp)
+target_link_libraries(maz_meshsilhouette_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_silhouette COMMAND maz_meshsilhouette_tests)
+set_tests_properties(mesh_silhouette PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshclosestpoint_tests render/meshclosestpoint.cpp)
+target_link_libraries(maz_meshclosestpoint_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_closest_point COMMAND maz_meshclosestpoint_tests)
+set_tests_properties(mesh_closest_point PROPERTIES TIMEOUT 30)
+
+add_executable(maz_mesharrow_tests render/mesharrow.cpp)
+target_link_libraries(maz_mesharrow_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_arrow COMMAND maz_mesharrow_tests)
+set_tests_properties(mesh_arrow PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshextrudepolygon_tests render/meshextrudepolygon.cpp)
+target_link_libraries(maz_meshextrudepolygon_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_extrude_polygon COMMAND maz_meshextrudepolygon_tests)
+set_tests_properties(mesh_extrude_polygon PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshprojectedarea_tests render/meshprojectedarea.cpp)
+target_link_libraries(maz_meshprojectedarea_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_projected_area COMMAND maz_meshprojectedarea_tests)
+set_tests_properties(mesh_projected_area PROPERTIES TIMEOUT 30)
+
+add_executable(maz_shapes2d_tests render/shapes2d.cpp)
+target_link_libraries(maz_shapes2d_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME shapes2d COMMAND maz_shapes2d_tests)
+set_tests_properties(shapes2d PROPERTIES TIMEOUT 30)
+
+add_executable(maz_shapes2dgear_tests render/shapes2dgear.cpp)
+target_link_libraries(maz_shapes2dgear_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME shapes2d_gear COMMAND maz_shapes2dgear_tests)
+set_tests_properties(shapes2d_gear PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshextrudescaled_tests render/meshextrudescaled.cpp)
+target_link_libraries(maz_meshextrudescaled_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_extrude_scaled COMMAND maz_meshextrudescaled_tests)
+set_tests_properties(mesh_extrude_scaled PROPERTIES TIMEOUT 30)
+
+add_executable(maz_imagepatterns_tests render/imagepatterns.cpp)
+target_link_libraries(maz_imagepatterns_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME image_patterns COMMAND maz_imagepatterns_tests)
+set_tests_properties(image_patterns PROPERTIES TIMEOUT 30)
+
+add_executable(maz_imagenormalmap_tests render/imagenormalmap.cpp)
+target_link_libraries(maz_imagenormalmap_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME image_normalmap COMMAND maz_imagenormalmap_tests)
+set_tests_properties(image_normalmap PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshwireframe_tests render/meshwireframe.cpp)
+target_link_libraries(maz_meshwireframe_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_wireframe COMMAND maz_meshwireframe_tests)
+set_tests_properties(mesh_wireframe PROPERTIES TIMEOUT 30)
+
+add_executable(maz_shapes2dpie_tests render/shapes2dpie.cpp)
+target_link_libraries(maz_shapes2dpie_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME shapes2d_pie COMMAND maz_shapes2dpie_tests)
+set_tests_properties(shapes2d_pie PROPERTIES TIMEOUT 30)
+
+add_executable(maz_meshextrudering_tests render/meshextrudering.cpp)
+target_link_libraries(maz_meshextrudering_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_extrude_ring COMMAND maz_meshextrudering_tests)
+set_tests_properties(mesh_extrude_ring PROPERTIES TIMEOUT 30)
+
+add_executable(maz_imagenoise_tests render/imagenoise.cpp)
+target_link_libraries(maz_imagenoise_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME image_noise COMMAND maz_imagenoise_tests)
+set_tests_properties(image_noise PROPERTIES TIMEOUT 30)
+
+add_executable(maz_imagecellular_tests render/imagecellular.cpp)
+target_link_libraries(maz_imagecellular_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME image_cellular COMMAND maz_imagecellular_tests)
+set_tests_properties(image_cellular PROPERTIES TIMEOUT 30)
+
+add_executable(maz_imagegradientmap_tests render/imagegradientmap.cpp)
+target_link_libraries(maz_imagegradientmap_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME image_gradient_map COMMAND maz_imagegradientmap_tests)
+set_tests_properties(image_gradient_map PROPERTIES TIMEOUT 30)
+
+add_executable(maz_imageblend_tests render/imageblend.cpp)
+target_link_libraries(maz_imageblend_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME image_blend COMMAND maz_imageblend_tests)
+set_tests_properties(image_blend PROPERTIES TIMEOUT 30)
+
+add_executable(maz_imageadjust_tests render/imageadjust.cpp)
+target_link_libraries(maz_imageadjust_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME image_adjust COMMAND maz_imageadjust_tests)
+set_tests_properties(image_adjust PROPERTIES TIMEOUT 30)
+
+add_executable(maz_imagebrick_tests render/imagebrick.cpp)
+target_link_libraries(maz_imagebrick_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME image_brick COMMAND maz_imagebrick_tests)
+set_tests_properties(image_brick PROPERTIES TIMEOUT 30)
+
+add_executable(maz_interceptaim_tests game/interceptaim.cpp)
+target_link_libraries(maz_interceptaim_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME intercept_aim COMMAND maz_interceptaim_tests)
+set_tests_properties(intercept_aim PROPERTIES TIMEOUT 30)
+
+add_executable(maz_imagecolorblind_tests render/imagecolorblind.cpp)
+target_link_libraries(maz_imagecolorblind_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME image_colorblind COMMAND maz_imagecolorblind_tests)
+set_tests_properties(image_colorblind PROPERTIES TIMEOUT 30)
+
+add_executable(maz_contrastratio_tests render/contrastratio.cpp)
+target_link_libraries(maz_contrastratio_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME contrast_ratio COMMAND maz_contrastratio_tests)
+set_tests_properties(contrast_ratio PROPERTIES TIMEOUT 30)
+
+add_executable(maz_imagemarblewood_tests render/imagemarblewood.cpp)
+target_link_libraries(maz_imagemarblewood_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME image_marble_wood COMMAND maz_imagemarblewood_tests)
+set_tests_properties(image_marble_wood PROPERTIES TIMEOUT 30)
+
+add_executable(maz_numberformat_ordinal_tests core/numberformat_ordinal.cpp)
+target_link_libraries(maz_numberformat_ordinal_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME numberformat_ordinal COMMAND maz_numberformat_ordinal_tests)
+set_tests_properties(numberformat_ordinal PROPERTIES TIMEOUT 30)
+
+add_executable(maz_dice_tests game/dice.cpp)
+target_link_libraries(maz_dice_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME dice COMMAND maz_dice_tests)
+set_tests_properties(dice PROPERTIES TIMEOUT 30)
+
+add_executable(maz_uuid_tests core/uuid.cpp)
+target_link_libraries(maz_uuid_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME uuid COMMAND maz_uuid_tests)
+set_tests_properties(uuid PROPERTIES TIMEOUT 30)
+
+add_executable(maz_musictheory_tests audio/musictheory.cpp)
+target_link_libraries(maz_musictheory_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME musictheory COMMAND maz_musictheory_tests)
+set_tests_properties(musictheory PROPERTIES TIMEOUT 30)
+
+add_executable(maz_musicscales_tests audio/musicscales.cpp)
+target_link_libraries(maz_musicscales_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME musicscales COMMAND maz_musicscales_tests)
+set_tests_properties(musicscales PROPERTIES TIMEOUT 30)
+
+add_executable(maz_colorharmony_tests render/colorharmony.cpp)
+target_link_libraries(maz_colorharmony_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME color_harmony COMMAND maz_colorharmony_tests)
+set_tests_properties(color_harmony PROPERTIES TIMEOUT 30)
+
+add_executable(maz_cubicbezier_tests anim/cubicbezier.cpp)
+target_link_libraries(maz_cubicbezier_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME cubic_bezier COMMAND maz_cubicbezier_tests)
+set_tests_properties(cubic_bezier PROPERTIES TIMEOUT 30)
+
+add_executable(maz_imagevoronoi_tests render/imagevoronoi.cpp)
+target_link_libraries(maz_imagevoronoi_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME image_voronoi COMMAND maz_imagevoronoi_tests)
+set_tests_properties(image_voronoi PROPERTIES TIMEOUT 30)
+
+add_executable(maz_spring_tests core/spring.cpp)
+target_link_libraries(maz_spring_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME spring COMMAND maz_spring_tests)
+set_tests_properties(spring PROPERTIES TIMEOUT 30)
+
+add_executable(maz_fixedtimestep_tests core/fixedtimestep.cpp)
+target_link_libraries(maz_fixedtimestep_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME fixed_timestep COMMAND maz_fixedtimestep_tests)
+set_tests_properties(fixed_timestep PROPERTIES TIMEOUT 30)
+
+# Frame-rate cap / power-save pacer (core::FramePacer) — caps the loop to a target fps so a mobile game
+# doesn't drain the battery running past the display refresh, with a lower idle cap for menus/pause. Pure
+# deterministic policy (no clock/sleep): budget-minus-work sleep, uncapped/over-budget zero, drift
+# correction (paid-back heavy frames, bounded debt), idle swap, expected fps, and sanitizing are verified.
+add_executable(maz_framepacer_tests core/framepacer.cpp)
+target_link_libraries(maz_framepacer_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME frame_pacer COMMAND maz_framepacer_tests)
+set_tests_properties(frame_pacer PROPERTIES TIMEOUT 30)
+
+add_executable(maz_spread_tests game/spread.cpp)
+target_link_libraries(maz_spread_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME spread COMMAND maz_spread_tests)
+set_tests_properties(spread PROPERTIES TIMEOUT 30)
+
+add_executable(maz_viewcone_tests game/viewcone.cpp)
+target_link_libraries(maz_viewcone_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME viewcone COMMAND maz_viewcone_tests)
+set_tests_properties(viewcone PROPERTIES TIMEOUT 30)
+
+add_executable(maz_imagelineargradient_tests render/imagelineargradient.cpp)
+target_link_libraries(maz_imagelineargradient_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME image_linear_gradient COMMAND maz_imagelineargradient_tests)
+set_tests_properties(image_linear_gradient PROPERTIES TIMEOUT 30)
+
+add_executable(maz_sphericalcoords_tests math/sphericalcoords.cpp)
+target_link_libraries(maz_sphericalcoords_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME spherical_coords COMMAND maz_sphericalcoords_tests)
+set_tests_properties(spherical_coords PROPERTIES TIMEOUT 30)
+
+add_executable(maz_colorhsl_tests render/colorhsl.cpp)
+target_link_libraries(maz_colorhsl_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME color_hsl COMMAND maz_colorhsl_tests)
+set_tests_properties(color_hsl PROPERTIES TIMEOUT 30)
+
+add_executable(maz_topologicalsort_tests core/topologicalsort.cpp)
+target_link_libraries(maz_topologicalsort_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME topological_sort COMMAND maz_topologicalsort_tests)
+set_tests_properties(topological_sort PROPERTIES TIMEOUT 30)
+
+add_executable(maz_stronglyconnected_tests core/stronglyconnected.cpp)
+target_link_libraries(maz_stronglyconnected_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME strongly_connected COMMAND maz_stronglyconnected_tests)
+set_tests_properties(strongly_connected PROPERTIES TIMEOUT 30)
+
+add_executable(maz_varint_tests io/varint.cpp)
+target_link_libraries(maz_varint_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME varint COMMAND maz_varint_tests)
+set_tests_properties(varint PROPERTIES TIMEOUT 30)
+
+add_executable(maz_pointdistribution_tests math/pointdistribution.cpp)
+target_link_libraries(maz_pointdistribution_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME point_distribution COMMAND maz_pointdistribution_tests)
+set_tests_properties(point_distribution PROPERTIES TIMEOUT 30)
+
+add_executable(maz_hexringrange_tests game/hexringrange.cpp)
+target_link_libraries(maz_hexringrange_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME hex_ring_range COMMAND maz_hexringrange_tests)
+set_tests_properties(hex_ring_range PROPERTIES TIMEOUT 30)
+
+add_executable(maz_noise_tests audio/noise.cpp)
+target_link_libraries(maz_noise_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME audio_noise COMMAND maz_noise_tests)
+set_tests_properties(audio_noise PROPERTIES TIMEOUT 30)
+
+add_executable(maz_formation_tests game/formation.cpp)
+target_link_libraries(maz_formation_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME formation COMMAND maz_formation_tests)
+set_tests_properties(formation PROPERTIES TIMEOUT 30)
+
+add_executable(maz_soundpropagation_tests game/soundpropagation.cpp)
+target_link_libraries(maz_soundpropagation_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME soundpropagation COMMAND maz_soundpropagation_tests)
+set_tests_properties(soundpropagation PROPERTIES TIMEOUT 30)
+
+add_executable(maz_firespread_tests game/firespread.cpp)
+target_link_libraries(maz_firespread_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME firespread COMMAND maz_firespread_tests)
+set_tests_properties(firespread PROPERTIES TIMEOUT 30)
+
+add_executable(maz_exposuremap_tests game/exposuremap.cpp)
+target_link_libraries(maz_exposuremap_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME exposuremap COMMAND maz_exposuremap_tests)
+set_tests_properties(exposuremap PROPERTIES TIMEOUT 30)
+
+add_executable(maz_chargepool_tests game/chargepool.cpp)
+target_link_libraries(maz_chargepool_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME chargepool COMMAND maz_chargepool_tests)
+set_tests_properties(chargepool PROPERTIES TIMEOUT 30)
+
+add_executable(maz_detectionmeter_tests game/detectionmeter.cpp)
+target_link_libraries(maz_detectionmeter_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME detection_meter COMMAND maz_detectionmeter_tests)
+set_tests_properties(detection_meter PROPERTIES TIMEOUT 30)
+
+add_executable(maz_magazine_tests game/magazine.cpp)
+target_link_libraries(maz_magazine_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME magazine COMMAND maz_magazine_tests)
+set_tests_properties(magazine PROPERTIES TIMEOUT 30)
+
+add_executable(maz_timecontrol_tests game/timecontrol.cpp)
+target_link_libraries(maz_timecontrol_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME time_control COMMAND maz_timecontrol_tests)
+set_tests_properties(time_control PROPERTIES TIMEOUT 30)
+
+add_executable(maz_patrolroute_tests game/patrolroute.cpp)
+target_link_libraries(maz_patrolroute_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME patrol_route COMMAND maz_patrolroute_tests)
+set_tests_properties(patrol_route PROPERTIES TIMEOUT 30)
+
+add_executable(maz_inputsequencer_tests game/inputsequencer.cpp)
+target_link_libraries(maz_inputsequencer_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME input_sequencer COMMAND maz_inputsequencer_tests)
+set_tests_properties(input_sequencer PROPERTIES TIMEOUT 30)
+
+add_executable(maz_poise_tests game/poise.cpp)
+target_link_libraries(maz_poise_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME poise COMMAND maz_poise_tests)
+set_tests_properties(poise PROPERTIES TIMEOUT 30)
+
+add_executable(maz_aimassist_tests game/aimassist.cpp)
+target_link_libraries(maz_aimassist_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME aim_assist COMMAND maz_aimassist_tests)
+set_tests_properties(aim_assist PROPERTIES TIMEOUT 30)
+
+add_executable(maz_utilityai_tests game/utilityai.cpp)
+target_link_libraries(maz_utilityai_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME utilityai COMMAND maz_utilityai_tests)
+set_tests_properties(utilityai PROPERTIES TIMEOUT 30)
+
+add_executable(maz_objectpool_tests core/objectpool.cpp)
+target_link_libraries(maz_objectpool_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME object_pool COMMAND maz_objectpool_tests)
+set_tests_properties(object_pool PROPERTIES TIMEOUT 30)
+
+add_executable(maz_kdtree3d_tests core/kdtree3d.cpp)
+target_link_libraries(maz_kdtree3d_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME kdtree3d COMMAND maz_kdtree3d_tests)
+set_tests_properties(kdtree3d PROPERTIES TIMEOUT 30)
+
+add_executable(maz_gridsample_tests math/gridsample.cpp)
+target_link_libraries(maz_gridsample_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME grid_sample COMMAND maz_gridsample_tests)
+set_tests_properties(grid_sample PROPERTIES TIMEOUT 30)
+
+add_executable(maz_shufflebag_tests core/shufflebag.cpp)
+target_link_libraries(maz_shufflebag_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME shuffle_bag COMMAND maz_shufflebag_tests)
+set_tests_properties(shuffle_bag PROPERTIES TIMEOUT 30)
+
+add_executable(maz_fogofwar_tests game/fogofwar.cpp)
+target_link_libraries(maz_fogofwar_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME fog_of_war COMMAND maz_fogofwar_tests)
+set_tests_properties(fog_of_war PROPERTIES TIMEOUT 30)
+
+add_executable(maz_imagedraw_tests render/imagedraw.cpp)
+target_link_libraries(maz_imagedraw_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME image_draw COMMAND maz_imagedraw_tests)
+set_tests_properties(image_draw PROPERTIES TIMEOUT 30)
+
+add_executable(maz_recoil_tests game/recoil.cpp)
+target_link_libraries(maz_recoil_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME recoil COMMAND maz_recoil_tests)
+set_tests_properties(recoil PROPERTIES TIMEOUT 30)
+
+add_executable(maz_springbone_tests anim/springbone.cpp)
+target_link_libraries(maz_springbone_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME spring_bone COMMAND maz_springbone_tests)
+set_tests_properties(spring_bone PROPERTIES TIMEOUT 30)
+
+add_executable(maz_lookrotation_tests math/lookrotation.cpp)
+target_link_libraries(maz_lookrotation_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME look_rotation COMMAND maz_lookrotation_tests)
+set_tests_properties(look_rotation PROPERTIES TIMEOUT 30)
+
+add_executable(maz_gettextpo_tests io/gettextpo.cpp)
+target_link_libraries(maz_gettextpo_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME gettext_po COMMAND maz_gettextpo_tests)
+set_tests_properties(gettext_po PROPERTIES TIMEOUT 30)
+
+add_executable(maz_textshaping_tests ui/textshaping.cpp)
+target_link_libraries(maz_textshaping_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME text_shaping COMMAND maz_textshaping_tests)
+set_tests_properties(text_shaping PROPERTIES TIMEOUT 30)
+
+add_executable(maz_scripttooling_tests script/tooling.cpp)
+target_link_libraries(maz_scripttooling_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME script_tooling COMMAND maz_scripttooling_tests)
+set_tests_properties(script_tooling PROPERTIES TIMEOUT 30)
+
+add_executable(maz_bundleplan_tests io/bundleplan.cpp)
+target_link_libraries(maz_bundleplan_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME bundle_plan COMMAND maz_bundleplan_tests)
+set_tests_properties(bundle_plan PROPERTIES TIMEOUT 30)
+
+# Mobile export bundle planner (io::planMobileBundle) — the Android APK / iOS .app layout + generated
+# AndroidManifest.xml / Info.plist. Pure string/size logic (the decision layer docs/MOBILE_BUILD.md's device
+# build executes): shared-lib/assets placement, .app bundle structure, manifest text, and preset filtering.
+add_executable(maz_mobilebundleplan_tests io/mobilebundleplan.cpp)
+target_link_libraries(maz_mobilebundleplan_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mobile_bundle_plan COMMAND maz_mobilebundleplan_tests)
+set_tests_properties(mobile_bundle_plan PROPERTIES TIMEOUT 30)
+
+# Mobile bundle preflight (io::preflightMobileBundle) — validates a staged bundle tree against its plan
+# before Gradle/Xcode runs: missing planned files / manifest and a plan with no game binary are errors;
+# a shader-less bundle and stale/unexpected staged files are warnings. Pure set logic, headless.
+add_executable(maz_mobilebundlepreflight_tests io/mobilebundlepreflight.cpp)
+target_link_libraries(maz_mobilebundlepreflight_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mobile_bundle_preflight COMMAND maz_mobilebundlepreflight_tests)
+set_tests_properties(mobile_bundle_preflight PROPERTIES TIMEOUT 30)
+
+# Generated Android Gradle files (io::androidBuildGradle / androidSettingsGradle) — turns mobilepack's
+# staged bundle into a buildable Gradle project (prebuilt jniLibs + assets, abiFilters, reverse-DNS id).
+add_executable(maz_androidgradle_tests io/androidgradle.cpp)
+target_link_libraries(maz_androidgradle_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME android_gradle COMMAND maz_androidgradle_tests)
+set_tests_properties(android_gradle PROPERTIES TIMEOUT 30)
+
+add_executable(maz_mp3_tests audio/mp3.cpp)
+target_link_libraries(maz_mp3_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mp3_frames COMMAND maz_mp3_tests)
+set_tests_properties(mp3_frames PROPERTIES TIMEOUT 30)
+
+add_executable(maz_ssil_tests render/ssil.cpp)
+target_link_libraries(maz_ssil_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ssil COMMAND maz_ssil_tests)
+set_tests_properties(ssil PROPERTIES TIMEOUT 30)
+
+add_executable(maz_ivf_tests video/ivf.cpp)
+target_link_libraries(maz_ivf_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME video_ivf COMMAND maz_ivf_tests)
+set_tests_properties(video_ivf PROPERTIES TIMEOUT 30)
+
+add_executable(maz_intercept_tests math/intercept.cpp)
+target_link_libraries(maz_intercept_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME intercept COMMAND maz_intercept_tests)
+set_tests_properties(intercept PROPERTIES TIMEOUT 30)
+
+add_executable(maz_cellularnoise_tests core/cellularnoise.cpp)
+target_link_libraries(maz_cellularnoise_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME cellular_noise COMMAND maz_cellularnoise_tests)
+set_tests_properties(cellular_noise PROPERTIES TIMEOUT 30)
+
+add_executable(maz_dualquat_tests math/dualquat.cpp)
+target_link_libraries(maz_dualquat_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME dual_quat COMMAND maz_dualquat_tests)
+set_tests_properties(dual_quat PROPERTIES TIMEOUT 30)
+
+add_executable(maz_lowdiscrepancy_tests math/lowdiscrepancy.cpp)
+target_link_libraries(maz_lowdiscrepancy_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME low_discrepancy COMMAND maz_lowdiscrepancy_tests)
+set_tests_properties(low_discrepancy PROPERTIES TIMEOUT 30)
+
+add_executable(maz_catmullrom_tests math/catmullrom.cpp)
+target_link_libraries(maz_catmullrom_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME catmull_rom COMMAND maz_catmullrom_tests)
+set_tests_properties(catmull_rom PROPERTIES TIMEOUT 30)
+
+add_executable(maz_simplexnoise_tests core/simplexnoise.cpp)
+target_link_libraries(maz_simplexnoise_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME simplex_noise COMMAND maz_simplexnoise_tests)
+set_tests_properties(simplex_noise PROPERTIES TIMEOUT 30)
+
+add_executable(maz_segmentdistance_tests math/segmentdistance.cpp)
+target_link_libraries(maz_segmentdistance_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME segment_distance COMMAND maz_segmentdistance_tests)
+set_tests_properties(segment_distance PROPERTIES TIMEOUT 30)
+
+add_executable(maz_tonemap_tests render/tonemap.cpp)
+target_link_libraries(maz_tonemap_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME tonemap COMMAND maz_tonemap_tests)
+set_tests_properties(tonemap PROPERTIES TIMEOUT 30)
+
+add_executable(maz_arclength_tests math/arclength.cpp)
+target_link_libraries(maz_arclength_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME arc_length COMMAND maz_arclength_tests)
+set_tests_properties(arc_length PROPERTIES TIMEOUT 30)
+
+add_executable(maz_greatcircle_tests math/greatcircle.cpp)
+target_link_libraries(maz_greatcircle_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME great_circle COMMAND maz_greatcircle_tests)
+set_tests_properties(great_circle PROPERTIES TIMEOUT 30)
+
+add_executable(maz_orientedrect2_tests math/orientedrect2.cpp)
+target_link_libraries(maz_orientedrect2_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME oriented_rect2 COMMAND maz_orientedrect2_tests)
+set_tests_properties(oriented_rect2 PROPERTIES TIMEOUT 30)
+
+add_executable(maz_optics_tests math/optics.cpp)
+target_link_libraries(maz_optics_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME optics COMMAND maz_optics_tests)
+set_tests_properties(optics PROPERTIES TIMEOUT 30)
+
+add_executable(maz_sweptsphere_tests math/sweptsphere.cpp)
+target_link_libraries(maz_sweptsphere_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME swept_sphere COMMAND maz_sweptsphere_tests)
+set_tests_properties(swept_sphere PROPERTIES TIMEOUT 30)
+
+add_executable(maz_cielab_tests render/cielab.cpp)
+target_link_libraries(maz_cielab_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME cielab COMMAND maz_cielab_tests)
+set_tests_properties(cielab PROPERTIES TIMEOUT 30)
+
+add_executable(maz_bspline_tests math/bspline.cpp)
+target_link_libraries(maz_bspline_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME bspline COMMAND maz_bspline_tests)
+set_tests_properties(bspline PROPERTIES TIMEOUT 30)
+
+add_executable(maz_distancetransform_tests math/distancetransform.cpp)
+target_link_libraries(maz_distancetransform_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME distance_transform COMMAND maz_distancetransform_tests)
+set_tests_properties(distance_transform PROPERTIES TIMEOUT 30)
+
+add_executable(maz_quaternionsquad_tests math/quaternionsquad.cpp)
+target_link_libraries(maz_quaternionsquad_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME quaternion_squad COMMAND maz_quaternionsquad_tests)
+set_tests_properties(quaternion_squad PROPERTIES TIMEOUT 30)
+
+add_executable(maz_tcbspline_tests math/tcbspline.cpp)
+target_link_libraries(maz_tcbspline_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME tcb_spline COMMAND maz_tcbspline_tests)
+set_tests_properties(tcb_spline PROPERTIES TIMEOUT 30)
+
+add_executable(maz_pitchdetect_tests audio/pitchdetect.cpp)
+target_link_libraries(maz_pitchdetect_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME pitch_detect COMMAND maz_pitchdetect_tests)
+set_tests_properties(pitch_detect PROPERTIES TIMEOUT 30)
+
+add_executable(maz_envelopefollower_tests audio/envelopefollower.cpp)
+target_link_libraries(maz_envelopefollower_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME envelope_follower COMMAND maz_envelopefollower_tests)
+set_tests_properties(envelope_follower PROPERTIES TIMEOUT 30)
+
+add_executable(maz_tempoestimate_tests audio/tempoestimate.cpp)
+target_link_libraries(maz_tempoestimate_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME tempo_estimate COMMAND maz_tempoestimate_tests)
+set_tests_properties(tempo_estimate PROPERTIES TIMEOUT 30)
+
+add_executable(maz_elo_tests game/elo.cpp)
+target_link_libraries(maz_elo_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME elo COMMAND maz_elo_tests)
+set_tests_properties(elo PROPERTIES TIMEOUT 30)
+
+add_executable(maz_markovname_tests game/markovname.cpp)
+target_link_libraries(maz_markovname_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME markov_name COMMAND maz_markovname_tests)
+set_tests_properties(markov_name PROPERTIES TIMEOUT 30)
+
+add_executable(maz_indexedheap_tests core/indexedheap.cpp)
+target_link_libraries(maz_indexedheap_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME indexed_heap COMMAND maz_indexedheap_tests)
+set_tests_properties(indexed_heap PROPERTIES TIMEOUT 30)
+
+add_executable(maz_sobeledge_tests render/sobeledge.cpp)
+target_link_libraries(maz_sobeledge_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME sobel_edge COMMAND maz_sobeledge_tests)
+set_tests_properties(sobel_edge PROPERTIES TIMEOUT 30)
+
+add_executable(maz_otsuthreshold_tests render/otsuthreshold.cpp)
+target_link_libraries(maz_otsuthreshold_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME otsu_threshold COMMAND maz_otsuthreshold_tests)
+set_tests_properties(otsu_threshold PROPERTIES TIMEOUT 30)
+
+add_executable(maz_medianfilter_tests render/medianfilter.cpp)
+target_link_libraries(maz_medianfilter_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME median_filter COMMAND maz_medianfilter_tests)
+set_tests_properties(median_filter PROPERTIES TIMEOUT 30)
+
+add_executable(maz_inversebilinear_tests math/inversebilinear.cpp)
+target_link_libraries(maz_inversebilinear_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME inverse_bilinear COMMAND maz_inversebilinear_tests)
+set_tests_properties(inverse_bilinear PROPERTIES TIMEOUT 30)
+
+add_executable(maz_wavefield2d_tests game/wavefield2d.cpp)
+target_link_libraries(maz_wavefield2d_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME wave_field2d COMMAND maz_wavefield2d_tests)
+set_tests_properties(wave_field2d PROPERTIES TIMEOUT 30)
+
+add_executable(maz_rmf_tests math/rotationminimizingframe.cpp)
+target_link_libraries(maz_rmf_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME rotation_minimizing_frame COMMAND maz_rmf_tests)
+set_tests_properties(rotation_minimizing_frame PROPERTIES TIMEOUT 30)
+
+add_executable(maz_leaderboard_tests game/leaderboard.cpp)
+target_link_libraries(maz_leaderboard_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME leaderboard COMMAND maz_leaderboard_tests)
+set_tests_properties(leaderboard PROPERTIES TIMEOUT 30)
+
+add_executable(maz_floatquant_tests net/floatquant.cpp)
+target_link_libraries(maz_floatquant_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME float_quant COMMAND maz_floatquant_tests)
+set_tests_properties(float_quant PROPERTIES TIMEOUT 30)
+
+# Golden-image regression: render each app on lavapipe and diff against committed references. Self-
+# skips (exit 0) when software Vulkan / Xvfb / ImageMagick are unavailable, so it's harmless in a
+# GPU-less CI. Requires an up-to-date build/bin.
+add_test(NAME golden_images COMMAND ${CMAKE_SOURCE_DIR}/tools/golden.sh check)
+# The golden suite has grown to ~155 scenes, each with a 2-4.5s settle time; their combined settle time
+# alone (~350s+) plus per-scene launch/render/ImageMagick-diff overhead pushes an honest full run past the
+# old 360s ceiling (measured ~406s on a software-render box), so CTest was killing the harness mid-run
+# before it could report a real pass/fail. Raised to 900s to leave headroom for the current scene count and
+# further growth. (Widening the timeout does not weaken any per-scene RMSE check.)
+set_tests_properties(golden_images PROPERTIES TIMEOUT 900)
+
+# API-docs generator stays runnable: regenerate docs/API.md from the headers and require exit 0.
+# Self-skips when python3 is unavailable so it never breaks a minimal CI.
+find_program(MAZ_PYTHON3 python3)
+if(MAZ_PYTHON3)
+    add_test(NAME api_docs_gen COMMAND ${MAZ_PYTHON3} ${CMAKE_SOURCE_DIR}/tools/gen_api_docs.py)
+    set_tests_properties(api_docs_gen PROPERTIES TIMEOUT 60)
+endif()
+
 # Smoke test: run the sandbox headless for a few frames and require a clean exit(0).
 # This validates module wiring, resource lifetime, and shutdown without needing a GPU/display.
 add_test(
@@ -8,105 +1370,2017 @@ set_tests_properties(sandbox_headless_smoke PROPERTIES
     TIMEOUT 60
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
-# Blender pipeline: load the test cube (glTF) and require both a clean exit and the
-# expected geometry. Exercises the whole asset path with no GPU/display.
 add_test(
-    NAME model_load_gltf
-    COMMAND sandbox --headless --frames 1
-            --load-model ${CMAKE_SOURCE_DIR}/assets/models/cube.gltf)
+    NAME orbs_headless_smoke
+    COMMAND orbs --headless --frames 30)
 
-set_tests_properties(model_load_gltf PROPERTIES
+set_tests_properties(orbs_headless_smoke PROPERTIES
     TIMEOUT 60
-    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
-    PASS_REGULAR_EXPRESSION "24 verts, 12 tris")
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
-# 2D sprite demo: run the sandbox's --sprite-demo path headless for a few frames and require a
-# clean exit. Exercises texture upload + drawSprite wiring end to end (no-op draw with no GPU).
 add_test(
-    NAME sprite_demo_headless
-    COMMAND sandbox --headless --frames 5 --sprite-demo)
-set_tests_properties(sprite_demo_headless PROPERTIES
+    NAME swarm_headless_smoke
+    COMMAND swarm --headless --frames 30)
+
+set_tests_properties(swarm_headless_smoke PROPERTIES
     TIMEOUT 60
-    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
-    PASS_REGULAR_EXPRESSION "sprite demo: neon tile texture handle")
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
-# Unit tests: pure C++ (no GPU/display). Camera view/projection math.
-add_executable(maz_unit_tests unit_camera.cpp)
-target_link_libraries(maz_unit_tests PRIVATE maz::maz maz_warnings)
-
-add_test(NAME unit_camera COMMAND maz_unit_tests)
-set_tests_properties(unit_camera PROPERTIES TIMEOUT 30)
-
-# Unit tests: scene model + .mazscene save/load round-trip.
-add_executable(maz_scene_tests unit_scene.cpp)
-target_link_libraries(maz_scene_tests PRIVATE maz::maz maz_warnings)
-
-add_test(NAME unit_scene COMMAND maz_scene_tests)
-set_tests_properties(unit_scene PROPERTIES TIMEOUT 30)
-
-# Unit tests: procedural primitive mesh generation (vertex/index counts, unit normals, bounds).
-add_executable(maz_primitives_tests unit_primitives.cpp)
-target_link_libraries(maz_primitives_tests PRIVATE maz::maz maz_warnings)
-
-add_test(NAME unit_primitives COMMAND maz_primitives_tests)
-set_tests_properties(unit_primitives PROPERTIES TIMEOUT 30)
-
-# Unit tests: composite asset baking (buildModel) + .mazasset save/load round-trip.
-add_executable(maz_asset_tests unit_asset.cpp)
-target_link_libraries(maz_asset_tests PRIVATE maz::maz maz_warnings)
-
-add_test(NAME unit_asset COMMAND maz_asset_tests)
-set_tests_properties(unit_asset PROPERTIES TIMEOUT 30)
-
-# Load a scene headless and require a clean exit — exercises scene parsing + the render wiring
-# end to end (draws no-op with no GPU).
 add_test(
-    NAME scene_load_headless
-    COMMAND sandbox --headless --frames 1 --scene ${CMAKE_SOURCE_DIR}/assets/scenes/demo.mazscene)
-set_tests_properties(scene_load_headless PROPERTIES
-    TIMEOUT 60
-    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
-    PASS_REGULAR_EXPRESSION "loaded scene")
+    NAME cube_headless_smoke
+    COMMAND cube --headless --frames 30)
 
-# Editor: start headless, load a scene, run a few frames, exit cleanly. Verifies the editor app +
-# ImGui integration link and boot (the UI itself needs a GPU and is not exercised here).
+set_tests_properties(cube_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME scene3d_headless_smoke
+    COMMAND scene3d --headless --frames 30)
+
+set_tests_properties(scene3d_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME world_headless_smoke
+    COMMAND world --headless --frames 30)
+
+set_tests_properties(world_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME model_headless_smoke
+    COMMAND model --headless --frames 30)
+
+set_tests_properties(model_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME village_headless_smoke
+    COMMAND village --headless --frames 30)
+
+set_tests_properties(village_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME water_headless_smoke
+    COMMAND water --headless --frames 30)
+
+set_tests_properties(water_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME instances_headless_smoke
+    COMMAND instances --headless --frames 30)
+
+set_tests_properties(instances_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME glass_headless_smoke
+    COMMAND glass --headless --frames 30)
+
+set_tests_properties(glass_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME maze_headless_smoke
+    COMMAND maze --headless --frames 30)
+
+set_tests_properties(maze_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME crowd_headless_smoke
+    COMMAND crowd --headless --frames 30)
+
+set_tests_properties(crowd_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME tween_headless_smoke
+    COMMAND tween --headless --frames 30)
+
+set_tests_properties(tween_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME menu_headless_smoke
+    COMMAND menu --headless --frames 30)
+
+set_tests_properties(menu_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME persist_headless_smoke
+    COMMAND persist --headless --frames 30)
+
+set_tests_properties(persist_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME guard_headless_smoke
+    COMMAND guard --headless --frames 30)
+
+set_tests_properties(guard_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME sprites_headless_smoke
+    COMMAND sprites --headless --frames 30)
+
+set_tests_properties(sprites_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME events_headless_smoke
+    COMMAND events --headless --frames 30)
+
+set_tests_properties(events_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME jobs_headless_smoke
+    COMMAND jobs --headless --frames 30)
+
+set_tests_properties(jobs_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME assetcache_headless_smoke
+    COMMAND assetcache --headless --frames 30)
+
+set_tests_properties(assetcache_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME skeleton_headless_smoke
+    COMMAND skeleton --headless --frames 30)
+
+set_tests_properties(skeleton_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME animclip_headless_smoke
+    COMMAND animclip --headless --frames 30)
+
+set_tests_properties(animclip_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME physics_headless_smoke
+    COMMAND physics --headless --frames 30)
+
+set_tests_properties(physics_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME animator_headless_smoke
+    COMMAND animator --headless --frames 30)
+
+set_tests_properties(animator_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME behavior_headless_smoke
+    COMMAND behavior --headless --frames 30)
+
+set_tests_properties(behavior_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME boxes_headless_smoke
+    COMMAND boxes --headless --frames 30)
+
+set_tests_properties(boxes_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME scenes_headless_smoke
+    COMMAND scenes --headless --frames 30)
+
+set_tests_properties(scenes_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME catcher_headless_smoke
+    COMMAND catcher --headless --frames 30)
+
+set_tests_properties(catcher_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME data_headless_smoke
+    COMMAND data --headless --frames 30)
+
+set_tests_properties(data_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME level_headless_smoke
+    COMMAND level --headless --frames 30)
+
+set_tests_properties(level_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME config_headless_smoke
+    COMMAND config --headless --frames 30)
+
+set_tests_properties(config_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME profiler_headless_smoke
+    COMMAND profiler --headless --frames 30)
+
+set_tests_properties(profiler_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME ecsave_headless_smoke
+    COMMAND ecsave --headless --frames 30)
+
+set_tests_properties(ecsave_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME actions_headless_smoke
+    COMMAND actions --headless --frames 30)
+
+set_tests_properties(actions_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME solar_headless_smoke
+    COMMAND solar --headless --frames 30)
+
+set_tests_properties(solar_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME camera_headless_smoke
+    COMMAND camera --headless --frames 30)
+
+set_tests_properties(camera_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME fireworks_headless_smoke
+    COMMAND fireworks --headless --frames 30)
+
+set_tests_properties(fireworks_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME scatter_headless_smoke
+    COMMAND scatter --headless --frames 30)
+
+set_tests_properties(scatter_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME noise_headless_smoke
+    COMMAND noise --headless --frames 30)
+
+set_tests_properties(noise_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME uilayout_headless_smoke
+    COMMAND uilayout --headless --frames 30)
+
+set_tests_properties(uilayout_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME navmesh_headless_smoke
+    COMMAND navmesh --headless --frames 30)
+
+set_tests_properties(navmesh_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME vectors_headless_smoke
+    COMMAND vectors --headless --frames 30)
+
+set_tests_properties(vectors_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME lights2d_headless_smoke
+    COMMAND lights2d --headless --frames 30)
+
+set_tests_properties(lights2d_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME tumble_headless_smoke
+    COMMAND tumble --headless --frames 30)
+
+set_tests_properties(tumble_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME blendspace_headless_smoke
+    COMMAND blendspace --headless --frames 30)
+
+set_tests_properties(blendspace_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME joints_headless_smoke
+    COMMAND joints --headless --frames 30)
+
+set_tests_properties(joints_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME spatial2d_headless_smoke
+    COMMAND spatial2d --headless --frames 30)
+
+set_tests_properties(spatial2d_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME form_headless_smoke
+    COMMAND form --headless --frames 30)
+
+set_tests_properties(form_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME cave_headless_smoke
+    COMMAND cave --headless --frames 30)
+
+set_tests_properties(cave_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME reach_headless_smoke
+    COMMAND reach --headless --frames 30)
+
+set_tests_properties(reach_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME avoid_headless_smoke
+    COMMAND avoid --headless --frames 30)
+
+set_tests_properties(avoid_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME bus_headless_smoke
+    COMMAND bus --headless --frames 30)
+
+set_tests_properties(bus_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME timeline_headless_smoke
+    COMMAND timeline --headless --frames 30)
+
+set_tests_properties(timeline_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME softshadow_headless_smoke
+    COMMAND softshadow --headless --frames 30)
+
+set_tests_properties(softshadow_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME groove_headless_smoke
+    COMMAND groove --headless --frames 30)
+
+set_tests_properties(groove_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME stylebox_headless_smoke
+    COMMAND stylebox --headless --frames 30)
+
+set_tests_properties(stylebox_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME blackboard_headless_smoke
+    COMMAND blackboard --headless --frames 30)
+
+set_tests_properties(blackboard_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME statemachine_headless_smoke
+    COMMAND statemachine --headless --frames 30)
+
+set_tests_properties(statemachine_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME reverb_headless_smoke
+    COMMAND reverb --headless --frames 30)
+
+set_tests_properties(reverb_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME tentacle_headless_smoke
+    COMMAND tentacle --headless --frames 30)
+
+set_tests_properties(tentacle_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME goap_headless_smoke
+    COMMAND goap --headless --frames 30)
+
+set_tests_properties(goap_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME theme_headless_smoke
+    COMMAND theme --headless --frames 30)
+
+set_tests_properties(theme_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME stack_headless_smoke
+    COMMAND stack --headless --frames 30)
+
+set_tests_properties(stack_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME normalmap_headless_smoke
+    COMMAND normalmap --headless --frames 30)
+
+set_tests_properties(normalmap_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME flowfield_headless_smoke
+    COMMAND flowfield --headless --frames 30)
+
+set_tests_properties(flowfield_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME sequencer_headless_smoke
+    COMMAND sequencer --headless --frames 30)
+
+set_tests_properties(sequencer_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME envelope_headless_smoke
+    COMMAND envelope --headless --frames 30)
+
+set_tests_properties(envelope_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME tree_headless_smoke
+    COMMAND tree --headless --frames 30)
+
+set_tests_properties(tree_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME area2d_headless_smoke
+    COMMAND area2d --headless --frames 30)
+
+set_tests_properties(area2d_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME blendtree_headless_smoke
+    COMMAND blendtree --headless --frames 30)
+
+set_tests_properties(blendtree_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME layers_headless_smoke
+    COMMAND layers --headless --frames 30)
+
+set_tests_properties(layers_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME tileset_headless_smoke
+    COMMAND tileset --headless --frames 30)
+
+set_tests_properties(tileset_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME emitter_headless_smoke
+    COMMAND emitter --headless --frames 30)
+
+set_tests_properties(emitter_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME spatial3d_headless_smoke
+    COMMAND spatial3d --headless --frames 30)
+
+set_tests_properties(spatial3d_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME containers_headless_smoke
+    COMMAND containers --headless --frames 30)
+
+set_tests_properties(containers_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME parallax_headless_smoke
+    COMMAND parallax --headless --frames 30)
+
+set_tests_properties(parallax_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME choreo_headless_smoke
+    COMMAND choreo --headless --frames 30)
+
+set_tests_properties(choreo_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME prefab_headless_smoke
+    COMMAND prefab --headless --frames 30)
+
+set_tests_properties(prefab_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME line2d_headless_smoke
+    COMMAND line2d --headless --frames 30)
+
+set_tests_properties(line2d_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME restext_headless_smoke
+    COMMAND restext --headless --frames 30)
+
+set_tests_properties(restext_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME signals_headless_smoke
+    COMMAND signals --headless --frames 30)
+
+set_tests_properties(signals_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME wav_headless_smoke
+    COMMAND wav --headless --frames 30)
+
+set_tests_properties(wav_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME grid3d_headless_smoke
+    COMMAND grid3d --headless --frames 30)
+
+set_tests_properties(grid3d_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME rayquery_headless_smoke
+    COMMAND rayquery --headless --frames 30)
+
+set_tests_properties(rayquery_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME strtable_headless_smoke
+    COMMAND strtable --headless --frames 30)
+
+set_tests_properties(strtable_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME locale_headless_smoke
+    COMMAND locale --headless --frames 30)
+
+set_tests_properties(locale_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME textwrap_headless_smoke
+    COMMAND textwrap --headless --frames 30)
+
+set_tests_properties(textwrap_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME addblend_headless_smoke
+    COMMAND addblend --headless --frames 30)
+
+set_tests_properties(addblend_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME primitives_headless_smoke
+    COMMAND primitives --headless --frames 30)
+
+set_tests_properties(primitives_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME slotmap_headless_smoke
+    COMMAND slotmap --headless --frames 30)
+
+set_tests_properties(slotmap_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME polycollide_headless_smoke
+    COMMAND polycollide --headless --frames 30)
+
+set_tests_properties(polycollide_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME sampler_headless_smoke
+    COMMAND sampler --headless --frames 30)
+
+set_tests_properties(sampler_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME respack_headless_smoke
+    COMMAND respack --headless --frames 30)
+
+set_tests_properties(respack_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME richtext_headless_smoke
+    COMMAND richtext --headless --frames 30)
+
+set_tests_properties(richtext_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME curve_headless_smoke
+    COMMAND curve --headless --frames 30)
+
+set_tests_properties(curve_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME multimesh_headless_smoke
+    COMMAND multimesh --headless --frames 30)
+
+set_tests_properties(multimesh_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME billboard_headless_smoke
+    COMMAND billboard --headless --frames 30)
+
+set_tests_properties(billboard_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME oneway_headless_smoke
+    COMMAND oneway --headless --frames 30)
+
+set_tests_properties(oneway_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME modfx_headless_smoke
+    COMMAND modfx --headless --frames 30)
+
+set_tests_properties(modfx_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME rootmotion_headless_smoke
+    COMMAND rootmotion --headless --frames 30)
+
+set_tests_properties(rootmotion_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME groups_headless_smoke
+    COMMAND groups --headless --frames 30)
+
+set_tests_properties(groups_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME rects_headless_smoke
+    COMMAND rects --headless --frames 30)
+
+set_tests_properties(rects_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME progress_headless_smoke
+    COMMAND progress --headless --frames 30)
+
+set_tests_properties(progress_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME interp_headless_smoke
+    COMMAND interp --headless --frames 30)
+
+set_tests_properties(interp_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME gravzones_headless_smoke
+    COMMAND gravzones --headless --frames 30)
+
+set_tests_properties(gravzones_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME ortho3d_headless_smoke
+    COMMAND ortho3d --headless --frames 30)
+
+set_tests_properties(ortho3d_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME base64_headless_smoke
+    COMMAND base64 --headless --frames 30)
+
+set_tests_properties(base64_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME floatcurve_headless_smoke
+    COMMAND floatcurve --headless --frames 30)
+
+set_tests_properties(floatcurve_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME polyfill_headless_smoke
+    COMMAND polyfill --headless --frames 30)
+
+set_tests_properties(polyfill_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME deadzone_headless_smoke
+    COMMAND deadzone --headless --frames 30)
+
+set_tests_properties(deadzone_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME randomizer_headless_smoke
+    COMMAND randomizer --headless --frames 30)
+
+set_tests_properties(randomizer_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME kinematic_headless_smoke
+    COMMAND kinematic --headless --frames 30)
+
+set_tests_properties(kinematic_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME geometry_headless_smoke
+    COMMAND geometry --headless --frames 30)
+
+set_tests_properties(geometry_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME itemlist_headless_smoke
+    COMMAND itemlist --headless --frames 30)
+
+set_tests_properties(itemlist_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME gradient_headless_smoke
+    COMMAND gradient --headless --frames 30)
+
+set_tests_properties(gradient_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME camera3d_headless_smoke
+    COMMAND camera3d --headless --frames 30)
+
+set_tests_properties(camera3d_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME ring_headless_smoke
+    COMMAND ring --headless --frames 30)
+
+set_tests_properties(ring_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME inifile_headless_smoke
+    COMMAND inifile --headless --frames 30)
+
+set_tests_properties(inifile_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME spectrum_headless_smoke
+    COMMAND spectrum --headless --frames 30)
+
+set_tests_properties(spectrum_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME xform2d_headless_smoke
+    COMMAND xform2d --headless --frames 30)
+
+set_tests_properties(xform2d_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME popupmenu_headless_smoke
+    COMMAND popupmenu --headless --frames 30)
+
+set_tests_properties(popupmenu_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME astar_headless_smoke
+    COMMAND astar --headless --frames 30)
+
+set_tests_properties(astar_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME expr_headless_smoke
+    COMMAND expr --headless --frames 30)
+
+set_tests_properties(expr_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME forcefield_headless_smoke
+    COMMAND forcefield --headless --frames 30)
+
+set_tests_properties(forcefield_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME atlas_headless_smoke
+    COMMAND atlas --headless --frames 30)
+
+set_tests_properties(atlas_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME shapecast_headless_smoke
+    COMMAND shapecast --headless --frames 30)
+
+set_tests_properties(shapecast_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME xml_headless_smoke
+    COMMAND xml --headless --frames 30)
+
+set_tests_properties(xml_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME normals_headless_smoke
+    COMMAND normals --headless --frames 30)
+
+set_tests_properties(normals_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME filters_headless_smoke
+    COMMAND filters --headless --frames 30)
+
+set_tests_properties(filters_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME equalizer_headless_smoke
+    COMMAND equalizer --headless --frames 30)
+
+set_tests_properties(equalizer_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME busmixer_headless_smoke
+    COMMAND busmixer --headless --frames 30)
+
+set_tests_properties(busmixer_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME limiter_headless_smoke
+    COMMAND limiter --headless --frames 30)
+
+set_tests_properties(limiter_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME stereo_headless_smoke
+    COMMAND stereo --headless --frames 30)
+
+set_tests_properties(stereo_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME oscillator_headless_smoke
+    COMMAND oscillator --headless --frames 30)
+
+set_tests_properties(oscillator_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME music_headless_smoke
+    COMMAND music --headless --frames 30)
+
+set_tests_properties(music_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME pitch_headless_smoke
+    COMMAND pitch --headless --frames 30)
+
+set_tests_properties(pitch_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME distort_headless_smoke
+    COMMAND distort --headless --frames 30)
+
+set_tests_properties(distort_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME solver_headless_smoke
+    COMMAND solver --headless --frames 30)
+
+set_tests_properties(solver_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME manybody_headless_smoke
+    COMMAND manybody --headless --frames 30)
+
+set_tests_properties(manybody_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME sleep_headless_smoke
+    COMMAND sleep --headless --frames 30)
+
+set_tests_properties(sleep_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME filter_headless_smoke
+    COMMAND filter --headless --frames 30)
+
+set_tests_properties(filter_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME capsule_headless_smoke
+    COMMAND capsule --headless --frames 30)
+
+set_tests_properties(capsule_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME boundary_headless_smoke
+    COMMAND boundary --headless --frames 30)
+
+set_tests_properties(boundary_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME contacts_headless_smoke
+    COMMAND contacts --headless --frames 30)
+
+set_tests_properties(contacts_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME ccd_headless_smoke
+    COMMAND ccd --headless --frames 30)
+
+set_tests_properties(ccd_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME motor_headless_smoke
+    COMMAND motor --headless --frames 30)
+
+set_tests_properties(motor_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME convex_headless_smoke
+    COMMAND convex --headless --frames 30)
+
+set_tests_properties(convex_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME polyline_headless_smoke
+    COMMAND polyline --headless --frames 30)
+
+set_tests_properties(polyline_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME physics3d_headless_smoke
+    COMMAND physics3d --headless --frames 30)
+
+set_tests_properties(physics3d_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME pbrballs_headless_smoke
+    COMMAND pbrballs --headless --frames 30)
+
+set_tests_properties(pbrballs_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME tonemap_headless_smoke
+    COMMAND tonemap --headless --frames 30)
+
+set_tests_properties(tonemap_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME ssao_headless_smoke
+    COMMAND ssao --headless --frames 30)
+
+set_tests_properties(ssao_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 add_test(
     NAME editor_headless_smoke
-    COMMAND editor --headless --frames 3 --scene ${CMAKE_SOURCE_DIR}/assets/scenes/demo.mazscene)
+    COMMAND editor --headless --frames 30)
+
 set_tests_properties(editor_headless_smoke PROPERTIES
     TIMEOUT 60
-    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
-    PASS_REGULAR_EXPRESSION "Maz Editor shutting down")
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
-# Render probe: actually rasterize the cube off-screen (via a software Vulkan driver, lavapipe, in
-# CI) and verify the pixels — proof the mesh renderer draws, not just compiles. Requires a Vulkan
-# ICD; fails loudly if none is present so a missing driver is visible rather than silently skipped.
 add_test(
-    NAME render_probe
-    COMMAND render_probe ${CMAKE_SOURCE_DIR}/assets/models/cube.gltf)
-set_tests_properties(render_probe PROPERTIES
-    TIMEOUT 120
-    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
-    PASS_REGULAR_EXPRESSION "render probe: PASS")
+    NAME zomboid_headless_smoke
+    COMMAND zomboid --headless --frames 30)
 
-# Render probe over a baked composite asset: bake a .mazasset to a mesh and rasterize it off-screen,
-# proving the character/item creator's build path produces drawable geometry end to end (not just
-# correct vertex counts). Same lavapipe requirement as render_probe.
-add_test(
-    NAME render_probe_asset
-    COMMAND render_probe ${CMAKE_SOURCE_DIR}/assets/items/probe_asset.mazasset)
-set_tests_properties(render_probe_asset PROPERTIES
-    TIMEOUT 120
-    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
-    PASS_REGULAR_EXPRESSION "render probe: PASS")
+set_tests_properties(zomboid_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
-# Sprite probe: rasterize textured 2D quads off-screen (lavapipe in CI) and verify the pixels —
-# proof the sprite batch renderer draws textures, maps UVs, tints, and batches across textures.
-# Same Vulkan-ICD requirement as render_probe.
+# Autopilot soak: the plain smoke above never drives the demo AI (aim/fire/dodge/weapon-cycle), so a
+# regression in the autopilot path would slip through. Run the demo headless for a long stretch and
+# require a clean exit — a permanent, automated gate on the whole game loop under AI control (until now
+# this run was only performed by hand).
 add_test(
-    NAME sprite_probe
-    COMMAND sprite_probe)
-set_tests_properties(sprite_probe PROPERTIES
+    NAME zomboid_headless_demo_soak
+    COMMAND zomboid --demo --headless --frames 3600)
+
+set_tests_properties(zomboid_headless_demo_soak PROPERTIES
     TIMEOUT 120
-    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
-    PASS_REGULAR_EXPRESSION "sprite probe: PASS")
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME streaming_headless_smoke
+    COMMAND streaming --headless --frames 30)
+
+set_tests_properties(streaming_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME pong_headless_smoke
+    COMMAND pong --headless --frames 30)
+
+set_tests_properties(pong_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+# The mobile-ready starter app: exercises the callback-driven main loop (platform::runMainLoop) and the
+# unified touch/keyboard input path (input::VirtualControls) end-to-end, headless.
+add_test(
+    NAME app_template_headless_smoke
+    COMMAND app_template --headless --frames 30)
+
+set_tests_properties(app_template_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+# The mobile exporter CLI: --selftest synthesizes a tiny build tree in a temp dir, stages an Android and an
+# iOS bundle through io::planMobileBundle, and verifies every planned file landed at its planned size.
+add_test(
+    NAME mobilepack_selftest
+    COMMAND mobilepack --selftest)
+set_tests_properties(mobilepack_selftest PROPERTIES TIMEOUT 60)
+
+add_test(
+    NAME platformer_headless_smoke
+    COMMAND platformer --headless --frames 30)
+
+set_tests_properties(platformer_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+add_test(
+    NAME adventure_headless_smoke
+    COMMAND adventure --headless --frames 30)
+
+set_tests_properties(adventure_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+
+
+
+
+
+
+
+
+
+
+
+
+add_executable(maz_p2quantile_tests core/p2quantile.cpp)
+target_link_libraries(maz_p2quantile_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME p2_quantile COMMAND maz_p2quantile_tests)
+set_tests_properties(p2_quantile PROPERTIES TIMEOUT 30)
+
+add_executable(maz_randomdistributions_tests core/randomdistributions.cpp)
+target_link_libraries(maz_randomdistributions_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME random_distributions COMMAND maz_randomdistributions_tests)
+set_tests_properties(random_distributions PROPERTIES TIMEOUT 30)
+
+add_executable(maz_segmenttree_tests core/segmenttree.cpp)
+target_link_libraries(maz_segmenttree_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME segment_tree COMMAND maz_segmenttree_tests)
+set_tests_properties(segment_tree PROPERTIES TIMEOUT 30)
+
+add_executable(maz_clipsegmentrect_tests math/clipsegmentrect.cpp)
+target_link_libraries(maz_clipsegmentrect_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME clip_segment_rect COMMAND maz_clipsegmentrect_tests)
+set_tests_properties(clip_segment_rect PROPERTIES TIMEOUT 30)
+
+add_executable(maz_movingaverage_tests core/movingaverage.cpp)
+target_link_libraries(maz_movingaverage_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME moving_average COMMAND maz_movingaverage_tests)
+set_tests_properties(moving_average PROPERTIES TIMEOUT 30)
+
+add_executable(maz_hungarian_tests core/hungarian.cpp)
+target_link_libraries(maz_hungarian_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME hungarian_assignment COMMAND maz_hungarian_tests)
+set_tests_properties(hungarian_assignment PROPERTIES TIMEOUT 30)
+
+add_executable(maz_tokenbucket_tests core/tokenbucket.cpp)
+target_link_libraries(maz_tokenbucket_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME token_bucket COMMAND maz_tokenbucket_tests)
+set_tests_properties(token_bucket PROPERTIES TIMEOUT 30)
+
+add_executable(maz_graycode_tests core/graycode.cpp)
+target_link_libraries(maz_graycode_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME gray_code COMMAND maz_graycode_tests)
+set_tests_properties(gray_code PROPERTIES TIMEOUT 30)
+
+add_executable(maz_jarowinkler_tests core/jarowinkler.cpp)
+target_link_libraries(maz_jarowinkler_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME jaro_winkler COMMAND maz_jarowinkler_tests)
+set_tests_properties(jaro_winkler PROPERTIES TIMEOUT 30)
+
+add_executable(maz_monotonecubic_tests math/monotonecubic.cpp)
+target_link_libraries(maz_monotonecubic_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME monotone_cubic COMMAND maz_monotonecubic_tests)
+set_tests_properties(monotone_cubic PROPERTIES TIMEOUT 30)
+
+add_executable(maz_gjkdistance_tests math/gjkdistance.cpp)
+target_link_libraries(maz_gjkdistance_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME gjk_distance COMMAND maz_gjkdistance_tests)
+set_tests_properties(gjk_distance PROPERTIES TIMEOUT 30)
+
+add_executable(maz_clocksync_tests net/clocksync.cpp)
+target_link_libraries(maz_clocksync_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME clock_sync COMMAND maz_clocksync_tests)
+set_tests_properties(clock_sync PROPERTIES TIMEOUT 30)
+
+add_executable(maz_influencemap_tests game/influencemap.cpp)
+target_link_libraries(maz_influencemap_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME influence_map COMMAND maz_influencemap_tests)
+set_tests_properties(influence_map PROPERTIES TIMEOUT 30)
+
+add_executable(maz_diamondsquare_tests game/diamondsquare.cpp)
+target_link_libraries(maz_diamondsquare_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME diamond_square COMMAND maz_diamondsquare_tests)
+set_tests_properties(diamond_square PROPERTIES TIMEOUT 30)
+
+add_executable(maz_simulatedannealing_tests core/simulatedannealing.cpp)
+target_link_libraries(maz_simulatedannealing_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME simulated_annealing COMMAND maz_simulatedannealing_tests)
+set_tests_properties(simulated_annealing PROPERTIES TIMEOUT 30)
+
+add_executable(maz_circularmean_tests math/circularmean.cpp)
+target_link_libraries(maz_circularmean_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME circular_mean COMMAND maz_circularmean_tests)
+set_tests_properties(circular_mean PROPERTIES TIMEOUT 30)
+
+add_executable(maz_summedareatable_tests core/summedareatable.cpp)
+target_link_libraries(maz_summedareatable_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME summed_area_table COMMAND maz_summedareatable_tests)
+set_tests_properties(summed_area_table PROPERTIES TIMEOUT 30)
+
+add_executable(maz_minarearect_tests math/minarearect.cpp)
+target_link_libraries(maz_minarearect_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME min_area_rect COMMAND maz_minarearect_tests)
+set_tests_properties(min_area_rect PROPERTIES TIMEOUT 30)
+
+add_executable(maz_runningmedian_tests core/runningmedian.cpp)
+target_link_libraries(maz_runningmedian_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME running_median COMMAND maz_runningmedian_tests)
+set_tests_properties(running_median PROPERTIES TIMEOUT 30)
+
+add_executable(maz_weightedreservoir_tests core/weightedreservoir.cpp)
+target_link_libraries(maz_weightedreservoir_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME weighted_reservoir COMMAND maz_weightedreservoir_tests)
+set_tests_properties(weighted_reservoir PROPERTIES TIMEOUT 30)
+
+add_executable(maz_gapbuffer_tests core/gapbuffer.cpp)
+target_link_libraries(maz_gapbuffer_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME gap_buffer COMMAND maz_gapbuffer_tests)
+set_tests_properties(gap_buffer PROPERTIES TIMEOUT 30)
+
+add_executable(maz_jumppointsearch_tests game/jumppointsearch.cpp)
+target_link_libraries(maz_jumppointsearch_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME jump_point_search COMMAND maz_jumppointsearch_tests)
+set_tests_properties(jump_point_search PROPERTIES TIMEOUT 30)
+
+add_executable(maz_ahocorasick_tests core/ahocorasick.cpp)
+target_link_libraries(maz_ahocorasick_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME aho_corasick COMMAND maz_ahocorasick_tests)
+set_tests_properties(aho_corasick PROPERTIES TIMEOUT 30)
+
+add_executable(maz_messagepack_tests io/messagepack.cpp)
+target_link_libraries(maz_messagepack_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME message_pack COMMAND maz_messagepack_tests)
+set_tests_properties(message_pack PROPERTIES TIMEOUT 30)
+
+add_executable(maz_radixsort_tests core/radixsort.cpp)
+target_link_libraries(maz_radixsort_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME radix_sort COMMAND maz_radixsort_tests)
+set_tests_properties(radix_sort PROPERTIES TIMEOUT 30)
+
+add_executable(maz_quatcompress_tests net/quatcompress.cpp)
+target_link_libraries(maz_quatcompress_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME quat_compress COMMAND maz_quatcompress_tests)
+set_tests_properties(quat_compress PROPERTIES TIMEOUT 30)
+
+add_executable(maz_intervaltree_tests core/intervaltree.cpp)
+target_link_libraries(maz_intervaltree_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME interval_tree COMMAND maz_intervaltree_tests)
+set_tests_properties(interval_tree PROPERTIES TIMEOUT 30)
+
+add_executable(maz_binarydiff_tests io/binarydiff.cpp)
+target_link_libraries(maz_binarydiff_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME binary_diff COMMAND maz_binarydiff_tests)
+set_tests_properties(binary_diff PROPERTIES TIMEOUT 30)
+
+add_executable(maz_utf16_tests core/utf16.cpp)
+target_link_libraries(maz_utf16_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME utf16 COMMAND maz_utf16_tests)
+set_tests_properties(utf16 PROPERTIES TIMEOUT 30)
+
+add_executable(maz_kabsch_tests math/kabsch.cpp)
+target_link_libraries(maz_kabsch_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME kabsch COMMAND maz_kabsch_tests)
+set_tests_properties(kabsch PROPERTIES TIMEOUT 30)
+
+add_executable(maz_voxelraycast_tests game/voxelraycast.cpp)
+target_link_libraries(maz_voxelraycast_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME voxel_raycast COMMAND maz_voxelraycast_tests)
+set_tests_properties(voxel_raycast PROPERTIES TIMEOUT 30)
+
+add_executable(maz_greedyvoxelmesh_tests render/greedyvoxelmesh.cpp)
+target_link_libraries(maz_greedyvoxelmesh_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME greedy_voxel_mesh COMMAND maz_greedyvoxelmesh_tests)
+set_tests_properties(greedy_voxel_mesh PROPERTIES TIMEOUT 30)
+
+add_executable(maz_imaadpcm_tests audio/imaadpcm.cpp)
+target_link_libraries(maz_imaadpcm_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ima_adpcm COMMAND maz_imaadpcm_tests)
+set_tests_properties(ima_adpcm PROPERTIES TIMEOUT 30)
+
+add_executable(maz_murmur3_tests core/murmur3.cpp)
+target_link_libraries(maz_murmur3_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME murmur3 COMMAND maz_murmur3_tests)
+set_tests_properties(murmur3 PROPERTIES TIMEOUT 30)
+
+add_executable(maz_hyperloglog_tests core/hyperloglog.cpp)
+target_link_libraries(maz_hyperloglog_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME hyperloglog COMMAND maz_hyperloglog_tests)
+set_tests_properties(hyperloglog PROPERTIES TIMEOUT 30)
+
+add_executable(maz_countminsketch_tests core/countminsketch.cpp)
+target_link_libraries(maz_countminsketch_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME count_min_sketch COMMAND maz_countminsketch_tests)
+set_tests_properties(count_min_sketch PROPERTIES TIMEOUT 30)
+
+add_executable(maz_kmeans_tests math/kmeans.cpp)
+target_link_libraries(maz_kmeans_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME kmeans COMMAND maz_kmeans_tests)
+set_tests_properties(kmeans PROPERTIES TIMEOUT 30)
+
+add_executable(maz_erosion_tests game/erosion.cpp)
+target_link_libraries(maz_erosion_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME thermal_erosion COMMAND maz_erosion_tests)
+set_tests_properties(thermal_erosion PROPERTIES TIMEOUT 30)
+
+add_executable(maz_flowaccumulation_tests game/flowaccumulation.cpp)
+target_link_libraries(maz_flowaccumulation_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME flow_accumulation COMMAND maz_flowaccumulation_tests)
+set_tests_properties(flow_accumulation PROPERTIES TIMEOUT 30)
+
+add_executable(maz_suffixarray_tests core/suffixarray.cpp)
+target_link_libraries(maz_suffixarray_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME suffix_array COMMAND maz_suffixarray_tests)
+set_tests_properties(suffix_array PROPERTIES TIMEOUT 30)
+
+add_executable(maz_trail_tests render/trail.cpp)
+target_link_libraries(maz_trail_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME trail COMMAND maz_trail_tests)
+set_tests_properties(trail PROPERTIES TIMEOUT 30)
+
+add_executable(maz_seamcarve_tests render/seamcarve.cpp)
+target_link_libraries(maz_seamcarve_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME seam_carve COMMAND maz_seamcarve_tests)
+set_tests_properties(seam_carve PROPERTIES TIMEOUT 30)
+
+add_executable(maz_epa_tests math/epa.cpp)
+target_link_libraries(maz_epa_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME epa COMMAND maz_epa_tests)
+set_tests_properties(epa PROPERTIES TIMEOUT 30)
+
+add_executable(maz_simplifypolyline_tests math/simplifypolyline.cpp)
+target_link_libraries(maz_simplifypolyline_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME simplify_polyline COMMAND maz_simplifypolyline_tests)
+set_tests_properties(simplify_polyline PROPERTIES TIMEOUT 30)
+
+add_executable(maz_polardecompose_tests math/polardecompose.cpp)
+target_link_libraries(maz_polardecompose_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME polar_decompose COMMAND maz_polardecompose_tests)
+set_tests_properties(polar_decompose PROPERTIES TIMEOUT 30)
+
+add_executable(maz_lzw_tests io/lzw.cpp)
+target_link_libraries(maz_lzw_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME lzw COMMAND maz_lzw_tests)
+set_tests_properties(lzw PROPERTIES TIMEOUT 30)
+
+add_executable(maz_barneshut_tests game/barneshut.cpp)
+target_link_libraries(maz_barneshut_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME barnes_hut COMMAND maz_barneshut_tests)
+set_tests_properties(barnes_hut PROPERTIES TIMEOUT 30)
+
+add_executable(maz_lineaa_tests render/lineaa.cpp)
+target_link_libraries(maz_lineaa_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME line_aa COMMAND maz_lineaa_tests)
+set_tests_properties(line_aa PROPERTIES TIMEOUT 30)
+
+add_executable(maz_equirect_tests render/equirect.cpp)
+target_link_libraries(maz_equirect_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME equirect COMMAND maz_equirect_tests)
+set_tests_properties(equirect PROPERTIES TIMEOUT 30)
+
+add_executable(maz_wangtiles_tests game/wangtiles.cpp)
+target_link_libraries(maz_wangtiles_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME wang_tiles COMMAND maz_wangtiles_tests)
+set_tests_properties(wang_tiles PROPERTIES TIMEOUT 30)
+
+add_executable(maz_poisson_tests math/poisson.cpp)
+target_link_libraries(maz_poisson_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME poisson COMMAND maz_poisson_tests)
+set_tests_properties(poisson PROPERTIES TIMEOUT 30)
+
+add_executable(maz_seamlessclone_tests render/seamlessclone.cpp)
+target_link_libraries(maz_seamlessclone_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME seamless_clone COMMAND maz_seamlessclone_tests)
+set_tests_properties(seamless_clone PROPERTIES TIMEOUT 30)
+
+add_executable(maz_rbf_tests math/rbf.cpp)
+target_link_libraries(maz_rbf_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME rbf COMMAND maz_rbf_tests)
+set_tests_properties(rbf PROPERTIES TIMEOUT 30)
+
+add_executable(maz_filldepressions_tests game/filldepressions.cpp)
+target_link_libraries(maz_filldepressions_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME fill_depressions COMMAND maz_filldepressions_tests)
+set_tests_properties(fill_depressions PROPERTIES TIMEOUT 30)
+
+add_executable(maz_rangecoder_tests io/rangecoder.cpp)
+target_link_libraries(maz_rangecoder_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME range_coder COMMAND maz_rangecoder_tests)
+set_tests_properties(range_coder PROPERTIES TIMEOUT 30)
+
+add_executable(maz_bilateralfilter_tests render/bilateralfilter.cpp)
+target_link_libraries(maz_bilateralfilter_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME bilateral_filter COMMAND maz_bilateralfilter_tests)
+set_tests_properties(bilateral_filter PROPERTIES TIMEOUT 30)
+
+add_executable(maz_karplusstrong_tests audio/karplusstrong.cpp)
+target_link_libraries(maz_karplusstrong_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME karplus_strong COMMAND maz_karplusstrong_tests)
+set_tests_properties(karplus_strong PROPERTIES TIMEOUT 30)
+
+add_executable(maz_thinning_tests render/thinning.cpp)
+target_link_libraries(maz_thinning_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME thinning COMMAND maz_thinning_tests)
+set_tests_properties(thinning PROPERTIES TIMEOUT 30)
+
+add_executable(maz_harriscorners_tests render/harriscorners.cpp)
+target_link_libraries(maz_harriscorners_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME harris_corners COMMAND maz_harriscorners_tests)
+set_tests_properties(harris_corners PROPERTIES TIMEOUT 30)
+
+add_executable(maz_sph2d_tests game/sph2d.cpp)
+target_link_libraries(maz_sph2d_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME sph2d COMMAND maz_sph2d_tests)
+set_tests_properties(sph2d PROPERTIES TIMEOUT 30)
+
+add_executable(maz_alphashape_tests math/alphashape.cpp)
+target_link_libraries(maz_alphashape_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME alpha_shape COMMAND maz_alphashape_tests)
+set_tests_properties(alpha_shape PROPERTIES TIMEOUT 30)
+
+add_executable(maz_minkowskisum_tests math/minkowskisum.cpp)
+target_link_libraries(maz_minkowskisum_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME minkowski_sum COMMAND maz_minkowskisum_tests)
+set_tests_properties(minkowski_sum PROPERTIES TIMEOUT 30)
+
+add_executable(maz_catmullclark_tests render/catmullclark.cpp)
+target_link_libraries(maz_catmullclark_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME catmull_clark COMMAND maz_catmullclark_tests)
+set_tests_properties(catmull_clark PROPERTIES TIMEOUT 30)
+
+add_executable(maz_wavelet_tests math/wavelet.cpp)
+target_link_libraries(maz_wavelet_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME wavelet COMMAND maz_wavelet_tests)
+set_tests_properties(wavelet PROPERTIES TIMEOUT 30)
+
+add_executable(maz_paralleltransport_tests math/paralleltransport.cpp)
+target_link_libraries(maz_paralleltransport_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME parallel_transport COMMAND maz_paralleltransport_tests)
+set_tests_properties(parallel_transport PROPERTIES TIMEOUT 30)
+
+add_executable(maz_mediancut_tests render/mediancut.cpp)
+target_link_libraries(maz_mediancut_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME median_cut COMMAND maz_mediancut_tests)
+set_tests_properties(median_cut PROPERTIES TIMEOUT 30)
+
+add_executable(maz_thetastar_tests game/thetastar.cpp)
+target_link_libraries(maz_thetastar_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME theta_star COMMAND maz_thetastar_tests)
+set_tests_properties(theta_star PROPERTIES TIMEOUT 30)
+
+add_executable(maz_closestpointcurve_tests math/closestpointcurve.cpp)
+target_link_libraries(maz_closestpointcurve_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME closest_point_curve COMMAND maz_closestpointcurve_tests)
+set_tests_properties(closest_point_curve PROPERTIES TIMEOUT 30)
+
+
+add_executable(maz_windingnumber_tests math/windingnumber.cpp)
+target_link_libraries(maz_windingnumber_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME winding_number COMMAND maz_windingnumber_tests)
+set_tests_properties(winding_number PROPERTIES TIMEOUT 30)
+
+add_executable(maz_linearsolve_tests math/linearsolve.cpp)
+target_link_libraries(maz_linearsolve_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME linear_solve COMMAND maz_linearsolve_tests)
+set_tests_properties(linear_solve PROPERTIES TIMEOUT 30)
+
+add_executable(maz_shapefit_tests math/shapefit.cpp)
+target_link_libraries(maz_shapefit_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME shape_fit COMMAND maz_shapefit_tests)
+set_tests_properties(shape_fit PROPERTIES TIMEOUT 30)
+
+add_executable(maz_planefit_tests math/planefit.cpp)
+target_link_libraries(maz_planefit_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME plane_fit COMMAND maz_planefit_tests)
+set_tests_properties(plane_fit PROPERTIES TIMEOUT 30)
+
+add_executable(maz_ransac_tests math/ransac.cpp)
+target_link_libraries(maz_ransac_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ransac COMMAND maz_ransac_tests)
+set_tests_properties(ransac PROPERTIES TIMEOUT 30)
+
+add_executable(maz_dualcontour2d_tests math/dualcontour2d.cpp)
+target_link_libraries(maz_dualcontour2d_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME dual_contour2d COMMAND maz_dualcontour2d_tests)
+set_tests_properties(dual_contour2d PROPERTIES TIMEOUT 30)
+
+add_executable(maz_bwt_tests io/bwt.cpp)
+target_link_libraries(maz_bwt_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME bwt COMMAND maz_bwt_tests)
+set_tests_properties(bwt PROPERTIES TIMEOUT 30)
+
+add_executable(maz_movetofront_tests io/movetofront.cpp)
+target_link_libraries(maz_movetofront_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME move_to_front COMMAND maz_movetofront_tests)
+set_tests_properties(move_to_front PROPERTIES TIMEOUT 30)
+
+add_executable(maz_nurbscurve_tests math/nurbscurve.cpp)
+target_link_libraries(maz_nurbscurve_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME nurbs_curve COMMAND maz_nurbscurve_tests)
+set_tests_properties(nurbs_curve PROPERTIES TIMEOUT 30)
+
+add_executable(maz_polygonboolean_tests math/polygonboolean.cpp)
+target_link_libraries(maz_polygonboolean_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME polygon_boolean COMMAND maz_polygonboolean_tests)
+set_tests_properties(polygon_boolean PROPERTIES TIMEOUT 30)
+
+add_executable(maz_superellipse_tests math/superellipse.cpp)
+target_link_libraries(maz_superellipse_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME superellipse COMMAND maz_superellipse_tests)
+set_tests_properties(superellipse PROPERTIES TIMEOUT 30)
+
+add_executable(maz_bezierintersect_tests math/bezierintersect.cpp)
+target_link_libraries(maz_bezierintersect_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME bezier_intersect COMMAND maz_bezierintersect_tests)
+set_tests_properties(bezier_intersect PROPERTIES TIMEOUT 30)
+
+add_executable(maz_triangleintersect_tests math/triangleintersect.cpp)
+target_link_libraries(maz_triangleintersect_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME triangle_intersect COMMAND maz_triangleintersect_tests)
+set_tests_properties(triangle_intersect PROPERTIES TIMEOUT 30)
+
+add_executable(maz_trianglebox_tests math/trianglebox.cpp)
+target_link_libraries(maz_trianglebox_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME triangle_box COMMAND maz_trianglebox_tests)
+set_tests_properties(triangle_box PROPERTIES TIMEOUT 30)
+
+add_executable(maz_savitzkygolay_tests math/savitzkygolay.cpp)
+target_link_libraries(maz_savitzkygolay_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME savitzky_golay COMMAND maz_savitzkygolay_tests)
+set_tests_properties(savitzky_golay PROPERTIES TIMEOUT 30)
+
+add_executable(maz_marchingtetrahedra_tests math/marchingtetrahedra.cpp)
+target_link_libraries(maz_marchingtetrahedra_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME marching_tetrahedra COMMAND maz_marchingtetrahedra_tests)
+set_tests_properties(marching_tetrahedra PROPERTIES TIMEOUT 30)
+
+add_executable(maz_clothoid_tests math/clothoid.cpp)
+target_link_libraries(maz_clothoid_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME clothoid COMMAND maz_clothoid_tests)
+set_tests_properties(clothoid PROPERTIES TIMEOUT 30)
+
+add_executable(maz_compensatedsum_tests math/compensatedsum.cpp)
+target_link_libraries(maz_compensatedsum_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME compensated_sum COMMAND maz_compensatedsum_tests)
+set_tests_properties(compensated_sum PROPERTIES TIMEOUT 30)
+
+add_executable(maz_damerau_tests core/damerau.cpp)
+target_link_libraries(maz_damerau_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME damerau COMMAND maz_damerau_tests)
+set_tests_properties(damerau PROPERTIES TIMEOUT 30)
+
+add_executable(maz_closestpointobb_tests math/closestpointobb.cpp)
+target_link_libraries(maz_closestpointobb_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME closest_point_obb COMMAND maz_closestpointobb_tests)
+set_tests_properties(closest_point_obb PROPERTIES TIMEOUT 30)
+
+add_executable(maz_rayobb_tests math/rayobb.cpp)
+target_link_libraries(maz_rayobb_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ray_obb COMMAND maz_rayobb_tests)
+set_tests_properties(ray_obb PROPERTIES TIMEOUT 30)
+
+add_executable(maz_sphereaabb_tests math/sphereaabb.cpp)
+target_link_libraries(maz_sphereaabb_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME sphere_aabb COMMAND maz_sphereaabb_tests)
+set_tests_properties(sphere_aabb PROPERTIES TIMEOUT 30)
+
+add_executable(maz_raysphere_tests math/raysphere.cpp)
+target_link_libraries(maz_raysphere_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ray_sphere COMMAND maz_raysphere_tests)
+set_tests_properties(ray_sphere PROPERTIES TIMEOUT 30)
+
+add_executable(maz_capsuletriangle_tests math/capsuletriangle.cpp)
+target_link_libraries(maz_capsuletriangle_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME capsule_triangle COMMAND maz_capsuletriangle_tests)
+set_tests_properties(capsule_triangle PROPERTIES TIMEOUT 30)
+
+add_executable(maz_sweptaabb_tests math/sweptaabb.cpp)
+target_link_libraries(maz_sweptaabb_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME swept_aabb COMMAND maz_sweptaabb_tests)
+set_tests_properties(swept_aabb PROPERTIES TIMEOUT 30)
+
+add_executable(maz_capsuleaabb_tests math/capsuleaabb.cpp)
+target_link_libraries(maz_capsuleaabb_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME capsule_aabb COMMAND maz_capsuleaabb_tests)
+set_tests_properties(capsule_aabb PROPERTIES TIMEOUT 30)
+
+add_executable(maz_rotatetoward_tests math/rotatetoward.cpp)
+target_link_libraries(maz_rotatetoward_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME rotate_toward COMMAND maz_rotatetoward_tests)
+set_tests_properties(rotate_toward PROPERTIES TIMEOUT 30)
+
+add_executable(maz_orthonormalbasis_tests math/orthonormalbasis.cpp)
+target_link_libraries(maz_orthonormalbasis_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME orthonormal_basis COMMAND maz_orthonormalbasis_tests)
+set_tests_properties(orthonormal_basis PROPERTIES TIMEOUT 30)
+
+add_executable(maz_aabbtransform_tests math/aabbtransform.cpp)
+target_link_libraries(maz_aabbtransform_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME aabb_transform COMMAND maz_aabbtransform_tests)
+set_tests_properties(aabb_transform PROPERTIES TIMEOUT 30)
+
+add_executable(maz_damp_tests math/damp.cpp)
+target_link_libraries(maz_damp_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME damp COMMAND maz_damp_tests)
+set_tests_properties(damp PROPERTIES TIMEOUT 30)
+
+add_executable(maz_resamplepolyline_tests math/resamplepolyline.cpp)
+target_link_libraries(maz_resamplepolyline_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME resample_polyline COMMAND maz_resamplepolyline_tests)
+set_tests_properties(resample_polyline PROPERTIES TIMEOUT 30)
+
+add_executable(maz_reuleaux_tests math/reuleaux.cpp)
+target_link_libraries(maz_reuleaux_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME reuleaux COMMAND maz_reuleaux_tests)
+set_tests_properties(reuleaux PROPERTIES TIMEOUT 30)
+
+add_executable(maz_raycylinder_tests math/raycylinder.cpp)
+target_link_libraries(maz_raycylinder_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ray_cylinder COMMAND maz_raycylinder_tests)
+set_tests_properties(ray_cylinder PROPERTIES TIMEOUT 30)
+
+add_executable(maz_logspiral_tests math/logspiral.cpp)
+target_link_libraries(maz_logspiral_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME log_spiral COMMAND maz_logspiral_tests)
+set_tests_properties(log_spiral PROPERTIES TIMEOUT 30)
+
+add_executable(maz_roulette_tests math/roulette.cpp)
+target_link_libraries(maz_roulette_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME roulette COMMAND maz_roulette_tests)
+set_tests_properties(roulette PROPERTIES TIMEOUT 30)
+
+add_executable(maz_involute_tests math/involute.cpp)
+target_link_libraries(maz_involute_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME involute COMMAND maz_involute_tests)
+set_tests_properties(involute PROPERTIES TIMEOUT 30)
+
+add_executable(maz_superformula_tests math/superformula.cpp)
+target_link_libraries(maz_superformula_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME superformula COMMAND maz_superformula_tests)
+set_tests_properties(superformula PROPERTIES TIMEOUT 30)
+
+add_executable(maz_rayellipsoid_tests math/rayellipsoid.cpp)
+target_link_libraries(maz_rayellipsoid_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ray_ellipsoid COMMAND maz_rayellipsoid_tests)
+set_tests_properties(ray_ellipsoid PROPERTIES TIMEOUT 30)
+
+add_executable(maz_solarposition_tests math/solarposition.cpp)
+target_link_libraries(maz_solarposition_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME solar_position COMMAND maz_solarposition_tests)
+set_tests_properties(solar_position PROPERTIES TIMEOUT 30)
+
+add_executable(maz_catenary_tests math/catenary.cpp)
+target_link_libraries(maz_catenary_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME catenary COMMAND maz_catenary_tests)
+set_tests_properties(catenary PROPERTIES TIMEOUT 30)
+
+add_executable(maz_raycone_tests math/raycone.cpp)
+target_link_libraries(maz_raycone_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ray_cone COMMAND maz_raycone_tests)
+set_tests_properties(ray_cone PROPERTIES TIMEOUT 30)
+
+add_executable(maz_tractrix_tests math/tractrix.cpp)
+target_link_libraries(maz_tractrix_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME tractrix COMMAND maz_tractrix_tests)
+set_tests_properties(tractrix PROPERTIES TIMEOUT 30)
+
+add_executable(maz_raytorus_tests math/raytorus.cpp)
+target_link_libraries(maz_raytorus_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ray_torus COMMAND maz_raytorus_tests)
+set_tests_properties(ray_torus PROPERTIES TIMEOUT 30)
+
+add_executable(maz_loxodrome_tests math/loxodrome.cpp)
+target_link_libraries(maz_loxodrome_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME loxodrome COMMAND maz_loxodrome_tests)
+set_tests_properties(loxodrome PROPERTIES TIMEOUT 30)
+
+add_executable(maz_sphericaltriangle_tests math/sphericaltriangle.cpp)
+target_link_libraries(maz_sphericaltriangle_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME spherical_triangle COMMAND maz_sphericaltriangle_tests)
+set_tests_properties(spherical_triangle PROPERTIES TIMEOUT 30)
+
+add_executable(maz_coonspatch_tests math/coonspatch.cpp)
+target_link_libraries(maz_coonspatch_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME coons_patch COMMAND maz_coonspatch_tests)
+set_tests_properties(coons_patch PROPERTIES TIMEOUT 30)
+
+add_executable(maz_tetrahedron_tests math/tetrahedron.cpp)
+target_link_libraries(maz_tetrahedron_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME tetrahedron COMMAND maz_tetrahedron_tests)
+set_tests_properties(tetrahedron PROPERTIES TIMEOUT 30)
+
+add_executable(maz_rayplanar_tests math/rayplanar.cpp)
+target_link_libraries(maz_rayplanar_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ray_planar COMMAND maz_rayplanar_tests)
+set_tests_properties(ray_planar PROPERTIES TIMEOUT 30)
+
+add_executable(maz_polylinestroke_tests math/polylinestroke.cpp)
+target_link_libraries(maz_polylinestroke_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME polyline_stroke COMMAND maz_polylinestroke_tests)
+set_tests_properties(polyline_stroke PROPERTIES TIMEOUT 30)
+
+add_executable(maz_sdf2d_tests math/sdf2d.cpp)
+target_link_libraries(maz_sdf2d_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME sdf_2d COMMAND maz_sdf2d_tests)
+set_tests_properties(sdf_2d PROPERTIES TIMEOUT 30)
+
+add_executable(maz_sdfops_tests math/sdfops.cpp)
+target_link_libraries(maz_sdfops_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME sdf_ops COMMAND maz_sdfops_tests)
+set_tests_properties(sdf_ops PROPERTIES TIMEOUT 30)
+
+add_executable(maz_beziersurface_tests math/beziersurface.cpp)
+target_link_libraries(maz_beziersurface_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME bezier_surface COMMAND maz_beziersurface_tests)
+set_tests_properties(bezier_surface PROPERTIES TIMEOUT 30)
+
+add_executable(maz_raycapsule_tests math/raycapsule.cpp)
+target_link_libraries(maz_raycapsule_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ray_capsule COMMAND maz_raycapsule_tests)
+set_tests_properties(ray_capsule PROPERTIES TIMEOUT 30)
+
+add_executable(maz_ellipsedistance_tests math/ellipsedistance.cpp)
+target_link_libraries(maz_ellipsedistance_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ellipse_distance COMMAND maz_ellipsedistance_tests)
+set_tests_properties(ellipse_distance PROPERTIES TIMEOUT 30)
+
+add_executable(maz_dubinspath_tests math/dubinspath.cpp)
+target_link_libraries(maz_dubinspath_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME dubins_path COMMAND maz_dubinspath_tests)
+set_tests_properties(dubins_path PROPERTIES TIMEOUT 30)
+
+add_executable(maz_circumsphere_tests math/circumsphere.cpp)
+target_link_libraries(maz_circumsphere_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME circumsphere COMMAND maz_circumsphere_tests)
+set_tests_properties(circumsphere PROPERTIES TIMEOUT 30)
+
+add_executable(maz_ballistics_tests math/ballistics.cpp)
+target_link_libraries(maz_ballistics_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ballistics COMMAND maz_ballistics_tests)
+set_tests_properties(ballistics PROPERTIES TIMEOUT 30)
+
+add_executable(maz_polygonnewell_tests math/polygonnewell.cpp)
+target_link_libraries(maz_polygonnewell_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME polygon_newell COMMAND maz_polygonnewell_tests)
+set_tests_properties(polygon_newell PROPERTIES TIMEOUT 30)
+
+add_executable(maz_obbdistance_tests math/obbdistance.cpp)
+target_link_libraries(maz_obbdistance_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME obb_distance COMMAND maz_obbdistance_tests)
+set_tests_properties(obb_distance PROPERTIES TIMEOUT 30)
+
+add_executable(maz_grid3dsample_tests math/grid3dsample.cpp)
+target_link_libraries(maz_grid3dsample_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME grid3d_sample COMMAND maz_grid3dsample_tests)
+set_tests_properties(grid3d_sample PROPERTIES TIMEOUT 30)
+
+add_executable(maz_superquadric_tests math/superquadric.cpp)
+target_link_libraries(maz_superquadric_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME superquadric COMMAND maz_superquadric_tests)
+set_tests_properties(superquadric PROPERTIES TIMEOUT 30)
+
+add_executable(maz_integrate_tests math/integrate.cpp)
+target_link_libraries(maz_integrate_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME integrate COMMAND maz_integrate_tests)
+set_tests_properties(integrate PROPERTIES TIMEOUT 30)
+
+add_executable(maz_octahedralnormal_tests math/octahedralnormal.cpp)
+target_link_libraries(maz_octahedralnormal_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME octahedral_normal COMMAND maz_octahedralnormal_tests)
+set_tests_properties(octahedral_normal PROPERTIES TIMEOUT 30)
+
+add_executable(maz_colorlab_tests math/colorlab.cpp)
+target_link_libraries(maz_colorlab_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME color_lab COMMAND maz_colorlab_tests)
+set_tests_properties(color_lab PROPERTIES TIMEOUT 30)
+
+add_executable(maz_window_tests audio/window.cpp)
+target_link_libraries(maz_window_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME audio_window COMMAND maz_window_tests)
+set_tests_properties(audio_window PROPERTIES TIMEOUT 30)
+
+add_executable(maz_goertzel_tests audio/goertzel.cpp)
+target_link_libraries(maz_goertzel_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME goertzel COMMAND maz_goertzel_tests)
+set_tests_properties(goertzel PROPERTIES TIMEOUT 30)
+
+add_executable(maz_sampling_tests math/sampling.cpp)
+target_link_libraries(maz_sampling_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME sampling COMMAND maz_sampling_tests)
+set_tests_properties(sampling PROPERTIES TIMEOUT 30)
+
+add_executable(maz_quaternionaverage_tests math/quaternionaverage.cpp)
+target_link_libraries(maz_quaternionaverage_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME quaternion_average COMMAND maz_quaternionaverage_tests)
+set_tests_properties(quaternion_average PROPERTIES TIMEOUT 30)
+
+add_executable(maz_diff_tests core/diff.cpp)
+target_link_libraries(maz_diff_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME diff COMMAND maz_diff_tests)
+set_tests_properties(diff PROPERTIES TIMEOUT 30)
+
+add_executable(maz_ahrsfilter_tests math/ahrsfilter.cpp)
+target_link_libraries(maz_ahrsfilter_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ahrs_filter COMMAND maz_ahrsfilter_tests)
+set_tests_properties(ahrs_filter PROPERTIES TIMEOUT 30)
+
+add_executable(maz_neldermead_tests math/neldermead.cpp)
+target_link_libraries(maz_neldermead_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME nelder_mead COMMAND maz_neldermead_tests)
+set_tests_properties(nelder_mead PROPERTIES TIMEOUT 30)
+
+add_executable(maz_zomboid_sim_tests zomboid/sim.cpp)
+target_link_libraries(maz_zomboid_sim_tests PRIVATE maz::maz maz_warnings)
+target_include_directories(maz_zomboid_sim_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/zomboid)
+add_test(NAME zomboid_sim COMMAND maz_zomboid_sim_tests)
+set_tests_properties(zomboid_sim PROPERTIES TIMEOUT 30)
+
+# SENTINEL procedural character (apps/character/character.hpp): verifies the code-authored humanoid
+# builds valid, symmetric, correctly-footed geometry from the mesh primitives. Pure CPU, headless.
+add_executable(maz_character_tests character/build.cpp)
+target_link_libraries(maz_character_tests PRIVATE maz::maz maz_warnings)
+target_include_directories(maz_character_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/character)
+add_test(NAME character_build COMMAND maz_character_tests)
+set_tests_properties(character_build PROPERTIES TIMEOUT 30)
