@@ -43,6 +43,15 @@ target_link_libraries(maz_pnm_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME pnm_codec COMMAND maz_pnm_tests)
 set_tests_properties(pnm_codec PROPERTIES TIMEOUT 30)
 
+# Editor composite authoring: bakeComposite flattens placed nodes into one mesh (reusing
+# render::applyTransform + mergeMeshes) and scene<->prefab round-trips through io::PrefabText. Pure
+# CPU — vertex/index sums, bounds under translation, per-part tint, and full field round-trip (both
+# in-memory and via the .tscn-style text) are all verified headlessly.
+add_executable(maz_editor_composite_tests editor/composite.cpp)
+target_link_libraries(maz_editor_composite_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME editor_composite COMMAND maz_editor_composite_tests)
+set_tests_properties(editor_composite PROPERTIES TIMEOUT 30)
+
 # GPU-driven particle simulation + plane collision (fx::GpuParticleSystem). The CPU step is the exact
 # arithmetic the compute shader runs, so bounce energy, no-sink, friction, lifecycle and the instance
 # buffer are all verified headlessly here; the GPU dispatch + instanced draw are owner-verified.
