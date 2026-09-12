@@ -69,6 +69,11 @@ struct Shot {
     int scene = 0;
     std::string beat; // open | spark | push | turn | crisis | choice | after | title | end
 
+    // Who has the thing the story turns on, and which turn of its arc this shot is. Empty for most
+    // shots: the object is only in somebody's hand for the three states that mean they have it.
+    std::string holdingBy;
+    std::string objectBeat;
+
     double end() const { return start + duration; }
 };
 
@@ -189,6 +194,10 @@ inline Reel parseReel(const std::string& text) {
         shot.mood = s["mood"].asNumber(0.0);
         shot.scene = s["scene"].asInt(0);
         shot.beat = s["beat"].asString();
+        // Absent in reels written before characters held anything: an older document is
+        // still a valid document, and simply has nobody carrying anything.
+        shot.holdingBy = s["holdingBy"].asString();
+        shot.objectBeat = s["objectBeat"].asString();
         reel.shots.push_back(std::move(shot));
     }
 

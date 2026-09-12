@@ -585,6 +585,9 @@
   }
 
   var API = {
+    // Exported for the tests, and for the port: the engine has to put a face in the same place this
+    // does, and the only way to know it does is to ask both where the head ended up.
+    drawBody: drawBody,
     hashName: hashName,
     drawFace: drawFace,
     drawHeld: drawHeld,

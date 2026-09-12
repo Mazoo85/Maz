@@ -187,6 +187,60 @@ inline math::vec2 headCentre(double h, const Pose& pose) {
                       static_cast<float>(tipY - h * 0.055 * std::cos(pose.head))};
 }
 
+// Where the parts of a body end up, so a face and a held object can be put on top of the silhouette
+// afterwards.
+//
+// Returned rather than recomputed by the caller, for the same reason the browser returns it: the
+// planted-foot shift in hipYFor moves the whole body, and a face computed from the pose alone floats
+// where the head would have been if the figure were standing straight.
+// Doubles, not math::vec2. vec2 is float, and the browser computes these in doubles: taking the same
+// arithmetic through float loses agreement at the seventh decimal, which is invisible in a drawn frame
+// and fatal to a test that checks the port is the port. The same trap as the hour table in Palette.hpp.
+struct Joints {
+    double headX = 0.0;
+    double headY = 0.0;
+    double headRx = 0.0;
+    double headRy = 0.0;
+    double headAngle = 0.0;
+    double handLX = 0.0;
+    double handLY = 0.0;
+    double handLAngle = 0.0;
+    double handRX = 0.0;
+    double handRY = 0.0;
+    double handRAngle = 0.0;
+};
+
+inline Joints jointsOf(double h, const Pose& pose) {
+    Joints out;
+    const double hipY = detail::hipYFor(h, pose);
+    const double unit = h * 0.01;
+
+    // The same arithmetic bodyPath uses, without building a path: a hand is the tip of a forearm, and
+    // a forearm starts at the tip of an upper arm, which starts off the torso's tip.
+    const double torsoAngle = 3.14159265358979 + pose.torso;
+    const double tipX = std::sin(torsoAngle) * h * 0.26;
+    const double tipY = hipY + std::cos(torsoAngle) * h * 0.26;
+
+    const double elbowLX = (tipX - unit * 5.0) + std::sin(pose.armL) * h * 0.19;
+    const double elbowLY = (tipY + unit * 1.5) + std::cos(pose.armL) * h * 0.19;
+    out.handLAngle = pose.armL + pose.foreL;
+    out.handLX = elbowLX + std::sin(out.handLAngle) * h * 0.18;
+    out.handLY = elbowLY + std::cos(out.handLAngle) * h * 0.18;
+
+    const double elbowRX = (tipX + unit * 5.0) + std::sin(pose.armR) * h * 0.19;
+    const double elbowRY = (tipY + unit * 1.5) + std::cos(pose.armR) * h * 0.19;
+    out.handRAngle = pose.armR + pose.foreR;
+    out.handRX = elbowRX + std::sin(out.handRAngle) * h * 0.18;
+    out.handRY = elbowRY + std::cos(out.handRAngle) * h * 0.18;
+
+    out.headX = tipX + h * 0.055 * std::sin(pose.head);
+    out.headY = tipY - h * 0.055 * std::cos(pose.head);
+    out.headRx = h * 0.052;
+    out.headRy = h * 0.062;
+    out.headAngle = pose.head;
+    return out;
+}
+
 // The whole body as ONE path: nine tapered limb segments and an ellipse for the head, in the figure's
 // own space with the feet on y = 0 and the body rising to about y = -h. Fill it with the NONZERO rule
 // -- every sub-path is wound the same way, so overlaps (the head against the torso, an arm across the

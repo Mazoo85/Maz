@@ -563,8 +563,24 @@ for every figure that has ever been drawn, so everybody always walked left
 regardless of where they started. It only became visible when the same line had
 to be written out again in another language and stopped making sense.
 
-**Still browser-only**, and honestly so: the faces and the held objects, the set
-dressing, and all of the sound. Those are this session's additions to the
-browser and have not been ported yet, which is why a native frame and a browser
-frame of the same instant now agree to about 2.5/255 in the acting area and
-diverge at the edges of the picture.
+The faces, the held objects and the set dressing followed, and are checked the
+same way: `maz/film/Face.hpp` and `maz/film/SetDress.hpp`, against a fixture of
+750 dressings and 50 joint sets generated from the browser's own modules, and
+demanded to agree **exactly** — the same prop of the same kind at the same
+position to fifteen decimal places, the same eyes shut at the same moments.
+
+Two things that needed care. The joints came out as `math::vec2`, which is
+float, and the browser computes them in doubles: the same arithmetic through
+float loses agreement at the seventh decimal, invisible in a drawn frame and
+fatal to a test whose whole job is to prove the port is a port. And the
+`.reel.json` document had no field for who is carrying the object, because those
+were added to the runtime reel without being added to the CONTRACT — so the
+engine could not have known, whatever it drew. Both fixed.
+
+A native frame and a browser frame of the same instant now agree to a mean of
+**1.7–2.3/255 above the caption line**, worst 13/255, which is anti-aliasing.
+Below that line the captions still differ, because the engine sets them in its
+own stroke font and the browser uses a real one.
+
+**Still browser-only**: all of the sound. The score is SONG FORGE's, which is a
+Web Audio program, and the world sound was written against the same API.

@@ -34,6 +34,8 @@
 #include "maz/film/Canvas.hpp"
 #include "maz/film/Figure.hpp"
 #include "maz/film/Motion.hpp"
+#include "maz/film/Face.hpp"
+#include "maz/film/SetDress.hpp"
 #include "maz/film/Glyphs.hpp"
 #include "maz/film/Noise.hpp"
 #include "maz/film/Palette.hpp"
@@ -139,7 +141,9 @@ inline const maz::film::Pose& poseForBeat(const std::string& beat, const std::st
 // the body itself near-black, and a wash of the character's own colour over the top.
 inline void drawFigure(maz::film::Canvas& c, const maz::film::Palette& pal,
                        const maz::film::Voice* voice, const Spot& spot,
-                       const maz::film::Pose& pose, bool speaking, float lightX) {
+                       const maz::film::Pose& pose, bool speaking, float lightX,
+                       const maz::film::FaceLook& look = maz::film::FaceLook{},
+                       const std::string& holding = std::string()) {
     const double h = static_cast<double>(spot.height);
     const float w = spot.height * 0.34f;
 
@@ -195,6 +199,28 @@ inline void drawFigure(maz::film::Canvas& c, const maz::film::Palette& pal,
         tint.a = speaking ? 0.16f : 0.08f;
         fillBody(solid, tint);
     }
+
+    // On top of the silhouette, and only when the camera is close enough for either to be anything
+    // but a smudge. The joints come from the body rather than from the pose, because the planted-foot
+    // shift moves the whole figure and a face computed from the pose alone floats where the head would
+    // have been if she were standing straight.
+    const maz::film::Joints joints = maz::film::jointsOf(h, pose);
+    c.save();
+    c.concat(1.0f, 0.0f, 0.0f, 1.0f, spot.x, spot.ground);
+    if (!holding.empty()) {
+        // Whichever hand is nearer the camera, so the object is not behind them.
+        const bool right = joints.handRX >= joints.handLX;
+        maz::film::drawHeld(c, pal, right ? joints.handRX : joints.handLX,
+                            right ? joints.handRY : joints.handLY,
+                            right ? joints.handRAngle : joints.handLAngle, h, holding);
+    }
+    // Never on the foreground of an over-the-shoulder shot: that figure is what the shot is looking
+    // PAST, and it is drawn big, so the size gate alone would put a face on it and turn a dark mass
+    // into a second person staring down the lens.
+    if (joints.headRx >= maz::film::kFaceMinHead && !spot.foreground) {
+        maz::film::drawFace(c, pal, joints, look);
+    }
+    c.restore();
 }
 
 // --------------------------------------------------------------------------------- captions
@@ -401,7 +427,20 @@ inline void drawCaptions(Image& img, const maz::film::Palette& pal, const maz::f
 struct Performance {
     maz::film::Pose pose;
     double driftX = 0.0;
+    // How far open the mouth is, on the same syllable clock the gesture uses: the two have to be the
+    // same number or the mouth reads as a dub over the hand.
+    double mouthOpen = 0.0;
 };
+
+// What this figure has in their hand, if anything. The reel says who is carrying the object, and the
+// object arc says during which scenes they have it.
+inline std::string holdingFor(const maz::film::Reel& reel, const maz::film::Shot& shot,
+                              const Spot& spot) {
+    if (shot.holdingBy.empty() || shot.holdingBy != spot.name) {
+        return std::string();
+    }
+    return reel.object;
+}
 
 inline Performance performanceFor(const maz::film::Reel& reel, const maz::film::Shot& shot,
                                   const Spot& spot, const Spot* other, double time) {
@@ -465,7 +504,9 @@ inline Performance performanceFor(const maz::film::Reel& reel, const maz::film::
         const double gap = span / static_cast<double>(syllables);
         const double into = time - shot.start;
         if (into < span && gap > 0.0) {
-            out.pose = maz::film::gestureAt(out.pose, std::fmod(into, gap) / gap);
+            const double phase = std::fmod(into, gap) / gap;
+            out.pose = maz::film::gestureAt(out.pose, phase);
+            out.mouthOpen = std::sin(phase * 3.141592653589793);
         }
     }
     return out;
@@ -533,6 +574,10 @@ inline Image drawFrame(const maz::film::Reel& reel, double time, int width, int 
 
         usePlane(maz::film::Parallax::kMid);
         set.mid(canvas, pal, grain);
+        // How this film has treated this room. Fifteen sets drawn identically every time is the one
+        // thing you cannot un-notice once you have seen two films.
+        maz::film::drawDressing(canvas, pal,
+                                maz::film::dressingFor(shot->set, reel.genre, reel.seed));
 
         // The figures, at the mid rate -- so at rest they land exactly where a single-plane renderer
         // would have put them.
@@ -555,8 +600,14 @@ inline Image drawFrame(const maz::film::Reel& reel, double time, int width, int 
             const Performance act = performanceFor(reel, *shot, spot, otherThan(spot), time);
             Spot moved = spot;
             moved.x = static_cast<float>(spot.x + act.driftX);
+            maz::film::FaceLook look;
+            look.speaking = speaking;
+            look.mouthOpen = act.mouthOpen;
+            look.seconds = time;
+            look.seed = maz::film::hashText(spot.name);
             drawFigure(canvas, pal, maz::film::voiceFor(reel, spot.name), moved,
-                       act.pose, speaking, static_cast<float>(light.offset));
+                       act.pose, speaking, static_cast<float>(light.offset), look,
+                       holdingFor(reel, *shot, spot));
         }
 
         usePlane(maz::film::Parallax::kFore);
@@ -569,8 +620,14 @@ inline Image drawFrame(const maz::film::Reel& reel, double time, int width, int 
             const Performance act = performanceFor(reel, *shot, spot, otherThan(spot), time);
             Spot moved = spot;
             moved.x = static_cast<float>(spot.x + act.driftX);
+            maz::film::FaceLook look;
+            look.speaking = speaking;
+            look.mouthOpen = act.mouthOpen;
+            look.seconds = time;
+            look.seed = maz::film::hashText(spot.name);
             drawFigure(canvas, pal, maz::film::voiceFor(reel, spot.name), moved,
-                       act.pose, speaking, static_cast<float>(light.offset));
+                       act.pose, speaking, static_cast<float>(light.offset), look,
+                       holdingFor(reel, *shot, spot));
         }
     } else {
         // An insert has no camera depth to it: the set shows faintly behind the object, on one plane.

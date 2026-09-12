@@ -493,7 +493,14 @@
       characters: (shot.characters || []).slice(),
       mood: shot.mood,
       scene: shot.scene,
-      beat: shot.beat
+      beat: shot.beat,
+      // Who is carrying the object, and which turn of its arc this shot is. Added when characters
+      // started holding things: the reel is the CONTRACT between this renderer and the engine, so a
+      // field that only exists on the runtime reel is a field the engine can never see. Flattened to
+      // two strings rather than nested, because the engine's reader is a flat struct and a nested
+      // object there buys nothing.
+      holdingBy: shot.holding && shot.holding.by ? String(shot.holding.by) : '',
+      objectBeat: shot.objectBeat == null ? '' : String(shot.objectBeat)
     };
   }
 
