@@ -167,4 +167,6 @@ jobs:
         run: cmake --build build --config Release --parallel
       - name: Unit tests
         # The unit suite is pure logic (no GPU/window), so it runs anywhere the engine compiles.
-        run: ctest --test-dir build --config Release --output-on-failure -R unit_tests
+        # ctest spells the multi-config selector -C/--build-config; --config is a `cmake --build`
+        # option and makes ctest exit 1 with "Unknown argument: --config".
+        run: ctest --test-dir build -C Release --output-on-failure -R unit_tests
