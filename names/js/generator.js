@@ -4,11 +4,13 @@
  * Pure logic (no DOM) so it runs in the browser AND in a headless test.
  * Reads window.NAME_WORDS and rolls names out of it.
  *
- * The whole point of this app is that *nothing* about a name is fixed. It
- * draws one adjective and one noun, and then — crucially — rolls again for
- * which of the two goes first. "Crimson Falcon" and "Falcon Crimson" are both
- * on the table, every single roll. The order can be pinned if you want it
- * (order: 'adjective-noun' or 'noun-adjective'), but the default is 'random'.
+ * The words are random; the shape of the name is not. A name is always an
+ * adjective and then a noun — "Crimson Falcon" — because that is what reads
+ * like a name. Only the two words are rolled.
+ *
+ * The order can be changed per roll if you ever want it: pass
+ * order: 'noun-adjective' for "Falcon Crimson", or order: 'random' to let the
+ * dice decide each time. Left alone, it is always adjective first.
  *
  * A name is reproducible: the same seed always yields the same name, so a
  * favourite can be written down and rolled again later.
@@ -21,7 +23,8 @@
   var WORDS = root.NAME_WORDS ||
     (typeof require !== 'undefined' ? require('./words.js') : { adjectives: [], nouns: [] });
 
-  // Which word lands first. 'random' (the default) rolls this per name.
+  // Which word lands first. Adjective first is the default and the point;
+  // the others are there for anyone who wants them.
   var ORDERS = [
     { id: 'adjective-noun', label: 'Adjective first', example: 'Crimson Falcon' },
     { id: 'noun-adjective', label: 'Noun first', example: 'Falcon Crimson' }
@@ -86,7 +89,7 @@
    *
    * opts:
    *   seed   number   - reproduces an earlier name; omitted means a fresh roll
-   *   order  string   - 'random' (default), 'adjective-noun', 'noun-adjective'
+   *   order  string   - 'adjective-noun' (default), 'noun-adjective', 'random'
    *   style  string   - 'random', or any STYLES id (default 'title')
    *
    * Returns { seed, adjective, noun, order, style, words, text }.
@@ -105,10 +108,14 @@
       noun = pickFrom(WORDS.nouns, rng);
     }
 
-    // The roll that matters: which word goes first.
-    var order = opts.order && opts.order !== 'random' ? opts.order : null;
-    if (!order || !has(ORDERS, order)) {
+    // Adjective first unless explicitly asked otherwise. 'random' hands this
+    // one decision back to the dice; anything unrecognised falls back to the
+    // default rather than to a surprise.
+    var order = 'adjective-noun';
+    if (opts.order === 'random') {
       order = rng() < 0.5 ? 'adjective-noun' : 'noun-adjective';
+    } else if (opts.order && has(ORDERS, opts.order)) {
+      order = opts.order;
     }
 
     var style = opts.style && opts.style !== 'random' ? opts.style : null;
@@ -130,8 +137,8 @@
   }
 
   /*
-   * Roll `count` names, all different from each other. Each one still gets its
-   * own order and its own seed, so a batch is a batch of independent rolls.
+   * Roll `count` names, all different from each other. Each one gets its own
+   * seed, so a batch is a batch of independent rolls.
    */
   function generateMany(count, opts) {
     opts = opts || {};
@@ -156,12 +163,13 @@
   }
 
   /*
-   * How many different names this can make. Both orders count, because
-   * "Falcon Crimson" is a different name from "Crimson Falcon".
+   * How many different names this can make: every adjective against every
+   * noun. Only 'random' doubles it, because there "Falcon Crimson" is a
+   * second name the app can land on.
    */
   function combinations(order) {
     var pairs = WORDS.adjectives.length * WORDS.nouns.length;
-    return order && order !== 'random' ? pairs : pairs * 2;
+    return order === 'random' ? pairs * 2 : pairs;
   }
 
   function toText(names) {

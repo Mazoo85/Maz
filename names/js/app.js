@@ -16,7 +16,6 @@
     orderChip: document.getElementById('orderChip'),
     seedChip: document.getElementById('seedChip'),
     roll: document.getElementById('roll'),
-    flip: document.getElementById('flip'),
     copy: document.getElementById('copy'),
     save: document.getElementById('save'),
     order: document.getElementById('order'),
@@ -105,8 +104,10 @@
     void el.nameOut.offsetWidth; // restart the animation
     el.nameOut.classList.add('roll');
 
-    el.orderChip.textContent = orderLabel(name.order) +
-      ' · ' + name.adjective + ' + ' + name.noun;
+    // The two words it was built from, adjective first — and, on the rare
+    // roll that isn't adjective-first, a note saying so.
+    el.orderChip.textContent = name.adjective + ' + ' + name.noun +
+      (name.order === 'adjective-noun' ? '' : ' · ' + orderLabel(name.order));
     el.orderChip.hidden = false;
     el.seedChip.textContent = 'seed ' + name.seed;
     el.seedChip.hidden = false;
@@ -114,22 +115,6 @@
 
   function roll() {
     show(F.generate(opts()));
-  }
-
-  // Same two words, the other way round — the one roll you can make by hand.
-  function flip() {
-    if (!current) { roll(); return; }
-    var flipped = current.order === 'noun-adjective' ? 'adjective-noun' : 'noun-adjective';
-    var words = current.words.slice().reverse();
-    show({
-      seed: current.seed,
-      adjective: current.adjective,
-      noun: current.noun,
-      order: flipped,
-      style: current.style,
-      words: words,
-      text: F.format(words, current.style)
-    });
   }
 
   // -------------------------------------------------------------- library
@@ -226,9 +211,13 @@
       text.className = 'n';
       text.textContent = name.text;
 
-      var why = document.createElement('span');
-      why.className = 'why';
-      why.textContent = orderLabel(name.order);
+      // Only worth saying when the name did not come out adjective-first.
+      var why = null;
+      if (name.order !== 'adjective-noun') {
+        why = document.createElement('span');
+        why.className = 'why';
+        why.textContent = orderLabel(name.order);
+      }
 
       var actions = document.createElement('div');
       actions.className = 'row-actions';
@@ -246,7 +235,7 @@
       actions.appendChild(saveBtn);
       actions.appendChild(copyBtn);
       li.appendChild(text);
-      li.appendChild(why);
+      if (why) li.appendChild(why);
       li.appendChild(actions);
       el.batchList.appendChild(li);
     });
@@ -254,7 +243,9 @@
 
   // ----------------------------------------------------------------- init
   function fillSelects() {
-    var orderOptions = [{ id: 'random', label: '🎲 Random (recommended)' }].concat(F.ORDERS);
+    var orderOptions = F.ORDERS.concat([
+      { id: 'random', label: '🎲 Let the dice decide', example: 'either way round' }
+    ]);
     orderOptions.forEach(function (o) {
       var opt = document.createElement('option');
       opt.value = o.id;
@@ -270,29 +261,34 @@
       el.style.appendChild(opt);
     });
 
-    el.order.value = 'random';
+    el.order.value = 'adjective-noun';
     el.style.value = 'title';
   }
 
   function renderScale() {
-    var both = F.combinations('random').toLocaleString();
-    var pinned = F.combinations('adjective-noun').toLocaleString();
-    el.scaleStat.innerHTML =
-      '<b>' + both + '</b> different names — ' + pinned +
-      ' word pairs, each of which can land either way round.';
+    var order = el.order.value;
+    var total = F.combinations(order).toLocaleString();
+    el.scaleStat.innerHTML = order === 'random'
+      ? '<b>' + total + '</b> different names — every adjective against every noun, ' +
+        'and each pair can land either way round.'
+      : '<b>' + total + '</b> different names — every one of the ' +
+        F.words.adjectives.length + ' adjectives against every one of the ' +
+        F.words.nouns.length + ' nouns.';
     el.wordStat.textContent =
       F.words.adjectives.length + ' adjectives × ' + F.words.nouns.length + ' nouns';
   }
 
   el.roll.addEventListener('click', roll);
-  el.flip.addEventListener('click', flip);
   el.copy.addEventListener('click', function () {
     if (current) copyText(current.text, current.text);
   });
   el.save.addEventListener('click', function () {
     if (current) addToLib(current);
   });
-  el.order.addEventListener('change', roll);
+  el.order.addEventListener('change', function () {
+    renderScale();
+    roll();
+  });
   el.style.addEventListener('change', roll);
 
   Array.prototype.forEach.call(document.querySelectorAll('.batch-btn'), function (btn) {

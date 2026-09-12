@@ -2,10 +2,10 @@
  * NAME FORGE — end-to-end tests in a real browser.
  *
  * The logic suite proves the engine is honest; this one proves the app works:
- * the page boots clean, the button really rolls, the word order really does
- * flip about half the time on screen (not just in the engine), the controls
- * do what they say, a batch exports a real file, a saved name survives a
- * reload, and none of it scrolls sideways on a phone.
+ * the page boots clean, the button really rolls, every name it puts on screen
+ * is an adjective and then a noun, the controls do what they say, a batch
+ * exports a real file, a saved name survives a reload, and none of it scrolls
+ * sideways on a phone.
  *
  *   npm --prefix music/tests install     # once, for Playwright
  *   node names/tests/names-browser.test.js
@@ -77,7 +77,24 @@ function launchOptions() {
 }
 
 const name = (page) => page.textContent('#nameOut');
-const orderChip = (page) => page.textContent('#orderChip');
+
+/*
+ * What is on screen: the name, and the two words it was built from. The chip
+ * always lists them adjective first ("crimson + falcon"), so comparing the
+ * name's own first word against the adjective says which way this one landed.
+ */
+async function rolled(page) {
+  const text = (await page.textContent('#nameOut')).trim();
+  const chip = (await page.textContent('#orderChip')).trim();
+  const adjective = chip.split(' + ')[0];
+  const noun = chip.split(' + ')[1].split(' · ')[0];
+  return {
+    text: text,
+    adjective: adjective,
+    noun: noun,
+    adjectiveFirst: text.toLowerCase().split(/[ _-]/)[0] === adjective
+  };
+}
 
 (async () => {
   await new Promise((r) => server.listen(PORT, '127.0.0.1', r));
@@ -96,43 +113,42 @@ const orderChip = (page) => page.textContent('#orderChip');
 
     const first = (await name(page)).trim();
     check(/^[A-Z][a-z]+ [A-Z][a-z]+$/.test(first), `a name is on screen straight away (${first})`);
-    check(/1,000,000|2,000,000/.test(await page.textContent('#scaleStat')),
+    check(/1,000,000/.test(await page.textContent('#scaleStat')),
       'it states how many names it can make');
 
     console.log('\nROLLING');
     const seen = new Set();
     let adjFirst = 0;
+    let wellShaped = 0;
     for (let i = 0; i < 60; i++) {
       await page.click('#roll');
-      seen.add((await name(page)).trim());
-      if (/adjective first/.test(await orderChip(page))) adjFirst++;
+      const one = await rolled(page);
+      seen.add(one.text);
+      if (one.adjectiveFirst) adjFirst++;
+      if (/^[A-Z][a-z]+ [A-Z][a-z]+$/.test(one.text)) wellShaped++;
     }
     check(seen.size > 55, `60 rolls gave ${seen.size} different names`);
-    check(adjFirst > 12 && adjFirst < 48,
-      `the adjective led ${adjFirst} times out of 60 — the order is really rolled`);
-
-    console.log('\nFLIP');
-    const before = (await name(page)).trim().split(' ');
-    const beforeOrder = await orderChip(page);
-    await page.click('#flip');
-    const after = (await name(page)).trim().split(' ');
-    check(after[0] === before[1] && after[1] === before[0], 'flip swaps the two words');
-    check((await orderChip(page)) !== beforeOrder, 'and says the order changed');
+    check(adjFirst === 60, `all 60 rolls led with their adjective (${adjFirst}/60)`);
+    check(wellShaped === 60, 'and every one of them read as "Adjective Noun"');
 
     console.log('\nCONTROLS');
-    await page.selectOption('#order', 'adjective-noun');
-    let pinned = true;
-    for (let i = 0; i < 20; i++) {
-      await page.click('#roll');
-      if (!/adjective first/.test(await orderChip(page))) pinned = false;
-    }
-    check(pinned, 'pinning "adjective first" holds for 20 rolls');
-
     await page.selectOption('#order', 'noun-adjective');
     await page.click('#roll');
-    check(/noun first/.test(await orderChip(page)), 'pinning "noun first" holds too');
+    check((await rolled(page)).adjectiveFirst === false,
+      'asking for "noun first" turns the name round');
 
     await page.selectOption('#order', 'random');
+    let mixed = new Set();
+    for (let i = 0; i < 40; i++) {
+      await page.click('#roll');
+      mixed.add((await rolled(page)).adjectiveFirst);
+    }
+    check(mixed.size === 2, 'asking for "let the dice decide" gives both orders');
+
+    await page.selectOption('#order', 'adjective-noun');
+    await page.click('#roll');
+    check((await rolled(page)).adjectiveFirst, 'and going back to "adjective first" sticks');
+
     await page.selectOption('#style', 'hyphen');
     await page.click('#roll');
     check(/^[a-z]+-[a-z]+$/.test((await name(page)).trim()), 'hyphen-case styles the name');

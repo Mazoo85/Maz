@@ -5,8 +5,8 @@
  *
  * No dependencies and no browser: the word bank and the engine are plain
  * modules. What these prove is the promise the app makes on its own front
- * page — 1000 adjectives, 1000 nouns, no duplicates, and an order that is
- * genuinely rolled rather than always adjective-first.
+ * page — 1000 adjectives, 1000 nouns, no duplicates, and a name that always
+ * comes out as an adjective and then a noun.
  */
 'use strict';
 
@@ -107,33 +107,41 @@ test('different seeds give different names, near enough always', () => {
   assert(unique > 490, 'only ' + unique + ' of 500 rolls were distinct');
 });
 
-console.log('\nNAME FORGE — the order is rolled, not fixed');
+console.log('\nNAME FORGE — adjective first, then the noun');
 
-test('both orders show up, roughly half the time each', () => {
-  let adjFirst = 0;
-  const rolls = seeds(1000, 4242);
-  for (const seed of rolls) {
+test('every roll comes out adjective first', () => {
+  for (const seed of seeds(1000, 4242)) {
     const name = Forge.generate({ seed });
-    if (name.order === 'adjective-noun') adjFirst++;
+    eq(name.order, 'adjective-noun', 'order of ' + name.text);
+    eq(name.words[0], name.adjective, 'first word of ' + name.text);
+    eq(name.words[1], name.noun, 'second word of ' + name.text);
   }
-  assert(adjFirst > 400 && adjFirst < 600,
-    'adjective went first ' + adjFirst + ' times in 1000 — that is not a coin flip');
 });
 
-test('the order matches the words actually used', () => {
-  for (const seed of seeds(200, 5)) {
+test('a name reads as "Adjective Noun"', () => {
+  for (const seed of seeds(100, 808)) {
     const name = Forge.generate({ seed });
-    if (name.order === 'adjective-noun') {
-      eq(name.words[0], name.adjective, 'first word of ' + name.text);
-      eq(name.words[1], name.noun, 'second word of ' + name.text);
-    } else {
-      eq(name.words[0], name.noun, 'first word of ' + name.text);
-      eq(name.words[1], name.adjective, 'second word of ' + name.text);
+    eq(name.text, Forge.capitalise(name.adjective) + ' ' + Forge.capitalise(name.noun),
+      'text for seed ' + seed);
+  }
+});
+
+test('the order always matches the words actually used', () => {
+  for (const seed of seeds(200, 5)) {
+    for (const order of ['adjective-noun', 'noun-adjective', 'random']) {
+      const name = Forge.generate({ seed, order });
+      if (name.order === 'adjective-noun') {
+        eq(name.words[0], name.adjective, 'first word of ' + name.text);
+        eq(name.words[1], name.noun, 'second word of ' + name.text);
+      } else {
+        eq(name.words[0], name.noun, 'first word of ' + name.text);
+        eq(name.words[1], name.adjective, 'second word of ' + name.text);
+      }
     }
   }
 });
 
-test('the order can still be pinned either way', () => {
+test('the order can still be asked for either way', () => {
   for (const seed of seeds(100, 11)) {
     const adjFirst = Forge.generate({ seed, order: 'adjective-noun' });
     eq(adjFirst.order, 'adjective-noun', 'pinned adjective-first');
@@ -149,10 +157,20 @@ test('the order can still be pinned either way', () => {
   }
 });
 
-test('an unknown order falls back to a roll rather than to a default', () => {
+test('asking for "random" hands that one decision back to the dice', () => {
+  let adjFirst = 0;
+  for (const seed of seeds(1000, 31337)) {
+    if (Forge.generate({ seed, order: 'random' }).order === 'adjective-noun') adjFirst++;
+  }
+  assert(adjFirst > 400 && adjFirst < 600,
+    'adjective went first ' + adjFirst + ' times in 1000 — that is not a coin flip');
+});
+
+test('an unknown order falls back to adjective first, not to a surprise', () => {
   const orders = new Set(seeds(200, 13).map((seed) =>
     Forge.generate({ seed, order: 'sideways' }).order));
-  eq(orders.size, 2, 'unknown order should still produce both orders');
+  eq(orders.size, 1, 'unknown order should not produce a mixture');
+  eq([...orders][0], 'adjective-noun', 'the fallback order');
 });
 
 console.log('\nNAME FORGE — styles, batches and exports');
@@ -184,16 +202,26 @@ test('a batch of 200 is 200 different names', () => {
   eq(new Set(batch.map((n) => n.text.toLowerCase())).size, 200, 'distinct names');
 });
 
-test('a batch rolls its orders too, not just its words', () => {
+test('a whole batch comes out adjective first', () => {
   const batch = Forge.generateMany(400);
-  const adjFirst = batch.filter((n) => n.order === 'adjective-noun').length;
+  const stragglers = batch.filter((n) => n.words[0] !== n.adjective);
+  eq(stragglers.length, 0, 'names that did not lead with their adjective');
+});
+
+test('a batch passes an order of its own through to every name', () => {
+  const nounFirst = Forge.generateMany(50, { order: 'noun-adjective' });
+  eq(nounFirst.filter((n) => n.words[0] === n.noun).length, 50, 'all noun-first');
+
+  const rolled = Forge.generateMany(400, { order: 'random' });
+  const adjFirst = rolled.filter((n) => n.order === 'adjective-noun').length;
   assert(adjFirst > 150 && adjFirst < 250,
-    'adjective went first ' + adjFirst + ' times in 400 — a batch should flip too');
+    'adjective led ' + adjFirst + ' times in 400 — "random" should flip in batches too');
 });
 
 test('the advertised number of names is the real one', () => {
-  eq(Forge.combinations('random'), 2000000, 'both orders');
-  eq(Forge.combinations('adjective-noun'), 1000000, 'one order');
+  eq(Forge.combinations(), 1000000, 'the default, adjective first');
+  eq(Forge.combinations('adjective-noun'), 1000000, 'asked for adjective first');
+  eq(Forge.combinations('random'), 2000000, 'either way round');
 });
 
 test('exports contain every name, one per line', () => {

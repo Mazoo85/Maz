@@ -1,18 +1,19 @@
 # 🎲 NAME FORGE
 
-**Random name maker.** One adjective, one noun, and a coin flip for which of
-the two goes first.
+**Random name maker.** A random adjective, then a random noun — `Crimson
+Falcon`, `Velvet Mantis`, `Sunken Harbour`.
 
 ### ▶ [Open it](https://mazoo85.github.io/Maz/names/)
 
 ```
-1000 adjectives  ×  1000 nouns  ×  2 possible orders  =  2,000,000 names
+1000 adjectives  ×  1000 nouns  =  1,000,000 names
 ```
 
-Every roll is random three times over: the adjective, the noun, and — the part
-most name generators skip — **the order**. `Crimson Falcon` and
-`Falcon Crimson` are both live on every single roll. If you do want the order
-pinned, you can, but random is the default.
+The words are random; the shape of the name is not. Every name comes out as
+an adjective and then a noun, because that is what reads like a name. (If you
+ever want it the other way round, or want the app to flip a coin each time,
+the **Word order** dropdown will do it — but adjective-first is the default
+and what it does when left alone.)
 
 Open `index.html`. No build step, no server, no dependencies, nothing leaves
 your browser.
@@ -24,9 +25,8 @@ your browser.
 | | |
 |---|---|
 | 🎲 **Roll a name** | One name, big, front and centre. Press space to roll again. |
-| 🔄 **Flip the order** | Keeps the two words, swaps which one leads. |
-| 🎛 **Word order** | Random (default), adjective first, or noun first. |
 | ✍️ **Style** | `Two Words`, `OneWord`, `hyphen-case`, `snake_case`, `lower case`, `SHOUT CASE`, or surprise me. |
+| 🎛 **Word order** | Adjective first (default), noun first, or let the dice decide. |
 | 📚 **Batches** | 10, 25 or 100 at a time, all different from each other. |
 | ★ **Saved names** | Kept in your browser's local storage; copy or export any time. |
 | ⬇ **Export** | `.txt` (just the names) or `.csv` (name, both words, order, style, seed). |
@@ -43,23 +43,25 @@ names/
 ├── index.html            # the page
 ├── css/style.css         # neon theme, no dependencies
 ├── js/words.js           # the word bank: 1000 adjectives + 1000 nouns
-├── js/generator.js       # the engine — picks the words AND rolls the order
+├── js/generator.js       # the engine — draws the pair, builds the name
 ├── js/app.js             # the UI: buttons, batches, saved names, export
-└── tests/names-logic.test.js
+└── tests/
+    ├── names-logic.test.js     # the engine, headless
+    └── names-browser.test.js   # the real page, in Chromium
 ```
 
 `words.js` and `generator.js` are plain modules with no DOM in them, so they
-run in the browser and in Node alike. That is what lets the whole thing be
-tested without a browser:
+run in the browser and in Node alike. That is what lets the engine be tested
+without a browser:
 
 ```bash
-node names/tests/names-logic.test.js
+node names/tests/names-logic.test.js     # word bank + engine
+node names/tests/names-browser.test.js   # drives the page in Chromium
 ```
 
 Those tests are the app's promises, written down: exactly 1000 words in each
 list, no duplicates, no word ever paired with itself, and — checked over a
-thousand rolls — an order that really is a coin flip rather than
-adjective-first with a coat of paint.
+thousand rolls — a name that is always an adjective followed by a noun.
 
 ## Adding words
 

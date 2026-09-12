@@ -26,7 +26,7 @@ is a dead end.
 | 🎵 | **SONG FORGE** | Generative AI music maker: writes and plays complete songs — chords, bass, drums, arpeggio, melody — across 8 genres, with WAV and MIDI export. Offline, no API key. | [open](music/) · [docs](music/README.md) |
 | 🎬 | **SCRIPT FORGE** | Type what your film is about and get the film: a formatted screenplay, a shot list, and an animated short — sets, camera, voices, a real SONG FORGE score — that plays in the page and downloads as an MP4 or WebM. | [open](film/) · [docs](film/README.md) |
 | ✍️ | **MADLIBS STORY FORGE** | Randomly forges story ideas broken into scene beats, ready to seed a storyboard or script. | [open](madlibs/) · [docs](madlibs/README.md) |
-| 🎲 | **NAME FORGE** | Random name maker: 1000 adjectives, 1000 nouns, and a coin flip for which word goes first — two million names, in batches, exportable. | [open](names/) · [docs](names/README.md) |
+| 🎲 | **NAME FORGE** | Random name maker: a random adjective and then a random noun, drawn from 1000 of each — a million names, in six styles, in batches, exportable. | [open](names/) · [docs](names/README.md) |
 | ⚙️ | **Maz Engine** | Native **C++20 + Vulkan + SDL3** game engine, 2D-first but architected so 3D drops in later. | [roadmap](docs/ROADMAP.md) · [architecture](docs/ARCHITECTURE.md) |
 | 🕸️ | **maz-scrape** | Recipe-driven scraper for static HTML — point it at a YAML recipe, get JSONL/CSV/SQLite. | [docs](scraper/README.md) |
 | 🤝 | **Maz Crew** | Runs a coding task through planner → coder → reviewer → tester, with human checkpoints. | [docs](crew/README.md) |
