@@ -973,6 +973,74 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
      * differently from each other, and a footstep has to be a transient rather
      * than part of the bed.
      */
+    /* ---------------------------------------------------------- directing it
+     *
+     * Driven through the real controls rather than through the module, because
+     * every one of these edits has to survive the trip from a click to the
+     * picture, and the trip is where they break. */
+    console.log('\nDIRECTING');
+    await page.click('#tabScript');
+    await page.click('#editToggle');
+
+    const firstLine = page.locator('#viewScript .el.dialogue').first();
+    const originalLine = (await firstLine.textContent()).trim();
+    await firstLine.click();
+    await page.keyboard.press('Control+A');
+    await page.keyboard.type('I came back for it and I am not sorry.');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(150);
+
+    const afterEdit = await page.evaluate(() => {
+      const app = window.__filmState;
+      return {
+        onPage: document.getElementById('viewScript').textContent
+          .indexOf('I came back for it and I am not sorry.') !== -1,
+        inFilm: app.reel().shots.some((s) => s.caption === 'I came back for it and I am not sorry.'),
+        undoEnabled: !document.getElementById('undoEdit').disabled
+      };
+    });
+    check(afterEdit.onPage, 'a rewritten line shows on the page');
+    check(afterEdit.inFilm, 'a rewritten line reaches the film, not just the page');
+    check(afterEdit.undoEnabled, 'a rewrite can be undone');
+
+    await page.click('#undoEdit');
+    await page.waitForTimeout(150);
+    const undone = await page.evaluate((was) => document.getElementById('viewScript')
+      .textContent.indexOf(was) !== -1, originalLine);
+    check(undone, 'undo puts the original line back');
+
+    // Lock a scene, reroll, and check the locked one survived while the rest moved.
+    await page.click('#editToggle');            // leave and re-enter to redraw the tools
+    await page.click('#editToggle');
+    const scenesBefore = await page.evaluate(() => {
+      const app = window.__filmState;
+      return app.script().scenes.map((s) => s.elements.map((e) => e.text).join('|'));
+    });
+    await page.locator('#viewScript .el.scene_heading .scene-tools button').first().click();
+    await page.click('#rerollFree');
+    await page.waitForTimeout(250);
+    const scenesAfter = await page.evaluate(() => {
+      const app = window.__filmState;
+      return app.script().scenes.map((s) => s.elements.map((e) => e.text).join('|'));
+    });
+    check(scenesAfter[0] === scenesBefore[0], 'a locked scene comes through a reroll untouched');
+    check(scenesAfter.slice(1).some((scene, i) => scene !== scenesBefore[i + 1]),
+      'the scenes that were not locked actually changed');
+
+    // The hour of a scene reaches the artist.
+    const hourChanged = await page.evaluate(async () => {
+      const app = window.__filmState;
+      const select = document.querySelector('#viewScript .el.scene_heading .scene-tools select');
+      select.value = 'DAWN';
+      select.dispatchEvent(new Event('change'));
+      await new Promise((r) => setTimeout(r, 120));
+      const shots = app.reel().shots.filter((s) => s.scene === 1);
+      return { heading: app.script().scenes[0].heading.text, lit: shots.map((s) => s.time) };
+    });
+    check(/DAWN/.test(hourChanged.heading), `the scene heading says DAWN (${hourChanged.heading})`);
+    check(hourChanged.lit.every((t) => t === 'DAWN'),
+      `and the artist lights it at dawn (${[...new Set(hourChanged.lit)].join(',')})`);
+
     console.log('\nWORLD SOUND');
     const world = await page.evaluate(async () => {
       const W = window.FilmWorldSound;

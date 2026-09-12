@@ -260,3 +260,52 @@ button.accent { border-color: var(--green); color: var(--green); }
   .page .scene_heading { page-break-after: avoid; }
   .page .character { page-break-after: avoid; }
 }
+
+/* ------------------------------------------------------------ directing it
+ * The screenplay page is editable in place. The controls sit above it rather
+ * than beside each line, because a row of buttons on every one of sixty
+ * elements is not a screenplay any more, it is a spreadsheet. */
+.direct {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin: 0 0 10px; padding: 8px 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+}
+.direct-hint { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.6; }
+.direct-btn {
+  font: inherit; font-size: 13px; padding: 5px 10px; border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.05);
+  color: inherit; cursor: pointer;
+}
+.direct-btn:hover:not(:disabled) { background: rgba(255,255,255,0.1); }
+.direct-btn[aria-pressed="true"] { background: var(--accent, #ffb300); color: #120a24; border-color: transparent; }
+.direct-btn:disabled { opacity: 0.4; cursor: default; }
+.direct-status { font-size: 12px; opacity: 0.7; margin-left: auto; }
+
+/* A scene's own controls, shown on its heading while editing. */
+.scene-tools { display: inline-flex; gap: 4px; margin-left: 10px; vertical-align: middle; }
+.scene-tools button, .scene-tools select {
+  /* The screenplay page is cream, not the app's dark ground: these controls sit
+     ON the page, so they take their contrast from the page. */
+  font: inherit; font-size: 11px; line-height: 1.4; padding: 2px 6px;
+  white-space: nowrap;
+  border-radius: 5px; border: 1px solid rgba(20,12,40,0.28);
+  background: rgba(20,12,40,0.06); color: #241a3a; cursor: pointer;
+}
+.scene-tools button:hover { background: rgba(20,12,40,0.16); }
+.scene-tools .locked { background: var(--accent, #ffb300); color: #120a24; border-color: transparent; }
+
+/* An editable line. Dashed underline rather than a box: it has to still read as
+ * a screenplay while you are working on it. */
+.is-editing .el.dialogue, .is-editing .el.action, .is-editing .el.parenthetical {
+  outline: none;
+  border-bottom: 1px dashed rgba(20,12,40,0.3);
+  cursor: text;
+}
+.is-editing .el.dialogue:focus, .is-editing .el.action:focus, .is-editing .el.parenthetical:focus {
+  border-bottom-color: #8a5a00;
+  background: rgba(255,179,0,0.14);
+}
+.el.scene-locked { opacity: 0.75; }
+.el.scene-locked .scene-num { background: var(--accent, #ffb300); color: #120a24; }

@@ -79,6 +79,13 @@
           <button class="tab" id="tabFilm" role="tab" aria-selected="false" aria-controls="viewFilm">🎬 The film</button>
         </div>
 
+        <div class="direct no-print" id="directBar">
+          <span class="direct-hint">Direct it:</span>
+          <button id="editToggle" class="direct-btn" aria-pressed="false">✎ Edit lines</button>
+          <button id="rerollFree" class="direct-btn" title="Write the scenes you have not locked again, and keep the ones you have">🎲 Reroll unlocked</button>
+          <button id="undoEdit" class="direct-btn" disabled>↶ Undo</button>
+          <span id="directStatus" class="direct-status" role="status"></span>
+        </div>
         <div id="viewScript" class="page" role="tabpanel" aria-labelledby="tabScript"></div>
         <div id="viewShots" class="shots hidden" role="tabpanel" aria-labelledby="tabShots"></div>
 
@@ -163,6 +170,7 @@
   <script src="js/subtext.js"></script>
   <script src="js/screenplay.js"></script>
   <script src="js/format.js"></script>
+  <script src="js/director.js"></script>
   <script src="js/film-reel.js"></script>
   <script src="js/film-art.js"></script>
   <script src="js/film-sets.js"></script>

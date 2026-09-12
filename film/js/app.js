@@ -32,6 +32,7 @@
   ['idea', 'examples', 'length', 'genre', 'titleInput', 'write', 'reroll', 'surprise', 'placeholder',
    'result', 'scriptTitle', 'scriptLogline', 'chipGenre', 'chipScenes', 'chipRuntime',
    'chipSeed', 'tabScript', 'tabShots', 'tabFilm', 'viewScript', 'viewShots', 'viewFilm',
+   'editToggle', 'rerollFree', 'undoEdit', 'directStatus', 'directBar',
    'copy', 'dlFountain', 'dlFdx', 'dlText', 'dlShots', 'print', 'save', 'status',
    'libraryList', 'libCount', 'libEmpty', 'clearLib', 'filmCanvas', 'bigPlay', 'playFilm',
    'stopFilm', 'recordFilm', 'dlReel', 'filmSize', 'speakAloud', 'scrubBar', 'scrubFill', 'filmClock',
@@ -40,10 +41,21 @@
   });
 
   var Reel = window.FilmReel;
+  var Director = window.FilmDirector;
   var PlayerLib = window.FilmPlayer;
   var ScoreLib = window.FilmScore;
 
   var current = null;  // the script on screen
+
+  /* ------------------------------------------------------------- directing
+   * A film used to be a slot machine: press the button, get a film, press it
+   * again, get a different one, and every good one was a roll you could not
+   * refine. These three hold what it takes to refine one — whether the page is
+   * editable, which scenes are being kept, and one step of undo, because an
+   * edit you cannot take back is one most people will not risk making. */
+  var editing = false;
+  var lockedScenes = [];
+  var undoStack = [];
   var reel = null;     // that script, cut into shots
   var player = null;   // the thing playing it
   var score = null;    // the thing scoring it
@@ -138,7 +150,13 @@
       title: el.titleInput.value.trim() || (borrow ? borrow.title.toUpperCase() : null)
     });
     current = Writer.write(premise, { length: el.length.value, seed: seed });
+    // Locks and undo belong to the film they were made on. Carrying them over
+    // would keep a scene from a film that no longer exists.
+    lockedScenes = [];
+    undoStack = [];
+    editing = false;
     render(current);
+    updateDirectBar();
   }
 
   /* ----------------------------------------------------------------- render */
@@ -159,25 +177,74 @@
     el.result.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  /* Apply an edit: keep the old script for undo, show the new one, and rebuild
+   * the film from it. Everything the director does goes through here, so there
+   * is exactly one place that knows an edit has to reach the picture. */
+  function applyEdit(next, note) {
+    if (!next) return;
+    undoStack.push(current);
+    if (undoStack.length > 20) undoStack.shift();
+    current = next;
+    render(current);
+    say(note || 'Changed.');
+    updateDirectBar();
+  }
+
+  function updateDirectBar() {
+    if (!el.editToggle) return;
+    el.editToggle.setAttribute('aria-pressed', editing ? 'true' : 'false');
+    el.editToggle.textContent = editing ? '✓ Done editing' : '✎ Edit lines';
+    el.undoEdit.disabled = undoStack.length === 0;
+    el.directStatus.textContent = lockedScenes.length
+      ? lockedScenes.length + ' scene' + (lockedScenes.length === 1 ? '' : 's') + ' locked'
+      : (editing ? 'Click a line to rewrite it' : '');
+    el.viewScript.classList.toggle('is-editing', editing);
+  }
+
+  function toggleLock(number) {
+    var at = lockedScenes.indexOf(number);
+    if (at === -1) lockedScenes.push(number);
+    else lockedScenes.splice(at, 1);
+    renderPage(current);
+    updateDirectBar();
+  }
+
   function renderPage(script) {
     var page = el.viewScript;
     page.textContent = '';
     var sceneNo = 0;
+
+    // Where each element sits in its own scene. The flat index the page renders
+    // is not a stable address for an edit -- deleting a scene moves every index
+    // after it -- so each node carries the scene it belongs to and its position
+    // inside that scene, which survive everything the director can do.
+    var withinScene = -1;
 
     script.elements.forEach(function (element) {
       var node = document.createElement('p');
       node.className = 'el ' + element.type;
       if (element.type === 'scene_heading') {
         sceneNo++;
+        withinScene = 0;
         var num = document.createElement('span');
         num.className = 'scene-num';
         num.textContent = String(sceneNo);
         node.appendChild(num);
+        if (lockedScenes.indexOf(sceneNo) !== -1) node.classList.add('scene-locked');
+      } else if (element.type !== 'transition') {
+        withinScene++;
       }
+
       if (element.type === 'parenthetical') {
         node.appendChild(document.createTextNode('(' + element.text.replace(/^\(|\)$/g, '') + ')'));
       } else {
         node.appendChild(document.createTextNode(element.text));
+      }
+
+      if (element.type === 'scene_heading') {
+        node.appendChild(sceneTools(sceneNo, script));
+      } else if (editing && (element.type === 'dialogue' || element.type === 'action')) {
+        makeEditable(node, sceneNo, withinScene);
       }
       page.appendChild(node);
     });
@@ -186,6 +253,71 @@
     end.className = 'el the-end';
     end.textContent = 'THE END';
     page.appendChild(end);
+  }
+
+  /* One scene's controls, on its heading. Shown only while editing, because a
+   * row of buttons on every heading is not a screenplay any more. */
+  function sceneTools(number, script) {
+    var wrap = document.createElement('span');
+    wrap.className = 'scene-tools no-print';
+    if (!editing) return wrap;
+
+    var lock = document.createElement('button');
+    var isLocked = lockedScenes.indexOf(number) !== -1;
+    lock.textContent = isLocked ? '🔒 kept' : '🔓 keep';
+    lock.title = 'Keep this scene when you reroll the rest';
+    if (isLocked) lock.className = 'locked';
+    lock.addEventListener('click', function () { toggleLock(number); });
+    wrap.appendChild(lock);
+
+    var hour = document.createElement('select');
+    hour.title = 'What time of day this scene plays at';
+    Director.HOURS.forEach(function (h) {
+      var opt = document.createElement('option');
+      opt.value = h; opt.textContent = h;
+      if (script.scenes[number - 1] && script.scenes[number - 1].heading.time === h) opt.selected = true;
+      hour.appendChild(opt);
+    });
+    hour.addEventListener('change', function () {
+      applyEdit(Director.setHour(current, number, hour.value), 'Scene ' + number + ' now plays at ' + hour.value + '.');
+    });
+    wrap.appendChild(hour);
+
+    [['↑', -1, 'Move this scene earlier'], ['↓', 1, 'Move this scene later']].forEach(function (spec) {
+      var move = document.createElement('button');
+      move.textContent = spec[0];
+      move.title = spec[2];
+      move.addEventListener('click', function () {
+        applyEdit(Director.moveScene(current, number, spec[1]), 'Moved scene ' + number + '.');
+      });
+      wrap.appendChild(move);
+    });
+
+    var cut = document.createElement('button');
+    cut.textContent = '✕';
+    cut.title = 'Cut this scene';
+    cut.addEventListener('click', function () {
+      applyEdit(Director.deleteScene(current, number), 'Cut scene ' + number + '.');
+    });
+    wrap.appendChild(cut);
+    return wrap;
+  }
+
+  /* A line you can type into. Enter commits, Escape abandons, and leaving the
+   * line commits too -- anything else and people lose work to a stray click. */
+  function makeEditable(node, sceneNumber, elementIndex) {
+    node.contentEditable = 'true';
+    node.spellcheck = true;
+    var before = node.textContent;
+    node.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); node.blur(); }
+      if (e.key === 'Escape') { node.textContent = before; node.blur(); }
+    });
+    node.addEventListener('blur', function () {
+      var text = node.textContent.replace(/\s+/g, ' ').trim();
+      if (!text || text === before) { node.textContent = before; return; }
+      applyEdit(Director.editLine(current, sceneNumber, elementIndex, text), 'Rewritten.');
+    });
   }
 
   function renderShots(script) {
@@ -236,6 +368,11 @@
   function buildFilm(script) {
     stopFilm();
     reel = Reel.build(script);
+    // A window onto what is actually on screen, for the browser tests. Every
+    // director edit has to survive the trip from a click to the picture, and
+    // the trip is exactly where these things break -- a test that calls the
+    // module instead of clicking the button proves the module, not the app.
+    window.__filmState = { script: function () { return current; }, reel: function () { return reel; } };
     sizeCanvas();
     // A poster frame, so the tab is never a black rectangle.
     PlayerLib.drawFrame(el.filmCanvas.getContext('2d'),
@@ -610,6 +747,34 @@
 
   /* ------------------------------------------------------------------ wiring */
   el.write.addEventListener('click', function () { generate({ fresh: true }); });
+
+  /* ------------------------------------------------------------- directing */
+  el.editToggle.addEventListener('click', function () {
+    editing = !editing;
+    renderPage(current);
+    updateDirectBar();
+    if (editing) say('Click any line to rewrite it. Lock the scenes you want to keep.');
+  });
+
+  el.rerollFree.addEventListener('click', function () {
+    if (!current) return;
+    // A new seed for the scenes nobody kept. The locked ones come through
+    // untouched, which is the whole point of the button.
+    var seed = (Math.random() * 4294967296) >>> 0;
+    applyEdit(Director.reroll(current, { seed: seed, length: current.length }, lockedScenes),
+      lockedScenes.length
+        ? 'Rewrote everything except ' + lockedScenes.length + ' locked scene' +
+          (lockedScenes.length === 1 ? '' : 's') + '.'
+        : 'Rewrote the whole film.');
+  });
+
+  el.undoEdit.addEventListener('click', function () {
+    if (!undoStack.length) return;
+    current = undoStack.pop();
+    render(current);
+    say('Undone.');
+    updateDirectBar();
+  });
   el.reroll.addEventListener('click', function () { generate({}); });
   el.surprise.addEventListener('click', function () {
     // The one legitimate random number: the user asked to be surprised.

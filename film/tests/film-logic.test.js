@@ -992,6 +992,7 @@ test('playing from the middle of a line starts already ducked', () => {
 const Figures = require(path.join(__dirname, '..', 'js', 'film-figures.js'));
 const Dress = require(path.join(__dirname, '..', 'js', 'set-dress.js'));
 const World = require(path.join(__dirname, '..', 'js', 'world-sound.js'));
+const Director = require(path.join(__dirname, '..', 'js', 'director.js'));
 
 console.log('\nHOW A CHARACTER STANDS');
 
@@ -2885,6 +2886,165 @@ test('the seven turns of the object reach the soundtrack', () => {
   assert(marked.length >= 5, 'only ' + marked.length + ' object beats reached the reel');
   marked.forEach((shot) => assert(Arc.STATES.indexOf(shot.objectBeat) !== -1,
     'unknown object state on a shot: ' + shot.objectBeat));
+});
+
+
+/* -------------------------------------------------------------- directing */
+
+function freshScript(seed) {
+  return Writer.write(Parse.parse('a night nurse buries a key in the woods'),
+    { length: 'short', seed: seed == null ? 5 : seed });
+}
+
+/* A script carries its scenes AND a flat element list for the page, as separate
+ * objects holding the same words. This is the invariant every edit must keep:
+ * if they drift, an edit shows on the page and is not in the film, or the other
+ * way round, and nothing complains. */
+function pageAgreesWithScenes(script) {
+  const body = (list) => list.filter((el) => el.type !== 'transition').map((el) => el.text);
+  const fromScenes = [];
+  script.scenes.forEach((scene) => body(scene.elements).forEach((t) => fromScenes.push(t)));
+  return fromScenes.join('') === body(script.elements).join('');
+}
+
+test('a fresh script already agrees with itself', () => {
+  assert(pageAgreesWithScenes(freshScript()), 'the writer produced a page that is not its own scenes');
+});
+
+test('a film fades in at the start and out at the end, whatever was cut', () => {
+  // The writer hangs FADE OUT. off its last scene. Move that scene to the middle
+  // and the film fades out halfway through, so rebuild normalises the bookends
+  // rather than carrying them around with whichever scene happened to hold one.
+  let script = Director.rebuild(Director.cloneScript(freshScript()));
+  script = Director.moveScene(script, script.scenes.length, -2);
+  script = Director.deleteScene(script, 1);
+  const transitions = script.elements.filter((el) => el.type === 'transition');
+  eq(transitions.length, 2, 'a film with ' + transitions.length + ' transitions in it');
+  eq(transitions[0].text, 'FADE IN:');
+  eq(transitions[1].text, 'FADE OUT.');
+  eq(script.elements[0].type, 'transition', 'the film does not fade in first');
+  eq(script.elements[script.elements.length - 1].text, 'FADE OUT.', 'the film does not fade out last');
+});
+
+test('editing a line reaches the film, not only the page', () => {
+  const script = freshScript();
+  let sceneNo = 0;
+  let index = -1;
+  script.scenes.forEach((scene, i) => scene.elements.forEach((el, j) => {
+    if (index < 0 && el.type === 'dialogue') { sceneNo = i + 1; index = j; }
+  }));
+  assert(index >= 0, 'no dialogue to edit');
+
+  const line = 'I came back for it and I am not sorry.';
+  const next = Director.editLine(script, sceneNo, index, line);
+  assert(pageAgreesWithScenes(next), 'the page and the scenes disagree after an edit');
+  const reel = Reel.build(next);
+  assert(reel.shots.some((s) => s.caption === line), 'the new line never reached the film');
+  const shot = reel.shots.find((s) => s.caption === line);
+  assert(shot.duration >= line.split(' ').length / 3.2, 'the new line is on screen too briefly to read');
+});
+
+test('an edit leaves the script it was given alone', () => {
+  // Undo is a variable rather than a feature, and only because of this.
+  const script = freshScript();
+  const before = JSON.stringify(script.elements.map((e) => e.text));
+  Director.editLine(script, 1, 1, 'Something else entirely.');
+  Director.deleteScene(script, 2);
+  Director.setHour(script, 1, 'DAWN');
+  Director.renameCharacter(script, script.characters[0].name, 'ZED');
+  eq(JSON.stringify(script.elements.map((e) => e.text)), before, 'an edit mutated its input');
+});
+
+test('renaming a character moves the cue, the line and the action together', () => {
+  const script = freshScript();
+  const from = script.characters[0].name;
+  const next = Director.renameCharacter(script, from, 'Marlow');
+  const pattern = new RegExp('\\b' + from + '\\b');
+  assert(!next.elements.some((el) => pattern.test(el.text)), 'the old name is still on the page');
+  assert(next.elements.some((el) => /\bMARLOW\b/.test(el.text)), 'the new name never appears');
+  eq(next.characters[0].name, 'MARLOW', 'the cast list still has the old name');
+  // The reel gives a voice to whoever speaks; if the cue and the cast disagree
+  // the character speaks with nobody's voice.
+  const reel = Reel.build(next);
+  reel.shots.filter((s) => s.speaker).forEach((shot) => {
+    assert(reel.voices[shot.speaker], shot.speaker + ' speaks with no voice');
+  });
+});
+
+test('renaming will not mangle a word that merely contains the name', () => {
+  const script = freshScript();
+  script.scenes[0].elements.push({ type: 'action', text: 'A SAMPLE of something, and SAM, and SAMS.' });
+  Director.rebuild(script);
+  const next = Director.renameCharacter(script, 'SAM', 'RAY');
+  const line = next.elements.filter((e) => /SAMPLE/.test(e.text))[0];
+  assert(line, 'the test line vanished');
+  eq(line.text, 'A SAMPLE of something, and RAY, and SAMS.');
+});
+
+test('changing the hour relights the scene', () => {
+  const script = freshScript();
+  const next = Director.setHour(script, 2, 'DAWN');
+  eq(next.scenes[1].heading.time, 'DAWN');
+  assert(/DAWN/.test(next.scenes[1].heading.text), 'the heading text still says the old hour');
+  assert(/DAWN/.test(next.elements.filter((e) => e.type === 'scene_heading')[1].text),
+    'the page still shows the old hour');
+  const reel = Reel.build(next);
+  const lit = reel.shots.filter((s) => s.scene === 2).map((s) => s.time);
+  assert(lit.length && lit.every((t) => t === 'DAWN'), 'the artist is still lighting it at the old hour');
+});
+
+test('cutting and moving a scene renumbers what is left', () => {
+  const script = freshScript();
+  const n = script.scenes.length;
+  const cut = Director.deleteScene(script, 2);
+  eq(cut.scenes.length, n - 1);
+  eq(cut.scenes.map((s) => s.number).join(','), cut.scenes.map((_, i) => i + 1).join(','));
+  assert(pageAgreesWithScenes(cut), 'the page and the scenes disagree after a cut');
+
+  const moved = Director.moveScene(cut, 1, 2);
+  eq(moved.scenes[2].heading.text, cut.scenes[0].heading.text, 'the scene did not land where it was sent');
+  eq(moved.scenes.map((s) => s.number).join(','), moved.scenes.map((_, i) => i + 1).join(','));
+  assert(pageAgreesWithScenes(moved), 'the page and the scenes disagree after a move');
+  assert(Reel.build(moved).shots.length > 0, 'the reel will not build from a reordered script');
+});
+
+test('a film always has a scene in it', () => {
+  let script = freshScript();
+  for (let i = 0; i < 10; i++) script = Director.deleteScene(script, 1);
+  assert(script.scenes.length >= 1, 'the last scene was deletable');
+  assert(Reel.build(script).shots.length > 0, 'a one-scene film will not build');
+});
+
+test('a reroll keeps what was locked and rewrites the rest', () => {
+  const script = freshScript(5);
+  const locked = [1, script.scenes.length];
+  const next = Director.reroll(script, { seed: 987654, length: 'short' }, locked);
+  const text = (scene) => scene.elements
+    .filter((e) => e.type !== 'transition').map((e) => e.text).join('|');
+  eq(text(next.scenes[0]), text(script.scenes[0]), 'the locked first scene was rewritten');
+  assert(next.scenes.slice(1, -1).some((scene, i) => text(scene) !== text(script.scenes[i + 1])),
+    'nothing outside the locks actually changed');
+  assert(pageAgreesWithScenes(next), 'the page and the scenes disagree after a reroll');
+});
+
+test('a reroll never loses a scene somebody deliberately kept', () => {
+  // The new film may be a different shape. Dropping a scene from a button
+  // called "keep this" would be the worst outcome available.
+  const script = freshScript(5);
+  // Compare the WORDS, not the transitions: rebuild normalises FADE IN/OUT to
+  // the film's own bookends, so a scene that arrived carrying one comes back
+  // without it and is still the same scene.
+  const text = (scene) => scene.elements
+    .filter((e) => e.type !== 'transition').map((e) => e.text).join('|');
+  const wanted = script.scenes.map((s) => text(s));
+  for (let seed = 1; seed <= 25; seed++) {
+    const all = script.scenes.map((_, i) => i + 1);
+    const next = Director.reroll(script, { seed, length: 'micro' }, all);
+    wanted.forEach((body) => {
+      assert(next.scenes.some((scene) => text(scene) === body),
+        'seed ' + seed + ': a locked scene was lost when the film got shorter');
+    });
+  }
 });
 
 
