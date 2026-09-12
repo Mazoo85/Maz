@@ -358,3 +358,82 @@ def test_a_predicate_that_explodes_does_not_break_the_night():
     cands = parse("## Phase 3\n- [ ] Tidy `docs/x.md`\n", exists=boom)
     assert [c.task for c in cands] == ["Tidy docs/x.md"]
     assert cands[0].paths == ()
+
+
+# ---------------------------------------------------------------------------
+# docs/FORGE-JOBS.md — the human's intake, read separately from the roadmap.
+#
+# It lived in the roadmap as a "Phase 14" until the repo's two trunks were
+# unified: the merge kept the engine's roadmap and the intake section vanished,
+# taking the one job in it and leaving FORGE.md pointing at a heading that no
+# longer existed. A file nobody else edits cannot be lost that way.
+# ---------------------------------------------------------------------------
+
+from forge.signals.roadmap import JOBS_PATH, collect_jobs  # noqa: E402
+
+
+def _jobs(root, text):
+    (root / "docs").mkdir(parents=True, exist_ok=True)
+    (root / JOBS_PATH).write_text(text, encoding="utf-8")
+    return root
+
+
+def test_a_job_needs_no_phase_heading(tmp_path):
+    # The whole point of the separate file: it is a flat list, not a plan.
+    (tmp_path / "music").mkdir()
+    (tmp_path / "music" / "player.js").write_text("//\n", encoding="utf-8")
+    _jobs(tmp_path, "- [ ] Add a volume slider to `music/player.js`\n")
+    got = collect_jobs(tmp_path)
+    assert [c.task for c in got] == ["Add a volume slider to music/player.js"]
+    assert got[0].paths == ("music/player.js",)
+
+
+def test_a_job_is_sourced_as_jobs_not_as_a_roadmap_phase(tmp_path):
+    # The ledger has to show where a night's work was asked for.
+    _jobs(tmp_path, "- [ ] Tidy something\n")
+    assert collect_jobs(tmp_path)[0].source == "jobs"
+
+
+def test_a_job_counts_as_the_current_milestone(tmp_path):
+    # A job written by hand is the most deliberate signal there is, and scores
+    # as current work rather than as something inferred from a backlog.
+    _jobs(tmp_path, "- [ ] Tidy something\n")
+    assert collect_jobs(tmp_path)[0].current_milestone is True
+
+
+def test_a_ticked_job_is_not_picked_up(tmp_path):
+    _jobs(tmp_path, "- [x] Already done\n- [ ] Still wanted\n")
+    assert [c.task for c in collect_jobs(tmp_path)] == ["Still wanted"]
+
+
+def test_an_example_in_a_fence_is_not_a_job(tmp_path):
+    # The jobs file documents its own conventions, so it necessarily contains
+    # worked examples. They must stay illustrations.
+    _jobs(tmp_path, "```markdown\n- [ ] example\n```\n- [ ] real work\n")
+    assert [c.task for c in collect_jobs(tmp_path)] == ["real work"]
+
+
+def test_a_missing_jobs_file_is_not_an_error(tmp_path):
+    assert collect_jobs(tmp_path) == []
+
+
+def test_the_roadmap_still_ignores_items_above_the_first_phase(tmp_path):
+    # The roadmap keeps its old behaviour: a checkbox before any heading is
+    # prose. Only the jobs file treats such a line as work.
+    docs = tmp_path / "docs"
+    docs.mkdir(parents=True)
+    (docs / "ROADMAP.md").write_text(
+        "- [ ] loose line, not a task\n## Phase 3\n- [ ] real task\n", encoding="utf-8"
+    )
+    assert [c.task for c in collect(tmp_path)] == ["real task"]
+
+
+def test_the_two_files_do_not_read_each_other(tmp_path):
+    # Each collector reads exactly one file; a job in the roadmap is not a job,
+    # and a roadmap phase in the jobs file does not become a roadmap source.
+    docs = tmp_path / "docs"
+    docs.mkdir(parents=True)
+    (docs / "ROADMAP.md").write_text("## Phase 3\n- [ ] roadmap item\n", encoding="utf-8")
+    (docs / "FORGE-JOBS.md").write_text("- [ ] job item\n", encoding="utf-8")
+    assert [c.task for c in collect(tmp_path)] == ["roadmap item"]
+    assert [c.task for c in collect_jobs(tmp_path)] == ["job item"]

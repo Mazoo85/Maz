@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0714" />
+  <meta name="description" content="CODA PICS — type what you want to see and get a picture back. Runs entirely in your browser: no account, no key, no uploads." />
+  <title>CODA PICS — Type it, see it</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230b0714'/><rect x='2' y='3' width='12' height='10' rx='1.5' fill='none' stroke='%2300d68f' stroke-width='1.4'/><circle cx='6' cy='6.6' r='1.2' fill='%23ffd166'/><path d='M3 12l3.4-3.6 2.2 2.2L11 8.2 13 12z' fill='%2300d68f'/></svg>" />
+</head>
+<body>
+  <div id="app">
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">◧</span>
+        <h1>CODA <span class="brand-alt">PICS</span></h1>
+      </div>
+      <p class="tagline">Type what you want to see. Get a picture back.</p>
+    </header>
+
+    <!-- ------------------------------------------------------------- input -->
+    <section class="panel">
+      <label class="field-label" for="prompt">What should I draw?</label>
+      <textarea id="prompt" rows="2" spellcheck="true" maxlength="400"
+        placeholder="a red dragon over snowy mountains at sunset"></textarea>
+
+      <div class="examples" id="examples" aria-label="Example ideas"></div>
+
+      <div class="controls">
+        <div class="control">
+          <label for="style">Art style</label>
+          <select id="style"><option value="auto">Auto — read my words</option></select>
+        </div>
+        <div class="control">
+          <label for="shape">Shape</label>
+          <select id="shape">
+            <option value="square">Square — 1024 × 1024</option>
+            <option value="wide" selected>Wide — 1280 × 720</option>
+            <option value="tall">Tall — 832 × 1216</option>
+            <option value="phone">Phone wallpaper — 720 × 1280</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="buttons">
+        <button id="paint" class="primary" type="button">🎨 Paint it</button>
+        <button id="reroll" type="button" title="Same words, a different take">🎲 Another take</button>
+        <button id="surprise" type="button" title="Write me a prompt">✨ Surprise me</button>
+      </div>
+      <p class="hint">Everything is drawn in your browser. Nothing is uploaded, no account, no key, no cost —
+        and it works with the wifi off.</p>
+    </section>
+
+    <!-- ------------------------------------------------------------ output -->
+    <main>
+      <section class="stage" aria-labelledby="stageTitle">
+        <h2 id="stageTitle" class="sr-only">Your picture</h2>
+        <div class="frame">
+          <canvas id="canvas" width="1280" height="720" aria-label="The picture you asked for"></canvas>
+          <div id="placeholder" class="placeholder">
+            <p><strong>Type something above</strong> — a few words is plenty —<br />then press <em>Paint it</em>.</p>
+          </div>
+          <div id="busy" class="busy" hidden><span class="spinner"></span> painting…</div>
+        </div>
+
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+        <div id="readout" class="readout" aria-label="What I understood"></div>
+
+        <div class="buttons out" id="outButtons" hidden>
+          <button id="download" class="primary" type="button">⬇ Save the picture</button>
+          <button id="keep" type="button">★ Keep in my gallery</button>
+        </div>
+      </section>
+
+      <!-- ----------------------------------------------------------- gallery -->
+      <section class="gallery-wrap" id="galleryWrap" hidden>
+        <h2 class="section-title">My gallery</h2>
+        <p class="gallery-note">Kept on this device only. Tap one to bring it back.</p>
+        <div class="gallery" id="gallery"></div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <p>CODA PICS draws every picture from scratch with maths — no photographs, no model, no network.
+        Part of <a href="../index.html">MAZ ARCADE</a> · <a href="README.md">how it works</a></p>
+    </footer>
+
+  </div>
+
+  <script src="js/lexicon.js"></script>
+  <script src="js/prompt.js"></script>
+  <script src="js/subjects.js"></script>
+  <script src="js/paint.js"></script>
+  <script src="js/finish.js"></script>
+  <script src="js/app.js"></script>
+  <script src="../shared/maz-nav.js" data-current="coda-pics" defer></script>
+</body>
+</html>

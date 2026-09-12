@@ -27,6 +27,20 @@
       docs: 'zomboid/README.md'
     },
     {
+      id: 'cells',
+      name: 'NEON CELLS',
+      kind: 'play',
+      path: 'cells/',
+      tag: 'roguelite action platformer',
+      accent: '#2fe6c8',
+      blurb:
+        'A Dead Cells-style run: procedurally built biomes, permadeath, cells and gold, ' +
+        'three scroll colours that decide what your run becomes, weapons with rolled ' +
+        'affixes, skills, mutations, elites, two bosses, and blueprints that stay unlocked.',
+      badges: ['Phone + desktop', 'Controller · keyboard · touch', 'Canvas 2D'],
+      docs: 'cells/README.md'
+    },
+    {
       id: 'shooter',
       name: 'DEAD SECTOR',
       kind: 'play',
@@ -67,6 +81,20 @@
       docs: 'madlibs/README.md'
     },
     {
+      id: 'names',
+      name: 'NAME FORGE',
+      kind: 'app',
+      path: 'names/',
+      tag: 'random name maker',
+      accent: '#ff8a3d',
+      blurb:
+        'Rolls names out of 1000 adjectives and 1000 nouns — a random adjective ' +
+        'and then a random noun, a million of them, in six styles with batches ' +
+        'and export.',
+      badges: ['Phone + desktop', '1000 × 1000 words', 'Zero deps'],
+      docs: 'names/README.md'
+    },
+    {
       id: 'film',
       name: 'SCRIPT FORGE',
       kind: 'app',
@@ -84,6 +112,20 @@
         'film is actually about.',
       badges: ['Phone + desktop', 'Plays + records video', 'Scored by SONG FORGE'],
       docs: 'film/README.md'
+    },
+    {
+      id: 'coda-pics',
+      name: 'CODA PICS',
+      kind: 'app',
+      path: 'coda-pics/',
+      tag: 'words \u2192 picture',
+      accent: '#00d68f',
+      blurb:
+        'Type what you want to see and it paints it: 60 subjects, 20 settings, every hour ' +
+        'and weather, finished in one of 14 art styles from pixel art to watercolour. ' +
+        'Drawn from scratch in the browser \u2014 offline, no API key, free.',
+      badges: ['Phone + desktop', 'Canvas 2D', 'PNG download'],
+      docs: 'coda-pics/README.md'
     },
     {
       id: 'engine',
