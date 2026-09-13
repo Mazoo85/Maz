@@ -13,24 +13,24 @@ size is in the wiring between the parts, not in any one part.
 
 | | Count | |
 |---|---:|---|
-| Native games and demos (`apps/`) | 171 | 34,977 lines |
-| Engine capabilities (`engine/include/maz/`) | 692 | 87,806 lines across 20 subsystems |
-| C++ test files (`tests/`) | 376 | |
-| Browser apps and games | 8 | 25,254 lines |
+| Native games and demos (`apps/`) | 172 | 35,181 lines |
+| Engine capabilities (`engine/include/maz/`) | 696 | 88,266 lines across 20 subsystems |
+| C++ test files (`tests/`) | 382 | |
+| Browser apps and games | 8 | 26,857 lines |
 | Python tools | 3 | |
 | CI gates (`scripts/`) | 3 | |
 | Build and codegen helpers (`tools/`) | 11 | |
-| Documents (`docs/`) | 19 | |
-| **Catalogued artifacts** | **907** | |
+| Documents (`docs/`) | 20 | |
+| **Catalogued artifacts** | **913** | |
 
 | Health signal | Score | |
 |---|---:|---|
-| Completeness checks passing | 86% | █████████░ 2740 of 3179 |
+| Completeness checks passing | 86% | █████████░ 2761 of 3198 |
 | Apps that run headless in CI | 100% | ██████████ |
 | Apps with a golden screenshot | 91% | █████████░ |
 | Engine modules a test exercises | 100% | ██████████ |
 | Engine modules an app demonstrates | 39% | ████░░░░░░ |
-| Open tasks in the queue below | 7 | |
+| Open tasks in the queue below | 8 | |
 
 ## 1. Everything you have built
 
@@ -42,13 +42,13 @@ will ever see, and the ones that can most easily lend each other capabilities.
 | Project | What it is | Lines | Publishes | Consumes | Gaps |
 |---|---|---:|---|---|---|
 | **ZOMBOID: ANCHORAGE** <br>`zomboid/` | Open-world zombie survival across a tile-built replica of downtown Anchorage, rendered as a 1990s SEGA arcade title. Five decaying needs, day/night hordes, loo… | 1,658 | — | music/soundtrack | — |
-| **NEON CELLS** <br>`cells/` | A Dead Cells-style run: procedurally built biomes, permadeath, cells and gold, three scroll colours that decide what your run becomes, weapons with rolled affi… | 5,985 | cells/seededrun | — | — |
+| **NEON CELLS** <br>`cells/` | A Dead Cells-style run: procedurally built biomes, permadeath, cells and gold, three scroll colours that decide what your run becomes, weapons with rolled affi… | 5,995 | cells/seededrun | — | — |
 | **DEAD SECTOR** <br>`shooter/` | Top-down twin-stick zombie shooter in a single self-contained HTML file. Dual touch joysticks, escalating waves, three zombie types. | 1,084 | — | — | — |
 | **SONG FORGE** <br>`music/` | Writes and plays complete songs in the browser — chords, bass, drums, arpeggio and melody arranged into verses and choruses across 8 genres. WAV and MIDI expor… | 3,330 | music/composer, music/soundtrack | — | — |
 | **MADLIBS STORY FORGE** <br>`madlibs/` | Randomly forges story ideas broken into scene beats, ready to seed a storyboard or script. Zero dependencies. | 1,439 | madlibs/storyideas, madlibs/templates | — | — |
 | **NAME FORGE** <br>`names/` | Rolls names out of 1000 adjectives and 1000 nouns — a random adjective and then a random noun, a million of them, in six styles with batches and export. | 922 | names/namer | — | — |
 | **SCRIPT FORGE** <br>`film/` | Type what your film is about and get the whole thing back: a formatted screenplay, a shot list, and an animated short film — performed by jointed characters an… | 6,163 | — | music/composer, madlibs/storyideas | — |
-| **CODA PICS** <br>`coda-pics/` | Type what you want to see and it paints it: 60 subjects, 20 settings, every hour and weather, finished in one of 14 art styles from pixel art to watercolour. D… | 4,673 | coda-pics/painter | — | — |
+| **CODA PICS** <br>`coda-pics/` | Type what you want to see and it paints it: 60 subjects, 20 settings, every hour and weather, finished in one of 14 art styles from pixel art to watercolour. D… | 6,266 | coda-pics/painter | — | — |
 
 ### Python tools
 
@@ -66,34 +66,34 @@ module with neither is working code nobody can find.
 
 | Subsystem | Modules | Tested | Demonstrated |
 |---|---:|---:|---:|
-| `render` | 165 | 165 (100%) | 30 (18%) |
-| `math` | 132 | 132 (100%) | 16 (12%) |
-| `game` | 124 | 124 (100%) | 58 (47%) |
+| `render` | 166 | 166 (100%) | 33 (20%) |
+| `math` | 132 | 132 (100%) | 17 (13%) |
+| `game` | 125 | 125 (100%) | 59 (47%) |
 | `core` | 104 | 104 (100%) | 47 (45%) |
 | `io` | 30 | 30 (100%) | 22 (73%) |
 | `audio` | 27 | 27 (100%) | 23 (85%) |
 | `ui` | 27 | 25 (93%) | 17 (63%) |
+| `anim` | 20 | 20 (100%) | 17 (85%) |
 | `platform` | 20 | 19 (95%) | 12 (60%) |
-| `anim` | 19 | 19 (100%) | 16 (84%) |
 | `net` | 16 | 16 (100%) | 7 (44%) |
 | `scene` | 7 | 7 (100%) | 5 (71%) |
 | `fx` | 4 | 4 (100%) | 3 (75%) |
 | `input` | 4 | 4 (100%) | 3 (75%) |
 | `script` | 4 | 4 (100%) | 3 (75%) |
 | `ecs` | 3 | 3 (100%) | 2 (67%) |
+| `editor` | 2 | 2 (100%) | 2 (100%) |
 | `ext` | 2 | 2 (100%) | 0 (0%) |
 | `(root)` | 1 | 1 (100%) | 1 (100%) |
 | `docs` | 1 | 1 (100%) | 1 (100%) |
-| `editor` | 1 | 1 (100%) | 1 (100%) |
 | `video` | 1 | 1 (100%) | 0 (0%) |
 
 <details><summary>Every engine module by name</summary>
 
-**`render`** — AtlasPacker, ~BilateralFilter, Billboard, Camera3D, ~CascadeSplits, ~CatmullClark, ~CieLab, ~ColladaLoader, ~ColorHarmony, ~ColorNames, ColorOps, ~ColorQuantize, ~ColorTemperature, ~ContrastRatio, ~Cubemap, ~CubemapCapture, ~Decal, ~Dither, ~DynamicResolution, ~Equirect, ~FbxLoader, ~GlbContainer, ~GlobalIllumination, ~GreedyVoxelMesh, Grid3D, ~HarrisCorners, ~Image, ImageAdjust, ~ImageBlend, ~ImageBlur, ~ImageCodecBmp, ~ImageCodecDds, ~ImageCodecDdsEncode, ~ImageCodecGif, ~ImageCodecPng, ~ImageCodecPnm, ~ImageCodecQoi, ~ImageCodecTga, ~ImageColorBlind, ImageDraw, ~ImageGradientMap, ~ImageNormalMap, ImagePatterns, ~Ktx2, ~Lightmap, Line2D, ~LineAA, ~MedianCut, ~MedianFilter, ~MeshAmbientOcclusion, ~MeshArrow, ~MeshBend, ~MeshBoundaryLoops, ~MeshBoundingCylinder, ~MeshCleanup, ~MeshClosestPoint, ~MeshComponentColor, MeshComponents, ~MeshContainment, ~MeshCurvature, ~MeshCurvatureColor, MeshDegenerate, ~MeshDisplace, ~MeshDominantPlane, ~MeshExplode, ~MeshExtrude, ~MeshExtrudePolygon, ~MeshFacet, ~MeshFeatureLines, ~MeshFlatten, ~MeshFlip, ~MeshGeodesic, ~MeshHardEdges, ~MeshHeightfield, ~MeshHoleFill, MeshIcosphere, ~MeshInset, ~MeshLod, ~MeshLodBuilder, ~MeshMassProperties, ~MeshMerge, ~MeshMirror, ~MeshNormalize, ~MeshPlanarRegions, ~MeshPoissonPrune, ~MeshPrincipalAxes, ~MeshProjectedArea, ~MeshQuantize, ~MeshRayBvh, ~MeshRecenter, ~MeshReindex, ~MeshRevolve, ~MeshRipple, ~MeshSdf, ~MeshSelfIntersect, ~MeshSharpEdges, ~MeshSilhouette, ~MeshSimplify, ~MeshSimplifyQuadric, ~MeshSkin, ~MeshSlice, ~MeshSliceLayers, ~MeshSmooth, ~MeshSnapGrid, ~MeshSolidify, ~MeshSolidity, ~MeshSpherify, MeshStats, ~MeshStrip, ~MeshSurfaceSample, ~MeshSweep, ~MeshSymmetry, ~MeshTaper, ~MeshThickness, MeshTools, ~MeshTopology, MeshTopologySummary, ~MeshTransform, ~MeshTwist, ~MeshUvProject, ~MeshUvRadial, ~MeshUvSeams, MeshValence, ~MeshVertexColorAo, ~MeshVertexColorCavity, ~MeshVertexColorGradient, ~MeshVertexColorSmooth, ~MeshVoxelize, MeshWatertight, MeshWeld, ~MeshWeldAuto, MeshWinding, ~MeshWireframe, Model, ~MtlLoader, MultiMesh2D, ~ObjLoader, ~Occlusion, ~OtsuThreshold, ~OverdrawOptimize, ~PlyLoader, PolyTriangulate, ~PresentMode, ~Radiosity, ~ReflectionProbe, Renderer, ~ScreenSpaceIndirectLight, ~ScreenSpaceReflection, ~SeamCarve, ~SeamlessClone, Shapes, Shapes2D, Shapes3D, ~SobelEdge, SpriteOrder, ~StlLoader, ~Subdivision, ~SurfaceNets, ~Thinning, Tonemap, Trail, TriangleQuality, ~UvDensity, ~VertexCacheOptimize, ~VolumetricFog
+**`render`** — AtlasPacker, ~BilateralFilter, Billboard, Camera3D, ~CascadeSplits, ~CatmullClark, ~CieLab, ~ColladaLoader, ~ColorHarmony, ~ColorNames, ColorOps, ~ColorQuantize, ~ColorTemperature, ~ContrastRatio, ~Cubemap, ~CubemapCapture, ~Decal, ~Dither, ~DynamicResolution, ~Equirect, ~FbxLoader, ~GlbContainer, ~GlobalIllumination, ~GreedyVoxelMesh, Grid3D, ~HarrisCorners, Image, ImageAdjust, ~ImageBlend, ~ImageBlur, ~ImageCodecBmp, ~ImageCodecDds, ~ImageCodecDdsEncode, ImageCodecGif, ~ImageCodecPng, ~ImageCodecPnm, ~ImageCodecQoi, ~ImageCodecTga, ~ImageColorBlind, ImageDraw, ~ImageGradientMap, ~ImageNormalMap, ImagePatterns, ~Ktx2, ~Lightmap, Line2D, ~LineAA, ~MedianCut, ~MedianFilter, ~MeshAmbientOcclusion, ~MeshArrow, ~MeshBend, ~MeshBoundaryLoops, ~MeshBoundingCylinder, ~MeshCleanup, ~MeshClosestPoint, ~MeshComponentColor, MeshComponents, ~MeshContainment, ~MeshCurvature, ~MeshCurvatureColor, MeshDegenerate, ~MeshDisplace, ~MeshDominantPlane, ~MeshExplode, ~MeshExtrude, ~MeshExtrudePolygon, ~MeshFacet, ~MeshFeatureLines, ~MeshFlatten, ~MeshFlip, ~MeshGeodesic, ~MeshHardEdges, ~MeshHeightfield, ~MeshHoleFill, MeshIcosphere, ~MeshInset, ~MeshLod, ~MeshLodBuilder, ~MeshMassProperties, ~MeshMerge, ~MeshMirror, ~MeshNormalize, ~MeshPlanarRegions, ~MeshPoissonPrune, ~MeshPrincipalAxes, ~MeshProjectedArea, ~MeshQuantize, ~MeshRayBvh, ~MeshRecenter, ~MeshReindex, ~MeshRevolve, ~MeshRipple, ~MeshSdf, ~MeshSelfIntersect, ~MeshSharpEdges, ~MeshSilhouette, ~MeshSimplify, ~MeshSimplifyQuadric, ~MeshSkin, ~MeshSlice, ~MeshSliceLayers, ~MeshSmooth, ~MeshSnapGrid, ~MeshSolidify, ~MeshSolidity, ~MeshSpherify, MeshStats, ~MeshStrip, ~MeshSurfaceSample, ~MeshSweep, ~MeshSymmetry, ~MeshTaper, ~MeshThickness, MeshTools, ~MeshTopology, MeshTopologySummary, ~MeshTransform, ~MeshTwist, ~MeshUvProject, ~MeshUvRadial, ~MeshUvSeams, MeshValence, ~MeshVertexColorAo, ~MeshVertexColorCavity, ~MeshVertexColorGradient, ~MeshVertexColorSmooth, ~MeshVoxelize, MeshWatertight, MeshWeld, ~MeshWeldAuto, MeshWinding, ~MeshWireframe, Model, ~MtlLoader, MultiMesh2D, ~ObjLoader, ~Occlusion, ~OtsuThreshold, ~OverdrawOptimize, ~PlyLoader, PolyTriangulate, ~PresentMode, ~Radiosity, ~ReflectionProbe, Renderer, ~ScreenSpaceIndirectLight, ~ScreenSpaceReflection, ~SeamCarve, ~SeamlessClone, Shapes, Shapes2D, Shapes3D, ~SobelEdge, SoftwareRender, SpriteOrder, ~StlLoader, ~Subdivision, ~SurfaceNets, ~Thinning, Tonemap, Trail, TriangleQuality, ~UvDensity, ~VertexCacheOptimize, ~VolumetricFog
 
-**`math`** — ~AhrsFilter, ~AlphaShape, ~ArcLength, ~BSpline, ~Ballistics, ~BezierIntersect, BezierSurface, BoundingSphere, ~CapsuleAabb, ~CapsuleTriangle, ~Catenary, ~CatmullRomSpline, ~CircularMean, ~Circumsphere, ClosestPointCurve, ~ClosestPointObb, ~Clothoid, ~ColorLab, ~CompensatedSum, ~CoonsPatch, ~CubicSpline, Curve2D, ~Curve3D, ~Damp, ~Delaunay, ~DistanceTransform, ~DualContour2D, ~DualQuaternion, ~DubinsPath, ~EllipseDistance, ~Epa, ~EulerOrder, ~FitObb, ~FixedAabb3, ~FixedMath, ~FixedQuat, ~FixedRect2, FixedTrig, ~FixedVec2, ~FixedVec3, Geometry2D, Geometry3D, ~GjkDistance, ~GreatCircle, ~Grid3DSample, ~GridSample, ~HalfFloat, Integrate, ~Integrator, ~Intercept, InverseBilinear, ~Involute, ~KMeans, ~Kabsch, ~LeastSquares, ~LinearSolve, ~LogSpiral, ~LowDiscrepancy, ~Loxodrome, ~MarchingSquares, ~MarchingTetrahedra, Math, ~MathFuncs, ~MinkowskiSum, ~MonotoneCubic, ~NelderMead, ~NurbsCurve, ~ObbDistance, ~OctahedralNormal, ~Optics, ~OrientedRect2, ~OrthonormalBasis, ~PackNorm, ~ParallelTransport, ~PointDistribution, ~Poisson, ~PolarDecompose, ~PolygonBoolean, ~PolygonNewell, ~PolylineStroke, ~Polynomial, ~Projection, ~Quadrature, ~Quaternion, ~QuaternionAverage, ~QuaternionSquad, ~QuaternionSwingTwist, ~Ransac, ~RayCapsule, ~RayCone, ~RayCylinder, ~RayEllipsoid, ~RayPlanar, ~RayTorus, ~Rbf, Rect2, ~Rect2i, ~ResamplePolyline, ~Reuleaux, ~RootFind, ~RotationMinimizingFrame, ~Roulette, ~Sampling, ~SavitzkyGolay, ~Sdf2D, ~SdfOps, ~SegmentDistance, ~ShapeFit, ~SimplifyPolyline, ~SolarPosition, ~SphericalCoords, ~SphericalHarmonics, ~SphericalTriangle, Statistics, ~Superellipse, ~Superformula, ~Superquadric, ~SweptAabb, ~SweptSphere, ~TcbSpline, ~Tetrahedron, ~Tractrix, Transform2D, Transform3D, ~TriangleBox, ~TriangleIntersect, ~Vector4, VectorInt, VectorOps, ~Voronoi, ~Wavelet, ~WindingNumber
+**`math`** — ~AhrsFilter, ~AlphaShape, ~ArcLength, ~BSpline, ~Ballistics, ~BezierIntersect, BezierSurface, BoundingSphere, ~CapsuleAabb, ~CapsuleTriangle, ~Catenary, ~CatmullRomSpline, ~CircularMean, ~Circumsphere, ClosestPointCurve, ~ClosestPointObb, ~Clothoid, ~ColorLab, ~CompensatedSum, ~CoonsPatch, ~CubicSpline, Curve2D, ~Curve3D, ~Damp, ~Delaunay, ~DistanceTransform, ~DualContour2D, ~DualQuaternion, ~DubinsPath, ~EllipseDistance, ~Epa, ~EulerOrder, ~FitObb, ~FixedAabb3, ~FixedMath, ~FixedQuat, ~FixedRect2, FixedTrig, ~FixedVec2, ~FixedVec3, Geometry2D, Geometry3D, ~GjkDistance, ~GreatCircle, ~Grid3DSample, ~GridSample, ~HalfFloat, Integrate, ~Integrator, ~Intercept, InverseBilinear, ~Involute, ~KMeans, ~Kabsch, ~LeastSquares, ~LinearSolve, ~LogSpiral, ~LowDiscrepancy, ~Loxodrome, ~MarchingSquares, ~MarchingTetrahedra, Math, ~MathFuncs, ~MinkowskiSum, ~MonotoneCubic, ~NelderMead, ~NurbsCurve, ~ObbDistance, ~OctahedralNormal, ~Optics, ~OrientedRect2, ~OrthonormalBasis, ~PackNorm, ~ParallelTransport, ~PointDistribution, ~Poisson, ~PolarDecompose, ~PolygonBoolean, ~PolygonNewell, ~PolylineStroke, ~Polynomial, Projection, ~Quadrature, ~Quaternion, ~QuaternionAverage, ~QuaternionSquad, ~QuaternionSwingTwist, ~Ransac, ~RayCapsule, ~RayCone, ~RayCylinder, ~RayEllipsoid, ~RayPlanar, ~RayTorus, ~Rbf, Rect2, ~Rect2i, ~ResamplePolyline, ~Reuleaux, ~RootFind, ~RotationMinimizingFrame, ~Roulette, ~Sampling, ~SavitzkyGolay, ~Sdf2D, ~SdfOps, ~SegmentDistance, ~ShapeFit, ~SimplifyPolyline, ~SolarPosition, ~SphericalCoords, ~SphericalHarmonics, ~SphericalTriangle, Statistics, ~Superellipse, ~Superformula, ~Superquadric, ~SweptAabb, ~SweptSphere, ~TcbSpline, ~Tetrahedron, ~Tractrix, Transform2D, Transform3D, ~TriangleBox, ~TriangleIntersect, ~Vector4, VectorInt, VectorOps, ~Voronoi, ~Wavelet, ~WindingNumber
 
-**`game`** — AStar2D, ~AStar3D, ~AStarGrid2D, ~Achievements, ~AggroTable, ~AimAssist, ~AllPairsShortestPath, Area2D, AutoTile, Avoidance, ~Ballistics, ~BarnesHut, BehaviorTree, BspDungeon, ~Bvh, CameraController2D, ~ChargePool, ~ChunkStreamer, Collision, CollisionLayers, ~CombineMode, ~ComboMeter, ~ConvexHull3D, ConvexShape2D, Cooldown, Crafting, Csg, Damage, ~DayNightCycle, ~DetectionMeter, ~Dialogue, ~DiamondSquare, ~Dice, DijkstraMap, ~Elo, ~Erosion, ~ExposureMap, FieldOfView, ~FillDepressions, ~FireSpread, FloodFill, ~FlowAccumulation, FlowField, FlyCamera, FogOfWar, ~Formation, Goap, GravityField2D, ~GridLine, ~GridMap, ~GridRaycast, Health, ~HeightField3D, ~HexGrid, ~HexPath, InfluenceMap, ~InputSequencer, ~InterceptAim, Inventory, ~IsoGrid, ~JumpAssist, JumpPointSearch, KinematicBody2D, LSystem, ~Leaderboard, Leveling, LootTable, ~Magazine, ~MarkovName, MazeGen, ~Minimax, NavGrid, NavMesh, ~NavMesh3D, NormalLight2D, ~Octree, OneWayPlatform, ~Overlap3D, Parallax, ~PathFollow2D, ~PathFollow3D, ~PatrolRoute, Physics2D, Physics3D, PhysicsQuery2D, ~Poise, ~Quadtree, Quest, ~Ragdoll, ~ReactionDiffusion, ~Recoil, ~Reputation, Shake, ShapeCast2D, Shop, ~SkillTree, ~SoftBody, SoftShadow2D, ~SoundPropagation, ~SpanningTree, SpatialGrid, ~Sph2D, ~Spread, Stat, StateMachine, StatusEffect, Steering, ~SweepPrune2D, ThetaStar, TileSet, Tilemap, ~TimeControl, ~Timer, ~TriMesh3D, TurnOrder, UtilityAI, ViewCone, Visibility2D, ~VisibleOnScreenNotifier2D, ~VoxelRaycast, WangTiles, ~WaveField2D, WaveFunctionCollapse, ~WaveSpawner
+**`game`** — AStar2D, ~AStar3D, ~AStarGrid2D, ~Achievements, ~AggroTable, ~AimAssist, ~AllPairsShortestPath, Area2D, AssetDef, AutoTile, Avoidance, ~Ballistics, ~BarnesHut, BehaviorTree, BspDungeon, ~Bvh, CameraController2D, ~ChargePool, ~ChunkStreamer, Collision, CollisionLayers, ~CombineMode, ~ComboMeter, ~ConvexHull3D, ConvexShape2D, Cooldown, Crafting, Csg, Damage, ~DayNightCycle, ~DetectionMeter, ~Dialogue, ~DiamondSquare, ~Dice, DijkstraMap, ~Elo, ~Erosion, ~ExposureMap, FieldOfView, ~FillDepressions, ~FireSpread, FloodFill, ~FlowAccumulation, FlowField, FlyCamera, FogOfWar, ~Formation, Goap, GravityField2D, ~GridLine, ~GridMap, ~GridRaycast, Health, ~HeightField3D, ~HexGrid, ~HexPath, InfluenceMap, ~InputSequencer, ~InterceptAim, Inventory, ~IsoGrid, ~JumpAssist, JumpPointSearch, KinematicBody2D, LSystem, ~Leaderboard, Leveling, LootTable, ~Magazine, ~MarkovName, MazeGen, ~Minimax, NavGrid, NavMesh, ~NavMesh3D, NormalLight2D, ~Octree, OneWayPlatform, ~Overlap3D, Parallax, ~PathFollow2D, ~PathFollow3D, ~PatrolRoute, Physics2D, Physics3D, PhysicsQuery2D, ~Poise, ~Quadtree, Quest, ~Ragdoll, ~ReactionDiffusion, ~Recoil, ~Reputation, Shake, ShapeCast2D, Shop, ~SkillTree, ~SoftBody, SoftShadow2D, ~SoundPropagation, ~SpanningTree, SpatialGrid, ~Sph2D, ~Spread, Stat, StateMachine, StatusEffect, Steering, ~SweepPrune2D, ThetaStar, TileSet, Tilemap, ~TimeControl, ~Timer, ~TriMesh3D, TurnOrder, UtilityAI, ViewCone, Visibility2D, ~VisibleOnScreenNotifier2D, ~VoxelRaycast, WangTiles, ~WaveField2D, WaveFunctionCollapse, ~WaveSpawner
 
 **`core`** — AhoCorasick, ~AliasTable, ~Assert, AssetServer, ~BitSet, BloomFilter, CVars, ~CellularNoise, ~Checkpoints, Config, Containers, CountMinSketch, ~CurlNoise, DamerauLevenshtein, ~DateTime, Diff, ~DisjointSet, Events, Expression, ~FenwickTree, Fixed, ~FixedTimestep, FramePacer, FuzzyMatch, ~GapBuffer, ~GrayCode, ~Halton, Hash, Histogram, ~Hungarian, HyperLogLog, ~IndexedHeap, Interpolate, ~IntervalTree, JaroWinkler, Jobs, ~Kalman, ~KdTree2D, ~KdTree3D, KeyValueStore, Log, ~LogSinks, ~LruCache, ~Memory, MovingAverage, ~Murmur3, ~NodePath, Noise, NumberFormat, ~ObjectPool, ~OneEuroFilter, P2Quantile, Pcg32, ~PerfBudget, ~PidController, ~PoissonDisk, Profiler, ~ProjectSettings, ~RadixSort, Random, ~RandomDistributions, ~Reflect, Replay, ReservoirSampler, Resources, RingBuffer, ~RollingWindow, RunningMedian, RunningStats, SceneStack, Scheduler, ~SegmentTree, ~ShuffleBag, Signal, ~SimplexNoise, ~SimulatedAnnealing, SlotMap, ~SmoothDamp, ~SpaceFilling, ~SparseTable, Spring, ~StringFormat, ~StringHash, StringId, StringUtils, ~StronglyConnected, ~SuffixArray, ~SummedAreaTable, Telemetry, Time, ~TokenBucket, ~TopologicalSort, Trie, ~Utf16, Utf8, Uuid, ~ValueNoise, ~Variant, ~VariantContainerText, ~VariantContainers, ~VariantText, ~Version, ~WeightedReservoir, ~WorleyNoise
 
@@ -103,9 +103,9 @@ module with neither is working code nobody can find.
 
 **`ui`** — ~ColorPicker, Container, Controls, DebugOverlay, ~DragAndDrop, FileDialog, Font, ~FontFallback, ~GlyphCache, ~GraphEdit, ItemList, Layout, PopupMenu, Range, Rect, RichText, ~RichTextEffects, ~Sdf, StyleBox, ~TabContainer, TextInput, TextLayout, ~TextServer, ~TextShaping, Theme, Tree, UI
 
-**`platform`** — ~AppFocus, ~Clipboard, CrashHandler, DesktopBackend, ~DisplayScale, ~Displays, Haptics, Input, Motion, ~Network, Orientation, Paths, PlatformBackend, PowerState, SafeArea, ~SoftKeyboard, ~ThumbZone, ~TouchTarget, WebLoop, Window
+**`anim`** — AdditiveBlend, AnimClip, AnimStateMachine, Animator, BlendSpace, BlendTree, ~CubicBezierEasing, Curve, FrameSequence, Gradient, IK, RootMotion, Skeleton, ~SpringBone, SpriteAnim, Timeline, ~Transition, TriggerTrack, Tween, TweenPlayer
 
-**`anim`** — AdditiveBlend, AnimClip, AnimStateMachine, Animator, BlendSpace, BlendTree, ~CubicBezierEasing, Curve, Gradient, IK, RootMotion, Skeleton, ~SpringBone, SpriteAnim, Timeline, ~Transition, TriggerTrack, Tween, TweenPlayer
+**`platform`** — ~AppFocus, ~Clipboard, CrashHandler, DesktopBackend, ~DisplayScale, ~Displays, Haptics, Input, Motion, ~Network, Orientation, Paths, PlatformBackend, PowerState, SafeArea, ~SoftKeyboard, ~ThumbZone, ~TouchTarget, WebLoop, Window
 
 **`net`** — BitStream, ClockSync, ~Connection, FloatQuant, Interpolation, NetSim, ~Prediction, QuatCompress, ~Reliability, ~ReliableChannel, ~Replication, ~Rpc, Snapshot, ~Spawner, ~UdpSocket, ~WebSocket
 
@@ -119,13 +119,13 @@ module with neither is working code nobody can find.
 
 **`ecs`** — Components, ~Scheduler, World
 
+**`editor`** — Composite, Scene
+
 **`ext`** — ~DynamicLibrary, ~Extension
 
 **`(root)`** — Engine
 
 **`docs`** — SiteGen
-
-**`editor`** — Scene
 
 **`video`** — ~Ivf
 
@@ -175,13 +175,14 @@ engine capability, a handful of them complete games.
 | **crowd** | steering + pathfinding demo) A flock of agents navigates a shared maze toward a roving goal. Each agent plans its own A* route (maz::game::NavGrid)… | 214 | ✓ | ✓ | — |
 | **cube** | 3D demo) A lit, depth-tested spinning cube rendered through the engine's 3D mesh path, with 2D HUD text drawn over it — proving 2D and 3D compose in… | 134 | ✓ | ✓ | — |
 | **curve** | cubic Bézier path, toward Godot's Curve2D / Path2D) A Curve2D is authored from points with in/out control handles and drawn as a smooth spline. On to… | 177 | ✓ | ✓ | — |
+| **cutscene_export** | exporter. Loads a composed character/item (.mazprefab), bakes it into one mesh, orbits a camera around it over a timeline, renders each frame on the… | 151 | ✓ | · | — |
 | **data** | data-driven scene from JSON) Nothing on screen is hard-coded: the entire scene — clear color, title, and every sprite (its shape, position, size, tin… | 186 | ✓ | ✓ | — |
 | **deadzone** | input::analogVector / applyDeadzone, toward Godot's Input.get_vector) A raw thumbstick drifts near centre and reaches ~√2 at the diagonals, so naive… | 173 | ✓ | ✓ | — |
 | **distort** | audio::MultiDistortion, toward Godot's AudioEffectDistortion.Mode) A9 (final audio milestone): the full distortion-mode set. The LEFT chart is the tr… | 186 | ✓ | ✓ | — |
 | **earshot** | audio::karplusStrongPluck, detectPitchYin, midiToNoteName / noteNameToFrequency / frequencyToMidi, goertzelMagnitudeHz, applyWindow / coherentGain, E… | 430 | ✓ | · | no golden screenshot |
 | **economy** | game::Inventory, game::LootTable, game::Crafting, game::Shop — the loop between killing something and carrying the result, toward Godot's lack of one… | 266 | ✓ | · | no golden screenshot |
 | **ecsave** | ECS scene save / load round-trip) Everything on screen is proof that a live entity world survives a JSON round-trip. At startup the app builds a sour… | 205 | ✓ | ✓ | — |
-| **editor** | a minimal in-engine scene editor, toward Godot's editor) A 3D viewport showing an editable scene, a scene-tree panel listing the nodes (click a row t… | 882 | ✓ | ✓ | — |
+| **editor** | a minimal in-engine scene editor, toward Godot's editor) A 3D viewport showing an editable scene, a scene-tree panel listing the nodes (click a row t… | 935 | ✓ | ✓ | — |
 | **emitter** | a particle emitter RESOURCE, toward Godot's CPUParticles2D) The old fx::ParticleSystem emits point bursts with a linear start->end colour/size. A rea… | 190 | ✓ | ✓ | — |
 | **envelope** | ADSR envelope generator, for synth voice shaping) The amplitude contour every synth note is shaped by: on note-on the level ramps up over ATTACK, fal… | 204 | ✓ | ✓ | — |
 | **equalizer** | audio::Equalizer, toward Godot's AudioEffectEQ10) A2 of the audio deep-dive: a multiband graphic equalizer — a bank of peaking bands at fixed center… | 189 | ✓ | ✓ | — |
@@ -333,6 +334,7 @@ engine capability, a handful of them complete games.
 | `docs/API.md` | Maz Engine — API Reference | — |
 | `docs/ARCHITECTURE.md` | Maz Engine — Architecture | — |
 | `docs/CODEBASE_MEMORY.md` | Codebase Memory (MCP) | — |
+| `docs/EDITOR.md` | Maz Editor — character / item creator | nothing links to it |
 | `docs/EDITOR_GUIDE.md` | Maz Editor — plain-language getting-started guide | — |
 | `docs/EVALUATION.md` | Maz Engine — Evaluation & Enhancement Backlog | — |
 | `docs/FORGE-JOBS.md` | The Forge's jobs | — |
@@ -357,17 +359,17 @@ not by judging the work. Every failing check below is a specific, finishable job
 
 | Kind | Check | Passing |
 |---|---|---:|
-| engine-module | shown by a sample app | 267/692 (39%) |
-| app | has a golden screenshot | 157/171 (92%) |
-| app | built by CMake | 171/171 (100%) |
-| app | has CMakeLists.txt | 171/171 (100%) |
-| app | header comment says what it shows | 171/171 (100%) |
-| app | runs headless for CI | 171/171 (100%) |
-| app | exercises a named engine module | 171/171 (100%) |
+| engine-module | shown by a sample app | 274/696 (39%) |
+| app | has a golden screenshot | 158/172 (92%) |
+| doc | reachable from somewhere | 19/20 (95%) |
+| app | built by CMake | 172/172 (100%) |
+| app | has CMakeLists.txt | 172/172 (100%) |
+| app | header comment says what it shows | 172/172 (100%) |
+| app | runs headless for CI | 172/172 (100%) |
+| app | exercises a named engine module | 172/172 (100%) |
 | build-tool | says what it does | 11/11 (100%) |
-| doc | reachable from somewhere | 19/19 (100%) |
-| engine-module | header has a doc comment | 692/692 (100%) |
-| engine-module | covered by a test or a golden image | 692/692 (100%) |
+| engine-module | header has a doc comment | 696/696 (100%) |
+| engine-module | covered by a test or a golden image | 696/696 (100%) |
 | gate | rule-encoding checkers are tested | 3/3 (100%) |
 | gate | wired into a workflow | 3/3 (100%) |
 | py-tool | has a README | 3/3 (100%) |
@@ -386,17 +388,24 @@ projects without declaring it. Everything below is written to end up in that man
 
 ### Found by the scan
 
-#### 425 engine modules are tested but no app shows them
+#### 422 engine modules are tested but no app shows them
 
 These are finished, working features that nobody can see, and `apps/` is how this engine
-documents itself. They are not spread evenly: 135 in `render`, 116 in `math`, 66 in `game`, 57
+documents itself. They are not spread evenly: 133 in `render`, 115 in `math`, 66 in `game`, 57
 in `core`, 10 in `ui`, 9 in `net`, and 11 other subsystems. Writing 499 apps is not the answer
 and never was: one demo can show a dozen related modules at once — a single "mesh repair" app
 for the degenerate, self-intersection and closest-point analysers, one "curve fitting" app for
 the least-squares family — so the work is closer to a few dozen apps than 499. Start where the
 count is highest and the modules cluster most naturally.
 
-<sub>425 affected · effort: medium · value: ★★★ · queued below as the `engine-module:demoed` task</sub>
+<sub>422 affected · effort: medium · value: ★★★ · queued below as the `engine-module:demoed` task</sub>
+
+#### One doc is not linked from anywhere
+
+A doc that nothing references is invisible to a newcomer and to a future session, however good
+it is. Link each from README.md or a sibling doc, or retire it.
+
+<sub>1 affected · effort: small · value: ★ · queued below as the `doc:linked` task</sub>
 
 ### Already wired together
 
@@ -536,15 +545,17 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
 
 ### P1 — broken or unprotected (2)
 
-- **425 engine modules are tested but no app shows them**
-  <br>These are finished, working features that nobody can see, and `apps/` is how this engine documents itself. They are not spread evenly: 135 in `render`, 116 in `math`, 66 in `game`, 57 in `core`, 10 in `ui`, 9 in `net`, and 11 other subsystems. Writing 499 apps is not the answer and never was: one demo can show a dozen related modules at once — a single "mesh repair" app for the degenerate, self-intersection and closest-point analysers, one "curve fitting" app for the least-squares family — so the work is closer to a few dozen apps than 499. Start where the count is highest and the modules clu…
+- **422 engine modules are tested but no app shows them**
+  <br>These are finished, working features that nobody can see, and `apps/` is how this engine documents itself. They are not spread evenly: 133 in `render`, 115 in `math`, 66 in `game`, 57 in `core`, 10 in `ui`, 9 in `net`, and 11 other subsystems. Writing 499 apps is not the answer and never was: one demo can show a dozen related modules at once — a single "mesh repair" app for the degenerate, self-intersection and closest-point analysers, one "curve fitting" app for the least-squares family — so the work is closer to a few dozen apps than 499. Start where the count is highest and the modules clu…
 - **SONG FORGE supplies the one music layer the engine does not have**
   <br>The engine already has the layers underneath and above a composer: audio::MusicTheory does note/pitch conversion, audio::MusicScales the scale tables, audio::Oscillator and audio::BusGraph the synthesis and mixing, and audio::MusicSequencer switches between music segments on the beat as the action changes. What nothing under engine/include/maz/audio/ does is WRITE the segments — pick a progression, lay a bassline and a drum pattern under it, arrange verses and choruses. music/js/genres.js and music/js/composer.js do exactly that, as plain data and pure functions, for eight genres. Porting the…
 
-### P2 — coverage gaps (5)
+### P2 — coverage gaps (6)
 
 - **14 apps fail "has a golden screenshot"**
   <br>_template, earshot, economy, genworld, lookup, meshdoctor, orbs, rpgstats, sandbox, squeeze, swarm, tactics, and 2 more. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.
+- **One doc is not linked from anywhere**
+  <br>A doc that nothing references is invisible to a newcomer and to a future session, however good it is. Link each from README.md or a sibling doc, or retire it. — EDITOR.md. Example: Nothing links to docs/EDITOR.md. Link it from README.md, CLAUDE.md or a sibling doc, or delete it.
 - **CODA PICS can be lent now — but not to SCRIPT FORGE or MADLIBS as they speak today**
   <br>The surface exists: coda-pics/painter is published, takes a sentence and a canvas, and — unlike the studio page — reports how much of the picture came from the words. It refuses rather than guessing when asked to, because CODA PICS invents a subject for anything it does not recognise and a caller cannot otherwise tell a picture of the thing it asked for from a picture of something else.  What is NOT true is the obvious next step, and it was measured rather than assumed. Fed SCRIPT FORGE's scene headings, about half painted something unrelated, and fed MADLIBS loglines, six of twelve were refu…
 - **The golden screenshots become the arcade's cover art**

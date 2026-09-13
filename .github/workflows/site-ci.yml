@@ -56,7 +56,11 @@ jobs:
       # The painter surface CODA PICS publishes for other projects, and the one
       # behaviour that exists only for them: refusing rather than guessing.
       - name: CODA PICS painter surface
-        run: node coda-pics/tests/painter.test.js
+        run: node coda-pics/tests/painter.test.js      # The Google Photos connector is the one thing in the arcade that talks to
+      # a network, so its whole flow — PKCE, the state check, the token swap,
+      # polling, paging, fetching pixels — is driven against a fake Google.
+      - name: CODA PICS Google Photos connector
+        run: node coda-pics/tests/gphotos.test.js
       # MADLIBS publishes madlibs/storyideas and SCRIPT FORGE consumes it, so a
       # break in the generator is a break in two projects.
       - name: MADLIBS logic tests
@@ -124,6 +128,11 @@ jobs:
       # on purpose.
       - name: CODA PICS pictures are unchanged
         run: node coda-pics/tests/visual.test.js
+      # ...and the same flow again through the real page: real sessionStorage, a
+      # real redirect out and back, real image decoding, and a picture painted
+      # from photographs that came in through the connector.
+      - name: CODA PICS Google Photos through the page
+        run: node coda-pics/tests/gphotos-browser.test.js
       # A game can pass every unit test and still throw on frame two, so this
       # plays one: a real run, every biome, every screen, and a death.
       - name: NEON CELLS end to end (a real run)

@@ -16,6 +16,7 @@
   'use strict';
 
   var LEX = window.CodaLexicon;
+  var PHOTO = window.CodaPhoto;
   var PROMPT = window.CodaPrompt;
   var PAINT = window.CodaPaint;
   var FINISH = window.CodaFinish;
@@ -43,6 +44,8 @@
     'a hot air balloon over a canyon, poster'
   ];
 
+  var PALETTE_KEY = 'codaPics.palettes.v1';
+  var LOOK_KEY = 'codaPics.look.v1';
   var STORE_KEY = 'codaPics.gallery.v2';
   var LEGACY_KEY = 'codaPics.gallery.v1';
   var LAST_KEY = 'codaPics.last.v1';
@@ -50,6 +53,10 @@
 
   var el = {};
   var current = null;             // the spec on screen right now
+  var photo = null;               // { image, analysis } — never leaves this page
+  var library = [];               // palettes kept from photos: numbers, not pixels
+  var look = null;                // { palette, count } — every photo ever, folded into one
+  var chosenPalette = 'latest';   // 'latest' | 'mixture' | an index into library
   var seed = 1;
   var busy = false;
   var painted = 0;
@@ -70,14 +77,26 @@
   /* ---------------------------------------------------------------- paint */
   function sizeOf() { return SIZES[el.shape.value] || SIZES.wide; }
 
-  function draw(canvas, spec, w, h) {
+  function draw(canvas, spec, w, h, media, upTo) {
     canvas.width = w;
     canvas.height = h;
     var ctx = canvas.getContext('2d');
     if (!ctx) return false;
-    var palette = PAINT.render(ctx, w, h, spec);
-    FINISH.apply(ctx, w, h, spec, palette);
+    var stages = PAINT.STAGES ? PAINT.STAGES.length : 8;
+    var whole = typeof upTo !== 'number' || upTo > stages;
+    var palette = PAINT.render(ctx, w, h, spec, media, whole ? null : { upTo: upTo });
+    /* The finishing style is the last coat, so a half-built picture has not had
+     * it yet — the same way the varnish goes on when the painting is done. */
+    if (whole) FINISH.apply(ctx, w, h, spec, palette);
     return true;
+  }
+
+  /* The photo itself, for the passes that paint onto it. Kept out of the spec
+   * because an image is not data a gallery entry or a worker message can
+   * carry. */
+  function mediaNow(spec) {
+    if (!photo || !spec.photo || !spec.photo.use.backdrop) return null;
+    return { backdrop: photo.image };
   }
 
   /* ------------------------------------------------------ the render worker
@@ -128,6 +147,7 @@
   /* Paint into the visible canvas: a quick small version first so there is
    * something to look at, then the real one, from the worker where possible. */
   function drawProgressive(canvas, spec, w, h, whenDone) {
+    var media = mediaNow(spec);
     var ctx;
     canvas.width = w;
     canvas.height = h;
@@ -140,16 +160,18 @@
     var ph = Math.max(90, Math.round(h / 4));
     try {
       var small = document.createElement('canvas');
-      if (draw(small, spec, pw, ph)) {
+      if (draw(small, spec, pw, ph, media)) {
         ctx.imageSmoothingEnabled = true;
         ctx.drawImage(small, 0, 0, w, h);
       }
     } catch (e) { /* the full render below is what matters */ }
 
-    var w2 = getWorker();
+    /* A picture painted onto a photo stays on this thread: the photo is an
+     * image, and shipping one into a worker costs more than the paint saves. */
+    var w2 = media ? null : getWorker();
     if (!w2) {
       var ok = false;
-      try { ok = draw(canvas, spec, w, h); } catch (e) { ok = false; }
+      try { ok = draw(canvas, spec, w, h, media); } catch (e) { ok = false; }
       whenDone(ok);
       return;
     }
@@ -165,7 +187,7 @@
       },
       fail: function () {
         var made = false;
-        try { made = draw(canvas, spec, w, h); } catch (e) { made = false; }
+        try { made = draw(canvas, spec, w, h, media); } catch (e) { made = false; }
         whenDone(made);
       }
     };
@@ -174,9 +196,148 @@
     } catch (e) {
       delete workerJobs[id];
       var drawn = false;
-      try { drawn = draw(canvas, spec, w, h); } catch (e2) { drawn = false; }
+      try { drawn = draw(canvas, spec, w, h, media); } catch (e2) { drawn = false; }
       whenDone(drawn);
     }
+  }
+
+  /* ------------------------------------------------------------ growing it
+   * The picture put on in coats, the way it is actually built, instead of
+   * arriving finished. Each beat paints the whole thing again from the words
+   * as they stand *at that moment* — which is what makes it steerable: change
+   * the box while it is growing and the next coat goes on the new picture,
+   * with the same seed, so it turns into what you are now asking for rather
+   * than starting again as something unrelated.
+   */
+  var COATS = [
+    { upTo: 1, says: 'the ground colour' },
+    { upTo: 2, says: 'the sky' },
+    { upTo: 3, says: 'the light' },
+    { upTo: 4, says: 'the clouds' },
+    { upTo: 5, says: 'the land' },
+    { upTo: 6, says: 'the subject' },
+    { upTo: 7, says: 'what is nearest' },
+    { upTo: 8, says: 'the weather' },
+    { upTo: 99, says: 'the finish' }
+  ];
+  var growTimer = null;
+  var growFrame = null;
+  var growing = false;
+  var growLast = '';
+  var growPrev = null;     // the coat before this one, to fade out of
+
+  /* A cheap fingerprint of what is on the canvas, so a coat that painted
+   * nothing can be noticed and skipped rather than sat through. Not every
+   * picture has weather or anything in the foreground, and a second of nothing
+   * happening reads as the app having stalled. */
+  function canvasMark(canvas) {
+    try {
+      var ctx = canvas.getContext('2d');
+      var d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      var a = 0, b = 0, n = 0;
+      for (var i = 0; i < d.length; i += 4 * 199) {
+        a = (a + d[i] * 3 + d[i + 1] * 5 + d[i + 2] * 7) % 1000000007;
+        b = (b + (a ^ (i & 255))) % 1000000007;
+        n++;
+      }
+      return a + ':' + b + ':' + n;
+    } catch (e) { return String(Math.random()); }
+  }
+
+  function growStop(quietly) {
+    if (growTimer) { window.clearTimeout(growTimer); growTimer = null; }
+    if (growFrame) { window.cancelAnimationFrame(growFrame); growFrame = null; }
+    growing = false;
+    growPrev = null;
+    el.grow.textContent = '🌱 Grow it slowly';
+    el.grow.title = 'Watch it painted coat by coat — and change the words while it goes';
+    if (!quietly) setStatus('Stopped. What is there is what was painted so far.');
+  }
+
+  function growStart() {
+    if (growing) { growStop(); return; }
+    var words = el.prompt.value.trim();
+    if (!words) { setStatus('Put some words in the box first.'); return; }
+    growing = true;
+    el.grow.textContent = '■ Stop growing';
+    el.placeholder.hidden = true;
+    var coat = 0;
+
+    function beat() {
+      if (!growing) return;
+      /* Re-read the words every coat. This is the whole point. */
+      var text = el.prompt.value.trim();
+      if (!text) { growStop(true); setStatus('The box is empty, so there is nothing to grow.'); return; }
+      var spec = specFor(text, seed);
+      var size = sizeOf();
+      var step = COATS[coat];
+
+      /* Paint the coat away from the screen, then bring it in over a second's
+       * worth of frames. Nine jumps is a slideshow of a painting; what was
+       * asked for is a painting. Fading the new coat up over the old one is
+       * also honest about what is happening — the new paint really is going on
+       * top of what was already there. */
+      var buf = document.createElement('canvas');
+      var ok = false;
+      try { ok = draw(buf, spec, size.w, size.h, mediaNow(spec), step.upTo); } catch (e) { ok = false; }
+      if (!ok) { growStop(true); setStatus('That could not be painted.'); return; }
+
+      current = spec;
+      showReadout(spec, size);
+      setStatus('Coat ' + (coat + 1) + ' of ' + COATS.length + ' — <b>' + step.says + '</b>. ' +
+        (coat + 1 < COATS.length
+          ? 'Change the words while it paints and it will grow into those instead.'
+          : ''));
+
+      /* If this coat put nothing on the canvas, move straight to the next. */
+      var mark = canvasMark(buf);
+      var addedNothing = mark === growLast;
+      growLast = mark;
+
+      if (el.canvas.width !== size.w || el.canvas.height !== size.h) {
+        el.canvas.width = size.w;
+        el.canvas.height = size.h;
+      }
+      var cctx = el.canvas.getContext('2d');
+      var frames = addedNothing ? 1 : 26;
+      var f = 0;
+
+      function fade() {
+        if (!growing) return;
+        f++;
+        var t = f / frames;
+        /* Eased, so paint arrives the way paint arrives rather than at a
+         * constant machine rate. */
+        var e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        cctx.clearRect(0, 0, size.w, size.h);
+        if (growPrev) cctx.drawImage(growPrev, 0, 0);
+        cctx.globalAlpha = growPrev ? e : 1;
+        cctx.drawImage(buf, 0, 0);
+        cctx.globalAlpha = 1;
+        if (f < frames) { growFrame = window.requestAnimationFrame(fade); return; }
+        growFrame = null;
+        growPrev = buf;
+        el.canvas.dataset.painted = String(++painted);
+        afterCoat();
+      }
+      growFrame = window.requestAnimationFrame(fade);
+
+      function afterCoat() {
+      coat++;
+      if (coat >= COATS.length) {
+        growStop(true);
+        el.outButtons.hidden = false;
+        save(LAST_KEY, { prompt: text, seed: seed, style: el.style.value, shape: el.shape.value });
+        setStatus('Finished, in ' + COATS.length + ' coats. It is a real picture — keep it, ' +
+          'save it or share it like any other.');
+        return;
+      }
+      growTimer = window.setTimeout(beat, addedNothing ? 40 : 260);
+      }
+    }
+    growLast = '';
+    growPrev = null;
+    beat();
   }
 
   function locksNow() {
@@ -187,14 +348,275 @@
     };
   }
 
+  /*
+   * Read a photo the person chose. Every step happens in this page: the file is
+   * read by the browser, drawn to a canvas, and measured. Nothing is uploaded,
+   * and nothing is kept once the page is closed unless they save a picture.
+   */
+  /* Several photographs at once: each is measured, each leaves a palette
+   * behind, and the mixture of all of them becomes a palette of its own. */
+  function loadPhotos(files) {
+    if (!files || !files.length) return;
+    var list = Array.prototype.slice.call(files);
+    var done = 0;
+    setStatus('Reading ' + list.length + ' photo' + (list.length > 1 ? 's' : '') + '…');
+    list.forEach(function (file) {
+      loadPhoto(file, function () {
+        done++;
+        if (done === list.length) {
+          /* Once enough photographs have been through it, the accumulated look
+           * is the better answer than whatever was just loaded — it is what
+           * the person's pictures look like, not what this handful does. */
+          var deep = look && look.count >= 5;
+          chosenPalette = deep ? 'look' : (list.length > 1 ? 'mixture' : 'latest');
+          renderPalettes();
+          setStatus(deep
+            ? 'Kept the colours of ' + list.length + ' more. <b>Your look</b> now stands for ' +
+              look.count + ' photos, and everything paints in it.'
+            : (list.length > 1
+              ? 'Kept the colours of ' + list.length + ' photos. <b>Just these</b> paints in all of them at once.'
+              : 'Kept the colours of that photo.'));
+          if (el.prompt.value.trim()) repaint(seed);
+        }
+      });
+    });
+  }
+
+  function loadPhoto(file, whenDone) {
+    if (!file || !PHOTO) { if (whenDone) whenDone(); return; }
+    var reader = new FileReader();
+    reader.onerror = function () {
+      setStatus('That file could not be read.');
+      if (whenDone) whenDone();
+    };
+    reader.onload = function () {
+      var img = new Image();
+      img.onerror = function () {
+        setStatus('That does not look like an image.');
+        if (whenDone) whenDone();
+      };
+      img.onload = function () {
+        /* Measured at a modest size: the analysis wants colours and a horizon,
+         * not detail, and a 12-megapixel phone photo would be wasted work. */
+        var aw = 320;
+        var ah = Math.max(1, Math.round(aw * img.height / img.width));
+        var work = document.createElement('canvas');
+        work.width = aw; work.height = ah;
+        var wctx = work.getContext('2d');
+        if (!wctx) { if (whenDone) whenDone(); return; }
+        wctx.drawImage(img, 0, 0, aw, ah);
+        var data;
+        try { data = wctx.getImageData(0, 0, aw, ah); } catch (e) {
+          if (whenDone) whenDone();
+          return;
+        }
+
+        var analysis = PHOTO.analyse(data, aw, ah);
+        photo = { image: img, analysis: analysis };
+        rememberPalette(file.name || 'a photo', analysis);
+        showPhoto();
+        if (whenDone) { whenDone(); return; }
+        renderPalettes();
+        if (current) repaint(seed);
+      };
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  /*
+   * Keep what a photograph gave, and nothing else. A palette is about twenty
+   * numbers; the photograph is megabytes and is not ours to store. This is why
+   * the app can still paint in the colours of your summer next month without
+   * ever having held a photo of it.
+   */
+  function rememberPalette(name, analysis) {
+    library = library.filter(function (p) { return p.name !== name; });
+    library.unshift({ name: String(name).slice(0, 40), palette: analysis.palette, at: Date.now() });
+    /* Named palettes are for picking one back out by hand, so the list is long
+     * enough to be worth scrolling and no longer. It is not the memory — the
+     * memory is `look`, below, and nothing falls out of that. */
+    if (library.length > 200) library.length = 200;
+    save(PALETTE_KEY, library);
+    rememberLook(analysis);
+  }
+
+  /*
+   * The part that actually gets better the more photographs it is given.
+   *
+   * Every photo ever measured is folded into one palette and a count. The
+   * hundredth photo shifts it by a hundredth; the thousandth by a thousandth;
+   * none of them is ever dropped to make room, because there is no room to make
+   * — it is one palette and one number however many have been through it.
+   *
+   * It is still only numbers. A thousand photographs leave about twenty of
+   * them behind, and not one pixel.
+   */
+  function rememberLook(analysis) {
+    if (!analysis || !analysis.palette || !PHOTO.fold) return;
+    var count = (look && look.count) || 0;
+    var folded = PHOTO.fold(look && look.palette, count, analysis.palette);
+    if (!folded) return;
+    look = { palette: folded, count: count + 1 };
+    save(LOOK_KEY, look);
+  }
+
+  function paletteSwatch(palette, w, h) {
+    var c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    var ctx = c.getContext('2d');
+    if (!ctx) return c;
+    function css(hsl) {
+      return 'hsl(' + hsl[0].toFixed(1) + ',' + hsl[1].toFixed(1) + '%,' + hsl[2].toFixed(1) + '%)';
+    }
+    var g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, css(palette.sky.top));
+    g.addColorStop(0.5, css(palette.sky.mid));
+    g.addColorStop(1, css(palette.sky.low));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = css(palette.scene.land);
+    ctx.fillRect(0, h * 0.62, w, h * 0.38);
+    ctx.fillStyle = css(palette.scene.ink);
+    ctx.fillRect(0, h * 0.82, w, h * 0.18);
+    return c;
+  }
+
+  function mixedPalette() {
+    if (library.length < 2 || !PHOTO.mix) return null;
+    return PHOTO.mix(library.map(function (p) { return { palette: p.palette }; }));
+  }
+
+  function activePalette() {
+    if (chosenPalette === 'look') return look && look.palette;
+    if (chosenPalette === 'mixture') return mixedPalette();
+    if (chosenPalette === 'latest') return photo ? photo.analysis.palette : (library[0] && library[0].palette);
+    var entry = library[chosenPalette];
+    return entry ? entry.palette : null;
+  }
+
+  function renderPalettes() {
+    var hasLook = !!(look && look.palette && look.count);
+    el.paletteBox.hidden = library.length === 0 && !hasLook;
+    el.paletteChips.innerHTML = '';
+    if (el.paletteBox.hidden) return;
+
+    function chip(key, label, palette, isMix) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'swatch' + (isMix ? ' mixture' : '');
+      b.setAttribute('aria-pressed', String(chosenPalette === key));
+      b.appendChild(paletteSwatch(palette, 34, 16));
+      var span = document.createElement('span');
+      span.textContent = label;
+      b.appendChild(span);
+      b.addEventListener('click', function () {
+        chosenPalette = key;
+        el.usePhotoColours.checked = true;
+        renderPalettes();
+        if (current) repaint(seed);
+      });
+      el.paletteChips.appendChild(b);
+    }
+
+    /* First, and named for what it is: everything this app has ever been
+     * shown. It grows every time a photo goes in and never shrinks. */
+    if (hasLook) {
+      chip('look', 'Your look · ' + look.count + ' photo' + (look.count === 1 ? '' : 's'),
+        look.palette, true);
+    }
+    var mixed = mixedPalette();
+    if (mixed) chip('mixture', 'Just these ' + library.length, mixed, true);
+    library.forEach(function (entry, i) {
+      chip(i, entry.name.replace(/\.[a-z0-9]+$/i, ''), entry.palette, false);
+    });
+  }
+
+  function forgetPalettes() {
+    /* "Forget all of them" has to mean all of them, the accumulated look
+     * included — a button that quietly kept something back would be a lie. */
+    library = [];
+    look = null;
+    chosenPalette = 'latest';
+    save(PALETTE_KEY, library);
+    save(LOOK_KEY, null);
+    renderPalettes();
+    setStatus('All of those colours are forgotten, including your look. ' +
+      'The photos were never here to forget.');
+    if (current) repaint(seed);
+  }
+
+  function showPhoto() {
+    if (!photo) { el.photoInfo.hidden = true; return; }
+    el.photoInfo.hidden = false;
+
+    var tw = 132;
+    var th = Math.max(1, Math.round(tw * photo.image.height / photo.image.width));
+    el.photoThumb.width = tw;
+    el.photoThumb.height = th;
+    var tctx = el.photoThumb.getContext('2d');
+    if (tctx) tctx.drawImage(photo.image, 0, 0, tw, th);
+
+    var sky = photo.analysis.skyline;
+    if (sky.confidence < 0.35) {
+      el.usePhotoSkyline.checked = false;
+      el.usePhotoSkyline.disabled = true;
+      el.photoNote.textContent =
+        'No clear horizon in this one, so it can lend its colours but not its skyline.';
+    } else {
+      el.usePhotoSkyline.disabled = false;
+      el.photoNote.textContent = 'Horizon found ' +
+        Math.round(sky.mean * 100) + '% down, and the light is coming from the ' +
+        (photo.analysis.light.x < 0.4 ? 'left' : photo.analysis.light.x > 0.6 ? 'right' : 'middle') + '.';
+    }
+  }
+
+  function forgetPhoto() {
+    photo = null;
+    el.photoInfo.hidden = true;
+    el.photoFile.value = '';
+    setStatus('Photo forgotten. It was never anywhere but this page.');
+    if (current) repaint(seed);
+  }
+
+  function photoUse() {
+    if (!photo) return null;
+    return {
+      colours: el.usePhotoColours.checked,
+      skyline: el.usePhotoSkyline.checked && !el.usePhotoSkyline.disabled,
+      backdrop: el.usePhotoBackdrop.checked
+    };
+  }
+
+  /* What the painter is told about the photo: plain measured numbers, so it
+   * travels into the render worker and into a kept gallery entry unchanged. */
+  function photoSpec() {
+    /* Colours can come from the library with no photo loaded at all — that is
+     * the point of keeping them. The horizon and the backdrop need the actual
+     * photograph, so they are only offered while one is in hand. */
+    var pal = el.usePhotoColours && el.usePhotoColours.checked ? activePalette() : null;
+    var use = photoUse() || { colours: !!pal, skyline: false, backdrop: false };
+    if (!pal) use.colours = false;
+    if (!use.colours && !use.skyline && !use.backdrop) return null;
+    return {
+      use: use,
+      palette: pal || (photo && photo.analysis.palette),
+      skyline: photo ? photo.analysis.skyline : null,
+      light: photo ? photo.analysis.light : null
+    };
+  }
+
   function specFor(text, useSeed) {
     var locks = locksNow();
     var any = locks.subject || locks.sky || locks.land;
-    return PROMPT.parse(text, {
+    var spec = PROMPT.parse(text, {
       seed: useSeed,
       style: el.style.value,
       locked: (any && current) ? PROMPT.holdLocks(current.seed, locks) : null
     });
+    var ph = photoSpec();
+    if (ph) spec.photo = ph;
+    return spec;
   }
 
   function repaint(newSeed) {
@@ -372,6 +794,12 @@
 
   function keep() {
     if (!current) return;
+    if (current.photo && current.photo.use && current.photo.use.backdrop) {
+      setStatus('This one is painted onto your photo, and the gallery stores scenes ' +
+        'rather than photographs — so it could not bring this back as it is. ' +
+        'Use <b>Save the picture</b> instead.');
+      return;
+    }
     var kept = load(STORE_KEY, []);
     var entry = {
       prompt: current.prompt,
@@ -427,7 +855,8 @@
 
       var thumb = document.createElement('canvas');
       try {
-        draw(thumb, specOfEntry(entry), tw, th);
+        var espec = specOfEntry(entry);
+        draw(thumb, espec, tw, th, mediaNow(espec));
       } catch (e) { /* a thumbnail is not worth failing over */ }
       card.appendChild(thumb);
 
@@ -499,6 +928,51 @@
     reader.readAsText(file);
   }
 
+  /*
+   * The photograph, put through one of the app's own styles. Nothing is drawn
+   * on top: the finishing passes work on whatever pixels they are given, and a
+   * photograph is pixels. This is the shortest path from "a photo you took" to
+   * "a woodblock print of a photo you took".
+   */
+  function stylePhotoNow() {
+    if (!photo) return;
+    var size = sizeOf();
+    el.canvas.width = size.w;
+    el.canvas.height = size.h;
+    var ctx = el.canvas.getContext('2d');
+    if (!ctx) return;
+
+    var spec = specFor(el.prompt.value.trim() || 'a photograph', seed);
+    PAINT.coverDraw(ctx, photo.image, size.w, size.h);
+    try {
+      FINISH.apply(ctx, size.w, size.h, spec, PAINT.makePalette(spec));
+    } catch (e) {
+      setStatus('That style could not be applied to this photo.');
+      return;
+    }
+
+    current = spec;
+    el.placeholder.hidden = true;
+    el.outButtons.hidden = false;
+    el.canvas.dataset.painted = String(++painted);
+    el.canvas.setAttribute('aria-label', 'Your photograph, in the ' +
+      styleName(spec) + ' style.');
+    el.readout.innerHTML = '';
+    el.unknown.hidden = true;
+    setStatus('<b>Your photo, in ' + escapeHtml(styleName(spec)) + '</b> · ' +
+      size.w + ' × ' + size.h + ' — change the art style and press this again.');
+  }
+
+  function styleName(spec) {
+    var ids = spec.styles && spec.styles.length ? spec.styles : [spec.style];
+    return ids.map(function (id) {
+      for (var i = 0; i < LEX.STYLES.length; i++) {
+        if (LEX.STYLES[i].id === id) return LEX.STYLES[i].label;
+      }
+      return id;
+    }).join(' + ');
+  }
+
   /* ------------------------------------------------------------ six takes */
   function showSix() {
     var text = el.prompt.value.trim();
@@ -517,7 +991,7 @@
         card.type = 'button';
         card.title = 'Paint this one full size';
         var c = document.createElement('canvas');
-        try { draw(c, spec, tw, th); } catch (e) { /* skip this one */ }
+        try { draw(c, spec, tw, th, mediaNow(spec)); } catch (e) { /* skip this one */ }
         card.appendChild(c);
         var label = document.createElement('span');
         label.className = 'label';
@@ -556,12 +1030,291 @@
     });
   }
 
+  /* -------------------------------------------------------- google photos
+   * The only part of CODA PICS that touches a network, and it is opt-in,
+   * folded away, and works exactly like choosing a file once the photos land:
+   * measured here, colours kept, pixels forgotten.
+   *
+   * There is no client ID baked into this repo on purpose. A client ID is tied
+   * to one Google project and one set of allowed origins, so a shared one would
+   * either not work for anybody else or hand strangers a project. The person
+   * makes their own, once, and this page keeps it in their browser.
+   */
+  var GP_KEY = 'codaPics.gphotos.clientId';
+  var gp = null;               // the live connector, once connected
+  var gpPickerWindow = null;   // opened on the click, filled in when we know where
+
+  function gpRedirectUri() {
+    return window.location.origin + window.location.pathname;
+  }
+
+  /* Kept for the length of the redirect and no longer. sessionStorage, not
+   * localStorage: the verifier is a secret for one sign-in, not a setting. */
+  var gpStore = {
+    get: function (k) { try { return window.sessionStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { window.sessionStorage.setItem(k, v); } catch (e) {} },
+    remove: function (k) { try { window.sessionStorage.removeItem(k); } catch (e) {} }
+  };
+
+  function gpConnector(clientId) {
+    if (!window.CodaGPhotos) return null;
+    return new window.CodaGPhotos.Connector({
+      /* Both of these are replaceable so the whole flow can be driven in a
+       * test without Google, and without a real window ever moving. */
+      fetch: window.CODA_GPHOTOS_TRANSPORT || function (url, opts) {
+        return window.fetch(url, opts);
+      },
+      go: window.CODA_GPHOTOS_GO || function (url) { window.location.href = url; },
+      store: gpStore,
+      clientId: clientId,
+      redirectUri: gpRedirectUri()
+    });
+  }
+
+  function gpSay(msg) { if (el.gpNote) el.gpNote.textContent = msg; }
+
+  function gpShowState() {
+    var connected = !!(gp && gp.token);
+    el.gpPick.hidden = !connected;
+    el.gpForget.hidden = !connected;
+    el.gpConnect.hidden = connected;
+  }
+
+  function gpConnect() {
+    var id = String(el.gpClientId.value || '').trim();
+    if (!id) {
+      gpSay('Paste your Google client ID above first — the README shows where to get one.');
+      el.gpClientId.focus();
+      return;
+    }
+    if (!window.CodaGPhotos) { gpSay('The connector did not load. Reload the page.'); return; }
+    save(GP_KEY, id);
+    gp = gpConnector(id);
+    gpSay('Sending you to Google to say yes…');
+    gp.beginSignIn().catch(function (err) {
+      gpSay(err && err.message ? err.message : 'That sign-in could not be started.');
+    });
+  }
+
+  /* Back from Google. The code in the address bar is single-use and must not
+   * survive in history, so it is swapped and then wiped from the URL. */
+  function gpFinishSignIn(code, state) {
+    var id = load(GP_KEY, '') || '';
+    gp = gpConnector(id);
+    if (!gp) return;
+    gpSay('Finishing the sign-in…');
+    gp.completeSignIn(code, state).then(function () {
+      gpCleanUrl();
+      gpShowState();
+      gpSay('Connected. Choose photos whenever you like.');
+      if (el.gphotos) el.gphotos.open = true;
+    }).catch(function (err) {
+      gpCleanUrl();
+      gp = null;
+      gpShowState();
+      gpSay(err && err.message ? err.message : 'That sign-in did not finish.');
+      if (el.gphotos) el.gphotos.open = true;
+    });
+  }
+
+  function gpCleanUrl() {
+    try {
+      window.history.replaceState({}, '', gpRedirectUri() + window.location.hash);
+    } catch (e) {}
+  }
+
+  function gpPick() {
+    if (!gp || !gp.token) { gpSay('Connect first.'); return; }
+    /* Opened on the click itself, before anything is awaited: a window opened
+     * after a network round-trip is a popup, and gets blocked. */
+    gpPickerWindow = null;
+    if (!window.CODA_GPHOTOS_GO) {
+      try { gpPickerWindow = window.open('', '_blank'); } catch (e) { gpPickerWindow = null; }
+      /* The tab is ours, so cut its handle back to us before Google is put in
+       * it. Nothing here needs to talk across that gap — the session is polled,
+       * not messaged — so the link is only a liability. */
+      if (gpPickerWindow) { try { gpPickerWindow.opener = null; } catch (e) {} }
+    }
+    gpSay('Opening your gallery — choose the photos you want, then come back here.');
+    el.gpPick.disabled = true;
+
+    gp.pick({
+      limit: 12,
+      size: 640,
+      onPicker: function (uri) {
+        if (gpPickerWindow) { try { gpPickerWindow.location.href = uri; } catch (e) {} }
+        else if (window.CODA_GPHOTOS_GO) window.CODA_GPHOTOS_GO(uri);
+        else window.open(uri, '_blank');
+      }
+    }).then(function (picked) {
+      el.gpPick.disabled = false;
+      if (gpPickerWindow) { try { gpPickerWindow.close(); } catch (e) {} }
+      gpSay('Brought in ' + picked.length + ' photo' + (picked.length > 1 ? 's' : '') + '.');
+      /* From here they are ordinary photos: the same reader, the same
+       * measurement, the same palettes. Nothing about the rest of the app
+       * knows or cares that these came from Google. */
+      loadPhotos(picked.map(function (item) {
+        try { return new File([item.blob], item.name, { type: item.blob.type }); }
+        catch (e) { item.blob.name = item.name; return item.blob; }
+      }));
+    }).catch(function (err) {
+      el.gpPick.disabled = false;
+      if (gpPickerWindow) { try { gpPickerWindow.close(); } catch (e) {} }
+      gpSay(err && err.message ? err.message : 'Nothing came back.');
+    });
+  }
+
+  function gpForget() {
+    gp = null;
+    gpStore.remove('gphotos.verifier');
+    gpStore.remove('gphotos.state');
+    gpShowState();
+    gpSay('Disconnected. The colours you already kept are still here.');
+  }
+
+  /*
+   * Copying, with the fallback kept rather than assumed away. The clipboard API
+   * is refused outside a secure context and inside some embedded views, and a
+   * Copy button that silently does nothing is worse than no button — so when it
+   * refuses, the text is selected instead and the note says to copy it, which
+   * is the one thing a person can still do by hand.
+   */
+  function gpCopy(id) {
+    var node = document.getElementById(id);
+    if (!node) return;
+    var text = node.textContent;
+
+    function selectIt(why) {
+      try {
+        var range = document.createRange();
+        range.selectNodeContents(node);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } catch (e) { /* nothing left to try */ }
+      gpSaid(why);
+    }
+
+    if (window.navigator && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        gpSaid('Copied. Paste it into Google.');
+      }, function () {
+        selectIt('This browser would not let the page copy — it is selected, copy it by hand.');
+      });
+      return;
+    }
+    selectIt('This browser has no clipboard for pages — it is selected, copy it by hand.');
+  }
+
+  var gpSaidTimer = null;
+  function gpSaid(msg) {
+    if (!el.gpCopied) return;
+    el.gpCopied.textContent = msg;
+    if (gpSaidTimer) window.clearTimeout(gpSaidTimer);
+    gpSaidTimer = window.setTimeout(function () { el.gpCopied.textContent = ''; }, 6000);
+  }
+
+  /*
+   * Carrying the client ID to another device without it becoming public.
+   *
+   * There is nowhere in this project to keep it that is not public: the site is
+   * served straight out of the repository, so anything the page can read, so
+   * can anybody. A link is the way round that. The client ID rides in the
+   * fragment, which browsers never send to a server, so it goes from one of
+   * your devices to another through whatever you send it with and nowhere else.
+   *
+   * It is also the least dangerous half of the pair. A web client ID is public
+   * by design — it is in the address bar during every sign-in — and it only
+   * works from the site it was registered to. Somebody who took this link could
+   * not reach the photos: that needs Google to sign *you* in, and the token it
+   * gives back goes to the browser doing the asking.
+   */
+  function gpSetupLink() {
+    var id = String(el.gpClientId.value || '').trim() || (load(GP_KEY, '') || '');
+    if (!id) return null;
+    return gpRedirectUri() + '#gp=' + encodeURIComponent(id);
+  }
+
+  function gpCopyLink() {
+    var link = gpSetupLink();
+    if (!link) { gpSay('Put your client ID in first, then this link will carry it.'); return; }
+    function done() {
+      gpSay('Link copied. Send it to yourself and open it on your other device — ' +
+        'it sets that one up with one tap.');
+    }
+    if (window.navigator && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link).then(done, function () {
+        window.prompt('Copy this link and send it to yourself:', link);
+        done();
+      });
+      return;
+    }
+    window.prompt('Copy this link and send it to yourself:', link);
+    done();
+  }
+
+  /* Arriving on a device by way of one of those links. */
+  function gpTakeLink() {
+    var hash = String(window.location.hash || '').replace(/^#/, '');
+    if (!hash) return false;
+    var found = null;
+    hash.split('&').forEach(function (pair) {
+      var bits = pair.split('=');
+      if (bits[0] === 'gp' && bits.length === 2) found = decodeURIComponent(bits[1]);
+    });
+    if (!found) return false;
+    save(GP_KEY, found);
+    el.gpClientId.value = found;
+    /* Out of the address bar, so it is not left sitting in this browser's
+     * history for whoever picks the device up next. */
+    try { window.history.replaceState({}, '', gpRedirectUri()); } catch (e) {}
+    if (el.gphotos) el.gphotos.open = true;
+    gpSay('Set up from your link. Press Connect Google Photos.');
+    return true;
+  }
+
+  function gpStart() {
+    if (!el.gpConnect) return;
+    el.gpRedirect.textContent = gpRedirectUri();
+    el.gpOrigin.textContent = window.location.origin;
+    Array.prototype.forEach.call(document.querySelectorAll('.gp-copy-btn'), function (b) {
+      b.addEventListener('click', function () { gpCopy(b.getAttribute('data-copy')); });
+    });
+    el.gpLink.addEventListener('click', gpCopyLink);
+    /* Somebody who has not set this up yet should land on the instructions
+     * rather than on a box asking for something they have never heard of. */
+    if (el.gpSetup && !(load(GP_KEY, '') || '')) el.gpSetup.open = true;
+    if (gpTakeLink() && el.gpSetup) el.gpSetup.open = false;
+    el.gpClientId.value = load(GP_KEY, '') || '';
+    el.gpConnect.addEventListener('click', gpConnect);
+    el.gpPick.addEventListener('click', gpPick);
+    el.gpForget.addEventListener('click', gpForget);
+    gpShowState();
+
+    var q = new URLSearchParams(window.location.search);
+    if (q.get('error')) {
+      gpCleanUrl();
+      if (el.gphotos) el.gphotos.open = true;
+      gpSay('Google said no: ' + String(q.get('error')).slice(0, 80) + '.');
+      return;
+    }
+    if (q.get('code') && q.get('state')) {
+      if (el.gphotos) el.gphotos.open = true;
+      gpFinishSignIn(q.get('code'), q.get('state'));
+    }
+  }
+
   function start() {
     ['prompt', 'style', 'shape', 'examples', 'paint', 'reroll', 'six', 'surprise',
-      'canvas', 'placeholder', 'busy', 'status', 'readout', 'unknown', 'outButtons',
+      'canvas', 'placeholder', 'busy', 'status', 'readout', 'unknown', 'outButtons', 'grow',
       'download', 'keep', 'share', 'sheet', 'sheetGrid', 'gallery', 'galleryWrap',
       'exportGallery', 'importGallery', 'importFile',
-      'lockSubject', 'lockSky', 'lockLand'].forEach(function (id) {
+      'lockSubject', 'lockSky', 'lockLand',
+      'photoFile', 'photoInfo', 'photoThumb', 'photoNote', 'stylePhoto', 'clearPhoto',
+      'usePhotoColours', 'usePhotoSkyline', 'usePhotoBackdrop',
+      'paletteBox', 'paletteChips', 'clearPalettes',
+      'gphotos', 'gpClientId', 'gpRedirect', 'gpConnect', 'gpPick', 'gpForget',
+      'gpNote', 'gpSetup', 'gpOrigin', 'gpCopied', 'gpLink'].forEach(function (id) {
       el[id] = document.getElementById(id);
     });
 
@@ -572,6 +1325,7 @@
       repaint(1 + Math.floor(Math.random() * 999999));
     });
     el.six.addEventListener('click', showSix);
+    el.grow.addEventListener('click', growStart);
     el.surprise.addEventListener('click', function () {
       el.prompt.value = PROMPT.surprise(Date.now());
       repaint(1 + Math.floor(Math.random() * 999999));
@@ -586,6 +1340,16 @@
       el.importFile.value = '';
     });
 
+    el.photoFile.addEventListener('change', function () {
+      loadPhotos(el.photoFile.files);
+    });
+    el.clearPalettes.addEventListener('click', forgetPalettes);
+    el.clearPhoto.addEventListener('click', forgetPhoto);
+    el.stylePhoto.addEventListener('click', stylePhotoNow);
+    [el.usePhotoColours, el.usePhotoSkyline, el.usePhotoBackdrop].forEach(function (box) {
+      box.addEventListener('change', function () { if (current) repaint(seed); });
+    });
+
     el.prompt.addEventListener('keydown', function (ev) {
       if (ev.key === 'Enter' && !ev.shiftKey) {
         ev.preventDefault();
@@ -594,6 +1358,13 @@
     });
     el.style.addEventListener('change', function () { if (current) repaint(seed); });
     el.shape.addEventListener('change', function () { if (current) repaint(seed); });
+
+    /* The colours kept from photos come back before anything is painted, on
+     * every path through this function — a shared link included. */
+    library = load(PALETTE_KEY, []) || [];
+    look = load(LOOK_KEY, null);
+    renderPalettes();
+    gpStart();
 
     /* A shared link wins over whatever this browser was last doing. */
     var shared = readLink();

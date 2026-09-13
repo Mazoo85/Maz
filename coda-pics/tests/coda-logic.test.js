@@ -23,6 +23,7 @@ var PROMPT = require(path.join(__dirname, '..', 'js', 'prompt.js'));
 var SUBJECTS = require(path.join(__dirname, '..', 'js', 'subjects.js'));
 var PAINT = require(path.join(__dirname, '..', 'js', 'paint.js'));
 var FINISH = require(path.join(__dirname, '..', 'js', 'finish.js'));
+var PHOTO = require(path.join(__dirname, '..', 'js', 'photo.js'));
 var FakeContext = require(path.join(__dirname, 'fake-canvas.js')).FakeContext;
 
 var failures = 0;
@@ -157,6 +158,115 @@ section('Reading what people type');
   pass('400 surprise prompts all read as English ("an orange fish", not "a orange fish")');
 })();
 
+/* ------------------------------------------------- 2b. reading a photograph
+ * The analysis is pure arithmetic over pixels, so it can be checked against
+ * images built right here — no browser, and no real photographs needed to
+ * prove that reading one works.
+ */
+section('Reading a photograph');
+
+function buildImage(w, h, paint) {
+  var data = new Uint8ClampedArray(w * h * 4);
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      var rgb = paint(x / w, y / h);
+      var i = (y * w + x) * 4;
+      data[i] = rgb[0]; data[i + 1] = rgb[1]; data[i + 2] = rgb[2]; data[i + 3] = 255;
+    }
+  }
+  return { data: data, width: w, height: h };
+}
+
+(function () {
+  var W = 240, H = 160;
+
+  /* A landscape: blue sky, a bright sun to the right, dark land below 60%. */
+  var landscape = buildImage(W, H, function (u, v) {
+    var dx = u - 0.72, dy = v - 0.20;
+    if (Math.sqrt(dx * dx + dy * dy) < 0.08) return [255, 246, 210];
+    if (v < 0.60) return [60 + v * 60, 120 + v * 80, 200 + v * 30];
+    return [28, 34, 26];
+  });
+  var a = PHOTO.analyse(landscape, W, H);
+
+  check(Math.abs(a.skyline.mean - 0.60) < 0.05,
+    'the horizon is found where it is (' + a.skyline.mean.toFixed(2) + ', expected 0.60)');
+  check(a.skyline.confidence > 0.6,
+    'and a clear horizon is reported as clear (' + a.skyline.confidence.toFixed(2) + ')');
+  check(a.skyline.line.length >= 32, 'the horizon is a line, not one number');
+  check(Math.abs(a.light.x - 0.72) < 0.12 && Math.abs(a.light.y - 0.20) < 0.14,
+    'the light is found where the bright part is (' +
+    a.light.x.toFixed(2) + ',' + a.light.y.toFixed(2) + ')');
+  check(a.palette.sky.top[0] > 180 && a.palette.sky.top[0] < 250,
+    'the sky colour is the sky colour (hue ' + Math.round(a.palette.sky.top[0]) + ', expected blue)');
+  check(a.palette.scene.ink[2] < 30,
+    'the darkest tenth is dark enough to be a silhouette (l ' +
+    Math.round(a.palette.scene.ink[2]) + ')');
+  check(a.colours.length >= 2, 'it reports the colours the photo is made of');
+  pass('a landscape gives up its horizon, its light and its colours');
+
+  /* A flat wall: no horizon anywhere. Saying so is the point — inventing a
+   * ridge from a photograph that has none looks worse than not trying. */
+  var flat = buildImage(W, H, function () { return [128, 120, 118]; });
+  var f = PHOTO.analyse(flat, W, H);
+  check(f.skyline.confidence < 0.35,
+    'a photo with no horizon admits it (' + f.skyline.confidence.toFixed(2) + ')');
+
+  /* Noise: also no horizon, and no crash. */
+  var noise = buildImage(W, H, function (u, v) {
+    var n = ((u * 7919 + v * 104729) * 1000) % 255;
+    return [n, (n * 3) % 255, (n * 7) % 255];
+  });
+  var n2 = PHOTO.analyse(noise, W, H);
+  check(n2.skyline.confidence < 0.6, 'and so does noise');
+  check(n2.palette && n2.palette.sky && n2.palette.scene, 'noise still yields a usable palette');
+  pass('a photo with nothing to read says so instead of inventing one');
+
+  /* The painter accepts the analysis: a scene painted with a photo's colours
+   * and horizon must still paint. */
+  var spec = PROMPT.parse('a dragon over the mountains', { seed: 4 });
+  spec.photo = {
+    use: { colours: true, skyline: true, backdrop: false },
+    palette: a.palette, skyline: a.skyline, light: a.light
+  };
+  var ctx = new FakeContext(96, 72);
+  try {
+    var P = PAINT.render(ctx, 96, 72, spec);
+    FINISH.apply(ctx, 96, 72, spec, P);
+    check(ctx.calls > 20, 'a photo-coloured scene really paints');
+  } catch (e) {
+    check(false, 'painting with a photo threw: ' + e.message);
+  }
+
+  /* --- mixing several photographs into one palette --- */
+  var warm = PHOTO.analyse(buildImage(W, H, function (u, v) {
+    return v < 0.6 ? [230, 120, 90] : [60, 30, 30];
+  }), W, H);
+  var cool = PHOTO.analyse(buildImage(W, H, function (u, v) {
+    return v < 0.6 ? [80, 140, 230] : [20, 40, 60];
+  }), W, H);
+  var mixed = PHOTO.mix([warm, cool]);
+  check(!!mixed && !!mixed.sky && !!mixed.scene, 'two photos mix into one palette');
+  var warmL = warm.palette.sky.mid[2], coolL = cool.palette.sky.mid[2];
+  check(mixed.sky.mid[2] >= Math.min(warmL, coolL) - 1 &&
+        mixed.sky.mid[2] <= Math.max(warmL, coolL) + 1,
+    'the mixture sits between the photos it came from');
+  check(PHOTO.mix([]) === null, 'and mixing nothing gives nothing');
+
+  /* Hue is a circle: 350 and 10 average to red, not to its opposite. */
+  var wrapped = PHOTO.averageHsl([[350, 80, 50], [10, 80, 50]])[0] % 360;
+  check(wrapped < 12 || wrapped > 348,
+    'hues average the short way round the circle (' + wrapped.toFixed(1) + ', not 180)');
+  pass('a mixture of photos is a palette of its own');
+
+  var ridge = PAINT.photoRidge(spec, 200, 120, 70, 30);
+  check(!!ridge && ridge.length >= 32, 'the photo horizon becomes a ridge the painter can draw');
+  var bare = PROMPT.parse('a dragon', { seed: 4 });
+  check(PAINT.photoRidge(bare, 200, 120, 70, 30) === null,
+    'and no photo means no photo ridge');
+  pass('the painter takes what the photograph gave it');
+})();
+
 /* ------------------------------------------------------------- 3. painting */
 section('Painting');
 
@@ -233,6 +343,75 @@ function paintOnce(text, opts, w, h) {
   check(first.calls === again.calls, 'the same prompt painted a different number of strokes');
   check(JSON.stringify(first.ops) === JSON.stringify(again.ops), 'the same prompt painted differently');
   pass('the same prompt paints exactly the same picture twice');
+})();
+
+/* ------------------------------------------------------------------ the look
+ * The claim this makes to a person is strong — "every photo you ever give it
+ * makes it better, and none of them is ever dropped" — so it is worth proving
+ * rather than asserting. A running fold has to behave like a real average: one
+ * colour repeated must come back unchanged, the first photo of a thousand must
+ * still be in the answer, and the storage must not grow.
+ */
+(function theLook() {
+  console.log('\nWhat it remembers');
+
+  function pal(h, l) {
+    return {
+      sky: { top: [h, 50, l], mid: [h, 50, l], low: [h, 50, l],
+             light: [h, 40, 80], haze: [h, 30, 60], lightY: 0.3 },
+      scene: { ink: [h, 40, 20], land: [h, 45, 40], far: [h, 35, 50], sea: [h, 55, 45] }
+    };
+  }
+  function fold(list) {
+    var look = null, n = 0;
+    list.forEach(function (p) { look = PHOTO.fold(look, n, p); n++; });
+    return { palette: look, count: n };
+  }
+
+  var same = fold(new Array(200).join(',').split(',').map(function () { return pal(200, 60); }));
+  check(Math.abs(same.palette.sky.mid[0] - 200) < 0.01 &&
+        Math.abs(same.palette.sky.mid[2] - 60) < 0.01,
+    'one colour folded two hundred times comes back as itself');
+  check(same.count === 200, 'and it counted every one of them');
+
+  /* Lightness is a plain mean, so this is exact and can be checked against
+   * arithmetic rather than against itself. */
+  var lights = [20, 40, 60, 80];
+  var mean = fold(lights.map(function (l) { return pal(200, l); }));
+  check(Math.abs(mean.palette.sky.mid[2] - 50) < 0.01,
+    'four lightnesses fold to their true average, not to the last one');
+
+  /* The point of the whole feature: an early photo must still be pulling at
+   * the answer after hundreds more, or "nothing is forgotten" is a lie. */
+  var withRed = fold([pal(0, 50)].concat(
+    new Array(300).join(',').split(',').map(function () { return pal(200, 50); })));
+  var withoutRed = fold(
+    new Array(300).join(',').split(',').map(function () { return pal(200, 50); }));
+  check(Math.abs(withRed.palette.sky.mid[0] - withoutRed.palette.sky.mid[0]) > 0.05,
+    'a photo added first is still in the answer three hundred photos later');
+
+  /* And it must not drift off to the newest thing: 300 blues plus one red is
+   * still blue. A memory that the last photo could capture would be no memory. */
+  check(Math.abs(withRed.palette.sky.mid[0] - 200) < 12,
+    'while one odd photo among hundreds cannot hijack it');
+
+  /* Constant cost is what makes "every photo, forever" safe to promise. Counted
+   * as stored numbers rather than as characters: the same twenty numbers
+   * printed to different precisions are the same amount remembered. */
+  function numbersIn(v) {
+    if (typeof v === 'number') return 1;
+    if (!v || typeof v !== 'object') return 0;
+    return Object.keys(v).reduce(function (t, k) { return t + numbersIn(v[k]); }, 0);
+  }
+  var few = numbersIn(fold(lights.map(function (l) { return pal(120, l); })).palette);
+  var many = numbersIn(fold(
+    new Array(500).join(',').split(',').map(function (_, i) { return pal(i % 360, 50); })).palette);
+  check(few === many && few > 0,
+    'five hundred photos cost the same to remember as four (' + many + ' numbers either way)');
+
+  check(PHOTO.fold(null, 0, pal(10, 50)) !== null, 'the very first photo becomes the look');
+  check(PHOTO.fold(pal(10, 50), 3, null) !== null, 'and nothing is lost to a photo that failed to read');
+  pass('every photo folds in, none is dropped, and the cost never grows');
 })();
 
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'

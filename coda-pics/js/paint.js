@@ -74,6 +74,22 @@
   function makePalette(spec, opts) {
     var sky = SKY[spec.time] || SKY.dusk;
     var scene = SCENE_COLOUR[spec.scene.id] || SCENE_COLOUR.plains;
+    /* A photograph the person chose replaces the built-in colour table: the
+     * hour and the setting still decide the shapes, the photograph decides what
+     * they are made of. */
+    if (spec.photo && spec.photo.use && spec.photo.use.colours && spec.photo.palette) {
+      var pal = spec.photo.palette;
+      sky = {
+        top: pal.sky.top, mid: pal.sky.mid, low: pal.sky.low,
+        light: pal.sky.light,
+        lightY: pal.sky.lightY == null ? sky.lightY : pal.sky.lightY,
+        haze: pal.sky.haze
+      };
+      scene = {
+        ink: pal.scene.ink, land: pal.scene.land, far: pal.scene.far,
+        sea: pal.scene.sea, water: scene.water
+      };
+    }
     var tint = spec.palette;
     var drama = spec.mood;
     /* How hard a colour word pulls. "A red dragon" should give you a red
@@ -167,7 +183,81 @@
     return pts;
   }
 
-  function fillPoly(ctx, pts, closeY, style) {
+  /*
+   * The ridge line out of a photograph, scaled to this frame — so the hills in
+   * the picture are the hills the person photographed. Returns null when there
+   * was no clear horizon to read, and the fractal one is used instead: a
+   * close-up of a wall has no skyline, and inventing one from it looks worse
+   * than not trying.
+   */
+  function photoRidge(spec, w, h, baseY, amplitude) {
+    if (!spec.photo || !spec.photo.use || !spec.photo.use.skyline) return null;
+    var sky = spec.photo.skyline;
+    if (!sky || !sky.line || sky.line.length < 8 || sky.confidence < 0.35) return null;
+    var line = sky.line;
+    var mean = sky.mean || 0.5;
+    var pts = [];
+    for (var i = 0; i < line.length; i++) {
+      var x = -w * 0.05 + (w * 1.10) * (i / (line.length - 1));
+      /* The photograph gives the shape; this frame gives where it sits and how
+       * tall it is, so a flat-ish horizon still reads as mountains. */
+      pts.push([x, baseY + (line[i] - mean) * amplitude * 2.4]);
+    }
+    return pts;
+  }
+
+  /*
+   * Give a band of land its form.
+   *
+   * Every ridge, hill, dune and bank in this engine was one flat area of
+   * colour, and a landscape made of flat areas is a landscape made of cut
+   * paper however carefully the colours recede. Real ground turns away from
+   * you: its top catches the sky, its foot sits in its own shade. So after the
+   * flat fill, the same path is filled again with light-to-dark down its
+   * height. It costs one extra fill and it is the difference between a band of
+   * colour and a hillside.
+   *
+   * Done here rather than in each scene on purpose — every kind of ground in
+   * the engine already comes through these two functions, so they all gain it
+   * at once and none can be forgotten.
+   */
+  function shadeBand(ctx, topY, closeY, strength) {
+    var span = closeY - topY;
+    if (!(span > 2)) return null;
+    var g = ctx.createLinearGradient(0, topY, 0, closeY);
+    var k = (strength == null ? 1 : strength);
+    var up = 0.19 * k;
+    var down = 0.28 * k;
+    g.addColorStop(0, 'rgba(255,255,255,' + up.toFixed(3) + ')');
+    g.addColorStop(0.26, 'rgba(255,255,255,' + (up * 0.20).toFixed(3) + ')');
+    g.addColorStop(0.50, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(0,0,0,' + down.toFixed(3) + ')');
+    return g;
+  }
+
+  /*
+   * The air in front of a band of land.
+   *
+   * Two bands of colour meeting at a hard line is the other half of why this
+   * looked like cut paper: in the world there is a mile of air between one
+   * ridge and the next, and it shows as the near one's top edge being slightly
+   * washed out by it. A thin band of the sky's own haze along the top of each
+   * layer is the whole of that, and it does more to separate the layers than
+   * any amount of shading within them.
+   */
+  var HAZE_EDGE = null;   // set per render from the palette
+  function hazeEdge(ctx, topY, closeY) {
+    if (!HAZE_EDGE) return null;
+    var span = closeY - topY;
+    if (!(span > 3)) return null;
+    var reach = Math.min(span, Math.max(6, span * 0.30));
+    var g = ctx.createLinearGradient(0, topY, 0, topY + reach);
+    g.addColorStop(0, HAZE_EDGE.on);
+    g.addColorStop(1, HAZE_EDGE.off);
+    return g;
+  }
+
+  function fillPoly(ctx, pts, closeY, style, shade) {
     ctx.beginPath();
     ctx.moveTo(pts[0][0], pts[0][1]);
     for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
@@ -176,10 +266,18 @@
     ctx.closePath();
     ctx.fillStyle = style;
     ctx.fill();
+    if (shade !== false) {
+      var top = pts[0][1];
+      for (var j = 1; j < pts.length; j++) if (pts[j][1] < top) top = pts[j][1];
+      var g = shadeBand(ctx, top, closeY, shade);
+      if (g) { ctx.fillStyle = g; ctx.fill(); }
+      var hz2 = hazeEdge(ctx, top, closeY);
+      if (hz2) { ctx.fillStyle = hz2; ctx.fill(); }
+    }
   }
 
   /* Soft rolling ground — hills, dunes, swells — as one wavy band. */
-  function hills(ctx, w, baseY, amp, freq, phase, closeY, style) {
+  function hills(ctx, w, baseY, amp, freq, phase, closeY, style, shade) {
     ctx.beginPath();
     ctx.moveTo(0, baseY);
     for (var x = 0; x <= w; x += Math.max(2, w / 220)) {
@@ -192,6 +290,12 @@
     ctx.closePath();
     ctx.fillStyle = style;
     ctx.fill();
+    if (shade !== false) {
+      var g = shadeBand(ctx, baseY - amp * 1.35, closeY, shade);
+      if (g) { ctx.fillStyle = g; ctx.fill(); }
+      var he = hazeEdge(ctx, baseY - amp * 1.35, closeY);
+      if (he) { ctx.fillStyle = he; ctx.fill(); }
+    }
   }
 
   function pine(ctx, x, baseY, h, style) {
@@ -299,12 +403,16 @@
   }
 
   /* The sun or the moon, with the glow it throws into the sky around it. */
-  function paintLight(ctx, w, h, horizon, P, spec, r) {
+  /* `positionOnly` works out where the light is without painting it, so that a
+   * picture shown before its light is drawn is still lit from the right place
+   * once it is. */
+  function paintLight(ctx, w, h, horizon, P, spec, r, positionOnly) {
     if (spec.scene.id === 'cave') return null;
     var x = w * (0.2 + r() * 0.6);
     var y = h * P.sky.lightY * (spec.scene.id === 'space' ? 0.4 : 1);
     var rad = Math.min(w, h) * (spec.time === 'night' ? 0.055 : 0.075);
     if (spec.scene.id === 'space') rad *= 0.7;
+    if (positionOnly) return { x: x, y: y, r: rad };
 
     var glow = ctx.createRadialGradient(x, y, 0, x, y, rad * 9);
     glow.addColorStop(0, P.css(P.sky.light, 0.55));
@@ -395,8 +503,9 @@
       var depth = 1 - layer * 0.42;
       var baseY = hz + (h - hz) * layer * 0.30;
       var peak = (h * 0.44) * (1 - layer * 0.24);
-      var pts = ridge(-w * 0.05, baseY - peak * (0.4 + r() * 0.5), w * 1.05,
-        baseY - peak * (0.4 + r() * 0.5), peak * 1.1, r, 7);
+      var pts = photoRidge(spec, w, h, baseY - peak * 0.55, peak * (1 - layer * 0.3)) ||
+        ridge(-w * 0.05, baseY - peak * (0.4 + r() * 0.5), w * 1.05,
+          baseY - peak * (0.4 + r() * 0.5), peak * 1.1, r, 7);
       fillPoly(ctx, pts, h, P.ink(depth));
       crestLight(ctx, pts, w, h, P, 0.26 - layer * 0.07, [P.sky.haze[0], 22, 90]);
     }
@@ -409,7 +518,8 @@
     for (var layer = 0; layer < 3; layer++) {
       var baseY = hz + (h - hz) * layer * 0.26;
       var peak = h * 0.40 * (1 - layer * 0.20);
-      var pts = ridge(-w * 0.05, baseY - peak * 0.6, w * 1.05, baseY - peak * 0.85, peak * 0.95, r, 7);
+      var pts = photoRidge(spec, w, h, baseY - peak * 0.7, peak * (1 - layer * 0.3)) ||
+        ridge(-w * 0.05, baseY - peak * 0.6, w * 1.05, baseY - peak * 0.85, peak * 0.95, r, 7);
       fillPoly(ctx, pts, h, P.ink(0.85 - layer * 0.38));
       crestLight(ctx, pts, w, h, P, 0.40 - layer * 0.10, [P.sky.haze[0], 16, 94]);
     }
@@ -980,6 +1090,33 @@
 
     if (box.anchor === 'ground') groundShadow(ctx, box, P, light);
 
+    /*
+     * How far away this thing is, which is not box.depth: that only separates
+     * one subject from another when there are several, so a lone subject was
+     * always at distance nought and was painted at full strength against a
+     * landscape that had properly receded behind it. That mismatch is what made
+     * things look stuck on rather than standing in it. Distance here is read
+     * off where it stands — at the horizon it is far, at the bottom of the
+     * frame it is near — which is the cue the eye actually uses.
+     */
+    var base = box.y + box.h;
+    var far = box.anchor === 'ground'
+      ? clamp(1 - (base - hz) / Math.max(h - hz, 1), 0, 1)
+      : clamp(box.depth * 0.7 + 0.15, 0, 1);
+    /* A dramatic picture keeps its contrast; a calm one lets the air in. */
+    var air = (0.30 + far * 0.55) * (1 - P.drama * 0.45);
+
+    /* The edge first. A shape cut out with scissors has an outline the
+     * background never touches; a thing in the air has the air creeping a
+     * little way into its outline. Eight small offsets of the silhouette in the
+     * sky's own haze is enough to stop the edge reading as a cut. */
+    var feather = Math.max(0.9, Math.min(box.w, box.h) * 0.022) * (0.5 + far);
+    for (var e = 0; e < 8; e++) {
+      var ea = (e / 8) * Math.PI * 2;
+      stencil(ctx, subject, box, PS, r, spec, P.haze(1),
+        Math.cos(ea) * feather, Math.sin(ea) * feather, 0.05 + air * 0.06);
+    }
+
     /* Everything that shows only at the edges goes down first, and the subject
      * is drawn once on top of the lot. */
     stencil(ctx, subject, box, PS, r, spec, PS.silhouette(0.7, 1), dx * off, dy * off, 0.6);
@@ -989,6 +1126,54 @@
     }
 
     if (SUBJECTS) SUBJECTS.draw(ctx, subject, box, PS, r, spec);
+
+    /*
+     * The one that matters. Every subject here is drawn as flat areas of a
+     * single colour, so a dragon was one red shape and a whale one dark one —
+     * and a flat shape on a landscape is a cut-out however carefully the
+     * landscape behind it recedes. What was missing is not air over the top of
+     * it, it is the thing having a lit side and a dark side at all.
+     *
+     * So: a gradient run along the line from the light to the subject, clipped
+     * to the subject's own shape. The side facing the light takes the light's
+     * colour, the side away from it goes towards the scene's shadow, and in
+     * between it turns. That is what makes a shape read as a solid rather than
+     * a hole cut in paper, and it costs one more pass.
+     */
+    var mR = Math.max(box.w, box.h) * 0.62;
+    var mdx = dx || 0.55, mdy = dy || -0.45;
+    var model = ctx.createLinearGradient(
+      cx - mdx * mR, cy - mdy * mR, cx + mdx * mR, cy + mdy * mR);
+    model.addColorStop(0, P.css(P.sky.light, 0.52));
+    model.addColorStop(0.42, P.css(P.sky.light, 0.06));
+    model.addColorStop(0.60, P.ink(0.2, 0.10));
+    model.addColorStop(1, P.ink(0.15, 0.58));
+    stencil(ctx, subject, box, PS, r, spec, model, 0, 0, 0.62 + P.drama * 0.16);
+
+    /*
+     * Then the air it is standing in: what the sky and the ground throw back at
+     * it, and then how far away it is. Both after the modelling, because
+     * distance flattens form — that is exactly what distance does.
+     */
+    var bleed = ctx.createLinearGradient(0, box.y, 0, base);
+    bleed.addColorStop(0, P.css(P.sky.mid, 1));
+    bleed.addColorStop(0.55, P.css(P.sky.haze, 1));
+    bleed.addColorStop(1, P.css(P.scene.land, 1));
+    stencil(ctx, subject, box, PS, r, spec, bleed, 0, 0, 0.10 + air * 0.16);
+
+    if (far > 0.02) {
+      stencil(ctx, subject, box, PS, r, spec, P.haze(1), 0, 0, far * 0.40 * (1 - P.drama * 0.4));
+    }
+
+    /* Where it meets the ground, the ground stops it seeing the sky. Tight and
+     * dark, and quite separate from the shadow it throws, which is long and
+     * goes wherever the light is not. */
+    if (box.anchor === 'ground' && base <= h) {
+      var occ = ctx.createLinearGradient(0, base - box.h * 0.16, 0, base);
+      occ.addColorStop(0, P.ink(0.85, 0));
+      occ.addColorStop(1, P.ink(0.4, 0.55));
+      stencil(ctx, subject, box, PS, r, spec, occ, 0, 0, 0.6);
+    }
 
     if (spec.weather === 'fog') {               // distance eats it, softly
       var fg = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(box.w, box.h) * 0.8);
@@ -1112,23 +1297,80 @@
 
   /* ----------------------------------------------------------------- render */
 
-  function render(ctx, w, h, spec) {
+  /* Draw a photograph to fill the frame without squashing it. */
+  function coverDraw(ctx, media, w, h) {
+    var iw = media.width || media.videoWidth || w;
+    var ih = media.height || media.videoHeight || h;
+    var scale = Math.max(w / iw, h / ih);
+    var dw = iw * scale, dh = ih * scale;
+    ctx.drawImage(media, (w - dw) / 2, (h - dh) / 2, dw, dh);
+  }
+
+  /*
+   * The order the picture is built in, and the names a person would use for
+   * what appears. A painter does not put a dragon on a blank canvas: the light
+   * has to exist before the thing standing in it can be lit by it, and the land
+   * has to exist before something can stand on it. That order was already here
+   * — it is simply the order these calls have always been in — and naming it
+   * is what lets the picture be shown part-built rather than only finished.
+   */
+  var STAGES = ['wash', 'sky', 'light', 'cloud', 'land', 'subject', 'fore', 'weather'];
+
+  /*
+   * `opts.upTo` stops after that many stages. Everything before it is painted
+   * exactly as it always was, so a half-built picture is the real picture with
+   * its later coats still to come — not a different, simplified drawing that
+   * would then have to be replaced by the true one.
+   */
+  function render(ctx, w, h, spec, media, opts) {
+    var upTo = (opts && typeof opts.upTo === 'number') ? opts.upTo : STAGES.length;
+    function doing(name) { return STAGES.indexOf(name) < upTo; }
+
     var P = makePalette(spec);                              // the world
     var PS = makePalette(spec, { tintStrength: 0.85 });     // the thing in it
     var r = PROMPT.rng(spec, 'scene');
+    /* Underground there is no sky to put air between anything. */
+    HAZE_EDGE = spec.scene.id === 'cave'
+      ? null
+      : { on: P.haze(0.30 - P.drama * 0.12), off: P.haze(0) };
     var hz = clamp(spec.scene.horizon + (r() - 0.5) * 0.05, 0.42, 1.3) * h;
+
+    /* Painting onto a photograph: the photograph is the sky and the ground, so
+     * neither is drawn. Everything after this — the subject, its shadow, its
+     * lit edge, the weather, the style — happens on top of it exactly as it
+     * would on a painted scene. */
+    var onPhoto = !!(media && media.backdrop && spec.photo && spec.photo.use &&
+      spec.photo.use.backdrop);
 
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = P.css(P.sky.top);
-    ctx.fillRect(0, 0, w, h);
 
-    paintSky(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'sky'));
-    var light = paintLight(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'light'));
-    P.light_at = PS.light_at = light;
-    clouds(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'cloud'));
+    var light;
+    if (onPhoto) {
+      coverDraw(ctx, media.backdrop, w, h);
+      hz = (spec.photo.skyline && spec.photo.skyline.confidence > 0.35)
+        ? spec.photo.skyline.mean * h
+        : h * 0.62;
+      light = spec.photo.light
+        ? { x: spec.photo.light.x * w, y: spec.photo.light.y * h, r: Math.min(w, h) * 0.06 }
+        : null;
+      P.light_at = PS.light_at = light;
+    } else {
+      ctx.fillStyle = P.css(P.sky.top);
+      ctx.fillRect(0, 0, w, h);
 
-    (GROUND[spec.scene.id] || GROUND.plains)(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'ground'), light);
+      if (doing('sky')) paintSky(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'sky'));
+      /* The light is worked out even when it is not yet drawn: everything after
+       * it is lit by it, so skipping the sum would light the early stages
+       * differently from the finished picture and make the growth a lie. */
+      light = paintLight(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'light'), !doing('light'));
+      P.light_at = PS.light_at = light;
+      if (doing('cloud')) clouds(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'cloud'));
+
+      if (doing('land')) {
+        (GROUND[spec.scene.id] || GROUND.plains)(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'ground'), light);
+      }
+    }
 
     /* Subjects, furthest first so a nearer one overlaps it. */
     var sr = PROMPT.rng(spec, 'subject');
@@ -1146,23 +1388,28 @@
     }
     if (spec.relation && placed.length > 1) arrange(spec.relation, placed, w, h);
     placed.sort(function (a, b) { return a.z - b.z; });
-    placed.forEach(function (item) {
-      paintSubject(ctx, item.s, item.box, P, PS, sr, spec, light, hz, h);
-    });
+    if (doing('subject')) {
+      placed.forEach(function (item) {
+        paintSubject(ctx, item.s, item.box, P, PS, sr, spec, light, hz, h);
+      });
+    }
 
-    foreground(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'fore'));
+    if (!onPhoto && doing('fore')) foreground(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'fore'));
 
-    paintWeather(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'weather'));
+    if (doing('weather')) paintWeather(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'weather'));
     ctx.restore();
     return P;
   }
 
   var API = {
     render: render,
+    STAGES: STAGES,
     makePalette: makePalette,
     GROUND: GROUND,
     SKY: SKY,
     SCENE_COLOUR: SCENE_COLOUR,
+    photoRidge: photoRidge,
+    coverDraw: coverDraw,
     groundShadow: groundShadow,
     paintSubject: paintSubject,
     arrange: arrange,

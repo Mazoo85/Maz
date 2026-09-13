@@ -1,26 +1,26 @@
 {
   "schema": 1,
   "stats": {
-    "apps": 171,
-    "engineModules": 692,
+    "apps": 172,
+    "engineModules": 696,
     "engineSubsystems": 20,
-    "cppTests": 376,
+    "cppTests": 382,
     "webApps": 8,
     "pyTools": 3,
     "gates": 3,
     "buildTools": 11,
-    "docs": 19,
-    "totalArtifacts": 907,
-    "linesOfApps": 34977,
-    "linesOfEngine": 87806,
-    "linesOfWeb": 25254,
+    "docs": 20,
+    "totalArtifacts": 913,
+    "linesOfApps": 35181,
+    "linesOfEngine": 88266,
+    "linesOfWeb": 26857,
     "appsHeadless": 100,
     "appsGolden": 91,
     "modulesTested": 100,
     "modulesDemoed": 39,
-    "checksPassed": 2740,
-    "checksTotal": 3179,
-    "openTasks": 7
+    "checksPassed": 2761,
+    "checksTotal": 3198,
+    "openTasks": 8
   },
   "queue": [
     {
@@ -28,8 +28,8 @@
       "priority": 1,
       "kind": "engine-module",
       "check": "demoed",
-      "title": "425 engine modules are tested but no app shows them",
-      "detail": "These are finished, working features that nobody can see, and `apps/` is how this engine documents itself. They are not spread evenly: 135 in `render`, 116 in `math`, 66 in `game`, 57 in `core`, 10 in `ui`, 9 in `net`, and 11 other subsystems. Writing 499 apps is not the answer and never was: one demo can show a dozen related modules at once — a single \"mesh repair\" app for the degenerate, self-intersection and closest-point analysers, one \"curve fitting\" app for the least-squares family — so the work is closer to a few dozen apps than 499. Start where the count is highest and the modules cluster most naturally. — CubicBezierEasing, SpringBone, Transition, G711, ImaAdpcm, Mp3, Qoa, AliasTable, Assert, BitSet, CellularNoise, Checkpoints, and 413 more. Example: No app under apps/ demonstrates maz::anim::CubicBezierEasing. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.",
+      "title": "422 engine modules are tested but no app shows them",
+      "detail": "These are finished, working features that nobody can see, and `apps/` is how this engine documents itself. They are not spread evenly: 133 in `render`, 115 in `math`, 66 in `game`, 57 in `core`, 10 in `ui`, 9 in `net`, and 11 other subsystems. Writing 499 apps is not the answer and never was: one demo can show a dozen related modules at once — a single \"mesh repair\" app for the degenerate, self-intersection and closest-point analysers, one \"curve fitting\" app for the least-squares family — so the work is closer to a few dozen apps than 499. Start where the count is highest and the modules cluster most naturally. — CubicBezierEasing, SpringBone, Transition, G711, ImaAdpcm, Mp3, Qoa, AliasTable, Assert, BitSet, CellularNoise, Checkpoints, and 410 more. Example: No app under apps/ demonstrates maz::anim::CubicBezierEasing. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.",
       "paths": [
         "engine/include/maz/anim/CubicBezierEasing.hpp",
         "engine/include/maz/anim/SpringBone.hpp",
@@ -73,7 +73,7 @@
         "engine/include/maz/core/Reflect.hpp"
       ],
       "source": "inventory:engine-module:demoed",
-      "memberCount": 425,
+      "memberCount": 422,
       "members": [
         {
           "id": "engine:anim/CubicBezierEasing",
@@ -441,6 +441,27 @@
           "name": "wire",
           "path": "apps/wire",
           "fix": "Capture a golden frame for wire into tests/golden/wire.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test."
+        }
+      ]
+    },
+    {
+      "id": "group:doc:linked",
+      "priority": 2,
+      "kind": "doc",
+      "check": "linked",
+      "title": "One doc is not linked from anywhere",
+      "detail": "A doc that nothing references is invisible to a newcomer and to a future session, however good it is. Link each from README.md or a sibling doc, or retire it. — EDITOR.md. Example: Nothing links to docs/EDITOR.md. Link it from README.md, CLAUDE.md or a sibling doc, or delete it.",
+      "paths": [
+        "docs/EDITOR.md"
+      ],
+      "source": "inventory:doc:linked",
+      "memberCount": 1,
+      "members": [
+        {
+          "id": "doc:EDITOR.md",
+          "name": "EDITOR.md",
+          "path": "docs/EDITOR.md",
+          "fix": "Nothing links to docs/EDITOR.md. Link it from README.md, CLAUDE.md or a sibling doc, or delete it."
         }
       ]
     },

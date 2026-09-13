@@ -54,6 +54,111 @@
         </div>
       </div>
 
+      <fieldset class="photo">
+        <legend>Use one of your photos</legend>
+        <input type="file" id="photoFile" accept="image/*" multiple />
+        <p class="photo-privacy">Pick as many as you like. They are read here on your device and never uploaded —
+      and only the colours they gave are remembered, never the photos themselves.</p>
+
+    <div id="paletteBox" class="palette-box" hidden>
+      <span class="palette-label">Paint in</span>
+      <div id="paletteChips" class="palette-chips"></div>
+      <button id="clearPalettes" type="button" class="palette-clear">Forget all of them</button>
+    </div>
+        <div id="photoInfo" class="photo-info" hidden>
+          <canvas id="photoThumb" class="photo-thumb" aria-label="The photo you chose"></canvas>
+          <div class="photo-uses">
+            <label><input type="checkbox" id="usePhotoColours" checked /> paint in its colours</label>
+            <label><input type="checkbox" id="usePhotoSkyline" /> use its horizon</label>
+            <label><input type="checkbox" id="usePhotoBackdrop" /> paint onto it</label>
+            <div class="buttons photo-buttons">
+              <button id="stylePhoto" type="button">🖌 Style the photo itself</button>
+              <button id="clearPhoto" type="button">✕ Forget this photo</button>
+            </div>
+          </div>
+          <p id="photoNote" class="photo-note"></p>
+        </div>
+
+        <details id="gphotos" class="gphotos">
+          <summary>…or bring them in from Google Photos</summary>
+          <p class="photo-privacy">This is the one part of CODA PICS that uses the internet. Google shows you
+            your own gallery, you choose the photos yourself, and only the photos you chose ever come here.
+            They are measured in this page like any other photo — nothing is uploaded, and only their colours
+            are kept.</p>
+          <details id="gpSetup" class="gp-setup">
+            <summary>Never done this? Open the one-off setup</summary>
+            <p class="gp-why">Google will not let an app near your photos on a key it did not give you,
+              and a key belongs to one Google account and one website — so a shared one could not work
+              for you even if it were here. You make your own. It is free, it takes about five minutes,
+              and you only ever do it once.</p>
+            <p class="gp-why"><b>Everything you have to paste into Google is on this page, with a copy
+              button.</b> Open each step in a new tab so you never lose your place here.</p>
+            <ol class="gp-steps">
+              <li>
+                <a class="gp-go" target="_blank" rel="noopener"
+                  href="https://console.cloud.google.com/projectcreate">Make a Google project ↗</a>
+                <span>Call it anything. If it offers you a free trial or asks for a card, dismiss it —
+                  none of this costs money.</span>
+              </li>
+              <li>
+                <a class="gp-go" target="_blank" rel="noopener"
+                  href="https://console.cloud.google.com/apis/library/photospicker.googleapis.com">Turn on the Photos Picker API ↗</a>
+                <span>Press <b>Enable</b> and wait for it to finish.</span>
+              </li>
+              <li>
+                <a class="gp-go" target="_blank" rel="noopener"
+                  href="https://console.cloud.google.com/auth/overview">Fill in the consent screen ↗</a>
+                <span>Choose <b>External</b>. An app name and your own email is all it wants. Ignore
+                  anything about publishing or verification — you are the only user.</span>
+              </li>
+              <li>
+                <a class="gp-go" target="_blank" rel="noopener"
+                  href="https://console.cloud.google.com/auth/audience">Add yourself as a test user ↗</a>
+                <span>Your own Gmail address, spelled exactly. A typo here is the usual reason Google
+                  refuses later, and it does not tell you that is why.</span>
+              </li>
+              <li>
+                <a class="gp-go" target="_blank" rel="noopener"
+                  href="https://console.cloud.google.com/auth/clients/create">Create the client ↗</a>
+                <span>Application type <b>Web application</b>. It asks for two addresses; they are here,
+                  and they have to match character for character:</span>
+                <div class="gp-copy">
+                  <code id="gpOrigin"></code>
+                  <button type="button" class="gp-copy-btn" data-copy="gpOrigin">Copy</button>
+                  <small>paste into <b>Authorised JavaScript origins</b></small>
+                </div>
+                <div class="gp-copy">
+                  <code id="gpRedirect"></code>
+                  <button type="button" class="gp-copy-btn" data-copy="gpRedirect">Copy</button>
+                  <small>paste into <b>Authorised redirect URIs</b></small>
+                </div>
+              </li>
+              <li>Press create. Copy the <b>Client ID</b> Google shows you — it ends in
+                <code>.apps.googleusercontent.com</code> — and paste it in the box below.</li>
+            </ol>
+            <p id="gpCopied" class="gp-copied" role="status" aria-live="polite"></p>
+          </details>
+
+          <label class="gp-field" for="gpClientId">Your Google client ID
+            <input type="text" id="gpClientId" spellcheck="false" autocomplete="off"
+              placeholder="000000-abcdef.apps.googleusercontent.com" />
+          </label>
+          <div class="buttons">
+            <button id="gpConnect" type="button">🔗 Connect Google Photos</button>
+            <button id="gpPick" type="button" hidden>🖼 Choose photos</button>
+            <button id="gpForget" type="button" hidden>✕ Disconnect</button>
+          </div>
+          <p class="gp-carry">Got it working here? <button id="gpLink" type="button"
+            class="gp-link-btn">🔗 Copy a setup link</button> and send it to yourself — opening it on
+            your phone or laptop sets that one up in a tap, so you only ever do the Google part once.
+            The link carries only the client ID, which is public by design and works from this site
+            alone; it cannot reach your photos.</p>
+          <p id="gpNote" class="photo-note" role="status" aria-live="polite"></p>
+          <p class="hint">First time? <a href="README.md#google-photos">How to set this up</a> — it is a
+            one-off, takes about five minutes, and costs nothing.</p>
+        </details>
+      </fieldset>
+
       <fieldset class="locks">
         <legend>Keep when you take another</legend>
         <label><input type="checkbox" id="lockSubject" /> the subject</label>
@@ -66,9 +171,12 @@
         <button id="reroll" type="button" title="Same words, a different take">🎲 Another take</button>
         <button id="six" type="button" title="Six takes at once">▦ Show me six</button>
         <button id="surprise" type="button" title="Write me a prompt">✨ Surprise me</button>
+        <button id="grow" type="button"
+          title="Watch it painted coat by coat — and change the words while it goes">🌱 Grow it slowly</button>
       </div>
-      <p class="hint">Everything is drawn in your browser. Nothing is uploaded, no account, no key, no cost —
-        and it works with the wifi off.</p>
+      <p class="hint">Everything is drawn in your browser. Nothing is uploaded, no account, no cost —
+        and it works with the wifi off. (Bringing photos in from Google Photos is the one thing here
+        that uses the internet, and it is optional.)</p>
     </section>
 
     <!-- ------------------------------------------------------------ output -->
@@ -113,7 +221,7 @@
     </main>
 
     <footer class="foot">
-      <p>CODA PICS draws every picture from scratch with maths — no photographs, no model, no network.
+      <p>CODA PICS draws every picture from scratch with maths — no photographs, no model, no training data.
         Part of <a href="../index.html">MAZ ARCADE</a> · <a href="README.md">how it works</a></p>
     </footer>
 
@@ -121,11 +229,13 @@
 
   <script src="../shared/maz-util.js"></script>
   <script src="js/lexicon.js"></script>
+  <script src="js/photo.js"></script>
   <script src="js/prompt.js"></script>
   <script src="js/subjects.js"></script>
   <script src="js/paint.js"></script>
   <script src="js/finish.js"></script>
   <script src="js/painter.js"></script>
+  <script src="js/gphotos.js"></script>
   <script src="js/app.js"></script>
   <script src="../shared/maz-nav.js" data-current="coda-pics" defer></script>
   <script>

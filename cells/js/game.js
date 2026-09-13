@@ -847,6 +847,7 @@
     const dt = Math.min(0.05, (now - lastTime) / 1000 || 0);
     lastTime = now;
 
+    const stateBefore = state;
     update(dt);
     draw();
 
@@ -854,8 +855,17 @@
      * frame can advance no world steps at all — hit-stop holds the simulation
      * still, and on a 120Hz display most frames have no step due yet — and a
      * press dropped on such a frame is an attack the player never got. The
-     * time limit stops one sticking around long enough to fire twice. */
-    const consumed = (state !== STATE.PLAY && state !== STATE.INTRO) || stepsRan > 0;
+     * time limit stops one sticking around long enough to fire twice.
+     *
+     * A press that moved the game from one state to another has plainly been
+     * read, and has to count as used even though it advanced no world step.
+     * Without that, tapping the thumb pause button to resume would set the
+     * game running and then be read a second time on the very next frame,
+     * which pauses it straight back. That is exactly what it did: under a
+     * loaded CPU it failed to resume about one tap in eight, because a frame
+     * slow enough to be re-read is a frame the player's thumb cannot outrun. */
+    const consumed = state !== stateBefore ||
+      (state !== STATE.PLAY && state !== STATE.INTRO) || stepsRan > 0;
     if (consumed) {
       clearPressed();
       heldPressT = 0;

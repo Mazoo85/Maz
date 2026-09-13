@@ -430,17 +430,34 @@ function launchOptions() {
     check(stick.stick > 30, 'the left stick moves the player right (' + Math.round(stick.stick) + 'px)');
     check(stick.dpad < -20, 'the d-pad moves the player left (' + Math.round(stick.dpad) + 'px)');
 
-    /* a small stick nudge inside the dead zone must not creep */
+    /* A small stick nudge inside the dead zone must not creep.
+     *
+     * The player is held invulnerable for the measurement, which is not
+     * tidiness: this runs inside a live level, and an enemy landing a hit
+     * knocks the player sideways. That is the game working. Measured over 150
+     * probes, every drift this check ever reported came with a hit taken and
+     * nine health lost, and every probe with no hit moved the player 0.0px —
+     * so without this the check reports the combat system as a fault in the
+     * stick, at whatever rate the level happens to put an enemy in reach. */
     const deadzone = await pad.evaluate(async () => {
       const p = window.NEON_CELLS.world().player;
+      const invuln = p.invuln;
       p.vx = 0;
+      p.invuln = 999;
       const x0 = p.x;
+      const hp0 = p.hp;
       window.__padStick(0.2, 0);
       for (let f = 0; f < 30; f++) await new Promise((r) => requestAnimationFrame(r));
       window.__padStick(0, 0);
-      return Math.abs(p.x - x0);
+      const moved = Math.abs(p.x - x0);
+      const hurt = hp0 - p.hp;
+      p.invuln = invuln;
+      return { moved: moved, hurt: hurt };
     });
-    check(deadzone < 3, 'a stick inside the dead zone does not drift (' + deadzone.toFixed(1) + 'px)');
+    check(deadzone.moved < 3, 'a stick inside the dead zone does not drift (' +
+      deadzone.moved.toFixed(1) + 'px' +
+      (deadzone.hurt > 0 ? `, but it took ${deadzone.hurt} damage mid-measurement — ` +
+        'that is knockback, not drift' : '') + ')');
 
     /* A jumps, B rolls, X swings */
     const moves = await pad.evaluate(async (buttons) => {
@@ -545,11 +562,53 @@ function launchOptions() {
     check(!!pauseButton, 'there is a pause button on a touch screen');
     if (pauseButton) {
       await phone.touchscreen.tap(pauseButton.x, pauseButton.y);
-      await phone.waitForTimeout(250);
+      await phone.waitForFunction(() => window.NEON_CELLS.state() === 'PAUSE', null, { timeout: 5000 })
+        .catch(function () { /* reported by the check below */ });
       check(await phone.evaluate(() => window.NEON_CELLS.state()) === 'PAUSE', 'tapping it pauses the game');
-      await phone.touchscreen.tap(pauseButton.x, pauseButton.y);
-      await phone.waitForTimeout(250);
-      check(await phone.evaluate(() => window.NEON_CELLS.state()) === 'PLAY', 'and tapping it again resumes');
+
+      /* Resuming is watched over many frames rather than sampled once after a
+       * fixed wait. It used to be sampled, and so it only caught the bug it was
+       * there to catch when the timing happened to land right: the game would
+       * resume and then pause itself straight back one frame later, because the
+       * press that resumed it was still sitting there to be read again. Half a
+       * second of frames sees that; a single look at 250ms is a coin toss. */
+      async function watchFrames(ms) {
+        return phone.evaluate((limit) => new Promise(function (done) {
+          const seen = [];
+          const started = performance.now();
+          (function watch() {
+            seen.push(window.NEON_CELLS.state());
+            if (performance.now() - started > limit) { done(seen); return; }
+            requestAnimationFrame(watch);
+          })();
+        }), ms);
+      }
+
+      /* Pausing and resuming several times over, because the failure this
+       * guards against is a race and one attempt is one roll of the dice.
+       * Somebody playing taps this button dozens of times a session, so once
+       * in a while is still a game that stops responding to its own pause
+       * button. */
+      let bounce = null;
+      let stuck = 0;
+      for (let go = 0; go < 5 && !bounce; go++) {
+        await phone.touchscreen.tap(pauseButton.x, pauseButton.y);
+        const seen = await watchFrames(320);
+        const ended = seen[seen.length - 1];
+        if (ended !== 'PLAY') {
+          if (seen.indexOf('PLAY') >= 0) {
+            bounce = seen.filter((v, i, a) => v !== a[i - 1]).join(' -> ');
+          } else { stuck++; }
+        }
+        if (go < 4) {
+          await phone.touchscreen.tap(pauseButton.x, pauseButton.y);
+          await phone.waitForFunction(() => window.NEON_CELLS.state() === 'PAUSE',
+            null, { timeout: 5000 }).catch(function () {});
+        }
+      }
+      check(!bounce && !stuck, 'and tapping it again resumes, five times over' +
+        (bounce ? ' — it resumed and then paused itself again: ' + bounce : '') +
+        (stuck ? ` — ${stuck} tap(s) did not resume at all` : ''));
     }
 
     check(phoneProblems.length === 0, 'plays on a phone-sized screen' + (phoneProblems.length ? ' — ' + phoneProblems.join('; ') : ''));
