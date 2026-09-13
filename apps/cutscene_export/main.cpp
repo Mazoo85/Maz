@@ -163,7 +163,7 @@ int main(int argc, char** argv) {
             centre + dist * math::vec3(std::sin(ang) * std::cos(elev), std::sin(elev),
                                        std::cos(ang) * std::cos(elev));
         const math::mat4 view = glm::lookAt(eye, centre, math::vec3(0, 1, 0));
-        frames.push_back(render::renderMeshPreview(baked, proj * view, light, size, size, bg));
+        frames.push_back(render::renderMeshPreview(baked, proj * view, light, eye, size, size, bg));
     }
 
     const int delayCentis = std::max(1, static_cast<int>(std::lround(100.0 / static_cast<double>(fps))));

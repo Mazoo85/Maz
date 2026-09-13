@@ -112,7 +112,7 @@ int main() {
         const float ang = glm::radians(tl.valueAt("yaw", seq.timeAt(i)));
         const math::vec3 eye = centre + dist * math::vec3(std::sin(ang), 0.35f, std::cos(ang));
         const math::mat4 view = glm::lookAt(eye, centre, math::vec3(0, 1, 0));
-        render::Image f = render::renderMeshPreview(baked, proj * view, light, size, size, bg);
+        render::Image f = render::renderMeshPreview(baked, proj * view, light, eye, size, size, bg);
         totalLit += nonBackground(f, bg);
         frames.push_back(std::move(f));
     }
