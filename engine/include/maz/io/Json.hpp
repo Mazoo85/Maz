@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
+#include <limits>
 #include <string>
 #include <utility>
 #include <vector>
@@ -546,12 +547,24 @@ inline JsonParseResult parseJson(const std::string& text) {
 // of the data pipeline — an editable .json file on disk (levels, configs) round-trips through here.
 // -------------------------------------------------------------------------------------------------
 
-// Read an entire text file into a string. Returns false (out untouched) if the file can't be opened.
+// Read an entire text file into a string. Returns false (out untouched) if the file can't be opened,
+// or if it is larger than this platform can address in one string.
+//
+// The size is taken as a streamoff and checked before it becomes a streamsize, because the two are
+// NOT the same width everywhere: on a 32-bit target — WebAssembly, among others — an offset is 64 bits
+// and a size is 32, so the plain assignment that works on a desktop silently truncates a file over
+// 2GB into a small number and reads the wrong amount. It cost nothing to get right and it is the kind
+// of thing that is found by a compiler on another architecture or by a user, never in between.
 inline bool readTextFile(const std::string& path, std::string& out) {
     std::ifstream f(path, std::ios::binary | std::ios::ate);
     if (!f) return false;
-    const std::streamsize n = f.tellg();
-    if (n < 0) return false;
+    const std::streamoff end = f.tellg();
+    if (end < 0) return false;
+    if (static_cast<unsigned long long>(end) >
+        static_cast<unsigned long long>(std::numeric_limits<std::streamsize>::max())) {
+        return false;                       // too big to read into one string on this platform
+    }
+    const std::streamsize n = static_cast<std::streamsize>(end);
     out.resize(static_cast<size_t>(n));
     f.seekg(0);
     if (n > 0) f.read(&out[0], n);

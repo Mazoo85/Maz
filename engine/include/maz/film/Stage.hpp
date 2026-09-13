@@ -229,17 +229,31 @@ inline Stage buildStage(const Shot& shot, const Palette& pal, std::uint32_t seed
             // is geometry nobody can see and a surface the fog has to be trusted to hide.
             add(st.mesh, box(st.halfWidth * 6.0f, 44.0f, 0.5f,
                              math::vec3(0.0f, 22.0f, st.depth + 18.0f), skyC));
+            // Every roll into its own named variable, in its own statement, before anything is built
+            // with it.
+            //
+            // Two dice rolls inside one call — stand(dice.range(..), dice.range(..), ..) — look
+            // harmless and are not: C++ does not say which argument is evaluated first, and GCC and
+            // Clang genuinely choose differently. The rolls come out in a different ORDER, so the same
+            // film with the same seed grows a different skyline depending on which compiler built the
+            // renderer. It is not a rounding difference that can be waved away; the buildings are
+            // somewhere else. This was invisible until the renderer was compiled a second way and the
+            // two were compared, which is the whole reason that test exists.
             for (int i = 0; i < 14; ++i) {
                 const float x = dice.range(-st.halfWidth * 2.2f, st.halfWidth * 2.2f);
                 const float z = dice.range(st.depth * 0.45f, st.depth + 12.0f);
+                const float a = dice.range(0.0f, 1.0f);
+                const float b = dice.range(0.0f, 1.0f);
+                const float c = dice.range(0.0f, 1.0f);
+                auto spread = [](float lo, float hi, float t) { return lo + (hi - lo) * t; };
                 if (set == "woods") {
-                    addProp(st, post(dice.range(0.10f, 0.26f), dice.range(5.0f, 11.0f), x, z, inkC, 7));
+                    addProp(st, post(spread(0.10f, 0.26f, a), spread(5.0f, 11.0f, b), x, z, inkC, 7));
                 } else if (set == "street") {
-                    addProp(st, stand(dice.range(3.0f, 7.0f), dice.range(4.0f, 9.0f),
-                                       dice.range(3.0f, 6.0f), x * 1.6f, z + 6.0f, inkC));
+                    addProp(st, stand(spread(3.0f, 7.0f, a), spread(4.0f, 9.0f, b),
+                                      spread(3.0f, 6.0f, c), x * 1.6f, z + 6.0f, inkC));
                 } else {
-                    addProp(st, stand(dice.range(0.6f, 1.6f), dice.range(0.3f, 1.1f),
-                                       dice.range(0.6f, 1.6f), x, z, inkC));
+                    addProp(st, stand(spread(0.6f, 1.6f, a), spread(0.3f, 1.1f, b),
+                                      spread(0.6f, 1.6f, c), x, z, inkC));
                 }
             }
             if (set == "lighthouse") {

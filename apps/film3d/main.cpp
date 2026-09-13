@@ -61,7 +61,9 @@ void usage() {
         "  --width <px>       frame width (default 640)\n"
         "  --fps <n>          frames per second (default 12)\n"
         "  --ss <1..3>        supersampling; 2 is the useful one (default 2)\n"
+        "  --shadows <0..2>   0 none, 1 hard-edged and cheap, 2 soft (default 2)\n"
         "  --from <s> --to <s>  render only this stretch of the film\n"
+        "  --still <s>        render exactly one frame, at this moment\n"
         "  --ppm              write .ppm rather than .qoi for frames and contact sheets\n");
 }
 
@@ -88,7 +90,9 @@ int main(int argc, char** argv) {
     const int width = std::atoi(arg(argc, argv, "--width", "640").c_str());
     const int height = static_cast<int>(static_cast<double>(width) / maz::film::kAspect + 0.5);
     const double fps = std::atof(arg(argc, argv, "--fps", "12").c_str());
-    const int ss = std::atoi(arg(argc, argv, "--ss", "2").c_str());
+    film3d::Look look;
+    look.supersample = std::atoi(arg(argc, argv, "--ss", "2").c_str());
+    look.shadows = std::atoi(arg(argc, argv, "--shadows", "2").c_str());
     const bool ppm = flag(argc, argv, "--ppm");
     const double from = std::atof(arg(argc, argv, "--from", "0").c_str());
     const double to = std::atof(arg(argc, argv, "--to", "0").c_str());
@@ -112,7 +116,7 @@ int main(int argc, char** argv) {
         for (std::size_t i = 0; i < reel.shots.size(); ++i) {
             const maz::film::Shot& sh = reel.shots[i];
             const maz::render::Image f =
-                film3d::drawFrame3D(reel, cast, sh.start + sh.duration * 0.5, cw, ch, ss);
+                film3d::drawFrame3D(reel, cast, sh.start + sh.duration * 0.5, cw, ch, look);
             const int ox = static_cast<int>(i % static_cast<std::size_t>(cols)) * cw;
             const int oy = static_cast<int>(i / static_cast<std::size_t>(cols)) * ch;
             for (int y = 0; y < ch; ++y) {
@@ -128,7 +132,11 @@ int main(int argc, char** argv) {
         return ok ? 0 : 1;
     }
 
-    const int frames = static_cast<int>((last - from) * fps + 0.5);
+    // A single frame at a stated moment. Asking for it with --from and --to means expressing "one
+    // frame" as a length of time, which rounds to nothing the moment the arithmetic is a hair short.
+    const std::string still = arg(argc, argv, "--still", "");
+    const int frames = still.empty() ? static_cast<int>((last - from) * fps + 0.5) : 1;
+    const double firstAt = still.empty() ? from : std::atof(still.c_str());
     if (frames < 1) {
         std::printf("film3d: nothing to render\n");
         return 1;
@@ -138,13 +146,14 @@ int main(int argc, char** argv) {
     const std::string outDir = arg(argc, argv, "--out", gif.empty() ? "film3d-out" : "");
     const auto began = std::chrono::steady_clock::now();
 
+    film3d::Cache cache;   // the room only changes when the shot does
     std::vector<maz::render::Image> keep;
     if (!gif.empty()) {
         keep.reserve(static_cast<std::size_t>(frames));
     }
     for (int i = 0; i < frames; ++i) {
-        const double t = from + static_cast<double>(i) / fps;
-        maz::render::Image img = film3d::drawFrame3D(reel, cast, t, width, height, ss);
+        const double t = firstAt + static_cast<double>(i) / fps;
+        maz::render::Image img = film3d::drawFrame3D(reel, cast, t, width, height, look, &cache);
         if (!gif.empty()) {
             keep.push_back(std::move(img));
         } else {

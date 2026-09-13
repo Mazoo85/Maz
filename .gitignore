@@ -24,3 +24,6 @@ Testing/
 # Playwright is installed on demand for the arcade's browser suites
 # (npm --prefix music/tests install), so its lockfile is local scratch.
 package-lock.json
+
+# WebAssembly build dependency, fetched by tools/build-wasm.sh
+.wasm-deps/

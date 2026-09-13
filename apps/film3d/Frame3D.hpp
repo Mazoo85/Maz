@@ -18,6 +18,28 @@ using maz::render::Image;
 using maz::render::SoftRaster;
 using maz::render::Surface;
 
+// How hard the renderer is allowed to work on this frame.
+//
+// One film, two jobs. Playing it back on a phone has to keep up with twelve frames a second; writing
+// it out to a file can take as long as it likes. Rather than two renderers, one dial.
+struct Look {
+    int supersample = 2;   // 1 plays, 2 is for keeps: the frame is drawn twice over and averaged
+    int shadows = 2;       // 0 none, 1 a hard edge, 2 a soft one
+};
+
+// What does not change from one frame of a shot to the next.
+//
+// The room is rebuilt from scratch every frame, and a room is the most expensive thing in the scene:
+// walls, furniture, fifteen sets' worth of dressing, several hundred triangles of it. Nothing about it
+// changes while the camera is on one shot — a three-second shot at twelve frames a second rebuilt the
+// same room thirty-six times. On a laptop that is waste; on a phone it is the difference between a
+// film that plays and a film that stutters.
+struct Cache {
+    int shot = -1;
+    Stage stage;
+    bool held = false;
+};
+
 // How the key light falls in this room at this hour. The palette already decided what colour the light
 // is; this decides where it comes FROM, which is the half of lighting the flat renderer could not have.
 inline Surface surfaceFor(const maz::film::Palette& pal, const Shot& shot, double seconds) {
@@ -125,10 +147,19 @@ inline void printImage(Image& img, int y0, int y1, float exposure) {
 
 // Everybody's position, pose and skeleton for this instant.
 inline Scene stageScene(const Reel& reel, const Shot& shot, const std::map<std::string, Cast>& cast,
-                        double time, double progress) {
+                        double time, double progress, Cache* cache = nullptr) {
     Scene sc;
     sc.palette = maz::film::paletteFor(reel.genre, shot.time, shot.mood);
-    sc.stage = maz::film::buildStage(shot, sc.palette, reel.seed);
+    if (cache != nullptr && cache->held && cache->shot == shot.index) {
+        sc.stage = cache->stage;
+    } else {
+        sc.stage = maz::film::buildStage(shot, sc.palette, reel.seed);
+        if (cache != nullptr) {
+            cache->stage = sc.stage;
+            cache->shot = shot.index;
+            cache->held = true;
+        }
+    }
 
     // Who is in this shot, in a settled order: left of frame first, so the same two people do not
     // swap sides between cuts. Crossing the line is the one edit rule that confuses an audience even
@@ -252,7 +283,7 @@ inline Scene stageScene(const Reel& reel, const Shot& shot, const std::map<std::
 
 // One frame: the room, the people, then the film's own titles over the top.
 inline Image drawFrame3D(const Reel& reel, const std::map<std::string, Cast>& cast, double time,
-                         int width, int height, int supersample) {
+                         int width, int height, const Look& look, Cache* cache = nullptr) {
     Image img(width, height, Color{0.0f, 0.0f, 0.0f, 1.0f});
     const Shot* shot = maz::film::shotAt(reel, time);
     if (shot == nullptr || width < 8 || height < 8) {
@@ -263,7 +294,7 @@ inline Image drawFrame3D(const Reel& reel, const std::map<std::string, Cast>& ca
     const float frameY = (static_cast<float>(height) - frameH) / 2.0f;
     const double progress = shot->duration > 0.0 ? (time - shot->start) / shot->duration : 0.0;
 
-    const Scene sc = stageScene(reel, *shot, cast, time, progress);
+    Scene sc = stageScene(reel, *shot, cast, time, progress, cache);
     // Built once and used twice: the shadow pass and the picture see the same bodies, which they must,
     // and a body is a few thousand triangles to assemble.
     std::vector<maz::render::shapes::MeshData> bodies;
@@ -281,8 +312,8 @@ inline Image drawFrame3D(const Reel& reel, const std::map<std::string, Cast>& ca
     // long and a chapel six and a half tall, and a map stretched over all of that spends its
     // resolution on the far end of a room nobody is standing in, leaving the shadow under a foot —
     // the one everybody actually looks at — four texels wide.
-    maz::render::ShadowMap shadows(1024);
-    {
+    maz::render::ShadowMap shadows(look.shadows == 1 ? 512 : 1024);
+    if (look.shadows > 0) {
         const float reach = std::fmin(sc.stage.halfWidth, 4.5f);
         const float ceiling = sc.stage.ceiling > 0.0f ? std::fmin(sc.stage.ceiling, 3.2f) : 2.6f;
         const math::vec3 lo(-reach, -0.15f, sc.stage.markLeft.z - 2.6f);
@@ -292,6 +323,7 @@ inline Image drawFrame3D(const Reel& reel, const std::map<std::string, Cast>& ca
         for (const maz::render::shapes::MeshData& body : bodies) {
             shadows.add(body);
         }
+        shadows.setSoftness(look.shadows >= 2 ? 3 : 1);
         surf.shadows = &shadows;
         // Not all of it. A shadow in a film is never black — there is always bounce finding its way
         // in — and taking the whole key away turns a figure's own shadow side into a hole.
@@ -301,7 +333,7 @@ inline Image drawFrame3D(const Reel& reel, const std::map<std::string, Cast>& ca
     // The picture is rendered inside the letterboxed window only, and at a multiple of its size so the
     // edges can be averaged down. There is no anti-aliasing in the rasteriser on purpose: a frame
     // rendered twice over and averaged is simpler, is exactly right, and costs only what it costs.
-    const int S = supersample < 1 ? 1 : (supersample > 3 ? 3 : supersample);
+    const int S = look.supersample < 1 ? 1 : (look.supersample > 3 ? 3 : look.supersample);
     const int pw = static_cast<int>(frameW) * S;
     const int ph = static_cast<int>(frameH) * S;
     Image big(pw, ph, Color{static_cast<float>(sc.palette.sky.r / 255.0),

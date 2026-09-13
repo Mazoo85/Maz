@@ -43,7 +43,8 @@ int main(int argc, char** argv) {
     const int width = std::atoi(arg(argc, argv, "--width", "480").c_str());
     const int height = static_cast<int>(static_cast<double>(width) / maz::film::kAspect + 0.5);
     const int fps = std::atoi(arg(argc, argv, "--fps", "12").c_str());
-    const int ss = std::atoi(arg(argc, argv, "--ss", "2").c_str());
+    film3d::Look look;
+    look.supersample = std::atoi(arg(argc, argv, "--ss", "2").c_str());
     const double share = std::atof(arg(argc, argv, "--share", "1.0").c_str());
 
     const std::vector<filmshowcase::Chapter> chapters = filmshowcase::montage();
@@ -55,11 +56,12 @@ int main(int argc, char** argv) {
     for (const filmshowcase::Chapter& chapter : chapters) {
         const maz::film::Reel reel = filmshowcase::reelFor(chapter);
         const std::map<std::string, film3d::Cast> cast = film3d::castReel(reel);
+        film3d::Cache cache;
         const double keep = reel.duration * (share < 0.05 ? 0.05 : (share > 1.0 ? 1.0 : share));
         const int count = static_cast<int>(keep * fps + 0.5);
         for (int i = 0; i < count; ++i) {
             frames.push_back(film3d::drawFrame3D(reel, cast, static_cast<double>(i) / fps, width, height,
-                                                 ss));
+                                                 look, &cache));
         }
         filmSeconds += static_cast<double>(count) / fps;
         std::printf("\r  %-12s %d frames", chapter.genreLabel, static_cast<int>(frames.size()));

@@ -69,6 +69,11 @@ class ShadowMap;
 // How much of the key light this point is missing: 0 fully lit, 1 fully in shadow. Public because
 // "is this point in shadow?" is a question worth being able to ask without rendering anything —
 // a test asks it directly, and so could a game.
+// How wide the fade at the edge of a shadow map is: in texels across the sides, and as a fraction of
+// the depth range at the near and far ends.
+inline constexpr float kShadowFadeTexels = 24.0f;
+inline constexpr float kShadowFadeDepth = 0.02f;
+
 inline float shadowFactor(const ShadowMap& map, const math::vec3& where, const math::vec3& normal);
 
 // How a mesh takes light. One key, one ambient, one fill — the three-light setup, which is what the
@@ -431,11 +436,19 @@ class ShadowMap {
     int size() const { return m_size; }
     float worldPerTexel() const { return m_texel; }
     const math::mat4& viewProj() const { return m_vp; }
+
+    // How wide the soft edge is, in samples across: 3 is nine samples and a gradient a few pixels
+    // wide; 1 is a single sample and a staircase. The staircase is there for a machine that has to
+    // draw twelve of these a second — a phone — where a hard shadow edge is a far smaller price than
+    // a film that will not play. Anything but 1 means 3.
+    int softness() const { return m_soft; }
+    void setSoftness(int across) { m_soft = across <= 1 ? 1 : 3; }
     float depthAt(int x, int y) const { return m_raster.depthAt(x, y); }
 
   private:
     SoftRaster m_raster;
     int m_size;
+    int m_soft = 3;
     float m_texel = 0.01f;
     math::mat4 m_vp{1.0f};
 };
@@ -487,15 +500,37 @@ inline float shadowFactor(const ShadowMap& map, const math::vec3& where, const m
     if (cx < 1 || cy < 1 || cx >= map.size() - 1 || cy >= map.size() - 1) {
         return 0.0f;                       // off the edge of the map: lit, never a hard black border
     }
+
+    // FADE OUT at the edges rather than stopping dead.
+    //
+    // The map covers a box of world, and outside it nothing is known, so the answer there has to be
+    // "lit". Switching abruptly from a full shadow to no shadow at that boundary looked harmless and
+    // was not: a surface straddling the edge is decided wholesale by which side of it the arithmetic
+    // lands on, so a distant building pops from shaded to lit as the camera pushes — and two compilers
+    // rounding an expression differently disagree about a whole wall, which is exactly how this was
+    // found. Fading over the last few texels, and over the last two per cent of the depth range, makes
+    // the boundary something that cannot be seen and cannot be flipped by a rounding difference.
+    const float span = static_cast<float>(map.size());
+    const float toEdge = std::fmin(std::fmin(fx, fy), std::fmin(span - fx, span - fy));
+    const float sideFade = toEdge < kShadowFadeTexels ? toEdge / kShadowFadeTexels : 1.0f;
+    const float toEnd = std::fmin(ndc.z, 1.0f - ndc.z);
+    const float depthFade = toEnd < kShadowFadeDepth ? toEnd / kShadowFadeDepth : 1.0f;
+    const float fade = sideFade * depthFade;
+    if (fade <= 0.0f) {
+        return 0.0f;
+    }
+    const int reach = map.softness() / 2;   // 1 for nine samples, 0 for one
     int blocked = 0;
-    for (int dy = -1; dy <= 1; ++dy) {
-        for (int dx = -1; dx <= 1; ++dx) {
+    int taken = 0;
+    for (int dy = -reach; dy <= reach; ++dy) {
+        for (int dx = -reach; dx <= reach; ++dx) {
             if (map.depthAt(cx + dx, cy + dy) < ndc.z) {
                 ++blocked;
             }
+            ++taken;
         }
     }
-    return static_cast<float>(blocked) / 9.0f;
+    return fade * static_cast<float>(blocked) / static_cast<float>(taken);
 }
 
 } // namespace maz::render
