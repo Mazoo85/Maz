@@ -38,7 +38,7 @@ perspective-correct interpolation, a key light with an ambient and a fill, and d
 projection matches `Camera3D::worldToScreen` exactly, so a point the camera says is at a pixel is the
 pixel this fills.
 
-It is deliberately small. No textures, no shadows, no transparency sorting. Everything it does not
+It is deliberately small. No textures, no transparency sorting. Everything it does not
 do, it does not do in a way you can see rather than in a way that corrupts the frame.
 
 ### 2. `film/Actor.hpp` — a person, built to the proportions of a person
