@@ -23,10 +23,15 @@ no API key, and it works with the wifi off.
 
 ## Two renderers
 
-The film you watch in the browser is drawn flat — painted planes with silhouettes between them. The
-same film can also be rendered as a **film in three dimensions**: rooms with floors in them, bodies
-built to human proportions, and a camera with a focal length. Both read the same reel and make the
-same cuts. See [docs/FILM_3D.md](../docs/FILM_3D.md).
+There is a **Look** control on the film tab.
+
+**Flat** is what has always been here — painted planes with silhouettes between them.
+
+**3D** is the Maz engine itself: rooms with floors in them, bodies built to human proportions, a
+camera with a focal length, and real shadows. It is 147 KB of WebAssembly, fetched the first time you
+pick it and cached after that, so it still works with the wifi off. Both looks read the same reel and
+make the same cuts — the reel is the film, the renderer is a look. See
+[docs/FILM_3D.md](../docs/FILM_3D.md).
 
 ## Using it
 

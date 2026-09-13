@@ -5,11 +5,24 @@ result**, and they read the same document:
 
 | | what it is | where it runs |
 |---|---|---|
-| **flat** (`apps/filmreel`) | three painted planes at three parallax rates, with silhouettes drawn between them | anywhere |
-| **3D** (`apps/film3d`) | rooms with floors, bodies with proportions, a camera with a focal length | anywhere |
+| **flat** (`apps/filmreel`, `film/js/film-player.js`) | three painted planes at three parallax rates, with silhouettes drawn between them | a command line, or the browser |
+| **3D** (`apps/film3d`, `film/wasm/`) | rooms with floors, bodies with proportions, a camera with a focal length | a command line, or the browser |
 
 Neither needs a GPU, a window or a display. Both read the same `.reel.json`, make the same cuts at
 the same moments, and draw the same captions — because a film rendered two ways has to be one film.
+
+**The 3D renderer runs in the browser too.** The same C++, compiled to WebAssembly: 147 KB, fetched
+the first time somebody picks the 3D look in the film app and cached from then on, so it keeps
+working with the wifi off. It draws a frame at 480 across in about 25 ms, against the 83 ms a film at
+twelve frames a second has.
+
+```sh
+tools/build-wasm.sh                 # rebuild film/wasm/ — needs emcc on PATH
+node film/tests/film-3d.test.js     # the browser must draw EXACTLY what the command line draws
+```
+
+The WebAssembly build's output is committed, because the film app is served as static files with no
+build step between the repo and the page.
 
 ```sh
 cmake --build build --target film3d film3d_demo
@@ -149,6 +162,33 @@ impossible.
 collapses from 0.040 m³ to 0.002 m³ when wound inward.
 
 ---
+
+## One renderer, compiled twice
+
+`film/tests/film-3d.test.js` demands that the browser draw **exactly** the film the command line
+draws — every pixel of nine frames, no tolerance at all. That standard was not where the test
+started, and how it got there is worth keeping.
+
+The first version allowed a step or two of difference, on the reasoning that two compilers round
+arithmetic differently. It failed anyway: a tenth of the pixels in a street scene disagreed, by up to
+42 steps out of 255. Blurring did not absorb it, so it was not sub-pixel. Turning the shadows off did
+not change it, so it was not the lighting. Building the native renderer with the *same* compiler the
+WebAssembly build uses reproduced it exactly, so it was not WebAssembly. Cropping the worst pixel and
+looking at both showed the same buildings **standing in different places**.
+
+The cause was two dice rolls inside one function call:
+
+```cpp
+stand(dice.range(3.0f, 7.0f), dice.range(4.0f, 9.0f), dice.range(3.0f, 6.0f), x, z, ink)
+```
+
+C++ does not specify which argument is evaluated first, and GCC and Clang genuinely choose
+differently — so the random numbers were dealt out in a different order and the skyline came out
+different, for the same film with the same seed, depending only on which compiler built the renderer.
+One roll per statement, and the two builds agree on all 881,280 pixels of the fixture without a single
+step between them.
+
+The tolerance stays at zero, because anything else would have hidden it.
 
 ## What the 3D renderer does not do
 
