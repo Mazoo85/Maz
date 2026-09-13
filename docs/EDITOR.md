@@ -51,3 +51,26 @@ and read back with the asset. A game turns the loaded definition into behaviour 
 bakes each part's transform into its geometry (`render::applyTransform`) and concatenates them
 (`render::mergeMeshes`), tinting each part's vertices by its swatch colour so the merged object keeps
 its colours without per-part textures. The result is one draw call and one exportable object.
+
+## Exporting a turntable (full-motion video)
+
+The headless `cutscene_export` tool renders a saved asset to a looping animated **GIF** — an orbiting
+turntable — entirely on the CPU (no GPU/window), by baking it and rendering each frame with
+`render::renderMeshPreview`:
+
+```sh
+cutscene_export assets/characters/hero.mazprefab --out hero.gif --fps 30 --seconds 4 --size 256
+```
+
+| Flag | Meaning (default) |
+|---|---|
+| `--out FILE` | Output animated GIF (`cutscene.gif`) |
+| `--fps N` | Frames per second (`30`) |
+| `--seconds N` | Clip length; one full 360° orbit (`3`) |
+| `--size N` | Square frame size in pixels (`256`) |
+| `--frames N` | Cap the frame count (0 = no cap) |
+| `--frames-dir DIR` | Also write each frame as a numbered image (`frame_0000.<ext>`, …) into `DIR` |
+| `--frame-format ppm\|qoi` | Frame image format when `--frames-dir` is set (`ppm`) |
+
+The GIF is a self-contained preview; the `--frames-dir` PPM/QOI sequence is for pulling into `ffmpeg`
+or a video editor (e.g. `ffmpeg -i frame_%04d.ppm out.mp4`).
