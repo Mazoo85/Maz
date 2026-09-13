@@ -14,7 +14,7 @@ size is in the wiring between the parts, not in any one part.
 | | Count | |
 |---|---:|---|
 | Native games and demos (`apps/`) | 173 | 35,816 lines |
-| Engine capabilities (`engine/include/maz/`) | 697 | 88,241 lines across 20 subsystems |
+| Engine capabilities (`engine/include/maz/`) | 697 | 88,253 lines across 20 subsystems |
 | C++ test files (`tests/`) | 382 | |
 | Browser apps and games | 8 | 26,857 lines |
 | Python tools | 3 | |

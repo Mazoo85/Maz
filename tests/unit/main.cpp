@@ -24032,6 +24032,29 @@ void testFitObb() {
         const float aabbVol = (amax[0] - amin[0]) * (amax[1] - amin[1]) * (amax[2] - amin[2]);
         CHECK(obbVol < aabbVol * 0.95f);
     }
+    // A SYMMETRIC box: the one case PCA cannot orient. Two equal spreads mean a repeated eigenvalue,
+    // so every direction in that plane is equally an eigenvector and the pair that comes back is decided
+    // by rounding. What must still hold is the only promise a bounding box makes — it contains the
+    // points — and that is what is asserted here. Tightness deliberately is NOT: a cube rotated 30
+    // degrees measured 1.87x its true volume at the origin and 1.26x once translated, both "correct"
+    // answers to a tie, so pinning either number would be pinning an artifact of the arithmetic.
+    // Every other case in this block uses three distinct extents, which is why the limitation went
+    // unnoticed; see the scope note on FitObb.hpp.
+    {
+        const vec3 half(2, 2, 2); // a cube: x and y spreads tie, and so do all three
+        const float a = 0.5236f;  // 30 degrees
+        const mat3 rot(std::cos(a), std::sin(a), 0, -std::sin(a), std::cos(a), 0, 0, 0, 1);
+        for (const vec3& at : {vec3(0, 0, 0), vec3(1, 0.5f, 0.25f), vec3(37, -12, 5)}) {
+            const std::vector<vec3> pts = boxPoints(half, rot, at);
+            const Obb b = fitObb(pts);
+            for (const vec3& p : pts) CHECK(inside(b, p, 1e-3f));
+            CHECK(std::fabs(b.center.x - at.x) < 1e-2f && std::fabs(b.center.y - at.y) < 1e-2f &&
+                  std::fabs(b.center.z - at.z) < 1e-2f);
+            // Never SMALLER than the true box: a fit that lost volume would not be enclosing anything.
+            CHECK(boxVolume(b) > 64.0f - 1e-2f);
+        }
+    }
+
     // Axes are orthonormal.
     {
         const std::vector<vec3> pts = boxPoints(vec3(3, 2, 1), mat3(1.0f), vec3(0, 0, 0));

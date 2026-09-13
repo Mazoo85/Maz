@@ -9,6 +9,19 @@
 // Jacobi solve) as the box axes, then project the points onto those axes to size the box. Reuses the
 // engine's Obb type (Geometry3D). Godot fits neither spheres nor oriented boxes to point sets in
 // gameplay code, so this is a beyond-Godot geometry utility. Header-only, std-only, deterministic.
+//
+// Scope note (honest): PCA gives the tightest box only when the point cloud has THREE DISTINCT spreads.
+// When two of them tie — a cube, a square-section beam, a cylinder, anything with rotational symmetry
+// about an axis — the covariance matrix has a repeated eigenvalue, every direction in that plane is
+// equally an eigenvector, and which pair comes back is decided by rounding rather than by the shape. The
+// returned box still ENCLOSES every point, and is centred correctly and never smaller than the true box,
+// so it is always a valid bound; it is simply not the tightest one. Measured on a unit-half-extent cube
+// rotated 30 degrees about z: the axes come back 30 degrees off and the box 1.87x the volume it should
+// be — and merely MOVING that cube changes the answer (1.87x at the origin, 1.26x at (1, 0.5, 0.25)),
+// because "arbitrary" is what a tie means, and rounding decides it. Give it a brick instead — half
+// extents 1, 0.9, 0.8 — and it recovers the box exactly at every offset out to a thousand units. So: fine
+// for irregular meshes, which is what it is for; for a known symmetric primitive, use the primitive's
+// own axes rather than asking a covariance to guess them.
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
