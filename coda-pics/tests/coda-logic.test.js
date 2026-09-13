@@ -334,6 +334,75 @@ function paintOnce(text, opts, w, h) {
   pass('the same prompt paints exactly the same picture twice');
 })();
 
+/* ------------------------------------------------------------------ the look
+ * The claim this makes to a person is strong — "every photo you ever give it
+ * makes it better, and none of them is ever dropped" — so it is worth proving
+ * rather than asserting. A running fold has to behave like a real average: one
+ * colour repeated must come back unchanged, the first photo of a thousand must
+ * still be in the answer, and the storage must not grow.
+ */
+(function theLook() {
+  console.log('\nWhat it remembers');
+
+  function pal(h, l) {
+    return {
+      sky: { top: [h, 50, l], mid: [h, 50, l], low: [h, 50, l],
+             light: [h, 40, 80], haze: [h, 30, 60], lightY: 0.3 },
+      scene: { ink: [h, 40, 20], land: [h, 45, 40], far: [h, 35, 50], sea: [h, 55, 45] }
+    };
+  }
+  function fold(list) {
+    var look = null, n = 0;
+    list.forEach(function (p) { look = PHOTO.fold(look, n, p); n++; });
+    return { palette: look, count: n };
+  }
+
+  var same = fold(new Array(200).join(',').split(',').map(function () { return pal(200, 60); }));
+  check(Math.abs(same.palette.sky.mid[0] - 200) < 0.01 &&
+        Math.abs(same.palette.sky.mid[2] - 60) < 0.01,
+    'one colour folded two hundred times comes back as itself');
+  check(same.count === 200, 'and it counted every one of them');
+
+  /* Lightness is a plain mean, so this is exact and can be checked against
+   * arithmetic rather than against itself. */
+  var lights = [20, 40, 60, 80];
+  var mean = fold(lights.map(function (l) { return pal(200, l); }));
+  check(Math.abs(mean.palette.sky.mid[2] - 50) < 0.01,
+    'four lightnesses fold to their true average, not to the last one');
+
+  /* The point of the whole feature: an early photo must still be pulling at
+   * the answer after hundreds more, or "nothing is forgotten" is a lie. */
+  var withRed = fold([pal(0, 50)].concat(
+    new Array(300).join(',').split(',').map(function () { return pal(200, 50); })));
+  var withoutRed = fold(
+    new Array(300).join(',').split(',').map(function () { return pal(200, 50); }));
+  check(Math.abs(withRed.palette.sky.mid[0] - withoutRed.palette.sky.mid[0]) > 0.05,
+    'a photo added first is still in the answer three hundred photos later');
+
+  /* And it must not drift off to the newest thing: 300 blues plus one red is
+   * still blue. A memory that the last photo could capture would be no memory. */
+  check(Math.abs(withRed.palette.sky.mid[0] - 200) < 12,
+    'while one odd photo among hundreds cannot hijack it');
+
+  /* Constant cost is what makes "every photo, forever" safe to promise. Counted
+   * as stored numbers rather than as characters: the same twenty numbers
+   * printed to different precisions are the same amount remembered. */
+  function numbersIn(v) {
+    if (typeof v === 'number') return 1;
+    if (!v || typeof v !== 'object') return 0;
+    return Object.keys(v).reduce(function (t, k) { return t + numbersIn(v[k]); }, 0);
+  }
+  var few = numbersIn(fold(lights.map(function (l) { return pal(120, l); })).palette);
+  var many = numbersIn(fold(
+    new Array(500).join(',').split(',').map(function (_, i) { return pal(i % 360, 50); })).palette);
+  check(few === many && few > 0,
+    'five hundred photos cost the same to remember as four (' + many + ' numbers either way)');
+
+  check(PHOTO.fold(null, 0, pal(10, 50)) !== null, 'the very first photo becomes the look');
+  check(PHOTO.fold(pal(10, 50), 3, null) !== null, 'and nothing is lost to a photo that failed to read');
+  pass('every photo folds in, none is dropped, and the cost never grows');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);

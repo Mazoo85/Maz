@@ -245,10 +245,16 @@
    * any of them: it is the colour a person's pictures have in common, which is
    * a more useful thing to paint with than any single photo.
    */
-  function mix(analyses) {
-    var list = (analyses || []).filter(function (a) { return a && a.palette; });
+  function mix(analyses, weights) {
+    var kept = [];
+    var w = [];
+    (analyses || []).forEach(function (a, i) {
+      if (a && a.palette) { kept.push(a); w.push((weights && weights[i]) || 1); }
+    });
+    var list = kept;
     if (!list.length) return null;
-    function slot(get) { return averageHsl(list.map(get)); }
+    var wTotal = w.reduce(function (t, v) { return t + v; }, 0) || 1;
+    function slot(get) { return averageHsl(list.map(get), w); }
     return {
       sky: {
         top: slot(function (a) { return a.palette.sky.top; }),
@@ -256,9 +262,9 @@
         low: slot(function (a) { return a.palette.sky.low; }),
         light: slot(function (a) { return a.palette.sky.light; }),
         haze: slot(function (a) { return a.palette.sky.haze; }),
-        lightY: list.reduce(function (sum, a) {
-          return sum + (a.palette.sky.lightY == null ? 0.3 : a.palette.sky.lightY);
-        }, 0) / list.length
+        lightY: list.reduce(function (sum, a, i) {
+          return sum + (a.palette.sky.lightY == null ? 0.3 : a.palette.sky.lightY) * w[i];
+        }, 0) / wTotal
       },
       scene: {
         ink: slot(function (a) { return a.palette.scene.ink; }),
@@ -269,9 +275,28 @@
     };
   }
 
+  /*
+   * Fold one more photograph into a palette that already stands for `count` of
+   * them, and get back the palette of all count+1.
+   *
+   * This is what lets the app keep getting better from every photo somebody
+   * ever gives it without keeping any of them. A running average needs only
+   * the average so far and how many made it: the thousandth photo costs
+   * exactly what the first did, and the nine hundred and ninety-nine before it
+   * are still in the answer, each with its equal share. Nothing is forgotten
+   * because nothing was stored to forget.
+   */
+  function fold(soFar, count, next) {
+    if (!next) return soFar;
+    if (!soFar || !(count > 0)) return next;
+    var share = 1 / (count + 1);
+    return mix([{ palette: soFar }, { palette: next }], [1 - share, share]);
+  }
+
   var API = {
     analyse: analyse,
     mix: mix,
+    fold: fold,
     averageHsl: averageHsl,
     dominant: dominant,
     skyline: skyline,

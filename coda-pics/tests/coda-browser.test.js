@@ -373,7 +373,11 @@ let paintsThisLoad = 0;
     await page.waitForSelector('#paletteBox:not([hidden])', { timeout: 20000 });
     const chips = await page.$$eval('.swatch span', (els) => els.map((e) => e.textContent));
     check(chips.length >= 4, `every photo leaves a palette behind (${chips.join(', ')})`);
-    check(chips.some((c) => /mixture of 3/i.test(c)), 'and the three of them make a mixture');
+    check(chips.some((c) => /just these 3/i.test(c)), 'and the three of them make a mixture');
+    /* The accumulating memory: four photos have been through this page (one
+     * earlier, three now) and the look must say so, not say three. */
+    check(chips.some((c) => /your look . 4 photos/i.test(c)),
+      `the look counts every photo ever shown, not just this batch (${chips.join(', ')})`);
 
     await page.fill('#prompt', 'a stag in a meadow at dawn');
     await page.selectOption('#style', 'poster');
@@ -386,7 +390,7 @@ let paintsThisLoad = 0;
       count = await painted(page, before);
       return settled(page, INSPECT);
     }
-    const mixture = await paintIn('Mixture of 3');
+    const mixture = await paintIn('Just these 3');
     const seafront = await paintIn('seafront');
     const forest = await paintIn('forest');
     check(Math.abs(mixture.mean - seafront.mean) > 0.5 &&
@@ -404,12 +408,26 @@ let paintsThisLoad = 0;
     await page.reload({ waitUntil: 'load' });
     await page.waitForSelector('#paletteBox:not([hidden])', { timeout: 15000 });
     const afterReload = await page.$$eval('.swatch span', (els) => els.map((e) => e.textContent));
-    check(afterReload.some((c) => /mixture of 3/i.test(c)),
+    check(afterReload.some((c) => /just these 3/i.test(c)),
       'the kept colours come back after a reload, with no photos stored');
+    check(afterReload.some((c) => /your look . 4 photos/i.test(c)),
+      'and the look survives the page closing — that is what makes it cumulative');
+
+    /* One more photo after the reload must move the count on rather than
+     * restart it. A memory that resets when the tab closes is not a memory. */
+    await page.setInputFiles('#photoFile', path.join(__dirname, 'fixtures', 'seafront.png'));
+    await page.waitForFunction(
+      () => [...document.querySelectorAll('.swatch span')]
+        .some((e) => /your look . 5 photos/i.test(e.textContent)),
+      null, { timeout: 20000 });
+    check(true, 'a photo added in a later session keeps counting up (5)');
 
     await page.click('#clearPalettes');
     await page.waitForTimeout(250);
     check(!(await page.isVisible('#paletteBox')), 'and they can all be forgotten');
+    check(await page.evaluate(() => !window.localStorage.getItem('codaPics.look.v1') ||
+      window.localStorage.getItem('codaPics.look.v1') === 'null'),
+      'forgetting means the accumulated look goes too, not just the named ones');
     count = await page.evaluate(
       () => Number(document.getElementById('canvas').dataset.painted || 0)
     );
