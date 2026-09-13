@@ -495,7 +495,18 @@ let paintsThisLoad = 0;
     }
 
     let bands = await bandsSettled();
+    /* Wait for the app to say it is ready before pressing anything. It greys
+     * these out while it paints, so this is its own signal rather than a guess
+     * at how long a picture takes. */
+    async function idle() {
+      await page.waitForFunction(
+        () => !document.getElementById('newSky').disabled &&
+              !document.getElementById('paint').disabled,
+        null, { timeout: 30000 });
+    }
+
     async function change(button) {
+      await idle();
       const before = bands;
       const n0 = await page.evaluate(
         () => Number(document.getElementById('canvas').dataset.painted || 0));
@@ -526,6 +537,7 @@ let paintsThisLoad = 0;
       `asking for a different subject repaints the picture (${shown(bySubject)})`);
 
     const undoneAfter = bands;
+    await idle();
     await page.click('#undo');
     count = await painted(page, count);
     const back = await bandsSettled();
@@ -534,6 +546,7 @@ let paintsThisLoad = 0;
     bands = back;
 
     /* Six near neighbours rather than six strangers. */
+    await idle();
     await page.click('#nearby');
     await page.waitForFunction(() => document.querySelectorAll('#sheetGrid .card').length === 6,
       null, { timeout: 40000 });

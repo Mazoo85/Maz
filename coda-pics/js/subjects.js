@@ -327,7 +327,19 @@
     horse:  { leg: 0.46, body: 0.28, neck: 0.34, head: 0.18, ear: 'point', tail: 'flow',  snout: 1.1, mane: true },
     bear:   { leg: 0.26, body: 0.34, neck: 0.18, head: 0.22, ear: 'round', tail: 'stub',  snout: 0.7, hump: true },
     lion:   { leg: 0.32, body: 0.28, neck: 0.22, head: 0.20, ear: 'round', tail: 'tuft',  snout: 0.8, mane: 'ruff' },
-    rabbit: { leg: 0.20, body: 0.20, neck: 0.16, head: 0.18, ear: 'ears',  tail: 'puff',  snout: 0.6 }
+    rabbit: { leg: 0.20, body: 0.20, neck: 0.16, head: 0.18, ear: 'ears',  tail: 'puff',  snout: 0.6 },
+
+    /* Four of these were borrowing another animal's body: a sheep was drawn as
+     * a rabbit, a cow and an elephant as a bear, a camel as a horse. Only the
+     * ears and tail differed, which is why so often the thing that came back
+     * was not the thing that was asked for. They have their own proportions
+     * now, and the three features the routine could not draw at all. */
+    sheep:  { leg: 0.24, body: 0.30, neck: 0.15, head: 0.15, ear: 'flop',  tail: 'stub',  snout: 0.7, fleece: true },
+    goat:   { leg: 0.32, body: 0.23, neck: 0.20, head: 0.16, ear: 'flop',  tail: 'up',    snout: 0.9, horns: 'swept', beard: true },
+    cow:    { leg: 0.36, body: 0.34, neck: 0.20, head: 0.19, ear: 'round', tail: 'tuft',  snout: 1.3, horns: 'wide', barrel: 1.18 },
+    camel:  { leg: 0.48, body: 0.24, neck: 0.46, head: 0.14, ear: 'round', tail: 'stub',  snout: 1.1, hump: true, humps: 2 },
+    elephant: { leg: 0.34, body: 0.38, neck: 0.16, head: 0.22, ear: 'fan', tail: 'stub',  snout: 0.45, trunk: true, tusks: true, barrel: 1.22 },
+    pig:    { leg: 0.20, body: 0.30, neck: 0.12, head: 0.17, ear: 'flop',  tail: 'curl',  snout: 1.2, barrel: 1.12 }
   };
 
   /* A leg: thicker at the shoulder, narrower at the hoof, bent at the knee.
@@ -353,13 +365,27 @@
     var legLen = b.h * f.leg;
     var bodyH = b.h * f.body;
     var bodyTop = groundY - legLen - bodyH;
-    var cx = b.x + b.w * 0.46, bw = b.w * 0.5;
+    var cx = b.x + b.w * 0.46, bw = b.w * 0.5 * (f.barrel || 1);
     var lw = b.w * 0.045 * (f.leg > 0.4 ? 0.85 : 1.15);
 
     /* Far legs first, a shade lighter, so the animal has a near and a far
      * side instead of four legs in one plane. */
     limb(ctx, cx - bw * 0.26, bodyTop + bodyH * 0.72, groundY - b.h * 0.004, lw, lw * 0.45, -b.w * 0.012, back);
     limb(ctx, cx + bw * 0.30, bodyTop + bodyH * 0.66, groundY - b.h * 0.004, lw, lw * 0.45, b.w * 0.012, back);
+
+    if (f.fleece) {                                    // wool: a lumpy outline, not a curve
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      for (var w2 = 0; w2 <= 22; w2++) {
+        var wa = (w2 / 22) * Math.PI * 2;
+        var lump = 1 + (w2 % 2 ? 0.10 : -0.06);
+        var wx = cx - bw * 0.05 + Math.cos(wa) * bw * 0.62 * lump;
+        var wy = bodyTop + bodyH * 0.52 + Math.sin(wa) * bodyH * 0.72 * lump;
+        if (w2 === 0) ctx.moveTo(wx, wy); else ctx.lineTo(wx, wy);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
 
     ctx.beginPath();                                   // barrel: chest, back, haunch
     ctx.moveTo(cx + bw * 0.42, bodyTop + bodyH * 0.24);
@@ -371,6 +397,11 @@
     ctx.closePath();
     ctx.fillStyle = col;
     ctx.fill();
+
+    if (f.humps === 2) {                               // a camel is two of them
+      ellipse(ctx, cx - bw * 0.30, bodyTop + bodyH * 0.02, bw * 0.22, bodyH * 0.34, col);
+      ellipse(ctx, cx + bw * 0.12, bodyTop - bodyH * 0.02, bw * 0.24, bodyH * 0.38, col);
+    }
 
     var neckLen = b.h * f.neck;                        // neck, tapering to the head
     var hx = cx + bw * (0.55 + f.neck * 0.5);
@@ -405,10 +436,68 @@
       [[-0.14, -0.3], [0.10, -0.1]].forEach(function (e) {
         ellipse(ctx, hx + hr * e[0] + hr * e[1] * 0.2, hy - hr * 0.78, hr * 0.11, hr * 0.46, col, e[1] * 0.4);
       });
+    } else if (f.ear === 'fan') {
+      /* Drawn where an ear is — behind and below the skull — and then the head
+       * put back over it, so the elephant does not become a face behind a
+       * dinner plate. */
+      ellipse(ctx, hx - hr * 0.62, hy + hr * 0.34, hr * 0.40, hr * 0.48, col, -0.14);
+      ellipse(ctx, hx, hy, hr * 0.46, hr * 0.40, col);
+      ellipse(ctx, hx + hr * 0.44 * f.snout, hy + hr * 0.14, hr * 0.30 * f.snout, hr * 0.19, col);
     } else if (f.ear === 'flop') {
       ellipse(ctx, hx - hr * 0.22, hy + hr * 0.06, hr * 0.16, hr * 0.34, col, 0.3);
     } else {
       ellipse(ctx, hx - hr * 0.14, hy - hr * 0.30, hr * 0.20, hr * 0.20, col);
+    }
+
+    if (f.trunk) {                                     // the whole point of an elephant
+      ctx.strokeStyle = col;
+      ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(2.5, hr * 0.30);
+      ctx.beginPath();
+      ctx.moveTo(hx + hr * 0.30, hy + hr * 0.28);
+      ctx.quadraticCurveTo(hx + hr * 0.86, hy + hr * 0.86, hx + hr * 0.62, hy + hr * 1.50);
+      ctx.stroke();
+      ctx.lineWidth = Math.max(1.5, hr * 0.17);
+      ctx.beginPath();
+      ctx.moveTo(hx + hr * 0.62, hy + hr * 1.50);
+      ctx.quadraticCurveTo(hx + hr * 0.50, hy + hr * 1.88, hx + hr * 0.80, hy + hr * 1.96);
+      ctx.stroke();
+    }
+    if (f.tusks) {
+      ctx.strokeStyle = P.light(0.92);
+      ctx.lineWidth = Math.max(1.5, hr * 0.12);
+      [0.02, 0.24].forEach(function (t2) {
+        ctx.beginPath();
+        ctx.moveTo(hx + hr * (0.30 + t2), hy + hr * 0.34);
+        ctx.quadraticCurveTo(hx + hr * (0.60 + t2), hy + hr * 0.66,
+          hx + hr * (0.58 + t2), hy + hr * 0.96);
+        ctx.stroke();
+      });
+      ctx.strokeStyle = col;
+    }
+    if (f.horns) {                                     // cattle and goats
+      ctx.strokeStyle = col;
+      ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(2, hr * 0.14);
+      [-1, 1].forEach(function (side) {
+        ctx.beginPath();
+        ctx.moveTo(hx - hr * 0.10, hy - hr * 0.26);
+        if (f.horns === 'wide') {
+          ctx.quadraticCurveTo(hx + hr * side * 0.70, hy - hr * 0.86,
+            hx + hr * side * 1.15, hy - hr * 0.52);
+        } else {                                       // swept back, a goat's
+          ctx.quadraticCurveTo(hx - hr * 0.60, hy - hr * (0.90 + side * 0.12),
+            hx - hr * 1.05, hy - hr * (0.42 + side * 0.18));
+        }
+        ctx.stroke();
+      });
+    }
+    if (f.beard) {
+      poly(ctx, [
+        [hx + hr * 0.28, hy + hr * 0.34],
+        [hx + hr * 0.16, hy + hr * 0.96],
+        [hx + hr * 0.48, hy + hr * 0.40]
+      ], col);
     }
 
     if (f.antlers) {                                   // a stag is its antlers

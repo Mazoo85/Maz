@@ -1070,7 +1070,12 @@
       var len = Math.sqrt(vx * vx + vy * vy) || 1;
       dx = vx / len; dy = vy / len;
     }
-    var off = Math.max(1.2, Math.min(box.w, box.h) * 0.030);
+    /* The shadow and the lit edge are drawn as the subject's own shape, shifted.
+     * Shifted far enough and that stops reading as an edge and starts reading
+     * as a second, paler animal standing behind the first — which is what a
+     * giant subject got, because the shift was a share of the subject's size
+     * with nothing holding it down. An edge is an edge at any size. */
+    var off = Math.max(1.2, Math.min(Math.min(box.w, box.h) * 0.030, h * 0.012));
 
     /* Water gives it back, upside down and dimmer. */
     if (P.isWater && REFLECTS[spec.scene.id] && box.y + box.h <= h) {
@@ -1142,11 +1147,14 @@
     var mdx = dx || 0.55, mdy = dy || -0.45;
     var model = ctx.createLinearGradient(
       cx - mdx * mR, cy - mdy * mR, cx + mdx * mR, cy + mdy * mR);
-    model.addColorStop(0, P.css(P.sky.light, 0.52));
-    model.addColorStop(0.42, P.css(P.sky.light, 0.06));
-    model.addColorStop(0.60, P.ink(0.2, 0.10));
-    model.addColorStop(1, P.ink(0.15, 0.58));
-    stencil(ctx, subject, box, PS, r, spec, model, 0, 0, 0.62 + P.drama * 0.16);
+    /* Gently. Set strong this reads as chrome rather than as form — hard bright
+     * bands down an animal's legs, a face lit like a car bonnet. Form is a
+     * suggestion of where the light is, not a repaint of the subject. */
+    model.addColorStop(0, P.css(P.sky.light, 0.30));
+    model.addColorStop(0.44, P.css(P.sky.light, 0.03));
+    model.addColorStop(0.62, 'rgba(0,0,0,0.03)');
+    model.addColorStop(1, 'rgba(0,0,0,0.34)');
+    stencil(ctx, subject, box, PS, r, spec, model, 0, 0, 0.42 + P.drama * 0.12);
 
     /*
      * Then the air it is standing in: what the sky and the ground throw back at
@@ -1167,9 +1175,14 @@
      * dark, and quite separate from the shadow it throws, which is long and
      * goes wherever the light is not. */
     if (box.anchor === 'ground' && base <= h) {
+      /* Plain darkness, not the scene's ink. P.ink takes a depth, and a depth
+       * mixes the sky into the colour to push it away — so the ink asked for
+       * here came back lighter than the body it was meant to be shading, and
+       * quietly bleached the legs of every animal in the engine. Where a thing
+       * meets the ground it is darker. That is all this is. */
       var occ = ctx.createLinearGradient(0, base - box.h * 0.16, 0, base);
-      occ.addColorStop(0, P.ink(0.85, 0));
-      occ.addColorStop(1, P.ink(0.4, 0.55));
+      occ.addColorStop(0, 'rgba(0,0,0,0)');
+      occ.addColorStop(1, 'rgba(0,0,0,0.42)');
       stencil(ctx, subject, box, PS, r, spec, occ, 0, 0, 0.6);
     }
 

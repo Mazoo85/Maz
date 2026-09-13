@@ -631,6 +631,16 @@
    */
   var PARTS = { sky: 'sky', land: 'land', subject: 'subject' };
 
+  /* A press that arrives while the last one is still painting used to be
+   * dropped without a word, which is the same to a person as a button that
+   * does nothing. They go grey instead, so it is visible that the app is busy
+   * rather than broken. */
+  function partsBusy(on) {
+    [el.newSky, el.newLand, el.newSubject, el.nearby, el.undo].forEach(function (b) {
+      if (b) b.disabled = on;
+    });
+  }
+
   function repaintPart(part) {
     if (busy || !current) return;
     var text = el.prompt.value.trim();
@@ -649,10 +659,12 @@
 
     busy = true;
     el.busy.hidden = false;
+    partsBusy(true);
     setTimeout(function () {
       drawProgressive(el.canvas, spec, size.w, size.h, function (ok) {
         busy = false;
         el.busy.hidden = true;
+        partsBusy(false);
         if (!ok) { setStatus('That one would not paint. Try again.'); return; }
         current = spec;
         showReadout(spec, size);
@@ -685,6 +697,7 @@
   }
 
   function undoLast() {
+    if (busy) return;
     var was = undoStack.pop();
     if (!was) return;
     el.prompt.value = was.prompt;
@@ -725,6 +738,7 @@
     el.busy.hidden = false;
     el.placeholder.hidden = true;
     el.paint.disabled = el.reroll.disabled = true;
+    partsBusy(true);
 
     var size = sizeOf();
     var spec = specFor(text, seed);
@@ -735,6 +749,7 @@
         busy = false;
         el.busy.hidden = true;
         el.paint.disabled = el.reroll.disabled = false;
+        partsBusy(false);
         if (!ok) {
           setStatus('Something went wrong painting that one. Try another take.');
           el.placeholder.hidden = !!current;

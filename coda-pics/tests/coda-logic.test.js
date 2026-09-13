@@ -456,6 +456,94 @@ function paintOnce(text, opts, w, h) {
   pass('each part can be rolled on its own, and holds when it is not asked for');
 })();
 
+/* --------------------------------------------------------- every beast its own
+ * Fifteen four-legged animals share one routine, which is right — they share a
+ * skeleton. What was wrong is that four of them shared another animal's
+ * *proportions*: a sheep was drawn as a rabbit, a cow and an elephant as a
+ * bear, a camel as a horse, with only the ears and tail to tell them apart.
+ * This is the check that stops that happening again by accident, and it
+ * compares what is actually drawn rather than what the table says.
+ */
+(function everyBeast() {
+  console.log('\nEvery animal its own');
+
+  var LEX = require(path.join(__dirname, '..', 'js', 'lexicon.js'));
+  var beasts = LEX.SUBJECTS.filter(function (s) { return s.draw === 'quadruped'; });
+
+  var byForm = {};
+  beasts.forEach(function (s) { byForm[s.form] = (byForm[s.form] || 0).valueOf() + 1; });
+  var shared = Object.keys(byForm).filter(function (k) { return byForm[k] > 1; });
+  check(shared.length === 0,
+    beasts.length + ' four-legged animals, ' + Object.keys(byForm).length +
+    ' bodies, none borrowed' + (shared.length ? ' — but ' + shared.join(', ') + ' is shared' : ''));
+
+  /* Drawn, not declared: two forms could differ in the table and still put the
+   * same marks on the canvas. */
+  /* FakeContext counts how many times each operation was used, which cannot
+   * tell two animals apart when both are made of the same kinds of stroke. So
+   * this records the calls *and their numbers* — where every line went, at what
+   * size — which is the drawing itself. */
+  function tracer(w, h) {
+    var inner = new FakeContext(w, h);
+    var trace = [];
+    var proxy = { trace: trace };
+    for (var key in inner) {
+      (function (k) {
+        var v = inner[k];
+        if (typeof v === 'function') {
+          proxy[k] = function () {
+            var args = Array.prototype.slice.call(arguments).map(function (a) {
+              return typeof a === 'number' ? Math.round(a * 100) / 100 : String(a);
+            });
+            trace.push(k + '(' + args.join(',') + ')');
+            return v.apply(inner, arguments);
+          };
+        } else {
+          Object.defineProperty(proxy, k, {
+            get: function () { return inner[k]; },
+            set: function (val) { trace.push(k + '=' + String(val)); inner[k] = val; },
+            enumerable: true, configurable: true
+          });
+        }
+      })(key);
+    }
+    return proxy;
+  }
+
+  var drawn = {};
+  beasts.forEach(function (s) {
+    var ctx = tracer(400, 300);
+    var spec = PROMPT.parse(s.words[0] + ' in a meadow', { seed: 7 });
+    var P = PAINT.makePalette(spec);
+    SUBJECTS.draw(ctx, { draw: 'quadruped', form: s.form },
+      { x: 60, y: 60, w: 260, h: 180, depth: 0, anchor: 'ground' },
+      P, PROMPT.rng(spec, 'subject'), spec);
+    drawn[s.form] = ctx.trace.join('|');
+  });
+
+  var same = [];
+  var forms = Object.keys(drawn);
+  for (var i = 0; i < forms.length; i++) {
+    for (var j = i + 1; j < forms.length; j++) {
+      if (drawn[forms[i]] === drawn[forms[j]]) same.push(forms[i] + '/' + forms[j]);
+    }
+  }
+  check(same.length === 0,
+    'and no two of them put the same marks on the canvas' +
+    (same.length ? ' — ' + same.join(', ') + ' draw identically' : ''));
+
+  /* The features that make an animal that animal, rather than a shape with
+   * different ears: a trunk, horns, a fleece, a second hump. */
+  function marks(form) { return drawn[form] || ''; }
+  check(marks('elephant').length > marks('bear').length,
+    'an elephant is drawn with more than a bear is — it has a trunk and tusks to draw');
+  check(marks('sheep') !== marks('rabbit'),
+    'a sheep is no longer a rabbit');
+  check(marks('cow') !== marks('bear'), 'a cow is no longer a bear');
+  check(marks('camel') !== marks('horse'), 'a camel is no longer a horse');
+  pass(beasts.length + ' four-legged animals, every one of them drawn its own way');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);

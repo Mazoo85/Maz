@@ -99,10 +99,12 @@
      * A sheep and a wolf are the same four-legged builder with different ears
      * and tail; a swan and an owl the same bird. Adding the word is the whole
      * job, and the lexicon is where that stays honest. */
-    { id: 'sheep',    label: 'a sheep',        draw: 'quadruped', form: 'rabbit', scene: 'meadow',    words: ['sheep', 'lamb', 'ram', 'goat'] },
-    { id: 'cow',      label: 'a cow',          draw: 'quadruped', form: 'bear',   scene: 'meadow',    words: ['cow', 'bull', 'cattle', 'ox', 'buffalo', 'bison'] },
-    { id: 'camel',    label: 'a camel',        draw: 'quadruped', form: 'horse',  scene: 'desert',    words: ['camel', 'dromedary'] },
-    { id: 'elephant', label: 'an elephant',    draw: 'quadruped', form: 'bear',   scene: 'plains',    words: ['elephant', 'mammoth'] },
+    { id: 'sheep',    label: 'a sheep',        draw: 'quadruped', form: 'sheep',  scene: 'meadow',    words: ['sheep', 'lamb', 'ewe', 'ram'] },
+    { id: 'goat',     label: 'a goat',         draw: 'quadruped', form: 'goat',   scene: 'mountains', words: ['goat', 'billy goat', 'ibex'] },
+    { id: 'pig',      label: 'a pig',          draw: 'quadruped', form: 'pig',    scene: 'meadow',    words: ['pig', 'boar', 'hog', 'piglet'] },
+    { id: 'cow',      label: 'a cow',          draw: 'quadruped', form: 'cow',    scene: 'meadow',    words: ['cow', 'bull', 'cattle', 'ox', 'buffalo', 'bison'] },
+    { id: 'camel',    label: 'a camel',        draw: 'quadruped', form: 'camel',  scene: 'desert',    words: ['camel', 'dromedary', 'llama', 'alpaca'] },
+    { id: 'elephant', label: 'an elephant',    draw: 'quadruped', form: 'elephant', scene: 'plains',  words: ['elephant', 'mammoth'] },
     { id: 'swan',     label: 'a swan',         draw: 'bird',      form: 'bird',   scene: 'lake',      words: ['swan', 'goose', 'duck', 'flamingo', 'stork'] },
     { id: 'bat',      label: 'a bat',          draw: 'bird',      form: 'bird',   scene: 'cave',      words: ['bat', 'bats'] },
     { id: 'monk',     label: 'a monk',         draw: 'humanoid',  form: 'wizard', scene: 'mountains', words: ['monk', 'priest', 'pilgrim', 'hermit'] },
