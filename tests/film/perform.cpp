@@ -326,6 +326,128 @@ int main() {
         near(a.arm[0].elbow, c.arm[0].elbow, 0.0f, "down to the last joint");
     }
 
+    // ------------------------------------------------------------------ 11. using the room
+    //
+    // Standing on a mark and talking is a radio play with a picture over it. Three things put somebody
+    // IN a room: they take the weight off their feet, they put their weight on something, or they
+    // touch something. Each is checked for the thing that goes wrong with it.
+    {
+        const float seat = 0.45f;
+        film::Motive mv;
+        mv.seed = 5u;
+        mv.sit = 1.0f;
+        mv.seatY = seat;
+        mv.seatZ = -0.14f;
+        const film::BodyPose p = film::performAt(b, mv, 2.0f);
+        const film::Skeleton sk = film::skeletonOf(b, p);
+
+        // On the seat, not through it and not hovering over it. A pelvis placed exactly on the seat
+        // plane sinks into the chair; one placed a hand's width above it is perching.
+        const float hipY = film::Skeleton::at(sk.hip[film::kRight]).y;
+        check(hipY > seat && hipY < seat + 0.16f, "somebody sitting has their hips ON the seat");
+
+        // Feet still on the floor, and out in front — the two things that make it sitting rather than
+        // crouching. Being seated does not levitate anybody.
+        for (int side = 0; side < 2; ++side) {
+            near(film::Skeleton::at(sk.ankle[side]).y, b.m(b.yAnkle), 0.05f,
+                 "and their feet are still on the floor");
+            check(film::Skeleton::at(sk.ankle[side]).z > film::Skeleton::at(sk.hip[side]).z + 0.20f,
+                  "with their feet well out in front of their hips");
+            // A seated knee is bent hard, and the solve does it from the feet with nothing added.
+            const math::vec3 hip = film::Skeleton::at(sk.hip[side]);
+            const math::vec3 knee = film::Skeleton::at(sk.knee[side]);
+            const math::vec3 ankle = film::Skeleton::at(sk.ankle[side]);
+            const math::vec3 up = hip - knee, down = ankle - knee;
+            const float cosine = math::dot(up, down) / (std::sqrt(math::dot(up, up)) *
+                                                        std::sqrt(math::dot(down, down)));
+            const float angle = std::acos(cosine < -1.0f ? -1.0f : (cosine > 1.0f ? 1.0f : cosine));
+            check(angle > 0.9f && angle < 2.1f, "and the knee is bent about a right angle, as a knee is");
+            check(sk.reached[side], "without the leg being stretched to do it");
+        }
+
+        // Sitting DOWN is a beat, so half-way has to be half-way rather than one of the two ends.
+        film::Motive half = mv;
+        half.sit = 0.5f;
+        const float halfY = film::Skeleton::at(film::skeletonOf(b, film::performAt(b, half, 2.0f))
+                                                   .hip[film::kRight])
+                                .y;
+        film::Motive up0 = mv;
+        up0.sit = 0.0f;
+        const float standY =
+            film::Skeleton::at(film::skeletonOf(b, film::performAt(b, up0, 2.0f)).hip[film::kRight]).y;
+        check(halfY > hipY + 0.04f && halfY < standY - 0.04f,
+              "and sitting down passes through the middle rather than snapping between two poses");
+    }
+
+    {
+        // Leaning is a weight shift, not a tilt. The hips go one way and the shoulders the other, so
+        // the body makes a shallow S; tipping the whole figure over instead is somebody falling.
+        film::Motive mv;
+        mv.seed = 9u;
+        const film::Skeleton straight = film::skeletonOf(b, film::performAt(b, mv, 2.0f));
+        mv.leanOn = 1.0f;
+        const film::BodyPose p = film::performAt(b, mv, 2.0f);
+        const film::Skeleton leaning = film::skeletonOf(b, p);
+
+        const float hipMoved = film::Skeleton::at(leaning.pelvis).x - film::Skeleton::at(straight.pelvis).x;
+        const float topMoved = film::Skeleton::at(leaning.neck).x - film::Skeleton::at(straight.neck).x;
+        check(std::fabs(hipMoved) > 0.03f, "leaning moves the hips off the midline");
+        check(hipMoved * topMoved < 0.0f, "and the shoulders go the OTHER way, which is what a lean is");
+        // And the feet stay out from the wall, which is most of what says propped rather than crooked.
+        const float feetMoved = film::Skeleton::at(leaning.ankle[film::kLeft]).x -
+                                film::Skeleton::at(straight.ankle[film::kLeft]).x;
+        check(feetMoved * topMoved < 0.0f, "with the feet away from whatever they are leaning on");
+    }
+
+    {
+        // Reaching. A hand that is meant to arrive at a table top has to arrive at it — "near" is the
+        // difference between handing something over and miming it.
+        film::Motive mv;
+        mv.seed = 3u;
+        mv.position = math::vec3(1.3f, 0.0f, -0.7f);
+        mv.facing = 0.6f;
+        mv.reaching = true;
+        mv.reachHand = film::kRight;
+        mv.reachTo = math::vec3(1.55f, 1.02f, -0.35f); // within arm's length of where they stand
+        const film::Skeleton sk = film::skeletonOf(b, film::performAt(b, mv, 2.0f));
+        const math::vec3 palm = sk.handAt(b, film::kRight);
+        const math::vec3 miss = palm - mv.reachTo;
+        near(std::sqrt(math::dot(miss, miss)), 0.0f, 0.03f,
+             "a hand sent to a point in the room arrives at it");
+
+        // Half-way is half-way, so a reach can be shown happening rather than cut to already done.
+        film::Motive part = mv;
+        part.reachAmount = 0.5f;
+        const math::vec3 halfway = film::skeletonOf(b, film::performAt(b, part, 2.0f)).handAt(b, film::kRight);
+        const math::vec3 gap = halfway - mv.reachTo;
+        const float left = std::sqrt(math::dot(gap, gap));
+        check(left > 0.05f && left < 0.60f, "and a reach half-made is half-made");
+
+        // And an arm asked for somewhere it cannot go falls SHORT rather than stretching. A bone is a
+        // fixed length; that is what makes it a bone, and it is the same rule the legs have always had.
+        film::Motive far = mv;
+        far.reachTo = math::vec3(1.3f, 1.45f, 3.0f); // several metres away
+        const film::Skeleton strained = film::skeletonOf(b, film::performAt(b, far, 2.0f));
+        auto bone = [&](const math::vec3& x, const math::vec3& y) {
+            const math::vec3 d = x - y;
+            return std::sqrt(math::dot(d, d));
+        };
+        near(bone(film::Skeleton::at(strained.shoulder[film::kRight]),
+                  film::Skeleton::at(strained.elbow[film::kRight])),
+             b.m(b.yShoulder - b.yElbow), 0.002f, "an upper arm is an upper arm however far it reaches");
+        near(bone(film::Skeleton::at(strained.elbow[film::kRight]),
+                  film::Skeleton::at(strained.wrist[film::kRight])),
+             b.m(b.yElbow - b.yWrist), 0.002f, "and so is a forearm");
+        // The bones are the same length whichever way the arm was posed, too.
+        film::Motive angles;
+        angles.seed = 3u;
+        const film::Skeleton plain = film::skeletonOf(b, film::performAt(b, angles, 2.0f));
+        near(bone(film::Skeleton::at(plain.shoulder[film::kRight]),
+                  film::Skeleton::at(plain.elbow[film::kRight])),
+             b.m(b.yShoulder - b.yElbow), 0.002f,
+             "and an arm posed by angles has the same bones as one that was solved");
+    }
+
     if (!failures.empty()) {
         for (const std::string& f : failures) {
             std::printf("FAIL: %s\n", f.c_str());

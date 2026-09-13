@@ -192,6 +192,14 @@ struct BodyPose {
         float spread = 0.10f;
         float twist = 0.0f;
         float elbow = 0.12f;
+
+        // Or: where the HAND is going, in the body's own space. When `handSet` the arm is solved to
+        // reach it and the three angles above are ignored — the same trick the legs have always used,
+        // for the same reason. A hand that is meant to arrive at a door handle, a table top, or the
+        // other person's palm has to arrive there; posed by angles it arrives somewhere near, and
+        // "near" is the difference between handing something over and miming it.
+        bool handSet = false;
+        math::vec3 hand{0.0f, 0.0f, 0.0f};
     };
     Arm arm[2];
 
@@ -341,11 +349,62 @@ inline Skeleton skeletonOf(const Build& b, const BodyPose& poseIn) {
     sk.head = sk.neck * move(0.0f, b.m(chinFraction - b.yNeck) + chinToCentre, 0.0f) *
               rotY(pose.headYaw) * rotX(pose.headPitch);
 
+    const math::vec3 forward = math::vec3(root * math::vec4(0.0f, 0.0f, 1.0f, 0.0f));
+    const math::vec3 rightward = math::vec3(root * math::vec4(1.0f, 0.0f, 0.0f, 0.0f));
+
     const float upperArm = b.m(b.yShoulder - b.yElbow);
     const float foreArm = b.m(b.yElbow - b.yWrist);
     for (int s = 0; s < 2; ++s) {
         const float sx = sideSign(s);
         const BodyPose::Arm& a = pose.arm[s];
+        if (a.handSet) {
+            // Solved, exactly as a leg is: the same two-bone solve, the same carrying of a flat answer
+            // back out into three dimensions, and the same refusal to stretch a bone that will not
+            // reach. What differs is only where the middle joint is pushed — a knee goes forward, an
+            // elbow goes back and a little out, and getting that backwards gives a figure that reaches
+            // for things with its elbow leading.
+            const math::vec3 shoulderPos =
+                Skeleton::at(sk.yoke * math::vec4(sx * b.m(b.shoulderHalf), 0.0f, 0.0f, 1.0f));
+            const math::vec3 palm = Skeleton::at(root * math::vec4(a.hand, 1.0f));
+            // The target is the PALM, because that is what holds things; the wrist has to stop a hand's
+            // length short of it or everybody reaches past what they are reaching for.
+            const math::vec3 elbowGoes =
+                forward * -0.80f + rightward * (sx * 0.45f) + math::vec3(0.0f, -0.30f, 0.0f);
+            const float palmOut = b.m(b.handLen) * 0.55f;
+
+            // Solved twice, and the second pass is not a nicety. The wrist has to stop a hand's length
+            // short of the target ALONG THE FOREARM, and which way the forearm points is not known
+            // until the arm has been solved — so the first pass guesses the direction as
+            // shoulder-to-target, and with a bent elbow that guess is wrong by most of a hand. Aiming
+            // once put everybody's palm seven centimetres past what they were reaching for.
+            math::vec3 lastBone = palm - shoulderPos;
+            math::vec3 elbowPos = shoulderPos;
+            math::vec3 wristPos = palm;
+            for (int pass = 0; pass < 2; ++pass) {
+                float boneLen = std::sqrt(math::dot(lastBone, lastBone));
+                const math::vec3 along =
+                    boneLen > 1e-6f ? lastBone / boneLen : math::vec3(0.0f, -1.0f, 0.0f);
+                const math::vec3 wristWant = palm - along * palmOut;
+
+                math::vec3 axis = wristWant - shoulderPos;
+                float reach = std::sqrt(math::dot(axis, axis));
+                axis = reach > 1e-6f ? axis / reach : math::vec3(0.0f, -1.0f, 0.0f);
+                math::vec3 pole = elbowGoes - axis * math::dot(elbowGoes, axis);
+                const float pl = std::sqrt(math::dot(pole, pole));
+                pole = pl > 1e-5f ? pole / pl : rightward * sx;
+
+                const anim::IKResult ik = anim::solveTwoBoneIK(math::vec2(0.0f, 0.0f), upperArm,
+                                                               foreArm, math::vec2(reach, 0.0f), 1.0f);
+                elbowPos = shoulderPos + axis * ik.mid.x + pole * ik.mid.y;
+                wristPos = ik.reachable ? wristWant : shoulderPos + axis * ik.end.x + pole * ik.end.y;
+                lastBone = wristPos - elbowPos;
+                sk.shoulder[s] = boneFrame(shoulderPos, elbowPos, pole);
+                sk.elbow[s] = boneFrame(elbowPos, wristPos, pole);
+                // The hand carries on in the line of the forearm, as it does on the angled path too.
+                sk.wrist[s] = boneFrame(wristPos, wristPos + lastBone, pole);
+            }
+            continue;
+        }
         sk.shoulder[s] = sk.yoke * move(sx * b.m(b.shoulderHalf), 0.0f, 0.0f) * rotZ(sx * a.spread) *
                          rotX(a.swing) * rotY(sx * a.twist);
         // An elbow bends one way only: the forearm comes forward, never backward through the arm.
@@ -359,7 +418,6 @@ inline Skeleton skeletonOf(const Build& b, const BodyPose& poseIn) {
     // ---- the legs, solved from the feet up -------------------------------------------------------
     const float thigh = b.m(b.yHip - b.yKnee);
     const float shin = b.m(b.yKnee - b.yAnkle);
-    const math::vec3 forward = math::vec3(root * math::vec4(0.0f, 0.0f, 1.0f, 0.0f));
     for (int s = 0; s < 2; ++s) {
         const float sx = sideSign(s);
         const math::vec3 hipPos =

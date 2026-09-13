@@ -1,8 +1,8 @@
 {
   "reel": "reel.json",
   "title": "AFTER THE KEY",
-  "duration": 174.83700000000002,
-  "shots": 41,
+  "duration": 202.39900000000003,
+  "shots": 52,
   "people": 2,
   "width": 480,
   "height": 204,
@@ -17,43 +17,43 @@
     },
     {
       "file": "frame-01.ppm.gz",
-      "time": 22.0,
-      "shot": 4
+      "time": 28.833333333333332,
+      "shot": 5
     },
     {
       "file": "frame-02.ppm.gz",
-      "time": 39.666666666666664,
-      "shot": 8
+      "time": 51.25,
+      "shot": 10
     },
     {
       "file": "frame-03.ppm.gz",
-      "time": 52.5,
-      "shot": 12
+      "time": 70.25,
+      "shot": 15
     },
     {
       "file": "frame-04.ppm.gz",
-      "time": 73.58333333333333,
-      "shot": 16
-    },
-    {
-      "file": "frame-05.ppm.gz",
-      "time": 87.58333333333333,
+      "time": 90.0,
       "shot": 20
     },
     {
+      "file": "frame-05.ppm.gz",
+      "time": 109.0,
+      "shot": 25
+    },
+    {
       "file": "frame-06.ppm.gz",
-      "time": 104.16666666666667,
-      "shot": 24
+      "time": 123.91666666666667,
+      "shot": 30
     },
     {
       "file": "frame-07.ppm.gz",
-      "time": 123.83333333333333,
-      "shot": 28
+      "time": 139.25,
+      "shot": 35
     },
     {
       "file": "frame-08.ppm.gz",
-      "time": 139.5,
-      "shot": 32
+      "time": 151.5,
+      "shot": 40
     }
   ]
 }

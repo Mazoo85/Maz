@@ -133,6 +133,39 @@ unison.
 * **Speaking.** One hand leads, on the syllable clock the film already counts. Two hands doing the
   same thing at once is semaphore.
 
+#### Using the room
+
+Standing on a mark and talking is a radio play with a picture over it. Three things put somebody *in*
+a room, and they are three because everything an actor does on a set is one of them: they take the
+weight off their feet, they put their weight on something, or they touch something.
+
+* **Sitting** is not a pose so much as a place for two joints — the pelvis goes down onto the seat and
+  the feet go out in front. Everything else follows, because the knees are already solved from the
+  feet: the same leg IK that stops a walker skating bends a seated knee to ninety degrees with nothing
+  added for it. It blends 0 to 1, so *sitting down* can be a beat rather than a cut to somebody
+  already seated.
+* **Leaning** is a weight shift, not a tilt. The shoulder goes to the wall and the hips swing out the
+  other way, so the body makes a shallow S and the feet stay away from whatever is being leaned on.
+  Tipping the whole figure instead gives somebody falling over slowly.
+* **Reaching** solves the arm the way the legs have always been solved, to a point in the room — a
+  table top, a door handle, the other person's hand. A hand asked for somewhere it cannot go falls
+  short of it rather than stretching the forearm, which is the same rule and for the same reason.
+
+`film/Business.hpp` decides which of them happens, from the reel. Two sources of truth, and they are
+not equally good:
+
+* **The object is recorded data.** The reel says who is holding the thing the story turns on, shot by
+  shot, because the screenplay tracked it while it was being written — so it can be carried in a hand,
+  picked up in the shot where it arrives, and put down in the shot where it leaves. Before this it was
+  welded to its plinth for the whole film, which made it scenery rather than the thing everybody in
+  the film is arguing about.
+* **Sitting and leaning are read out of the prose**, because the prose is the only place the film ever
+  says anybody did them. That is string matching and there is no dressing it up. What makes it work at
+  all is that the prose is not arbitrary: it comes from the same generator every time, out of a small
+  and known vocabulary. A word it does not know costs nothing — the character stands, as they did
+  before. The two ways it goes wrong are both tested: finding a word inside another word (`sat` lives
+  inside `satisfied`), and attributing to one character what the other one did.
+
 ### 4. `film/Stage.hpp` — a room, and a camera standing in it
 
 The fifteen places built as rooms, **to scale in metres**: a door 2.05m, a table 0.74m, a counter
@@ -254,6 +287,10 @@ ctest --test-dir build -R "software_rasteriser|film_actor|film_perform|film_stag
   never stretches a bone.
 * `tests/film/perform.cpp` — chiefly one thing: **while a foot is on the ground, its position on the
   floor does not change.** Everybody gets that wrong, and it is measurable.
+* `tests/film/business.cpp` — what a character is doing with the room, and chiefly the two ways
+  reading prose goes wrong: a word found inside another word, and one character's stage direction
+  applied to the whole cast. (It did apply to the whole cast: one line saying somebody sat down put
+  everybody in the film on the floor.)
 * `tests/film/face.cpp` — the head is built like a head, and what it is doing comes from the story.
   Three of its checks each exist because of a bug that cost an afternoon of rendering pictures and
   staring at them:

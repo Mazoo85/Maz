@@ -1194,6 +1194,10 @@ add_executable(maz_film_perform_tests film/perform.cpp)
 target_link_libraries(maz_film_perform_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME film_perform COMMAND maz_film_perform_tests)
 
+add_executable(maz_film_business_tests film/business.cpp)
+target_link_libraries(maz_film_business_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME film_business COMMAND maz_film_business_tests)
+
 add_executable(maz_film_face_tests film/face.cpp)
 target_link_libraries(maz_film_face_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME film_face COMMAND maz_film_face_tests)

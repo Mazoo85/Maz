@@ -46,6 +46,17 @@ struct Stage {
     math::vec3 markRight{0.62f, 0.0f, 0.0f};
     // Where the thing the story turns on sits when nobody is holding it.
     math::vec3 objectAt{0.0f, 0.9f, 0.6f};
+    // And the thing itself, modelled about its own origin so it can be picked up. It is deliberately
+    // NOT part of the room: an object welded to its plinth is an object nobody in the film ever
+    // touches, and the whole point of it is that somebody does.
+    render::shapes::MeshData object;
+
+    // Somewhere to sit. Every buildable set has one, because "sits down" is a stage direction the
+    // screenplay writes for any of them and a character who cannot sit just stands there instead —
+    // and it is placed just off the acting area rather than against the back wall, so somebody who
+    // sits is still inside the shot the framing was built for.
+    math::vec3 seatAt{-0.95f, 0.45f, 1.55f}; // x, the height of the seat surface, z
+    float seatFacing = 3.14159265f;          // which way somebody sitting on it faces
 };
 
 namespace stagedetail {
@@ -336,11 +347,54 @@ inline Stage buildStage(const Shot& shot, const Palette& pal, std::uint32_t seed
         const math::vec3 where(0.0f, 0.0f, 1.9f);
         addProp(st, stand(0.46f, 0.72f, 0.40f, where.x, where.z, rgb(pal.deep, 1.45))); // a plinth
         addProp(st, box(0.54f, 0.035f, 0.48f, math::vec3(where.x, 0.72f, where.z), rgb(pal.deep, 1.9)));
-        addProp(st, box(0.026f, 0.011f, 0.150f, math::vec3(where.x, 0.749f, where.z), objC));
-        addProp(st, box(0.058f, 0.011f, 0.058f,
-                         math::vec3(where.x, 0.749f, where.z - 0.076f), objC));
-        addProp(st, box(0.020f, 0.011f, 0.026f,
-                         math::vec3(where.x + 0.023f, 0.749f, where.z + 0.055f), objC));
+        // The object itself is built about the ORIGIN and left loose, so whoever has it can carry it.
+        add(st.object, box(0.026f, 0.011f, 0.150f, math::vec3(0.0f, 0.0f, 0.0f), objC));
+        add(st.object, box(0.058f, 0.011f, 0.058f, math::vec3(0.0f, 0.0f, -0.076f), objC));
+        add(st.object, box(0.020f, 0.011f, 0.026f, math::vec3(0.023f, 0.0f, 0.055f), objC));
+    }
+
+    // ---- somewhere to sit ------------------------------------------------------------------------
+    //
+    // What it is depends on the room — a chair in an office, a stool at a bar, the edge of a bed on a
+    // ward, a low wall outside — but there is always one, and it is always in roughly the same place
+    // relative to the acting area, because that is where the camera is already pointed.
+    {
+        float seatH = 0.45f;
+        if (set == "bar" || set == "kitchen") {
+            seatH = 0.72f; // a stool
+        } else if (set == "ward") {
+            seatH = 0.58f; // the edge of a bed
+        } else if (set == "chapel") {
+            seatH = 0.44f; // a pew
+        } else if (outdoors) {
+            seatH = 0.40f; // a step, a low wall, a fallen trunk
+        }
+        const float sx = st.halfWidth < 1.6f ? -st.halfWidth * 0.52f : -1.02f;
+        const float sz = 1.58f;
+        st.seatAt = math::vec3(sx, seatH, sz);
+        st.seatFacing = 3.14159265f;
+        const render::Color seatC = rgb(pal.deep, 1.42);
+        if (outdoors) {
+            // Outdoors it is a low wall or the end of a fallen trunk — a chair standing in a wood is
+            // funnier than anything else in the film.
+            addProp(st, box(1.45f, seatH, 0.42f, math::vec3(sx, seatH * 0.5f, sz), seatC));
+        } else if (seatH > 0.60f) {
+            addProp(st, post(0.17f, seatH, sx, sz, seatC, 10));
+            addProp(st, box(0.40f, 0.045f, 0.40f, math::vec3(sx, seatH, sz), seatC));
+        } else {
+            addProp(st, box(0.48f, 0.055f, 0.46f, math::vec3(sx, seatH, sz), seatC));
+            for (int i = 0; i < 4; ++i) {
+                const float lx = sx + ((i & 1) ? 0.19f : -0.19f);
+                const float lz = sz + ((i & 2) ? 0.18f : -0.18f);
+                addProp(st, stand(0.045f, seatH - 0.03f, 0.045f, lx, lz, seatC));
+            }
+            if (set != "chapel") {
+                // A back, which is what makes a chair read as a chair from across a room. Low enough
+                // that it does not stand up behind a seated character's head like a post.
+                addProp(st, box(0.48f, 0.38f, 0.05f,
+                                 math::vec3(sx, seatH + 0.21f, sz + 0.205f), seatC));
+            }
+        }
     }
 
     // ---- the marks ------------------------------------------------------------------------------

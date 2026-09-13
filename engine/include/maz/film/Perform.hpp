@@ -55,6 +55,32 @@ struct Motive {
     float tension = 0.0f;   // 0..1; a wound-up body stands taller and holds its arms closer
     int gestureHand = kRight;
     std::uint32_t seed = 0; // so two people standing together do not breathe in unison
+
+    // ---- what they are doing with the ROOM -------------------------------------------------------
+    //
+    // A character who only ever stands on their mark and talks is a character in a radio play with a
+    // picture over it. These are the three things that put somebody IN a room rather than in front of
+    // one, and they are three because everything else an actor does on a set is one of them: they take
+    // the weight off their feet, they put their weight on something, or they touch something.
+
+    // Sitting. 0 standing, 1 fully down, and everything between is somebody in the act of sitting —
+    // which is worth having, because sitting down is a beat and cutting to somebody already seated is
+    // not the same shot.
+    float sit = 0.0f;
+    float seatY = 0.45f; // metres above the floor; a chair is 0.45, a step 0.18, a desk edge 0.74
+    float seatZ = 0.0f;  // where the seat is, forward of their mark
+
+    // Leaning on something: a wall, a door frame, a counter. Signed — negative leans to their left.
+    // It is a weight shift and a shoulder, not a lean of the whole body: people lean by putting a
+    // shoulder somewhere and letting the hips swing out the other way.
+    float leanOn = 0.0f;
+
+    // Reaching. The hand goes to a point in the WORLD — a door handle, a table top, the other
+    // person's hand — and the arm is solved to get there.
+    bool reaching = false;
+    math::vec3 reachTo{0.0f, 0.0f, 0.0f};
+    int reachHand = kRight;
+    float reachAmount = 1.0f; // 0 the hand is at rest, 1 it is at the target
 };
 
 namespace detail {
@@ -160,6 +186,44 @@ inline BodyPose performAt(const Build& b, const Motive& mv, float seconds) {
             p.arm[s].spread = 0.09f + 0.03f * effort;
             p.arm[s].elbow = 0.18f + 0.55f * (swing > 0.0f ? swing : 0.0f) + 0.12f * effort;
         }
+    } else if (mv.sit > 0.001f) {
+        // ------------------------------------------------------------------ sitting
+        //
+        // Sitting is not a pose so much as a PLACE for two joints: the pelvis goes down onto the seat
+        // and the feet go out in front. Everything else follows, because the knees are already solved
+        // from the feet — the leg IK that keeps a walker from skating bends a seated knee to ninety
+        // degrees on its own, with nothing added for it.
+        //
+        // The hip joint rides a little above the seat surface: a seat takes the weight on the flesh of
+        // the thigh, not on the bone, and a pelvis placed exactly on the seat plane sinks into it.
+        const float down = detail::smootherstep(mv.sit);
+        const float sitHipY = mv.seatY + b.m(0.052f);
+        const float standHipY = b.m(b.yPelvis) - b.m(kPelvisDrop);
+        const float breath = seconds * 1.00f + detail::seedPhase(mv.seed, 1u) * 6.2831853f;
+
+        p.hips = math::vec3(0.0f, standHipY + (sitHipY - standHipY) * down,
+                            mv.seatZ * down + b.m(0.0018f) * std::sin(breath));
+        p.sway = 0.0f;
+        p.pelvisTwist = 0.0f;
+        p.twist = 0.0f;
+        // Somebody sitting leans forward a little, and further the more wound up they are — elbows
+        // toward knees is what a body does when it is out of moves, and it is most of why the shot
+        // exists.
+        p.lean = 0.02f + (0.10f + 0.16f * mv.tension) * down;
+
+        // The feet: out in front by a thigh's length, and a little apart. Where they land is measured
+        // from the seat rather than from the mark, so a high stool and a low step both work.
+        const float thigh = b.m(b.yHip - b.yKnee);
+        for (int s = 0; s < 2; ++s) {
+            const float apart = sideSign(s) * b.m(b.hipHalf);
+            const float sitApart = sideSign(s) * b.m(b.hipHalf * 1.18f);
+            const float sitZ = mv.seatZ + thigh * 0.94f;
+            p.ankle[s] = math::vec3(apart + (sitApart - apart) * down, ankleY, sitZ * down);
+            p.footPitch[s] = 0.0f;
+            p.arm[s].swing = 0.10f * down + 0.02f * std::sin(breath + static_cast<float>(s) * 0.7f);
+            p.arm[s].spread = 0.10f + 0.04f * down - 0.045f * mv.tension;
+            p.arm[s].elbow = 0.14f + (0.55f + 0.35f * mv.tension) * down;
+        }
     } else {
         // ------------------------------------------------------------------ standing, and alive
         const float breath = seconds * 1.05f + detail::seedPhase(mv.seed, 1u) * 6.2831853f;
@@ -209,6 +273,35 @@ inline BodyPose performAt(const Build& b, const Motive& mv, float seconds) {
         }
     }
 
+    // ---------------------------------------------------------------------- leaning on something
+    //
+    // People do not lean by tipping over. They put a shoulder or a hip against the thing and let the
+    // weight swing the other way, so the body makes a shallow S and the far leg goes straight while
+    // the near one bends. Tipping the whole figure instead gives somebody falling over slowly.
+    if (mv.leanOn < -0.01f || mv.leanOn > 0.01f) {
+        const float on = mv.leanOn < -1.0f ? -1.0f : (mv.leanOn > 1.0f ? 1.0f : mv.leanOn);
+        const float hard = on < 0.0f ? -on : on;
+        // The shoulder goes to the wall and the hips swing out the other way — a shallow S, not a tilt.
+        p.hips.x -= b.m(0.040f) * on;
+        // The sway goes the OPPOSITE way to the hips, and far enough to more than undo them: the
+        // shoulder has to end up nearer the wall than it started while the hips end up further away.
+        // The same way as the hips and the whole figure tips like a felled tree, which is not leaning
+        // on something; only as far as the hips and the shoulder stays where it was, which is standing
+        // crookedly beside it.
+        p.sway -= 0.45f * on;
+        p.twist += 0.14f * on;
+        const int nearSide = on > 0.0f ? kLeft : kRight;
+        const int farSide = nearSide == kLeft ? kRight : kLeft;
+        p.arm[nearSide].swing -= 0.22f * hard;
+        p.arm[nearSide].spread -= 0.06f * hard;
+        p.arm[farSide].elbow += 0.30f * hard; // the free arm folds; leaners do not stand to attention
+        // The FEET stay out from the wall — that gap is most of what says somebody is propped against
+        // something rather than standing crooked next to it — and the far leg takes the weight.
+        p.ankle[nearSide].x -= b.m(0.045f) * on;
+        p.ankle[farSide].x -= b.m(0.028f) * on;
+        p.ankle[farSide].z -= b.m(0.030f) * hard;
+    }
+
     // ---------------------------------------------------------------------- speaking, over the top
     //
     // The hands move on the syllable, not on a timer of their own: a gesture that is not on the beat
@@ -240,6 +333,28 @@ inline BodyPose performAt(const Build& b, const Motive& mv, float seconds) {
     // look where they are going, and a head that simply rides on top of the spine is the difference
     // between walking and trudging.
     p.neckPitch = mv.lookPitch * 0.35f + 0.03f * mv.tension - p.lean * 0.85f;
+
+    // ---------------------------------------------------------------------- reaching for something
+    //
+    // Last, because it overrides: an arm that is going somewhere is not also swinging. The target is
+    // given in the world, so it is carried into the body's own space here — the arm solve works in
+    // body space, and handing the world coordinates straight to it would send everybody's hand to the
+    // same place regardless of where they were standing.
+    if (mv.reaching && mv.reachAmount > 0.01f) {
+        const int h = mv.reachHand == kLeft ? kLeft : kRight;
+        const math::vec3 d = mv.reachTo - mv.position;
+        const float c = std::cos(-mv.facing), sn = std::sin(-mv.facing);
+        const math::vec3 local(d.x * c + d.z * sn, d.y, -d.x * sn + d.z * c);
+        // Where the hand rests when it is not reaching, so a reach can be half-done and still be a
+        // pose rather than a jump between two of them.
+        const math::vec3 rest(sideSign(h) * b.m(b.hipHalf * 1.5f), b.m(b.yWrist), b.m(0.045f));
+        const float t = mv.reachAmount > 1.0f ? 1.0f : mv.reachAmount;
+        const float eased = detail::smootherstep(t);
+        p.arm[h].handSet = true;
+        p.arm[h].hand = rest + (local - rest) * eased;
+        // The other arm gets out of the way rather than staying where the idle left it.
+        p.arm[h == kRight ? kLeft : kRight].swing -= 0.08f * eased;
+    }
     return p;
 }
 

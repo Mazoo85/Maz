@@ -176,12 +176,25 @@ inline Scene stageScene(const Reel& reel, const Shot& shot, const std::map<std::
     std::stable_sort(present.begin(), present.end(),
                      [](const Cast* a, const Cast* b) { return a->side < b->side; });
 
+    // Where the object is, until somebody turns out to be holding it: on its plinth, where the room
+    // put it.
+    sc.objectAt = maz::film::detail::move(sc.stage.objectAt.x, sc.stage.objectAt.y,
+                                          sc.stage.objectAt.z);
+    bool heldByAnyone = false;
+
     const int total = static_cast<int>(present.size());
     for (int i = 0; i < total; ++i) {
         const Cast* who = present[static_cast<std::size_t>(i)];
         Standing st;
         st.who = who;
         st.speaking = !shot.speaker.empty() && shot.speaker == who->name;
+
+        // What they are DOING with the room, as against where they are standing in it. Read out of
+        // the reel: who is holding the thing the story turns on is recorded data, and who sits down
+        // is read out of the prose, which is the only place the film ever says so.
+        const maz::film::Business biz =
+            maz::film::businessAt(reel, shot.index, who->name, progress);
+        st.business = biz;
 
         Motive mv;
         mv.seed = hashName(who->name);
@@ -193,9 +206,20 @@ inline Scene stageScene(const Reel& reel, const Shot& shot, const std::map<std::
         mv.facing = 3.14159265f + toCentre; // 0 faces +Z, away from the camera; turn them round
         mv.tension = static_cast<float>(shot.mood) * 0.7f;
 
+        // Sitting moves somebody off their mark and onto the chair — and the camera goes with them,
+        // because it is aimed at where people ARE rather than at where the marks were.
+        if (biz.sit > 0.001f) {
+            mv.sit = biz.sit;
+            mv.seatY = sc.stage.seatAt.y;
+            mv.position = math::vec3(sc.stage.seatAt.x, 0.0f, sc.stage.seatAt.z);
+            mv.facing = sc.stage.seatFacing + toCentre * 0.5f;
+        }
+        mv.leanOn = biz.lean;
+
         // An action shot MOVES somebody: the flat film's "action" was a caption over a still picture,
         // and a character who never walks anywhere is the clearest thing missing from it.
-        const bool walker = shot.kind == "action" && i == 0 && shot.duration > 1.6;
+        const bool walker =
+            shot.kind == "action" && i == 0 && shot.duration > 1.6 && biz.sit <= 0.001f;
         if (walker) {
             const float span = 1.45f;
             const float u = static_cast<float>(progress);
@@ -244,8 +268,35 @@ inline Scene stageScene(const Reel& reel, const Shot& shot, const std::map<std::
             mv.gestureHand = (mv.seed & 1u) ? maz::film::kLeft : maz::film::kRight;
         }
 
+        // ---- the thing the story turns on ---------------------------------------------------------
+        //
+        // Whoever has it, has it IN THEIR HAND. And the two shots that matter — the one where they
+        // take it and the one where they give it up — are played rather than cut around: the hand
+        // goes to where the thing is and comes back with it, or goes out and leaves it there. The
+        // reel knew who was holding it all along; the 3D renderer simply never asked.
+        const int carryHand = (mv.seed & 2u) ? maz::film::kLeft : maz::film::kRight;
+        if (biz.holding && (biz.takingIt || biz.givingItUp)) {
+            const float u = static_cast<float>(progress);
+            // Taking it: the hand is out at the object at the start of the shot and back by the end.
+            // Giving it up: the other way round. Either way the reach is over well before the cut, so
+            // the shot is not one long stretch.
+            const float phase = biz.takingIt ? 1.0f - std::fmin(1.0f, u * 2.2f)
+                                             : std::fmin(1.0f, std::fmax(0.0f, (u - 0.25f) * 2.2f));
+            mv.reaching = true;
+            mv.reachHand = carryHand;
+            mv.reachAmount = phase;
+            mv.reachTo = sc.stage.objectAt;
+        }
+
         st.pose = maz::film::performAt(who->build, mv, static_cast<float>(time));
         st.skeleton = maz::film::skeletonOf(who->build, st.pose);
+        if (biz.holding) {
+            sc.objectAt = st.skeleton.wrist[carryHand] *
+                          maz::film::detail::move(0.0f, -who->build.m(who->build.handLen) * 0.55f,
+                                                  0.0f);
+            sc.objectShown = true;
+            heldByAnyone = true;
+        }
 
         // The face. Everyone in the shot reacts to the beat the shot is on, not just whoever is
         // talking — a listener's face is half of why the cut to them exists.
@@ -260,6 +311,13 @@ inline Scene stageScene(const Reel& reel, const Shot& shot, const std::map<std::
         react.seed = mv.seed;
         st.face = maz::film::faceAt(react);
         sc.people.push_back(st);
+    }
+
+    // Nobody has it, so it is back where the room keeps it — except when the story has LOST it, which
+    // is a state the object arc actually tracks, and an object that stays visibly on its plinth
+    // through the scene where everyone is looking for it is a plot hole you can see.
+    if (!heldByAnyone) {
+        sc.objectShown = shot.objectBeat != "lost";
     }
 
     // ---- the camera -------------------------------------------------------------------------------
@@ -313,7 +371,12 @@ inline Image drawFrame3D(const Reel& reel, const std::map<std::string, Cast>& ca
     // Built once and used twice: the shadow pass and the picture see the same bodies, which they must,
     // and a body is a few thousand triangles to assemble.
     std::vector<maz::render::shapes::MeshData> bodies;
-    bodies.reserve(sc.people.size());
+    bodies.reserve(sc.people.size() + 1);
+    // The object goes in with the bodies rather than with the room, because it moves like one: it is
+    // wherever the scene says it is, which may be on a plinth or may be in somebody's fist.
+    if (sc.objectShown && !sc.stage.object.vertices.empty()) {
+        bodies.push_back(maz::render::applyTransform(sc.stage.object, sc.objectAt));
+    }
     for (const Standing& who : sc.people) {
         bodies.push_back(maz::film::buildBody(who.who->build, who.skeleton, who.face));
     }

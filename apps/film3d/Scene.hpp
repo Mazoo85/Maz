@@ -1,5 +1,6 @@
 #pragma once
 
+#include "maz/film/Business.hpp"
 #include "maz/film/Perform.hpp"
 #include "maz/film/Stage.hpp"
 #include "maz/render/SoftRaster.hpp"
@@ -115,6 +116,7 @@ struct Standing {
     Skeleton skeleton;
     maz::film::BodyPose pose;
     maz::film::Face face;
+    maz::film::Business business;
     bool speaking = false;
 };
 
@@ -123,6 +125,12 @@ struct Scene {
     std::vector<Standing> people;
     Lens lens;
     maz::film::Palette palette;
+
+    // Where the thing the story turns on is, this instant — on its plinth, or in somebody's hand.
+    // Before this it was welded to the plinth for the whole film, which made it scenery rather than
+    // the thing everybody in the film is arguing about.
+    math::mat4 objectAt{1.0f};
+    bool objectShown = true;
 };
 
 // Who is where. At most two people are placed on marks; anyone else stands further back, because a
