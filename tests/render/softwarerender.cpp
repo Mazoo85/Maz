@@ -36,7 +36,7 @@ int main() {
         m.vertices = {vtx(-0.8f, -0.8f, 0.5f, 1, 1, 1), vtx(0.8f, -0.8f, 0.5f, 1, 1, 1),
                       vtx(0.0f, 0.8f, 0.5f, 1, 1, 1)};
         m.indices = {0, 1, 2};
-        const render::Image img = render::renderMeshPreview(m, identity, light, W, H, bg);
+        const render::Image img = render::renderMeshPreview(m, identity, light, math::vec3(0, 0, 5), W, H, bg);
         const render::Color centre = img.getPixel(W / 2, H / 2);
         const render::Color corner = img.getPixel(0, 0);
         CHECK(centre.r > 0.8f && centre.g > 0.8f && centre.b > 0.8f, "centre filled & lit (white)");
@@ -58,7 +58,8 @@ int main() {
             m.vertices = {red[0], red[1], red[2], blue[0], blue[1], blue[2]};
         }
         m.indices = {0, 1, 2, 3, 4, 5};
-        return render::renderMeshPreview(m, identity, light, W, H, bg).getPixel(W / 2, H / 2);
+        // Eye off-axis so the specular highlight doesn't wash the sampled centre — base colour dominates.
+        return render::renderMeshPreview(m, identity, light, math::vec3(3, 3, 5), W, H, bg).getPixel(W / 2, H / 2);
     };
     {
         const render::Color cBlueFirst = centreColorFor(true);
@@ -80,9 +81,25 @@ int main() {
         m.vertices = {vtx(-1.0f, -1.0f, 10.0f, 1, 1, 1), vtx(1.0f, -1.0f, 10.0f, 1, 1, 1),
                       vtx(0.0f, 1.0f, 10.0f, 1, 1, 1)};
         m.indices = {0, 1, 2};
-        const render::Image img = render::renderMeshPreview(m, vp, light, W, H, bg);
+        const render::Image img = render::renderMeshPreview(m, vp, light, math::vec3(0, 0, 3), W, H, bg);
         const render::Color centre = img.getPixel(W / 2, H / 2);
         CHECK(centre.r < 0.05f && centre.g < 0.05f && centre.b < 0.05f, "behind-camera tri culled");
+    }
+
+    // --- smooth shading: per-vertex normals interpolate across the triangle (flat couldn't) ---
+    {
+        render::shapes::MeshData m;
+        m.vertices = {
+            render::MeshVertex{-0.8f, -0.8f, 0.5f, 0, 0, 1, 1, 1, 1, 0, 0},   // base verts face +Z -> lit
+            render::MeshVertex{0.8f, -0.8f, 0.5f, 0, 0, 1, 1, 1, 1, 0, 0},    // lit
+            render::MeshVertex{0.0f, 0.9f, 0.5f, 0, 0, -1, 1, 1, 1, 0, 0},    // apex faces away -> dark
+        };
+        m.indices = {0, 1, 2};
+        const render::Image img = render::renderMeshPreview(m, identity, light, math::vec3(0, 0, 5), W, H, bg);
+        const render::Color lo = img.getPixel(W / 2, static_cast<int>(H * 0.75f)); // near the lit base
+        const render::Color hi = img.getPixel(W / 2, static_cast<int>(H * 0.2f));  // near the dark apex
+        CHECK(lo.r > 0.7f && hi.r < 0.5f && lo.r > hi.r + 0.3f,
+              "interpolated normals shade a gradient across one triangle");
     }
 
     if (g_fail == 0) {
