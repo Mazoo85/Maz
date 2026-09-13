@@ -237,8 +237,13 @@ const FAKE_GOOGLE = () => {
 
     const chips = await page.locator('#paletteChips .swatch').allTextContents();
     check(chips.length >= 3, 'both photos left a palette behind, plus their mixture');
-    check(chips.some((t) => /Mixture/i.test(t)),
+    check(chips.some((t) => /just these 2/i.test(t)),
       'the mixture of what was picked is offered as a palette of its own');
+    /* Photos out of Google feed the same accumulating memory as photos off the
+     * disk — the app does not keep two notions of what somebody's pictures
+     * look like depending on where they came from. */
+    check(chips.some((t) => /your look . 2 photos/i.test(t)),
+      `picked photos count towards the look like any other (${chips.join(', ')})`);
     check(await page.locator('#photoInfo').isVisible(),
       'the last photo is shown, measured, and ready to paint with');
 

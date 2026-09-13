@@ -67,21 +67,32 @@ function launchOptions() {
   return opts;
 }
 
-/* What is actually on the canvas: how many distinct colours, and whether it is
- * one flat field. A blank picture and a broken picture look the same to a
- * "did it throw?" test, so count pixels instead. */
+/* What is actually on the canvas: how many distinct colours, whether it is one
+ * flat field, and where the colour sits. A blank picture and a broken picture
+ * look the same to a "did it throw?" test, so count pixels instead.
+ *
+ * The three channels are reported apart as well as together. Overall
+ * brightness is nearly blind to a change of palette — a picture that goes
+ * redder and bluer in equal measure has the same mean as before — so a test
+ * that watches only `mean` can miss the very thing it is there to catch. */
 const INSPECT = `(() => {
   const c = document.getElementById('canvas');
   const ctx = c.getContext('2d');
   const d = ctx.getImageData(0, 0, c.width, c.height).data;
   const seen = new Set();
-  let sum = 0;
+  let r = 0, g = 0, b = 0, n = 0;
   for (let i = 0; i < d.length; i += 4 * 97) {
     seen.add((d[i] >> 3) + ',' + (d[i + 1] >> 3) + ',' + (d[i + 2] >> 3));
-    sum += d[i] + d[i + 1] + d[i + 2];
+    r += d[i]; g += d[i + 1]; b += d[i + 2]; n++;
   }
-  return { colours: seen.size, mean: sum / (d.length / (4 * 97) * 3), w: c.width, h: c.height };
+  return { colours: seen.size, mean: (r + g + b) / (n * 3),
+           r: r / n, g: g / n, b: b / n, w: c.width, h: c.height };
 })()`;
+
+/* How far apart two readings are as colour, rather than as brightness. */
+function colourGap(a, b) {
+  return Math.max(Math.abs(a.r - b.r), Math.abs(a.g - b.g), Math.abs(a.b - b.b));
+}
 
 /* Read the canvas only once it has stopped changing.
  *
@@ -318,9 +329,15 @@ let paintsThisLoad = 0;
     await page.uncheck('#usePhotoColours');
     count = await painted(page, count);
     const withoutPhoto = await settled(page, INSPECT);
-    check(Math.abs(withPhoto.mean - withoutPhoto.mean) > 0.5,
+    /* Judged on colour, not on brightness. This check once read only the mean
+     * of all three channels and failed in CI at "66.8 vs 66.9" — the picture
+     * had changed colour considerably, and the brightness it gave up in one
+     * channel it had taken back in another. */
+    check(colourGap(withPhoto, withoutPhoto) > 2,
       `painting in the photo's colours really changes the picture ` +
-      `(${withPhoto.mean.toFixed(1)} vs ${withoutPhoto.mean.toFixed(1)})`);
+      `(rgb ${withPhoto.r.toFixed(1)}/${withPhoto.g.toFixed(1)}/${withPhoto.b.toFixed(1)} ` +
+      `vs ${withoutPhoto.r.toFixed(1)}/${withoutPhoto.g.toFixed(1)}/${withoutPhoto.b.toFixed(1)}, ` +
+      `gap ${colourGap(withPhoto, withoutPhoto).toFixed(1)})`);
     await page.check('#usePhotoColours');
     count = await painted(page, count);
 
@@ -373,7 +390,11 @@ let paintsThisLoad = 0;
     await page.waitForSelector('#paletteBox:not([hidden])', { timeout: 20000 });
     const chips = await page.$$eval('.swatch span', (els) => els.map((e) => e.textContent));
     check(chips.length >= 4, `every photo leaves a palette behind (${chips.join(', ')})`);
-    check(chips.some((c) => /mixture of 3/i.test(c)), 'and the three of them make a mixture');
+    check(chips.some((c) => /just these 3/i.test(c)), 'and the three of them make a mixture');
+    /* The accumulating memory: four photos have been through this page (one
+     * earlier, three now) and the look must say so, not say three. */
+    check(chips.some((c) => /your look . 4 photos/i.test(c)),
+      `the look counts every photo ever shown, not just this batch (${chips.join(', ')})`);
 
     await page.fill('#prompt', 'a stag in a meadow at dawn');
     await page.selectOption('#style', 'poster');
@@ -386,7 +407,7 @@ let paintsThisLoad = 0;
       count = await painted(page, before);
       return settled(page, INSPECT);
     }
-    const mixture = await paintIn('Mixture of 3');
+    const mixture = await paintIn('Just these 3');
     const seafront = await paintIn('seafront');
     const forest = await paintIn('forest');
     check(Math.abs(mixture.mean - seafront.mean) > 0.5 &&
@@ -404,12 +425,26 @@ let paintsThisLoad = 0;
     await page.reload({ waitUntil: 'load' });
     await page.waitForSelector('#paletteBox:not([hidden])', { timeout: 15000 });
     const afterReload = await page.$$eval('.swatch span', (els) => els.map((e) => e.textContent));
-    check(afterReload.some((c) => /mixture of 3/i.test(c)),
+    check(afterReload.some((c) => /just these 3/i.test(c)),
       'the kept colours come back after a reload, with no photos stored');
+    check(afterReload.some((c) => /your look . 4 photos/i.test(c)),
+      'and the look survives the page closing — that is what makes it cumulative');
+
+    /* One more photo after the reload must move the count on rather than
+     * restart it. A memory that resets when the tab closes is not a memory. */
+    await page.setInputFiles('#photoFile', path.join(__dirname, 'fixtures', 'seafront.png'));
+    await page.waitForFunction(
+      () => [...document.querySelectorAll('.swatch span')]
+        .some((e) => /your look . 5 photos/i.test(e.textContent)),
+      null, { timeout: 20000 });
+    check(true, 'a photo added in a later session keeps counting up (5)');
 
     await page.click('#clearPalettes');
     await page.waitForTimeout(250);
     check(!(await page.isVisible('#paletteBox')), 'and they can all be forgotten');
+    check(await page.evaluate(() => !window.localStorage.getItem('codaPics.look.v1') ||
+      window.localStorage.getItem('codaPics.look.v1') === 'null'),
+      'forgetting means the accumulated look goes too, not just the named ones');
     count = await page.evaluate(
       () => Number(document.getElementById('canvas').dataset.painted || 0)
     );

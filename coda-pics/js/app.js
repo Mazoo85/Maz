@@ -45,6 +45,7 @@
   ];
 
   var PALETTE_KEY = 'codaPics.palettes.v1';
+  var LOOK_KEY = 'codaPics.look.v1';
   var STORE_KEY = 'codaPics.gallery.v2';
   var LEGACY_KEY = 'codaPics.gallery.v1';
   var LAST_KEY = 'codaPics.last.v1';
@@ -54,6 +55,7 @@
   var current = null;             // the spec on screen right now
   var photo = null;               // { image, analysis } — never leaves this page
   var library = [];               // palettes kept from photos: numbers, not pixels
+  var look = null;                // { palette, count } — every photo ever, folded into one
   var chosenPalette = 'latest';   // 'latest' | 'mixture' | an index into library
   var seed = 1;
   var busy = false;
@@ -219,11 +221,18 @@
       loadPhoto(file, function () {
         done++;
         if (done === list.length) {
-          chosenPalette = list.length > 1 ? 'mixture' : 'latest';
+          /* Once enough photographs have been through it, the accumulated look
+           * is the better answer than whatever was just loaded — it is what
+           * the person's pictures look like, not what this handful does. */
+          var deep = look && look.count >= 5;
+          chosenPalette = deep ? 'look' : (list.length > 1 ? 'mixture' : 'latest');
           renderPalettes();
-          setStatus(list.length > 1
-            ? 'Kept the colours of ' + list.length + ' photos. <b>Mixture</b> paints in all of them at once.'
-            : 'Kept the colours of that photo.');
+          setStatus(deep
+            ? 'Kept the colours of ' + list.length + ' more. <b>Your look</b> now stands for ' +
+              look.count + ' photos, and everything paints in it.'
+            : (list.length > 1
+              ? 'Kept the colours of ' + list.length + ' photos. <b>Just these</b> paints in all of them at once.'
+              : 'Kept the colours of that photo.'));
           if (el.prompt.value.trim()) repaint(seed);
         }
       });
@@ -281,8 +290,32 @@
   function rememberPalette(name, analysis) {
     library = library.filter(function (p) { return p.name !== name; });
     library.unshift({ name: String(name).slice(0, 40), palette: analysis.palette, at: Date.now() });
-    if (library.length > 12) library.length = 12;
+    /* Named palettes are for picking one back out by hand, so the list is long
+     * enough to be worth scrolling and no longer. It is not the memory — the
+     * memory is `look`, below, and nothing falls out of that. */
+    if (library.length > 200) library.length = 200;
     save(PALETTE_KEY, library);
+    rememberLook(analysis);
+  }
+
+  /*
+   * The part that actually gets better the more photographs it is given.
+   *
+   * Every photo ever measured is folded into one palette and a count. The
+   * hundredth photo shifts it by a hundredth; the thousandth by a thousandth;
+   * none of them is ever dropped to make room, because there is no room to make
+   * — it is one palette and one number however many have been through it.
+   *
+   * It is still only numbers. A thousand photographs leave about twenty of
+   * them behind, and not one pixel.
+   */
+  function rememberLook(analysis) {
+    if (!analysis || !analysis.palette || !PHOTO.fold) return;
+    var count = (look && look.count) || 0;
+    var folded = PHOTO.fold(look && look.palette, count, analysis.palette);
+    if (!folded) return;
+    look = { palette: folded, count: count + 1 };
+    save(LOOK_KEY, look);
   }
 
   function paletteSwatch(palette, w, h) {
@@ -312,6 +345,7 @@
   }
 
   function activePalette() {
+    if (chosenPalette === 'look') return look && look.palette;
     if (chosenPalette === 'mixture') return mixedPalette();
     if (chosenPalette === 'latest') return photo ? photo.analysis.palette : (library[0] && library[0].palette);
     var entry = library[chosenPalette];
@@ -319,9 +353,10 @@
   }
 
   function renderPalettes() {
-    el.paletteBox.hidden = library.length === 0;
+    var hasLook = !!(look && look.palette && look.count);
+    el.paletteBox.hidden = library.length === 0 && !hasLook;
     el.paletteChips.innerHTML = '';
-    if (!library.length) return;
+    if (el.paletteBox.hidden) return;
 
     function chip(key, label, palette, isMix) {
       var b = document.createElement('button');
@@ -341,19 +376,30 @@
       el.paletteChips.appendChild(b);
     }
 
+    /* First, and named for what it is: everything this app has ever been
+     * shown. It grows every time a photo goes in and never shrinks. */
+    if (hasLook) {
+      chip('look', 'Your look · ' + look.count + ' photo' + (look.count === 1 ? '' : 's'),
+        look.palette, true);
+    }
     var mixed = mixedPalette();
-    if (mixed) chip('mixture', 'Mixture of ' + library.length, mixed, true);
+    if (mixed) chip('mixture', 'Just these ' + library.length, mixed, true);
     library.forEach(function (entry, i) {
       chip(i, entry.name.replace(/\.[a-z0-9]+$/i, ''), entry.palette, false);
     });
   }
 
   function forgetPalettes() {
+    /* "Forget all of them" has to mean all of them, the accumulated look
+     * included — a button that quietly kept something back would be a lie. */
     library = [];
+    look = null;
     chosenPalette = 'latest';
     save(PALETTE_KEY, library);
+    save(LOOK_KEY, null);
     renderPalettes();
-    setStatus('All of those colours are forgotten. The photos were never here to forget.');
+    setStatus('All of those colours are forgotten, including your look. ' +
+      'The photos were never here to forget.');
     if (current) repaint(seed);
   }
 
@@ -1059,6 +1105,7 @@
     /* The colours kept from photos come back before anything is painted, on
      * every path through this function — a shared link included. */
     library = load(PALETTE_KEY, []) || [];
+    look = load(LOOK_KEY, null);
     renderPalettes();
     gpStart();
 

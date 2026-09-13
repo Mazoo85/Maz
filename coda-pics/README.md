@@ -76,11 +76,23 @@ all of them together make one more: **Mixture**, the colour your pictures have
 in common. Paint anything in it, or in any single photo's colours, by tapping
 the swatch.
 
-The palettes are kept; **the photographs are not**. A palette is about twenty
-numbers, so a year of them costs a few kilobytes — and next month the app can
-still paint in the colours of your summer without ever having stored a photo of
-it. *Forget all of them* clears the numbers; there was never anything else to
-clear.
+### Your look — what every photo adds up to
+
+Every photograph you ever put in — from the device, from Google Photos, today
+or in a year — is folded into one palette called **Your look**, and the count
+beside it says how many it stands for. Nothing is ever dropped to make room for
+something newer: the hundredth photo moves it by a hundredth, the thousandth by
+a thousandth, and the first one is still in there.
+
+It costs the same to remember a thousand photos as four — about twenty numbers
+— because what is kept is the average, not the photographs. Once five have been
+through it, new pictures paint in your look by default.
+
+**Just these N** is the other chip: the blend of only what is loaded right now,
+for when you want this evening rather than every evening.
+
+The palettes are kept; **the photographs are not**. *Forget all of them* clears
+the numbers — your look included — and there was never anything else to clear.
 
 None of this is a model. Nothing is learned or recognised; pixels are measured.
 It cannot put your face in a picture or make a photograph of something that
