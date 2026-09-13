@@ -1,0 +1,18 @@
+{
+  "note": "Average hashes of fixed prompts. Re-record with: node coda-pics/tests/visual.test.js --update",
+  "tolerance": 6,
+  "hashes": {
+    "dragon over snow": "00000af1200030f8",
+    "lighthouse in a storm": "1c18f8fbfb080a0d",
+    "ship at sea": "00ffffffff002020",
+    "stag in a meadow": "00000071fbffffff",
+    "neon city": "0c0c0c163e1f2600",
+    "cat under a tree": "1838fffc00000000",
+    "castle, watercolour": "007efff7630000ff",
+    "castle, blueprint": "007eff7c04180076",
+    "castle, stained glass": "007ef7e3e3000c1e",
+    "whale and moon": "0000f8ffff3800ff",
+    "cabin in falling snow": "e0f0c100000020ff",
+    "mushrooms in a cave": "00183c3c3c7c7e1c"
+  }
+}

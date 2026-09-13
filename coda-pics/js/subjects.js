@@ -97,8 +97,16 @@
     ctx.restore();
   }
 
+  /* While a stencil pass is running, the subject is being redrawn as a flat
+   * shape to build its shadow, its lit edge or the snow on top of it. Halos,
+   * beams and other light effects must sit that out: drawn flat and offset
+   * they are not an edge, they are a second copy of the glow. */
+  var STENCIL = false;
+  function setStencil(on) { STENCIL = !!on; }
+
   /* A soft halo — what makes a dragon at dusk read as lit from behind. */
   function glow(ctx, x, y, rad, style) {
+    if (STENCIL) return;
     var g = ctx.createRadialGradient(x, y, 0, x, y, rad);
     g.addColorStop(0, style);
     g.addColorStop(1, 'rgba(0,0,0,0)');
@@ -716,6 +724,7 @@
     ctx.fillStyle = rim(P, 0.95);
     ctx.fillRect(b.x + b.w * 0.36, b.y + b.h * 0.04, b.w * 0.28, b.h * 0.08);
     glow(ctx, b.x + b.w * 0.5, b.y + b.h * 0.08, b.w * 1.8, P.light(0.45));
+    if (STENCIL) return;                               // the beam is light, not shape
     ctx.beginPath();                                   // the beam
     ctx.moveTo(b.x + b.w * 0.5, b.y + b.h * 0.08);
     ctx.lineTo(b.x - b.w * 2.2, b.y - b.h * 0.5);
@@ -971,6 +980,7 @@
       ctx.arc(cx + b.w * 0.11 * i, cy + b.h * 0.1, Math.max(1.2, b.w * 0.022), 0, Math.PI * 2);
       ctx.fill();
     }
+    if (STENCIL) return;
     var g = ctx.createLinearGradient(0, cy, 0, cy + b.h * 2.4);   // tractor beam
     g.addColorStop(0, P.light(0.35));
     g.addColorStop(1, P.light(0));
@@ -1408,7 +1418,7 @@
     return true;
   }
 
-  var API = { draw: draw, META: META, DRAW: DRAW, QUAD: QUAD, BIRDS: BIRDS, PEOPLE: PEOPLE, TREES: TREES };
+  var API = { draw: draw, setStencil: setStencil, META: META, DRAW: DRAW, QUAD: QUAD, BIRDS: BIRDS, PEOPLE: PEOPLE, TREES: TREES };
   root.CodaSubjects = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })(typeof window !== 'undefined' ? window : this);

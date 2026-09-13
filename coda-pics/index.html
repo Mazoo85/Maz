@@ -8,6 +8,13 @@
   <title>CODA PICS — Type it, see it</title>
   <link rel="stylesheet" href="css/style.css" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230b0714'/><rect x='2' y='3' width='12' height='10' rx='1.5' fill='none' stroke='%2300d68f' stroke-width='1.4'/><circle cx='6' cy='6.6' r='1.2' fill='%23ffd166'/><path d='M3 12l3.4-3.6 2.2 2.2L11 8.2 13 12z' fill='%2300d68f'/></svg>" />
+  <!-- Installable: add it to a home screen and it opens like any other app,
+       and keeps working with no network. -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="CODA PICS" />
 </head>
 <body>
   <div id="app">
@@ -40,17 +47,134 @@
             <option value="wide" selected>Wide — 1280 × 720</option>
             <option value="tall">Tall — 832 × 1216</option>
             <option value="phone">Phone wallpaper — 720 × 1280</option>
+            <option value="bigsquare">Big square — 2048 × 2048</option>
+            <option value="hd">Desktop wallpaper — 2560 × 1440</option>
+            <option value="phonehd">Phone wallpaper, big — 1440 × 2560</option>
           </select>
         </div>
       </div>
 
+      <fieldset class="photo">
+        <legend>Use one of your photos</legend>
+        <input type="file" id="photoFile" accept="image/*" multiple />
+        <p class="photo-privacy">Pick as many as you like. They are read here on your device and never uploaded —
+      and only the colours they gave are remembered, never the photos themselves.</p>
+
+    <div id="paletteBox" class="palette-box" hidden>
+      <span class="palette-label">Paint in</span>
+      <div id="paletteChips" class="palette-chips"></div>
+      <button id="clearPalettes" type="button" class="palette-clear">Forget all of them</button>
+    </div>
+        <div id="photoInfo" class="photo-info" hidden>
+          <canvas id="photoThumb" class="photo-thumb" aria-label="The photo you chose"></canvas>
+          <div class="photo-uses">
+            <label><input type="checkbox" id="usePhotoColours" checked /> paint in its colours</label>
+            <label><input type="checkbox" id="usePhotoSkyline" /> use its horizon</label>
+            <label><input type="checkbox" id="usePhotoBackdrop" /> paint onto it</label>
+            <div class="buttons photo-buttons">
+              <button id="stylePhoto" type="button">🖌 Style the photo itself</button>
+              <button id="clearPhoto" type="button">✕ Forget this photo</button>
+            </div>
+          </div>
+          <p id="photoNote" class="photo-note"></p>
+        </div>
+
+        <details id="gphotos" class="gphotos">
+          <summary>…or bring them in from Google Photos</summary>
+          <p class="photo-privacy">This is the one part of CODA PICS that uses the internet. Google shows you
+            your own gallery, you choose the photos yourself, and only the photos you chose ever come here.
+            They are measured in this page like any other photo — nothing is uploaded, and only their colours
+            are kept.</p>
+          <details id="gpSetup" class="gp-setup">
+            <summary>Never done this? Open the one-off setup</summary>
+            <p class="gp-why">Google will not let an app near your photos on a key it did not give you,
+              and a key belongs to one Google account and one website — so a shared one could not work
+              for you even if it were here. You make your own. It is free, it takes about five minutes,
+              and you only ever do it once.</p>
+            <p class="gp-why"><b>Everything you have to paste into Google is on this page, with a copy
+              button.</b> Open each step in a new tab so you never lose your place here.</p>
+            <ol class="gp-steps">
+              <li>
+                <a class="gp-go" target="_blank" rel="noopener"
+                  href="https://console.cloud.google.com/projectcreate">Make a Google project ↗</a>
+                <span>Call it anything. If it offers you a free trial or asks for a card, dismiss it —
+                  none of this costs money.</span>
+              </li>
+              <li>
+                <a class="gp-go" target="_blank" rel="noopener"
+                  href="https://console.cloud.google.com/apis/library/photospicker.googleapis.com">Turn on the Photos Picker API ↗</a>
+                <span>Press <b>Enable</b> and wait for it to finish.</span>
+              </li>
+              <li>
+                <a class="gp-go" target="_blank" rel="noopener"
+                  href="https://console.cloud.google.com/auth/overview">Fill in the consent screen ↗</a>
+                <span>Choose <b>External</b>. An app name and your own email is all it wants. Ignore
+                  anything about publishing or verification — you are the only user.</span>
+              </li>
+              <li>
+                <a class="gp-go" target="_blank" rel="noopener"
+                  href="https://console.cloud.google.com/auth/audience">Add yourself as a test user ↗</a>
+                <span>Your own Gmail address, spelled exactly. A typo here is the usual reason Google
+                  refuses later, and it does not tell you that is why.</span>
+              </li>
+              <li>
+                <a class="gp-go" target="_blank" rel="noopener"
+                  href="https://console.cloud.google.com/auth/clients/create">Create the client ↗</a>
+                <span>Application type <b>Web application</b>. It asks for two addresses; they are here,
+                  and they have to match character for character:</span>
+                <div class="gp-copy">
+                  <code id="gpOrigin"></code>
+                  <button type="button" class="gp-copy-btn" data-copy="gpOrigin">Copy</button>
+                  <small>paste into <b>Authorised JavaScript origins</b></small>
+                </div>
+                <div class="gp-copy">
+                  <code id="gpRedirect"></code>
+                  <button type="button" class="gp-copy-btn" data-copy="gpRedirect">Copy</button>
+                  <small>paste into <b>Authorised redirect URIs</b></small>
+                </div>
+              </li>
+              <li>Press create. Copy the <b>Client ID</b> Google shows you — it ends in
+                <code>.apps.googleusercontent.com</code> — and paste it in the box below.</li>
+            </ol>
+            <p id="gpCopied" class="gp-copied" role="status" aria-live="polite"></p>
+          </details>
+
+          <label class="gp-field" for="gpClientId">Your Google client ID
+            <input type="text" id="gpClientId" spellcheck="false" autocomplete="off"
+              placeholder="000000-abcdef.apps.googleusercontent.com" />
+          </label>
+          <div class="buttons">
+            <button id="gpConnect" type="button">🔗 Connect Google Photos</button>
+            <button id="gpPick" type="button" hidden>🖼 Choose photos</button>
+            <button id="gpForget" type="button" hidden>✕ Disconnect</button>
+          </div>
+          <p class="gp-carry">Got it working here? <button id="gpLink" type="button"
+            class="gp-link-btn">🔗 Copy a setup link</button> and send it to yourself — opening it on
+            your phone or laptop sets that one up in a tap, so you only ever do the Google part once.
+            The link carries only the client ID, which is public by design and works from this site
+            alone; it cannot reach your photos.</p>
+          <p id="gpNote" class="photo-note" role="status" aria-live="polite"></p>
+          <p class="hint">First time? <a href="README.md#google-photos">How to set this up</a> — it is a
+            one-off, takes about five minutes, and costs nothing.</p>
+        </details>
+      </fieldset>
+
+      <fieldset class="locks">
+        <legend>Keep when you take another</legend>
+        <label><input type="checkbox" id="lockSubject" /> the subject</label>
+        <label><input type="checkbox" id="lockSky" /> the sky</label>
+        <label><input type="checkbox" id="lockLand" /> the land</label>
+      </fieldset>
+
       <div class="buttons">
         <button id="paint" class="primary" type="button">🎨 Paint it</button>
         <button id="reroll" type="button" title="Same words, a different take">🎲 Another take</button>
+        <button id="six" type="button" title="Six takes at once">▦ Show me six</button>
         <button id="surprise" type="button" title="Write me a prompt">✨ Surprise me</button>
       </div>
-      <p class="hint">Everything is drawn in your browser. Nothing is uploaded, no account, no key, no cost —
-        and it works with the wifi off.</p>
+      <p class="hint">Everything is drawn in your browser. Nothing is uploaded, no account, no cost —
+        and it works with the wifi off. (Bringing photos in from Google Photos is the one thing here
+        that uses the internet, and it is optional.)</p>
     </section>
 
     <!-- ------------------------------------------------------------ output -->
@@ -67,10 +191,17 @@
 
         <p id="status" class="status" role="status" aria-live="polite"></p>
         <div id="readout" class="readout" aria-label="What I understood"></div>
+        <p id="unknown" class="unknown" hidden></p>
 
         <div class="buttons out" id="outButtons" hidden>
           <button id="download" class="primary" type="button">⬇ Save the picture</button>
           <button id="keep" type="button">★ Keep in my gallery</button>
+          <button id="share" type="button" title="A link that paints this exact picture">🔗 Copy a link to it</button>
+        </div>
+
+        <div class="sheet" id="sheet" hidden>
+          <h3 class="section-title">Six takes</h3>
+          <div class="gallery" id="sheetGrid"></div>
         </div>
       </section>
 
@@ -78,23 +209,39 @@
       <section class="gallery-wrap" id="galleryWrap" hidden>
         <h2 class="section-title">My gallery</h2>
         <p class="gallery-note">Kept on this device only. Tap one to bring it back.</p>
+        <div class="buttons gallery-tools">
+          <button id="exportGallery" type="button">⬇ Save my gallery to a file</button>
+          <button id="importGallery" type="button">⬆ Load a gallery file</button>
+          <input type="file" id="importFile" accept="application/json,.json" hidden />
+        </div>
         <div class="gallery" id="gallery"></div>
       </section>
     </main>
 
     <footer class="foot">
-      <p>CODA PICS draws every picture from scratch with maths — no photographs, no model, no network.
+      <p>CODA PICS draws every picture from scratch with maths — no photographs, no model, no training data.
         Part of <a href="../index.html">MAZ ARCADE</a> · <a href="README.md">how it works</a></p>
     </footer>
 
   </div>
 
   <script src="js/lexicon.js"></script>
+  <script src="js/photo.js"></script>
   <script src="js/prompt.js"></script>
   <script src="js/subjects.js"></script>
   <script src="js/paint.js"></script>
   <script src="js/finish.js"></script>
+  <script src="js/gphotos.js"></script>
   <script src="js/app.js"></script>
   <script src="../shared/maz-nav.js" data-current="coda-pics" defer></script>
+  <script>
+    /* Offline support is a bonus, never a requirement: if the browser has no
+       service workers, or refuses to register one, the app is unaffected. */
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js').catch(function () {});
+      });
+    }
+  </script>
 </body>
 </html>

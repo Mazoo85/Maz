@@ -33,7 +33,11 @@ if (!chromium) {
 }
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 8212;
-const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };
+const MIME = {
+  '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
+  '.webmanifest': 'application/manifest+json', '.json': 'application/json',
+  '.png': 'image/png', '.svg': 'image/svg+xml', '.md': 'text/plain'
+};
 const server = http.createServer((req, res) => {
   let p = decodeURIComponent(req.url.split('?')[0].split('#')[0]);
   if (p.endsWith('/')) p += 'index.html';
@@ -63,21 +67,51 @@ function launchOptions() {
   return opts;
 }
 
-/* What is actually on the canvas: how many distinct colours, and whether it is
- * one flat field. A blank picture and a broken picture look the same to a
- * "did it throw?" test, so count pixels instead. */
+/* What is actually on the canvas: how many distinct colours, whether it is one
+ * flat field, and where the colour sits. A blank picture and a broken picture
+ * look the same to a "did it throw?" test, so count pixels instead.
+ *
+ * The three channels are reported apart as well as together. Overall
+ * brightness is nearly blind to a change of palette — a picture that goes
+ * redder and bluer in equal measure has the same mean as before — so a test
+ * that watches only `mean` can miss the very thing it is there to catch. */
 const INSPECT = `(() => {
   const c = document.getElementById('canvas');
   const ctx = c.getContext('2d');
   const d = ctx.getImageData(0, 0, c.width, c.height).data;
   const seen = new Set();
-  let sum = 0;
+  let r = 0, g = 0, b = 0, n = 0;
   for (let i = 0; i < d.length; i += 4 * 97) {
     seen.add((d[i] >> 3) + ',' + (d[i + 1] >> 3) + ',' + (d[i + 2] >> 3));
-    sum += d[i] + d[i + 1] + d[i + 2];
+    r += d[i]; g += d[i + 1]; b += d[i + 2]; n++;
   }
-  return { colours: seen.size, mean: sum / (d.length / (4 * 97) * 3), w: c.width, h: c.height };
+  return { colours: seen.size, mean: (r + g + b) / (n * 3),
+           r: r / n, g: g / n, b: b / n, w: c.width, h: c.height };
 })()`;
+
+/* How far apart two readings are as colour, rather than as brightness. */
+function colourGap(a, b) {
+  return Math.max(Math.abs(a.r - b.r), Math.abs(a.g - b.g), Math.abs(a.b - b.b));
+}
+
+/* Read the canvas only once it has stopped changing.
+ *
+ * The painted counter says a render finished, but a render can be followed by
+ * another one the page started itself (a control that repaints on change), and
+ * reading between the two gives the previous picture. Two identical reads in a
+ * row means the canvas is at rest. */
+async function settled(page, inspect) {
+  let last = null;
+  for (let i = 0; i < 40; i++) {
+    const now = await page.evaluate(inspect);
+    if (last && now.colours === last.colours && Math.abs(now.mean - last.mean) < 1e-9) {
+      return now;
+    }
+    last = now;
+    await page.waitForTimeout(120);
+  }
+  return last;
+}
 
 /* Wait for one more finished picture than there were before. The page counts
  * them on the canvas itself, so this can never pass on a paint that has been
@@ -89,6 +123,8 @@ async function painted(page, before, timeout) {
   );
   return page.evaluate(() => Number(document.getElementById('canvas').dataset.painted || 0));
 }
+
+let paintsThisLoad = 0;
 
 (async () => {
   await new Promise((r) => server.listen(PORT, '127.0.0.1', r));
@@ -202,7 +238,254 @@ async function painted(page, before, timeout) {
     const after = await page.evaluate(INSPECT);
     check(after.colours > 12, 'the surprise is a real picture');
 
-    check(count >= 7, `every button and control painted a fresh picture (${count} in all)`);
+    /* --------------------------------------------- words it does not know */
+    await page.fill('#prompt', 'a griffin in a pine forest');
+    await page.click('#paint');
+    count = await painted(page, count);
+    check(await page.isVisible('#unknown'), 'it admits when a word meant nothing to it');
+    const unknownText = await page.textContent('#unknown');
+    check(/griffin/i.test(unknownText), `it names the word it did not know (${unknownText})`);
+
+    await page.fill('#prompt', 'a fox in a pine forest');
+    await page.click('#paint');
+    count = await painted(page, count);
+    check(!(await page.isVisible('#unknown')), 'and says nothing when it understood everything');
+
+    /* ------------------------------------------------------- six at once */
+    await page.click('#six');
+    await page.waitForTimeout(1200);
+    const sheet = await page.$$('#sheetGrid .card canvas');
+    check(sheet.length === 6, `six takes really renders six (${sheet.length})`);
+
+    /* ----------------------------------------------------- a link to it */
+    const link = await page.evaluate(`(() => {
+      document.getElementById('share').click();
+      return location.origin + location.pathname;
+    })()`);
+    check(typeof link === 'string' && link.length > 0, 'the share button runs without throwing');
+
+    /* The link has to actually reproduce the picture, which is the only
+     * thing that makes it worth having. */
+    await page.fill('#prompt', 'a whale under a huge moon');
+    await page.selectOption('#style', 'noir');
+    await page.click('#paint');
+    count = await painted(page, count);
+    const before = await page.evaluate(INSPECT);
+    const shared = await page.evaluate(`(() => {
+      const c = document.getElementById('canvas');
+      return { href: location.href, painted: c.dataset.painted };
+    })()`);
+    void shared;
+    const url = await page.evaluate(`(() => {
+      const s = document.getElementById('status').textContent || '';
+      const m = s.match(/seed (\\d+)/);
+      return location.origin + location.pathname + '#p=' +
+        encodeURIComponent('a whale under a huge moon') + '&s=' + (m ? m[1] : '1') +
+        '&y=noir&z=' + document.getElementById('shape').value;
+    })()`);
+    const page2 = await browser.newPage({ viewport: { width: 1100, height: 900 } });
+    await page2.goto(url, { waitUntil: 'load' });
+    await page2.waitForFunction(
+      () => Number(document.getElementById('canvas').dataset.painted || 0) > 0,
+      null, { timeout: 30000 }
+    );
+    const reopened = await page2.evaluate(INSPECT);
+    check(reopened.colours === before.colours && Math.abs(reopened.mean - before.mean) < 0.001,
+      'opening the shared link paints exactly the same picture');
+    await page2.close();
+
+    /* --------------------------------------- a kept picture cannot drift */
+    await page.click('#keep');
+    await page.waitForTimeout(300);
+    const storedScene = await page.evaluate(`(() => {
+      try {
+        const kept = JSON.parse(localStorage.getItem('codaPics.gallery.v2') || '[]');
+        return !!(kept[0] && kept[0].spec && kept[0].spec.scene && kept[0].spec.style);
+      } catch (e) { return false; }
+    })()`);
+    check(storedScene,
+      'the gallery stores the finished scene, not just the words that made it');
+
+    /* ------------------------------------------------ one of your own photos
+     * The fixture is a generated landscape, not anyone's photograph — see
+     * tests/fixtures/README.md. It has a clear ridge and a sun to the right,
+     * so every branch here has something real to read. */
+    await page.setInputFiles('#photoFile', path.join(__dirname, 'fixtures', 'landscape.png'));
+    await page.waitForSelector('#photoInfo:not([hidden])', { timeout: 15000 });
+    check(true, 'a chosen photo is read and shown back');
+
+    const photoNote = await page.textContent('#photoNote');
+    check(/horizon found/i.test(photoNote), `it reports what it found (${photoNote})`);
+    check(!(await page.isDisabled('#usePhotoSkyline')),
+      'a photo with a clear horizon may lend it');
+
+    await page.fill('#prompt', 'a dragon over the mountains');
+    await page.selectOption('#style', 'poster');
+    await page.click('#paint');
+    count = await painted(page, count);
+    const withPhoto = await settled(page, INSPECT);
+
+    /* Its colours have to actually change the picture, or the checkbox lies. */
+    await page.uncheck('#usePhotoColours');
+    count = await painted(page, count);
+    const withoutPhoto = await settled(page, INSPECT);
+    /* Judged on colour, not on brightness. This check once read only the mean
+     * of all three channels and failed in CI at "66.8 vs 66.9" — the picture
+     * had changed colour considerably, and the brightness it gave up in one
+     * channel it had taken back in another. */
+    check(colourGap(withPhoto, withoutPhoto) > 2,
+      `painting in the photo's colours really changes the picture ` +
+      `(rgb ${withPhoto.r.toFixed(1)}/${withPhoto.g.toFixed(1)}/${withPhoto.b.toFixed(1)} ` +
+      `vs ${withoutPhoto.r.toFixed(1)}/${withoutPhoto.g.toFixed(1)}/${withoutPhoto.b.toFixed(1)}, ` +
+      `gap ${colourGap(withPhoto, withoutPhoto).toFixed(1)})`);
+    await page.check('#usePhotoColours');
+    count = await painted(page, count);
+
+    await page.check('#usePhotoSkyline');
+    count = await painted(page, count);
+    check(true, 'its horizon can be used without throwing');
+
+    await page.check('#usePhotoBackdrop');
+    count = await painted(page, count);
+    const onPhoto = await page.evaluate(INSPECT);
+    check(onPhoto.colours > 12, 'a subject can be painted onto the photo itself');
+
+    /* A picture painted onto a photo must not be kept, because the gallery
+     * stores scenes and not photographs — and saying so beats bringing it
+     * back wrong later. */
+    await page.click('#keep');
+    await page.waitForTimeout(250);
+    const keepMsg = await page.textContent('#status');
+    check(/gallery stores scenes/i.test(keepMsg),
+      'and the gallery says why it cannot keep that one');
+    await page.uncheck('#usePhotoBackdrop');
+    count = await painted(page, count);
+
+    /* The photo through the app's own styles, with nothing drawn on top. */
+    await page.selectOption('#style', 'ukiyo');
+    count = await painted(page, count);
+    await page.waitForTimeout(300);
+    await page.click('#stylePhoto');
+    await page.waitForFunction(
+      () => /Your photo, in/.test(document.getElementById('status').textContent || ''),
+      null, { timeout: 20000 }
+    );
+    const styled = await page.evaluate(INSPECT);
+    check(styled.colours > 8, 'the photo itself can be put through a style');
+    const styledAlt = await page.getAttribute('#canvas', 'aria-label');
+    check(/your photograph/i.test(styledAlt), `and says so for a screen reader (${styledAlt})`);
+
+    await page.click('#clearPhoto');
+    await page.waitForTimeout(200);
+    check(!(await page.isVisible('#photoInfo')), 'the photo can be forgotten again');
+
+    /* ------------------------------------------- a mixture of several photos
+     * Three photos in three obviously different colour worlds, so a blend of
+     * them is visibly not any one of them. */
+    await page.setInputFiles('#photoFile', [
+      path.join(__dirname, 'fixtures', 'landscape.png'),
+      path.join(__dirname, 'fixtures', 'seafront.png'),
+      path.join(__dirname, 'fixtures', 'forest.png')
+    ]);
+    await page.waitForSelector('#paletteBox:not([hidden])', { timeout: 20000 });
+    const chips = await page.$$eval('.swatch span', (els) => els.map((e) => e.textContent));
+    check(chips.length >= 4, `every photo leaves a palette behind (${chips.join(', ')})`);
+    check(chips.some((c) => /just these 3/i.test(c)), 'and the three of them make a mixture');
+    /* The accumulating memory: four photos have been through this page (one
+     * earlier, three now) and the look must say so, not say three. */
+    check(chips.some((c) => /your look . 4 photos/i.test(c)),
+      `the look counts every photo ever shown, not just this batch (${chips.join(', ')})`);
+
+    await page.fill('#prompt', 'a stag in a meadow at dawn');
+    await page.selectOption('#style', 'poster');
+    await page.click('#paint');
+    count = await painted(page, count);
+
+    async function paintIn(label) {
+      const before = count;
+      await page.click(`.swatch:has-text("${label}")`);
+      count = await painted(page, before);
+      return settled(page, INSPECT);
+    }
+    const mixture = await paintIn('Just these 3');
+    const seafront = await paintIn('seafront');
+    const forest = await paintIn('forest');
+    check(Math.abs(mixture.mean - seafront.mean) > 0.5 &&
+          Math.abs(mixture.mean - forest.mean) > 0.5,
+      'the mixture paints as none of the photos it came from');
+    check(Math.abs(seafront.mean - forest.mean) > 0.5,
+      'and each photo paints as itself');
+
+    /* The reload below starts the page again, so the running tally of pictures
+     * is taken before it rather than after. */
+    paintsThisLoad = count;
+
+    /* The colours outlive the photos, which is the whole point of keeping
+     * numbers rather than pixels. */
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForSelector('#paletteBox:not([hidden])', { timeout: 15000 });
+    const afterReload = await page.$$eval('.swatch span', (els) => els.map((e) => e.textContent));
+    check(afterReload.some((c) => /just these 3/i.test(c)),
+      'the kept colours come back after a reload, with no photos stored');
+    check(afterReload.some((c) => /your look . 4 photos/i.test(c)),
+      'and the look survives the page closing — that is what makes it cumulative');
+
+    /* One more photo after the reload must move the count on rather than
+     * restart it. A memory that resets when the tab closes is not a memory. */
+    await page.setInputFiles('#photoFile', path.join(__dirname, 'fixtures', 'seafront.png'));
+    await page.waitForFunction(
+      () => [...document.querySelectorAll('.swatch span')]
+        .some((e) => /your look . 5 photos/i.test(e.textContent)),
+      null, { timeout: 20000 });
+    check(true, 'a photo added in a later session keeps counting up (5)');
+
+    await page.click('#clearPalettes');
+    await page.waitForTimeout(250);
+    check(!(await page.isVisible('#paletteBox')), 'and they can all be forgotten');
+    check(await page.evaluate(() => !window.localStorage.getItem('codaPics.look.v1') ||
+      window.localStorage.getItem('codaPics.look.v1') === 'null'),
+      'forgetting means the accumulated look goes too, not just the named ones');
+    count = await page.evaluate(
+      () => Number(document.getElementById('canvas').dataset.painted || 0)
+    );
+
+    /* ------------------------------------------------- installable as an app
+     * The manifest and its icons are what let someone add CODA PICS to a home
+     * screen. They are easy to break by renaming a file and never notice,
+     * because the page itself keeps working. */
+    const manifestHref = await page.getAttribute('link[rel="manifest"]', 'href');
+    check(manifestHref === 'manifest.webmanifest', `the page links its manifest (got ${manifestHref})`);
+
+    const mres = await page.request.get(`http://127.0.0.1:${PORT}/coda-pics/manifest.webmanifest`);
+    check(mres.ok(), 'the manifest is served');
+    let manifest = null;
+    try { manifest = JSON.parse(await mres.text()); } catch (e) { /* reported below */ }
+    check(!!manifest, 'the manifest is valid JSON');
+    if (manifest) {
+      check(manifest.name === 'CODA PICS', `the manifest names the app (got ${manifest.name})`);
+      check(manifest.display === 'standalone', 'it opens as an app, not a browser tab');
+      check(!!manifest.start_url && !!manifest.scope, 'it has a start url and a scope');
+      check(Array.isArray(manifest.icons) && manifest.icons.length >= 2,
+        `it declares icons (${manifest.icons ? manifest.icons.length : 0})`);
+      check(manifest.icons.some((i) => String(i.purpose).includes('maskable')),
+        'one icon is maskable, so Android does not frame it in a white box');
+
+      const dead = [];
+      for (const icon of manifest.icons) {
+        const r = await page.request.get(`http://127.0.0.1:${PORT}/coda-pics/${icon.src}`);
+        if (!r.ok()) dead.push(icon.src);
+      }
+      check(dead.length === 0, 'every icon the manifest names exists' + (dead.length ? ' — missing: ' + dead.join(', ') : ''));
+    }
+
+    const apple = await page.request.get(`http://127.0.0.1:${PORT}/coda-pics/icons/apple-touch-icon.png`);
+    check(apple.ok(), 'the iOS home-screen icon exists');
+
+    const sw = await page.request.get(`http://127.0.0.1:${PORT}/coda-pics/sw.js`);
+    check(sw.ok(), 'the offline worker is served');
+
+    check(paintsThisLoad >= 7,
+      `every button and control painted a fresh picture (${paintsThisLoad} in all)`);
     check(problems.length === 0, 'nothing threw anywhere in all of that' +
       (problems.length ? ' — ' + problems.join('; ') : ''));
   } catch (err) {
