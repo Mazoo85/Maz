@@ -67,21 +67,32 @@ function launchOptions() {
   return opts;
 }
 
-/* What is actually on the canvas: how many distinct colours, and whether it is
- * one flat field. A blank picture and a broken picture look the same to a
- * "did it throw?" test, so count pixels instead. */
+/* What is actually on the canvas: how many distinct colours, whether it is one
+ * flat field, and where the colour sits. A blank picture and a broken picture
+ * look the same to a "did it throw?" test, so count pixels instead.
+ *
+ * The three channels are reported apart as well as together. Overall
+ * brightness is nearly blind to a change of palette — a picture that goes
+ * redder and bluer in equal measure has the same mean as before — so a test
+ * that watches only `mean` can miss the very thing it is there to catch. */
 const INSPECT = `(() => {
   const c = document.getElementById('canvas');
   const ctx = c.getContext('2d');
   const d = ctx.getImageData(0, 0, c.width, c.height).data;
   const seen = new Set();
-  let sum = 0;
+  let r = 0, g = 0, b = 0, n = 0;
   for (let i = 0; i < d.length; i += 4 * 97) {
     seen.add((d[i] >> 3) + ',' + (d[i + 1] >> 3) + ',' + (d[i + 2] >> 3));
-    sum += d[i] + d[i + 1] + d[i + 2];
+    r += d[i]; g += d[i + 1]; b += d[i + 2]; n++;
   }
-  return { colours: seen.size, mean: sum / (d.length / (4 * 97) * 3), w: c.width, h: c.height };
+  return { colours: seen.size, mean: (r + g + b) / (n * 3),
+           r: r / n, g: g / n, b: b / n, w: c.width, h: c.height };
 })()`;
+
+/* How far apart two readings are as colour, rather than as brightness. */
+function colourGap(a, b) {
+  return Math.max(Math.abs(a.r - b.r), Math.abs(a.g - b.g), Math.abs(a.b - b.b));
+}
 
 /* Read the canvas only once it has stopped changing.
  *
@@ -318,9 +329,15 @@ let paintsThisLoad = 0;
     await page.uncheck('#usePhotoColours');
     count = await painted(page, count);
     const withoutPhoto = await settled(page, INSPECT);
-    check(Math.abs(withPhoto.mean - withoutPhoto.mean) > 0.5,
+    /* Judged on colour, not on brightness. This check once read only the mean
+     * of all three channels and failed in CI at "66.8 vs 66.9" — the picture
+     * had changed colour considerably, and the brightness it gave up in one
+     * channel it had taken back in another. */
+    check(colourGap(withPhoto, withoutPhoto) > 2,
       `painting in the photo's colours really changes the picture ` +
-      `(${withPhoto.mean.toFixed(1)} vs ${withoutPhoto.mean.toFixed(1)})`);
+      `(rgb ${withPhoto.r.toFixed(1)}/${withPhoto.g.toFixed(1)}/${withPhoto.b.toFixed(1)} ` +
+      `vs ${withoutPhoto.r.toFixed(1)}/${withoutPhoto.g.toFixed(1)}/${withoutPhoto.b.toFixed(1)}, ` +
+      `gap ${colourGap(withPhoto, withoutPhoto).toFixed(1)})`);
     await page.check('#usePhotoColours');
     count = await painted(page, count);
 
