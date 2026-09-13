@@ -1,0 +1,36 @@
+// tests/engine/all_headers.cpp.in — the template CMake fills with an #include of EVERY header under
+// engine/include/maz. Configured into the build directory at configure time, so the list can never go
+// stale: a header added to the engine is in this test the next time CMake runs, with nothing to remember.
+//
+// What it proves is something no per-module test can: that the engine's headers can be used TOGETHER.
+// Maz is header-only and its 690-odd headers all live in a handful of namespaces, so two of them
+// declaring the same name is not a style problem, it is a build failure for whoever includes both — and
+// every existing test includes one module, which is exactly the arrangement that cannot see it. When
+// this was first run it found five collisions that had been sitting in the engine unnoticed:
+//
+//   * maz::math::Frame           — ParallelTransport.hpp and RotationMinimizingFrame.hpp, one each,
+//                                  so comparing the two frame builders was a compile error
+//   * maz::math::simplifyPolyline— the same Ramer-Douglas-Peucker written out twice, in Geometry2D.hpp
+//                                  and SimplifyPolyline.hpp
+//   * maz::math::closestPointOnSegment — two different functions, three vec2 arguments each, with the
+//                                  point and the segment in the OPPOSITE order
+//   * maz::math::clampf          — MathFuncs.hpp's, and a second copy in Sdf2D.hpp reached through a
+//                                  `using namespace detail2d`
+//   * maz::render::lerpColor     — ColorOps.hpp's, and a differently-behaved one (clamping, alpha
+//                                  ignored) in MeshVertexColorGradient.hpp
+//
+// If this stops compiling, that is the finding: two headers have collided. Fix the collision rather than
+// dropping a header from the list — the list is generated and there is nowhere to drop it from.
+//
+// It is a compile-time check wearing a test's clothes: the executable runs, prints, and exits 0. The
+// build either produced it or it did not.
+
+@MAZ_ALL_HEADER_INCLUDES@
+
+#include <cstdio>
+
+int main() {
+    std::printf("all_headers: OK — every header under engine/include/maz compiles in one file (%d of them).\n",
+                @MAZ_ALL_HEADER_COUNT@);
+    return 0;
+}

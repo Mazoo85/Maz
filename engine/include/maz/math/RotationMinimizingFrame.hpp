@@ -1,6 +1,7 @@
 #pragma once
 
 #include "maz/math/Math.hpp" // vec3, dot, cross, normalize
+#include "maz/math/Frame.hpp" // Frame — shared, so this header and the other frame builder can meet
 
 #include <cmath>
 #include <vector>
@@ -17,12 +18,6 @@
 // vec3 math, header-only, deterministic — unit-tested for orthonormality, no rotation on a straight line,
 // a constant bi-normal on a planar curve, and stability where a Frenet frame would flip.
 namespace maz::math {
-
-struct Frame {
-    vec3 tangent{0.0f, 0.0f, 1.0f};
-    vec3 normal{1.0f, 0.0f, 0.0f};   // reference axis, perpendicular to tangent
-    vec3 binormal{0.0f, 1.0f, 0.0f}; // tangent x normal
-};
 
 namespace detail {
 inline float rmfDot(const vec3& a, const vec3& b) { return a.x * b.x + a.y * b.y + a.z * b.z; }

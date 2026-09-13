@@ -2,7 +2,7 @@
   "schema": 1,
   "stats": {
     "apps": 172,
-    "engineModules": 696,
+    "engineModules": 697,
     "engineSubsystems": 20,
     "cppTests": 382,
     "webApps": 8,
@@ -10,16 +10,16 @@
     "gates": 3,
     "buildTools": 11,
     "docs": 20,
-    "totalArtifacts": 913,
+    "totalArtifacts": 914,
     "linesOfApps": 35181,
-    "linesOfEngine": 88266,
+    "linesOfEngine": 88241,
     "linesOfWeb": 26857,
     "appsHeadless": 100,
     "appsGolden": 91,
     "modulesTested": 100,
     "modulesDemoed": 39,
-    "checksPassed": 2762,
-    "checksTotal": 3198,
+    "checksPassed": 2764,
+    "checksTotal": 3201,
     "openTasks": 7
   },
   "queue": [
@@ -28,8 +28,8 @@
       "priority": 1,
       "kind": "engine-module",
       "check": "demoed",
-      "title": "422 engine modules are tested but no app shows them",
-      "detail": "These are finished, working features that nobody can see, and `apps/` is how this engine documents itself. They are not spread evenly: 133 in `render`, 115 in `math`, 66 in `game`, 57 in `core`, 10 in `ui`, 9 in `net`, and 11 other subsystems. Writing 499 apps is not the answer and never was: one demo can show a dozen related modules at once — a single \"mesh repair\" app for the degenerate, self-intersection and closest-point analysers, one \"curve fitting\" app for the least-squares family — so the work is closer to a few dozen apps than 499. Start where the count is highest and the modules cluster most naturally. — CubicBezierEasing, SpringBone, Transition, G711, ImaAdpcm, Mp3, Qoa, AliasTable, Assert, BitSet, CellularNoise, Checkpoints, and 410 more. Example: No app under apps/ demonstrates maz::anim::CubicBezierEasing. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.",
+      "title": "423 engine modules are tested but no app shows them",
+      "detail": "These are finished, working features that nobody can see, and `apps/` is how this engine documents itself. They are not spread evenly: 133 in `render`, 116 in `math`, 66 in `game`, 57 in `core`, 10 in `ui`, 9 in `net`, and 11 other subsystems. Writing 499 apps is not the answer and never was: one demo can show a dozen related modules at once — a single \"mesh repair\" app for the degenerate, self-intersection and closest-point analysers, one \"curve fitting\" app for the least-squares family — so the work is closer to a few dozen apps than 499. Start where the count is highest and the modules cluster most naturally. — CubicBezierEasing, SpringBone, Transition, G711, ImaAdpcm, Mp3, Qoa, AliasTable, Assert, BitSet, CellularNoise, Checkpoints, and 411 more. Example: No app under apps/ demonstrates maz::anim::CubicBezierEasing. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.",
       "paths": [
         "engine/include/maz/anim/CubicBezierEasing.hpp",
         "engine/include/maz/anim/SpringBone.hpp",
@@ -73,7 +73,7 @@
         "engine/include/maz/core/Reflect.hpp"
       ],
       "source": "inventory:engine-module:demoed",
-      "memberCount": 422,
+      "memberCount": 423,
       "members": [
         {
           "id": "engine:anim/CubicBezierEasing",

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "maz/math/Math.hpp" // vec3
+#include "maz/math/Frame.hpp" // Frame — shared, so this header and the other frame builder can meet
 
 #include <cmath>
 #include <cstddef>
@@ -16,12 +17,6 @@
 // stable. Godot has no such utility (its CSGPolygon path-extrude twists on inflections). Header-only,
 // std-only, deterministic.
 namespace maz::math {
-
-struct Frame {
-    vec3 tangent{0.0f, 0.0f, 1.0f};
-    vec3 normal{0.0f, 1.0f, 0.0f};
-    vec3 binormal{1.0f, 0.0f, 0.0f};
-};
 
 namespace detail {
 inline vec3 ptNormalize(const vec3& v) {

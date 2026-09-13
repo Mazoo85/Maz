@@ -1,6 +1,7 @@
 #pragma once
 
-#include "maz/math/Math.hpp" // vec2
+#include "maz/math/Math.hpp"
+#include "maz/math/MathFuncs.hpp" // clampf — one definition, not a second copy here // vec2
 
 #include <algorithm> // std::min, std::max — not guaranteed by <cmath>
 #include <cmath>
@@ -19,7 +20,6 @@ namespace maz::math {
 namespace detail2d {
 inline float len2(const vec2& v) { return std::sqrt(v.x * v.x + v.y * v.y); }
 inline float dot2(const vec2& a, const vec2& b) { return a.x * b.x + a.y * b.y; }
-inline float clampf(float x, float lo, float hi) { return x < lo ? lo : (x > hi ? hi : x); }
 inline float sgn(float x) { return x < 0.0f ? -1.0f : (x > 0.0f ? 1.0f : 0.0f); }
 } // namespace detail2d
 
@@ -45,7 +45,7 @@ inline float sdRoundedBox(const vec2& p, const vec2& b, float r) {
 // Distance to the line segment a–b (an unsigned distance field: 0 on the segment, unit gradient elsewhere).
 inline float sdSegment(const vec2& p, const vec2& a, const vec2& b) {
     const vec2 pa = p - a, ba = b - a;
-    const float h = detail2d::clampf(detail2d::dot2(pa, ba) / detail2d::dot2(ba, ba), 0.0f, 1.0f);
+    const float h = clampf(detail2d::dot2(pa, ba) / detail2d::dot2(ba, ba), 0.0f, 1.0f);
     return detail2d::len2(pa - ba * h);
 }
 
@@ -72,7 +72,7 @@ inline float sdEquilateralTriangle(const vec2& p, float r) {
     if (q.x + k * q.y > 0.0f) {
         q = vec2(q.x - k * q.y, -k * q.x - q.y) * 0.5f;
     }
-    q.x -= detail2d::clampf(q.x, -2.0f * r, 0.0f);
+    q.x -= clampf(q.x, -2.0f * r, 0.0f);
     return -detail2d::len2(q) * detail2d::sgn(q.y);
 }
 
@@ -98,7 +98,7 @@ inline float sdHexagon(const vec2& p, float r) {
     const float d = std::min(kx * px + ky * py, 0.0f);
     px -= 2.0f * d * kx;
     py -= 2.0f * d * ky;
-    px -= detail2d::clampf(px, -kz * r, kz * r);
+    px -= clampf(px, -kz * r, kz * r);
     py -= r;
     return detail2d::len2(vec2(px, py)) * detail2d::sgn(py);
 }
@@ -109,7 +109,7 @@ inline float sdPie(const vec2& p, float r, float halfAngle) {
     const vec2 c(std::sin(halfAngle), std::cos(halfAngle));
     vec2 q(std::fabs(p.x), p.y);
     const float l = detail2d::len2(q) - r;
-    const vec2 proj = c * detail2d::clampf(detail2d::dot2(q, c), 0.0f, r);
+    const vec2 proj = c * clampf(detail2d::dot2(q, c), 0.0f, r);
     const float m = detail2d::len2(q - proj);
     return std::max(l, m * detail2d::sgn(c.y * q.x - c.x * q.y));
 }

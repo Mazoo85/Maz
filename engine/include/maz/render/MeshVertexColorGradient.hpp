@@ -27,8 +27,14 @@
 // bounding box along that axis, so the gradient always spans the whole model.
 namespace maz::render {
 
-// Linear blend between two colours (RGB only; alpha left at Color's default). t is clamped to [0,1].
-inline Color lerpColor(const Color& a, const Color& b, float t) {
+namespace detail {
+// Linear blend between two colours (RGB only; alpha left at Color's default), CLAMPING t to [0,1].
+// Deliberately not render::lerpColor from ColorOps.hpp, which neither clamps nor ignores alpha: the
+// painters below hand it a t computed from an explicit axis or radius range, so a vertex outside that
+// range arrives with t outside [0,1] and must pin to the end colour rather than extrapolate past it.
+// It lives in `detail` because the two cannot both be called lerpColor — a file including this header
+// and ColorOps.hpp would not compile.
+inline Color lerpColorClamped(const Color& a, const Color& b, float t) {
     const float u = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
     Color c;
     c.r = a.r + (b.r - a.r) * u;
@@ -36,6 +42,7 @@ inline Color lerpColor(const Color& a, const Color& b, float t) {
     c.b = a.b + (b.b - a.b) * u;
     return c;
 }
+} // namespace detail
 
 // Paint every vertex's RGB by its position along a world axis (0=X, 1=Y, 2=Z). t = (pos[axis]-axisMin) /
 // (axisMax-axisMin) clamped to [0,1], then rgb = blend(low, high, t). If axisMin >= axisMax (the default), the
@@ -65,7 +72,7 @@ inline shapes::MeshData paintAxisGradient(const shapes::MeshData& mesh, int axis
 
     for (MeshVertex& v : out.vertices) {
         const float t = (coord(v) - lo) * invSpan;
-        const Color c = lerpColor(low, high, t);
+        const Color c = detail::lerpColorClamped(low, high, t);
         v.r = c.r;
         v.g = c.g;
         v.b = c.b;
@@ -92,7 +99,7 @@ inline shapes::MeshData paintRadialGradient(const shapes::MeshData& mesh, float 
         } else {
             t = dist <= inner ? 0.0f : 1.0f; // degenerate band -> hard step at `inner`
         }
-        const Color c = lerpColor(innerColor, outerColor, t);
+        const Color c = detail::lerpColorClamped(innerColor, outerColor, t);
         v.r = c.r;
         v.g = c.g;
         v.b = c.b;

@@ -3467,3 +3467,29 @@ add_executable(maz_ecs_scheduler_tests ecs/scheduler.cpp)
 target_link_libraries(maz_ecs_scheduler_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME ecs_scheduler COMMAND maz_ecs_scheduler_tests)
 set_tests_properties(ecs_scheduler PROPERTIES TIMEOUT 30)
+
+# Every header in the engine, included by one file. Maz is header-only and its ~690 headers share a
+# handful of namespaces, so two of them declaring the same name is a build failure for anyone who
+# includes both — and every other test here includes ONE module, which is precisely the arrangement
+# that cannot notice. This one did, immediately: maz::math::Frame declared twice with different
+# defaults, simplifyPolyline written out twice, two closestPointOnSegment overloads with the point and
+# the segment in opposite orders, a duplicate clampf and a duplicate lerpColor. See the generated
+# source's header comment.
+#
+# The include list is generated here rather than written out, so adding a header to the engine puts it
+# under this check with nothing to remember. CONFIGURE_DEPENDS re-globs when the set of headers
+# changes, so a new header does not need a manual cmake re-run to be covered.
+file(GLOB_RECURSE MAZ_ALL_HEADERS CONFIGURE_DEPENDS
+     RELATIVE "${CMAKE_SOURCE_DIR}/engine/include"
+     "${CMAKE_SOURCE_DIR}/engine/include/maz/*.hpp")
+list(SORT MAZ_ALL_HEADERS)
+list(LENGTH MAZ_ALL_HEADERS MAZ_ALL_HEADER_COUNT)
+set(MAZ_ALL_HEADER_INCLUDES "")
+foreach(header IN LISTS MAZ_ALL_HEADERS)
+    string(APPEND MAZ_ALL_HEADER_INCLUDES "#include \"${header}\"\n")
+endforeach()
+configure_file(engine/all_headers.cpp.in "${CMAKE_CURRENT_BINARY_DIR}/all_headers.cpp" @ONLY)
+add_executable(maz_all_headers_tests "${CMAKE_CURRENT_BINARY_DIR}/all_headers.cpp")
+target_link_libraries(maz_all_headers_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME all_headers COMMAND maz_all_headers_tests)
+set_tests_properties(all_headers PROPERTIES TIMEOUT 30)

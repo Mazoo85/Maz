@@ -137,8 +137,38 @@ int main() {
               "identical inputs produce identical projections");
     }
 
+    // --- projectPointOnSegment: the single-segment entry point, and its argument order. ---
+    //
+    // It is named projectPointOnSegment rather than closestPointOnSegment because Geometry2D.hpp has a
+    // function of the latter name taking (p, a, b) — the point FIRST — where this one takes (a, b, p).
+    // Two same-named three-vec2 overloads with the point and the segment swapped is a silent wrong
+    // answer, so the order is pinned here: a foot that landed at the wrong end would still be "on the
+    // segment" and would pass a laxer check.
+    {
+        const vec2 a(0, 0), b(10, 0);
+        const auto mid = maz::math::projectPointOnSegment(a, b, vec2(4, 3));
+        CHECK(dist(mid.point, vec2(4, 0)) < 1e-5f, "the foot of the perpendicular is on the segment");
+        CHECK(std::fabs(mid.t - 0.4f) < 1e-5f, "t is the fraction along a->b, not b->a");
+
+        // Past each end, t clamps rather than running off.
+        const auto before = maz::math::projectPointOnSegment(a, b, vec2(-7, 2));
+        CHECK(before.t == 0.0f && dist(before.point, a) < 1e-5f, "a point behind the start clamps to a");
+        const auto after = maz::math::projectPointOnSegment(a, b, vec2(19, -4));
+        CHECK(after.t == 1.0f && dist(after.point, b) < 1e-5f, "a point past the end clamps to b");
+
+        // Asymmetric on purpose: swapping the segment's ends must mirror t, which is what catches the
+        // arguments being passed in the other order.
+        const auto flipped = maz::math::projectPointOnSegment(b, a, vec2(4, 3));
+        CHECK(std::fabs(flipped.t - 0.6f) < 1e-5f, "reversing the segment mirrors t");
+
+        // A degenerate segment is the whole answer, not a division by zero.
+        const auto degenerate = maz::math::projectPointOnSegment(vec2(3, 3), vec2(3, 3), vec2(9, 1));
+        CHECK(dist(degenerate.point, vec2(3, 3)) < 1e-5f, "a zero-length segment projects to its point");
+    }
+
     if (g_fail == 0) {
-        std::printf("closestpointcurve: OK — analytic, optimality, on-path, clamp, perpendicular, determinism.\n");
+        std::printf("closestpointcurve: OK — analytic, optimality, on-path, clamp, perpendicular, determinism,\n"
+                    "                    and projectPointOnSegment's argument order.\n");
         return 0;
     }
     std::printf("closestpointcurve: %d failure(s).\n", g_fail);

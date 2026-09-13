@@ -22,8 +22,14 @@ struct SegmentProjection {
     float t = 0.0f; // parameter along the segment, clamped to [0,1]
 };
 
-// Nearest point on segment a->b to p (t clamped to the segment).
-inline SegmentProjection closestPointOnSegment(const vec2& a, const vec2& b, const vec2& p) {
+// Project p onto the segment a->b, returning the nearest point AND its parameter (t clamped to [0,1]).
+//
+// Not called closestPointOnSegment: Geometry2D.hpp has a function of that name which takes its arguments
+// in the other order — (p, a, b) rather than (a, b, p) — and returns only the point. Two functions with
+// one name, three vec2 arguments each and the point and the segment swapped is worse than a collision;
+// it is a silent wrong answer waiting for whoever includes both. (Before this rename they could not both
+// be included anyway: the call was ambiguous and the file did not compile.)
+inline SegmentProjection projectPointOnSegment(const vec2& a, const vec2& b, const vec2& p) {
     const vec2 ab = b - a;
     const float len2 = ab.x * ab.x + ab.y * ab.y;
     float t = 0.0f;
@@ -54,7 +60,7 @@ inline CurveProjection closestPointOnPolyline(const std::vector<vec2>& pts, cons
     }
     float bestD2 = 1e30f;
     for (std::size_t i = 0; i + 1 < pts.size(); ++i) {
-        const SegmentProjection sp = closestPointOnSegment(pts[i], pts[i + 1], p);
+        const SegmentProjection sp = projectPointOnSegment(pts[i], pts[i + 1], p);
         const float dx = p.x - sp.point.x, dy = p.y - sp.point.y;
         const float d2 = dx * dx + dy * dy;
         if (d2 < bestD2) {
