@@ -5,6 +5,9 @@
 // Fixed camera => deterministic golden. Run --headless / --frames N for CI.
 
 #include "maz/Engine.hpp"
+#include "maz/editor/Composite.hpp" // bakeComposite, sceneToPrefab / prefabToScene
+#include "maz/game/AssetDef.hpp"    // game::AssetDef (character/item kind + stats)
+#include "maz/io/PrefabText.hpp"    // io::savePrefabText / loadPrefabText
 
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_mouse.h>
@@ -61,14 +64,21 @@ int main(int argc, char** argv) {
         return renderer->createMesh(m.vertices.data(), static_cast<uint32_t>(m.vertices.size()),
                                     m.indices.data(), static_cast<uint32_t>(m.indices.size()));
     };
-    const std::vector<render::MeshHandle> meshes = {
-        upload(sh::makeBox(1.0f, render::Color{1, 1, 1, 1})),                    // 0 box
-        upload(sh::makeSphere(0.5f, 32, 40, render::Color{1, 1, 1, 1})),         // 1 sphere
-        upload(sh::makeCylinder(0.5f, 1.0f, 32, render::Color{1, 1, 1, 1})),     // 2 cylinder
-        upload(sh::makeCone(0.5f, 1.0f, 32, render::Color{1, 1, 1, 1})),         // 3 cone
-        upload(sh::makeTorus(0.5f, 0.2f, 32, 20, render::Color{1, 1, 1, 1})),    // 4 torus
-        upload(sh::makeCapsule(0.35f, 0.6f, 24, 8, render::Color{1, 1, 1, 1})),  // 5 capsule
+    // The palette's CPU geometry is kept (not just the uploaded handles) so composite baking/export
+    // (editor::bakeComposite) can reuse it — meshId indexes both paletteCpu and meshes in lockstep.
+    const std::vector<sh::MeshData> paletteCpu = {
+        sh::makeBox(1.0f, render::Color{1, 1, 1, 1}),                    // 0 box
+        sh::makeSphere(0.5f, 32, 40, render::Color{1, 1, 1, 1}),         // 1 sphere
+        sh::makeCylinder(0.5f, 1.0f, 32, render::Color{1, 1, 1, 1}),     // 2 cylinder
+        sh::makeCone(0.5f, 1.0f, 32, render::Color{1, 1, 1, 1}),         // 3 cone
+        sh::makeTorus(0.5f, 0.2f, 32, 20, render::Color{1, 1, 1, 1}),    // 4 torus
+        sh::makeCapsule(0.35f, 0.6f, 24, 8, render::Color{1, 1, 1, 1}),  // 5 capsule
     };
+    std::vector<render::MeshHandle> meshes;
+    meshes.reserve(paletteCpu.size());
+    for (const sh::MeshData& m : paletteCpu) {
+        meshes.push_back(upload(m));
+    }
     const render::MeshHandle ground = upload(sh::makePlane(9.0f, render::Color{1, 1, 1, 1}));
 
     // The asset browser's catalog: instantiable primitives, each with the mesh index and the local
@@ -94,6 +104,13 @@ int main(int argc, char** argv) {
         renderer->createTexture(2, 2, solidRGBA(120, 200, 120).data()), // green
         renderer->createTexture(2, 2, solidRGBA(225, 200, 110).data()), // gold
         renderer->createTexture(2, 2, solidRGBA(210, 210, 215).data()), // white
+    };
+    // Parallel RGB (0..1) of the swatch palette, so a baked composite can tint its per-part vertices
+    // and the merged single mesh keeps the colours the parts had from their swatch textures.
+    const std::vector<math::vec3> swatchRgb = {
+        math::vec3(210.0f, 90.0f, 80.0f) / 255.0f,   math::vec3(90.0f, 170.0f, 220.0f) / 255.0f,
+        math::vec3(120.0f, 200.0f, 120.0f) / 255.0f, math::vec3(225.0f, 200.0f, 110.0f) / 255.0f,
+        math::vec3(210.0f, 210.0f, 215.0f) / 255.0f,
     };
     const render::TextureHandle groundTex = renderer->createTexture(2, 2, solidRGBA(150, 150, 155).data());
     // A tiling grid texture for the ground. The plane maps UV 0..6 across its 18 units, so one texture
@@ -130,6 +147,7 @@ int main(int argc, char** argv) {
 
     // Build the editable scene.
     editor::Scene scene;
+    game::AssetDef assetDef; // character/item kind + stats, saved alongside the composition
     auto addNode = [&](const char* name, uint32_t mesh, math::vec3 pos, int color, float rough,
                        float metal) {
         editor::Node n;
@@ -194,12 +212,13 @@ int main(int argc, char** argv) {
     MAZ_LOG_INFO("editor ready — %zu nodes; PLAY to simulate", scene.nodes.size());
 
     // Where Ctrl+S / Ctrl+O save and load the scene (a guaranteed-writable per-user dir).
-    std::string scenePath, packPath;
+    std::string scenePath, packPath, prefabPath;
     {
         char* pref = SDL_GetPrefPath("MazEngine", "editor");
         const std::string dir = pref ? std::string(pref) : std::string();
         scenePath = dir + "scene.json";
         packPath = dir + "scene.mazpack"; // Package output (a distributable resource pack)
+        prefabPath = dir + "asset.mazprefab"; // Composed character/item asset (.tscn-style text)
         if (pref) {
             SDL_free(pref);
         }
@@ -422,12 +441,19 @@ int main(int argc, char** argv) {
             deleteSelected();
         }
         scene.sanitizeSelection(); // drop stale indices after undo/redo/delete
-        // Save / load the scene (Ctrl+S / Ctrl+O) as human-readable JSON.
-        if (!playing && ctrl && input.keyPressed(SDL_SCANCODE_S)) {
+        // Save / load the scene (Ctrl+S / Ctrl+O) as human-readable JSON; Ctrl+SHIFT+S / Ctrl+SHIFT+O
+        // save / load the composition as a reusable character/item asset (.mazprefab text).
+        if (!playing && ctrl && !shift && input.keyPressed(SDL_SCANCODE_S)) {
             io::writeTextFile(scenePath, editor::toJson(scene).dump(2));
             MAZ_LOG_INFO("saved scene -> %s", scenePath.c_str());
         }
-        if (!playing && ctrl && input.keyPressed(SDL_SCANCODE_O)) {
+        if (!playing && ctrl && shift && input.keyPressed(SDL_SCANCODE_S)) {
+            io::writeTextFile(prefabPath, io::savePrefabText(editor::sceneToPrefab(
+                                              scene, assetDef.name, game::assetDefToProps(assetDef))));
+            MAZ_LOG_INFO("saved %s \"%s\" (%zu parts) -> %s", game::assetKindName(assetDef.kind),
+                         assetDef.name.c_str(), scene.nodes.size(), prefabPath.c_str());
+        }
+        if (!playing && ctrl && !shift && input.keyPressed(SDL_SCANCODE_O)) {
             std::string txt;
             const io::JsonParseResult pr =
                 io::readTextFile(scenePath, txt) ? io::parseJson(txt) : io::JsonParseResult{};
@@ -436,10 +462,37 @@ int main(int argc, char** argv) {
                 scene.sanitizeSelection();
             }
         }
+        if (!playing && ctrl && shift && input.keyPressed(SDL_SCANCODE_O)) {
+            std::string txt;
+            scene::Prefab pf;
+            if (io::readTextFile(prefabPath, txt) && io::loadPrefabText(txt, pf)) {
+                editor::prefabToScene(pf, scene);
+                assetDef = game::assetDefFromProps(pf.root.props);
+                assetDef.name = pf.root.name;
+                scene.sanitizeSelection();
+                MAZ_LOG_INFO("loaded %s \"%s\" (%zu parts) <- %s", game::assetKindName(assetDef.kind),
+                             assetDef.name.c_str(), scene.nodes.size(), prefabPath.c_str());
+            }
+        }
         // Package the scene into a distributable resource pack (Ctrl+B).
-        if (!playing && ctrl && input.keyPressed(SDL_SCANCODE_B)) {
+        if (!playing && ctrl && !shift && input.keyPressed(SDL_SCANCODE_B)) {
             packageScene();
             dockTab = DockTab::Log;
+        }
+        // Bake the visible nodes into ONE merged, per-part-tinted mesh (Ctrl+SHIFT+B) and report it;
+        // this is the single exportable object a composed character/item flattens to.
+        if (!playing && ctrl && shift && input.keyPressed(SDL_SCANCODE_B)) {
+            const render::shapes::MeshData baked = editor::bakeComposite(scene, paletteCpu, &swatchRgb);
+            const render::MeshHandle h = upload(baked);
+            MAZ_LOG_INFO("baked composite: %zu verts, %zu tris (mesh #%u)", baked.vertices.size(),
+                         baked.indices.size() / 3, h);
+            dockTab = DockTab::Log;
+        }
+        // Toggle the asset's kind between item and character (Ctrl+Shift+K); saved with the asset.
+        if (!playing && ctrl && shift && input.keyPressed(SDL_SCANCODE_K)) {
+            assetDef.kind = assetDef.kind == game::AssetKind::Character ? game::AssetKind::Item
+                                                                        : game::AssetKind::Character;
+            MAZ_LOG_INFO("asset kind -> %s", game::assetKindName(assetDef.kind));
         }
 
         // Undo bracketing: a drag / keyboard-nudge / slider grab is one undo step. Snapshot the scene

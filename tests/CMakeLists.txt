@@ -43,6 +43,60 @@ target_link_libraries(maz_pnm_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME pnm_codec COMMAND maz_pnm_tests)
 set_tests_properties(pnm_codec PROPERTIES TIMEOUT 30)
 
+# Editor composite authoring: bakeComposite flattens placed nodes into one mesh (reusing
+# render::applyTransform + mergeMeshes) and scene<->prefab round-trips through io::PrefabText. Pure
+# CPU — vertex/index sums, bounds under translation, per-part tint, and full field round-trip (both
+# in-memory and via the .tscn-style text) are all verified headlessly.
+add_executable(maz_editor_composite_tests editor/composite.cpp)
+target_link_libraries(maz_editor_composite_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME editor_composite COMMAND maz_editor_composite_tests)
+set_tests_properties(editor_composite PROPERTIES TIMEOUT 30)
+
+# Character/item definition: game::AssetDef (kind + typed stats) serialized onto a prefab root's
+# property bag, round-tripped in memory and through the full editor::Composite + io::PrefabText text
+# path (so a composed asset carries its definition alongside its parts). Pure CPU, headless.
+add_executable(maz_assetdef_tests game/assetdef.cpp)
+target_link_libraries(maz_assetdef_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME asset_def COMMAND maz_assetdef_tests)
+set_tests_properties(asset_def PROPERTIES TIMEOUT 30)
+
+# Frame sequence: anim::FrameSequence turns a keyframe Timeline into the discrete frames a cutscene
+# export renders — frame counts/times at a fixed fps (inclusive endpoint), single-still degenerates,
+# and track sampling across the sequence. Pure CPU, headless.
+add_executable(maz_framesequence_tests anim/framesequence.cpp)
+target_link_libraries(maz_framesequence_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME frame_sequence COMMAND maz_framesequence_tests)
+set_tests_properties(frame_sequence PROPERTIES TIMEOUT 30)
+
+# Animated GIF: the single-frame encoder still round-trips losslessly after the shared-helper refactor,
+# and encodeGifAnimation writes a looping multi-frame GIF89a whose first frame decodes back and whose
+# odd-sized frames are skipped — the self-contained "video" output for a rendered frame sequence.
+add_executable(maz_gifanim_tests render/gifanim.cpp)
+target_link_libraries(maz_gifanim_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME gif_animation COMMAND maz_gifanim_tests)
+set_tests_properties(gif_animation PROPERTIES TIMEOUT 30)
+
+# CPU mesh rasterizer (render::renderMeshPreview): centre fill + flat shading, the z-buffer occluding a
+# farther triangle either submission order, and near-plane culling. Pure CPU, headless.
+add_executable(maz_softwarerender_tests render/softwarerender.cpp)
+target_link_libraries(maz_softwarerender_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME software_render COMMAND maz_softwarerender_tests)
+set_tests_properties(software_render PROPERTIES TIMEOUT 30)
+
+# Cutscene export pipeline end-to-end, in-process: compose -> prefab text -> reload -> bake -> render
+# an orbit of CPU frames -> animated GIF -> decode. The same chain apps/cutscene_export drives.
+add_executable(maz_cutscene_pipeline_tests render/cutscene_pipeline.cpp)
+target_link_libraries(maz_cutscene_pipeline_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME cutscene_pipeline COMMAND maz_cutscene_pipeline_tests)
+set_tests_properties(cutscene_pipeline PROPERTIES TIMEOUT 30)
+
+# Run the real cutscene_export binary on a committed sample character prefab (exercises arg parsing +
+# file IO + the whole export chain). Writes a small GIF into the test working dir; exit 0 on success.
+add_test(NAME cutscene_export_run
+         COMMAND cutscene_export ${CMAKE_SOURCE_DIR}/assets/samples/figure.mazprefab
+                 --out figure.gif --frames 3 --size 48)
+set_tests_properties(cutscene_export_run PROPERTIES TIMEOUT 60)
+
 # GPU-driven particle simulation + plane collision (fx::GpuParticleSystem). The CPU step is the exact
 # arithmetic the compute shader runs, so bounce energy, no-sink, friction, lifecycle and the instance
 # buffer are all verified headlessly here; the GPU dispatch + instanced draw are owner-verified.
