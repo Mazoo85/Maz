@@ -126,6 +126,13 @@ picker is what replaced them, and it is built so that a human has to choose.
 
 ### Setting it up — once, about five minutes, free
 
+**Do this from inside the app, not from here.** Open the Google Photos box and
+press *Never done this? Open the one-off setup*: every page you need is one tap,
+and the two addresses Google asks for are shown with a **Copy** button. That
+matters more than it sounds — on a phone, reading those addresses off a second
+screen means leaving the page you are filling in, and it is where this goes
+wrong. The same steps are written out below for reference.
+
 CODA PICS ships with no Google key in it. It cannot: a key is tied to one
 Google project and one website, so a shared one would either not work for you or
 hand strangers somebody else's project. So you make your own, and this page

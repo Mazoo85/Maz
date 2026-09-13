@@ -1026,9 +1026,58 @@
     gpSay('Disconnected. The colours you already kept are still here.');
   }
 
+  /*
+   * Copying, with the fallback kept rather than assumed away. The clipboard API
+   * is refused outside a secure context and inside some embedded views, and a
+   * Copy button that silently does nothing is worse than no button — so when it
+   * refuses, the text is selected instead and the note says to copy it, which
+   * is the one thing a person can still do by hand.
+   */
+  function gpCopy(id) {
+    var node = document.getElementById(id);
+    if (!node) return;
+    var text = node.textContent;
+
+    function selectIt(why) {
+      try {
+        var range = document.createRange();
+        range.selectNodeContents(node);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } catch (e) { /* nothing left to try */ }
+      gpSaid(why);
+    }
+
+    if (window.navigator && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        gpSaid('Copied. Paste it into Google.');
+      }, function () {
+        selectIt('This browser would not let the page copy — it is selected, copy it by hand.');
+      });
+      return;
+    }
+    selectIt('This browser has no clipboard for pages — it is selected, copy it by hand.');
+  }
+
+  var gpSaidTimer = null;
+  function gpSaid(msg) {
+    if (!el.gpCopied) return;
+    el.gpCopied.textContent = msg;
+    if (gpSaidTimer) window.clearTimeout(gpSaidTimer);
+    gpSaidTimer = window.setTimeout(function () { el.gpCopied.textContent = ''; }, 6000);
+  }
+
   function gpStart() {
     if (!el.gpConnect) return;
     el.gpRedirect.textContent = gpRedirectUri();
+    el.gpOrigin.textContent = window.location.origin;
+    Array.prototype.forEach.call(document.querySelectorAll('.gp-copy-btn'), function (b) {
+      b.addEventListener('click', function () { gpCopy(b.getAttribute('data-copy')); });
+    });
+    /* Somebody who has not set this up yet should land on the instructions
+     * rather than on a box asking for something they have never heard of. */
+    if (el.gpSetup && !(load(GP_KEY, '') || '')) el.gpSetup.open = true;
     el.gpClientId.value = load(GP_KEY, '') || '';
     el.gpConnect.addEventListener('click', gpConnect);
     el.gpPick.addEventListener('click', gpPick);
@@ -1058,7 +1107,7 @@
       'usePhotoColours', 'usePhotoSkyline', 'usePhotoBackdrop',
       'paletteBox', 'paletteChips', 'clearPalettes',
       'gphotos', 'gpClientId', 'gpRedirect', 'gpConnect', 'gpPick', 'gpForget',
-      'gpNote'].forEach(function (id) {
+      'gpNote', 'gpSetup', 'gpOrigin', 'gpCopied'].forEach(function (id) {
       el[id] = document.getElementById(id);
     });
 

@@ -283,12 +283,43 @@ canvas {
   display: block; width: 100%; margin-top: 5px; font-size: 12.5px; padding: 8px;
   letter-spacing: 0; text-transform: none;
 }
-.gp-redirect { margin-top: 9px; font-size: 11.5px; color: var(--muted); }
-.gp-redirect code {
-  display: block; margin-top: 4px; padding: 6px 8px; word-break: break-all;
-  background: rgba(0, 0, 0, .32); border: 1px solid var(--line); border-radius: 6px;
+/* The setup walkthrough. Everything Google asks to be pasted is here with a
+ * button, because the alternative is reading it off another screen on a phone
+ * and losing the page you were on. */
+.gp-setup { margin-top: 11px; }
+.gp-setup > summary {
+  cursor: pointer; font-size: 12.5px; color: var(--accent);
+  list-style: none; padding: 6px 0;
+}
+.gp-setup > summary::-webkit-details-marker { display: none; }
+.gp-setup > summary::before { content: "\25B8 "; color: var(--muted); }
+.gp-setup[open] > summary::before { content: "\25BE "; }
+.gp-why { margin-top: 7px; font-size: 11.5px; color: var(--muted); }
+.gp-why b { color: #cdc4e2; }
+.gp-steps { margin: 11px 0 0 18px; padding: 0; display: flex; flex-direction: column; gap: 13px; }
+.gp-steps li { font-size: 12px; color: var(--muted); }
+.gp-steps li b { color: #cdc4e2; }
+.gp-steps span { display: block; margin-top: 4px; }
+.gp-steps code {
+  background: rgba(0, 0, 0, .32); border-radius: 4px; padding: 1px 4px; color: #cdc4e2;
+}
+.gp-go {
+  display: inline-block; padding: 8px 12px; border-radius: 9px;
+  background: rgba(0, 214, 143, .12); border: 1px solid rgba(0, 214, 143, .38);
+  color: #bff0dd; text-decoration: none; font-size: 12.5px; font-weight: 700;
+}
+.gp-go:hover, .gp-go:focus-visible { background: rgba(0, 214, 143, .2); color: #fff; }
+.gp-copy {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 8px;
+}
+.gp-copy code {
+  flex: 1 1 200px; min-width: 0; padding: 7px 9px; word-break: break-all;
+  background: rgba(0, 0, 0, .38); border: 1px solid var(--line); border-radius: 6px;
   color: #cdc4e2; font-size: 11.5px;
 }
+.gp-copy-btn { flex: none; font-size: 12px; padding: 8px 14px; }
+.gp-copy small { flex: 1 1 100%; font-size: 11px; color: var(--muted); }
+.gp-copied { margin-top: 9px; font-size: 12px; color: var(--accent); min-height: 17px; }
 .gphotos .buttons { margin-top: 11px; }
 .gphotos .buttons button { font-size: 12.5px; padding: 8px 12px; }
 
