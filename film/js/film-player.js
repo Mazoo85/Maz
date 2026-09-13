@@ -837,8 +837,14 @@
     this._shot = null;
   }
 
+  /* One frame, through whichever renderer the caller nominated.
+   *
+   * `hooks.draw` exists so the app can hand over a different renderer — the 3D one — without this
+   * file knowing anything about it. The player's job is the transport: the clock, the score, the
+   * scrub bar. Which renderer paints the picture is somebody else's decision. */
   Player.prototype.drawAt = function (time) {
-    return drawFrame(this.ctx, this.canvas.width, this.canvas.height, this.reel, time);
+    var paint = this.hooks.draw || drawFrame;
+    return paint(this.ctx, this.canvas.width, this.canvas.height, this.reel, time);
   };
 
   Player.prototype.play = function (from) {

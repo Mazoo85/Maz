@@ -36,7 +36,7 @@
    'copy', 'dlFountain', 'dlFdx', 'dlText', 'dlShots', 'print', 'save', 'status',
    'libraryList', 'libCount', 'libEmpty', 'clearLib', 'exportLib', 'importLib', 'importFile', 'shareFilm', 'dlPoster', 'filmCanvas', 'bigPlay', 'playFilm',
    'stopFilm', 'recordFilm', 'dlReel', 'filmSize', 'speakAloud', 'scrubBar', 'scrubFill', 'filmClock',
-   'filmNote'].forEach(function (id) {
+   'filmNote', 'filmLook', 'lookNote'].forEach(function (id) {
     el[id] = document.getElementById(id);
   });
 
@@ -46,6 +46,7 @@
   var Library = window.FilmLibrary;
   var Poster = window.FilmPoster;
   var PlayerLib = window.FilmPlayer;
+  var Look = window.FilmLook;
   var ScoreLib = window.FilmScore;
 
   var current = null;  // the script on screen
@@ -416,7 +417,7 @@
     window.__filmState = { script: function () { return current; }, reel: function () { return reel; } };
     sizeCanvas();
     // A poster frame, so the tab is never a black rectangle.
-    PlayerLib.drawFrame(el.filmCanvas.getContext('2d'),
+    Look.drawFrame(el.filmCanvas.getContext('2d'),
       el.filmCanvas.width, el.filmCanvas.height, reel, 1.2);
     el.bigPlay.classList.remove('hidden');
     updateScrub(0, reel.duration);
@@ -481,10 +482,25 @@
     el.filmNote.textContent = scoreNote + ' ' + el.filmNote.textContent;
   }
 
+  /* The 3D look works every pixel out on the processor, so it is given a smaller canvas and the
+   * browser scales it up to fill the frame. 640 across keeps a frame inside the twelve-a-second
+   * budget with room to spare on a phone; the flat look has no such ceiling because it is drawing
+   * shapes rather than solving for light.
+   *
+   * The video file is a recording of this canvas, so in 3D it comes out at this size too. That is
+   * said out loud under the control rather than discovered afterwards. */
+  var THREE_D_MAX_WIDTH = Look.MAX_WIDTH;
+
   function sizeCanvas() {
     var size = (el.filmSize.value || '1280x720').split('x');
-    el.filmCanvas.width = parseInt(size[0], 10);
-    el.filmCanvas.height = parseInt(size[1], 10);
+    var w = parseInt(size[0], 10);
+    var h = parseInt(size[1], 10);
+    if (Look.chosen() === '3d' && w > THREE_D_MAX_WIDTH) {
+      h = Math.round(h * (THREE_D_MAX_WIDTH / w));
+      w = THREE_D_MAX_WIDTH;
+    }
+    el.filmCanvas.width = w;
+    el.filmCanvas.height = h;
   }
 
   function updateScrub(time, duration) {
@@ -535,6 +551,7 @@
     }
     player = new PlayerLib.Player(el.filmCanvas, reel, {
       score: score,
+      draw: Look.drawFrame,
       onFrame: function (time, duration) { updateScrub(time, duration); },
       onShot: function (shot) { if (el.speakAloud.checked) speakAloud(shot); },
       onPlay: function () { el.viewFilm.dataset.music = 'playing'; },
@@ -586,7 +603,7 @@
     }
     if (window.speechSynthesis) window.speechSynthesis.cancel();
     if (reel) {
-      PlayerLib.drawFrame(el.filmCanvas.getContext('2d'),
+      Look.drawFrame(el.filmCanvas.getContext('2d'),
         el.filmCanvas.width, el.filmCanvas.height, reel, 1.2);
       updateScrub(0, reel.duration);
     }
@@ -878,7 +895,7 @@
     var width = 1200;
     canvas.width = width;
     canvas.height = Math.round(width / Poster.ASPECT);
-    Poster.draw(canvas.getContext('2d'), reel, PlayerLib.drawFrame,
+    Poster.draw(canvas.getContext('2d'), reel, Look.drawFrame,
       { width: width, logline: current.logline, runtime: (current.runtime || '').toUpperCase() });
     canvas.toBlob(function (blob) {
       if (!blob) { say('Could not make the poster.'); return; }
@@ -949,6 +966,54 @@
     e.preventDefault();
     scrubTo((player.time + step) / reel.duration);
   });
+  /* ------------------------------------------------------------------- look
+   * Two renderers, one reel. Picking 3D fetches the engine — 147 KB of
+   * WebAssembly, once — and the control says what is happening while it does,
+   * because a dropdown that appears to do nothing for a second is a dropdown
+   * people press twice. */
+  var LOOK_NOTE = {
+    flat: 'Painted planes and silhouettes. Nothing to download; this is what has always been here.',
+    '3d': 'Rooms with floors, bodies built to human proportions, and real shadows — the Maz engine ' +
+          'itself, running in this page. The picture and the video file come out at 480 across, ' +
+          'because every pixel is worked out on your processor.'
+  };
+
+  function describeLook(state, text) {
+    if (!el.lookNote) return;
+    el.lookNote.textContent = text;
+    el.lookNote.classList.toggle('busy', state === 'busy');
+    el.lookNote.classList.toggle('wrong', state === 'wrong');
+  }
+
+  if (el.filmLook) {
+    describeLook('', LOOK_NOTE.flat);
+    el.filmLook.addEventListener('change', function () {
+      var want = el.filmLook.value;
+      var playing = player && player.playing;
+      if (playing) stopFilm();
+      if (want === '3d' && !Look.ready()) {
+        describeLook('busy', 'Fetching the 3D renderer\u2026');
+      }
+      el.filmLook.disabled = true;
+      Look.choose(want).then(function (got) {
+        el.filmLook.disabled = false;
+        describeLook('', LOOK_NOTE[got] || LOOK_NOTE.flat);
+        if (reel) {
+          sizeCanvas();
+          Look.drawFrame(el.filmCanvas.getContext('2d'),
+            el.filmCanvas.width, el.filmCanvas.height, reel, 1.2);
+        }
+        describeRecording();
+        say(got === '3d' ? 'The film is in 3D now.' : 'Back to the flat look.');
+      }, function () {
+        el.filmLook.disabled = false;
+        el.filmLook.value = 'flat';
+        describeLook('wrong', 'The 3D renderer could not be loaded' +
+          (Look.problem() ? ' \u2014 ' + Look.problem() : '') + '. The film plays flat.');
+      });
+    });
+  }
+
   el.filmSize.addEventListener('change', function () {
     if (reel) buildFilm(current);
   });

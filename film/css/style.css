@@ -328,3 +328,15 @@ button.accent { border-color: var(--green); color: var(--green); }
 .why-foot { font-size: 12px; opacity: 0.55; line-height: 1.6; }
 
 .library-tools { display: inline-flex; gap: 12px; align-items: center; }
+
+/* The note under the Look control: what picking 3D actually costs, said once,
+   in the place where the choice is made rather than in a help page. */
+.opt-note {
+  margin: -.35rem 0 .35rem;
+  font-size: .82rem;
+  line-height: 1.45;
+  color: var(--muted, #8a8f98);
+  max-width: 46ch;
+}
+.opt-note.busy { color: var(--accent, #c9a227); }
+.opt-note.wrong { color: var(--warn, #e06c5a); }

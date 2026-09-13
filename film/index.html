@@ -113,6 +113,16 @@
           </div>
 
           <div class="film-options">
+            <label class="opt-row" for="filmLook">
+              <span>Look</span>
+              <select id="filmLook">
+                <option value="flat" selected>Flat &mdash; painted planes and silhouettes</option>
+                <option value="3d">3D &mdash; rooms, real bodies, real shadows</option>
+              </select>
+            </label>
+            <p id="lookNote" class="opt-note">The 3D renderer is the Maz engine itself, running in
+            this page. It is fetched the first time you pick it, and works offline after that.</p>
+
             <label class="opt-row" for="filmSize">
               <span>Picture size</span>
               <select id="filmSize">
@@ -198,6 +208,7 @@
   <script src="js/film-audio.js"></script>
   <script src="js/film-webm.js"></script>
   <script src="js/film-player.js"></script>
+  <script src="js/film-look.js"></script>
   <script src="../madlibs/js/dictionary.js"></script>
   <script src="../madlibs/js/templates.js"></script>
   <script src="../madlibs/js/generator.js"></script>

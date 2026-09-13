@@ -1225,6 +1225,101 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
     check(world.steps.peak > world.nosteps.peak * 5,
       `a footstep is a transient, not part of the bed (peak ${world.steps.peak.toFixed(3)} ` +
       `walking against ${world.nosteps.peak.toFixed(3)} standing still)`);
+
+    // ------------------------------------------------------------------ the 3D look
+    //
+    // The one that matters most: that the film can actually be watched in three dimensions on the
+    // machine in somebody's hand. Everything else about the 3D renderer was proved on a build server,
+    // which is a different claim entirely.
+    console.log('\nTHE 3D LOOK');
+    {
+      await page.click('#tabFilm');       // the control lives on the film tab
+      await page.waitForSelector('#filmLook', { state: 'visible' });
+      const before = await page.evaluate(() => ({
+        look: window.FilmLook.chosen(),
+        ready: window.FilmLook.ready()
+      }));
+      check(before.look === 'flat', 'a film opens in the flat look');
+      check(!before.ready,
+        'and the 3D engine has not been downloaded — nobody who never asks for it pays for it');
+
+      await page.selectOption('#filmLook', '3d');
+      await page.waitForFunction(() => !document.getElementById('filmLook').disabled,
+                                 { timeout: 60000 });
+      const after = await page.evaluate(() => ({
+        look: window.FilmLook.chosen(),
+        ready: window.FilmLook.ready(),
+        problem: window.FilmLook.problem(),
+        width: document.getElementById('filmCanvas').width
+      }));
+      check(after.ready && after.look === '3d',
+        `the 3D engine loads and takes over${after.problem ? ' (' + after.problem + ')' : ''}`);
+      check(after.width <= 480,
+        `and the canvas is cut down to something a processor can fill (${after.width} across)`);
+
+      // It has to be a PICTURE, and it has to be a different one from the flat renderer's — a
+      // fallback that quietly paints the flat film would pass every other check here.
+      const frames = await page.evaluate(() => {
+        const el = document.getElementById('filmCanvas');
+        const ctx = el.getContext('2d');
+        const reel = window.__filmState.reel();
+        function grab(how) {
+          how();
+          window.FilmLook.drawFrame(ctx, el.width, el.height, reel, 12);
+          return Array.from(ctx.getImageData(0, 0, el.width, el.height).data);
+        }
+        const three = grab(() => {});
+        const flat = grab(() => window.FilmLook.choose('flat'));
+        window.FilmLook.choose('3d');
+        let differing = 0;
+        let colours = new Set();
+        for (let i = 0; i < three.length; i += 4) {
+          if (Math.abs(three[i] - flat[i]) > 8) differing++;
+          colours.add(three[i] + ',' + three[i + 1] + ',' + three[i + 2]);
+        }
+        return { differing, pixels: three.length / 4, colours: colours.size };
+      });
+      check(frames.colours > 40, `a 3D frame is a picture, not a flat colour (${frames.colours} shades)`);
+      check(frames.differing > frames.pixels * 0.15,
+        `and it is a different picture from the flat one (${Math.round(100 * frames.differing / frames.pixels)}% of pixels)`);
+
+      // Fast enough to watch. The budget is one twelfth of a second; anything near it on this
+      // machine will miss on a phone, so the check is set at half.
+      const ms = await page.evaluate(() => {
+        const el = document.getElementById('filmCanvas');
+        const ctx = el.getContext('2d');
+        const reel = window.__filmState.reel();
+        window.FilmLook.drawFrame(ctx, el.width, el.height, reel, 2);   // warm it up
+        const t0 = performance.now();
+        for (let i = 0; i < 20; i++) window.FilmLook.drawFrame(ctx, el.width, el.height, reel, 3 + i / 12);
+        return (performance.now() - t0) / 20;
+      });
+      // A film at twelve a second has 83 ms a frame. This machine should manage a third of that, so a
+      // phone two or three times slower still plays the film. The number is printed either way, which
+      // is the point: a change that makes the renderer half as fast should be visible here even when
+      // it still passes.
+      check(ms < 30, `a 3D frame is drawn in ${ms.toFixed(0)} ms, against the 83 ms a film at twelve ` +
+                     'a second has and the 28 or so a phone needs it under');
+
+      // And it plays — the transport, the clock and the score all still work with the other renderer
+      // underneath them.
+      await page.click('#playFilm');
+      await page.waitForTimeout(2000);
+      const rolling = await page.evaluate(() => ({
+        clock: document.getElementById('filmClock').textContent,
+        music: document.getElementById('viewFilm').dataset.music
+      }));
+      await page.click('#stopFilm');
+      check(/0:0[1-9]|0:[1-9]/.test(rolling.clock),
+        `the film actually plays in 3D (clock reached ${rolling.clock})`);
+      check(rolling.music === 'playing', 'with the score running under it');
+
+      await page.selectOption('#filmLook', 'flat');
+      await page.waitForFunction(() => !document.getElementById('filmLook').disabled);
+      check(await page.evaluate(() => window.FilmLook.chosen()) === 'flat',
+        'and it goes back to flat when asked');
+    }
+
   } finally {
     await browser.close();
     server.close();
