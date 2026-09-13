@@ -189,6 +189,26 @@ not equally good:
   before. The two ways it goes wrong are both tested: finding a word inside another word (`sat` lives
   inside `satisfied`), and attributing to one character what the other one did.
 
+#### The weather, in the room
+
+`film/Air.hpp` draws weather in **screen space**: streaks painted across the finished frame,
+deliberately not moving with the camera. That is the right answer for a painted film and the wrong one
+here, because in three dimensions the air is *somewhere*. Rain that falls between the camera and a
+face is the shot; rain painted on top of it is a screen saver.
+
+So `film/AirVolume.hpp` puts the same weather in the room — particles with positions, in front of some
+things and behind others, lit by the same key, getting smaller as they go back. It fills a box in
+front of the **lens** rather than a fixed volume of the set, because weather is everywhere and a shot
+only ever sees the part of it the lens is pointed at.
+
+It borrows `Air.hpp`'s vocabulary rather than inventing its own, and that is the point: `weatherFor()`
+is the one chooser, both renderers ask it, and **a shot that rains in the flat look rains in the 3D
+one**. Anything else and the Look control stops being a look and becomes a different film.
+
+Fog, haze and shimmer draw no particles at all. They are the air *itself* rather than things in it, and
+the renderer already fades every surface toward the sky colour with distance — faking them again on
+top would be two depth cues disagreeing about how far away the back wall is.
+
 ### 4. `film/Stage.hpp` — a room, and a camera standing in it
 
 The fifteen places built as rooms, **to scale in metres**: a door 2.05m, a table 0.74m, a counter
@@ -310,6 +330,10 @@ ctest --test-dir build -R "software_rasteriser|film_actor|film_perform|film_stag
   never stretches a bone.
 * `tests/film/perform.cpp` — chiefly one thing: **while a foot is on the ground, its position on the
   floor does not change.** Everybody gets that wrong, and it is measurable.
+* `tests/film/air.cpp` — the weather is in the room and stays there: it falls (and embers rise), it
+  never runs out four minutes into a film, none of it is behind the camera or pressed against the
+  lens, and the same moment of the same film has the same air in it to the last decimal — which it
+  has to, because the browser and the command line are compared pixel for pixel.
 * `tests/film/business.cpp` — what a character is doing with the room, and chiefly the two ways
   reading prose goes wrong: a word found inside another word, and one character's stage direction
   applied to the whole cast. (It did apply to the whole cast: one line saying somebody sat down put

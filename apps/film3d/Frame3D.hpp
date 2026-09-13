@@ -3,6 +3,7 @@
 #include "../filmreel/Frame.hpp" // the captions, the grain, the fades: one film, one set of titles
 #include "Scene.hpp"
 
+#include "maz/film/AirVolume.hpp"
 #include "maz/film/Expression.hpp"
 
 #include "maz/render/Tonemap.hpp"
@@ -427,6 +428,33 @@ inline Image drawFrame3D(const Reel& reel, const std::map<std::string, Cast>& ca
     raster.draw(big, sc.stage.mesh, math::mat4(1.0f), vp, surf);
     for (const maz::render::shapes::MeshData& body : bodies) {
         raster.draw(big, body, math::mat4(1.0f), vp, surf);
+    }
+
+    // ---- the weather ------------------------------------------------------------------------------
+    //
+    // Last, and blended, and casting nothing. It is drawn after everything else because it is
+    // translucent and the rasteriser does not sort — and because rain that throws a shadow is a
+    // thousand tiny holes punched in the set.
+    //
+    // In three dimensions the air is SOMEWHERE. Rain that falls between the camera and a face is the
+    // shot; rain painted on top of the finished frame, which is what the flat renderer does and is
+    // right for a painted film, is a screen saver.
+    const maz::film::Weather weather =
+        maz::film::weatherFor(reel.genre, shot->time, shot->set);
+    if (maz::film::weatherHasParticles(weather)) {
+        const maz::render::shapes::MeshData air = maz::film::airMesh(
+            weather, sc.lens.eye, sc.lens.at, time, reel.seed,
+            Color{static_cast<float>(sc.palette.key.r / 255.0),
+                  static_cast<float>(sc.palette.key.g / 255.0),
+                  static_cast<float>(sc.palette.key.b / 255.0), 1.0f},
+            static_cast<float>(shot->mood));
+        Surface wet = surf;
+        wet.shadows = nullptr;
+        wet.cull = maz::render::Cull::None; // a flake has no back: it is the same flake from behind
+        wet.alpha = maz::film::airAlpha(weather);
+        wet.emissive = maz::film::airGlow(weather);
+        wet.fogMax *= 0.55f; // the air does not fade into itself as fast as the set fades into it
+        raster.draw(big, air, math::mat4(1.0f), vp, wet);
     }
 
     // Down into the frame, averaging each block of S x S.

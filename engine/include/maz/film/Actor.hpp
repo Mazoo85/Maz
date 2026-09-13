@@ -1164,8 +1164,8 @@ inline render::shapes::MeshData buildBody(const Build& b, const Skeleton& sk,
         const float run = b.sleeve < 0.15f ? 0.15f : b.sleeve;
         const math::vec3 sleeveEnd =
             run <= 1.0f ? sh + (el - sh) * run : el + (wr - el) * (run - 1.0f);
-        const float cuffR = run <= 1.0f ? b.m(b.upperArmR * 1.04f) : b.m(b.foreArmR * 1.18f);
-        add(m, limb(sh, sleeveEnd, b.m(b.upperArmR * 1.24f), cuffR, b.top));
+        const float cuffR = run <= 1.0f ? b.m(b.upperArmR * 0.99f) : b.m(b.foreArmR * 1.12f);
+        add(m, limb(sh, sleeveEnd, b.m(b.upperArmR * 1.17f), cuffR, b.top));
         // The hand: a flattened wedge from the wrist, which at any real distance is what a hand is.
         add(m, render::applyTransform(
                    render::applyTransform(render::shapes::makeSphere(1.0f, 8, 12, b.skin),

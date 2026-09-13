@@ -1,278 +1,207 @@
-// tests/film/air.cpp — verifies the air and the film stock (film Air.hpp) and the object glyphs
-// (film Glyphs.hpp).
+// tests/film/air.cpp — the weather, as things in the room rather than paint on the lens.
 //
-// Two lookup tables and four drawing passes, all of which sit between the audience and the picture:
-// what hangs in the air, the light leaking across the frame, the vignette, the grain -- and, for the
-// one shot in a film with no people in it, the object the story turns on.
-//
-// The two tables are pure functions of a few strings, so they are checked exhaustively against the
-// browser: all 600 combinations of genre, hour and set for the weather, and 75 words for the glyph
-// -- including the ones where the ORDER of the patterns decides the answer, which is the part of a
-// regex-to-substring port that can quietly go wrong.
-#include "maz/film/Air.hpp"
-#include "maz/film/Glyphs.hpp"
-#include "maz/io/Json.hpp"
+// The flat renderer draws weather in screen space and this one puts it in the world, so the two can
+// disagree in a way nothing else in the film can. The first and most important check here is that they
+// do not: `weatherFor` is the one chooser, both renderers ask it, and a shot that rains in one look
+// rains in the other. A Look control that changes the weather is not a look, it is a different film.
+#include "maz/film/AirVolume.hpp"
 
 #include <cmath>
 #include <cstdio>
 #include <string>
+#include <vector>
 
-using maz::film::Canvas;
-using maz::film::Palette;
-using maz::film::Weather;
-using maz::render::Color;
-using maz::render::Image;
+namespace film = maz::film;
+namespace math = maz::math;
 
-static int g_fail = 0;
-#define CHECK(c, m) do{ if(!(c)){ std::printf("FAIL: %s\n",(m)); ++g_fail; } }while(0)
+static std::vector<std::string> failures;
 
-static double meanOf(const Image& img, int x0, int y0, int x1, int y1) {
-    double t = 0.0;
-    int n = 0;
-    for (int y = y0; y < y1; ++y) {
-        for (int x = x0; x < x1; ++x) {
-            const auto p = img.getPixel(x, y);
-            t += static_cast<double>(p.r + p.g + p.b) / 3.0;
-            ++n;
-        }
+static void check(bool ok, const std::string& what) {
+    if (!ok) {
+        failures.push_back(what);
     }
-    return n > 0 ? t / n : 0.0;
 }
 
-int main(int argc, char** argv) {
-    const std::string path = argc > 1 ? argv[1] : "tests/film/air-fixture.json";
-    std::string text;
-    if (!maz::io::readTextFile(path, text)) {
-        std::printf("FAIL: could not read the air fixture at %s\n", path.c_str());
-        return 1;
+// Where the middle of the weather is, so a particle can be followed from one moment to the next.
+static math::vec3 centreOf(const maz::render::shapes::MeshData& m, std::size_t quad) {
+    math::vec3 sum(0.0f, 0.0f, 0.0f);
+    for (std::size_t k = 0; k < 4; ++k) {
+        const auto& v = m.vertices[quad * 4 + k];
+        sum += math::vec3(v.px, v.py, v.pz);
     }
-    const maz::io::JsonParseResult doc = maz::io::parseJson(text);
-    CHECK(doc.ok, "the air fixture is valid JSON");
+    return sum * 0.25f;
+}
 
-    // --- 1. What hangs in the air: all 600 combinations, against the browser. ---
+int main() {
+    const math::vec3 eye(0.4f, 1.55f, -3.2f);
+    const math::vec3 at(0.0f, 1.40f, 0.6f);
+    const maz::render::Color tint{0.72f, 0.76f, 0.84f, 1.0f};
+
+    // ------------------------------------------------------------------ 1. one film, one weather
     {
-        const maz::io::JsonValue& cases = doc.value["weather"];
-        CHECK(cases.size() == 600u, "the fixture carries every genre x hour x set");
-        int wrong = 0;
-        std::string firstBad;
-        for (const maz::io::JsonValue& c : cases.items()) {
-            const std::string want = c["kind"].asString();
-            const std::string got = maz::film::weatherName(maz::film::weatherFor(
-                c["genre"].asString(), c["hour"].asString(), c["set"].asString()));
-            if (got != want) {
-                ++wrong;
-                if (firstBad.empty()) {
-                    firstBad = c["genre"].asString() + "/" + c["hour"].asString() + "/" +
-                               c["set"].asString() + ": got " + got + ", browser says " + want;
-                }
-            }
-        }
-        if (wrong != 0) {
-            std::printf("FAIL: %d weather choices differ from the browser; first: %s\n", wrong,
-                        firstBad.c_str());
-            ++g_fail;
-        }
-        // And the property behind the table: a rainstorm indoors is a mistake, not a mood.
-        bool indoorsDry = true;
-        const char* genres[] = {"drama", "thriller", "horror", "comedy",  "romance",
-                                "scifi", "mystery",  "fantasy", "heist",  "western"};
-        const char* hours[] = {"NIGHT", "DAWN", "DAY", "DUSK"};
-        const char* inside[] = {"lighthouse", "kitchen", "room",  "corridor", "vehicle",
-                                "industrial", "office",  "bar",   "ship",     "ward",
-                                "chapel"};
+        // Every combination the film can produce, against the rule it is ported from. If these two
+        // ever drift, one look rains and the other does not.
+        const char* genres[] = {"drama", "horror", "thriller", "western", "fantasy", "mystery",
+                                "comedy", "romance"};
+        const char* hours[] = {"DAY", "DUSK", "NIGHT", "DAWN"};
+        const char* sets[] = {"street", "woods", "field", "water", "corridor", "room", "ward", "bar"};
+        int drawnAsParticles = 0;
+        int drawnAsAir = 0;
         for (const char* g : genres) {
-            for (const char* h : hours) {
-                for (const char* s : inside) {
-                    const Weather w = maz::film::weatherFor(g, h, s);
-                    if (w == Weather::Rain || w == Weather::Fog) {
-                        indoorsDry = false;
+            for (const char* t : hours) {
+                for (const char* st : sets) {
+                    const film::Weather w = film::weatherFor(g, t, st);
+                    if (film::weatherHasParticles(w)) {
+                        ++drawnAsParticles;
+                    } else if (w != film::Weather::None) {
+                        ++drawnAsAir;
                     }
                 }
             }
         }
-        CHECK(indoorsDry, "it never rains or fogs indoors");
+        check(drawnAsParticles > 20, "plenty of the film's weather is made of things you can see");
+        check(drawnAsAir > 20, "and plenty of it is the air itself, which the fog already does");
+
+        // Fog, haze and shimmer draw NO particles, on purpose. They are the air rather than things in
+        // it, and the renderer already fades every surface toward the sky with distance — faking them
+        // again on top would be two depth cues disagreeing about how far away the back wall is.
+        for (film::Weather w : {film::Weather::Fog, film::Weather::Haze, film::Weather::Shimmer,
+                                film::Weather::None}) {
+            check(film::airMesh(w, eye, at, 2.0, 7u, tint, 0.5f).vertices.empty(),
+                  std::string("nothing is drawn for ") + film::weatherName(w) +
+                      ", which is the air itself");
+        }
     }
 
-    // --- 2. Which object a word picks: 75 words, against the browser. ---
+    // ------------------------------------------------------------------ 2. it is in the room
     {
-        const maz::io::JsonValue& cases = doc.value["glyphs"];
-        CHECK(cases.size() == 75u, "the fixture carries all 75 object words");
-        int wrong = 0;
-        std::string firstBad;
-        for (const maz::io::JsonValue& c : cases.items()) {
-            const std::string word = c["word"].asString();
-            const std::string want = c["glyph"].asString();
-            const std::string got = maz::film::glyphFor(word).name;
-            if (got != want) {
-                ++wrong;
-                if (firstBad.empty()) {
-                    firstBad = "\"" + word + "\": got " + got + ", browser says " + want;
-                }
+        const maz::render::shapes::MeshData rain = film::airMesh(film::Weather::Rain, eye, at, 2.0, 7u,
+                                                                 tint, 0.4f);
+        check(rain.vertices.size() > 400, "rain is made of a lot of rain");
+        check(rain.vertices.size() % 4 == 0 && rain.indices.size() % 6 == 0,
+              "and of whole quads, two triangles each");
+
+        // In FRONT of the lens, not scattered through the set. Weather is everywhere and a shot only
+        // ever sees the part of it the lens is pointed at; filling the set instead leaves a long lens
+        // looking through an empty room while the rain falls off to one side.
+        math::vec3 forward = at - eye;
+        forward = forward / std::sqrt(math::dot(forward, forward));
+        int behind = 0;
+        float nearest = 1e9f;
+        float furthest = 0.0f;
+        for (const auto& v : rain.vertices) {
+            const float along = math::dot(math::vec3(v.px, v.py, v.pz) - eye, forward);
+            if (along < 0.0f) {
+                ++behind;
+            }
+            nearest = std::min(nearest, along);
+            furthest = std::max(furthest, along);
+        }
+        check(behind == 0, "and none of it is behind the camera");
+        check(nearest > 0.8f, "nor so close to the lens that one drop fills the frame");
+        check(furthest > 8.0f, "and it carries on back past the actors");
+    }
+
+    // ------------------------------------------------------------------ 3. it falls
+    {
+        const maz::render::shapes::MeshData a =
+            film::airMesh(film::Weather::Rain, eye, at, 2.00, 7u, tint, 0.4f);
+        const maz::render::shapes::MeshData b =
+            film::airMesh(film::Weather::Rain, eye, at, 2.05, 7u, tint, 0.4f);
+        check(a.vertices.size() == b.vertices.size(), "a twentieth of a second later it is the same rain");
+        int fell = 0, rose = 0;
+        for (std::size_t q = 0; q * 4 + 3 < a.vertices.size(); ++q) {
+            const float dy = centreOf(b, q).y - centreOf(a, q).y;
+            if (dy < -0.01f) {
+                ++fell;
+            } else if (dy > 0.01f) {
+                ++rose;
             }
         }
-        if (wrong != 0) {
-            std::printf("FAIL: %d object words pick a different shape than the browser; first: %s\n",
-                        wrong, firstBad.c_str());
-            ++g_fail;
-        }
-        // The ordering trap, called out directly: "film reel" contains `tape`'s "film" and "reel",
-        // and the browser checks letter's list (which has "file") first -- so the answer depends on
-        // the order the lists are tried in, not just on their contents.
-        CHECK(std::string(maz::film::glyphFor("film reel").name) == "tape",
-              "\"film reel\" is a tape, which only holds if the lists are tried in order");
-        CHECK(std::string(maz::film::glyphFor("xyzzy").name) == "box",
-              "a word matching nothing is still a thing in a box");
-        CHECK(std::string(maz::film::glyphFor("").name) == "box", "no word at all is a box");
-        CHECK(std::string(maz::film::glyphFor("THE LETTER").name) == "letter",
-              "the match is case-insensitive");
-        CHECK(maz::film::glyphs().size() == 10u, "all ten shapes are there");
-    }
+        check(fell > rose * 4, "and nearly all of it has fallen, because that is what rain does");
 
-    // --- 3. Every glyph draws something, and the same thing twice. ---
-    {
-        const Palette pal = maz::film::paletteFor("drama", "NIGHT", 0.4);
-        bool allDrew = true, allSame = true;
-        std::string blank;
-        for (const auto& g : maz::film::glyphs()) {
-            Image a(400, 300, Color{0.5f, 0.5f, 0.5f, 1.0f});
-            Image b(400, 300, Color{0.5f, 0.5f, 0.5f, 1.0f});
-            const Image before = a;
-            for (Image* img : {&a, &b}) {
-                Canvas c(*img, 0, 300);
-                c.setTransform(0.6f, 0.0f, 0.0f, 0.6f, 200.0f, 150.0f);
-                g.draw(c, pal);
-            }
-            if (a.data() == before.data()) {
-                allDrew = false;
-                if (blank.empty()) blank = g.name;
-            }
-            if (!(a.data() == b.data())) {
-                allSame = false;
+        // Embers are the same machinery pointed the other way, and that is the whole of what an ember
+        // is: a thing that goes up.
+        const maz::render::shapes::MeshData e0 =
+            film::airMesh(film::Weather::Embers, eye, at, 2.00, 7u, tint, 0.4f);
+        const maz::render::shapes::MeshData e1 =
+            film::airMesh(film::Weather::Embers, eye, at, 2.20, 7u, tint, 0.4f);
+        int up = 0, down = 0;
+        for (std::size_t q = 0; q * 4 + 3 < e0.vertices.size(); ++q) {
+            const float dy = centreOf(e1, q).y - centreOf(e0, q).y;
+            if (dy > 0.005f) {
+                ++up;
+            } else if (dy < -0.005f) {
+                ++down;
             }
         }
-        CHECK(allDrew, ("every object shape draws something (first blank: " + blank + ")").c_str());
-        CHECK(allSame, "an object shape draws the same thing twice");
-    }
+        check(up > down * 4, "and embers go up");
 
-    // --- 4. Weather draws, and `none` does not. ---
-    {
-        const Palette pal = maz::film::paletteFor("drama", "NIGHT", 0.4);
-        const Weather kinds[] = {Weather::Rain, Weather::Dust,    Weather::Fog,
-                                 Weather::Haze, Weather::Shimmer, Weather::Embers};
-        bool allDrew = true;
-        std::string blank;
-        for (const Weather k : kinds) {
-            Image img(480, 200, Color{0.1f, 0.1f, 0.12f, 1.0f});
-            const Image before = img;
-            Canvas c(img, 0, 200);
-            c.setTransform(1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f);
-            maz::film::drawWeather(c, k, pal, 3.0, 42u, 480.0f, 200.0f);
-            if (img.data() == before.data()) {
-                allDrew = false;
-                if (blank.empty()) blank = maz::film::weatherName(k);
+        // Nothing runs out. A particle that falls off the bottom comes back in at the top, so the
+        // weather is still there at the end of a long shot.
+        const maz::render::shapes::MeshData late =
+            film::airMesh(film::Weather::Rain, eye, at, 240.0, 7u, tint, 0.4f);
+        check(late.vertices.size() == a.vertices.size(), "and four minutes in there is still rain");
+        // And it is still IN FRAME. Without the wrap the count never changes and the spread never
+        // changes — every drop simply keeps going, so four minutes in the whole storm is a mile below
+        // the floor and the shot is dry.
+        int inFrame = 0;
+        float lowest = 1e9f, highest = -1e9f;
+        for (const auto& v : late.vertices) {
+            lowest = std::min(lowest, v.py);
+            highest = std::max(highest, v.py);
+            if (std::fabs(v.py - eye.y) < 5.0f) {
+                ++inFrame;
             }
         }
-        CHECK(allDrew, ("every kind of weather draws something (first blank: " + blank + ")").c_str());
-
-        Image none(480, 200, Color{0.1f, 0.1f, 0.12f, 1.0f});
-        const Image beforeNone = none;
-        Canvas c(none, 0, 200);
-        c.setTransform(1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f);
-        maz::film::drawWeather(c, Weather::None, pal, 3.0, 42u, 480.0f, 200.0f);
-        CHECK(none.data() == beforeNone.data(), "clear air draws nothing at all");
+        check(highest - lowest > 4.0f, "spread through the air rather than piled up on the floor");
+        check(inFrame > static_cast<int>(late.vertices.size()) / 2,
+              "and most of it is still somewhere the lens can see, not a mile below the floor");
     }
 
-    // --- 5. Weather moves with the clock, and repeats for the same clock. ---
+    // ------------------------------------------------------------------ 4. the same every time
     {
-        const Palette pal = maz::film::paletteFor("thriller", "NIGHT", 0.5);
-        auto render = [&](double t, std::uint32_t seed) {
-            Image img(480, 200, Color{0.0f, 0.0f, 0.0f, 1.0f});
-            Canvas c(img, 0, 200);
-            c.setTransform(1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f);
-            maz::film::drawWeather(c, Weather::Rain, pal, t, seed, 480.0f, 200.0f);
-            return img;
-        };
-        CHECK(render(2.0, 7u).data() == render(2.0, 7u).data(),
-              "the same moment gives the same rain");
-        CHECK(!(render(2.0, 7u).data() == render(2.4, 7u).data()), "rain falls as the clock runs");
-        CHECK(!(render(2.0, 7u).data() == render(2.0, 8u).data()),
-              "a different film's rain falls differently");
-    }
+        // Two renderers compare frames pixel for pixel. Weather that is not identical from the same
+        // inputs makes that comparison meaningless, and the arithmetic in here is integer and square
+        // roots only for exactly that reason.
+        const maz::render::shapes::MeshData a =
+            film::airMesh(film::Weather::Dust, eye, at, 3.5, 91u, tint, 0.3f);
+        const maz::render::shapes::MeshData b =
+            film::airMesh(film::Weather::Dust, eye, at, 3.5, 91u, tint, 0.3f);
+        bool same = a.vertices.size() == b.vertices.size();
+        for (std::size_t i = 0; same && i < a.vertices.size(); ++i) {
+            same = a.vertices[i].px == b.vertices[i].px && a.vertices[i].py == b.vertices[i].py &&
+                   a.vertices[i].pz == b.vertices[i].pz;
+        }
+        check(same, "the same moment of the same film has the same air in it, to the last decimal");
 
-    // --- 6. The vignette is dark at the corners, clear in the middle, deeper under tension. ---
-    {
-        auto vignetted = [](double mood) {
-            Image img(400, 200, Color{1.0f, 1.0f, 1.0f, 1.0f});
-            maz::film::drawVignette(img, maz::film::paletteFor("drama", "NIGHT", mood), 0, 200);
-            return img;
-        };
-        const Image calm = vignetted(0.1);
-        CHECK(meanOf(calm, 180, 90, 220, 110) > 0.9, "the middle of the frame is left alone");
-        CHECK(meanOf(calm, 0, 0, 40, 30) < 0.75, "the corners are pulled down");
-        CHECK(meanOf(calm, 0, 0, 40, 30) < meanOf(calm, 180, 90, 220, 110),
-              "the corners are darker than the middle");
-        const Image tense = vignetted(0.95);
-        CHECK(meanOf(tense, 0, 0, 40, 30) < meanOf(calm, 0, 0, 40, 30),
-              "a scene in crisis gets a deeper vignette");
-    }
-
-    // --- 7. The light leak follows the light. ---
-    {
-        const Palette pal = maz::film::paletteFor("drama", "NIGHT", 0.4);
-        auto leaked = [&](double offset) {
-            Image img(400, 200, Color{0.0f, 0.0f, 0.0f, 1.0f});
-            Canvas c(img, 0, 200);
-            c.setTransform(1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f);
-            maz::film::drawLightLeak(c, pal, offset, 1.0, 400.0f, 200.0f);
-            return img;
-        };
-        const Image left = leaked(-1.0);
-        const Image right = leaked(1.0);
-        // The leak starts at its own end of the frame, so its bright end moves with the light.
-        CHECK(meanOf(left, 0, 90, 60, 110) != meanOf(right, 0, 90, 60, 110),
-              "moving the light moves the leak");
-        const Image bright = [&] {
-            Image img(400, 200, Color{0.0f, 0.0f, 0.0f, 1.0f});
-            Canvas c(img, 0, 200);
-            c.setTransform(1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f);
-            maz::film::drawLightLeak(c, pal, 0.0, 1.5, 400.0f, 200.0f);
-            return img;
-        }();
-        const Image dim = leaked(0.0);
-        CHECK(meanOf(bright, 0, 0, 400, 200) > meanOf(dim, 0, 0, 400, 200),
-              "a brighter light leaks more");
-    }
-
-    // --- 8. Grain: seeded, stepped twelve times a second, and gentle. ---
-    {
-        CHECK(maz::film::grainTile().size() == 128u * 128u, "the grain tile is 128 pixels square");
-        bool inRange = true;
-        for (const std::uint8_t v : maz::film::grainTile()) {
-            if (v < 110 || v > 200) {
-                inRange = false;
+        const maz::render::shapes::MeshData other =
+            film::airMesh(film::Weather::Dust, eye, at, 3.5, 92u, tint, 0.3f);
+        bool moved = false;
+        for (std::size_t i = 0; i < a.vertices.size() && i < other.vertices.size(); ++i) {
+            if (a.vertices[i].px != other.vertices[i].px) {
+                moved = true;
             }
         }
-        CHECK(inRange, "the grain stays in its stated range");
-
-        auto grained = [](double t) {
-            Image img(200, 100, Color{0.5f, 0.5f, 0.5f, 1.0f});
-            maz::film::drawGrain(img, t, 0, 100);
-            return img;
-        };
-        // Twelve steps a second: two moments inside one step are identical, and two in different
-        // steps are not. This is what stops every frame of a recording being different.
-        CHECK(grained(1.0).data() == grained(1.0 + 1.0 / 48.0).data(),
-              "two moments inside one grain step look the same");
-        CHECK(!(grained(1.0).data() == grained(1.0 + 1.0 / 6.0).data()),
-              "the grain moves on to the next step");
-        // Gentle: it is a texture, not a curtain.
-        const Image g = grained(1.0);
-        CHECK(std::fabs(meanOf(g, 0, 0, 200, 100) - 0.5) < 0.08,
-              "the grain barely moves the overall brightness");
+        check(moved, "and a different film has different air");
     }
 
-    if (g_fail == 0) {
-        std::printf("film air: all checks passed (600 weather cases, 75 object words)\n");
+    // ------------------------------------------------------------------ 5. harder when it matters
+    {
+        const std::size_t calm =
+            film::airMesh(film::Weather::Rain, eye, at, 2.0, 7u, tint, 0.0f).vertices.size();
+        const std::size_t wild =
+            film::airMesh(film::Weather::Rain, eye, at, 2.0, 7u, tint, 1.0f).vertices.size();
+        check(wild > calm, "a wound-up shot gets harder weather, which is what a director would ask for");
     }
-    return g_fail == 0 ? 0 : 1;
+
+    if (!failures.empty()) {
+        for (const std::string& f : failures) {
+            std::printf("FAIL: %s\n", f.c_str());
+        }
+        std::printf("%zu failed\n", failures.size());
+        return 1;
+    }
+    std::printf("air: all checks passed\n");
+    return 0;
 }
