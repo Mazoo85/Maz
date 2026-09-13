@@ -463,6 +463,110 @@
    * One function per setting. Each gets the frame, where the horizon is, and
    * its own generator, and is free to draw as far forward as it likes.
    */
+  /*
+   * What a ridge is made of.
+   *
+   * A mountain in this engine was an outline and nothing else — no snow where
+   * it is cold, no trees where they stop, no rock showing through. An outline
+   * is a shape; these are what make it a mountain. All three clip to the ridge
+   * that has already been drawn, so they follow whatever shape it happens to
+   * have, including one read off somebody's photograph.
+   */
+  function clipTo(ctx, pts, closeY) {
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.lineTo(pts[pts.length - 1][0], closeY);
+    ctx.lineTo(pts[0][0], closeY);
+    ctx.closePath();
+    ctx.clip();
+  }
+
+  /* Snow lies above a line, and the line is not straight: it dips where the
+   * slope faces the sun and reaches down the gullies. */
+  function snowCap(ctx, pts, closeY, w, h, P, r, strength) {
+    var top = pts[0][1];
+    for (var i = 1; i < pts.length; i++) if (pts[i][1] < top) top = pts[i][1];
+    var bottom = pts[0][1];
+    for (var j = 1; j < pts.length; j++) if (pts[j][1] > bottom) bottom = pts[j][1];
+    if (bottom - top < h * 0.03) return;
+    var line = top + (bottom - top) * (0.30 + r() * 0.22);
+
+    ctx.save();
+    clipTo(ctx, pts, closeY);
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.1, top - h * 0.2);
+    ctx.lineTo(w * 1.1, top - h * 0.2);
+    var wob = (bottom - top) * 0.26;
+    for (var x = w * 1.1; x >= -w * 0.1; x -= w / 26) {
+      var t = x / w;
+      ctx.lineTo(x, line + Math.sin(t * 7.3 + r() * 0.001) * wob * 0.5 +
+        Math.sin(t * 17.1) * wob * 0.28);
+    }
+    ctx.closePath();
+    ctx.fillStyle = P.css([P.sky.haze[0], 14, 95], 0.72 * (strength == null ? 1 : strength));
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /* Rock shows in bands, because that is how rock was laid down. */
+  function strata(ctx, pts, closeY, w, h, P, r, n) {
+    var top = pts[0][1], bottom = pts[0][1];
+    for (var i = 1; i < pts.length; i++) {
+      if (pts[i][1] < top) top = pts[i][1];
+      if (pts[i][1] > bottom) bottom = pts[i][1];
+    }
+    var span = Math.max(bottom - top, h * 0.04);
+    ctx.save();
+    clipTo(ctx, pts, closeY);
+    for (var b = 0; b < (n || 5); b++) {
+      var y = top + span * (0.25 + b * 0.17) + (r() - 0.5) * span * 0.06;
+      var thick = Math.max(1.5, span * (0.012 + r() * 0.02));
+      ctx.fillStyle = b % 2 ? 'rgba(255,255,255,0.055)' : 'rgba(0,0,0,0.085)';
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.1, y);
+      for (var x2 = -w * 0.1; x2 <= w * 1.1; x2 += w / 18) {
+        ctx.lineTo(x2, y + Math.sin(x2 / w * 5.1 + b) * span * 0.02);
+      }
+      ctx.lineTo(w * 1.1, y + thick);
+      for (var x3 = w * 1.1; x3 >= -w * 0.1; x3 -= w / 18) {
+        ctx.lineTo(x3, y + thick + Math.sin(x3 / w * 5.1 + b) * span * 0.02);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /* Trees stop at a height, and thin out before they stop. */
+  function treeLine(ctx, pts, closeY, w, h, P, r, depth) {
+    var top = pts[0][1], bottom = pts[0][1];
+    for (var i = 1; i < pts.length; i++) {
+      if (pts[i][1] < top) top = pts[i][1];
+      if (pts[i][1] > bottom) bottom = pts[i][1];
+    }
+    if (bottom - top < h * 0.02) return;
+    var line = top + (bottom - top) * (0.55 + r() * 0.18);
+    var size = Math.max(2.5, h * 0.016);
+    ctx.save();
+    clipTo(ctx, pts, closeY);
+    ctx.fillStyle = P.ink(Math.max(0, (depth || 0) - 0.18), 0.55);
+    var step = Math.max(5, w / 90);
+    for (var x = -w * 0.05; x < w * 1.05; x += step) {
+      var jitter = (r() - 0.5) * step * 1.4;
+      var y = line + (r() - 0.3) * (bottom - top) * 0.30;
+      if (y < line - (bottom - top) * 0.05) continue;   // thinning towards the top
+      var tall = size * (0.6 + r() * 0.9);
+      ctx.beginPath();
+      ctx.moveTo(x + jitter, y - tall);
+      ctx.lineTo(x + jitter + tall * 0.32, y);
+      ctx.lineTo(x + jitter - tall * 0.32, y);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   var GROUND = {};
 
   /* Lit upper faces for a ridge: a wash that fades out downwards, plus a bright
@@ -505,6 +609,9 @@
         ridge(-w * 0.05, baseY - peak * (0.4 + r() * 0.5), w * 1.05,
           baseY - peak * (0.4 + r() * 0.5), peak * 1.1, r, 7);
       fillPoly(ctx, pts, h, P.ink(depth));
+      strata(ctx, pts, h, w, h, P, r, 4 - layer);
+      if (layer < 2) snowCap(ctx, pts, h, w, h, P, r, 0.55 - layer * 0.18);
+      if (layer > 0) treeLine(ctx, pts, h, w, h, P, r, depth);
       crestLight(ctx, pts, w, h, P, 0.26 - layer * 0.07, [P.sky.haze[0], 22, 90]);
     }
     hills(ctx, w, h * 0.93, h * 0.02, 1.4, r() * 6, h, P.land(0));
@@ -519,6 +626,8 @@
       var pts = photoRidge(spec, w, h, baseY - peak * 0.7, peak * (1 - layer * 0.3)) ||
         ridge(-w * 0.05, baseY - peak * 0.6, w * 1.05, baseY - peak * 0.85, peak * 0.95, r, 7);
       fillPoly(ctx, pts, h, P.ink(0.85 - layer * 0.38));
+      snowCap(ctx, pts, h, w, h, P, r, 0.85 - layer * 0.14);
+      if (layer === 2) strata(ctx, pts, h, w, h, P, r, 3);
       crestLight(ctx, pts, w, h, P, 0.40 - layer * 0.10, [P.sky.haze[0], 16, 94]);
     }
     hills(ctx, w, hz + (h - hz) * 0.62, h * 0.025, 1.1, r() * 6, h, P.css([208, 22, 86]));
@@ -995,6 +1104,11 @@
     /* Scale contrast: a lone subject is sometimes near and large, sometimes a
      * small thing in a big landscape. Both read better than always mid-sized. */
     var swing = total > 1 ? 1 : (0.72 + r() * 0.75);
+    /* Told where the picture is taken from, the roll of the dice gives way:
+     * asked for a close-up somebody wants a close-up, not a close-up two times
+     * in three. */
+    var shot = spec.shot;
+    if (shot) swing = shot.size * (total > 1 ? 1 : (0.9 + r() * 0.2));
     var size = Math.min(w, h) * meta.base * subject.scale * swing * (1 - depth * 0.25);
     var bw = size * (meta.aspect || 1);
     var bh = size;
@@ -1005,7 +1119,18 @@
     } else if (meta.anchor === 'water') {
       y = hz + (h - hz) * (0.18 + r() * 0.3) - bh;
     } else {
-      var standY = hz + (h - hz) * (0.06 + depth * 0.10 + r() * 0.14);
+      var stand = shot ? shot.stand : 0.06 + r() * 0.14;
+      var standY = hz + (h - hz) * (stand + depth * 0.10 + (shot ? (r() - 0.5) * 0.06 : 0));
+      /* A close-up fills the frame; it does not leave the head outside it. The
+       * shot says how big to be, the frame says how big will fit, and the
+       * smaller of the two wins — losing a stag's antlers off the top is not a
+       * close-up of a stag. */
+      var room = standY - h * 0.035;
+      if (bh > room && room > h * 0.1) {
+        var fit = room / bh;
+        bh = room;
+        bw *= fit;
+      }
       y = standY - bh;
     }
     return { x: cx - bw / 2, y: y, w: bw, h: bh, depth: depth, anchor: meta.anchor };
@@ -1340,11 +1465,15 @@
     var P = makePalette(spec);                              // the world
     var PS = makePalette(spec, { tintStrength: 0.85 });     // the thing in it
     var r = PROMPT.rng(spec, 'scene');
+    /* Where the picture is taken from. A close-up looks up at its subject, so
+     * the skyline rises; looking down on a landscape drops it. */
+    var shot = spec.shot || null;
     /* Underground there is no sky to put air between anything. */
     HAZE_EDGE = spec.scene.id === 'cave'
       ? null
       : { on: P.haze(0.30 - P.drama * 0.12), off: P.haze(0) };
-    var hz = clamp(spec.scene.horizon + (r() - 0.5) * 0.05, 0.42, 1.3) * h;
+    var hz = clamp(spec.scene.horizon + (r() - 0.5) * 0.05 + (shot ? shot.horizon : 0),
+      0.22, 1.3) * h;
 
     /* Painting onto a photograph: the photograph is the sky and the ground, so
      * neither is drawn. Everything after this — the subject, its shadow, its

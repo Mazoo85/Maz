@@ -101,6 +101,17 @@ function colourGap(a, b) {
  * reading between the two gives the previous picture. Two identical reads in a
  * row means the canvas is at rest. */
 async function settled(page, inspect) {
+  /* Wait for the app to say it has finished before watching the canvas at all.
+   * A big picture is painted as a quarter-size preview first, and the preview
+   * sits still for long enough to look settled — so two identical reads alone
+   * would happily return the preview and then report it as a different picture
+   * from the finished one. The app greys its buttons while it works, which is
+   * the only honest signal that it is done. */
+  await page.waitForFunction(
+    () => { const b = document.getElementById('paint'); return b && !b.disabled; },
+    null, { timeout: 40000 }
+  ).catch(() => { /* an older page without the signal still settles below */ });
+
   let last = null;
   for (let i = 0; i < 40; i++) {
     const now = await page.evaluate(inspect);
@@ -146,7 +157,7 @@ let paintsThisLoad = 0;
     let count = await painted(page, 0);
     const took = Date.now() - started;
 
-    const first = await page.evaluate(INSPECT);
+    const first = await settled(page, INSPECT);
     check(first.w === 1280 && first.h === 720, `painted at the chosen size (got ${first.w}×${first.h})`);
     check(first.colours > 24, `the picture has real detail in it (${first.colours} distinct colours)`);
     check(first.mean > 12 && first.mean < 246, 'the picture is neither black nor white all over');
@@ -168,14 +179,14 @@ let paintsThisLoad = 0;
     /* ------------------------------------------------- the same, again */
     await page.click('#paint');
     count = await painted(page, count);
-    const same = await page.evaluate(INSPECT);
+    const same = await settled(page, INSPECT);
     check(same.colours === first.colours && Math.abs(same.mean - first.mean) < 0.001,
       'painting the same prompt twice gives the same picture');
 
     /* ------------------------------------------------------ another take */
     await page.click('#reroll');
     count = await painted(page, count);
-    const rerolled = await page.evaluate(INSPECT);
+    const rerolled = await settled(page, INSPECT);
     check(Math.abs(rerolled.mean - first.mean) > 0.0001, 'another take really paints something else');
 
     /* ------------------------------------------------------ the controls */
@@ -195,7 +206,7 @@ let paintsThisLoad = 0;
 
     await page.selectOption('#shape', 'tall');
     count = await painted(page, count);
-    const tall = await page.evaluate(INSPECT);
+    const tall = await settled(page, INSPECT);
     check(tall.h > tall.w, `choosing a tall shape repaints tall (${tall.w}×${tall.h})`);
 
     /* ---------------------------------------------------------- gallery */
@@ -235,7 +246,7 @@ let paintsThisLoad = 0;
     count = await painted(page, count);
     const surprised = await page.inputValue('#prompt');
     check(surprised.length > 4, 'surprise me writes a prompt and paints it');
-    const after = await page.evaluate(INSPECT);
+    const after = await settled(page, INSPECT);
     check(after.colours > 12, 'the surprise is a real picture');
 
     /* --------------------------------------------- words it does not know */
@@ -270,28 +281,34 @@ let paintsThisLoad = 0;
     await page.selectOption('#style', 'noir');
     await page.click('#paint');
     count = await painted(page, count);
-    const before = await page.evaluate(INSPECT);
-    const shared = await page.evaluate(`(() => {
-      const c = document.getElementById('canvas');
-      return { href: location.href, painted: c.dataset.painted };
-    })()`);
-    void shared;
-    const url = await page.evaluate(`(() => {
-      const s = document.getElementById('status').textContent || '';
-      const m = s.match(/seed (\\d+)/);
-      return location.origin + location.pathname + '#p=' +
-        encodeURIComponent('a whale under a huge moon') + '&s=' + (m ? m[1] : '1') +
-        '&y=noir&z=' + document.getElementById('shape').value;
-    })()`);
+    /* Settled, both sides. The painted counter says a render finished, but a
+     * big picture is drawn as a small preview first, so an unsettled read here
+     * compares a preview against a finished picture and reports the two as
+     * different when they are the same. */
+    const before = await settled(page, INSPECT);
+    /* The link the button actually produces, taken off the clipboard, rather
+     * than one rebuilt here from a seed scraped out of the status line with a
+     * regular expression. The rebuilt one silently fell back to seed 1
+     * whenever that line did not happen to mention a seed, and then reported a
+     * picture painted from the wrong seed as the share feature being broken. */
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.click('#share');
+    await page.waitForTimeout(200);
+    const url = await page.evaluate(() => navigator.clipboard.readText());
+    check(/#p=/.test(url), `the share button puts a real link on the clipboard (${url.slice(0, 60)}…)`);
     const page2 = await browser.newPage({ viewport: { width: 1100, height: 900 } });
     await page2.goto(url, { waitUntil: 'load' });
     await page2.waitForFunction(
       () => Number(document.getElementById('canvas').dataset.painted || 0) > 0,
       null, { timeout: 30000 }
     );
-    const reopened = await page2.evaluate(INSPECT);
+    const reopened = await settled(page2, INSPECT);
     check(reopened.colours === before.colours && Math.abs(reopened.mean - before.mean) < 0.001,
-      'opening the shared link paints exactly the same picture');
+      'opening the shared link paints exactly the same picture' +
+      (reopened.colours === before.colours && Math.abs(reopened.mean - before.mean) < 0.001 ? ''
+        : ` — here ${before.colours} colours / mean ${before.mean.toFixed(4)} / ` +
+          `${before.w}×${before.h}, there ${reopened.colours} / ${reopened.mean.toFixed(4)} / ` +
+          `${reopened.w}×${reopened.h}; link ${url}`));
     await page2.close();
 
     /* --------------------------------------- a kept picture cannot drift */
@@ -347,7 +364,7 @@ let paintsThisLoad = 0;
 
     await page.check('#usePhotoBackdrop');
     count = await painted(page, count);
-    const onPhoto = await page.evaluate(INSPECT);
+    const onPhoto = await settled(page, INSPECT);
     check(onPhoto.colours > 12, 'a subject can be painted onto the photo itself');
 
     /* A picture painted onto a photo must not be kept, because the gallery
@@ -370,7 +387,7 @@ let paintsThisLoad = 0;
       () => /Your photo, in/.test(document.getElementById('status').textContent || ''),
       null, { timeout: 20000 }
     );
-    const styled = await page.evaluate(INSPECT);
+    const styled = await settled(page, INSPECT);
     check(styled.colours > 8, 'the photo itself can be put through a style');
     const styledAlt = await page.getAttribute('#canvas', 'aria-label');
     check(/your photograph/i.test(styledAlt), `and says so for a screen reader (${styledAlt})`);
@@ -626,6 +643,61 @@ let paintsThisLoad = 0;
       () => Number(document.getElementById('canvas').dataset.painted || 0)) === stoppedAt,
       'stopping it stops it, and nothing carries on painting afterwards');
     count = stoppedAt;
+
+    /* --------------------------------------------- recording the growing
+     * The clip is the one thing here somebody would show another person, so
+     * it is checked end to end: it records while it grows and produces a real
+     * file, not a zero-byte one. */
+    const canRecord = await page.evaluate(() =>
+      typeof MediaRecorder === 'function' &&
+      typeof HTMLCanvasElement.prototype.captureStream === 'function');
+    check(canRecord, 'this browser can record a canvas, so the tick-box is offered');
+    check(!(await page.isHidden('#recordWrap')),
+      'and it is offered rather than hidden');
+
+    await idle();
+    await page.check('#record');
+    await page.fill('#prompt', 'a whale under a huge moon');
+    const clip = page.waitForEvent('download', { timeout: 90000 }).catch(() => null);
+    await page.click('#grow');
+    await page.waitForFunction(
+      () => (document.getElementById('status').textContent || '').indexOf('Finished') >= 0,
+      null, { timeout: 90000 });
+    const file = await clip;
+    check(!!file, 'growing with record ticked hands back a file');
+    if (file) {
+      const where = await file.path();
+      const bytes = where ? fs.statSync(where).size : 0;
+      check(bytes > 4000,
+        `and the file is a real recording rather than an empty one (${bytes} bytes)`);
+      check(/\.(webm|mp4)$/.test(file.suggestedFilename()),
+        `saved as a video (${file.suggestedFilename()})`);
+    }
+    await page.uncheck('#record');
+    count = await page.evaluate(
+      () => Number(document.getElementById('canvas').dataset.painted || 0));
+
+    /* ------------------------------------------------------- print sizes
+     * A poster that comes back soft is worse than no poster, so the numbers
+     * are the real ones: A4 and A3 at 300 dots to the inch. */
+    const sheets = await page.evaluate(() =>
+      [...document.querySelectorAll('#shape option')].map((o) => o.value));
+    check(sheets.indexOf('a4') >= 0 && sheets.indexOf('a3') >= 0,
+      'A4 and A3 are offered as shapes');
+
+    await idle();
+    await page.selectOption('#shape', 'a4');
+    await page.fill('#prompt', 'a lonely lighthouse in a storm');
+    await page.click('#paint');
+    count = await painted(page, count, 120000);
+    const sheet2 = await page.evaluate(() => {
+      const c = document.getElementById('canvas');
+      return { w: c.width, h: c.height };
+    });
+    check(sheet2.w === 2480 && sheet2.h === 3508,
+      `an A4 poster is painted at 300dpi (${sheet2.w}×${sheet2.h} = ` +
+      `${(sheet2.w / 300 * 25.4).toFixed(0)}×${(sheet2.h / 300 * 25.4).toFixed(0)}mm)`);
+    await page.selectOption('#shape', 'wide');
 
     /* ------------------------------------------------- installable as an app
      * The manifest and its icons are what let someone add CODA PICS to a home

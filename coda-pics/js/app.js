@@ -28,7 +28,14 @@
     phone:     { w: 720,  h: 1280 },
     bigsquare: { w: 2048, h: 2048 },
     hd:        { w: 2560, h: 1440 },
-    phonehd:   { w: 1440, h: 2560 }
+    phonehd:   { w: 1440, h: 2560 },
+    /* For printing. 300 dots to the inch is what a print shop asks for, so
+     * these are the real pixel counts of an A4 and an A3 sheet at that
+     * density — 2480x3508 and 3508x4961 — rather than a round number that
+     * looks big and comes back soft. */
+    a4:        { w: 2480, h: 3508 },
+    a4wide:    { w: 3508, h: 2480 },
+    a3:        { w: 3508, h: 4961 }
   };
 
   var EXAMPLES = [
@@ -220,6 +227,83 @@
     { upTo: 8, says: 'the weather' },
     { upTo: 99, says: 'the finish' }
   ];
+  /* ------------------------------------------------- recording the growing
+   * It already passes through about a hundred and fifty pictures on the way to
+   * the finished one and throws every one of them away. The browser can record
+   * a canvas as it is drawn, so keeping them costs a recorder and a filename.
+   *
+   * Nothing here is required for growing to work: if the browser cannot record
+   * a canvas, growing carries on exactly as before and the button is not
+   * offered, rather than offered and then failing at the end.
+   */
+  function canRecord() {
+    return typeof window.MediaRecorder === 'function' &&
+      typeof HTMLCanvasElement !== 'undefined' &&
+      typeof HTMLCanvasElement.prototype.captureStream === 'function';
+  }
+
+  function recorderType() {
+    if (typeof MediaRecorder.isTypeSupported !== 'function') return '';
+    var want = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
+    for (var i = 0; i < want.length; i++) {
+      if (MediaRecorder.isTypeSupported(want[i])) return want[i];
+    }
+    return '';
+  }
+
+  var recorder = null;
+  var recorded = [];
+
+  function startRecording() {
+    if (!canRecord()) return false;
+    try {
+      var stream = el.canvas.captureStream(30);
+      var type = recorderType();
+      recorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+      recorded = [];
+      recorder.ondataavailable = function (ev) {
+        if (ev.data && ev.data.size) recorded.push(ev.data);
+      };
+      recorder.start(200);
+      return true;
+    } catch (e) {
+      recorder = null;
+      return false;
+    }
+  }
+
+  function stopRecording() {
+    if (!recorder) return;
+    var rec = recorder;
+    recorder = null;
+    rec.onstop = function () {
+      if (!recorded.length) { setStatus('Nothing was recorded.'); return; }
+      var blob = new Blob(recorded, { type: recorded[0].type || 'video/webm' });
+      recorded = [];
+      var ext = /mp4/.test(blob.type) ? 'mp4' : 'webm';
+      var name = 'coda-pics-growing-' +
+        (current ? slug(current.prompt) + '-' + current.seed : 'picture') + '.' + ext;
+      saveFile(blob, name, function (ok) {
+        setStatus(ok
+          ? 'Saved the whole painting, start to finish.'
+          : 'That could not be saved here.');
+      });
+    };
+    /* A last frame, so the finished picture is the one the clip ends on. */
+    try { rec.requestData(); } catch (e) { /* not every browser has it */ }
+    try { rec.stop(); } catch (e) { /* already stopped */ }
+  }
+
+  /* The long edge to grow at. Big enough to see what is happening, small
+   * enough that a coat lands about as often as a brush would. */
+  var GROW_EDGE = 1100;
+  function growSize() {
+    var full = sizeOf();
+    var scale = Math.min(1, GROW_EDGE / Math.max(full.w, full.h));
+    if (scale >= 1) return full;
+    return { w: Math.round(full.w * scale), h: Math.round(full.h * scale) };
+  }
+
   var growTimer = null;
   var growFrame = null;
   var growing = false;
@@ -249,6 +333,7 @@
     if (growFrame) { window.cancelAnimationFrame(growFrame); growFrame = null; }
     growing = false;
     growPrev = null;
+    stopRecording();
     el.grow.textContent = '🌱 Grow it slowly';
     el.grow.title = 'Watch it painted coat by coat — and change the words while it goes';
     if (!quietly) setStatus('Stopped. What is there is what was painted so far.');
@@ -261,6 +346,7 @@
     growing = true;
     el.grow.textContent = '■ Stop growing';
     el.placeholder.hidden = true;
+    if (el.record && el.record.checked) startRecording();
     var coat = 0;
 
     function beat() {
@@ -269,7 +355,11 @@
       var text = el.prompt.value.trim();
       if (!text) { growStop(true); setStatus('The box is empty, so there is nothing to grow.'); return; }
       var spec = specFor(text, seed);
-      var size = sizeOf();
+      /* Grown at a size worth watching, not at the size it will be saved at.
+       * An A3 sheet is seventeen megapixels, and painting that nine times over
+       * would be a slideshow with several seconds between slides. The finished
+       * picture is painted once, full size, when the growing is over. */
+      var size = growSize();
       var step = COATS[coat];
 
       /* Paint the coat away from the screen, then bring it in over a second's
@@ -325,12 +415,30 @@
       function afterCoat() {
       coat++;
       if (coat >= COATS.length) {
+        /* The clip ends on the finished picture, so the recorder is stopped
+         * only after the last coat has been seen — and before the canvas is
+         * resized underneath it, which would end the recording mid-frame. */
         growStop(true);
         el.outButtons.hidden = false;
         el.partButtons.hidden = false;
         save(LAST_KEY, { prompt: text, seed: seed, style: el.style.value, shape: el.shape.value });
-        setStatus('Finished, in ' + COATS.length + ' coats. It is a real picture — keep it, ' +
-          'save it or share it like any other.');
+
+        var full = sizeOf();
+        if (full.w !== size.w || full.h !== size.h) {
+          setStatus('Finished. Painting it once more at full size…');
+          window.setTimeout(function () {
+            var ok2 = false;
+            try { ok2 = draw(el.canvas, spec, full.w, full.h, mediaNow(spec)); } catch (e) { ok2 = false; }
+            el.canvas.dataset.painted = String(++painted);
+            setStatus(ok2
+              ? 'Finished, in ' + COATS.length + ' coats, and painted full size at ' +
+                full.w + ' × ' + full.h + '.'
+              : 'Finished — but it would not paint at full size. Try a smaller shape.');
+          }, 30);
+        } else {
+          setStatus('Finished, in ' + COATS.length + ' coats. It is a real picture — keep it, ' +
+            'save it or share it like any other.');
+        }
         return;
       }
       growTimer = window.setTimeout(beat, addedNothing ? 40 : 260);
@@ -1425,7 +1533,7 @@
   function start() {
     ['prompt', 'style', 'shape', 'examples', 'paint', 'reroll', 'six', 'surprise',
       'canvas', 'placeholder', 'busy', 'status', 'readout', 'unknown', 'outButtons', 'grow',
-      'partButtons', 'newSky', 'newLand', 'newSubject', 'nearby', 'undo',
+      'partButtons', 'newSky', 'newLand', 'newSubject', 'nearby', 'undo', 'record', 'recordWrap',
       'download', 'keep', 'share', 'sheet', 'sheetGrid', 'gallery', 'galleryWrap',
       'exportGallery', 'importGallery', 'importFile',
       'lockSubject', 'lockSky', 'lockLand',
@@ -1450,6 +1558,9 @@
     el.newSubject.addEventListener('click', function () { repaintPart('subject'); });
     el.undo.addEventListener('click', undoLast);
     el.grow.addEventListener('click', growStart);
+    /* Offered only where it can actually be done. A tick-box that produces
+     * nothing at the end of a ten-second wait is worse than no tick-box. */
+    if (el.recordWrap) el.recordWrap.hidden = !canRecord();
     el.surprise.addEventListener('click', function () {
       el.prompt.value = PROMPT.surprise(Date.now());
       repaint(1 + Math.floor(Math.random() * 999999));

@@ -245,6 +245,29 @@
     { id: 'front',  label: 'in front of', words: ['in front of', 'before'] }
   ];
 
+  /* ------------------------------------------------------------- the camera
+   * Where the picture is taken from. Every picture used to be framed the same
+   * way — horizon a little past halfway, subject somewhere near the middle,
+   * always about the same distance off — and that sameness reads as strongly as
+   * any other kind of sameness. These are the words people already reach for.
+   *
+   * `size` scales the subject, `horizon` moves the skyline (negative is higher
+   * in the frame, which is what looking down does), and `stand` says how far
+   * down the ground the subject stands, which is what near and far look like.
+   */
+  var SHOTS = [
+    { id: 'closeup', label: 'close up', size: 2.15, horizon: 0.16, stand: 0.62,
+      words: ['close up', 'closeup', 'close', 'portrait of', 'face of', 'head of'] },
+    { id: 'near',    label: 'near',     size: 1.42, horizon: 0.07, stand: 0.42,
+      words: ['near', 'nearby', 'in front', 'up close'] },
+    { id: 'wide',    label: 'a wide shot', size: 0.52, horizon: -0.05, stand: 0.10,
+      words: ['wide', 'wide shot', 'distant', 'far away', 'faraway', 'tiny in', 'vast', 'panorama', 'sweeping'] },
+    { id: 'aerial',  label: 'from above', size: 0.62, horizon: -0.24, stand: 0.55,
+      words: ['from above', 'aerial', 'birds eye', 'bird eye', 'overhead', 'looking down', 'above it'] },
+    { id: 'low',     label: 'from below', size: 1.62, horizon: 0.22, stand: 0.86,
+      words: ['from below', 'looking up', 'towering', 'looming', 'low angle', 'beneath it', 'up at'] }
+  ];
+
   /* Words that mean nothing to a painter. Kept so the app can tell the
    * difference between "a word I do not know" and "a word nobody draws". */
   var FILLER = [
@@ -266,6 +289,7 @@
     SCALE_WORDS: SCALE_WORDS,
     COUNT_WORDS: COUNT_WORDS,
     RELATIONS: RELATIONS,
+    SHOTS: SHOTS,
     FILLER: FILLER
   };
 

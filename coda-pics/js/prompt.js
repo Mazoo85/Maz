@@ -415,6 +415,26 @@
       }
     }
 
+    /* --- where the picture is taken from ---
+     * Said outright when the words say it; otherwise rolled, because every
+     * picture framed identically is its own kind of sameness. The roll is
+     * weighted towards the ordinary shot — a gallery where every third picture
+     * is an extreme close-up is no better than one where none is. */
+    var shotHit = findOne(LEX.SHOTS, flat, toks);
+    var shot;
+    if (shotHit) {
+      shot = shotHit.entry;
+      note('shot', shot.label, shotHit.word);
+    } else {
+      var sr = rng({ prompt: prompt, seed: seed, locked: locked }, 'shot');
+      var roll = sr();
+      shot = roll < 0.58 ? null
+        : roll < 0.74 ? byId(LEX.SHOTS, 'near')
+        : roll < 0.88 ? byId(LEX.SHOTS, 'wide')
+        : roll < 0.95 ? byId(LEX.SHOTS, 'low')
+        : byId(LEX.SHOTS, 'closeup');
+    }
+
     /* --- what it could not use ---
      * Silence here is the worst answer: somebody types "a griffin" and gets a
      * fox with no idea why. */
@@ -437,6 +457,7 @@
       prompt: prompt,
       seed: seed,
       locked: locked,
+      shot: shot,
       subject: subject,
       companion: companion,
       relation: relation,

@@ -203,6 +203,12 @@ asks browser apps to use precisely because a web page cannot keep a secret.
 - **More like this** — six near neighbours of what is on screen rather than six
   strangers: same sky, same land, a different take on the subject.
 - **Undo** — one step back from a re-roll, a forgotten photo, or cleared colours.
+- **Where the picture is taken from** — say *close up*, *from below*, *wide*,
+  *a tiny cabin in a vast desert*, *an aerial view* and it is framed that way.
+  Left unsaid it is rolled, weighted so most pictures are still framed the
+  ordinary way.
+- **🎬 record it** — tick it before growing and the whole painting is saved as
+  a video. Offered only where the browser can actually do it.
 - **Grow it slowly** — the picture put on in coats and faded up frame by frame,
   the way it is actually built:
   a bare wash, then the sky, the light, the clouds, the land, the subject, what

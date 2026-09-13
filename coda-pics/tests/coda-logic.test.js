@@ -544,6 +544,104 @@ function paintOnce(text, opts, w, h) {
   pass(beasts.length + ' four-legged animals, every one of them drawn its own way');
 })();
 
+/* ------------------------------------------------------------- the camera
+ * Every picture used to be taken from the same spot with the same lens:
+ * horizon a little past halfway, subject somewhere near the middle, always
+ * about the same distance off. These are the words people already use for
+ * wanting otherwise.
+ */
+(function camera() {
+  console.log('\nWhere the picture is taken from');
+
+  var said = {
+    'a close up of a wolf': 'closeup',
+    'a portrait of a wolf': 'closeup',
+    'a wolf from below': 'low',
+    'a towering castle': 'low',
+    'a tiny cabin in a vast desert': 'wide',
+    'a distant lighthouse': 'wide',
+    'an aerial view of a city': 'aerial',
+    'a bird eye view of a forest': 'aerial'
+  };
+  var wrong = [];
+  Object.keys(said).forEach(function (text) {
+    var got = PROMPT.parse(text, { seed: 5 }).shot;
+    if (!got || got.id !== said[text]) wrong.push(text + ' -> ' + (got ? got.id : 'none'));
+  });
+  check(wrong.length === 0,
+    Object.keys(said).length + ' ways of saying where to stand, all understood' +
+    (wrong.length ? ' — except ' + wrong.join('; ') : ''));
+
+  /* Saying it has to beat the dice, or asking for a close-up gets you one
+   * about two times in three, which is worse than not offering it. */
+  var always = [];
+  for (var s2 = 1; s2 < 40; s2++) {
+    var got2 = PROMPT.parse('a close up of a wolf', { seed: s2 }).shot;
+    if (!got2 || got2.id !== 'closeup') always.push(s2);
+  }
+  check(always.length === 0,
+    'and asking for one gets one every time, not most of the time (' +
+    (39 - always.length) + ' of 39 seeds)');
+
+  /* Unsaid, it is rolled — but weighted, because a gallery where every third
+   * picture is an extreme close-up is its own kind of sameness. */
+  var rolled = {};
+  for (var s3 = 1; s3 < 300; s3++) {
+    var g = PROMPT.parse('a wolf in a forest', { seed: s3 }).shot;
+    var id = g ? g.id : 'ordinary';
+    rolled[id] = (rolled[id] || 0) + 1;
+  }
+  check(rolled.ordinary > 130 && rolled.ordinary < 220,
+    'left unsaid, most pictures are still framed the ordinary way (' +
+    rolled.ordinary + ' of 299)');
+  check(Object.keys(rolled).length >= 4,
+    'but the rest are spread across the other framings (' +
+    Object.keys(rolled).filter(function (k) { return k !== 'ordinary'; }).join(', ') + ')');
+
+  /* The word is accounted for, or somebody typing "a close up of a wolf" is
+   * told the app did not know what "close" meant. */
+  check((PROMPT.parse('a close up of a wolf', { seed: 5 }).unknown || []).length === 0,
+    'and the words that said it are not reported back as ones nobody knew');
+  pass('five ways of framing a picture, said or rolled');
+})();
+
+/* ------------------------------------------------------ what a ridge is made of
+ * A mountain was an outline: no snow where it is cold, no trees where they
+ * stop, no rock showing through. This checks the difference is really being
+ * drawn rather than merely being called for.
+ */
+(function ridgeDress() {
+  console.log('\nWhat a ridge is made of');
+
+  function marksFor(text) {
+    var ctx = new FakeContext(320, 240);
+    PAINT.render(ctx, 320, 240, PROMPT.parse(text, { seed: 3 }));
+    var total = 0;
+    Object.keys(ctx.ops).forEach(function (k) { total += ctx.ops[k]; });
+    return { clips: ctx.ops.clip || 0, marks: total };
+  }
+
+  /* Snow, trees and rock each clip themselves to the ridge already drawn, so
+   * the number of clips counts how many of them ran. Counting marks alone
+   * would not: a mountain drew more than a field long before any of this. */
+  var mountains = marksFor('mountains at noon');
+  var snowy = marksFor('snowy mountains at noon');
+  var plains = marksFor('open plains at noon');
+
+  check(mountains.clips >= 8,
+    'a mountain is dressed layer by layer — snow, trees, rock (' +
+    mountains.clips + ' clipped passes)');
+  check(snowy.clips >= 4,
+    'and so is a snowfield (' + snowy.clips + ' clipped passes)');
+  check(plains.clips === 0,
+    'while flat ground gets none of it, because there is no slope to dress (' +
+    plains.clips + ')');
+  check(mountains.marks > plains.marks * 3,
+    'a mountain now takes several times the drawing a field does (' +
+    mountains.marks + ' vs ' + plains.marks + ')');
+  pass('ridges are made of something now');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);
