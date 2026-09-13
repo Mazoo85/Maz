@@ -71,6 +71,7 @@ cutscene_export assets/characters/hero.mazprefab --out hero.gif --fps 30 --secon
 | `--frames N` | Cap the frame count (0 = no cap) |
 | `--frames-dir DIR` | Also write each frame as a numbered image (`frame_0000.<ext>`, …) into `DIR` |
 | `--frame-format ppm\|qoi` | Frame image format when `--frames-dir` is set (`ppm`) |
+| `--aa 1-4` | Supersample anti-aliasing factor (`2`) — higher is smoother but slower |
 
 The GIF is a self-contained preview; the `--frames-dir` PPM/QOI sequence is for pulling into `ffmpeg`
 or a video editor (e.g. `ffmpeg -i frame_%04d.ppm out.mp4`).
