@@ -154,7 +154,10 @@ inline Cast castFor(const maz::film::Character& who, const maz::film::Voice* voi
     };
     c.build.top = fromHue(hue, 0.30f, 0.42f);
     c.build.legwear = fromHue(hue + 18.0f, 0.16f, 0.22f);
-    const float skinTone = 0.52f + static_cast<float>((h >> 17) % 45u) / 100.0f;
+    // Skin reflects somewhere between a third and two thirds of what falls on it. It used to be as
+    // much as 0.97 here, which is paper, and it did not matter while the LIGHT carried the hour in its
+    // own darkness — now that a daylight key is a daylight key, a face at 0.97 prints as a white oval.
+    const float skinTone = 0.40f + static_cast<float>((h >> 17) % 30u) / 100.0f;
     c.build.skin = maz::render::Color{skinTone, skinTone * 0.80f, skinTone * 0.67f, 1.0f};
     const bool fair = ((h >> 23) & 3u) == 0u;
     c.build.hair = fair ? maz::render::Color{0.44f, 0.34f, 0.20f, 1.0f}

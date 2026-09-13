@@ -57,9 +57,38 @@ inline Surface surfaceFor(const maz::film::Palette& pal, const Shot& shot, doubl
         return 1.0f - (1.0f - v) * amount;
     };
     s.key = Color{toward(pal.key.r, 0.55f), toward(pal.key.g, 0.55f), toward(pal.key.b, 0.55f), 1.0f};
-    s.ambientTint = Color{static_cast<float>(0.68 + 0.32 * pal.sky.r / 255.0),
-                          static_cast<float>(0.68 + 0.32 * pal.sky.g / 255.0),
-                          static_cast<float>(0.72 + 0.28 * pal.sky.b / 255.0), 1.0f};
+    // THE AMBIENT IS THE OPPOSITE COLOUR TO THE KEY, and this is the one change that stopped the
+    // pictures looking like they were printed on coloured paper.
+    //
+    // Every light in the frame used to come from the same place in the palette — the key from
+    // pal.key, the ambient from pal.sky, the bounce from pal.ink, the air from pal.sky again — and a
+    // horror palette is green in all four. A frame lit entirely in one hue has no colour information
+    // in it at all: nothing is warm relative to anything else, so nothing reads as lit, it reads as
+    // tinted. It is the difference between a scene lit green and a scene printed on green stock, and
+    // the code already had a comment saying so about a narrower version of the same mistake.
+    //
+    // Film lights the other way round, always: a warm key against cool shadows or a cool key against
+    // warm ones. So the ambient is worked out from the key itself — its complement about its own
+    // brightness — rather than picked, which means it is right for any palette including ones that do
+    // not exist yet, and it cannot drift out of agreement with the key because it IS the key.
+    {
+        const float kr = static_cast<float>(pal.key.r / 255.0);
+        const float kg = static_cast<float>(pal.key.g / 255.0);
+        const float kb = static_cast<float>(pal.key.b / 255.0);
+        const float grey = 0.299f * kr + 0.587f * kg + 0.114f * kb;
+        auto opposite = [&](float c) { return grey * 2.0f - c; };
+        // Kept pale. The complement at full strength is a second coloured light fighting the first;
+        // most of the way to white, it is air.
+        auto pale = [&](float c) { return 0.58f + 0.42f * (c < 0.0f ? 0.0f : (c > 1.0f ? 1.0f : c)); };
+        // And leaned a third of the way back toward the set's own sky, so a room still looks like the
+        // room it is rather than like a colour theory exercise.
+        auto skyward = [&](double c) { return static_cast<float>(c / 255.0); };
+        auto mix = [](float a, float b2, float t) { return a + (b2 - a) * t; };
+        s.ambientTint = Color{mix(pale(opposite(kr)), 0.55f + 0.45f * skyward(pal.sky.r), 0.32f),
+                              mix(pale(opposite(kg)), 0.55f + 0.45f * skyward(pal.sky.g), 0.32f),
+                              mix(pale(opposite(kb)), 0.55f + 0.45f * skyward(pal.sky.b), 0.32f),
+                              1.0f};
+    }
 
     // Night is a single hard source and almost no bounce; day is soft and comes from everywhere. The
     // difference between them is mostly the ambient, not the key.
@@ -70,6 +99,13 @@ inline Surface surfaceFor(const maz::film::Palette& pal, const Shot& shot, doubl
     // the ambient stays low and the EXPOSURE does the lifting, which keeps the shape of the light.
     s.ambient = night ? 0.105f : (dusk ? 0.185f : 0.300f);
     s.fill = night ? 0.075f : (dusk ? 0.130f : 0.205f);
+    // And the KEY carries the hour too, which it did not have to before the set was built out of real
+    // materials. A palette's colours are dark for a night scene, so when every surface was painted
+    // out of the palette the darkness of the night was in the paint. Plaster is plaster at midnight —
+    // it reflects three quarters of what falls on it whatever the time — so the night has to be in
+    // the LIGHT now, which is where it was always supposed to be.
+    const float hour = night ? 0.30f : (dusk ? 0.58f : 1.0f);
+    s.key = Color{s.key.r * hour, s.key.g * hour, s.key.b * hour, 1.0f};
     // A wound-up scene gets a harder, lower key from further round the side: the light follows the
     // mood, which is the one thing about lighting an audience reads without being told.
     const float mood = static_cast<float>(shot.mood);
@@ -78,6 +114,18 @@ inline Surface surfaceFor(const maz::film::Palette& pal, const Shot& shot, doubl
     s.keyDirection = math::normalize(
         math::vec3(-side + drift, -(0.86f - 0.30f * mood), 0.62f - 0.22f * mood));
     s.ambient *= 1.0f - 0.25f * mood;
+    // What comes back UP off the floor: the floor's own colour, and much less of it than comes down.
+    // Without this every surface in the frame gets the same ambient from every direction, which is
+    // why a wall used to read as paper — there is no gradient anywhere in a plane lit that way, and a
+    // real room has nothing but gradients.
+    // What comes back UP off the floor carries the floor's colour, and the floor is the set's — so
+    // this one IS the palette's, and it is the warm-or-cool counterweight to whatever the ambient
+    // turned out to be. Between the three of them a surface facing up, a surface facing down and a
+    // surface facing the lamp are three different colours, which is what makes a plane read as lit.
+    s.bounceTint = Color{static_cast<float>(0.34 + 0.62 * pal.deep.r / 255.0),
+                         static_cast<float>(0.32 + 0.62 * pal.deep.g / 255.0),
+                         static_cast<float>(0.30 + 0.58 * pal.deep.b / 255.0), 1.0f};
+    s.bounce = night ? 0.40f : 0.62f;
     return s;
 }
 
@@ -120,7 +168,13 @@ inline void setAir(Surface& s, const maz::film::Palette& pal, const Shot& shot, 
 inline float exposureFor(const Shot& shot) {
     const bool night = shot.time == "NIGHT";
     const bool dusk = shot.time == "DUSK" || shot.time == "DAWN";
-    const float base = night ? 1.30f : (dusk ? 1.18f : 1.05f);
+    // These were 1.30 / 1.18 / 1.05, and a night scene needed all of it: the set was painted out of
+    // the palette, the palette is dark at night, and the picture came off the rasteriser almost black.
+    // Now that the set is built out of real materials — plaster reflects three quarters of what falls
+    // on it at midnight as well as at noon — the darkness is in the LIGHT instead, and the print has
+    // to be pulled back down or a night horror film reads as a hospital at lunchtime, which is exactly
+    // what it did for one round.
+    const float base = night ? 0.78f : (dusk ? 0.94f : 1.05f);
 
     // An automatic exposure was tried here — open the aperture in proportion to how dark the set's
     // own palette is — and it was taken out again. It was written to fix a frame in the demo reel that
@@ -406,6 +460,18 @@ inline Image drawFrame3D(const Reel& reel, const std::map<std::string, Cast>& ca
 
     Surface surf = surfaceFor(sc.palette, *shot, time);
     setAir(surf, sc.palette, *shot, sc.stage.indoors);
+    // The room's own lamp, wherever this set keeps one. It carries the set's accent rather than the
+    // key's colour, because the whole point of a practical is that it is a DIFFERENT light: two lamps
+    // of the same colour are one lamp with a longer shadow.
+    surf.lampAt = sc.stage.lampAt;
+    surf.lampReach = sc.stage.lampReach;
+    surf.lampStrength = sc.stage.lampStrength * (shot->time == "DAY" ? 0.55f : 1.0f);
+    // The ACCENT, not the key. A practical the same colour as the key is one lamp with a longer
+    // shadow; a practical in a different colour is a second light, and the eye reads the difference
+    // between two lights long before it reads either of them.
+    surf.lamp = Color{static_cast<float>(0.42 + 0.58 * sc.palette.accent.r / 255.0),
+                      static_cast<float>(0.38 + 0.58 * sc.palette.accent.g / 255.0),
+                      static_cast<float>(0.34 + 0.58 * sc.palette.accent.b / 255.0), 1.0f};
 
     // ---- what the key light cannot see ------------------------------------------------------------
     //

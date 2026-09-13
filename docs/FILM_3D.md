@@ -236,6 +236,35 @@ the world, so a ground plane no longer has to stop somewhere visible.
 
 ---
 
+## Light, and what it falls on
+
+Three rounds went into this and the first two were spent in the wrong place, which is worth writing
+down because the mistake is an easy one to make twice.
+
+The frames were flat: a wall was one value across its whole area, and the whole film was one hue. The
+first fix was a **hemisphere ambient** — light comes down off the sky or the ceiling and comes back up
+off the floor, weaker and carrying the floor's own colour, so a surface facing up and a surface facing
+down are lit differently. The second was **one practical**: a lamp that is *in* the room, at a place,
+with a distance falloff, as against the key, which comes from infinitely far away and therefore lights
+a whole wall to exactly one value however big the wall is. Both were right and both helped, and the
+pictures were still green.
+
+The third fix was the actual problem. **The set was painted out of the palette**: the floor was
+`pal.deep` at 0.95, the walls `pal.deep` at 1.55, the props `pal.ink` — one colour at four
+brightnesses. A frame like that has no colour information in it at all, so nothing is warm relative to
+anything else and it reads as *tinted* rather than as *lit*. And no amount of work on the lighting
+fixes it, because **light multiplies the surface colour**: a green wall lit pink is a green wall.
+
+So a set is built out of **materials** now — plaster, lino, wood, steel, cloth — each a real colour
+leaned about a third of the way toward the film's palette. A horror room is still green enough to know
+it is a horror room, and the wooden chair in it is browner than the plaster behind it.
+
+That change had a consequence worth stating: the palette is dark at night, so while the set was
+painted out of it the darkness of the night was *in the paint*. Plaster reflects three quarters of
+what falls on it at midnight as well as at noon, so the night had to move into the light, which is
+where it belonged — the key now carries the hour, and the print was pulled down to match. For one
+round in between, a night horror film looked like a hospital at lunchtime.
+
 ## Shadows
 
 A depth map rendered from the light: everything the light can see is lit, everything hidden behind

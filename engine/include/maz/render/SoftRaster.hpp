@@ -91,6 +91,27 @@ struct Surface {
     Color ambientTint{0.86f, 0.90f, 1.0f, 1.0f};
     float ambient = 0.22f;               // floor brightness: what a surface gets facing nowhere
     float fill = 0.16f;                  // a soft bounce from directly opposite the key
+    // The ambient is not the same in every direction, and pretending it is was the single biggest
+    // reason a wall came out looking like paper. Light comes DOWN — off the sky outdoors, off the
+    // ceiling in — and comes back UP off the floor, weaker and carrying the floor's own colour. So a
+    // surface facing up gets `ambientTint` and one facing down gets `bounceTint`, and everything in
+    // between is mixed. It costs one multiply and an add at each pixel, and it is the difference
+    // between a flat plane and a lit one.
+    Color bounceTint{0.42f, 0.40f, 0.36f, 1.0f};
+    float bounce = 0.55f;                // how much of the ambient comes up rather than down
+
+    // ONE PRACTICAL. A lamp in the room, at a place, with a falloff — as against the key, which comes
+    // from infinitely far away and therefore lights a whole wall to exactly one value however big the
+    // wall is. That evenness is what a flat surface reads as: there is no gradient anywhere in it, and
+    // a real room has nothing BUT gradients. One lamp with a distance falloff puts a gradient across
+    // every plane it touches, and it is the cheapest thing on the list that changes the picture.
+    //
+    // It casts nothing. A second shadow map would cost more than the whole rest of the frame, and a
+    // practical in a film is mostly there to be seen rather than to throw anything.
+    math::vec3 lampAt{0.0f, 0.0f, 0.0f};
+    Color lamp{1.0f, 0.86f, 0.62f, 1.0f};
+    float lampStrength = 0.0f;           // 0 means there is no lamp
+    float lampReach = 3.2f;              // metres to half brightness
     float emissive = 0.0f;               // 0..1 of the vertex colour that ignores light entirely
     float alpha = 1.0f;                  // < 1 blends and stops writing depth
 
@@ -425,10 +446,39 @@ class SoftRaster {
         }
         const float fLit = toKey < 0.0f ? -toKey : 0.0f;
         const float soft = surf.ambient + fLit * surf.fill;
+        // Which way the surface faces decides which ambient it gets: sky and ceiling from above,
+        // floor bounce from below.
+        const float up = nrm.y * 0.5f + 0.5f;
+        const float down = (1.0f - up) * surf.bounce;
+        const float skyward = soft * up;
+        const float groundward = soft * down;
+
+        // The practical. Distance falloff on the inverse square, softened so a lamp does not blow out
+        // to white the moment anything is within a metre of it.
+        float pR = 0.0f, pG = 0.0f, pB = 0.0f;
+        if (surf.lampStrength > 0.0f) {
+            const math::vec3 toLamp = surf.lampAt - where;
+            const float d2 = toLamp.x * toLamp.x + toLamp.y * toLamp.y + toLamp.z * toLamp.z;
+            const float d = std::sqrt(d2);
+            if (d > 1e-4f) {
+                const float facing = (nrm.x * toLamp.x + nrm.y * toLamp.y + nrm.z * toLamp.z) / d;
+                if (facing > 0.0f) {
+                    const float over = d / (surf.lampReach > 1e-3f ? surf.lampReach : 1.0f);
+                    const float falls = 1.0f / (1.0f + over * over);
+                    const float amount = surf.lampStrength * facing * falls;
+                    pR = amount * surf.lamp.r;
+                    pG = amount * surf.lamp.g;
+                    pB = amount * surf.lamp.b;
+                }
+            }
+        }
         Color out;
-        out.r = clamp01(albedo.x * (kLit * surf.key.r + soft * surf.ambientTint.r + surf.emissive));
-        out.g = clamp01(albedo.y * (kLit * surf.key.g + soft * surf.ambientTint.g + surf.emissive));
-        out.b = clamp01(albedo.z * (kLit * surf.key.b + soft * surf.ambientTint.b + surf.emissive));
+        out.r = clamp01(albedo.x * (kLit * surf.key.r + skyward * surf.ambientTint.r +
+                                    groundward * surf.bounceTint.r + pR + surf.emissive));
+        out.g = clamp01(albedo.y * (kLit * surf.key.g + skyward * surf.ambientTint.g +
+                                    groundward * surf.bounceTint.g + pG + surf.emissive));
+        out.b = clamp01(albedo.z * (kLit * surf.key.b + skyward * surf.ambientTint.b +
+                                    groundward * surf.bounceTint.b + pB + surf.emissive));
         out.a = 1.0f;
         return out;
     }

@@ -57,6 +57,15 @@ struct Stage {
     // sits is still inside the shot the framing was built for.
     math::vec3 seatAt{-0.95f, 0.45f, 1.55f}; // x, the height of the seat surface, z
     float seatFacing = 3.14159265f;          // which way somebody sitting on it faces
+
+    // THE PRACTICAL: a lamp that is IN the room, as against the key, which comes from infinitely far
+    // away and therefore lights a whole wall to exactly one value however big the wall is. That
+    // evenness is what a flat surface reads as — there is no gradient anywhere in it, and a real room
+    // has nothing but gradients. Where it goes depends on the room: a strip light over a corridor, a
+    // window in a ward, a fire in a chapel, the moon behind the trees.
+    math::vec3 lampAt{0.0f, 2.4f, 2.0f};
+    float lampStrength = 0.0f; // 0 means this set has no practical, which is allowed
+    float lampReach = 3.4f;    // metres to half brightness
 };
 
 namespace stagedetail {
@@ -68,6 +77,34 @@ inline render::Color rgb(const Rgb& c, double scale = 1.0) {
 
 inline void add(render::shapes::MeshData& into, const render::shapes::MeshData& part) {
     into = render::mergeMeshes(into, part);
+}
+
+// A MATERIAL: a real colour — plaster, lino, wood, steel — leaned part of the way toward the film's
+// own palette, rather than the palette over again at a different brightness.
+//
+// A set built out of one palette colour at four brightnesses photographs as one thing. There is no
+// colour information in it anywhere: nothing is warm relative to anything else, so the frame reads as
+// TINTED rather than as lit. And no amount of work on the lighting fixes it, because light multiplies
+// the surface colour — a green wall lit pink is a green wall. Two rounds of effort went into the
+// lighting before that was obvious, which is the reason this comment is as long as it is.
+//
+// `lean` is how far toward the palette to go: 0 leaves the material as it is, 1 is the palette neat.
+// Around a third keeps a horror set green enough that you know it is a horror set, while leaving a
+// wooden chair browner than the plaster behind it.
+inline render::Color material(float r, float g, float b, const Rgb& toward, float lean, float value) {
+    const float tr = static_cast<float>(toward.r / 255.0);
+    const float tg = static_cast<float>(toward.g / 255.0);
+    const float tb = static_cast<float>(toward.b / 255.0);
+    // Leaned toward the palette's HUE but not its brightness: the palette colours are already dark for
+    // a night scene, and multiplying a dark material by a dark palette gives black.
+    const float tLum = 0.299f * tr + 0.587f * tg + 0.114f * tb;
+    const float norm = tLum > 0.04f ? 1.0f / tLum : 1.0f;
+    auto mixed = [&](float m, float t) {
+        const float leaned = m + (m * t * norm - m) * lean;
+        const float out = leaned * value;
+        return out < 0.0f ? 0.0f : (out > 1.0f ? 1.0f : out);
+    };
+    return render::Color{mixed(r, tr), mixed(g, tg), mixed(b, tb), 1.0f};
 }
 
 
@@ -169,11 +206,19 @@ inline Stage buildStage(const Shot& shot, const Palette& pal, std::uint32_t seed
     Stage st;
     Dice dice(seed * 2654435761u + static_cast<std::uint32_t>(shot.scene) * 40503u + 17u);
 
-    // Walls and floor are pulled apart in value on purpose. A room built out of one shade of the
+    // Walls and floor are pulled apart in VALUE and in HUE. A room built out of one shade of the
     // palette photographs as a single dark mass with a person standing in front of it; the eye needs
-    // the floor, the walls and the ceiling to be three different values before it will read a room.
-    const render::Color floorC = rgb(pal.deep, 0.95);
-    const render::Color wallC = rgb(pal.deep, 1.55);
+    // the floor, the walls and the ceiling to be three different values AND three different colours
+    // before it will read a room. The value half of that was already here; the colour half is what
+    // material() is for, and it is the difference between a lit set and a tinted one.
+    const float lean = 0.46f;  // the shell carries the genre: a horror room is a green room
+    const float pLean = 0.26f; // the props carry less of it, so a wooden chair stays wooden
+    const render::Color floorC = material(0.42f, 0.39f, 0.36f, pal.deep, lean, 1.00f);
+    const render::Color wallC = material(0.76f, 0.75f, 0.72f, pal.deep, lean, 0.92f);
+    const render::Color ceilC = material(0.82f, 0.82f, 0.80f, pal.deep, lean * 0.7f, 0.78f);
+    const render::Color woodC = material(0.40f, 0.32f, 0.25f, pal.deep, pLean, 1.00f);
+    const render::Color steelC = material(0.52f, 0.55f, 0.59f, pal.sky, pLean, 1.00f);
+    const render::Color clothC = material(0.52f, 0.50f, 0.50f, pal.accent, 0.20f, 0.96f);
     const render::Color inkC = rgb(pal.ink, 1.0);
     const render::Color accentC = rgb(pal.accent, 1.0);
     const render::Color skyC = rgb(pal.sky, 1.0);
@@ -220,7 +265,7 @@ inline Stage buildStage(const Shot& shot, const Palette& pal, std::uint32_t seed
             add(st.mesh, box(0.12f, h, st.depth + 3.0f,
                              math::vec3(st.halfWidth, h * 0.5f, st.depth * 0.5f - 1.0f), wallC));
             add(st.mesh, box(st.halfWidth * 2.0f, 0.10f, st.depth + 3.0f,
-                             math::vec3(0.0f, h, st.depth * 0.5f - 1.0f), rgb(pal.shadow, 1.6)));
+                             math::vec3(0.0f, h, st.depth * 0.5f - 1.0f), ceilC));
             // A skirting line, which is most of what tells you a wall is a wall and not a backdrop.
             add(st.mesh, box(st.halfWidth * 2.0f, 0.11f, 0.02f, math::vec3(0.0f, 0.055f, st.depth - 0.07f),
                              inkC));
@@ -278,57 +323,57 @@ inline Stage buildStage(const Shot& shot, const Palette& pal, std::uint32_t seed
     // From here down, everything is dressing rather than architecture, so it is collected separately
     // and handed to the shadow pass. `into` writes to both.
     if (set == "office") {
-        addProp(st, table(1.55f, 0.78f, dice.range(-0.5f, 0.5f), 2.3f, rgb(pal.deep, 1.35), inkC));
-        addProp(st, chair(0.1f, 3.1f, 0.15f, inkC));
-        addProp(st, stand(0.45f, 1.85f, 0.42f, -st.halfWidth + 0.5f, 3.4f, inkC)); // a filing cabinet
+        addProp(st, table(1.55f, 0.78f, dice.range(-0.5f, 0.5f), 2.3f, woodC, steelC));
+        addProp(st, chair(0.1f, 3.1f, 0.15f, woodC));
+        addProp(st, stand(0.45f, 1.85f, 0.42f, -st.halfWidth + 0.5f, 3.4f, steelC)); // a filing cabinet
     } else if (set == "kitchen" || set == "bar") {
         const float counterH = set == "bar" ? 1.06f : 0.92f;
-        addProp(st, stand(st.halfWidth * 1.3f, counterH, 0.62f, 0.0f, 2.6f, rgb(pal.deep, 1.30f)));
-        addProp(st, box(st.halfWidth * 1.34f, 0.05f, 0.70f, math::vec3(0.0f, counterH, 2.6f), inkC));
+        addProp(st, stand(st.halfWidth * 1.3f, counterH, 0.62f, 0.0f, 2.6f, woodC));
+        addProp(st, box(st.halfWidth * 1.34f, 0.05f, 0.70f, math::vec3(0.0f, counterH, 2.6f), steelC));
         for (int i = 0; i < 3; ++i) {
-            addProp(st, post(0.19f, 0.74f, -1.3f + static_cast<float>(i) * 1.3f, 1.75f, inkC, 9));
+            addProp(st, post(0.19f, 0.74f, -1.3f + static_cast<float>(i) * 1.3f, 1.75f, steelC, 9));
         }
     } else if (set == "ward") {
         for (int i = 0; i < 2; ++i) {
             const float x = i == 0 ? -1.8f : 1.8f;
-            addProp(st, stand(0.95f, 0.60f, 2.05f, x, 3.2f, rgb(pal.sky, 0.9)));
-            addProp(st, post(0.035f, 1.75f, x + 0.62f, 2.5f, inkC, 7)); // a drip stand
+            addProp(st, stand(0.95f, 0.60f, 2.05f, x, 3.2f, clothC));      // a bed, made up
+            addProp(st, post(0.035f, 1.75f, x + 0.62f, 2.5f, steelC, 7)); // a drip stand
         }
     } else if (set == "chapel") {
         for (int i = 0; i < 5; ++i) {
             const float z = 2.2f + static_cast<float>(i) * 1.15f;
-            addProp(st, stand(st.halfWidth * 1.1f, 0.44f, 0.36f, 0.0f, z, inkC));
-            addProp(st, box(st.halfWidth * 1.1f, 0.55f, 0.07f, math::vec3(0.0f, 0.72f, z - 0.17f), inkC));
+            addProp(st, stand(st.halfWidth * 1.1f, 0.44f, 0.36f, 0.0f, z, woodC));
+            addProp(st, box(st.halfWidth * 1.1f, 0.55f, 0.07f, math::vec3(0.0f, 0.72f, z - 0.17f), woodC));
         }
         addProp(st, box(0.10f, 1.9f, 0.10f, math::vec3(0.0f, 3.6f, st.depth - 0.2f), accentC));
         addProp(st, box(0.85f, 0.10f, 0.10f, math::vec3(0.0f, 4.05f, st.depth - 0.2f), accentC));
     } else if (set == "ship" || set == "industrial") {
         for (int i = 0; i < 4; ++i) {
             const float z = 1.4f + static_cast<float>(i) * 1.8f;
-            addProp(st, post(0.13f, st.ceiling, -st.halfWidth + 0.35f, z, inkC, 8));
-            addProp(st, post(0.13f, st.ceiling, st.halfWidth - 0.35f, z, inkC, 8));
+            addProp(st, post(0.13f, st.ceiling, -st.halfWidth + 0.35f, z, steelC, 8));
+            addProp(st, post(0.13f, st.ceiling, st.halfWidth - 0.35f, z, steelC, 8));
             addProp(st, box(0.16f, 0.16f, st.halfWidth * 2.0f,
-                             math::vec3(0.0f, st.ceiling - 0.35f, z), inkC));
+                             math::vec3(0.0f, st.ceiling - 0.35f, z), steelC));
         }
-        addProp(st, stand(0.8f, 1.1f, 0.8f, dice.range(-1.2f, 1.2f), 4.2f, rgb(pal.deep, 1.4)));
+        addProp(st, stand(0.8f, 1.1f, 0.8f, dice.range(-1.2f, 1.2f), 4.2f, steelC));
     } else if (set == "corridor") {
         for (int i = 0; i < 6; ++i) {
             const float z = 1.1f + static_cast<float>(i) * 1.85f;
             // Doors down both sides, which is what a corridor IS, and what makes its length read.
-            addProp(st, box(0.06f, 2.05f, 0.92f, math::vec3(-st.halfWidth + 0.09f, 1.025f, z), inkC));
-            addProp(st, box(0.06f, 2.05f, 0.92f, math::vec3(st.halfWidth - 0.09f, 1.025f, z), inkC));
+            addProp(st, box(0.06f, 2.05f, 0.92f, math::vec3(-st.halfWidth + 0.09f, 1.025f, z), woodC));
+            addProp(st, box(0.06f, 2.05f, 0.92f, math::vec3(st.halfWidth - 0.09f, 1.025f, z), woodC));
             addProp(st, box(0.55f, 0.05f, 0.16f, math::vec3(0.0f, st.ceiling - 0.06f, z + 0.5f),
                              rgb(pal.key, 1.0)));
         }
     } else if (set == "room") {
-        addProp(st, stand(1.85f, 0.72f, 0.85f, dice.range(-1.0f, 1.0f), 3.4f, rgb(pal.deep, 1.3)));
-        addProp(st, table(1.05f, 0.55f, dice.range(-0.8f, 0.8f), 1.9f, rgb(pal.deep, 1.35), inkC));
+        addProp(st, stand(1.85f, 0.72f, 0.85f, dice.range(-1.0f, 1.0f), 3.4f, woodC));
+        addProp(st, table(1.05f, 0.55f, dice.range(-0.8f, 0.8f), 1.9f, woodC, steelC));
     } else if (set == "vehicle") {
         // Behind the marks, not on them. Seats at z = 1.1 sat exactly where the two characters stand,
         // so they were inside the furniture — which nobody could see until the seats started casting a
         // shadow and put both actors in the dark.
-        addProp(st, stand(0.52f, 0.95f, 0.55f, -0.55f, 2.15f, inkC));
-        addProp(st, stand(0.52f, 0.95f, 0.55f, 0.55f, 2.15f, inkC));
+        addProp(st, stand(0.52f, 0.95f, 0.55f, -0.55f, 2.15f, clothC));
+        addProp(st, stand(0.52f, 0.95f, 0.55f, 0.55f, 2.15f, clothC));
         addProp(st, box(st.halfWidth * 1.9f, 0.9f, 0.08f, math::vec3(0.0f, 1.45f, 2.6f), skyC));
     }
 
@@ -373,7 +418,8 @@ inline Stage buildStage(const Shot& shot, const Palette& pal, std::uint32_t seed
         const float sz = 1.58f;
         st.seatAt = math::vec3(sx, seatH, sz);
         st.seatFacing = 3.14159265f;
-        const render::Color seatC = rgb(pal.deep, 1.42);
+        const render::Color seatC = outdoors ? material(0.50f, 0.49f, 0.46f, pal.deep, 0.40f, 1.0f)
+                                             : woodC;
         if (outdoors) {
             // Outdoors it is a low wall or the end of a fallen trunk — a chair standing in a wood is
             // funnier than anything else in the film.
@@ -394,6 +440,41 @@ inline Stage buildStage(const Shot& shot, const Palette& pal, std::uint32_t seed
                 addProp(st, box(0.48f, 0.38f, 0.05f,
                                  math::vec3(sx, seatH + 0.21f, sz + 0.205f), seatC));
             }
+        }
+    }
+
+    // ---- the practical ----------------------------------------------------------------------------
+    //
+    // One lamp, in the room, with a falloff. What it is depends on what the room has: a corridor has
+    // strip lights, a ward has a window, a chapel has candles, a bar has something over the counter.
+    // Outdoors it is the sky itself coming through whatever is overhead — lower, wider and much
+    // weaker, because a practical outdoors is a practical you can see the source of.
+    {
+        if (set == "corridor") {
+            st.lampAt = math::vec3(0.0f, st.ceiling - 0.25f, 2.6f);
+            st.lampStrength = 0.55f;
+            st.lampReach = 3.0f;
+        } else if (set == "ward" || set == "room" || set == "office") {
+            st.lampAt = math::vec3(st.halfWidth * 0.72f, 1.55f, 2.9f); // a window, off to one side
+            st.lampStrength = 0.42f;
+            st.lampReach = 4.0f;
+        } else if (set == "chapel") {
+            st.lampAt = math::vec3(0.0f, 2.1f, st.depth - 0.6f);
+            st.lampStrength = 0.60f;
+            st.lampReach = 4.5f;
+        } else if (set == "bar" || set == "kitchen") {
+            st.lampAt = math::vec3(0.0f, 1.9f, 2.4f);
+            st.lampStrength = 0.50f;
+            st.lampReach = 2.8f;
+        } else if (set == "ship" || set == "industrial" || set == "vehicle") {
+            st.lampAt = math::vec3(-st.halfWidth * 0.6f, st.ceiling - 0.4f, 2.0f);
+            st.lampStrength = 0.45f;
+            st.lampReach = 3.2f;
+        } else {
+            // Outdoors: whatever is up there, a long way off and not much of it.
+            st.lampAt = math::vec3(-2.4f, 5.5f, 5.0f);
+            st.lampStrength = 0.22f;
+            st.lampReach = 9.0f;
         }
     }
 
