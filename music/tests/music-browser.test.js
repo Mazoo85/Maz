@@ -1427,17 +1427,34 @@ function launchOptions() {
      took, so every claim here is checked against the crest factor — peak over
      RMS, the actual measure of how much dynamic range is left. */
   const comp = await page.evaluate(async function () {
+    /*
+     * Crest factor, measured from the 99.9th percentile rather than from the
+     * single loudest sample.
+     *
+     * A crest built on one sample is a measurement of one sample, and it
+     * wobbles: across three identical runs the squeezed figure came back 5.59,
+     * 5.45 and 5.42 against a margin of 0.3, so the test failed roughly one run
+     * in three and told nobody anything when it did. The percentile is both
+     * steadier — a spread of 0.03 where the peak's was 0.10 — and sharper:
+     * compression reads as a 24% drop in it against 11% by peak, because the
+     * loudest single sample is exactly the one a compressor's attack time lets
+     * through.
+     */
     function crest(buf) {
       const ch = buf.getChannelData(0);
-      let peak = 0, sum = 0;
       const start = Math.floor(buf.sampleRate * 0.2);
+      let peak = 0, sum = 0;
+      const mags = new Float32Array(ch.length - start);
       for (let i = start; i < ch.length; i++) {
         const a = Math.abs(ch[i]);
         if (a > peak) peak = a;
         sum += a * a;
+        mags[i - start] = a;
       }
       const rms = Math.sqrt(sum / (ch.length - start));
-      return { peak: peak, rms: rms, crest: rms > 0 ? peak / rms : 0 };
+      mags.sort();
+      const near = mags[Math.min(mags.length - 1, Math.floor(mags.length * 0.999))];
+      return { peak: peak, rms: rms, crest: rms > 0 ? near / rms : 0 };
     }
     function song(setup) {
       const s = window.Composer.compose({ seed: 'COMP-1', genre: 'rock',
@@ -1470,12 +1487,12 @@ function launchOptions() {
   });
 
   check(comp.none.crest > 3, 'the uncompressed mix has real dynamics (crest ' +
-    comp.none.crest.toFixed(1) + ')');
+    comp.none.crest.toFixed(2) + ')');
   check(comp.squeezed.crest < comp.none.crest * 0.9,
-    'squeezing a part evens it out (crest ' + comp.none.crest.toFixed(1) + ' → ' +
-    comp.squeezed.crest.toFixed(1) + ')');
+    'squeezing a part evens it out (crest ' + comp.none.crest.toFixed(2) + ' → ' +
+    comp.squeezed.crest.toFixed(2) + ')');
   check(comp.squeezed.crest > 1.8,
-    'but does not flatten it into a brick wall (crest ' + comp.squeezed.crest.toFixed(1) + ')');
+    'but does not flatten it into a brick wall (crest ' + comp.squeezed.crest.toFixed(2) + ')');
   check(comp.glued.crest < comp.none.crest,
     'glue tightens the whole mix (crest ' + comp.glued.crest.toFixed(1) + ')');
   check(comp.glued.crest > comp.none.crest * 0.6,
@@ -1483,9 +1500,9 @@ function launchOptions() {
     (comp.glued.crest / comp.none.crest).toFixed(2) + ' of the original range)');
   check(comp.glued.peak <= 1.0001 && comp.squeezed.peak <= 1.0001 && comp.punchy.peak <= 1.0001,
     'and nothing compressed ever leaves full scale');
-  check(comp.punchy.crest >= comp.squeezed.crest,
+  check(comp.punchy.crest > comp.squeezed.crest * 1.1,
     'turning the attack up keeps more transient than squeezing does (' +
-    comp.punchy.crest.toFixed(1) + ' vs ' + comp.squeezed.crest.toFixed(1) + ')');
+    comp.punchy.crest.toFixed(2) + ' vs ' + comp.squeezed.crest.toFixed(2) + ')');
 
   console.log('\n— master tone and imaging —');
   /* Width and mono bass are the two that can silently destroy a mix rather
@@ -1776,6 +1793,175 @@ function launchOptions() {
   check(ex.wavSize > 44 + 44100 * 4 * 5, 'wav is a real length (' + (ex.wavSize / 1048576).toFixed(1) + ' MB)');
   check(ex.midiTag === 'MThd', 'midi header is MThd');
   check(ex.midiSize > 500, 'midi has content (' + ex.midiSize + ' bytes)');
+
+  console.log('\n— selecting and editing groups of notes —');
+  /* The selection holds references to the very note objects in the song, so
+     these are checked by reading the song back rather than by reading the
+     editor's own idea of what it did. */
+  const sel = await page.evaluate(function () {
+    const ed = window.__songforge.editor;
+    const song = window.__songforge.song;
+    const out = {};
+
+    ed.setTrack('lead');
+    ed.tool = 'select';
+    ed.snap = 0.25;
+    /* A known passage, deliberately off the grid, so quantising has something
+       to do and the numbers below are not accidents of what the composer
+       happened to write. */
+    song.tracks.lead = [
+      { t: 0.07, d: 0.5, p: 60, v: 0.8 },
+      { t: 0.52, d: 0.5, p: 62, v: 0.8 },
+      { t: 1.03, d: 2.0, p: 64, v: 0.8 },   // long: crosses beats 1 to 3
+      { t: 4.00, d: 0.5, p: 67, v: 0.8 },
+      { t: 8.00, d: 0.5, p: 72, v: 0.8 }
+    ];
+    const at = function (i) { return song.tracks.lead[i]; };
+
+    out.all = ed.selectAll();
+
+    // A box over beats 0..2 and pitches 58..65 should take the first three,
+    // including the long note that starts inside it.
+    out.box = ed.selectInBox({ beat0: 0, beat1: 2, pitch0: 58, pitch1: 65 });
+    out.boxPitches = ed.sel.map(function (e) { return e.p; }).sort();
+
+    // A box over beat 2 only still catches the long note it runs through.
+    out.crossing = ed.selectInBox({ beat0: 2.2, beat1: 2.6, pitch0: 58, pitch1: 70 });
+    out.crossingPitch = ed.sel.length ? ed.sel[0].p : null;
+
+    // Nudge: time and pitch together, as one move.
+    ed.selectInBox({ beat0: 0, beat1: 2, pitch0: 58, pitch1: 65 });
+    const before = ed.sel.map(function (e) { return { t: e.t, p: e.p }; });
+    out.nudged = ed.nudgeSelection(0.25, 2);
+    out.nudgeOk = ed.sel.every(function (e, i) {
+      return Math.abs(e.t - (before[i].t + 0.25)) < 1e-9 && e.p === before[i].p + 2;
+    });
+    ed.nudgeSelection(-0.25, -2);          // put it back
+
+    // A move that would push a note past the end must change nothing at all.
+    ed.sel = [at(4)];
+    const wasT = at(4).t, wasP = at(4).p;
+    out.refused = ed.nudgeSelection(song.totalBeats, 0) === false;
+    out.refusedUntouched = at(4).t === wasT && at(4).p === wasP;
+
+    // Quantise, fully and half way.
+    ed.selectInBox({ beat0: 0, beat1: 2, pitch0: 58, pitch1: 65 });
+    const loose = ed.sel.map(function (e) { return e.t; });
+    ed.quantizeSelection(1);
+    out.onGrid = ed.sel.every(function (e) {
+      return Math.abs(e.t / 0.25 - Math.round(e.t / 0.25)) < 1e-9;
+    });
+    // Put them back where they were and try half.
+    ed.sel.forEach(function (e, i) { e.t = loose[i]; });
+    ed.quantizeSelection(0.5);
+    out.halfWay = ed.sel.every(function (e, i) {
+      const target = Math.round(loose[i] / 0.25) * 0.25;
+      return Math.abs(e.t - (loose[i] + (target - loose[i]) * 0.5)) < 1e-9;
+    });
+    ed.sel.forEach(function (e, i) { e.t = loose[i]; });
+
+    // Copy and paste: the same shape, somewhere else.
+    ed.selectInBox({ beat0: 0, beat1: 2, pitch0: 58, pitch1: 65 });
+    out.copied = ed.copySelection();
+    const wasCount = song.tracks.lead.length;
+    out.pasted = ed.pasteAt(12);
+    out.grew = song.tracks.lead.length - wasCount;
+    const landed = ed.sel.slice().sort(function (a, b) { return a.t - b.t; });
+    out.pastedPitches = landed.map(function (e) { return e.p; });
+    // Offsets between the pasted notes match the offsets between the originals.
+    out.shapeKept = landed.length > 1 &&
+      Math.abs((landed[1].t - landed[0].t) - (0.52 - 0.07)) < 1e-9;
+    out.pastedAtBeat = landed.length ? landed[0].t : null;
+
+    // Delete exactly the selection and nothing else.
+    const beforeDel = song.tracks.lead.length;
+    out.deleted = ed.deleteSelection();
+    out.leftBehind = beforeDel - song.tracks.lead.length;
+    out.selEmptyAfterDelete = ed.sel.length === 0;
+
+    // Duplicating a bar copies that bar's notes one bar later.
+    song.tracks.lead = [
+      { t: 0.0, d: 0.5, p: 60, v: 0.8 },
+      { t: 0.5, d: 0.5, p: 62, v: 0.8 },
+      { t: 6.0, d: 0.5, p: 64, v: 0.8 }    // bar 2, must not be touched
+    ];
+    out.duped = ed.duplicateBar(0);
+    const copies = song.tracks.lead.filter(function (e) {
+      return e.t >= 4 && e.t < 8 && (e.p === 60 || e.p === 62);
+    });
+    out.dupAt = copies.map(function (e) { return e.t; }).sort();
+    out.dupPitches = copies.map(function (e) { return e.p; }).sort();
+
+    // Undo has to drop the selection: it replaces the array wholesale.
+    ed.selectAll();
+    ed.pushHistory();
+    song.tracks.lead.push({ t: 2, d: 0.5, p: 70, v: 0.8 });
+    ed.undo();
+    out.selClearedByUndo = ed.sel.length === 0;
+    return out;
+  });
+
+  check(sel.all === 5, 'select all takes every note in the part (' + sel.all + ')');
+  check(sel.box === 3 && sel.boxPitches.join(',') === '60,62,64',
+    'a box takes the notes inside it (' + sel.boxPitches.join(', ') + ')');
+  /* A long note is caught by a box over its middle, not only over its start.
+     Selecting by onset alone is the classic way a marquee misses the very note
+     you dragged across. */
+  check(sel.crossing === 1 && sel.crossingPitch === 64,
+    'and catches a long note the box runs through, not just its start');
+  check(sel.nudged && sel.nudgeOk,
+    'the arrow keys move the whole group in time and pitch together');
+  /* Clamping each note on its own would squash a phrase against the end of
+     the song; refusing the move keeps the shape. */
+  check(sel.refused && sel.refusedUntouched,
+    'a move that would run past the end is refused outright, not squashed');
+  check(sel.onGrid, 'straightening puts every note exactly on the grid');
+  check(sel.halfWay, 'and half way means half way, not all the way');
+  check(sel.copied === 3 && sel.pasted === 3 && sel.grew === 3,
+    'copy and paste adds the notes rather than moving them (' + sel.grew + ')');
+  check(sel.pastedAtBeat === 12 && sel.shapeKept,
+    'pasted where asked, keeping the spacing it was copied with');
+  check(sel.deleted === 3 && sel.leftBehind === 3 && sel.selEmptyAfterDelete,
+    'delete removes exactly the selection (' + sel.leftBehind + ')');
+  check(sel.duped === 2 && sel.dupAt.join(',') === '4,4.5' &&
+        sel.dupPitches.join(',') === '60,62',
+    'repeating a bar copies it into the next one (' + sel.dupAt.join(', ') + ')');
+  /* Undo swaps in a whole new array of note objects, so anything the selection
+     was holding is no longer in the song — a stale selection would let the
+     next edit write to notes nobody can see. */
+  check(sel.selClearedByUndo, 'and an undo drops the selection rather than leaving it stale');
+
+  // The real gesture, through the canvas, rather than the methods underneath it.
+  const dragged = await page.evaluate(async function () {
+    const ed = window.__songforge.editor;
+    const song = window.__songforge.song;
+    ed.setTrack('lead');
+    ed.tool = 'select';
+    ed.startBar = 0;
+    song.tracks.lead = [
+      { t: 0.5, d: 0.5, p: 60, v: 0.8 },
+      { t: 1.5, d: 0.5, p: 62, v: 0.8 },
+      { t: 9.0, d: 0.5, p: 64, v: 0.8 }    // well outside the box
+    ];
+    ed.refit();
+    ed.draw();
+    const c = ed.canvas, r = c.getBoundingClientRect();
+    const x = function (beat) { return r.left + ed.xOfBeat(beat); };
+    const y = function (pitch) { return r.top + ed.yOfRow(ed.rowOfPitch(pitch)) + 4; };
+    function send(type, cx, cy) {
+      c.dispatchEvent(new PointerEvent(type, {
+        clientX: cx, clientY: cy, pointerId: 1, bubbles: true, cancelable: true
+      }));
+    }
+    // Start on empty space above the notes, drag down and right across them.
+    send('pointerdown', x(0.1), y(70));
+    send('pointermove', x(2.4), y(58));
+    send('pointerup', x(2.4), y(58));
+    return { n: ed.sel.length, pitches: ed.sel.map(function (e) { return e.p; }).sort() };
+  });
+  check(dragged.n === 2 && dragged.pitches.join(',') === '60,62',
+    'dragging a box on the canvas selects what is inside it (' +
+    dragged.pitches.join(', ') + ')');
 
   console.log('\n— the Station —');
   /* The groovebox. The thing worth proving is not that the pads light up but

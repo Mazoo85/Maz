@@ -570,10 +570,67 @@
       editor.tool = t;
       el('toolDraw').classList.toggle('on', t === 'draw');
       el('toolErase').classList.toggle('on', t === 'erase');
+      el('toolSelect').classList.toggle('on', t === 'select');
       el('editor').classList.toggle('erasing', t === 'erase');
+      el('editor').classList.toggle('selecting', t === 'select');
+      /* Leaving the select tool drops the selection. Keeping it would leave
+         white rings round notes that nothing on screen can now act on. */
+      if (t !== 'select') { editor.clearSelection(); editor.draw(); }
+      selectionChanged(editor.sel.length);
     }
     el('toolDraw').addEventListener('click', function () { setTool('draw'); });
     el('toolErase').addEventListener('click', function () { setTool('erase'); });
+    el('toolSelect').addEventListener('click', function () {
+      if (editor.isDrums()) {
+        status('The drum grid is one click per hit — selecting is for the melodic parts.');
+        return;
+      }
+      setTool('select');
+      status('Drag a box round some notes. Arrows move them, Ctrl+C and Ctrl+V copy them.');
+    });
+
+    /* The selection's own toolbar state: the buttons that act on a selection
+       are disabled when there is nothing selected, rather than silently doing
+       nothing. */
+    selectionChanged = function (n) {
+      const has = n > 0;
+      el('quantiseBtn').disabled = !has;
+      el('quantiseBtn').textContent = has
+        ? '⊞ Straighten ' + n + (n === 1 ? ' note' : ' notes')
+        : '⊞ Straighten the selection';
+    };
+    editor.onSelect = selectionChanged;
+    selectionChanged(0);
+
+    el('quantiseBtn').addEventListener('click', function () {
+      if (!state.song || !editor.sel.length) return;
+      editor.pushHistory();
+      const moved = editor.quantizeSelection(1);
+      state.edited[editor.track] = true;
+      player.refresh();
+      markRollDirty();
+      status(moved
+        ? moved + (moved === 1 ? ' note' : ' notes') + ' pulled onto the grid. Ctrl+Z puts it back.'
+        : 'Those notes were already on the grid.');
+    });
+
+    el('dupBarBtn').addEventListener('click', function () {
+      if (!state.song) return;
+      editor.pushHistory();
+      const made = editor.duplicateBar(editor.startBar);
+      if (!made) {
+        status('Nothing in bar ' + (editor.startBar + 1) +
+          ' to repeat, or no room for it after.');
+        return;
+      }
+      state.edited[editor.track] = true;
+      player.refresh();
+      markRollDirty();
+      syncEditUI();
+      status('Bar ' + (editor.startBar + 1) + ' repeated into bar ' +
+        (editor.startBar + 2) + ' — ' + made +
+        (made === 1 ? ' note' : ' notes') + '. Ctrl+Z puts it back.');
+    });
 
     el('snapSelect').addEventListener('change', function () { editor.snap = parseFloat(this.value); });
     el('lenSelect').addEventListener('change', function () { editor.noteLen = parseFloat(this.value); });
@@ -835,6 +892,9 @@
 
   let editorSoundPicker = null;
   let editorSends = null;
+  /* Set when the editor is bound; the keyboard handler lives in another
+     function and needs to keep the selection toolbar honest. */
+  let selectionChanged = function () {};
 
   /* ------------------------------------------------------------------ *
    * Automation
@@ -1551,6 +1611,82 @@
         if (!editor) return;
         const did = e.shiftKey ? editor.redo() : editor.undo();
         if (!did) status(e.shiftKey ? 'Nothing to redo.' : 'Nothing left to undo.');
+        selectionChanged(editor.sel.length);
+        return;
+      }
+      if (!editor || !state.song) return;
+
+      const mod = e.ctrlKey || e.metaKey;
+
+      /* Select everything in the part. Only in the select tool, so Ctrl+A
+         still means what the browser means everywhere else in the page. */
+      if (mod && (e.key === 'a' || e.key === 'A') && editor.tool === 'select') {
+        e.preventDefault();
+        const n = editor.selectAll();
+        selectionChanged(n);
+        status(n ? n + ' notes selected.' : 'Nothing in this part to select.');
+        return;
+      }
+      if (mod && (e.key === 'c' || e.key === 'C') && editor.sel.length) {
+        e.preventDefault();
+        status(editor.copySelection() + ' notes copied.');
+        return;
+      }
+      if (mod && (e.key === 'x' || e.key === 'X') && editor.sel.length) {
+        e.preventDefault();
+        const n = editor.copySelection();
+        editor.pushHistory();
+        editor.deleteSelection();
+        state.edited[editor.track] = true;
+        player.refresh();
+        markRollDirty();
+        selectionChanged(0);
+        status(n + ' notes cut. Ctrl+V pastes them at the bar you are looking at.');
+        return;
+      }
+      if (mod && (e.key === 'v' || e.key === 'V') && editor.hasClipboard()) {
+        e.preventDefault();
+        editor.pushHistory();
+        /* Pasted at the start of the view rather than at the playhead: the bar
+           you are looking at is the one you mean, and the playhead is usually
+           somewhere else entirely. */
+        const n = editor.pasteAt(editor.startBeat());
+        if (!n) { status('No room to paste there.'); return; }
+        state.edited[editor.track] = true;
+        player.refresh();
+        markRollDirty();
+        selectionChanged(n);
+        status(n + ' notes pasted into bar ' + (editor.startBar + 1) + '.');
+        return;
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && editor.sel.length) {
+        e.preventDefault();
+        editor.pushHistory();
+        const n = editor.deleteSelection();
+        state.edited[editor.track] = true;
+        player.refresh();
+        markRollDirty();
+        selectionChanged(0);
+        status(n + ' notes deleted. Ctrl+Z puts them back.');
+        return;
+      }
+      /* Arrows nudge the selection: sideways by the snap setting, up and down
+         by a semitone, or by an octave with shift held. */
+      if (editor.sel.length && /^Arrow(Left|Right|Up|Down)$/.test(e.key)) {
+        e.preventDefault();
+        editor.pushHistory();
+        const step = e.key === 'ArrowLeft' ? -editor.snap
+          : e.key === 'ArrowRight' ? editor.snap : 0;
+        const semis = e.key === 'ArrowUp' ? (e.shiftKey ? 12 : 1)
+          : e.key === 'ArrowDown' ? (e.shiftKey ? -12 : -1) : 0;
+        if (!editor.nudgeSelection(step, semis)) {
+          editor.undo();
+          status('That would push a note off the end.');
+          return;
+        }
+        state.edited[editor.track] = true;
+        player.refresh();
+        markRollDirty();
       }
     });
   }
@@ -2183,7 +2319,8 @@
   window.__songforge = {
     get song() { return state.song; },
     get player() { return player; },
-    get station() { return stationPattern; }
+    get station() { return stationPattern; },
+    get editor() { return editor; }
   };
 
   if (document.readyState === 'loading') {

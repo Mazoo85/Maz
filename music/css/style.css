@@ -675,6 +675,7 @@ input[type="range"]::-moz-range-thumb {
   cursor: crosshair;
 }
 .editor.erasing { cursor: not-allowed; }
+.editor.selecting { cursor: crosshair; }
 
 .edit-nav {
   display: flex;

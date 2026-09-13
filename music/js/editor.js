@@ -56,6 +56,17 @@
     this._painted = null;
     this._undo = [];
     this._redo = [];
+    /*
+     * The selection holds references to the very event objects in
+     * `song.tracks[...]`, not copies or indices. That is what lets a drag move
+     * them by writing straight through — but it also means an undo, which puts
+     * a whole new array of objects in place, leaves the selection pointing at
+     * notes that are no longer in the song. Every path that replaces the track
+     * clears it.
+     */
+    this.sel = [];
+    this._marquee = null;
+    this._clip = null;
     this._bind();
   }
 
@@ -128,6 +139,9 @@
     const song = this.getSong();
     if (!song || !from.length) return false;
     const snap = from.pop();
+    /* Undo puts a fresh array of note objects in place, so anything the
+       selection was holding is no longer part of the song. */
+    this.clearSelection();
 
     if (snap.full) {
       to.push(snapshotSong(song));
@@ -152,6 +166,191 @@
   Editor.prototype.clearHistory = function () {
     this._undo.length = 0;
     this._redo.length = 0;
+  };
+
+  /* ------------------------------------------------------------------ *
+   * Selection
+   *
+   * Everything here works on whole groups of notes, which is the difference
+   * between an editor you can fix a passage in and one you can only add to.
+   * Drums are excluded on purpose: a drum grid has no pitch to transpose and
+   * no length to stretch, and its cells are already one click each.
+   * ------------------------------------------------------------------ */
+
+  Editor.prototype.clearSelection = function () {
+    if (this.sel.length) this.sel = [];
+  };
+
+  Editor.prototype.isSelected = function (ev) { return this.sel.indexOf(ev) >= 0; };
+
+  Editor.prototype.selectAll = function () {
+    if (this.isDrums()) return 0;
+    const song = this.getSong();
+    this.sel = (song.tracks[this.track] || []).slice();
+    this.draw();
+    return this.sel.length;
+  };
+
+  /** Everything inside a dragged box, by note rectangle rather than by onset. */
+  Editor.prototype.selectInBox = function (box, add) {
+    const song = this.getSong();
+    if (!song || this.isDrums()) return 0;
+    const evs = song.tracks[this.track] || [];
+    const b0 = Math.min(box.beat0, box.beat1), b1 = Math.max(box.beat0, box.beat1);
+    const p0 = Math.min(box.pitch0, box.pitch1), p1 = Math.max(box.pitch0, box.pitch1);
+    const next = add ? this.sel.slice() : [];
+    for (let i = 0; i < evs.length; i++) {
+      const e = evs[i];
+      /* A note counts as caught if any part of it is inside the box, not only
+         its start — dragging across the middle of a long note should take it. */
+      const overlaps = e.t < b1 && e.t + e.d > b0 && e.p >= p0 && e.p <= p1;
+      if (overlaps && next.indexOf(e) < 0) next.push(e);
+    }
+    this.sel = next;
+    return this.sel.length;
+  };
+
+  /** Keep only the notes that are still in the track. */
+  Editor.prototype._pruneSelection = function () {
+    const song = this.getSong();
+    if (!song) { this.sel = []; return; }
+    const evs = song.tracks[this.track] || [];
+    this.sel = this.sel.filter(function (e) { return evs.indexOf(e) >= 0; });
+  };
+
+  /**
+   * Move the selection in time and pitch.
+   *
+   * Checked as a group before anything moves: if one note of eight would fall
+   * off the end of the song or off the keyboard, the whole move is refused.
+   * Clamping each note on its own would silently squash the shape of a phrase
+   * against the edge, which is worse than not moving.
+   */
+  Editor.prototype.nudgeSelection = function (byBeats, bySemis) {
+    const song = this.getSong();
+    if (!song || !this.sel.length) return false;
+    const total = song.totalBeats;
+    for (let i = 0; i < this.sel.length; i++) {
+      const e = this.sel[i];
+      const t = e.t + byBeats, p = e.p + bySemis;
+      if (t < -1e-9 || t + e.d > total + 1e-9 || p < 12 || p > 108) return false;
+    }
+    for (let i = 0; i < this.sel.length; i++) {
+      this.sel[i].t = Math.max(0, this.sel[i].t + byBeats);
+      this.sel[i].p += bySemis;
+    }
+    if (bySemis && this.sel.length) this.audition(this.sel[0].p);
+    this.draw();
+    return true;
+  };
+
+  /**
+   * Pull the selection onto the grid, by an amount.
+   *
+   * At 1 every note lands exactly on the nearest division; at 0.5 it moves
+   * halfway there. Part-way is the useful setting — a passage played loosely
+   * gets tightened without losing the feel that made it worth keeping.
+   */
+  Editor.prototype.quantizeSelection = function (amount) {
+    if (!this.sel.length) return 0;
+    const amt = amount === undefined ? 1 : Math.max(0, Math.min(1, amount));
+    const grid = this.snap;
+    let moved = 0;
+    for (let i = 0; i < this.sel.length; i++) {
+      const e = this.sel[i];
+      const target = Math.round(e.t / grid) * grid;
+      const next = e.t + (target - e.t) * amt;
+      if (Math.abs(next - e.t) > 1e-9) moved++;
+      e.t = Math.max(0, next);
+    }
+    this.draw();
+    return moved;
+  };
+
+  Editor.prototype.deleteSelection = function () {
+    const song = this.getSong();
+    if (!song || !this.sel.length) return 0;
+    const gone = this.sel.length;
+    const sel = this.sel;
+    song.tracks[this.track] = (song.tracks[this.track] || []).filter(function (e) {
+      return sel.indexOf(e) < 0;
+    });
+    this.sel = [];
+    this.draw();
+    return gone;
+  };
+
+  /**
+   * Copy the selection, as plain data rather than as references.
+   *
+   * Stored relative to the earliest note in it, so a paste lands as a shape
+   * rather than at the absolute place it was cut from — which is what makes
+   * pasting into a different bar, or a different part, do the obvious thing.
+   */
+  Editor.prototype.copySelection = function () {
+    if (!this.sel.length) return 0;
+    let first = Infinity;
+    for (let i = 0; i < this.sel.length; i++) first = Math.min(first, this.sel[i].t);
+    this._clip = this.sel.map(function (e) {
+      return { t: e.t - first, d: e.d, p: e.p, v: e.v };
+    }).sort(function (a, b) { return a.t - b.t; });
+    return this._clip.length;
+  };
+
+  Editor.prototype.hasClipboard = function () { return !!(this._clip && this._clip.length); };
+
+  /** Paste the clipboard starting at a beat, and select what landed. */
+  Editor.prototype.pasteAt = function (beat) {
+    const song = this.getSong();
+    if (!song || this.isDrums() || !this.hasClipboard()) return 0;
+    const at = this.quantize(Math.max(0, beat));
+    const total = song.totalBeats;
+    const made = [];
+    for (let i = 0; i < this._clip.length; i++) {
+      const c = this._clip[i];
+      const t = at + c.t;
+      if (t + c.d > total + 1e-9) continue;      // past the end: dropped, not squashed
+      const ev = { t: t, d: c.d, p: c.p, v: c.v };
+      song.tracks[this.track].push(ev);
+      made.push(ev);
+    }
+    song.tracks[this.track].sort(function (a, b) { return a.t - b.t; });
+    this.sel = made;
+    this.draw();
+    return made.length;
+  };
+
+  /**
+   * Repeat a bar of this part immediately after itself.
+   *
+   * Works on whatever is in the bar rather than on the selection, because
+   * "again" is a thing you want to say about a bar you are looking at, not
+   * about notes you have first had to round up.
+   */
+  Editor.prototype.duplicateBar = function (bar) {
+    const song = this.getSong();
+    if (!song) return 0;
+    const bpb = song.beatsPerBar || BEATS_PER_BAR;
+    const from = bar * bpb;
+    const to = from + bpb;
+    if (to + bpb > song.totalBeats + 1e-9) return 0;
+    const evs = song.tracks[this.track] || [];
+    const made = [];
+    for (let i = 0; i < evs.length; i++) {
+      const e = evs[i];
+      if (e.t < from - 1e-9 || e.t >= to - 1e-9) continue;
+      const copy = {};
+      for (const f in e) copy[f] = e[f];
+      copy.t = e.t + bpb;
+      // Do not let a long note spill past the bar it was copied into.
+      copy.d = Math.min(e.d, song.totalBeats - copy.t);
+      made.push(copy);
+    }
+    if (!made.length) return 0;
+    song.tracks[this.track] = evs.concat(made).sort(function (a, b) { return a.t - b.t; });
+    this.sel = this.isDrums() ? [] : made;
+    this.draw();
+    return made.length;
   };
 
   /* ------------------------------------------------------------------ *
@@ -380,9 +579,31 @@
       cx.globalAlpha = 0.35 + 0.55 * Math.min(1, e.v);
       cx.fillRect(x, y + 1, Math.max(3, x2 - x), h);
       cx.globalAlpha = 1;
-      cx.strokeStyle = 'rgba(0,0,0,0.5)';
-      cx.lineWidth = 1;
+      /* A selected note is ringed in white rather than tinted, so the ring
+         reads the same over every part colour and over any velocity. */
+      const picked = this.sel.length && this.isSelected(e);
+      cx.strokeStyle = picked ? '#ffffff' : 'rgba(0,0,0,0.5)';
+      cx.lineWidth = picked ? 2 : 1;
       cx.strokeRect(Math.round(x) + 0.5, Math.round(y + 1) + 0.5, Math.max(3, x2 - x) - 1, h - 1);
+      cx.lineWidth = 1;
+    }
+
+    // The marquee itself, drawn over the notes it is catching.
+    if (this._marquee) {
+      const m = this._marquee;
+      const mx = this.xOfBeat(Math.min(m.beat0, m.beat1));
+      const mx2 = this.xOfBeat(Math.max(m.beat0, m.beat1));
+      const r0 = this.rowOfPitch(Math.max(m.pitch0, m.pitch1));
+      const r1 = this.rowOfPitch(Math.min(m.pitch0, m.pitch1));
+      const my = this.yOfRow(Math.max(0, r0));
+      const my2 = this.yOfRow(Math.min(this.rows - 1, r1)) + rowH;
+      cx.fillStyle = 'rgba(255,255,255,0.09)';
+      cx.fillRect(mx, my, mx2 - mx, my2 - my);
+      cx.strokeStyle = 'rgba(255,255,255,0.65)';
+      cx.setLineDash([4, 3]);
+      cx.strokeRect(Math.round(mx) + 0.5, Math.round(my) + 0.5,
+                    Math.round(mx2 - mx), Math.round(my2 - my));
+      cx.setLineDash([]);
     }
   };
 
@@ -457,6 +678,13 @@
         if (self.onFollowOff) self.onFollowOff();
       }
       self.canvas.setPointerCapture(e.pointerId);
+
+      if (self.tool === 'select' && !self.isDrums()) {
+        self._selectDown(p, e.shiftKey);
+        self.draw();
+        return;
+      }
+
       self.pushHistory();
       self._painted = {};
       if (self.isDrums()) self._drumDown(p);
@@ -465,23 +693,114 @@
     });
 
     this.canvas.addEventListener('pointermove', function (e) {
+      if (self._marquee) {
+        const p = self._pos(e);
+        self._marquee.beat1 = self.beatOfX(p.x);
+        self._marquee.pitch1 = self.pitchOfRow(
+          Math.max(0, Math.min(self.rows - 1, self.rowOfY(p.y))));
+        self.selectInBox(self._marquee, self._marquee.add);
+        self.draw();
+        return;
+      }
       if (!self._drag && !self._painted) return;
       const p = self._pos(e);
+      if (self._drag && self._drag.mode === 'group') { self._groupMove(p); self.draw(); return; }
       if (self.isDrums()) self._drumMove(p);
       else self._noteMove(p);
       self.draw();
     });
 
     function end(e) {
-      if (self._drag || self._painted) {
+      if (self._marquee) {
+        self._marquee = null;
+        self.draw();
+        if (self.onSelect) self.onSelect(self.sel.length);
+      } else if (self._drag || self._painted) {
         self._drag = null;
         self._painted = null;
         self.onChange();
+        if (self.onSelect) self.onSelect(self.sel.length);
       }
       try { self.canvas.releasePointerCapture(e.pointerId); } catch (err) { /* already gone */ }
     }
     this.canvas.addEventListener('pointerup', end);
     this.canvas.addEventListener('pointercancel', end);
+  };
+
+  /**
+   * A press in the select tool: either grab the selection, or start a box.
+   *
+   * Pressing a note that is already selected picks the whole group up — that
+   * is the move you want after selecting eight notes. Pressing an unselected
+   * note selects just that one and grabs it, so a single note still behaves
+   * like a single note. Pressing empty space starts a marquee.
+   */
+  Editor.prototype._selectDown = function (p, addToSelection) {
+    const beat = this.beatOfX(p.x);
+    /* Clamped rather than refused. A marquee is usually started just outside
+       the notes you are after — a press a few pixels above the top row is the
+       normal way to begin one, and ignoring it makes the tool feel broken. */
+    const row = Math.max(0, Math.min(this.rows - 1, this.rowOfY(p.y)));
+    const hit = this.noteAt(beat, this.pitchOfRow(row));
+
+    if (hit) {
+      if (addToSelection) {
+        const at = this.sel.indexOf(hit);
+        if (at >= 0) this.sel.splice(at, 1); else this.sel.push(hit);
+        if (this.onSelect) this.onSelect(this.sel.length);
+        return;
+      }
+      if (!this.isSelected(hit)) this.sel = [hit];
+      this.pushHistory();
+      /* Where the group started, so a drag moves everything by the same
+         amount rather than snapping each note onto the pointer. */
+      this._drag = {
+        mode: 'group',
+        grabBeat: beat,
+        grabPitch: this.pitchOfRow(row),
+        from: this.sel.map(function (e) { return { ev: e, t: e.t, p: e.p }; })
+      };
+      if (this.onSelect) this.onSelect(this.sel.length);
+      return;
+    }
+
+    this._marquee = {
+      beat0: beat, beat1: beat,
+      pitch0: this.pitchOfRow(row), pitch1: this.pitchOfRow(row),
+      add: !!addToSelection
+    };
+    if (!addToSelection) this.clearSelection();
+  };
+
+  Editor.prototype._groupMove = function (p) {
+    const d = this._drag;
+    if (!d || !d.from.length) return;
+    const song = this.getSong();
+    const row = this.rowOfY(p.y);
+    const beat = this.beatOfX(p.x);
+    let dBeat = this.quantize(beat - d.grabBeat);
+    let dPitch = 0;
+    if (row >= 0 && row < this.rows) dPitch = this.pitchOfRow(row) - d.grabPitch;
+
+    /* Clamp the *group*, not each note: the shape has to survive the edges.
+       Find how far the move can go before any member would fall off, and move
+       everything by that much. */
+    const total = song.totalBeats;
+    for (let i = 0; i < d.from.length; i++) {
+      const f = d.from[i];
+      dBeat = Math.max(dBeat, -f.t);
+      dBeat = Math.min(dBeat, total - (f.t + f.ev.d));
+      dPitch = Math.max(dPitch, 12 - f.p);
+      dPitch = Math.min(dPitch, 108 - f.p);
+    }
+    let sounded = false;
+    for (let i = 0; i < d.from.length; i++) {
+      const f = d.from[i];
+      f.ev.t = f.t + dBeat;
+      const next = f.p + dPitch;
+      if (next !== f.ev.p) { f.ev.p = next; sounded = sounded || i === 0; }
+    }
+    if (sounded) this.audition(d.from[0].ev.p);
   };
 
   Editor.prototype._noteDown = function (p) {
@@ -577,6 +896,9 @@
    * ------------------------------------------------------------------ */
 
   Editor.prototype.setTrack = function (name) {
+    /* A selection belongs to the part it was made in; carrying it across
+       would leave it pointing at notes that are not on screen. */
+    this.clearSelection();
     this.track = name;
     this.refit();
   };
