@@ -77,13 +77,17 @@
   /* ---------------------------------------------------------------- paint */
   function sizeOf() { return SIZES[el.shape.value] || SIZES.wide; }
 
-  function draw(canvas, spec, w, h, media) {
+  function draw(canvas, spec, w, h, media, upTo) {
     canvas.width = w;
     canvas.height = h;
     var ctx = canvas.getContext('2d');
     if (!ctx) return false;
-    var palette = PAINT.render(ctx, w, h, spec, media);
-    FINISH.apply(ctx, w, h, spec, palette);
+    var stages = PAINT.STAGES ? PAINT.STAGES.length : 8;
+    var whole = typeof upTo !== 'number' || upTo > stages;
+    var palette = PAINT.render(ctx, w, h, spec, media, whole ? null : { upTo: upTo });
+    /* The finishing style is the last coat, so a half-built picture has not had
+     * it yet — the same way the varnish goes on when the painting is done. */
+    if (whole) FINISH.apply(ctx, w, h, spec, palette);
     return true;
   }
 
@@ -195,6 +199,104 @@
       try { drawn = draw(canvas, spec, w, h, media); } catch (e2) { drawn = false; }
       whenDone(drawn);
     }
+  }
+
+  /* ------------------------------------------------------------ growing it
+   * The picture put on in coats, the way it is actually built, instead of
+   * arriving finished. Each beat paints the whole thing again from the words
+   * as they stand *at that moment* — which is what makes it steerable: change
+   * the box while it is growing and the next coat goes on the new picture,
+   * with the same seed, so it turns into what you are now asking for rather
+   * than starting again as something unrelated.
+   */
+  var COATS = [
+    { upTo: 1, says: 'the ground colour' },
+    { upTo: 2, says: 'the sky' },
+    { upTo: 3, says: 'the light' },
+    { upTo: 4, says: 'the clouds' },
+    { upTo: 5, says: 'the land' },
+    { upTo: 6, says: 'the subject' },
+    { upTo: 7, says: 'what is nearest' },
+    { upTo: 8, says: 'the weather' },
+    { upTo: 99, says: 'the finish' }
+  ];
+  var growTimer = null;
+  var growing = false;
+  var growLast = '';
+
+  /* A cheap fingerprint of what is on the canvas, so a coat that painted
+   * nothing can be noticed and skipped rather than sat through. Not every
+   * picture has weather or anything in the foreground, and a second of nothing
+   * happening reads as the app having stalled. */
+  function canvasMark(canvas) {
+    try {
+      var ctx = canvas.getContext('2d');
+      var d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      var a = 0, b = 0, n = 0;
+      for (var i = 0; i < d.length; i += 4 * 199) {
+        a = (a + d[i] * 3 + d[i + 1] * 5 + d[i + 2] * 7) % 1000000007;
+        b = (b + (a ^ (i & 255))) % 1000000007;
+        n++;
+      }
+      return a + ':' + b + ':' + n;
+    } catch (e) { return String(Math.random()); }
+  }
+
+  function growStop(quietly) {
+    if (growTimer) { window.clearTimeout(growTimer); growTimer = null; }
+    growing = false;
+    el.grow.textContent = '🌱 Grow it slowly';
+    el.grow.title = 'Watch it painted coat by coat — and change the words while it goes';
+    if (!quietly) setStatus('Stopped. What is there is what was painted so far.');
+  }
+
+  function growStart() {
+    if (growing) { growStop(); return; }
+    var words = el.prompt.value.trim();
+    if (!words) { setStatus('Put some words in the box first.'); return; }
+    growing = true;
+    el.grow.textContent = '■ Stop growing';
+    el.placeholder.hidden = true;
+    var coat = 0;
+
+    function beat() {
+      if (!growing) return;
+      /* Re-read the words every coat. This is the whole point. */
+      var text = el.prompt.value.trim();
+      if (!text) { growStop(true); setStatus('The box is empty, so there is nothing to grow.'); return; }
+      var spec = specFor(text, seed);
+      var size = sizeOf();
+      var step = COATS[coat];
+      var ok = false;
+      try { ok = draw(el.canvas, spec, size.w, size.h, mediaNow(spec), step.upTo); } catch (e) { ok = false; }
+      if (!ok) { growStop(true); setStatus('That could not be painted.'); return; }
+
+      el.canvas.dataset.painted = String(++painted);
+      current = spec;
+      showReadout(spec, size);
+      setStatus('Coat ' + (coat + 1) + ' of ' + COATS.length + ' — <b>' + step.says + '</b>. ' +
+        (coat + 1 < COATS.length
+          ? 'Change the words while it paints and it will grow into those instead.'
+          : ''));
+
+      /* If this coat put nothing on the canvas, move straight to the next. */
+      var mark = canvasMark(el.canvas);
+      var addedNothing = mark === growLast;
+      growLast = mark;
+
+      coat++;
+      if (coat >= COATS.length) {
+        growStop(true);
+        el.outButtons.hidden = false;
+        save(LAST_KEY, { prompt: text, seed: seed, style: el.style.value, shape: el.shape.value });
+        setStatus('Finished, in ' + COATS.length + ' coats. It is a real picture — keep it, ' +
+          'save it or share it like any other.');
+        return;
+      }
+      growTimer = window.setTimeout(beat, addedNothing ? 60 : 1100);
+    }
+    growLast = '';
+    beat();
   }
 
   function locksNow() {
@@ -1160,7 +1262,7 @@
 
   function start() {
     ['prompt', 'style', 'shape', 'examples', 'paint', 'reroll', 'six', 'surprise',
-      'canvas', 'placeholder', 'busy', 'status', 'readout', 'unknown', 'outButtons',
+      'canvas', 'placeholder', 'busy', 'status', 'readout', 'unknown', 'outButtons', 'grow',
       'download', 'keep', 'share', 'sheet', 'sheetGrid', 'gallery', 'galleryWrap',
       'exportGallery', 'importGallery', 'importFile',
       'lockSubject', 'lockSky', 'lockLand',
@@ -1179,6 +1281,7 @@
       repaint(1 + Math.floor(Math.random() * 999999));
     });
     el.six.addEventListener('click', showSix);
+    el.grow.addEventListener('click', growStart);
     el.surprise.addEventListener('click', function () {
       el.prompt.value = PROMPT.surprise(Date.now());
       repaint(1 + Math.floor(Math.random() * 999999));

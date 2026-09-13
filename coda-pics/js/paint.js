@@ -336,12 +336,16 @@
   }
 
   /* The sun or the moon, with the glow it throws into the sky around it. */
-  function paintLight(ctx, w, h, horizon, P, spec, r) {
+  /* `positionOnly` works out where the light is without painting it, so that a
+   * picture shown before its light is drawn is still lit from the right place
+   * once it is. */
+  function paintLight(ctx, w, h, horizon, P, spec, r, positionOnly) {
     if (spec.scene.id === 'cave') return null;
     var x = w * (0.2 + r() * 0.6);
     var y = h * P.sky.lightY * (spec.scene.id === 'space' ? 0.4 : 1);
     var rad = Math.min(w, h) * (spec.time === 'night' ? 0.055 : 0.075);
     if (spec.scene.id === 'space') rad *= 0.7;
+    if (positionOnly) return { x: x, y: y, r: rad };
 
     var glow = ctx.createRadialGradient(x, y, 0, x, y, rad * 9);
     glow.addColorStop(0, P.css(P.sky.light, 0.55));
@@ -1160,7 +1164,26 @@
     ctx.drawImage(media, (w - dw) / 2, (h - dh) / 2, dw, dh);
   }
 
-  function render(ctx, w, h, spec, media) {
+  /*
+   * The order the picture is built in, and the names a person would use for
+   * what appears. A painter does not put a dragon on a blank canvas: the light
+   * has to exist before the thing standing in it can be lit by it, and the land
+   * has to exist before something can stand on it. That order was already here
+   * — it is simply the order these calls have always been in — and naming it
+   * is what lets the picture be shown part-built rather than only finished.
+   */
+  var STAGES = ['wash', 'sky', 'light', 'cloud', 'land', 'subject', 'fore', 'weather'];
+
+  /*
+   * `opts.upTo` stops after that many stages. Everything before it is painted
+   * exactly as it always was, so a half-built picture is the real picture with
+   * its later coats still to come — not a different, simplified drawing that
+   * would then have to be replaced by the true one.
+   */
+  function render(ctx, w, h, spec, media, opts) {
+    var upTo = (opts && typeof opts.upTo === 'number') ? opts.upTo : STAGES.length;
+    function doing(name) { return STAGES.indexOf(name) < upTo; }
+
     var P = makePalette(spec);                              // the world
     var PS = makePalette(spec, { tintStrength: 0.85 });     // the thing in it
     var r = PROMPT.rng(spec, 'scene');
@@ -1190,12 +1213,17 @@
       ctx.fillStyle = P.css(P.sky.top);
       ctx.fillRect(0, 0, w, h);
 
-      paintSky(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'sky'));
-      light = paintLight(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'light'));
+      if (doing('sky')) paintSky(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'sky'));
+      /* The light is worked out even when it is not yet drawn: everything after
+       * it is lit by it, so skipping the sum would light the early stages
+       * differently from the finished picture and make the growth a lie. */
+      light = paintLight(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'light'), !doing('light'));
       P.light_at = PS.light_at = light;
-      clouds(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'cloud'));
+      if (doing('cloud')) clouds(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'cloud'));
 
-      (GROUND[spec.scene.id] || GROUND.plains)(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'ground'), light);
+      if (doing('land')) {
+        (GROUND[spec.scene.id] || GROUND.plains)(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'ground'), light);
+      }
     }
 
     /* Subjects, furthest first so a nearer one overlaps it. */
@@ -1214,19 +1242,22 @@
     }
     if (spec.relation && placed.length > 1) arrange(spec.relation, placed, w, h);
     placed.sort(function (a, b) { return a.z - b.z; });
-    placed.forEach(function (item) {
-      paintSubject(ctx, item.s, item.box, P, PS, sr, spec, light, hz, h);
-    });
+    if (doing('subject')) {
+      placed.forEach(function (item) {
+        paintSubject(ctx, item.s, item.box, P, PS, sr, spec, light, hz, h);
+      });
+    }
 
-    if (!onPhoto) foreground(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'fore'));
+    if (!onPhoto && doing('fore')) foreground(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'fore'));
 
-    paintWeather(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'weather'));
+    if (doing('weather')) paintWeather(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'weather'));
     ctx.restore();
     return P;
   }
 
   var API = {
     render: render,
+    STAGES: STAGES,
     makePalette: makePalette,
     GROUND: GROUND,
     SKY: SKY,
