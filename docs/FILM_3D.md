@@ -307,6 +307,35 @@ step between them.
 
 The tolerance stays at zero, because anything else would have hidden it.
 
+## Where the time goes
+
+Every pixel is worked out on the processor, so the frame budget is what everything else has to be paid
+for out of. It is worth writing down what was actually measured rather than what seemed likely, because
+two rounds of optimising the wrong thing came before this:
+
+```
+a 480 x 204 frame, supersample 1, hard shadows — 24 ms against a budget of 83
+
+  rasterising            11.0 ms   of which shadows are 3.8
+  captions and grain      4.9 ms
+  tonemap                 2.0 ms
+  building the bodies     2.0 ms
+  copying down            1.8 ms
+  the shadow map          1.3 ms
+  staging the scene       0.15 ms
+```
+
+The two guesses that were wrong: it is not the geometry (a level of detail that cut the bodies from
+10,500 triangles to a third of that saved 2 ms), and it is not the edge setup (stepping the edge
+functions instead of recomputing them per pixel saved 1.4 ms). Only about a hundred thousand pixels
+are shaded in a whole frame — there is not much overdraw to remove.
+
+There **is** a level of detail, and it is worth having anyway: a head is three thousand triangles at
+full detail and fifteen pixels tall in a wide shot. It is chosen from the shot's framing rather than
+from the camera's position at this instant, deliberately — a push that halves the distance over five
+seconds would otherwise walk the figure up through the detail levels while it played, and every step
+of that is a visible change of shape.
+
 ## What the 3D renderer does not do
 
 * **No sound.** The score is SONG FORGE's Web Audio program and the voices are the browser's speech

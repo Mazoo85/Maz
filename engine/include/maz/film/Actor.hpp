@@ -472,6 +472,19 @@ inline Skeleton skeletonOf(const Build& b, const BodyPose& poseIn) {
 
 namespace detail {
 
+// How many points to put round something, at this level of detail.
+//
+// A figure four hundred pixels tall needs every one of them; the same figure forty pixels tall in a
+// wide shot needs a quarter, and cannot tell. The renderer draws every pixel on the processor, so this
+// is not an optimisation in the usual sense of buying speed nobody asked for — it is the difference
+// between a film that plays on a phone and one that does not, and the frame budget is what every other
+// thing on the list has to be paid for out of.
+inline int lod(int full, float detail, int least) {
+    const float d = detail < 0.0f ? 0.0f : (detail > 1.0f ? 1.0f : detail);
+    const int want = static_cast<int>(static_cast<float>(full) * d + 0.5f);
+    return want < least ? least : (want > full ? full : want);
+}
+
 inline render::shapes::MeshData tint(render::shapes::MeshData m, const render::Color& c) {
     for (render::MeshVertex& v : m.vertices) {
         v.r = c.r;
@@ -674,7 +687,7 @@ inline float headFrontZ(float hw, float hh, float hd, float x, float y) {
 
 // The skin over all of it.
 inline render::shapes::MeshData skullShell(float hw, float hh, float hd, float jawDrop,
-                                           const render::Color& c) {
+                                           const render::Color& c, float detail = 1.0f) {
     int n = 0;
     const HeadRow* rows = headRows(n);
     // Points around each section, and they are NOT spread evenly. A head is all face: everything worth
@@ -683,7 +696,7 @@ inline render::shapes::MeshData skullShell(float hw, float hh, float hd, float j
     // whole bridge of the nose — which is why the nose, correctly shaped in the table, came out as a
     // faint bump with a knob on the end. Bunched toward the face they cost nothing extra and the nose
     // is a nose.
-    const int points = 40;
+    const int points = lod(40, detail, 12);
     const float bunch = 0.65f;
     std::vector<std::vector<math::vec3>> ribs;
     ribs.reserve(static_cast<std::size_t>(n) * 2);
@@ -691,7 +704,7 @@ inline render::shapes::MeshData skullShell(float hw, float hh, float hd, float j
         // One rib on each row and two more between it and the next. The rows carry the shape; the rest
         // keep the silhouette from going faceted, which on a head is most visible exactly where it is
         // least wanted — around the chin and along the top of the skull.
-        const int steps = (i + 1 < n) ? 3 : 1;
+        const int steps = (i + 1 < n) ? lod(3, detail, 1) : 1;
         for (int h = 0; h < steps; ++h) {
             const float y = rows[i].y + (rows[i + 1 < n ? i + 1 : i].y - rows[i].y) *
                                             (static_cast<float>(h) / static_cast<float>(steps));
@@ -736,12 +749,13 @@ inline render::shapes::MeshData skullShell(float hw, float hh, float hd, float j
 // It hangs off the pelvis rather than off the legs, which is the whole difference between a coat and
 // a pair of painted-on trousers: the legs move inside it, and the hem swings with the hips.
 inline render::shapes::MeshData hanging(const math::mat4& frame, float topY, float hemY, float topW,
-                                        float topD, float hemW, float hemD, const render::Color& c) {
+                                        float topD, float hemW, float hemD, const render::Color& c,
+                                        float detail = 1.0f) {
     if (hemY >= topY) {
         return render::shapes::MeshData{};
     }
-    const int points = 20;
-    const int steps = 5;
+    const int points = lod(20, detail, 8);
+    const int steps = lod(5, detail, 2);
     std::vector<std::vector<math::vec3>> ribs;
     ribs.reserve(static_cast<std::size_t>(steps) + 2);
     float wideHere = topW;
@@ -800,9 +814,9 @@ inline render::shapes::MeshData hanging(const math::mat4& frame, float topY, flo
 // centre the hair carries on down the back, in head half-heights, and is what makes the difference
 // between a crop and somebody with hair on their shoulders.
 inline render::shapes::MeshData hairCap(float hw, float hh, float hd, float capH, float fringe,
-                                        float fallTo, const render::Color& c) {
-    const int points = 48;
-    const int steps = 8;
+                                        float fallTo, const render::Color& c, float detail = 1.0f) {
+    const int points = lod(48, detail, 12);
+    const int steps = lod(8, detail, 3);
     const float proud = 1.105f;
     std::vector<std::vector<math::vec3>> ribs;
     ribs.reserve(static_cast<std::size_t>(steps) + 8);
@@ -817,7 +831,7 @@ inline render::shapes::MeshData hairCap(float hw, float hh, float hd, float capH
     // The two overlap around the sides and the back, where they are both hair and nobody can tell.
     render::shapes::MeshData whole;
     if (fallTo < -1.0f) {
-        const int drop = 6;
+        const int drop = lod(6, detail, 2);
         std::vector<std::vector<math::vec3>> fallRibs;
         fallRibs.reserve(static_cast<std::size_t>(drop) + 1);
         for (int i = 0; i <= drop; ++i) {
@@ -883,11 +897,14 @@ inline render::shapes::MeshData hairCap(float hw, float hh, float hd, float capH
 } // namespace detail
 
 // The whole surface, as one mesh with the colours baked into the vertices.
+// `detail` is 1 for a figure filling the frame and less for one that is not. It is the frame budget
+// made adjustable: a head is three thousand triangles at full detail and is fifteen pixels tall in a
+// wide shot, which is a lot of arithmetic to spend on something nobody can see. See lod().
 inline render::shapes::MeshData buildBody(const Build& b, const Skeleton& sk,
-                                         const Face& face = Face()) {
+                                         const Face& face = Face(), float detail = 1.0f) {
     using namespace detail;
     render::shapes::MeshData m;
-    const int P = 16; // points around the torso
+    const int P = lod(16, detail, 7); // points around the torso
 
     // ---- torso: one surface lofted from the hips to the shoulders, following the spine ------------
     {
@@ -966,182 +983,188 @@ inline render::shapes::MeshData buildBody(const Build& b, const Skeleton& sk,
         // as a five-centimetre dome and the figure gets a pear hanging under its chin. Narrowed at the
         // top, the same cap is buried in the jaw and what shows below is a neck.
         const math::vec3 headBase = Skeleton::at(sk.head * math::vec4(0.0f, -hh * 0.85f, 0.0f, 1.0f));
-        add(m, limb(neckBase, headBase, b.m(b.neckR * 1.10f), b.m(b.neckR * 0.84f), b.skin, 20));
+        add(m, limb(neckBase, headBase, b.m(b.neckR * 1.10f), b.m(b.neckR * 0.84f), b.skin,
+                    lod(20, detail, 7)));
 
         // The head: one sculpted surface, brow, cheekbones, jaw and chin shaped into it. See
         // skullShell for why it is not a sphere with lumps on.
-        add(m, render::applyTransform(skullShell(hw, hh, hd, jawDrop, b.skin), sk.head));
+        add(m, render::applyTransform(skullShell(hw, hh, hd, jawDrop, b.skin, detail), sk.head));
         auto faceZ = [&](float x, float y) { return headFrontZ(hw, hh, hd, x, y); };
 
         add(m, render::applyTransform(
                    hairCap(hw, hh, hd, hh, b.fringe,
                            b.hairY > 0.0f ? (b.hairY * b.height - Skeleton::at(sk.head).y) / hh : 0.0f,
-                           b.hair),
+                           b.hair, detail),
                    sk.head));
 
         // There is no brow ridge or cheekbone drawn here, and there used to be. They are shaped
         // into the head itself now — see the table in skullShell — because as separate lumps they
         // read as four pale eggs glued to the face, whatever size they were made.
 
-        // EYEBROWS. The first thing an audience reads on a face and the cheapest to draw: two dark
-        // bars that lift, lower and tilt. Everything else here could be right and a face with no
-        // eyebrows would still be unreadable.
-        for (int s2 = 0; s2 < 2; ++s2) {
-            const float side = sideSign(s2);
-            // Tilt is about the INNER end, so a positive tilt lifts the inside of both brows — the
-            // shape of worry — rather than rotating both the same way, which is a raised eyebrow on
-            // one side and a lowered one on the other.
-            const float lean = -side * face.browTilt * 0.34f;
-            const float browX = side * hw * 0.375f;
-            const float browY = hh * (0.225f + face.browLift * 0.085f);
-            // Four short pieces rather than one long bar, each laid on the face where IT is. A brow is
-            // a third of the width of a head, and across that much of a head the surface falls back by
-            // a quarter of its own depth — so a single straight bar has its inner end on the face and
-            // its outer end hanging in the air beside it, which is exactly how it looked.
-            for (int k = 0; k < 5; ++k) {
-                const float along = (static_cast<float>(k) - 2.0f) * hw * 0.060f;
-                const float bx = browX + along * std::cos(lean);
-                const float by = browY + along * std::sin(lean);
-                add(m, render::applyTransform(
-                           render::applyTransform(render::shapes::makeBox(1.0f, b.hair),
-                                                  render::scaleMatrix(math::vec3(
-                                                      hw * 0.130f, hh * 0.070f, hd * 0.090f))),
-                           sk.head * detail::move(bx, by, faceZ(bx, by) - hd * 0.032f) *
-                               detail::rotZ(lean)));
-            }
-        }
-
-        // EYES, on the halfway line, one eye-width apart, because that is where eyes are.
-        //
-        // A blink is the EYE closing, not a lid drawn on top of it. The first attempt modelled an
-        // upper lid as its own sphere coming down over the eyeball, which is how a lid works and is
-        // not how one can be drawn at this size: a sphere big enough to cover the eye is bigger than
-        // the eye, so it stands proud of the face, and the result was two pale eggs parked on the
-        // forehead. Squashing the eye itself is the trick every animator uses, costs nothing, and can
-        // never poke out of a face because it only ever gets smaller.
-        // Not white. A sclera lit by the same key as the skin beside it is a warm grey, and painted
-        // any brighter it reads as enamel — two boiled eggs in a face.
-        const render::Color eyeWhite{0.78f, 0.77f, 0.74f, 1.0f};
-        const render::Color iris{0.11f, 0.10f, 0.10f, 1.0f};
-        const float eyeR = hw * 0.192f;
-        const float eyeY = hh * 0.07f;
-        const float openness = 1.0f - 0.94f * lidShut;
-        // An eye is WIDER THAN IT IS TALL and it is barely proud of the face. A ball is neither, and a
-        // ball is what was here: two white spheres standing out of the front of a head, which is the
-        // single most doll-like thing a face can do. What is wanted is a shallow lens — wide, low, and
-        // sunk until only the front of it breaks the surface.
-        const float tall = 0.62f, deep = 0.30f;
-        for (int s2 = 0; s2 < 2; ++s2) {
-            const float sx = sideSign(s2) * hw * 0.375f;
-            // A closing eye also settles: the slit that is left sits where the bottom lid is, not
-            // floating at the middle of the socket.
-            const math::mat4 socket =
-                sk.head * detail::move(sx, eyeY - hh * 0.030f * lidShut,
-                                       faceZ(sx, eyeY) - eyeR * deep * 0.30f);
-            add(m, render::applyTransform(
-                       render::applyTransform(render::shapes::makeSphere(eyeR, 11, 18, eyeWhite),
-                                              render::scaleMatrix(
-                                                  math::vec3(1.0f, tall * openness, deep))),
-                       socket));
-            // The iris goes where the eyes are LOOKING. A head turned toward somebody with its eyes
-            // still pointing dead ahead is the difference between attention and a doll.
-            // The iris has to be brought forward until its rim meets the white's surface, or all that
-            // shows of it is the very tip poking through and the eye reads as blank.
-            add(m, render::applyTransform(
-                       render::applyTransform(render::shapes::makeSphere(hw * 0.088f, 9, 14, iris),
-                                              render::scaleMatrix(math::vec3(1.0f, openness, 0.22f))),
-                       socket * detail::move(face.gaze * eyeR * 0.32f, 0.0f, eyeR * 0.30f)));
-        }
-
-        // A NOSE, which at any distance is what says which way a head is turned — and close up is
-        // most of what stops a face being a mask. It is three pieces and needs to be: a bridge coming
-        // out of the brow, a ball at the end of it on the nose line, and the wings either side.
-        {
-            const float baseY = -hh * 0.40f;                 // the nose line, halfway eyes-to-chin
-            const render::Color nostril{b.skin.r * 0.34f, b.skin.g * 0.27f, b.skin.b * 0.25f, 1.0f};
-            // There is no bridge drawn here. It is shaped into the head — the `ridge` column of the
-            // table in skullShell — because every attempt to draw it as its own piece produced a pipe
-            // laid down the middle of a face, whether the piece was an ellipsoid (a dart, pointed at
-            // both ends) or a tapered loft (a tube). Only the end of the nose is its own mass.
-            // The ball on the end, which is the furthest-forward point of the whole head.
-            // The ball sits ON the nose line, not across it: its underside is the base of the nose,
-            // and everything below that is the philtrum and then the mouth. Centred on the line
-            // instead, the nose hangs over the top lip and the face has no upper lip at all.
-            const float ballY = baseY + hh * 0.105f;
-            const float ballZ = faceZ(0.0f, ballY) - hd * 0.070f;
-            add(m, render::applyTransform(
-                       render::applyTransform(render::shapes::makeSphere(1.0f, 14, 18, b.skin),
-                                              render::scaleMatrix(math::vec3(hw * 0.135f, hh * 0.085f,
-                                                                             hd * 0.115f))),
-                       sk.head * detail::move(0.0f, ballY, ballZ)));
-            // The wings either side of it, kept small and mostly buried. Made any bigger they stop
-            // being part of the nose and become two more balls in a cluster of them.
+        // The features themselves are skipped when the head is small enough that not one of them
+        // would cover a pixel. There is no halfway version worth having: an eye drawn at two pixels
+        // across is a dark speck that reads as dirt, and ten of those cost as much as the head.
+        if (detail > 0.42f) {
+            // EYEBROWS. The first thing an audience reads on a face and the cheapest to draw: two dark
+            // bars that lift, lower and tilt. Everything else here could be right and a face with no
+            // eyebrows would still be unreadable.
             for (int s2 = 0; s2 < 2; ++s2) {
                 const float side = sideSign(s2);
-                const float wingX = side * hw * 0.135f;
-                add(m, render::applyTransform(
-                           render::applyTransform(render::shapes::makeSphere(1.0f, 12, 14, b.skin),
-                                                  render::scaleMatrix(math::vec3(
-                                                      hw * 0.068f, hh * 0.046f, hd * 0.062f))),
-                           sk.head * detail::move(wingX, baseY + hh * 0.060f,
-                                                  faceZ(wingX, baseY) - hd * 0.012f)));
-                // Two dark marks tucked UNDER the end of it, where they are shaded from the key and
-                // read as holes. Sitting them on the front of the nose instead just hangs two dark
-                // beads off it.
-                add(m, render::applyTransform(
-                           render::applyTransform(render::shapes::makeSphere(1.0f, 8, 10, nostril),
-                                                  render::scaleMatrix(math::vec3(
-                                                      hw * 0.038f, hh * 0.016f, hd * 0.038f))),
-                           sk.head * detail::move(side * hw * 0.062f, baseY + hh * 0.012f,
-                                                  ballZ + hd * 0.048f)));
+                // Tilt is about the INNER end, so a positive tilt lifts the inside of both brows — the
+                // shape of worry — rather than rotating both the same way, which is a raised eyebrow on
+                // one side and a lowered one on the other.
+                const float lean = -side * face.browTilt * 0.34f;
+                const float browX = side * hw * 0.375f;
+                const float browY = hh * (0.225f + face.browLift * 0.085f);
+                // Four short pieces rather than one long bar, each laid on the face where IT is. A brow is
+                // a third of the width of a head, and across that much of a head the surface falls back by
+                // a quarter of its own depth — so a single straight bar has its inner end on the face and
+                // its outer end hanging in the air beside it, which is exactly how it looked.
+                for (int k = 0; k < 5; ++k) {
+                    const float along = (static_cast<float>(k) - 2.0f) * hw * 0.060f;
+                    const float bx = browX + along * std::cos(lean);
+                    const float by = browY + along * std::sin(lean);
+                    add(m, render::applyTransform(
+                               render::applyTransform(render::shapes::makeBox(1.0f, b.hair),
+                                                      render::scaleMatrix(math::vec3(
+                                                          hw * 0.130f, hh * 0.070f, hd * 0.090f))),
+                               sk.head * detail::move(bx, by, faceZ(bx, by) - hd * 0.032f) *
+                                   detail::rotZ(lean)));
+                }
             }
-        }
 
-        // THE MOUTH. Dark inside, lips around it, and the corners carrying the expression.
-        {
-            const float mouthY = -hh * 0.58f;
-            // The mouth is on the JAW, not on the skull, and the jaw stands well in front of it —
-            // laid onto the skull instead, a mouth is a line somewhere inside the chin.
-            const float mouthZ = faceZ(0.0f, mouthY);
-            const render::Color inside{b.skin.r * 0.15f, b.skin.g * 0.11f, b.skin.b * 0.11f, 1.0f};
-            // Only a little darker and a little redder than the face. Lips that read as lipstick are
-            // a different film; what is wanted is the line between them, and the line comes from the
-            // dark slot behind, not from the colour in front.
-            const render::Color lip{b.skin.r * 0.88f, b.skin.g * 0.68f, b.skin.b * 0.63f, 1.0f};
-
-            // The dark is set BACK and the lips stand in front of it. The other way round — which is
-            // what it was — the dark mass covers the lips and a mouth is a painted line.
-            add(m, render::applyTransform(
-                       render::applyTransform(render::shapes::makeSphere(1.0f, 10, 14, inside),
-                                              render::scaleMatrix(math::vec3(
-                                                  hw * (0.300f + 0.03f * openMouth),
-                                                  hh * (0.075f + 0.20f * openMouth), hd * 0.12f))),
-                       sk.head * detail::move(0.0f, mouthY - hh * 0.10f * openMouth - jawDrop * 0.5f,
-                                              mouthZ - hd * 0.135f)));
-            // An upper lip that stays put and a lower one that goes down with the jaw.
-            add(m, render::applyTransform(
-                       render::applyTransform(render::shapes::makeSphere(1.0f, 10, 12, lip),
-                                              render::scaleMatrix(math::vec3(hw * 0.310f, hh * 0.040f,
-                                                                             hd * 0.080f))),
-                       sk.head * detail::move(0.0f, mouthY + hh * 0.040f, mouthZ - hd * 0.044f)));
-            add(m, render::applyTransform(
-                       render::applyTransform(render::shapes::makeSphere(1.0f, 10, 12, lip),
-                                              render::scaleMatrix(math::vec3(hw * 0.290f, hh * 0.046f,
-                                                                             hd * 0.080f))),
-                       sk.head * detail::move(0.0f,
-                                              mouthY - hh * (0.044f + 0.21f * openMouth) - jawDrop,
-                                              mouthZ - hd * 0.044f)));
-            // The corners. A smile is not a curved line at this size — it is where the two ends of the
-            // mouth sit, and moving them a couple of millimetres is the whole difference between
-            // somebody pleased and somebody about to say something they will regret.
+            // EYES, on the halfway line, one eye-width apart, because that is where eyes are.
+            //
+            // A blink is the EYE closing, not a lid drawn on top of it. The first attempt modelled an
+            // upper lid as its own sphere coming down over the eyeball, which is how a lid works and is
+            // not how one can be drawn at this size: a sphere big enough to cover the eye is bigger than
+            // the eye, so it stands proud of the face, and the result was two pale eggs parked on the
+            // forehead. Squashing the eye itself is the trick every animator uses, costs nothing, and can
+            // never poke out of a face because it only ever gets smaller.
+            // Not white. A sclera lit by the same key as the skin beside it is a warm grey, and painted
+            // any brighter it reads as enamel — two boiled eggs in a face.
+            const render::Color eyeWhite{0.78f, 0.77f, 0.74f, 1.0f};
+            const render::Color iris{0.11f, 0.10f, 0.10f, 1.0f};
+            const float eyeR = hw * 0.192f;
+            const float eyeY = hh * 0.07f;
+            const float openness = 1.0f - 0.94f * lidShut;
+            // An eye is WIDER THAN IT IS TALL and it is barely proud of the face. A ball is neither, and a
+            // ball is what was here: two white spheres standing out of the front of a head, which is the
+            // single most doll-like thing a face can do. What is wanted is a shallow lens — wide, low, and
+            // sunk until only the front of it breaks the surface.
+            const float tall = 0.62f, deep = 0.30f;
             for (int s2 = 0; s2 < 2; ++s2) {
+                const float sx = sideSign(s2) * hw * 0.375f;
+                // A closing eye also settles: the slit that is left sits where the bottom lid is, not
+                // floating at the middle of the socket.
+                const math::mat4 socket =
+                    sk.head * detail::move(sx, eyeY - hh * 0.030f * lidShut,
+                                           faceZ(sx, eyeY) - eyeR * deep * 0.30f);
                 add(m, render::applyTransform(
-                           render::applyTransform(render::shapes::makeSphere(1.0f, 8, 10, inside),
+                           render::applyTransform(render::shapes::makeSphere(eyeR, 11, 18, eyeWhite),
+                                                  render::scaleMatrix(
+                                                      math::vec3(1.0f, tall * openness, deep))),
+                           socket));
+                // The iris goes where the eyes are LOOKING. A head turned toward somebody with its eyes
+                // still pointing dead ahead is the difference between attention and a doll.
+                // The iris has to be brought forward until its rim meets the white's surface, or all that
+                // shows of it is the very tip poking through and the eye reads as blank.
+                add(m, render::applyTransform(
+                           render::applyTransform(render::shapes::makeSphere(hw * 0.088f, 9, 14, iris),
+                                                  render::scaleMatrix(math::vec3(1.0f, openness, 0.22f))),
+                           socket * detail::move(face.gaze * eyeR * 0.32f, 0.0f, eyeR * 0.30f)));
+            }
+
+            // A NOSE, which at any distance is what says which way a head is turned — and close up is
+            // most of what stops a face being a mask. It is three pieces and needs to be: a bridge coming
+            // out of the brow, a ball at the end of it on the nose line, and the wings either side.
+            {
+                const float baseY = -hh * 0.40f;                 // the nose line, halfway eyes-to-chin
+                const render::Color nostril{b.skin.r * 0.34f, b.skin.g * 0.27f, b.skin.b * 0.25f, 1.0f};
+                // There is no bridge drawn here. It is shaped into the head — the `ridge` column of the
+                // table in skullShell — because every attempt to draw it as its own piece produced a pipe
+                // laid down the middle of a face, whether the piece was an ellipsoid (a dart, pointed at
+                // both ends) or a tapered loft (a tube). Only the end of the nose is its own mass.
+                // The ball on the end, which is the furthest-forward point of the whole head.
+                // The ball sits ON the nose line, not across it: its underside is the base of the nose,
+                // and everything below that is the philtrum and then the mouth. Centred on the line
+                // instead, the nose hangs over the top lip and the face has no upper lip at all.
+                const float ballY = baseY + hh * 0.105f;
+                const float ballZ = faceZ(0.0f, ballY) - hd * 0.070f;
+                add(m, render::applyTransform(
+                           render::applyTransform(render::shapes::makeSphere(1.0f, 14, 18, b.skin),
+                                                  render::scaleMatrix(math::vec3(hw * 0.135f, hh * 0.085f,
+                                                                                 hd * 0.115f))),
+                           sk.head * detail::move(0.0f, ballY, ballZ)));
+                // The wings either side of it, kept small and mostly buried. Made any bigger they stop
+                // being part of the nose and become two more balls in a cluster of them.
+                for (int s2 = 0; s2 < 2; ++s2) {
+                    const float side = sideSign(s2);
+                    const float wingX = side * hw * 0.135f;
+                    add(m, render::applyTransform(
+                               render::applyTransform(render::shapes::makeSphere(1.0f, 12, 14, b.skin),
+                                                      render::scaleMatrix(math::vec3(
+                                                          hw * 0.068f, hh * 0.046f, hd * 0.062f))),
+                               sk.head * detail::move(wingX, baseY + hh * 0.060f,
+                                                      faceZ(wingX, baseY) - hd * 0.012f)));
+                    // Two dark marks tucked UNDER the end of it, where they are shaded from the key and
+                    // read as holes. Sitting them on the front of the nose instead just hangs two dark
+                    // beads off it.
+                    add(m, render::applyTransform(
+                               render::applyTransform(render::shapes::makeSphere(1.0f, 8, 10, nostril),
+                                                      render::scaleMatrix(math::vec3(
+                                                          hw * 0.038f, hh * 0.016f, hd * 0.038f))),
+                               sk.head * detail::move(side * hw * 0.062f, baseY + hh * 0.012f,
+                                                      ballZ + hd * 0.048f)));
+                }
+            }
+
+            // THE MOUTH. Dark inside, lips around it, and the corners carrying the expression.
+            {
+                const float mouthY = -hh * 0.58f;
+                // The mouth is on the JAW, not on the skull, and the jaw stands well in front of it —
+                // laid onto the skull instead, a mouth is a line somewhere inside the chin.
+                const float mouthZ = faceZ(0.0f, mouthY);
+                const render::Color inside{b.skin.r * 0.15f, b.skin.g * 0.11f, b.skin.b * 0.11f, 1.0f};
+                // Only a little darker and a little redder than the face. Lips that read as lipstick are
+                // a different film; what is wanted is the line between them, and the line comes from the
+                // dark slot behind, not from the colour in front.
+                const render::Color lip{b.skin.r * 0.88f, b.skin.g * 0.68f, b.skin.b * 0.63f, 1.0f};
+
+                // The dark is set BACK and the lips stand in front of it. The other way round — which is
+                // what it was — the dark mass covers the lips and a mouth is a painted line.
+                add(m, render::applyTransform(
+                           render::applyTransform(render::shapes::makeSphere(1.0f, 10, 14, inside),
                                                   render::scaleMatrix(math::vec3(
-                                                      hw * 0.055f, hh * 0.030f, hd * 0.06f))),
-                           sk.head * detail::move(sideSign(s2) * hw * 0.300f,
-                                                  mouthY + face.smile * hh * 0.075f - jawDrop * 0.4f,
-                                                  faceZ(hw * 0.300f, mouthY) - hd * 0.048f)));
+                                                      hw * (0.300f + 0.03f * openMouth),
+                                                      hh * (0.075f + 0.20f * openMouth), hd * 0.12f))),
+                           sk.head * detail::move(0.0f, mouthY - hh * 0.10f * openMouth - jawDrop * 0.5f,
+                                                  mouthZ - hd * 0.135f)));
+                // An upper lip that stays put and a lower one that goes down with the jaw.
+                add(m, render::applyTransform(
+                           render::applyTransform(render::shapes::makeSphere(1.0f, 10, 12, lip),
+                                                  render::scaleMatrix(math::vec3(hw * 0.310f, hh * 0.040f,
+                                                                                 hd * 0.080f))),
+                           sk.head * detail::move(0.0f, mouthY + hh * 0.040f, mouthZ - hd * 0.044f)));
+                add(m, render::applyTransform(
+                           render::applyTransform(render::shapes::makeSphere(1.0f, 10, 12, lip),
+                                                  render::scaleMatrix(math::vec3(hw * 0.290f, hh * 0.046f,
+                                                                                 hd * 0.080f))),
+                           sk.head * detail::move(0.0f,
+                                                  mouthY - hh * (0.044f + 0.21f * openMouth) - jawDrop,
+                                                  mouthZ - hd * 0.044f)));
+                // The corners. A smile is not a curved line at this size — it is where the two ends of the
+                // mouth sit, and moving them a couple of millimetres is the whole difference between
+                // somebody pleased and somebody about to say something they will regret.
+                for (int s2 = 0; s2 < 2; ++s2) {
+                    add(m, render::applyTransform(
+                               render::applyTransform(render::shapes::makeSphere(1.0f, 8, 10, inside),
+                                                      render::scaleMatrix(math::vec3(
+                                                          hw * 0.055f, hh * 0.030f, hd * 0.06f))),
+                               sk.head * detail::move(sideSign(s2) * hw * 0.300f,
+                                                      mouthY + face.smile * hh * 0.075f - jawDrop * 0.4f,
+                                                      faceZ(hw * 0.300f, mouthY) - hd * 0.048f)));
+                }
             }
         }
     }

@@ -371,6 +371,28 @@ inline Image drawFrame3D(const Reel& reel, const std::map<std::string, Cast>& ca
     Scene sc = stageScene(reel, *shot, cast, time, progress, cache);
     // Built once and used twice: the shadow pass and the picture see the same bodies, which they must,
     // and a body is a few thousand triangles to assemble.
+    // How much of a figure to build, from how much of the frame it is going to fill.
+    //
+    // Every pixel here is worked out on the processor, so this is not an optimisation in the usual
+    // sense of buying speed nobody asked for: it is the frame budget that everything else has to be
+    // paid for out of. A head is three thousand triangles at full detail and is fifteen pixels tall
+    // in a wide shot.
+    //
+    // It is worked out from the SHOT's framing rather than from the camera's position at this
+    // instant, and deliberately: a push that halves the distance over five seconds would otherwise
+    // walk the figure up through the detail levels while it played, and every step of that is a
+    // visible change of shape. Fixed for the length of a shot, it cannot pop, because there is
+    // nothing to pop between.
+    const float acting = std::sqrt(math::dot(sc.lens.at - sc.lens.eye, sc.lens.at - sc.lens.eye));
+    // How tall 1.8 metres is, in pixels, at the distance the camera is standing.
+    const float tall = acting > 0.05f
+                           ? 1.8f / acting / (2.0f * std::tan(sc.lens.fovY * 0.5f)) * frameH
+                           : frameH;
+    const float detail = tall > 300.0f ? 1.0f
+                         : tall > 150.0f ? 0.70f
+                         : tall > 70.0f  ? 0.48f
+                                         : 0.32f;
+
     std::vector<maz::render::shapes::MeshData> bodies;
     bodies.reserve(sc.people.size() + 1);
     // The object goes in with the bodies rather than with the room, because it moves like one: it is
@@ -379,7 +401,7 @@ inline Image drawFrame3D(const Reel& reel, const std::map<std::string, Cast>& ca
         bodies.push_back(maz::render::applyTransform(sc.stage.object, sc.objectAt));
     }
     for (const Standing& who : sc.people) {
-        bodies.push_back(maz::film::buildBody(who.who->build, who.skeleton, who.face));
+        bodies.push_back(maz::film::buildBody(who.who->build, who.skeleton, who.face, detail));
     }
 
     Surface surf = surfaceFor(sc.palette, *shot, time);

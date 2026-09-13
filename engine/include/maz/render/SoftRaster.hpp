@@ -293,25 +293,52 @@ class SoftRaster {
         const double iwb = 1.0 / static_cast<double>(b.clip.w);
         const double iwc = 1.0 / static_cast<double>(c.clip.w);
 
-        for (int py = minY; py <= maxY; ++py) {
-            const double sy = static_cast<double>(py) + 0.5;
-            for (int px = minX; px <= maxX; ++px) {
-                const double sx = static_cast<double>(px) + 0.5;
-                // Edge functions. Every edge is tested inclusively, so two triangles sharing an edge
-                // BOTH claim the pixels on it: the seam is covered twice rather than not at all, and
-                // the depth test throws the second one away. A gap on a shared edge would put a line
-                // of background through every flat surface in the film.
-                const double w0 = edge(x1, y1, x2, y2, sx, sy);
-                const double w1 = edge(x2, y2, x0, y0, sx, sy);
-                const double w2 = edge(x0, y0, x1, y1, sx, sy);
-                const bool inside = area < 0.0 ? (w0 <= 0.0 && w1 <= 0.0 && w2 <= 0.0)
-                                               : (w0 >= 0.0 && w1 >= 0.0 && w2 >= 0.0);
+        // The edge functions, stepped rather than recomputed.
+        //
+        // An edge function is linear in the pixel's position, so walking one pixel to the right adds a
+        // constant and walking one row down adds another. Worked out from scratch at every pixel it is
+        // fifteen double-precision operations; stepped, it is three additions — and this loop runs
+        // through a million pixels a frame at the size the browser plays at, so it is most of what the
+        // renderer spends its time on.
+        //
+        // Stepped in DOUBLE, not float, and that matters. The comparison below is inclusive on
+        // purpose, so two triangles sharing an edge both claim the pixels along it and the depth test
+        // throws the second one away; at single precision the accumulated drift across a wide frame
+        // is enough to move which side of that comparison a pixel falls on, and a seam that neither
+        // triangle claims is a line of background through the middle of a wall.
+        const double dw0dx = -(static_cast<double>(y2) - static_cast<double>(y1));
+        const double dw1dx = -(static_cast<double>(y0) - static_cast<double>(y2));
+        const double dw2dx = -(static_cast<double>(y1) - static_cast<double>(y0));
+        const double dw0dy = static_cast<double>(x2) - static_cast<double>(x1);
+        const double dw1dy = static_cast<double>(x0) - static_cast<double>(x2);
+        const double dw2dy = static_cast<double>(x1) - static_cast<double>(x0);
+        const double startX = static_cast<double>(minX) + 0.5;
+        double rowW0 = edge(x1, y1, x2, y2, startX, static_cast<double>(minY) + 0.5);
+        double rowW1 = edge(x2, y2, x0, y0, startX, static_cast<double>(minY) + 0.5);
+        double rowW2 = edge(x0, y0, x1, y1, startX, static_cast<double>(minY) + 0.5);
+
+        const bool negative = area < 0.0;
+        const double invArea = 1.0 / area;
+        const bool foggy = surf.fogEnd > surf.fogStart;
+        const float fogSpan = foggy ? 1.0f / (surf.fogEnd - surf.fogStart) : 0.0f;
+
+        for (int py = minY; py <= maxY; ++py, rowW0 += dw0dy, rowW1 += dw1dy, rowW2 += dw2dy) {
+            double w0 = rowW0;
+            double w1 = rowW1;
+            double w2 = rowW2;
+            for (int px = minX; px <= maxX; ++px, w0 += dw0dx, w1 += dw1dx, w2 += dw2dx) {
+                // Inclusive on both sides, so two triangles sharing an edge BOTH claim the pixels on
+                // it: the seam is covered twice rather than not at all, and the depth test throws the
+                // second one away. A gap on a shared edge puts a line of background through every flat
+                // surface in the film.
+                const bool inside = negative ? (w0 <= 0.0 && w1 <= 0.0 && w2 <= 0.0)
+                                             : (w0 >= 0.0 && w1 >= 0.0 && w2 >= 0.0);
                 if (!inside) {
                     continue;
                 }
-                const double l0 = w0 / area;
-                const double l1 = w1 / area;
-                const double l2 = w2 / area;
+                const double l0 = w0 * invArea;
+                const double l1 = w1 * invArea;
+                const double l2 = w2 * invArea;
 
                 const float z = static_cast<float>(l0 * static_cast<double>(na.z) +
                                                    l1 * static_cast<double>(nb.z) +
@@ -334,9 +361,13 @@ class SoftRaster {
                 if (iw <= 0.0) {
                     continue;
                 }
-                const double pa = l0 * iwa / iw;
-                const double pb = l1 * iwb / iw;
-                const double pc = l2 * iwc / iw;
+                // One reciprocal rather than three divisions written out. Measured, it makes no
+                // difference — the compiler was already hoisting it — but it says what is meant, and
+                // the fog below wants the same number anyway.
+                const double rw = 1.0 / iw;
+                const double pa = l0 * iwa * rw;
+                const double pb = l1 * iwb * rw;
+                const double pc = l2 * iwc * rw;
                 const math::vec3 nrm = a.normal * static_cast<float>(pa) +
                                        b.normal * static_cast<float>(pb) +
                                        c.normal * static_cast<float>(pc);
@@ -348,10 +379,10 @@ class SoftRaster {
                                         c.world * static_cast<float>(pc);
 
                 Color lit = shade(nrm, col, here, key, surf);
-                if (surf.fogEnd > surf.fogStart) {
+                if (foggy) {
                     // 1/iw is the perspective-correct distance along the view axis at this pixel.
-                    const float away = static_cast<float>(1.0 / iw);
-                    float f = (away - surf.fogStart) / (surf.fogEnd - surf.fogStart);
+                    const float away = static_cast<float>(rw);
+                    float f = (away - surf.fogStart) * fogSpan;
                     f = f < 0.0f ? 0.0f : (f > 1.0f ? 1.0f : f);
                     f *= surf.fogMax;
                     lit.r += (surf.fog.r - lit.r) * f;
