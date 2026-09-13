@@ -84,17 +84,13 @@
   /* ---------------------------------------------------------------- paint */
   function sizeOf() { return SIZES[el.shape.value] || SIZES.wide; }
 
-  function draw(canvas, spec, w, h, media, upTo) {
+  function draw(canvas, spec, w, h, media) {
     canvas.width = w;
     canvas.height = h;
     var ctx = canvas.getContext('2d');
     if (!ctx) return false;
-    var stages = PAINT.STAGES ? PAINT.STAGES.length : 8;
-    var whole = typeof upTo !== 'number' || upTo > stages;
-    var palette = PAINT.render(ctx, w, h, spec, media, whole ? null : { upTo: upTo });
-    /* The finishing style is the last coat, so a half-built picture has not had
-     * it yet — the same way the varnish goes on when the painting is done. */
-    if (whole) FINISH.apply(ctx, w, h, spec, palette);
+    var palette = PAINT.render(ctx, w, h, spec, media);
+    FINISH.apply(ctx, w, h, spec, palette);
     return true;
   }
 
@@ -206,247 +202,6 @@
       try { drawn = draw(canvas, spec, w, h, media); } catch (e2) { drawn = false; }
       whenDone(drawn);
     }
-  }
-
-  /* ------------------------------------------------------------ growing it
-   * The picture put on in coats, the way it is actually built, instead of
-   * arriving finished. Each beat paints the whole thing again from the words
-   * as they stand *at that moment* — which is what makes it steerable: change
-   * the box while it is growing and the next coat goes on the new picture,
-   * with the same seed, so it turns into what you are now asking for rather
-   * than starting again as something unrelated.
-   */
-  var COATS = [
-    { upTo: 1, says: 'the ground colour' },
-    { upTo: 2, says: 'the sky' },
-    { upTo: 3, says: 'the light' },
-    { upTo: 4, says: 'the clouds' },
-    { upTo: 5, says: 'the land' },
-    { upTo: 6, says: 'the subject' },
-    { upTo: 7, says: 'what is nearest' },
-    { upTo: 8, says: 'the weather' },
-    { upTo: 99, says: 'the finish' }
-  ];
-  /* ------------------------------------------------- recording the growing
-   * It already passes through about a hundred and fifty pictures on the way to
-   * the finished one and throws every one of them away. The browser can record
-   * a canvas as it is drawn, so keeping them costs a recorder and a filename.
-   *
-   * Nothing here is required for growing to work: if the browser cannot record
-   * a canvas, growing carries on exactly as before and the button is not
-   * offered, rather than offered and then failing at the end.
-   */
-  function canRecord() {
-    return typeof window.MediaRecorder === 'function' &&
-      typeof HTMLCanvasElement !== 'undefined' &&
-      typeof HTMLCanvasElement.prototype.captureStream === 'function';
-  }
-
-  function recorderType() {
-    if (typeof MediaRecorder.isTypeSupported !== 'function') return '';
-    var want = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4'];
-    for (var i = 0; i < want.length; i++) {
-      if (MediaRecorder.isTypeSupported(want[i])) return want[i];
-    }
-    return '';
-  }
-
-  var recorder = null;
-  var recorded = [];
-
-  function startRecording() {
-    if (!canRecord()) return false;
-    try {
-      var stream = el.canvas.captureStream(30);
-      var type = recorderType();
-      recorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
-      recorded = [];
-      recorder.ondataavailable = function (ev) {
-        if (ev.data && ev.data.size) recorded.push(ev.data);
-      };
-      recorder.start(200);
-      return true;
-    } catch (e) {
-      recorder = null;
-      return false;
-    }
-  }
-
-  function stopRecording() {
-    if (!recorder) return;
-    var rec = recorder;
-    recorder = null;
-    rec.onstop = function () {
-      if (!recorded.length) { setStatus('Nothing was recorded.'); return; }
-      var blob = new Blob(recorded, { type: recorded[0].type || 'video/webm' });
-      recorded = [];
-      var ext = /mp4/.test(blob.type) ? 'mp4' : 'webm';
-      var name = 'coda-pics-growing-' +
-        (current ? slug(current.prompt) + '-' + current.seed : 'picture') + '.' + ext;
-      saveFile(blob, name, function (ok) {
-        setStatus(ok
-          ? 'Saved the whole painting, start to finish.'
-          : 'That could not be saved here.');
-      });
-    };
-    /* A last frame, so the finished picture is the one the clip ends on. */
-    try { rec.requestData(); } catch (e) { /* not every browser has it */ }
-    try { rec.stop(); } catch (e) { /* already stopped */ }
-  }
-
-  /* The long edge to grow at. Big enough to see what is happening, small
-   * enough that a coat lands about as often as a brush would. */
-  var GROW_EDGE = 1100;
-  function growSize() {
-    var full = sizeOf();
-    var scale = Math.min(1, GROW_EDGE / Math.max(full.w, full.h));
-    if (scale >= 1) return full;
-    return { w: Math.round(full.w * scale), h: Math.round(full.h * scale) };
-  }
-
-  var growTimer = null;
-  var growFrame = null;
-  var growing = false;
-  var growLast = '';
-  var growPrev = null;     // the coat before this one, to fade out of
-
-  /* A cheap fingerprint of what is on the canvas, so a coat that painted
-   * nothing can be noticed and skipped rather than sat through. Not every
-   * picture has weather or anything in the foreground, and a second of nothing
-   * happening reads as the app having stalled. */
-  function canvasMark(canvas) {
-    try {
-      var ctx = canvas.getContext('2d');
-      var d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-      var a = 0, b = 0, n = 0;
-      for (var i = 0; i < d.length; i += 4 * 199) {
-        a = (a + d[i] * 3 + d[i + 1] * 5 + d[i + 2] * 7) % 1000000007;
-        b = (b + (a ^ (i & 255))) % 1000000007;
-        n++;
-      }
-      return a + ':' + b + ':' + n;
-    } catch (e) { return String(Math.random()); }
-  }
-
-  function growStop(quietly) {
-    if (growTimer) { window.clearTimeout(growTimer); growTimer = null; }
-    if (growFrame) { window.cancelAnimationFrame(growFrame); growFrame = null; }
-    growing = false;
-    growPrev = null;
-    stopRecording();
-    el.grow.textContent = '🌱 Grow it slowly';
-    el.grow.title = 'Watch it painted coat by coat — and change the words while it goes';
-    if (!quietly) setStatus('Stopped. What is there is what was painted so far.');
-  }
-
-  function growStart() {
-    if (growing) { growStop(); return; }
-    var words = el.prompt.value.trim();
-    if (!words) { setStatus('Put some words in the box first.'); return; }
-    growing = true;
-    el.grow.textContent = '■ Stop growing';
-    el.placeholder.hidden = true;
-    if (el.record && el.record.checked) startRecording();
-    var coat = 0;
-
-    function beat() {
-      if (!growing) return;
-      /* Re-read the words every coat. This is the whole point. */
-      var text = el.prompt.value.trim();
-      if (!text) { growStop(true); setStatus('The box is empty, so there is nothing to grow.'); return; }
-      var spec = specFor(text, seed);
-      /* Grown at a size worth watching, not at the size it will be saved at.
-       * An A3 sheet is seventeen megapixels, and painting that nine times over
-       * would be a slideshow with several seconds between slides. The finished
-       * picture is painted once, full size, when the growing is over. */
-      var size = growSize();
-      var step = COATS[coat];
-
-      /* Paint the coat away from the screen, then bring it in over a second's
-       * worth of frames. Nine jumps is a slideshow of a painting; what was
-       * asked for is a painting. Fading the new coat up over the old one is
-       * also honest about what is happening — the new paint really is going on
-       * top of what was already there. */
-      var buf = document.createElement('canvas');
-      var ok = false;
-      try { ok = draw(buf, spec, size.w, size.h, mediaNow(spec), step.upTo); } catch (e) { ok = false; }
-      if (!ok) { growStop(true); setStatus('That could not be painted.'); return; }
-
-      current = spec;
-      showReadout(spec, size);
-      setStatus('Coat ' + (coat + 1) + ' of ' + COATS.length + ' — <b>' + step.says + '</b>. ' +
-        (coat + 1 < COATS.length
-          ? 'Change the words while it paints and it will grow into those instead.'
-          : ''));
-
-      /* If this coat put nothing on the canvas, move straight to the next. */
-      var mark = canvasMark(buf);
-      var addedNothing = mark === growLast;
-      growLast = mark;
-
-      if (el.canvas.width !== size.w || el.canvas.height !== size.h) {
-        el.canvas.width = size.w;
-        el.canvas.height = size.h;
-      }
-      var cctx = el.canvas.getContext('2d');
-      var frames = addedNothing ? 1 : 26;
-      var f = 0;
-
-      function fade() {
-        if (!growing) return;
-        f++;
-        var t = f / frames;
-        /* Eased, so paint arrives the way paint arrives rather than at a
-         * constant machine rate. */
-        var e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-        cctx.clearRect(0, 0, size.w, size.h);
-        if (growPrev) cctx.drawImage(growPrev, 0, 0);
-        cctx.globalAlpha = growPrev ? e : 1;
-        cctx.drawImage(buf, 0, 0);
-        cctx.globalAlpha = 1;
-        if (f < frames) { growFrame = window.requestAnimationFrame(fade); return; }
-        growFrame = null;
-        growPrev = buf;
-        el.canvas.dataset.painted = String(++painted);
-        afterCoat();
-      }
-      growFrame = window.requestAnimationFrame(fade);
-
-      function afterCoat() {
-      coat++;
-      if (coat >= COATS.length) {
-        /* The clip ends on the finished picture, so the recorder is stopped
-         * only after the last coat has been seen — and before the canvas is
-         * resized underneath it, which would end the recording mid-frame. */
-        growStop(true);
-        el.outButtons.hidden = false;
-        el.partButtons.hidden = false;
-        save(LAST_KEY, { prompt: text, seed: seed, style: el.style.value, shape: el.shape.value });
-
-        var full = sizeOf();
-        if (full.w !== size.w || full.h !== size.h) {
-          setStatus('Finished. Painting it once more at full size…');
-          window.setTimeout(function () {
-            var ok2 = false;
-            try { ok2 = draw(el.canvas, spec, full.w, full.h, mediaNow(spec)); } catch (e) { ok2 = false; }
-            el.canvas.dataset.painted = String(++painted);
-            setStatus(ok2
-              ? 'Finished, in ' + COATS.length + ' coats, and painted full size at ' +
-                full.w + ' × ' + full.h + '.'
-              : 'Finished — but it would not paint at full size. Try a smaller shape.');
-          }, 30);
-        } else {
-          setStatus('Finished, in ' + COATS.length + ' coats. It is a real picture — keep it, ' +
-            'save it or share it like any other.');
-        }
-        return;
-      }
-      growTimer = window.setTimeout(beat, addedNothing ? 40 : 260);
-      }
-    }
-    growLast = '';
-    growPrev = null;
-    beat();
   }
 
   function locksNow() {
@@ -1532,8 +1287,8 @@
 
   function start() {
     ['prompt', 'style', 'shape', 'examples', 'paint', 'reroll', 'six', 'surprise',
-      'canvas', 'placeholder', 'busy', 'status', 'readout', 'unknown', 'outButtons', 'grow',
-      'partButtons', 'newSky', 'newLand', 'newSubject', 'nearby', 'undo', 'record', 'recordWrap',
+      'canvas', 'placeholder', 'busy', 'status', 'readout', 'unknown', 'outButtons',
+      'partButtons', 'newSky', 'newLand', 'newSubject', 'nearby', 'undo',
       'download', 'keep', 'share', 'sheet', 'sheetGrid', 'gallery', 'galleryWrap',
       'exportGallery', 'importGallery', 'importFile',
       'lockSubject', 'lockSky', 'lockLand',
@@ -1557,10 +1312,6 @@
     el.newLand.addEventListener('click', function () { repaintPart('land'); });
     el.newSubject.addEventListener('click', function () { repaintPart('subject'); });
     el.undo.addEventListener('click', undoLast);
-    el.grow.addEventListener('click', growStart);
-    /* Offered only where it can actually be done. A tick-box that produces
-     * nothing at the end of a ten-second wait is worse than no tick-box. */
-    if (el.recordWrap) el.recordWrap.hidden = !canRecord();
     el.surprise.addEventListener('click', function () {
       el.prompt.value = PROMPT.surprise(Date.now());
       repaint(1 + Math.floor(Math.random() * 999999));

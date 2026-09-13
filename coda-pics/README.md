@@ -207,17 +207,16 @@ asks browser apps to use precisely because a web page cannot keep a secret.
   *a tiny cabin in a vast desert*, *an aerial view* and it is framed that way.
   Left unsaid it is rolled, weighted so most pictures are still framed the
   ordinary way.
-- **🎬 record it** — tick it before growing and the whole painting is saved as
-  a video. Offered only where the browser can actually do it.
-- **Grow it slowly** — the picture put on in coats and faded up frame by frame,
-  the way it is actually built:
-  a bare wash, then the sky, the light, the clouds, the land, the subject, what
-  is nearest, the weather, and the finish. **Change the words while it paints**
-  and the next coat goes on the new picture — same seed, so it turns into what
-  you are now asking for instead of starting again as something unrelated. Press
-  it again to stop. A coat that puts nothing on — no weather in a clear sky,
-  nothing in the foreground — is skipped rather than sat through. It passes
-  through about 150 distinct pictures on the way, not nine.
+- **Change just the sky / the land / the subject** — roll one part and hold the
+  rest. The locks do the opposite: they hold a part still while everything else
+  rolls. This is the same machinery read the other way round.
+- **More like this** — six near neighbours of what is on screen rather than six
+  strangers: same sky, same land, a different take on the subject.
+- **Undo** — one step back from a re-roll, a forgotten photo, or cleared colours.
+- **Where the picture is taken from** — say *close up*, *from below*, *wide*,
+  *a tiny cabin in a vast desert*, *an aerial view* and it is framed that way.
+  Left unsaid it is rolled, weighted so most pictures are still framed the
+  ordinary way.
 - **Surprise me** — writes you a prompt in its own vocabulary.
 - **Save the picture** — downloads a full-size PNG.
 - **Keep in my gallery** — saves it to this device, and it can be saved to a
