@@ -168,6 +168,7 @@ anyway; press it again for more.
 | | |
 |---|---|
 | Your client ID | in this browser's local storage. It is not a secret — it is public by design. |
+| …on your other devices | carried there by the **Copy a setup link** button, which puts the client ID in the link's fragment. Browsers never send a fragment to a server, so it goes from one of your devices to another and nowhere else. There is deliberately no copy in this repository: the site is served straight out of it, so anything kept here would simply be public. |
 | The sign-in proof | in this browser's session storage, for the few seconds of the redirect, then deleted. |
 | The access token | in memory only. Closing the tab ends it. |
 | The photos | not stored. Measured, then dropped. |

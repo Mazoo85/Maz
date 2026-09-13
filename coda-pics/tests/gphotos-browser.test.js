@@ -193,6 +193,33 @@ const FAKE_GOOGLE = () => {
       'connecting with no client ID says so instead of failing silently');
 
     await page.fill('#gpClientId', 'test-client.apps.googleusercontent.com');
+
+    /* ------------------------------------------- carrying it to a second device
+     * There is nowhere public-facing to keep a client ID that is not simply
+     * public, so it travels by link instead — in the fragment, which browsers
+     * do not send to servers. */
+    await page.click('#gpLink');
+    const setupLink = await page.evaluate(() => navigator.clipboard.readText());
+    check(setupLink.indexOf('#gp=') > 0 &&
+      decodeURIComponent(setupLink.split('#gp=')[1]) === 'test-client.apps.googleusercontent.com',
+      'the setup link carries the client ID in the fragment');
+    check(setupLink.split('#')[0] === BASE, 'and points back at this page, nowhere else');
+
+    const second = await browser.newContext({ viewport: { width: 1100, height: 900 } });
+    await second.addInitScript(FAKE_GOOGLE);
+    const other = await second.newPage();
+    await other.goto(setupLink, { waitUntil: 'load' });
+    await other.waitForTimeout(400);
+    check(await other.inputValue('#gpClientId') === 'test-client.apps.googleusercontent.com',
+      'opening it on another device sets that one up without any typing');
+    check(await other.evaluate(() =>
+      JSON.parse(window.localStorage.getItem('codaPics.gphotos.clientId')) ===
+        'test-client.apps.googleusercontent.com'),
+      'and it is kept there, so the link is needed once and not again');
+    check(other.url() === BASE,
+      'the client ID does not stay in that browser’s address bar or history');
+    await second.close();
+
     await page.click('#gpConnect');
     await page.waitForFunction(() => window.__gp.go.length > 0, null, { timeout: 5000 });
 
