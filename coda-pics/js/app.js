@@ -1068,6 +1068,65 @@
     gpSaidTimer = window.setTimeout(function () { el.gpCopied.textContent = ''; }, 6000);
   }
 
+  /*
+   * Carrying the client ID to another device without it becoming public.
+   *
+   * There is nowhere in this project to keep it that is not public: the site is
+   * served straight out of the repository, so anything the page can read, so
+   * can anybody. A link is the way round that. The client ID rides in the
+   * fragment, which browsers never send to a server, so it goes from one of
+   * your devices to another through whatever you send it with and nowhere else.
+   *
+   * It is also the least dangerous half of the pair. A web client ID is public
+   * by design — it is in the address bar during every sign-in — and it only
+   * works from the site it was registered to. Somebody who took this link could
+   * not reach the photos: that needs Google to sign *you* in, and the token it
+   * gives back goes to the browser doing the asking.
+   */
+  function gpSetupLink() {
+    var id = String(el.gpClientId.value || '').trim() || (load(GP_KEY, '') || '');
+    if (!id) return null;
+    return gpRedirectUri() + '#gp=' + encodeURIComponent(id);
+  }
+
+  function gpCopyLink() {
+    var link = gpSetupLink();
+    if (!link) { gpSay('Put your client ID in first, then this link will carry it.'); return; }
+    function done() {
+      gpSay('Link copied. Send it to yourself and open it on your other device — ' +
+        'it sets that one up with one tap.');
+    }
+    if (window.navigator && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link).then(done, function () {
+        window.prompt('Copy this link and send it to yourself:', link);
+        done();
+      });
+      return;
+    }
+    window.prompt('Copy this link and send it to yourself:', link);
+    done();
+  }
+
+  /* Arriving on a device by way of one of those links. */
+  function gpTakeLink() {
+    var hash = String(window.location.hash || '').replace(/^#/, '');
+    if (!hash) return false;
+    var found = null;
+    hash.split('&').forEach(function (pair) {
+      var bits = pair.split('=');
+      if (bits[0] === 'gp' && bits.length === 2) found = decodeURIComponent(bits[1]);
+    });
+    if (!found) return false;
+    save(GP_KEY, found);
+    el.gpClientId.value = found;
+    /* Out of the address bar, so it is not left sitting in this browser's
+     * history for whoever picks the device up next. */
+    try { window.history.replaceState({}, '', gpRedirectUri()); } catch (e) {}
+    if (el.gphotos) el.gphotos.open = true;
+    gpSay('Set up from your link. Press Connect Google Photos.');
+    return true;
+  }
+
   function gpStart() {
     if (!el.gpConnect) return;
     el.gpRedirect.textContent = gpRedirectUri();
@@ -1075,9 +1134,11 @@
     Array.prototype.forEach.call(document.querySelectorAll('.gp-copy-btn'), function (b) {
       b.addEventListener('click', function () { gpCopy(b.getAttribute('data-copy')); });
     });
+    el.gpLink.addEventListener('click', gpCopyLink);
     /* Somebody who has not set this up yet should land on the instructions
      * rather than on a box asking for something they have never heard of. */
     if (el.gpSetup && !(load(GP_KEY, '') || '')) el.gpSetup.open = true;
+    if (gpTakeLink() && el.gpSetup) el.gpSetup.open = false;
     el.gpClientId.value = load(GP_KEY, '') || '';
     el.gpConnect.addEventListener('click', gpConnect);
     el.gpPick.addEventListener('click', gpPick);
@@ -1107,7 +1168,7 @@
       'usePhotoColours', 'usePhotoSkyline', 'usePhotoBackdrop',
       'paletteBox', 'paletteChips', 'clearPalettes',
       'gphotos', 'gpClientId', 'gpRedirect', 'gpConnect', 'gpPick', 'gpForget',
-      'gpNote', 'gpSetup', 'gpOrigin', 'gpCopied'].forEach(function (id) {
+      'gpNote', 'gpSetup', 'gpOrigin', 'gpCopied', 'gpLink'].forEach(function (id) {
       el[id] = document.getElementById(id);
     });
 
