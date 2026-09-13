@@ -65,7 +65,7 @@ std::vector<math::vec3> swatchRgb() {
 int main(int argc, char** argv) {
     std::string input, out = "cutscene.gif", framesDir, frameFormat = "ppm";
     float fps = 30.0f, seconds = 3.0f;
-    int size = 256, framesCap = 0;
+    int size = 256, framesCap = 0, aa = 2; // aa = supersample factor (anti-aliasing)
 
     for (int i = 1; i < argc; ++i) {
         const char* a = argv[i];
@@ -84,6 +84,8 @@ int main(int argc, char** argv) {
             framesDir = next("");
         } else if (std::strcmp(a, "--frame-format") == 0) {
             frameFormat = next("ppm");
+        } else if (std::strcmp(a, "--aa") == 0) {
+            aa = std::atoi(next("2"));
         } else if (a[0] != '-' && input.empty()) {
             input = a;
         }
@@ -91,7 +93,7 @@ int main(int argc, char** argv) {
     if (input.empty()) {
         std::fprintf(stderr, "usage: cutscene_export <input.mazprefab> [--out f.gif] [--fps N] "
                              "[--seconds N] [--size N] [--frames N] [--frames-dir DIR] "
-                             "[--frame-format ppm|qoi]\n");
+                             "[--frame-format ppm|qoi] [--aa 1-4]\n");
         return 2;
     }
     const bool qoiFrames = frameFormat == "qoi"; // any other value falls back to PPM
@@ -149,7 +151,7 @@ int main(int argc, char** argv) {
     const float fovY = glm::radians(45.0f);
     const float dist = radius / std::sin(fovY * 0.5f) * 1.15f; // fit the bounds sphere with margin
     const float elev = glm::radians(20.0f);
-    const math::vec3 light = glm::normalize(math::vec3(-0.4f, -0.8f, -0.5f));
+    const render::PreviewLighting rig = render::threePointRig();
     const render::Color bg{0.10f, 0.11f, 0.13f, 1.0f};
     const math::mat4 proj = math::Projection::perspective(fovY, 1.0f, std::max(0.01f, dist - radius * 2.0f),
                                                           dist + radius * 2.0f + 10.0f)
@@ -163,7 +165,7 @@ int main(int argc, char** argv) {
             centre + dist * math::vec3(std::sin(ang) * std::cos(elev), std::sin(elev),
                                        std::cos(ang) * std::cos(elev));
         const math::mat4 view = glm::lookAt(eye, centre, math::vec3(0, 1, 0));
-        frames.push_back(render::renderMeshPreview(baked, proj * view, light, eye, size, size, bg));
+        frames.push_back(render::renderMeshPreview(baked, proj * view, eye, rig, size, size, bg, aa));
     }
 
     const int delayCentis = std::max(1, static_cast<int>(std::lround(100.0 / static_cast<double>(fps))));
