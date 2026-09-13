@@ -457,6 +457,22 @@ let paintsThisLoad = 0;
     await page.fill('#prompt', 'a red dragon over snowy mountains at sunset');
     const growFrom = await page.evaluate(
       () => Number(document.getElementById('canvas').dataset.painted || 0));
+    /* Count every distinct thing the canvas shows, not just the nine the app
+     * counts as coats. */
+    await page.evaluate(() => {
+      window.__growStates = 0;
+      let last = null;
+      const c = document.getElementById('canvas');
+      (function watch() {
+        try {
+          const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+          let a = 0;
+          for (let i = 0; i < d.length; i += 4 * 997) a = (a + d[i] * 7 + d[i + 1] * 11 + d[i + 2] * 13) % 99999989;
+          if (a !== last) { last = a; window.__growStates++; }
+        } catch (e) { /* between sizes */ }
+        requestAnimationFrame(watch);
+      })();
+    });
     await page.click('#grow');
 
     const coats = [];
@@ -474,6 +490,11 @@ let paintsThisLoad = 0;
     }
 
     check(coats.length === 9, `it paints in coats rather than all at once (${coats.length})`);
+    /* Nine coats, but far more than nine pictures: each one is faded up over
+     * the last, so what you watch is paint arriving rather than nine slides. */
+    const states = await page.evaluate(() => window.__growStates || 0);
+    check(states > 60,
+      `and it passes through the coats rather than cutting between them (${states} states)`);
     check(coats[0].colours <= 4,
       `the first coat is a bare wash, the way a painting starts (${coats[0].colours} colours)`);
     check(coats[5].colours > coats[1].colours * 3,

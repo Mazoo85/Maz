@@ -221,8 +221,10 @@
     { upTo: 99, says: 'the finish' }
   ];
   var growTimer = null;
+  var growFrame = null;
   var growing = false;
   var growLast = '';
+  var growPrev = null;     // the coat before this one, to fade out of
 
   /* A cheap fingerprint of what is on the canvas, so a coat that painted
    * nothing can be noticed and skipped rather than sat through. Not every
@@ -244,7 +246,9 @@
 
   function growStop(quietly) {
     if (growTimer) { window.clearTimeout(growTimer); growTimer = null; }
+    if (growFrame) { window.cancelAnimationFrame(growFrame); growFrame = null; }
     growing = false;
+    growPrev = null;
     el.grow.textContent = '🌱 Grow it slowly';
     el.grow.title = 'Watch it painted coat by coat — and change the words while it goes';
     if (!quietly) setStatus('Stopped. What is there is what was painted so far.');
@@ -267,11 +271,17 @@
       var spec = specFor(text, seed);
       var size = sizeOf();
       var step = COATS[coat];
+
+      /* Paint the coat away from the screen, then bring it in over a second's
+       * worth of frames. Nine jumps is a slideshow of a painting; what was
+       * asked for is a painting. Fading the new coat up over the old one is
+       * also honest about what is happening — the new paint really is going on
+       * top of what was already there. */
+      var buf = document.createElement('canvas');
       var ok = false;
-      try { ok = draw(el.canvas, spec, size.w, size.h, mediaNow(spec), step.upTo); } catch (e) { ok = false; }
+      try { ok = draw(buf, spec, size.w, size.h, mediaNow(spec), step.upTo); } catch (e) { ok = false; }
       if (!ok) { growStop(true); setStatus('That could not be painted.'); return; }
 
-      el.canvas.dataset.painted = String(++painted);
       current = spec;
       showReadout(spec, size);
       setStatus('Coat ' + (coat + 1) + ' of ' + COATS.length + ' — <b>' + step.says + '</b>. ' +
@@ -280,10 +290,39 @@
           : ''));
 
       /* If this coat put nothing on the canvas, move straight to the next. */
-      var mark = canvasMark(el.canvas);
+      var mark = canvasMark(buf);
       var addedNothing = mark === growLast;
       growLast = mark;
 
+      if (el.canvas.width !== size.w || el.canvas.height !== size.h) {
+        el.canvas.width = size.w;
+        el.canvas.height = size.h;
+      }
+      var cctx = el.canvas.getContext('2d');
+      var frames = addedNothing ? 1 : 26;
+      var f = 0;
+
+      function fade() {
+        if (!growing) return;
+        f++;
+        var t = f / frames;
+        /* Eased, so paint arrives the way paint arrives rather than at a
+         * constant machine rate. */
+        var e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        cctx.clearRect(0, 0, size.w, size.h);
+        if (growPrev) cctx.drawImage(growPrev, 0, 0);
+        cctx.globalAlpha = growPrev ? e : 1;
+        cctx.drawImage(buf, 0, 0);
+        cctx.globalAlpha = 1;
+        if (f < frames) { growFrame = window.requestAnimationFrame(fade); return; }
+        growFrame = null;
+        growPrev = buf;
+        el.canvas.dataset.painted = String(++painted);
+        afterCoat();
+      }
+      growFrame = window.requestAnimationFrame(fade);
+
+      function afterCoat() {
       coat++;
       if (coat >= COATS.length) {
         growStop(true);
@@ -293,9 +332,11 @@
           'save it or share it like any other.');
         return;
       }
-      growTimer = window.setTimeout(beat, addedNothing ? 60 : 1100);
+      growTimer = window.setTimeout(beat, addedNothing ? 40 : 260);
+      }
     }
     growLast = '';
+    growPrev = null;
     beat();
   }
 
