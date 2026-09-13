@@ -545,11 +545,53 @@ function launchOptions() {
     check(!!pauseButton, 'there is a pause button on a touch screen');
     if (pauseButton) {
       await phone.touchscreen.tap(pauseButton.x, pauseButton.y);
-      await phone.waitForTimeout(250);
+      await phone.waitForFunction(() => window.NEON_CELLS.state() === 'PAUSE', null, { timeout: 5000 })
+        .catch(function () { /* reported by the check below */ });
       check(await phone.evaluate(() => window.NEON_CELLS.state()) === 'PAUSE', 'tapping it pauses the game');
-      await phone.touchscreen.tap(pauseButton.x, pauseButton.y);
-      await phone.waitForTimeout(250);
-      check(await phone.evaluate(() => window.NEON_CELLS.state()) === 'PLAY', 'and tapping it again resumes');
+
+      /* Resuming is watched over many frames rather than sampled once after a
+       * fixed wait. It used to be sampled, and so it only caught the bug it was
+       * there to catch when the timing happened to land right: the game would
+       * resume and then pause itself straight back one frame later, because the
+       * press that resumed it was still sitting there to be read again. Half a
+       * second of frames sees that; a single look at 250ms is a coin toss. */
+      async function watchFrames(ms) {
+        return phone.evaluate((limit) => new Promise(function (done) {
+          const seen = [];
+          const started = performance.now();
+          (function watch() {
+            seen.push(window.NEON_CELLS.state());
+            if (performance.now() - started > limit) { done(seen); return; }
+            requestAnimationFrame(watch);
+          })();
+        }), ms);
+      }
+
+      /* Pausing and resuming several times over, because the failure this
+       * guards against is a race and one attempt is one roll of the dice.
+       * Somebody playing taps this button dozens of times a session, so once
+       * in a while is still a game that stops responding to its own pause
+       * button. */
+      let bounce = null;
+      let stuck = 0;
+      for (let go = 0; go < 5 && !bounce; go++) {
+        await phone.touchscreen.tap(pauseButton.x, pauseButton.y);
+        const seen = await watchFrames(320);
+        const ended = seen[seen.length - 1];
+        if (ended !== 'PLAY') {
+          if (seen.indexOf('PLAY') >= 0) {
+            bounce = seen.filter((v, i, a) => v !== a[i - 1]).join(' -> ');
+          } else { stuck++; }
+        }
+        if (go < 4) {
+          await phone.touchscreen.tap(pauseButton.x, pauseButton.y);
+          await phone.waitForFunction(() => window.NEON_CELLS.state() === 'PAUSE',
+            null, { timeout: 5000 }).catch(function () {});
+        }
+      }
+      check(!bounce && !stuck, 'and tapping it again resumes, five times over' +
+        (bounce ? ' — it resumed and then paused itself again: ' + bounce : '') +
+        (stuck ? ` — ${stuck} tap(s) did not resume at all` : ''));
     }
 
     check(phoneProblems.length === 0, 'plays on a phone-sized screen' + (phoneProblems.length ? ' — ' + phoneProblems.join('; ') : ''));
