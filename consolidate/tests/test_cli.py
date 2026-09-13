@@ -1,4 +1,5 @@
 import json
+import re
 
 from typer.testing import CliRunner
 
@@ -10,10 +11,20 @@ runner = CliRunner()
 pytestmark = needs_git
 
 
+#: Rich styles a token like ``--user`` as two spans, putting an escape sequence
+#: *between the two dashes*, so the literal text is not in the raw output at all.
+#: Which tokens get styled depends on the colour mode, which differs between a
+#: developer's terminal and CI — so raw output is not something to assert on.
+_ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
 def flat(output):
-    """Rich wraps output to the terminal width, so collapse whitespace before
-    looking for a phrase in it."""
-    return " ".join(output.split())
+    """What a human would read: no colour codes, no wrapping.
+
+    Strips ANSI escapes and collapses whitespace, so an assertion tests what the
+    command *said* rather than how the terminal happened to paint it.
+    """
+    return " ".join(_ANSI.sub("", output or "").split())
 
 
 def local_repos(tmp_path):
@@ -31,12 +42,31 @@ def local_repos(tmp_path):
     )
 
 
+def test_flat_sees_through_the_colour_codes_rich_puts_mid_token():
+    """Rich renders `--user` as two styled spans with an escape between the
+    dashes, so the literal text is absent from the raw output. Which tokens get
+    styled depends on the colour mode, which differs between a terminal and CI —
+    this is what made a passing test fail there."""
+    painted = "Tell me: \x1b[1;36m-\x1b[0m\x1b[1;36m-user\x1b[0m <name>"
+    assert "--user" not in painted
+    assert "--user" in flat(painted)
+
+
+def test_flat_also_undoes_the_wrapping():
+    assert "not a git repository" in flat("that is not a git\nrepository.")
+
+
+def test_flat_survives_empty_output():
+    assert flat("") == ""
+    assert flat(None) == ""
+
+
 def test_plan_shows_what_would_happen(tmp_path):
     _, repos = local_repos(tmp_path)
     result = runner.invoke(app, ["plan", "--from-json", str(repos), "--name", "mine"])
     assert result.exit_code == 0, result.output
-    assert "alpha" in result.output and "beta" in result.output
-    assert "left out" in result.output
+    assert "alpha" in flat(result.output) and "beta" in flat(result.output)
+    assert "left out" in flat(result.output)
 
 
 def test_a_plan_can_be_saved_and_replayed_offline(tmp_path):
@@ -47,7 +77,7 @@ def test_a_plan_can_be_saved_and_replayed_offline(tmp_path):
 
     result = runner.invoke(app, ["show-plan", str(saved)])
     assert result.exit_code == 0
-    assert "alpha" in result.output
+    assert "alpha" in flat(result.output)
 
 
 def test_build_is_a_dry_run_unless_you_ask_for_it(tmp_path):
@@ -87,7 +117,7 @@ def test_building_over_an_existing_repo_is_refused_with_advice(tmp_path):
     runner.invoke(app, ["build", str(out), "--from-json", str(repos), "--yes"])
     result = runner.invoke(app, ["build", str(out), "--from-json", str(repos), "--yes"])
     assert result.exit_code == 2
-    assert "--update" in result.output
+    assert "--update" in flat(result.output)
 
 
 def test_update_pulls_later_work_in(tmp_path):
@@ -126,7 +156,7 @@ def test_update_on_a_folder_we_did_not_build_says_so(tmp_path):
     plain.mkdir()
     result = runner.invoke(app, ["update", str(plain)])
     assert result.exit_code == 2
-    assert "consolidate.json" in result.output
+    assert "consolidate.json" in flat(result.output)
 
 
 def test_update_of_an_unknown_project_names_the_problem(tmp_path):
@@ -135,20 +165,20 @@ def test_update_of_an_unknown_project_names_the_problem(tmp_path):
     runner.invoke(app, ["build", str(out), "--from-json", str(repos), "--yes"])
     result = runner.invoke(app, ["update", str(out), "nonexistent"])
     assert result.exit_code == 2
-    assert "nonexistent" in result.output
+    assert "nonexistent" in flat(result.output)
 
 
 def test_asking_for_nothing_explains_what_to_pass(tmp_path):
     result = runner.invoke(app, ["plan"], env={"GITHUB_TOKEN": "", "GH_TOKEN": ""})
     assert result.exit_code != 0
-    assert "--user" in result.output or "--repo" in result.output
+    assert "--user" in flat(result.output) or "--repo" in flat(result.output)
 
 
 def test_report_finds_the_shared_file_between_two_projects(tmp_path):
     _, repos = local_repos(tmp_path)
     result = runner.invoke(app, ["report", "--from-json", str(repos)])
     assert result.exit_code == 0, result.output
-    assert "util.js" in result.output
+    assert "util.js" in flat(result.output)
 
 
 def test_check_finds_duplication_inside_one_repository(tmp_path):
@@ -156,7 +186,7 @@ def test_check_finds_duplication_inside_one_repository(tmp_path):
     make_repo(repo, {"one/shared.js": PADDING, "two/shared.js": PADDING})
     result = runner.invoke(app, ["check", str(repo)])
     assert result.exit_code == 0, result.output
-    assert "shared.js" in result.output
+    assert "shared.js" in flat(result.output)
 
 
 def test_check_says_so_when_a_repository_is_clean(tmp_path):
@@ -172,7 +202,7 @@ def test_check_can_be_narrowed_to_named_directories(tmp_path):
     make_repo(repo, {"one/s.js": PADDING, "two/s.js": PADDING, "three/s.js": PADDING})
     result = runner.invoke(app, ["check", str(repo), "-d", "one", "-d", "three"])
     assert result.exit_code == 0
-    assert "two/" not in result.output
+    assert "two/" not in flat(result.output)
 
 
 def test_check_on_something_that_is_not_a_repository_says_so(tmp_path):
