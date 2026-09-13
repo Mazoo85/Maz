@@ -16,6 +16,7 @@
 // So each of those is a test, and each was run against a deliberately broken rasteriser first to prove
 // it catches the break.
 #include "maz/render/SoftRaster.hpp"
+#include "maz/render/MeshTransform.hpp"
 #include "maz/render/Shapes3D.hpp"
 
 #include <cmath>
@@ -35,6 +36,15 @@ static std::vector<std::string> failures;
 static void check(bool ok, const std::string& what) {
     if (!ok) {
         failures.push_back(what);
+    }
+}
+
+static void near(float got, float want, float tol, const std::string& what) {
+    if (!(std::fabs(got - want) <= tol)) {
+        char buf[256];
+        std::snprintf(buf, sizeof buf, "%s (got %.5f, wanted %.5f +/- %.5f)", what.c_str(),
+                      static_cast<double>(got), static_cast<double>(want), static_cast<double>(tol));
+        failures.push_back(buf);
     }
 }
 
@@ -385,6 +395,278 @@ int main() {
         r3.clearDepth();
         r3.draw(plain, quadAt(-5.0f, 2.4f, Color{1.0f, 0.0f, 0.0f, 1.0f}), math::mat4(1.0f), vp, clear);
         check(plain.getPixel(W / 2, H / 2).b < 0.05f, "with no fog set, nothing fades");
+    }
+
+    // ------------------------------------------------------------------ 11. shadows
+    //
+    // Shadows fail in two ways that have names, and both of them are worse than having no shadows at
+    // all. ACNE is a lit surface shadowing itself, which crawls and stipples over every flat thing in
+    // the frame. PETER-PANNING is a shadow that has come away from the foot of whatever is casting it,
+    // so an object floats above its own shadow — which is precisely the thing shadows were added to
+    // cure. Each has a test, and each was checked against a version that has the fault.
+    {
+        // A floor, and a box hanging over it. The light comes straight down.
+        shapes::MeshData floorMesh;
+        {
+            auto v = [](float x, float z) {
+                return maz::render::MeshVertex{x, 0.0f, z, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f,
+                                               0.0f};
+            };
+            floorMesh.vertices = {v(-6.0f, 6.0f), v(6.0f, 6.0f), v(6.0f, -6.0f), v(-6.0f, -6.0f)};
+            floorMesh.indices = {0, 1, 2, 0, 2, 3};
+        }
+        const shapes::MeshData blocker = maz::render::applyTransform(
+            maz::render::applyTransform(shapes::makeBox(1.0f, Color{1.0f, 1.0f, 1.0f, 1.0f}),
+                                        maz::render::scaleMatrix(math::vec3(1.2f, 0.6f, 1.2f))),
+            maz::render::translationMatrix(math::vec3(0.0f, 1.4f, 0.0f)));
+
+        const math::vec3 down = math::normalize(math::vec3(0.0f, -1.0f, 0.0f));
+        maz::render::ShadowMap map(512);
+        map.begin(maz::render::directionalLight(math::vec3(-6.0f, 0.0f, -6.0f),
+                                                math::vec3(6.0f, 2.5f, 6.0f), down));
+        map.add(floorMesh);
+        map.add(blocker);
+
+        // Straight down on the floor, so the shadow lands where the box is.
+        const math::mat4 topView = glm::lookAt(math::vec3(0.0f, 7.0f, 0.01f), math::vec3(0.0f),
+                                               math::vec3(0.0f, 1.0f, 0.0f));
+        const math::mat4 topVp = math::perspective(0.9f, aspect, 0.1f, 40.0f) * topView;
+
+        Surface lit;
+        lit.ambient = 0.15f;
+        lit.fill = 0.0f;
+        lit.keyDirection = down;
+        lit.shadows = &map;
+        lit.shadowStrength = 1.0f;
+
+        Image withShadow(W, H, Color{0.0f, 0.0f, 0.0f, 1.0f});
+        SoftRaster r(W, H);
+        r.clearDepth();
+        r.draw(withShadow, floorMesh, math::mat4(1.0f), topVp, lit);
+
+        Surface noShadow = lit;
+        noShadow.shadows = nullptr;
+        Image plain(W, H, Color{0.0f, 0.0f, 0.0f, 1.0f});
+        SoftRaster r2(W, H);
+        r2.clearDepth();
+        r2.draw(plain, floorMesh, math::mat4(1.0f), topVp, noShadow);
+
+        // Under the box: dark. Out at the edge of the floor: exactly as bright as with no shadow at all.
+        const Color under = withShadow.getPixel(W / 2, H / 2);
+        const Color openFloor = withShadow.getPixel(4, H / 2);
+        check(under.r < 0.30f, "the floor under something is in shadow");
+        check(openFloor.r > 0.85f, "and the floor out in the open is not");
+        near(openFloor.r, plain.getPixel(4, H / 2).r, 1.0f / 255.0f,
+             "open floor is lit exactly as it would be with no shadows at all");
+
+        // ACNE: the open floor must be UNIFORM. Acne shows up as neighbouring pixels of a flat, evenly
+        // lit surface disagreeing — so that is what is measured, rather than looked for by eye.
+        int speckles = 0;
+        for (int y = 6; y < H - 6; ++y) {
+            for (int x = 2; x < 16; ++x) {
+                if (std::fabs(withShadow.getPixel(x, y).r - withShadow.getPixel(x + 1, y).r) >
+                    3.0f / 255.0f) {
+                    ++speckles;
+                }
+            }
+        }
+        check(speckles == 0, "a flat lit floor has no shadow acne crawling over it");
+
+        // PETER-PANNING: a box sitting ON the floor must be dark right at its own foot. A shadow that
+        // starts a few centimetres away leaves the object floating above it.
+        const shapes::MeshData standing = maz::render::applyTransform(
+            maz::render::applyTransform(shapes::makeBox(1.0f, Color{1.0f, 1.0f, 1.0f, 1.0f}),
+                                        maz::render::scaleMatrix(math::vec3(1.0f, 1.6f, 1.0f))),
+            maz::render::translationMatrix(math::vec3(0.0f, 0.8f, 0.0f)));
+        const math::vec3 slant = math::normalize(math::vec3(-0.55f, -0.80f, 0.0f));
+        maz::render::ShadowMap map2(512);
+        map2.begin(maz::render::directionalLight(math::vec3(-6.0f, 0.0f, -6.0f),
+                                                 math::vec3(6.0f, 2.5f, 6.0f), slant));
+        map2.add(floorMesh);
+        map2.add(standing);
+
+        Surface slanted = lit;
+        slanted.keyDirection = slant;
+        slanted.shadows = &map2;
+
+        // Sample the floor by hand rather than through a camera, so the answer is about the shadow and
+        // not about where a pixel happened to land.
+        auto floorShadow = [&](float x, float z) {
+            return maz::render::shadowFactor(map2, math::vec3(x, 0.0f, z),
+                                             math::vec3(0.0f, 1.0f, 0.0f));
+        };
+        // `slant` is the direction the light TRAVELS — toward -x — so it comes from +x and the shadow
+        // is thrown to -x. The box is half a metre wide and 1.6 tall, so its shadow reaches from its
+        // own foot out to about x = -1.6 and stops.
+        check(floorShadow(-0.56f, 0.0f) > 0.85f,
+              "the floor right at the foot of a standing box is in its shadow");
+        check(floorShadow(-0.90f, 0.0f) > 0.85f, "and so is the floor a little further along it");
+        check(floorShadow(-3.0f, 0.0f) < 0.15f, "while the floor beyond the end of it is not");
+        check(floorShadow(1.2f, 0.0f) < 0.15f,
+              "and neither is the floor on the side the light comes from");
+
+        check(floorShadow(-1.0f, 0.0f) > floorShadow(1.0f, 0.0f),
+              "a shadow falls away from the light, not toward it");
+
+        // OFF THE EDGE OF THE MAP. A shadow map covers a box of world; anything outside it is simply
+        // unknown. Unknown has to read as LIT, because the alternative is that a character who walks
+        // out of the lit box turns black on a frame boundary.
+        check(floorShadow(400.0f, 0.0f) < 0.01f, "a point outside the light's box is lit, not black");
+        check(floorShadow(-400.0f, 7.0f) < 0.01f, "and so is one outside it the other way");
+
+        // GRAZING INCIDENCE. A surface nearly edge-on to the light is where a shadow map's own
+        // resolution turns into self-shadowing: one texel sideways is a long way along the light's
+        // depth axis, so the neighbours a soft edge samples disagree with the middle by more than the
+        // thickness of the thing being sampled. This is the case the normal offset is for, and it is
+        // the case that decides whether that line of code earns its place.
+        {
+            const shapes::MeshData plate = maz::render::applyTransform(
+                maz::render::applyTransform(shapes::makeBox(1.0f, Color{1.0f, 1.0f, 1.0f, 1.0f}),
+                                            maz::render::scaleMatrix(math::vec3(6.0f, 0.02f, 6.0f))),
+                maz::render::translationMatrix(math::vec3(0.0f, 1.0f, 0.0f)));
+            const math::vec3 grazing = math::normalize(math::vec3(-0.996f, -0.087f, 0.0f)); // 85 degrees
+            maz::render::ShadowMap graze(512);
+            graze.begin(maz::render::directionalLight(math::vec3(-4.0f, 0.9f, -4.0f),
+                                                      math::vec3(4.0f, 1.1f, 4.0f), grazing));
+            graze.add(plate);
+            int selfShadowed = 0;
+            for (int i = -12; i <= 12; ++i) {
+                const float x = static_cast<float>(i) * 0.2f;
+                if (maz::render::shadowFactor(graze, math::vec3(x, 1.01f, 0.0f),
+                                              math::vec3(0.0f, 1.0f, 0.0f)) > 0.34f) {
+                    ++selfShadowed;
+                }
+            }
+            check(selfShadowed == 0,
+                  "a surface nearly edge-on to the light does not shadow itself");
+        }
+
+        // A SOFT EDGE. Nine samples rather than one, so the boundary of a shadow is a gradient a few
+        // pixels wide instead of a staircase. Somewhere across that boundary there must be a value
+        // that is neither lit nor fully shadowed; with one sample there never is.
+        {
+            bool halfway = false;
+            for (int i = 0; i <= 400; ++i) {
+                const float f = floorShadow(-1.55f - static_cast<float>(i) * 0.0006f, 0.0f);
+                if (f > 0.08f && f < 0.92f) {
+                    halfway = true;
+                }
+            }
+            check(halfway, "the edge of a shadow is soft, not a staircase");
+        }
+
+        // OFF THE SIDE of the map, rather than out of its depth range: a point at the same depth as
+        // the floor but a long way outside the light's box. Lit, for the same reason.
+        check(maz::render::shadowFactor(map, math::vec3(400.0f, 0.0f, 0.0f),
+                                        math::vec3(0.0f, 1.0f, 0.0f)) < 0.01f,
+              "a point beside the light's box, at a depth it knows, is still lit");
+
+        // AND THE PRICE of casting from back faces, stated rather than discovered: a single-sided
+        // surface has no far side, so it casts nothing. The test floor here is one bare quad, and it
+        // throws no shadow of its own on anything.
+        {
+            maz::render::ShadowMap flat(256);
+            flat.begin(maz::render::directionalLight(math::vec3(-6.0f, -2.0f, -6.0f),
+                                                     math::vec3(6.0f, 2.0f, 6.0f), down));
+            flat.add(floorMesh);
+            check(maz::render::shadowFactor(flat, math::vec3(0.0f, -1.0f, 0.0f),
+                                            math::vec3(0.0f, 1.0f, 0.0f)) < 0.01f,
+                  "a single-sided surface casts no shadow, which is what back-face casting costs");
+        }
+
+        // THE WHOLE BOX, from every angle. The light's frustum is fitted to a sphere around the box
+        // rather than to the box itself, because the box's own silhouette changes as the light turns
+        // and a frustum that changes with it leaves corners of the world outside the map — which does
+        // not look like a bug, it looks like shadows that stop at an invisible line.
+        {
+            const math::vec3 lo(-6.0f, 0.0f, -6.0f);
+            const math::vec3 hi(6.0f, 2.5f, 6.0f);
+            int outside = 0;
+            for (int a = 0; a < 12; ++a) {
+                const float ang = static_cast<float>(a) * 0.5236f; // every 30 degrees around
+                const math::vec3 dir = math::normalize(
+                    math::vec3(std::cos(ang) * 0.7f, -0.6f, std::sin(ang) * 0.7f));
+                const math::mat4 lvp = maz::render::directionalLight(lo, hi, dir);
+                for (int c = 0; c < 8; ++c) {
+                    const math::vec3 corner((c & 1) ? hi.x : lo.x, (c & 2) ? hi.y : lo.y,
+                                            (c & 4) ? hi.z : lo.z);
+                    const math::vec4 clip = lvp * math::vec4(corner, 1.0f);
+                    if (clip.w <= 0.0f) {
+                        ++outside;
+                        continue;
+                    }
+                    const math::vec3 ndc = math::vec3(clip) / clip.w;
+                    if (std::fabs(ndc.x) > 1.0f || std::fabs(ndc.y) > 1.0f || ndc.z < 0.0f ||
+                        ndc.z > 1.0f) {
+                        ++outside;
+                    }
+                }
+            }
+            check(outside == 0, "every corner of the world the light is told about is inside its map, "
+                                "from every direction the light can come from");
+        }
+
+        // A CURVED surface at the map's own resolution. This is the one that actually bit, and it took
+        // rendering a film to find: an arm is about five centimetres across and a shadow map over a
+        // room has about one-centimetre texels, so near the silhouette of a limb the far side the map
+        // recorded and the near side being lit are within a texel of each other, and the soft edge's
+        // neighbouring samples straddle the two. The result is a crawling mottle over every rounded
+        // thing in the frame — over the actors, in other words, which is all anybody is looking at.
+        //
+        // It cannot be reproduced with flat plates at any thickness or angle, which is why an earlier
+        // version of this test file concluded the bias earned nothing and it was taken out. It earns
+        // its place here.
+        {
+            const shapes::MeshData arm = maz::render::applyTransform(
+                shapes::makeCapsule(0.027f, 0.26f, 16, 5, Color{1.0f, 1.0f, 1.0f, 1.0f}),
+                maz::render::translationMatrix(math::vec3(0.0f, 1.2f, 0.0f)));
+            const math::vec3 fromSide = math::normalize(math::vec3(-0.62f, -0.72f, 0.31f));
+            maz::render::ShadowMap limb(1024);
+            // A box the size of an acting area, which is what sets the texels to a centimetre.
+            limb.begin(maz::render::directionalLight(math::vec3(-4.5f, -0.15f, -1.6f),
+                                                     math::vec3(4.5f, 2.6f, 4.4f), fromSide));
+            limb.add(arm);
+
+            // Walk the lit side of the limb. Every one of these points faces the light with nothing
+            // between, so every one of them must be lit.
+            int mottled = 0;
+            int looked = 0;
+            for (int i = 0; i <= 40; ++i) {
+                const float y = 1.09f + static_cast<float>(i) * 0.0075f;
+                for (int a = -6; a <= 6; ++a) {
+                    // The side that faces the light: the direction opposite the key, in the XZ plane.
+                    const float ang = -0.464f + static_cast<float>(a) * 0.10f;
+                    const math::vec3 n(std::cos(ang), 0.0f, std::sin(ang));
+                    if (math::dot(n, fromSide) > -0.25f) {
+                        continue;                      // not actually facing the light; skip
+                    }
+                    ++looked;
+                    if (maz::render::shadowFactor(limb, math::vec3(n.x * 0.0271f, y, n.z * 0.0271f),
+                                                  n) > 0.2f) {
+                        ++mottled;
+                    }
+                }
+            }
+            check(looked > 100, "there are plenty of points on the lit side of the limb to check");
+            check(mottled == 0, "a limb does not shadow itself where the light plainly reaches it");
+        }
+
+        // A surface already turned away from the key is not darkened twice.
+        Surface facingAway = slanted;
+        Image back(W, H, Color{0.0f, 0.0f, 0.0f, 1.0f});
+        SoftRaster r3(W, H);
+        r3.clearDepth();
+        r3.draw(back, quadAt(0.0f, 1.0f, Color{1.0f, 1.0f, 1.0f, 1.0f}), math::mat4(1.0f), vp,
+                facingAway);
+        Surface facingAwayNoShadow = facingAway;
+        facingAwayNoShadow.shadows = nullptr;
+        Image back2(W, H, Color{0.0f, 0.0f, 0.0f, 1.0f});
+        SoftRaster r4(W, H);
+        r4.clearDepth();
+        r4.draw(back2, quadAt(0.0f, 1.0f, Color{1.0f, 1.0f, 1.0f, 1.0f}), math::mat4(1.0f), vp,
+                facingAwayNoShadow);
+        near(back.getPixel(W / 2, H / 2).r, back2.getPixel(W / 2, H / 2).r, 1.0f / 255.0f,
+             "a surface already turned away from the key is not darkened a second time");
     }
 
     if (!failures.empty()) {

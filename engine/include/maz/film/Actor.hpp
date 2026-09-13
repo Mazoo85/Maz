@@ -398,8 +398,16 @@ inline std::vector<math::vec3> ring(const math::mat4& frame, float localY, float
                                     int points) {
     std::vector<math::vec3> out;
     out.reserve(static_cast<std::size_t>(points));
+    // CLOCKWISE about the frame's +Y, looking down it. The direction matters and is not a detail:
+    // skinSections bridges rib to rib in the order the points are given, so the direction the ring is
+    // wound decides which way the surface faces. Wound the other way, every lofted piece of the body —
+    // both arms, both legs, the whole torso — comes out INSIDE OUT: the renderer culls the outside and
+    // draws the inside, and the normals point into the body. It is nearly invisible on a convex limb,
+    // which is how it survived being looked at for a long time, and it makes shadows impossible: a
+    // shadow map fed inside-out geometry records the near surface of everything and puts every lit
+    // surface in its own shadow.
     for (int i = 0; i < points; ++i) {
-        const float a = 6.28318530718f * static_cast<float>(i) / static_cast<float>(points);
+        const float a = -6.28318530718f * static_cast<float>(i) / static_cast<float>(points);
         const math::vec4 p(std::cos(a) * halfX, localY, std::sin(a) * halfZ, 1.0f);
         out.push_back(math::vec3(frame * p));
     }

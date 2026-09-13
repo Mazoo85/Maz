@@ -114,6 +114,64 @@ int main() {
         }
     }
 
+    // ------------------------------------------------------------------ 4b. the body is not inside out
+    {
+        // Every piece of the body is a closed surface, so the signed volume of its triangles — the
+        // divergence-theorem sum — is POSITIVE when they are wound outward and negative when they are
+        // not. Nothing else here would notice: a limb built inside out has the same silhouette, and
+        // the renderer simply draws its far surface instead of its near one, which on a smooth tube
+        // looks very nearly the same. It was wrong for a long time and what finally showed it was
+        // shadows, where inside-out geometry records the near surface of everything and puts every lit
+        // surface into its own shadow.
+        auto signedVolume = [](const maz::render::shapes::MeshData& m) {
+            double v = 0.0;
+            for (std::size_t i = 0; i + 2 < m.indices.size(); i += 3) {
+                const maz::render::MeshVertex& a = m.vertices[m.indices[i]];
+                const maz::render::MeshVertex& b2 = m.vertices[m.indices[i + 1]];
+                const maz::render::MeshVertex& c = m.vertices[m.indices[i + 2]];
+                v += (static_cast<double>(a.px) *
+                          (static_cast<double>(b2.py) * static_cast<double>(c.pz) -
+                           static_cast<double>(b2.pz) * static_cast<double>(c.py)) -
+                      static_cast<double>(a.py) *
+                          (static_cast<double>(b2.px) * static_cast<double>(c.pz) -
+                           static_cast<double>(b2.pz) * static_cast<double>(c.px)) +
+                      static_cast<double>(a.pz) *
+                          (static_cast<double>(b2.px) * static_cast<double>(c.py) -
+                           static_cast<double>(b2.py) * static_cast<double>(c.px))) /
+                     6.0;
+            }
+            return v;
+        };
+        const film::Build b = film::adultMale();
+        // Wound outward the whole body comes to about 0.04 cubic metres; wound inward it collapses to
+        // 0.002, because the inverted pieces subtract instead of adding. (Neither is a person's actual
+        // volume — the lofts are open at their ends and the pieces overlap — so this is a check on the
+        // WINDING, not a measurement of the man.) Plain "> 0" would pass either way: the head, the
+        // hands and the shoes are spheres and boxes and are wound correctly whatever the lofts do.
+        const double bodyVolume = signedVolume(film::buildActor(b, film::restPose(b)));
+        check(bodyVolume > 0.020, "the body is wound outward, not inside out");
+        check(bodyVolume < 0.120, "and is a body's worth of volume, not a runaway one");
+
+        // And the vertex normals agree: a lofted limb's normals point AWAY from its own axis.
+        const math::vec3 top(0.0f, 0.5f, 0.0f);
+        const math::vec3 bottom(0.0f, -0.5f, 0.0f);
+        const maz::render::shapes::MeshData one =
+            film::detail::limb(top, bottom, 0.08f, 0.06f, maz::render::Color{1.0f, 1.0f, 1.0f, 1.0f});
+        check(signedVolume(one) > 0.0, "and so is a limb on its own");
+        double outward = 0.0;
+        int counted = 0;
+        for (const maz::render::MeshVertex& v : one.vertices) {
+            const math::vec3 away(v.px, 0.0f, v.pz); // straight out from the limb's axis
+            const float len = std::sqrt(away.x * away.x + away.z * away.z);
+            if (len < 1e-3f) {
+                continue;                            // on the axis, at a cap tip: says nothing
+            }
+            outward += static_cast<double>(math::dot(math::vec3(v.nx, v.ny, v.nz), away / len));
+            ++counted;
+        }
+        check(counted > 40 && outward > 0.0, "with its normals pointing out of it, not into it");
+    }
+
     // ------------------------------------------------------------------ 5. left and right match
     {
         const film::Build b = film::adultMale();

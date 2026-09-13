@@ -5,6 +5,8 @@
 
 #include "maz/render/Tonemap.hpp"
 
+#include <vector>
+
 #include <algorithm>
 #include <cmath>
 
@@ -255,8 +257,39 @@ inline Image drawFrame3D(const Reel& reel, const std::map<std::string, Cast>& ca
     const double progress = shot->duration > 0.0 ? (time - shot->start) / shot->duration : 0.0;
 
     const Scene sc = stageScene(reel, *shot, cast, time, progress);
+    // Built once and used twice: the shadow pass and the picture see the same bodies, which they must,
+    // and a body is a few thousand triangles to assemble.
+    std::vector<maz::render::shapes::MeshData> bodies;
+    bodies.reserve(sc.people.size());
+    for (const Standing& who : sc.people) {
+        bodies.push_back(maz::film::buildBody(who.who->build, who.skeleton));
+    }
+
     Surface surf = surfaceFor(sc.palette, *shot, time);
     setAir(surf, sc.palette, *shot, sc.stage.indoors);
+
+    // ---- what the key light cannot see ------------------------------------------------------------
+    //
+    // The map is fitted to the ACTING AREA rather than to the whole set. A corridor is twelve metres
+    // long and a chapel six and a half tall, and a map stretched over all of that spends its
+    // resolution on the far end of a room nobody is standing in, leaving the shadow under a foot —
+    // the one everybody actually looks at — four texels wide.
+    maz::render::ShadowMap shadows(1024);
+    {
+        const float reach = std::fmin(sc.stage.halfWidth, 4.5f);
+        const float ceiling = sc.stage.ceiling > 0.0f ? std::fmin(sc.stage.ceiling, 3.2f) : 2.6f;
+        const math::vec3 lo(-reach, -0.15f, sc.stage.markLeft.z - 2.6f);
+        const math::vec3 hi(reach, ceiling, sc.stage.markLeft.z + 3.4f);
+        shadows.begin(maz::render::directionalLight(lo, hi, surf.keyDirection));
+        shadows.add(sc.stage.props);
+        for (const maz::render::shapes::MeshData& body : bodies) {
+            shadows.add(body);
+        }
+        surf.shadows = &shadows;
+        // Not all of it. A shadow in a film is never black — there is always bounce finding its way
+        // in — and taking the whole key away turns a figure's own shadow side into a hole.
+        surf.shadowStrength = 0.84f;
+    }
 
     // The picture is rendered inside the letterboxed window only, and at a multiple of its size so the
     // edges can be averaged down. There is no anti-aliasing in the rasteriser on purpose: a frame
@@ -275,8 +308,8 @@ inline Image drawFrame3D(const Reel& reel, const std::map<std::string, Cast>& ca
         math::perspective(sc.lens.fovY, frameW / frameH, 0.04f, 220.0f) * view;
 
     raster.draw(big, sc.stage.mesh, math::mat4(1.0f), vp, surf);
-    for (const Standing& who : sc.people) {
-        raster.draw(big, maz::film::buildBody(who.who->build, who.skeleton), math::mat4(1.0f), vp, surf);
+    for (const maz::render::shapes::MeshData& body : bodies) {
+        raster.draw(big, body, math::mat4(1.0f), vp, surf);
     }
 
     // Down into the frame, averaging each block of S x S.

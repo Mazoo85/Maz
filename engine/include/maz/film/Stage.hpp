@@ -32,6 +32,11 @@ namespace maz::film {
 // position, X across, Y up from the floor.
 struct Stage {
     render::shapes::MeshData mesh;
+    // What CASTS a shadow: the furniture, the trees, the plinth — everything in the room, but not the
+    // room. A key light in a film is a conceit; a real lamp outside a closed box with a ceiling on it
+    // lights nothing inside, and the first frame rendered with shadows switched on was a room with a
+    // lid, correctly pitch dark. So the shell is lit and receives, and does not cast.
+    render::shapes::MeshData props;
     float halfWidth = 5.0f;  // metres either side of centre
     float depth = 7.0f;      // metres from the front of the stage to the back wall
     float ceiling = 2.9f;    // metres; 0 means outdoors, with no ceiling and no walls
@@ -53,6 +58,7 @@ inline render::Color rgb(const Rgb& c, double scale = 1.0) {
 inline void add(render::shapes::MeshData& into, const render::shapes::MeshData& part) {
     into = render::mergeMeshes(into, part);
 }
+
 
 // A box given by its FULL size and the position of its centre. makeBox takes a full edge length and
 // the scale multiplies it, so the numbers written here are the numbers you would measure.
@@ -140,6 +146,12 @@ struct Dice {
 
 } // namespace stagedetail
 
+// Into the picture AND into the list of things that cast.
+inline void addProp(Stage& st, const render::shapes::MeshData& part) {
+    st.mesh = render::mergeMeshes(st.mesh, part);
+    st.props = render::mergeMeshes(st.props, part);
+}
+
 // Build the room this shot happens in.
 inline Stage buildStage(const Shot& shot, const Palette& pal, std::uint32_t seed) {
     using namespace stagedetail;
@@ -221,72 +233,78 @@ inline Stage buildStage(const Shot& shot, const Palette& pal, std::uint32_t seed
                 const float x = dice.range(-st.halfWidth * 2.2f, st.halfWidth * 2.2f);
                 const float z = dice.range(st.depth * 0.45f, st.depth + 12.0f);
                 if (set == "woods") {
-                    add(st.mesh, post(dice.range(0.10f, 0.26f), dice.range(5.0f, 11.0f), x, z, inkC, 7));
+                    addProp(st, post(dice.range(0.10f, 0.26f), dice.range(5.0f, 11.0f), x, z, inkC, 7));
                 } else if (set == "street") {
-                    add(st.mesh, stand(dice.range(3.0f, 7.0f), dice.range(4.0f, 9.0f),
+                    addProp(st, stand(dice.range(3.0f, 7.0f), dice.range(4.0f, 9.0f),
                                        dice.range(3.0f, 6.0f), x * 1.6f, z + 6.0f, inkC));
                 } else {
-                    add(st.mesh, stand(dice.range(0.6f, 1.6f), dice.range(0.3f, 1.1f),
+                    addProp(st, stand(dice.range(0.6f, 1.6f), dice.range(0.3f, 1.1f),
                                        dice.range(0.6f, 1.6f), x, z, inkC));
                 }
             }
             if (set == "lighthouse") {
-                add(st.mesh, post(1.7f, 16.0f, dice.range(-3.0f, 3.0f), st.depth + 6.0f, wallC, 14));
+                addProp(st, post(1.7f, 16.0f, dice.range(-3.0f, 3.0f), st.depth + 6.0f, wallC, 14));
             }
         }
     }
 
     // ---- what is in it ---------------------------------------------------------------------------
+    //
+    // From here down, everything is dressing rather than architecture, so it is collected separately
+    // and handed to the shadow pass. `into` writes to both.
     if (set == "office") {
-        add(st.mesh, table(1.55f, 0.78f, dice.range(-0.5f, 0.5f), 2.3f, rgb(pal.deep, 1.35), inkC));
-        add(st.mesh, chair(0.1f, 3.1f, 0.15f, inkC));
-        add(st.mesh, stand(0.45f, 1.85f, 0.42f, -st.halfWidth + 0.5f, 3.4f, inkC)); // a filing cabinet
+        addProp(st, table(1.55f, 0.78f, dice.range(-0.5f, 0.5f), 2.3f, rgb(pal.deep, 1.35), inkC));
+        addProp(st, chair(0.1f, 3.1f, 0.15f, inkC));
+        addProp(st, stand(0.45f, 1.85f, 0.42f, -st.halfWidth + 0.5f, 3.4f, inkC)); // a filing cabinet
     } else if (set == "kitchen" || set == "bar") {
         const float counterH = set == "bar" ? 1.06f : 0.92f;
-        add(st.mesh, stand(st.halfWidth * 1.3f, counterH, 0.62f, 0.0f, 2.6f, rgb(pal.deep, 1.30f)));
-        add(st.mesh, box(st.halfWidth * 1.34f, 0.05f, 0.70f, math::vec3(0.0f, counterH, 2.6f), inkC));
+        addProp(st, stand(st.halfWidth * 1.3f, counterH, 0.62f, 0.0f, 2.6f, rgb(pal.deep, 1.30f)));
+        addProp(st, box(st.halfWidth * 1.34f, 0.05f, 0.70f, math::vec3(0.0f, counterH, 2.6f), inkC));
         for (int i = 0; i < 3; ++i) {
-            add(st.mesh, post(0.19f, 0.74f, -1.3f + static_cast<float>(i) * 1.3f, 1.75f, inkC, 9));
+            addProp(st, post(0.19f, 0.74f, -1.3f + static_cast<float>(i) * 1.3f, 1.75f, inkC, 9));
         }
     } else if (set == "ward") {
         for (int i = 0; i < 2; ++i) {
             const float x = i == 0 ? -1.8f : 1.8f;
-            add(st.mesh, stand(0.95f, 0.60f, 2.05f, x, 3.2f, rgb(pal.sky, 0.9)));
-            add(st.mesh, post(0.035f, 1.75f, x + 0.62f, 2.5f, inkC, 7)); // a drip stand
+            addProp(st, stand(0.95f, 0.60f, 2.05f, x, 3.2f, rgb(pal.sky, 0.9)));
+            addProp(st, post(0.035f, 1.75f, x + 0.62f, 2.5f, inkC, 7)); // a drip stand
         }
     } else if (set == "chapel") {
         for (int i = 0; i < 5; ++i) {
             const float z = 2.2f + static_cast<float>(i) * 1.15f;
-            add(st.mesh, stand(st.halfWidth * 1.1f, 0.44f, 0.36f, 0.0f, z, inkC));
-            add(st.mesh, box(st.halfWidth * 1.1f, 0.55f, 0.07f, math::vec3(0.0f, 0.72f, z - 0.17f), inkC));
+            addProp(st, stand(st.halfWidth * 1.1f, 0.44f, 0.36f, 0.0f, z, inkC));
+            addProp(st, box(st.halfWidth * 1.1f, 0.55f, 0.07f, math::vec3(0.0f, 0.72f, z - 0.17f), inkC));
         }
-        add(st.mesh, box(0.10f, 1.9f, 0.10f, math::vec3(0.0f, 3.6f, st.depth - 0.2f), accentC));
-        add(st.mesh, box(0.85f, 0.10f, 0.10f, math::vec3(0.0f, 4.05f, st.depth - 0.2f), accentC));
+        addProp(st, box(0.10f, 1.9f, 0.10f, math::vec3(0.0f, 3.6f, st.depth - 0.2f), accentC));
+        addProp(st, box(0.85f, 0.10f, 0.10f, math::vec3(0.0f, 4.05f, st.depth - 0.2f), accentC));
     } else if (set == "ship" || set == "industrial") {
         for (int i = 0; i < 4; ++i) {
             const float z = 1.4f + static_cast<float>(i) * 1.8f;
-            add(st.mesh, post(0.13f, st.ceiling, -st.halfWidth + 0.35f, z, inkC, 8));
-            add(st.mesh, post(0.13f, st.ceiling, st.halfWidth - 0.35f, z, inkC, 8));
-            add(st.mesh, box(0.16f, 0.16f, st.halfWidth * 2.0f,
+            addProp(st, post(0.13f, st.ceiling, -st.halfWidth + 0.35f, z, inkC, 8));
+            addProp(st, post(0.13f, st.ceiling, st.halfWidth - 0.35f, z, inkC, 8));
+            addProp(st, box(0.16f, 0.16f, st.halfWidth * 2.0f,
                              math::vec3(0.0f, st.ceiling - 0.35f, z), inkC));
         }
-        add(st.mesh, stand(0.8f, 1.1f, 0.8f, dice.range(-1.2f, 1.2f), 4.2f, rgb(pal.deep, 1.4)));
+        addProp(st, stand(0.8f, 1.1f, 0.8f, dice.range(-1.2f, 1.2f), 4.2f, rgb(pal.deep, 1.4)));
     } else if (set == "corridor") {
         for (int i = 0; i < 6; ++i) {
             const float z = 1.1f + static_cast<float>(i) * 1.85f;
             // Doors down both sides, which is what a corridor IS, and what makes its length read.
-            add(st.mesh, box(0.06f, 2.05f, 0.92f, math::vec3(-st.halfWidth + 0.09f, 1.025f, z), inkC));
-            add(st.mesh, box(0.06f, 2.05f, 0.92f, math::vec3(st.halfWidth - 0.09f, 1.025f, z), inkC));
-            add(st.mesh, box(0.55f, 0.05f, 0.16f, math::vec3(0.0f, st.ceiling - 0.06f, z + 0.5f),
+            addProp(st, box(0.06f, 2.05f, 0.92f, math::vec3(-st.halfWidth + 0.09f, 1.025f, z), inkC));
+            addProp(st, box(0.06f, 2.05f, 0.92f, math::vec3(st.halfWidth - 0.09f, 1.025f, z), inkC));
+            addProp(st, box(0.55f, 0.05f, 0.16f, math::vec3(0.0f, st.ceiling - 0.06f, z + 0.5f),
                              rgb(pal.key, 1.0)));
         }
     } else if (set == "room") {
-        add(st.mesh, stand(1.85f, 0.72f, 0.85f, dice.range(-1.0f, 1.0f), 3.4f, rgb(pal.deep, 1.3)));
-        add(st.mesh, table(1.05f, 0.55f, dice.range(-0.8f, 0.8f), 1.9f, rgb(pal.deep, 1.35), inkC));
+        addProp(st, stand(1.85f, 0.72f, 0.85f, dice.range(-1.0f, 1.0f), 3.4f, rgb(pal.deep, 1.3)));
+        addProp(st, table(1.05f, 0.55f, dice.range(-0.8f, 0.8f), 1.9f, rgb(pal.deep, 1.35), inkC));
     } else if (set == "vehicle") {
-        add(st.mesh, stand(0.52f, 0.95f, 0.55f, -0.55f, 1.1f, inkC));
-        add(st.mesh, stand(0.52f, 0.95f, 0.55f, 0.55f, 1.1f, inkC));
-        add(st.mesh, box(st.halfWidth * 1.9f, 0.9f, 0.08f, math::vec3(0.0f, 1.45f, 2.6f), skyC));
+        // Behind the marks, not on them. Seats at z = 1.1 sat exactly where the two characters stand,
+        // so they were inside the furniture — which nobody could see until the seats started casting a
+        // shadow and put both actors in the dark.
+        addProp(st, stand(0.52f, 0.95f, 0.55f, -0.55f, 2.15f, inkC));
+        addProp(st, stand(0.52f, 0.95f, 0.55f, 0.55f, 2.15f, inkC));
+        addProp(st, box(st.halfWidth * 1.9f, 0.9f, 0.08f, math::vec3(0.0f, 1.45f, 2.6f), skyC));
     }
 
     // ---- the thing the story turns on -------------------------------------------------------------
@@ -302,12 +320,12 @@ inline Stage buildStage(const Shot& shot, const Palette& pal, std::uint32_t seed
             static_cast<float>(0.45 + 0.55 * pal.accent.g / 255.0),
             static_cast<float>(0.45 + 0.55 * pal.accent.b / 255.0), 1.0f};
         const math::vec3 where(0.0f, 0.0f, 1.9f);
-        add(st.mesh, stand(0.46f, 0.72f, 0.40f, where.x, where.z, rgb(pal.deep, 1.45))); // a plinth
-        add(st.mesh, box(0.54f, 0.035f, 0.48f, math::vec3(where.x, 0.72f, where.z), rgb(pal.deep, 1.9)));
-        add(st.mesh, box(0.026f, 0.011f, 0.150f, math::vec3(where.x, 0.749f, where.z), objC));
-        add(st.mesh, box(0.058f, 0.011f, 0.058f,
+        addProp(st, stand(0.46f, 0.72f, 0.40f, where.x, where.z, rgb(pal.deep, 1.45))); // a plinth
+        addProp(st, box(0.54f, 0.035f, 0.48f, math::vec3(where.x, 0.72f, where.z), rgb(pal.deep, 1.9)));
+        addProp(st, box(0.026f, 0.011f, 0.150f, math::vec3(where.x, 0.749f, where.z), objC));
+        addProp(st, box(0.058f, 0.011f, 0.058f,
                          math::vec3(where.x, 0.749f, where.z - 0.076f), objC));
-        add(st.mesh, box(0.020f, 0.011f, 0.026f,
+        addProp(st, box(0.020f, 0.011f, 0.026f,
                          math::vec3(where.x + 0.023f, 0.749f, where.z + 0.055f), objC));
     }
 

@@ -29,6 +29,48 @@
 // says is at a pixel is the pixel this fills.
 namespace maz::render {
 
+// Which side of a triangle is thrown away. Back is the normal case; Front is what a shadow pass wants
+// (see ShadowMap below); None is for geometry that genuinely has no inside.
+enum class Cull { Back, Front, None };
+
+// ------------------------------------------------------------------------------------ shadows
+//
+// A depth map rendered FROM THE LIGHT. Everything the light can see is lit; everything hidden behind
+// something the light can see is in shadow. That is the whole idea, and it is the one thing that was
+// missing that made every figure look as though it were floating: without a shadow there is nothing to
+// say where a body meets the floor, and the eye reads "hovering" long before it reads "unlit".
+//
+// Two things make the difference between shadows and a mess of dark speckles:
+//
+// Two decisions, and both were arrived at by measuring rather than by reading.
+//
+// The first is to cast from BACK faces. If the surfaces facing the light are the ones
+// that write the map, then every lit surface's own depth is the depth in the map, and half of it
+// shadows itself — the stippled crawling pattern called shadow acne, which is the usual reason a
+// shadow map ends up buried under a pile of bias constants. Casting from the far side of each object
+// instead puts the whole thickness of the object between the receiver and the map, and the problem is
+// gone rather than biased away.
+//
+// The second is a SLOPE-SCALED bias along the light. Back-face casting settles flat geometry
+// completely, and a body is not flat: near the silhouette of an arm the far side the map recorded and
+// the near side being lit are within a texel of each other, and the soft edge's nine samples straddle
+// the two. Measured against a raycast — fire rays at a standing body from where the light is, and
+// whatever each one hits first is by definition lit — twelve per cent of those points came back
+// shadowed. Half a texel of bias, divided by how squarely the surface faces the light, takes it to one
+// per cent; the textbook normal offset was tried first and made it WORSE, doubling the error, because
+// at a silhouette the normal points across the light rather than away from it and the nudge lands on a
+// neighbouring texel that is no better.
+//
+// The price is that casting needs CLOSED geometry: a single-sided plane has no far side, so it casts
+// nothing. Everything in the film is closed (boxes, capsules, lofted bodies); a bare quad is not, and
+// the test says so out loud rather than leaving it to be discovered.
+class ShadowMap;
+
+// How much of the key light this point is missing: 0 fully lit, 1 fully in shadow. Public because
+// "is this point in shadow?" is a question worth being able to ask without rendering anything —
+// a test asks it directly, and so could a game.
+inline float shadowFactor(const ShadowMap& map, const math::vec3& where, const math::vec3& normal);
+
 // How a mesh takes light. One key, one ambient, one fill — the three-light setup, which is what the
 // film's 2D renderer already thinks in, and enough that a curved surface reads as curved.
 struct Surface {
@@ -59,6 +101,11 @@ struct Surface {
     float fogStart = 0.0f;
     float fogEnd = 0.0f;
     float fogMax = 0.85f;                // how far toward the air colour the furthest thing goes
+
+    // What the key light cannot see. Null means nothing casts.
+    const ShadowMap* shadows = nullptr;
+    float shadowStrength = 1.0f;         // 1 takes the whole key away; less leaves some in
+    Cull cull = Cull::Back;
 };
 
 class SoftRaster {
@@ -95,7 +142,25 @@ class SoftRaster {
     // Draw one mesh. `model` places it in the world; `viewProj` is the camera.
     void draw(Image& target, const shapes::MeshData& mesh, const math::mat4& model,
               const math::mat4& viewProj, const Surface& surf) {
-        if (mesh.indices.size() < 3 || target.width() != m_w || target.height() != m_h) {
+        if (target.width() != m_w || target.height() != m_h) {
+            return;
+        }
+        render(&target, mesh, model, viewProj, surf);
+    }
+
+    // Depth only, with no picture and no shading: what a shadow map is made of. `cull` is Front for a
+    // shadow pass, so it is the far side of each object that writes the depth.
+    void drawDepth(const shapes::MeshData& mesh, const math::mat4& model, const math::mat4& viewProj,
+                   Cull cull = Cull::Front) {
+        Surface depthOnly;
+        depthOnly.cull = cull;
+        render(nullptr, mesh, model, viewProj, depthOnly);
+    }
+
+  private:
+    void render(Image* target, const shapes::MeshData& mesh, const math::mat4& model,
+                const math::mat4& viewProj, const Surface& surf) {
+        if (mesh.indices.size() < 3) {
             return;
         }
         const math::mat4 mvp = viewProj * model;
@@ -115,7 +180,9 @@ class SoftRaster {
                     break;
                 }
                 const MeshVertex& v = mesh.vertices[vi];
-                tri[k].clip = mvp * math::vec4(v.px, v.py, v.pz, 1.0f);
+                const math::vec4 local(v.px, v.py, v.pz, 1.0f);
+                tri[k].clip = mvp * local;
+                tri[k].world = math::vec3(model * local);
                 tri[k].normal = normalM * math::vec3(v.nx, v.ny, v.nz);
                 tri[k].color = math::vec3(v.r, v.g, v.b);
             }
@@ -126,10 +193,10 @@ class SoftRaster {
         }
     }
 
-  private:
     // A vertex on its way down the pipe: still in clip space, carrying what the shade needs.
     struct Vert {
         math::vec4 clip{0.0f};
+        math::vec3 world{0.0f};
         math::vec3 normal{0.0f};
         math::vec3 color{0.0f};
     };
@@ -137,6 +204,7 @@ class SoftRaster {
     static Vert mix(const Vert& a, const Vert& b, float t) {
         Vert o;
         o.clip = a.clip + (b.clip - a.clip) * t;
+        o.world = a.world + (b.world - a.world) * t;
         o.normal = a.normal + (b.normal - a.normal) * t;
         o.color = a.color + (b.color - a.color) * t;
         return o;
@@ -145,7 +213,7 @@ class SoftRaster {
     // Clip against the near plane (clip-space z >= 0, which is where Vulkan's 0..1 depth range starts)
     // and fill whatever is left. Without this, a triangle with a corner behind the eye divides by a w
     // through zero and paints the whole frame; it is the single most visible way a rasteriser breaks.
-    void clipAndFill(Image& target, const Vert (&tri)[3], const math::vec3& key, const Surface& surf) {
+    void clipAndFill(Image* target, const Vert (&tri)[3], const math::vec3& key, const Surface& surf) {
         Vert poly[4];
         int count = 0;
         for (int k = 0; k < 3; ++k) {
@@ -173,7 +241,7 @@ class SoftRaster {
         }
     }
 
-    void fillTriangle(Image& target, const Vert& a, const Vert& b, const Vert& c,
+    void fillTriangle(Image* target, const Vert& a, const Vert& b, const Vert& c,
                       const math::vec3& key, const Surface& surf) {
         if (a.clip.w <= 0.0f || b.clip.w <= 0.0f || c.clip.w <= 0.0f) {
             return;
@@ -193,8 +261,11 @@ class SoftRaster {
         // here. Culling on that one sign is what keeps the inside of every object out of the picture.
         const double area = static_cast<double>(x1 - x0) * static_cast<double>(y2 - y0) -
                             static_cast<double>(x2 - x0) * static_cast<double>(y1 - y0);
-        if (area >= 0.0) {
-            return; // back-facing, or edge-on and infinitely thin
+        if (area == 0.0) {
+            return; // edge-on and infinitely thin
+        }
+        if ((surf.cull == Cull::Back && area > 0.0) || (surf.cull == Cull::Front && area < 0.0)) {
+            return;
         }
         ++m_tris;
 
@@ -228,7 +299,9 @@ class SoftRaster {
                 const double w0 = edge(x1, y1, x2, y2, sx, sy);
                 const double w1 = edge(x2, y2, x0, y0, sx, sy);
                 const double w2 = edge(x0, y0, x1, y1, sx, sy);
-                if (!(w0 <= 0.0 && w1 <= 0.0 && w2 <= 0.0)) {
+                const bool inside = area < 0.0 ? (w0 <= 0.0 && w1 <= 0.0 && w2 <= 0.0)
+                                               : (w0 >= 0.0 && w1 >= 0.0 && w2 >= 0.0);
+                if (!inside) {
                     continue;
                 }
                 const double l0 = w0 / area;
@@ -247,6 +320,11 @@ class SoftRaster {
                     continue;
                 }
 
+                if (target == nullptr) {
+                    m_depth[di] = z;       // a depth pass has nothing else to do
+                    continue;
+                }
+
                 const double iw = l0 * iwa + l1 * iwb + l2 * iwc;
                 if (iw <= 0.0) {
                     continue;
@@ -260,8 +338,11 @@ class SoftRaster {
                 const math::vec3 col = a.color * static_cast<float>(pa) +
                                        b.color * static_cast<float>(pb) +
                                        c.color * static_cast<float>(pc);
+                const math::vec3 here = a.world * static_cast<float>(pa) +
+                                        b.world * static_cast<float>(pb) +
+                                        c.world * static_cast<float>(pc);
 
-                Color lit = shade(nrm, col, key, surf);
+                Color lit = shade(nrm, col, here, key, surf);
                 if (surf.fogEnd > surf.fogStart) {
                     // 1/iw is the perspective-correct distance along the view axis at this pixel.
                     const float away = static_cast<float>(1.0 / iw);
@@ -273,12 +354,12 @@ class SoftRaster {
                     lit.b += (surf.fog.b - lit.b) * f;
                 }
                 if (surf.alpha >= 1.0f) {
-                    target.setPixel(px, py, lit);
+                    target->setPixel(px, py, lit);
                     m_depth[di] = z;
                 } else {
-                    const Color dst = target.getPixel(px, py);
+                    const Color dst = target->getPixel(px, py);
                     const float t = surf.alpha < 0.0f ? 0.0f : surf.alpha;
-                    target.setPixel(px, py,
+                    target->setPixel(px, py,
                                     Color{lit.r * t + dst.r * (1.0f - t), lit.g * t + dst.g * (1.0f - t),
                                           lit.b * t + dst.b * (1.0f - t), 1.0f});
                 }
@@ -294,12 +375,18 @@ class SoftRaster {
     // Key + fill + ambient. The fill comes from directly opposite the key at a fraction of its
     // strength, which is what stops a surface turned away from the light from going to pure black —
     // on a face, black reads as a hole rather than as shadow.
-    static Color shade(const math::vec3& normal, const math::vec3& albedo, const math::vec3& key,
-                       const Surface& surf) {
+    static Color shade(const math::vec3& normal, const math::vec3& albedo, const math::vec3& where,
+                       const math::vec3& key, const Surface& surf) {
         const float len = std::sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
         const math::vec3 nrm = len > 1e-8f ? normal / len : math::vec3(0.0f, 0.0f, 1.0f);
         const float toKey = -(nrm.x * key.x + nrm.y * key.y + nrm.z * key.z);
-        const float kLit = toKey > 0.0f ? toKey : 0.0f;
+        float kLit = toKey > 0.0f ? toKey : 0.0f;
+        // Shadow takes away the KEY and nothing else. A shadow is an absence of the lamp, not an
+        // absence of light: the ambient and the bounce still reach into it, which is why a real shadow
+        // has colour in it and a subtracted one is a black hole.
+        if (surf.shadows != nullptr && kLit > 0.0f) {
+            kLit *= 1.0f - shadowFactor(*surf.shadows, where, nrm) * surf.shadowStrength;
+        }
         const float fLit = toKey < 0.0f ? -toKey : 0.0f;
         const float soft = surf.ambient + fLit * surf.fill;
         Color out;
@@ -317,5 +404,98 @@ class SoftRaster {
     std::vector<float> m_depth;
     std::size_t m_tris = 0;
 };
+
+// The depth the light can see, and the matrix it saw it through.
+class ShadowMap {
+  public:
+    explicit ShadowMap(int size = 1024)
+        : m_raster(size < 16 ? 16 : size, size < 16 ? 16 : size), m_size(size < 16 ? 16 : size) {}
+
+    // Start a new map. `lightViewProj` should cover the whole of what can cast into frame; use
+    // `directionalLight()` to build one.
+    void begin(const math::mat4& lightViewProj) {
+        m_vp = lightViewProj;
+        // How much world one texel covers, read back out of the matrix rather than passed in, so a
+        // caller cannot hand over a light and a texel size that disagree. For an orthographic
+        // projection times a rigid view, the length of the matrix's first row is 1 / half-width.
+        const float rowLen = std::sqrt(m_vp[0][0] * m_vp[0][0] + m_vp[1][0] * m_vp[1][0] +
+                                       m_vp[2][0] * m_vp[2][0]);
+        m_texel = rowLen > 1e-9f ? 2.0f / (rowLen * static_cast<float>(m_size)) : 0.01f;
+        m_raster.clearDepth();
+    }
+
+    void add(const shapes::MeshData& mesh, const math::mat4& model = math::mat4(1.0f)) {
+        m_raster.drawDepth(mesh, model, m_vp, Cull::Front);
+    }
+
+    int size() const { return m_size; }
+    float worldPerTexel() const { return m_texel; }
+    const math::mat4& viewProj() const { return m_vp; }
+    float depthAt(int x, int y) const { return m_raster.depthAt(x, y); }
+
+  private:
+    SoftRaster m_raster;
+    int m_size;
+    float m_texel = 0.01f;
+    math::mat4 m_vp{1.0f};
+};
+
+// A light's view of a box of world. `dir` is the direction the light TRAVELS; the box is the part of
+// the world that may cast. Orthographic, because a key light in a film is the sun or a lamp far
+// enough away to be one.
+inline math::mat4 directionalLight(const math::vec3& boxMin, const math::vec3& boxMax,
+                                   const math::vec3& dir) {
+    const math::vec3 centre = (boxMin + boxMax) * 0.5f;
+    const math::vec3 half = (boxMax - boxMin) * 0.5f;
+    const float radius = std::sqrt(half.x * half.x + half.y * half.y + half.z * half.z) + 0.01f;
+    math::vec3 d = dir;
+    const float dl = std::sqrt(d.x * d.x + d.y * d.y + d.z * d.z);
+    d = dl > 1e-6f ? d / dl : math::vec3(0.0f, -1.0f, 0.0f);
+    // Stand the light off by the radius so the whole box is in front of it, and fit the frustum to a
+    // SPHERE around the box rather than to the box: the box's own extent changes as the light turns,
+    // and a frustum that changes size makes the shadows crawl.
+    const math::vec3 eye = centre - d * (radius * 2.0f);
+    const math::vec3 up =
+        std::fabs(d.y) > 0.95f ? math::vec3(0.0f, 0.0f, 1.0f) : math::vec3(0.0f, 1.0f, 0.0f);
+    const math::mat4 view = glm::lookAt(eye, centre, up);
+    return math::orthographic(-radius, radius, -radius, radius, 0.05f, radius * 4.0f) * view;
+}
+
+// How much of the key this point is missing, 0 lit to 1 fully shadowed. Three by three, so the edge of
+// a shadow is a soft edge rather than a staircase.
+inline float shadowFactor(const ShadowMap& map, const math::vec3& where, const math::vec3& normal) {
+    // Toward the light by half a texel, more where the surface stands steeply to it. `key` is not
+    // known here, but the light's own forward axis is: it is the third row of the view-projection.
+    const math::vec3 towardLight =
+        -glm::normalize(math::vec3(map.viewProj()[0][2], map.viewProj()[1][2], map.viewProj()[2][2]));
+    const float len = std::sqrt(normal.x * normal.x + normal.y * normal.y + normal.z * normal.z);
+    const math::vec3 n = len > 1e-8f ? normal / len : towardLight;
+    const float face = std::fmax(math::dot(n, towardLight), 0.22f);
+    const math::vec3 probe = where + towardLight * (map.worldPerTexel() * 0.75f / face);
+    const math::vec4 clip = map.viewProj() * math::vec4(probe, 1.0f);
+    if (clip.w <= 1e-6f) {
+        return 0.0f;
+    }
+    const math::vec3 ndc = math::vec3(clip) / clip.w;
+    if (ndc.z < 0.0f || ndc.z > 1.0f) {
+        return 0.0f;                       // outside the light's range: nothing known, so lit
+    }
+    const float fx = (ndc.x * 0.5f + 0.5f) * static_cast<float>(map.size());
+    const float fy = (ndc.y * 0.5f + 0.5f) * static_cast<float>(map.size());
+    const int cx = static_cast<int>(fx);
+    const int cy = static_cast<int>(fy);
+    if (cx < 1 || cy < 1 || cx >= map.size() - 1 || cy >= map.size() - 1) {
+        return 0.0f;                       // off the edge of the map: lit, never a hard black border
+    }
+    int blocked = 0;
+    for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            if (map.depthAt(cx + dx, cy + dy) < ndc.z) {
+                ++blocked;
+            }
+        }
+    }
+    return static_cast<float>(blocked) / 9.0f;
+}
 
 } // namespace maz::render

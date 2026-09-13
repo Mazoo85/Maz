@@ -106,12 +106,54 @@ the world, so a ground plane no longer has to stop somewhere visible.
 
 ---
 
+## Shadows
+
+A depth map rendered from the light: everything the light can see is lit, everything hidden behind
+something it can see is in shadow. Without it there is nothing to say where a body meets the floor,
+and the eye reads "hovering" long before it reads "unlit".
+
+Three decisions, all arrived at by measuring against a **raycast ground truth** — fire rays at a
+standing body from where the light is, and whatever each one hits first is, by definition, a point
+the light reaches, so it had better come back lit:
+
+| | wrongly shadowed |
+|---|---|
+| back-face casting + slope-scaled bias | **1.5%** — what ships |
+| the same bias, not slope-scaled | 2.0% |
+| the textbook normal offset instead | 23.9% |
+| no bias at all | 12.1% |
+| the body built inside out | ~100% |
+
+**Cast from back faces.** If the surfaces facing the light write the map, every lit surface's own
+depth is the depth in the map and half of it shadows itself — shadow acne. Casting from the far side
+of each object puts the object's whole thickness between the two. The price is that casting needs
+closed geometry: a single-sided plane has no far side and casts nothing.
+
+**Slope-scaled bias**, half a texel divided by how squarely the surface faces the light. Back-face
+casting settles flat geometry completely; a body is not flat, and near the silhouette of an arm the
+recorded far side and the lit near side are within a texel of each other.
+
+**The room does not cast.** A key light is a conceit, not a lamp hanging above a sealed box, and the
+first frame rendered with shadows on was a correctly pitch-dark room with a lid. The shell is lit and
+receives; the furniture, the trees and the people cast.
+
+### The bug this found
+
+Every lofted piece of the body — both arms, both legs, the whole torso — had been built **inside
+out** since the day it was written. The rings were wound the wrong way, so the renderer culled the
+outside of each limb and drew the inside, with the normals pointing into the body. On a smooth tube
+that is very nearly invisible, which is how it survived being looked at for weeks. It makes shadows
+impossible.
+
+`tests/film/actor.cpp` now checks the signed volume of the body — positive when wound outward, and it
+collapses from 0.040 m³ to 0.002 m³ when wound inward.
+
+---
+
 ## What the 3D renderer does not do
 
 * **No sound.** The score is SONG FORGE's Web Audio program and the voices are the browser's speech
   synthesis; both live in the browser, by design. The native renderers make silent picture.
-* **No shadows.** Surfaces are lit but they do not cast. A figure standing in a doorway does not
-  throw a shape across the floor.
 * **No textures.** Colour is per-vertex. A wall is a colour, not a wallpaper.
 * **No transparency sorting.** Glass, smoke and rain are the flat renderer's for now.
 
@@ -132,4 +174,5 @@ ctest --test-dir build -R "software_rasteriser|film_actor|film_perform|film_stag
 * `tests/film/perform.cpp` — chiefly one thing: **while a foot is on the ground, its position on the
   floor does not change.** Everybody gets that wrong, and it is measurable.
 * `tests/film/stage.cpp` — a framing is a promise, so the subject is put through the lens and the
-  test looks at where they land on the film.
+  test looks at where they land on the film; and the shadows on a real body are checked against a
+  raycast, which is a different mechanism arriving at the same answer.

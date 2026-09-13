@@ -17,6 +17,7 @@
 #include "maz/film/Sets.hpp"   // kAspect: the film's own shape
 #include "maz/film/Stage.hpp"
 #include "maz/render/MeshRayBvh.hpp"
+#include "maz/render/SoftRaster.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -312,6 +313,90 @@ int main() {
 
         check(glm::length(at("handheld", 0.3f).eye - at("handheld", 0.7f).eye) > 0.001f,
               "a handheld shot is never quite still");
+    }
+
+    // ------------------------------------------------------------------ 5b. the shadows on an actor
+    //                                                                         agree with a raycast
+    {
+        // A shadow map is an approximation, so the question is not whether it is exact but whether it
+        // is ever WRONG in the direction that shows: darkening a surface the light plainly reaches.
+        // That is shadow acne, and on a person it crawls over every rounded thing in the frame.
+        //
+        // The ground truth comes from a different mechanism entirely, and deliberately uses NO part of
+        // the mesh's own normals — an earlier version of this test picked its sample points by their
+        // vertex normals and was therefore blind to the exact bug it was written for, which was that
+        // the normals were inverted. Instead: fire rays at the body from where the light is. Whatever
+        // each ray hits FIRST is, by definition, a point the light reaches, with nothing in between.
+        // Every one of those points must come back lit.
+        const film::Build b = film::adultMale();
+        const film::Skeleton sk = film::skeletonOf(b, film::restPose(b));
+        const maz::render::shapes::MeshData body = film::buildBody(b, sk);
+        const math::vec3 key = math::normalize(math::vec3(-0.6f, -0.75f, 0.35f));
+
+        maz::render::ShadowMap map(1024);
+        map.begin(maz::render::directionalLight(math::vec3(-4.5f, -0.15f, -1.55f),
+                                                math::vec3(4.5f, 2.6f, 4.45f), key));
+        map.add(body);
+        const maz::render::MeshRayBvh truth(body);
+
+        // Two axes across the light's own beam, to sweep it with.
+        const math::vec3 across = glm::normalize(glm::cross(key, math::vec3(0.0f, 1.0f, 0.0f)));
+        const math::vec3 down = glm::normalize(glm::cross(key, across));
+        const math::vec3 centre(0.0f, b.height * 0.5f, 0.0f);
+
+        int reached = 0;
+        int wrong = 0;
+        for (int i = -30; i <= 30; ++i) {
+            for (int j = -46; j <= 46; ++j) {
+                const math::vec3 from = centre - key * 4.0f + across * (static_cast<float>(i) * 0.012f) +
+                                        down * (static_cast<float>(j) * 0.012f);
+                const maz::render::MeshRayHit hit = truth.intersect(from, key, 8.0f);
+                if (!hit.hit) {
+                    continue;
+                }
+                ++reached;
+                // Step back a hair toward the light so the lookup is on the surface, not inside it.
+                if (maz::render::shadowFactor(map, hit.point - key * 0.0012f,
+                                              math::vec3(0.0f, 1.0f, 0.0f)) > 0.5f) {
+                    ++wrong;
+                }
+            }
+        }
+        check(reached > 1500, "the light reaches plenty of the body to check");
+        // The threshold is set from measurement, and it is worth writing down what was measured, so
+        // that the number is not a mystery to whoever meets it next. On this body, with this light:
+        //
+        //     back-face casting + slope-scaled bias   1.48%   <- what ships
+        //     the same bias, not slope-scaled         2.01%
+        //     the textbook normal offset instead     23.9%
+        //     no bias at all                         12.1%
+        //     the body built inside out              ~100%
+        //
+        // One in fifty-five sits between the first two, so a change that quietly drops the slope
+        // scaling fails here rather than passing. Nothing in this is random: same body, same rays,
+        // same answer every run.
+        check(wrong * 55 < reached, "almost nothing the light plainly reaches is put in shadow");
+    }
+
+    // ------------------------------------------------------------------ 5c. the room is not a lid
+    {
+        // The room shell must not cast. A key light is a conceit — it is not a lamp hanging in the
+        // sky above a sealed box — and the first frame rendered with shadows switched on was a
+        // correctly pitch-dark room with a ceiling on it. So: from above the ceiling, straight down at
+        // the mark, nothing that casts is in the way.
+        for (const char* name : {"office", "corridor", "ward", "bar", "vehicle"}) {
+            film::Shot sh;
+            sh.set = name;
+            const film::Stage st = film::buildStage(sh, pal, 13u);
+            const maz::render::MeshRayBvh casters(st.props);
+            const math::vec3 from(st.markLeft.x, st.ceiling + 1.5f, st.markLeft.z);
+            const maz::render::MeshRayHit hit =
+                casters.intersect(from, math::vec3(0.0f, -1.0f, 0.0f), 2.6f);
+            check(!hit.hit, std::string("the ceiling of the ") + name + " does not block the key light");
+            // And the shell IS still drawn — it is only casting that it is excused from.
+            check(st.mesh.indices.size() > st.props.indices.size(),
+                  std::string("while the ") + name + " still has a room around it");
+        }
     }
 
     // ------------------------------------------------------------------ 6. the same shot twice
