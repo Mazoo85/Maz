@@ -197,6 +197,15 @@ asks browser apps to use precisely because a web page cannot keep a secret.
 - **Paint it** — paint the words in the box (or just press Enter).
 - **Another take** — same words, different roll of the dice.
 - **Show me six** — six takes at once; tap one to paint it full size.
+- **Grow it slowly** — the picture put on in coats and faded up frame by frame,
+  the way it is actually built:
+  a bare wash, then the sky, the light, the clouds, the land, the subject, what
+  is nearest, the weather, and the finish. **Change the words while it paints**
+  and the next coat goes on the new picture — same seed, so it turns into what
+  you are now asking for instead of starting again as something unrelated. Press
+  it again to stop. A coat that puts nothing on — no weather in a clear sky,
+  nothing in the foreground — is skipped rather than sat through. It passes
+  through about 150 distinct pictures on the way, not nine.
 - **Surprise me** — writes you a prompt in its own vocabulary.
 - **Save the picture** — downloads a full-size PNG.
 - **Keep in my gallery** — saves it to this device, and it can be saved to a

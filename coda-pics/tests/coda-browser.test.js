@@ -449,6 +449,81 @@ let paintsThisLoad = 0;
       () => Number(document.getElementById('canvas').dataset.painted || 0)
     );
 
+    /* ----------------------------------------------------------- growing it
+     * The picture put on in coats instead of arriving finished, and steerable
+     * while it goes. Both halves are checked, because either alone would be a
+     * different and lesser feature: a slideshow that cannot be changed, or a
+     * repaint that does not build. */
+    await page.fill('#prompt', 'a red dragon over snowy mountains at sunset');
+    const growFrom = await page.evaluate(
+      () => Number(document.getElementById('canvas').dataset.painted || 0));
+    /* Count every distinct thing the canvas shows, not just the nine the app
+     * counts as coats. */
+    await page.evaluate(() => {
+      window.__growStates = 0;
+      let last = null;
+      const c = document.getElementById('canvas');
+      (function watch() {
+        try {
+          const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+          let a = 0;
+          for (let i = 0; i < d.length; i += 4 * 997) a = (a + d[i] * 7 + d[i + 1] * 11 + d[i + 2] * 13) % 99999989;
+          if (a !== last) { last = a; window.__growStates++; }
+        } catch (e) { /* between sizes */ }
+        requestAnimationFrame(watch);
+      })();
+    });
+    await page.click('#grow');
+
+    const coats = [];
+    let seenPaints = growFrom;
+    for (let i = 0; i < 9; i++) {
+      await page.waitForFunction((n) =>
+        Number(document.getElementById('canvas').dataset.painted || 0) > n,
+        seenPaints, { timeout: 20000 });
+      seenPaints = await page.evaluate(
+        () => Number(document.getElementById('canvas').dataset.painted || 0));
+      coats.push(await page.evaluate(INSPECT));
+      /* Change the words part-way. From here it should grow into the new
+       * picture rather than start again as one. */
+      if (i === 3) await page.fill('#prompt', 'a whale under a huge moon');
+    }
+
+    check(coats.length === 9, `it paints in coats rather than all at once (${coats.length})`);
+    /* Nine coats, but far more than nine pictures: each one is faded up over
+     * the last, so what you watch is paint arriving rather than nine slides. */
+    const states = await page.evaluate(() => window.__growStates || 0);
+    check(states > 60,
+      `and it passes through the coats rather than cutting between them (${states} states)`);
+    check(coats[0].colours <= 4,
+      `the first coat is a bare wash, the way a painting starts (${coats[0].colours} colours)`);
+    check(coats[5].colours > coats[1].colours * 3,
+      `each coat puts more on than the last (${coats[1].colours} → ${coats[5].colours} colours)`);
+    check(colourGap(coats[3], coats[4]) > 5,
+      'changing the words mid-paint steers it, rather than being ignored until the end ' +
+      `(gap ${colourGap(coats[3], coats[4]).toFixed(1)})`);
+
+    await page.waitForFunction(
+      () => (document.getElementById('status').textContent || '').indexOf('Finished') >= 0,
+      null, { timeout: 20000 });
+    check(!(await page.isHidden('#outButtons')),
+      'and what it grew is a real picture — keep, save and share are offered');
+    check((await page.textContent('#grow')).indexOf('Grow') >= 0,
+      'the button goes back to offering another one');
+
+    /* Stopping has to actually stop, or a mistyped prompt runs for ten
+     * seconds with no way out. */
+    await page.click('#grow');
+    await page.waitForTimeout(1400);
+    await page.click('#grow');
+    const stoppedAt = await page.evaluate(
+      () => Number(document.getElementById('canvas').dataset.painted || 0));
+    await page.waitForTimeout(2500);
+    check(await page.evaluate(
+      () => Number(document.getElementById('canvas').dataset.painted || 0)) === stoppedAt,
+      'stopping it stops it, and nothing carries on painting afterwards');
+    count = stoppedAt;
+
     /* ------------------------------------------------- installable as an app
      * The manifest and its icons are what let someone add CODA PICS to a home
      * screen. They are easy to break by renaming a file and never notice,
