@@ -110,6 +110,14 @@ everything back exactly as you left it, so you can experiment freely.
 
 ---
 
+## Where to go next
+
+This guide ends where the Editor opens. **[`EDITOR.md`](EDITOR.md)** picks it up from there — the
+keyboard shortcuts, and how to build a character or an item out of the primitive palette and save it
+as a `.mazprefab` any game in this repo can load.
+
+---
+
 ## What this proves
 
 The Editor is the same kind of program Godot is: a visual tool for building scenes and pressing

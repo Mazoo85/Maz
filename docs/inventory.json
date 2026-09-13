@@ -18,9 +18,9 @@
     "appsGolden": 91,
     "modulesTested": 100,
     "modulesDemoed": 39,
-    "checksPassed": 2761,
+    "checksPassed": 2762,
     "checksTotal": 3198,
-    "openTasks": 8
+    "openTasks": 7
   },
   "queue": [
     {
@@ -441,27 +441,6 @@
           "name": "wire",
           "path": "apps/wire",
           "fix": "Capture a golden frame for wire into tests/golden/wire.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test."
-        }
-      ]
-    },
-    {
-      "id": "group:doc:linked",
-      "priority": 2,
-      "kind": "doc",
-      "check": "linked",
-      "title": "One doc is not linked from anywhere",
-      "detail": "A doc that nothing references is invisible to a newcomer and to a future session, however good it is. Link each from README.md or a sibling doc, or retire it. — EDITOR.md. Example: Nothing links to docs/EDITOR.md. Link it from README.md, CLAUDE.md or a sibling doc, or delete it.",
-      "paths": [
-        "docs/EDITOR.md"
-      ],
-      "source": "inventory:doc:linked",
-      "memberCount": 1,
-      "members": [
-        {
-          "id": "doc:EDITOR.md",
-          "name": "EDITOR.md",
-          "path": "docs/EDITOR.md",
-          "fix": "Nothing links to docs/EDITOR.md. Link it from README.md, CLAUDE.md or a sibling doc, or delete it."
         }
       ]
     },

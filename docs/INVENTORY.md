@@ -25,12 +25,12 @@ size is in the wiring between the parts, not in any one part.
 
 | Health signal | Score | |
 |---|---:|---|
-| Completeness checks passing | 86% | █████████░ 2761 of 3198 |
+| Completeness checks passing | 86% | █████████░ 2762 of 3198 |
 | Apps that run headless in CI | 100% | ██████████ |
 | Apps with a golden screenshot | 91% | █████████░ |
 | Engine modules a test exercises | 100% | ██████████ |
 | Engine modules an app demonstrates | 39% | ████░░░░░░ |
-| Open tasks in the queue below | 8 | |
+| Open tasks in the queue below | 7 | |
 
 ## 1. Everything you have built
 
@@ -334,7 +334,7 @@ engine capability, a handful of them complete games.
 | `docs/API.md` | Maz Engine — API Reference | — |
 | `docs/ARCHITECTURE.md` | Maz Engine — Architecture | — |
 | `docs/CODEBASE_MEMORY.md` | Codebase Memory (MCP) | — |
-| `docs/EDITOR.md` | Maz Editor — character / item creator | nothing links to it |
+| `docs/EDITOR.md` | Maz Editor — character / item creator | — |
 | `docs/EDITOR_GUIDE.md` | Maz Editor — plain-language getting-started guide | — |
 | `docs/EVALUATION.md` | Maz Engine — Evaluation & Enhancement Backlog | — |
 | `docs/FORGE-JOBS.md` | The Forge's jobs | — |
@@ -361,13 +361,13 @@ not by judging the work. Every failing check below is a specific, finishable job
 |---|---|---:|
 | engine-module | shown by a sample app | 274/696 (39%) |
 | app | has a golden screenshot | 158/172 (92%) |
-| doc | reachable from somewhere | 19/20 (95%) |
 | app | built by CMake | 172/172 (100%) |
 | app | has CMakeLists.txt | 172/172 (100%) |
 | app | header comment says what it shows | 172/172 (100%) |
 | app | runs headless for CI | 172/172 (100%) |
 | app | exercises a named engine module | 172/172 (100%) |
 | build-tool | says what it does | 11/11 (100%) |
+| doc | reachable from somewhere | 20/20 (100%) |
 | engine-module | header has a doc comment | 696/696 (100%) |
 | engine-module | covered by a test or a golden image | 696/696 (100%) |
 | gate | rule-encoding checkers are tested | 3/3 (100%) |
@@ -399,13 +399,6 @@ the least-squares family — so the work is closer to a few dozen apps than 499.
 count is highest and the modules cluster most naturally.
 
 <sub>422 affected · effort: medium · value: ★★★ · queued below as the `engine-module:demoed` task</sub>
-
-#### One doc is not linked from anywhere
-
-A doc that nothing references is invisible to a newcomer and to a future session, however good
-it is. Link each from README.md or a sibling doc, or retire it.
-
-<sub>1 affected · effort: small · value: ★ · queued below as the `doc:linked` task</sub>
 
 ### Already wired together
 
@@ -550,12 +543,10 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
 - **SONG FORGE supplies the one music layer the engine does not have**
   <br>The engine already has the layers underneath and above a composer: audio::MusicTheory does note/pitch conversion, audio::MusicScales the scale tables, audio::Oscillator and audio::BusGraph the synthesis and mixing, and audio::MusicSequencer switches between music segments on the beat as the action changes. What nothing under engine/include/maz/audio/ does is WRITE the segments — pick a progression, lay a bassline and a drum pattern under it, arrange verses and choruses. music/js/genres.js and music/js/composer.js do exactly that, as plain data and pure functions, for eight genres. Porting the…
 
-### P2 — coverage gaps (6)
+### P2 — coverage gaps (5)
 
 - **14 apps fail "has a golden screenshot"**
   <br>_template, earshot, economy, genworld, lookup, meshdoctor, orbs, rpgstats, sandbox, squeeze, swarm, tactics, and 2 more. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.
-- **One doc is not linked from anywhere**
-  <br>A doc that nothing references is invisible to a newcomer and to a future session, however good it is. Link each from README.md or a sibling doc, or retire it. — EDITOR.md. Example: Nothing links to docs/EDITOR.md. Link it from README.md, CLAUDE.md or a sibling doc, or delete it.
 - **CODA PICS can be lent now — but not to SCRIPT FORGE or MADLIBS as they speak today**
   <br>The surface exists: coda-pics/painter is published, takes a sentence and a canvas, and — unlike the studio page — reports how much of the picture came from the words. It refuses rather than guessing when asked to, because CODA PICS invents a subject for anything it does not recognise and a caller cannot otherwise tell a picture of the thing it asked for from a picture of something else.  What is NOT true is the obvious next step, and it was measured rather than assumed. Fed SCRIPT FORGE's scene headings, about half painted something unrelated, and fed MADLIBS loglines, six of twelve were refu…
 - **The golden screenshots become the arcade's cover art**

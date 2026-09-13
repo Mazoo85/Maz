@@ -83,7 +83,9 @@ tools). For full HTML docs, contributors with Doxygen installed can run `doxygen
 a plain-language, step-by-step guide to turning the source into the **Editor program** (a Godot-style
 tool: place objects, tweak them, press Play). It uses the one-command helpers
 `tools/build_editor.sh` (macOS/Linux) and `tools/build_editor.bat` (Windows), which check your tools
-and build the Editor for you.
+and build the Editor for you. Once it opens,
+**[`docs/EDITOR.md`](docs/EDITOR.md)** is the reference for driving it: every keyboard shortcut, and
+how to compose a character or item out of primitives and save it as a reusable `.mazprefab`.
 
 For the manual path:
 
