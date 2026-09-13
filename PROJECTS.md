@@ -13,6 +13,7 @@ with their full history.
 | --- |
 | [`apps`](apps) |
 | [`assets`](assets) |
+| [`cells`](cells) |
 | [`cmake`](cmake) |
 | [`coda-pics`](coda-pics) |
 | [`consolidate`](consolidate) |
