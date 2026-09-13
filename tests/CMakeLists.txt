@@ -380,6 +380,10 @@ add_executable(maz_gifanim_tests render/gifanim.cpp)
 target_link_libraries(maz_gifanim_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME gif_animation COMMAND maz_gifanim_tests)
 
+add_executable(maz_depth_of_field_tests render/depthoffield.cpp)
+target_link_libraries(maz_depth_of_field_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME depth_of_field COMMAND maz_depth_of_field_tests)
+
 add_executable(maz_softraster_tests render/softraster.cpp)
 target_link_libraries(maz_softraster_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME software_rasteriser COMMAND maz_softraster_tests)

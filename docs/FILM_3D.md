@@ -336,6 +336,36 @@ step between them.
 
 The tolerance stays at zero, because anything else would have hidden it.
 
+## A lens
+
+Everything a rasteriser draws is in focus, because a rasteriser is a **pinhole camera**: every point in
+the world lands on exactly one pixel however far away it is. Real glass focuses at one distance and
+turns everything else into a small disc, and the size of that disc is most of what separates a
+photograph from a diagram. It is also the cheapest way to say *look here*: a close-up with the room
+sharp behind it is a snapshot, and the same close-up with the room fallen away is a close-up.
+
+`render/DepthOfField.hpp` does it the practical way rather than the correct way. The correct way is to
+gather a disc of samples per pixel with a radius that varies per pixel, which costs a hundred taps at
+every pixel of every frame. Instead two blurred copies of the frame are made at fixed radii — each one
+two separable box passes — and the result is mixed between sharp, soft and softer by how far out of
+focus that pixel is.
+
+Three things about it are not obvious and all three are load-bearing:
+
+* **The depth buffer is not a distance.** It stores z/w after the projection, and more than half of its
+  range goes on the first quarter of a metre. Blurring by that number directly gives a lens that
+  treats everything past ten metres as the same distance.
+* **The circle of confusion is the difference of the reciprocals**, not a distance. That is the
+  asymmetry that makes a face a metre in front of a wall separate from it while two trees fifty metres
+  away stay stuck together.
+* **A wide shot gets no lens at all.** A wide is about the room; throwing the room out of focus in it
+  is throwing away the shot. It also happens to pay for the close-ups — at play quality the lens costs
+  about six milliseconds, and most shots are wides.
+
+It focuses on whatever the camera is aimed at, which is not so much a choice as the definition:
+`lensFor` already decided what the shot is *of*, so the focus distance falls out of it and cannot
+disagree with the framing.
+
 ## Where the time goes
 
 Every pixel is worked out on the processor, so the frame budget is what everything else has to be paid

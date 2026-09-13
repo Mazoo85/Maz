@@ -4,6 +4,7 @@
 #include "Scene.hpp"
 
 #include "maz/film/AirVolume.hpp"
+#include "maz/render/DepthOfField.hpp"
 #include "maz/film/Expression.hpp"
 
 #include "maz/render/Tonemap.hpp"
@@ -26,6 +27,10 @@ using maz::render::Surface;
 // One film, two jobs. Playing it back on a phone has to keep up with twelve frames a second; writing
 // it out to a file can take as long as it likes. Rather than two renderers, one dial.
 struct Look {
+    // Whether the picture goes through a lens at the end, or comes off the rasteriser as a pinhole.
+    // It is a separate knob from the supersample because it costs a fixed amount per frame rather
+    // than a multiple of everything.
+    int lens = 1;
     int supersample = 2;   // 1 plays, 2 is for keeps: the frame is drawn twice over and averaged
     int shadows = 2;       // 0 none, 1 a hard edge, 2 a soft one
 };
@@ -564,6 +569,52 @@ inline Image drawFrame3D(const Reel& reel, const std::map<std::string, Cast>& ca
             }
             img.setPixel(x0 + x, y0 + y, Color{r * inv, g * inv, b * inv, 1.0f});
         }
+    }
+
+    // ---- the lens ---------------------------------------------------------------------------------
+    //
+    // Everything up to here was drawn by a PINHOLE: every point in the world lands on exactly one
+    // pixel however far away it is. Real glass focuses at one distance and turns everything else into
+    // a small disc, and that is most of what separates a photograph from a diagram — a close-up with
+    // the room sharp behind it is a snapshot, and the same close-up with the room fallen away is a
+    // close-up.
+    //
+    // It focuses on WHATEVER THE CAMERA IS AIMED AT, which is not a choice so much as the definition:
+    // lensFor already decided what the shot is of, so the focus distance falls out of it for free and
+    // cannot disagree with the framing. How far open the lens is does depend on the framing, and the
+    // reason is the same one that gives a close-up a long lens: shallow focus on a wide shot is a
+    // mistake, and deep focus on a close-up throws away the only thing a close-up is for.
+    //
+    // Blurred BEFORE the print curve, because defocus is something that happens to light on its way to
+    // the film and not to the photograph afterwards.
+    if (look.lens > 0) {
+        const float focus = std::sqrt(math::dot(sc.lens.at - sc.lens.eye, sc.lens.at - sc.lens.eye));
+        float aperture = 0.0f;
+        if (shot->framing == "close" || shot->framing == "ots" || shot->framing == "insert") {
+            aperture = 1.70f;
+        } else if (shot->framing == "mid" || shot->framing == "two" || shot->framing == "low") {
+            aperture = 0.80f;
+        } else {
+            // And a wide gets NO lens at all, which is both the honest artistic answer and the one
+            // that pays for the others. A wide shot is about the room: throwing the room out of
+            // focus in it is throwing away the shot. At the aperture a wide would want, the furthest
+            // thing in frame comes out five per cent soft, which nobody can see and everybody pays
+            // six milliseconds a frame for.
+            aperture = 0.0f;
+        }
+        // The depth buffer, read back at the frame's own resolution: one sample per finished pixel,
+        // taken from the middle of the block that made it.
+        std::vector<float> depth(static_cast<std::size_t>(frameW) * static_cast<std::size_t>(frameH),
+                                 1.0f);
+        for (int y = 0; y < static_cast<int>(frameH); ++y) {
+            for (int x = 0; x < static_cast<int>(frameW); ++x) {
+                depth[static_cast<std::size_t>(y) * static_cast<std::size_t>(frameW) +
+                      static_cast<std::size_t>(x)] =
+                    raster.depthAt(x * S + S / 2, y * S + S / 2);
+            }
+        }
+        maz::render::depthOfField(img, y0, y0 + static_cast<int>(frameH), depth, 0.04f, 220.0f, focus,
+                                  aperture, look.lens);
     }
 
     printImage(img, y0, y0 + static_cast<int>(frameH), exposureFor(*shot));
