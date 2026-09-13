@@ -85,12 +85,64 @@
             your own gallery, you choose the photos yourself, and only the photos you chose ever come here.
             They are measured in this page like any other photo — nothing is uploaded, and only their colours
             are kept.</p>
+          <details id="gpSetup" class="gp-setup">
+            <summary>Never done this? Open the one-off setup</summary>
+            <p class="gp-why">Google will not let an app near your photos on a key it did not give you,
+              and a key belongs to one Google account and one website — so a shared one could not work
+              for you even if it were here. You make your own. It is free, it takes about five minutes,
+              and you only ever do it once.</p>
+            <p class="gp-why"><b>Everything you have to paste into Google is on this page, with a copy
+              button.</b> Open each step in a new tab so you never lose your place here.</p>
+            <ol class="gp-steps">
+              <li>
+                <a class="gp-go" target="_blank" rel="noopener"
+                  href="https://console.cloud.google.com/projectcreate">Make a Google project ↗</a>
+                <span>Call it anything. If it offers you a free trial or asks for a card, dismiss it —
+                  none of this costs money.</span>
+              </li>
+              <li>
+                <a class="gp-go" target="_blank" rel="noopener"
+                  href="https://console.cloud.google.com/apis/library/photospicker.googleapis.com">Turn on the Photos Picker API ↗</a>
+                <span>Press <b>Enable</b> and wait for it to finish.</span>
+              </li>
+              <li>
+                <a class="gp-go" target="_blank" rel="noopener"
+                  href="https://console.cloud.google.com/auth/overview">Fill in the consent screen ↗</a>
+                <span>Choose <b>External</b>. An app name and your own email is all it wants. Ignore
+                  anything about publishing or verification — you are the only user.</span>
+              </li>
+              <li>
+                <a class="gp-go" target="_blank" rel="noopener"
+                  href="https://console.cloud.google.com/auth/audience">Add yourself as a test user ↗</a>
+                <span>Your own Gmail address, spelled exactly. A typo here is the usual reason Google
+                  refuses later, and it does not tell you that is why.</span>
+              </li>
+              <li>
+                <a class="gp-go" target="_blank" rel="noopener"
+                  href="https://console.cloud.google.com/auth/clients/create">Create the client ↗</a>
+                <span>Application type <b>Web application</b>. It asks for two addresses; they are here,
+                  and they have to match character for character:</span>
+                <div class="gp-copy">
+                  <code id="gpOrigin"></code>
+                  <button type="button" class="gp-copy-btn" data-copy="gpOrigin">Copy</button>
+                  <small>paste into <b>Authorised JavaScript origins</b></small>
+                </div>
+                <div class="gp-copy">
+                  <code id="gpRedirect"></code>
+                  <button type="button" class="gp-copy-btn" data-copy="gpRedirect">Copy</button>
+                  <small>paste into <b>Authorised redirect URIs</b></small>
+                </div>
+              </li>
+              <li>Press create. Copy the <b>Client ID</b> Google shows you — it ends in
+                <code>.apps.googleusercontent.com</code> — and paste it in the box below.</li>
+            </ol>
+            <p id="gpCopied" class="gp-copied" role="status" aria-live="polite"></p>
+          </details>
+
           <label class="gp-field" for="gpClientId">Your Google client ID
             <input type="text" id="gpClientId" spellcheck="false" autocomplete="off"
               placeholder="000000-abcdef.apps.googleusercontent.com" />
           </label>
-          <p class="gp-redirect">Google will ask you for a redirect URI. It is exactly this:
-            <code id="gpRedirect"></code></p>
           <div class="buttons">
             <button id="gpConnect" type="button">🔗 Connect Google Photos</button>
             <button id="gpPick" type="button" hidden>🖼 Choose photos</button>

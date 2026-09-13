@@ -135,7 +135,8 @@ const FAKE_GOOGLE = () => {
 (async () => {
   await new Promise((r) => server.listen(PORT, '127.0.0.1', r));
   const browser = await chromium.launch(launchOptions());
-  const page = await browser.newPage({ viewport: { width: 1100, height: 900 } });
+  const context = await browser.newContext({ viewport: { width: 1100, height: 900 } });
+  const page = await context.newPage();
   const problems = [];
   page.on('pageerror', (e) => problems.push('uncaught: ' + e.message));
   page.on('console', (m) => { if (m.type() === 'error') problems.push('console: ' + m.text()); });
@@ -153,7 +154,40 @@ const FAKE_GOOGLE = () => {
     check(await page.locator('#gpRedirect').textContent() === BASE,
       'the page shows the exact redirect URI Google will need');
 
+    /* ------------------------------------------------------- the setup box
+     * Somebody doing this on a phone cannot read the two addresses Google
+     * wants off another screen without losing the page they are on, so both
+     * are here with a button. If those buttons put the wrong thing on the
+     * clipboard, the sign-in fails later with a message about neither. */
     await page.click('#gphotos > summary');
+    check(await page.locator('#gpSetup').evaluate((d) => d.open),
+      'the setup is already open for somebody with no client ID yet');
+
+    check(await page.locator('#gpOrigin').textContent() === `http://127.0.0.1:${PORT}`,
+      'it shows the exact origin Google will need, taken from the page itself');
+
+    const stepLinks = await page.locator('.gp-steps a.gp-go').evaluateAll(
+      (as) => as.map((a) => ({ href: a.href, target: a.target })));
+    check(stepLinks.length === 5, `every step of the setup is one tap away (${stepLinks.length} links)`);
+    check(stepLinks.every((l) => l.href.indexOf('https://console.cloud.google.com/') === 0),
+      'and every one of them goes to Google’s own console, nowhere else');
+    check(stepLinks.every((l) => l.target === '_blank'),
+      'each opens in a new tab, so this page is not lost behind it');
+
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    async function clipboardAfter(button) {
+      await page.click(button);
+      await page.waitForFunction(
+        () => (document.getElementById('gpCopied').textContent || '').length > 0,
+        null, { timeout: 5000 });
+      return page.evaluate(() => navigator.clipboard.readText());
+    }
+    check(await clipboardAfter('.gp-copy-btn[data-copy="gpOrigin"]') === `http://127.0.0.1:${PORT}`,
+      'the origin button copies the origin');
+    check(await clipboardAfter('.gp-copy-btn[data-copy="gpRedirect"]') === BASE,
+      'the redirect button copies the redirect URI');
+    check((await page.locator('#gpCopied').textContent()).indexOf('Copied') >= 0,
+      'and it says so, rather than looking like it did nothing');
     await page.click('#gpConnect');
     check((await page.locator('#gpNote').textContent()).indexOf('client ID') >= 0,
       'connecting with no client ID says so instead of failing silently');
