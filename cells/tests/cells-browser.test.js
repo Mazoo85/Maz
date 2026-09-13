@@ -430,17 +430,34 @@ function launchOptions() {
     check(stick.stick > 30, 'the left stick moves the player right (' + Math.round(stick.stick) + 'px)');
     check(stick.dpad < -20, 'the d-pad moves the player left (' + Math.round(stick.dpad) + 'px)');
 
-    /* a small stick nudge inside the dead zone must not creep */
+    /* A small stick nudge inside the dead zone must not creep.
+     *
+     * The player is held invulnerable for the measurement, which is not
+     * tidiness: this runs inside a live level, and an enemy landing a hit
+     * knocks the player sideways. That is the game working. Measured over 150
+     * probes, every drift this check ever reported came with a hit taken and
+     * nine health lost, and every probe with no hit moved the player 0.0px —
+     * so without this the check reports the combat system as a fault in the
+     * stick, at whatever rate the level happens to put an enemy in reach. */
     const deadzone = await pad.evaluate(async () => {
       const p = window.NEON_CELLS.world().player;
+      const invuln = p.invuln;
       p.vx = 0;
+      p.invuln = 999;
       const x0 = p.x;
+      const hp0 = p.hp;
       window.__padStick(0.2, 0);
       for (let f = 0; f < 30; f++) await new Promise((r) => requestAnimationFrame(r));
       window.__padStick(0, 0);
-      return Math.abs(p.x - x0);
+      const moved = Math.abs(p.x - x0);
+      const hurt = hp0 - p.hp;
+      p.invuln = invuln;
+      return { moved: moved, hurt: hurt };
     });
-    check(deadzone < 3, 'a stick inside the dead zone does not drift (' + deadzone.toFixed(1) + 'px)');
+    check(deadzone.moved < 3, 'a stick inside the dead zone does not drift (' +
+      deadzone.moved.toFixed(1) + 'px' +
+      (deadzone.hurt > 0 ? `, but it took ${deadzone.hurt} damage mid-measurement — ` +
+        'that is knockback, not drift' : '') + ')');
 
     /* A jumps, B rolls, X swings */
     const moves = await pad.evaluate(async (buttons) => {
