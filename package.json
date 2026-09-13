@@ -1,0 +1,12 @@
+{
+  "name": "name-maker",
+  "version": "1.0.0",
+  "description": "Random name generator — picks one of 1000 adjectives and one of 1000 nouns.",
+  "bin": {
+    "name-maker": "name-maker-cli.js"
+  },
+  "scripts": {
+    "start": "node name-maker-cli.js"
+  },
+  "license": "MIT"
+}
