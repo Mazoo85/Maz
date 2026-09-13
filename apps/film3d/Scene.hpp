@@ -114,6 +114,7 @@ struct Standing {
     const Cast* who = nullptr;
     Skeleton skeleton;
     maz::film::BodyPose pose;
+    maz::film::Face face;
     bool speaking = false;
 };
 

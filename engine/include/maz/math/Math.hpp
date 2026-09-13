@@ -24,6 +24,7 @@ using glm::vec4;
 
 using glm::cross;
 using glm::dot;
+using glm::inverse;
 using glm::normalize;
 
 // Vulkan-correct perspective (clip-space Y points down vs OpenGL, so flip [1][1]).

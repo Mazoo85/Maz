@@ -3,6 +3,8 @@
 #include "../filmreel/Frame.hpp" // the captions, the grain, the fades: one film, one set of titles
 #include "Scene.hpp"
 
+#include "maz/film/Expression.hpp"
+
 #include "maz/render/Tonemap.hpp"
 
 #include <vector>
@@ -244,6 +246,19 @@ inline Scene stageScene(const Reel& reel, const Shot& shot, const std::map<std::
 
         st.pose = maz::film::performAt(who->build, mv, static_cast<float>(time));
         st.skeleton = maz::film::skeletonOf(who->build, st.pose);
+
+        // The face. Everyone in the shot reacts to the beat the shot is on, not just whoever is
+        // talking — a listener's face is half of why the cut to them exists.
+        maz::film::Reacting react;
+        react.beat = shot.beat;
+        react.mood = shot.mood;
+        react.speaking = st.speaking;
+        react.syllable = mv.syllable;
+        react.toward = lookYaw < 0.0f ? -1.0f : (lookYaw > 0.0f ? 1.0f : 0.0f);
+        react.toward *= std::fmin(1.0f, std::fabs(lookYaw) / 0.8f);
+        react.seconds = time;
+        react.seed = mv.seed;
+        st.face = maz::film::faceAt(react);
         sc.people.push_back(st);
     }
 
@@ -300,7 +315,7 @@ inline Image drawFrame3D(const Reel& reel, const std::map<std::string, Cast>& ca
     std::vector<maz::render::shapes::MeshData> bodies;
     bodies.reserve(sc.people.size());
     for (const Standing& who : sc.people) {
-        bodies.push_back(maz::film::buildBody(who.who->build, who.skeleton));
+        bodies.push_back(maz::film::buildBody(who.who->build, who.skeleton, who.face));
     }
 
     Surface surf = surfaceFor(sc.palette, *shot, time);

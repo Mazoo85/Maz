@@ -79,6 +79,47 @@ with `anim::solveTwoBoneIK` — because a walk with feet that slide is not a wal
 somewhere the leg cannot reach **falls short of it** rather than stretching the shin: a bone is a
 fixed length, and that is what makes it a bone.
 
+#### The head, and the face on it
+
+A reaction shot is half of film grammar: the reason to cut to somebody is to watch them take
+something in. So the head is worth more than its share of the work, and it gets it.
+
+The head is **one sculpted surface**, lofted from a table of cross-sections — the brow, the eye
+sockets, the cheekbones, the jaw and the chin are shaped into the same skin. It was a sphere with
+those things stuck on it as separate lumps for a while, and it never worked: two nearly-parallel
+surfaces meet along a curve that wanders by a whole facet at a time, so every lump showed its own rim
+and a face came out as four pale eggs glued to a fifth. The same failure put a sawtooth on the
+hairline, so the hair is lofted too, from a rim placed where a hairline actually is — high across the
+front, falling away fast at the temples, low round the back.
+
+The **bridge of the nose is part of that surface** as well, not a piece added to it; drawn separately
+it is a pipe laid down the middle of a face, whichever shape the pipe is. Only the end of the nose,
+the eyes, the eyebrows and the mouth are their own geometry, and each of them is laid onto the face
+**at its own position on it** — a head is a ball, so at the eyes the surface is already a tenth of a
+head further back than it is at the nose.
+
+The heights are the canon again. Measuring from the crown of the hair down to the chin:
+
+```
+  hairline  a quarter of the way down
+      brow  halfway — the eyebrows sit on it
+      eyes  just under the brow
+ nose base  halfway again, from the eyes to the chin
+     mouth  a third of the way from the nose base to the chin
+```
+
+The first draft had the nose and the mouth each a third of a head too high, and nothing else about
+the face mattered while that was true.
+
+`film/Expression.hpp` decides what the face is **doing**, from the one thing the film already knows
+about every shot: which beat of the story it is. A face built from the beat, the mood and who is
+speaking is a face reacting to the scene it is in, in every shot of every film, for free — where
+picking expressions at random gives a character who is astonished during small talk and blank at the
+worst moment of their life. The mouth opens on the **syllable clock**, the same one the hands gesture
+on, so the gesture, the mouth and the voice are one performance rather than three things happening at
+once. Blinks run on a per-character clock so two people listening to the same line do not blink in
+unison.
+
 ### 3. `film/Perform.hpp` — what the body is doing
 
 * **Walking.** A real gait cycle, driven by *distance travelled* rather than by time, so it cannot
@@ -213,6 +254,20 @@ ctest --test-dir build -R "software_rasteriser|film_actor|film_perform|film_stag
   never stretches a bone.
 * `tests/film/perform.cpp` — chiefly one thing: **while a foot is on the ground, its position on the
   floor does not change.** Everybody gets that wrong, and it is measurable.
+* `tests/film/face.cpp` — the head is built like a head, and what it is doing comes from the story.
+  Three of its checks each exist because of a bug that cost an afternoon of rendering pictures and
+  staring at them:
+  * **The head was lofted inside out.** Every triangle faced inward, so the renderer culled the front
+    of the face and drew the inside of the back of the skull instead — which is smooth, has no chin,
+    and still looks enough like a head to survive being stared at, enlarged, for hours. The signed
+    volume of a closed surface comes out negative when that happens, and positive when it does not:
+    one line of arithmetic that cannot be fooled by a head that happens to look right.
+  * **Features were laid onto the depth of the face measured down the middle**, so the eyes stood out
+    like golf balls and the cheekbones like two flying saucers. Nothing on the face may stand more
+    than an eighth of a head-depth off it.
+  * **The neck was aimed at the middle of the head.** `limb()` finishes with a rounded cap standing a
+    whole radius past the point it is given — five centimetres on a neck — so it arrived as a dome
+    behind the mouth and the figure grew a muzzle.
 * `tests/film/stage.cpp` — a framing is a promise, so the subject is put through the lens and the
   test looks at where they land on the film; and the shadows on a real body are checked against a
   raycast, which is a different mechanism arriving at the same answer.
