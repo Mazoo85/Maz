@@ -403,6 +403,59 @@ function paintOnce(text, opts, w, h) {
   pass('every photo folds in, none is dropped, and the cost never grows');
 })();
 
+/* ------------------------------------------------------ changing one part
+ * "A different sky, everything else as it was" is a promise about seeds, and
+ * seeds are exactly comparable — so it is tested here rather than by looking at
+ * pixels. On a canvas the finishing passes read the whole picture, so a change
+ * anywhere bleeds a little everywhere and no band is ever perfectly still; that
+ * makes pixels the wrong place to ask whether a part was held.
+ */
+(function onePart() {
+  console.log('\nChanging one part');
+
+  var words = 'a castle in the mountains at dusk';
+  var was = PROMPT.parse(words, { seed: 111 });
+
+  function rollOnly(part) {
+    var hold = {};
+    ['sky', 'land', 'subject'].forEach(function (k) { if (k !== part) hold[k] = true; });
+    return PROMPT.parse(words, { seed: 999, locked: PROMPT.holdLocks(was.seed, hold) });
+  }
+  function draws(spec, salt) {
+    var r = PROMPT.rng(spec, salt);
+    return [r(), r(), r(), r()].join(',');
+  }
+  var SALTS = ['sky', 'light', 'cloud', 'weather', 'scene', 'ground', 'fore', 'subject'];
+  function changed(spec) {
+    return SALTS.filter(function (s) { return draws(spec, s) !== draws(was, s); });
+  }
+
+  check(changed(rollOnly('sky')).sort().join(',') === 'cloud,light,sky,weather',
+    'asking for a different sky rolls the sky, its light, its cloud and its weather — ' +
+    'and those only (' + changed(rollOnly('sky')).join(', ') + ')');
+  check(changed(rollOnly('land')).sort().join(',') === 'fore,ground',
+    'asking for different land rolls the ground and what is in front of it, and nothing else ' +
+    '(' + changed(rollOnly('land')).join(', ') + ')');
+  check(changed(rollOnly('subject')).join(',') === 'subject',
+    'asking for a different subject rolls the subject alone ' +
+    '(' + changed(rollOnly('subject')).join(', ') + ')');
+
+  /* The horizon is the one both halves share. It used to sit under the land
+   * alone, which made "keep the sky" a promise the app could not keep: new
+   * ground puts the horizon somewhere new, and the sky is painted to the
+   * horizon, so the kept sky was repainted anyway. */
+  check(changed(rollOnly('land')).indexOf('scene') < 0,
+    'the horizon holds when only the land is asked to change');
+  check(changed(rollOnly('sky')).indexOf('scene') < 0,
+    'and when only the sky is asked to change');
+
+  var everything = PROMPT.parse(words, { seed: 999 });
+  check(changed(everything).length === SALTS.length,
+    'while a plain re-roll moves every part of the picture (' + changed(everything).length +
+    ' of ' + SALTS.length + ')');
+  pass('each part can be rolled on its own, and holds when it is not asked for');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);

@@ -449,6 +449,96 @@ let paintsThisLoad = 0;
       () => Number(document.getElementById('canvas').dataset.painted || 0)
     );
 
+    /* -------------------------------------------------- changing one part
+     * "A different sky, everything else as it was" is an exact claim, so it is
+     * measured exactly: colour per band, read only once the canvas has stopped
+     * moving. Settling matters more here than anywhere else in this file — read
+     * mid-render, a quarter-size preview compared against a finished picture
+     * invents differences of twenty or thirty and every one of these checks
+     * becomes noise.
+     *
+     * What is checked here is only that each button visibly does something. That
+     * it does the *right* thing — rolls its own part and holds every other — is
+     * a promise about seeds, and is checked exactly in coda-logic.test.js, where
+     * seeds can be compared directly. Pixels are the wrong place to ask: the
+     * finishing passes read the whole picture, so a change anywhere bleeds a
+     * little everywhere and no band is ever perfectly still. */
+    await page.fill('#prompt', 'a castle in the mountains at dusk');
+    await page.click('#paint');
+    count = await painted(page, count);
+
+    const BANDS = `(() => {
+      const c = document.getElementById('canvas');
+      const ctx = c.getContext('2d');
+      function band(y0, y1) {
+        const d = ctx.getImageData(0, Math.floor(c.height * y0), c.width,
+          Math.max(1, Math.floor(c.height * (y1 - y0)))).data;
+        let r = 0, g = 0, b = 0, n = 0;
+        for (let i = 0; i < d.length; i += 4 * 31) { r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; }
+        return [r / n, g / n, b / n];
+      }
+      return { sky: band(0, 0.32), mid: band(0.40, 0.70), land: band(0.78, 1) };
+    })()`;
+    const moved = (a, b) => Math.max(
+      Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]), Math.abs(a[2] - b[2]));
+
+    async function bandsSettled() {
+      let last = null;
+      for (let i = 0; i < 50; i++) {
+        const now = await page.evaluate(BANDS);
+        if (last && moved(now.sky, last.sky) < 1e-9 && moved(now.land, last.land) < 1e-9 &&
+            moved(now.mid, last.mid) < 1e-9) return now;
+        last = now;
+        await page.waitForTimeout(120);
+      }
+      return last;
+    }
+
+    let bands = await bandsSettled();
+    async function change(button) {
+      const before = bands;
+      const n0 = await page.evaluate(
+        () => Number(document.getElementById('canvas').dataset.painted || 0));
+      await page.click(button);
+      await painted(page, n0);
+      bands = await bandsSettled();
+      count = await page.evaluate(
+        () => Number(document.getElementById('canvas').dataset.painted || 0));
+      return {
+        sky: moved(bands.sky, before.sky),
+        mid: moved(bands.mid, before.mid),
+        land: moved(bands.land, before.land)
+      };
+    }
+
+    const most = (d) => Math.max(d.sky, d.mid, d.land);
+    const shown = (d) =>
+      `sky ${d.sky.toFixed(1)}, middle ${d.mid.toFixed(1)}, land ${d.land.toFixed(1)}`;
+
+    const bySky = await change('#newSky');
+    check(most(bySky) > 2, `asking for a different sky repaints the picture (${shown(bySky)})`);
+
+    const byLand = await change('#newLand');
+    check(most(byLand) > 2, `asking for different land repaints the picture (${shown(byLand)})`);
+
+    const bySubject = await change('#newSubject');
+    check(most(bySubject) > 0.2,
+      `asking for a different subject repaints the picture (${shown(bySubject)})`);
+
+    const undoneAfter = bands;
+    await page.click('#undo');
+    count = await painted(page, count);
+    const back = await bandsSettled();
+    check(moved(back.sky, undoneAfter.sky) > 0.5 || moved(back.mid, undoneAfter.mid) > 0.5,
+      'undo really goes back to a different picture than the one on screen');
+    bands = back;
+
+    /* Six near neighbours rather than six strangers. */
+    await page.click('#nearby');
+    await page.waitForFunction(() => document.querySelectorAll('#sheetGrid .card').length === 6,
+      null, { timeout: 40000 });
+    check(true, 'more like this renders six of them');
+
     /* ----------------------------------------------------------- growing it
      * The picture put on in coats instead of arriving finished, and steerable
      * while it goes. Both halves are checked, because either alone would be a

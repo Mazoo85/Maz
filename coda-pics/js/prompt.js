@@ -66,9 +66,19 @@
 
   /* The salts each lock covers. Named for what a person would call the part,
    * not for the functions that happen to use them. */
+  /*
+   * The horizon belongs to both halves, so it is held by either.
+   *
+   * It used to sit only under `land`, which made "keep the sky" a promise the
+   * app could not keep: a new landscape sets the horizon somewhere new, the sky
+   * is painted to that horizon, and so the sky everybody asked to keep was
+   * repainted. Measured, it moved more than the land did. Holding it from
+   * either side is also what a person means — asked for different ground they
+   * want different ground, not a different skyline to the world.
+   */
   var LOCKS = {
     subject: ['subject'],
-    sky: ['sky', 'light', 'cloud', 'weather'],
+    sky: ['sky', 'light', 'cloud', 'weather', 'scene'],
     land: ['scene', 'ground', 'fore']
   };
 

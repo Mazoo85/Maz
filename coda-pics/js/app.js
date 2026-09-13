@@ -327,6 +327,7 @@
       if (coat >= COATS.length) {
         growStop(true);
         el.outButtons.hidden = false;
+        el.partButtons.hidden = false;
         save(LAST_KEY, { prompt: text, seed: seed, style: el.style.value, shape: el.shape.value });
         setStatus('Finished, in ' + COATS.length + ' coats. It is a real picture — keep it, ' +
           'save it or share it like any other.');
@@ -533,6 +534,9 @@
   }
 
   function forgetPalettes() {
+    /* Colours kept from months of photographs are the most expensive thing in
+     * here to lose to a mis-tap, so this is the one that most needs a way back. */
+    pushUndo();
     /* "Forget all of them" has to mean all of them, the accumulated look
      * included — a button that quietly kept something back would be a lie. */
     library = [];
@@ -619,6 +623,93 @@
     return spec;
   }
 
+  /* ---------------------------------------------- changing just one thing
+   * The locks hold a part still while everything else rolls. Wanting one part
+   * to roll while everything else holds is the same machinery read the other
+   * way round: lock all of them except the one being changed. Nothing new had
+   * to be built for this — it was already possible and simply had no button.
+   */
+  var PARTS = { sky: 'sky', land: 'land', subject: 'subject' };
+
+  function repaintPart(part) {
+    if (busy || !current) return;
+    var text = el.prompt.value.trim();
+    if (!text) return;
+    pushUndo();
+    var hold = {};
+    Object.keys(PARTS).forEach(function (k) { if (k !== part) hold[k] = true; });
+    /* Everything held keeps the seed it already had; the part being changed
+     * gets a new one, so only it can come out different. */
+    var kept = PROMPT.holdLocks(current.seed, hold);
+    seed = 1 + Math.floor(Math.random() * 999999);
+    var size = sizeOf();
+    var spec = PROMPT.parse(text, { seed: seed, style: el.style.value, locked: kept });
+    var ph = photoSpec();
+    if (ph) spec.photo = ph;
+
+    busy = true;
+    el.busy.hidden = false;
+    setTimeout(function () {
+      drawProgressive(el.canvas, spec, size.w, size.h, function (ok) {
+        busy = false;
+        el.busy.hidden = true;
+        if (!ok) { setStatus('That one would not paint. Try again.'); return; }
+        current = spec;
+        showReadout(spec, size);
+        el.canvas.dataset.painted = String(++painted);
+        setStatus('A different <b>' + part + '</b>. Everything else is exactly as it was.');
+      });
+    }, 20);
+  }
+
+  /* ------------------------------------------------------------------ undo
+   * Forgetting a photo, clearing the colours, rolling over something good —
+   * all of it was permanent, and the app had no way back from any of it.
+   * One step back covers nearly every case of a press somebody regrets.
+   */
+  var undoStack = [];
+
+  function pushUndo() {
+    undoStack.push({
+      prompt: el.prompt.value,
+      seed: seed,
+      style: el.style.value,
+      shape: el.shape.value,
+      spec: current,
+      library: library.slice(),
+      look: look ? { palette: look.palette, count: look.count } : null,
+      chosen: chosenPalette
+    });
+    if (undoStack.length > 8) undoStack.shift();
+    if (el.undo) el.undo.hidden = false;
+  }
+
+  function undoLast() {
+    var was = undoStack.pop();
+    if (!was) return;
+    el.prompt.value = was.prompt;
+    el.style.value = was.style;
+    el.shape.value = was.shape;
+    seed = was.seed;
+    library = was.library;
+    look = was.look;
+    chosenPalette = was.chosen;
+    save(PALETTE_KEY, library);
+    save(LOOK_KEY, look);
+    renderPalettes();
+    if (el.undo) el.undo.hidden = undoStack.length === 0;
+    if (was.spec) {
+      var size = sizeOf();
+      drawProgressive(el.canvas, was.spec, size.w, size.h, function (ok) {
+        if (!ok) return;
+        current = was.spec;
+        showReadout(was.spec, size);
+        el.canvas.dataset.painted = String(++painted);
+      });
+    }
+    setStatus('Put back.');
+  }
+
   function repaint(newSeed) {
     if (busy) return;
     var text = el.prompt.value.trim();
@@ -627,6 +718,7 @@
       setStatus('Tell me what to draw first — even two words will do.');
       return;
     }
+    if (current) pushUndo();
     if (newSeed != null) seed = newSeed;
 
     busy = true;
@@ -650,6 +742,7 @@
         }
         current = spec;
         el.outButtons.hidden = false;
+        el.partButtons.hidden = false;
         showReadout(spec, size);
         save(LAST_KEY, { prompt: text, seed: seed, style: el.style.value, shape: el.shape.value });
         el.canvas.dataset.painted = String(++painted);
@@ -971,7 +1064,7 @@
   }
 
   /* ------------------------------------------------------------ six takes */
-  function showSix() {
+  function showSix(nearby) {
     var text = el.prompt.value.trim();
     if (!text) { el.prompt.focus(); return; }
     el.sheet.hidden = false;
@@ -981,8 +1074,21 @@
 
     for (var i = 0; i < 6; i++) {
       (function (n) {
+        /* Six strangers, or six near neighbours of the one on screen. A
+         * neighbour keeps the sky and the land and rolls only the subject, so
+         * it is recognisably the same picture rather than a different one. */
         var s = 1 + Math.floor(Math.random() * 999999);
-        var spec = specFor(text, s);
+        var spec;
+        if (nearby === true && current) {
+          spec = PROMPT.parse(text, {
+            seed: s, style: el.style.value,
+            locked: PROMPT.holdLocks(current.seed, { sky: true, land: true })
+          });
+          var nph = photoSpec();
+          if (nph) spec.photo = nph;
+        } else {
+          spec = specFor(text, s);
+        }
         var card = document.createElement('button');
         card.className = 'card';
         card.type = 'button';
@@ -1304,6 +1410,7 @@
   function start() {
     ['prompt', 'style', 'shape', 'examples', 'paint', 'reroll', 'six', 'surprise',
       'canvas', 'placeholder', 'busy', 'status', 'readout', 'unknown', 'outButtons', 'grow',
+      'partButtons', 'newSky', 'newLand', 'newSubject', 'nearby', 'undo',
       'download', 'keep', 'share', 'sheet', 'sheetGrid', 'gallery', 'galleryWrap',
       'exportGallery', 'importGallery', 'importFile',
       'lockSubject', 'lockSky', 'lockLand',
@@ -1321,7 +1428,12 @@
     el.reroll.addEventListener('click', function () {
       repaint(1 + Math.floor(Math.random() * 999999));
     });
-    el.six.addEventListener('click', showSix);
+    el.six.addEventListener('click', function () { showSix(false); });
+    el.nearby.addEventListener('click', function () { showSix(true); });
+    el.newSky.addEventListener('click', function () { repaintPart('sky'); });
+    el.newLand.addEventListener('click', function () { repaintPart('land'); });
+    el.newSubject.addEventListener('click', function () { repaintPart('subject'); });
+    el.undo.addEventListener('click', undoLast);
     el.grow.addEventListener('click', growStart);
     el.surprise.addEventListener('click', function () {
       el.prompt.value = PROMPT.surprise(Date.now());

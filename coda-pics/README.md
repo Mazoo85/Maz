@@ -197,6 +197,12 @@ asks browser apps to use precisely because a web page cannot keep a secret.
 - **Paint it** — paint the words in the box (or just press Enter).
 - **Another take** — same words, different roll of the dice.
 - **Show me six** — six takes at once; tap one to paint it full size.
+- **Change just the sky / the land / the subject** — roll one part and hold the
+  rest. The locks do the opposite: they hold a part still while everything else
+  rolls. This is the same machinery read the other way round.
+- **More like this** — six near neighbours of what is on screen rather than six
+  strangers: same sky, same land, a different take on the subject.
+- **Undo** — one step back from a re-roll, a forgotten photo, or cleared colours.
 - **Grow it slowly** — the picture put on in coats and faded up frame by frame,
   the way it is actually built:
   a bare wash, then the sky, the light, the clouds, the land, the subject, what
