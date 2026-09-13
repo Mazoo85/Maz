@@ -146,6 +146,10 @@ python -m consolidate.cli update ~/one-repo --yes          # all projects
 python -m consolidate.cli update ~/one-repo alpha --yes    # just one
 ```
 
+Run with no project name it also **refreshes the index**. Do that after adding a
+folder of your own to the home repo — `PROJECTS.md` is generated, so it does not
+notice new directories on its own.
+
 ## How the history is kept
 
 Copying files between repositories throws the history away. This tool uses
@@ -210,7 +214,7 @@ python -m consolidate.cli build ~/one-repo --from-json repos.json --yes
 cd consolidate && python -m pytest -q
 ```
 
-163 tests. The ones in `tests/test_build.py` create real git repositories in a
+164 tests. The ones in `tests/test_build.py` create real git repositories in a
 temporary folder, consolidate them, and then go looking for every original
 commit — because "keeps all your history" is a claim worth checking rather than
 asserting.

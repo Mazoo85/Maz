@@ -282,3 +282,20 @@ def test_update_works_on_an_adopted_home_too(tmp_path):
     assert result.exit_code == 0, result.output
     assert (repo / "projects/alpha/lib/later.js").exists()
     assert (repo / "README.md").read_text().startswith("# My Project")
+
+
+def test_update_refreshes_a_stale_index_after_a_directory_is_added(tmp_path):
+    """A directory added by hand is invisible to the generated index until a
+    refresh; `update` with no project name is that refresh."""
+    repo = a_home(tmp_path)
+    runner.invoke(app, ["adopt", str(repo), "--name", "Home", "--yes"])
+    assert "newthing" not in (repo / "PROJECTS.md").read_text()
+
+    (repo / "newthing").mkdir()
+    (repo / "newthing" / "code.py").write_text(PADDING)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "add a project by hand")
+
+    result = runner.invoke(app, ["update", str(repo), "--yes"])
+    assert result.exit_code == 0, result.output
+    assert "newthing" in (repo / "PROJECTS.md").read_text()

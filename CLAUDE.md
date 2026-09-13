@@ -143,6 +143,12 @@ Two things worth knowing before touching it:
 - Forks are deliberately left out: folding one in ends the ability to pull upstream fixes
   or send changes back. `Mazoo85/codebase-memory-mcp` is a fork and should stay separate.
 
+`PROJECTS.md` does not notice a directory you add by hand. After adding one, refresh it:
+
+```sh
+(cd consolidate && python3 -m consolidate.cli update /path/to/Maz --yes)
+```
+
 `consolidate check .` compares this repo's own directories against each other and reports
 duplicated files and code that has drifted apart — run it when something feels like it
 already exists somewhere else in here.

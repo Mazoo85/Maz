@@ -283,7 +283,12 @@ def update(
     squash: bool = typer.Option(False, "--squash"),
     yes: bool = typer.Option(False, "--yes", "-y", help="Actually do it. Without this it is a dry run."),
 ) -> None:
-    """Pull later changes from the original repositories into the consolidated one."""
+    """Pull later changes from the original repositories into the consolidated one.
+
+    Run with no project name it also refreshes the index, which is what you want
+    after adding a directory of your own to the home repo: the generated
+    PROJECTS.md does not notice that on its own.
+    """
     saved = layout.read_manifest(folder)
     if saved is None:
         console.print(f"[red]{folder} has no {layout.MANIFEST_NAME} — it was not built by this tool.[/red]")
