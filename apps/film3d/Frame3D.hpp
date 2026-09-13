@@ -96,6 +96,13 @@ inline float exposureFor(const Shot& shot) {
     const bool night = shot.time == "NIGHT";
     const bool dusk = shot.time == "DUSK" || shot.time == "DAWN";
     const float base = night ? 1.30f : (dusk ? 1.18f : 1.05f);
+
+    // An automatic exposure was tried here — open the aperture in proportion to how dark the set's
+    // own palette is — and it was taken out again. It was written to fix a frame in the demo reel that
+    // looked black, and the frame turned out to be a FADE between two chapters, which is black on
+    // purpose. Applied to a night horror film, which is what most of the testing was done against, it
+    // opened the picture up until it read as an overcast afternoon. The lesson is the one worth
+    // keeping: check what a frame IS before deciding it is wrong.
     return base * (1.0f + 0.12f * static_cast<float>(shot.mood));
 }
 
