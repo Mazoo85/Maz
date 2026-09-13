@@ -19,19 +19,23 @@ in its corner that leads back to it. It is live on GitHub Pages:
 
 ### ▶ **https://mazoo85.github.io/Maz/**
 
-Publishing is GitHub Pages' own **"deploy from a branch"**, serving the repo root,
-so every push to the branch Pages is set to republishes the site with no workflow
-in the loop. The empty [`.nojekyll`](.nojekyll) file at the root tells Pages to
-serve the tree verbatim rather than running Jekyll over it. Pages has its **own**
-branch setting: changing the repository's default branch does not move it, so if
-the trunk moves, Pages must be pointed at the new branch too or the site keeps
-serving the old one.
+Publishing is **[`pages.yml`](.github/workflows/pages.yml)**: every push to `main`
+uploads the repository and deploys it, so the live site is whatever the trunk
+currently says. It needs *Settings → Pages → Source* set to **GitHub Actions**.
+
+It is a workflow rather than Pages' own "deploy from a branch" for one reason,
+learned the hard way: that setting tracks one **named** branch and does not
+follow the repository's default branch. When the trunk moved, the site kept
+serving a branch nobody was pushing to and quietly went stale for days, with
+nothing failing to say so. Following `main` by definition is what stops that
+happening twice.
 
 | | Project | What it is |
 |---|---|---|
 | 🎬 | **SCRIPT FORGE** — [open](film/) · [docs](film/README.md) | Type what your film is about and get the film: a formatted screenplay, a shot list, and an animated short with jointed characters, layered sets, weather, moving light and a composed score, that plays in the page and downloads. |
 | 🖼️ | **CODA PICS** — [open](coda-pics/) · [docs](coda-pics/README.md) | Type what you want to see and get a picture back: 60 subjects, 20 settings, every hour and weather, finished in one of 14 art styles. Every picture is drawn from scratch in the page — no model, no key, no network. |
 | 🎵 | **SONG FORGE** — [open](music/) · [docs](music/README.md) | Writes and plays complete songs — chords, bass, drums, arpeggio, melody — across 8 genres, with WAV and MIDI export. It is also the thing that scores a SCRIPT FORGE film. |
+| 🎮 | **NEON CELLS** — [play](cells/) · [docs](cells/README.md) | Roguelite action-platformer in the shape of Dead Cells: procedurally built biomes proved reachable before you enter them, permadeath, three scroll colours, weapons with rolled affixes, skills, mutations and two bosses. Plays on a controller, a keyboard or a phone. |
 | 🎮 | **ZOMBOID: ANCHORAGE** — [play](zomboid/) · [docs](zomboid/README.md) | Open-world zombie survival across a tile-built replica of downtown Anchorage, drawn as a 1990s SEGA arcade title. |
 | 🎮 | **DEAD SECTOR** — [play](shooter/) · [docs](shooter/README.md) | Phone-first top-down twin-stick shooter in one self-contained HTML file. |
 | ✍️ | **MADLIBS STORY FORGE** — [open](madlibs/) · [docs](madlibs/README.md) | Forges story ideas broken into scene beats, ready to seed a script. |

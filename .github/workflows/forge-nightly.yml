@@ -90,6 +90,22 @@ jobs:
             echo "::warning::GitHub's default branch is '$ghdefault' but the Forge's trunk is '$trunk'. This run used '$trunk'. Fresh clones and new sessions still start on '$ghdefault'."
           fi
 
+      - name: Say who the Forge is, before anything commits
+        # Both commits this job can make need an identity: the merge below,
+        # when it is a real merge rather than a fast-forward, and the ledger
+        # commit near the end. It used to be set only at the ledger commit,
+        # which was invisible for as long as the merge was always "Already up
+        # to date" — and that was only true while the run was merging a
+        # branch that never moved. Fixing the trunk made the merge real and
+        # this failed on the very next run.
+        #
+        # Set once, here, so the two cannot disagree and neither can be
+        # reordered out from under it.
+        run: |
+          set -euo pipefail
+          git config user.name "the Forge"
+          git config user.email "forge@users.noreply.github.com"
+
       - name: Put the ledger branch in place
         # Each night appends to the same record rather than overwriting it, so
         # the ledger branch is the base and the default branch is merged into
@@ -164,8 +180,6 @@ jobs:
             echo "Ledger unchanged — nothing to record."
             exit 0
           fi
-          git config user.name "the Forge"
-          git config user.email "forge@users.noreply.github.com"
           git add forge/ledger
           git commit -m "forge: ledger for $(date -u +%Y-%m-%d)"
           git push origin forge-ledger:refs/heads/forge/ledger
