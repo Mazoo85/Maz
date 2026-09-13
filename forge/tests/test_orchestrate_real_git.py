@@ -254,3 +254,39 @@ def test_ledger_line_still_written_when_restore_to_main_fails(tmp_path):
     assert len(read_all(root, ForgeConfig())) == 1
     # The simulated failure means the real checkout to main never ran.
     assert current_branch(root) != "main"
+
+
+def test_branch_is_cut_from_main_even_when_the_run_starts_elsewhere(tmp_path):
+    """The run must cut from the trunk wherever the caller is standing.
+
+    `create_branch` was a bare `git checkout -b`, so it cut from HEAD. Every
+    existing caller happened to be on `main` — an assumption nothing stated
+    and nothing checked — and the test above only exercises it because the
+    previous run restored `main` itself.
+
+    The nightly job has a real reason to be somewhere else: the ledger lives
+    on its own branch, and standing there is how the run gets the ledger's
+    full history to score against. Cut from there and the draft PR carries
+    every ledger commit in its own diff. This starts the cycle on exactly
+    such a branch and asserts the PR still contains only the night's work.
+    """
+    root = tmp_path / "repo"
+    remote = tmp_path / "remote.git"
+    _init_repo(root, remote)
+
+    # A branch that is not the trunk and carries a commit of its own, the
+    # shape of the ledger branch the nightly job checks out.
+    _git(["checkout", "-b", "forge-ledger"], root)
+    (root / "forge" / "ledger").mkdir(parents=True, exist_ok=True)
+    (root / "forge" / "ledger" / "note.txt").write_text("a ledger commit\n")
+    _git(["add", "-A"], root)
+    _git(["commit", "-m", "forge: a ledger commit that must not reach the PR"], root)
+    assert current_branch(root) == "forge-ledger"
+
+    entry = _run_cycle(root, 1)
+    assert entry["outcome"] == "pr_opened", entry
+
+    branch = _branch_from_notes(entry)
+    log = _git(["log", "--format=%s", f"main..{branch}"], root)
+    commits = [line for line in log.splitlines() if line.strip()]
+    assert commits == ["forge: Improve the notes file 1"], commits
