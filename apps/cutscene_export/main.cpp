@@ -1,12 +1,13 @@
 // apps/cutscene_export — headless "full motion video" exporter. Loads a composed character/item
 // (.mazprefab), bakes it into one mesh, orbits a camera around it over a timeline, renders each frame
-// on the CPU (no GPU/window), and writes the sequence as a single looping animated GIF.
+// on the CPU (no GPU/window), and writes the sequence as a single looping animated GIF — and,
+// optionally, as a numbered per-frame image sequence (PPM or QOI) for import into ffmpeg / a video editor.
 //
-//   cutscene_export <input.mazprefab> [--out file.gif] [--fps 30] [--seconds 3]
-//                   [--size 256] [--frames N]
+//   cutscene_export <input.mazprefab> [--out file.gif] [--fps 30] [--seconds 3] [--size 256]
+//                   [--frames N] [--frames-dir DIR] [--frame-format ppm|qoi]
 //
 // Pure CPU: reuses editor::bakeComposite + render::renderMeshPreview + anim::Timeline/FrameSequence +
-// render::encodeGifAnimation, so it runs anywhere the engine compiles (including CI, with no display).
+// render::encodeGifAnimation (+ encodePnmP6 / encodeQoi), so it runs anywhere the engine compiles.
 
 #include "maz/anim/FrameSequence.hpp"
 #include "maz/anim/Timeline.hpp"
@@ -16,6 +17,8 @@
 #include "maz/io/Serialize.hpp"    // io::writeFile
 #include "maz/math/Projection.hpp" // math::Projection
 #include "maz/render/ImageCodecGif.hpp"
+#include "maz/render/ImageCodecPnm.hpp" // render::encodePnmP6
+#include "maz/render/ImageCodecQoi.hpp" // render::encodeQoi
 #include "maz/render/Shapes.hpp"
 #include "maz/render/Shapes3D.hpp"
 #include "maz/render/SoftwareRender.hpp"
@@ -27,7 +30,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <string>
+#include <system_error>
 #include <vector>
 
 using namespace maz;
@@ -58,7 +63,7 @@ std::vector<math::vec3> swatchRgb() {
 } // namespace
 
 int main(int argc, char** argv) {
-    std::string input, out = "cutscene.gif";
+    std::string input, out = "cutscene.gif", framesDir, frameFormat = "ppm";
     float fps = 30.0f, seconds = 3.0f;
     int size = 256, framesCap = 0;
 
@@ -75,15 +80,21 @@ int main(int argc, char** argv) {
             size = std::atoi(next("256"));
         } else if (std::strcmp(a, "--frames") == 0) {
             framesCap = std::atoi(next("0"));
+        } else if (std::strcmp(a, "--frames-dir") == 0) {
+            framesDir = next("");
+        } else if (std::strcmp(a, "--frame-format") == 0) {
+            frameFormat = next("ppm");
         } else if (a[0] != '-' && input.empty()) {
             input = a;
         }
     }
     if (input.empty()) {
         std::fprintf(stderr, "usage: cutscene_export <input.mazprefab> [--out f.gif] [--fps N] "
-                             "[--seconds N] [--size N] [--frames N]\n");
+                             "[--seconds N] [--size N] [--frames N] [--frames-dir DIR] "
+                             "[--frame-format ppm|qoi]\n");
         return 2;
     }
+    const bool qoiFrames = frameFormat == "qoi"; // any other value falls back to PPM
     if (size < 1) {
         size = 256;
     }
@@ -161,6 +172,33 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "cutscene_export: failed to write %s\n", out.c_str());
         return 1;
     }
+
+    // Optionally also write each frame as a numbered image (frame_0000.<ext>, …) for ffmpeg / a video
+    // editor. Reuses the existing PPM (P6) and QOI encoders; the directory is created if needed.
+    if (!framesDir.empty()) {
+        std::error_code ec;
+        std::filesystem::create_directories(framesDir, ec);
+        if (ec) {
+            std::fprintf(stderr, "cutscene_export: cannot create %s: %s\n", framesDir.c_str(),
+                         ec.message().c_str());
+            return 1;
+        }
+        const char* ext = qoiFrames ? "qoi" : "ppm";
+        for (std::size_t i = 0; i < frames.size(); ++i) {
+            char name[32];
+            std::snprintf(name, sizeof(name), "frame_%04zu.%s", i, ext);
+            const std::string path = (std::filesystem::path(framesDir) / name).string();
+            const std::vector<std::uint8_t> bytes =
+                qoiFrames ? render::encodeQoi(frames[i]) : render::encodePnmP6(frames[i]);
+            if (bytes.empty() || !io::writeFile(path, bytes)) {
+                std::fprintf(stderr, "cutscene_export: failed to write %s\n", path.c_str());
+                return 1;
+            }
+        }
+        std::printf("cutscene_export: wrote %zu %s frames to %s/\n", frames.size(), ext,
+                    framesDir.c_str());
+    }
+
     std::printf("cutscene_export: wrote %s (%d frames, %dx%d, %.3g s @ %.3g fps)\n", out.c_str(),
                 frameCount, size, size, static_cast<double>(seconds), static_cast<double>(fps));
     return 0;

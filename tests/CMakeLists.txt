@@ -92,10 +92,17 @@ set_tests_properties(cutscene_pipeline PROPERTIES TIMEOUT 30)
 
 # Run the real cutscene_export binary on a committed sample character prefab (exercises arg parsing +
 # file IO + the whole export chain). Writes a small GIF into the test working dir; exit 0 on success.
+# --frames-dir also exercises the per-frame PPM sequence path (mkdir + encodePnmP6 + write).
 add_test(NAME cutscene_export_run
          COMMAND cutscene_export ${CMAKE_SOURCE_DIR}/assets/samples/figure.mazprefab
-                 --out figure.gif --frames 3 --size 48)
+                 --out figure.gif --frames 3 --size 48 --frames-dir figure_ppm --frame-format ppm)
 set_tests_properties(cutscene_export_run PROPERTIES TIMEOUT 60)
+
+# Same, exporting a QOI frame sequence (encodeQoi + write path).
+add_test(NAME cutscene_export_qoi
+         COMMAND cutscene_export ${CMAKE_SOURCE_DIR}/assets/samples/figure.mazprefab
+                 --out figure_q.gif --frames 3 --size 48 --frames-dir figure_qoi --frame-format qoi)
+set_tests_properties(cutscene_export_qoi PROPERTIES TIMEOUT 60)
 
 # GPU-driven particle simulation + plane collision (fx::GpuParticleSystem). The CPU step is the exact
 # arithmetic the compute shader runs, so bounce energy, no-sink, friction, lifecycle and the instance
