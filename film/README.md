@@ -20,6 +20,14 @@ no API key, and it works with the wifi off.
 
 ---
 
+
+## Two renderers
+
+The film you watch in the browser is drawn flat — painted planes with silhouettes between them. The
+same film can also be rendered as a **film in three dimensions**: rooms with floors in them, bodies
+built to human proportions, and a camera with a focal length. Both read the same reel and make the
+same cuts. See [docs/FILM_3D.md](../docs/FILM_3D.md).
+
 ## Using it
 
 1. Type your idea in the box. A sentence is plenty; a paragraph is fine too.

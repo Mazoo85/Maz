@@ -406,6 +406,16 @@ inline std::vector<math::vec3> ring(const math::mat4& frame, float localY, float
     return out;
 }
 
+// Move a whole rib along its own frame's forward axis, which is how a chest gets in front of a spine.
+inline std::vector<math::vec3> shifted(std::vector<math::vec3> rib, const math::mat4& frame,
+                                       float forward) {
+    const math::vec3 dir = math::vec3(frame * math::vec4(0.0f, 0.0f, 1.0f, 0.0f));
+    for (math::vec3& p : rib) {
+        p += dir * forward;
+    }
+    return rib;
+}
+
 // A limb: one continuous tapered surface from joint to joint, ROUNDED at both ends.
 //
 // The first version of this was a tube with a sphere stuck on each end to close it, and it made a
@@ -466,8 +476,14 @@ inline render::shapes::MeshData buildBody(const Build& b, const Skeleton& sk) {
                             b.pelvisHalfD * b.height * 0.86f, P));
         ribs.push_back(ring(sk.pelvis, 0.0f, b.m(b.pelvisHalfW), b.m(b.pelvisHalfD), P));
         ribs.push_back(ring(sk.waist, 0.0f, b.m(b.waistHalfW), b.m(b.waistHalfD), P));
-        ribs.push_back(ring(sk.chest, 0.0f, b.m(b.chestHalfW), b.m(b.chestHalfD), P));
-        ribs.push_back(ring(sk.yoke, -b.m(0.030f), b.m(b.yokeHalfW), b.m(b.yokeHalfD), P));
+        // The chest sits FORWARD of the spine and the shoulders sit back over it. A torso lofted as a
+        // stack of centred ellipses is perfectly symmetric front to back, so a figure photographed
+        // from behind is the same picture as one photographed from the front, and in a two-shot
+        // nobody can tell which way anyone is facing.
+        ribs.push_back(shifted(ring(sk.chest, 0.0f, b.m(b.chestHalfW), b.m(b.chestHalfD), P), sk.chest,
+                               b.m(0.013f)));
+        ribs.push_back(shifted(ring(sk.yoke, -b.m(0.030f), b.m(b.yokeHalfW), b.m(b.yokeHalfD), P),
+                               sk.yoke, -b.m(0.006f)));
         ribs.push_back(ring(sk.yoke, 0.0f, b.m(b.yokeHalfW * 0.94f), b.m(b.yokeHalfD * 0.92f), P));
         // The trapezius. Going from the width of the shoulders to the width of the neck in one step
         // gives a figure a cone for a top and makes the neck look twice its length; the slope has to
@@ -499,23 +515,28 @@ inline render::shapes::MeshData buildBody(const Build& b, const Skeleton& sk) {
         const math::mat4 headScale = render::scaleMatrix(
             math::vec3(b.m(b.headHalfW()), b.m(b.headHalfH() * 0.93f), b.m(b.headHalfD())));
         add(m, render::applyTransform(
-                   render::applyTransform(render::shapes::makeSphere(1.0f, 14, 20, b.skin), headScale),
+                   render::applyTransform(render::shapes::makeSphere(1.0f, 20, 28, b.skin), headScale),
                    sk.head));
         // A jaw: a smaller mass set forward and down. A head that is one egg reads as a mannequin.
         add(m, render::applyTransform(
                    render::applyTransform(render::shapes::makeSphere(1.0f, 10, 14, b.skin),
-                                          render::scaleMatrix(math::vec3(b.m(b.headHalfW() * 0.80f),
-                                                                         b.m(b.headHalfH() * 0.46f),
-                                                                         b.m(b.headHalfD() * 0.82f)))),
-                   sk.head * detail::move(0.0f, -b.m(b.headHalfH() * 0.42f), b.m(b.headHalfD() * 0.08f))));
+                                          render::scaleMatrix(math::vec3(b.m(b.headHalfW() * 0.82f),
+                                                                         b.m(b.headHalfH() * 0.42f),
+                                                                         b.m(b.headHalfD() * 0.86f)))),
+                   sk.head * detail::move(0.0f, -b.m(b.headHalfH() * 0.46f), b.m(b.headHalfD() * 0.02f))));
         // Hair: a cap set back and up, so it is proud of the skull over the crown and the back of the
         // head and clear of the face at the front. Its top lands exactly on the crown.
+        //
+        // How far proud matters more than it sounds. At 6% the two surfaces cross at a shallow angle
+        // and the hairline comes out serrated, like a badly cut stencil; at 10% they cross steeply and
+        // it is a line. And sitting higher leaves a forehead, without which a head at the far end of a
+        // two-shot is a dark helmet and reads as the back of somebody's head.
         add(m, render::applyTransform(
-                   render::applyTransform(render::shapes::makeSphere(1.0f, 12, 18, b.hair),
-                                          render::scaleMatrix(math::vec3(b.m(b.headHalfW() * 1.06f),
-                                                                         b.m(b.headHalfH() * 0.94f),
-                                                                         b.m(b.headHalfD() * 1.06f)))),
-                   sk.head * detail::move(0.0f, b.m(b.headHalfH() * 0.06f), -b.m(b.headHalfD() * 0.10f))));
+                   render::applyTransform(render::shapes::makeSphere(1.0f, 18, 26, b.hair),
+                                          render::scaleMatrix(math::vec3(b.m(b.headHalfW() * 1.10f),
+                                                                         b.m(b.headHalfH() * 0.86f),
+                                                                         b.m(b.headHalfD() * 1.10f)))),
+                   sk.head * detail::move(0.0f, b.m(b.headHalfH() * 0.14f), -b.m(b.headHalfD() * 0.15f))));
         // A nose, because at any distance a nose is what says which way a head is turned.
         add(m, render::applyTransform(
                    render::shapes::makeCone(b.m(b.headHalfW() * 0.20f), b.m(b.headHalfD() * 0.30f), 8,
@@ -528,12 +549,12 @@ inline render::shapes::MeshData buildBody(const Build& b, const Skeleton& sk) {
         for (int s = 0; s < 2; ++s) {
             const float sx = sideSign(s) * b.m(b.headHalfW() * 0.40f);
             const math::mat4 socket =
-                sk.head * detail::move(sx, b.m(b.headHalfH() * 0.06f), b.m(b.headHalfD() * 0.80f));
+                sk.head * detail::move(sx, b.m(b.headHalfH() * 0.05f), b.m(b.headHalfD() * 0.775f));
             add(m, render::applyTransform(
-                       render::shapes::makeSphere(b.m(b.headHalfW() * 0.20f), 8, 10, eyeWhite), socket));
+                       render::shapes::makeSphere(b.m(b.headHalfW() * 0.155f), 8, 12, eyeWhite), socket));
             add(m, render::applyTransform(
-                       render::shapes::makeSphere(b.m(b.headHalfW() * 0.11f), 6, 10, iris),
-                       socket * detail::move(0.0f, 0.0f, b.m(b.headHalfW() * 0.12f))));
+                       render::shapes::makeSphere(b.m(b.headHalfW() * 0.072f), 6, 10, iris),
+                       socket * detail::move(0.0f, 0.0f, b.m(b.headHalfW() * 0.095f))));
         }
     }
 

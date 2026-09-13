@@ -144,8 +144,10 @@ inline Scene stageScene(const Reel& reel, const Shot& shot, const std::map<std::
         Motive mv;
         mv.seed = hashName(who->name);
         mv.position = markFor(sc.stage, i, total);
-        // They face into the room's centre line, turned toward whoever else is there.
-        const float toCentre = mv.position.x > 0.0f ? 0.42f : -0.42f;
+        // They face the camera, turned a little toward whoever else is there. Squarer to the lens
+        // than two people talking would really stand — which is what actors are directed to do, and
+        // for the same reason: turned as far as life would turn them, the camera gets two profiles.
+        const float toCentre = mv.position.x > 0.0f ? 0.30f : -0.30f;
         mv.facing = 3.14159265f + toCentre; // 0 faces +Z, away from the camera; turn them round
         mv.tension = static_cast<float>(shot.mood) * 0.7f;
 
@@ -181,7 +183,10 @@ inline Scene stageScene(const Reel& reel, const Shot& shot, const std::map<std::
             }
             lookYaw = std::fmax(-1.5f, std::fmin(1.5f, lookYaw));
         }
-        mv.lookYaw = lookYaw * 0.85f;
+        // And they cheat the look too. A head turned the full way to the other person puts the face
+        // in profile in every two-shot in the film; half of it reads as looking at them and still
+        // shows the camera a face.
+        mv.lookYaw = lookYaw * 0.45f;
         mv.lookPitch = -0.04f;
 
         if (st.speaking) {
