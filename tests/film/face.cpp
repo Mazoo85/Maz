@@ -155,7 +155,8 @@ int main() {
         check(volume > 0.0015 && volume < 0.0060, "and it holds about three litres, as a head does");
 
         // The same for the hair, which is lofted the same way and got it wrong the same way.
-        const render::shapes::MeshData hair = film::detail::hairCap(hw, hh, hd, hh, b.hair);
+        const render::shapes::MeshData hair =
+            film::detail::hairCap(hw, hh, hd, hh, 0.4f, 0.0f, b.hair);
         const double hairVolume = enclosedVolume(hair);
         check(hairVolume > 0.0, "and so is the hair");
     }

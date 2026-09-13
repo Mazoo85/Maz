@@ -80,6 +80,60 @@ inline Cast castFor(const maz::film::Character& who, const maz::film::Voice* voi
     // height of their build is a cast of clones, and it shows the moment two of them share a frame.
     c.build.height *= 0.955f + static_cast<float>((h >> 7) % 90u) / 1000.0f;
 
+    // ---- what they wear, and what their hair does -------------------------------------------------
+    //
+    // The silhouette is who somebody is at the distance a film watches people from — you know which
+    // one is which across a car park, in the dark, long before you can read a face. So this comes off
+    // the ROLE first, because the role is the one thing the film actually knows about them, and off
+    // the name only where the role says nothing: a nurse is in scrubs with her hair up because that is
+    // what you have to do to work a ward, and the stranger who turns up at midnight is in a coat.
+    {
+        auto is = [&](const char* word) { return mentions(who.role, word); };
+        const bool medical = is("nurse") || is("doctor") || is("medic") || is("surgeon");
+        const bool uniformed = is("officer") || is("guard") || is("soldier") || is("police") ||
+                               is("driver") || is("porter");
+        const bool outerwear = is("stranger") || is("detective") || is("priest") || is("inspector") ||
+                               is("traveller") || is("keeper");
+        const std::uint32_t roll = h >> 19;
+        if (medical) {
+            c.build.sleeve = 0.55f;   // scrubs: short sleeves, nothing that can catch on anything
+            c.build.coatY = 0.0f;
+            c.build.hairY = 0.0f;     // and hair up, which is not a style choice on a ward
+            c.build.fringe = 0.25f;
+        } else if (uniformed) {
+            c.build.sleeve = 1.55f;
+            c.build.coatY = 0.52f;    // a tunic, cut at the hip
+            c.build.hairY = 0.0f;
+            c.build.fringe = 0.15f;
+        } else if (outerwear) {
+            c.build.sleeve = 1.55f;
+            c.build.coatY = 0.30f + static_cast<float>(roll % 9u) * 0.012f; // a coat, to the knee
+            c.build.fringe = 0.55f;
+        } else if (young) {
+            c.build.sleeve = 0.85f;
+            c.build.fringe = 0.95f;   // children have fringes, and it is most of what says child
+            c.build.hairY = (roll & 1u) ? 0.0f : 0.70f;
+        } else {
+            // Nobody in particular, so spread them out: some in a jacket, some not, sleeves long or
+            // short, hair up or down. A cast all dressed the same is a cast of extras.
+            c.build.sleeve = (roll & 1u) ? 1.55f : 0.50f;
+            c.build.coatY = (roll & 2u) ? 0.50f : 0.0f;
+            c.build.fringe = 0.15f + static_cast<float>(roll % 7u) * 0.11f;
+            c.build.hairY = 0.0f;
+        }
+        // Hair down is a woman's silhouette here more often than a man's, which is a generalisation
+        // and is also what an audience reads; either way it is the LENGTH that separates two people
+        // standing together, not the colour. It is decided last, and skips only the two roles where
+        // hair up is not a style choice — a ward and a uniform both require it.
+        const bool longHair = ((roll >> 4) & 3u) != 0u;
+        if (!medical && !uniformed && c.build.heads > 7.0f && c.build.height < 1.72f && longHair) {
+            c.build.hairY = 0.62f + static_cast<float>(roll % 11u) * 0.008f;
+        }
+        if (c.build.height < 1.72f && c.build.heads > 7.0f && ((roll >> 6) & 3u) == 0u) {
+            c.build.skirtY = 0.38f + static_cast<float>(roll % 5u) * 0.03f;
+        }
+    }
+
     // Their clothes, off their own name, in colours that stay separable in a dark room.
     const float hue = static_cast<float>((h >> 11) % 360u);
     auto fromHue = [](float deg, float sat, float val) {

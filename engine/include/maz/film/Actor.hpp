@@ -92,6 +92,22 @@ struct Build {
     render::Color legwear{0.18f, 0.19f, 0.24f, 1.0f};
     render::Color shoes{0.10f, 0.10f, 0.11f, 1.0f};
 
+    // ---- what they are wearing, and what their hair does ----------------------------------------
+    //
+    // Not decoration. At the distance a film watches people from, the SILHOUETTE is most of who
+    // somebody is — you know which one is which from across a car park, in the dark, before you can
+    // see a face. Two figures in the same painted T-shirt with the same helmet of hair are one figure
+    // drawn twice, whatever colour they have been tinted, and that is what every character in this
+    // renderer was until now.
+    //
+    // All of these are heights as a fraction of the body's own height, so they mean the same thing on
+    // a tall man, a short woman and a child.
+    float coatY = 0.0f;   // where a coat or jacket hem hangs to; 0 means no coat
+    float skirtY = 0.0f;  // where a skirt hem hangs to; 0 means trousers
+    float sleeve = 0.50f; // how far down the arm the sleeve runs: 0.5 short, 1.0 the elbow, 1.6 cuff
+    float hairY = 0.0f;   // where the hair falls to down the back; 0 means it stops at the head
+    float fringe = 0.4f;  // 0 swept straight back off the forehead, 1 a fringe down over it
+
     float headHalfH() const { return 0.5f / heads; }
     float headHalfW() const { return headHalfH() * 0.70f; }
     float headHalfD() const { return headHalfH() * 0.80f; }
@@ -713,6 +729,59 @@ inline render::shapes::MeshData skullShell(float hw, float hh, float hd, float j
     return tint(render::skinSections(ribs, true, false), c);
 }
 
+// Something that HANGS: a coat, a jacket, a skirt. Lofted from the body down to a hem, flaring as it
+// goes, because a hem is always wider than the waist above it and a garment that does not flare is a
+// tube of paint.
+//
+// It hangs off the pelvis rather than off the legs, which is the whole difference between a coat and
+// a pair of painted-on trousers: the legs move inside it, and the hem swings with the hips.
+inline render::shapes::MeshData hanging(const math::mat4& frame, float topY, float hemY, float topW,
+                                        float topD, float hemW, float hemD, const render::Color& c) {
+    if (hemY >= topY) {
+        return render::shapes::MeshData{};
+    }
+    const int points = 20;
+    const int steps = 5;
+    std::vector<std::vector<math::vec3>> ribs;
+    ribs.reserve(static_cast<std::size_t>(steps) + 2);
+    float wideHere = topW;
+    float deepHere = topD;
+    for (int i = 0; i <= steps; ++i) {
+        const float t = static_cast<float>(i) / static_cast<float>(steps);
+        // Wound counter-clockwise about +Y, because these ribs run DOWNWARD — the opposite of the
+        // head's, and the same as limb()'s. Wound the other way the coat is inside out.
+        const float y = topY + (hemY - topY) * t;
+        // The flare is not linear: a coat hangs straight off the shoulders and opens out near the
+        // bottom, so the width follows the square of how far down it is.
+        const float f = t * t;
+        wideHere = topW + (hemW - topW) * f;
+        deepHere = topD + (hemD - topD) * f;
+        std::vector<math::vec3> rib;
+        rib.reserve(static_cast<std::size_t>(points));
+        for (int k = 0; k < points; ++k) {
+            const float a = -6.28318530718f * static_cast<float>(k) / static_cast<float>(points);
+            rib.push_back(math::vec3(frame * math::vec4(std::cos(a) * wideHere, y,
+                                                        std::sin(a) * deepHere, 1.0f)));
+        }
+        ribs.push_back(rib);
+    }
+    // A hem that is a rim you can see the inside of, because that is what a hem is. It is turned in
+    // from whatever the last rib actually came out at, not from what the hem was ASKED for: taken
+    // from the nominal width it goes on flaring after the cloth has stopped, and the lip ends up
+    // wider than the garment it belongs to.
+    std::vector<math::vec3> lip;
+    lip.reserve(static_cast<std::size_t>(points));
+    const float edgeW = wideHere * 0.90f;
+    const float edgeD = deepHere * 0.90f;
+    for (int k = 0; k < points; ++k) {
+        const float a = -6.28318530718f * static_cast<float>(k) / static_cast<float>(points);
+        lip.push_back(math::vec3(
+            frame * math::vec4(std::cos(a) * edgeW, hemY + 0.012f, std::sin(a) * edgeD, 1.0f)));
+    }
+    ribs.push_back(lip);
+    return tint(render::skinSections(ribs, true, false), c);
+}
+
 // A head of hair with an authored HAIRLINE, lofted rather than intersected.
 //
 // The obvious way to put hair on a head is a second, slightly bigger sphere, and it does not work. Two
@@ -727,13 +796,54 @@ inline render::shapes::MeshData skullShell(float hw, float hh, float hd, float j
 // a figure whose hair is drawn above that mark is taller than it says it is. The cap sits `proud`
 // outside the skull's own ellipsoid, so it clears it everywhere by the same margin and never fights
 // with it.
-inline render::shapes::MeshData hairCap(float hw, float hh, float hd, float capH,
-                                        const render::Color& c) {
+// `fringe` pulls the front of the rim down over the forehead; `fallTo` is how far below the head's
+// centre the hair carries on down the back, in head half-heights, and is what makes the difference
+// between a crop and somebody with hair on their shoulders.
+inline render::shapes::MeshData hairCap(float hw, float hh, float hd, float capH, float fringe,
+                                        float fallTo, const render::Color& c) {
     const int points = 48;
     const int steps = 8;
     const float proud = 1.105f;
     std::vector<std::vector<math::vec3>> ribs;
-    ribs.reserve(static_cast<std::size_t>(steps) + 2);
+    ribs.reserve(static_cast<std::size_t>(steps) + 8);
+
+    // The FALL: hair that carries on below the hairline, down the back and over the shoulders. It is
+    // built as its OWN closed tube rather than as more ribs on the cap, and that is the whole trick.
+    // Bridged onto the cap, the surface has to get from the rim — which is high at the forehead and
+    // low at the nape — down to a ring that is level, and the only way across the front is a sheet
+    // straight down the face. It looks exactly like somebody wearing their hair over their eyes.
+    //
+    // Separate, the fall starts already tucked in behind the cheekbones and never goes near the face.
+    // The two overlap around the sides and the back, where they are both hair and nobody can tell.
+    render::shapes::MeshData whole;
+    if (fallTo < -1.0f) {
+        const int drop = 6;
+        std::vector<std::vector<math::vec3>> fallRibs;
+        fallRibs.reserve(static_cast<std::size_t>(drop) + 1);
+        for (int i = 0; i <= drop; ++i) {
+            const float t = static_cast<float>(i) / static_cast<float>(drop);
+            const float y = hh * (0.16f + (fallTo - 0.16f) * t);
+            std::vector<math::vec3> rib;
+            rib.reserve(static_cast<std::size_t>(points));
+            for (int k = 0; k < points; ++k) {
+                // Downward ribs, so wound the other way from the cap's — the direction that decides
+                // which side is the outside depends on which way the stack runs.
+                const float a = -6.28318530718f * static_cast<float>(k) / static_cast<float>(points);
+                const float toFront = std::sin(a);
+                const float front = toFront > 0.0f ? toFront * toFront : 0.0f;
+                // Tucked in hard at the front from the very top of the fall, and further as it goes
+                // down: hair falls BEHIND a face, and behind the jaw it is nearly at the neck.
+                const float tuck = 1.0f - front * (0.52f + 0.34f * t);
+                const float flare = 1.0f + 0.10f * t * (1.0f - front);
+                rib.push_back(math::vec3(std::cos(a) * hw * proud * tuck * flare, y,
+                                         std::sin(a) * hd * proud * tuck * flare -
+                                             hd * (0.30f + 0.22f * t) * front));
+            }
+            fallRibs.push_back(rib);
+        }
+        whole = tint(render::skinSections(fallRibs, true, false), c);
+    }
+
     for (int s = 0; s <= steps; ++s) {
         const float u = static_cast<float>(s) / static_cast<float>(steps);
         std::vector<math::vec3> rib;
@@ -751,7 +861,9 @@ inline render::shapes::MeshData hairCap(float hw, float hh, float hd, float capH
             // falls away from the front in a slow cosine and the result is a swimming cap.
             const float fall =
                 (toFront < 0.0f ? -1.0f : 1.0f) * std::pow(std::fabs(toFront), 1.5f);
-            const float rimY = hh * (-0.02f + 0.46f * fall);
+            // A fringe pulls the front of the rim down the forehead; swept back, it sits higher.
+            const float front = toFront > 0.0f ? toFront * toFront : 0.0f;
+            const float rimY = hh * (-0.02f + 0.46f * fall) - hh * 0.30f * fringe * front;
             const float y = rimY + (capH - rimY) * std::sin(u * 1.5707963f);
             const float t = y / capH;
             const float k = t * t >= 1.0f ? 0.0f : std::sqrt(1.0f - t * t);
@@ -764,7 +876,8 @@ inline render::shapes::MeshData hairCap(float hw, float hh, float hd, float capH
     // normals, and cost nothing to draw.
     ribs.push_back(
         std::vector<math::vec3>(static_cast<std::size_t>(points), math::vec3(0.0f, capH, 0.0f)));
-    return tint(render::skinSections(ribs, true, false), c);
+    add(whole, tint(render::skinSections(ribs, true, false), c));
+    return whole;
 }
 
 } // namespace detail
@@ -860,7 +973,11 @@ inline render::shapes::MeshData buildBody(const Build& b, const Skeleton& sk,
         add(m, render::applyTransform(skullShell(hw, hh, hd, jawDrop, b.skin), sk.head));
         auto faceZ = [&](float x, float y) { return headFrontZ(hw, hh, hd, x, y); };
 
-        add(m, render::applyTransform(hairCap(hw, hh, hd, hh, b.hair), sk.head));
+        add(m, render::applyTransform(
+                   hairCap(hw, hh, hd, hh, b.fringe,
+                           b.hairY > 0.0f ? (b.hairY * b.height - Skeleton::at(sk.head).y) / hh : 0.0f,
+                           b.hair),
+                   sk.head));
 
         // There is no brow ridge or cheekbone drawn here, and there used to be. They are shaped
         // into the head itself now — see the table in skullShell — because as separate lumps they
@@ -1042,8 +1159,13 @@ inline render::shapes::MeshData buildBody(const Build& b, const Skeleton& sk,
         // The sleeve doubles as the deltoid: it is widest where it caps the shoulder and narrows down
         // the arm, which is the shape a shoulder is. A separate ball for the deltoid is a second
         // surface, and a second surface at a joint is the bead problem all over again.
-        const math::vec3 sleeveEnd = sh + (el - sh) * 0.50f;
-        add(m, limb(sh, sleeveEnd, b.m(b.upperArmR * 1.24f), b.m(b.upperArmR * 1.04f), b.top));
+        // How far down the arm it runs is what tells a short-sleeved shirt from a coat at fifty
+        // metres, which is further than any face can be read from.
+        const float run = b.sleeve < 0.15f ? 0.15f : b.sleeve;
+        const math::vec3 sleeveEnd =
+            run <= 1.0f ? sh + (el - sh) * run : el + (wr - el) * (run - 1.0f);
+        const float cuffR = run <= 1.0f ? b.m(b.upperArmR * 1.04f) : b.m(b.foreArmR * 1.18f);
+        add(m, limb(sh, sleeveEnd, b.m(b.upperArmR * 1.24f), cuffR, b.top));
         // The hand: a flattened wedge from the wrist, which at any real distance is what a hand is.
         add(m, render::applyTransform(
                    render::applyTransform(render::shapes::makeSphere(1.0f, 8, 12, b.skin),
@@ -1051,6 +1173,21 @@ inline render::shapes::MeshData buildBody(const Build& b, const Skeleton& sk,
                                                                          b.m(b.handLen * 0.44f),
                                                                          b.m(b.wristR * 1.45f)))),
                    sk.wrist[s] * detail::move(0.0f, -b.m(b.handLen) * 0.40f, 0.0f)));
+    }
+
+    // ---- what they are wearing --------------------------------------------------------------------
+    //
+    // Drawn after the torso and before the legs, so a coat hangs over the trousers rather than the
+    // other way round, and so a skirt covers the top of the thighs.
+    if (b.skirtY > 0.0f && b.skirtY < b.yPelvis) {
+        add(m, hanging(sk.pelvis, b.m(0.02f), -b.m(b.yPelvis - b.skirtY), b.m(b.pelvisHalfW * 1.02f),
+                       b.m(b.pelvisHalfD * 1.02f), b.m(b.pelvisHalfW * 1.62f),
+                       b.m(b.pelvisHalfD * 1.62f), b.legwear));
+    }
+    if (b.coatY > 0.0f && b.coatY < b.yChest) {
+        add(m, hanging(sk.chest, 0.0f, -b.m(b.yChest - b.coatY), b.m(b.chestHalfW * 1.10f),
+                       b.m(b.chestHalfD * 1.12f), b.m(b.chestHalfW * 1.44f),
+                       b.m(b.chestHalfD * 1.40f), b.top));
     }
 
     // ---- legs ------------------------------------------------------------------------------------

@@ -133,6 +133,29 @@ unison.
 * **Speaking.** One hand leads, on the syllable clock the film already counts. Two hands doing the
   same thing at once is semaphore.
 
+#### What they are wearing, and what their hair does
+
+Not decoration. At the distance a film watches people from, the **silhouette is who somebody is** —
+you know which one is which across a car park, in the dark, long before you can read a face. Two
+figures in the same painted T-shirt with the same helmet of hair are one figure drawn twice, whatever
+colour they have been tinted, and that is what every character in this renderer was.
+
+So a `Build` carries a coat hem, a skirt hem, a sleeve length, a hair length and a fringe — all of
+them heights as a fraction of the body's own height, so they mean the same thing on a tall man, a
+short woman and a child. A coat or a skirt is **lofted and flares**, because a hem is always wider
+than the waist above it and a garment that does not flare is a tube of paint; it hangs off the pelvis
+rather than off the legs, so the legs move inside it.
+
+Hair is the cap plus, optionally, a **fall** — and the fall is its own closed tube rather than more
+ribs on the cap. Bridged onto the cap, the surface has to get from a hairline that is high at the
+forehead and low at the nape down to a level ring, and the only way across the front is a sheet
+straight down the face. It looked exactly like somebody wearing their hair over their eyes.
+
+`castFor` chooses from the **role** first, because the role is the one thing the film actually knows
+about a character — a nurse is in scrubs with her hair up because that is what you have to do to work
+a ward, and the stranger who turns up at midnight is in a coat — and off the name only where the role
+says nothing.
+
 #### Using the room
 
 Standing on a mark and talking is a radio play with a picture over it. Three things put somebody *in*

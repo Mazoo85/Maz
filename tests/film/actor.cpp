@@ -9,6 +9,8 @@
 // only what hangs off it, and that the leg solve never stretches a bone to reach the floor.
 #include "maz/film/Actor.hpp"
 
+#include <algorithm>
+
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -294,6 +296,159 @@ int main() {
         near(there.crown(b).x, straightOn.x + 2.0f, 1e-4f, "standing two metres over puts them there");
         near(there.crown(b).z, film::skeletonOf(b, film::restPose(b)).crown(b).z - 3.0f, 1e-4f,
              "and three metres back");
+    }
+
+    // ------------------------------------------------------------------ what they are wearing
+    //
+    // The silhouette is who somebody is at the distance a film watches people from. Each of these
+    // checks that a garment changes the OUTLINE — a coat that only changes a colour is a colour.
+    {
+        // How much cloth there is, and where. Measured off the mesh rather than off the numbers that
+        // built it, so a field that nothing reads cannot pass.
+        struct Cut {
+            float wideLow = 0.0f;  // widest cloth between the knee and the hip, as a fraction of height
+            float lowestTop = 1e9f; // how far down the body the top's own colour reaches
+            float wideArm = 0.0f;  // widest top-coloured cloth at forearm height: the sleeve
+            float atHem = 0.0f;     // and the garment's own width, near the hem
+            float aboveHem = 0.0f;  // and a hand's width higher up
+        };
+        auto cutOf = [](const film::Build& b) {
+            const maz::render::shapes::MeshData m = film::buildActor(b, film::restPose(b));
+            Cut c;
+            for (const auto& v : m.vertices) {
+                const bool isTop = std::fabs(v.r - b.top.r) < 0.005f &&
+                                   std::fabs(v.g - b.top.g) < 0.005f &&
+                                   std::fabs(v.b - b.top.b) < 0.005f;
+                const bool isLeg = std::fabs(v.r - b.legwear.r) < 0.005f &&
+                                   std::fabs(v.g - b.legwear.g) < 0.005f &&
+                                   std::fabs(v.b - b.legwear.b) < 0.005f;
+                const float y = v.py / b.height;
+                const float x = std::fabs(v.px) / b.height;
+                if ((isTop || isLeg) && y > 0.30f && y < 0.46f) {
+                    c.wideLow = std::max(c.wideLow, x);
+                }
+                // Two bands, both BELOW the hands, so what is measured is the garment and not an arm.
+                if (isTop && y > 0.32f && y < 0.40f) {
+                    c.atHem = std::max(c.atHem, x);
+                }
+                if (isTop && y > 0.44f && y < 0.52f) {
+                    c.aboveHem = std::max(c.aboveHem, x);
+                }
+                if (isTop) {
+                    c.lowestTop = std::min(c.lowestTop, y);
+                    // Between the elbow and the wrist the torso is long finished, so anything in the
+                    // top's colour out here is a sleeve and nothing else.
+                    if (y > 0.56f && y < 0.66f) {
+                        c.wideArm = std::max(c.wideArm, x);
+                    }
+                }
+            }
+            return c;
+        };
+
+        const film::Build plain = film::adultMale();
+        film::Build coat = plain;
+        coat.coatY = 0.33f;
+        const Cut bare = cutOf(plain);
+        const Cut wrapped = cutOf(coat);
+        check(wrapped.lowestTop < bare.lowestTop - 0.10f,
+              "a coat puts cloth a long way below where a shirt stops");
+        check(wrapped.wideLow > bare.wideLow * 1.15f,
+              "and it is wider down there than the legs are");
+        // A hem is always wider than the waist above it. A garment that does not open out is a tube of
+        // paint, and it is the flare that makes a coat read as a coat from behind.
+        check(wrapped.atHem > wrapped.aboveHem * 1.06f, "and it flares on the way down, as a hem does");
+
+        const film::Build trousers = film::adultFemale();
+        film::Build skirt = trousers;
+        skirt.skirtY = 0.40f;
+        check(cutOf(skirt).wideLow > cutOf(trousers).wideLow * 1.2f, "and so does a skirt");
+
+        // And it is not inside out. This is the mistake that cost an afternoon on the head — every
+        // triangle facing inward, so the renderer culls the surface facing the camera and draws the
+        // far one instead — and a lofted garment is built exactly the same way, so it is exactly as
+        // easy to get wrong. The signed volume of a surface comes out negative when it happens.
+        {
+            const maz::render::shapes::MeshData cloth = film::detail::hanging(
+                math::mat4(1.0f), 0.0f, -0.60f, 0.16f, 0.11f, 0.24f, 0.17f, plain.top);
+            double v = 0.0;
+            for (std::size_t t = 0; t + 2 < cloth.indices.size(); t += 3) {
+                const auto& p0 = cloth.vertices[cloth.indices[t + 0]];
+                const auto& p1 = cloth.vertices[cloth.indices[t + 1]];
+                const auto& p2 = cloth.vertices[cloth.indices[t + 2]];
+                v += static_cast<double>(p0.px * (p1.py * p2.pz - p2.py * p1.pz) -
+                                         p0.py * (p1.px * p2.pz - p2.px * p1.pz) +
+                                         p0.pz * (p1.px * p2.py - p2.px * p1.py)) /
+                     6.0;
+            }
+            check(v > 0.0, "and a coat is wound the right way out, like everything else that is lofted");
+        }
+
+        film::Build sleeves = plain;
+        sleeves.sleeve = 1.55f;
+        check(cutOf(sleeves).wideArm > cutOf(plain).wideArm * 1.5f,
+              "a long sleeve puts cloth down at the forearm; a short one leaves it bare");
+    }
+
+    // ------------------------------------------------------------------ and their hair
+    {
+        auto hairBelow = [](const film::Build& b, float y) {
+            const maz::render::shapes::MeshData m = film::buildActor(b, film::restPose(b));
+            int n = 0;
+            for (const auto& v : m.vertices) {
+                if (std::fabs(v.r - b.hair.r) < 0.005f && std::fabs(v.g - b.hair.g) < 0.005f &&
+                    std::fabs(v.b - b.hair.b) < 0.005f && v.py < y) {
+                    ++n;
+                }
+            }
+            return n;
+        };
+        const film::Build cropped = film::adultFemale();
+        film::Build flowing = cropped;
+        flowing.hairY = 0.62f;
+        const float chin = (1.0f - 1.0f / cropped.heads) * cropped.height;
+        check(hairBelow(cropped, chin) == 0, "short hair stops at the head");
+        check(hairBelow(flowing, chin) > 20, "and long hair carries on down past the jaw");
+
+        // And it falls BEHIND the face. The first version bridged the fall onto the cap, which meant
+        // the surface had to get from a hairline that is high at the forehead and low at the nape down
+        // to a level ring — and the only way across the front is a sheet straight down the face. It
+        // looked exactly like somebody wearing their hair over their eyes.
+        //
+        // The window is the face proper: below the brow, inside the width of the features. Above it is
+        // the forehead, where a fringe is meant to be, and out at the temples hair comes forward
+        // because that is what hair does.
+        const film::Skeleton sk = film::skeletonOf(flowing, film::restPose(flowing));
+        const math::vec3 head = film::Skeleton::at(sk.head);
+        const float hw = flowing.m(flowing.headHalfW());
+        const float hh = flowing.m(flowing.headHalfH());
+        const float hd = flowing.m(flowing.headHalfD());
+        const maz::render::shapes::MeshData m = film::buildActor(flowing, film::restPose(flowing));
+        int overTheFace = 0;
+        float worst = -1e9f;
+        for (const auto& v : m.vertices) {
+            if (!(std::fabs(v.r - flowing.hair.r) < 0.005f &&
+                  std::fabs(v.g - flowing.hair.g) < 0.005f &&
+                  std::fabs(v.b - flowing.hair.b) < 0.005f)) {
+                continue;
+            }
+            const float lx = v.px - head.x;
+            const float ly = v.py - head.y;
+            const float lz = v.pz - head.z;
+            if (ly < hh * 0.10f && ly > -hh * 0.85f && std::fabs(lx) < hw * 0.45f) {
+                const float proud = lz - film::detail::headFrontZ(hw, hh, hd, lx, ly);
+                worst = std::max(worst, proud);
+                if (proud > -hd * 0.05f) {
+                    ++overTheFace;
+                }
+            }
+        }
+        char buf[160];
+        std::snprintf(buf, sizeof buf,
+                      "and never in front of the face it is meant to frame (%d strands over it, "
+                      "nearest %.0f mm)",
+                      overTheFace, static_cast<double>(worst * 1000.0f));
+        check(overTheFace == 0, buf);
     }
 
     if (!failures.empty()) {
