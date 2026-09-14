@@ -90,6 +90,17 @@ target_link_libraries(maz_cutscene_pipeline_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME cutscene_pipeline COMMAND maz_cutscene_pipeline_tests)
 set_tests_properties(cutscene_pipeline PROPERTIES TIMEOUT 30)
 
+# Surfaceless offscreen GPU capture: init the Vulkan renderer with RendererConfig::offscreenWidth/
+# Height (no window/surface), render a lit cube through the real frame graph, and read it back with
+# Renderer::captureImage(). Needs a Vulkan device (CI's lavapipe provides one); SELF-SKIPS with exit 0
+# when none is available, so it's harmless on a box with no ICD. SDL uses the dummy video/audio driver.
+add_executable(maz_gpu_capture_tests render/gpu_capture.cpp)
+target_link_libraries(maz_gpu_capture_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME gpu_capture COMMAND maz_gpu_capture_tests)
+set_tests_properties(gpu_capture PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 # Run the real cutscene_export binary on a committed sample character prefab (exercises arg parsing +
 # file IO + the whole export chain). Writes a small GIF into the test working dir; exit 0 on success.
 # --frames-dir also exercises the per-frame PPM sequence path (mkdir + encodePnmP6 + write).
