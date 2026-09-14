@@ -19,9 +19,15 @@ if [ ! -x "$bin" ]; then
   exit 1
 fi
 
+# The reel is read into memory BEFORE the output directory is wiped, because the obvious thing to do
+# is to point this at the reel it wrote last time — film/tests/fixtures-3d/reel.json — and that lives
+# inside the directory about to be deleted. Doing it in the other order deletes the reel and then
+# fails to copy it, leaving no fixture at all.
+reeltext="$(cat "$reel")"
 rm -rf "$out"
 mkdir -p "$out"
-cp "$reel" "$out/reel.json"
+printf '%s' "$reeltext" > "$out/reel.json"
+reel="$out/reel.json"
 
 # 480 x 204 is the size the browser plays at, and supersample 1 with hard shadows is what it plays
 # with; there is no point holding the module to a standard the page never asks for.

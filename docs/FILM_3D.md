@@ -219,6 +219,34 @@ The camera carries a **focal length** as well as a distance, because that is the
 is not distance — a wide is about a 35mm, a mid a 50, a close-up an 85, and the camera steps back to
 make up the difference, exactly as it would on a set.
 
+#### The walls, and the things left on the tables
+
+Every interior had furniture in it and **nothing on the walls**, and the two side walls are the
+biggest objects in almost every frame: unbroken planes of one colour from the floor to the ceiling.
+That is what made rooms read as empty even when they were not.
+
+So each side wall now gets a **skirting board** and, in a room tall enough to have one, a **rail** two
+thirds of the way up. Neither is decoration. A line running away from the camera at a constant height
+is the strongest perspective cue a room has — it is the thing that tells you how long the room is —
+and the back wall had one all along while the two walls the camera actually looks down did not. Then
+**three or four flat boards** hang on each wall: notices, pictures, a panel. They stand a centimetre
+proud and they cast, so each throws a small shadow, and that shadow is what stops them reading as
+paint. One in five is the palette's key colour, and that is the one the eye lands on.
+
+They were black rectangles at first, made out of the palette's darkest ink, and they read as holes
+punched in the wall. They are dressing, so they get a real material like everything else in the room.
+
+And every flat top that furniture puts into the room is **written down as it goes in**, then a single
+pass at the end scatters one to three small dull objects onto each. Recording the tops rather than
+hand-placing clutter per set means a set that gains a table gains its clutter for free, and nothing
+can be scattered onto a surface that is not there. A room with a bare table in it is a showroom; the
+difference between a set and a room is the half-dozen small objects nobody placed on purpose, and
+most of the effect is their shadows.
+
+All of it costs **0.7 ms a frame** — 28.4 to 29.1, best of five runs each — of the 29 the renderer
+takes. That is 2.4%, and it is most of the margin the frame budget had left, which is worth
+saying out loud rather than rounding away.
+
 ---
 
 ## Two things that had to be added before it was watchable

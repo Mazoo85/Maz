@@ -399,6 +399,137 @@ int main() {
         }
     }
 
+    // ------------------------------------------------------------------ 5d. the walls have things on
+    //                                                                        them, and the tops do too
+    //
+    // The two side walls are the biggest objects in nearly every interior frame, and they used to be
+    // unbroken planes of one colour from the floor to the ceiling. What is checked here is not "some
+    // triangles were added" — that is true of any change — but that the things added are where a room
+    // actually has things: standing off the wall rather than buried in it, and sitting on top of the
+    // furniture rather than floating in the air or sunk through it.
+    {
+        for (const char* name : {"office", "ward", "room", "corridor", "bar"}) {
+            film::Shot sh;
+            sh.set = name;
+            const film::Stage st = film::buildStage(sh, pal, 31u);
+            const std::string where = name;
+
+            // Something stands proud of each side wall, somewhere down its length. The inner face of
+            // the wall is at halfWidth - 0.06; anything between there and a hand's width into the room
+            // is on the wall rather than part of it.
+            int onLeft = 0, onRight = 0, buried = 0;
+            for (const maz::render::MeshVertex& v : st.props.vertices) {
+                const float inner = st.halfWidth - 0.06f;
+                if (v.pz < 0.2f || v.pz > st.depth) {
+                    continue;
+                }
+                if (v.px < -inner + 0.14f && v.px > -st.halfWidth) {
+                    ++onLeft;
+                }
+                if (v.px > inner - 0.14f && v.px < st.halfWidth) {
+                    ++onRight;
+                }
+                if (v.px < -st.halfWidth - 0.01f || v.px > st.halfWidth + 0.01f) {
+                    ++buried;   // out through the wall and into the world beyond it
+                }
+            }
+            check(onLeft > 0, "the " + where + " has something hanging on its left wall");
+            check(onRight > 0, "and something on its right wall");
+            check(buried == 0, "and nothing in the " + where + " pokes out through a wall");
+
+            // The skirting runs the LENGTH of the room — that is what makes it read as perspective
+            // rather than as a stripe — so there must be skirting at the far end of the wall as well
+            // as at the near end.
+            //
+            // The band this looks in is narrow on purpose, and the first version of this check was
+            // wrong in a way worth recording: it allowed anything within 12cm of the wall and below
+            // knee height, which is satisfied by the BOTTOM OF THE WALL ITSELF. It passed happily with
+            // the skirting cut down to a stub. The wall's inner face is at halfWidth - 0.06 and the
+            // skirting sits just inside that, so the band has to stop short of the face to be
+            // measuring the skirting at all.
+            //
+            // And it is measured rather than counted. Counting vertices in the band says only that
+            // something is there, and a skirting shrunk to nothing leaves its vertices exactly where
+            // they were — which is a mutation that passed a counting version of this check. What is
+            // wanted is its SIZE: how tall it stands off the floor and how far it runs.
+            float lowZ = 1e9f, highZ = -1e9f, lowY = 1e9f, highY = -1e9f;
+            for (const maz::render::MeshVertex& v : st.mesh.vertices) {
+                const float fromMiddle = std::fabs(v.px);
+                const bool inTheBand =
+                    fromMiddle > st.halfWidth - 0.105f && fromMiddle < st.halfWidth - 0.065f;
+                if (!inTheBand || v.py > 0.15f) {
+                    continue;
+                }
+                lowZ = std::fmin(lowZ, v.pz);
+                highZ = std::fmax(highZ, v.pz);
+                lowY = std::fmin(lowY, v.py);
+                highY = std::fmax(highY, v.py);
+            }
+            check(highY - lowY > 0.05f,
+                  "the " + where + " has a skirting board standing off its side walls");
+            check(highZ - lowZ > st.depth * 0.9f,
+                  "and it runs the whole length of the wall, which is the line that says how long "
+                  "the room is");
+
+            // And the rail above it, in rooms tall enough to have one. Same band, up where the rail is.
+            if (st.ceiling > 2.4f && where != "vehicle" && where != "chapel") {
+                float railLow = 1e9f, railHigh = -1e9f, railThin = 1e9f, railThick = -1e9f;
+                for (const maz::render::MeshVertex& v : st.mesh.vertices) {
+                    const float fromMiddle = std::fabs(v.px);
+                    if (fromMiddle < st.halfWidth - 0.10f || fromMiddle > st.halfWidth - 0.06f) {
+                        continue;
+                    }
+                    if (v.py < st.ceiling * 0.60f || v.py > st.ceiling * 0.80f) {
+                        continue;
+                    }
+                    railLow = std::fmin(railLow, v.pz);
+                    railHigh = std::fmax(railHigh, v.pz);
+                    railThin = std::fmin(railThin, v.py);
+                    railThick = std::fmax(railThick, v.py);
+                }
+                check(railThick - railThin > 0.01f,
+                      "and a rail up where a rail goes in the " + where);
+                check(railHigh - railLow > st.depth * 0.9f,
+                      "running the same length of it");
+            }
+        }
+
+        // Things ON the furniture. A room with a bare table in it is a showroom. The check that
+        // matters is that they are ON it: resting on the top, not floating over it and not sunk into
+        // it, which is what every hand-placed number gets wrong sooner or later.
+        {
+            film::Shot sh;
+            sh.set = "ward";
+            const film::Stage st = film::buildStage(sh, pal, 77u);
+            // The ward's beds are 0.60 tall at z = 3.2. Anything sitting on one is between the top of
+            // the bed and a forearm above it.
+            int resting = 0, floating = 0;
+            for (const maz::render::MeshVertex& v : st.props.vertices) {
+                if (std::fabs(v.pz - 3.2f) > 0.85f || std::fabs(std::fabs(v.px) - 1.8f) > 0.40f) {
+                    continue;
+                }
+                if (v.py > 0.605f && v.py < 0.90f) {
+                    ++resting;
+                }
+                if (v.py > 0.90f && v.py < 1.60f) {
+                    ++floating;   // above the bed but below the drip stand's own top
+                }
+            }
+            check(resting > 0, "there is something left lying on the ward's beds");
+            check(floating == 0, "and nothing hanging in the air above them");
+        }
+
+        // It is dressing, so it casts — which is where most of the effect comes from. A picture that
+        // throws no shadow on the wall behind it is paint.
+        {
+            film::Shot sh;
+            sh.set = "office";
+            const film::Stage plain = film::buildStage(sh, pal, 5u);
+            check(plain.props.indices.size() > 300,
+                  "the dressing of a room is enough geometry to be worth casting");
+        }
+    }
+
     // ------------------------------------------------------------------ 6. the same shot twice
     {
         film::Shot sh;

@@ -269,6 +269,64 @@ inline Stage buildStage(const Shot& shot, const Palette& pal, std::uint32_t seed
             // A skirting line, which is most of what tells you a wall is a wall and not a backdrop.
             add(st.mesh, box(st.halfWidth * 2.0f, 0.11f, 0.02f, math::vec3(0.0f, 0.055f, st.depth - 0.07f),
                              inkC));
+            // And the same down both SIDE walls, which is where it was missing and where it matters
+            // more. The back wall is a long way off and usually half behind somebody; the side walls
+            // are the two biggest objects in almost every frame, and they were unbroken planes of one
+            // colour from the floor to the ceiling. A line running away from the camera at a constant
+            // height is also the strongest perspective cue a room has — it is the thing that says how
+            // long the room is.
+            const float inner = st.halfWidth - 0.06f;   // the face of the wall, not its middle
+            const float runZ = st.depth + 3.0f;
+            const float runAt = st.depth * 0.5f - 1.0f;
+            for (int side = 0; side < 2; ++side) {
+                const float sx = side == 0 ? -1.0f : 1.0f;
+                add(st.mesh, box(0.03f, 0.11f, runZ,
+                                 math::vec3(sx * (inner - 0.015f), 0.055f, runAt), inkC));
+                // A rail two thirds of the way up, where a room that has one has one. Not in a
+                // vehicle, which has no walls to speak of, and not in a chapel, where the walls are
+                // meant to go up uninterrupted.
+                if (h > 2.4f && set != "vehicle" && set != "chapel") {
+                    add(st.mesh, box(0.028f, 0.035f, runZ,
+                                     math::vec3(sx * (inner - 0.014f), h * 0.70f, runAt), woodC));
+                }
+            }
+
+            // Things ON the walls: notices, pictures, a window, a panel — whatever the room would
+            // have. They are flat and they are small, and they do more for a picture than another
+            // piece of furniture would, because they break the one surface that has nothing else
+            // happening on it. They stand a centimetre proud of the wall and they cast, so each one
+            // also throws a small shadow, which is what stops them reading as paint.
+            {
+                const int each = st.depth > 8.0f ? 4 : 3;
+                for (int side = 0; side < 2; ++side) {
+                    const float sx = side == 0 ? -1.0f : 1.0f;
+                    for (int i = 0; i < each; ++i) {
+                        // Every roll in its own statement, for the reason set out below: two rolls
+                        // inside one call are evaluated in whichever order the compiler likes, and
+                        // GCC and Clang disagree, so the same film dresses itself differently
+                        // depending on which one built the renderer.
+                        const float rz = dice.range(0.0f, 1.0f);
+                        const float rh = dice.range(0.0f, 1.0f);
+                        const float rw = dice.range(0.0f, 1.0f);
+                        const float rk = dice.range(0.0f, 1.0f);
+                        const float lit = dice.range(0.0f, 1.0f);
+                        const float z = 0.6f + (st.depth - 1.4f) *
+                                                   (static_cast<float>(i) + rz * 0.7f) /
+                                                   static_cast<float>(each);
+                        const float wide = 0.26f + rw * 0.40f;
+                        const float tall = 0.22f + rh * 0.42f;
+                        const float at = h * 0.38f + rk * h * 0.22f;   // below the rail, not through it
+                        // The first attempt made these out of the palette's darkest ink, and they came
+                        // out as flat black rectangles — holes punched in the wall rather than things
+                        // hanging on it. They are dressing, so they get a real material like everything
+                        // else in the room: a dark board that still takes the light. One in five is the
+                        // key colour instead, and that one is what the eye lands on.
+                        const render::Color c = lit < 0.20f ? rgb(pal.key, 0.85) : woodC;
+                        addProp(st, box(0.045f, tall, wide,
+                                        math::vec3(sx * (inner - 0.022f), at, z), c));
+                    }
+                }
+            }
             // A practical: a lamp, a window, a lit panel — something in shot that is ITSELF bright.
             // A night interior with no visible source is a room somebody forgot to light, and no
             // amount of exposure makes it look deliberate.
@@ -322,14 +380,30 @@ inline Stage buildStage(const Shot& shot, const Palette& pal, std::uint32_t seed
     //
     // From here down, everything is dressing rather than architecture, so it is collected separately
     // and handed to the shadow pass. `into` writes to both.
+    //
+    // Every flat top that furniture puts into the room is written down as it goes in, and a pass at
+    // the end puts things ON them. A room with a bare table in it is a showroom; the difference
+    // between a set and a room is the half-dozen small objects nobody placed on purpose. Recording
+    // the tops rather than hand-placing clutter per set means a set that gains a table gains its
+    // clutter for free, and nothing can be scattered onto a surface that is not there.
+    struct Top {
+        float x, y, z, halfW, halfD;
+    };
+    std::vector<Top> tops;
+    auto topped = [&tops](float x, float y, float z, float halfW, float halfD) {
+        tops.push_back(Top{x, y, z, halfW, halfD});
+    };
     if (set == "office") {
-        addProp(st, table(1.55f, 0.78f, dice.range(-0.5f, 0.5f), 2.3f, woodC, steelC));
+        const float deskX = dice.range(-0.5f, 0.5f);
+        addProp(st, table(1.55f, 0.78f, deskX, 2.3f, woodC, steelC));
+        topped(deskX, 0.7625f, 2.3f, 0.70f, 0.32f);
         addProp(st, chair(0.1f, 3.1f, 0.15f, woodC));
         addProp(st, stand(0.45f, 1.85f, 0.42f, -st.halfWidth + 0.5f, 3.4f, steelC)); // a filing cabinet
     } else if (set == "kitchen" || set == "bar") {
         const float counterH = set == "bar" ? 1.06f : 0.92f;
         addProp(st, stand(st.halfWidth * 1.3f, counterH, 0.62f, 0.0f, 2.6f, woodC));
         addProp(st, box(st.halfWidth * 1.34f, 0.05f, 0.70f, math::vec3(0.0f, counterH, 2.6f), steelC));
+        topped(0.0f, counterH + 0.025f, 2.6f, st.halfWidth * 0.60f, 0.26f);
         for (int i = 0; i < 3; ++i) {
             addProp(st, post(0.19f, 0.74f, -1.3f + static_cast<float>(i) * 1.3f, 1.75f, steelC, 9));
         }
@@ -337,6 +411,7 @@ inline Stage buildStage(const Shot& shot, const Palette& pal, std::uint32_t seed
         for (int i = 0; i < 2; ++i) {
             const float x = i == 0 ? -1.8f : 1.8f;
             addProp(st, stand(0.95f, 0.60f, 2.05f, x, 3.2f, clothC));      // a bed, made up
+            topped(x, 0.60f, 3.2f, 0.38f, 0.80f);
             addProp(st, post(0.035f, 1.75f, x + 0.62f, 2.5f, steelC, 7)); // a drip stand
         }
     } else if (set == "chapel") {
@@ -355,7 +430,9 @@ inline Stage buildStage(const Shot& shot, const Palette& pal, std::uint32_t seed
             addProp(st, box(0.16f, 0.16f, st.halfWidth * 2.0f,
                              math::vec3(0.0f, st.ceiling - 0.35f, z), steelC));
         }
-        addProp(st, stand(0.8f, 1.1f, 0.8f, dice.range(-1.2f, 1.2f), 4.2f, steelC));
+        const float crateX = dice.range(-1.2f, 1.2f);
+        addProp(st, stand(0.8f, 1.1f, 0.8f, crateX, 4.2f, steelC));
+        topped(crateX, 1.1f, 4.2f, 0.32f, 0.32f);
     } else if (set == "corridor") {
         for (int i = 0; i < 6; ++i) {
             const float z = 1.1f + static_cast<float>(i) * 1.85f;
@@ -366,8 +443,12 @@ inline Stage buildStage(const Shot& shot, const Palette& pal, std::uint32_t seed
                              rgb(pal.key, 1.0)));
         }
     } else if (set == "room") {
-        addProp(st, stand(1.85f, 0.72f, 0.85f, dice.range(-1.0f, 1.0f), 3.4f, woodC));
-        addProp(st, table(1.05f, 0.55f, dice.range(-0.8f, 0.8f), 1.9f, woodC, steelC));
+        const float sideX = dice.range(-1.0f, 1.0f);
+        addProp(st, stand(1.85f, 0.72f, 0.85f, sideX, 3.4f, woodC));
+        topped(sideX, 0.72f, 3.4f, 0.80f, 0.34f);
+        const float lowX = dice.range(-0.8f, 0.8f);
+        addProp(st, table(1.05f, 0.55f, lowX, 1.9f, woodC, steelC));
+        topped(lowX, 0.7625f, 1.9f, 0.44f, 0.20f);
     } else if (set == "vehicle") {
         // Behind the marks, not on them. Seats at z = 1.1 sat exactly where the two characters stand,
         // so they were inside the furniture — which nobody could see until the seats started casting a
@@ -375,6 +456,35 @@ inline Stage buildStage(const Shot& shot, const Palette& pal, std::uint32_t seed
         addProp(st, stand(0.52f, 0.95f, 0.55f, -0.55f, 2.15f, clothC));
         addProp(st, stand(0.52f, 0.95f, 0.55f, 0.55f, 2.15f, clothC));
         addProp(st, box(st.halfWidth * 1.9f, 0.9f, 0.08f, math::vec3(0.0f, 1.45f, 2.6f), skyC));
+    }
+
+    // ---- and the things left lying on them --------------------------------------------------------
+    //
+    // Small, dull and slightly askew. Nothing here is meant to be looked at — the point is that in a
+    // close-up there is something behind the actor's shoulder with an edge on it, and in a wide shot
+    // the tops are not empty planes. They cast, which is where most of the effect actually comes
+    // from: half a dozen little shadows on a table read as a used table.
+    for (std::size_t t = 0; t < tops.size(); ++t) {
+        const Top& tp = tops[t];
+        const float many = dice.range(0.0f, 1.0f);
+        const int count = 1 + static_cast<int>(many * 2.99f);          // one, two or three
+        for (int i = 0; i < count; ++i) {
+            // One roll per statement, each into its own name — see the note on the skyline below.
+            const float ox = dice.range(-0.72f, 0.72f);
+            const float oz = dice.range(-0.62f, 0.62f);
+            const float sw = dice.range(0.0f, 1.0f);
+            const float sh = dice.range(0.0f, 1.0f);
+            const float sd = dice.range(0.0f, 1.0f);
+            const float which = dice.range(0.0f, 1.0f);
+            const float wide = 0.05f + sw * 0.14f;
+            const float tall = 0.04f + sh * 0.20f;
+            const float deep = 0.05f + sd * 0.12f;
+            const render::Color c = which < 0.30f ? steelC : (which < 0.70f ? woodC : clothC);
+            addProp(st, box(wide, tall, deep,
+                            math::vec3(tp.x + ox * tp.halfW, tp.y + tall * 0.5f,
+                                       tp.z + oz * tp.halfD),
+                            c));
+        }
     }
 
     // ---- the thing the story turns on -------------------------------------------------------------
