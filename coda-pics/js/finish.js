@@ -602,6 +602,81 @@
    * asked for — "watercolour pixel art" is a wash, then blocked out, and looks
    * like neither on its own.
    */
+  /*
+   * Focus. One distance sharp, everything else soft.
+   *
+   * The whole picture is blurred once and then mixed back in, pixel by pixel,
+   * by how far that row is from the focused one — which is far cheaper than
+   * blurring each row by its own radius and looks the same. Strength comes from
+   * the framing: a close-up is shallow, a landscape is sharp front to back,
+   * which is what a real lens does.
+   */
+  function focusPass(img, w, h, focus) {
+    if (!focus || !(focus.strength > 0.05)) return;
+    var radius = Math.max(1, Math.round(Math.min(w, h) * 0.008 * focus.strength));
+    if (radius < 1) return;
+
+    var soft = new Uint8ClampedArray(img.data);
+    var softImg = { data: soft, width: w, height: h };
+    blur(softImg, w, h, radius, 2);
+
+    var d = img.data;
+    var fy = focus.y * h;
+    /* The band that stays sharp is as deep as the thing being focused on; past
+     * that it falls away, and how fast is what shallow focus means. Nothing is
+     * ever fully soft — a photograph's background is out of focus, not erased. */
+    var band = h * (focus.reach == null ? 0.45 : focus.reach) * 0.5;
+    var falloff = h * (0.55 - focus.strength * 0.30);
+    for (var y = 0; y < h; y++) {
+      var past = Math.max(0, Math.abs(y - fy) - band);
+      var t = Math.min(1, past / falloff);
+      var k = t * t * focus.strength * 0.82;   // squared: sharp stays sharp longer
+      if (k <= 0.002) continue;
+      var row = y * w * 4;
+      for (var x = 0; x < w; x++) {
+        var i = row + x * 4;
+        d[i] += (soft[i] - d[i]) * k;
+        d[i + 1] += (soft[i + 1] - d[i + 1]) * k;
+        d[i + 2] += (soft[i + 2] - d[i + 2]) * k;
+      }
+    }
+  }
+
+  /*
+   * Colour that shifts with brightness.
+   *
+   * Things do not simply go darker in shadow and lighter in sun — they go
+   * bluer and warmer. Shade is lit by the sky, which is blue; sunlight is
+   * warmer than the average of the scene. Painting shadow as grey and highlight
+   * as white is the single most common thing that makes a picture read as
+   * drawn, and it is a handful of arithmetic to stop doing.
+   */
+  function daylight(img, P, strength) {
+    if (!P || !P.sky || !P.sky.light) return;
+    var lit = P.sky.light;                 // hsl, the colour of the light itself
+    var skyH = P.sky.mid ? P.sky.mid[0] : 210;
+    function hslToRgb(hh, ss, ll) {
+      ss /= 100; ll /= 100;
+      var c = (1 - Math.abs(2 * ll - 1)) * ss;
+      var hp = ((hh % 360) + 360) % 360 / 60;
+      var xx = c * (1 - Math.abs((hp % 2) - 1));
+      var rr = 0, gg = 0, bb = 0;
+      if (hp < 1) { rr = c; gg = xx; }
+      else if (hp < 2) { rr = xx; gg = c; }
+      else if (hp < 3) { gg = c; bb = xx; }
+      else if (hp < 4) { gg = xx; bb = c; }
+      else if (hp < 5) { rr = xx; bb = c; }
+      else { rr = c; bb = xx; }
+      var m = ll - c / 2;
+      return [(rr + m) * 255, (gg + m) * 255, (bb + m) * 255];
+    }
+    /* Shadow takes the sky's hue and stays dark; highlight takes the light's
+     * own hue and stays bright. */
+    var shadow = hslToRgb(skyH, 42, 22);
+    var highlight = hslToRgb(lit[0], Math.min(60, lit[1]), 82);
+    grade(img, shadow, highlight, strength);
+  }
+
   function apply(ctx, w, h, spec, P) {
     var list = (spec.styles && spec.styles.length) ? spec.styles : [spec.style];
     list.forEach(function (id, i) {
@@ -612,6 +687,15 @@
       fn(ctx, w, h, spec, P, r);
       ctx.restore();
     });
+
+    /* Both of these are how a camera and the daylight behave, not a style, so
+     * they go on after whatever style was chosen rather than as one of them. */
+    if (!heavy(w, h)) {
+      var img = read(ctx, w, h);
+      daylight(img, P, 0.16);
+      focusPass(img, w, h, P && P.focus);
+      write(ctx, img);
+    }
     return list.join(' + ');
   }
 
@@ -622,6 +706,7 @@
       read: read, write: write, blur: blur, bloom: bloom, pixelate: pixelate,
       posterize: posterize, dither: dither, edges: edges, inkEdges: inkEdges,
       contrast: contrast, saturate: saturate, grade: grade, grain: grain,
+      focusPass: focusPass, daylight: daylight,
       vignette: vignette, luma: luma, mosaic: mosaic
     }
   };

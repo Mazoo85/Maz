@@ -642,6 +642,120 @@ function paintOnce(text, opts, w, h) {
   pass('ridges are made of something now');
 })();
 
+/* ------------------------------------------------------------------ the lens
+ * One distance sharp and everything else soft is the strongest single cue that
+ * a picture is a photograph. Checked on an image built here, so "sharp" and
+ * "soft" can be measured rather than judged by eye: a hard edge stays a hard
+ * edge where the lens is focused, and stops being one where it is not.
+ */
+(function theLens() {
+  console.log('\nThe lens');
+
+  function striped(w, h) {
+    var d = new Uint8ClampedArray(w * h * 4);
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        var i = (y * w + x) * 4;
+        /* Stripes two pixels wide, because the blur radius is a share of the
+         * picture's size and on an image this small that is a single pixel —
+         * wider stripes would keep their extremes and the test would report a
+         * working blur as doing nothing. */
+        var on = (x % 4) < 2 ? 255 : 0;      // hard vertical edges everywhere
+        d[i] = d[i + 1] = d[i + 2] = on;
+        d[i + 3] = 255;
+      }
+    }
+    return { data: d, width: w, height: h };
+  }
+  /* How hard the edges are in one row: a sharp row swings all the way between
+   * black and white, a blurred one does not. */
+  function contrastAt(img, w, y) {
+    var d = img.data, lo = 255, hi = 0;
+    for (var x = 0; x < w; x++) {
+      var v = d[(y * w + x) * 4];
+      if (v < lo) lo = v;
+      if (v > hi) hi = v;
+    }
+    return hi - lo;
+  }
+
+  /* A picture the size of a real one, because the blur radius is a share of
+   * the picture's size: on a postage stamp it rounds down to a single pixel and
+   * a working lens measures as a broken one. */
+  var W = 400, H = 600;
+  var img = striped(W, H);
+  FINISH.helpers.focusPass(img, W, H, { y: 0.5, reach: 0.16, strength: 0.9 });
+
+  var atFocus = contrastAt(img, W, Math.round(H * 0.5));
+  var farOff = contrastAt(img, W, 4);
+  check(atFocus > 200, 'what is focused on stays sharp (' + atFocus + ' of 255)');
+  check(farOff < atFocus * 0.75,
+    'and what is not goes soft (' + farOff + ' against ' + atFocus + ')');
+  check(farOff > 10, 'soft, not erased — a background is out of focus, not gone (' + farOff + ')');
+
+  /* The sharp band has to be at least as deep as the thing being focused on,
+   * or the lens focuses on the middle of an animal and blurs its own head. */
+  var deep = striped(W, H);
+  FINISH.helpers.focusPass(deep, W, H, { y: 0.5, reach: 0.8, strength: 0.9 });
+  check(contrastAt(deep, W, Math.round(H * 0.25)) > contrastAt(img, W, Math.round(H * 0.25)),
+    'a deeper subject keeps more of itself sharp');
+
+  /* A landscape is sharp front to back; a close-up is not. The framing decides,
+   * which is what a real lens does. */
+  function focusOf(text) {
+    var ctx = new FakeContext(200, 150);
+    return PAINT.render(ctx, 200, 150, PROMPT.parse(text, { seed: 11 })).focus;
+  }
+  var close = focusOf('a close up of a stag in a forest');
+  var wide = focusOf('a stag in a vast forest, wide');
+  check(close && wide && close.strength > wide.strength * 2.5,
+    'a close-up is shallow and a landscape is not (' +
+    close.strength + ' against ' + wide.strength + ')');
+  check(close.y >= 0 && close.y <= 1 && close.reach > 0,
+    'and the lens is focused somewhere inside the picture');
+  pass('focus follows the framing, and keeps the subject sharp');
+})();
+
+/* ------------------------------------------------- colour that shifts with light
+ * Things do not simply go darker in shadow and lighter in sun; they go bluer and
+ * warmer. Painting shade as grey is one of the loudest tells that a picture was
+ * drawn rather than taken.
+ */
+(function daylightColour() {
+  console.log('\nColour that shifts with light');
+
+  function greys(n) {
+    var d = new Uint8ClampedArray(n * 4);
+    for (var i = 0; i < n; i++) {
+      var v = Math.round((i / (n - 1)) * 255);
+      d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = v;
+      d[i * 4 + 3] = 255;
+    }
+    return { data: d, width: n, height: 1 };
+  }
+  var n = 32;
+  var img = greys(n);
+  var P = PAINT.makePalette(PROMPT.parse('a wolf in snow at noon', { seed: 2 }));
+  FINISH.helpers.daylight(img, P, 0.5);
+
+  var d = img.data;
+  var darkBlueness = d[2] - d[0];                     // blue minus red, in shadow
+  var lightWarmth = d[(n - 1) * 4] - d[(n - 1) * 4 + 2];   // red minus blue, in light
+  check(darkBlueness > 2,
+    'shadow takes the colour of the sky rather than going grey (blue over red by ' +
+    darkBlueness + ')');
+  check(lightWarmth > 2,
+    'and light takes the colour of the sun (red over blue by ' + lightWarmth + ')');
+
+  /* A flat grey ramp has to stay a ramp — this tints, it does not crush. */
+  var rising = true;
+  for (var i = 1; i < n; i++) {
+    if (d[i * 4] + d[i * 4 + 1] + d[i * 4 + 2] <= d[(i - 1) * 4] + d[(i - 1) * 4 + 1] + d[(i - 1) * 4 + 2]) rising = false;
+  }
+  check(rising, 'and dark is still darker than light afterwards');
+  pass('shade goes blue, sun goes warm, nothing is crushed');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);

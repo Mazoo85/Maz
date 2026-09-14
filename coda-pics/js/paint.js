@@ -1507,6 +1507,36 @@
     if (!onPhoto) foreground(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'fore'));
 
     paintWeather(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'weather'));
+
+    /*
+     * Where the lens is focused, and how shallowly.
+     *
+     * A real camera has one distance sharp and everything else soft, and how
+     * soft depends on how close you are: a close-up is shallow, a landscape is
+     * sharp front to back. Both of those come free from the framing the picture
+     * was already given.
+     *
+     * Depth is taken as height in the frame, which is not depth but is a good
+     * stand-in for it in a landscape: things near the horizon are far, things
+     * at the bottom of the frame are near. It is wrong for a bird in the sky,
+     * which is why the subject sets the focus when there is one — the thing
+     * asked for is the thing that should be sharp.
+     */
+    var focused = placed.length ? placed[placed.length - 1].box : null;
+    var focusY = focused ? (focused.y + focused.h * 0.5) / h : hz / h;
+    /* How deep the sharp band is. It has to be at least as deep as the thing
+     * being focused on, or the lens is focused on the middle of an animal and
+     * blurs its own head and feet — which is not shallow focus, it is a mistake.
+     * Everything past it falls away. */
+    var focusReach = focused
+      ? clamp((focused.h * 0.75) / h, 0.16, 0.9)
+      : 0.45;
+    var DEPTH_OF_FIELD = { closeup: 0.72, near: 0.5, low: 0.42, wide: 0.14, aerial: 0.18 };
+    P.focus = {
+      y: clamp(focusY, 0, 1),
+      reach: focusReach,
+      strength: shot ? (DEPTH_OF_FIELD[shot.id] || 0.26) : 0.26
+    };
     ctx.restore();
     return P;
   }

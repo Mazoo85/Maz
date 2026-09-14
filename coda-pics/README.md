@@ -234,6 +234,23 @@ Seven shapes, from a square to a 2560 × 1440 desktop wallpaper.
 **Installable.** Add it to your home screen and it opens without browser
 chrome and keeps working with no network — there was never anything to fetch.
 
+### Light and the lens
+
+Two things happen to every picture after it is painted, because they are how a
+camera and the daylight behave rather than a style you choose:
+
+**Colour shifts with brightness.** Things do not simply go darker in shadow and
+lighter in sun — they go *bluer* and *warmer*. Shade is lit by the sky, which is
+blue; sunlight is warmer than the average of the scene. Painting shadow as grey
+is one of the loudest tells that a picture was drawn rather than taken.
+
+**One distance is sharp and the rest is soft.** How soft depends on the framing:
+a close-up is shallow, a landscape is sharp front to back, which is what a real
+lens does. The sharp band is at least as deep as the thing being focused on —
+otherwise the lens focuses on the middle of an animal and blurs its own head,
+which is not shallow focus but a mistake. Nothing is ever fully soft: a
+photograph's background is out of focus, not erased.
+
 ## How it works
 
 Four steps, four files, each one able to be understood on its own:
