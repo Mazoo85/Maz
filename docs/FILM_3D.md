@@ -402,6 +402,31 @@ step between them.
 
 The tolerance stays at zero, because anything else would have hidden it.
 
+### And which renderer is for what
+
+Two questions get confused here, so they are answered separately.
+
+**Flat or 3D** is a question the person watching answers, and neither is the future of the other.
+Flat is instant, needs no download, costs almost nothing to draw, and is a deliberate graphic look —
+painted planes and silhouettes — which means it stays sharp at any length and on any phone. 3D is
+rooms with floors, bodies in proportion, a camera with a focal length and light that falls off; it
+costs about 30 ms a frame and a 170 KB download, and it is the one to pick when the SPACE matters —
+where somebody is standing, what is behind them, how far away the other person is. Both read the same
+reel and make the same cuts. The reel is the film; the renderer is a look, and the app keeps both.
+
+The consequence is the useful part: because the reel is the film, everything on the story side — the
+acts, what a character does with the room, the subtext, the score — improves **both** looks at once,
+while renderer work improves one. That is where the effort goes when there is a choice.
+
+**Native or browser** is not a choice anybody makes; it is the same C++ compiled twice. The browser
+build is the product — it is where films are watched, recorded and saved, with the score under them.
+The native build is the reference: it generates the fixture the browser is held to pixel-for-pixel,
+it renders without a frame budget when quality matters more than time, and it is where a bug is
+easiest to find. It writes a GIF and has no sound, and that is not an oversight to be fixed on its
+own — a soundtrack belongs to SONG FORGE, which is a browser thing, so an offline native score means
+running SONG FORGE into an offline destination rather than writing anything that makes music. Until
+somebody wants a film that never goes near a browser, the native renderer stays silent on purpose.
+
 ## A lens
 
 Everything a rasteriser draws is in focus, because a rasteriser is a **pinhole camera**: every point in
