@@ -142,6 +142,65 @@ bool VulkanSwapchain::create(VulkanContext& ctx, uint32_t width, uint32_t height
            createRenderPass(ctx) && createCompositePass(ctx) && createFramebuffers(ctx);
 }
 
+bool VulkanSwapchain::createOffscreen(VulkanContext& ctx, uint32_t width, uint32_t height) {
+    m_offscreen = true;
+    m_format = VK_FORMAT_B8G8R8A8_SRGB; // LDR composite output; read back as sRGB BGRA
+    m_extent.width = width == 0 ? 1u : width;
+    m_extent.height = height == 0 ? 1u : height;
+
+    // One owned single-sample LDR image the composite writes into. TRANSFER_SRC lets captureImage copy
+    // it to the CPU; SAMPLED is harmless and keeps it consistent with the swapchain image usage.
+    VkImageCreateInfo ii{};
+    ii.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    ii.imageType = VK_IMAGE_TYPE_2D;
+    ii.format = m_format;
+    ii.extent = {m_extent.width, m_extent.height, 1};
+    ii.mipLevels = 1;
+    ii.arrayLayers = 1;
+    ii.samples = VK_SAMPLE_COUNT_1_BIT;
+    ii.tiling = VK_IMAGE_TILING_OPTIMAL;
+    ii.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    ii.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    if (vkCreateImage(ctx.device(), &ii, nullptr, &m_offscreenImage) != VK_SUCCESS) {
+        MAZ_LOG_ERROR("offscreen target vkCreateImage failed");
+        return false;
+    }
+    VkMemoryRequirements req{};
+    vkGetImageMemoryRequirements(ctx.device(), m_offscreenImage, &req);
+    VkMemoryAllocateInfo ai{};
+    ai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    ai.allocationSize = req.size;
+    ai.memoryTypeIndex =
+        findMemoryType(ctx, req.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    if (ai.memoryTypeIndex == UINT32_MAX ||
+        vkAllocateMemory(ctx.device(), &ai, nullptr, &m_offscreenMemory) != VK_SUCCESS) {
+        MAZ_LOG_ERROR("offscreen target memory allocation failed");
+        return false;
+    }
+    vkBindImageMemory(ctx.device(), m_offscreenImage, m_offscreenMemory, 0);
+
+    // Its view goes into m_views[0], so createFramebuffers builds a single composite framebuffer for
+    // it and destroy() releases the view through the existing m_views loop.
+    VkImageViewCreateInfo vi{};
+    vi.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    vi.image = m_offscreenImage;
+    vi.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    vi.format = m_format;
+    vi.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    vi.subresourceRange.levelCount = 1;
+    vi.subresourceRange.layerCount = 1;
+    VkImageView view = VK_NULL_HANDLE;
+    if (vkCreateImageView(ctx.device(), &vi, nullptr, &view) != VK_SUCCESS) {
+        MAZ_LOG_ERROR("offscreen target vkCreateImageView failed");
+        return false;
+    }
+    m_views.assign(1, view);
+
+    chooseSampleCount(ctx);
+    return createColorTarget(ctx) && createDepthResources(ctx) && createSceneColor(ctx) &&
+           createRenderPass(ctx) && createCompositePass(ctx) && createFramebuffers(ctx);
+}
+
 // Single-sample scene color the MSAA pass resolves into; sampled by the composite pass.
 bool VulkanSwapchain::createSceneColor(VulkanContext& ctx) {
     VkImageCreateInfo ii{};
@@ -212,7 +271,10 @@ bool VulkanSwapchain::createCompositePass(VulkanContext& ctx) {
     color.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     color.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     color.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    color.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    // Windowed: leave the image ready to present. Offscreen: leave it in TRANSFER_SRC so captureImage
+    // can copy it straight out with no extra barrier.
+    color.finalLayout =
+        m_offscreen ? VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
     VkAttachmentReference colorRef{};
     colorRef.attachment = 0;
@@ -566,6 +628,16 @@ void VulkanSwapchain::destroy(VulkanContext& ctx) {
         vkDestroySwapchainKHR(device, m_swapchain, nullptr);
         m_swapchain = VK_NULL_HANDLE;
     }
+    // Offscreen mode: release the owned composite target (its view was in m_views, freed above).
+    if (m_offscreenImage) {
+        vkDestroyImage(device, m_offscreenImage, nullptr);
+        m_offscreenImage = VK_NULL_HANDLE;
+    }
+    if (m_offscreenMemory) {
+        vkFreeMemory(device, m_offscreenMemory, nullptr);
+        m_offscreenMemory = VK_NULL_HANDLE;
+    }
+    m_offscreen = false;
 }
 
 } // namespace maz::render
