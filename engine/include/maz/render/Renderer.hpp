@@ -9,6 +9,8 @@ class Window;
 
 namespace maz::render {
 
+class Image; // render::Image — captureImage() readback target (defined in render/Image.hpp)
+
 // Rendering quality tier. Standard is the full desktop frame graph (MSAA + bloom + SSAO + HDR/tonemap).
 // Mobile is the lighter path for phones/tablets and other bandwidth-limited GPUs (tilers): it forces MSAA
 // off, and skips the bloom and SSAO passes — the biggest per-frame bandwidth costs on a mobile GPU. The
@@ -27,6 +29,13 @@ struct RendererConfig {
     bool allowHeadless = false;
     // Quality tier. Set Mobile on phones/tablets (or any low-power GPU) for the lighter frame graph.
     RenderTier tier = RenderTier::Standard;
+    // Headless offscreen capture. When both are > 0 AND no presentable surface exists, the renderer
+    // builds an owned offscreen color target of this size and becomes ACTIVE with no swapchain and no
+    // present — frames are read back with captureImage() instead of being shown. 0 (the default) keeps
+    // the normal behavior: a windowed renderer when a surface exists, inactive when headless. This is
+    // how the FMV exporter / thumbnailer renders the real PBR frame graph off-GPU on a headless box.
+    uint32_t offscreenWidth = 0;
+    uint32_t offscreenHeight = 0;
 };
 
 struct Color {
@@ -294,8 +303,19 @@ public:
     // Draw counts from the previous completed frame (all zero when inactive).
     virtual RenderStats renderStats() const = 0;
 
-    // True when a real GPU + presentable surface are backing this renderer.
+    // True when a real GPU is backing this renderer (a presentable surface OR a headless offscreen
+    // target, see RendererConfig::offscreenWidth/Height).
     virtual bool isActive() const = 0;
+
+    // Read the last rendered frame back into `out` as an RGBA8 top-left-origin Image. Only the
+    // offscreen (surfaceless) renderer supports this — it copies the composited color target to the
+    // CPU after endFrame(); returns false for a windowed or inactive renderer, leaving `out`
+    // untouched. Call after a beginFrame()/endFrame() pair. The image is display-referred (the same
+    // space the PPM/QOI/GIF encoders expect), so it can be handed straight to those encoders.
+    virtual bool captureImage(Image& out) {
+        (void)out;
+        return false;
+    }
 };
 
 // Factory for the Vulkan backend.

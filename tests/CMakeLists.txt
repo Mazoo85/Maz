@@ -90,12 +90,40 @@ target_link_libraries(maz_cutscene_pipeline_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME cutscene_pipeline COMMAND maz_cutscene_pipeline_tests)
 set_tests_properties(cutscene_pipeline PROPERTIES TIMEOUT 30)
 
+# Surfaceless offscreen GPU capture: init the Vulkan renderer with RendererConfig::offscreenWidth/
+# Height (no window/surface), render a lit cube through the real frame graph, and read it back with
+# Renderer::captureImage(). Needs a Vulkan device (CI's lavapipe provides one); SELF-SKIPS with exit 0
+# when none is available, so it's harmless on a box with no ICD. SDL uses the dummy video/audio driver.
+add_executable(maz_gpu_capture_tests render/gpu_capture.cpp)
+target_link_libraries(maz_gpu_capture_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME gpu_capture COMMAND maz_gpu_capture_tests)
+set_tests_properties(gpu_capture PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 # Run the real cutscene_export binary on a committed sample character prefab (exercises arg parsing +
 # file IO + the whole export chain). Writes a small GIF into the test working dir; exit 0 on success.
+# --frames-dir also exercises the per-frame PPM sequence path (mkdir + encodePnmP6 + write).
 add_test(NAME cutscene_export_run
          COMMAND cutscene_export ${CMAKE_SOURCE_DIR}/assets/samples/figure.mazprefab
-                 --out figure.gif --frames 3 --size 48)
+                 --out figure.gif --frames 3 --size 48 --frames-dir figure_ppm --frame-format ppm)
 set_tests_properties(cutscene_export_run PROPERTIES TIMEOUT 60)
+
+# Same, exporting a QOI frame sequence (encodeQoi + write path).
+add_test(NAME cutscene_export_qoi
+         COMMAND cutscene_export ${CMAKE_SOURCE_DIR}/assets/samples/figure.mazprefab
+                 --out figure_q.gif --frames 3 --size 48 --frames-dir figure_qoi --frame-format qoi)
+set_tests_properties(cutscene_export_qoi PROPERTIES TIMEOUT 60)
+
+# The --gpu path: render the turntable through the real Vulkan frame graph offscreen (captureImage).
+# With software Vulkan (lavapipe) it exercises the GPU export; with no device it falls back to the CPU
+# rasterizer. Either way it must produce a valid GIF and exit 0. Uses the dummy SDL drivers.
+add_test(NAME cutscene_export_gpu
+         COMMAND cutscene_export ${CMAKE_SOURCE_DIR}/assets/samples/figure.mazprefab
+                 --out figure_gpu.gif --frames 3 --size 48 --gpu)
+set_tests_properties(cutscene_export_gpu PROPERTIES
+    TIMEOUT 90
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
 # GPU-driven particle simulation + plane collision (fx::GpuParticleSystem). The CPU step is the exact
 # arithmetic the compute shader runs, so bounce energy, no-sink, friction, lifecycle and the instance

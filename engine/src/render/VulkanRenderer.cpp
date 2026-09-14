@@ -2,7 +2,9 @@
 
 #include "maz/core/Log.hpp"
 #include "maz/platform/Window.hpp"
+#include "maz/render/Image.hpp" // render::Image (captureImage readback target)
 #include "render/MeshRenderer.hpp"
+#include "render/VulkanBuffer.hpp" // VulkanBuffer, findMemoryType (captureImage staging)
 #include "render/DebugDraw.hpp"
 #include "render/Particles3D.hpp"
 #include "render/BloomChain.hpp"
@@ -82,6 +84,7 @@ public:
 
     RenderStats renderStats() const override { return m_stats; }
     bool isActive() const override { return m_active; }
+    bool captureImage(Image& out) override;
 
 private:
     bool createCommands();
@@ -118,6 +121,7 @@ private:
     uint32_t m_currentFrame = 0;
     uint32_t m_imageIndex = 0;
     bool m_active = false;
+    bool m_offscreen = false;  // surfaceless capture: render to an owned target, no acquire/present
     bool m_skipBloom = false; // mobile tier: prime the bloom target's layout but skip the blur passes
     TextureHandle m_whiteTex = kInvalidTexture; // 1x1 white, for flat polygon fills
 };
@@ -135,21 +139,34 @@ bool VulkanRenderer::init(platform::Window& window, const RendererConfig& cfg) {
         return false;
     }
 
+    // With no presentable surface we can still be active IF the caller asked for offscreen capture
+    // (offscreenWidth/Height): render the real frame graph into an owned target read back by
+    // captureImage(). Otherwise fall back to the historical headless-inactive behaviour.
+    const bool wantOffscreen = cfg.offscreenWidth > 0 && cfg.offscreenHeight > 0;
     if (!m_ctx.hasSurface()) {
-        if (cfg.allowHeadless) {
-            MAZ_LOG_WARN("renderer inactive: no presentable surface — continuing headless");
-            return true;
+        if (!wantOffscreen) {
+            if (cfg.allowHeadless) {
+                MAZ_LOG_WARN("renderer inactive: no presentable surface — continuing headless");
+                return true;
+            }
+            MAZ_LOG_ERROR("renderer init failed: no presentable surface");
+            return false;
         }
-        MAZ_LOG_ERROR("renderer init failed: no presentable surface");
-        return false;
+        m_offscreen = true;
     }
 
-    uint32_t w = 0, h = 0;
-    window.drawableSize(w, h);
-    // Mobile tier: force MSAA off in the swapchain before it chooses a sample count.
+    // Mobile tier: force MSAA off before the swapchain/offscreen target chooses a sample count.
     m_swapchain.setForceSingleSample(cfg.tier == RenderTier::Mobile);
-    if (!m_swapchain.create(m_ctx, w, h, cfg.vsync)) {
-        return false;
+    if (m_offscreen) {
+        if (!m_swapchain.createOffscreen(m_ctx, cfg.offscreenWidth, cfg.offscreenHeight)) {
+            return false;
+        }
+    } else {
+        uint32_t w = 0, h = 0;
+        window.drawableSize(w, h);
+        if (!m_swapchain.create(m_ctx, w, h, cfg.vsync)) {
+            return false;
+        }
     }
     if (!createCommands() || !createSync()) {
         return false;
@@ -290,7 +307,8 @@ void VulkanRenderer::recreateSwapchain(uint32_t width, uint32_t height) {
 }
 
 void VulkanRenderer::onResize(uint32_t width, uint32_t height) {
-    if (m_active) {
+    // Offscreen targets are a fixed size (RendererConfig::offscreenWidth/Height); nothing to resize.
+    if (m_active && !m_offscreen) {
         recreateSwapchain(width, height);
     }
 }
@@ -302,16 +320,21 @@ bool VulkanRenderer::beginFrame() {
 
     vkWaitForFences(m_ctx.device(), 1, &m_inFlight[m_currentFrame], VK_TRUE, UINT64_MAX);
 
-    VkResult acquire =
-        vkAcquireNextImageKHR(m_ctx.device(), m_swapchain.handle(), UINT64_MAX,
-                              m_imageAvailable[m_currentFrame], VK_NULL_HANDLE, &m_imageIndex);
-    if (acquire == VK_ERROR_OUT_OF_DATE_KHR) {
-        recreateSwapchain(m_swapchain.extent().width, m_swapchain.extent().height);
-        return false;
-    }
-    if (acquire != VK_SUCCESS && acquire != VK_SUBOPTIMAL_KHR) {
-        MAZ_LOG_ERROR("vkAcquireNextImageKHR failed (VkResult %d)", (int)acquire);
-        return false;
+    if (m_offscreen) {
+        // No swapchain to acquire from: always render into the single owned target.
+        m_imageIndex = 0;
+    } else {
+        VkResult acquire =
+            vkAcquireNextImageKHR(m_ctx.device(), m_swapchain.handle(), UINT64_MAX,
+                                  m_imageAvailable[m_currentFrame], VK_NULL_HANDLE, &m_imageIndex);
+        if (acquire == VK_ERROR_OUT_OF_DATE_KHR) {
+            recreateSwapchain(m_swapchain.extent().width, m_swapchain.extent().height);
+            return false;
+        }
+        if (acquire != VK_SUCCESS && acquire != VK_SUBOPTIMAL_KHR) {
+            MAZ_LOG_ERROR("vkAcquireNextImageKHR failed (VkResult %d)", (int)acquire);
+            return false;
+        }
     }
 
     // Ensure the image we just acquired isn't still being read by a previous frame.
@@ -402,6 +425,19 @@ void VulkanRenderer::endFrame() {
     m_post.record(cmd, m_swapchain.compositeFramebuffer(m_imageIndex), m_swapchain.extent());
     vkEndCommandBuffer(cmd);
 
+    if (m_offscreen) {
+        // No semaphores and no present: submit the frame and block until it is done, so the composite
+        // target (left in TRANSFER_SRC by the composite pass) is ready for captureImage() to copy.
+        VkSubmitInfo submit{};
+        submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submit.commandBufferCount = 1;
+        submit.pCommandBuffers = &cmd;
+        vkQueueSubmit(m_ctx.graphicsQueue(), 1, &submit, m_inFlight[m_currentFrame]);
+        vkWaitForFences(m_ctx.device(), 1, &m_inFlight[m_currentFrame], VK_TRUE, UINT64_MAX);
+        m_currentFrame = (m_currentFrame + 1) % kMaxFramesInFlight;
+        return;
+    }
+
     VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     VkSubmitInfo submit{};
     submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -431,6 +467,56 @@ void VulkanRenderer::endFrame() {
     }
 
     m_currentFrame = (m_currentFrame + 1) % kMaxFramesInFlight;
+}
+
+bool VulkanRenderer::captureImage(Image& out) {
+    if (!m_active || !m_offscreen || m_swapchain.compositeImage() == VK_NULL_HANDLE) {
+        return false; // only the surfaceless offscreen renderer can read a frame back
+    }
+    const uint32_t w = m_swapchain.extent().width;
+    const uint32_t h = m_swapchain.extent().height;
+    const VkDeviceSize bytes = static_cast<VkDeviceSize>(w) * static_cast<VkDeviceSize>(h) * 4u;
+
+    VulkanBuffer staging;
+    if (!staging.create(m_ctx, bytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
+        MAZ_LOG_ERROR("captureImage: staging buffer allocation failed");
+        return false;
+    }
+
+    // The composite pass left the target in TRANSFER_SRC_OPTIMAL, so copy it straight out.
+    VkCommandBuffer cmd = m_ctx.beginSingleTimeCommands();
+    VkBufferImageCopy region{};
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.layerCount = 1;
+    region.imageExtent = {w, h, 1};
+    vkCmdCopyImageToBuffer(cmd, m_swapchain.compositeImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                           staging.handle(), 1, &region);
+    m_ctx.endSingleTimeCommands(cmd);
+
+    const auto* src = static_cast<const uint8_t*>(staging.map(m_ctx));
+    if (src == nullptr) {
+        staging.destroy(m_ctx);
+        MAZ_LOG_ERROR("captureImage: staging map failed");
+        return false;
+    }
+    // Composite target is B8G8R8A8_SRGB: swap B<->R for RGBA. The bytes are already display-referred
+    // sRGB, so pass them through unchanged (byte/255 -> Color), matching the CPU preview + encoders.
+    out = Image(static_cast<int>(w), static_cast<int>(h));
+    for (uint32_t y = 0; y < h; ++y) {
+        for (uint32_t x = 0; x < w; ++x) {
+            const uint8_t* p = src + (static_cast<std::size_t>(y) * static_cast<std::size_t>(w) +
+                                      static_cast<std::size_t>(x)) *
+                                         4u;
+            out.setPixel(static_cast<int>(x), static_cast<int>(y),
+                         color8(static_cast<int>(p[2]), static_cast<int>(p[1]),
+                                static_cast<int>(p[0]), static_cast<int>(p[3])));
+        }
+    }
+    staging.unmap(m_ctx);
+    staging.destroy(m_ctx);
+    return true;
 }
 
 TextureHandle VulkanRenderer::loadTexture(const char* path) {

@@ -100,7 +100,7 @@ int main() {
     const float dist = radius / std::sin(fovY * 0.5f) * 1.2f;
     const math::mat4 proj =
         math::Projection::perspective(fovY, 1.0f, 0.05f, dist + radius * 4.0f).m;
-    const math::vec3 light = glm::normalize(math::vec3(-0.4f, -0.8f, -0.5f));
+    const render::PreviewLighting rig = render::threePointRig();
 
     anim::Timeline tl;
     tl.track("yaw").add(0.0f, 0.0f);
@@ -112,7 +112,7 @@ int main() {
         const float ang = glm::radians(tl.valueAt("yaw", seq.timeAt(i)));
         const math::vec3 eye = centre + dist * math::vec3(std::sin(ang), 0.35f, std::cos(ang));
         const math::mat4 view = glm::lookAt(eye, centre, math::vec3(0, 1, 0));
-        render::Image f = render::renderMeshPreview(baked, proj * view, light, size, size, bg);
+        render::Image f = render::renderMeshPreview(baked, proj * view, eye, rig, size, size, bg);
         totalLit += nonBackground(f, bg);
         frames.push_back(std::move(f));
     }

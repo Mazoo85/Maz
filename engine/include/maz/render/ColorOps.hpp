@@ -449,14 +449,15 @@ inline float okComputeMaxSaturation(float a, float b) {
         wl = -0.0041960863f; wm = -0.7034186147f; ws = 1.7076147010f;
     }
     float S = k0 + k1 * a + k2 * b + k3 * a * a + k4 * a * b;
-    const float kl = 0.3963377774f * a + 0.2158037573f * b;
-    const float km = -0.1055613458f * a - 0.0638541728f * b;
-    const float ks = -0.0894841775f * a - 1.2914855480f * b;
+    // Per-channel a/b coefficients (named cL/cM/cS, not kl/km/ks — 'kl' reads as 'k1' above).
+    const float cL = 0.3963377774f * a + 0.2158037573f * b;
+    const float cM = -0.1055613458f * a - 0.0638541728f * b;
+    const float cS = -0.0894841775f * a - 1.2914855480f * b;
     {
-        const float l_ = 1.0f + S * kl, m_ = 1.0f + S * km, s_ = 1.0f + S * ks;
+        const float l_ = 1.0f + S * cL, m_ = 1.0f + S * cM, s_ = 1.0f + S * cS;
         const float l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
-        const float ldS = 3.0f * kl * l_ * l_, mdS = 3.0f * km * m_ * m_, sdS = 3.0f * ks * s_ * s_;
-        const float ldS2 = 6.0f * kl * kl * l_, mdS2 = 6.0f * km * km * m_, sdS2 = 6.0f * ks * ks * s_;
+        const float ldS = 3.0f * cL * l_ * l_, mdS = 3.0f * cM * m_ * m_, sdS = 3.0f * cS * s_ * s_;
+        const float ldS2 = 6.0f * cL * cL * l_, mdS2 = 6.0f * cM * cM * m_, sdS2 = 6.0f * cS * cS * s_;
         const float f = wl * l + wm * m + ws * s;
         const float f1 = wl * ldS + wm * mdS + ws * sdS;
         const float f2 = wl * ldS2 + wm * mdS2 + ws * sdS2;
