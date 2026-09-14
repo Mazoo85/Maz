@@ -244,6 +244,10 @@
    * any amount of shading within them.
    */
   var HAZE_EDGE = null;   // set per render from the palette
+  /* Set per render too, so every band in the engine gets its grain without each
+   * one having to remember to ask. Adding it at each call site would mean
+   * forty-odd places to get right and one of them silently missed. */
+  var GRAIN = null;
   function hazeEdge(ctx, topY, closeY) {
     if (!HAZE_EDGE) return null;
     var span = closeY - topY;
@@ -271,10 +275,24 @@
       if (g) { ctx.fillStyle = g; ctx.fill(); }
       var hz2 = hazeEdge(ctx, top, closeY);
       if (hz2) { ctx.fillStyle = hz2; ctx.fill(); }
+      if (GRAIN) grainIn(ctx, pts, closeY, GRAIN.w, GRAIN.h, GRAIN.P, GRAIN.r, {
+        density: 0.75, size: 0.0021, streak: 1.4
+      });
     }
   }
 
   /* Soft rolling ground — hills, dunes, swells — as one wavy band. */
+  /* The points along a wavy band, so grain can be clipped to it the same way
+   * it is clipped to a ridge. */
+  function hillPoints(w, baseY, amp, freq, phase) {
+    var pts = [];
+    for (var x = 0; x <= w; x += Math.max(2, w / 90)) {
+      var t = x / w * freq * Math.PI * 2 + phase;
+      pts.push([x, baseY + Math.sin(t) * amp + Math.sin(t * 2.3 + 1.7) * amp * 0.35]);
+    }
+    return pts;
+  }
+
   function hills(ctx, w, baseY, amp, freq, phase, closeY, style, shade) {
     ctx.beginPath();
     ctx.moveTo(0, baseY);
@@ -293,6 +311,10 @@
       if (g) { ctx.fillStyle = g; ctx.fill(); }
       var he = hazeEdge(ctx, baseY - amp * 1.35, closeY);
       if (he) { ctx.fillStyle = he; ctx.fill(); }
+    }
+    if (shade !== false && GRAIN) {
+      grainIn(ctx, hillPoints(w, baseY, amp, freq, phase), closeY,
+        GRAIN.w, GRAIN.h, GRAIN.P, GRAIN.r, { density: 1.2, size: 0.0024 });
     }
   }
 
@@ -530,6 +552,52 @@
       }
       ctx.closePath();
       ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /*
+   * Grain.
+   *
+   * Nothing in the world is one smooth colour — not rock, not sand, not a
+   * painted wall. Scattered marks at very low contrast, clipped to the band
+   * they belong to, are the cheapest thing on this whole list that makes a
+   * surface stop looking like a fill and start looking like a material.
+   *
+   * Deliberately not a noise texture stretched over the finished picture: that
+   * lies across everything at the same scale regardless of how far away it is,
+   * which reads as dirt on the lens rather than as surface.
+   */
+  function grainIn(ctx, pts, closeY, w, h, P, r, opts) {
+    opts = opts || {};
+    var top = pts[0][1], bottom = pts[0][1];
+    for (var i = 1; i < pts.length; i++) {
+      if (pts[i][1] < top) top = pts[i][1];
+      if (pts[i][1] > bottom) bottom = pts[i][1];
+    }
+    /* A caller can say how deep the band really is. Ground drawn as a shape has
+     * its depth in its points; ground drawn as a filled rectangle — a cave wall,
+     * say — does not, and would otherwise be measured as having almost none. */
+    var span = opts.span != null ? opts.span : Math.max(bottom - top, h * 0.02);
+    /* One mark per ten-by-ten patch or so. Sparser than that and it reads as
+     * specks of dust rather than as a surface; the first attempt here was one
+     * per thirty-by-thirty and was invisible at any size. */
+    var n = Math.round((opts.density == null ? 1 : opts.density) * (w * span) / 90);
+    if (n < 8) return;
+    n = Math.min(n, 9000);
+    var long = opts.streak || 1;           // >1 draws marks along, like sediment
+    var size = Math.max(0.7, Math.min(w, h) * (opts.size || 0.0022));
+
+    ctx.save();
+    clipTo(ctx, pts, closeY);
+    for (var m = 0; m < n; m++) {
+      var x = -w * 0.05 + r() * w * 1.1;
+      var y = top - span * 0.05 + r() * span * 1.1;
+      var dark = r() < 0.5;
+      ctx.fillStyle = dark
+        ? 'rgba(0,0,0,' + (0.030 + r() * 0.045).toFixed(3) + ')'
+        : 'rgba(255,255,255,' + (0.022 + r() * 0.038).toFixed(3) + ')';
+      ctx.fillRect(x, y, size * long * (0.6 + r() * 1.5), size * (0.6 + r() * 1.1));
     }
     ctx.restore();
   }
@@ -936,6 +1004,10 @@
     g.addColorStop(1, P.css([P.sky.haze[0], 50, 6], 1));
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, w, h);
+    /* A cave is the one place in the engine that is rock from edge to edge, and
+     * it was the one place with no grain at all: its walls are drawn as filled
+     * rectangles rather than as bands, so the shared dressing never saw them. */
+    grainIn(ctx, [[0, 0], [w, 0]], h, w, h, P, r, { span: h, density: 1.3, size: 0.0024 });
     for (var i = 0; i < 26; i++) {              // stalactites and stalagmites
       var x = r() * w, len = h * (0.06 + r() * 0.2);
       ctx.fillStyle = P.ink(0.05);
@@ -1241,6 +1313,37 @@
         Math.cos(ea) * feather, Math.sin(ea) * feather, 0.05 + air * 0.06);
     }
 
+    /*
+     * Coat.
+     *
+     * An animal drawn as a filled shape has an outline no animal has: a clean
+     * curve. A real one is ragged for a centimetre all the way round, and the
+     * light catches that fringe. Copies of the silhouette at small random
+     * offsets, in the animal's own colour, give the edge that thickness — and
+     * a few in the light's colour on the lit side give it the rim you see on
+     * anything furry with the sun behind it.
+     *
+     * Only on things that have a coat. A castle does not, and giving one to a
+     * castle would read as a mistake rather than as fur.
+     */
+    if (COATED[subject.draw]) {
+      var tuft = Math.max(0.8, Math.min(box.w, box.h) * 0.016);
+      var fr = PROMPT.rng(spec, 'coat');
+      for (var c2 = 0; c2 < 18; c2++) {
+        var ca = fr() * Math.PI * 2;
+        var cd = tuft * (0.35 + fr() * 1.25);
+        stencil(ctx, subject, box, PS, r, spec, PS.silhouette(0.1, 1),
+          Math.cos(ca) * cd, Math.sin(ca) * cd, 0.055);
+      }
+      /* The lit fringe, tight against the light side only. */
+      for (var c3 = 0; c3 < 5; c3++) {
+        var jitter = (fr() - 0.5) * 0.8;
+        stencil(ctx, subject, box, PS, r, spec, P.light(0.9),
+          (-dx + jitter) * tuft * (0.7 + fr() * 0.8),
+          (-dy + jitter) * tuft * (0.7 + fr() * 0.8), 0.075);
+      }
+    }
+
     /* Everything that shows only at the edges goes down first, and the subject
      * is drawn once on top of the lot. */
     stencil(ctx, subject, box, PS, r, spec, PS.silhouette(0.7, 1), dx * off, dy * off, 0.6);
@@ -1317,6 +1420,10 @@
       ctx.restore();
     }
   }
+
+  /* What has a coat. Fur, feathers, hair — anything whose outline is ragged
+   * rather than cut. A tower is not on this list, and should not be. */
+  var COATED = { quadruped: true, bird: true, humanoid: true };
 
   /* Where a subject's reflection makes sense: open water that runs to the
    * bottom of the frame. A beach or an island has land in the way. */
@@ -1449,6 +1556,7 @@
     HAZE_EDGE = spec.scene.id === 'cave'
       ? null
       : { on: P.haze(0.30 - P.drama * 0.12), off: P.haze(0) };
+    GRAIN = { w: w, h: h, P: P, r: PROMPT.rng(spec, 'grain') };
     var hz = clamp(spec.scene.horizon + (r() - 0.5) * 0.05 + (shot ? shot.horizon : 0),
       0.22, 1.3) * h;
 
@@ -1543,6 +1651,8 @@
 
   var API = {
     render: render,
+    COATED: COATED,
+    grainIn: grainIn,
     makePalette: makePalette,
     GROUND: GROUND,
     SKY: SKY,

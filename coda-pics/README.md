@@ -234,6 +234,21 @@ Seven shapes, from a square to a 2560 × 1440 desktop wallpaper.
 **Installable.** Add it to your home screen and it opens without browser
 chrome and keeps working with no network — there was never anything to fetch.
 
+### Grain and coat
+
+**Nothing in the world is one smooth colour.** Every band of ground is scattered
+with marks at very low contrast, clipped to the band it belongs to — about one
+per ten-by-ten patch, which is the difference between a surface and a fill. It is
+deliberately not a noise texture stretched over the finished picture: that lies
+across everything at the same scale however far away it is, and reads as dirt on
+the lens rather than as a surface.
+
+**Nothing with fur has a clean outline.** Animals, birds and people get their
+silhouette put down again at small random offsets, which gives the edge the
+thickness a coat has, plus a few in the light's colour on the lit side for the
+rim you see on anything furry with the sun behind it. Towers and crystals do not
+get one — a ragged castle is a mistake, not fur.
+
 ### Light and the lens
 
 Two things happen to every picture after it is painted, because they are how a

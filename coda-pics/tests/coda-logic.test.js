@@ -633,9 +633,12 @@ function paintOnce(text, opts, w, h) {
     mountains.clips + ' clipped passes)');
   check(snowy.clips >= 4,
     'and so is a snowfield (' + snowy.clips + ' clipped passes)');
-  check(plains.clips === 0,
-    'while flat ground gets none of it, because there is no slope to dress (' +
-    plains.clips + ')');
+  /* Flat ground is dressed too now — it gets grain, because a field is the
+   * largest flat fill in most pictures — but it has no slope to put snow, trees
+   * or strata on, so it takes far fewer passes than a mountain. */
+  check(plains.clips > 0 && plains.clips < mountains.clips / 2,
+    'flat ground gets its grain but none of the slope work (' +
+    plains.clips + ' against a mountain\'s ' + mountains.clips + ')');
   check(mountains.marks > plains.marks * 3,
     'a mountain now takes several times the drawing a field does (' +
     mountains.marks + ' vs ' + plains.marks + ')');
@@ -754,6 +757,60 @@ function paintOnce(text, opts, w, h) {
   }
   check(rising, 'and dark is still darker than light afterwards');
   pass('shade goes blue, sun goes warm, nothing is crushed');
+})();
+
+/* ------------------------------------------------------------ grain and coat
+ * Nothing in the world is one smooth colour, and nothing with fur has a clean
+ * outline. Both were true of every picture this engine made.
+ */
+(function grainAndCoat() {
+  console.log('\nGrain and coat');
+
+  function marks(text, seed) {
+    var ctx = new FakeContext(640, 480);
+    PAINT.render(ctx, 640, 480, PROMPT.parse(text, { seed: seed == null ? 4 : seed }));
+    return ctx.ops;
+  }
+
+  /* Grain is drawn as many small marks clipped to the band they belong to.
+   * Sparse grain is invisible — the first attempt was one mark per thirty-by-
+   * thirty patch and could not be seen at any size — so the count matters, not
+   * merely that some exist. */
+  var meadow = marks('a wolf in a meadow at noon');
+  var hills = marks('mountains at noon');
+  check((meadow.fillRect || 0) > 400,
+    'a field is made of hundreds of marks, not one flat fill (' +
+    (meadow.fillRect || 0) + ')');
+  check((hills.fillRect || 0) > 800,
+    'and a mountain of more, because it has more surfaces (' +
+    (hills.fillRect || 0) + ')');
+
+  /* Underground there is no sky, so no haze — but there is still rock, so
+   * there should still be grain. */
+  var cave = marks('a crystal in a cave');
+  check((cave.fillRect || 0) > 40, 'a cave is grained too (' + (cave.fillRect || 0) + ')');
+
+  /* The coat. Only things that have one. */
+  check(PAINT.COATED.quadruped && PAINT.COATED.bird && PAINT.COATED.humanoid,
+    'animals, birds and people have a coat');
+  check(!PAINT.COATED.tower && !PAINT.COATED.castle && !PAINT.COATED.cabin &&
+        !PAINT.COATED.crystal,
+    'and towers, castles, cabins and crystals do not — a ragged castle is a mistake, not fur');
+
+  /* Drawn, not merely declared — and measured on the same animal with its coat
+   * taken away rather than against some other subject, because a wolf and a
+   * tower differ for a dozen reasons and comparing them proves nothing. */
+  var withCoat = marks('a wolf in a meadow at noon', 9);
+  var wasCoated = PAINT.COATED.quadruped;
+  PAINT.COATED.quadruped = false;
+  var without = marks('a wolf in a meadow at noon', 9);
+  PAINT.COATED.quadruped = wasCoated;
+
+  var extra = (withCoat.fill || 0) - (without.fill || 0);
+  check(extra >= 20,
+    'the same wolf puts its outline down ' + extra + ' more times for its coat');
+  check((without.fill || 0) > 0, 'and is still drawn without one');
+  pass('surfaces have grain, and things with fur have a fringe');
 })();
 
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
