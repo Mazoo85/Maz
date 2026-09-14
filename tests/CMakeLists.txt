@@ -115,6 +115,16 @@ add_test(NAME cutscene_export_qoi
                  --out figure_q.gif --frames 3 --size 48 --frames-dir figure_qoi --frame-format qoi)
 set_tests_properties(cutscene_export_qoi PROPERTIES TIMEOUT 60)
 
+# The --gpu path: render the turntable through the real Vulkan frame graph offscreen (captureImage).
+# With software Vulkan (lavapipe) it exercises the GPU export; with no device it falls back to the CPU
+# rasterizer. Either way it must produce a valid GIF and exit 0. Uses the dummy SDL drivers.
+add_test(NAME cutscene_export_gpu
+         COMMAND cutscene_export ${CMAKE_SOURCE_DIR}/assets/samples/figure.mazprefab
+                 --out figure_gpu.gif --frames 3 --size 48 --gpu)
+set_tests_properties(cutscene_export_gpu PROPERTIES
+    TIMEOUT 90
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
 # GPU-driven particle simulation + plane collision (fx::GpuParticleSystem). The CPU step is the exact
 # arithmetic the compute shader runs, so bounce energy, no-sink, friction, lifecycle and the instance
 # buffer are all verified headlessly here; the GPU dispatch + instanced draw are owner-verified.
