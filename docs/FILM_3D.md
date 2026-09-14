@@ -307,6 +307,44 @@ impossible.
 `tests/film/actor.cpp` now checks the signed volume of the body — positive when wound outward, and it
 collapses from 0.040 m³ to 0.002 m³ when wound inward.
 
+### Sharp at the feet, soft on the wall
+
+Every shadow in here used to be equally soft everywhere, and that is the look of an object
+photographed on its own and pasted onto a photograph of a floor. A real shadow is sharp where the
+object touches the ground and opens out as the gap grows, because the light has a **size**: the wider
+the source, the faster the edge spreads. That tightening at the feet is most of what tells the eye
+the figure and the floor are in the same room.
+
+It is bought for nothing. The nine samples that already made the edge soft are **spread** rather than
+multiplied — the same nine reads, further apart where the gap is bigger — so the cost per pixel does
+not move at all. Measured: with the source size off, the side edge of a test box's shadow is 14
+samples wide at its foot and 14 samples wide a metre and a half out. With a three-degree source it is
+14 at the foot and 27 out there.
+
+Three degrees is a window or a lamp down a corridor, which is how a film is lit. Outdoors in daylight
+the source is the sun, about half a degree, and the shadow stays crisp several metres out — which is
+why a figure outdoors at noon has a hard black shadow and the same figure indoors does not.
+`apps/film3d/Frame3D.hpp` picks between the two from whether the set is indoors and whether it is
+night.
+
+Two things worth being straight about. The gap is read from **one** sample, the middle one, rather
+than from the neighbourhood search the textbook version does; where the middle sample is lit but its
+neighbours are not, nothing is found blocking and that side of the edge comes out sharper. A proper
+search costs its own grid of reads at every shaded pixel, and at nine samples the asymmetry is under
+a pixel. And in a night film the whole effect is small: measured against the same frames with it
+switched off, it moves under one per cent of pixels, by at most 31 values out of 255. It earns its
+place because it costs nothing and because brighter films show it more, not because it transforms
+this one.
+
+**The bug it found** was worth more than the feature. Turning a gap in the depth map back into metres
+needs to know how much world the light's depth range covers, and that was being read out of element
+`[2][2]` of the light's matrix — which is the depth scale for the projection **alone**, and this
+matrix has the light's rotation folded into it. Point a light straight down and world *z* stops
+contributing to depth at all, so that element goes to zero, and the code fell through to a
+plausible-looking ten-metre fallback. Every light in the film had been getting the fallback. The
+depth **row** — `[0][2]`, `[1][2]`, `[2][2]` — is the gradient of depth through world space; its
+length is depth per metre whichever way the light points, and that is what is read now.
+
 ---
 
 ## One renderer, compiled twice

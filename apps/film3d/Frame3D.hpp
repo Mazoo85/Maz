@@ -496,6 +496,21 @@ inline Image drawFrame3D(const Reel& reel, const std::map<std::string, Cast>& ca
             shadows.add(body);
         }
         shadows.setSoftness(look.shadows >= 2 ? 3 : 1);
+        // CONTACT HARDENING: how big the thing doing the lighting is.
+        //
+        // A shadow is sharp where the object touches the ground and opens out with distance, and how
+        // fast it opens out is how WIDE the source is. Every shadow in here used to be equally soft
+        // everywhere, which is the look of an object photographed separately and pasted onto a
+        // photograph of a floor — the edge tightening at the feet is the cue that says the two things
+        // are in the same room.
+        //
+        // Outdoors in daylight that source is the sun, half a degree across, and shadows stay crisp
+        // several metres out. Anywhere else — indoors, or outside after dark — the light is a window
+        // or a lamp, several degrees across, and an arm's shadow on a wall two metres behind it is a
+        // grey suggestion. Three degrees is not measured off anything; it is what a room lit the way
+        // a film lights a room looks like.
+        const bool daylight = !sc.stage.indoors && shot->time != "NIGHT";
+        shadows.setSourceSize(daylight ? 0.009f : 0.055f);
         surf.shadows = &shadows;
         // Not all of it. A shadow in a film is never black — there is always bounce finding its way
         // in — and taking the whole key away turns a figure's own shadow side into a hole.

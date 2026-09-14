@@ -507,6 +507,21 @@ class ShadowMap {
         const float rowLen = std::sqrt(m_vp[0][0] * m_vp[0][0] + m_vp[1][0] * m_vp[1][0] +
                                        m_vp[2][0] * m_vp[2][0]);
         m_texel = rowLen > 1e-9f ? 2.0f / (rowLen * static_cast<float>(m_size)) : 0.01f;
+        // And how much world one unit of DEPTH covers, read out of the same matrix. It is what turns
+        // the gap between a shadow and the thing casting it — which comes out of the map in depth
+        // units — back into metres.
+        //
+        // Not [2][2], which is the obvious place to look and is wrong: that element is the depth
+        // scale only for the projection ALONE, and this matrix has the light's rotation folded into
+        // it. Point the light straight down and world z no longer contributes to depth at all, so
+        // [2][2] goes to zero and the reciprocal of it is nonsense — which is what it did, silently,
+        // for every light in the film, because the fallback below is a plausible-looking ten metres.
+        // What is wanted is the whole depth ROW: (0,2), (1,2), (2,2) is the gradient of depth through
+        // world space, its direction is the way the light travels and its LENGTH is depth per metre,
+        // whichever way the light happens to be pointing.
+        const float gx = m_vp[0][2], gy = m_vp[1][2], gz = m_vp[2][2];
+        const float grad = std::sqrt(gx * gx + gy * gy + gz * gz);
+        m_range = grad > 1e-9f ? 1.0f / grad : 10.0f;
         m_raster.clearDepth();
     }
 
@@ -526,11 +541,30 @@ class ShadowMap {
     void setSoftness(int across) { m_soft = across <= 1 ? 1 : 3; }
     float depthAt(int x, int y) const { return m_raster.depthAt(x, y); }
 
+    // How far the world is across the light's whole depth range, in metres.
+    float worldPerDepth() const { return m_range; }
+
+    // CONTACT HARDENING: how wide the light SOURCE is, as an angle.
+    //
+    // A real shadow is sharp where the object touches the ground and soft a long way from it, because
+    // a light has a size — the wider the source, the faster the edge opens out. Every shadow in this
+    // renderer was uniformly soft, which reads as a photographed object composited onto a photographed
+    // floor: the one cue that says those two things are in the same room is the edge tightening where
+    // they meet.
+    //
+    // The sun is about half a degree across. A window, or a lamp at the end of a corridor, is several
+    // — and several looks more like a film, because a film is lit with big soft sources. 0 turns it
+    // off and every shadow is the same softness everywhere, which is where this started.
+    float sourceSize() const { return m_source; }
+    void setSourceSize(float radians) { m_source = radians < 0.0f ? 0.0f : radians; }
+
   private:
     SoftRaster m_raster;
     int m_size;
     int m_soft = 3;
     float m_texel = 0.01f;
+    float m_range = 10.0f;
+    float m_source = 0.0f;
     math::mat4 m_vp{1.0f};
 };
 
@@ -601,11 +635,37 @@ inline float shadowFactor(const ShadowMap& map, const math::vec3& where, const m
         return 0.0f;
     }
     const int reach = map.softness() / 2;   // 1 for nine samples, 0 for one
+
+    // How far apart the caster and this surface are, and therefore how wide the edge should be.
+    //
+    // The same nine samples either way — the taps are SPREAD rather than multiplied, so the cost does
+    // not move — but spread by the gap, so a foot on the floor keeps a sharp outline while the same
+    // figure's shadow on a wall four metres behind them is soft.
+    //
+    // The gap is read from ONE tap, the middle one, rather than from a search of the neighbourhood the
+    // textbook version does. That has a consequence worth being straight about: at a point where the
+    // middle tap is lit but its neighbours are not — the outer half of a soft edge — nothing is found
+    // blocking, so the taps stay tight and that side of the edge comes out sharper than the side
+    // inside the shadow. A proper blocker search costs its own grid of taps at every shaded pixel,
+    // which is most of the shadow budget again, and at nine taps the asymmetry is under a pixel. It
+    // buys the thing that actually reads — the tightening at the feet — for nothing.
+    int step = 1;
+    if (map.sourceSize() > 1e-5f && reach > 0) {
+        const float above = ndc.z - map.depthAt(cx, cy);
+        if (above > 0.0f) {
+            const float metres = above * map.worldPerDepth();
+            const float penumbra = metres * map.sourceSize();      // metres across the soft edge
+            const float texels = penumbra / std::fmax(map.worldPerTexel(), 1e-6f);
+            const int want = 1 + static_cast<int>(texels);
+            step = want > 6 ? 6 : want;                            // and never a smear
+        }
+    }
+
     int blocked = 0;
     int taken = 0;
     for (int dy = -reach; dy <= reach; ++dy) {
         for (int dx = -reach; dx <= reach; ++dx) {
-            if (map.depthAt(cx + dx, cy + dy) < ndc.z) {
+            if (map.depthAt(cx + dx * step, cy + dy * step) < ndc.z) {
                 ++blocked;
             }
             ++taken;

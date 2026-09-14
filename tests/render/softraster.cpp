@@ -555,6 +555,103 @@ int main() {
             check(halfway, "the edge of a shadow is soft, not a staircase");
         }
 
+        // CONTACT HARDENING. A shadow is not equally soft everywhere. It is sharp where the object
+        // touches the ground and opens out as the gap grows, because the light has a SIZE — and that
+        // one cue is most of what says the figure and the floor are in the same room rather than two
+        // photographs laid on top of each other.
+        //
+        // `map2` is the standing box with the light coming down at a slant from +x, so the shadow is
+        // thrown toward -x. Near the box's foot the shadow is cast by the BOTTOM of the box, a few
+        // centimetres up. Out at the far end it is cast by the TOP, two metres back along the ray. The
+        // side edges of the shadow — across z, where the box is a metre wide — are therefore the same
+        // edge at two different gaps, which is exactly the comparison to make.
+        {
+            // How many centimetres of the z edge are neither lit nor fully shadowed.
+            auto edgeWidth = [&](float x) {
+                int inBetween = 0;
+                for (int i = 0; i <= 200; ++i) {
+                    const float z = 0.10f + static_cast<float>(i) * 0.005f; // 0.10 out to 1.10
+                    const float f = floorShadow(x, z);
+                    if (f > 0.10f && f < 0.90f) {
+                        ++inBetween;
+                    }
+                }
+                return inBetween;
+            };
+
+            map2.setSourceSize(0.0f);
+            const int hardNear = edgeWidth(-0.60f);
+            const int hardFar = edgeWidth(-1.45f);
+            // Turned off, the two are the same edge: this is the "before", and it is what every
+            // shadow in this renderer used to look like.
+            check(hardNear > 0 && hardFar > 0, "with no source size there is still a soft edge");
+            check(hardFar <= hardNear + 2,
+                  "and with no source size it is the same width near the object and far from it");
+
+            map2.setSourceSize(0.055f); // about three degrees — a window, not the sun
+            const int softNear = edgeWidth(-0.60f);
+            const int softFar = edgeWidth(-1.45f);
+            // Measured, not hoped for: a metre and a half out, the box's shadow edge goes from 14
+            // samples wide to 27 — not quite twice — while the edge at its foot does not move at all.
+            check(softFar * 2 >= softNear * 3,
+                  "the far end of a shadow is half again as soft as the end at the object's foot");
+            check(softNear <= hardNear + 2,
+                  "and the end at its foot is no softer than it was before, which is the point: "
+                  "the contact stays sharp");
+
+            // And the sun is not a window. Half a degree across leaves the same shadow nearly as
+            // crisp at the far end as at the near — which is why a figure outdoors at noon has a hard
+            // black shadow and the same figure indoors does not.
+            map2.setSourceSize(0.009f);
+            const int sunFar = edgeWidth(-1.45f);
+            check(sunFar < softFar,
+                  "a smaller source opens the far edge out less than a bigger one does");
+
+            // It is genuinely a knob and not a switch: the width climbs with the size of the source.
+            map2.setSourceSize(0.030f);
+            const int middleFar = edgeWidth(-1.45f);
+            check(middleFar >= sunFar && softFar >= middleFar,
+                  "and the width climbs with the size of the source rather than flipping at a "
+                  "threshold");
+
+            // Nothing about this may cost a sample. The taps are spread, not multiplied — the whole
+            // reason it is affordable — so the open floor and the middle of the shadow are answered
+            // identically whatever the source size is.
+            map2.setSourceSize(0.0f);
+            const float openHard = floorShadow(1.2f, 0.0f);
+            const float deepHard = floorShadow(-0.90f, 0.0f);
+            map2.setSourceSize(0.055f);
+            near(floorShadow(1.2f, 0.0f), openHard, 1e-5f,
+                 "open floor is answered the same however big the light is");
+            near(floorShadow(-0.90f, 0.0f), deepHard, 1e-5f,
+                 "and so is the middle of a shadow: only the EDGE moves");
+
+            map2.setSourceSize(0.0f);
+        }
+
+        // The light's depth range, read back out of its own matrix, is what turns the gap between a
+        // shadow and the thing casting it into metres. If that number is wrong the hardening is scaled
+        // by an arbitrary factor and the edges are soft in the wrong places, so it is worth pinning:
+        // the box handed to `directionalLight` here is about seventeen metres across its diagonal, and
+        // the light sees all of it.
+        {
+            maz::render::ShadowMap ruler(256);
+            ruler.begin(maz::render::directionalLight(math::vec3(-5.0f, 0.0f, -5.0f),
+                                                      math::vec3(5.0f, 2.0f, 5.0f), down));
+            check(ruler.worldPerDepth() > 7.0f && ruler.worldPerDepth() < 40.0f,
+                  "the light's depth range comes back in metres, and is the size of the box it was "
+                  "given");
+            const float wide = ruler.worldPerDepth();
+            ruler.begin(maz::render::directionalLight(math::vec3(-1.0f, 0.0f, -1.0f),
+                                                      math::vec3(1.0f, 2.0f, 1.0f), down));
+            check(ruler.worldPerDepth() < wide * 0.6f,
+                  "and a smaller box is a smaller range, not a constant");
+
+            // A negative source size is not a sharpening lens; it is a mistake, and is refused.
+            ruler.setSourceSize(-1.0f);
+            near(ruler.sourceSize(), 0.0f, 1e-6f, "a negative light cannot be asked for");
+        }
+
         // OFF THE SIDE of the map, rather than out of its depth range: a point at the same depth as
         // the floor but a long way outside the light's box. Lit, for the same reason.
         check(maz::render::shadowFactor(map, math::vec3(400.0f, 0.0f, 0.0f),
