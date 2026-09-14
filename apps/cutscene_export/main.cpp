@@ -15,15 +15,20 @@
 #include "maz/io/Json.hpp"         // io::readTextFile
 #include "maz/io/PrefabText.hpp"   // io::loadPrefabText
 #include "maz/io/Serialize.hpp"    // io::writeFile
-#include "maz/math/Projection.hpp" // math::Projection
+#include "maz/math/Math.hpp"       // math::perspective (Vulkan-correct, for the GPU path)
+#include "maz/math/Projection.hpp" // math::Projection (CPU rasterizer path)
+#include "maz/platform/Window.hpp" // platform::Window (headless, for the GPU path)
+#include "maz/render/Image.hpp"    // render::Image
 #include "maz/render/ImageCodecGif.hpp"
 #include "maz/render/ImageCodecPnm.hpp" // render::encodePnmP6
 #include "maz/render/ImageCodecQoi.hpp" // render::encodeQoi
+#include "maz/render/Renderer.hpp"      // render::createVulkanRenderer (GPU offscreen path)
 #include "maz/render/Shapes.hpp"
 #include "maz/render/Shapes3D.hpp"
 #include "maz/render/SoftwareRender.hpp"
 
 #include <glm/gtc/matrix_transform.hpp> // glm::lookAt
+#include <glm/gtc/type_ptr.hpp>         // glm::value_ptr
 
 #include <algorithm>
 #include <cmath>
@@ -60,12 +65,76 @@ std::vector<math::vec3> swatchRgb() {
             math::vec3(210.0f, 210.0f, 215.0f) / 255.0f};
 }
 
+// Render the orbit through the REAL Vulkan PBR frame graph (sky, shadows, tonemap, …) using the
+// surfaceless offscreen renderer + captureImage — the GPU counterpart to the CPU renderMeshPreview
+// loop. Returns the frames, or an empty vector when no Vulkan device is available (so the caller
+// falls back to the CPU rasterizer). The camera orbit matches the CPU path exactly.
+std::vector<render::Image> renderFramesGpu(const render::shapes::MeshData& baked,
+                                           const math::vec3& centre, float dist, float elev,
+                                           float fovY, float nearZ, float farZ,
+                                           const anim::Timeline& tl, const anim::FrameSequence& seq,
+                                           int frameCount, int size) {
+    std::vector<render::Image> frames;
+    platform::Window window;
+    platform::WindowConfig wc;
+    wc.title = "cutscene_export (gpu)";
+    wc.headless = true; // no display; the renderer captures instead of presenting
+    if (!window.init(wc)) {
+        return frames;
+    }
+    render::RendererConfig rc;
+    rc.allowHeadless = true;
+    rc.offscreenWidth = static_cast<uint32_t>(size);
+    rc.offscreenHeight = static_cast<uint32_t>(size);
+    auto renderer = render::createVulkanRenderer();
+    if (!renderer->init(window, rc) || !renderer->isActive()) {
+        renderer->shutdown();
+        window.shutdown();
+        return frames; // no GPU device -> caller uses the CPU rasterizer
+    }
+
+    const render::MeshHandle mesh =
+        renderer->createMesh(baked.vertices.data(), static_cast<uint32_t>(baked.vertices.size()),
+                             baked.indices.data(), static_cast<uint32_t>(baked.indices.size()));
+    const uint8_t white[4] = {255, 255, 255, 255};
+    const render::TextureHandle albedo = renderer->createTexture(1, 1, white);
+    const glm::mat4 proj = math::perspective(fovY, 1.0f, nearZ, farZ); // Vulkan-correct (Y-flipped)
+    const glm::mat4 model(1.0f);
+
+    frames.reserve(static_cast<std::size_t>(frameCount));
+    for (int i = 0; i < frameCount; ++i) {
+        const float ang = glm::radians(tl.valueAt("yaw", seq.timeAt(i)));
+        const math::vec3 eye =
+            centre + dist * math::vec3(std::sin(ang) * std::cos(elev), std::sin(elev),
+                                       std::cos(ang) * std::cos(elev));
+        const glm::mat4 view = glm::lookAt(eye, centre, math::vec3(0, 1, 0));
+        const glm::mat4 viewProj = proj * view;
+        render::Image shot;
+        if (renderer->beginFrame()) {
+            renderer->setViewProjection3D(glm::value_ptr(viewProj));
+            renderer->setCameraPosition(glm::value_ptr(eye));
+            render::Renderer::Material mat;
+            mat.albedo = albedo;
+            mat.roughness = 0.5f;
+            mat.specular = 1.0f;
+            renderer->drawMeshMaterial(mesh, glm::value_ptr(model), mat);
+            renderer->endFrame();
+            renderer->captureImage(shot);
+        }
+        frames.push_back(std::move(shot));
+    }
+    renderer->shutdown();
+    window.shutdown();
+    return frames;
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
     std::string input, out = "cutscene.gif", framesDir, frameFormat = "ppm";
     float fps = 30.0f, seconds = 3.0f;
     int size = 256, framesCap = 0, aa = 2; // aa = supersample factor (anti-aliasing)
+    bool useGpu = false; // --gpu: render the real PBR frame graph offscreen instead of the CPU preview
 
     for (int i = 1; i < argc; ++i) {
         const char* a = argv[i];
@@ -86,6 +155,8 @@ int main(int argc, char** argv) {
             frameFormat = next("ppm");
         } else if (std::strcmp(a, "--aa") == 0) {
             aa = std::atoi(next("2"));
+        } else if (std::strcmp(a, "--gpu") == 0) {
+            useGpu = true;
         } else if (a[0] != '-' && input.empty()) {
             input = a;
         }
@@ -93,7 +164,7 @@ int main(int argc, char** argv) {
     if (input.empty()) {
         std::fprintf(stderr, "usage: cutscene_export <input.mazprefab> [--out f.gif] [--fps N] "
                              "[--seconds N] [--size N] [--frames N] [--frames-dir DIR] "
-                             "[--frame-format ppm|qoi] [--aa 1-4]\n");
+                             "[--frame-format ppm|qoi] [--aa 1-4] [--gpu]\n");
         return 2;
     }
     const bool qoiFrames = frameFormat == "qoi"; // any other value falls back to PPM
@@ -151,21 +222,38 @@ int main(int argc, char** argv) {
     const float fovY = glm::radians(45.0f);
     const float dist = radius / std::sin(fovY * 0.5f) * 1.15f; // fit the bounds sphere with margin
     const float elev = glm::radians(20.0f);
+    const float nearZ = std::max(0.01f, dist - radius * 2.0f);
+    const float farZ = dist + radius * 2.0f + 10.0f;
     const render::PreviewLighting rig = render::threePointRig();
     const render::Color bg{0.10f, 0.11f, 0.13f, 1.0f};
-    const math::mat4 proj = math::Projection::perspective(fovY, 1.0f, std::max(0.01f, dist - radius * 2.0f),
-                                                          dist + radius * 2.0f + 10.0f)
-                                .m;
 
+    // GPU path (--gpu): render the real PBR frame graph offscreen. Falls back to the CPU rasterizer
+    // when no Vulkan device is available, so the tool always produces output.
     std::vector<render::Image> frames;
-    frames.reserve(static_cast<std::size_t>(frameCount));
-    for (int i = 0; i < frameCount; ++i) {
-        const float ang = glm::radians(tl.valueAt("yaw", seq.timeAt(i)));
-        const math::vec3 eye =
-            centre + dist * math::vec3(std::sin(ang) * std::cos(elev), std::sin(elev),
-                                       std::cos(ang) * std::cos(elev));
-        const math::mat4 view = glm::lookAt(eye, centre, math::vec3(0, 1, 0));
-        frames.push_back(render::renderMeshPreview(baked, proj * view, eye, rig, size, size, bg, aa));
+    bool gpu = false;
+    if (useGpu) {
+        frames = renderFramesGpu(baked, centre, dist, elev, fovY, nearZ, farZ, tl, seq, frameCount, size);
+        gpu = !frames.empty();
+        if (!gpu) {
+            std::fprintf(stderr, "cutscene_export: --gpu requested but no Vulkan device available; "
+                                 "falling back to the CPU rasterizer\n");
+        }
+    }
+    if (!gpu) {
+        // CPU rasterizer path (default): renderMeshPreview with the studio three-point rig.
+        const math::mat4 proj =
+            math::Projection::perspective(fovY, 1.0f, nearZ, farZ).m;
+        frames.clear();
+        frames.reserve(static_cast<std::size_t>(frameCount));
+        for (int i = 0; i < frameCount; ++i) {
+            const float ang = glm::radians(tl.valueAt("yaw", seq.timeAt(i)));
+            const math::vec3 eye =
+                centre + dist * math::vec3(std::sin(ang) * std::cos(elev), std::sin(elev),
+                                           std::cos(ang) * std::cos(elev));
+            const math::mat4 view = glm::lookAt(eye, centre, math::vec3(0, 1, 0));
+            frames.push_back(
+                render::renderMeshPreview(baked, proj * view, eye, rig, size, size, bg, aa));
+        }
     }
 
     const int delayCentis = std::max(1, static_cast<int>(std::lround(100.0 / static_cast<double>(fps))));
@@ -201,7 +289,8 @@ int main(int argc, char** argv) {
                     framesDir.c_str());
     }
 
-    std::printf("cutscene_export: wrote %s (%d frames, %dx%d, %.3g s @ %.3g fps)\n", out.c_str(),
-                frameCount, size, size, static_cast<double>(seconds), static_cast<double>(fps));
+    std::printf("cutscene_export: wrote %s (%d frames, %dx%d, %.3g s @ %.3g fps, %s)\n", out.c_str(),
+                frameCount, size, size, static_cast<double>(seconds), static_cast<double>(fps),
+                gpu ? "GPU" : "CPU");
     return 0;
 }
