@@ -33,6 +33,12 @@ pick it and cached after that, so it still works with the wifi off. Both looks r
 make the same cuts — the reel is the film, the renderer is a look. See
 [docs/FILM_3D.md](../docs/FILM_3D.md).
 
+You can **record a 3D film** the same way you record a flat one, and get the same file with the same
+score under it. If the 3D renderer ever fails on a frame it falls back to the flat one rather than
+showing nothing — a film that will not play is worse than a film that plays flat — but it now says
+so afterwards instead of leaving you to wonder, because a silent fallback looks exactly like success
+from the outside.
+
 ## Using it
 
 1. Type your idea in the box. A sentence is plenty; a paragraph is fine too.

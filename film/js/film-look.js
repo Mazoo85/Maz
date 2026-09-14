@@ -111,11 +111,37 @@
     return true;
   }
 
+  /* How many frames each renderer has actually drawn, and — the one that matters — how many were
+   * asked of the 3D renderer and answered by the flat one.
+   *
+   * The fallback below is deliberate and right: a film that will not play is worse than a film that
+   * plays flat. But it is SILENT, and a silent fallback is indistinguishable from success from the
+   * outside — the look still says '3d', the canvas is still the right size, a picture still appears.
+   * Anything wanting to know whether it really got the renderer it asked for had nothing to read.
+   * Now it has. `problem()` reports a module that would not load; this reports one that loaded and
+   * then did not draw. */
+  var tally = { drew3d: 0, drewFlat: 0, fellBack: 0 };
+
+  function drewWith() {
+    return { drew3d: tally.drew3d, drewFlat: tally.drewFlat, fellBack: tally.fellBack };
+  }
+
+  function forgetTally() {
+    tally = { drew3d: 0, drewFlat: 0, fellBack: 0 };
+  }
+
   /* One frame of the film, in whichever look is on. Falls back to the flat renderer rather than
    * showing nothing: a film that will not play is worse than a film that plays flat. */
   function drawFrame(ctx, width, height, reel, time, opts) {
-    if (current === '3d' && draw3D(ctx, width, height, reel, time, opts)) return '3d';
+    if (current === '3d') {
+      if (draw3D(ctx, width, height, reel, time, opts)) {
+        tally.drew3d++;
+        return '3d';
+      }
+      tally.fellBack++;
+    }
     FlatPlayer.drawFrame(ctx, width, height, reel, time, opts);
+    tally.drewFlat++;
     return 'flat';
   }
 
@@ -169,6 +195,8 @@
     choose: choose,
     ready: ready,
     problem: problem,
+    drewWith: drewWith,
+    forgetTally: forgetTally,
     playWidth: playWidth,
     MAX_WIDTH: MAX_WIDTH,
     PLAY: PLAY,

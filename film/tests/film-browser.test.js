@@ -1428,6 +1428,71 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
         `and the picture it draws is the NEW film — ${Math.round(1000 * moved / total) / 10}% of ` +
         'pixels moved, where a renderer holding the reel it was handed first would move none');
 
+      // ---------------------------------------------------------------- taking a 3D film away
+      //
+      // The recording section above shoots the FLAT look, because that is the one a film opens in.
+      // But the whole reason somebody switches to 3D is to keep what they made, and a file is how it
+      // leaves the browser — so the path that matters most is the one that was never exercised:
+      // record while the 3D renderer is the one filling the canvas.
+      //
+      // It is not obviously safe. The recorder captures a stream from the canvas and mixes in the
+      // score, and the 3D renderer draws into that canvas from WebAssembly rather than with 2D calls.
+      // A canvas that has been written to by putImageData and one written to by drawImage are the
+      // same object to captureStream, but "should be" is not a check.
+      {
+        const looking = await page.evaluate(() => {
+          window.FilmLook.forgetTally();
+          return window.FilmLook.chosen();
+        });
+        check(looking === '3d', 'the 3D look is still the one on before recording one');
+
+        const take = page.waitForEvent('download', { timeout: 120000 });
+        await page.click('#recordFilm');
+        await page.waitForTimeout(6000);
+        await page.click('#stopFilm');
+        const got = await take;
+        const savedAt = path.join(downloadDir, got.suggestedFilename());
+        await got.saveAs(savedAt);
+        const shot = fs.readFileSync(savedAt);
+        const holds = (marker) => shot.indexOf(Buffer.from(marker)) !== -1;
+
+        check(shot.length > 20000,
+          `a 3D film records to a real file (${got.suggestedFilename()}, ` +
+          `${Math.round(shot.length / 1024)} KB)`);
+        check(got.suggestedFilename().endsWith(promised.extension),
+          `in the same format the app promised for the flat one (${promised.extension})`);
+        // Both tracks. A silent film is not what anybody recorded, and a soundtrack with no picture
+        // is not either — and with a renderer this different underneath, either could go missing
+        // without the other noticing.
+        const hasPicture = holds('avc1') || holds('avcC') || holds('V_VP9') || holds('V_VP8');
+        const hasSound = holds('mp4a') || holds('esds') || holds('A_OPUS');
+        check(hasPicture, 'with a picture in it');
+        check(hasSound, 'and the score under it');
+        // And the renderer did not quietly fall back while nobody was looking.
+        //
+        // The first version of this asked the look setting and the canvas width, and that is not the
+        // same question: the fallback in FilmLook.drawFrame is silent, so a renderer that painted
+        // every frame with the FLAT one would leave the setting on '3d', the canvas at 480, a picture
+        // on screen and a file on disk — and pass. It was mutation-tested and survived, which is how
+        // that got noticed. What is asked now is what was actually drawn, frame by frame.
+        const after3d = await page.evaluate(() => ({
+          look: window.FilmLook.chosen(),
+          problem: window.FilmLook.problem(),
+          width: document.getElementById('filmCanvas').width,
+          drew: window.FilmLook.drewWith()
+        }));
+        check(after3d.look === '3d' && !after3d.problem,
+          'the look is still set to 3D afterwards' +
+          (after3d.problem ? ` (${after3d.problem})` : ''));
+        check(after3d.drew.drew3d > 20,
+          `and the 3D renderer drew the frames that went into the file (${after3d.drew.drew3d} of them)`);
+        check(after3d.drew.fellBack === 0,
+          `with not one of them quietly handed to the flat renderer instead ` +
+          `(${after3d.drew.fellBack} fell back)`);
+        check(after3d.width <= 480,
+          `at the size the 3D look plays at (${after3d.width} across)`);
+      }
+
       await page.selectOption('#filmLook', 'flat');
       await page.waitForFunction(() => !document.getElementById('filmLook').disabled);
       check(await page.evaluate(() => window.FilmLook.chosen()) === 'flat',

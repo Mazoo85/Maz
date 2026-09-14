@@ -584,6 +584,9 @@
       ? player.time
       : 0;
     if (!resumeAt) sizeCanvas();
+    // Start the count of which renderer actually drew from zero, so a fallback during one take is
+    // not still being reported after the next one played cleanly.
+    if (!resumeAt && Look.forgetTally) Look.forgetTally();
     var p = resumeAt && player ? player : makePlayer();
     p.play(resumeAt);
     el.bigPlay.classList.add('hidden');
@@ -609,6 +612,25 @@
     }
     el.bigPlay.classList.remove('hidden');
     el.playFilm.textContent = '▶ Play the film';
+    reportFallback();
+  }
+
+  /* Say so when the 3D look was on and some of the film was drawn flat anyway.
+   *
+   * FilmLook falls back to the flat renderer rather than showing nothing, which is the right
+   * behaviour — a film that will not play is worse than a film that plays flat — but it is silent,
+   * and silent is the problem. The setting still says 3D, the picture is still there, and the film
+   * somebody just watched or saved was not the one they asked for, with nothing anywhere saying so.
+   * The load failure has always been reported; this is the other half. */
+  function reportFallback() {
+    if (!Look.drewWith || Look.chosen() !== '3d') return;
+    var drew = Look.drewWith();
+    if (!drew.fellBack) return;
+    var all = drew.fellBack + drew.drew3d;
+    describeLook('wrong', drew.drew3d === 0
+      ? 'The 3D renderer could not draw this film, so it played flat.'
+      : 'The 3D renderer missed ' + drew.fellBack + ' of ' + all +
+        ' frames; those played flat.');
   }
 
   /* The browser's own voice, for anyone who would rather hear words than
