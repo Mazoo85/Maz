@@ -36,7 +36,7 @@ make the same cuts — the reel is the film, the renderer is a look. See
 ## Using it
 
 1. Type your idea in the box. A sentence is plenty; a paragraph is fine too.
-2. Pick a **length** — 3, 5 or 7 scenes.
+2. Pick a **length** — 3, 5, 7 or 11 scenes.
 3. Leave **genre** on *Auto* to let it read your idea, or force one.
 4. Press **Write the script**.
 5. Open the **🎬 The film** tab and press play.
@@ -184,7 +184,7 @@ its 34 genres and its Setup/Inciting Incident/Conflict/Climax/Resolution beats
 onto SCRIPT FORGE's own ten genres and seven beats. The **🎁 Surprise me**
 button does the same borrowing on purpose, any time, thin idea or not.
 
-**The writer** (`js/screenplay.js`) lays the premise on a seven-beat spine —
+**The writer** (`js/screenplay.js`) lays the premise on a beat spine —
 Ordinary → Disruption → The Push → Complication → Crisis → The Choice → After
 — but not always the same one: every length offers **several different beat
 orders** (a 5-scene film alone has three), seeded so the same idea keeps its
@@ -222,6 +222,24 @@ against each other instead of quietly fighting over the same indices:
 Each beat then gets a scene: a slug line, action lines built from the beat's
 own bank, and a dialogue *exchange* (whole exchanges, not stray lines, so what
 the characters say follows on).
+
+**Three acts, and a long film that has a middle.** Every length splits into
+three acts, and every scene and every shot on the reel carries which one it is
+in — so anything that wants to pace a film by its shape can read it rather than
+work it out again. The act is counted from the scene's **position**, never from
+its beat: the third seven-scene shape runs `…crisis, after, choice`, the same
+beats as the first shape in a different order, and a film whose act came from
+its beat would go into act three, back out, and in again.
+
+The three short lengths all have the same problem, which is that their middle
+is one scene long — setup, trouble, ending — so however much the beats are
+shuffled they come out the same shape. The **11-scene** length is the one with
+room for act two to go somewhere: a **False Victory** that turns, an
+**Unravelling** where the cost arrives in instalments, **All Is Lost**, and a
+**Reckoning** before the choice. Each of those brought a state for the object
+with it (`proven`, `costly`, `worthless`, `understood`), because the alternative
+was the object doing nothing for the first four scenes of every long film — the
+arc had seven states for seven beats, and padded.
 
 **Exterior scenes get their own wording.** The images in the lexicon were
 written when a film had two places and they were nearly always interiors —

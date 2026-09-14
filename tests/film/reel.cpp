@@ -183,6 +183,41 @@ int main(int argc, char** argv) {
         CHECK(same, "reading the same reel twice gives the same reel");
     }
 
+    // --- 10b. Which act a shot is in. ---
+    //
+    // Added when films grew long enough to have three acts worth the name. The reel is the CONTRACT
+    // between the browser and this engine, so a field the browser writes and the engine drops is a
+    // field neither side can rely on. Two things matter: that it is read when it is there, and that a
+    // reel written before it existed still loads rather than failing — which is what the default is
+    // for, and what nobody notices is broken until an old saved film will not open.
+    {
+        const Reel withActs = maz::film::parseReel(
+            "{\"format\":\"maz-film-reel\",\"version\":1,\"title\":\"T\",\"duration\":6,\"shots\":["
+            "{\"start\":0,\"duration\":2,\"act\":1,\"set\":\"room\"},"
+            "{\"start\":2,\"duration\":2,\"act\":2,\"set\":\"room\"},"
+            "{\"start\":4,\"duration\":2,\"act\":3,\"set\":\"room\"}]}");
+        CHECK(withActs.shots.size() == 3, "a reel with acts on its shots loads");
+        if (withActs.shots.size() == 3) {
+            CHECK(withActs.shots[0].act == 1 && withActs.shots[1].act == 2 &&
+                      withActs.shots[2].act == 3,
+                  "and each shot comes back in the act it was written in");
+        }
+        // And a Shot nobody parsed at all. The showcase app and the tests build shots in code rather
+        // than reading them, and those never go through the parser's default — so the struct needs
+        // its own, or a hand-built film is in act zero.
+        const maz::film::Shot fresh;
+        CHECK(fresh.act == 1, "a shot built in code rather than read is in the first act");
+
+        const Reel noActs = maz::film::parseReel(
+            "{\"format\":\"maz-film-reel\",\"version\":1,\"title\":\"T\",\"duration\":2,\"shots\":["
+            "{\"start\":0,\"duration\":2,\"set\":\"room\"}]}");
+        CHECK(noActs.shots.size() == 1, "a reel written before acts existed still loads");
+        if (noActs.shots.size() == 1) {
+            CHECK(noActs.shots[0].act == 1,
+                  "and its shots land in the first act rather than in act zero");
+        }
+    }
+
     // --- 11. The running time reads the way a person writes one. ---
     CHECK(maz::film::clock(0.0) == "0:00", "zero reads 0:00");
     CHECK(maz::film::clock(9.4) == "0:09", "nine seconds reads 0:09");

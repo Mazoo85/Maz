@@ -159,6 +159,10 @@
       characters: [],
       mood: 0.2,
       scene: 0,
+      // The title card is not a scene, so it has no act of its own — it takes the act of what it is
+      // in front of, which is the first one. The end card takes the last. Left unset they came out
+      // undefined, and anything pacing a film by its act would have had two shots it could not place.
+      act: 1,
       beat: 'title'
     });
 
@@ -218,6 +222,7 @@
         characters: [],
         mood: mood,
         scene: scene.number,
+        act: scene.act || 1,
         beat: scene.beat.id,
         cutaway: true
       });
@@ -302,6 +307,7 @@
         characters: [],
         mood: mood,
         scene: scene.number,
+        act: scene.act || 1,
         beat: scene.beat.id
       });
       shotsThisScene++;
@@ -352,6 +358,8 @@
             objectBeat: element.objectBeat || null,
             mood: mood,
             scene: scene.number,
+            act: scene.act || 1,
+        act: scene.act || 1,
             beat: scene.beat.id
           });
           shotsThisScene++;
@@ -404,6 +412,8 @@
             holding: holder,
             mood: mood,
             scene: scene.number,
+            act: scene.act || 1,
+        act: scene.act || 1,
             beat: scene.beat.id
           });
           shotsThisScene++;
@@ -428,6 +438,7 @@
       characters: [],
       mood: 0.15,
       scene: 0,
+      act: 3,
       beat: 'end'
     });
 
@@ -493,6 +504,11 @@
       characters: (shot.characters || []).slice(),
       mood: shot.mood,
       scene: shot.scene,
+      // Which of the three acts this shot is in. On the reel rather than worked out again by whoever
+      // reads it, for the same reason everything else here is: the reel is the contract between this
+      // renderer and the engine, and a field that only exists on one side is a field the other can
+      // never see.
+      act: shot.act == null ? 1 : shot.act,
       beat: shot.beat,
       // Who is carrying the object, and which turn of its arc this shot is. Added when characters
       // started holding things: the reel is the CONTRACT between this renderer and the engine, so a

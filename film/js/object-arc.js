@@ -39,12 +39,24 @@
     spark: 'noticed',
     push: 'carried',
     turn: 'contested',
+    midpoint: 'proven',
+    unravel: 'costly',
     crisis: 'lost',
+    low: 'worthless',
+    reckon: 'understood',
     choice: 'reclaimed',
     after: 'changed'
   };
 
-  var STATES = ['unnoticed', 'noticed', 'carried', 'contested', 'lost', 'reclaimed', 'changed'];
+  /* Eleven states for eleven scenes, which is not a coincidence. The seven
+   * original ones covered the seven original beats, and when the feature length
+   * arrived with four more scenes `statesForSpine` did the only thing it could:
+   * padded from the front, so the first four scenes of every long film were all
+   * 'unnoticed' and the object sat there doing nothing until the halfway mark.
+   * A film's object has to be doing something in every scene it is in, so each
+   * new beat brought a state with it. */
+  var STATES = ['unnoticed', 'noticed', 'carried', 'contested', 'proven', 'costly',
+                'lost', 'worthless', 'understood', 'reclaimed', 'changed'];
 
   /* What each state is for, in one line — used by the "why" panel, and by the
    * test that prints something useful when an arc is missing a state. */
@@ -53,7 +65,11 @@
     noticed: 'somebody picks it up, and the film is about it now',
     carried: 'it goes where they go',
     contested: 'somebody else wants it',
+    proven: 'it does what they hoped, and that is what costs them',
+    costly: 'what it took to get it starts arriving',
     lost: 'the worst thing that can happen to it, happens',
+    worthless: 'it is still here and it is worth nothing',
+    understood: 'they finally know what it actually was',
     reclaimed: 'it comes back, and there is a decision to make',
     changed: 'the same object, meaning something else'
   };
@@ -69,7 +85,11 @@
         noticed: '{HERO} takes the {OBJ} down. Turns it over. Puts it in a pocket instead of back.',
         carried: 'The {OBJ} makes a shape in {HERO}’s coat. {HERO} keeps checking it is still there.',
         contested: '{OTHER} looks at the pocket. Not at {HERO}. At the pocket.',
+        proven: 'The {OBJ} does the one thing {HERO} hoped it would. {HERO} does not put it back in the pocket.',
+        costly: '{HERO} counts what keeping the {OBJ} has already cost, and stops counting.',
         lost: 'The {OBJ} is not in the pocket. {HERO} goes through it twice anyway.',
+        worthless: 'The {OBJ} is in {HERO}’s hand and the pocket it made a shape in is empty of everything else.',
+        understood: '{HERO} looks at the {OBJ} and understands it was never the shelf that kept it.',
         reclaimed: '{HERO} finds the {OBJ}. Holds it like it might go again.',
         changed: 'The {OBJ} goes back on the shelf. It does not stop being an object this time.'
       }
@@ -81,7 +101,11 @@
         noticed: '{HERO} moves the {OBJ} to a better hiding place. There is not one.',
         carried: '{HERO} carries the {OBJ} the way you carry something you have not decided about.',
         contested: '{OTHER} asks for the {OBJ} without asking for it.',
+        proven: 'Nobody finds the {OBJ}, all night, and {HERO} takes that for a good sign.',
+        costly: 'Hiding the {OBJ} has meant hiding other things. {HERO} has lost track of which.',
         lost: 'The hiding place is open and the {OBJ} is gone.',
+        worthless: 'The {OBJ} is out in the open at last, and there is nobody left to keep it from.',
+        understood: '{HERO} says where the {OBJ} has been. It takes four words and eleven years.',
         reclaimed: 'The {OBJ} is in {OTHER}’s hand, held out, and {HERO} has to decide whether to take it.',
         changed: '{HERO} puts the {OBJ} somewhere anyone could find it.'
       }
@@ -93,7 +117,11 @@
         noticed: '{HERO} picks up the {OBJ}. Something about it is already wrong.',
         carried: '{HERO} will not put the {OBJ} down, and will not look at it either.',
         contested: '{OTHER} reaches for the {OBJ}. {HERO} moves it out of reach without seeming to.',
+        proven: 'The {OBJ} holds. For a while, it holds.',
+        costly: 'A crack in the {OBJ} that was not there this morning. {HERO} turns it away from the light.',
         lost: 'The {OBJ} hits the floor. The sound is smaller than it should be.',
+        worthless: 'The {OBJ} is in pieces small enough that mending has stopped being a word.',
+        understood: '{HERO} sees which piece broke first, and when, and who was holding it.',
         reclaimed: '{HERO} gathers up the {OBJ}. Every piece. Even the ones that will not matter.',
         changed: 'The {OBJ} is mended badly, in the open, where the mend shows.'
       }
@@ -105,7 +133,11 @@
         noticed: '{HERO} is holding the {OBJ} before deciding to.',
         carried: 'The {OBJ} goes everywhere {HERO} goes {TONIGHT}.',
         contested: '{OTHER} says the {OBJ} is not {HERO}’s to keep. Neither of them says whose it is.',
+        proven: 'The {OBJ} opens what it was said to open. {HERO} stands in the doorway of it.',
+        costly: 'Whoever the {OBJ} belonged to is owed, and the bill has started coming in.',
         lost: '{HERO} lets go of the {OBJ}. Watches it go.',
+        worthless: 'The {OBJ} is {HERO}’s now, entirely, and there is nobody left to give it to.',
+        understood: '{HERO} says the name of the person the {OBJ} belonged to, out loud, at last.',
         reclaimed: 'The {OBJ} comes back the way things do, in the wrong hands at the wrong hour.',
         changed: '{HERO} gives the {OBJ} away, on purpose, and it costs what it costs.'
       }
@@ -117,7 +149,11 @@
         noticed: '{HERO} digs up the {OBJ} without having to look for the spot.',
         carried: 'The {OBJ} is out in the light and {HERO} keeps it covered anyway.',
         contested: '{OTHER} knows where the {OBJ} came from, and says so with a look.',
+        proven: 'The {OBJ} is worth what {HERO} always said it was worth. {HERO} gets no pleasure from being right.',
+        costly: 'The ground where the {OBJ} was is open, and anyone walking past can see it.',
         lost: 'The hole is open. There is nothing in it.',
+        worthless: '{HERO} holds the {OBJ} in an empty {PLACE} and cannot think of one thing to do with it.',
+        understood: '{HERO} says why the {OBJ} went into the ground, and it is not the reason they have been giving.',
         reclaimed: '{HERO} puts a hand on the {OBJ} and does not pick it up yet.',
         changed: '{HERO} buries the {OBJ} again, somewhere they mean to remember.'
       }
@@ -129,7 +165,11 @@
         noticed: '{HERO} sees the {OBJ} and stops walking.',
         carried: '{HERO} holds the {OBJ} where their hands can be seen holding it.',
         contested: '{OTHER} wants the {OBJ} to mean what {OTHER} says it means.',
+        proven: 'The {OBJ} says exactly what {HERO} said it would say. Somebody writes it down.',
+        costly: 'The {OBJ} means something about {HERO} too, and that part is arriving now.',
         lost: 'The {OBJ} is gone and the room is exactly as it was.',
+        worthless: 'The {OBJ} proves everything and there is nobody left it can be proved to.',
+        understood: '{OTHER} tells {HERO} what the {OBJ} actually is, and it is worse and simpler.',
         reclaimed: 'The {OBJ} turns up somewhere it could not have got to by itself.',
         changed: '{HERO} sets the {OBJ} down between them, and lets it say it.'
       }

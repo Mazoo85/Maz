@@ -1450,6 +1450,126 @@ test('placeForBeat stays inside the places it is given', () => {
 
 console.log('\nTHE SHAPE OF A STORY');
 
+test('a long film has a middle that is actually a middle', () => {
+  // Everything shorter than the feature length goes setup, trouble, ending with
+  // the trouble one scene long, which is why every short film here has the same
+  // shape however much its beats are shuffled. The point of the long one is an
+  // act two that goes somewhere.
+  const f = LEX.STRUCTURES.feature;
+  assert(f, 'there is a feature length at all');
+  f.spines.forEach((spine, i) => {
+    eq(spine.length, 11, 'feature shape ' + i + ' is eleven scenes');
+    const middle = spine.slice(3, 8);
+    assert(middle.indexOf('midpoint') !== -1,
+      'feature shape ' + i + ' turns at its middle rather than running flat to the crisis');
+    assert(spine.indexOf('low') > spine.indexOf('midpoint'),
+      'feature shape ' + i + ' puts its bottom after its false victory, not before');
+    assert(spine.indexOf('reckon') > spine.indexOf('low'),
+      'and the reckoning after the bottom');
+    assert(spine.indexOf('choice') > spine.indexOf('reckon'),
+      'and the choice after the reckoning');
+  });
+});
+
+test('every structure splits into three acts that add up', () => {
+  Object.keys(LEX.STRUCTURES).forEach((len) => {
+    const st = LEX.STRUCTURES[len];
+    assert(Array.isArray(st.acts) && st.acts.length === 3, len + ' has three acts');
+    const total = st.acts.reduce((a, b) => a + b, 0);
+    st.spines.forEach((spine, i) => {
+      eq(spine.length, total,
+        len + ' shape ' + i + ': the acts add up to the number of scenes there are');
+    });
+    st.acts.forEach((n) => assert(n >= 1, len + ' has no empty act'));
+  });
+});
+
+test('the act a scene is in only ever goes forwards', () => {
+  // Acts are counted from POSITION, not read off the beat, and this is the
+  // check that says why. Festival's third shape runs '...crisis, after, choice'
+  // — the same beats as the first shape in a different order — so a film whose
+  // act came from its beat would go into act three, back out, and in again.
+  Object.keys(LEX.STRUCTURES).forEach((len) => {
+    const st = LEX.STRUCTURES[len];
+    const seen = [];
+    for (let i = 0; i < st.acts.reduce((a, b) => a + b, 0); i++) {
+      seen.push(LEX.actOf(st, i));
+    }
+    eq(seen[0], 1, len + ' opens in act one');
+    eq(seen[seen.length - 1], 3, len + ' ends in act three');
+    for (let i = 1; i < seen.length; i++) {
+      assert(seen[i] >= seen[i - 1], len + ' never goes back an act (at scene ' + (i + 1) + ')');
+      assert(seen[i] - seen[i - 1] <= 1, len + ' never skips an act (at scene ' + (i + 1) + ')');
+    }
+  });
+});
+
+test('a written film carries the act on every scene', () => {
+  const premise = Parse.parse('A night nurse finds a key that opens a door that should not be there.',
+    { seed: 4242 });
+  ['micro', 'short', 'festival', 'feature'].forEach((len) => {
+    const script = Writer.write(premise, { length: len, seed: 71 });
+    script.scenes.forEach((sc, i) => {
+      eq(sc.act, LEX.actOf(LEX.STRUCTURES[len], i),
+        len + ' scene ' + (i + 1) + ' knows which act it is in');
+      assert(sc.number_in_act >= 1, len + ' scene ' + (i + 1) + ' knows where it is inside that act');
+    });
+    // And the first scene of each act says so: scene one of act one, of act two,
+    // of act three. A counter that ran straight through the film would not.
+    const firsts = script.scenes.filter((sc) => sc.number_in_act === 1).map((sc) => sc.act);
+    eq(firsts.join(''), '123', len + ' starts each of its three acts exactly once');
+  });
+});
+
+test('every shot on a reel knows which act it is in', () => {
+  const premise = Parse.parse('A night nurse finds a key that opens a door that should not be there.',
+    { seed: 606 });
+  ['micro', 'short', 'festival', 'feature'].forEach((len) => {
+    const built = Reel.build(Writer.write(premise, { length: len, seed: 33 }));
+    const counts = { 1: 0, 2: 0, 3: 0 };
+    built.shots.forEach((shot, i) => {
+      assert(shot.act === 1 || shot.act === 2 || shot.act === 3,
+        len + ' shot ' + (i + 1) + ' is in one of the three acts (got ' + shot.act + ')');
+      counts[shot.act]++;
+    });
+    assert(counts[1] > 0 && counts[2] > 0 && counts[3] > 0,
+      len + ' actually spends time in all three of its acts');
+    // And it never goes backwards along the film, which is the property anything
+    // pacing by act depends on.
+    for (let i = 1; i < built.shots.length; i++) {
+      assert(built.shots[i].act >= built.shots[i - 1].act,
+        len + ' never cuts back to an earlier act (at shot ' + (i + 1) + ')');
+    }
+    // The title card and the end card are not scenes and have no act of their
+    // own, so they take the act of what they sit against. Left unset they came
+    // out undefined, which the check above would not have caught if it only
+    // looked at shots that came from a scene.
+    eq(built.shots[0].act, 1, len + ': the title card belongs to the first act');
+    eq(built.shots[built.shots.length - 1].act, 3, len + ': and the end card to the last');
+  });
+});
+
+test('a long film is actually longer, and its middle is the biggest part of it', () => {
+  const premise = Parse.parse('A night nurse finds a key that opens a door that should not be there.',
+    { seed: 606 });
+  const of = (len) => Reel.build(Writer.write(premise, { length: len, seed: 33 }));
+  const micro = of('micro');
+  const short = of('short');
+  const festival = of('festival');
+  const feature = of('feature');
+  assert(short.duration > micro.duration, 'a short film runs longer than a micro one');
+  assert(festival.duration > short.duration, 'and a festival one longer than a short');
+  assert(feature.duration > festival.duration * 1.25,
+    'and the feature length is a real step up rather than a couple of scenes more (' +
+    Math.round(festival.duration) + 's to ' + Math.round(feature.duration) + 's)');
+
+  // The thing the length is FOR. In everything shorter the middle is the gap
+  // between the beginning and the end; here it is the biggest part of the film.
+  const inAct = (reel, n) => reel.shots.filter((s) => s.act === n).length;
+  assert(inAct(feature, 2) > inAct(feature, 1) && inAct(feature, 2) > inAct(feature, 3),
+    'the feature length spends more of itself in act two than in either of the others');
+});
+
 test('every length offers more than one shape', () => {
   Object.keys(LEX.STRUCTURES).forEach((len) => {
     const spines = LEX.STRUCTURES[len].spines;
@@ -1459,7 +1579,13 @@ test('every length offers more than one shape', () => {
 });
 
 test('every shape is made of real beats and has a beginning', () => {
-  const known = ['open', 'spark', 'push', 'turn', 'crisis', 'choice', 'after'];
+  // Read out of the beats themselves rather than typed out here. The typed-out
+  // version was a list of the seven beats that existed when it was written, so
+  // the first length that added a beat failed this check for having one —
+  // which is not the thing it is trying to catch. What it IS trying to catch is
+  // a spine naming a beat that does not exist, and that only works if the list
+  // comes from the beats.
+  const known = LEX.BEATS.map((b) => b.id);
   Object.keys(LEX.STRUCTURES).forEach((len) => {
     LEX.STRUCTURES[len].spines.forEach((spine, i) => {
       eq(spine[0], 'open', len + ' shape ' + i + ' does not open on the open beat');

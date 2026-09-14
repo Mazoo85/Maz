@@ -399,6 +399,19 @@
 
       scenes.push({
         number: index + 1,
+        // Which of the three acts this scene is in. Carried on the scene rather
+        // than worked out again downstream, because the answer depends on the
+        // structure and every consumer would otherwise need to know which one
+        // was used. Everything that wants to pace a film — the cutting, the
+        // score, the panel that explains its own choices — can read it here.
+        act: LEX.actOf(structure, index),
+        number_in_act: (function () {
+          var first = 0;
+          var acts = structure.acts || [];
+          var upto = LEX.actOf(structure, index) - 1;
+          for (var a = 0; a < upto; a++) { first += acts[a]; }
+          return index - first + 1;
+        }()),
         beat: { id: beat.id, name: beat.name, purpose: beat.purpose },
         heading: heading,
         elements: sceneElements,

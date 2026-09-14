@@ -67,7 +67,12 @@ struct Shot {
     // and widening there is enough to round a colour channel differently -- see Palette.hpp.
     double mood = 0.0;                   // 0 calm .. 1 wound up; drives light, score and cutting
     int scene = 0;
-    std::string beat; // open | spark | push | turn | crisis | choice | after | title | end
+    // Which of the three acts this shot is in, 1..3. Counted from the scene's POSITION in the film
+    // rather than from its beat, because a beat does not have an act — a position does, and the
+    // spines reorder beats. Defaults to 1 so a reel written before this field existed still reads.
+    int act = 1;
+    std::string beat; // open | spark | push | turn | midpoint | unravel | crisis | low | reckon |
+                      // choice | after | title | end
 
     // Who has the thing the story turns on, and which turn of its arc this shot is. Empty for most
     // shots: the object is only in somebody's hand for the three states that mean they have it.
@@ -193,6 +198,7 @@ inline Reel parseReel(const std::string& text) {
         shot.characters = detail::stringArray(s["characters"]);
         shot.mood = s["mood"].asNumber(0.0);
         shot.scene = s["scene"].asInt(0);
+        shot.act = s["act"].asInt(1);
         shot.beat = s["beat"].asString();
         // Absent in reels written before characters held anything: an older document is
         // still a valid document, and simply has nobody carrying anything.

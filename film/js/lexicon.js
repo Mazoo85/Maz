@@ -540,6 +540,62 @@
       shots: ['HANDHELD — close, unsteady', 'LOW ANGLE — the room over them', 'CUTAWAY — {DETAIL_SHOT}']
     },
     {
+      id: 'midpoint',
+      name: 'False Victory',
+      purpose: 'It works. That is the problem — winning here is what costs them later.',
+      action: [
+        'For about a minute, {HERO} has what they wanted, and it is easier than it should have been.',
+        '{HERO} gets it. {DETAIL} Nobody in the {PLACE} tells them what it cost.',
+        'The {OBJ} does exactly what {HERO} hoped it would do. That is the first thing that frightens them.',
+        '{HERO} lets themselves believe it for the length of one held breath.',
+        '{OTHER} congratulates {HERO}, and means it, and is wrong.'
+      ],
+      shots: ['WIDE — {HERO} standing in the middle of it, winning',
+              'CLOSE — a smile arriving late', 'INSERT — the {OBJ}, doing what it was asked']
+    },
+    {
+      id: 'unravel',
+      name: 'The Unravelling',
+      purpose: 'The cost starts arriving, in instalments, and none of it can be sent back.',
+      action: [
+        'The first thing goes wrong quietly enough that {HERO} can pretend it has not.',
+        '{DETAIL} Then the second thing, which cannot be pretended about.',
+        '{HERO} counts what is left and does not like the number.',
+        '{OTHER} stops helping. Nothing is said about it; the {PLACE} simply has one fewer ally in it.',
+        'Everything {HERO} did to get here is now a reason somebody has to be somewhere else.'
+      ],
+      shots: ['TRACKING — {HERO}, going the wrong way fast',
+              'OTS — {OTHER} not meeting their eye', 'CUTAWAY — {DETAIL_SHOT}']
+    },
+    {
+      id: 'low',
+      name: 'All Is Lost',
+      purpose: 'The bottom. Whatever the hero was protecting is gone, and they know whose fault it is.',
+      action: [
+        '{HERO} is alone in the {PLACE} with the thing they cannot undo.',
+        '{SOUND_CUE} The {OBJ} is worth nothing now and {HERO} is still holding it.',
+        'Nobody is coming, and this time {HERO} does not spend any of the night hoping they will.',
+        '{DETAIL} {HERO} says the true thing to an empty room, which is the only place it can be said yet.',
+        '{HERO} understands, finally, that the person who did this was them.'
+      ],
+      shots: ['HOLD — {HERO}, still, for longer than is comfortable',
+              'LOW ANGLE — the {PLACE} over them', 'CLOSE — the {OBJ}, no longer worth anything']
+    },
+    {
+      id: 'reckon',
+      name: 'The Reckoning',
+      purpose: 'The two of them, and the truth, said plainly for the first time.',
+      action: [
+        '{OTHER} comes back, which {HERO} had stopped expecting.',
+        'They say it straight to each other, and neither of them enjoys it.',
+        '{HERO} stops performing and tells {OTHER} what they actually want: to {WANT}.',
+        '{DETAIL} The {OBJ} sits between them while the two of them finally talk about it.',
+        '{OTHER} says the one sentence {HERO} has spent the whole film not saying.'
+      ],
+      shots: ['TWO-SHOT — no gap left between them',
+              'CLOSE — {HERO}, hearing it', 'CLOSE — {OTHER}, having said it']
+    },
+    {
       id: 'choice',
       name: 'The Choice',
       purpose: 'The hero chooses, and the choice is the whole film.',
@@ -568,10 +624,18 @@
   ];
 
   /* Beat orders by target length. Short films earn their length; a 2-minute
-   * film gets the spine only. */
+   * film gets the spine only.
+   *
+   * `acts` is how many scenes fall in each of the three acts, and it lives on
+   * the STRUCTURE rather than on the beat. That is not an arbitrary choice: a
+   * beat does not have an act, a POSITION does. Festival's third shape runs
+   * '...crisis, after, choice' — the same three beats as the first shape in a
+   * different order — and marking each beat with an act number would have that
+   * film going into act three and back out again. Counting scenes cannot. */
   var STRUCTURES = {
     micro: {
       label: '3 scenes',
+      acts: [1, 1, 1],
       spines: [
         ['open', 'spark', 'choice'],
         ['open', 'crisis', 'after']
@@ -579,6 +643,7 @@
     },
     short: {
       label: '5 scenes',
+      acts: [1, 3, 1],
       spines: [
         ['open', 'spark', 'crisis', 'choice', 'after'],
         ['open', 'push', 'turn', 'crisis', 'choice'],
@@ -587,13 +652,44 @@
     },
     festival: {
       label: '7 scenes',
+      acts: [2, 3, 2],
       spines: [
         ['open', 'spark', 'push', 'turn', 'crisis', 'choice', 'after'],
         ['open', 'spark', 'turn', 'push', 'crisis', 'choice', 'after'],
         ['open', 'push', 'spark', 'turn', 'crisis', 'after', 'choice']
       ]
+    },
+    /* Eleven scenes, and the only length with room for the middle of a film to
+     * actually be a middle. Everything shorter goes setup, trouble, ending, and
+     * the trouble is one scene long — which is why every short film here has
+     * the same shape however much its beats are shuffled. At eleven there is a
+     * false victory that turns, a cost arriving in instalments, a bottom, and a
+     * reckoning before the choice: an act two that goes somewhere rather than
+     * being the gap between the other two. */
+    feature: {
+      label: '11 scenes',
+      acts: [3, 5, 3],
+      spines: [
+        ['open', 'spark', 'push', 'turn', 'midpoint', 'unravel', 'crisis', 'low',
+         'reckon', 'choice', 'after'],
+        ['open', 'push', 'spark', 'turn', 'midpoint', 'crisis', 'unravel', 'low',
+         'reckon', 'choice', 'after'],
+        ['open', 'spark', 'turn', 'push', 'midpoint', 'unravel', 'low', 'crisis',
+         'reckon', 'choice', 'after']
+      ]
     }
   };
+
+  /* Which act a scene at this index belongs to: 1, 2 or 3. */
+  function actOf(structure, index) {
+    var acts = (structure && structure.acts) || [1, 1, 1];
+    var seen = 0;
+    for (var a = 0; a < acts.length; a++) {
+      seen += acts[a];
+      if (index < seen) return a + 1;
+    }
+    return acts.length;
+  }
 
   /* `beats` was the single shape each length used to have. Keep it pointing at
    * the first shape so anything still reading it sees a valid story. */
@@ -727,6 +823,7 @@
     FOILS: FOILS,
     WANTS: WANTS,
     BEATS: BEATS,
+    actOf: actOf,
     STRUCTURES: STRUCTURES
   };
 
