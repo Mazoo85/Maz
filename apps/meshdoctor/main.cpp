@@ -10,7 +10,8 @@
 // edges, one triangle wound backwards — then makeWindingConsistent fixes the one it can, and the
 // diagnosis names the two rims it cannot. RIGHT: splitConnectedComponents pulls a detached part off a
 // merged export, and the triangle-shape scores put the icosphere beside the UV sphere, which is where
-// the pole slivers everyone warns about turn into numbers. Fixed data, no input.
+// the pole slivers everyone warns about turned into numbers — and then into a fix to
+// shapes::makeSphere, which this panel now measures the result of. Fixed data, no input.
 // --headless / --frames N for CI.
 
 #include "maz/Engine.hpp"
@@ -45,12 +46,6 @@ namespace {
 std::string num(double v, int decimals = 2) {
     char buf[64];
     std::snprintf(buf, sizeof(buf), "%.*f", decimals, v);
-    return buf;
-}
-
-std::string sci(double v) {
-    char buf[64];
-    std::snprintf(buf, sizeof(buf), "%.1e", v);
     return buf;
 }
 
@@ -338,7 +333,9 @@ int main(int argc, char** argv) {
                 std::to_string(icoQ.triangleCount) + "  /  " + std::to_string(uvQ.triangleCount), kText);
             y += 25.0f;
             row(990.0f, y, "worst quality",
-                num(static_cast<double>(icoQ.minQuality), 3) + "  /  " + sci(uvQ.minQuality), kVal);
+                num(static_cast<double>(icoQ.minQuality), 3) + "  /  " +
+                    num(static_cast<double>(uvQ.minQuality), 3),
+                kVal);
             y += 25.0f;
             row(990.0f, y, "average quality",
                 num(static_cast<double>(icoQ.avgQuality), 3) + "  /  " +
@@ -360,17 +357,21 @@ int main(int argc, char** argv) {
                 uvD.caps.empty() ? kOk : kNo);
             y += 30.0f;
             font.drawText(*renderer, 990.0f, y,
-                          ("Both poles of the UV sphere collapse, and they do it differently. The north "
-                           "pole's " +
-                           std::to_string(uvD.zeroArea.size()) +
-                           " triangles are exactly zero-area, because sin(0) is 0. The south pole's " +
-                           std::to_string(uvD.caps.size() + uvD.needles.size()) +
-                           " are not: float sin(pi) is -8.7e-08, so that pole is a ring 1e-07 wide and "
-                           "its triangles measure " +
-                           sci(static_cast<double>(uvQ.minQuality)) +
-                           " on the shape score while passing any zero-area test. The classifier names "
-                           "them caps and needles; the score sees them as slivers. Neither check alone "
-                           "finds both poles.")
+                          ("This row is the one that paid for the panel. It used to read 20 zero-area "
+                           "triangles at the north pole and 20 more at the south — and the southern "
+                           "ones were invisible to a zero-area test, because float sin(pi) is -8.7e-08 "
+                           "rather than 0, which spread that pole into a ring 1e-07 across. A textbook "
+                           "UV sphere makes two triangles per quad everywhere, including against the "
+                           "pole rows where both corners on the pole are the same point. They drew "
+                           "nothing, so nothing noticed, while breaking normal averaging and defeating "
+                           "decimation. makeSphere now skips the flat one and snaps the pole rows to "
+                           "the axis, so both columns read " +
+                           std::to_string(uvD.zeroArea.size() + uvD.caps.size() + uvD.needles.size()) +
+                           ". What is left is not a defect but the shape of the thing: a lat/long "
+                           "sphere still crowds triangles toward its poles, so its worst triangle "
+                           "scores " +
+                           num(static_cast<double>(uvQ.minQuality), 2) + " where the icosphere's "
+                           "scores " + num(static_cast<double>(icoQ.minQuality), 2) + ".")
                               .c_str(),
                           kDim, 0.26f);
 

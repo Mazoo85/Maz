@@ -49,8 +49,13 @@ MeshData makeSphere(float radius, int rings, int sectors, const Color& color) {
 
     for (int i = 0; i <= rings; ++i) {
         const float theta = kPi * static_cast<float>(i) / static_cast<float>(rings);
-        const float st = std::sin(theta);
-        const float ct = std::cos(theta);
+        // Snap the two pole rows instead of trusting sin(). sin(0) is exactly 0, but the float pi
+        // here makes sin(theta) at the south pole -8.7e-08 rather than 0, which spreads that "pole"
+        // over a ring 1e-7 across: its triangles then measure ~7e-08 on a shape-quality score while
+        // slipping past any is-this-zero-area test. Both poles now behave the same way.
+        const bool atPole = (i == 0 || i == rings);
+        const float st = atPole ? 0.0f : std::sin(theta);
+        const float ct = atPole ? (i == 0 ? 1.0f : -1.0f) : std::cos(theta);
         for (int j = 0; j <= sectors; ++j) {
             const float phi = 2.0f * kPi * static_cast<float>(j) / static_cast<float>(sectors);
             const float nx = st * std::cos(phi);
@@ -63,12 +68,24 @@ MeshData makeSphere(float radius, int rings, int sectors, const Color& color) {
         }
     }
 
+    // Each quad is two triangles — except against a pole row, where the two "corners" on the pole are
+    // the same point and one of the two triangles is therefore flat. Emitting those anyway is what a
+    // textbook UV sphere does, and it costs 2 * sectors dead triangles (10% of a 10x20 sphere): they
+    // draw nothing, but they break normal averaging, defeat decimation, and are what a mesh-health
+    // pass flags. The pole rows keep their duplicated vertices, because the UVs differ along them.
     const auto stride = static_cast<uint32_t>(sectors + 1);
     for (uint32_t i = 0; i < static_cast<uint32_t>(rings); ++i) {
+        const bool topRow = (i == 0);
+        const bool bottomRow = (i + 1 == static_cast<uint32_t>(rings));
         for (uint32_t j = 0; j < static_cast<uint32_t>(sectors); ++j) {
             const uint32_t a = i * stride + j;
             const uint32_t b = a + stride;
-            m.indices.insert(m.indices.end(), {a, a + 1, b, a + 1, b + 1, b});
+            if (!topRow) {
+                m.indices.insert(m.indices.end(), {a, a + 1, b});
+            }
+            if (!bottomRow) {
+                m.indices.insert(m.indices.end(), {a + 1, b + 1, b});
+            }
         }
     }
     return m;

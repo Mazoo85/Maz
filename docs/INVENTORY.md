@@ -13,9 +13,9 @@ size is in the wiring between the parts, not in any one part.
 
 | | Count | |
 |---|---:|---|
-| Native games and demos (`apps/`) | 176 | 37,211 lines |
-| Engine capabilities (`engine/include/maz/`) | 697 | 88,254 lines across 20 subsystems |
-| C++ test files (`tests/`) | 382 | |
+| Native games and demos (`apps/`) | 176 | 37,213 lines |
+| Engine capabilities (`engine/include/maz/`) | 697 | 88,273 lines across 20 subsystems |
+| C++ test files (`tests/`) | 383 | |
 | Browser apps and games | 8 | 26,857 lines |
 | Python tools | 3 | |
 | CI gates (`scripts/`) | 3 | |
@@ -223,7 +223,7 @@ engine capability, a handful of them complete games.
 | **manybody** | integrated spatial-hash broadphase, toward Godot's many-body scaling) The warm solver found contact pairs with an O(n^2) all-pairs scan — fine for a… | 173 | ✓ | ✓ | — |
 | **maze** | A* pathfinding demo) A walker crosses an obstacle field, re-planning its route with maz::game::NavGrid (grid A*) whenever it reaches its goal. The co… | 206 | ✓ | ✓ | — |
 | **menu** | immediate-mode UI demo) A settings menu built from maz::ui::Context widgets: a panel, buttons, a toggle, and a volume slider. A synthetic auto-cursor… | 143 | ✓ | ✓ | — |
-| **meshdoctor** | render::analyzeMesh, summarizeTopology, analyzeWatertight, analyzeDegenerate, analyzeValence, analyzeWinding, connectedComponentLabels / splitConnect… | 356 | ✓ | · | no golden screenshot |
+| **meshdoctor** | render::analyzeMesh, summarizeTopology, analyzeWatertight, analyzeDegenerate, analyzeValence, analyzeWinding, connectedComponentLabels / splitConnect… | 358 | ✓ | · | no golden screenshot |
 | **mobilepack** | bundle (a lib/<abi>/ tree per ABI, with the shared assets + manifest written once). It then re-checks that every planned file actually landed at its… | 490 | ✓ | · | — |
 | **model** | glTF loading demo) Loads a low-poly house from a glTF 2.0 file at runtime (assets/models/house.gltf) and renders it on a ground plane with shadows, s… | 118 | ✓ | ✓ | — |
 | **modfx** | chorus / flanger / phaser modulated-delay effects, toward Godot's AudioEffect*) The signal scope (see apps/bus, apps/reverb) for the three time-modul… | 167 | ✓ | ✓ | — |

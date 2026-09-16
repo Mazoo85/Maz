@@ -3500,3 +3500,15 @@ add_executable(maz_all_headers_tests "${CMAKE_CURRENT_BINARY_DIR}/all_headers.cp
 target_link_libraries(maz_all_headers_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME all_headers COMMAND maz_all_headers_tests)
 set_tests_properties(all_headers PROPERTIES TIMEOUT 30)
+
+# What shapes::makeSphere actually produces. The UV sphere is the primitive most likely to be taken on
+# trust, and the textbook construction emits 2 * sectors FLAT triangles against its pole rows — they
+# draw nothing, so nothing noticed, while breaking normal averaging and defeating decimation. This
+# pins their absence, pins the pole rows to exactly +/-radius (float pi put the south pole 8.7e-08 off
+# the axis, spreading it into a ring whose triangles no zero-area test could see), and deliberately
+# asserts the two properties that are NOT defects: a UV sphere is open at its seam and poles, and its
+# triangles are less even than an icosphere's.
+add_executable(maz_uvsphere_tests render/uvsphere.cpp)
+target_link_libraries(maz_uvsphere_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME uv_sphere COMMAND maz_uvsphere_tests)
+set_tests_properties(uv_sphere PROPERTIES TIMEOUT 30)
