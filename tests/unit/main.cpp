@@ -24032,16 +24032,15 @@ void testFitObb() {
         const float aabbVol = (amax[0] - amin[0]) * (amax[1] - amin[1]) * (amax[2] - amin[2]);
         CHECK(obbVol < aabbVol * 0.95f);
     }
-    // A SYMMETRIC box: the one case PCA cannot orient. Two equal spreads mean a repeated eigenvalue,
-    // so every direction in that plane is equally an eigenvector and the pair that comes back is decided
-    // by rounding. What must still hold is the only promise a bounding box makes — it contains the
-    // points — and that is what is asserted here. Tightness deliberately is NOT: a cube rotated 30
-    // degrees measured 1.87x its true volume at the origin and 1.26x once translated, both "correct"
-    // answers to a tie, so pinning either number would be pinning an artifact of the arithmetic.
-    // Every other case in this block uses three distinct extents, which is why the limitation went
-    // unnoticed; see the scope note on FitObb.hpp.
+    // A SYMMETRIC box: the case plain PCA cannot orient, because two equal spreads give the
+    // covariance a repeated eigenvalue and every direction in that plane is equally an eigenvector.
+    // fitObb sweeps for the real orientation when that happens, so a cube must now come back TIGHT —
+    // and tight at any offset, since a fit that centres its points has no business caring where they
+    // are. Before that sweep existed this returned 1.87x the true volume at the origin and 1.26x once
+    // translated, both "correct" answers to a tie. Every other case in this block uses three distinct
+    // extents, which is why the blind spot went unnoticed; see the scope note on FitObb.hpp.
     {
-        const vec3 half(2, 2, 2); // a cube: x and y spreads tie, and so do all three
+        const vec3 half(2, 2, 2); // a cube: all three spreads tie
         const float a = 0.5236f;  // 30 degrees
         const mat3 rot(std::cos(a), std::sin(a), 0, -std::sin(a), std::cos(a), 0, 0, 0, 1);
         for (const vec3& at : {vec3(0, 0, 0), vec3(1, 0.5f, 0.25f), vec3(37, -12, 5)}) {
@@ -24050,9 +24049,27 @@ void testFitObb() {
             for (const vec3& p : pts) CHECK(inside(b, p, 1e-3f));
             CHECK(std::fabs(b.center.x - at.x) < 1e-2f && std::fabs(b.center.y - at.y) < 1e-2f &&
                   std::fabs(b.center.z - at.z) < 1e-2f);
-            // Never SMALLER than the true box: a fit that lost volume would not be enclosing anything.
+            // The true box is 4x4x4 = 64. Never smaller (it must enclose), and now barely larger.
             CHECK(boxVolume(b) > 64.0f - 1e-2f);
+            CHECK(boxVolume(b) < 64.0f * 1.02f);
+            float h[3] = {b.half.x, b.half.y, b.half.z};
+            std::sort(h, h + 3);
+            CHECK(std::fabs(h[0] - 2.0f) < 2e-2f && std::fabs(h[1] - 2.0f) < 2e-2f &&
+                  std::fabs(h[2] - 2.0f) < 2e-2f);
         }
+    }
+
+    // A square-section BEAM: only two of the three spreads tie, which is the commoner shape of the
+    // same problem (a pillar, a plank, a rail) and is resolved by the sweep in one plane.
+    {
+        const vec3 half(5, 1, 1);
+        const float a = 0.4f;
+        const mat3 rot(1, 0, 0, 0, std::cos(a), std::sin(a), 0, -std::sin(a), std::cos(a));
+        const std::vector<vec3> pts = boxPoints(half, rot, vec3(2, -3, 4));
+        const Obb b = fitObb(pts);
+        for (const vec3& p : pts) CHECK(inside(b, p, 1e-3f));
+        CHECK(boxVolume(b) < 40.0f * 1.02f); // half extents 5,1,1 -> 10 x 2 x 2 = 40
+        CHECK(boxVolume(b) > 40.0f - 1e-2f);
     }
 
     // Axes are orthonormal.

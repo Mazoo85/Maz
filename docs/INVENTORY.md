@@ -13,8 +13,8 @@ size is in the wiring between the parts, not in any one part.
 
 | | Count | |
 |---|---:|---|
-| Native games and demos (`apps/`) | 176 | 37,213 lines |
-| Engine capabilities (`engine/include/maz/`) | 697 | 88,273 lines across 20 subsystems |
+| Native games and demos (`apps/`) | 176 | 37,217 lines |
+| Engine capabilities (`engine/include/maz/`) | 697 | 88,378 lines across 20 subsystems |
 | C++ test files (`tests/`) | 383 | |
 | Browser apps and games | 8 | 26,857 lines |
 | Python tools | 3 | |
@@ -205,7 +205,7 @@ engine capability, a handful of them complete games.
 | **groove** | groove / slider joints, toward Godot's GrooveJoint2D) Three tilted rails. On each, a box is pinned to the rail by a GROOVE joint (game::Joint2D::Groo… | 152 | ✓ | ✓ | — |
 | **groups** | node groups, toward Godot's SceneTree add_to_group / get_nodes_in_group) A grid of 36 nodes, each tagged into named groups (enemies / pickups / scene… | 157 | ✓ | ✓ | — |
 | **guard** | finite-state-machine AI demo) Guards walk a patrol loop until an intruder wanders close, then a maz::game::StateMachine flips them Patrol -> Chase (s… | 245 | ✓ | ✓ | — |
-| **heft** | render::computeMassProperties, computePrincipalAxes, analyzeSolidity, containsPoint, projectedArea, fitBoundingCylinder, fitDominantPlane, math::boun… | 380 | ✓ | · | no golden screenshot |
+| **heft** | render::computeMassProperties, computePrincipalAxes, analyzeSolidity, containsPoint, projectedArea, fitBoundingCylinder, fitDominantPlane, math::boun… | 384 | ✓ | · | no golden screenshot |
 | **inifile** | io::ConfigFile, toward Godot's ConfigFile) Godot's ConfigFile is the INI-style `[section]` + `key=value` store behind project settings, input maps, a… | 146 | ✓ | ✓ | — |
 | **instances** | instanced-rendering demo) A field of hundreds of cubes rendered in a SINGLE instanced draw call (one model matrix per instance, supplied as per-insta… | 152 | ✓ | ✓ | — |
 | **interp** | fixed-timestep render interpolation, toward Godot's physics interpolation) Physics runs on the fixed step; the display refreshes between steps. Drawi… | 124 | ✓ | ✓ | — |

@@ -325,9 +325,11 @@ int main(int argc, char** argv) {
                     num(movedMass.centroid[2], 3) + ")",
                 "put at (3, -1, 2)", kOk);
             y += 23.0f;
-            row(470.0f, y, "fitObb volume", num(movedObbVolume, 3), "a 2-cube is 8", kNo);
+            row(470.0f, y, "fitObb volume", num(movedObbVolume, 3), "a 2-cube is 8",
+                std::fabs(movedObbVolume - 8.0) < 0.05 ? kOk : kNo);
             y += 23.0f;
-            row(470.0f, y, "fitObb axis, off by", num(axisOffDegrees, 1) + " deg", "should be 0", kNo);
+            row(470.0f, y, "fitObb axis, off by", num(axisOffDegrees, 2) + " deg", "should be 0",
+                axisOffDegrees < 0.5 ? kOk : kNo);
             y += 23.0f;
             row(470.0f, y, "same fit on a brick",
                 num(static_cast<double>(brickObb.half.x), 3) + ", " +
@@ -336,13 +338,15 @@ int main(int argc, char** argv) {
                 "asked for 1, 0.9, 0.8", kOk);
             y += 28.0f;
             font.drawText(*renderer, 470.0f, y,
-                          "The mass properties follow the cube exactly. The box fitter does not, and "
-                          "it is not broken: it orients the box by the eigenvectors of the point "
-                          "cloud's covariance, and a cube's two horizontal spreads are EQUAL, so every "
-                          "direction in that plane is equally an eigenvector and rounding picks one. "
-                          "The box still contains every corner — it is a valid bound, just not the "
-                          "tight one. Give the same call a brick, whose three spreads differ, and it "
-                          "recovers the box to the last decimal.",
+                          "The mass properties follow the cube exactly, and so, now, does the box "
+                          "fitter — which is the point of the row. It used to return 10.071 here with "
+                          "its axes 7.5 degrees out, and that was not a bug in the arithmetic: a box "
+                          "is oriented by the eigenvectors of the point cloud's covariance, and a "
+                          "cube's spreads are EQUAL, so every direction is equally an eigenvector and "
+                          "rounding chose one. Moving the cube changed the answer, which is what "
+                          "finally gave it away. fitObb now notices the tie and sweeps for the real "
+                          "orientation, so a cube comes back exact at any offset; a brick, whose "
+                          "spreads differ, never needed the sweep and is untouched by it.",
                           kDim, 0.25f);
 
             // ---- column 3: the pair, and flatness ----
