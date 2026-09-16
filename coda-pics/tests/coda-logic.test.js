@@ -2248,6 +2248,80 @@ function laidDown(ctx, gradient) {
   pass('parts go on anything, and combine');
 })();
 
+/* ------------------------------------------- words it was never taught
+ * The vocabulary is a list, and anything off the list was thrown away and
+ * reported back as a word nobody knew. But most words nobody taught it are
+ * made out of words it does know, and working that out is the difference
+ * between a fixed list and a language.
+ */
+(function wordsNeverTaught() {
+  console.log('\nWords it was never taught');
+
+  /* Every single word in every table, so the examples used here can be shown
+   * to be ones it really was never taught — "snowy" and "foggy" look like good
+   * tests and are both in the tables already. */
+  var taught = {};
+  Object.keys(LEX).forEach(function (name) {
+    var table = LEX[name];
+    if (!table || !table.forEach) return;
+    table.forEach(function (entry) {
+      ((entry && entry.words) || []).forEach(function (w) {
+        if (w.indexOf(' ') < 0) taught[w] = true;
+      });
+    });
+  });
+  var examples = ['stony', 'dragonlike', 'wolfish', 'snowbird'];
+  var slipped = examples.filter(function (w) { return taught[w]; });
+  check(slipped.length === 0,
+    'the words tested here are ones nobody taught it' +
+    (slipped.length ? ' — but ' + slipped.join(', ') + ' already is' : ''));
+
+  function read(text) { return PROMPT.parse(text, { seed: 3 }); }
+  function idOf(thing) { return thing ? thing.id : null; }
+
+  /* An ending taken off. */
+  check(idOf(read('a stony tower').material) === 'stone',
+    '"stony" is stone');
+  check(idOf(read('a dragonlike beast in a meadow').subject) === 'dragon',
+    'and "dragonlike" is a dragon');
+  check(idOf(read('a wolfish shape in snow').subject) === 'wolf',
+    'and "wolfish" is a wolf');
+
+  /* Or two words run together. */
+  var snowbird = read('a snowbird over the sea');
+  check(idOf(snowbird.subject) === 'bird' && snowbird.scene.id === 'snow',
+    '"snowbird" is snow and a bird, which nobody taught it either');
+
+  /* It cannot invent a meaning: everything it arrives at is a word already in
+   * the tables, so a derived word paints what the word it came from paints. */
+  check(read('a florble in a meadow').unknown.indexOf('florble') >= 0,
+    'and a word that is not made of anything is still reported as unknown');
+  check(read('a gzhqwy thing in a meadow').unknown.length > 0,
+    'including one that merely ends like a word it knows');
+
+  /* A word it knows but did not use is not a word nobody knew: "a snowy
+   * mountain" is one setting or the other, and whichever loses is still
+   * English. */
+  check(read('a snowy mountain').unknown.length === 0,
+    'a snowy mountain leaves nothing unaccounted for, whichever setting wins');
+
+  /* The readout shows the person their own word and what it was taken to
+   * mean, rather than a word they never typed. */
+  var said = read('a wolfish shape in snow').read.filter(function (item) {
+    return item.word === 'wolfish';
+  })[0];
+  check(said && said.meant === 'wolf',
+    'and it says so: "wolfish", read as wolf');
+
+  /* And a derived word sits where its own word sat, so a degree word in front
+   * of it still applies to it. */
+  check(PROMPT.parse('a very stony tower', { seed: 3 }).age ===
+        PROMPT.parse('a stony tower', { seed: 3 }).age,
+    'a degree word in front of a derived word is not read as belonging to ' +
+    'something else in the sentence');
+  pass('it works out words nobody taught it, out of words it knows');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);

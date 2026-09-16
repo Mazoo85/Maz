@@ -141,6 +141,71 @@
     return prev[b.length];
   }
 
+  /*
+   * Words it was never taught.
+   *
+   * The vocabulary is a list, and anything off the list was thrown away and
+   * reported back as "I did not know that word". But most words nobody taught
+   * it are made out of words it does know — "snowy" is snow, "wolflike" is a
+   * wolf, "seabird" is a sea and a bird — and working that out is the
+   * difference between a fixed list and a language.
+   *
+   * Two rules, both plain English rather than clever: take an ending off, and
+   * split a long word into two words. Neither invents a meaning; both can only
+   * ever arrive at words already in the tables, so a derived word paints the
+   * same thing the word it came from would.
+   */
+  var ENDINGS = ['ed', 'y', 'ish', 'like', 'en', 'ing', 'ly', 'ful', 'less'];
+
+  var EVERY_WORD = null;
+  function everyWord() {
+    if (EVERY_WORD) return EVERY_WORD;
+    EVERY_WORD = {};
+    Object.keys(LEX).forEach(function (name) {
+      var table = LEX[name];
+      if (!table || !table.length || typeof table.forEach !== 'function') return;
+      table.forEach(function (entry) {
+        if (!entry || !entry.words) return;
+        entry.words.forEach(function (w) {
+          if (w.indexOf(' ') < 0) EVERY_WORD[w] = true;
+        });
+      });
+    });
+    return EVERY_WORD;
+  }
+
+  function derive(word) {
+    var known = everyWord();
+    if (known[word]) return null;
+    var out = [];
+
+    /* An ending taken off. "Snowy" is snow; "wolflike" is a wolf. A doubled
+     * consonant goes with it ("foggy" is fog, not fogg). */
+    for (var e = 0; e < ENDINGS.length; e++) {
+      var end = ENDINGS[e];
+      if (word.length < end.length + 3) continue;
+      if (word.slice(-end.length) !== end) continue;
+      var stem = word.slice(0, -end.length);
+      var tries = [stem, stem + 'e'];
+      if (/([bdfglmnprt])\1$/.test(stem)) tries.push(stem.slice(0, -1));
+      for (var t = 0; t < tries.length; t++) {
+        if (known[tries[t]] && out.indexOf(tries[t]) < 0) out.push(tries[t]);
+      }
+      if (out.length) return out;
+    }
+
+    /* Or two words run together. Both halves have to be words, and both have
+     * to be long enough that the split means something — "seabird" is a sea
+     * and a bird, but almost any word can be cut into two scraps. */
+    if (word.length >= 7) {
+      for (var i = 3; i <= word.length - 3; i++) {
+        var left = word.slice(0, i), right = word.slice(i);
+        if (known[left] && known[right]) return [left, right];
+      }
+    }
+    return out.length ? out : null;
+  }
+
   /* A near miss on a word nobody typed on purpose. Only for words long enough
    * that a near match means something — "cat" and "bat" are two animals, not a
    * typo, so short words are never corrected. */
@@ -292,6 +357,21 @@
     var prompt = String(text == null ? '' : text).trim();
     var flat = normalise(prompt);
     var toks = tokens(flat);
+    /* Words nobody taught it, worked out from words it knows. The word it was
+     * derived from stays in the list in front of its meaning, so a degree word
+     * still applies to the right thing and the prompt still reads in order. */
+    var derived = {};
+    var grown = [];
+    toks.forEach(function (t) {
+      grown.push(t);
+      var from = derive(t);
+      if (!from) return;
+      from.forEach(function (w) {
+        grown.push(w);
+        derived[w] = t;
+      });
+    });
+    toks = grown;
     var seed = options.seed == null ? 1 : (options.seed | 0);
     var locked = options.locked || null;
     var base = rngFrom(hash(flat + '|' + seed));
@@ -301,7 +381,21 @@
     function note(category, label, word, meant) {
       /* A phrase match ("hot air balloon") has to mark every word in it, or
        * the words inside it get reported as ones nobody understood. */
-      if (word) String(word).split(' ').forEach(function (w) { used[w] = true; });
+      if (word) {
+        String(word).split(' ').forEach(function (w) {
+          used[w] = true;
+          /* "Snowy" was understood the moment "snow" was, so it is not a word
+           * nobody knew. */
+          if (derived[w]) used[derived[w]] = true;
+        });
+        /* And say so: the person typed "snowy", so the readout should show
+         * their word and what it was taken to mean, not a word they never
+         * used. */
+        if (derived[word] && !meant) {
+          meant = word;
+          word = derived[word];
+        }
+      }
       read.push({
         category: category, label: label, word: word || null,
         meant: meant || null           // set when a word was read as a near miss
@@ -559,6 +653,12 @@
     var unknown = [];
     toks.forEach(function (t) {
       if (t.length < 3 || used[t] || filler[t] || /^[0-9]+$/.test(t)) return;
+      /* A word the painter knows but did not use is not a word nobody knew.
+       * "A snowy mountain" is one setting or the other, and whichever loses is
+       * still English. */
+      if (everyWord()[t]) return;
+      var stems = derive(t);
+      if (stems && stems.some(function (w) { return everyWord()[w]; })) return;
       if (unknown.indexOf(t) < 0) unknown.push(t);
     });
 
