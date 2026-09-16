@@ -1219,6 +1219,107 @@ function recorder(w, h) {
   pass('the hour is an angle, and everything follows it');
 })();
 
+/* --------------------------------------------------------- sun through cloud
+ * An overcast picture was a sunny picture with grey clouds pasted over the
+ * top: the sun still hung there, and everything still threw a hard black
+ * shadow from it. Cloud turns the sun into the whole sky.
+ */
+(function sunThroughCloud() {
+  console.log('\nThe sun behind the weather');
+
+  var lift = PAINT.softness;
+  check(lift({ weather: 'clear' }) === 0, 'a clear sky softens nothing');
+  check(lift({ weather: 'clouds' }) > 0 &&
+        lift({ weather: 'rain' }) > lift({ weather: 'clouds' }) &&
+        lift({ weather: 'storm' }) > lift({ weather: 'rain' }) &&
+        lift({ weather: 'fog' }) > lift({ weather: 'storm' }),
+    'and cloud, rain, storm and fog soften more and more (' +
+    [lift({ weather: 'clouds' }), lift({ weather: 'rain' }),
+     lift({ weather: 'storm' }), lift({ weather: 'fog' })].join(', ') + ')');
+
+  /* One picture, one seed, one scene — only the weather is changed, so what is
+   * measured is the weather and not a different roll. */
+  function underWeather(weather) {
+    var spec = PROMPT.parse('a stag in a meadow at noon', { seed: 6 });
+    spec.weather = weather;
+    return spec;
+  }
+
+  function shadow(weather) {
+    var spec = underWeather(weather);
+    var box = { x: 140, y: 130, w: 120, h: 150 };
+    var ctx = recorder(400, 400);
+    PAINT.groundShadow(ctx, box, PAINT.makePalette(spec), { x: 40, y: 20 }, spec);
+    var first = null, widest = 0;
+    for (var i = 0; i < ctx.log.length; i++) {
+      if (ctx.log[i].op !== 'arc') continue;
+      widest = Math.max(widest, ctx.log[i].args[2]);
+      if (first != null) continue;
+      for (var j = i - 1; j >= 0; j--) {
+        if (ctx.log[j].op === 'gradient') {
+          var m = /,\s*([0-9.]+)\s*\)$/.exec(ctx.log[j].gradient.stops[0].colour);
+          first = m ? parseFloat(m[1]) : 0;
+          break;
+        }
+      }
+    }
+    return { dark: first, wide: widest };
+  }
+
+  var sunny = shadow('clear'), grey = shadow('clouds'), murk = shadow('fog');
+  check(grey.dark < sunny.dark * 0.6,
+    'an overcast shadow is a fraction as dark as a sunlit one (' +
+    grey.dark.toFixed(2) + ' against ' + sunny.dark.toFixed(2) + ')');
+  check(murk.dark < grey.dark, 'and fog takes even that away (' + murk.dark.toFixed(2) + ')');
+  check(grey.wide > sunny.wide * 1.2,
+    'and what is left of it has spread out (' + Math.round(grey.wide) +
+    'px against ' + Math.round(sunny.wide) + 'px)');
+
+  /* The disc itself goes behind the weather, and its glow spreads across the
+   * whole sky rather than sitting in one place. */
+  function disc(weather) {
+    var spec = underWeather(weather);
+    var P = PAINT.makePalette(spec);
+    var ctx = recorder(480, 360);
+    PAINT.render(ctx, 480, 360, spec);
+    for (var i = 0; i < ctx.log.length; i++) {
+      var c = ctx.log[i];
+      if (c.op !== 'gradient' || c.args.length !== 6) continue;
+      if (!c.gradient.stops.length) continue;
+      /* The glow: a round gradient of the light's own colour that fades to
+       * nothing, painted before the disc is. */
+      if (c.gradient.stops[0].colour.indexOf('hsla') !== 0) continue;
+      if (!/,\s*0\)$/.test(c.gradient.stops[c.gradient.stops.length - 1].colour)) continue;
+      /* The disc: the first round thing drawn after the glow. Its colour is
+       * set between the arc and the fill, not before the arc. */
+      var alpha = null;
+      for (var j = i + 1; j < ctx.log.length && alpha == null; j++) {
+        if (ctx.log[j].op !== 'arc' || ctx.log[j].args[2] <= 5) continue;
+        for (var k = j + 1; k < ctx.log.length; k++) {
+          if (ctx.log[k].op === 'fill') break;
+          if (ctx.log[k].op === 'set' && ctx.log[k].args[0] === 'fillStyle') {
+            var m = /,\s*([0-9.]+)\s*\)$/.exec(String(ctx.log[k].args[1]));
+            alpha = m ? parseFloat(m[1]) : 1;
+            break;
+          }
+        }
+      }
+      return { spread: c.args[5], alpha: alpha, P: P };
+    }
+    return null;
+  }
+
+  var open = disc('clear'), hidden = disc('fog');
+  check(open && hidden && hidden.spread > open.spread * 1.5,
+    'the glow spreads much wider in fog (' + (hidden ? Math.round(hidden.spread) : '-') +
+    'px against ' + (open ? Math.round(open.spread) : '-') + 'px)');
+  check(open && hidden && open.alpha != null && hidden.alpha < open.alpha * 0.5,
+    'and the sun itself is barely there behind it (' +
+    (hidden ? hidden.alpha.toFixed(2) : '-') + ' against ' +
+    (open ? open.alpha.toFixed(2) : '-') + ')');
+  pass('cloud turns the sun into the whole sky');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);

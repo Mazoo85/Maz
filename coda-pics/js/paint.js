@@ -141,6 +141,25 @@
   }
 
   /*
+   * How much of the light arrives straight from the sun, and how much has been
+   * through a cloud first.
+   *
+   * This is the difference between a sunny day and an overcast one, and the
+   * engine did not have it: an overcast picture was a sunny picture with grey
+   * clouds pasted over the top, still throwing hard black shadows from a sun
+   * nobody could see. Cloud turns the sun into the whole sky — the shadows go
+   * pale and spread until they are barely there, the lit side and the dark
+   * side of a thing draw together, and the disc itself goes behind the weather.
+   */
+  var DIFFUSE = { clear: 0, aurora: 0.12, clouds: 0.62, snowfall: 0.70,
+    rain: 0.76, storm: 0.84, fog: 0.90 };
+
+  function softness(spec) {
+    if (!spec || spec.weather == null) return 0;
+    return DIFFUSE[spec.weather] == null ? 0 : DIFFUSE[spec.weather];
+  }
+
+  /*
    * How far a shadow runs, as a share of how wide the thing throwing it is.
    * A shadow's length is the cotangent of the sun's angle: straight overhead
    * it is a puddle at your feet, and near the horizon it runs away across the
@@ -576,16 +595,20 @@
     var rad = Math.min(w, h) * (spec.time === 'night' ? 0.055 : 0.075);
     if (spec.scene.id === 'space') rad *= 0.7;
 
-    var glow = ctx.createRadialGradient(x, y, 0, x, y, rad * 9);
-    glow.addColorStop(0, P.css(P.sky.light, 0.55));
-    glow.addColorStop(0.25, P.css(P.sky.light, 0.16));
+    /* Behind cloud the disc goes soft and dim and its glow spreads across the
+     * whole sky — which is the sky becoming the light. */
+    var soft = spec.scene.id === 'space' ? 0 : softness(spec);
+
+    var glow = ctx.createRadialGradient(x, y, 0, x, y, rad * 9 * (1 + soft * 1.1));
+    glow.addColorStop(0, P.css(P.sky.light, 0.55 * (1 - soft * 0.45)));
+    glow.addColorStop(0.25, P.css(P.sky.light, 0.16 * (1 - soft * 0.3)));
     glow.addColorStop(1, P.css(P.sky.light, 0));
     ctx.fillStyle = glow;
     ctx.fillRect(0, 0, w, h);
 
     ctx.beginPath();
-    ctx.arc(x, y, rad, 0, Math.PI * 2);
-    ctx.fillStyle = P.light(spec.time === 'night' ? 0.92 : 1);
+    ctx.arc(x, y, rad * (1 + soft * 0.45), 0, Math.PI * 2);
+    ctx.fillStyle = P.light((spec.time === 'night' ? 0.92 : 1) * (1 - soft * 0.80));
     ctx.fill();
 
     if (spec.time === 'night') {           // craters, so a moon reads as a moon
@@ -1377,13 +1400,16 @@
     /* A low sun throws a long shadow. */
     var reach = box.w * shadowReach(spec ? spec.sun : null);
     var steps = 6;
+    /* Cloud spreads a shadow out and washes it away: under a heavy sky there
+     * is hardly an edge to it at all. */
+    var soft = softness(spec);
 
     ctx.save();
     for (var i = 0; i < steps; i++) {
       var t = i / (steps - 1);                  // 0 at the feet, 1 at the far end
-      var rx = box.w * (0.30 + t * 0.58);
-      var ry = box.h * (0.030 + t * 0.055);
-      var alpha = (0.46 - t * 0.34) / (1 + t * 1.4);
+      var rx = box.w * (0.30 + t * 0.58) * (1 + soft * 0.65);
+      var ry = box.h * (0.030 + t * 0.055) * (1 + soft * 0.4);
+      var alpha = (0.46 - t * 0.34) / (1 + t * 1.4) * (1 - soft * 0.72);
       var g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
       /* Tight near the contact, feathered far from it. */
       g.addColorStop(0, P.silhouette(0, alpha));
@@ -1523,7 +1549,10 @@
     /* Everything that shows only at the edges goes down first, and the subject
      * is drawn once on top of the lot. */
     stencil(ctx, subject, box, PS, r, spec, PS.silhouette(0.7, 1), dx * off, dy * off, 0.6);
-    stencil(ctx, subject, box, PS, r, spec, P.light(0.95), -dx * off, -dy * off, 0.65);
+    /* The lit edge is the sun catching one side. There is no one side to catch
+     * when the light is the whole sky, so cloud takes it away. */
+    stencil(ctx, subject, box, PS, r, spec, P.light(0.95), -dx * off, -dy * off,
+      0.65 * (1 - softness(spec) * 0.62));
     if (spec.weather === 'snowfall') {          // snow settles on upward faces
       stencil(ctx, subject, box, PS, r, spec, P.css([205, 18, 97], 1), 0, -off * 1.1, 0.75);
     }
@@ -1554,7 +1583,10 @@
     model.addColorStop(0.44, P.css(P.sky.light, 0.03));
     model.addColorStop(0.62, 'rgba(0,0,0,0.03)');
     model.addColorStop(1, 'rgba(0,0,0,0.34)');
-    stencil(ctx, subject, box, PS, r, spec, model, 0, 0, 0.42 + P.drama * 0.12);
+    /* Under cloud the lit side and the dark side draw together, because the
+     * light is arriving from the whole sky rather than from one point in it. */
+    stencil(ctx, subject, box, PS, r, spec, model, 0, 0,
+      (0.42 + P.drama * 0.12) * (1 - softness(spec) * 0.55));
 
     /*
      * Then the air it is standing in: what the sky and the ground throw back at
@@ -1880,6 +1912,7 @@
     skyAt: skyAt,
     groundLit: groundLit,
     shadowReach: shadowReach,
+    softness: softness,
     paintSubject: paintSubject,
     arrange: arrange,
     foreground: foreground,
