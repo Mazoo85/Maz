@@ -224,8 +224,14 @@ inline Stage buildStage(const Shot& shot, const Palette& pal, std::uint32_t seed
     const render::Color skyC = rgb(pal.sky, 1.0);
 
     const std::string& set = shot.set;
-    const bool outdoors = set == "woods" || set == "field" || set == "street" || set == "water" ||
-                          set == "lighthouse";
+    // Inside or out. The SHOT knows, because the script wrote it into the slug line, and that is the
+    // answer whenever it is there. The list of set names below is only the fallback for a reel old
+    // enough not to carry it — and it is worth keeping the reason: this renderer had "lighthouse"
+    // down as outdoors while the writer had it down as INT., so a film set in a lamp room was drawn
+    // as an open field under a sky, for as long as the two lists were allowed to disagree.
+    const bool guessOutdoors = set == "woods" || set == "field" || set == "street" ||
+                               set == "water" || set == "lighthouse";
+    const bool outdoors = shot.interior >= 0 ? (shot.interior == 0) : guessOutdoors;
     st.indoors = !outdoors;
 
     // ---- the shape of the place ------------------------------------------------------------------
@@ -245,10 +251,26 @@ inline Stage buildStage(const Shot& shot, const Palette& pal, std::uint32_t seed
         st.halfWidth = 2.6f;
         st.depth = 7.5f;
         st.ceiling = set == "vehicle" ? 1.95f : 3.4f;
+    } else if (set == "lighthouse") {
+        // A lamp room: small, tall for its floor, and the one interior in the list that nobody had
+        // given a shape to, because this renderer had it filed as an outdoor set. With the slug line
+        // now deciding, it turns up indoors and needs a room.
+        st.halfWidth = 2.2f;
+        st.depth = 4.4f;
+        st.ceiling = 3.2f;
     } else {
         st.halfWidth = 9.0f;
         st.depth = 22.0f;
         st.ceiling = 0.0f;
+    }
+
+    // An interior with no ceiling is a contradiction, and the way it fails is not a crash: the walls
+    // are built to height zero and the room comes out as a floor floating in the sky. Any set that
+    // arrives indoors without a shape of its own gets an ordinary room rather than that.
+    if (st.indoors && st.ceiling <= 0.01f) {
+        st.halfWidth = 3.2f;
+        st.depth = 6.5f;
+        st.ceiling = 2.75f;
     }
 
     // ---- floor, walls, ceiling -------------------------------------------------------------------

@@ -530,6 +530,51 @@ int main() {
         }
     }
 
+    // ------------------------------------------------------------------ 5e. inside or out is the
+    //                                                                        SCRIPT's decision
+    //
+    // This renderer used to decide for itself, from the set's name, and it was wrong in a way anybody
+    // could see. The writer's own list marks a lighthouse INT., so the script wrote "INT. LIGHTHOUSE
+    // — LAMP ROOM" — and the picture was an open field under a sky, because this file had
+    // "lighthouse" down as outdoors. A whole film was shot outdoors that was written indoors.
+    {
+        film::Shot in;
+        in.set = "lighthouse";
+        in.interior = 1;
+        const film::Stage inside = film::buildStage(in, pal, 9u);
+        check(inside.indoors, "a scene the script wrote INT. is built indoors");
+        check(inside.ceiling > 1.9f,
+              "and has a ceiling over it, not a sky — an interior with no ceiling builds its walls "
+              "to height zero and comes out as a floor floating in the air");
+        check(inside.halfWidth < 6.0f, "and walls close enough to be a room");
+
+        film::Shot out;
+        out.set = "lighthouse";
+        out.interior = 0;
+        const film::Stage outside = film::buildStage(out, pal, 9u);
+        check(!outside.indoors, "and the same set written EXT. is built outdoors");
+
+        // The set-name guess is still there, and is still what answers when the reel is old enough
+        // not to say. That is the only thing it is for now.
+        film::Shot quiet;
+        quiet.set = "street";
+        check(quiet.interior == -1, "a shot says nothing about inside or out until it is told");
+        check(!film::buildStage(quiet, pal, 9u).indoors,
+              "and a reel too old to say falls back to guessing from the set's name");
+
+        // Every set that can arrive indoors gets a room, whatever its name. This is the check that
+        // would have caught the lighthouse: it is not about lighthouses, it is about any set the
+        // shape list has never heard of turning up inside.
+        for (const char* name : {"lighthouse", "woods", "water", "field", "nowhere-in-particular"}) {
+            film::Shot odd;
+            odd.set = name;
+            odd.interior = 1;
+            const film::Stage st = film::buildStage(odd, pal, 9u);
+            check(st.indoors && st.ceiling > 1.9f && st.halfWidth < 6.0f,
+                  std::string("an indoors ") + name + " is given a room to be indoors in");
+        }
+    }
+
     // ------------------------------------------------------------------ 6. the same shot twice
     {
         film::Shot sh;

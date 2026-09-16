@@ -159,6 +159,7 @@
       characters: [],
       mood: 0.2,
       scene: 0,
+      interior: script.scenes.length ? script.scenes[0].heading.place.int !== 'EXT.' : true,
       // The title card is not a scene, so it has no act of its own — it takes the act of what it is
       // in front of, which is the first one. The end card takes the last. Left unset they came out
       // undefined, and anything pacing a film by its act would have had two shots it could not place.
@@ -223,6 +224,7 @@
         mood: mood,
         scene: scene.number,
         act: scene.act || 1,
+        interior: scene.heading.place.int !== 'EXT.',
         beat: scene.beat.id,
         cutaway: true
       });
@@ -271,6 +273,12 @@
     /* -------------------------------------------------------------- scenes */
     script.scenes.forEach(function (scene) {
       var set = setFor(scene.heading.place);
+      // Whether the scene is inside or out, as the SCRIPT decided it — not as the renderer guesses
+      // from the set name. They disagreed, and the disagreement was visible: the lexicon marks a
+      // lighthouse INT., the script duly wrote "INT. LIGHTHOUSE — LAMP ROOM", and the 3D renderer
+      // drew an open field with a sky, because its own list had "lighthouse" down as outdoors. A
+      // slug line is a decision the writer made; the renderer does not get a second opinion.
+      var interior = scene.heading.place.int !== 'EXT.';
       var light = lightFor(scene.heading.time);
       var mood = MOOD[scene.beat.id] == null ? 0.4 : MOOD[scene.beat.id];
       var pace = PACE[scene.beat.id] == null ? 1 : PACE[scene.beat.id];
@@ -308,6 +316,7 @@
         mood: mood,
         scene: scene.number,
         act: scene.act || 1,
+        interior: interior,
         beat: scene.beat.id
       });
       shotsThisScene++;
@@ -359,6 +368,7 @@
             mood: mood,
             scene: scene.number,
             act: scene.act || 1,
+            interior: interior,
         act: scene.act || 1,
             beat: scene.beat.id
           });
@@ -413,6 +423,7 @@
             mood: mood,
             scene: scene.number,
             act: scene.act || 1,
+            interior: interior,
         act: scene.act || 1,
             beat: scene.beat.id
           });
@@ -439,6 +450,9 @@
       mood: 0.15,
       scene: 0,
       act: 3,
+      interior: script.scenes.length
+        ? script.scenes[script.scenes.length - 1].heading.place.int !== 'EXT.'
+        : true,
       beat: 'end'
     });
 
@@ -509,6 +523,10 @@
       // renderer and the engine, and a field that only exists on one side is a field the other can
       // never see.
       act: shot.act == null ? 1 : shot.act,
+      // 1 inside, 0 out. On the reel because the renderer must not re-decide it: see the note where
+      // it is worked out. Absent on a reel written before this existed, and the engine falls back to
+      // guessing from the set name there, which is what it always did.
+      interior: shot.interior === false ? 0 : 1,
       beat: shot.beat,
       // Who is carrying the object, and which turn of its arc this shot is. Added when characters
       // started holding things: the reel is the CONTRACT between this renderer and the engine, so a

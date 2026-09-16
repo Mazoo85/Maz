@@ -71,6 +71,14 @@ struct Shot {
     // rather than from its beat, because a beat does not have an act — a position does, and the
     // spines reorder beats. Defaults to 1 so a reel written before this field existed still reads.
     int act = 1;
+    // Whether the scene is inside or out, as the SCRIPT decided it: 1 inside, 0 out, -1 not said.
+    //
+    // The renderer used to decide this for itself from the set's name, and it got it wrong in a way
+    // anybody could see: the writer's own list marks a lighthouse INT., the script duly wrote
+    // "INT. LIGHTHOUSE — LAMP ROOM", and the picture was an open field under a sky. A slug line is a
+    // decision somebody made; the renderer does not get a second opinion on it. -1 is for reels
+    // written before this field existed, where guessing from the name is all there is.
+    int interior = -1;
     std::string beat; // open | spark | push | turn | midpoint | unravel | crisis | low | reckon |
                       // choice | after | title | end
 
@@ -199,6 +207,7 @@ inline Reel parseReel(const std::string& text) {
         shot.mood = s["mood"].asNumber(0.0);
         shot.scene = s["scene"].asInt(0);
         shot.act = s["act"].asInt(1);
+        shot.interior = s["interior"].asInt(-1);
         shot.beat = s["beat"].asString();
         // Absent in reels written before characters held anything: an older document is
         // still a valid document, and simply has nobody carrying anything.

@@ -202,11 +202,25 @@ int main(int argc, char** argv) {
                       withActs.shots[2].act == 3,
                   "and each shot comes back in the act it was written in");
         }
+        // Inside or out, which the script decides and the renderer must not re-decide.
+        const Reel sided = maz::film::parseReel(
+            "{\"format\":\"maz-film-reel\",\"version\":1,\"title\":\"T\",\"duration\":4,\"shots\":["
+            "{\"start\":0,\"duration\":2,\"interior\":1,\"set\":\"lighthouse\"},"
+            "{\"start\":2,\"duration\":2,\"interior\":0,\"set\":\"lighthouse\"}]}");
+        CHECK(sided.shots.size() == 2, "a reel that says which side of a door it is on loads");
+        if (sided.shots.size() == 2) {
+            CHECK(sided.shots[0].interior == 1 && sided.shots[1].interior == 0,
+                  "and each shot keeps the answer the script gave it");
+        }
+
         // And a Shot nobody parsed at all. The showcase app and the tests build shots in code rather
         // than reading them, and those never go through the parser's default — so the struct needs
         // its own, or a hand-built film is in act zero.
         const maz::film::Shot fresh;
         CHECK(fresh.act == 1, "a shot built in code rather than read is in the first act");
+        CHECK(fresh.interior == -1,
+              "and says nothing about inside or out until it is told, so the set-name guess still "
+              "answers for a reel too old to carry it");
 
         const Reel noActs = maz::film::parseReel(
             "{\"format\":\"maz-film-reel\",\"version\":1,\"title\":\"T\",\"duration\":2,\"shots\":["

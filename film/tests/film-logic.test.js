@@ -1521,6 +1521,34 @@ test('a written film carries the act on every scene', () => {
   });
 });
 
+test('a shot is on the side of the door the script put it on', () => {
+  // The renderer used to work this out for itself from the set's name, and the two disagreed in a way
+  // anybody could see: the lexicon marks a lighthouse INT., the script duly wrote "INT. LIGHTHOUSE —
+  // LAMP ROOM", and the 3D renderer drew an open field under a sky. A whole film was shot outdoors
+  // that had been written indoors. The slug line is the decision; this checks it survives the trip
+  // onto the reel, which is where the renderer reads it.
+  const premise = Parse.parse('A lighthouse keeper receives a radio message in her own voice.',
+    { seed: 2201 });
+  const doc = Reel.toDocument(Reel.build(Writer.write(premise, { length: 'short', seed: 901 })));
+
+  doc.shots.forEach((shot, i) => {
+    assert(shot.interior === 0 || shot.interior === 1,
+      'shot ' + (i + 1) + ' says which side of the door it is on (got ' + shot.interior + ')');
+  });
+  const lamp = doc.shots.filter((s) => s.set === 'lighthouse');
+  assert(lamp.length > 0, 'this film has lamp-room scenes in it');
+  assert(lamp.every((s) => s.interior === 1),
+    'and every one of them is indoors, because that is what the script wrote');
+
+  // The general rule, across every film the app can write: a scene's shots agree with its slug line.
+  const script = Writer.write(premise, { length: 'feature', seed: 55 });
+  const wanted = {};
+  script.scenes.forEach((sc) => { wanted[sc.number] = sc.heading.place.int !== 'EXT.' ? 1 : 0; });
+  const full = Reel.toDocument(Reel.build(script));
+  const wrong = full.shots.filter((s) => s.scene > 0 && s.interior !== wanted[s.scene]);
+  eq(wrong.length, 0, wrong.length + ' shots disagree with the slug line of the scene they are in');
+});
+
 test('every shot on a reel knows which act it is in', () => {
   const premise = Parse.parse('A night nurse finds a key that opens a door that should not be there.',
     { seed: 606 });
