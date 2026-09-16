@@ -529,6 +529,17 @@
     var material = materialHit ? materialHit.entry : null;
     if (material) note('material', material.label, materialHit.word);
 
+    /* --- what it has got ---
+     * Parts, not creatures: any of them goes on any subject, and more than one
+     * can be asked for at once. */
+    var partHits = findAll(LEX.PARTS, flat, toks);
+    var parts = [];
+    partHits.forEach(function (hit) {
+      if (parts.indexOf(hit.entry.id) >= 0) return;
+      parts.push(hit.entry.id);
+      note('part', hit.entry.label, hit.word);
+    });
+
     /* --- how long it has been standing there ---
      * Some of these words name a place as well ("abandoned", "overgrown"), and
      * they are allowed to do both: an ancient tower stands in ancient ruins. */
@@ -561,6 +572,7 @@
       relation: relation,
       scene: { id: scene.id, label: scene.label, prep: scene.prep || 'in', horizon: scene.horizon },
       material: material,
+      parts: parts,
       age: age,
       time: time,
       /* How high the sun (or, below the horizon, the moon) stands, in degrees,

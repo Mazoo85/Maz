@@ -342,6 +342,26 @@
   /* --------------------------------------------------------------- sizeing
    * Words that make the subject bigger or smaller than its default.
    */
+  /* --------------------------------------------------------------- parts
+   * Things a thing can have.
+   *
+   * Everything the painter could draw was something it had a routine for, so
+   * the vocabulary was exactly as long as the list and "a winged wolf" was a
+   * wolf. These go on any subject and combine with each other, which turns a
+   * list of sixty things into every arrangement of sixty things and eight
+   * parts.
+   */
+  var PARTS = [
+    { id: 'wings',   label: 'winged',   words: ['winged', 'with wings', 'wings', 'flying', 'feathered wings'] },
+    { id: 'horns',   label: 'horned',   words: ['horned', 'with horns', 'horns'] },
+    { id: 'antlers', label: 'antlered', words: ['antlered', 'with antlers', 'antlers'] },
+    { id: 'spikes',  label: 'spiked',   words: ['spiked', 'spiky', 'with spikes', 'spines', 'spined'] },
+    { id: 'armour',  label: 'armoured', words: ['armoured', 'armored', 'in armour', 'in armor', 'plated'] },
+    { id: 'tail',    label: 'long-tailed', words: ['long tailed', 'long-tailed', 'with a long tail', 'tailed'] },
+    { id: 'crest',   label: 'crested',  words: ['crested', 'with a crest', 'frilled', 'maned'] },
+    { id: 'halo',    label: 'haloed',   words: ['haloed', 'with a halo', 'holy', 'blessed', 'divine'] }
+  ];
+
   /* ----------------------------------------------------------- how much
    * Degree.
    *
@@ -435,6 +455,7 @@
     PALETTES: PALETTES,
     MATERIALS: MATERIALS,
     AGES: AGES,
+    PARTS: PARTS,
     MOODS: MOODS,
     SCALE_WORDS: SCALE_WORDS,
     DEGREES: DEGREES,

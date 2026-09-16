@@ -1572,16 +1572,233 @@
   };
 
   /* ------------------------------------------------------------------ entry */
+  /* ------------------------------------------------------------------ parts
+   *
+   * Everything this engine could draw was a thing it had a routine for. Adding
+   * a creature meant writing one, so the vocabulary was exactly as long as the
+   * list, and "a winged wolf" was a wolf.
+   *
+   * These are parts rather than creatures: a set of wings, a pair of horns, a
+   * rack of antlers, a row of spikes, plates of armour, a long tail, a crest,
+   * a halo. Any of them goes on any subject, and they combine — which is what
+   * turns a list of sixty things into every arrangement of sixty things and
+   * eight parts, and is as close to "anything you can say" as a painter with a
+   * fixed hand can get.
+   *
+   * Where a part goes is read off a rough anatomy per kind of body, because a
+   * wolf's back is not where a person's is.
+   */
+  var ANATOMY = {
+    quadruped: { head: [0.80, 0.20], back: [0.46, 0.30], rump: [0.16, 0.34], spine: 0.30 },
+    bird:      { head: [0.70, 0.22], back: [0.46, 0.40], rump: [0.20, 0.46], spine: 0.40 },
+    humanoid:  { head: [0.50, 0.10], back: [0.50, 0.30], rump: [0.50, 0.52], spine: 0.28 },
+    dragon:    { head: [0.78, 0.26], back: [0.46, 0.38], rump: [0.14, 0.44], spine: 0.38 },
+    serpent:   { head: [0.76, 0.30], back: [0.46, 0.46], rump: [0.16, 0.52], spine: 0.46 },
+    fish:      { head: [0.74, 0.40], back: [0.46, 0.30], rump: [0.18, 0.40], spine: 0.32 },
+    whale:     { head: [0.74, 0.40], back: [0.46, 0.30], rump: [0.18, 0.40], spine: 0.32 }
+  };
+  var ANATOMY_DEFAULT = { head: [0.50, 0.12], back: [0.50, 0.34], rump: [0.32, 0.46], spine: 0.34 };
+
+  function anatomy(subject) {
+    return ANATOMY[subject.draw] || ANATOMY_DEFAULT;
+  }
+
+  function at(box, where) {
+    return { x: box.x + box.w * where[0], y: box.y + box.h * where[1] };
+  }
+
+  /* Which parts go behind the body and which in front of it. A wing comes out
+   * of the far shoulder as often as the near one, and a horn never does. */
+  var PART_LAYER = {
+    wings: 'behind', tail: 'behind', crest: 'behind', halo: 'behind',
+    horns: 'front', antlers: 'front', spikes: 'front', armour: 'front'
+  };
+
+  var PART_DRAW = {};
+
+  PART_DRAW.wings = function (ctx, b, P, r, spec, an) {
+    var back = at(b, an.back);
+    var span = Math.max(b.w, b.h) * (0.58 + r() * 0.22);
+    var col = P.silhouette(0.02, 0.92);
+    [-1, 1].forEach(function (side) {
+      var lift = 0.38 + r() * 0.28;
+      var tipX = back.x + side * span * 0.78;
+      var tipY = back.y - span * lift;
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.moveTo(back.x, back.y);
+      ctx.quadraticCurveTo(back.x + side * span * 0.30, tipY - span * 0.14, tipX, tipY);
+      /* The trailing edge, scalloped between the finger bones — the scallops
+       * are the difference between a wing and a triangle. */
+      var fingers = 4;
+      for (var f = fingers; f >= 1; f--) {
+        var t = f / (fingers + 1);
+        var fx = back.x + (tipX - back.x) * t;
+        var fy = back.y + (tipY - back.y) * t;
+        ctx.quadraticCurveTo(
+          fx + side * span * 0.06, fy + span * (0.30 - t * 0.12),
+          back.x + (tipX - back.x) * (t - 1 / (fingers + 1)),
+          back.y + (tipY - back.y) * (t - 1 / (fingers + 1)) + span * 0.06);
+      }
+      ctx.closePath();
+      ctx.fill();
+    });
+  };
+
+  PART_DRAW.tail = function (ctx, b, P, r, spec, an) {
+    var rump = at(b, an.rump);
+    var len = Math.max(b.w, b.h) * (0.55 + r() * 0.35);
+    var droop = (r() - 0.3) * len * 0.5;
+    ctx.strokeStyle = P.silhouette(0.02, 0.95);
+    ctx.lineCap = 'round';
+    var segs = 5;
+    for (var i = 0; i < segs; i++) {
+      var t0 = i / segs, t1 = (i + 1) / segs;
+      ctx.lineWidth = Math.max(1, b.h * 0.055 * (1 - t0 * 0.8));
+      ctx.beginPath();
+      ctx.moveTo(rump.x - len * t0, rump.y + droop * t0 * t0);
+      ctx.lineTo(rump.x - len * t1, rump.y + droop * t1 * t1);
+      ctx.stroke();
+    }
+  };
+
+  PART_DRAW.crest = function (ctx, b, P, r, spec, an) {
+    var head = at(b, an.head), back = at(b, an.back);
+    var col = P.silhouette(0.04, 0.9);
+    var n = 7;
+    for (var i = 0; i < n; i++) {
+      var t = i / (n - 1);
+      var x = head.x + (back.x - head.x) * t;
+      var y = head.y + (back.y - head.y) * t;
+      var up = b.h * (0.16 - t * 0.09) * (0.7 + r() * 0.6);
+      poly(ctx, [[x - b.w * 0.03, y], [x, y - up], [x + b.w * 0.03, y]], col);
+    }
+  };
+
+  PART_DRAW.halo = function (ctx, b, P, r, spec, an) {
+    if (STENCIL) return;                       // a halo is light, not shape
+    var head = at(b, an.head);
+    var rad = Math.max(b.w, b.h) * 0.15;
+    var y = head.y - b.h * 0.10;
+    var g = ctx.createRadialGradient(head.x, y, rad * 0.35, head.x, y, rad * 1.5);
+    g.addColorStop(0, P.light(0.55));
+    g.addColorStop(0.55, P.light(0.18));
+    g.addColorStop(1, P.light(0));
+    ctx.fillStyle = g;
+    ctx.fillRect(head.x - rad * 1.6, y - rad * 1.6, rad * 3.2, rad * 3.2);
+    ctx.strokeStyle = P.light(0.85);
+    ctx.lineWidth = Math.max(1.2, b.h * 0.012);
+    ctx.beginPath();
+    for (var a = 0; a <= Math.PI * 2 + 0.01; a += Math.PI / 20) {
+      var px = head.x + Math.cos(a) * rad;
+      var py = y + Math.sin(a) * rad * 0.34;
+      if (a === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  };
+
+  PART_DRAW.horns = function (ctx, b, P, r, spec, an) {
+    var head = at(b, an.head);
+    var len = b.h * (0.20 + r() * 0.12);
+    var col = P.silhouette(0, 0.95);
+    [-1, 1].forEach(function (side) {
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.moveTo(head.x + side * b.w * 0.05, head.y);
+      ctx.quadraticCurveTo(head.x + side * b.w * 0.20, head.y - len * 0.9,
+        head.x + side * b.w * 0.30, head.y - len * 0.35);
+      ctx.quadraticCurveTo(head.x + side * b.w * 0.17, head.y - len * 0.7,
+        head.x + side * b.w * 0.01, head.y);
+      ctx.closePath();
+      ctx.fill();
+    });
+  };
+
+  PART_DRAW.antlers = function (ctx, b, P, r, spec, an) {
+    var head = at(b, an.head);
+    var col = P.silhouette(0, 0.95);
+    var f = { splits: 2.2, spread: 0.85, shrink: 0.72, deep: 4, lean: 0.35, leaf: 0 };
+    ctx.lineCap = 'round';
+    [-1, 1].forEach(function (side) {
+      var drop = [];
+      branch(ctx, head.x + side * b.w * 0.05, head.y,
+        -Math.PI / 2 + side * 0.5, b.h * (0.13 + r() * 0.05),
+        Math.max(1.2, b.w * 0.035), f.deep, f, r, col, col, drop);
+    });
+  };
+
+  PART_DRAW.spikes = function (ctx, b, P, r, spec, an) {
+    var head = at(b, an.head), rump = at(b, an.rump);
+    var col = P.silhouette(0, 0.95);
+    var n = 9;
+    for (var i = 0; i < n; i++) {
+      var t = i / (n - 1);
+      var x = rump.x + (head.x - rump.x) * t;
+      var y = rump.y + (head.y - rump.y) * t;
+      var up = b.h * 0.10 * Math.sin(Math.PI * (0.18 + t * 0.7)) * (0.7 + r() * 0.7);
+      poly(ctx, [[x - b.w * 0.022, y + up * 0.2], [x, y - up], [x + b.w * 0.022, y + up * 0.2]], col);
+    }
+  };
+
+  PART_DRAW.armour = function (ctx, b, P, r, spec, an) {
+    var back = at(b, an.back);
+    var plates = 4;
+    for (var i = 0; i < plates; i++) {
+      var t = i / plates;
+      var x = b.x + b.w * (0.22 + t * 0.48);
+      var y = back.y + b.h * (0.06 + t * 0.02);
+      var pw = b.w * 0.17, ph = b.h * 0.15;
+      ctx.fillStyle = P.silhouette(0.3, 0.9);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + pw, y + ph * 0.12);
+      ctx.lineTo(x + pw * 0.9, y + ph);
+      ctx.lineTo(x + pw * 0.08, y + ph * 0.92);
+      ctx.closePath();
+      ctx.fill();
+      if (STENCIL) continue;                   // the shine is light, not shape
+      ctx.strokeStyle = P.light(0.7);
+      ctx.lineWidth = Math.max(0.8, b.h * 0.006);
+      ctx.beginPath();
+      ctx.moveTo(x + pw * 0.06, y + ph * 0.18);
+      ctx.lineTo(x + pw * 0.86, y + ph * 0.28);
+      ctx.stroke();
+    }
+  };
+
+  /* Draw whichever parts the words asked for, on whichever side of the body
+   * they belong. */
+  function parts(ctx, subject, box, P, r, spec, layer) {
+    var list = (spec && spec.parts) || [];
+    if (!list.length) return false;
+    var an = anatomy(subject);
+    var drew = false;
+    list.forEach(function (id) {
+      if ((PART_LAYER[id] || 'front') !== layer) return;
+      var fn = PART_DRAW[id];
+      if (!fn) return;
+      ctx.save();
+      fn(ctx, box, P, r, spec, an);
+      ctx.restore();
+      drew = true;
+    });
+    return drew;
+  }
+
   function draw(ctx, subject, box, P, r, spec) {
     var fn = DRAW[subject.draw];
     if (!fn) return false;
     ctx.save();
+    parts(ctx, subject, box, P, r, spec, 'behind');
     fn(ctx, box, P, r, spec, subject.form);
+    parts(ctx, subject, box, P, r, spec, 'front');
     ctx.restore();
     return true;
   }
 
-  var API = { draw: draw, setStencil: setStencil, META: META, DRAW: DRAW, QUAD: QUAD, BIRDS: BIRDS, PEOPLE: PEOPLE, TREES: TREES };
+  var API = { draw: draw, setStencil: setStencil, META: META, DRAW: DRAW, QUAD: QUAD,
+    BIRDS: BIRDS, PEOPLE: PEOPLE, TREES: TREES, PART_DRAW: PART_DRAW, PART_LAYER: PART_LAYER,
+    ANATOMY: ANATOMY, parts: parts };
   root.CodaSubjects = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
 })(typeof window !== 'undefined' ? window : this);

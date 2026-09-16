@@ -890,18 +890,48 @@ function recorder(w, h) {
  * Every closed shape a recording drew: the colour it was filled or stroked in,
  * how opaque it was, where its middle ended up and how wide it was. A picture
  * is shapes; this is how a test sees the ones that were actually put down.
+ *
+ * The coordinates are carried through the canvas transform, because some of
+ * these routines translate before they draw — an ellipse is drawn round the
+ * origin after moving there — and without that the numbers a test reads are in
+ * whatever space that routine happened to be working in. That is not a small
+ * error: it puts marks at the top-left corner of the picture and a test asking
+ * "is anything above the horizon" believes it.
  */
 function shapesOf(ctx) {
   var shapes = [], colour = null, stroke = null, alpha = 1, pts = [];
+  /* [a, b, c, d, e, f], the same six numbers the canvas keeps. */
+  var m = [1, 0, 0, 1, 0, 0], stack = [];
+
+  function mul(n) {
+    m = [
+      m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1],
+      m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3],
+      m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5]
+    ];
+  }
+  function place(pt) {
+    return [m[0] * pt[0] + m[2] * pt[1] + m[4], m[1] * pt[0] + m[3] * pt[1] + m[5]];
+  }
+
   ctx.log.forEach(function (c) {
-    if (c.op === 'set' && c.args[0] === 'fillStyle') colour = c.args[1];
-    else if (c.op === 'set' && c.args[0] === 'strokeStyle') stroke = c.args[1];
-    else if (c.op === 'set' && c.args[0] === 'globalAlpha') alpha = c.args[1];
+    var a = c.args;
+    if (c.op === 'save') stack.push(m.slice());
+    else if (c.op === 'restore') m = stack.length ? stack.pop() : [1, 0, 0, 1, 0, 0];
+    else if (c.op === 'translate') mul([1, 0, 0, 1, a[0], a[1]]);
+    else if (c.op === 'scale') mul([a[0], 0, 0, a[1], 0, 0]);
+    else if (c.op === 'rotate') {
+      mul([Math.cos(a[0]), Math.sin(a[0]), -Math.sin(a[0]), Math.cos(a[0]), 0, 0]);
+    } else if (c.op === 'transform') mul(a.slice(0, 6));
+    else if (c.op === 'setTransform') m = a.slice(0, 6);
+    else if (c.op === 'set' && a[0] === 'fillStyle') colour = a[1];
+    else if (c.op === 'set' && a[0] === 'strokeStyle') stroke = a[1];
+    else if (c.op === 'set' && a[0] === 'globalAlpha') alpha = a[1];
     else if (c.op === 'beginPath') pts = [];
     else if (c.op === 'moveTo' || c.op === 'lineTo' || c.op === 'quadraticCurveTo') {
       /* A curve's last two numbers are where it ends up; the control point in
        * front of them is not on the line. */
-      pts.push(c.args.slice(-2));
+      pts.push(place(a.slice(-2)));
     } else if ((c.op === 'fill' || c.op === 'stroke') && pts.length) {
       var sx = 0, sy = 0, lo = pts[0][0], hi = pts[0][0], top = pts[0][1], low = pts[0][1];
       pts.forEach(function (pt) {
@@ -2101,6 +2131,121 @@ function laidDown(ctx, gradient) {
     size('an impossibly huge dragon').toFixed(2) + ' against ' +
     size('a huge dragon').toFixed(2) + ')');
   pass('words have amounts, not just meanings');
+})();
+
+/* --------------------------------------------------- things made of parts
+ * Everything the painter could draw was something it had a routine for, so the
+ * vocabulary was exactly as long as the list of routines and "a winged wolf"
+ * was a wolf.
+ */
+(function madeOfParts() {
+  console.log('\nThings a thing can have');
+
+  var list = LEX.PARTS, bad = [];
+  var seen = {};
+  list.forEach(function (p) {
+    if (seen[p.id]) bad.push('two ' + p.id + 's');
+    seen[p.id] = true;
+    if (!SUBJECTS.PART_DRAW[p.id]) bad.push(p.id + ' has no way of being drawn');
+    if (!SUBJECTS.PART_LAYER[p.id]) bad.push(p.id + ' does not know which side of the body it is on');
+    if (!p.words || !p.words.length) bad.push(p.id + ' cannot be asked for');
+  });
+  check(bad.length === 0,
+    list.length + ' parts, each drawable and each knowing whether it goes in ' +
+    'front of the body or behind it' + (bad.length ? ' — ' + bad.join(', ') : ''));
+
+  check(PROMPT.parse('a wolf in a meadow', { seed: 3 }).parts.length === 0,
+    'a wolf has none of them');
+  var winged = PROMPT.parse('a winged wolf in a meadow', { seed: 3 });
+  check(winged.parts.length === 1 && winged.parts[0] === 'wings' &&
+        winged.subject.id === 'wolf',
+    'a winged wolf is a wolf with wings, not a new animal');
+  var both = PROMPT.parse('an armoured horned bear', { seed: 3 });
+  check(both.parts.length === 2 && both.parts.indexOf('armour') >= 0 &&
+        both.parts.indexOf('horns') >= 0,
+    'and they combine — an armoured horned bear has both');
+
+  /* Drawn, not declared. The same wolf, the same box, the same seed. */
+  function drawn(partIds, draw, form) {
+    var spec = PROMPT.parse('a wolf in a meadow at noon', { seed: 3 });
+    spec.parts = partIds;
+    var ctx = recorder(400, 300);
+    SUBJECTS.draw(ctx, { draw: draw || 'quadruped', form: form || 'wolf' },
+      { x: 120, y: 90, w: 170, h: 130, depth: 0, anchor: 'ground' },
+      PAINT.makePalette(spec), PROMPT.rng(spec, 'subject'), spec);
+    return { ctx: ctx, shapes: shapesOf(ctx) };
+  }
+
+  var bare = drawn([]), flying = drawn(['wings']);
+  check(flying.shapes.length > bare.shapes.length,
+    'a winged wolf takes more drawing than a wolf (' + flying.shapes.length +
+    ' shapes against ' + bare.shapes.length + ')');
+
+  /* Wings come out of the back and go up, so they reach above everything the
+   * wolf alone reaches. */
+  function above(bag) {
+    /* How much reaches above the top of the wolf's own box. Counted rather
+     * than measured as a highest point, which one stray mark would decide. */
+    return bag.shapes.filter(function (sh) { return sh.top < 90; }).length;
+  }
+  check(above(flying) > above(bare) + 1,
+    'and they reach up above it (' + above(flying) + ' marks over its back ' +
+    'against ' + above(bare) + ')');
+
+  /* Which side of the body. A wing comes out of the far shoulder as often as
+   * the near one, so it goes behind; a horn never does. */
+  function firstExtra(partId) {
+    var bag = drawn([partId]);
+    var base = drawn([]);
+    /* The body's marks are the same in both, so the first place the two traces
+     * differ is where the extra part was drawn. */
+    var a = bag.shapes, b = base.shapes;
+    for (var i = 0; i < Math.min(a.length, b.length); i++) {
+      if (a[i].x !== b[i].x || a[i].y !== b[i].y) return i;
+    }
+    return Math.min(a.length, b.length);
+  }
+  check(firstExtra('wings') === 0,
+    'wings are laid down before the body, so the body sits in front of them');
+  check(firstExtra('horns') > 0,
+    'and horns after it, so they sit in front of the head');
+
+  /* Any part on any subject: they are parts, not creatures. */
+  var wingedTower = drawn(['wings'], 'tower');
+  var plainTower = drawn([], 'tower');
+  check(wingedTower.shapes.length > plainTower.shapes.length,
+    'a tower can have wings too, because nothing here is a special case');
+
+  /* Where a part goes is read off the body it is going on: a wolf's head is
+   * not where a person's is. */
+  function headAt(draw) {
+    var bag = drawn(['horns'], draw, draw === 'quadruped' ? 'wolf' : undefined);
+    var base = drawn([], draw, draw === 'quadruped' ? 'wolf' : undefined);
+    var extra = bag.shapes.slice(base.shapes.length);
+    if (!extra.length) return null;
+    return extra.reduce(function (a, sh) { return a + sh.x; }, 0) / extra.length;
+  }
+  var onBeast = headAt('quadruped'), onPerson = headAt('humanoid');
+  check(onBeast !== null && onPerson !== null && Math.abs(onBeast - onPerson) > 20,
+    'horns land on a wolf\'s head and on a person\'s, which are not the same ' +
+    'place (' + Math.round(onBeast) + ' against ' + Math.round(onPerson) + ')');
+
+  /* A halo is light rather than shape, so it sits out the passes that redraw
+   * the subject flat — otherwise the shadow of a haloed stag has a ring in it. */
+  var spec = PROMPT.parse('a haloed stag in snow at dusk', { seed: 3 });
+  spec.parts = ['halo'];
+  function haloMarks(stencilOn) {
+    var ctx = recorder(400, 300);
+    SUBJECTS.setStencil(stencilOn);
+    SUBJECTS.draw(ctx, { draw: 'quadruped', form: 'deer' },
+      { x: 120, y: 90, w: 170, h: 130, depth: 0, anchor: 'ground' },
+      PAINT.makePalette(spec), PROMPT.rng(spec, 'subject'), spec);
+    SUBJECTS.setStencil(false);
+    return shapesOf(ctx).length;
+  }
+  check(haloMarks(false) > haloMarks(true),
+    'a halo is left out of the flat passes, so the stag\'s shadow has no ring in it');
+  pass('parts go on anything, and combine');
 })();
 
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
