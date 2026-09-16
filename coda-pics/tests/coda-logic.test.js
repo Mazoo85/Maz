@@ -2767,6 +2767,59 @@ function laidDown(ctx, gradient) {
   pass('the skyline is put somewhere on purpose, and nothing is stuck to it');
 })();
 
+/* ------------------------------------------------- variation within a colour
+ * Nothing in the world is one flat colour over any distance: a wall is
+ * lighter where the sun has bleached it, a field is a hundred greens. Every
+ * large fill here was one exact colour from edge to edge, and that flatness
+ * reads as paint however well the shape is drawn.
+ */
+(function withinAColour() {
+  console.log('\nVariation within a colour');
+
+  var w = 120, h = 90;
+  function flat(v) {
+    var img = { data: new Uint8ClampedArray(w * h * 4), width: w, height: h };
+    for (var i = 0; i < w * h; i++) {
+      img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = v;
+      img.data[i * 4 + 3] = 255;
+    }
+    return img;
+  }
+
+  var img = flat(128);
+  /* At the amount the finisher actually uses, so that turning it up to a
+   * stain is caught here rather than only in front of somebody's eyes. */
+  FINISH.helpers.mottle(img, w, h,
+    PROMPT.rng(PROMPT.parse('a wall', { seed: 3 }), 'mottle'), FINISH.helpers.DRIFT);
+
+  var lo = 255, hi = 0, sum = 0;
+  for (var i = 0; i < w * h; i++) {
+    var v = img.data[i * 4];
+    lo = Math.min(lo, v); hi = Math.max(hi, v); sum += v;
+  }
+  check(hi - lo >= 6,
+    'a flat grey wall is no longer flat (' + lo + ' to ' + hi + ')');
+  check(hi - lo < 40,
+    'but it is still the same wall — a drift, not a stain (' + (hi - lo) + ' apart)');
+  check(Math.abs(sum / (w * h) - 128) < 6,
+    'and it is no lighter or darker overall (' + (sum / (w * h)).toFixed(1) + ')');
+
+  /* Smooth, not speckled. Grain is the small scale and already exists; this is
+   * the slow drift, so neighbours must be close even where far-apart pixels
+   * are not — and there must be no seam where the cells of it meet. */
+  var biggestStep = 0;
+  for (var y = 0; y < h; y++) {
+    for (var x = 1; x < w; x++) {
+      var a = img.data[(y * w + x) * 4], b = img.data[(y * w + x - 1) * 4];
+      biggestStep = Math.max(biggestStep, Math.abs(a - b));
+    }
+  }
+  check(biggestStep <= 2,
+    'and it drifts rather than speckles — no two neighbours differ by more ' +
+    'than ' + biggestStep + ', while the picture spans ' + (hi - lo));
+  pass('no large fill is one exact colour any more');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);

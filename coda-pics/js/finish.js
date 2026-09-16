@@ -736,6 +736,54 @@
     return day;
   }
 
+  /*
+   * Variation within a colour.
+   *
+   * Nothing in the world is one flat colour over any distance. A wall is
+   * lighter where the sun has bleached it and darker where the rain runs down;
+   * a field is a hundred greens; even a sheet of paper is uneven. Every large
+   * fill in this engine was one exact colour from edge to edge, and that
+   * flatness reads as paint however well the shape is drawn.
+   *
+   * Grain covers the small scale — a mark here, a mark there. This is the
+   * large scale: a slow drift across the whole picture, a few percent either
+   * way, so that no two corners of the same surface are quite the same. It is
+   * a handful of random numbers stretched smoothly across the frame, which
+   * costs one pass and does what a thousand hand-placed marks would.
+   */
+  function mottle(img, w, h, r, amount) {
+    if (amount <= 0) return;
+    var cols = 7, rows = 5;
+    var grid = [];
+    for (var i = 0; i < (cols + 1) * (rows + 1); i++) grid.push((r() - 0.5) * 2);
+
+    function at(cx, cy) { return grid[cy * (cols + 1) + cx]; }
+    /* Smoothed rather than straight-line, or the seams between the cells show
+     * up as a faint grid — which is worse than the flatness it is fixing. */
+    function ease(t) { return t * t * (3 - 2 * t); }
+
+    var d = img.data;
+    for (var y = 0; y < h; y++) {
+      var gy = (y / h) * rows;
+      var y0 = Math.min(rows - 1, Math.floor(gy)), ty = ease(gy - y0);
+      for (var x = 0; x < w; x++) {
+        var gx = (x / w) * cols;
+        var x0 = Math.min(cols - 1, Math.floor(gx)), tx = ease(gx - x0);
+        var top = at(x0, y0) + (at(x0 + 1, y0) - at(x0, y0)) * tx;
+        var bot = at(x0, y0 + 1) + (at(x0 + 1, y0 + 1) - at(x0, y0 + 1)) * tx;
+        var k = 1 + (top + (bot - top) * ty) * amount;
+        var i2 = (y * w + x) * 4;
+        d[i2] = clamp(d[i2] * k, 0, 255);
+        d[i2 + 1] = clamp(d[i2 + 1] * k, 0, 255);
+        d[i2 + 2] = clamp(d[i2 + 2] * k, 0, 255);
+      }
+    }
+  }
+
+  /* How far the slow drift is allowed to wander. A few percent reads as a
+   * surface; much more reads as a stain on one. */
+  var DRIFT = 0.055;
+
   /* Films with no colour in them. */
   var MONOCHROME = { noir: true, blueprint: true };
 
@@ -760,6 +808,9 @@
       /* The lens leaking. Kept small: this is glass, not a filter. */
       bloom(img, w, h, 205, Math.max(2, Math.round(Math.min(w, h) * 0.012)),
         0.16 + (1 - day) * 0.14);
+      /* The slow drift that stops every large fill being one exact colour. */
+      mottle(img, w, h, PROMPT.rng(spec, 'mottle'), DRIFT);
+
       /* And the grain a long exposure leaves. */
       if (day < 0.55) grain(img, (0.55 - day) * 26, PROMPT.rng(spec, 'exposure'));
 
@@ -784,7 +835,8 @@
       read: read, write: write, blur: blur, bloom: bloom, pixelate: pixelate,
       posterize: posterize, dither: dither, edges: edges, inkEdges: inkEdges,
       contrast: contrast, saturate: saturate, grade: grade, grain: grain,
-      focusPass: focusPass, daylight: daylight, expose: expose,
+      focusPass: focusPass, daylight: daylight, expose: expose, mottle: mottle,
+      DRIFT: DRIFT,
       vignette: vignette, luma: luma, mosaic: mosaic
     }
   };

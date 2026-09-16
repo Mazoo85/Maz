@@ -2,17 +2,17 @@
   "note": "Average hashes of fixed prompts. Re-record with: node coda-pics/tests/visual.test.js --update",
   "tolerance": 6,
   "hashes": {
-    "dragon over snow": "000000f8ffff00d8",
-    "lighthouse in a storm": "3c7c3efefffb970e",
+    "dragon over snow": "000000f8ffff00c8",
+    "lighthouse in a storm": "3c6c3efffffb8e0e",
     "ship at sea": "0000ffffff022000",
-    "stag in a meadow": "0010187fffff5c00",
-    "neon city": "000c0e2e3e1fef04",
-    "cat under a tree": "3c3e7e7ff5000000",
-    "castle, watercolour": "008cffffff180000",
-    "castle, blueprint": "08cc08dfff041c60",
+    "stag in a meadow": "00101c7effff7e00",
+    "neon city": "000c0e0e3e1fef04",
+    "cat under a tree": "3c3e7e7ffd000000",
+    "castle, watercolour": "00c0ffffff180000",
+    "castle, blueprint": "08c808dfff841c60",
     "castle, stained glass": "0008ffffff0c0c22",
-    "whale and moon": "00800010ffffff18",
-    "cabin in falling snow": "0018df10200000ff",
-    "mushrooms in a cave": "00183c3c3c7c7e1c"
+    "whale and moon": "00800010ffffff10",
+    "cabin in falling snow": "0018fb10200000ff",
+    "mushrooms in a cave": "00343c3c3c7c7e1e"
   }
 }
