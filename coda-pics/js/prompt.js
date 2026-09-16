@@ -199,6 +199,49 @@
     return hits;
   }
 
+  /*
+   * How much of it.
+   *
+   * Every word in every table was an on-off switch: a picture was foggy or it
+   * was not. English does not work that way — "slightly misty", "quite
+   * weathered" and "impossibly huge" are three amounts of one thing, and it is
+   * amounts rather than more words that make a vocabulary feel endless.
+   *
+   * A degree word modifies whatever follows it, so this looks back from the
+   * word that was matched. Two words back as well as one, because half of them
+   * are two words long ("a little", "a bit").
+   */
+  function degreeAt(index, toks) {
+    for (var back = 1; back <= 2; back++) {
+      var at = index - back;
+      if (at < 0) break;
+      var one = toks[at];
+      var two = at > 0 ? toks[at - 1] + ' ' + one : null;
+      for (var d = 0; d < LEX.DEGREES.length; d++) {
+        var words = LEX.DEGREES[d].words;
+        if (words.indexOf(one) >= 0 || (two && words.indexOf(two) >= 0)) {
+          return LEX.DEGREES[d].factor;
+        }
+      }
+    }
+    return 1;
+  }
+
+  /* Where in the list of words a hit started. A single word knows its own
+   * place; a phrase knows where it starts in the flattened sentence, which is
+   * the same thing once the words in front of it are counted. */
+  function wordIndex(hit, flat) {
+    if (!hit) return -1;
+    if (hit.specific !== 2) return hit.at;
+    var before = flat.slice(0, hit.at).split(' ').filter(function (w) { return w.length; });
+    return before.length;
+  }
+
+  function degreeOf(hit, flat, toks) {
+    var at = wordIndex(hit, flat);
+    return at < 0 ? 1 : degreeAt(at, toks);
+  }
+
   function findOne(table, flat, tokenList) {
     var hits = findAll(table, flat, tokenList);
     return hits.length ? hits[0] : null;
@@ -369,9 +412,15 @@
       weather = base() < 0.68 ? 'clear' : 'clouds';
     }
 
+    /* How much weather. "A light drizzle" and "a downpour" were the same
+     * picture; now the first has a third of the rain in it. */
+    var weatherStrength = weatherHit ? degreeOf(weatherHit, flat, toks) : 1;
+    if (!weatherHit) weatherStrength = 0.75 + base() * 0.5;
+
     /* --- mood --- */
     var moodHit = findOne(LEX.MOODS, flat, toks);
-    var mood = moodHit ? moodHit.entry.mood : 0.35 + base() * 0.3;
+    var mood = moodHit ? moodHit.entry.mood * degreeOf(moodHit, flat, toks)
+      : 0.35 + base() * 0.3;
     if (moodHit) note('mood', moodHit.entry.id, moodHit.word);
     if (time === 'night') mood = Math.min(1, mood + 0.08);
 
@@ -484,7 +533,8 @@
      * Some of these words name a place as well ("abandoned", "overgrown"), and
      * they are allowed to do both: an ancient tower stands in ancient ruins. */
     var ageHit = findOne(LEX.AGES, flat, toks);
-    var age = ageHit ? ageHit.entry.age : 0;
+    var age = ageHit ? ageHit.entry.age * degreeOf(ageHit, flat, toks) : 0;
+    age = Math.max(0, Math.min(1, age));
     if (ageHit) note('wear', ageHit.entry.label, ageHit.word);
 
     LEX.FILLER.forEach(function (f) { filler[f] = true; });
@@ -519,6 +569,7 @@
       sun: sun,
       rising: !!rising,
       weather: weather,
+      weatherStrength: Math.max(0.2, Math.min(2, weatherStrength)),
       style: style,
       styles: extraStyle ? [style, extraStyle] : [style],
       palette: palette,
@@ -533,7 +584,13 @@
     var scale = 1;
     LEX.SCALE_WORDS.forEach(function (s) {
       s.words.forEach(function (w) {
-        if (toks.indexOf(w) >= 0) scale = s.factor;
+        var at = toks.indexOf(w);
+        if (at < 0) return;
+        /* "Very tiny" is smaller than tiny and "quite big" is less than big,
+         * so the degree pushes the factor further from 1 rather than scaling
+         * it — multiplying 0.72 by 1.6 would make a very tiny dragon large. */
+        var step = (s.factor - 1) * degreeAt(at, toks);
+        scale = Math.max(0.15, 1 + step);
       });
     });
     var count = 1;

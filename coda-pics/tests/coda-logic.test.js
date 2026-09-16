@@ -1313,6 +1313,9 @@ function laidDown(ctx, gradient) {
   function underWeather(weather) {
     var spec = PROMPT.parse('a stag in a meadow at noon', { seed: 6 });
     spec.weather = weather;
+    /* How much weather there is rolls when nobody says, and this is a test
+     * about which weather rather than how much of it. */
+    spec.weatherStrength = 1;
     return spec;
   }
 
@@ -1500,6 +1503,7 @@ function laidDown(ctx, gradient) {
   function ground(weather) {
     var spec = PROMPT.parse('a wolf on a road at dusk', { seed: 5 });
     spec.weather = weather;
+    spec.weatherStrength = 1;
     return PAINT.makePalette(spec).scene.land;
   }
   var dry = ground('clear'), rained = ground('rain');
@@ -1515,6 +1519,7 @@ function laidDown(ctx, gradient) {
   function streaks(weather) {
     var spec = PROMPT.parse('a wolf on a road at dusk', { seed: 5 });
     spec.weather = weather;
+    spec.weatherStrength = 1;
     var P = PAINT.makePalette(spec);
     var ctx = recorder(480, 360);
     PAINT.render(ctx, 480, 360, spec);
@@ -1544,6 +1549,7 @@ function laidDown(ctx, gradient) {
   var additive = function (weather) {
     var spec = PROMPT.parse('a wolf on a road at dusk', { seed: 5 });
     spec.weather = weather;
+    spec.weatherStrength = 1;
     var ctx = recorder(480, 360);
     PAINT.render(ctx, 480, 360, spec);
     return ctx.log.filter(function (c) {
@@ -1678,6 +1684,7 @@ function laidDown(ctx, gradient) {
   function sky(weather, light) {
     var spec = PROMPT.parse('open plains at noon', { seed: 9 });
     spec.weather = weather;
+    spec.weatherStrength = 1;
     var P = PAINT.makePalette(spec);
     var ctx = recorder(480, 360);
     PAINT.clouds(ctx, 480, 360, 200, P, spec, PROMPT.rng(spec, 'cloud'), light || { x: 60, y: 20 });
@@ -2019,6 +2026,81 @@ function laidDown(ctx, gradient) {
     'polished iron catches the sun much harder than iron left out for a century (' +
     polished.toFixed(2) + ' against ' + corroded.toFixed(2) + ')');
   pass('things have been standing there a while');
+})();
+
+/* ------------------------------------------------------------- how much
+ * Every word in every table was an on-off switch: a picture was foggy or it
+ * was not, a tower was weathered or it was not. English does not work that
+ * way, and it is amounts rather than more words that make a vocabulary feel
+ * endless.
+ */
+(function howMuch() {
+  console.log('\nHow much of it');
+
+  var degrees = LEX.DEGREES;
+  var rising = true;
+  for (var i = 1; i < degrees.length; i++) {
+    if (degrees[i].factor <= degrees[i - 1].factor) rising = false;
+  }
+  check(rising && degrees[0].factor < 1 && degrees[degrees.length - 1].factor > 1,
+    degrees.length + ' degrees, from barely to impossibly, either side of "just so"');
+
+  function wear(text) { return PROMPT.parse(text, { seed: 2 }).age; }
+  var plain = wear('a weathered tower on a hill');
+  check(wear('a slightly weathered tower on a hill') < plain,
+    'slightly weathered is less weathered than weathered (' +
+    wear('a slightly weathered tower on a hill').toFixed(2) + ' against ' +
+    plain.toFixed(2) + ')');
+  check(wear('a very weathered tower on a hill') > plain,
+    'and very weathered is more of it (' +
+    wear('a very weathered tower on a hill').toFixed(2) + ')');
+  check(wear('an extremely ancient tower') <= 1,
+    'and no amount of saying so takes it past completely ruined');
+
+  /* Two-word degrees, because half of them are ("a little", "a bit"). */
+  check(wear('a little weathered tower on a hill') < plain,
+    '"a little weathered" is read as a degree and not as a small tower');
+
+  /* How much weather. */
+  function much(text) { return PROMPT.parse(text, { seed: 2 }).weatherStrength; }
+  check(much('a barely foggy meadow') < much('a foggy meadow') &&
+        much('a foggy meadow') < much('a very foggy meadow'),
+    'barely foggy, foggy and very foggy are three amounts of fog (' +
+    [much('a barely foggy meadow'), much('a foggy meadow'), much('a very foggy meadow')]
+      .map(function (n) { return n.toFixed(2); }).join(', ') + ')');
+
+  /* And it reaches the picture: more fog is a softer light and a wetter road. */
+  function spec(text) { return PROMPT.parse(text, { seed: 2 }); }
+  check(PAINT.softness(spec('a very foggy meadow')) >
+        PAINT.softness(spec('a barely foggy meadow')),
+    'more fog softens the light more');
+  check(PAINT.wetness(spec('a heavy downpour over a meadow')) >
+        PAINT.wetness(spec('a slightly rainy meadow')),
+    'and a downpour leaves the ground wetter than a spot of rain');
+  var many = 0, few = 0;
+  [['a very rainy meadow at noon', 'many'], ['a barely rainy meadow at noon', 'few']]
+    .forEach(function (pair) {
+      var sp = PROMPT.parse(pair[0], { seed: 2 });
+      var ctx = recorder(300, 220);
+      PAINT.render(ctx, 300, 220, sp);
+      var n = ctx.log.filter(function (c) { return c.op === 'stroke'; }).length;
+      if (pair[1] === 'many') many = n; else few = n;
+    });
+  check(many > few * 1.5,
+    'and there is visibly more rain falling in it (' + many + ' strokes against ' + few + ')');
+
+  /* Size takes a degree too, and it has to push away from ordinary rather than
+   * multiply: "very tiny" is smaller than tiny, and multiplying 0.72 by 1.6
+   * would make a very tiny dragon a large one. */
+  function size(text) { return PROMPT.parse(text, { seed: 2 }).subject.scale; }
+  check(size('a very tiny dragon') < size('a tiny dragon'),
+    'a very tiny dragon is smaller than a tiny one (' +
+    size('a very tiny dragon').toFixed(2) + ' against ' + size('a tiny dragon').toFixed(2) + ')');
+  check(size('an impossibly huge dragon') > size('a huge dragon'),
+    'and an impossibly huge one is bigger than a huge one (' +
+    size('an impossibly huge dragon').toFixed(2) + ' against ' +
+    size('a huge dragon').toFixed(2) + ')');
+  pass('words have amounts, not just meanings');
 })();
 
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'

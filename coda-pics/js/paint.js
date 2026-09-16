@@ -169,12 +169,21 @@
 
   function wetness(spec) {
     if (!spec || spec.weather == null) return 0;
-    return WETNESS[spec.weather] == null ? 0 : WETNESS[spec.weather];
+    if (WETNESS[spec.weather] == null) return 0;
+    return clamp(WETNESS[spec.weather] * howMuch(spec), 0, 1);
+  }
+
+  /* How much of the weather there is, if the words said. "A light drizzle" and
+   * "a downpour" are the same weather at two strengths. */
+  function howMuch(spec) {
+    var k = spec && spec.weatherStrength;
+    return typeof k === 'number' ? clamp(k, 0.2, 2) : 1;
   }
 
   function softness(spec) {
     if (!spec || spec.weather == null) return 0;
-    return DIFFUSE[spec.weather] == null ? 0 : DIFFUSE[spec.weather];
+    if (DIFFUSE[spec.weather] == null) return 0;
+    return clamp(DIFFUSE[spec.weather] * howMuch(spec), 0, 0.95);
   }
 
   /*
@@ -1395,10 +1404,11 @@
 
   function paintWeather(ctx, w, h, hz, P, spec, r) {
     var wx = spec.weather;
+    var much = howMuch(spec);
     if (wx === 'rain' || wx === 'storm') {
       ctx.strokeStyle = P.css([P.sky.haze[0], 30, 86], 0.32);
       ctx.lineWidth = Math.max(1, w * 0.0016);
-      var drops = wx === 'storm' ? 420 : 260;
+      var drops = Math.round((wx === 'storm' ? 420 : 260) * much);
       for (var i = 0; i < drops; i++) {
         var x = r() * w * 1.2 - w * 0.1, y = r() * h;
         var len = h * (0.02 + r() * 0.04);
@@ -1408,7 +1418,7 @@
         ctx.stroke();
       }
     }
-    if (wx === 'storm' && r() > 0.25) {          // one fork, drawn once
+    if (wx === 'storm' && r() > 0.25 / Math.max(much, 0.25)) {          // one fork, drawn once
       var lx = w * (0.2 + r() * 0.6), ly = 0, steps = 7;
       ctx.strokeStyle = P.css([50, 100, 92], 0.92);
       ctx.lineWidth = Math.max(1.5, w * 0.004);
@@ -1427,7 +1437,7 @@
       ctx.fillRect(0, 0, w, h);
     }
     if (wx === 'snowfall') {
-      for (var f = 0; f < 320; f++) {
+      for (var f = 0; f < Math.round(320 * much); f++) {
         var fx = r() * w, fy = r() * h, fr = Math.max(1, w * 0.0022 * (0.4 + r() * 1.8));
         ctx.globalAlpha = 0.35 + r() * 0.6;
         ctx.fillStyle = P.css([200, 20, 98]);
@@ -1442,7 +1452,7 @@
         var by = hz * (0.5 + b * 0.12);
         var g2 = ctx.createLinearGradient(0, by - h * 0.06, 0, by + h * 0.12);
         g2.addColorStop(0, P.haze(0));
-        g2.addColorStop(0.5, P.haze(0.34));
+        g2.addColorStop(0.5, P.haze(clamp(0.34 * much, 0, 0.7)));
         g2.addColorStop(1, P.haze(0));
         ctx.fillStyle = g2;
         ctx.fillRect(0, by - h * 0.06, w, h * 0.18);

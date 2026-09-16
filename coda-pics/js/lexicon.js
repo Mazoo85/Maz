@@ -342,6 +342,28 @@
   /* --------------------------------------------------------------- sizeing
    * Words that make the subject bigger or smaller than its default.
    */
+  /* ----------------------------------------------------------- how much
+   * Degree.
+   *
+   * Every word in every table here was an on-off switch: a picture was foggy
+   * or it was not, a tower was weathered or it was not, a dragon was giant or
+   * it was not. English does not work that way — "slightly misty", "quite
+   * weathered" and "impossibly huge" are three different amounts of the same
+   * thing, and it is amounts, not more words, that make a vocabulary feel
+   * endless.
+   *
+   * A degree word modifies whatever word comes after it, so the multiplier is
+   * applied to whichever number that word was setting.
+   */
+  var DEGREES = [
+    { factor: 0.42, words: ['barely', 'faintly', 'hardly', 'just about'] },
+    { factor: 0.62, words: ['slightly', 'a little', 'a bit', 'somewhat', 'mildly', 'lightly'] },
+    { factor: 0.82, words: ['fairly', 'quite', 'rather', 'moderately', 'pretty'] },
+    { factor: 1.30, words: ['very', 'really', 'deeply', 'heavily', 'thoroughly', 'properly', 'so'] },
+    { factor: 1.60, words: ['extremely', 'incredibly', 'unbelievably', 'impossibly',
+      'utterly', 'absurdly', 'insanely', 'ridiculously', 'terribly', 'wildly'] }
+  ];
+
   var SCALE_WORDS = [
     { factor: 1.55, words: ['giant', 'huge', 'colossal', 'enormous', 'massive', 'towering', 'gigantic', 'titanic'] },
     { factor: 1.25, words: ['big', 'large', 'great', 'tall'] },
@@ -415,6 +437,7 @@
     AGES: AGES,
     MOODS: MOODS,
     SCALE_WORDS: SCALE_WORDS,
+    DEGREES: DEGREES,
     COUNT_WORDS: COUNT_WORDS,
     RELATIONS: RELATIONS,
     SHOTS: SHOTS,
