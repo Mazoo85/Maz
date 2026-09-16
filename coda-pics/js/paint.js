@@ -1535,8 +1535,58 @@
      * asked for a close-up somebody wants a close-up, not a close-up two times
      * in three. */
     var shot = spec.shot;
-    if (shot) swing = shot.size * (total > 1 ? 1 : (0.9 + r() * 0.2));
-    var size = Math.min(w, h) * meta.base * subject.scale * swing * (1 - depth * 0.25);
+    /* Asked for a close-up of a crowd, the whole crowd cannot fill the frame:
+     * the nearest would be capped to fit and the rest would be capped to very
+     * nearly the same size, which flattens the group into a line. A group
+     * takes half the step towards the framing that was asked for, and keeps
+     * its depth. */
+    if (shot) {
+      swing = total > 1 ? 1 + (shot.size - 1) * 0.45
+        : shot.size * (0.9 + r() * 0.2);
+    }
+    /*
+     * How far away it is, which on a flat piece of ground is one number and
+     * not two.
+     *
+     * A thing standing further off has its feet closer to the skyline AND is
+     * smaller. Those are the same fact seen twice, so they cannot disagree —
+     * and they did: the further members of a group were drawn smaller and
+     * stood *lower* in the frame, which is a smaller thing standing nearer the
+     * camera and reads as a toy rather than as distance.
+     *
+     * Where it stands is decided first, and the size follows from it, so the
+     * two cannot come apart. Each one also stands at its own random distance,
+     * the way a group of anything really does, and that randomness has to feed
+     * the size as well or it puts them back into disagreement.
+     */
+    var stand = 0;
+    if (meta.anchor === 'ground' || meta.anchor === 'water') {
+      /* A boat obeys the same rule as a stag: further out is nearer the
+       * skyline and smaller. Water simply starts further down, because the
+       * near shore is where you are standing. */
+      var middle = meta.anchor === 'water' ? 0.33 : 0.13;
+      /* A lone thing may stand anywhere between near and far. Inside a group
+       * the spread has to come from the depth rather than from the roll, or
+       * three of them can each roll a middling distance and the group comes
+       * out standing in a line — so the roll is narrowed to a wobble about the
+       * middle and the depth does the work. */
+      var base = total > 1 ? middle * (0.85 + r() * 0.30)
+        : (meta.anchor === 'water' ? 0.18 + r() * 0.30
+          : (shot ? shot.stand : 0.06 + r() * 0.14));
+      stand = base * (1 - depth * 0.45);
+      /* A lone subject's framing wobbles a little; a group's must not, or the
+       * wobble is bigger than the recession and the depth disappears under
+       * it. */
+      if (shot && total === 1 && meta.anchor === 'ground') stand += (r() - 0.5) * 0.06;
+      stand = Math.max(0.015, stand);
+    }
+    /* A lone thing has nothing to be compared against, so its size is free;
+     * inside a group it is set by where it is standing. `0.13` is the middle
+     * of the range a thing can stand at, so the nearest keeps the size it
+     * would have had on its own. */
+    var recede = total > 1
+      ? clamp(stand / (meta.anchor === 'water' ? 0.33 : 0.13), 0.4, 1.7) : 1;
+    var size = Math.min(w, h) * meta.base * subject.scale * swing * recede;
     var bw = size * (meta.aspect || 1);
     var bh = size;
 
@@ -1544,10 +1594,9 @@
     if (meta.anchor === 'sky') {
       y = h * (0.10 + r() * 0.28) + depth * h * 0.06;
     } else if (meta.anchor === 'water') {
-      y = hz + (h - hz) * (0.18 + r() * 0.3) - bh;
+      y = hz + (h - hz) * stand - bh;
     } else {
-      var stand = shot ? shot.stand : 0.06 + r() * 0.14;
-      var standY = hz + (h - hz) * (stand + depth * 0.10 + (shot ? (r() - 0.5) * 0.06 : 0));
+      var standY = hz + (h - hz) * stand;
       /* A close-up fills the frame; it does not leave the head outside it. The
        * shot says how big to be, the frame says how big will fit, and the
        * smaller of the two wins — losing a stag's antlers off the top is not a
@@ -1565,8 +1614,13 @@
        * framing a photograph — so anything that close is moved clear, whichever
        * way is nearer.
        */
+      /* Only for a lone subject. In a group, where each one stands is what
+       * says how far off it is, and nudging one of them clear of the skyline
+       * would put a small one lower than a big one — which is a worse mistake
+       * than a tangent, because it is the wrong distance rather than an
+       * awkward one. */
       var clear = h * 0.035;
-      if (Math.abs(y - hz) < clear) {
+      if (total === 1 && Math.abs(y - hz) < clear) {
         y = (y < hz ? hz - clear : hz + clear);
         if (y + bh > h * 1.02) y = h * 1.02 - bh;
       }

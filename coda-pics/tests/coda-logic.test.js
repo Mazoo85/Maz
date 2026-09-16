@@ -2905,6 +2905,95 @@ function laidDown(ctx, gradient) {
   pass('every picture is taken through a piece of glass');
 })();
 
+/* --------------------------------------------------- distance is one number
+ * On a flat piece of ground, how far away a thing is shows twice: once as how
+ * far its feet are below the skyline, and once as how big it is. Those cannot
+ * disagree — and they did, so the further members of a group were drawn
+ * smaller and stood lower in the frame, which is a smaller thing standing
+ * nearer the camera, and reads as a toy rather than as distance.
+ */
+(function oneDistance() {
+  console.log('\nHow far away a thing is, said once');
+
+  var hz = 170, w = 400, h = 300;
+  var wrong = [], groups = 0;
+  ['three wolves in a meadow at noon', 'five pines in the snow at dusk',
+   'four ships at sea at noon', 'several deer on the plains at dawn']
+    .forEach(function (text) {
+      for (var seed = 0; seed < 30; seed++) {
+        var spec = PROMPT.parse(text, { seed: seed });
+        if (!spec.subject || spec.subject.count < 2) continue;
+        var r = PROMPT.rng(spec, 'subject');
+        var placed = [];
+        for (var i = spec.subject.count - 1; i >= 0; i--) {
+          placed.push(PAINT.placeBox(w, h, hz, spec, spec.subject, i,
+            spec.subject.count, r));
+        }
+        if (placed[0].anchor === 'sky') continue;
+        groups++;
+        /* Sorted by size, the feet must be in the same order: bigger is
+         * nearer, and nearer is further down the ground. */
+        var bySize = placed.slice().sort(function (a, b) { return a.h - b.h; });
+        for (var k = 1; k < bySize.length; k++) {
+          var lower = (bySize[k].y + bySize[k].h) - hz;
+          var higher = (bySize[k - 1].y + bySize[k - 1].h) - hz;
+          if (lower < higher - 0.5) {
+            wrong.push(text.split(' ')[1] + ' seed ' + seed);
+            break;
+          }
+        }
+      }
+    });
+  check(groups > 20, groups + ' groups of things standing about to look at');
+
+  check(wrong.length === 0,
+    'in every one of them, the bigger a thing is drawn the further down the ' +
+    'ground it stands' + (wrong.length ? ' — but not in ' + wrong.slice(0, 4).join(', ') : ''));
+
+  /* Agreeing is not enough on its own: a group that is all one size at all one
+   * distance agrees perfectly and has no depth in it at all. They have to
+   * spread out — on the water as much as on the ground, since a boat obeys the
+   * same rule as a stag. */
+  var flat = [];
+  ['three wolves in a meadow at noon', 'four ships at sea at noon']
+    .forEach(function (text) {
+      for (var seed = 0; seed < 30; seed++) {
+        var sp = PROMPT.parse(text, { seed: seed });
+        if (!sp.subject || sp.subject.count < 2) continue;
+        var rr = PROMPT.rng(sp, 'subject');
+        var sizes = [], feet = [];
+        for (var i = sp.subject.count - 1; i >= 0; i--) {
+          var b = PAINT.placeBox(w, h, hz, sp, sp.subject, i, sp.subject.count, rr);
+          if (b.anchor === 'sky') continue;
+          sizes.push(b.h);
+          feet.push((b.y + b.h) - hz);
+        }
+        if (sizes.length < 2) continue;
+        var big = Math.max.apply(null, sizes), small = Math.min.apply(null, sizes);
+        var near = Math.max.apply(null, feet), off = Math.min.apply(null, feet);
+        if (big < small * 1.25 || near < off * 1.25) {
+          flat.push(text.split(' ')[1] + ' seed ' + seed);
+        }
+      }
+    });
+  check(flat.length === 0,
+    'and each group is spread through the picture rather than standing in a ' +
+    'line at one distance' + (flat.length ? ' — ' + flat.slice(0, 4).join(', ') : ''));
+
+  /* And the two move together rather than merely agreeing in order: half the
+   * size means half the distance below the skyline. */
+  var spec = PROMPT.parse('five pines in the snow at dusk', { seed: 3 });
+  var r = PROMPT.rng(spec, 'subject');
+  var near = PAINT.placeBox(w, h, hz, spec, spec.subject, 0, 5, r);
+  var far = PAINT.placeBox(w, h, hz, spec, spec.subject, 4, 5, r);
+  var sizeRatio = far.h / near.h;
+  var footRatio = ((far.y + far.h) - hz) / ((near.y + near.h) - hz);
+  check(Math.abs(sizeRatio - footRatio) < 0.12,
+    'and they shrink by the same amount they retreat (' + sizeRatio.toFixed(2) +
+    ' of the size, ' + footRatio.toFixed(2) + ' of the way down)');
+  pass('distance is one number, seen twice');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);
