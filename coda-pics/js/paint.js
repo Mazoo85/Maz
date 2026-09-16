@@ -89,6 +89,22 @@
     return [h, sat * 100, l * 100];
   }
 
+  /*
+   * Two skies mixed, and a note on why not in linear light.
+   *
+   * The numbers in a colour are not proportional to the light coming off the
+   * screen — they are bent, so the steps look even to an eye that is bent the
+   * same way. When you are *adding* light, that bend has to come off first or
+   * the sum is wrong, and mixing in linear light is the right answer.
+   *
+   * This is not adding light. It is one sky turning into another, and what
+   * matters is that the turn looks even — so the mix happens in the numbers
+   * the eye reads evenly. Doing it in linear light was tried here and the
+   * continuity check caught it: because one anchor is a near-black twilight
+   * and the next a bright horizon, the linear blend does most of its work in
+   * the first tenth, and the sky jumped a fifth of its whole range in half a
+   * degree of sun. Physically impeccable, and wrong for the job.
+   */
   function mixHSL(a, b, t) {
     var x = toRGB(a), y = toRGB(b);
     return toHSL([lerp(x[0], y[0], t), lerp(x[1], y[1], t), lerp(x[2], y[2], t)]);
