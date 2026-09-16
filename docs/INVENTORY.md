@@ -13,24 +13,24 @@ size is in the wiring between the parts, not in any one part.
 
 | | Count | |
 |---|---:|---|
-| Native games and demos (`apps/`) | 176 | 37,217 lines |
-| Engine capabilities (`engine/include/maz/`) | 697 | 88,378 lines across 20 subsystems |
-| C++ test files (`tests/`) | 383 | |
+| Native games and demos (`apps/`) | 176 | 37,305 lines |
+| Engine capabilities (`engine/include/maz/`) | 697 | 88,459 lines across 20 subsystems |
+| C++ test files (`tests/`) | 384 | |
 | Browser apps and games | 8 | 26,857 lines |
-| Python tools | 3 | |
+| Python tools | 4 | |
 | CI gates (`scripts/`) | 3 | |
 | Build and codegen helpers (`tools/`) | 11 | |
 | Documents (`docs/`) | 20 | |
-| **Catalogued artifacts** | **918** | |
+| **Catalogued artifacts** | **919** | |
 
 | Health signal | Score | |
 |---|---:|---|
-| Completeness checks passing | 88% | █████████░ 2825 of 3225 |
-| Apps that run headless in CI | 100% | ██████████ |
+| Completeness checks passing | 88% | █████████░ 2826 of 3228 |
+| Apps that run headless in CI | 99% | ██████████ |
 | Apps with a golden screenshot | 89% | █████████░ |
 | Engine modules a test exercises | 100% | ██████████ |
 | Engine modules an app demonstrates | 45% | █████░░░░░ |
-| Open tasks in the queue below | 7 | |
+| Open tasks in the queue below | 8 | |
 
 ## 1. Everything you have built
 
@@ -54,6 +54,7 @@ will ever see, and the ones that can most easily lend each other capabilities.
 
 | Tool | What it does | Lines | Commands | Tests | CI | Gaps |
 |---|---|---:|---|---:|---|---|
+| **consolidate** | Fold many repositories into one clean repository, keeping every commit. | 1,781 | consolidate | 8 | consolidate-ci.yml | — |
 | **crew** | A personal CLI that orchestrates a team of AI coding agents (planner, coder, reviewer, tester) on the Claude Agent SDK. | 1,048 | crew | 14 | crew-ci.yml | — |
 | **forge** | The Forge: a nightly loop that reads the Maz repo's own state, does one useful thing, and records what happened. | 3,589 | forge | 22 | forge-ci.yml, forge-nightly.yml | — |
 | **scraper** | A general-purpose, recipe-driven scraper for static HTML pages: crawl, extract with CSS selectors, and write JSONL/CSV/… | 944 | scrape | 8 | scraper-ci.yml | — |
@@ -74,7 +75,7 @@ module with neither is working code nobody can find.
 | `audio` | 27 | 27 (100%) | 23 (85%) |
 | `ui` | 27 | 25 (93%) | 17 (63%) |
 | `anim` | 20 | 20 (100%) | 17 (85%) |
-| `platform` | 20 | 19 (95%) | 12 (60%) |
+| `platform` | 20 | 20 (100%) | 12 (60%) |
 | `net` | 16 | 16 (100%) | 15 (94%) |
 | `scene` | 7 | 7 (100%) | 5 (71%) |
 | `fx` | 4 | 4 (100%) | 3 (75%) |
@@ -175,7 +176,7 @@ engine capability, a handful of them complete games.
 | **crowd** | steering + pathfinding demo) A flock of agents navigates a shared maze toward a roving goal. Each agent plans its own A* route (maz::game::NavGrid)… | 214 | ✓ | ✓ | — |
 | **cube** | 3D demo) A lit, depth-tested spinning cube rendered through the engine's 3D mesh path, with 2D HUD text drawn over it — proving 2D and 3D compose in… | 134 | ✓ | ✓ | — |
 | **curve** | cubic Bézier path, toward Godot's Curve2D / Path2D) A Curve2D is authored from points with in/out control handles and drawn as a smooth spline. On to… | 177 | ✓ | ✓ | — |
-| **cutscene_export** | exporter. Loads a composed character/item (.mazprefab), bakes it into one mesh, orbits a camera around it over a timeline, renders each frame on the… | 187 | ✓ | · | — |
+| **cutscene_export** | exporter. Loads a composed character/item (.mazprefab), bakes it into one mesh, orbits a camera around it over a timeline, renders each frame on the… | 275 | · | · | no headless mode; no golden screenshot |
 | **data** | data-driven scene from JSON) Nothing on screen is hard-coded: the entire scene — clear color, title, and every sprite (its shape, position, size, tin… | 186 | ✓ | ✓ | — |
 | **deadzone** | input::analogVector / applyDeadzone, toward Godot's Input.get_vector) A raw thumbstick drifts near centre and reaches ~√2 at the diagonals, so naive… | 173 | ✓ | ✓ | — |
 | **distort** | audio::MultiDistortion, toward Godot's AudioEffectDistortion.Mode) A9 (final audio milestone): the full distortion-mode set. The LEFT chart is the tr… | 186 | ✓ | ✓ | — |
@@ -364,11 +365,11 @@ not by judging the work. Every failing check below is a specific, finishable job
 | Kind | Check | Passing |
 |---|---|---:|
 | engine-module | shown by a sample app | 315/697 (45%) |
-| app | has a golden screenshot | 158/176 (90%) |
+| app | has a golden screenshot | 157/176 (89%) |
+| app | runs headless for CI | 175/176 (99%) |
 | app | built by CMake | 176/176 (100%) |
 | app | has CMakeLists.txt | 176/176 (100%) |
 | app | header comment says what it shows | 176/176 (100%) |
-| app | runs headless for CI | 176/176 (100%) |
 | app | exercises a named engine module | 176/176 (100%) |
 | build-tool | says what it does | 11/11 (100%) |
 | doc | reachable from somewhere | 20/20 (100%) |
@@ -376,9 +377,9 @@ not by judging the work. Every failing check below is a specific, finishable job
 | engine-module | covered by a test or a golden image | 697/697 (100%) |
 | gate | rule-encoding checkers are tested | 3/3 (100%) |
 | gate | wired into a workflow | 3/3 (100%) |
-| py-tool | has a README | 3/3 (100%) |
-| py-tool | has tests | 3/3 (100%) |
-| py-tool | runs in CI | 3/3 (100%) |
+| py-tool | has a README | 4/4 (100%) |
+| py-tool | has tests | 4/4 (100%) |
+| py-tool | runs in CI | 4/4 (100%) |
 | web-app | has a README | 8/8 (100%) |
 | web-app | has a logic test | 8/8 (100%) |
 | web-app | links back to the hub | 8/8 (100%) |
@@ -403,6 +404,14 @@ the least-squares family — so the work is closer to a few dozen apps than 499.
 count is highest and the modules cluster most naturally.
 
 <sub>382 affected · effort: medium · value: ★★★ · queued below as the `engine-module:demoed` task</sub>
+
+#### One app cannot run without a display
+
+Apps with --headless / --frames N are run by CI on every push and can be captured as goldens;
+apps without them are only ever proven by someone opening a window. The flag is a dozen lines
+copied from apps/_template/main.cpp and it converts each app into a test.
+
+<sub>1 affected · effort: medium · value: ★★★ · queued below as the `app:headless` task</sub>
 
 ### Already wired together
 
@@ -540,8 +549,10 @@ Every gap above, ranked. **P1** is something broken or unprotected, **P2** is a 
 gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list out of
 `docs/inventory.json`, so the nightly Forge can pick work straight off it.
 
-### P1 — broken or unprotected (2)
+### P1 — broken or unprotected (3)
 
+- **One app cannot run without a display**
+  <br>Apps with --headless / --frames N are run by CI on every push and can be captured as goldens; apps without them are only ever proven by someone opening a window. The flag is a dozen lines copied from apps/_template/main.cpp and it converts each app into a test. — cutscene_export. Example: apps/cutscene_export opens a window but never passes cfg.headless through to it. Call core::parseArgs and set wc.headless / rc.allowHeadless from it, as apps/_template does, so CI can run it without a display.
 - **382 engine modules are tested but no app shows them**
   <br>These are finished, working features that nobody can see, and `apps/` is how this engine documents itself. They are not spread evenly: 113 in `render`, 103 in `math`, 66 in `game`, 57 in `core`, 10 in `ui`, 8 in `io`, and 11 other subsystems. Writing 499 apps is not the answer and never was: one demo can show a dozen related modules at once — a single "mesh repair" app for the degenerate, self-intersection and closest-point analysers, one "curve fitting" app for the least-squares family — so the work is closer to a few dozen apps than 499. Start where the count is highest and the modules clus…
 - **SONG FORGE supplies the one music layer the engine does not have**
@@ -549,8 +560,8 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
 
 ### P2 — coverage gaps (5)
 
-- **18 apps fail "has a golden screenshot"**
-  <br>_template, earshot, economy, genworld, heft, lookup, meshdoctor, orbs, rpgstats, sandbox, squeeze, swarm, and 6 more. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.
+- **19 apps fail "has a golden screenshot"**
+  <br>_template, cutscene_export, earshot, economy, genworld, heft, lookup, meshdoctor, orbs, rpgstats, sandbox, squeeze, and 7 more. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.
 - **CODA PICS can be lent now — but not to SCRIPT FORGE or MADLIBS as they speak today**
   <br>The surface exists: coda-pics/painter is published, takes a sentence and a canvas, and — unlike the studio page — reports how much of the picture came from the words. It refuses rather than guessing when asked to, because CODA PICS invents a subject for anything it does not recognise and a caller cannot otherwise tell a picture of the thing it asked for from a picture of something else.  What is NOT true is the obvious next step, and it was measured rather than assumed. Fed SCRIPT FORGE's scene headings, about half painted something unrelated, and fed MADLIBS loglines, six of twelve were refu…
 - **The golden screenshots become the arcade's cover art**

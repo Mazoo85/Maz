@@ -4,25 +4,46 @@
     "apps": 176,
     "engineModules": 697,
     "engineSubsystems": 20,
-    "cppTests": 383,
+    "cppTests": 384,
     "webApps": 8,
-    "pyTools": 3,
+    "pyTools": 4,
     "gates": 3,
     "buildTools": 11,
     "docs": 20,
-    "totalArtifacts": 918,
-    "linesOfApps": 37217,
-    "linesOfEngine": 88378,
+    "totalArtifacts": 919,
+    "linesOfApps": 37305,
+    "linesOfEngine": 88459,
     "linesOfWeb": 26857,
-    "appsHeadless": 100,
+    "appsHeadless": 99,
     "appsGolden": 89,
     "modulesTested": 100,
     "modulesDemoed": 45,
-    "checksPassed": 2825,
-    "checksTotal": 3225,
-    "openTasks": 7
+    "checksPassed": 2826,
+    "checksTotal": 3228,
+    "openTasks": 8
   },
   "queue": [
+    {
+      "id": "group:app:headless",
+      "priority": 1,
+      "kind": "app",
+      "check": "headless",
+      "title": "One app cannot run without a display",
+      "detail": "Apps with --headless / --frames N are run by CI on every push and can be captured as goldens; apps without them are only ever proven by someone opening a window. The flag is a dozen lines copied from apps/_template/main.cpp and it converts each app into a test. — cutscene_export. Example: apps/cutscene_export opens a window but never passes cfg.headless through to it. Call core::parseArgs and set wc.headless / rc.allowHeadless from it, as apps/_template does, so CI can run it without a display.",
+      "paths": [
+        "apps/cutscene_export"
+      ],
+      "source": "inventory:app:headless",
+      "memberCount": 1,
+      "members": [
+        {
+          "id": "app:cutscene_export",
+          "name": "cutscene_export",
+          "path": "apps/cutscene_export",
+          "fix": "apps/cutscene_export opens a window but never passes cfg.headless through to it. Call core::parseArgs and set wc.headless / rc.allowHeadless from it, as apps/_template does, so CI can run it without a display."
+        }
+      ]
+    },
     {
       "id": "group:engine-module:demoed",
       "priority": 1,
@@ -337,10 +358,11 @@
       "priority": 2,
       "kind": "app",
       "check": "golden",
-      "title": "18 apps fail \"has a golden screenshot\"",
-      "detail": "_template, earshot, economy, genworld, heft, lookup, meshdoctor, orbs, rpgstats, sandbox, squeeze, swarm, and 6 more. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.",
+      "title": "19 apps fail \"has a golden screenshot\"",
+      "detail": "_template, cutscene_export, earshot, economy, genworld, heft, lookup, meshdoctor, orbs, rpgstats, sandbox, squeeze, and 7 more. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.",
       "paths": [
         "apps/_template",
+        "apps/cutscene_export",
         "apps/earshot",
         "apps/economy",
         "apps/genworld",
@@ -360,13 +382,19 @@
         "apps/wire"
       ],
       "source": "inventory:app:golden",
-      "memberCount": 18,
+      "memberCount": 19,
       "members": [
         {
           "id": "app:_template",
           "name": "_template",
           "path": "apps/_template",
           "fix": "Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test."
+        },
+        {
+          "id": "app:cutscene_export",
+          "name": "cutscene_export",
+          "path": "apps/cutscene_export",
+          "fix": "Capture a golden frame for cutscene_export into tests/golden/cutscene_export.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test."
         },
         {
           "id": "app:earshot",
