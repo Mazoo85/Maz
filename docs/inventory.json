@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "stats": {
-    "apps": 176,
+    "apps": 177,
     "engineModules": 697,
     "engineSubsystems": 20,
     "cppTests": 384,
@@ -10,16 +10,16 @@
     "gates": 3,
     "buildTools": 11,
     "docs": 20,
-    "totalArtifacts": 919,
-    "linesOfApps": 37305,
+    "totalArtifacts": 920,
+    "linesOfApps": 37749,
     "linesOfEngine": 88459,
     "linesOfWeb": 26857,
     "appsHeadless": 100,
-    "appsGolden": 89,
+    "appsGolden": 88,
     "modulesTested": 100,
-    "modulesDemoed": 45,
-    "checksPassed": 2827,
-    "checksTotal": 3228,
+    "modulesDemoed": 46,
+    "checksPassed": 2836,
+    "checksTotal": 3234,
     "openTasks": 7
   },
   "queue": [
@@ -28,8 +28,8 @@
       "priority": 1,
       "kind": "engine-module",
       "check": "demoed",
-      "title": "382 engine modules are tested but no app shows them",
-      "detail": "These are finished, working features that nobody can see, and `apps/` is how this engine documents itself. They are not spread evenly: 113 in `render`, 103 in `math`, 66 in `game`, 57 in `core`, 10 in `ui`, 8 in `io`, and 11 other subsystems. Writing 499 apps is not the answer and never was: one demo can show a dozen related modules at once — a single \"mesh repair\" app for the degenerate, self-intersection and closest-point analysers, one \"curve fitting\" app for the least-squares family — so the work is closer to a few dozen apps than 499. Start where the count is highest and the modules cluster most naturally. — CubicBezierEasing, SpringBone, Transition, G711, ImaAdpcm, Mp3, Qoa, AliasTable, Assert, BitSet, CellularNoise, Checkpoints, and 370 more. Example: No app under apps/ demonstrates maz::anim::CubicBezierEasing. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.",
+      "title": "378 engine modules are tested but no app shows them",
+      "detail": "These are finished, working features that nobody can see, and `apps/` is how this engine documents itself. They are not spread evenly: 113 in `render`, 103 in `math`, 66 in `game`, 57 in `core`, 10 in `ui`, 8 in `platform`, and 11 other subsystems. Writing 499 apps is not the answer and never was: one demo can show a dozen related modules at once — a single \"mesh repair\" app for the degenerate, self-intersection and closest-point analysers, one \"curve fitting\" app for the least-squares family — so the work is closer to a few dozen apps than 499. Start where the count is highest and the modules cluster most naturally. — CubicBezierEasing, SpringBone, Transition, G711, ImaAdpcm, Mp3, Qoa, AliasTable, Assert, BitSet, CellularNoise, Checkpoints, and 366 more. Example: No app under apps/ demonstrates maz::anim::CubicBezierEasing. Either fold it into an existing demo or give it one, so the feature is discoverable and visually verified.",
       "paths": [
         "engine/include/maz/anim/CubicBezierEasing.hpp",
         "engine/include/maz/anim/SpringBone.hpp",
@@ -73,7 +73,7 @@
         "engine/include/maz/core/Reflect.hpp"
       ],
       "source": "inventory:engine-module:demoed",
-      "memberCount": 382,
+      "memberCount": 378,
       "members": [
         {
           "id": "engine:anim/CubicBezierEasing",
@@ -337,8 +337,8 @@
       "priority": 2,
       "kind": "app",
       "check": "golden",
-      "title": "19 apps fail \"has a golden screenshot\"",
-      "detail": "_template, cutscene_export, earshot, economy, genworld, heft, lookup, meshdoctor, orbs, rpgstats, sandbox, squeeze, and 7 more. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.",
+      "title": "20 apps fail \"has a golden screenshot\"",
+      "detail": "_template, cutscene_export, earshot, economy, genworld, heft, interchange, lookup, meshdoctor, orbs, rpgstats, sandbox, and 8 more. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.",
       "paths": [
         "apps/_template",
         "apps/cutscene_export",
@@ -346,6 +346,7 @@
         "apps/economy",
         "apps/genworld",
         "apps/heft",
+        "apps/interchange",
         "apps/lookup",
         "apps/meshdoctor",
         "apps/orbs",
@@ -361,7 +362,7 @@
         "apps/wire"
       ],
       "source": "inventory:app:golden",
-      "memberCount": 19,
+      "memberCount": 20,
       "members": [
         {
           "id": "app:_template",
@@ -398,6 +399,12 @@
           "name": "heft",
           "path": "apps/heft",
           "fix": "Capture a golden frame for heft into tests/golden/heft.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test."
+        },
+        {
+          "id": "app:interchange",
+          "name": "interchange",
+          "path": "apps/interchange",
+          "fix": "Capture a golden frame for interchange into tests/golden/interchange.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test."
         },
         {
           "id": "app:lookup",
