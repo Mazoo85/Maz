@@ -51,6 +51,32 @@ int main() {
     // Empty / degenerate mesh yields no bytes.
     CHECK(render::encodeGlb(render::shapes::MeshData{}).empty(), "empty mesh -> empty GLB");
 
+    // Multi-part export: two boxes, each its own pbrMetallicRoughness material.
+    {
+        const render::shapes::MeshData a = render::shapes::makeBox(1.0f, render::Color{1, 1, 1, 1});
+        const render::shapes::MeshData b = render::shapes::makeBox(0.5f, render::Color{1, 1, 1, 1});
+        render::GlbPart p0;
+        p0.mesh = &a;
+        p0.baseColor[0] = 0.9f; p0.baseColor[1] = 0.2f; p0.baseColor[2] = 0.1f;
+        p0.metallic = 0.0f; p0.roughness = 0.7f;
+        render::GlbPart p1;
+        p1.mesh = &b;
+        p1.baseColor[0] = 0.2f; p1.baseColor[1] = 0.5f; p1.baseColor[2] = 0.9f;
+        p1.metallic = 1.0f; p1.roughness = 0.2f; p1.emissive[1] = 0.4f;
+        const std::vector<std::uint8_t> multi = render::encodeGlbParts({p0, p1});
+        render::GlbChunks mc;
+        CHECK(render::parseGlb(multi, mc), "multi-part GLB re-parses");
+        CHECK(has(mc.json, "\"materials\":["), "materials array present");
+        CHECK(has(mc.json, "\"metallicFactor\":1"), "per-part metallic factor written");
+        CHECK(has(mc.json, "\"emissiveFactor\":[") , "emissive factor written");
+        CHECK(has(mc.json, "\"material\":0") && has(mc.json, "\"material\":1"),
+              "each primitive references its own material");
+        CHECK(mc.bin.size() == (a.vertices.size() + b.vertices.size()) * 40u +
+                                   (a.indices.size() + b.indices.size()) * 4u,
+              "multi-part BIN is the sum of both parts");
+        CHECK(render::encodeGlbParts({}).empty(), "no parts -> empty GLB");
+    }
+
     if (g_fail == 0) {
         std::printf("gltfwriter: all checks passed\n");
     }

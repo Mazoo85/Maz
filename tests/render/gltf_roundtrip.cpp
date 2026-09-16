@@ -43,6 +43,41 @@ int main() {
               "vertex colour round-trips through glTF");
     }
 
+    // Multi-part export (per-part pbrMetallicRoughness) re-imports: cgltf accepts it and merges the
+    // primitives; total geometry is the sum and each part's COLOR_0 tint survives.
+    {
+        // Tint the vertices to the base colour, exactly as editor::bakeSegments does — encodeGlbParts
+        // writes COLOR_0 from the mesh vertices (the material baseColorFactor is separate, and
+        // loadGltf reads COLOR_0, not the factor).
+        const render::shapes::MeshData a =
+            render::shapes::makeBox(1.0f, render::Color{0.9f, 0.2f, 0.1f, 1.0f});
+        const render::shapes::MeshData c =
+            render::shapes::makeBox(0.5f, render::Color{0.15f, 0.55f, 0.9f, 1.0f});
+        render::GlbPart p0;
+        p0.mesh = &a;
+        p0.baseColor[0] = 0.9f; p0.baseColor[1] = 0.2f; p0.baseColor[2] = 0.1f;
+        render::GlbPart p1;
+        p1.mesh = &c;
+        p1.baseColor[0] = 0.15f; p1.baseColor[1] = 0.55f; p1.baseColor[2] = 0.9f;
+        p1.metallic = 1.0f; p1.roughness = 0.25f;
+        const std::vector<std::uint8_t> multi = render::encodeGlbParts({p0, p1});
+        CHECK(io::writeFile("roundtrip_multi.glb", multi), "wrote multi-part glb");
+
+        render::ModelData mm;
+        CHECK(render::loadGltf("roundtrip_multi.glb", mm), "cgltf re-imports the multi-part .glb");
+        CHECK(mm.mesh.vertices.size() == a.vertices.size() + c.vertices.size(),
+              "multi-part vertex count is the sum");
+        CHECK(mm.mesh.indices.size() == a.indices.size() + c.indices.size(),
+              "multi-part index count is the sum");
+        // First part's vertices carry its red tint; the second part's carry its blue tint.
+        bool sawRed = false, sawBlue = false;
+        for (const render::MeshVertex& v : mm.mesh.vertices) {
+            if (v.r > 0.8f && v.b < 0.3f) sawRed = true;
+            if (v.b > 0.8f && v.r < 0.3f) sawBlue = true;
+        }
+        CHECK(sawRed && sawBlue, "both parts' colours survive the round-trip");
+    }
+
     if (g_fail == 0) {
         std::printf("gltf_roundtrip: all checks passed\n");
     }
