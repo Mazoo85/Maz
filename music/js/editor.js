@@ -22,6 +22,7 @@
   const MAX_ROWS = 34;
   const RULER_H = 16;
   const VEL_H = 58;              // the velocity strip, when it is showing
+  const MIN_ZOOM_BARS = 1;
 
   const DRUM_ROWS = ['kick', 'snare', 'clap', 'hh', 'oh', 'ride', 'tom', 'conga',
                      'perc', 'shaker', 'tamb', 'cowbell', 'crash', 'riser', 'impact'];
@@ -78,6 +79,12 @@
     this.velRow = 0;
     this._velDrag = false;
     this._loopDrag = null;
+
+    /* Every finger currently on the glass, so a second one can turn what was
+       going to be a drawing gesture into a pinch. */
+    this._pointers = {};
+    this._pinch = null;
+    this.onZoom = opts.onZoom || null;
 
     /* The working loop, in beats — null for "the whole song". The editor owns
        the markers because they are drawn here and dragged here; the player is
@@ -503,12 +510,31 @@
     if (this.isDrums()) this._drawDrumRows(rowH);
     else this._drawPitchRows(rowH, color);
 
-    // Beat and bar lines
-    for (let b = 0; b <= beats; b += this.snap) {
+    /* Beat and bar lines, at whatever spacing is still readable.
+       Zoomed out to a whole song, a line per sixteenth is several hundred of
+       them a few pixels apart — not a grid, a grey wash. So the ruling steps
+       down a ladder of musical divisions until the lines are far enough apart
+       to read: sixteenths, eighths, beats, then whole bars and groups of bars.
+       Musical rather than arithmetic on purpose — doubling a beat gives a
+       two-beat grid, whose lines land in the middle of the bar in three-four
+       time and mean nothing. */
+    const pxPerBeat = gridW / beats;
+    const bpbNow = this.beatsPerBar();
+    const ladder = [this.snap, 0.5, 1, bpbNow, bpbNow * 2, bpbNow * 4,
+                    bpbNow * 8, bpbNow * 16, bpbNow * 32];
+    let step = ladder[ladder.length - 1];
+    for (let i = 0; i < ladder.length; i++) {
+      if (ladder[i] >= this.snap && pxPerBeat * ladder[i] >= 12) { step = ladder[i]; break; }
+    }
+    /* Recorded so the decision can be checked directly. Counting lit pixels
+       instead reads the bright bar lines and misses the faint sixteenth ones,
+       which is the half that matters here. */
+    this._grid = { step: step, lines: 0 };
+    for (let b = 0; b <= beats; b += step) {
       const x = this.xOfBeat(start + b);
       const onBar = Math.abs((b % this.beatsPerBar())) < 1e-6;
       const onBeat = Math.abs((b % 1)) < 1e-6;
-      if (!onBeat && this.snap >= 0.5) continue;
+      this._grid.lines++;
       cx.strokeStyle = onBar ? 'rgba(255,255,255,0.30)'
         : onBeat ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.055)';
       cx.lineWidth = 1;
@@ -523,7 +549,12 @@
     // Bar numbers and the section this window sits in
     cx.font = '10px ui-monospace, monospace';
     cx.textAlign = 'left';
+    /* Every bar when they are wide enough to read, then every fourth, then
+       every sixteenth: numbers that overlap are worse than no numbers. */
+    const barW = pxPerBeat * this.beatsPerBar();
+    const every = barW >= 26 ? 1 : barW >= 8 ? 4 : 16;
     for (let b = 0; b < this.bars; b++) {
+      if ((this.startBar + b) % every) continue;
       const x = this.xOfBeat(start + b * this.beatsPerBar());
       cx.fillStyle = 'rgba(200,190,225,0.75)';
       cx.fillText(String(this.startBar + b + 1), x + 4, 11);
@@ -878,6 +909,85 @@
   Editor.prototype.clearLoop = function () { return this.setLoop(null, null); };
   Editor.prototype.hasLoop = function () { return this.loopFrom !== null; };
 
+  /* ------------------------------------------------------------------ *
+   * Zoom
+   *
+   * How many bars the window shows. Two is close enough to place a
+   * thirty-second note; the whole song is how you see the shape of a melody
+   * rather than a fragment of it.
+   * ------------------------------------------------------------------ */
+
+  Editor.prototype.maxBars = function () {
+    const song = this.getSong();
+    return Math.max(MIN_ZOOM_BARS, song ? song.bars : MIN_ZOOM_BARS);
+  };
+
+  /**
+   * Show `bars` bars, keeping the beat under `anchorBeat` where it is.
+   *
+   * Anchoring matters more than it sounds: zooming that always keeps the left
+   * edge fixed throws away the thing you were looking at every time you zoom
+   * out, and a pinch has an obvious anchor — the point between your fingers.
+   */
+  Editor.prototype.setZoom = function (bars, anchorBeat) {
+    const bpb = this.beatsPerBar();
+    const want = Math.max(MIN_ZOOM_BARS, Math.min(this.maxBars(), Math.round(bars)));
+    if (anchorBeat === undefined) {
+      this.bars = want;
+      this.scrollTo(this.startBar);
+      return this.bars;
+    }
+    /* Where the anchor sat across the window, as a fraction, so it comes out
+       at the same place afterwards. */
+    const frac = (anchorBeat - this.startBeat()) / this.spanBeats();
+    this.bars = want;
+    const startBeat = anchorBeat - frac * this.spanBeats();
+    this.scrollTo(startBeat / bpb);
+    return this.bars;
+  };
+
+  /** Two fingers down: remember how far apart, and what is between them. */
+  Editor.prototype._beginPinch = function () {
+    const ids = Object.keys(this._pointers);
+    if (ids.length < 2 || this._pinch) return false;
+    const a = this._pointers[ids[0]], b = this._pointers[ids[1]];
+    const gap = Math.abs(a.x - b.x);
+    if (gap < 12) return false;                 // two fingers, but not a pinch yet
+
+    /* The first finger may already have drawn a note or started dragging one.
+       Undo puts the part back exactly as it was before it landed, which is
+       what the user meant — they were reaching for a zoom, not an edit. */
+    if (this._drag || this._painted) {
+      this.undo();
+      this._drag = null;
+      this._painted = null;
+    }
+    this._marquee = null;
+    this._loopDrag = null;
+    this._velDrag = false;
+    this._pinch = {
+      gap: gap,
+      bars: this.bars,
+      anchor: this.beatOfX((a.x + b.x) / 2)
+    };
+    return true;
+  };
+
+  Editor.prototype._pinchMove = function () {
+    const ids = Object.keys(this._pointers);
+    if (ids.length < 2) return;
+    const a = this._pointers[ids[0]], b = this._pointers[ids[1]];
+    const gap = Math.abs(a.x - b.x);
+    if (gap < 8) return;
+    /* Fingers apart means fewer bars on screen, so the ratio is inverted:
+       spreading them zooms in, which is the way every map behaves. */
+    const want = this._pinch.bars * (this._pinch.gap / gap);
+    const was = this.bars;
+    this.setZoom(want, this._pinch.anchor);
+    this.draw();
+    if (this.bars !== was && this.onZoom) this.onZoom(this.bars);
+  };
+
   Editor.prototype._bind = function () {
     const self = this;
 
@@ -886,6 +996,13 @@
       if (!song) return;
       e.preventDefault();
       const p = self._pos(e);
+
+      /* Track every finger on the glass, wherever it landed — a pinch often
+         starts with one finger over the key names, and refusing that one
+         would leave the gesture half-recognised. */
+      self._pointers[e.pointerId] = p;
+      if (self._beginPinch()) return;
+
       if (p.x < LABEL_W) return;
 
       /* The ruler strip along the top sets the working loop. It is the one
@@ -930,6 +1047,8 @@
     });
 
     this.canvas.addEventListener('pointermove', function (e) {
+      if (self._pointers[e.pointerId]) self._pointers[e.pointerId] = self._pos(e);
+      if (self._pinch) { self._pinchMove(); return; }
       if (self._loopDrag) {
         const p = self._pos(e);
         const bpb = self.beatsPerBar();
@@ -965,6 +1084,14 @@
     });
 
     function end(e) {
+      delete self._pointers[e.pointerId];
+      /* A pinch ends when a finger leaves, and the finger still down must not
+         fall through into a draw — it was never a draw to begin with. */
+      if (self._pinch) {
+        if (Object.keys(self._pointers).length < 2) self._pinch = null;
+        try { self.canvas.releasePointerCapture(e.pointerId); } catch (err) { /* gone */ }
+        return;
+      }
       if (self._loopDrag) {
         self._loopDrag = null;
       } else if (self._velDrag) {

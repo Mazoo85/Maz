@@ -547,6 +547,10 @@
         player.setLoopRange(from, to);
         syncLoopUI();
       },
+      /* A pinch changes the zoom without touching the picker, so the picker
+         has to be told — otherwise it keeps claiming four bars over a view
+         showing thirty. */
+      onZoom: function () { syncEditUI(); },
       onChange: function () {
         state.edited[editor.track] = true;
         player.refresh();
@@ -716,8 +720,12 @@
       editor.scrollTo(parseInt(this.value, 10));
     });
     el('zoomSelect').addEventListener('change', function () {
-      editor.bars = parseInt(this.value, 10);
-      editor.scrollTo(editor.startBar);
+      /* Anchored on the middle of the view, not its left edge: zooming out
+         from the left edge slides whatever you were looking at off to the
+         right, and you have to go and find it again. */
+      const middle = editor.startBeat() + editor.spanBeats() / 2;
+      const want = this.value === 'all' ? editor.maxBars() : parseInt(this.value, 10);
+      editor.setZoom(want, middle);
       syncEditUI();
     });
 
@@ -730,6 +738,7 @@
         const o = document.createElement('option');
         o.textContent = 'Drum kit';
         sel.appendChild(o);
+        syncFavButton();
         return;
       }
       sel.disabled = false;
@@ -739,19 +748,65 @@
       auto.value = '';
       auto.textContent = 'Default (' + (G.PRESET_LABEL[fallback] || fallback) + ')';
       sel.appendChild(auto);
-      names.forEach(function (n) {
+
+      /* Starred sounds are lifted into a group at the top rather than merely
+         marked in place. Fifty-two instruments is a long list to scroll, and
+         the point of starring one is not having to. */
+      const stars = favourites();
+      const starred = names.filter(function (n) { return stars.indexOf(n) >= 0; });
+      const rest = names.filter(function (n) { return stars.indexOf(n) < 0; });
+      function option(n, into) {
         const o = document.createElement('option');
         o.value = n;
         o.textContent = G.PRESET_LABEL[n] || n;
-        sel.appendChild(o);
-      });
+        into.appendChild(o);
+      }
+      if (starred.length) {
+        const grp = document.createElement('optgroup');
+        grp.label = '★ Favourites';
+        starred.forEach(function (n) { option(n, grp); });
+        sel.appendChild(grp);
+        const all = document.createElement('optgroup');
+        all.label = 'Everything else';
+        rest.forEach(function (n) { option(n, all); });
+        sel.appendChild(all);
+      } else {
+        rest.forEach(function (n) { option(n, sel); });
+      }
       sel.value = (state.song.presetOverride && state.song.presetOverride[track]) || '';
+      syncFavButton();
     }
+
+    function syncFavButton() {
+      const btn = el('favSound');
+      if (!btn) return;
+      const sel = el('soundSelect');
+      const name = sel.value;
+      const on = !!name && favourites().indexOf(name) >= 0;
+      btn.disabled = !name;
+      btn.textContent = on ? '★' : '☆';
+      btn.classList.toggle('on', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      btn.title = !name ? 'Pick a sound to star it'
+        : on ? 'Stop keeping ' + (G.PRESET_LABEL[name] || name) + ' near the top'
+             : 'Keep ' + (G.PRESET_LABEL[name] || name) + ' near the top of the list';
+    }
+
+    el('favSound').addEventListener('click', function () {
+      const name = el('soundSelect').value;
+      if (!name) return;
+      const now = toggleFavourite(name);
+      buildSoundPicker();
+      status(now
+        ? (G.PRESET_LABEL[name] || name) + ' starred — it sits at the top of the list from now on.'
+        : (G.PRESET_LABEL[name] || name) + ' unstarred.');
+    });
     el('soundSelect').addEventListener('change', function () {
       if (!state.song) return;
       state.song.presetOverride = state.song.presetOverride || {};
       if (this.value) state.song.presetOverride[editor.track] = this.value;
       else delete state.song.presetOverride[editor.track];
+      syncFavButton();
       status(colorLabel(editor.track) + ' now plays ' +
         (this.value ? (G.PRESET_LABEL[this.value] || this.value) : 'its default sound') + '.');
     });
@@ -1056,6 +1111,36 @@
     }
   }
 
+  /**
+   * The zoom picker, which a pinch can move out from under.
+   *
+   * A pinch lands on any number of bars, not just the ones in the list, so the
+   * list grows a temporary entry for wherever it stopped rather than snapping
+   * back to a value that is not what you are looking at.
+   */
+  function syncZoomUI() {
+    const sel = el('zoomSelect');
+    if (!sel || !editor) return;
+    const bars = editor.bars;
+    const whole = bars >= editor.maxBars();
+    const want = whole ? 'all' : String(bars);
+    let has = false;
+    Array.prototype.forEach.call(sel.options, function (o) {
+      if (o.value === want) has = true;
+    });
+    const custom = sel.querySelector('option[data-custom]');
+    if (!has) {
+      const o = custom || document.createElement('option');
+      o.dataset.custom = '1';
+      o.value = want;
+      o.textContent = bars + (bars === 1 ? ' bar' : ' bars');
+      if (!custom) sel.appendChild(o);
+    } else if (custom) {
+      custom.remove();
+    }
+    sel.value = want;
+  }
+
   function syncEditUI() {
     if (!editor || !state.song) return;
     syncLoopUI();
@@ -1067,6 +1152,7 @@
     const scroll = el('barScroll');
     scroll.max = String(editor.maxStartBar());
     scroll.value = String(editor.startBar);
+    syncZoomUI();
     el('developBtn').disabled = editor.track === 'drums';
     el('undoBtn').disabled = !editor.canUndo();
     el('redoBtn').disabled = !editor.canRedo();
@@ -1718,6 +1804,39 @@
 
       const mod = e.ctrlKey || e.metaKey;
 
+      /* Getting around. None of these take a modifier, so they are checked
+         before the selection shortcuts and skipped whenever one is held. */
+      if (!mod) {
+        const middle = editor.startBeat() + editor.spanBeats() / 2;
+        if (e.key === '[') {
+          editor.scrollTo(editor.startBar - editor.bars);
+          syncEditUI();
+          return;
+        }
+        if (e.key === ']') {
+          editor.scrollTo(editor.startBar + editor.bars);
+          syncEditUI();
+          return;
+        }
+        if (e.key === '-' || e.key === '_') {
+          editor.setZoom(editor.bars * 2, middle);
+          syncEditUI();
+          return;
+        }
+        if (e.key === '+' || e.key === '=') {
+          editor.setZoom(Math.max(1, Math.round(editor.bars / 2)), middle);
+          syncEditUI();
+          return;
+        }
+        if (e.key === 'l' || e.key === 'L') {
+          el('loopRangeBtn').click();
+          return;
+        }
+        if (e.key === '1') { el('toolDraw').click(); return; }
+        if (e.key === '2') { el('toolErase').click(); return; }
+        if (e.key === '3') { el('toolSelect').click(); return; }
+      }
+
       /* Select everything in the part. Only in the select tool, so Ctrl+A
          still means what the browser means everywhere else in the page. */
       if (mod && (e.key === 'a' || e.key === 'A') && editor.tool === 'select') {
@@ -2122,6 +2241,38 @@
       key: out.key !== undefined ? parseInt(out.key, 10) : -1,
       bpm: out.bpm ? parseInt(out.bpm, 10) : 0
     };
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Favourite sounds
+   *
+   * A list of preset names kept on this device. Deliberately not part of a
+   * song: which instruments you reach for is a fact about you, not about the
+   * track, so it must not travel in a save or a shared link.
+   * ------------------------------------------------------------------ */
+
+  const FAV_KEY = 'songforge.favourites.v1';
+  let favCache = null;
+
+  function favourites() {
+    if (favCache) return favCache;
+    try {
+      const raw = localStorage.getItem(FAV_KEY);
+      const list = raw ? JSON.parse(raw) : [];
+      favCache = Array.isArray(list) ? list.filter(function (n) { return typeof n === 'string'; }) : [];
+    } catch (e) {
+      favCache = [];                 // private window, or storage blocked
+    }
+    return favCache;
+  }
+
+  /** Star or unstar a preset. Returns whether it is starred afterwards. */
+  function toggleFavourite(name) {
+    const list = favourites();
+    const at = list.indexOf(name);
+    if (at >= 0) list.splice(at, 1); else list.push(name);
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(list)); } catch (e) { /* not kept */ }
+    return at < 0;
   }
 
   const LIB_MAX = 30;

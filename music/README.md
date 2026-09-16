@@ -95,6 +95,16 @@ python3 -m http.server         # or serve the folder: http://localhost:8000/musi
   without touching the kicks stacked at the same instant.
 - **Slide a whole part** a notch earlier or later, to sit a bassline behind
   the beat or pull a hi-hat part forward.
+- **Zoom from one bar to the whole song**, and **pinch to zoom** on a phone or
+  tablet. Zooming holds the middle of the view still rather than the left edge,
+  and the grid rules itself more coarsely as you pull back, so a whole song is
+  a shape you can read instead of a grey wash.
+- **Star the sounds you keep coming back to.** Starred instruments sit in a
+  group at the top of the picker. Kept on your device and deliberately *not*
+  in the song, so opening somebody else's link never rearranges your list.
+- **Keyboard shortcuts, and a panel that lists them.** Space, G, Ctrl+Z,
+  `[` and `]` for bars, `−` and `+` for zoom, `L` to loop what you can see,
+  `1` `2` `3` for the tools, and the whole selection set.
 - **Silence a section** without deleting it. The bridge stays in the
   arrangement, faded and struck through, and stays out of playback *and* the
   exported file until you bring it back.

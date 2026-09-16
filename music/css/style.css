@@ -547,6 +547,8 @@ input[type="range"]::-moz-range-thumb {
 .sec-card.muted { opacity: 0.55; border-style: dashed; }
 .sec-btns .sec-mute.on { color: var(--amber); border-color: var(--amber); opacity: 1; }
 .sec-card.muted .sec-name { text-decoration: line-through; }
+/* A starred sound. The button is a toggle, so it says so when it is on. */
+#favSound.on { color: var(--amber); border-color: var(--amber); }
 .arrange-hint { margin: 0; font-size: 12px; }
 
 /* ---------------- note editor ---------------- */
@@ -847,6 +849,34 @@ input[type="range"]::-moz-range-thumb {
 }
 .modal-card h3:first-of-type { margin-top: 0; }
 .modal-card p, .modal-card li { font-size: 14px; line-height: 1.62; color: var(--ink-dim); }
+
+/* The shortcut tables. Two columns, the key on the left, and never wider than
+   the card — a long description wraps rather than pushing the keys off. */
+.keys { width: 100%; border-collapse: collapse; margin: 4px 0 6px; }
+.keys th, .keys td {
+  text-align: left;
+  vertical-align: top;
+  padding: 5px 0;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--ink-dim);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.keys th { width: 40%; padding-right: 12px; white-space: nowrap; }
+.keys tr:last-child th, .keys tr:last-child td { border-bottom: none; }
+kbd {
+  display: inline-block;
+  font-family: var(--font-data);
+  font-size: 12px;
+  line-height: 1;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--panel-edge);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 4px 6px;
+  margin: 1px 0;
+}
 .modal-card code {
   background: rgba(255, 255, 255, 0.09);
   padding: 1px 5px;

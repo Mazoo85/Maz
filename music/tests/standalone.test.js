@@ -1035,6 +1035,62 @@ function launchOptions() {
   });
   await page.waitForTimeout(150);
 
+  console.log('\n— zoom, stars and shortcuts —');
+  const zoomUI = await page.evaluate(function () {
+    const sel = document.getElementById('zoomSelect');
+    const ed = window.__editor;
+    const values = Array.prototype.map.call(sel.options, function (o) { return o.value; });
+    return { values: values.join(','), maxBars: ed.maxBars(), songBars: window.__song.bars };
+  });
+  check(zoomUI.values.indexOf('all') >= 0 && zoomUI.values.indexOf('1') >= 0,
+    'the zoom picker runs from one bar to the whole song (' + zoomUI.values + ')');
+  await page.selectOption('#zoomSelect', 'all');
+  await page.waitForTimeout(200);
+  const wholeSong = await page.evaluate(function () {
+    const ed = window.__editor;
+    ed.draw();
+    return { bars: ed.bars, songBars: window.__song.bars, startBar: ed.startBar,
+             step: ed._grid.step, snap: ed.snap,
+             gap: ((ed.w - 52) / ed.spanBeats()) * ed._grid.step };
+  });
+  check(wholeSong.bars === wholeSong.songBars && wholeSong.startBar === 0,
+    'and picking the whole song shows all ' + wholeSong.bars + ' bars of it');
+  check(wholeSong.step > wholeSong.snap && wholeSong.gap >= 11,
+    'with the grid ruled coarsely enough to read (every ' + wholeSong.step +
+    ' beats, ' + Math.round(wholeSong.gap) + 'px apart)');
+  await page.selectOption('#zoomSelect', '4');
+  await page.waitForTimeout(150);
+
+  await page.evaluate(function () {
+    try { localStorage.removeItem('songforge.favourites.v1'); } catch (e) { /* blocked */ }
+  });
+  await page.click('#editTracks .chip[data-id="pad"]');
+  await page.waitForTimeout(150);
+  const pick = await page.evaluate(function () {
+    const sel = document.getElementById('soundSelect');
+    const names = Array.prototype.map.call(sel.options, function (o) { return o.value; })
+      .filter(function (v) { return v; });
+    return names[Math.min(3, names.length - 1)];
+  });
+  await page.selectOption('#soundSelect', pick);
+  await page.waitForTimeout(120);
+  await page.click('#favSound');
+  await page.waitForTimeout(150);
+  const star = await page.evaluate(function () {
+    const sel = document.getElementById('soundSelect');
+    const grp = sel.querySelector('optgroup');
+    return { groups: sel.querySelectorAll('optgroup').length,
+             top: grp ? (grp.querySelector('option') || {}).value : '',
+             glyph: document.getElementById('favSound').textContent };
+  });
+  check(star.groups === 2 && star.top === pick && star.glyph === '★',
+    'starring a sound lifts it to the top of the picker');
+
+  const shortcuts = await page.evaluate(function () {
+    return document.querySelectorAll('#helpModal .keys tr').length;
+  });
+  check(shortcuts >= 12, 'the help panel lists the shortcuts (' + shortcuts + ')');
+
   console.log('\n— phone —');
   const phone = await browser.newPage({ viewport: { width: 390, height: 780 }, isMobile: true, hasTouch: true });
   watch(phone, 'phone ');

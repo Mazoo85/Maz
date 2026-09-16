@@ -245,6 +245,7 @@
       <label class="tool-field" for="soundSelect"><span>Sound</span>
         <select id="soundSelect"></select>
       </label>
+      <button type="button" class="mini-btn" id="favSound" title="Keep this sound near the top of the list" aria-pressed="false">☆</button>
       <button type="button" class="mini-btn" id="diceSound" title="Pick a sound at random">🎲</button>
       <div class="tool-group" role="group" aria-label="Octave">
         <button type="button" class="mini-btn" id="octDown" title="Down an octave">8vb</button>
@@ -259,9 +260,13 @@
       <input type="range" id="barScroll" min="0" max="0" value="0" step="1" aria-label="Position in bars" />
       <button type="button" class="mini-btn" id="barNext" aria-label="Later bars">▶</button>
       <select id="zoomSelect" aria-label="Bars shown">
+        <option value="1">1 bar</option>
         <option value="2">2 bars</option>
         <option value="4" selected>4 bars</option>
         <option value="8">8 bars</option>
+        <option value="16">16 bars</option>
+        <option value="32">32 bars</option>
+        <option value="all">Whole song</option>
       </select>
     </div>
 
@@ -535,6 +540,40 @@
       <li><strong>♥ Save</strong> keeps the whole song — your notes, your arrangement, your
           effects — on this device. Saving again updates it.</li>
       <li>Download the MIDI to keep writing in real music software.</li>
+    </ul>
+    <h3>Keyboard shortcuts</h3>
+    <p>
+      Anything typed into a box is left alone — these only fire when you are not in one.
+      On a Mac, use ⌘ wherever it says Ctrl.
+    </p>
+    <table class="keys">
+      <tbody>
+        <tr><th scope="row"><kbd>Space</kbd></th><td>Play or pause</td></tr>
+        <tr><th scope="row"><kbd>G</kbd></th><td>Write a new song</td></tr>
+        <tr><th scope="row"><kbd>Ctrl</kbd>+<kbd>Z</kbd></th><td>Undo</td></tr>
+        <tr><th scope="row"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd></th><td>Redo</td></tr>
+        <tr><th scope="row"><kbd>[</kbd> <kbd>]</kbd></th><td>Earlier and later bars</td></tr>
+        <tr><th scope="row"><kbd>−</kbd> <kbd>+</kbd></th><td>Zoom out and in</td></tr>
+        <tr><th scope="row"><kbd>L</kbd></th><td>Loop the bars on screen, or stop looping</td></tr>
+        <tr><th scope="row"><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></th><td>Draw, erase, select</td></tr>
+      </tbody>
+    </table>
+    <h3>With notes selected</h3>
+    <table class="keys">
+      <tbody>
+        <tr><th scope="row"><kbd>Ctrl</kbd>+<kbd>A</kbd></th><td>Select everything in the part</td></tr>
+        <tr><th scope="row"><kbd>←</kbd> <kbd>→</kbd></th><td>Move earlier or later, by the snap setting</td></tr>
+        <tr><th scope="row"><kbd>↑</kbd> <kbd>↓</kbd></th><td>Up or down a semitone — hold <kbd>Shift</kbd> for an octave</td></tr>
+        <tr><th scope="row"><kbd>Ctrl</kbd>+<kbd>C</kbd></th><td>Copy</td></tr>
+        <tr><th scope="row"><kbd>Ctrl</kbd>+<kbd>X</kbd></th><td>Cut</td></tr>
+        <tr><th scope="row"><kbd>Ctrl</kbd>+<kbd>V</kbd></th><td>Paste into the bar you are looking at</td></tr>
+        <tr><th scope="row"><kbd>Delete</kbd></th><td>Delete them</td></tr>
+      </tbody>
+    </table>
+    <h3>On a touch screen</h3>
+    <ul>
+      <li><strong>Pinch</strong> the note grid with two fingers to zoom in and out.</li>
+      <li><strong>Drag across the bar numbers</strong> along the top to loop those bars.</li>
     </ul>
   </div>
 </div>

@@ -2354,6 +2354,242 @@ function launchOptions() {
   check(shift.back === 3 && shift.backTimes[0] === 0 && shift.backTimes[1] === 4,
     'and sliding back puts what is left exactly where it started');
 
+  console.log('\n— zooming out, and pinching —');
+  const zoom = await page.evaluate(function () {
+    const ed = window.__songforge.editor;
+    const song = window.__songforge.song;
+    const out = {};
+    ed.setTrack('lead');
+    ed.tool = 'draw';
+    ed.velLane = false;
+    ed.canvas.classList.remove('with-vel');
+    ed.resize();
+    ed.bars = 4;
+    ed.startBar = 0;
+
+    out.maxBars = ed.maxBars();
+    out.songBars = song.bars;
+
+    /* Zooming out from the middle. The bar under the centre of the view has to
+       still be under the centre afterwards, or every zoom throws away whatever
+       you were looking at. */
+    ed.scrollTo(8);
+    const middle = ed.startBeat() + ed.spanBeats() / 2;
+    ed.setZoom(16, middle);
+    out.zoomed = ed.bars;
+    out.middleKept = Math.abs((ed.startBeat() + ed.spanBeats() / 2) - middle);
+
+    // The whole song fits, and no further.
+    ed.setZoom(9999, middle);
+    out.whole = ed.bars;
+    out.wholeStart = ed.startBar;
+    ed.setZoom(0, middle);
+    out.floor = ed.bars;
+    return out;
+  });
+  check(zoom.maxBars === zoom.songBars,
+    'zooming out reaches the whole song (' + zoom.maxBars + ' bars)');
+  check(zoom.zoomed === 16 && zoom.middleKept < 0.01,
+    'and holds the middle of the view still while it does (moved ' +
+    zoom.middleKept.toFixed(3) + ' beats)');
+  check(zoom.whole === zoom.songBars && zoom.wholeStart === 0,
+    'the whole song shows from bar one, with nowhere left to scroll');
+  check(zoom.floor === 1, 'and it will not zoom in past a single bar');
+
+  /* At whole-song zoom a line per sixteenth is a grey wash rather than a grid,
+     so the ruling has to thin out. The editor records what spacing it chose
+     and how many lines it drew, which is the decision itself — counting lit
+     pixels instead reads the bright bar lines and misses the faint sixteenth
+     ones, which is the half that matters. */
+  const ruling = await page.evaluate(function () {
+    const ed = window.__songforge.editor;
+    ed.snap = 0.25;
+    ed.setZoom(2, 0);
+    ed.draw();
+    const gapPx = function () {
+      return ((ed.w - 52) / ed.spanBeats()) * ed._grid.step;
+    };
+    const close = { step: ed._grid.step, lines: ed._grid.lines, gap: gapPx() };
+    ed.setZoom(ed.maxBars(), 0);
+    ed.draw();
+    const far = { step: ed._grid.step, lines: ed._grid.lines, gap: gapPx(), bars: ed.bars };
+    return { close: close, far: far };
+  });
+  check(ruling.close.step === 0.25 && ruling.close.lines > 20,
+    'close in, the grid is ruled for every sixteenth (' + ruling.close.lines + ' lines)');
+  /* The test that matters: zoomed all the way out the count must not have
+     multiplied by the number of bars. Eleven times the bars would be one line
+     per sixteenth; a handful per bar is a grid you can read. */
+  check(ruling.far.step > ruling.close.step,
+    'zoomed out over ' + ruling.far.bars + ' bars the ruling coarsens (a ' +
+    ruling.close.step + '-beat grid becomes ' + ruling.far.step + ')');
+  /* Lines no closer together than a dozen pixels or so at either zoom — which
+     is the actual claim, and holds however wide the canvas happens to be. */
+  check(ruling.far.gap >= 11 && ruling.close.gap >= 11,
+    'so the lines stay far enough apart to read (' + ruling.close.gap.toFixed(0) +
+    'px close in, ' + ruling.far.gap.toFixed(0) + 'px over ' + ruling.far.bars + ' bars)');
+
+  const pinch = await page.evaluate(function () {
+    const ed = window.__songforge.editor;
+    const song = window.__songforge.song;
+    ed.setTrack('lead');
+    ed.tool = 'draw';
+    ed.setZoom(8, 0);
+    ed.scrollTo(0);
+    song.tracks.lead = [];
+    const before = ed.bars;
+    const c = ed.canvas, r = c.getBoundingClientRect();
+    function send(type, id, x) {
+      c.dispatchEvent(new PointerEvent(type, {
+        clientX: r.left + x, clientY: r.top + 80,
+        pointerId: id, bubbles: true, cancelable: true
+      }));
+    }
+    // One finger lands — which would normally start drawing a note.
+    send('pointerdown', 1, 200);
+    const drewOne = song.tracks.lead.length;
+    // A second finger arrives: that was a pinch all along.
+    send('pointerdown', 2, 320);
+    const afterSecond = song.tracks.lead.length;
+    // Spread them: zoom in.
+    send('pointermove', 2, 560);
+    const zoomedIn = ed.bars;
+    send('pointerup', 2, 560);
+    send('pointerup', 1, 200);
+    // And bring them together: zoom out.
+    send('pointerdown', 1, 200);
+    send('pointerdown', 2, 560);
+    send('pointermove', 2, 260);
+    const zoomedOut = ed.bars;
+    send('pointerup', 2, 260);
+    send('pointerup', 1, 200);
+    return { before: before, drewOne: drewOne, afterSecond: afterSecond,
+             zoomedIn: zoomedIn, zoomedOut: zoomedOut,
+             notesLeft: song.tracks.lead.length, pinching: !!ed._pinch };
+  });
+  check(pinch.zoomedIn < pinch.before,
+    'spreading two fingers zooms in (' + pinch.before + ' → ' + pinch.zoomedIn + ' bars)');
+  check(pinch.zoomedOut > pinch.zoomedIn,
+    'and bringing them together zooms out (' + pinch.zoomedOut + ' bars)');
+  /* The note the first finger drew has to go. A pinch that leaves a stray note
+     behind every time is worse than no pinch — you would be cleaning up after
+     every zoom. */
+  check(pinch.drewOne === 1 && pinch.afterSecond === 0 && pinch.notesLeft === 0,
+    'and the note the first finger drew is taken back, not left behind');
+  check(!pinch.pinching, 'the pinch ends when the fingers lift');
+
+  console.log('\n— favourite sounds —');
+  await page.evaluate(function () {
+    try { localStorage.removeItem('songforge.favourites.v1'); } catch (e) { /* blocked */ }
+  });
+  await page.click('#editTracks .chip[data-id="lead"]');
+  await page.waitForTimeout(150);
+  const favBefore = await page.evaluate(function () {
+    const sel = document.getElementById('soundSelect');
+    const names = Array.prototype.map.call(sel.options, function (o) { return o.value; })
+      .filter(function (v) { return v; });
+    return { groups: sel.querySelectorAll('optgroup').length, count: names.length,
+             pick: names[Math.min(6, names.length - 1)],
+             star: document.getElementById('favSound').textContent };
+  });
+  check(favBefore.groups === 0 && favBefore.count > 5,
+    'with nothing starred the sound list is one plain list (' + favBefore.count + ' sounds)');
+  await page.selectOption('#soundSelect', favBefore.pick);
+  await page.waitForTimeout(120);
+  await page.click('#favSound');
+  await page.waitForTimeout(150);
+  const favAfter = await page.evaluate(function () {
+    const sel = document.getElementById('soundSelect');
+    const groups = sel.querySelectorAll('optgroup');
+    const first = groups.length ? groups[0] : null;
+    return {
+      groups: groups.length,
+      firstLabel: first ? first.label : '',
+      firstOption: first && first.querySelector('option')
+        ? first.querySelector('option').value : '',
+      star: document.getElementById('favSound').textContent,
+      stillSelected: sel.value,
+      stored: (function () {
+        try { return JSON.parse(localStorage.getItem('songforge.favourites.v1') || '[]'); }
+        catch (e) { return []; }
+      })()
+    };
+  });
+  check(favAfter.groups === 2 && favAfter.firstOption === favBefore.pick,
+    'starring one lifts it to the top of the list (' + favAfter.firstLabel + ')');
+  check(favAfter.star === '★' && favAfter.stillSelected === favBefore.pick,
+    'the star fills in, and the sound stays selected');
+  check(favAfter.stored.length === 1 && favAfter.stored[0] === favBefore.pick,
+    'and it is remembered on this device');
+  /* A favourite is a fact about you, not about the song: it must not travel in
+     a save or a shared link, or opening someone else's track would rearrange
+     your own list. */
+  const favInSave = await page.evaluate(function () {
+    const packed = window.Composer.packSong(window.__songforge.song);
+    return JSON.stringify(packed).indexOf('favourite') >= 0;
+  });
+  check(!favInSave, 'and it stays out of the song, so a shared link cannot carry it');
+  await page.click('#favSound');
+  await page.waitForTimeout(150);
+  check(await page.evaluate(function () {
+    return document.getElementById('soundSelect').querySelectorAll('optgroup').length === 0;
+  }), 'unstarring puts the list back');
+
+  console.log('\n— shortcuts, and somewhere that says what they are —');
+  const keysDoc = await page.evaluate(function () {
+    const rows = document.querySelectorAll('#helpModal .keys tr');
+    const keys = Array.prototype.map.call(rows, function (r) {
+      const th = r.querySelector('th');
+      return th ? th.textContent.replace(/\s+/g, '') : '';
+    });
+    return { rows: rows.length, keys: keys.join('|') };
+  });
+  check(keysDoc.rows >= 12, 'the help panel lists the shortcuts (' + keysDoc.rows + ' of them)');
+  check(keysDoc.keys.indexOf('Space') >= 0 && keysDoc.keys.indexOf('Ctrl+V') >= 0,
+    'including the ones you would never guess');
+
+  const keyActs = await page.evaluate(function () {
+    const ed = window.__songforge.editor;
+    ed.setZoom(4, 0);
+    ed.scrollTo(0);
+    const out = {};
+    function key(k) {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }));
+    }
+    key(']'); out.later = ed.startBar;
+    key('['); out.back = ed.startBar;
+    key('-'); out.out = ed.bars;
+    key('+'); out.in = ed.bars;
+    key('3'); out.tool3 = ed.tool;
+    key('1'); out.tool1 = ed.tool;
+    key('l'); out.looped = ed.hasLoop();
+    key('l'); out.unlooped = ed.hasLoop();
+
+    /* And none of it while you are typing in a box, or naming a song would
+       scroll the editor and change the tool on every keystroke. Measured
+       against where the view actually was, not against zero — zooming is
+       anchored on the middle of the view, so it does not end where it began. */
+    out.settled = ed.startBar;
+    const box = document.createElement('input');
+    document.body.appendChild(box);
+    box.focus();
+    box.dispatchEvent(new KeyboardEvent('keydown', { key: ']', bubbles: true }));
+    box.dispatchEvent(new KeyboardEvent('keydown', { key: '3', bubbles: true }));
+    out.whileTyping = ed.startBar;
+    out.toolWhileTyping = ed.tool;
+    box.remove();
+    return out;
+  });
+  check(keyActs.later === 4 && keyActs.back === 0,
+    '[ and ] move a screenful at a time (' + keyActs.later + ' → ' + keyActs.back + ')');
+  check(keyActs.out === 8 && keyActs.in === 4,
+    '− and + zoom out and back in (' + keyActs.out + ' → ' + keyActs.in + ' bars)');
+  check(keyActs.tool3 === 'select' && keyActs.tool1 === 'draw',
+    '1, 2 and 3 pick the tool');
+  check(keyActs.looped && !keyActs.unlooped, 'L loops the bars on screen, and unloops them');
+  check(keyActs.whileTyping === keyActs.settled && keyActs.toolWhileTyping === 'draw',
+    'and none of them fire while you are typing in a box');
+
   console.log('\n— the Station —');
   /* The groovebox. The thing worth proving is not that the pads light up but
      that it is genuinely part of this program: it arrives already filled in
