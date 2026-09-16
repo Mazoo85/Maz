@@ -39,8 +39,117 @@
     night: { top: [240, 62, 6],  mid: [232, 56, 13], low: [220, 46, 21], light: [210, 28, 94], lightY: 0.26, haze: [225, 44, 24] }
   };
 
-  /* How much light the ground has to hand back up at whatever stands on it. */
-  var GROUND_LIT = { day: 1, dawn: 0.5, dusk: 0.45, night: 0.1 };
+  /* The hour between the hours. There were four skies here and every picture
+   * borrowed one of them; what a sky is actually made of is how high the sun
+   * is standing, which is a number and not a name. These are the anchors — the
+   * sun at -15 degrees is night, at -6 the blue hour, at the horizon a
+   * sunrise or a sunset depending which way it is going, at 60 full day — and
+   * every angle in between is mixed from the two it falls between. */
+  var TWILIGHT = { top: [238, 60, 10], mid: [226, 54, 20], low: [212, 48, 33],
+    light: [214, 42, 62], lightY: 0.90, haze: [220, 46, 34] };
+
+  function radians(deg) { return deg * Math.PI / 180; }
+
+  /*
+   * Two skies mixed. Not by rotating the hue: the orange at a sunset horizon
+   * and the pale blue overhead are 174 degrees apart, so rotating between them
+   * goes through green and the sky turns bilious at mid-morning. Light does
+   * not do that — one colour fades out as the other fades in, and the middle
+   * of the fade is a washed-out warm grey, which is exactly what late-morning
+   * haze looks like. So the mix happens in red, green and blue.
+   */
+  function toRGB(c) {
+    var h = ((c[0] % 360) + 360) % 360 / 360, sat = c[1] / 100, l = c[2] / 100;
+    if (sat === 0) return [l, l, l];
+    var q = l < 0.5 ? l * (1 + sat) : l + sat - l * sat;
+    var pp = 2 * l - q;
+    function chan(t) {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1 / 6) return pp + (q - pp) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return pp + (q - pp) * (2 / 3 - t) * 6;
+      return pp;
+    }
+    return [chan(h + 1 / 3), chan(h), chan(h - 1 / 3)];
+  }
+
+  function toHSL(c) {
+    var r = c[0], g = c[1], b = c[2];
+    var mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+    var l = (mx + mn) / 2, h = 0, sat = 0;
+    if (mx !== mn) {
+      var d = mx - mn;
+      sat = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+      if (mx === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if (mx === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60;
+    }
+    return [h, sat * 100, l * 100];
+  }
+
+  function mixHSL(a, b, t) {
+    var x = toRGB(a), y = toRGB(b);
+    return toHSL([lerp(x[0], y[0], t), lerp(x[1], y[1], t), lerp(x[2], y[2], t)]);
+  }
+
+  function mixSky(a, b, t) {
+    return {
+      top: mixHSL(a.top, b.top, t),
+      mid: mixHSL(a.mid, b.mid, t),
+      low: mixHSL(a.low, b.low, t),
+      light: mixHSL(a.light, b.light, t),
+      haze: mixHSL(a.haze, b.haze, t),
+      lightY: lerp(a.lightY, b.lightY, t)
+    };
+  }
+
+  /* The sky at a given sun angle. `rising` picks which horizon it is heading
+   * for: a sunrise is not a sunset run backwards — morning air is cleaner, so
+   * dawn is the cooler of the two. */
+  function skyAt(sun, rising) {
+    var horizon = rising ? SKY.dawn : SKY.dusk;
+    var stops = [
+      { at: -15, sky: SKY.night },
+      { at: -6, sky: TWILIGHT },
+      { at: 0.5, sky: horizon },
+      { at: 60, sky: SKY.day }
+    ];
+    if (sun <= stops[0].at) return SKY.night;
+    if (sun >= stops[stops.length - 1].at) return SKY.day;
+    for (var i = 1; i < stops.length; i++) {
+      if (sun > stops[i].at) continue;
+      var lo = stops[i - 1], hi = stops[i];
+      return mixSky(lo.sky, hi.sky, (sun - lo.at) / (hi.at - lo.at));
+    }
+    return SKY.day;
+  }
+
+  /*
+   * How much light the ground has to hand back up at whatever stands on it.
+   *
+   * This is reflected sunlight, so it follows the sun: overhead at noon the
+   * ground is flooded, at the horizon it is getting a fraction of that, and
+   * once the sun has gone there is only the moon. It was a table of four
+   * numbers; it is now the angle it was always standing in for.
+   */
+  function groundLit(sun) {
+    if (sun == null) return 0.6;
+    if (sun > 0) return 0.30 + 0.70 * Math.sin(radians(Math.min(sun, 90)));
+    return Math.max(0.08, 0.30 + (sun / 18) * 0.22);
+  }
+
+  /*
+   * How far a shadow runs, as a share of how wide the thing throwing it is.
+   * A shadow's length is the cotangent of the sun's angle: straight overhead
+   * it is a puddle at your feet, and near the horizon it runs away across the
+   * ground. The old version knew two lengths, one for "dawn or dusk".
+   */
+  function shadowReach(sun) {
+    var above = sun == null ? 35 : Math.max(sun, 6);
+    return clamp(0.45 / Math.tan(radians(above)), 0.22, 2.4);
+  }
 
   /* Each setting pulls the sky and the land its own way. `ink` is what a
    * silhouette is made of, `land` the lit ground, `far` the distance. */
@@ -73,7 +182,8 @@
    * over the sea" read red without turning the sea into a flat red block.
    */
   function makePalette(spec, opts) {
-    var sky = SKY[spec.time] || SKY.dusk;
+    var sky = spec.sun == null ? (SKY[spec.time] || SKY.dusk)
+      : skyAt(spec.sun, spec.rising);
     var scene = SCENE_COLOUR[spec.scene.id] || SCENE_COLOUR.plains;
     /* A photograph the person chose replaces the built-in colour table: the
      * hour and the setting still decide the shapes, the photograph decides what
@@ -91,6 +201,39 @@
         sea: pal.scene.sea, water: scene.water
       };
     }
+    /*
+     * The ground is only as bright as the light falling on it.
+     *
+     * This was missing entirely: the grass in a meadow was the same green at
+     * midnight as at noon, with a dark sky hung above it, and no amount of
+     * work on the sky could fix a field that was still lit. A surface at night
+     * is dim, nearly colourless, and takes the colour of what little light
+     * there is — so lightness and saturation both follow the sun, and the hue
+     * drifts towards the sky as the light goes.
+     *
+     * A photograph the person brought already has its own light in it, so it
+     * is left alone.
+     */
+    var lit = groundLit(spec.sun);
+    if (!(spec.photo && spec.photo.use && spec.photo.use.colours && spec.photo.palette)) {
+      var toward = sky.haze;
+      scene = (function (src) {
+        function litten(c) {
+          if (!c) return c;
+          var dh = ((toward[0] - c[0]) % 360 + 540) % 360 - 180;
+          return [
+            (c[0] + dh * (1 - lit) * 0.30 + 360) % 360,
+            c[1] * (0.42 + 0.58 * lit),
+            c[2] * (0.32 + 0.68 * lit)
+          ];
+        }
+        return {
+          ink: litten(src.ink), land: litten(src.land), far: litten(src.far),
+          sea: litten(src.sea), water: src.water
+        };
+      })(scene);
+    }
+
     var tint = spec.palette;
     var drama = spec.mood;
     /* How hard a colour word pulls. "A red dragon" should give you a red
@@ -1232,8 +1375,7 @@
     var lean = 0;
     if (light) lean = clamp((cx - light.x) / Math.max(box.w, 1), -2.2, 2.2);
     /* A low sun throws a long shadow. */
-    var low = spec && (spec.time === 'dawn' || spec.time === 'dusk');
-    var reach = box.w * (low ? 1.25 : 0.55);
+    var reach = box.w * shadowReach(spec ? spec.sun : null);
     var steps = 6;
 
     ctx.save();
@@ -1446,12 +1588,12 @@
       bounced.addColorStop(0.45, P.css(from, 0.18));
       bounced.addColorStop(1, P.css(from, 0));
       /* Weakest at noon overhead, strongest with a low sun raking the ground. */
-      var raking = (spec.time === 'dawn' || spec.time === 'dusk') ? 1.25 : 1;
+      var raking = (spec.sun != null && spec.sun < 12 && spec.sun > -8) ? 1.25 : 1;
       /* And only as much as the ground has to give back: this is reflected
        * sunlight, so it follows the hour. A castle lit green from below at
        * midnight is the picture admitting it was drawn. */
       stencil(ctx, subject, box, PS, r, spec, bounced, 0, 0,
-        0.34 * raking * (GROUND_LIT[spec.time] == null ? 0.6 : GROUND_LIT[spec.time]));
+        0.34 * raking * groundLit(spec.sun));
     }
 
     if (far > 0.02) {
@@ -1735,6 +1877,9 @@
     photoRidge: photoRidge,
     coverDraw: coverDraw,
     groundShadow: groundShadow,
+    skyAt: skyAt,
+    groundLit: groundLit,
+    shadowReach: shadowReach,
     paintSubject: paintSubject,
     arrange: arrange,
     foreground: foreground,

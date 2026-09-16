@@ -148,12 +148,54 @@
   ];
 
   /* ------------------------------------------------------------------ hour */
+  /*
+   * The hour, as an angle rather than a label.
+   *
+   * There were four hours here and every picture took one of them, so the
+   * whole engine had four skies. What actually decides a sky is how high the
+   * sun is: at 70 degrees it is overhead and white, at 2 degrees it is in your
+   * eyes and orange, at -6 it has gone and left the blue hour behind. `sun` is
+   * that angle in degrees, and `at` gives the angle for particular words, so
+   * "first light", "mid-morning" and "high noon" are three different lights
+   * and not one `day`. Anything between them can be reached too — the roll
+   * lands anywhere inside the band when nobody says an hour.
+   *
+   * `id` survives as the coarse band the rest of the engine still asks for
+   * (stars come out at `night`, windows light up when it is not `day`).
+   */
   var TIMES = [
-    { id: 'dawn',  label: 'at dawn',     words: ['dawn', 'sunrise', 'morning', 'daybreak', 'first light', 'early'] },
-    { id: 'day',   label: 'in daylight', words: ['day', 'daylight', 'noon', 'midday', 'afternoon', 'sunny', 'bright'] },
-    { id: 'dusk',  label: 'at sunset',   words: ['sunset', 'dusk', 'evening', 'twilight', 'golden hour', 'sundown'] },
-    { id: 'night', label: 'at night',    words: ['night', 'midnight', 'moonlight', 'nocturnal', 'dark', 'starlit', 'starry'] }
+    { id: 'dawn',  label: 'at dawn',     sun: 3,  band: [-4, 16],
+      words: ['dawn', 'sunrise', 'morning', 'daybreak', 'first light', 'early',
+        'break of day', 'cockcrow', 'sunup'],
+      at: { 'first light': -3, 'daybreak': 0, 'sunrise': 1, 'dawn': 3,
+        'cockcrow': 4, 'sunup': 1, 'early': 8, 'morning': 14 } },
+    { id: 'day',   label: 'in daylight', sun: 58, band: [22, 84],
+      words: ['day', 'daylight', 'noon', 'midday', 'afternoon', 'sunny', 'bright',
+        'mid morning', 'mid-morning', 'high noon', 'midafternoon', 'blazing'],
+      at: { 'mid morning': 30, 'mid-morning': 30, 'noon': 76, 'midday': 74,
+        'high noon': 86, 'afternoon': 44, 'midafternoon': 40, 'day': 58,
+        'daylight': 58, 'sunny': 62, 'bright': 68, 'blazing': 80 } },
+    { id: 'dusk',  label: 'at sunset',   sun: 1,  band: [-7, 12],
+      words: ['sunset', 'dusk', 'evening', 'twilight', 'golden hour', 'sundown',
+        'blue hour', 'last light', 'late afternoon', 'gloaming', 'nightfall'],
+      at: { 'late afternoon': 12, 'golden hour': 5, 'sunset': 1, 'sundown': 1,
+        'dusk': -1, 'evening': 2, 'nightfall': -4, 'gloaming': -5,
+        'twilight': -5, 'blue hour': -6, 'last light': -7 } },
+    { id: 'night', label: 'at night',    sun: -35, band: [-60, -14],
+      words: ['night', 'midnight', 'moonlight', 'nocturnal', 'dark', 'starlit',
+        'starry', 'small hours', 'dead of night', 'witching hour'],
+      at: { 'night': -32, 'midnight': -52, 'dead of night': -58,
+        'small hours': -48, 'witching hour': -50, 'moonlight': -28,
+        'starlit': -40, 'starry': -40, 'dark': -30, 'nocturnal': -34 } }
   ];
+
+  /* Which way the sun is going. It decides the colour at the horizon, because
+   * a sunrise is not a sunset run backwards: morning air is cooler and
+   * cleaner, evening air has had all day to collect dust. An hour is on the
+   * way up unless its own word says otherwise — "afternoon" is daylight on the
+   * way down. */
+  var RISING = { dawn: true, day: true, dusk: false, night: false };
+  var FALLING_WORDS = ['afternoon', 'midafternoon', 'late afternoon'];
 
   /* --------------------------------------------------------------- weather */
   var WEATHER = [
@@ -282,6 +324,8 @@
     SUBJECTS: SUBJECTS,
     SCENES: SCENES,
     TIMES: TIMES,
+    RISING: RISING,
+    FALLING_WORDS: FALLING_WORDS,
     WEATHER: WEATHER,
     STYLES: STYLES,
     PALETTES: PALETTES,

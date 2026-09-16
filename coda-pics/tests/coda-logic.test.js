@@ -1104,6 +1104,121 @@ function recorder(w, h) {
   pass('walking closer brings more detail, and finer detail');
 })();
 
+/* ------------------------------------------------------------- the hour
+ * There were four hours — dawn, day, dusk, night — and every picture borrowed
+ * one of the four skies. What actually makes a sky is how high the sun is
+ * standing, which is a number, so there are as many skies as there are angles.
+ */
+(function theHour() {
+  console.log('\nThe hour of the day');
+
+  function sunOf(text) { return PROMPT.parse(text, { seed: 11 }).sun; }
+
+  /* Words inside one band are not the same hour. "First light" and
+   * "mid-morning" were both `dawn` and were painted identically. */
+  var early = sunOf('a stag in a meadow at first light');
+  var mid = sunOf('a stag in a meadow at mid-morning');
+  var high = sunOf('a stag in a meadow at high noon');
+  var evening = sunOf('a stag in a meadow at blue hour');
+  check(early < mid && mid < high,
+    'first light, mid-morning and high noon are three heights of sun (' +
+    early + '°, ' + mid + '°, ' + high + '°)');
+  check(early < 0 && high > 80,
+    'first light is below the horizon and high noon nearly overhead');
+  check(evening < 0, 'and the blue hour is after the sun has gone (' + evening + '°)');
+
+  /* Which way it is going, because a sunrise is not a sunset run backwards. */
+  check(PROMPT.parse('a stag at dawn', { seed: 2 }).rising === true &&
+        PROMPT.parse('a stag at sunset', { seed: 2 }).rising === false,
+    'dawn is on the way up and sunset on the way down');
+  check(PROMPT.parse('a stag in the afternoon', { seed: 2 }).rising === false,
+    'and the afternoon is daylight on the way down, not on the way up');
+
+  /* Said nothing about the hour: the sun stands somewhere inside the band it
+   * rolled, anywhere at all, so two pictures of the same words are lit
+   * differently rather than picking from four. */
+  var rolled = {}, spread = [];
+  for (var seed = 0; seed < 40; seed++) {
+    var spec = PROMPT.parse('a stag in a meadow', { seed: seed });
+    rolled[spec.time] = true;
+    spread.push(spec.sun);
+  }
+  var distinct = {};
+  spread.forEach(function (v) { distinct[v] = true; });
+  check(Object.keys(distinct).length > 20,
+    'with no hour given, forty pictures stand at ' + Object.keys(distinct).length +
+    ' different sun heights, not at four');
+  var bands = LEX.TIMES;
+  var outside = 0;
+  for (seed = 0; seed < 40; seed++) {
+    var sp = PROMPT.parse('a stag in a meadow', { seed: seed });
+    var band = bands.filter(function (b) { return b.id === sp.time; })[0];
+    if (sp.sun < band.band[0] || sp.sun > band.band[1]) outside++;
+  }
+  check(outside === 0, 'and every one of them inside the band it says it is in');
+
+  /* The sky is mixed from the two hours it falls between. Nothing about that
+   * should jump: a degree of sun is not a different sky. */
+  function bright(sky) { return sky.top[2] + sky.mid[2] + sky.low[2]; }
+  var jumpiest = 0, jumpAt = 0;
+  for (var e = -59; e <= 89; e += 0.5) {
+    var step = Math.abs(bright(PAINT.skyAt(e, false)) - bright(PAINT.skyAt(e - 0.5, false)));
+    if (step > jumpiest) { jumpiest = step; jumpAt = e; }
+  }
+  check(jumpiest < 8,
+    'half a degree of sun never moves the sky by more than a little (worst ' +
+    jumpiest.toFixed(1) + ' at ' + jumpAt + '°)');
+  check(bright(PAINT.skyAt(70, false)) > bright(PAINT.skyAt(10, false)) &&
+        bright(PAINT.skyAt(10, false)) > bright(PAINT.skyAt(-8, false)) &&
+        bright(PAINT.skyAt(-8, false)) > bright(PAINT.skyAt(-40, false)),
+    'and the higher the sun, the brighter the sky, all the way down to midnight');
+
+  /* Mixing two skies by rotating the hue takes the short way round the wheel,
+   * and the short way from a sunset orange to a daylight blue goes through
+   * green: the sky turned bilious at mid-morning. It is mixed in red, green
+   * and blue instead, so it washes out rather than turning. */
+  var greenest = 0, greenAt = null;
+  for (e = -60; e <= 90; e += 0.25) {
+    [true, false].forEach(function (rising) {
+      var sky = PAINT.skyAt(e, rising);
+      ['top', 'mid', 'low'].forEach(function (band) {
+        var hue = sky[band][0], sat = sky[band][1];
+        if (hue > 80 && hue < 160 && sat > greenest) { greenest = sat; greenAt = e; }
+      });
+    });
+  }
+  check(greenest < 25,
+    'and no hour of the day has a green sky (the greenest is ' +
+    greenest.toFixed(0) + '% saturated, at ' + greenAt + '°)');
+
+  /* The ground is only as bright as the light falling on it. A meadow was the
+   * same green at midnight as at noon, with a dark sky hung above it. */
+  function landL(text) {
+    var P = PAINT.makePalette(PROMPT.parse(text, { seed: 4 }));
+    return P.scene.land[2];
+  }
+  var noonLand = landL('a stag in a meadow at high noon');
+  var nightLand = landL('a stag in a meadow at midnight');
+  var duskLand = landL('a stag in a meadow at sunset');
+  check(nightLand < noonLand * 0.5,
+    'a field at midnight is less than half as light as the same field at noon (' +
+    nightLand.toFixed(0) + '% against ' + noonLand.toFixed(0) + '%)');
+  check(duskLand < noonLand && duskLand > nightLand,
+    'and at sunset it is somewhere between the two (' + duskLand.toFixed(0) + '%)');
+
+  /* How far a shadow runs is the cotangent of the sun's angle — a puddle at
+   * noon, half the afternoon long near the horizon. */
+  check(PAINT.shadowReach(80) < PAINT.shadowReach(30) &&
+        PAINT.shadowReach(30) < PAINT.shadowReach(5),
+    'a shadow lengthens as the sun drops (' + PAINT.shadowReach(80).toFixed(2) +
+    ' at 80°, ' + PAINT.shadowReach(30).toFixed(2) + ' at 30°, ' +
+    PAINT.shadowReach(5).toFixed(2) + ' at 5°)');
+  check(PAINT.groundLit(75) > PAINT.groundLit(20) &&
+        PAINT.groundLit(20) > PAINT.groundLit(-30),
+    'and the ground hands back less light the lower the sun gets');
+  pass('the hour is an angle, and everything follows it');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);

@@ -332,15 +332,28 @@
 
     /* --- hour --- */
     var timeHit = findOne(LEX.TIMES, flat, toks);
-    var time;
+    var time, entry, sun, rising;
     if (timeHit) {
-      time = timeHit.entry.id;
-      note('time', timeHit.entry.label, timeHit.word);
-    } else if (NIGHT_SCENES[scene.id]) {
-      time = 'night';
+      entry = timeHit.entry;
+      time = entry.id;
+      note('time', entry.label, timeHit.word);
+      /* The word decides the angle, not merely the band: "first light" and
+       * "mid-morning" are both dawn and are nothing like each other. */
+      sun = (entry.at && entry.at[timeHit.word] != null) ? entry.at[timeHit.word] : entry.sun;
+      rising = LEX.RISING[time];
+      if (LEX.FALLING_WORDS.indexOf(timeHit.word) >= 0) rising = false;
     } else {
-      time = ['dawn', 'day', 'dusk', 'night'][Math.floor(base() * 4) % 4];
+      if (NIGHT_SCENES[scene.id]) time = 'night';
+      else time = ['dawn', 'day', 'dusk', 'night'][Math.floor(base() * 4) % 4];
+      entry = byId(LEX.TIMES, time);
+      /* Nobody said an hour, so the sun may stand anywhere in the band. Two
+       * pictures of the same words are lit differently because the light
+       * really is different, not because a different label was drawn. */
+      sun = entry.band[0] + base() * (entry.band[1] - entry.band[0]);
+      rising = LEX.RISING[time];
+      if (time === 'day' && base() < 0.5) rising = false;
     }
+    sun = Math.round(sun * 10) / 10;
 
     /* --- weather --- */
     var weatherHit = findOne(LEX.WEATHER, flat, toks);
@@ -463,6 +476,11 @@
       relation: relation,
       scene: { id: scene.id, label: scene.label, prep: scene.prep || 'in', horizon: scene.horizon },
       time: time,
+      /* How high the sun (or, below the horizon, the moon) stands, in degrees,
+       * and which way it is going. The hour is an angle; `time` is only the
+       * band it falls in. */
+      sun: sun,
+      rising: !!rising,
       weather: weather,
       style: style,
       styles: extraStyle ? [style, extraStyle] : [style],
