@@ -1797,6 +1797,101 @@ function shapesOf(ctx) {
   pass('the ground has things on it');
 })();
 
+/* ------------------------------------------------------- trees that grew
+ * A tree was a trunk, two stubby branches and a ring of seven blobs, and every
+ * oak in every picture was that same tree. A tree is not a shape: it is what
+ * is left after a rule has been applied to itself a few times.
+ */
+(function treesThatGrew() {
+  console.log('\nTrees that grew rather than were drawn');
+
+  /* One spec throughout, so the colours are identical and the only thing that
+   * can differ is the tree. Feeding it a different seed would change the hour
+   * and the weather too, and two traces would differ because the sky did. */
+  var one = PROMPT.parse('a tree in a meadow at noon', { seed: 4 });
+  var pal = PAINT.makePalette(one);
+
+  function tree(form, salt) {
+    var spec = one;
+    var ctx = recorder(400, 320);
+    SUBJECTS.draw(ctx, { draw: 'tree', form: form },
+      { x: 120, y: 40, w: 160, h: 250, depth: 0, anchor: 'ground' },
+      pal, PROMPT.rng(spec, salt || 'subject'), spec);
+    var strokes = [], widths = [];
+    var wide = 0;
+    ctx.log.forEach(function (c) {
+      if (c.op === 'set' && c.args[0] === 'lineWidth') wide = c.args[1];
+      else if (c.op === 'stroke') { strokes.push(wide); widths.push(wide); }
+    });
+    return { ctx: ctx, strokes: strokes, shapes: shapesOf(ctx),
+      trace: ctx.log.map(function (c) {
+        return c.op + '(' + c.args.map(function (a) {
+          return typeof a === 'number' ? Math.round(a * 10) / 10 : String(a);
+        }).join(',') + ')';
+      }).join('|') };
+  }
+
+  var oak = tree('oak');
+  check(oak.strokes.length > 40,
+    'an oak is grown out of ' + oak.strokes.length + ' branches, not three');
+
+  /* Each generation is thinner than the one it came off. */
+  var thickest = Math.max.apply(null, oak.strokes);
+  var thinnest = Math.min.apply(null, oak.strokes);
+  check(thickest > thinnest * 4,
+    'and they thin out as they go — the trunk is ' + thickest.toFixed(1) +
+    'px and the twigs ' + thinnest.toFixed(1) + 'px');
+
+  /* No two of them alike. The splits never fall in the same place twice, which
+   * is the whole point of growing one rather than drawing one. */
+  var again = tree('oak'), other = tree('oak', 'another');
+  check(oak.trace === again.trace,
+    'the same tree from the same words comes out the same tree');
+  /* Compared by where its branches ended up, not by the whole trace: two trees
+   * whose twigs wobble differently but which fork in exactly the same places
+   * are the same tree with a shake, and that is what this is meant to catch. */
+  function tips(bag) {
+    /* The branches, not the leaves: a leaf blob is jittered where it sits, so
+     * comparing those would report a difference in the shake of the foliage
+     * over a tree that forks in exactly the same places. */
+    return bag.shapes.filter(function (sh) { return !sh.filled; })
+      .map(function (sh) { return Math.round(sh.x) + ',' + Math.round(sh.y); })
+      .sort().join(' ');
+  }
+  check(tips(oak) !== tips(other) && tips(oak).length > 40,
+    'and the next one along in the same picture forks in different places');
+
+  /* Four broadleaf shapes, each with its own habit. */
+  var birch = tree('birch'), willow = tree('willow'), baobab = tree('baobab');
+  var kinds = [oak.trace, birch.trace, willow.trace, baobab.trace];
+  var same = 0;
+  for (var i = 0; i < kinds.length; i++) {
+    for (var j = i + 1; j < kinds.length; j++) if (kinds[i] === kinds[j]) same++;
+  }
+  check(same === 0, 'an oak, a birch, a willow and a baobab all grow differently');
+
+  /* A branch that forked sideways turns back towards the sky as it grows,
+   * because that is where the light is. A birch does it hard and a willow
+   * hardly at all, so the willow ends up the wider of the two. */
+  function spread(bag) {
+    var lo = 1e9, hi = -1e9, top = 1e9, low = -1e9;
+    bag.shapes.forEach(function (sh) {
+      lo = Math.min(lo, sh.x - sh.w / 2); hi = Math.max(hi, sh.x + sh.w / 2);
+      top = Math.min(top, sh.top); low = Math.max(low, sh.bottom);
+    });
+    return (hi - lo) / Math.max(low - top, 1);
+  }
+  check(spread(willow) > spread(birch),
+    'a willow spreads wider for its height than a birch does (' +
+    spread(willow).toFixed(2) + ' against ' + spread(birch).toFixed(2) + ')');
+
+  /* A fir is not grown — it is a straight bole with skirts of needles — but it
+   * is not the same fir every time either. */
+  var pine = tree('pine'), pine2 = tree('pine', 'another');
+  check(pine.trace !== pine2.trace, 'and two firs are not the same fir');
+  pass('trees are grown, and no two of them come out alike');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);

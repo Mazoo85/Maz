@@ -1237,11 +1237,70 @@
 
   /* ================================================================= plants */
 
+  /*
+   * Trees, and how each one is built rather than what it looks like.
+   *
+   * A tree here was a trunk, two stubby branches and a ring of seven blobs,
+   * and every oak in every picture was that same tree. A tree is not a shape;
+   * it is what is left after a rule has been applied to itself a few times —
+   * grow, split, lean towards the light, get thinner — and once it is grown
+   * that way no two of them come out alike, because the splits never fall in
+   * the same place twice.
+   *
+   *   `splits` how many branches come off each fork, roughly.
+   *   `spread` how wide the fork opens, in radians.
+   *   `shrink` how much shorter each generation is than its parent.
+   *   `deep`   how many generations before it stops and puts out leaves.
+   *   `lean`   how strongly it reaches upward regardless of where it forked.
+   */
   var TREES = {
-    oak:  { trunk: 0.10, crown: 'round' },
-    pine: { trunk: 0.06, crown: 'cone' },
-    palm: { trunk: 0.05, crown: 'fronds' }
+    oak:    { trunk: 0.10, crown: 'round', splits: 2.6, spread: 0.95, shrink: 0.74, deep: 5, lean: 0.30, leaf: 1.00 },
+    pine:   { trunk: 0.06, crown: 'cone' },
+    palm:   { trunk: 0.05, crown: 'fronds' },
+    willow: { trunk: 0.08, crown: 'round', splits: 2.4, spread: 1.25, shrink: 0.78, deep: 5, lean: -0.30, leaf: 0.85 },
+    birch:  { trunk: 0.05, crown: 'round', splits: 2.2, spread: 0.72, shrink: 0.80, deep: 5, lean: 0.55, leaf: 0.72 },
+    baobab: { trunk: 0.22, crown: 'round', splits: 3.0, spread: 1.15, shrink: 0.62, deep: 4, lean: 0.20, leaf: 0.80 }
   };
+
+  /*
+   * One branch, and then its own branches. `deep` counts down to the leaves.
+   *
+   * The lean is what stops it looking like a snowflake: a branch that forked
+   * sideways still turns back towards the sky as it grows, because that is
+   * where the light is, and it is that correction that makes the silhouette
+   * read as something that grew rather than something that was drawn.
+   */
+  function branch(ctx, x, y, angle, len, wide, deep, f, r, col, leafCol, leaves) {
+    var nx = x + Math.cos(angle) * len;
+    var ny = y + Math.sin(angle) * len;
+    ctx.lineWidth = Math.max(0.7, wide);
+    /* A thick branch with a rounded end is a lollipop. Only the twigs, where
+     * the cap is a pixel wide either way, get to be round. */
+    ctx.lineCap = wide > 6 ? 'butt' : 'round';
+    ctx.strokeStyle = col;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    /* Bowed, not ruled: the control point sits off to one side of the line. */
+    ctx.quadraticCurveTo(
+      (x + nx) / 2 + Math.cos(angle + Math.PI / 2) * len * (r() - 0.5) * 0.26,
+      (y + ny) / 2 + Math.sin(angle + Math.PI / 2) * len * (r() - 0.5) * 0.26,
+      nx, ny);
+    ctx.stroke();
+
+    if (deep <= 1 || len < 3) {
+      leaves.push({ x: nx, y: ny, size: len * 0.85 * f.leaf });
+      return;
+    }
+    var n = Math.max(2, Math.round(f.splits + (r() - 0.5)));
+    for (var i = 0; i < n; i++) {
+      var side = (i / Math.max(n - 1, 1) - 0.5) * 2;        // -1 .. 1 across the fork
+      var out = angle + side * f.spread * (0.6 + r() * 0.8);
+      /* Back towards the sky. Straight up is -PI/2 on a canvas. */
+      out += (-Math.PI / 2 - out) * f.lean * (0.5 + r() * 0.5);
+      branch(ctx, nx, ny, out, len * f.shrink * (0.82 + r() * 0.36),
+        wide * 0.62, deep - 1, f, r, col, leafCol, leaves);
+    }
+  }
 
   DRAW.tree = function (ctx, b, P, r, spec, form) {
     var f = TREES[form] || TREES.oak;
@@ -1267,36 +1326,51 @@
       return;
     }
 
-    ctx.fillStyle = col;                               // trunk, splitting up
-    ctx.beginPath();
-    ctx.moveTo(cx - b.w * f.trunk, groundY);
-    ctx.quadraticCurveTo(cx - b.w * f.trunk * 0.5, b.y + b.h * 0.5, cx - b.w * f.trunk * 0.4, b.y + b.h * 0.34);
-    ctx.lineTo(cx + b.w * f.trunk * 0.4, b.y + b.h * 0.34);
-    ctx.quadraticCurveTo(cx + b.w * f.trunk * 0.5, b.y + b.h * 0.5, cx + b.w * f.trunk, groundY);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = col;
-    ctx.lineWidth = Math.max(1.5, b.w * f.trunk * 0.5);
-    [-1, 1].forEach(function (s) {
-      ctx.beginPath();
-      ctx.moveTo(cx, b.y + b.h * 0.46);
-      ctx.quadraticCurveTo(cx + b.w * 0.16 * s, b.y + b.h * 0.38, cx + b.w * 0.26 * s, b.y + b.h * 0.26);
-      ctx.stroke();
-    });
-
     if (f.crown === 'cone') {
-      for (var t = 0; t < 4; t++) {
-        var ty = b.y + b.h * (0.06 + t * 0.12), tw = b.w * (0.16 + t * 0.1);
-        poly(ctx, [[cx - tw, ty + b.h * 0.16], [cx, ty], [cx + tw, ty + b.h * 0.16]], col);
+      ctx.fillStyle = col;                             // a fir: one straight bole
+      ctx.beginPath();
+      ctx.moveTo(cx - b.w * f.trunk, groundY);
+      ctx.quadraticCurveTo(cx - b.w * f.trunk * 0.5, b.y + b.h * 0.5, cx - b.w * f.trunk * 0.4, b.y + b.h * 0.34);
+      ctx.lineTo(cx + b.w * f.trunk * 0.4, b.y + b.h * 0.34);
+      ctx.quadraticCurveTo(cx + b.w * f.trunk * 0.5, b.y + b.h * 0.5, cx + b.w * f.trunk, groundY);
+      ctx.closePath();
+      ctx.fill();
+      /* Skirts of needles, each a little narrower and a little more ragged
+       * than the one below it. */
+      var tiers = 4 + Math.floor(r() * 3);
+      for (var t = 0; t < tiers; t++) {
+        var k = t / tiers;
+        var ty = b.y + b.h * (0.04 + k * 0.52);
+        var tw = b.w * (0.46 - k * 0.30) * (0.85 + r() * 0.3);
+        poly(ctx, [[cx - tw, ty + b.h * 0.20], [cx - tw * 0.4, ty + b.h * 0.13],
+          [cx, ty], [cx + tw * 0.4, ty + b.h * 0.13], [cx + tw, ty + b.h * 0.20]], col);
       }
-    } else {
-      for (var c = 0; c < 7; c++) {
-        var a2 = (c / 7) * Math.PI * 2;
-        ellipse(ctx, cx + Math.cos(a2) * b.w * 0.22, b.y + b.h * 0.22 + Math.sin(a2) * b.h * 0.12,
-          b.w * (0.16 + r() * 0.08), b.h * (0.11 + r() * 0.05), col);
-      }
-      ellipse(ctx, cx, b.y + b.h * 0.22, b.w * 0.3, b.h * 0.18, col);
+      return;
     }
+
+    /*
+     * Everything else is grown. The trunk is the first branch; the rest is the
+     * same rule applied to its own output until it runs out of generations,
+     * and the leaves go wherever it happened to finish.
+     */
+    var leaves = [];
+    ctx.lineCap = 'round';
+    branch(ctx, cx + (r() - 0.5) * b.w * 0.06, groundY,
+      -Math.PI / 2 + (r() - 0.5) * 0.24, b.h * (0.30 + r() * 0.08),
+      Math.max(1.5, b.w * f.trunk * 1.4), f.deep, f, r, col, col, leaves);
+
+    /* Foliage last, over the ends of the twigs, so the twigs disappear into it
+     * the way they do on a tree in leaf. */
+    leaves.forEach(function (lf) {
+      /* Big enough to hide the twig it sits on, small enough that the clumps
+       * stay separate: foliage that merges into one mass is the blob this was
+       * meant to stop being. */
+      var size = Math.max(2, Math.min(lf.size, b.w * 0.16));
+      for (var c = 0; c < 2; c++) {
+        ellipse(ctx, lf.x + (r() - 0.5) * size, lf.y + (r() - 0.5) * size,
+          size * (0.5 + r() * 0.45), size * (0.38 + r() * 0.35), col);
+      }
+    });
   };
 
   DRAW.cactus = function (ctx, b, P, r) {

@@ -82,7 +82,10 @@
     { id: 'skull',    label: 'a skull',           draw: 'skull',    scene: 'desert',  words: ['skull', 'bones', 'skeleton'] },
 
     /* --- plants & nature --- */
-    { id: 'tree',       label: 'a great tree',    draw: 'tree',      form: 'oak',     scene: 'meadow',   words: ['tree', 'oak', 'willow', 'maple', 'sakura', 'cherry blossom', 'blossom'] },
+    { id: 'tree',       label: 'a great tree',    draw: 'tree',      form: 'oak',     scene: 'meadow',   words: ['tree', 'oak', 'maple', 'sakura', 'cherry blossom', 'blossom'] },
+    { id: 'willow',     label: 'a willow',        draw: 'tree',      form: 'willow',  scene: 'lake',     words: ['willow', 'weeping willow'] },
+    { id: 'birch',      label: 'a birch',         draw: 'tree',      form: 'birch',   scene: 'forest',   words: ['birch', 'aspen', 'poplar'] },
+    { id: 'baobab',     label: 'a baobab',        draw: 'tree',      form: 'baobab',  scene: 'plains',   words: ['baobab', 'acacia'] },
     { id: 'pine',       label: 'pines',           draw: 'tree',      form: 'pine',    scene: 'forest',   words: ['pine', 'fir', 'spruce', 'conifer', 'evergreen'] },
     { id: 'palm',       label: 'a palm',          draw: 'tree',      form: 'palm',    scene: 'island',   words: ['palm', 'coconut'] },
     { id: 'cactus',     label: 'a cactus',        draw: 'cactus',    scene: 'desert',  words: ['cactus', 'saguaro', 'succulent'] },
