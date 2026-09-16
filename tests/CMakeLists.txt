@@ -3107,6 +3107,13 @@ target_link_libraries(maz_mediancut_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME median_cut COMMAND maz_mediancut_tests)
 set_tests_properties(median_cut PROPERTIES TIMEOUT 30)
 
+# The integer twin of median_cut. Pins which box the algorithm splits next, which is what decides
+# whether a cluster gets a palette entry or is averaged away with its neighbour.
+add_executable(maz_colorquantize_tests render/colorquantize.cpp)
+target_link_libraries(maz_colorquantize_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME color_quantize COMMAND maz_colorquantize_tests)
+set_tests_properties(color_quantize PROPERTIES TIMEOUT 30)
+
 add_executable(maz_thetastar_tests game/thetastar.cpp)
 target_link_libraries(maz_thetastar_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME theta_star COMMAND maz_thetastar_tests)

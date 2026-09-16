@@ -11,6 +11,18 @@
 // Scope note (honest): follows the WCAG 2.x definition exactly (sRGB → linear via the standard EOTF, luminance
 // weights 0.2126/0.7152/0.0722, ratio = (Llight+0.05)/(Ldark+0.05)); alpha is ignored (contrast is defined for
 // opaque colours — composite over the real backdrop first if your text is translucent).
+//
+// WHICH COLOUR SPACE (read this before passing a Color in): WCAG is defined on DISPLAY-REFERRED sRGB channel
+// values — the numbers a designer types as #rrggbb. fromHtml / colorFromString return exactly those (their own
+// docs say "sRGB byte values in [0,255]"), so a hex
+// colour can be handed straight to these functions and gives the textbook answer (#767676 on white is 4.54).
+// render::Color elsewhere in the engine is LINEAR RGB (ColorOps.hpp; the swapchain is B8G8R8A8_SRGB, so the GPU
+// does the encode on write). The two are NOT interchangeable, and the error is large enough to flip a verdict:
+// a linear 0.5 grey displays as sRGB 0.735, but passed in raw its luminance reads 0.214 instead of 0.500 and
+// its contrast against white reads 3.98 instead of 1.91 — which turns a colour that fails the AA large-text
+// threshold of 3.0 into one that passes it. Convert a linear colour with linearToSrgb(c) from ColorOps.hpp
+// before calling anything here. (The mistake runs both ways: linearising a hex colour first reports #767676
+// on white as 13.54 instead of 4.54.)
 namespace maz::render {
 
 // WCAG relative luminance of a colour (0 = black, 1 = white): linearise sRGB, then apply the luminance weights.

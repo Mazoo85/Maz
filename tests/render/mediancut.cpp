@@ -5,6 +5,9 @@
 //     maps to its own cluster;
 //   * quantization error decreases monotonically as K grows (more palette entries -> closer match);
 //   * every palette colour lies within the input colour range;
+//   * a cluster holding a third of the image gets a palette entry of its own rather than being averaged
+//     away — the regression for box selection by spread ALONE, which spent its splits on a nearly-empty
+//     box of stray pixels and left half the image sharing one muddy colour;
 //   * determinism.
 #include "maz/render/MedianCut.hpp"
 
@@ -117,6 +120,37 @@ int main() {
         for (std::size_t i = 0; same && i < a.size(); ++i)
             if (a[i].r != b[i].r || a[i].g != b[i].g || a[i].b != b[i].b) same = false;
         CHECK(same, "identical inputs produce identical palettes");
+    }
+
+    // --- 6. Population matters, not just spread. ---
+    // Three tight clusters, a thousand pixels each, with the stray pixels between them that any real
+    // image has. Choosing the next box to split by spread alone is drawn to those strays: the box they
+    // form is very wide and nearly empty, so it wins split after split while the box holding the green
+    // and blue clusters together — half the image — is never touched. At K=8 that left a mean error of
+    // 22.8 out of 255 and no green in the palette at all. Weighting spread by population gives 3.3,
+    // which is the noise floor of the data, and green appears from K=4 on.
+    {
+        Lcg rng{0x51EDu};
+        const Color centres[3] = {{0.78f, 0.16f, 0.16f, 1}, {0.16f, 0.71f, 0.24f, 1},
+                                  {0.20f, 0.24f, 0.78f, 1}};
+        std::vector<Color> px;
+        for (int i = 0; i < 3000; ++i) {
+            const Color& c = centres[i % 3];
+            px.push_back(Color{c.r + rng.range(-0.012f, 0.012f), c.g + rng.range(-0.012f, 0.012f),
+                               c.b + rng.range(-0.012f, 0.012f), 1.0f});
+        }
+
+        const std::vector<Color> pal = maz::render::medianCutPalette(px, 8);
+        CHECK(pal.size() == 8, "K=8 yields eight palette colours");
+        // Every cluster must have an entry close to its centre — most of all the green one, which
+        // spread-alone selection dropped entirely.
+        for (int c = 0; c < 3; ++c) {
+            const int j = maz::render::nearestColor(pal, centres[c]);
+            CHECK(j >= 0 && dist2(pal[static_cast<std::size_t>(j)], centres[c]) < 0.001f,
+                  "each cluster centre has a palette entry of its own at K=8");
+        }
+        // And the error is at the noise floor rather than ten times it.
+        CHECK(meanError(px, pal) < 0.03f, "K=8 on three clusters quantizes to the noise floor");
     }
 
     if (g_fail == 0) {

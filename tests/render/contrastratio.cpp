@@ -3,6 +3,9 @@
 // 1:1; the ratio is symmetric; relative luminance is 0 for black and 1 for white; the AA/AAA thresholds gate
 // correctly (a known 4.54:1 pair passes AA-normal but fails AAA-normal); bestTextColor picks the readable option.
 // Values checked against the published WCAG formula. Pure CPU, headless.
+// Also pins the colour space these functions expect: WCAG is defined on display-referred sRGB values (what
+// fromHtml / colorFromString return), while render::Color elsewhere in the engine is linear RGB. Passing a
+// linear colour in raw is a real mistake with a real size, so the size is asserted rather than described.
 #include "maz/render/ContrastRatio.hpp"
 
 #include <cmath>
@@ -63,6 +66,34 @@ int main() {
         // On a dark navy, white wins.
         CHECK(bestTextColor(Color{0.05f, 0.05f, 0.3f, 1}).r > 0.5f, "on dark navy, white text is chosen");
     }
+    // --- 6. The colour space these functions expect. ---
+    // A linear 0.5 grey is what the engine's Color holds; sRGB 0.735 is what that displays as. Handing the
+    // linear value straight in reads its luminance as 0.214 rather than 0.500 and its contrast against white
+    // as 3.98 rather than 1.91 — enough to turn a large-text AA failure into a pass. Converting first with
+    // linearToSrgb (ColorOps.hpp) is the fix, and these numbers are what makes that concrete.
+    {
+        const Color linearGrey{0.5f, 0.5f, 0.5f, 1};
+        const Color displayed = linearToSrgb(linearGrey);
+        CHECK(near(displayed.r, 0.7354f, 1e-3f), "linear 0.5 displays as sRGB 0.735");
+        CHECK(near(relativeLuminance(displayed), 0.5f, 1e-3f),
+              "converted first, a linear 0.5 grey has WCAG luminance 0.5");
+        CHECK(near(relativeLuminance(linearGrey), 0.2140f, 1e-3f),
+              "passed in raw it reads 0.214 instead");
+        CHECK(near(contrastRatio(displayed, white), 1.9091f, 1e-3f),
+              "converted, it contrasts 1.91 against white");
+        CHECK(near(contrastRatio(linearGrey, white), 3.9767f, 1e-3f),
+              "raw, it reads 3.98 against white");
+        CHECK(!passesAA(displayed, white, true), "converted, it fails the AA large-text threshold");
+        CHECK(passesAA(linearGrey, white, true), "raw, it wrongly passes it — the reason for the note");
+
+        // And the same mistake in the other direction: a hex colour must NOT be linearised first.
+        Color hexGrey{0, 0, 0, 1};
+        CHECK(fromHtml("#767676", hexGrey), "#767676 parses");
+        CHECK(near(contrastRatio(hexGrey, white), 4.5422f, 1e-3f), "#767676 on white is the textbook 4.54");
+        CHECK(near(contrastRatio(srgbToLinear(hexGrey), white), 13.5420f, 1e-2f),
+              "linearising it first reports 13.54, which is wrong by a factor of three");
+    }
+
 
     if (g_fail == 0) {
         std::printf("contrastratio: OK — endpoints, 21:1/1:1, symmetric, WCAG ref pair, AA/AAA gating, bestTextColor.\n");
