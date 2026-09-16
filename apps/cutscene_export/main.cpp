@@ -22,6 +22,7 @@
 #include "maz/render/ImageCodecGif.hpp"
 #include "maz/render/ImageCodecPnm.hpp" // render::encodePnmP6
 #include "maz/render/ImageCodecQoi.hpp" // render::encodeQoi
+#include "maz/render/ObjWriter.hpp"     // render::encodeObj (--obj mesh export)
 #include "maz/render/Renderer.hpp"      // render::createVulkanRenderer (GPU offscreen path)
 #include "maz/render/Shapes.hpp"
 #include "maz/render/Shapes3D.hpp"
@@ -131,7 +132,7 @@ std::vector<render::Image> renderFramesGpu(const render::shapes::MeshData& baked
 } // namespace
 
 int main(int argc, char** argv) {
-    std::string input, out = "cutscene.gif", framesDir, frameFormat = "ppm";
+    std::string input, out = "cutscene.gif", framesDir, frameFormat = "ppm", objOut;
     float fps = 30.0f, seconds = 3.0f;
     int size = 256, framesCap = 0, aa = 2; // aa = supersample factor (anti-aliasing)
     bool useGpu = false; // --gpu: render the real PBR frame graph offscreen instead of the CPU preview
@@ -157,6 +158,8 @@ int main(int argc, char** argv) {
             aa = std::atoi(next("2"));
         } else if (std::strcmp(a, "--gpu") == 0) {
             useGpu = true;
+        } else if (std::strcmp(a, "--obj") == 0) {
+            objOut = next("");
         } else if (a[0] != '-' && input.empty()) {
             input = a;
         }
@@ -164,7 +167,7 @@ int main(int argc, char** argv) {
     if (input.empty()) {
         std::fprintf(stderr, "usage: cutscene_export <input.mazprefab> [--out f.gif] [--fps N] "
                              "[--seconds N] [--size N] [--frames N] [--frames-dir DIR] "
-                             "[--frame-format ppm|qoi] [--aa 1-4] [--gpu]\n");
+                             "[--frame-format ppm|qoi] [--aa 1-4] [--gpu] [--obj mesh.obj]\n");
         return 2;
     }
     const bool qoiFrames = frameFormat == "qoi"; // any other value falls back to PPM
@@ -195,6 +198,18 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "cutscene_export: %s baked to an empty mesh (no visible parts?)\n",
                      input.c_str());
         return 1;
+    }
+
+    // Optional: also export the baked composite as a Wavefront OBJ (for Blender / other engines).
+    if (!objOut.empty()) {
+        const std::string obj = render::encodeObj(baked);
+        const std::vector<std::uint8_t> objBytes(obj.begin(), obj.end());
+        if (!io::writeFile(objOut, objBytes)) {
+            std::fprintf(stderr, "cutscene_export: failed to write %s\n", objOut.c_str());
+            return 1;
+        }
+        std::printf("cutscene_export: wrote %s (%zu verts, %zu tris)\n", objOut.c_str(),
+                    baked.vertices.size(), baked.indices.size() / 3);
     }
 
     // Bounds -> a centre and radius to frame the orbit camera.
