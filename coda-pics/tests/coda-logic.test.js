@@ -2820,6 +2820,91 @@ function laidDown(ctx, gradient) {
   pass('no large fill is one exact colour any more');
 })();
 
+/* ------------------------------------------------------------- the glass
+ * Two things every lens does and no painter has to: it darkens the corners,
+ * and it brings red and blue to focus at slightly different sizes so the
+ * corners pick up a faint coloured fringe. Their absence is part of why a
+ * drawn picture looks evenly lit in a way nothing photographed ever is.
+ */
+(function theGlass() {
+  console.log('\nWhat the glass itself does');
+
+  /* A picture the size of a real one. The fringe is a share of the distance
+   * from the middle, the way a lens's is, so on a thumbnail it is a fraction
+   * of a pixel and there is nothing to measure — a check run on a small canvas
+   * would report no fringe from code that has one. */
+  var w = 481, h = 321;
+  function flat(v) {
+    var img = { data: new Uint8ClampedArray(w * h * 4), width: w, height: h };
+    for (var i = 0; i < w * h; i++) {
+      img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = v;
+      img.data[i * 4 + 3] = 255;
+    }
+    return img;
+  }
+  function at(img, x, y) { return img.data[(y * w + x) * 4 + 1]; }
+
+  var even = flat(180);
+  FINISH.helpers.lens(even, w, h, FINISH.helpers.GLASS);
+  var middle = at(even, 240, 160), corner = at(even, 1, 1);
+  check(corner < middle - 8,
+    'the corners of the frame are darker than the middle (' + corner +
+    ' against ' + middle + ')');
+  check(middle === 180,
+    'and the middle is exactly where it was, because that is where the light ' +
+    'goes straight through (' + middle + ')');
+
+  /* The fringe. A hard black-and-white edge picks one up out at the corner and
+   * none of one in the middle, which is what makes it read as the lens rather
+   * than as a filter over the picture. */
+  function edged() {
+    var img = flat(0);
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        var v = (x % 8) < 4 ? 255 : 0;
+        var i = (y * w + x) * 4;
+        img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+      }
+    }
+    return img;
+  }
+  /* How much of a region is fringed, rather than how strong the worst pixel
+   * is: a fringe either crosses a stripe edge or it does not, so the strength
+   * is always the same and only the amount of it changes. */
+  function fringeIn(img, x0, x1, y0, y1) {
+    var hit = 0, n = 0;
+    for (var y = y0; y < y1; y++) {
+      for (var x = x0; x < x1; x++) {
+        var i = (y * w + x) * 4;
+        if (Math.abs(img.data[i] - img.data[i + 2]) > 30) hit++;
+        n++;
+      }
+    }
+    return hit / n;
+  }
+  var stripes = edged();
+  FINISH.helpers.lens(stripes, w, h, FINISH.helpers.GLASS);
+  var outer = fringeIn(stripes, 0, 40, 0, 30);
+  var halfway = fringeIn(stripes, 140, 200, 90, 130);
+  var inner = fringeIn(stripes, 232, 248, 152, 168);
+  check(outer > 0.1,
+    'a hard edge out at the corner picks up a coloured fringe (' +
+    Math.round(outer * 100) + '% of it)');
+  check(inner === 0, 'and the same edge in the middle picks up none');
+  /* And it grows towards the edges rather than being spread evenly, which is
+   * the difference between a lens and a filter laid over the picture. */
+  check(halfway < outer * 0.1,
+    'and it grows towards the corner rather than sitting evenly over the ' +
+    'picture (' + Math.round(halfway * 100) + '% halfway out against ' +
+    Math.round(outer * 100) + '% at the corner)');
+
+  /* Enough to be there, not enough to notice. */
+  check(FINISH.helpers.GLASS > 0 && FINISH.helpers.GLASS <= 0.6,
+    'and the glass is set to show rather than to be looked at (' +
+    FINISH.helpers.GLASS + ')');
+  pass('every picture is taken through a piece of glass');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);

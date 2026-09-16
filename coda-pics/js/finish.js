@@ -780,6 +780,53 @@
     }
   }
 
+  /*
+   * What the glass itself does.
+   *
+   * Two things every lens does and no painter has to. It darkens the corners,
+   * because less light reaches the edge of the frame than the middle of it —
+   * every photograph ever taken has this, and its absence is part of why a
+   * drawn picture looks evenly lit in a way nothing photographed ever is. And
+   * it bends the colours by slightly different amounts, so red and blue come
+   * to focus at slightly different sizes and the corners pick up a faint
+   * coloured fringe. Both are strongest at the edges and absent in the middle,
+   * which is what makes them read as the lens rather than as an effect.
+   */
+  function lens(img, w, h, amount) {
+    if (amount <= 0) return;
+    var d = img.data;
+    var was = new Uint8ClampedArray(d);
+    var cx = w / 2, cy = h / 2;
+    var far = Math.sqrt(cx * cx + cy * cy);
+
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        var i = (y * w + x) * 4;
+        var ox = x - cx, oy = y - cy;
+        var out = Math.sqrt(ox * ox + oy * oy) / far;       // 0 middle, 1 corner
+
+        /* Red pulled outward and blue inward, by a fraction of a pixel in the
+         * middle and a pixel or two at the corner. */
+        var shift = amount * out * out * 2.2;
+        var rx = Math.round(cx + ox * (1 + shift * 0.005));
+        var ry = Math.round(cy + oy * (1 + shift * 0.005));
+        var bx = Math.round(cx + ox * (1 - shift * 0.005));
+        var by = Math.round(cy + oy * (1 - shift * 0.005));
+        if (rx >= 0 && rx < w && ry >= 0 && ry < h) d[i] = was[(ry * w + rx) * 4];
+        if (bx >= 0 && bx < w && by >= 0 && by < h) d[i + 2] = was[(by * w + bx) * 4 + 2];
+
+        /* And the corners go down. */
+        var k = 1 - out * out * amount * 0.34;
+        d[i] = clamp(d[i] * k, 0, 255);
+        d[i + 1] = clamp(d[i + 1] * k, 0, 255);
+        d[i + 2] = clamp(d[i + 2] * k, 0, 255);
+      }
+    }
+  }
+
+  /* How much of the glass shows. Enough to be there, not enough to notice. */
+  var GLASS = 0.5;
+
   /* How far the slow drift is allowed to wander. A few percent reads as a
    * surface; much more reads as a stain on one. */
   var DRIFT = 0.055;
@@ -808,6 +855,9 @@
       /* The lens leaking. Kept small: this is glass, not a filter. */
       bloom(img, w, h, 205, Math.max(2, Math.round(Math.min(w, h) * 0.012)),
         0.16 + (1 - day) * 0.14);
+      /* The glass: corners down, and a fringe of colour out there. */
+      lens(img, w, h, GLASS);
+
       /* The slow drift that stops every large fill being one exact colour. */
       mottle(img, w, h, PROMPT.rng(spec, 'mottle'), DRIFT);
 
@@ -836,7 +886,7 @@
       posterize: posterize, dither: dither, edges: edges, inkEdges: inkEdges,
       contrast: contrast, saturate: saturate, grade: grade, grain: grain,
       focusPass: focusPass, daylight: daylight, expose: expose, mottle: mottle,
-      DRIFT: DRIFT,
+      DRIFT: DRIFT, lens: lens, GLASS: GLASS,
       vignette: vignette, luma: luma, mosaic: mosaic
     }
   };
