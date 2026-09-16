@@ -886,6 +886,40 @@ function recorder(w, h) {
   return proxy;
 }
 
+/*
+ * Every closed shape a recording drew: the colour it was filled or stroked in,
+ * how opaque it was, where its middle ended up and how wide it was. A picture
+ * is shapes; this is how a test sees the ones that were actually put down.
+ */
+function shapesOf(ctx) {
+  var shapes = [], colour = null, stroke = null, alpha = 1, pts = [];
+  ctx.log.forEach(function (c) {
+    if (c.op === 'set' && c.args[0] === 'fillStyle') colour = c.args[1];
+    else if (c.op === 'set' && c.args[0] === 'strokeStyle') stroke = c.args[1];
+    else if (c.op === 'set' && c.args[0] === 'globalAlpha') alpha = c.args[1];
+    else if (c.op === 'beginPath') pts = [];
+    else if (c.op === 'moveTo' || c.op === 'lineTo' || c.op === 'quadraticCurveTo') {
+      /* A curve's last two numbers are where it ends up; the control point in
+       * front of them is not on the line. */
+      pts.push(c.args.slice(-2));
+    } else if ((c.op === 'fill' || c.op === 'stroke') && pts.length) {
+      var sx = 0, sy = 0, lo = pts[0][0], hi = pts[0][0], top = pts[0][1], low = pts[0][1];
+      pts.forEach(function (pt) {
+        sx += pt[0]; sy += pt[1];
+        lo = Math.min(lo, pt[0]); hi = Math.max(hi, pt[0]);
+        top = Math.min(top, pt[1]); low = Math.max(low, pt[1]);
+      });
+      shapes.push({
+        colour: c.op === 'fill' ? colour : stroke, filled: c.op === 'fill', alpha: alpha,
+        x: sx / pts.length, y: sy / pts.length, w: hi - lo, h: low - top,
+        top: top, bottom: low
+      });
+      if (c.op === 'fill') pts = [];
+    }
+  });
+  return shapes;
+}
+
 /* ------------------------------------------------------------- the shadow
  * A shadow is not a smudge under a thing. It is dark and sharp where the thing
  * meets the ground and it opens out, softens and fades as it runs away from
@@ -1618,23 +1652,7 @@ function recorder(w, h) {
     var ctx = recorder(480, 360);
     PAINT.clouds(ctx, 480, 360, 200, P, spec, PROMPT.rng(spec, 'cloud'), light || { x: 60, y: 20 });
 
-    var shapes = [], colour = null, alpha = 1, pts = [];
-    ctx.log.forEach(function (c) {
-      if (c.op === 'set' && c.args[0] === 'fillStyle') colour = c.args[1];
-      else if (c.op === 'set' && c.args[0] === 'globalAlpha') alpha = c.args[1];
-      else if (c.op === 'moveTo' || c.op === 'lineTo') pts.push(c.args);
-      else if (c.op === 'fill' && pts.length) {
-        var sx = 0, sy = 0, lo = pts[0][0], hi = pts[0][0];
-        pts.forEach(function (pt) {
-          sx += pt[0]; sy += pt[1];
-          lo = Math.min(lo, pt[0]); hi = Math.max(hi, pt[0]);
-        });
-        shapes.push({ colour: colour, alpha: alpha,
-          x: sx / pts.length, y: sy / pts.length, w: hi - lo });
-        pts = [];
-      } else if (c.op === 'beginPath') pts = [];
-    });
-    return { shapes: shapes, P: P, ctx: ctx };
+    return { shapes: shapesOf(ctx), P: P, ctx: ctx };
   }
 
   var fair = sky('clear'), heavy = sky('storm');
@@ -1700,6 +1718,83 @@ function recorder(w, h) {
   check(hasDeck('rain') && !hasDeck('clear'),
     'a wet sky has a lid over it and a clear one does not');
   pass('a cloud has a lit top, a dark underside and lumps in between');
+})();
+
+/* ------------------------------------------------- the small things lying about
+ * Ground was a clean sheet of colour with a texture over it. Real ground is
+ * covered in things — stones, tufts, sticks, shells — and none of them is
+ * interesting on its own, which is exactly why they matter: a surface with
+ * nothing on it reads as a painted backdrop however well it is shaded.
+ */
+(function smallThings() {
+  console.log('\nThe small things lying about');
+
+  function litter(scene, closeness) {
+    var spec = PROMPT.parse('a wolf in a ' + scene + ' at noon', { seed: 7 });
+    var P = PAINT.makePalette(spec);
+    P.detail = closeness || 1;
+    var ctx = recorder(480, 360);
+    PAINT.scatter(ctx, 480, 360, 200, P, spec, PROMPT.rng(spec, 'scatter'));
+    var shapes = shapesOf(ctx);
+    /* A flower head is the only round thing out here; everything else is a
+     * lump or a line. Counting the colour would catch a stone's lit top too. */
+    shapes.flowers = ctx.log.filter(function (c) { return c.op === 'arc'; }).length;
+    return shapes;
+  }
+
+  var meadow = litter('meadow');
+  check(meadow.length > 30,
+    'a field has ' + meadow.length + ' small things lying on it');
+
+  /* Never in the sky. Everything lies on the ground, which starts at the
+   * skyline — anything above it is litter floating in mid-air. */
+  var above = meadow.filter(function (sh) { return sh.bottom < 200 - 1; });
+  check(above.length === 0,
+    'and every one of them is on the ground rather than in the sky' +
+    (above.length ? ' — ' + above.length + ' are floating' : ''));
+
+  /* Perspective: what is near the bottom of the frame is near the camera, so
+   * it is bigger. Sprinkling them evenly is what makes scattered detail read
+   * as noise on a photograph rather than as things on the ground. */
+  function mean(list) {
+    return list.length ? list.reduce(function (a, b) { return a + b; }, 0) / list.length : 0;
+  }
+  var close = [], distant = [];
+  meadow.forEach(function (sh) {
+    (sh.y > 200 + (360 - 200) * 0.55 ? close : distant).push(Math.max(sh.w, sh.h));
+  });
+  check(close.length && distant.length && mean(close) > mean(distant) * 1.8,
+    'the ones at your feet are bigger than the ones by the skyline (' +
+    mean(close).toFixed(1) + 'px against ' + mean(distant).toFixed(1) + 'px)');
+
+  /* And they crowd towards the skyline, because a receding plane makes
+   * everything crowd towards it. Sprinkled evenly, half of them would sit
+   * below the halfway line; crowded, the middle one sits well above it. */
+  var depths = meadow.map(function (sh) { return (sh.y - 200) / (360 - 200); })
+    .sort(function (a, b) { return a - b; });
+  var middle = depths[Math.floor(depths.length / 2)];
+  check(middle < 0.36,
+    'and they crowd towards it — the middle one sits ' +
+    Math.round(middle * 100) + '% of the way down the ground, not halfway');
+
+  /* Walk closer and there is more to see, the same as every other surface. */
+  var far = litter('meadow', 0.55).length;
+  var near = litter('meadow', 2.1).length;
+  check(near > far * 1.4,
+    'a close-up finds more of them than a wide shot does (' + near +
+    ' against ' + far + ')');
+
+  /* Different ground is covered in different things. A meadow has flowers in
+   * it; a mountainside has stones. */
+  var hill = litter('mountains');
+  check(meadow.flowers > 0, 'a field has flowers in it (' + meadow.flowers + ')');
+  check(hill.length > 20 && hill.flowers === 0,
+    'and a mountainside has stones instead (' + hill.length + ' things, no flowers)');
+
+  /* Open water has nothing lying on it. */
+  var sea = litter('ocean');
+  check(sea.length === 0, 'and nothing at all is lying about on the open sea');
+  pass('the ground has things on it');
 })();
 
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'

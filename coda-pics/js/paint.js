@@ -2010,6 +2010,110 @@
    * make a landscape; three make a photograph of one. Not every picture gets
    * it — a frame that is always framed is its own kind of sameness.
    */
+  /*
+   * The small things lying about.
+   *
+   * Ground in these pictures was a clean sheet of colour with a texture over
+   * it. Real ground is covered in things: stones, tufts, sticks, shells,
+   * patches of bare earth. None of them is interesting on its own — that is
+   * exactly why they matter, because a surface with nothing on it reads as a
+   * painted backdrop no matter how well it is shaded.
+   *
+   * They obey perspective rather than being sprinkled evenly: everything sits
+   * between the skyline and the bottom of the frame, and what is near the
+   * bottom is near the camera, so it is bigger and there is more space between
+   * one and the next.
+   */
+  var SCATTER = {
+    meadow:    { kinds: ['tuft', 'flower', 'pebble'], n: 40 },
+    plains:    { kinds: ['tuft', 'pebble', 'stick'],  n: 34 },
+    forest:    { kinds: ['tuft', 'stick', 'rock'],    n: 34 },
+    jungle:    { kinds: ['tuft', 'leaf', 'rock'],     n: 38 },
+    desert:    { kinds: ['pebble', 'rock', 'stick'],  n: 26 },
+    canyon:    { kinds: ['rock', 'pebble'],           n: 28 },
+    mountains: { kinds: ['rock', 'pebble', 'patch'],  n: 30 },
+    snow:      { kinds: ['rock', 'patch'],            n: 14 },
+    shore:     { kinds: ['pebble', 'shell', 'weed'],  n: 32 },
+    lake:      { kinds: ['pebble', 'weed', 'tuft'],   n: 24 },
+    swamp:     { kinds: ['weed', 'stick', 'tuft'],    n: 30 },
+    ruins:     { kinds: ['rock', 'pebble', 'stick'],  n: 34 },
+    road:      { kinds: ['pebble', 'stick'],          n: 22 },
+    city:      { kinds: ['pebble', 'stick'],          n: 18 },
+    volcano:   { kinds: ['rock', 'pebble'],           n: 30 },
+    island:    { kinds: ['pebble', 'weed', 'tuft'],   n: 26 },
+    cave:      { kinds: ['rock', 'pebble'],           n: 24 }
+  };
+
+  function scatter(ctx, w, h, hz, P, spec, r) {
+    var kit = SCATTER[spec.scene.id];
+    if (!kit || hz >= h - 4) return;
+    var dark = P.silhouette(0.05, 0.55);
+    var mid = P.land(0.1, 0.7);
+    var pale = P.css(P.sky.light, 0.35);
+    var count = Math.round(kit.n * ((P.detail || 1) * 0.5 + 0.5));
+
+    for (var i = 0; i < count; i++) {
+      /* Squared, so they crowd towards the skyline the way a receding plane
+       * makes everything crowd towards it. */
+      var t = r();
+      var y = hz + (h - hz) * t * t;
+      var near = (y - hz) / Math.max(h - hz, 1);      // 0 at the skyline, 1 at your feet
+      var x = r() * w;
+      var size = Math.max(0.8, Math.min(w, h) * 0.004 * (0.25 + near * 2.4));
+      var kind = kit.kinds[Math.floor(r() * kit.kinds.length) % kit.kinds.length];
+
+      if (kind === 'tuft' || kind === 'weed') {
+        var blades = kind === 'weed' ? 5 : 3;
+        ctx.strokeStyle = dark;
+        ctx.lineWidth = Math.max(0.6, size * 0.22);
+        ctx.beginPath();
+        for (var b = 0; b < blades; b++) {
+          var lean = (r() - 0.5) * size * 2.2;
+          ctx.moveTo(x, y);
+          ctx.quadraticCurveTo(x + lean * 0.4, y - size * 1.6, x + lean, y - size * 2.8);
+        }
+        ctx.stroke();
+      } else if (kind === 'flower') {
+        ctx.fillStyle = pale;
+        ctx.beginPath();
+        ctx.arc(x, y - size * 1.2, size * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = dark;
+        ctx.lineWidth = Math.max(0.5, size * 0.16);
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y - size * 1.1);
+        ctx.stroke();
+      } else if (kind === 'stick') {
+        var a = (r() - 0.5) * 1.2;
+        ctx.strokeStyle = dark;
+        ctx.lineWidth = Math.max(0.6, size * 0.30);
+        ctx.beginPath();
+        ctx.moveTo(x - Math.cos(a) * size * 1.6, y - Math.sin(a) * size * 0.6);
+        ctx.lineTo(x + Math.cos(a) * size * 1.6, y + Math.sin(a) * size * 0.6);
+        ctx.stroke();
+      } else if (kind === 'patch') {
+        blob(ctx, x, y, size * 3.2, size * 1.1, 8, r, mid);
+      } else if (kind === 'leaf') {
+        blob(ctx, x, y, size * 1.4, size * 0.7, 7, r, dark);
+      } else if (kind === 'shell') {
+        blob(ctx, x, y, size * 0.9, size * 0.6, 7, r, pale);
+      } else {
+        /* A stone: a lump with a lit top and a shadow where it meets the
+         * ground, which is the difference between a stone and a dot. */
+        var rx = size * (kind === 'rock' ? 2.2 : 1.1);
+        var ry = rx * (0.45 + r() * 0.30);
+        ctx.globalAlpha = 0.5;
+        blob(ctx, x + rx * 0.2, y + ry * 0.55, rx * 1.15, ry * 0.5, 7, r, dark);
+        ctx.globalAlpha = 1;
+        blob(ctx, x, y, rx, ry, 8, r, mid);
+        ctx.globalAlpha = 0.45;
+        blob(ctx, x - rx * 0.16, y - ry * 0.34, rx * 0.6, ry * 0.42, 7, r, pale);
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+
   var FRAMED = {
     forest: 'leaves', jungle: 'leaves', meadow: 'grass', plains: 'grass',
     swamp: 'reeds', mountains: 'rocks', canyon: 'rocks', desert: 'rocks',
@@ -2180,6 +2284,9 @@
       (GROUND[spec.scene.id] || GROUND.plains)(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'ground'), light);
     }
 
+    /* The small things lying on the ground, before anything stands on it. */
+    if (!onPhoto) scatter(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'scatter'));
+
     /* Subjects, furthest first so a nearer one overlaps it. */
     var sr = PROMPT.rng(spec, 'subject');
     var placed = [];
@@ -2275,6 +2382,8 @@
     paintSubject: paintSubject,
     arrange: arrange,
     foreground: foreground,
+    scatter: scatter,
+    SCATTER: SCATTER,
     helpers: { ridge: ridge, fillPoly: fillPoly, hills: hills, pine: pine, blob: blob, clamp: clamp, lerp: lerp }
   };
 
