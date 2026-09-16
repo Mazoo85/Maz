@@ -22,6 +22,7 @@
 #include "maz/render/ImageCodecGif.hpp"
 #include "maz/render/ImageCodecPnm.hpp" // render::encodePnmP6
 #include "maz/render/ImageCodecQoi.hpp" // render::encodeQoi
+#include "maz/render/GltfWriter.hpp"    // render::encodeGlb (--glb mesh export)
 #include "maz/render/ObjWriter.hpp"     // render::encodeObj (--obj mesh export)
 #include "maz/render/Renderer.hpp"      // render::createVulkanRenderer (GPU offscreen path)
 #include "maz/render/Shapes.hpp"
@@ -132,7 +133,7 @@ std::vector<render::Image> renderFramesGpu(const render::shapes::MeshData& baked
 } // namespace
 
 int main(int argc, char** argv) {
-    std::string input, out = "cutscene.gif", framesDir, frameFormat = "ppm", objOut;
+    std::string input, out = "cutscene.gif", framesDir, frameFormat = "ppm", objOut, glbOut;
     float fps = 30.0f, seconds = 3.0f;
     int size = 256, framesCap = 0, aa = 2; // aa = supersample factor (anti-aliasing)
     bool useGpu = false; // --gpu: render the real PBR frame graph offscreen instead of the CPU preview
@@ -160,6 +161,8 @@ int main(int argc, char** argv) {
             useGpu = true;
         } else if (std::strcmp(a, "--obj") == 0) {
             objOut = next("");
+        } else if (std::strcmp(a, "--glb") == 0) {
+            glbOut = next("");
         } else if (a[0] != '-' && input.empty()) {
             input = a;
         }
@@ -209,6 +212,17 @@ int main(int argc, char** argv) {
             return 1;
         }
         std::printf("cutscene_export: wrote %s (%zu verts, %zu tris)\n", objOut.c_str(),
+                    baked.vertices.size(), baked.indices.size() / 3);
+    }
+
+    // Optional: also export the baked composite as a binary glTF (.glb) — carries vertex colour natively.
+    if (!glbOut.empty()) {
+        const std::vector<std::uint8_t> glb = render::encodeGlb(baked);
+        if (glb.empty() || !io::writeFile(glbOut, glb)) {
+            std::fprintf(stderr, "cutscene_export: failed to write %s\n", glbOut.c_str());
+            return 1;
+        }
+        std::printf("cutscene_export: wrote %s (%zu verts, %zu tris)\n", glbOut.c_str(),
                     baked.vertices.size(), baked.indices.size() / 3);
     }
 
