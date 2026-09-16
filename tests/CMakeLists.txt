@@ -90,6 +90,20 @@ target_link_libraries(maz_objwriter_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME obj_writer COMMAND maz_objwriter_tests)
 set_tests_properties(obj_writer PROPERTIES TIMEOUT 30)
 
+# Binary glTF writer (render::encodeGlb): the GLB container re-parses and the JSON/BIN describe the
+# expected accessors + buffer. Pure bytes, headless.
+add_executable(maz_gltfwriter_tests render/gltfwriter.cpp)
+target_link_libraries(maz_gltfwriter_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME gltf_writer COMMAND maz_gltfwriter_tests)
+set_tests_properties(gltf_writer PROPERTIES TIMEOUT 30)
+
+# Strict glTF round-trip: export a mesh with encodeGlb, re-import with the cgltf-backed loadGltf, and
+# confirm geometry + vertex colour survive (proves the emitted glTF is spec-correct).
+add_executable(maz_gltfroundtrip_tests render/gltf_roundtrip.cpp)
+target_link_libraries(maz_gltfroundtrip_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME gltf_roundtrip COMMAND maz_gltfroundtrip_tests)
+set_tests_properties(gltf_roundtrip PROPERTIES TIMEOUT 30)
+
 # Cutscene export pipeline end-to-end, in-process: compose -> prefab text -> reload -> bake -> render
 # an orbit of CPU frames -> animated GIF -> decode. The same chain apps/cutscene_export drives.
 add_executable(maz_cutscene_pipeline_tests render/cutscene_pipeline.cpp)
@@ -132,10 +146,10 @@ set_tests_properties(cutscene_export_gpu PROPERTIES
     TIMEOUT 90
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
 
-# --obj exports the baked composite as a Wavefront OBJ alongside the GIF (encodeObj + write path).
+# --obj / --glb export the baked composite as a mesh alongside the GIF (encodeObj / encodeGlb + write).
 add_test(NAME cutscene_export_obj
          COMMAND cutscene_export ${CMAKE_SOURCE_DIR}/assets/samples/figure.mazprefab
-                 --out figure_obj.gif --frames 2 --size 32 --obj figure.obj)
+                 --out figure_obj.gif --frames 2 --size 32 --obj figure.obj --glb figure.glb)
 set_tests_properties(cutscene_export_obj PROPERTIES TIMEOUT 60)
 
 # GPU-driven particle simulation + plane collision (fx::GpuParticleSystem). The CPU step is the exact
