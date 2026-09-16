@@ -25,6 +25,14 @@
         <h1>CODA <span class="brand-alt">PICS</span></h1>
       </div>
       <p class="tagline">Type what you want to see. Get a picture back.</p>
+      <!-- Shown only when this browser can actually install it, or when it is
+           the one browser that can but will not offer to. -->
+      <button id="install" class="install" type="button" hidden>⤓ Install as an app</button>
+      <p id="installHow" class="install-how" hidden>
+        To keep CODA PICS on your home screen: press <b>Share</b>, then
+        <b>Add to Home Screen</b>. It opens like any other app and works with no signal.
+        <button id="installDismiss" type="button" class="install-dismiss" aria-label="Close">✕</button>
+      </p>
     </header>
 
     <!-- ------------------------------------------------------------- input -->

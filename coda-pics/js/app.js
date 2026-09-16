@@ -481,6 +481,83 @@
     };
   }
 
+  /* ------------------------------------------------------------ installing
+   *
+   * CODA PICS has been installable since it was built — it has a manifest,
+   * icons and an offline worker, and once installed it opens like any other
+   * app and paints with no signal at all. What it did not have was a way of
+   * saying so. "Add to home screen" lives in a different menu in every browser
+   * and most people have never opened any of them.
+   *
+   * Three states, and the page shows exactly one of them:
+   *
+   *   Already installed — nothing. It is here; saying so is noise.
+   *   The browser offers to do it — a button that does it.
+   *   iPhone — a sentence, because Safari can install this and will never
+   *   offer. There is no API to ask it; a page that waits for one shows
+   *   nothing to the people who need telling most.
+   */
+  var INSTALL_HIDDEN = 'codaPics.installHint.v1';
+
+  function installed() {
+    try {
+      return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+        window.navigator.standalone === true;
+    } catch (e) { return false; }
+  }
+
+  function isIOS() {
+    var ua = navigator.userAgent || '';
+    /* iPads report themselves as a Mac; the touch points give them away. */
+    return /iPad|iPhone|iPod/.test(ua) ||
+      (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  }
+
+  function wireInstall() {
+    if (!el.install) return;
+    var offer = null;
+
+    if (installed()) return;                       // already an app; say nothing
+
+    window.addEventListener('beforeinstallprompt', function (e) {
+      /* Holding the event is what lets the page put the prompt on a button of
+       * its own rather than wherever the browser would have buried it. */
+      e.preventDefault();
+      offer = e;
+      el.install.hidden = false;
+      el.installHow.hidden = true;
+    });
+
+    el.install.addEventListener('click', function () {
+      if (!offer) return;
+      el.install.disabled = true;
+      offer.prompt();
+      offer.userChoice.then(function (choice) {
+        offer = null;
+        el.install.hidden = true;
+        el.install.disabled = false;
+        if (choice && choice.outcome === 'accepted') {
+          setStatus('Installed. CODA PICS is on your home screen now, and it paints with no signal.');
+        }
+      }, function () { el.install.disabled = false; });
+    });
+
+    window.addEventListener('appinstalled', function () {
+      el.install.hidden = true;
+      el.installHow.hidden = true;
+    });
+
+    /* Safari on an iPhone can do this and will never offer, so it is told
+     * rather than asked — once, and it stays dismissed. */
+    if (isIOS() && load(INSTALL_HIDDEN, null) !== true) {
+      el.installHow.hidden = false;
+    }
+    el.installDismiss.addEventListener('click', function () {
+      el.installHow.hidden = true;
+      save(INSTALL_HIDDEN, true);
+    });
+  }
+
   /* ------------------------------------------------------------- the dials
    *
    * Every number in a picture comes from the words, which is the whole idea —
@@ -1372,6 +1449,7 @@
       'photoFile', 'photoInfo', 'photoThumb', 'photoNote', 'stylePhoto', 'clearPhoto',
       'usePhotoColours', 'usePhotoSkyline', 'usePhotoBackdrop',
       'paletteBox', 'paletteChips', 'clearPalettes',
+      'install', 'installHow', 'installDismiss',
       'dials', 'dialSun', 'dialSunOut', 'dialWeather', 'dialWeatherOut',
       'dialWear', 'dialWearOut', 'dialMood', 'dialMoodOut', 'dialsClear',
       'gphotos', 'gpClientId', 'gpRedirect', 'gpConnect', 'gpPick', 'gpForget',
@@ -1407,6 +1485,7 @@
       if (current) repaint(seed);
     });
     showDials();
+    wireInstall();
 
     el.newSky.addEventListener('click', function () { repaintPart('sky'); });
     el.newLand.addEventListener('click', function () { repaintPart('land'); });

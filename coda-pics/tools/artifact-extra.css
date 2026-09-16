@@ -3,6 +3,10 @@
    The page ships inside the viewer, so it loses the arcade's nav pill and
    gains a picture on load; nothing else about the look changes. */
 [hidden] { display: none !important; }
+/* The viewer pads the document by the phone's safe areas, so a body sized to
+   the whole viewport is taller than the room it has been given and leaves a
+   strip of scroll under the footer. */
+body { min-height: 100%; }
 #app { padding-block: 18px 32px; }
 .frame { min-height: 120px; }
 .foot { margin-top: 26px; }
@@ -10,3 +14,7 @@
 /* The picture leads, so it needs a little air under it before the controls. */
 .stage { margin-top: 0; margin-bottom: 22px; }
 .panel { margin-top: 0; }
+
+/* The line that stands in for the Google Photos box carries the only link in
+   the panel, and an unstyled one is browser-blue on a near-black ground. */
+.photo-privacy a { color: var(--accent); }

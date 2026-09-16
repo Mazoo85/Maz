@@ -55,7 +55,10 @@ body {
 }
 
 /* --------------------------------------------------------------- topbar */
-.topbar { text-align: center; margin-bottom: 20px; }
+.topbar {
+  text-align: center; margin-bottom: 20px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
 .brand { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .brand-mark { font-size: 22px; color: var(--accent); }
 .brand h1 {
@@ -333,6 +336,28 @@ canvas {
 }
 .gphotos .buttons { margin-top: 11px; }
 .gphotos .buttons button { font-size: 12.5px; padding: 8px 12px; }
+
+/* --------------------------------------------------------------- install
+ * It has been installable all along — manifest, icons, an offline worker —
+ * but only if you knew where your browser hides "add to home screen". This is
+ * the same thing with a button on it.
+ */
+.install {
+  align-self: center; white-space: nowrap;
+  font-size: 12.5px; padding: 8px 13px;
+  border: 1px solid var(--accent); color: var(--accent); background: rgba(0, 214, 143, .10);
+}
+.install:hover { background: rgba(0, 214, 143, .20); color: #fff; }
+.install-how {
+  flex-basis: 100%; margin: 8px 0 0; padding: 9px 34px 9px 12px; position: relative;
+  border: 1px solid var(--line); border-radius: 9px; background: rgba(255, 255, 255, .03);
+  font-size: 12px; line-height: 1.55; color: #cdc4e2;
+}
+.install-dismiss {
+  position: absolute; top: 5px; right: 6px;
+  padding: 2px 7px; font-size: 12px; background: none; border: none; color: var(--muted);
+}
+.install-dismiss:hover { color: var(--pink); }
 
 /* ---------------------------------------------------------------- dials
  * The words set every number in a picture. These hand four of them over when

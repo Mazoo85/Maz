@@ -569,6 +569,31 @@ let paintsThisLoad = 0;
       null, { timeout: 40000 });
     check(true, 'more like this renders six of them');
 
+    /* ---------------------------------------------------------- installing
+     * It has been installable all along; what it did not have was a way of
+     * saying so. Three states, and exactly one of them shows.
+     */
+    check(!(await page.isVisible('#install')),
+      'a browser that has not offered to install it shows no install button');
+    check(!(await page.isVisible('#installHow')),
+      'and no instructions either — this one can offer, so it will');
+
+    await page.evaluate(() => {
+      const e = new Event('beforeinstallprompt');
+      e.prompt = () => { window.__prompted = true; };
+      e.userChoice = Promise.resolve({ outcome: 'accepted' });
+      window.dispatchEvent(e);
+    });
+    await page.waitForTimeout(120);
+    check(await page.isVisible('#install'),
+      'and when the browser does offer, there is a button for it');
+    await page.click('#install');
+    await page.waitForTimeout(200);
+    check(await page.evaluate(() => !!window.__prompted),
+      'pressing it asks the browser to install, rather than explaining where the menu is');
+    check(!(await page.isVisible('#install')),
+      'and the button goes once it has been answered');
+
     /* ------------------------------------------------------------- dials
      * Every number in a picture comes from the words. Four of them can be
      * taken over by hand, and the point of a dial is that it stays where it is

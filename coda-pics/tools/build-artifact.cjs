@@ -17,6 +17,11 @@ let html = read('index.html');
 let body = html.slice(html.indexOf('<div id="app">'), html.indexOf('</body>'));
 body = body.replace(/<script[\s\S]*?<\/script>/g, '');
 body = body.replace('href="../index.html"', 'href="https://mazoo85.github.io/Maz/" target="_blank" rel="noopener"');
+/* And the footer says where the installable one lives, since this copy cannot
+   be installed and the real one can. */
+body = body.replace('Part of <a href=',
+  'Want it on your home screen? <a href="https://mazoo85.github.io/Maz/coda-pics/" ' +
+  'target="_blank" rel="noopener">Open the real one</a> and press Install. · Part of <a href=');
 body = body.replace('href="README.md"', 'href="https://github.com/Mazoo85/Maz/tree/main/coda-pics" target="_blank" rel="noopener"');
 
 /* The picture leads here: inside a gallery the first frame is the whole
@@ -41,6 +46,22 @@ body = body.replace('href="README.md"', 'href="https://github.com/Mazoo85/Maz/tr
   }
 }
 
+/* The install button cannot work here either. An artifact is a page inside
+   another page: there is no manifest to install, no service worker, and
+   `beforeinstallprompt` never fires — so the button would sit there doing
+   nothing, and the iPhone instructions would install the viewer rather than
+   this. Both come out, and the line under the picture says where to get the
+   installable one instead. */
+{
+  const btn = body.indexOf('<button id="install"');
+  const hint = body.indexOf('<p id="installHow"');
+  const hintEnd = body.indexOf('</p>', hint);
+  if (btn < 0 || hint < 0 || hintEnd < 0) {
+    throw new Error('the install control was not found — index.html changed shape');
+  }
+  body = body.slice(0, btn) + body.slice(hintEnd + '</p>'.length);
+}
+
 /* The Google Photos box cannot work here and must not pretend to: an artifact
    is sandboxed, so the page may not reach accounts.google.com at all, and a
    button that silently does nothing is worse than no button. It is replaced
@@ -48,7 +69,23 @@ body = body.replace('href="README.md"', 'href="https://github.com/Mazoo85/Maz/tr
    untouched — that never needed a network. */
 {
   const from = body.indexOf('<details id="gphotos"');
-  const to = body.indexOf('</details>', from);
+  /* Matched rather than searched for: this box has a second <details> nested
+     inside it (the one-off setup), so the first closing tag after the opening
+     one belongs to the inner box. Cutting there left half the Google panel in
+     the page — a Connect button that cannot connect, and code writing to two
+     elements that had just been removed. */
+  let to = -1;
+  if (from >= 0) {
+    let depth = 0, at = from;
+    while (at >= 0 && at < body.length) {
+      const open = body.indexOf('<details', at + 1);
+      const close = body.indexOf('</details>', at + 1);
+      if (close < 0) break;
+      if (open >= 0 && open < close) { depth++; at = open; continue; }
+      if (depth === 0) { to = close; break; }
+      depth--; at = close;
+    }
+  }
   if (from > 0 && to > from) {
     body = body.slice(0, from) +
       '<p class="photo-privacy">Photos from <b>Google Photos</b> can be brought in too, but only on ' +
