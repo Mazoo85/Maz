@@ -1408,6 +1408,74 @@ function recorder(w, h) {
   pass('a fire lights the clearing, and whoever is standing in it');
 })();
 
+/* --------------------------------------------------------- wet ground
+ * Rain was drawn as streaks in the air and nothing else: it fell in front of a
+ * perfectly dry field.
+ */
+(function wetGround() {
+  console.log('\nGround that has been rained on');
+
+  var wet = PAINT.wetness;
+  check(wet({ weather: 'clear' }) === 0 && wet({ weather: 'clouds' }) === 0,
+    'a clear or merely cloudy sky leaves the ground dry');
+  check(wet({ weather: 'rain' }) > wet({ weather: 'fog' }) &&
+        wet({ weather: 'fog' }) > wet({ weather: 'snowfall' }) &&
+        wet({ weather: 'snowfall' }) > 0,
+    'rain wets it most, fog a little, falling snow less still');
+
+  /* One scene, one seed, only the weather changed. */
+  function ground(weather) {
+    var spec = PROMPT.parse('a wolf on a road at dusk', { seed: 5 });
+    spec.weather = weather;
+    return PAINT.makePalette(spec).scene.land;
+  }
+  var dry = ground('clear'), rained = ground('rain');
+  check(rained[2] < dry[2] * 0.85,
+    'wet ground is darker than dry (' + rained[2].toFixed(0) + '% against ' +
+    dry[2].toFixed(0) + '%)');
+  check(rained[1] > dry[1] * 1.1,
+    'and more saturated, because the water fills the pores and what comes back ' +
+    'is the colour rather than the scatter (' + rained[1].toFixed(0) + '% against ' +
+    dry[1].toFixed(0) + '%)');
+
+  /* And every light is smeared down it. */
+  function streaks(weather) {
+    var spec = PROMPT.parse('a wolf on a road at dusk', { seed: 5 });
+    spec.weather = weather;
+    var P = PAINT.makePalette(spec);
+    var ctx = recorder(480, 360);
+    PAINT.render(ctx, 480, 360, spec);
+    var found = 0;
+    ctx.log.forEach(function (c) {
+      if (c.op !== 'gradient' || c.args.length !== 4) return;
+      if (c.args[0] !== c.args[2]) return;              // upright, not across
+      if (!c.gradient.stops.length) return;
+      var first = c.gradient.stops[0].colour;
+      var last = c.gradient.stops[c.gradient.stops.length - 1].colour;
+      if (first.indexOf('hsla') !== 0 || !/,\s*0\)$/.test(last)) return;
+      found++;
+    });
+    return found;
+  }
+  check(streaks('rain') > streaks('clear'),
+    'a light leaves a streak down wet ground and none down dry (' +
+    streaks('rain') + ' against ' + streaks('clear') + ')');
+
+  var additive = function (weather) {
+    var spec = PROMPT.parse('a wolf on a road at dusk', { seed: 5 });
+    spec.weather = weather;
+    var ctx = recorder(480, 360);
+    PAINT.render(ctx, 480, 360, spec);
+    return ctx.log.filter(function (c) {
+      return c.op === 'set' && c.args[0] === 'globalCompositeOperation' &&
+        c.args[1] === 'lighter';
+    }).length;
+  };
+  check(additive('rain') > 0 && additive('clear') === 0,
+    'and the streak is light added to the ground, not paint laid over it');
+  pass('rain lands on the ground as well as falling in front of it');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);

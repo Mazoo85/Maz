@@ -154,6 +154,24 @@
   var DIFFUSE = { clear: 0, aurora: 0.12, clouds: 0.62, snowfall: 0.70,
     rain: 0.76, storm: 0.84, fog: 0.90 };
 
+  /*
+   * How wet the ground is.
+   *
+   * Rain was drawn as streaks in the air and nothing else: it fell in front of
+   * a dry field. A wet surface is darker and more saturated than a dry one —
+   * water fills the pores and light that would have scattered straight back at
+   * you goes into the ground instead — and it throws a long smear of whatever
+   * light there is back up at the camera. Those two things are most of what
+   * makes a photograph look as though it has been raining.
+   */
+  var WETNESS = { clear: 0, clouds: 0, aurora: 0, fog: 0.22, snowfall: 0.14,
+    rain: 1, storm: 0.92 };
+
+  function wetness(spec) {
+    if (!spec || spec.weather == null) return 0;
+    return WETNESS[spec.weather] == null ? 0 : WETNESS[spec.weather];
+  }
+
   function softness(spec) {
     if (!spec || spec.weather == null) return 0;
     return DIFFUSE[spec.weather] == null ? 0 : DIFFUSE[spec.weather];
@@ -237,13 +255,17 @@
     if (!(spec.photo && spec.photo.use && spec.photo.use.colours && spec.photo.palette)) {
       var toward = sky.haze;
       scene = (function (src) {
+        /* Wet ground is darker and more saturated than dry: the water fills
+         * the pores, and light that would have scattered straight back goes
+         * into the ground instead. */
+        var wet = wetness(spec);
         function litten(c) {
           if (!c) return c;
           var dh = ((toward[0] - c[0]) % 360 + 540) % 360 - 180;
           return [
             (c[0] + dh * (1 - lit) * 0.30 + 360) % 360,
-            c[1] * (0.42 + 0.58 * lit),
-            c[2] * (0.32 + 0.68 * lit)
+            clamp(c[1] * (0.42 + 0.58 * lit) * (1 + 0.34 * wet), 0, 100),
+            c[2] * (0.32 + 0.68 * lit) * (1 - 0.30 * wet)
           ];
         }
         return {
@@ -1538,6 +1560,41 @@
   }
 
   /*
+   * The smear a light leaves on wet ground.
+   *
+   * Look down a road in the rain and every light in front of you is drawn out
+   * into a long vertical streak, because the ground has become a bad mirror:
+   * rough enough to smear the reflection, wet enough to give one at all. It
+   * costs one soft gradient per light and it is the single clearest sign that
+   * a picture has been rained on.
+   */
+  function sheen(ctx, w, h, hz, P, spec, at, hue, strength) {
+    var wet = wetness(spec);
+    if (wet < 0.25 || !at || hz >= h - 2) return;
+    var top = Math.max(hz, 0);
+    var spread = Math.min(w, h) * (0.055 + 0.05 * wet);
+    var g = ctx.createLinearGradient(0, top, 0, h);
+    g.addColorStop(0, P.css(hue, 0.30 * wet * strength));
+    g.addColorStop(0.35, P.css(hue, 0.13 * wet * strength));
+    g.addColorStop(1, P.css(hue, 0));
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = g;
+    /* Narrow down the middle and feathered at both sides. A canvas fill takes
+     * one gradient, so the sideways falloff is drawn as slices: a streak with
+     * straight edges is a painted rectangle, not a reflection. */
+    var slices = 11;
+    for (var i = 0; i < slices; i++) {
+      var t = (i + 0.5) / slices;
+      var edge = Math.abs(t - 0.5) * 2;
+      ctx.globalAlpha = Math.pow(1 - edge, 1.8);
+      ctx.fillRect(at.x - spread + spread * 2 * (i / slices), top,
+        spread * 2 / slices + 1, h - top);
+    }
+    ctx.restore();
+  }
+
+  /*
    * Draw one subject, lit. The order is the order a painter would work in:
    * the shape it throws away from the light, the shape itself, the edge the
    * light catches, then whatever the weather is doing to it.
@@ -1975,6 +2032,13 @@
     var extras = extraLights(spec, placed, w, h);
     extras.forEach(function (L) { spill(ctx, w, h, hz, L, P); });
 
+    /* Wet ground is a bad mirror, so every light in the picture is drawn down
+     * it in a long streak — the sun or the moon first, then anything else. */
+    if (!onPhoto && light) sheen(ctx, w, h, hz, P, spec, light, P.sky.light, 1);
+    extras.forEach(function (L) {
+      sheen(ctx, w, h, hz, P, spec, L, L.hue, 0.9 * L.strength);
+    });
+
     placed.forEach(function (item) {
       paintSubject(ctx, item.s, item.box, P, PS, sr, spec, light, hz, h, extras);
     });
@@ -2031,6 +2095,7 @@
     groundLit: groundLit,
     shadowReach: shadowReach,
     softness: softness,
+    wetness: wetness,
     extraLights: extraLights,
     GLOWING: GLOWING,
     paintSubject: paintSubject,
