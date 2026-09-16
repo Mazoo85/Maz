@@ -11,7 +11,11 @@ namespace maz::ui {
 // respects the active camera (use a pixel-space Camera2D for a screen-fixed HUD).
 class Font {
 public:
-    // Bake `ttfPath` at `pixelHeight`. Uploads the atlas via renderer.createTexture.
+    // Bake `ttfPath` at `pixelHeight` and upload the atlas via renderer.createTexture. The atlas
+    // starts at 512x512 (enough for 32..127 up to roughly 64 px) and doubles until the whole
+    // range fits, so a large pixelHeight costs more VRAM rather than silently losing glyphs.
+    // Returns false if the file cannot be read, the upload is refused, or the range still does
+    // not fit at 4096x4096 (at which point a glyph cache, not a baked atlas, is what is wanted).
     bool load(render::Renderer& renderer, const char* ttfPath, float pixelHeight);
 
     // Draw `text` with its top-left at (x, y) in the active camera's space. `\n` starts a new

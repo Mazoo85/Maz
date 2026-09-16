@@ -14,8 +14,8 @@ size is in the wiring between the parts, not in any one part.
 | | Count | |
 |---|---:|---|
 | Native games and demos (`apps/`) | 180 | 39,139 lines |
-| Engine capabilities (`engine/include/maz/`) | 698 | 88,558 lines across 20 subsystems |
-| C++ test files (`tests/`) | 385 | |
+| Engine capabilities (`engine/include/maz/`) | 698 | 88,562 lines across 20 subsystems |
+| C++ test files (`tests/`) | 387 | |
 | Browser apps and games | 8 | 26,857 lines |
 | Python tools | 4 | |
 | CI gates (`scripts/`) | 3 | |
@@ -73,7 +73,7 @@ module with neither is working code nobody can find.
 | `core` | 104 | 104 (100%) | 47 (45%) |
 | `io` | 30 | 30 (100%) | 26 (87%) |
 | `audio` | 27 | 27 (100%) | 23 (85%) |
-| `ui` | 27 | 25 (93%) | 21 (78%) |
+| `ui` | 27 | 27 (100%) | 21 (78%) |
 | `anim` | 20 | 20 (100%) | 17 (85%) |
 | `platform` | 20 | 20 (100%) | 19 (95%) |
 | `net` | 16 | 16 (100%) | 15 (94%) |

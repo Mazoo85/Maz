@@ -59,16 +59,37 @@ bool Font::load(render::Renderer& renderer, const char* ttfPath, float pixelHeig
     m_pixelHeight = pixelHeight;
 
     // Bake the printable ASCII range into a coverage atlas.
-    const int atlasW = 512;
-    const int atlasH = 512;
-    std::vector<uint8_t> coverage(static_cast<size_t>(atlasW) * atlasH, 0);
+    //
+    // stbtt_BakeFontBitmap returns the first unused row when everything fit, and the NEGATIVE
+    // count of characters that fit when it ran out of room. A partial bake is the dangerous case:
+    // the glyphs that did not fit keep a zero-size cell AND a zero advance, so the font loads
+    // "successfully" and then drops letters and measures text as narrower than it is — at 96 px
+    // in a 512x512 atlas, DejaVu Sans lost 15 glyphs and textWidth("Hello") came back as 0, which
+    // silently mis-centres every drawTextCentered call. So grow the atlas and bake again until the
+    // whole range fits. Baking is cheap next to the upload, and the loop normally runs once: 512
+    // holds 32..127 up to about 64 px, and each doubling buys roughly twice the pixel height.
+    int atlasSide = 512;
+    int result = 0;
+    std::vector<uint8_t> coverage;
     stbtt_bakedchar baked[kCount];
-    const int result = stbtt_BakeFontBitmap(ttf.data(), 0, pixelHeight, coverage.data(), atlasW,
-                                            atlasH, kFirst, kCount, baked);
-    if (result == 0) {
-        MAZ_LOG_ERROR("Font: stbtt_BakeFontBitmap failed for '%s'", ttfPath);
-        return false;
+    for (;;) {
+        coverage.assign(static_cast<size_t>(atlasSide) * static_cast<size_t>(atlasSide), 0);
+        result = stbtt_BakeFontBitmap(ttf.data(), 0, pixelHeight, coverage.data(), atlasSide,
+                                      atlasSide, kFirst, kCount, baked);
+        if (result > 0) {
+            break;
+        }
+        // 4096x4096 is 16 MB of coverage and 64 MB of RGBA; past that the caller wants a glyph
+        // cache, not a baked atlas, so fail loudly instead of quietly handing back half a font.
+        if (atlasSide >= 4096) {
+            MAZ_LOG_ERROR("Font: '%s' at %.1f px does not fit a 4096x4096 atlas (%d of %d glyphs)",
+                          ttfPath, static_cast<double>(pixelHeight), -result, kCount);
+            return false;
+        }
+        atlasSide *= 2;
     }
+    const int atlasW = atlasSide;
+    const int atlasH = atlasSide;
 
     // Ascent (top-to-baseline) so callers can anchor text by its top-left.
     stbtt_fontinfo info;

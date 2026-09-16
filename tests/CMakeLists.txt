@@ -1228,6 +1228,13 @@ target_link_libraries(maz_textshaping_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME text_shaping COMMAND maz_textshaping_tests)
 set_tests_properties(text_shaping PROPERTIES TIMEOUT 30)
 
+# ui::Font and ui::DebugOverlay against tests/support/RecordingRenderer.hpp -- a render::Renderer
+# that draws nothing and records every call, so the real baking and layout code runs with no GPU.
+add_executable(maz_font_tests ui/font.cpp)
+target_link_libraries(maz_font_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME ui_font COMMAND maz_font_tests ${CMAKE_SOURCE_DIR}/assets/fonts/DejaVuSans.ttf)
+set_tests_properties(ui_font PROPERTIES TIMEOUT 60)
+
 add_executable(maz_scripttooling_tests script/tooling.cpp)
 target_link_libraries(maz_scripttooling_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME script_tooling COMMAND maz_scripttooling_tests)
