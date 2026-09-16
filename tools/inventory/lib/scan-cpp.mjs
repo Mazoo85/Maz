@@ -195,15 +195,25 @@ export function scanApps(root) {
       // already, has no frame to capture, and asking it for a headless mode or
       // a golden screenshot is asking the wrong question.
       windowed: /platform::Window\b/.test(source),
-      // Whether it can run with no display.
+      // Whether it can run with no display. Three ways an app can qualify, and
+      // this check has now been wrong about two of them:
       //
-      // This used to test for the literal string "--headless" in the source,
-      // and reported 38 apps as unable to run in CI. Every one of them could:
-      // they call core::parseArgs, which owns the flag, and pass cfg.headless
-      // into the window and renderer configs. All the check actually measured
-      // was whether an app's comment happened to mention the flag by name.
-      // What makes an app headless is the wiring, so that is what is read.
+      //   1. It never opens a platform::Window at all.
+      //   2. It takes the flag: core::parseArgs owns --headless, and the app
+      //      passes cfg.headless into the window and renderer configs.
+      //   3. It hardcodes headless = true, which is a CLI tool that happens to
+      //      use the renderer offscreen (cutscene_export renders a GIF that
+      //      way). Unconditional is stronger than a flag, not weaker.
+      //
+      // The first version tested for the literal string "--headless" and
+      // reported 38 apps as unable to run in CI. Every one of them could —
+      // all the check measured was whether an app's comment happened to name
+      // the flag. Rewriting it around parseArgs fixed those 38 and then failed
+      // case 3, reporting cutscene_export as needing a display when the only
+      // window it ever creates is explicitly a headless one. Both mistakes are
+      // the same mistake: reading for a spelling rather than for the property.
       headless: !/platform::Window\b/.test(source) ||
+        /headless\s*=\s*true/.test(source) ||
         (/\bparseArgs\b/.test(source) && /headless/i.test(source)),
       demoFlag: source.includes('--demo'),
       // The template is the mobile-ready starting point; an app that never

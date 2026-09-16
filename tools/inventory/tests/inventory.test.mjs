@@ -274,6 +274,37 @@ await test('a command-line tool is not asked for a headless mode or a screenshot
   assert.strictEqual(shown.headless, true, 'wiring cfg.headless through is what makes an app headless');
 });
 
+await test('an offscreen exporter is headless even though it opens a window', async () => {
+  // The same mistake a second time, in the opposite direction. Rewriting the
+  // check around parseArgs fixed the 38 false alarms above and then produced a
+  // new one: apps/cutscene_export renders a GIF through the offscreen renderer,
+  // so it DOES construct a platform::Window — and sets headless on it
+  // unconditionally, because it is a command-line tool with its own flags and
+  // no use for --headless. Requiring parseArgs called that "cannot run without
+  // a display", of the one app in the tree that can never open one.
+  //
+  // Hardcoding headless is a stronger guarantee than accepting a flag, not a
+  // weaker one, so it counts.
+  write(ROOT, 'apps/exporter/CMakeLists.txt', 'add_executable(exporter main.cpp)\n');
+  write(ROOT, 'apps/exporter/main.cpp',
+    '// Maz Engine — "EXPORTER" — renders frames offscreen and writes them to a file.\n' +
+    '#include "maz/platform/Window.hpp"\n' +
+    'int main(int argc, char** argv) {\n' +
+    '  platform::WindowConfig wc; wc.headless = true;\n' +
+    '  platform::Window w; w.init(wc);\n' +
+    '  render::RendererConfig rc; rc.allowHeadless = true;\n' +
+    '  return argc + (argv != nullptr);\n' +
+    '}\n');
+  const m = await buildModel(ROOT);
+  const exporter = m.apps.find((a) => a.name === 'exporter');
+  assert.strictEqual(exporter.windowed, true, 'it really does construct a window');
+  assert.strictEqual(exporter.headless, true,
+    'a window created with headless = true cannot need a display');
+  assert.ok(!exporter.checks.some((c) => c.id === 'headless' && !c.ok),
+    'an offscreen exporter must not be reported as needing a display');
+  rmSync(join(ROOT, 'apps/exporter'), { recursive: true, force: true });
+});
+
 await test('an unregistered app is reported as not built', async () => {
   write(ROOT, 'apps/stray/CMakeLists.txt', 'add_executable(stray main.cpp)\n');
   write(ROOT, 'apps/stray/main.cpp', '// Maz Engine — "STRAY" — never wired into the build at all.\nint main(){}\n');

@@ -25,12 +25,12 @@ size is in the wiring between the parts, not in any one part.
 
 | Health signal | Score | |
 |---|---:|---|
-| Completeness checks passing | 88% | █████████░ 2826 of 3228 |
-| Apps that run headless in CI | 99% | ██████████ |
+| Completeness checks passing | 88% | █████████░ 2827 of 3228 |
+| Apps that run headless in CI | 100% | ██████████ |
 | Apps with a golden screenshot | 89% | █████████░ |
 | Engine modules a test exercises | 100% | ██████████ |
 | Engine modules an app demonstrates | 45% | █████░░░░░ |
-| Open tasks in the queue below | 8 | |
+| Open tasks in the queue below | 7 | |
 
 ## 1. Everything you have built
 
@@ -176,7 +176,7 @@ engine capability, a handful of them complete games.
 | **crowd** | steering + pathfinding demo) A flock of agents navigates a shared maze toward a roving goal. Each agent plans its own A* route (maz::game::NavGrid)… | 214 | ✓ | ✓ | — |
 | **cube** | 3D demo) A lit, depth-tested spinning cube rendered through the engine's 3D mesh path, with 2D HUD text drawn over it — proving 2D and 3D compose in… | 134 | ✓ | ✓ | — |
 | **curve** | cubic Bézier path, toward Godot's Curve2D / Path2D) A Curve2D is authored from points with in/out control handles and drawn as a smooth spline. On to… | 177 | ✓ | ✓ | — |
-| **cutscene_export** | exporter. Loads a composed character/item (.mazprefab), bakes it into one mesh, orbits a camera around it over a timeline, renders each frame on the… | 275 | · | · | no headless mode; no golden screenshot |
+| **cutscene_export** | exporter. Loads a composed character/item (.mazprefab), bakes it into one mesh, orbits a camera around it over a timeline, renders each frame on the… | 275 | ✓ | · | no golden screenshot |
 | **data** | data-driven scene from JSON) Nothing on screen is hard-coded: the entire scene — clear color, title, and every sprite (its shape, position, size, tin… | 186 | ✓ | ✓ | — |
 | **deadzone** | input::analogVector / applyDeadzone, toward Godot's Input.get_vector) A raw thumbstick drifts near centre and reaches ~√2 at the diagonals, so naive… | 173 | ✓ | ✓ | — |
 | **distort** | audio::MultiDistortion, toward Godot's AudioEffectDistortion.Mode) A9 (final audio milestone): the full distortion-mode set. The LEFT chart is the tr… | 186 | ✓ | ✓ | — |
@@ -366,10 +366,10 @@ not by judging the work. Every failing check below is a specific, finishable job
 |---|---|---:|
 | engine-module | shown by a sample app | 315/697 (45%) |
 | app | has a golden screenshot | 157/176 (89%) |
-| app | runs headless for CI | 175/176 (99%) |
 | app | built by CMake | 176/176 (100%) |
 | app | has CMakeLists.txt | 176/176 (100%) |
 | app | header comment says what it shows | 176/176 (100%) |
+| app | runs headless for CI | 176/176 (100%) |
 | app | exercises a named engine module | 176/176 (100%) |
 | build-tool | says what it does | 11/11 (100%) |
 | doc | reachable from somewhere | 20/20 (100%) |
@@ -404,14 +404,6 @@ the least-squares family — so the work is closer to a few dozen apps than 499.
 count is highest and the modules cluster most naturally.
 
 <sub>382 affected · effort: medium · value: ★★★ · queued below as the `engine-module:demoed` task</sub>
-
-#### One app cannot run without a display
-
-Apps with --headless / --frames N are run by CI on every push and can be captured as goldens;
-apps without them are only ever proven by someone opening a window. The flag is a dozen lines
-copied from apps/_template/main.cpp and it converts each app into a test.
-
-<sub>1 affected · effort: medium · value: ★★★ · queued below as the `app:headless` task</sub>
 
 ### Already wired together
 
@@ -549,10 +541,8 @@ Every gap above, ranked. **P1** is something broken or unprotected, **P2** is a 
 gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list out of
 `docs/inventory.json`, so the nightly Forge can pick work straight off it.
 
-### P1 — broken or unprotected (3)
+### P1 — broken or unprotected (2)
 
-- **One app cannot run without a display**
-  <br>Apps with --headless / --frames N are run by CI on every push and can be captured as goldens; apps without them are only ever proven by someone opening a window. The flag is a dozen lines copied from apps/_template/main.cpp and it converts each app into a test. — cutscene_export. Example: apps/cutscene_export opens a window but never passes cfg.headless through to it. Call core::parseArgs and set wc.headless / rc.allowHeadless from it, as apps/_template does, so CI can run it without a display.
 - **382 engine modules are tested but no app shows them**
   <br>These are finished, working features that nobody can see, and `apps/` is how this engine documents itself. They are not spread evenly: 113 in `render`, 103 in `math`, 66 in `game`, 57 in `core`, 10 in `ui`, 8 in `io`, and 11 other subsystems. Writing 499 apps is not the answer and never was: one demo can show a dozen related modules at once — a single "mesh repair" app for the degenerate, self-intersection and closest-point analysers, one "curve fitting" app for the least-squares family — so the work is closer to a few dozen apps than 499. Start where the count is highest and the modules clus…
 - **SONG FORGE supplies the one music layer the engine does not have**

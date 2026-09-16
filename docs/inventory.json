@@ -14,36 +14,15 @@
     "linesOfApps": 37305,
     "linesOfEngine": 88459,
     "linesOfWeb": 26857,
-    "appsHeadless": 99,
+    "appsHeadless": 100,
     "appsGolden": 89,
     "modulesTested": 100,
     "modulesDemoed": 45,
-    "checksPassed": 2826,
+    "checksPassed": 2827,
     "checksTotal": 3228,
-    "openTasks": 8
+    "openTasks": 7
   },
   "queue": [
-    {
-      "id": "group:app:headless",
-      "priority": 1,
-      "kind": "app",
-      "check": "headless",
-      "title": "One app cannot run without a display",
-      "detail": "Apps with --headless / --frames N are run by CI on every push and can be captured as goldens; apps without them are only ever proven by someone opening a window. The flag is a dozen lines copied from apps/_template/main.cpp and it converts each app into a test. — cutscene_export. Example: apps/cutscene_export opens a window but never passes cfg.headless through to it. Call core::parseArgs and set wc.headless / rc.allowHeadless from it, as apps/_template does, so CI can run it without a display.",
-      "paths": [
-        "apps/cutscene_export"
-      ],
-      "source": "inventory:app:headless",
-      "memberCount": 1,
-      "members": [
-        {
-          "id": "app:cutscene_export",
-          "name": "cutscene_export",
-          "path": "apps/cutscene_export",
-          "fix": "apps/cutscene_export opens a window but never passes cfg.headless through to it. Call core::parseArgs and set wc.headless / rc.allowHeadless from it, as apps/_template does, so CI can run it without a display."
-        }
-      ]
-    },
     {
       "id": "group:engine-module:demoed",
       "priority": 1,
