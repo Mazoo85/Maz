@@ -76,6 +76,7 @@ cutscene_export assets/characters/hero.mazprefab --out hero.gif --gpu        # r
 | `--frame-format ppm\|qoi` | Frame image format when `--frames-dir` is set (`ppm`) |
 | `--aa 1-4` | Supersample anti-aliasing factor (`2`), CPU path only — higher is smoother but slower |
 | `--gpu` | Render the real PBR frame graph offscreen (surfaceless Vulkan + `captureImage`) instead of the CPU preview. Falls back to the CPU rasterizer when no Vulkan device is available. |
+| `--obj FILE` | Also export the baked composite as a Wavefront **OBJ** mesh (positions/uvs/normals + per-vertex colour) for Blender / other engines. |
 
 The GIF is a self-contained preview; the `--frames-dir` PPM/QOI sequence is for pulling into `ffmpeg`
 or a video editor (e.g. `ffmpeg -i frame_%04d.ppm out.mp4`). `--gpu` produces frames that match the
