@@ -85,6 +85,11 @@ inline SegmentClosest closestBetweenSegments(const vec3& p1, const vec3& q1, con
 }
 
 // Convenience: do two capsules (segment + radius) overlap?
+//
+// The comparison is <=, so capsules whose surfaces exactly touch — spines apart by precisely ra + rb —
+// report true. That is the conservative answer for a collision query, but it means a resolver that
+// separates shapes until this returns false will never finish: it has to push them strictly apart, or
+// treat a zero-penetration contact as resolved.
 inline bool capsulesOverlap(const vec3& a0, const vec3& a1, float ra, const vec3& b0, const vec3& b1,
                             float rb) {
     return closestBetweenSegments(a0, a1, b0, b1).distance <= (ra + rb);
