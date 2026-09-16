@@ -398,6 +398,7 @@ input[type="range"]::-moz-range-thumb {
 .transport {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   margin-top: 12px;
 }
@@ -415,7 +416,10 @@ input[type="range"]::-moz-range-thumb {
   padding-left: 3px;
 }
 .play-btn.playing { padding-left: 0; }
-.seekwrap { flex: 1 1 auto; min-width: 0; }
+/* `min-width: 0` alone lets the seek bar shrink to literally nothing, and it
+   did: one more button in this row squeezed it to zero pixels wide, with no
+   error and nothing to see. It keeps a floor now, and the row wraps instead. */
+.seekwrap { flex: 1 1 200px; min-width: 160px; }
 .times {
   display: flex;
   justify-content: space-between;
@@ -1256,6 +1260,8 @@ kbd {
       <button type="button" class="mini-btn toggle" id="clickBtn"
               title="Click along with the beat, with a bar counted in">Click</button>
       <button type="button" class="mini-btn toggle on" id="loopBtn" title="Loop the song">Loop</button>
+      <button type="button" class="mini-btn" id="noSoundBtn"
+              title="Check why you cannot hear anything">🔇 No sound?</button>
     </div>
   </section>
 
@@ -8289,6 +8295,8 @@ kbd {
      */
     this.loopFrom = null;
     this.loopTo = null;
+    /* What went wrong the last time sound was asked for, if anything. */
+    this.audioFault = null;
     this.mix = {};
     TRACKS.forEach(function (t) {
       this.mix[t] = {
@@ -8312,11 +8320,70 @@ kbd {
   Player.prototype.ensureContext = function () {
     if (!this.ctx) {
       const AC = global.AudioContext || global.webkitAudioContext;
-      if (!AC) return null;
-      this.ctx = new AC();
+      if (!AC) { this.audioFault = 'unsupported'; return null; }
+      try {
+        this.ctx = new AC();
+      } catch (e) {
+        this.audioFault = 'refused';
+        return null;
+      }
     }
-    if (this.ctx.state === 'suspended') this.ctx.resume();
+    if (this.ctx.state === 'suspended') {
+      /* resume() hands back a promise that can reject — a browser waiting for
+         a gesture, or one that has run out of audio contexts. Nothing used to
+         look at it, so the app went on claiming to play over silence. */
+      const self = this;
+      try {
+        const r = this.ctx.resume();
+        if (r && r.catch) r.catch(function () { self.audioFault = 'blocked'; });
+      } catch (e) {
+        this.audioFault = 'blocked';
+      }
+    }
     return this.ctx;
+  };
+
+  /* ------------------------------------------------------------------ *
+   * Why there is no sound
+   *
+   * Silence has half a dozen ordinary causes and the program knew all of them
+   * and said none of them. Checked in the order they actually happen, and
+   * worded for someone who wants their music back rather than a diagnosis.
+   * Returns null when there is nothing wrong.
+   * ------------------------------------------------------------------ */
+
+  Player.prototype.whySilent = function () {
+    if (this.audioFault === 'unsupported' || !(global.AudioContext || global.webkitAudioContext)) {
+      return 'This browser cannot make sound — it has no Web Audio support. Chrome, Edge, Firefox and Safari all do.';
+    }
+    if (this.audioFault === 'refused') {
+      return 'The browser would not start an audio device. Close some other tabs and reload the page.';
+    }
+    if (!this.song) return 'There is no song loaded yet — press Write me a song.';
+    if (this.ctx && this.ctx.state === 'closed') {
+      return 'The audio device stopped. Reload the page to get it back.';
+    }
+    if (!this.ctx || this.ctx.state === 'suspended' || this.audioFault === 'blocked') {
+      return 'Your browser is waiting for you to tap the page before it will play sound. Press play once more.';
+    }
+    if (this.volume <= 0.001) return 'The Volume slider is all the way down.';
+    if (!this.flat.length) return 'There are no notes to play — every part is empty, or every section is silenced.';
+
+    const names = TRACKS.filter(function (t) { return true; });
+    const soloed = names.filter(function (t) { return this.mix[t] && this.mix[t].solo; }, this);
+    const audible = (soloed.length ? soloed : names).filter(function (t) {
+      return this.mix[t] && !this.mix[t].muted && this.mix[t].volume > 0.001;
+    }, this);
+    if (!audible.length) {
+      return soloed.length
+        ? 'The only part soloed in the mixer is muted or turned down.'
+        : 'Every part is muted in the mixer.';
+    }
+    const playable = audible.filter(function (t) {
+      return (this.song.tracks[t] || []).length > 0;
+    }, this);
+    if (!playable.length) return 'The parts you can hear have no notes in them.';
+    return null;
   };
 
   Player.prototype.load = function (song) {
@@ -11625,7 +11692,9 @@ kbd {
 
     if (opts.autoplay !== false) {
       player.play(0);
-      setPlayIcon(true);
+      setPlayIcon(player.playing);
+      if (player.playing) watchForSilence();
+      else status('No sound: ' + (player.whySilent() || 'playback would not start.'));
     } else {
       setPlayIcon(false);
     }
@@ -13094,14 +13163,54 @@ kbd {
     el('playBtn').setAttribute('aria-label', playing ? 'Pause' : 'Play');
   }
 
+  /**
+   * Press play, then check that sound is actually happening.
+   *
+   * Everything downstream used to assume it was: the icon flipped to "playing"
+   * whether or not a single sample ever reached the speakers, so a browser
+   * holding audio back, a muted mixer or a volume at zero all looked exactly
+   * like a working program that had gone quiet. Now the one place that starts
+   * playback is also the place that notices it did not.
+   */
+  let silenceWatch = null;
+
+  function watchForSilence() {
+    if (silenceWatch) clearInterval(silenceWatch);
+    let peak = 0;
+    const started = Date.now();
+    silenceWatch = setInterval(function () {
+      if (!player.playing) { clearInterval(silenceWatch); silenceWatch = null; return; }
+      peak = Math.max(peak, player.level());
+      if (Date.now() - started < 900) return;
+      clearInterval(silenceWatch);
+      silenceWatch = null;
+
+      const why = player.whySilent();
+      if (why) { status('No sound: ' + why); return; }
+      /* Nothing is wrong that the program can see, and still nothing came out
+         of the meter — so the signal is leaving here and stopping somewhere
+         past it. Say where to look rather than saying nothing. */
+      if (peak <= 0.001) {
+        status('No sound: the song is playing but nothing is reaching the speakers. ' +
+          'Check this browser tab is not muted, your device is not on silent, and the ' +
+          'right output is selected.');
+      }
+    }, 150);
+  }
+
   function togglePlay() {
     if (!state.song) { generate(); return; }
     if (player.playing) {
       player.pause();
       setPlayIcon(false);
+      if (silenceWatch) { clearInterval(silenceWatch); silenceWatch = null; }
     } else {
       player.play();
-      setPlayIcon(true);
+      /* The icon tells the truth about the transport, so if playback refused
+         to start it must not claim otherwise. */
+      setPlayIcon(player.playing);
+      if (player.playing) watchForSilence();
+      else status('No sound: ' + (player.whySilent() || 'playback would not start.'));
     }
   }
 
@@ -13119,6 +13228,25 @@ kbd {
       player.loop = !player.loop;
       this.classList.toggle('on', player.loop);
       status(player.loop ? 'Looping.' : 'Playing once through.');
+    });
+
+    /* Askable at any moment, not only in the second after pressing play —
+       which is usually long past by the time you have worked out that the
+       silence is not the music. */
+    el('noSoundBtn').addEventListener('click', function () {
+      const why = player.whySilent();
+      if (why) { status('No sound: ' + why); return; }
+      if (!player.playing) {
+        status('Everything looks right — press play and you should hear it.');
+        return;
+      }
+      const lit = player.level();
+      status(lit > 0.001
+        ? 'Sound is coming out of the app (level ' + Math.round(lit * 100) + '%). ' +
+          'If you cannot hear it, check this tab is not muted, your device is not on ' +
+          'silent, and the right output is selected.'
+        : 'The song is playing but nothing is reaching the speakers. Check this browser ' +
+          'tab is not muted, your device is not on silent, and the right output is selected.');
     });
 
     const seek = el('seek');

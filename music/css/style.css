@@ -383,6 +383,7 @@ input[type="range"]::-moz-range-thumb {
 .transport {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   margin-top: 12px;
 }
@@ -400,7 +401,10 @@ input[type="range"]::-moz-range-thumb {
   padding-left: 3px;
 }
 .play-btn.playing { padding-left: 0; }
-.seekwrap { flex: 1 1 auto; min-width: 0; }
+/* `min-width: 0` alone lets the seek bar shrink to literally nothing, and it
+   did: one more button in this row squeezed it to zero pixels wide, with no
+   error and nothing to see. It keeps a floor now, and the row wraps instead. */
+.seekwrap { flex: 1 1 200px; min-width: 160px; }
 .times {
   display: flex;
   justify-content: space-between;

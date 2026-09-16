@@ -1213,6 +1213,8 @@
      */
     this.loopFrom = null;
     this.loopTo = null;
+    /* What went wrong the last time sound was asked for, if anything. */
+    this.audioFault = null;
     this.mix = {};
     TRACKS.forEach(function (t) {
       this.mix[t] = {
@@ -1236,11 +1238,70 @@
   Player.prototype.ensureContext = function () {
     if (!this.ctx) {
       const AC = global.AudioContext || global.webkitAudioContext;
-      if (!AC) return null;
-      this.ctx = new AC();
+      if (!AC) { this.audioFault = 'unsupported'; return null; }
+      try {
+        this.ctx = new AC();
+      } catch (e) {
+        this.audioFault = 'refused';
+        return null;
+      }
     }
-    if (this.ctx.state === 'suspended') this.ctx.resume();
+    if (this.ctx.state === 'suspended') {
+      /* resume() hands back a promise that can reject — a browser waiting for
+         a gesture, or one that has run out of audio contexts. Nothing used to
+         look at it, so the app went on claiming to play over silence. */
+      const self = this;
+      try {
+        const r = this.ctx.resume();
+        if (r && r.catch) r.catch(function () { self.audioFault = 'blocked'; });
+      } catch (e) {
+        this.audioFault = 'blocked';
+      }
+    }
     return this.ctx;
+  };
+
+  /* ------------------------------------------------------------------ *
+   * Why there is no sound
+   *
+   * Silence has half a dozen ordinary causes and the program knew all of them
+   * and said none of them. Checked in the order they actually happen, and
+   * worded for someone who wants their music back rather than a diagnosis.
+   * Returns null when there is nothing wrong.
+   * ------------------------------------------------------------------ */
+
+  Player.prototype.whySilent = function () {
+    if (this.audioFault === 'unsupported' || !(global.AudioContext || global.webkitAudioContext)) {
+      return 'This browser cannot make sound — it has no Web Audio support. Chrome, Edge, Firefox and Safari all do.';
+    }
+    if (this.audioFault === 'refused') {
+      return 'The browser would not start an audio device. Close some other tabs and reload the page.';
+    }
+    if (!this.song) return 'There is no song loaded yet — press Write me a song.';
+    if (this.ctx && this.ctx.state === 'closed') {
+      return 'The audio device stopped. Reload the page to get it back.';
+    }
+    if (!this.ctx || this.ctx.state === 'suspended' || this.audioFault === 'blocked') {
+      return 'Your browser is waiting for you to tap the page before it will play sound. Press play once more.';
+    }
+    if (this.volume <= 0.001) return 'The Volume slider is all the way down.';
+    if (!this.flat.length) return 'There are no notes to play — every part is empty, or every section is silenced.';
+
+    const names = TRACKS.filter(function (t) { return true; });
+    const soloed = names.filter(function (t) { return this.mix[t] && this.mix[t].solo; }, this);
+    const audible = (soloed.length ? soloed : names).filter(function (t) {
+      return this.mix[t] && !this.mix[t].muted && this.mix[t].volume > 0.001;
+    }, this);
+    if (!audible.length) {
+      return soloed.length
+        ? 'The only part soloed in the mixer is muted or turned down.'
+        : 'Every part is muted in the mixer.';
+    }
+    const playable = audible.filter(function (t) {
+      return (this.song.tracks[t] || []).length > 0;
+    }, this);
+    if (!playable.length) return 'The parts you can hear have no notes in them.';
+    return null;
   };
 
   Player.prototype.load = function (song) {

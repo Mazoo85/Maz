@@ -2590,6 +2590,66 @@ function launchOptions() {
   check(keyActs.whileTyping === keyActs.settled && keyActs.toolWhileTyping === 'draw',
     'and none of them fire while you are typing in a box');
 
+  console.log('\n— saying why there is no sound —');
+  /* Silence has half a dozen ordinary causes and the program knew every one of
+     them and said none of them: the play icon flipped to "playing" whether or
+     not a single sample ever left the page. Each cause is set up here and the
+     answer read back, because a diagnosis that is right about one thing and
+     silent about the rest is what this replaces. */
+  const quiet = await page.evaluate(function () {
+    const p = window.__songforge.player;
+    const out = {};
+    const was = { vol: p.volume, fault: p.audioFault };
+    const mutes = {};
+    Object.keys(p.mix).forEach(function (k) { mutes[k] = p.mix[k].muted; });
+
+    out.healthy = p.whySilent();
+
+    Object.keys(p.mix).forEach(function (k) { p.mix[k].muted = true; });
+    out.allMuted = p.whySilent();
+    Object.keys(p.mix).forEach(function (k) { p.mix[k].muted = mutes[k]; });
+
+    /* One part soloed and that same part muted: audible on paper, silent in
+       fact, and the commonest way a mixer traps someone. */
+    p.mix.lead.solo = true;
+    p.mix.lead.muted = true;
+    out.soloTrap = p.whySilent();
+    p.mix.lead.solo = false;
+    p.mix.lead.muted = mutes.lead;
+
+    p.volume = 0;
+    out.volZero = p.whySilent();
+    p.volume = was.vol;
+
+    p.audioFault = 'blocked';
+    out.blocked = p.whySilent();
+    p.audioFault = 'unsupported';
+    out.unsupported = p.whySilent();
+    p.audioFault = was.fault;
+
+    out.backToHealthy = p.whySilent();
+    return out;
+  });
+  check(quiet.healthy === null && quiet.backToHealthy === null,
+    'a working app is told it is working — no false alarm');
+  check(/muted in the mixer/i.test(quiet.allMuted || ''),
+    'every part muted is named as the cause (' + quiet.allMuted + ')');
+  check(/solo/i.test(quiet.soloTrap || ''),
+    'so is the part that is soloed and muted at once (' + quiet.soloTrap + ')');
+  check(/Volume/i.test(quiet.volZero || ''),
+    'so is the volume being down (' + quiet.volZero + ')');
+  check(/tap the page/i.test(quiet.blocked || ''),
+    'and a browser holding sound back says what to do about it');
+  check(/Web Audio/i.test(quiet.unsupported || ''),
+    'a browser that cannot make sound at all says so plainly');
+
+  /* The button that asks. It has to work before anything is playing, because
+     that is when people press it. */
+  await page.click('#noSoundBtn');
+  const asked = await page.textContent('#statusLine');
+  check(asked && asked.length > 20 && !/^Ready/.test(asked),
+    'and the No sound? button answers at any time (' + asked.slice(0, 60) + '…)');
+
   console.log('\n— the Station —');
   /* The groovebox. The thing worth proving is not that the pads light up but
      that it is genuinely part of this program: it arrives already filled in

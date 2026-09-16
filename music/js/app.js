@@ -274,7 +274,9 @@
 
     if (opts.autoplay !== false) {
       player.play(0);
-      setPlayIcon(true);
+      setPlayIcon(player.playing);
+      if (player.playing) watchForSilence();
+      else status('No sound: ' + (player.whySilent() || 'playback would not start.'));
     } else {
       setPlayIcon(false);
     }
@@ -1743,14 +1745,54 @@
     el('playBtn').setAttribute('aria-label', playing ? 'Pause' : 'Play');
   }
 
+  /**
+   * Press play, then check that sound is actually happening.
+   *
+   * Everything downstream used to assume it was: the icon flipped to "playing"
+   * whether or not a single sample ever reached the speakers, so a browser
+   * holding audio back, a muted mixer or a volume at zero all looked exactly
+   * like a working program that had gone quiet. Now the one place that starts
+   * playback is also the place that notices it did not.
+   */
+  let silenceWatch = null;
+
+  function watchForSilence() {
+    if (silenceWatch) clearInterval(silenceWatch);
+    let peak = 0;
+    const started = Date.now();
+    silenceWatch = setInterval(function () {
+      if (!player.playing) { clearInterval(silenceWatch); silenceWatch = null; return; }
+      peak = Math.max(peak, player.level());
+      if (Date.now() - started < 900) return;
+      clearInterval(silenceWatch);
+      silenceWatch = null;
+
+      const why = player.whySilent();
+      if (why) { status('No sound: ' + why); return; }
+      /* Nothing is wrong that the program can see, and still nothing came out
+         of the meter — so the signal is leaving here and stopping somewhere
+         past it. Say where to look rather than saying nothing. */
+      if (peak <= 0.001) {
+        status('No sound: the song is playing but nothing is reaching the speakers. ' +
+          'Check this browser tab is not muted, your device is not on silent, and the ' +
+          'right output is selected.');
+      }
+    }, 150);
+  }
+
   function togglePlay() {
     if (!state.song) { generate(); return; }
     if (player.playing) {
       player.pause();
       setPlayIcon(false);
+      if (silenceWatch) { clearInterval(silenceWatch); silenceWatch = null; }
     } else {
       player.play();
-      setPlayIcon(true);
+      /* The icon tells the truth about the transport, so if playback refused
+         to start it must not claim otherwise. */
+      setPlayIcon(player.playing);
+      if (player.playing) watchForSilence();
+      else status('No sound: ' + (player.whySilent() || 'playback would not start.'));
     }
   }
 
@@ -1768,6 +1810,25 @@
       player.loop = !player.loop;
       this.classList.toggle('on', player.loop);
       status(player.loop ? 'Looping.' : 'Playing once through.');
+    });
+
+    /* Askable at any moment, not only in the second after pressing play —
+       which is usually long past by the time you have worked out that the
+       silence is not the music. */
+    el('noSoundBtn').addEventListener('click', function () {
+      const why = player.whySilent();
+      if (why) { status('No sound: ' + why); return; }
+      if (!player.playing) {
+        status('Everything looks right — press play and you should hear it.');
+        return;
+      }
+      const lit = player.level();
+      status(lit > 0.001
+        ? 'Sound is coming out of the app (level ' + Math.round(lit * 100) + '%). ' +
+          'If you cannot hear it, check this tab is not muted, your device is not on ' +
+          'silent, and the right output is selected.'
+        : 'The song is playing but nothing is reaching the speakers. Check this browser ' +
+          'tab is not muted, your device is not on silent, and the right output is selected.');
     });
 
     const seek = el('seek');
