@@ -46,8 +46,13 @@ int main() {
     // Multi-part export (per-part pbrMetallicRoughness) re-imports: cgltf accepts it and merges the
     // primitives; total geometry is the sum and each part's COLOR_0 tint survives.
     {
-        const render::shapes::MeshData a = render::shapes::makeBox(1.0f, render::Color{1, 1, 1, 1});
-        const render::shapes::MeshData c = render::shapes::makeBox(0.5f, render::Color{1, 1, 1, 1});
+        // Tint the vertices to the base colour, exactly as editor::bakeSegments does — encodeGlbParts
+        // writes COLOR_0 from the mesh vertices (the material baseColorFactor is separate, and
+        // loadGltf reads COLOR_0, not the factor).
+        const render::shapes::MeshData a =
+            render::shapes::makeBox(1.0f, render::Color{0.9f, 0.2f, 0.1f, 1.0f});
+        const render::shapes::MeshData c =
+            render::shapes::makeBox(0.5f, render::Color{0.15f, 0.55f, 0.9f, 1.0f});
         render::GlbPart p0;
         p0.mesh = &a;
         p0.baseColor[0] = 0.9f; p0.baseColor[1] = 0.2f; p0.baseColor[2] = 0.1f;
