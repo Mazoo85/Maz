@@ -457,6 +457,60 @@ It focuses on whatever the camera is aimed at, which is not so much a choice as 
 `lensFor` already decided what the shot is *of*, so the focus distance falls out of it and cannot
 disagree with the framing.
 
+## A shutter
+
+A rasteriser renders an **instant**: infinitely short, perfectly sharp, and wrong. A film camera's
+shutter is open for a fraction of every frame, and whatever moved while it was open lands on the film
+as a smear. That smear is not authenticity being simulated — it is the thing that joins one frame to
+the next. Without it a pan at twelve frames a second is a sequence of separate photographs, which is
+the effect people call strobing.
+
+`render/MotionBlur.hpp` does the camera half of it. For every pixel it works out where the thing
+standing there was a frame ago — unproject through the depth buffer, reproject through the previous
+camera, which the render cache already knows — and gathers along the line between. It is **exact for
+anything that did not move under its own power** and wrong for a walking figure, who gets smeared as
+if they had held still while the camera moved. Doing it properly needs a per-pixel velocity written
+by the rasteriser, which is a second transform of every vertex; camera motion is also where nearly
+all the visible strobing is, because a figure crossing a locked-off frame moves a few pixels and a
+pan moves the whole picture.
+
+Per pixel and not once per frame, because the answer depends on distance: under a **pan** everything
+moves across the frame together whatever its distance, and under a **track** the near thing moves much
+further than the far one. That parallax is most of what carries the feeling of speed in a tracking
+shot, and one number for the whole frame would be right for the pan and wrong for the track.
+
+### It is off while the film is playing, and why
+
+Three guesses at where this pass costs what it costs were all wrong, which is worth recording:
+
+| guess | result |
+|---|---|
+| the tap count | 4 taps and 9 taps: 32.2 ms and 32.0 ms a frame. Identical — real velocities are a few pixels, so the cap was never reached |
+| two matrix transforms per pixel | collapsing them into one precomputed matrix: no change |
+| per-tap clamping and index arithmetic | a fast path for streaks wholly inside the picture: 6.9 ms → 6.3 ms, a tenth |
+
+Measured properly, at a realistic tracking speed: velocity **0.8 ms**, copying the frame **0.2 ms**,
+and the gather **~5.3 ms**. It is memory-bound — a 1.2 MB frame read five times over — and shortening
+the shutter barely helps, because even a sub-pixel smear still costs 3.9 ms. There is a floor of about
+3 ms on every frame where the camera moves.
+
+Over a whole minute of real film that is **34.98 ms a frame to 38.71** — 10.7%. A locked-off shot
+costs **0.000 ms**, because five probe points decide there is nothing to smear before anything is
+copied.
+
+And 10.7% is more than the frame budget has. With the shutter on, the browser measures 35 ms against
+a limit of 41, and that limit is where it is because a device half this speed still has to play the
+film. Moving the limit to fit the feature would be marking one's own homework. So the shutter is
+**on where there is no clock** — the command-line renderer, which has all night, and `--shutter`
+controls it — and **off in the browser while a film is playing**. If the play path ever gets cheaper,
+this is the first thing that should have the room.
+
+One thing this could not settle for itself: whether it is worth it to look at. A still cannot show
+motion blur, and nobody here can watch the film play. The implementation is correct — direction,
+magnitude, parallax and conservation are all checked, and ten deliberate breaks of it are caught — and
+the technique is the standard one; but the judgement that it improves the picture is borrowed, not
+measured.
+
 ## Where the time goes
 
 Every pixel is worked out on the processor, so the frame budget is what everything else has to be paid

@@ -70,15 +70,22 @@ EMSCRIPTEN_KEEPALIVE int maz3d_shot_at(double seconds) {
 
 // Draw one frame and return a pointer to width * height * 4 bytes of RGBA, owned by the module and
 // good until the next call. `supersample` is 1 to play and 2 to keep; `shadows` is 0 none, 1 hard,
-// 2 soft.
+// 2 soft; `shutter` is how far the shutter opens in hundredths of a frame, 50 being what a film
+// camera does and 0 a stills camera.
+//
+// The shutter is passed in rather than left at its default because it is the one setting whose right
+// answer differs between a page playing a film to time and a command line with all night to render
+// it. Anything that calls this without saying gets no shutter, which is the safe answer for a caller
+// that has not thought about its frame budget.
 EMSCRIPTEN_KEEPALIVE const std::uint8_t* maz3d_render(double seconds, int width, int height,
-                                                      int supersample, int shadows) {
+                                                      int supersample, int shadows, int shutter) {
     if (!g_reel.valid || width < 8 || height < 8) {
         return nullptr;
     }
     film3d::Look look;
     look.supersample = supersample;
     look.shadows = shadows;
+    look.shutter = shutter < 0 ? 0 : (shutter > 100 ? 100 : shutter);
     g_frame = film3d::drawFrame3D(g_reel, g_cast, seconds, width, height, look, &g_cache);
     return g_frame.data().data();
 }

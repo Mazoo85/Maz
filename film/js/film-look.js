@@ -33,8 +33,22 @@
    *
    * A frame at 480 across takes about 23 ms at PLAY and about 57 at KEEP, so PLAY leaves room at
    * twelve frames a second on a machine several times slower than the one those were measured on. */
-  var PLAY = { supersample: 1, shadows: 1 };
-  var KEEP = { supersample: 2, shadows: 2 };
+  /* What the two quality tiers ask for.
+   *
+   * `shutter` is how far the camera's shutter opens, in hundredths of a frame. A film camera sits at
+   * 50 and that is what makes a pan at twelve frames a second look like a pan rather than a series of
+   * photographs — so it is genuinely wanted, and it is nevertheless OFF while playing. It is a
+   * full-frame pass over the picture and it costs about three and a half milliseconds of a
+   * thirty-five millisecond frame, and that frame budget has nothing spare: with it on, this machine
+   * measures 35 ms against a limit of 41, and the limit is where it is because a device half this
+   * speed still has to play the film. Moving the limit to fit the feature would be marking one's own
+   * homework.
+   *
+   * So it is on where there is no clock — the command-line renderer, which has all night — and off
+   * where there is one. If the play path ever gets cheaper, this is the first thing that should have
+   * the room. */
+  var PLAY = { supersample: 1, shadows: 1, shutter: 0 };
+  var KEEP = { supersample: 2, shadows: 2, shutter: 50 };
 
   /* ------------------------------------------------------------------ the module */
 
@@ -70,7 +84,7 @@
         load: m.cwrap('maz3d_load', 'number', ['string']),
         errorAt: m.cwrap('maz3d_error', 'number', []),
         render: m.cwrap('maz3d_render', 'number',
-                        ['number', 'number', 'number', 'number', 'number'])
+                        ['number', 'number', 'number', 'number', 'number', 'number'])
       };
       return mod;
     }, function (err) {
@@ -102,7 +116,7 @@
   function draw3D(ctx, width, height, reel, time, opts) {
     if (!mod || !giveReel(reel)) return false;
     var how = (opts && opts.keep) ? KEEP : PLAY;
-    var ptr = mod.render(time || 0, width, height, how.supersample, how.shadows);
+    var ptr = mod.render(time || 0, width, height, how.supersample, how.shadows, how.shutter);
     if (!ptr) return false;
     var bytes = mod.raw.HEAPU8.subarray(ptr, ptr + width * height * 4);
     var image = ctx.createImageData(width, height);

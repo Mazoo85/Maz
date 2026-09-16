@@ -5,6 +5,7 @@
 
 #include "maz/film/AirVolume.hpp"
 #include "maz/render/DepthOfField.hpp"
+#include "maz/render/MotionBlur.hpp"
 #include "maz/film/Expression.hpp"
 
 #include "maz/render/Tonemap.hpp"
@@ -31,6 +32,11 @@ struct Look {
     // It is a separate knob from the supersample because it costs a fixed amount per frame rather
     // than a multiple of everything.
     int lens = 1;
+    // How far the shutter opens, in hundredths of a frame interval. 50 is the 180-degree shutter a
+    // film camera has had for a century and is what this wants; 0 is a stills camera, and a stills
+    // camera at twelve frames a second is a slideshow. A separate knob from the lens because it
+    // costs a different amount and only on the frames where the camera is actually moving.
+    int shutter = 50;
     int supersample = 2;   // 1 plays, 2 is for keeps: the frame is drawn twice over and averaged
     int shadows = 2;       // 0 none, 1 a hard edge, 2 a soft one
 };
@@ -46,6 +52,16 @@ struct Cache {
     int shot = -1;
     Stage stage;
     bool held = false;
+
+    // Where the camera was on the previous frame, so this one can be smeared from there to here.
+    // It is kept rather than recomputed because recomputing it means running the whole camera
+    // decision a second time, and because the cache is the one thing here that already knows what
+    // happened a frame ago. `at` is when that camera was, and `lensShot` which shot it belonged to:
+    // a camera from a different shot, or from a second ago, is not a camera this frame moved from,
+    // and smearing between two of them would draw a whip pan across every cut in the film.
+    Lens lens;
+    double at = -1.0;
+    int lensShot = -1;
 };
 
 // How the key light falls in this room at this hour. The palette already decided what colour the light
@@ -602,6 +618,47 @@ inline Image drawFrame3D(const Reel& reel, const std::map<std::string, Cast>& ca
     //
     // Blurred BEFORE the print curve, because defocus is something that happens to light on its way to
     // the film and not to the photograph afterwards.
+    // The depth buffer, read back at the frame's own resolution: one sample per finished pixel, taken
+    // from the middle of the block that made it. Both the shutter and the lens need it — the shutter
+    // to know how far the thing at each pixel moved, the lens to know how far away it is — so it is
+    // read once here rather than twice below.
+    const bool wantsShutter = look.shutter > 0 && cache != nullptr && cache->lensShot == shot->index &&
+                              cache->at >= 0.0 && time > cache->at && time - cache->at < 0.35;
+    std::vector<float> depth;
+    if (look.lens > 0 || wantsShutter) {
+        depth.assign(static_cast<std::size_t>(frameW) * static_cast<std::size_t>(frameH), 1.0f);
+        for (int y = 0; y < static_cast<int>(frameH); ++y) {
+            for (int x = 0; x < static_cast<int>(frameW); ++x) {
+                depth[static_cast<std::size_t>(y) * static_cast<std::size_t>(frameW) +
+                      static_cast<std::size_t>(x)] = raster.depthAt(x * S + S / 2, y * S + S / 2);
+            }
+        }
+    }
+
+    // ---- the shutter ------------------------------------------------------------------------------
+    //
+    // A rasteriser renders an instant. A film camera does not: its shutter is open for a fraction of
+    // every frame, and whatever moved while it was open lands on the film as a smear. That smear is
+    // not authenticity being simulated — it is the thing that joins one frame to the next, and
+    // without it a pan at twelve frames a second is a sequence of separate photographs.
+    //
+    // Where the camera WAS comes out of the cache, which is the one thing here that already knows
+    // what happened a frame ago. Applied before the lens, because the shutter is open while the light
+    // is still on its way through the glass.
+    if (wantsShutter) {
+        const math::mat4 wasView =
+            glm::lookAt(cache->lens.eye, cache->lens.at, math::vec3(0.0f, 1.0f, 0.0f));
+        const math::mat4 wasVp =
+            math::perspective(cache->lens.fovY, frameW / frameH, 0.04f, 220.0f) * wasView;
+        maz::render::motionBlur(img, y0, y0 + static_cast<int>(frameH), depth, vp, wasVp,
+                                static_cast<float>(look.shutter) / 100.0f);
+    }
+    if (cache != nullptr) {
+        cache->lens = sc.lens;
+        cache->at = time;
+        cache->lensShot = shot->index;
+    }
+
     if (look.lens > 0) {
         const float focus = std::sqrt(math::dot(sc.lens.at - sc.lens.eye, sc.lens.at - sc.lens.eye));
         float aperture = 0.0f;
@@ -616,17 +673,6 @@ inline Image drawFrame3D(const Reel& reel, const std::map<std::string, Cast>& ca
             // thing in frame comes out five per cent soft, which nobody can see and everybody pays
             // six milliseconds a frame for.
             aperture = 0.0f;
-        }
-        // The depth buffer, read back at the frame's own resolution: one sample per finished pixel,
-        // taken from the middle of the block that made it.
-        std::vector<float> depth(static_cast<std::size_t>(frameW) * static_cast<std::size_t>(frameH),
-                                 1.0f);
-        for (int y = 0; y < static_cast<int>(frameH); ++y) {
-            for (int x = 0; x < static_cast<int>(frameW); ++x) {
-                depth[static_cast<std::size_t>(y) * static_cast<std::size_t>(frameW) +
-                      static_cast<std::size_t>(x)] =
-                    raster.depthAt(x * S + S / 2, y * S + S / 2);
-            }
         }
         maz::render::depthOfField(img, y0, y0 + static_cast<int>(frameH), depth, 0.04f, 220.0f, focus,
                                   aperture, look.lens);

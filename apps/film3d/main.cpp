@@ -62,6 +62,8 @@ void usage() {
         "  --fps <n>          frames per second (default 12)\n"
         "  --ss <1..3>        supersampling; 2 is the useful one (default 2)\n"
         "  --shadows <0..2>   0 none, 1 hard-edged and cheap, 2 soft (default 2)\n"
+        "  --shutter <0..100> how far the camera's shutter opens, in hundredths of a frame;\n"
+        "                     50 is what a film camera does, 0 is a stills camera (default 50)\n"
         "  --from <s> --to <s>  render only this stretch of the film\n"
         "  --still <s>        render exactly one frame, at this moment\n"
         "  --ppm              write .ppm rather than .qoi for frames and contact sheets\n");
@@ -93,6 +95,7 @@ int main(int argc, char** argv) {
     film3d::Look look;
     look.supersample = std::atoi(arg(argc, argv, "--ss", "2").c_str());
     look.shadows = std::atoi(arg(argc, argv, "--shadows", "2").c_str());
+    look.shutter = std::atoi(arg(argc, argv, "--shutter", "50").c_str());
     const bool ppm = flag(argc, argv, "--ppm");
     const double from = std::atof(arg(argc, argv, "--from", "0").c_str());
     const double to = std::atof(arg(argc, argv, "--to", "0").c_str());
