@@ -1498,6 +1498,24 @@
    * Where a thing stands depends on what it is: a dragon flies, a castle sits
    * on the land, a whale is in the water, a planet hangs in the sky.
    */
+  /*
+   * Where the skyline goes.
+   *
+   * Dead centre is the one place a photographer never puts it: it cuts the
+   * picture in half and says neither "this is about the sky" nor "this is
+   * about the ground". Anyone framing a shot pushes it off towards a third,
+   * one way or the other, and which way is a decision about what the picture
+   * is of. So a skyline that lands near the middle is moved to whichever third
+   * it was already nearer, and one that is already well off centre is left
+   * where the setting put it.
+   */
+  function skylineAt(spec, shot, wobble) {
+    var at = clamp(spec.scene.horizon + (wobble || 0) * 0.05 + (shot ? shot.horizon : 0),
+      0.22, 1.3);
+    if (at > 0.42 && at < 0.58) at = lerp(at, at < 0.5 ? 0.36 : 0.64, 0.8);
+    return at;
+  }
+
   function placeBox(w, h, hz, spec, subject, index, total, r) {
     var meta = (SUBJECTS && SUBJECTS.META[subject.draw]) || { anchor: 'ground', base: 0.3, aspect: 1 };
     var cx;
@@ -1541,6 +1559,17 @@
         bw *= fit;
       }
       y = standY - bh;
+      /*
+       * And it must not end exactly on the skyline. A head that lands on the
+       * horizon line reads as stuck to it — a tangent, the oldest mistake in
+       * framing a photograph — so anything that close is moved clear, whichever
+       * way is nearer.
+       */
+      var clear = h * 0.035;
+      if (Math.abs(y - hz) < clear) {
+        y = (y < hz ? hz - clear : hz + clear);
+        if (y + bh > h * 1.02) y = h * 1.02 - bh;
+      }
     }
     return { x: cx - bw / 2, y: y, w: bw, h: bh, depth: depth, anchor: meta.anchor };
   }
@@ -2422,8 +2451,7 @@
     var CLOSENESS = { closeup: 2.1, near: 1.5, low: 1.35, wide: 0.55, aerial: 0.65 };
     P.detail = shot ? (CLOSENESS[shot.id] || 1) : 1;
     GRAIN = { w: w, h: h, P: P, r: PROMPT.rng(spec, 'grain'), detail: P.detail };
-    var hz = clamp(spec.scene.horizon + (r() - 0.5) * 0.05 + (shot ? shot.horizon : 0),
-      0.22, 1.3) * h;
+    var hz = skylineAt(spec, shot, r() - 0.5) * h;
 
     /* Painting onto a photograph: the photograph is the sky and the ground, so
      * neither is drawn. Everything after this — the subject, its shadow, its
@@ -2570,6 +2598,8 @@
     GLOWING: GLOWING,
     paintSubject: paintSubject,
     arrange: arrange,
+    placeBox: placeBox,
+    skylineAt: skylineAt,
     foreground: foreground,
     scatter: scatter,
     SCATTER: SCATTER,

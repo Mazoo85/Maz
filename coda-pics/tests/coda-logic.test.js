@@ -2704,6 +2704,69 @@ function laidDown(ctx, gradient) {
   pass('the weather happens to the picture rather than in front of it');
 })();
 
+/* ---------------------------------------------------- composition on purpose
+ * Dead centre is the one place a photographer never puts the skyline, and a
+ * head that lands exactly on it reads as stuck to it. Both were happening by
+ * accident, because nothing was deciding either.
+ */
+(function composed() {
+  console.log('\nA picture framed on purpose');
+
+  /* Asked of the painter itself rather than of a copy of its rule kept here —
+   * a test that reimplements the thing it is testing passes whatever the
+   * painter does. The wobble is handed in so the boundaries can be asked
+   * about directly instead of waiting for a seed to land on one. */
+  function where(horizon) {
+    return PAINT.skylineAt({ scene: { horizon: horizon } }, null, 0);
+  }
+
+  check(Math.abs(where(0.50) - 0.5) > 0.08,
+    'a skyline that lands dead centre is moved off it (' + where(0.50).toFixed(2) + ')');
+  check(where(0.46) < 0.42 && where(0.54) > 0.58,
+    'and pushed to whichever third it was already nearer (' +
+    where(0.46).toFixed(2) + ' and ' + where(0.54).toFixed(2) + ')');
+  check(where(0.30) === 0.30 && where(0.72) === 0.72,
+    'while one that was already well off centre is left where the setting put it');
+
+  /* Across every setting the painter knows, with the wobble at both ends of
+   * its range, nothing may cut the frame in half. */
+  var middling = [];
+  LEX.SCENES.forEach(function (scene) {
+    [-0.5, 0, 0.5].forEach(function (wobble) {
+      var at = PAINT.skylineAt({ scene: scene }, null, wobble);
+      if (at > 0.45 && at < 0.55) middling.push(scene.id + ' ' + at.toFixed(2));
+    });
+  });
+  check(middling.length === 0,
+    'and no setting at all puts it across the middle of the frame' +
+    (middling.length ? ' — ' + middling.join(', ') : ''));
+
+  /*
+   * And nothing may end on the skyline.
+   *
+   * Swept across where the skyline can actually fall rather than at one
+   * height: at a single height a tangent almost never comes up by chance, so a
+   * check standing there passes whether the rule exists or not. Over the whole
+   * range there are plenty of them to avoid.
+   */
+  var tangents = 0, checked = 0;
+  for (var s2 = 0; s2 < 60; s2++) {
+    var sp = PROMPT.parse('a wolf in a meadow at noon', { seed: s2 });
+    for (var line = 0.34; line <= 0.78; line += 0.02) {
+      var hz = 300 * line;
+      var box = PAINT.placeBox(400, 300, hz, sp, sp.subject, 0, 1,
+        PROMPT.rng(sp, 'subject'));
+      if (box.anchor !== 'ground') continue;
+      checked++;
+      if (Math.abs(box.y - hz) < 300 * 0.03) tangents++;
+    }
+  }
+  check(checked > 500 && tangents === 0,
+    'and across ' + checked + ' placements no subject ends on the skyline' +
+    (tangents ? ' — ' + tangents + ' do' : ''));
+  pass('the skyline is put somewhere on purpose, and nothing is stuck to it');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);
