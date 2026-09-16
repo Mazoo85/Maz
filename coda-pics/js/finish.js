@@ -677,6 +677,68 @@
     grade(img, shadow, highlight, strength);
   }
 
+  /*
+   * Exposure, behaving the way exposure behaves.
+   *
+   * Paint stops at white and a camera does not. What film and a sensor both do
+   * is roll off: as a highlight gets brighter the response flattens, so the
+   * brightest parts of a photograph crowd together near the top instead of all
+   * arriving at pure white together and going flat. A painted picture clips —
+   * every bright thing lands on 255 and the difference between the sun and the
+   * snow beside it disappears.
+   *
+   * Three things, in the order a camera does them:
+   *
+   *   The roll-off itself, which is what stops a bright sky reading as a flat
+   *   sheet of paper.
+   *
+   *   Bloom, because a real lens leaks: light from a very bright patch
+   *   scatters inside the glass and spills into whatever is next to it. That
+   *   spill is why the sun in a photograph has a size and the sun in a drawing
+   *   does not.
+   *
+   *   And how long the shutter was open. A night picture is a long exposure —
+   *   the shadows come up, the picture goes grainier — while a bright noon is
+   *   stopped down and keeps its shadows shut.
+   */
+  function expose(img, w, h, spec, P) {
+    var d = img.data;
+    var sun = spec && spec.sun != null ? spec.sun : 30;
+    /* 0 at midnight, 1 in full daylight. */
+    var day = clamp((sun + 18) / 78, 0, 1);
+
+    /* A long exposure lifts the shadows without touching the highlights. */
+    var lift = (1 - day) * 26;
+    /* And the knee comes down as the picture gets brighter, so a noon sky
+     * rolls off further than a night sky ever needs to. */
+    var knee = 150 + day * 40;
+
+    for (var i = 0; i < d.length; i += 4) {
+      for (var c = 0; c < 3; c++) {
+        var v = d[i + c];
+        if (lift > 0) {
+          /* Weighted towards the bottom end: a shadow comes up, a highlight
+           * stays where it is. */
+          var pull = 1 - v / 255;
+          v += lift * pull * pull;
+        }
+        if (v > knee) {
+          /* A curve that bends over as it climbs and still arrives at white:
+           * the 1.85 is what the shape needs to put full input at full output,
+           * so nothing above the knee is thrown away — an earlier attempt at
+           * this quietly capped every picture at 236 and the snow went grey. */
+          var over = (v - knee) / (255 - knee);
+          v = knee + (255 - knee) * (over / (1 + over * 0.85)) * 1.85;
+        }
+        d[i + c] = clamp(v, 0, 255);
+      }
+    }
+    return day;
+  }
+
+  /* Films with no colour in them. */
+  var MONOCHROME = { noir: true, blueprint: true };
+
   function apply(ctx, w, h, spec, P) {
     var list = (spec.styles && spec.styles.length) ? spec.styles : [spec.style];
     list.forEach(function (id, i) {
@@ -694,6 +756,22 @@
       var img = read(ctx, w, h);
       daylight(img, P, 0.16);
       focusPass(img, w, h, P && P.focus);
+      var day = expose(img, w, h, spec, P);
+      /* The lens leaking. Kept small: this is glass, not a filter. */
+      bloom(img, w, h, 205, Math.max(2, Math.round(Math.min(w, h) * 0.012)),
+        0.16 + (1 - day) * 0.14);
+      /* And the grain a long exposure leaves. */
+      if (day < 0.55) grain(img, (0.55 - day) * 26, PROMPT.rng(spec, 'exposure'));
+
+      /*
+       * Black-and-white film has no colour in it, and the camera comes before
+       * the film. Daylight tints the shadows blue and the highlights warm, and
+       * the lens then spreads those warm highlights over everything next to
+       * them — so a film-noir picture came out of the camera with a faint
+       * colour cast that no amount of draining beforehand could have stopped.
+       * The drain belongs here, after the glass.
+       */
+      if (list.some(function (id) { return MONOCHROME[id]; })) saturate(img, 0);
       write(ctx, img);
     }
     return list.join(' + ');
@@ -706,7 +784,7 @@
       read: read, write: write, blur: blur, bloom: bloom, pixelate: pixelate,
       posterize: posterize, dither: dither, edges: edges, inkEdges: inkEdges,
       contrast: contrast, saturate: saturate, grade: grade, grain: grain,
-      focusPass: focusPass, daylight: daylight,
+      focusPass: focusPass, daylight: daylight, expose: expose,
       vignette: vignette, luma: luma, mosaic: mosaic
     }
   };

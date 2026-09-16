@@ -2503,6 +2503,112 @@ function laidDown(ctx, gradient) {
   pass('water gives the sky back, in pieces');
 })();
 
+/* -------------------------------------------- exposure behaving like exposure
+ * Paint stops at white and a camera does not. Film and sensors both roll off:
+ * as a highlight gets brighter the response flattens, so the bright end of a
+ * photograph crowds together instead of arriving at pure white all at once and
+ * going flat.
+ */
+(function exposure() {
+  console.log('\nExposure behaving like exposure');
+
+  function ramp(n) {
+    var d = new Uint8ClampedArray(n * 4);
+    for (var i = 0; i < n; i++) {
+      var v = Math.round((i / (n - 1)) * 255);
+      d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = v;
+      d[i * 4 + 3] = 255;
+    }
+    return { data: d, width: n, height: 1 };
+  }
+
+  var n = 64;
+  function exposed(text) {
+    var img = ramp(n);
+    var spec = PROMPT.parse(text, { seed: 2 });
+    FINISH.helpers.expose(img, n, 1, spec, PAINT.makePalette(spec));
+    var out = [];
+    for (var i = 0; i < n; i++) out.push(img.data[i * 4]);
+    return out;
+  }
+
+  var noon = exposed('a wolf in snow at high noon');
+  /* The top end crowds together: the last few steps of the ramp are closer to
+   * each other than the middle ones, which is the roll-off. */
+  /* Measured over eight steps rather than two: a ramp of whole numbers rounds,
+   * so two steps can differ by one for no reason at all and a check reading
+   * them would pass on a picture with no roll-off in it. */
+  var topStep = noon[n - 1] - noon[n - 9];
+  var midStep = noon[Math.floor(n / 2)] - noon[Math.floor(n / 2) - 8];
+  check(topStep < midStep * 0.7,
+    'the bright end crowds together rather than climbing straight to white (' +
+    topStep + ' across the top eight steps against ' + midStep + ' in the middle)');
+  check(noon[n - 1] === 255,
+    'and white is still white — a roll-off that never reaches it is a picture ' +
+    'with the whites turned down (' + noon[n - 1] + ')');
+
+  /* Nothing may go backwards: this is exposure, not a filter. */
+  var falls = 0;
+  for (var i = 1; i < n; i++) if (noon[i] < noon[i - 1]) falls++;
+  check(falls === 0, 'and brighter is still brighter all the way up the ramp');
+
+  /* A night picture is a long exposure: the shadows come up while the
+   * highlights stay where they are. */
+  var night = exposed('a wolf in snow at midnight');
+  check(night[4] > noon[4] + 4,
+    'a long exposure lifts the shadows (' + night[4] + ' against ' + noon[4] + ')');
+  /* Read below the very top, where both are pinned to white anyway and any
+   * lift at all would be hidden by the ceiling. */
+  check(Math.abs(night[n - 8] - noon[n - 8]) < 8,
+    'and leaves the highlights roughly where they were (' + night[n - 8] +
+    ' against ' + noon[n - 8] + ')');
+
+  /* A lens leaks: light from a bright patch scatters in the glass and spills
+   * into whatever is beside it, which is why the sun in a photograph has a
+   * size and the sun in a drawing does not. */
+  var w = 33, h = 33;
+  var spot = { data: new Uint8ClampedArray(w * h * 4), width: w, height: h };
+  for (var q = 0; q < w * h; q++) {
+    spot.data[q * 4 + 3] = 255;
+    var x = q % w, y = Math.floor(q / w);
+    var mid = Math.abs(x - 16) < 2 && Math.abs(y - 16) < 2;
+    spot.data[q * 4] = spot.data[q * 4 + 1] = spot.data[q * 4 + 2] = mid ? 255 : 20;
+  }
+  var edge = (16 * w + 22) * 4;
+  var was = spot.data[edge];
+  FINISH.helpers.bloom(spot, w, h, 205, 5, 0.6);
+  check(spot.data[edge] > was + 2,
+    'a bright patch spills into what is next to it (' + was + ' to ' +
+    spot.data[edge] + ' six pixels away)');
+  /* Black-and-white film has no colour in it, and the camera comes before the
+   * film: the daylight pass tints shadows blue and highlights warm, and the
+   * lens then spreads those warm highlights over everything beside them, so a
+   * noir picture came out of the camera with a faint cast on it. */
+  function colourLeft(style) {
+    var ctx = new FakeContext(120, 90);
+    var spec = PROMPT.parse('a castle in the mountains at dusk', { seed: 4 });
+    spec.style = style;
+    spec.styles = [style];
+    var P = PAINT.makePalette(spec);
+    PAINT.render(ctx, 120, 90, spec);
+    FINISH.apply(ctx, 120, 90, spec, P);
+    var d = ctx.getImageData(0, 0, 120, 90).data;
+    var coloured = 0, n = 0;
+    for (var i = 0; i < d.length; i += 4) {
+      if (Math.abs(d[i] - d[i + 1]) > 8 || Math.abs(d[i + 1] - d[i + 2]) > 8) coloured++;
+      n++;
+    }
+    return coloured / n;
+  }
+  check(colourLeft('noir') < 0.01,
+    'a film-noir picture comes out with no colour in it at all (' +
+    (colourLeft('noir') * 100).toFixed(1) + '% left)');
+  check(colourLeft('oil') > 0.05,
+    'and an ordinary one still has its colour (' +
+    (colourLeft('oil') * 100).toFixed(1) + '%)');
+  pass('the bright end rolls off, the shadows come up at night, and the lens leaks');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);
