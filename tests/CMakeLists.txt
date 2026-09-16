@@ -83,6 +83,13 @@ target_link_libraries(maz_softwarerender_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME software_render COMMAND maz_softwarerender_tests)
 set_tests_properties(software_render PROPERTIES TIMEOUT 30)
 
+# Wavefront OBJ writer (render::encodeObj): emits v/vt/vn + faces + the vertex-colour extension, and a
+# load->save->load round-trip through ObjLoader reproduces the geometry. Pure text, headless.
+add_executable(maz_objwriter_tests render/objwriter.cpp)
+target_link_libraries(maz_objwriter_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME obj_writer COMMAND maz_objwriter_tests)
+set_tests_properties(obj_writer PROPERTIES TIMEOUT 30)
+
 # Cutscene export pipeline end-to-end, in-process: compose -> prefab text -> reload -> bake -> render
 # an orbit of CPU frames -> animated GIF -> decode. The same chain apps/cutscene_export drives.
 add_executable(maz_cutscene_pipeline_tests render/cutscene_pipeline.cpp)
@@ -124,6 +131,12 @@ add_test(NAME cutscene_export_gpu
 set_tests_properties(cutscene_export_gpu PROPERTIES
     TIMEOUT 90
     ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+
+# --obj exports the baked composite as a Wavefront OBJ alongside the GIF (encodeObj + write path).
+add_test(NAME cutscene_export_obj
+         COMMAND cutscene_export ${CMAKE_SOURCE_DIR}/assets/samples/figure.mazprefab
+                 --out figure_obj.gif --frames 2 --size 32 --obj figure.obj)
+set_tests_properties(cutscene_export_obj PROPERTIES TIMEOUT 60)
 
 # GPU-driven particle simulation + plane collision (fx::GpuParticleSystem). The CPU step is the exact
 # arithmetic the compute shader runs, so bounce energy, no-sink, friction, lifecycle and the instance
