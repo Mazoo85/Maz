@@ -375,8 +375,17 @@
     if (moodHit) note('mood', moodHit.entry.id, moodHit.word);
     if (time === 'night') mood = Math.min(1, mood + 0.08);
 
+    /* --- what it is made of ---
+     * Noted further down: a material word can turn out to belong to a style
+     * instead ("in stained glass"), and that is only knowable once the style
+     * words have been read. */
+    var materialHit = findOne(LEX.MATERIALS, flat, toks);
+
     /* --- palette --- */
     var paletteHit = findOne(LEX.PALETTES, flat, toks);
+    /* "A bronze dragon" is one word, and it is the material: letting the
+     * colour table have it as well would tint the whole world brass. */
+    if (paletteHit && materialHit && paletteHit.word === materialHit.word) paletteHit = null;
     var palette = paletteHit ? paletteHit.entry : null;
     if (palette) note('colour', palette.label, paletteHit.word);
 
@@ -389,6 +398,22 @@
       note('style', byId(LEX.STYLES, style).label + ' (you chose it)', null);
     } else {
       var styleHits = findAll(LEX.STYLES, flat, toks);
+      /* "A glass dragon" is a dragon made of glass; "in stained glass" is the
+       * style. One word cannot be both, and the thing the picture is *of*
+       * wins — the style still has "stained glass", "mosaic" and "tiffany" of
+       * its own to be asked for by. */
+      /* "A glass dragon" is a dragon made of glass; "a dragon in stained
+       * glass" is the style. The same word cannot be both, and which one it is
+       * depends on what it is part of: a longer style phrase that swallows the
+       * material word is the style, and the bare word on its own is the
+       * material. The style still has "mosaic" and "tiffany" of its own. */
+      if (materialHit) {
+        var swallowed = styleHits.some(function (hit) {
+          return hit.word !== materialHit.word && hit.word.indexOf(materialHit.word) >= 0;
+        });
+        if (swallowed) materialHit = null;
+        else styleHits = styleHits.filter(function (h) { return h.word !== materialHit.word; });
+      }
       if (styleHits.length) {
         style = styleHits[0].entry.id;
         note('style', styleHits[0].entry.label, styleHits[0].word);
@@ -452,6 +477,9 @@
      * Silence here is the worst answer: somebody types "a griffin" and gets a
      * fox with no idea why. */
     var filler = {};
+    var material = materialHit ? materialHit.entry : null;
+    if (material) note('material', material.label, materialHit.word);
+
     LEX.FILLER.forEach(function (f) { filler[f] = true; });
     /* A relation word is understood English even when there is only one thing
      * in the picture for it to be about. */
@@ -475,6 +503,7 @@
       companion: companion,
       relation: relation,
       scene: { id: scene.id, label: scene.label, prep: scene.prep || 'in', horizon: scene.horizon },
+      material: material,
       time: time,
       /* How high the sun (or, below the horizon, the moon) stands, in degrees,
        * and which way it is going. The hour is an angle; `time` is only the
@@ -533,12 +562,28 @@
    * One plain sentence for the "what I read" line, written the way a person
    * would say it back.
    */
+  /*
+   * What it is made of belongs inside the name of the thing, after its article
+   * and not in front of it: "a bronze dragon", never "bronze a dragon". And
+   * the article has to agree with the new word — "an iron gate", "a bronze
+   * one" — because it is now the material that follows it.
+   */
+  function madeOf(label, material, dropArticle) {
+    if (!material) return dropArticle ? label.replace(/^(an?|the) /, '') : label;
+    var m = /^(an?|the) (.*)$/.exec(label);
+    var rest = m ? m[2] : label;
+    var made = material.label + ' ' + rest;
+    if (dropArticle || !m) return made;
+    if (m[1] === 'the') return 'the ' + made;
+    return (/^[aeiou]/i.test(material.label) ? 'an ' : 'a ') + made;
+  }
+
   function describe(spec) {
     var parts = [];
     if (spec.subject) {
       parts.push(spec.subject.count > 1
-        ? spec.subject.count + ' × ' + spec.subject.label
-        : spec.subject.label);
+        ? spec.subject.count + ' × ' + madeOf(spec.subject.label, spec.material, true)
+        : madeOf(spec.subject.label, spec.material, false));
     }
     if (spec.companion) parts.push('with ' + spec.companion.label);
     parts.push((spec.scene.prep || 'in') + ' ' + spec.scene.label);

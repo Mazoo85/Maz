@@ -1476,6 +1476,115 @@ function recorder(w, h) {
   pass('rain lands on the ground as well as falling in front of it');
 })();
 
+/* ------------------------------------------------------ what it is made of
+ * A colour word says a dragon is red. It does not say that a stone dragon is
+ * chalky, a bronze one dark with a hard bright edge, and a glass one has the
+ * sky showing through it.
+ */
+(function materials() {
+  console.log('\nWhat a thing is made of');
+
+  var mats = LEX.MATERIALS;
+  var seen = {}, bad = [];
+  mats.forEach(function (m) {
+    if (seen[m.id]) bad.push('two ' + m.id + 's');
+    seen[m.id] = true;
+    if (!m.colour || m.colour.length !== 3) bad.push(m.id + ' has no colour');
+    ['rough', 'metal', 'clear'].forEach(function (k) {
+      if (typeof m[k] !== 'number' || m[k] < 0 || m[k] > 1) bad.push(m.id + ' has a silly ' + k);
+    });
+    if (!m.words || !m.words.length) bad.push(m.id + ' cannot be asked for');
+  });
+  check(bad.length === 0,
+    mats.length + ' materials, each with a colour and a roughness, a metal and ' +
+    'a clearness between nothing and everything' + (bad.length ? ' — ' + bad.join(', ') : ''));
+
+  check(PROMPT.parse('a bronze dragon over the sea', { seed: 1 }).material.id === 'bronze',
+    'a bronze dragon is made of bronze');
+  check(PROMPT.parse('a stone tower', { seed: 1 }).material.id === 'stone',
+    'and a stone tower of stone');
+  check(PROMPT.parse('a wolf in a meadow', { seed: 1 }).material === null,
+    'and a wolf of nothing in particular');
+
+  /* One word cannot be both the material and the style. */
+  var glassy = PROMPT.parse('a glass dragon over the sea', { seed: 1 });
+  var stained = PROMPT.parse('a dragon in stained glass', { seed: 1 });
+  check(glassy.material && glassy.material.id === 'glass' && glassy.style !== 'glass',
+    'a glass dragon is made of glass and not painted as a window');
+  check(stained.material === null && stained.style === 'glass',
+    'and a dragon in stained glass is painted as a window and made of nothing');
+
+  /* Nor the material and the colour of the whole world. "Silver" is in both
+   * tables; it means the dragon is silver, not that the sea is. */
+  var silver = PROMPT.parse('a silver dragon over the sea', { seed: 1 });
+  check(silver.material && silver.material.id === 'silver' && silver.palette === null,
+    'a silver dragon is made of silver, and does not turn the sea silver too');
+
+  /* Drawn, not declared. Same subject, same box, same seed — only the
+   * material, so what differs is the material. */
+  function marks(materialId) {
+    var spec = PROMPT.parse('a tower on a hill at noon', { seed: 12 });
+    spec.material = materialId
+      ? mats.filter(function (m) { return m.id === materialId; })[0] : null;
+    var P = PAINT.makePalette(spec);
+    var PS = PAINT.makePalette(spec, { tintStrength: 0.85 });
+    var ctx = recorder(420, 300);
+    PAINT.paintSubject(ctx, spec.subject,
+      { x: 150, y: 90, w: 110, h: 170, depth: 0, anchor: 'ground' },
+      P, PS, PROMPT.rng(spec, 'subject'), spec, { x: 70, y: 30 }, 190, 300);
+    var colours = ctx.log.filter(function (c) {
+      return c.op === 'set' && c.args[0] === 'fillStyle' && typeof c.args[1] === 'string';
+    }).map(function (c) { return c.args[1]; });
+    return { colours: colours, gradients: ctx.gradients, P: P };
+  }
+
+  var plain = marks(null), stone = marks('stone'), iron = marks('iron');
+  check(plain.colours.join('|') !== stone.colours.join('|'),
+    'the same tower is painted in different colours once it is made of stone');
+  check(stone.colours.join('|') !== iron.colours.join('|'),
+    'and different ones again in iron');
+
+  function carries(bag, colour) {
+    return bag.gradients.some(function (g) {
+      return g.stops.some(function (st) { return st.colour === colour; });
+    });
+  }
+
+  /* Metal is mostly a reflection of where it is: sky above, ground below. */
+  check(carries(iron, iron.P.css(iron.P.sky.mid, 0.85)),
+    'iron has the sky in it, which is what makes metal look like metal');
+  check(!carries(stone, stone.P.css(stone.P.sky.mid, 0.85)),
+    'and stone does not — a chalky thing reflects nothing');
+
+  /* A smooth thing has a tight bright highlight; a chalky one has none. */
+  var hot = function (bag) { return bag.P.css(bag.P.sky.light, 0.95); };
+  check(carries(iron, hot(iron)), 'iron catches the sun in a hard bright edge');
+  var chalk = marks('concrete');
+  check(!carries(chalk, hot(chalk)), 'concrete catches nothing at all');
+
+  /* And something you can see through lights up at its edges. */
+  var glass = marks('glass'), wood = marks('wood');
+  /* Counted, not merely looked for: this tower has lit windows of its own in
+   * the same colour, so the question is how many times it is laid down, not
+   * whether it appears at all. */
+  function times(bag, colour) {
+    return bag.colours.filter(function (c) { return c === colour; }).length;
+  }
+  var glassEdges = times(glass, glass.P.css(glass.P.sky.light, 0.8));
+  var woodEdges = times(wood, wood.P.css(wood.P.sky.light, 0.8));
+  check(glassEdges >= woodEdges + 6,
+    'glass glows all the way round its edge, because light that goes in comes ' +
+    'out somewhere (' + glassEdges + ' passes against wood\'s ' + woodEdges + ')');
+  /* And it is said back to the person in their own order — inside the name of
+   * the thing, after the article and agreeing with it. */
+  check(PROMPT.describe(PROMPT.parse('a bronze dragon over the sea', { seed: 1 }))
+          .indexOf('a bronze dragon') === 0,
+    'the picture calls itself a bronze dragon, not "bronze a dragon"');
+  check(PROMPT.describe(PROMPT.parse('an iron tower', { seed: 1 })).indexOf('an iron tower') === 0,
+    'and an iron tower, because the article agrees with the material now');
+  pass('a thing is made of something, and the light knows it');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);

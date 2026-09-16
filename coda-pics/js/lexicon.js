@@ -246,6 +246,62 @@
     { id: 'ink',      label: 'ink',       hue: 220, sat: 0.30, warm: 0.85, words: ['black', 'ink', 'shadow', 'obsidian', 'onyx'] }
   ];
 
+  /* -------------------------------------------------------------- materials
+   * What a thing is made of.
+   *
+   * A colour word says what colour a dragon is. It does not say that a stone
+   * dragon is dull and chalky and a bronze one is dark with a hard bright edge
+   * where the sun catches it, and that a glass one has the sky showing through
+   * it. Those differences are what make a material read as a material, and
+   * they are three numbers rather than a hue:
+   *
+   *   `rough`  1 is chalk, 0 is a mirror — how tight and bright the highlight.
+   *   `metal`  how much of it is a reflection of its surroundings rather than
+   *            a colour of its own: metal shows the sky above and the ground
+   *            below, which is most of what makes metal look like metal.
+   *   `clear`  how much light comes through it, for glass, ice and jade.
+   */
+  var MATERIALS = [
+    { id: 'stone',   label: 'stone',   colour: [30, 8, 52],  rough: 0.96, metal: 0,    clear: 0,
+      words: ['stone', 'rock', 'granite', 'basalt', 'carved from stone'] },
+    { id: 'marble',  label: 'marble',  colour: [40, 12, 84], rough: 0.55, metal: 0,    clear: 0.10,
+      words: ['marble', 'alabaster'] },
+    { id: 'concrete',label: 'concrete',colour: [220, 5, 56], rough: 0.98, metal: 0,    clear: 0,
+      words: ['concrete', 'cement', 'brutalist'] },
+    { id: 'clay',    label: 'clay',    colour: [18, 46, 52], rough: 0.92, metal: 0,    clear: 0,
+      words: ['clay', 'terracotta', 'ceramic', 'porcelain', 'pottery'] },
+    { id: 'wood',    label: 'wood',    colour: [26, 42, 40], rough: 0.85, metal: 0,    clear: 0,
+      words: ['wood', 'wooden', 'oak', 'timber', 'carved from wood', 'driftwood'] },
+    { id: 'iron',    label: 'iron',    colour: [220, 6, 38], rough: 0.32, metal: 0.85, clear: 0,
+      words: ['iron', 'steel', 'metal', 'metallic', 'chrome', 'wrought iron'] },
+    { id: 'rust',    label: 'rusted iron', colour: [18, 62, 40], rough: 0.80, metal: 0.30, clear: 0,
+      words: ['rusted', 'rusty', 'corroded', 'oxidised', 'oxidized'] },
+    { id: 'bronze',  label: 'bronze',  colour: [32, 58, 42], rough: 0.38, metal: 0.72, clear: 0,
+      words: ['bronze', 'brass'] },
+    { id: 'gold',    label: 'gold',    colour: [44, 88, 56], rough: 0.20, metal: 0.92, clear: 0,
+      words: ['gilded', 'gold leaf', 'made of gold', 'solid gold'] },
+    { id: 'silver',  label: 'silver',  colour: [210, 8, 72], rough: 0.18, metal: 0.94, clear: 0,
+      words: ['silver', 'platinum', 'made of silver'] },
+    { id: 'glass',   label: 'glass',   colour: [195, 30, 72], rough: 0.10, metal: 0.10, clear: 0.85,
+      words: ['glass', 'glassy', 'crystalline', 'made of glass'] },
+    { id: 'ice',     label: 'ice',     colour: [198, 44, 78], rough: 0.22, metal: 0.12, clear: 0.70,
+      words: ['made of ice', 'frozen', 'icebound', 'glacial'] },
+    { id: 'jade',    label: 'jade',    colour: [148, 42, 44], rough: 0.42, metal: 0.05, clear: 0.42,
+      words: ['made of jade', 'jadeite', 'nephrite'] },
+    { id: 'obsidian',label: 'obsidian',colour: [268, 24, 14], rough: 0.16, metal: 0.30, clear: 0.10,
+      words: ['made of obsidian', 'volcanic glass'] },
+    { id: 'bone',    label: 'bone',    colour: [42, 24, 82], rough: 0.78, metal: 0,    clear: 0.12,
+      words: ['bone', 'ivory', 'made of bone', 'skeletal'] },
+    { id: 'leather', label: 'leather', colour: [24, 36, 32], rough: 0.68, metal: 0,    clear: 0,
+      words: ['leather', 'hide', 'tanned'] },
+    { id: 'cloth',   label: 'cloth',   colour: [10, 30, 56], rough: 0.94, metal: 0,    clear: 0.08,
+      words: ['cloth', 'linen', 'canvas', 'woollen', 'woven', 'silk'] },
+    { id: 'paper',   label: 'paper',   colour: [44, 26, 88], rough: 0.90, metal: 0,    clear: 0.22,
+      words: ['paper', 'origami', 'folded paper', 'papercraft'] },
+    { id: 'copper',  label: 'copper',  colour: [20, 66, 44], rough: 0.34, metal: 0.78, clear: 0,
+      words: ['made of copper', 'patina', 'verdigris'] }
+  ];
+
   /* ------------------------------------------------------------------ mood
    * A single 0..1 dial. Low is calm and open; high is dramatic and contrasty.
    */
@@ -329,6 +385,7 @@
     WEATHER: WEATHER,
     STYLES: STYLES,
     PALETTES: PALETTES,
+    MATERIALS: MATERIALS,
     MOODS: MOODS,
     SCALE_WORDS: SCALE_WORDS,
     COUNT_WORDS: COUNT_WORDS,

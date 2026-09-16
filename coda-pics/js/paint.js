@@ -1560,6 +1560,28 @@
   }
 
   /*
+   * A subject made of something.
+   *
+   * A colour word says a dragon is red. It does not say that a stone dragon is
+   * dull and chalky, that a bronze one is dark with a hard bright edge where
+   * the sun catches it, or that a glass one has the sky showing through. This
+   * hands the subject's own palette the material's colour, so everything drawn
+   * with it — body, wings, legs, the lot — is cut from that instead of from
+   * the scene's shadow colour. What the material does to the *light* is a
+   * separate pass, below.
+   */
+  function clad(PS, material) {
+    var out = {};
+    for (var k in PS) out[k] = PS[k];
+    function of(depth, a) { return PS.css(material.colour, a); }
+    out.silhouette = of;
+    out.ink = of;
+    out.land = of;
+    out.far = of;
+    return out;
+  }
+
+  /*
    * The smear a light leaves on wet ground.
    *
    * Look down a road in the rain and every light in front of you is drawn out
@@ -1699,7 +1721,8 @@
       stencil(ctx, subject, box, PS, r, spec, P.css([205, 18, 97], 1), 0, -off * 1.1, 0.75);
     }
 
-    if (SUBJECTS) SUBJECTS.draw(ctx, subject, box, PS, r, spec);
+    var made = spec.material || null;
+    if (SUBJECTS) SUBJECTS.draw(ctx, subject, box, made ? clad(PS, made) : PS, r, spec);
 
     /*
      * The one that matters. Every subject here is drawn as flat areas of a
@@ -1755,6 +1778,55 @@
       stencil(ctx, subject, box, PS, r, spec, side, 0, 0,
         clamp(0.62 * fall * L.strength, 0, 0.85));
     });
+
+    /*
+     * What it is made of, in light rather than in colour.
+     *
+     * Three passes, and which of them shows depends on the three numbers the
+     * material carries. A metal is mostly a reflection of where it is — sky
+     * above, ground below — which is the whole of why metal looks like metal.
+     * A smooth thing has a tight bright highlight on the side facing the
+     * light, and a chalky one has none at all. And something you can see
+     * through takes the colour of what is behind it and lights up at its
+     * edges, because light that goes in has to come out somewhere.
+     */
+    if (made) {
+      if (made.metal > 0.02) {
+        var mirror = ctx.createLinearGradient(0, box.y, 0, base);
+        mirror.addColorStop(0, P.css(P.sky.mid, 0.85));
+        mirror.addColorStop(0.42, P.css(P.sky.low, 0.30));
+        mirror.addColorStop(0.58, P.css(P.scene.ink, 0.30));
+        mirror.addColorStop(1, P.css(P.scene.land, 0.80));
+        stencil(ctx, subject, box, PS, r, spec, mirror, 0, 0, 0.48 * made.metal);
+      }
+      var shine = 1 - made.rough;
+      if (shine > 0.05) {
+        /* Tight and bright for a polished thing, broad and faint for a dull
+         * one: that width is what the eye reads as "how smooth is this". */
+        var sR = Math.max(box.w, box.h) * 0.62;
+        var sdx = dx || 0.55, sdy = dy || -0.45;
+        var hot = ctx.createLinearGradient(
+          cx - sdx * sR, cy - sdy * sR, cx + sdx * sR, cy + sdy * sR);
+        var tight = 0.06 + (1 - shine) * 0.34;
+        hot.addColorStop(0, P.css(P.sky.light, 0.95));
+        hot.addColorStop(tight, P.css(P.sky.light, 0.28));
+        hot.addColorStop(Math.min(0.92, tight + 0.28), P.css(P.sky.light, 0));
+        hot.addColorStop(1, P.css(P.sky.light, 0));
+        stencil(ctx, subject, box, PS, r, spec, hot, 0, 0,
+          clamp(0.30 + shine * 0.55, 0, 0.9) * (1 - softness(spec) * 0.45));
+      }
+      if (made.clear > 0.05) {
+        /* What is behind it shows through, and the edges glow where the light
+         * that went in comes back out. */
+        stencil(ctx, subject, box, PS, r, spec, P.haze(1), 0, 0, 0.42 * made.clear);
+        var lip = Math.max(1, Math.min(box.w, box.h) * 0.020);
+        for (var q = 0; q < 6; q++) {
+          var qa = (q / 6) * Math.PI * 2;
+          stencil(ctx, subject, box, PS, r, spec, P.css(P.sky.light, 0.8),
+            Math.cos(qa) * lip, Math.sin(qa) * lip, 0.12 * made.clear);
+        }
+      }
+    }
 
     /*
      * Then the air it is standing in: what the sky and the ground throw back at
@@ -2096,6 +2168,7 @@
     shadowReach: shadowReach,
     softness: softness,
     wetness: wetness,
+    clad: clad,
     extraLights: extraLights,
     GLOWING: GLOWING,
     paintSubject: paintSubject,
