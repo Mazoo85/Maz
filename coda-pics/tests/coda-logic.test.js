@@ -1466,18 +1466,31 @@ function laidDown(ctx, gradient) {
   /* The pool it lays down is added to what is there rather than painted over
    * it, which is what light does and why a fire warms a clearing without
    * hiding it. */
-  var ctx = recorder(480, 360);
-  PAINT.render(ctx, 480, 360, PROMPT.parse('a campfire in a forest at night', { seed: 8 }));
-  var added = ctx.log.filter(function (c) {
-    return c.op === 'set' && c.args[0] === 'globalCompositeOperation' && c.args[1] === 'lighter';
-  });
-  check(added.length >= 1, 'its pool is added to the picture, not painted over it');
-
-  var noFire = recorder(480, 360);
-  PAINT.render(noFire, 480, 360, PROMPT.parse('a castle in a forest at night', { seed: 8 }));
-  check(noFire.log.filter(function (c) {
-    return c.op === 'set' && c.args[0] === 'globalCompositeOperation' && c.args[1] === 'lighter';
-  }).length === 0, 'and a picture with nothing glowing in it adds no pool at all');
+  /* The pool is a round gradient in the fire's own colour, laid down with the
+   * picture's light added to rather than painted over. Looking merely for an
+   * additive pass would not do: beams of light through mist are additive too,
+   * and so is light on water. */
+  function pools(text) {
+    var ctx = recorder(480, 360);
+    PAINT.render(ctx, 480, 360, PROMPT.parse(text, { seed: 8 }));
+    var hue = PAINT.GLOWING.campfire.hue[0].toFixed(1);
+    var found = 0, additive = false;
+    ctx.log.forEach(function (c) {
+      if (c.op === 'set' && c.args[0] === 'globalCompositeOperation') {
+        additive = c.args[1] === 'lighter';
+      } else if (c.op === 'gradient' && c.args.length === 6 && additive &&
+                 c.gradient.stops.length &&
+                 c.gradient.stops[0].colour.indexOf('hsla(' + hue + ',') === 0 &&
+                 laidDown(ctx, c.gradient)) {
+        found++;
+      }
+    });
+    return found;
+  }
+  check(pools('a campfire in a forest at night') > 0,
+    'its pool is added to the picture, not painted over it');
+  check(pools('a castle in a forest at night') === 0,
+    'and a picture with nothing glowing in it lays down no pool at all');
 
   /* And it lights what is standing near it. */
   function litSide(text, box, lightBox) {
@@ -2342,6 +2355,71 @@ function laidDown(ctx, gradient) {
     'a degree word in front of a derived word is not read as belonging to ' +
     'something else in the sentence');
   pass('it works out words nobody taught it, out of words it knows');
+})();
+
+/* --------------------------------------------------- air with something in it
+ * Light is invisible. You only ever see it where it hits something, and in
+ * clear air between you and the sun there is nothing for it to hit — which is
+ * why a shaft of light is a sign that the air is full of water or dust.
+ */
+(function beams() {
+  console.log('\nBeams through air that has something in it');
+
+  function beamsFor(weather, text) {
+    var spec = PROMPT.parse(text || 'a forest at mid-morning', { seed: 7 });
+    if (weather) spec.weather = weather;
+    spec.weatherStrength = 1;
+    var P = PAINT.makePalette(spec);
+    var ctx = recorder(480, 360);
+    PAINT.shafts(ctx, 480, 360, 200, P, spec, PROMPT.rng(spec, 'shafts'), { x: 120, y: 40 });
+    var shapes = shapesOf(ctx);
+    return { shapes: shapes, ctx: ctx, P: P };
+  }
+
+  var misty = beamsFor('fog'), clean = beamsFor('clear');
+  check(misty.shapes.length >= 7,
+    'mist puts ' + misty.shapes.length + ' beams in the air');
+  check(clean.shapes.length === 0,
+    'and clear air puts none there, because there is nothing for the light to hit');
+
+  /* Every one of them starts at the light. A beam that starts anywhere else is
+   * a stripe. */
+  var away = misty.shapes.filter(function (sh) {
+    return Math.abs(sh.x - 120) > 400 && Math.abs(sh.y - 40) > 400;
+  });
+  check(away.length === 0, 'and every one of them comes out of the sun');
+
+  /* Light adds to what is behind it. */
+  var additive = misty.ctx.log.filter(function (c) {
+    return c.op === 'set' && c.args[0] === 'globalCompositeOperation' && c.args[1] === 'lighter';
+  });
+  check(additive.length > 0, 'and it is light, added to the picture rather than painted over it');
+
+  /* Nothing to shine through once the sun has gone, and nothing underground. */
+  function strength(sun) {
+    var spec = PROMPT.parse('a forest at mid-morning', { seed: 7 });
+    spec.weather = 'fog';
+    spec.weatherStrength = 1;
+    spec.sun = sun;
+    var ctx = recorder(480, 360);
+    PAINT.shafts(ctx, 480, 360, 200, PAINT.makePalette(spec), spec,
+      PROMPT.rng(spec, 'shafts'), { x: 120, y: 40 });
+    /* How bright the beams were laid down, read off the first stop of each. */
+    var most = 0;
+    ctx.gradients.forEach(function (g) {
+      if (!g.stops.length) return;
+      var m = /,\s*([0-9.]+)\s*\)$/.exec(g.stops[0].colour);
+      if (m) most = Math.max(most, parseFloat(m[1]));
+    });
+    return most;
+  }
+  check(strength(10) > strength(-45),
+    'a low sun through mist makes beams and a sun that has set does not (' +
+    strength(10).toFixed(3) + ' against ' + strength(-45).toFixed(3) + ')');
+
+  var cave = beamsFor('fog', 'a crystal in a cave');
+  check(cave.shapes.length === 0, 'and there is no sun underground');
+  pass('the air has something in it, so the light shows');
 })();
 
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'

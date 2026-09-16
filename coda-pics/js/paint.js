@@ -1691,6 +1691,53 @@
   }
 
   /*
+   * Air with something in it.
+   *
+   * Light is invisible. You only ever see it when it hits something, and in a
+   * clear sky between you and the sun there is nothing for it to hit — which
+   * is why a shaft of light is a sign that the air is full of water or dust.
+   * Put cloud, mist or smoke in a picture and the beams come out, in a fan
+   * from wherever the sun is.
+   *
+   * It is one of the strongest things on this list for making a picture look
+   * photographed rather than drawn, and it costs a dozen triangles.
+   */
+  function shafts(ctx, w, h, hz, P, spec, r, light) {
+    if (!light || spec.scene.id === 'space' || spec.scene.id === 'cave') return;
+    var haze = softness(spec);
+    /* Nothing in the air, nothing to see — and nothing to shine through once
+     * the sun has properly gone. */
+    var lowSun = spec.sun == null ? 1 : clamp(1 - Math.abs(spec.sun) / 70, 0.15, 1);
+    var strength = haze * lowSun;
+    if (strength < 0.10) return;
+
+    var reach = Math.max(w, h) * 1.5;
+    var n = 7 + Math.floor(r() * 5);
+    /* Fanned about the straight-down direction from the light, because that is
+     * the way the beams go when the cloud is between you and the sun. */
+    var middle = Math.PI / 2 + (light.x < w * 0.5 ? 0.35 : -0.35);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (var i = 0; i < n; i++) {
+      var a = middle + (i / (n - 1) - 0.5) * 1.5 + (r() - 0.5) * 0.12;
+      var wide = 0.012 + r() * 0.045;
+      var g = ctx.createLinearGradient(light.x, light.y,
+        light.x + Math.cos(a) * reach, light.y + Math.sin(a) * reach);
+      g.addColorStop(0, P.css(P.sky.light, 0.30 * strength));
+      g.addColorStop(0.35, P.css(P.sky.light, 0.13 * strength));
+      g.addColorStop(1, P.css(P.sky.light, 0));
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(light.x, light.y);
+      ctx.lineTo(light.x + Math.cos(a - wide) * reach, light.y + Math.sin(a - wide) * reach);
+      ctx.lineTo(light.x + Math.cos(a + wide) * reach, light.y + Math.sin(a + wide) * reach);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /*
    * The smear a light leaves on wet ground.
    *
    * Look down a road in the rain and every light in front of you is drawn out
@@ -2337,6 +2384,10 @@
       P.light_at = PS.light_at = light;
       clouds(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'cloud'), light);
 
+      /* Beams, before the ground: they are in the air between you and it, and
+       * they land on it rather than lying over the top of everything. */
+      shafts(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'shafts'), light);
+
       (GROUND[spec.scene.id] || GROUND.plains)(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'ground'), light);
     }
 
@@ -2443,6 +2494,7 @@
     wetness: wetness,
     clad: clad,
     clouds: clouds,
+    shafts: shafts,
     CLOUD_KINDS: CLOUD_KINDS,
     extraLights: extraLights,
     GLOWING: GLOWING,

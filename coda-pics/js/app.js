@@ -504,6 +504,16 @@
     });
   }
 
+  /* Whether one sky is different enough from another to be worth showing. Fourteen
+   * degrees of sun is about the difference between morning and mid-morning —
+   * below that the two pictures are the same picture. */
+  function skyMoved(was, now) {
+    if (!was || !now) return true;
+    if (was.time !== now.time || was.weather !== now.weather) return true;
+    if (Math.abs((was.sun || 0) - (now.sun || 0)) >= 14) return true;
+    return Math.abs((was.weatherStrength || 1) - (now.weatherStrength || 1)) >= 0.3;
+  }
+
   function repaintPart(part) {
     if (busy || !current) return;
     var text = el.prompt.value.trim();
@@ -514,9 +524,22 @@
     /* Everything held keeps the seed it already had; the part being changed
      * gets a new one, so only it can come out different. */
     var kept = PROMPT.holdLocks(current.seed, hold);
-    seed = 1 + Math.floor(Math.random() * 999999);
     var size = sizeOf();
-    var spec = PROMPT.parse(text, { seed: seed, style: el.style.value, locked: kept });
+    var spec = null;
+    /*
+     * A new sky has to be a visibly different sky.
+     *
+     * The hour used to be one of four names, so a re-roll always landed
+     * somewhere obviously else. It is an angle now, and two rolls can land
+     * within a degree of each other — at which point the button looks broken
+     * even though it did exactly what it was asked. So: roll until it is
+     * different, and give up after a few tries rather than spin.
+     */
+    for (var tries = 0; tries < 8; tries++) {
+      seed = 1 + Math.floor(Math.random() * 999999);
+      spec = PROMPT.parse(text, { seed: seed, style: el.style.value, locked: kept });
+      if (part !== 'sky' || !current.sun || skyMoved(current, spec)) break;
+    }
     var ph = photoSpec();
     if (ph) spec.photo = ph;
 
