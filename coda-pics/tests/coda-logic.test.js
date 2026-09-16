@@ -1046,6 +1046,9 @@ function laidDown(ctx, gradient) {
       var c = ctx.log[i];
       if (c.op !== 'gradient' || !c.gradient.stops.length) continue;
       if (c.gradient.stops[0].colour !== want) continue;
+      /* Built is not drawn: a pass that makes a gradient and then never fills
+       * anything with it is not a pass at all. */
+      if (!laidDown(ctx, c.gradient)) continue;
       var found = { colour: want, stops: c.gradient.stops, alpha: 0, climb: 0 };
       /* The gradient's own geometry: y0 at the feet, y1 where it dies out. */
       found.climb = Math.abs(c.args[3] - c.args[1]);
@@ -1358,6 +1361,7 @@ function laidDown(ctx, gradient) {
        * nothing, painted before the disc is. */
       if (c.gradient.stops[0].colour.indexOf('hsla') !== 0) continue;
       if (!/,\s*0\)$/.test(c.gradient.stops[c.gradient.stops.length - 1].colour)) continue;
+      if (!laidDown(ctx, c.gradient)) continue;
       /* The disc: the first round thing drawn after the glow. Its colour is
        * set between the arc and the fill, not before the arc. */
       var alpha = null;
@@ -1381,10 +1385,11 @@ function laidDown(ctx, gradient) {
   check(open && hidden && hidden.spread > open.spread * 1.5,
     'the glow spreads much wider in fog (' + (hidden ? Math.round(hidden.spread) : '-') +
     'px against ' + (open ? Math.round(open.spread) : '-') + 'px)');
-  check(open && hidden && open.alpha != null && hidden.alpha < open.alpha * 0.5,
-    'and the sun itself is barely there behind it (' +
-    (hidden ? hidden.alpha.toFixed(2) : '-') + ' against ' +
-    (open ? open.alpha.toFixed(2) : '-') + ')');
+  function shown(bag) { return bag && bag.alpha != null ? bag.alpha.toFixed(2) : '-'; }
+  check(open && hidden && open.alpha != null && hidden.alpha != null &&
+        hidden.alpha < open.alpha * 0.5,
+    'and the sun itself is barely there behind it (' + shown(hidden) +
+    ' against ' + shown(open) + ')');
   pass('cloud turns the sun into the whole sky');
 })();
 
@@ -1517,10 +1522,17 @@ function laidDown(ctx, gradient) {
     ctx.log.forEach(function (c) {
       if (c.op !== 'gradient' || c.args.length !== 4) return;
       if (c.args[0] !== c.args[2]) return;              // upright, not across
+      /* Running downwards, and all the way to the bottom edge of the frame.
+       * That is what a reflection down the ground is, and it is what the light
+       * bouncing up off the ground into a subject is not — without this the
+       * check was counting the bounce, and passing whether or not a streak had
+       * ever been drawn. */
+      if (c.args[3] <= c.args[1] || Math.abs(c.args[3] - 360) > 2) return;
       if (!c.gradient.stops.length) return;
       var first = c.gradient.stops[0].colour;
       var last = c.gradient.stops[c.gradient.stops.length - 1].colour;
       if (first.indexOf('hsla') !== 0 || !/,\s*0\)$/.test(last)) return;
+      if (!laidDown(ctx, c.gradient)) return;
       found++;
     });
     return found;
@@ -1730,7 +1742,7 @@ function laidDown(ctx, gradient) {
     var s = sky(weather);
     return s.ctx.gradients.some(function (g) {
       return g.stops.length === 3 && /,\s*0\)$/.test(g.stops[2].colour) &&
-        g.stops[0].colour.indexOf('hsla') === 0;
+        g.stops[0].colour.indexOf('hsla') === 0 && laidDown(s.ctx, g);
     });
   }
   check(hasDeck('rain') && !hasDeck('clear'),
