@@ -1039,12 +1039,46 @@
     }
   };
 
+  /*
+   * Water, which is mostly a mirror.
+   *
+   * It was the sea's own colour with distance haze mixed into the far end —
+   * which gets the lightness right and the colour wrong. Water far from you is
+   * seen at a grazing angle and is almost entirely a reflection of the sky, so
+   * under a sunset a lake goes orange; this one stayed blue under an orange
+   * sky, and no amount of haze fixes that. Water near you is seen from above,
+   * so you are looking into it rather than off it, and it keeps its own
+   * colour.
+   *
+   * And the reflection is broken. The surface is never flat, so what it gives
+   * back is the sky in pieces, shuffled sideways, and more broken the nearer
+   * it comes — which is the steepening angle, again.
+   */
   function water(ctx, w, h, top, P, spec, r, light) {
     var g = ctx.createLinearGradient(0, top, 0, h);
-    g.addColorStop(0, P.sea(0.9));
+    /* The far band is the sky coming back off it; the near band is the water
+     * itself, looked into rather than off. */
+    g.addColorStop(0, P.css(mixHSL(P.sky.low, P.scene.sea || P.scene.far, 0.35), 1));
+    g.addColorStop(0.18, P.css(mixHSL(P.sky.low, P.scene.sea || P.scene.far, 0.62), 1));
     g.addColorStop(1, P.sea(0));
     ctx.fillStyle = g;
     ctx.fillRect(0, top, w, h - top);
+
+    /* The reflection, in pieces. Thin slices of the sky's own colour, each
+     * shoved sideways by a different amount and fading out as the water comes
+     * towards you and the angle steepens. */
+    var slices = 22;
+    for (var s2 = 0; s2 < slices; s2++) {
+      var ts = s2 / slices;
+      var sy = top + (h - top) * Math.pow(ts, 1.4);
+      var deep = 1 - ts;
+      ctx.globalAlpha = 0.30 * deep * deep;
+      ctx.fillStyle = P.css(P.sky.low, 1);
+      var shove = (r() - 0.5) * w * 0.10 * (0.3 + ts);
+      ctx.fillRect(shove, sy, w * (0.5 + r() * 0.7),
+        Math.max(1, (h - top) * 0.02 * (0.5 + ts)));
+    }
+    ctx.globalAlpha = 1;
     if (light) {                              // the light's glitter on the water
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';   // light on water adds, never greys
@@ -2136,14 +2170,15 @@
     canyon:    { kinds: ['rock', 'pebble'],           n: 28 },
     mountains: { kinds: ['rock', 'pebble', 'patch'],  n: 30 },
     snow:      { kinds: ['rock', 'patch'],            n: 14 },
-    shore:     { kinds: ['pebble', 'shell', 'weed'],  n: 32 },
-    lake:      { kinds: ['pebble', 'weed', 'tuft'],   n: 24 },
-    swamp:     { kinds: ['weed', 'stick', 'tuft'],    n: 30 },
+    /* On a shore the sand starts well down the frame and everything above it
+     * is water, so the shells and pebbles start there too — a pebble lying on
+     * the open sea is not a small thing lying about, it is a mistake. */
+    shore:     { kinds: ['pebble', 'shell', 'weed'],  n: 32, from: 0.62 },
+    swamp:     { kinds: ['weed', 'stick', 'tuft'],    n: 30, from: 0.35 },
     ruins:     { kinds: ['rock', 'pebble', 'stick'],  n: 34 },
     road:      { kinds: ['pebble', 'stick'],          n: 22 },
     city:      { kinds: ['pebble', 'stick'],          n: 18 },
     volcano:   { kinds: ['rock', 'pebble'],           n: 30 },
-    island:    { kinds: ['pebble', 'weed', 'tuft'],   n: 26 },
     cave:      { kinds: ['rock', 'pebble'],           n: 24 }
   };
 
@@ -2159,7 +2194,8 @@
       /* Squared, so they crowd towards the skyline the way a receding plane
        * makes everything crowd towards it. */
       var t = r();
-      var y = hz + (h - hz) * t * t;
+      var from = kit.from || 0;
+      var y = hz + (h - hz) * (from + (1 - from) * t * t);
       var near = (y - hz) / Math.max(h - hz, 1);      // 0 at the skyline, 1 at your feet
       var x = r() * w;
       var size = Math.max(0.8, Math.min(w, h) * 0.004 * (0.25 + near * 2.4));

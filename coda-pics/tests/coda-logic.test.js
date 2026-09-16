@@ -2422,6 +2422,87 @@ function laidDown(ctx, gradient) {
   pass('the air has something in it, so the light shows');
 })();
 
+/* ----------------------------------------------------------- water as a mirror
+ * Water was a wash of sea colour, which is the wrong way round twice over:
+ * water far off is seen at a grazing angle and is almost all reflected sky,
+ * and water near you is looked into rather than off, so it is dark.
+ */
+(function waterMirror() {
+  console.log('\nWater, which is mostly a mirror');
+
+  /* At sunset, because that is when the difference shows: the sky's low band
+   * goes orange while the sea's own colour stays blue, so a water that merely
+   * hazes its own colour into the distance comes out blue under an orange sky
+   * and one that reflects comes out orange. At noon both are blue and the
+   * question cannot be asked. */
+  var spec = PROMPT.parse('the open sea at sunset', { seed: 4 });
+  var P = PAINT.makePalette(spec);
+  var ctx = recorder(480, 360);
+  PAINT.GROUND.ocean(ctx, 480, 360, 180, P, spec, PROMPT.rng(spec, 'ground'),
+    { x: 200, y: 40, r: 20 });
+
+  /* The far band is mixed from the sky; the near band is the water itself. */
+  var wash = null;
+  ctx.log.forEach(function (c) {
+    if (c.op === 'gradient' && c.args.length === 4 && c.gradient.stops.length >= 3 &&
+        laidDown(ctx, c.gradient) && !wash) {
+      wash = c.gradient.stops;
+    }
+  });
+  function hueOf(colour) {
+    var m = /^hsla?\(([0-9.]+)/.exec(colour);
+    return m ? parseFloat(m[1]) : null;
+  }
+  function apart(a, b) { return Math.abs(((a - b) % 360 + 540) % 360 - 180); }
+  var far = wash ? hueOf(wash[0].colour) : null;
+  var near = wash ? hueOf(wash[wash.length - 1].colour) : null;
+  var skyHue = P.sky.low[0], seaHue = (P.scene.sea || P.scene.far)[0];
+  check(far !== null && apart(far, skyHue) < 20,
+    'the far water is the colour of the sky, because that is what is coming ' +
+    'back off it (water ' + (far === null ? '-' : far.toFixed(0)) + ', sky ' +
+    skyHue.toFixed(0) + ')');
+  check(near !== null && apart(near, seaHue) < apart(far, seaHue),
+    'and the near water is more its own colour, because you are looking into ' +
+    'it rather than off it (near ' + (near === null ? '-' : near.toFixed(0)) +
+    ', sea ' + seaHue.toFixed(0) + ')');
+
+  /* And the reflection is broken, more so as the water comes towards you. */
+  var skyColour = P.css(P.sky.low, 1);
+  var pieces = [], alphas = [];
+  var held = 1, fill = null;
+  ctx.log.forEach(function (c) {
+    if (c.op === 'set' && c.args[0] === 'globalAlpha') held = c.args[1];
+    else if (c.op === 'set' && c.args[0] === 'fillStyle') fill = c.args[1];
+    else if (c.op === 'fillRect' && fill === skyColour) {
+      pieces.push(c.args[1]);
+      alphas.push({ y: c.args[1], a: held });
+    }
+  });
+  check(pieces.length > 10,
+    'the reflection comes back in ' + pieces.length + ' pieces, not one sheet');
+  var far = alphas.filter(function (p) { return p.y < 180 + (360 - 180) * 0.35; });
+  var near = alphas.filter(function (p) { return p.y > 180 + (360 - 180) * 0.65; });
+  function mean(list) {
+    return list.length ? list.reduce(function (a, p) { return a + p.a; }, 0) / list.length : 0;
+  }
+  check(far.length && near.length && mean(far) > mean(near) * 2,
+    'and it fades as the water comes towards you and the angle steepens (' +
+    mean(far).toFixed(3) + ' against ' + mean(near).toFixed(3) + ')');
+
+  /* A pebble lying on the open sea is not a small thing lying about, it is a
+   * mistake. On a shore the sand starts well down the frame. */
+  var shore = PROMPT.parse('a lighthouse on the shore at noon', { seed: 4 });
+  var sctx = recorder(480, 360);
+  PAINT.scatter(sctx, 480, 360, 180, PAINT.makePalette(shore), shore,
+    PROMPT.rng(shore, 'scatter'));
+  var sand = 180 + (360 - 180) * 0.62;
+  var afloat = shapesOf(sctx).filter(function (sh) { return sh.bottom < sand - 2; });
+  check(shapesOf(sctx).length > 10 && afloat.length === 0,
+    'and nothing is lying about on the water in front of a shore' +
+    (afloat.length ? ' — ' + afloat.length + ' pieces are afloat' : ''));
+  pass('water gives the sky back, in pieces');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);
