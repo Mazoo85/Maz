@@ -1453,11 +1453,96 @@
   }
 
   /*
+   * Things that are a light themselves.
+   *
+   * A campfire was an orange shape on a dark field. It lit nothing: not the
+   * ground it was burning on, not the face of whoever was standing by it, not
+   * the underside of the tree above it. The one thing everyone knows about a
+   * fire at night is what it does to everything around it, and the picture had
+   * none of it — which is also why every night picture had exactly one light
+   * in it, the moon, no matter what was in the scene.
+   *
+   * `at` is where the light sits inside the thing, as a share of its box.
+   * `reach` is how far it carries, in widths of that box.
+   */
+  var GLOWING = {
+    campfire:   { hue: [26, 100, 58],  at: [0.50, 0.78], reach: 3.6, strength: 1.00 },
+    lighthouse: { hue: [48, 100, 80],  at: [0.50, 0.08], reach: 4.2, strength: 0.85 },
+    crystal:    { hue: [190, 92, 68],  at: [0.50, 0.46], reach: 2.6, strength: 0.70 },
+    portal:     { hue: [282, 92, 66],  at: [0.50, 0.46], reach: 3.0, strength: 0.90 },
+    rocket:     { hue: [28, 100, 62],  at: [0.50, 0.97], reach: 2.8, strength: 0.95 },
+    ufo:        { hue: [150, 92, 62],  at: [0.50, 0.88], reach: 3.0, strength: 0.80 },
+    city:       { hue: [38, 92, 62],   at: [0.50, 0.82], reach: 2.2, strength: 0.60 },
+    volcano:    { hue: [14, 100, 56],  at: [0.50, 0.30], reach: 3.2, strength: 0.85 }
+  };
+
+  /*
+   * What the extra lights in a picture are, and where they stand.
+   *
+   * A light only shows against the dark: a campfire at noon is a campfire, at
+   * midnight it is the light in the picture. So every one of them is scaled by
+   * how little light the sun is giving — which is the same number the ground
+   * is lit by, read the other way round.
+   */
+  function extraLights(spec, placed, w, h) {
+    var dim = clamp(1 - groundLit(spec.sun) * 0.92, 0.06, 1);
+    if (dim < 0.12) return [];
+    var out = [];
+    placed.forEach(function (item) {
+      var glow = GLOWING[item.s.draw];
+      if (!glow) return;
+      out.push({
+        x: item.box.x + item.box.w * glow.at[0],
+        y: item.box.y + item.box.h * glow.at[1],
+        hue: glow.hue,
+        /* In widths of the thing, but never most of the picture: a close-up of
+         * a campfire is a bigger fire, not a fire that lights the county. */
+        reach: Math.min(item.box.w * glow.reach, Math.max(w, h) * 0.42),
+        strength: glow.strength * dim,
+        box: item.box
+      });
+    });
+    return out;
+  }
+
+  /* The pool of light a glowing thing lays down around itself. Added to what
+   * is already there rather than painted over it, because that is what light
+   * does — it is why a fire warms a whole clearing without hiding it. */
+  function spill(ctx, w, h, hz, L, P) {
+    /* Twice: a pool on the ground, which is where a light lands, and a much
+     * weaker halo in the air around the source. Painting one strong gradient
+     * over the whole frame lit the sky as brightly as the field, and a sky
+     * that glows around a campfire is a smoke ring, not a night. */
+    function lay(alpha, radius) {
+      var g = ctx.createRadialGradient(L.x, L.y, 0, L.x, L.y, radius);
+      /* A smooth square-law falloff in a dozen steps rather than four hand-set
+       * ones: four leaves visible rings round the fire, and a ring of light is
+       * something nobody has ever seen. */
+      for (var i = 0; i <= 12; i++) {
+        var t = i / 12;
+        g.addColorStop(t, P.css(L.hue, 0.50 * alpha * Math.pow(1 - t, 2.6)));
+      }
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+    }
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, Math.max(0, hz - L.reach * 0.10), w, h);
+    ctx.clip();
+    lay(L.strength, L.reach);
+    ctx.restore();
+    lay(L.strength * 0.30, L.reach * 0.55);
+    ctx.restore();
+  }
+
+  /*
    * Draw one subject, lit. The order is the order a painter would work in:
    * the shape it throws away from the light, the shape itself, the edge the
    * light catches, then whatever the weather is doing to it.
    */
-  function paintSubject(ctx, subject, box, P, PS, r, spec, light, hz, h) {
+  function paintSubject(ctx, subject, box, P, PS, r, spec, light, hz, h, extras) {
     var cx = box.x + box.w / 2, cy = box.y + box.h / 2;
     var dx = 0, dy = 0;
     if (light) {
@@ -1587,6 +1672,32 @@
      * light is arriving from the whole sky rather than from one point in it. */
     stencil(ctx, subject, box, PS, r, spec, model, 0, 0,
       (0.42 + P.drama * 0.12) * (1 - softness(spec) * 0.55));
+
+    /*
+     * And every other light in the picture. A person standing by a fire is lit
+     * by the fire on one side and by the night on the other; that second light
+     * is most of what makes a night picture read as a photograph rather than a
+     * dark drawing. Each one falls off with distance and comes from its own
+     * direction, so the side facing it is the side that catches it.
+     */
+    (extras || []).forEach(function (L) {
+      if (L.box === box) return;                 // a lamp does not light itself
+      var lx = cx - L.x, ly = cy - L.y;
+      var dist = Math.sqrt(lx * lx + ly * ly) || 1;
+      if (dist > L.reach) return;
+      var fall = 1 - dist / L.reach;
+      fall *= fall;
+      if (fall < 0.05) return;
+      var ux = lx / dist, uy = ly / dist;
+      var span = Math.max(box.w, box.h) * 0.62;
+      var side = ctx.createLinearGradient(
+        cx - ux * span, cy - uy * span, cx + ux * span, cy + uy * span);
+      side.addColorStop(0, P.css(L.hue, 0.85));
+      side.addColorStop(0.5, P.css(L.hue, 0.22));
+      side.addColorStop(1, P.css(L.hue, 0));
+      stencil(ctx, subject, box, PS, r, spec, side, 0, 0,
+        clamp(0.62 * fall * L.strength, 0, 0.85));
+    });
 
     /*
      * Then the air it is standing in: what the sky and the ground throw back at
@@ -1857,8 +1968,15 @@
     }
     if (spec.relation && placed.length > 1) arrange(spec.relation, placed, w, h);
     placed.sort(function (a, b) { return a.z - b.z; });
+
+    /* Anything in the picture that is a light in its own right. The pool it
+     * throws goes down before the things standing in it, so they are standing
+     * in it rather than in front of it. */
+    var extras = extraLights(spec, placed, w, h);
+    extras.forEach(function (L) { spill(ctx, w, h, hz, L, P); });
+
     placed.forEach(function (item) {
-      paintSubject(ctx, item.s, item.box, P, PS, sr, spec, light, hz, h);
+      paintSubject(ctx, item.s, item.box, P, PS, sr, spec, light, hz, h, extras);
     });
 
     if (!onPhoto) foreground(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'fore'));
@@ -1913,6 +2031,8 @@
     groundLit: groundLit,
     shadowReach: shadowReach,
     softness: softness,
+    extraLights: extraLights,
+    GLOWING: GLOWING,
     paintSubject: paintSubject,
     arrange: arrange,
     foreground: foreground,

@@ -1320,6 +1320,94 @@ function recorder(w, h) {
   pass('cloud turns the sun into the whole sky');
 })();
 
+/* ------------------------------------------------- things that are a light
+ * A campfire was an orange shape on a dark field. It lit nothing — not the
+ * ground it burned on, not the person standing by it — and so every night
+ * picture had exactly one light in it, the moon, whatever else was in the
+ * scene.
+ */
+(function thingsThatGlow() {
+  console.log('\nThings that are a light themselves');
+
+  function lightsFor(text) {
+    var spec = PROMPT.parse(text, { seed: 8 });
+    var box = { x: 180, y: 180, w: 90, h: 80, depth: 0, anchor: 'ground' };
+    return {
+      spec: spec,
+      lights: PAINT.extraLights(spec, [{ s: spec.subject, box: box }], 480, 360)
+    };
+  }
+
+  var fire = lightsFor('a campfire in a forest at night');
+  check(fire.lights.length === 1, 'a campfire at night is a light in the picture');
+  var day = lightsFor('a campfire in a forest at high noon');
+  check(day.lights.length === 0,
+    'and at noon it is not — a fire only shows against the dark');
+
+  var stone = lightsFor('a castle in a forest at night');
+  check(stone.lights.length === 0, 'a castle is not a light, whatever the hour');
+
+  /* Reach is in widths of the thing, but a close-up of a fire is a bigger
+   * fire, not a fire that lights the county. */
+  var spec = PROMPT.parse('a campfire in a forest at night', { seed: 8 });
+  var huge = PAINT.extraLights(spec,
+    [{ s: spec.subject, box: { x: 0, y: 40, w: 900, h: 300, anchor: 'ground' } }], 480, 360);
+  check(huge.length === 1 && huge[0].reach <= 480 * 0.42 + 0.001,
+    'and however big the thing is, its light stops (' +
+    (huge.length ? Math.round(huge[0].reach) + 'px' : 'no light at all') +
+    ' in a 480px picture)');
+
+  /* The pool it lays down is added to what is there rather than painted over
+   * it, which is what light does and why a fire warms a clearing without
+   * hiding it. */
+  var ctx = recorder(480, 360);
+  PAINT.render(ctx, 480, 360, PROMPT.parse('a campfire in a forest at night', { seed: 8 }));
+  var added = ctx.log.filter(function (c) {
+    return c.op === 'set' && c.args[0] === 'globalCompositeOperation' && c.args[1] === 'lighter';
+  });
+  check(added.length >= 1, 'its pool is added to the picture, not painted over it');
+
+  var noFire = recorder(480, 360);
+  PAINT.render(noFire, 480, 360, PROMPT.parse('a castle in a forest at night', { seed: 8 }));
+  check(noFire.log.filter(function (c) {
+    return c.op === 'set' && c.args[0] === 'globalCompositeOperation' && c.args[1] === 'lighter';
+  }).length === 0, 'and a picture with nothing glowing in it adds no pool at all');
+
+  /* And it lights what is standing near it. */
+  function litSide(text, box, lightBox) {
+    var sp = PROMPT.parse(text, { seed: 8 });
+    var P = PAINT.makePalette(sp);
+    var PS = PAINT.makePalette(sp, { tintStrength: 0.85 });
+    var fireHue = PAINT.GLOWING.campfire.hue;
+    var extras = [{
+      x: lightBox.x + lightBox.w * 0.5, y: lightBox.y + lightBox.h * 0.78,
+      hue: fireHue, reach: lightBox.w * 3.6, strength: 0.9, box: lightBox
+    }];
+    var c = recorder(480, 360);
+    PAINT.paintSubject(c, sp.subject, box, P, PS, PROMPT.rng(sp, 'subject'),
+      sp, { x: 60, y: 30 }, 200, 360, extras);
+    var want = P.css(fireHue, 0.85);
+    var found = null;
+    c.gradients.forEach(function (g) {
+      g.stops.forEach(function (st) { if (st.colour === want) found = g; });
+    });
+    return found;
+  }
+
+  var near = { x: 210, y: 150, w: 70, h: 120, depth: 0, anchor: 'ground' };
+  var fireBox = { x: 130, y: 210, w: 60, h: 50, depth: 0, anchor: 'ground' };
+  check(!!litSide('a knight by a campfire at night', near, fireBox),
+    'someone standing by the fire is lit by the fire');
+
+  var away = { x: 430, y: 150, w: 70, h: 120, depth: 0, anchor: 'ground' };
+  check(!litSide('a knight by a campfire at night', away, fireBox),
+    'and someone across the field is not — it falls off with distance');
+
+  check(!litSide('a campfire in a forest at night', fireBox, fireBox),
+    'and a lamp does not light itself');
+  pass('a fire lights the clearing, and whoever is standing in it');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);
