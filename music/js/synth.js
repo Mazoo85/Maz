@@ -110,7 +110,18 @@
     const n = 1024;
     const curve = new Float32Array(n);
     for (let i = 0; i < n; i++) {
-      const x = (i * 2) / n - 1;
+      /*
+       * `n - 1`, not `n`. Dividing by the length runs the curve from −1 to
+       * +0.998 instead of −1 to +1, which puts the point a silent input lands
+       * on slightly below zero — so the shaper answers silence with a small
+       * negative level. Web Audio then keeps the node alive for ever, because
+       * a shaper whose curve is non-zero at zero has, by definition, an
+       * endless tail; every note played left one behind. Measured on a house
+       * track: a steady −0.075 of direct current under the whole mix, growing
+       * with the number of notes, eating headroom in every exported file and
+       * leaving a "silent" passage anything but.
+       */
+      const x = (i * 2) / (n - 1) - 1;
       curve[i] = ((1 + k) * x) / (1 + k * Math.abs(x));
     }
     ctx[key] = curve;

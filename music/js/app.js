@@ -260,6 +260,9 @@
     if (editor) {
       editor.startBar = 0;
       editor.clearHistory();
+      /* The markers are bar numbers in the song that was open. A new song is a
+         different length with a different shape, so they mean nothing now. */
+      editor.clearLoop();
       editor.setTrack(editor.track);
       editor.resize();
       if (editorSoundPicker) editorSoundPicker();
@@ -537,6 +540,13 @@
         el('followBtn').classList.remove('on');
         status('Follow off while you edit — turn it back on to scroll with the music.');
       },
+      /* The editor owns the markers; the player is simply told. Keeping the
+         two in one direction means there is never a disagreement about which
+         bars are looping. */
+      onLoop: function (from, to) {
+        player.setLoopRange(from, to);
+        syncLoopUI();
+      },
       onChange: function () {
         state.edited[editor.track] = true;
         player.refresh();
@@ -609,6 +619,10 @@
       state.edited[editor.track] = true;
       player.refresh();
       markRollDirty();
+      /* The undo button is drawn from the history, and straightening pushes a
+         snapshot without going through onChange — so without this the undo is
+         there and the button says it is not. */
+      syncEditUI();
       status(moved
         ? moved + (moved === 1 ? ' note' : ' notes') + ' pulled onto the grid. Ctrl+Z puts it back.'
         : 'Those notes were already on the grid.');
@@ -634,6 +648,49 @@
 
     el('snapSelect').addEventListener('change', function () { editor.snap = parseFloat(this.value); });
     el('lenSelect').addEventListener('change', function () { editor.noteLen = parseFloat(this.value); });
+
+    el('velLaneBtn').addEventListener('click', function () {
+      editor.velLane = !editor.velLane;
+      this.classList.toggle('on', editor.velLane);
+      /* The canvas grows to make room, so the note grid keeps the size it
+         had. Resize first, then draw, or the strip lands off the bottom. */
+      el('editor').classList.toggle('with-vel', editor.velLane);
+      editor.resize();
+      editor.draw();
+      status(editor.velLane
+        ? 'The strip under the grid is how hard each note hits — drag a bar up or down.'
+        : 'Velocity strip hidden.');
+    });
+
+    el('loopRangeBtn').addEventListener('click', function () {
+      if (!state.song) return;
+      if (editor.hasLoop()) {
+        editor.clearLoop();
+        status('Back to playing the whole song.');
+        return;
+      }
+      editor.loopVisible();
+      status('Looping bars ' + (editor.startBar + 1) + '–' + (editor.startBar + editor.bars) +
+        '. Drag across the bar numbers to pick different ones.');
+    });
+
+    function shiftPart(dir) {
+      if (!state.song) return;
+      editor.pushHistory();
+      const before = (state.song.tracks[editor.track] || []).length;
+      const left = editor.shiftTrack(dir * editor.snap);
+      if (!before) { status('Nothing in this part to shift.'); return; }
+      state.edited[editor.track] = true;
+      player.refresh();
+      markRollDirty();
+      const lost = before - left;
+      syncEditUI();
+      status(colorLabel(editor.track) + ' moved ' + snapName(editor.snap) +
+        (dir < 0 ? ' earlier' : ' later') +
+        (lost ? ' — ' + lost + (lost === 1 ? ' note' : ' notes') + ' fell off the end.' : '.'));
+    }
+    el('shiftEarlyBtn').addEventListener('click', function () { shiftPart(-1); });
+    el('shiftLateBtn').addEventListener('click', function () { shiftPart(1); });
 
     el('inKeyBtn').addEventListener('click', function () {
       editor.inKey = !editor.inKey;
@@ -981,8 +1038,27 @@
     return id;
   }
 
+  const SNAP_NAMES = { 1: 'a quarter note', 0.5: 'an eighth', 0.25: 'a sixteenth' };
+  function snapName(snap) { return SNAP_NAMES[snap] || (snap + ' beats'); }
+
+  /** The loop button, and the transport's own loop light, follow the markers. */
+  function syncLoopUI() {
+    if (!editor) return;
+    const on = editor.hasLoop();
+    const btn = el('loopRangeBtn');
+    if (btn) {
+      btn.classList.toggle('on', on);
+      const bpb = state.song ? (state.song.beatsPerBar || 4) : 4;
+      btn.textContent = on
+        ? '⟲ Looping bars ' + (Math.round(editor.loopFrom / bpb) + 1) + '–' +
+          Math.round(editor.loopTo / bpb)
+        : '⟲ Loop these bars';
+    }
+  }
+
   function syncEditUI() {
     if (!editor || !state.song) return;
+    syncLoopUI();
     Array.prototype.forEach.call(el('editTracks').children, function (b) {
       const on = b.dataset.id === editor.track;
       b.classList.toggle('on', on);
@@ -1031,7 +1107,8 @@
 
     secs.forEach(function (sec, i) {
       const card = document.createElement('div');
-      card.className = 'sec-card' + (sec.type === 'chorus' ? ' chorus' : '');
+      card.className = 'sec-card' + (sec.type === 'chorus' ? ' chorus' : '') +
+        (sec.muted ? ' muted' : '');
       card.dataset.index = String(i);
 
       const name = document.createElement('div');
@@ -1061,6 +1138,29 @@
         });
         btns.appendChild(b);
       }
+
+      /* Muting is not an arrangement change — nothing moves and nothing is
+         lost — so it takes no song snapshot and is its own undo: press it
+         again. It reaches the exported file as well as playback, because the
+         one place that turns the score into notes is where it is applied. */
+      const mute = document.createElement('button');
+      mute.type = 'button';
+      mute.textContent = sec.muted ? '🔇' : '🔊';
+      mute.className = 'sec-mute' + (sec.muted ? ' on' : '');
+      mute.title = (sec.muted ? 'Bring ' : 'Silence ') + sec.name +
+        (sec.muted ? ' back' : '');
+      mute.setAttribute('aria-label', mute.title);
+      mute.setAttribute('aria-pressed', sec.muted ? 'true' : 'false');
+      mute.addEventListener('click', function () {
+        sec.muted = !sec.muted;
+        player.refresh();
+        markRollDirty();
+        buildArrange();
+        status(sec.muted
+          ? sec.name + ' silenced — it stays in the song, and stays out of the export until you bring it back.'
+          : sec.name + ' is back.');
+      });
+      btns.appendChild(mute);
 
       button('◀', 'Move ' + sec.name + ' earlier', '', i === 0, function () {
         if (C.moveSection(state.song, i, -1)) structureChanged(sec.name + ' moved earlier.');

@@ -439,7 +439,7 @@ function launchOptions() {
     'a card for every section (' + arrBefore.cards + ')');
 
   // Duplicate the second section.
-  await page.click('#arrange .sec-card[data-index="1"] .sec-btns button:nth-child(2)');
+  await page.click('#arrange .sec-card[data-index="1"] .sec-btns button[aria-label^="Duplicate"]');
   await page.waitForTimeout(200);
   const dup = await page.evaluate(function () {
     return { sections: window.__song.sections.length, bars: window.__song.bars,
@@ -461,7 +461,7 @@ function launchOptions() {
   check(undone.form === arrBefore.form, 'right down to the running order');
 
   // Move a section and check the running order really changes.
-  await page.click('#arrange .sec-card[data-index="1"] .sec-btns button:nth-child(4)');
+  await page.click('#arrange .sec-card[data-index="1"] .sec-btns button[aria-label^="Move"][aria-label$="later"]');
   await page.waitForTimeout(200);
   const moved2 = await page.evaluate(function () {
     return { form: window.__song.sections.map(function (x) { return x.type; }).join(','),
@@ -471,7 +471,7 @@ function launchOptions() {
   check(moved2.bars === arrBefore.bars, 'without changing its length');
 
   // Delete one.
-  await page.click('#arrange .sec-card[data-index="0"] .sec-btns button:nth-child(3)');
+  await page.click('#arrange .sec-card[data-index="0"] .sec-btns button[aria-label^="Delete"]');
   await page.waitForTimeout(200);
   const del = await page.evaluate(function () {
     return { sections: window.__song.sections.length, bars: window.__song.bars,
@@ -943,6 +943,97 @@ function launchOptions() {
   check(stems.zipOk, 'the stems zip is a real archive');
   check(stems.zipSize > stems.sumSize, 'and it contains all of them (' +
     (stems.zipSize / 1048576).toFixed(1) + ' MB)');
+
+  console.log('\n— the working loop, the velocity strip and a silenced section —');
+  /* These are wired through the interface rather than called directly, because
+     what the single-file build has to prove is that the buttons are there and
+     connected — the behaviour underneath is measured in the browser suite. */
+  await page.click('#editTracks .chip[data-id="lead"]');
+  await page.waitForTimeout(120);
+  await page.click('#loopRangeBtn');
+  await page.waitForTimeout(150);
+  const loopOn = await page.evaluate(function () {
+    const ed = window.__editor, p = ed.player;
+    const bpb = window.__song.beatsPerBar || 4;
+    /* Against the editor's own window rather than a hard-coded bar one: by
+       this point in the suite the view has been scrolled and zoomed, and the
+       claim is that it loops *the bars you are looking at*. */
+    return { btn: document.getElementById('loopRangeBtn').classList.contains('on'),
+             label: document.getElementById('loopRangeBtn').textContent,
+             from: p.loopFrom, to: p.loopTo,
+             wantFrom: ed.startBar * bpb, wantTo: (ed.startBar + ed.bars) * bpb,
+             firstBar: ed.startBar + 1 };
+  });
+  check(loopOn.btn && loopOn.from === loopOn.wantFrom && loopOn.to === loopOn.wantTo,
+    'Loop these bars loops the bars on screen (' +
+    loopOn.from + '–' + loopOn.to + ')');
+  check(loopOn.label.indexOf('bars ' + loopOn.firstBar) >= 0,
+    'and the button says which bars (' + loopOn.label.trim() + ')');
+  await page.click('#loopRangeBtn');
+  await page.waitForTimeout(150);
+  check(await page.evaluate(function () { return window.__editor.player.loopFrom === null; }),
+    'pressing it again plays the whole song again');
+
+  await page.click('#velLaneBtn');
+  await page.waitForTimeout(200);
+  const velStrip = await page.evaluate(function () {
+    const c = document.getElementById('editor');
+    return { on: c.classList.contains('with-vel'),
+             h: Math.round(c.getBoundingClientRect().height) };
+  });
+  await page.click('#velLaneBtn');
+  await page.waitForTimeout(200);
+  const laneOff = await page.evaluate(function () {
+    return Math.round(document.getElementById('editor').getBoundingClientRect().height);
+  });
+  check(velStrip.on && velStrip.h > laneOff,
+    'the velocity strip adds room rather than taking it (' + laneOff + ' → ' + velStrip.h + 'px)');
+
+  const shifted = await page.evaluate(function () {
+    return window.__song.tracks.lead.map(function (e) { return e.t; });
+  });
+  await page.click('#shiftLateBtn');
+  await page.waitForTimeout(200);
+  const shiftedAfter = await page.evaluate(function () {
+    return window.__song.tracks.lead.map(function (e) { return e.t; });
+  });
+  check(shiftedAfter.length > 0 && shifted.length > 0 &&
+        Math.abs(shiftedAfter[0] - (shifted[0] + 0.25)) < 1e-9,
+    'sliding the part moves every note together (' + shifted[0].toFixed(3) +
+    ' → ' + shiftedAfter[0].toFixed(3) + ')');
+  /* And the undo is offered, not merely available: sliding pushes a snapshot
+     without going through the editor's change hook, which left the button
+     greyed out over a history that had something in it. */
+  check(!(await page.evaluate(function () {
+    return document.getElementById('undoBtn').disabled;
+  })), 'and the Undo button knows it can be undone');
+  await page.click('#undoBtn');
+  await page.waitForTimeout(200);
+
+  const hushed = await page.evaluate(function () {
+    const card = document.querySelector('#arrange .sec-card[data-index="1"]');
+    const btn = card.querySelector('.sec-mute');
+    btn.click();
+    const sec = window.__song.sections[1];
+    const bpb = window.__song.beatsPerBar || 4;
+    const from = sec.startBar * bpb, to = from + sec.bars * bpb;
+    const flat = window.Engine.flatten(window.__song);
+    return {
+      muted: !!sec.muted,
+      faded: document.querySelector('#arrange .sec-card[data-index="1"]')
+        .classList.contains('muted'),
+      inside: flat.filter(function (e) { return e.t >= from + 0.3 && e.t < to - 0.3; }).length,
+      total: flat.length
+    };
+  });
+  check(hushed.muted && hushed.faded,
+    'silencing a section marks its card');
+  check(hushed.inside === 0 && hushed.total > 100,
+    'and takes its notes out of what gets played (' + hushed.total + ' left elsewhere)');
+  await page.evaluate(function () {
+    document.querySelector('#arrange .sec-card[data-index="1"] .sec-mute').click();
+  });
+  await page.waitForTimeout(150);
 
   console.log('\n— phone —');
   const phone = await browser.newPage({ viewport: { width: 390, height: 780 }, isMobile: true, hasTouch: true });

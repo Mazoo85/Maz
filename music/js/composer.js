@@ -1621,7 +1621,7 @@
         });
       return {
         type: sec.type, bars: sec.bars, energy: sec.energy, keyShift: sec.keyShift || 0,
-        halfTime: !!sec.halfTime,
+        halfTime: !!sec.halfTime, muted: !!sec.muted,
         parts: sec.parts, tracks: tracks, chords: chords
       };
     });
@@ -1656,7 +1656,7 @@
       sections.push({
         type: b.type, bars: b.bars, energy: b.energy,
         parts: b.parts, keyShift: b.keyShift || 0, halfTime: !!b.halfTime,
-        startBar: bar, chords: []
+        muted: !!b.muted, startBar: bar, chords: []
       });
       bar += b.bars;
     });
@@ -1819,7 +1819,7 @@
       sections: song.sections.map(function (s) {
         return { type: s.type, bars: s.bars, startBar: s.startBar, energy: s.energy,
                  name: s.name, parts: s.parts, keyShift: s.keyShift || 0,
-                 halfTime: !!s.halfTime };
+                 halfTime: !!s.halfTime, muted: !!s.muted };
       }),
       chords: song.chords.map(function (c) {
         return { startBeat: r4(c.startBeat), durBeats: r4(c.durBeats), bar: c.bar, bars: c.bars,
@@ -1896,7 +1896,7 @@
     song.sections = p.sections.map(function (s) {
       return { type: s.type, bars: s.bars, startBar: s.startBar, energy: s.energy,
                name: s.name, parts: s.parts, keyShift: s.keyShift || 0,
-               halfTime: !!s.halfTime, chords: [] };
+               halfTime: !!s.halfTime, muted: !!s.muted, chords: [] };
     });
     // Sections keep their own view of the harmony; re-link it to the restored one.
     song.sections.forEach(function (sec) {

@@ -542,6 +542,11 @@ input[type="range"]::-moz-range-thumb {
 .sec-btns button:hover:not([disabled]) { color: var(--cyan); border-color: var(--cyan); }
 .sec-btns button[disabled] { opacity: 0.3; cursor: default; }
 .sec-btns .del:hover:not([disabled]) { color: var(--pink); border-color: var(--pink); }
+/* A silenced section stays in the arrangement, faded rather than removed —
+   you can still see where it sits and put it back. */
+.sec-card.muted { opacity: 0.55; border-style: dashed; }
+.sec-btns .sec-mute.on { color: var(--amber); border-color: var(--amber); opacity: 1; }
+.sec-card.muted .sec-name { text-decoration: line-through; }
 .arrange-hint { margin: 0; font-size: 12px; }
 
 /* ---------------- note editor ---------------- */
@@ -676,6 +681,9 @@ input[type="range"]::-moz-range-thumb {
 }
 .editor.erasing { cursor: not-allowed; }
 .editor.selecting { cursor: crosshair; }
+/* The velocity strip is added to the canvas rather than taken out of the grid:
+   showing how hard the notes hit should not shrink the notes. */
+.editor.with-vel { height: 358px; }
 
 .edit-nav {
   display: flex;
@@ -878,11 +886,13 @@ input[type="range"]::-moz-range-thumb {
 @media (min-width: 760px) {
   .roll { height: 240px; }
   .editor { height: 380px; }
+  .editor.with-vel { height: 438px; }
   .track { grid-template-columns: 110px 44px 44px 44px 1fr auto; }
 }
 
 @media (max-width: 420px) {
   .editor { height: 260px; }
+  .editor.with-vel { height: 318px; }
   .track {
     grid-template-columns: 1fr auto auto auto auto;
     grid-template-areas: "name lock solo mute roll" "vol vol vol vol vol";

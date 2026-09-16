@@ -1061,8 +1061,54 @@
    * Flatten the score into one time-ordered list
    * ------------------------------------------------------------------ */
 
+  /**
+   * The beat ranges of any sections switched off, or null if none are.
+   *
+   * Muting is done here, where the score is turned into a list of things to
+   * play, rather than at the mixer: the same list feeds live playback and the
+   * offline render, so a bridge you silenced to hear the song without it is
+   * missing from the exported file too, without either end being told.
+   */
+  function mutedSpans(song) {
+    const secs = song.sections || [];
+    let spans = null;
+    const bpb = song.beatsPerBar || 4;
+    for (let i = 0; i < secs.length; i++) {
+      if (!secs[i].muted) continue;
+      if (!spans) spans = [];
+      spans.push([secs[i].startBar * bpb, (secs[i].startBar + secs[i].bars) * bpb]);
+    }
+    return spans;
+  }
+
+  function inSpans(spans, t) {
+    for (let i = 0; i < spans.length; i++) {
+      if (t >= spans[i][0] - 1e-9 && t < spans[i][1] - 1e-9) return true;
+    }
+    return false;
+  }
+
+  /**
+   * How long a note may ring before it runs into silence.
+   *
+   * A note that starts before a silenced section and is still sounding when it
+   * begins is cut off at the border rather than allowed through. Letting it
+   * ring was the first thing tried and it does not work: a pad or a held chord
+   * crossing the line kept a "silenced" eight bars audibly playing at nearly
+   * half its level. Trimming silences the section properly while leaving the
+   * section that played the note exactly as it was.
+   */
+  function cutAt(spans, t, d) {
+    let end = t + d;
+    for (let i = 0; i < spans.length; i++) {
+      if (spans[i][0] > t + 1e-9 && spans[i][0] < end) end = spans[i][0];
+    }
+    return end - t;
+  }
+
   function flatten(song) {
     const flat = [];
+    const muted = mutedSpans(song);
     /* Swing and groove lean are applied here rather than written into the
        score, so this one place feeds live playback and the offline render
        alike — and moving the groove while you listen changes what you hear
@@ -1074,7 +1120,13 @@
       let prevPitch = null;
       for (let i = 0; i < evs.length; i++) {
         const e = evs[i];
-        const item = { t: swing(e.t, feel.swing, feel.push), d: e.d, p: e.p, v: e.v,
+        /* Judged on where the note starts; one that runs into silence is cut
+           short at the border rather than dropped, so the section that played
+           it keeps everything it played. */
+        if (muted && inSpans(muted, e.t)) continue;
+        const dur = muted ? cutAt(muted, e.t, e.d) : e.d;
+        if (dur <= 0) continue;
+        const item = { t: swing(e.t, feel.swing, feel.push), d: dur, p: e.p, v: e.v,
                        inst: e.inst, track: name };
         if (name === 'bass' && e.glide && prevPitch !== null) item.glideFrom = prevPitch;
         if (name === 'bass') prevPitch = e.p;
@@ -1153,6 +1205,14 @@
     this.flat = [];
     this.playing = false;
     this.loop = true;
+    /*
+     * A working loop over part of the song, in beats — null for "the whole
+     * thing". Everything downstream measures passes in `_loopLen()` beats from
+     * `_loopA()` rather than in whole songs, so the range is the only thing
+     * that has to know it exists.
+     */
+    this.loopFrom = null;
+    this.loopTo = null;
     this.mix = {};
     TRACKS.forEach(function (t) {
       this.mix[t] = {
@@ -1259,6 +1319,54 @@
       { brightness: this._brightness() });
   };
 
+  /* ------------------------------------------------------------------ *
+   * The working loop
+   *
+   * Set a range and playback goes round those bars instead of the whole song.
+   * The three accessors below are the whole mechanism: with no range they
+   * report 0 and the song's length, which is exactly what the old arithmetic
+   * did, so there is one code path rather than two.
+   * ------------------------------------------------------------------ */
+
+  Player.prototype._loopA = function () {
+    return this.loopFrom === null ? 0 : this.loopFrom;
+  };
+  Player.prototype._loopB = function () {
+    if (!this.song) return 0;
+    return this.loopTo === null ? this.song.totalBeats : this.loopTo;
+  };
+  Player.prototype._loopLen = function () {
+    return Math.max(1e-6, this._loopB() - this._loopA());
+  };
+
+  /**
+   * Loop a stretch of the song while you work on it.
+   *
+   * Pass nothing (or a range that is not at least one beat long) to go back to
+   * looping the whole song. Setting a range while the music is playing drops
+   * the playhead into it rather than waiting for it to arrive, because the
+   * point of asking for four bars is to hear them now.
+   */
+  Player.prototype.setLoopRange = function (from, to) {
+    const song = this.song;
+    if (!song || from === null || from === undefined || to === null || to === undefined
+        || !(to - from >= 1)) {
+      const had = this.loopFrom !== null;
+      this.loopFrom = this.loopTo = null;
+      if (had && this.playing) this.seek(this.currentBeat());
+      return false;
+    }
+    const a = Math.max(0, Math.min(song.totalBeats - 1, from));
+    const b = Math.max(a + 1, Math.min(song.totalBeats, to));
+    this.loopFrom = a;
+    this.loopTo = b;
+    const at = this.currentBeat();
+    this.seek(at >= a && at < b ? at : a);
+    return true;
+  };
+
+  Player.prototype.hasLoopRange = function () { return this.loopFrom !== null; };
+
   Player.prototype._indexForBeat = function (beat) {
     let lo = 0, hi = this.flat.length;
     while (lo < hi) {
@@ -1276,7 +1384,12 @@
 
     if (!this.graph) this._buildGraph();
 
-    const startBeat = fromBeat === undefined ? this._pausedBeat : fromBeat;
+    let startBeat = fromBeat === undefined ? this._pausedBeat : fromBeat;
+    /* Pressing play with a working loop set starts inside it: a range you can
+       see is a promise about what you are going to hear. */
+    if (this.loopFrom !== null && (startBeat < this._loopA() || startBeat >= this._loopB())) {
+      startBeat = this._loopA();
+    }
     const spb = 60 / this.song.bpm;
     this._pass = 0;
     this._index = this._indexForBeat(startBeat);
@@ -1305,18 +1418,20 @@
     const spb = 60 / song.bpm;
     const horizon = ctx.currentTime + LOOKAHEAD;
 
+    const loopA = this._loopA(), loopB = this._loopB(), loopL = this._loopLen();
+
     if (this.metronome) {
       const bpb = song.beatsPerBar || 4;
       let guardC = 0;
       while (guardC++ < 64) {
-        const when = this._originTime + this._pass * song.totalBeats * spb + this._clickBeat * spb;
+        const when = this._originTime + (this._pass * loopL + this._clickBeat) * spb;
         if (when > horizon) break;
         if (when >= ctx.currentTime - 0.02) {
           const b = ((this._clickBeat % bpb) + bpb) % bpb;
           scheduleClick(ctx, this.graph, when, Math.abs(b) < 1e-6);
         }
         this._clickBeat++;
-        if (this._clickBeat >= song.totalBeats) this._clickBeat = 0;
+        if (this._clickBeat >= loopB) this._clickBeat = loopA;
       }
     }
     /* The chop grid runs on its own counter rather than off the notes, the way
@@ -1345,12 +1460,16 @@
     let guard = 0;
 
     while (guard++ < 2000) {
-      if (this._index >= this.flat.length) {
-        const endTime = this._originTime + (this._pass + 1) * song.totalBeats * spb;
+      /* Past the end of the loop is the same condition as past the end of the
+         list — with no working loop set the two are literally the same place. */
+      const done = this._index >= this.flat.length
+        || this.flat[this._index].t >= loopB - 1e-9;
+      if (done) {
+        const endTime = this._originTime + (loopA + (this._pass + 1) * loopL) * spb;
         if (this.loop) {
           this._pass++;
-          this._index = 0;
-          this._scheduleAutomation(this._pass, 0);
+          this._index = this._indexForBeat(loopA);
+          this._scheduleAutomation(this._pass, loopA);
           continue;
         }
         if (ctx.currentTime > endTime + 0.5) {
@@ -1361,7 +1480,7 @@
         break;
       }
       const ev = this.flat[this._index];
-      const absBeat = this._pass * song.totalBeats + ev.t;
+      const absBeat = this._pass * loopL + ev.t;
       const when = this._originTime + absBeat * spb;
       if (when > horizon) break;
       if (when >= ctx.currentTime - 0.05) {
@@ -1377,8 +1496,11 @@
     if (!this.playing) return this._pausedBeat;
     const spb = 60 / this.song.bpm;
     const abs = (this.ctx.currentTime - this._originTime) / spb;
-    const b = abs % this.song.totalBeats;
-    return b < 0 ? 0 : b;
+    const a = this._loopA(), len = this._loopLen();
+    /* A count-in runs the clock backwards past the start. Hold the playhead at
+       the beginning rather than wrapping it round to the end of the loop. */
+    if (abs < a) return a;
+    return a + ((abs - a) % len);
   };
 
   Player.prototype.stop = function (keepPosition) {

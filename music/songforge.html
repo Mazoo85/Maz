@@ -557,6 +557,11 @@ input[type="range"]::-moz-range-thumb {
 .sec-btns button:hover:not([disabled]) { color: var(--cyan); border-color: var(--cyan); }
 .sec-btns button[disabled] { opacity: 0.3; cursor: default; }
 .sec-btns .del:hover:not([disabled]) { color: var(--pink); border-color: var(--pink); }
+/* A silenced section stays in the arrangement, faded rather than removed —
+   you can still see where it sits and put it back. */
+.sec-card.muted { opacity: 0.55; border-style: dashed; }
+.sec-btns .sec-mute.on { color: var(--amber); border-color: var(--amber); opacity: 1; }
+.sec-card.muted .sec-name { text-decoration: line-through; }
 .arrange-hint { margin: 0; font-size: 12px; }
 
 /* ---------------- note editor ---------------- */
@@ -691,6 +696,9 @@ input[type="range"]::-moz-range-thumb {
 }
 .editor.erasing { cursor: not-allowed; }
 .editor.selecting { cursor: crosshair; }
+/* The velocity strip is added to the canvas rather than taken out of the grid:
+   showing how hard the notes hit should not shrink the notes. */
+.editor.with-vel { height: 358px; }
 
 .edit-nav {
   display: flex;
@@ -893,11 +901,13 @@ input[type="range"]::-moz-range-thumb {
 @media (min-width: 760px) {
   .roll { height: 240px; }
   .editor { height: 380px; }
+  .editor.with-vel { height: 438px; }
   .track { grid-template-columns: 110px 44px 44px 44px 1fr auto; }
 }
 
 @media (max-width: 420px) {
   .editor { height: 260px; }
+  .editor.with-vel { height: 318px; }
   .track {
     grid-template-columns: 1fr auto auto auto auto;
     grid-template-areas: "name lock solo mute roll" "vol vol vol vol vol";
@@ -1253,6 +1263,8 @@ input[type="range"]::-moz-range-thumb {
       </label>
       <button type="button" class="mini-btn toggle on" id="inKeyBtn" title="Snap what you draw to the song's key">♪ In key</button>
       <button type="button" class="mini-btn toggle on" id="followBtn" title="Scroll along with the music">Follow</button>
+      <button type="button" class="mini-btn toggle" id="velLaneBtn" title="Show the strip for how hard each note hits">▂▅ How hard</button>
+      <button type="button" class="mini-btn toggle" id="loopRangeBtn" title="Go round the bars on screen while you work on them">⟲ Loop these bars</button>
       <div class="tool-group" role="group" aria-label="Undo">
         <button type="button" class="mini-btn" id="undoBtn" title="Undo (Ctrl+Z)" disabled>↶ Undo</button>
         <button type="button" class="mini-btn" id="redoBtn" title="Redo (Ctrl+Shift+Z)" disabled>↷ Redo</button>
@@ -1350,6 +1362,8 @@ input[type="range"]::-moz-range-thumb {
     <div class="export-row">
       <button type="button" class="wide-btn" id="quantiseBtn">⊞ Straighten the selection</button>
       <button type="button" class="wide-btn" id="dupBarBtn">⧉ Repeat this bar</button>
+      <button type="button" class="wide-btn" id="shiftEarlyBtn" title="Slide the whole part a notch earlier">⟨ Whole part earlier</button>
+      <button type="button" class="wide-btn" id="shiftLateBtn" title="Slide the whole part a notch later">Whole part later ⟩</button>
       <button type="button" class="wide-btn" id="harmoniseBtn">♪ Add a harmony (a third up)</button>
       <button type="button" class="wide-btn" id="harmoniseLowBtn">♪ Add a harmony (a sixth down)</button>
       <button type="button" class="wide-btn" id="doubleDownBtn">♪ Double it an octave lower</button>
@@ -4694,7 +4708,7 @@ input[type="range"]::-moz-range-thumb {
         });
       return {
         type: sec.type, bars: sec.bars, energy: sec.energy, keyShift: sec.keyShift || 0,
-        halfTime: !!sec.halfTime,
+        halfTime: !!sec.halfTime, muted: !!sec.muted,
         parts: sec.parts, tracks: tracks, chords: chords
       };
     });
@@ -4729,7 +4743,7 @@ input[type="range"]::-moz-range-thumb {
       sections.push({
         type: b.type, bars: b.bars, energy: b.energy,
         parts: b.parts, keyShift: b.keyShift || 0, halfTime: !!b.halfTime,
-        startBar: bar, chords: []
+        muted: !!b.muted, startBar: bar, chords: []
       });
       bar += b.bars;
     });
@@ -4892,7 +4906,7 @@ input[type="range"]::-moz-range-thumb {
       sections: song.sections.map(function (s) {
         return { type: s.type, bars: s.bars, startBar: s.startBar, energy: s.energy,
                  name: s.name, parts: s.parts, keyShift: s.keyShift || 0,
-                 halfTime: !!s.halfTime };
+                 halfTime: !!s.halfTime, muted: !!s.muted };
       }),
       chords: song.chords.map(function (c) {
         return { startBeat: r4(c.startBeat), durBeats: r4(c.durBeats), bar: c.bar, bars: c.bars,
@@ -4969,7 +4983,7 @@ input[type="range"]::-moz-range-thumb {
     song.sections = p.sections.map(function (s) {
       return { type: s.type, bars: s.bars, startBar: s.startBar, energy: s.energy,
                name: s.name, parts: s.parts, keyShift: s.keyShift || 0,
-               halfTime: !!s.halfTime, chords: [] };
+               halfTime: !!s.halfTime, muted: !!s.muted, chords: [] };
     });
     // Sections keep their own view of the harmony; re-link it to the restored one.
     song.sections.forEach(function (sec) {
@@ -5575,7 +5589,18 @@ input[type="range"]::-moz-range-thumb {
     const n = 1024;
     const curve = new Float32Array(n);
     for (let i = 0; i < n; i++) {
-      const x = (i * 2) / n - 1;
+      /*
+       * `n - 1`, not `n`. Dividing by the length runs the curve from −1 to
+       * +0.998 instead of −1 to +1, which puts the point a silent input lands
+       * on slightly below zero — so the shaper answers silence with a small
+       * negative level. Web Audio then keeps the node alive for ever, because
+       * a shaper whose curve is non-zero at zero has, by definition, an
+       * endless tail; every note played left one behind. Measured on a house
+       * track: a steady −0.075 of direct current under the whole mix, growing
+       * with the number of notes, eating headroom in every exported file and
+       * leaving a "silent" passage anything but.
+       */
+      const x = (i * 2) / (n - 1) - 1;
       curve[i] = ((1 + k) * x) / (1 + k * Math.abs(x));
     }
     ctx[key] = curve;
@@ -8043,8 +8068,54 @@ input[type="range"]::-moz-range-thumb {
    * Flatten the score into one time-ordered list
    * ------------------------------------------------------------------ */
 
+  /**
+   * The beat ranges of any sections switched off, or null if none are.
+   *
+   * Muting is done here, where the score is turned into a list of things to
+   * play, rather than at the mixer: the same list feeds live playback and the
+   * offline render, so a bridge you silenced to hear the song without it is
+   * missing from the exported file too, without either end being told.
+   */
+  function mutedSpans(song) {
+    const secs = song.sections || [];
+    let spans = null;
+    const bpb = song.beatsPerBar || 4;
+    for (let i = 0; i < secs.length; i++) {
+      if (!secs[i].muted) continue;
+      if (!spans) spans = [];
+      spans.push([secs[i].startBar * bpb, (secs[i].startBar + secs[i].bars) * bpb]);
+    }
+    return spans;
+  }
+
+  function inSpans(spans, t) {
+    for (let i = 0; i < spans.length; i++) {
+      if (t >= spans[i][0] - 1e-9 && t < spans[i][1] - 1e-9) return true;
+    }
+    return false;
+  }
+
+  /**
+   * How long a note may ring before it runs into silence.
+   *
+   * A note that starts before a silenced section and is still sounding when it
+   * begins is cut off at the border rather than allowed through. Letting it
+   * ring was the first thing tried and it does not work: a pad or a held chord
+   * crossing the line kept a "silenced" eight bars audibly playing at nearly
+   * half its level. Trimming silences the section properly while leaving the
+   * section that played the note exactly as it was.
+   */
+  function cutAt(spans, t, d) {
+    let end = t + d;
+    for (let i = 0; i < spans.length; i++) {
+      if (spans[i][0] > t + 1e-9 && spans[i][0] < end) end = spans[i][0];
+    }
+    return end - t;
+  }
+
   function flatten(song) {
     const flat = [];
+    const muted = mutedSpans(song);
     /* Swing and groove lean are applied here rather than written into the
        score, so this one place feeds live playback and the offline render
        alike — and moving the groove while you listen changes what you hear
@@ -8056,7 +8127,13 @@ input[type="range"]::-moz-range-thumb {
       let prevPitch = null;
       for (let i = 0; i < evs.length; i++) {
         const e = evs[i];
-        const item = { t: swing(e.t, feel.swing, feel.push), d: e.d, p: e.p, v: e.v,
+        /* Judged on where the note starts; one that runs into silence is cut
+           short at the border rather than dropped, so the section that played
+           it keeps everything it played. */
+        if (muted && inSpans(muted, e.t)) continue;
+        const dur = muted ? cutAt(muted, e.t, e.d) : e.d;
+        if (dur <= 0) continue;
+        const item = { t: swing(e.t, feel.swing, feel.push), d: dur, p: e.p, v: e.v,
                        inst: e.inst, track: name };
         if (name === 'bass' && e.glide && prevPitch !== null) item.glideFrom = prevPitch;
         if (name === 'bass') prevPitch = e.p;
@@ -8135,6 +8212,14 @@ input[type="range"]::-moz-range-thumb {
     this.flat = [];
     this.playing = false;
     this.loop = true;
+    /*
+     * A working loop over part of the song, in beats — null for "the whole
+     * thing". Everything downstream measures passes in `_loopLen()` beats from
+     * `_loopA()` rather than in whole songs, so the range is the only thing
+     * that has to know it exists.
+     */
+    this.loopFrom = null;
+    this.loopTo = null;
     this.mix = {};
     TRACKS.forEach(function (t) {
       this.mix[t] = {
@@ -8241,6 +8326,54 @@ input[type="range"]::-moz-range-thumb {
       { brightness: this._brightness() });
   };
 
+  /* ------------------------------------------------------------------ *
+   * The working loop
+   *
+   * Set a range and playback goes round those bars instead of the whole song.
+   * The three accessors below are the whole mechanism: with no range they
+   * report 0 and the song's length, which is exactly what the old arithmetic
+   * did, so there is one code path rather than two.
+   * ------------------------------------------------------------------ */
+
+  Player.prototype._loopA = function () {
+    return this.loopFrom === null ? 0 : this.loopFrom;
+  };
+  Player.prototype._loopB = function () {
+    if (!this.song) return 0;
+    return this.loopTo === null ? this.song.totalBeats : this.loopTo;
+  };
+  Player.prototype._loopLen = function () {
+    return Math.max(1e-6, this._loopB() - this._loopA());
+  };
+
+  /**
+   * Loop a stretch of the song while you work on it.
+   *
+   * Pass nothing (or a range that is not at least one beat long) to go back to
+   * looping the whole song. Setting a range while the music is playing drops
+   * the playhead into it rather than waiting for it to arrive, because the
+   * point of asking for four bars is to hear them now.
+   */
+  Player.prototype.setLoopRange = function (from, to) {
+    const song = this.song;
+    if (!song || from === null || from === undefined || to === null || to === undefined
+        || !(to - from >= 1)) {
+      const had = this.loopFrom !== null;
+      this.loopFrom = this.loopTo = null;
+      if (had && this.playing) this.seek(this.currentBeat());
+      return false;
+    }
+    const a = Math.max(0, Math.min(song.totalBeats - 1, from));
+    const b = Math.max(a + 1, Math.min(song.totalBeats, to));
+    this.loopFrom = a;
+    this.loopTo = b;
+    const at = this.currentBeat();
+    this.seek(at >= a && at < b ? at : a);
+    return true;
+  };
+
+  Player.prototype.hasLoopRange = function () { return this.loopFrom !== null; };
+
   Player.prototype._indexForBeat = function (beat) {
     let lo = 0, hi = this.flat.length;
     while (lo < hi) {
@@ -8258,7 +8391,12 @@ input[type="range"]::-moz-range-thumb {
 
     if (!this.graph) this._buildGraph();
 
-    const startBeat = fromBeat === undefined ? this._pausedBeat : fromBeat;
+    let startBeat = fromBeat === undefined ? this._pausedBeat : fromBeat;
+    /* Pressing play with a working loop set starts inside it: a range you can
+       see is a promise about what you are going to hear. */
+    if (this.loopFrom !== null && (startBeat < this._loopA() || startBeat >= this._loopB())) {
+      startBeat = this._loopA();
+    }
     const spb = 60 / this.song.bpm;
     this._pass = 0;
     this._index = this._indexForBeat(startBeat);
@@ -8287,18 +8425,20 @@ input[type="range"]::-moz-range-thumb {
     const spb = 60 / song.bpm;
     const horizon = ctx.currentTime + LOOKAHEAD;
 
+    const loopA = this._loopA(), loopB = this._loopB(), loopL = this._loopLen();
+
     if (this.metronome) {
       const bpb = song.beatsPerBar || 4;
       let guardC = 0;
       while (guardC++ < 64) {
-        const when = this._originTime + this._pass * song.totalBeats * spb + this._clickBeat * spb;
+        const when = this._originTime + (this._pass * loopL + this._clickBeat) * spb;
         if (when > horizon) break;
         if (when >= ctx.currentTime - 0.02) {
           const b = ((this._clickBeat % bpb) + bpb) % bpb;
           scheduleClick(ctx, this.graph, when, Math.abs(b) < 1e-6);
         }
         this._clickBeat++;
-        if (this._clickBeat >= song.totalBeats) this._clickBeat = 0;
+        if (this._clickBeat >= loopB) this._clickBeat = loopA;
       }
     }
     /* The chop grid runs on its own counter rather than off the notes, the way
@@ -8327,12 +8467,16 @@ input[type="range"]::-moz-range-thumb {
     let guard = 0;
 
     while (guard++ < 2000) {
-      if (this._index >= this.flat.length) {
-        const endTime = this._originTime + (this._pass + 1) * song.totalBeats * spb;
+      /* Past the end of the loop is the same condition as past the end of the
+         list — with no working loop set the two are literally the same place. */
+      const done = this._index >= this.flat.length
+        || this.flat[this._index].t >= loopB - 1e-9;
+      if (done) {
+        const endTime = this._originTime + (loopA + (this._pass + 1) * loopL) * spb;
         if (this.loop) {
           this._pass++;
-          this._index = 0;
-          this._scheduleAutomation(this._pass, 0);
+          this._index = this._indexForBeat(loopA);
+          this._scheduleAutomation(this._pass, loopA);
           continue;
         }
         if (ctx.currentTime > endTime + 0.5) {
@@ -8343,7 +8487,7 @@ input[type="range"]::-moz-range-thumb {
         break;
       }
       const ev = this.flat[this._index];
-      const absBeat = this._pass * song.totalBeats + ev.t;
+      const absBeat = this._pass * loopL + ev.t;
       const when = this._originTime + absBeat * spb;
       if (when > horizon) break;
       if (when >= ctx.currentTime - 0.05) {
@@ -8359,8 +8503,11 @@ input[type="range"]::-moz-range-thumb {
     if (!this.playing) return this._pausedBeat;
     const spb = 60 / this.song.bpm;
     const abs = (this.ctx.currentTime - this._originTime) / spb;
-    const b = abs % this.song.totalBeats;
-    return b < 0 ? 0 : b;
+    const a = this._loopA(), len = this._loopLen();
+    /* A count-in runs the clock backwards past the start. Hold the playhead at
+       the beginning rather than wrapping it round to the end of the loop. */
+    if (abs < a) return a;
+    return a + ((abs - a) % len);
   };
 
   Player.prototype.stop = function (keepPosition) {
@@ -9602,6 +9749,8 @@ input[type="range"]::-moz-range-thumb {
   const LABEL_W = 52;
   const MIN_ROWS = 15;
   const MAX_ROWS = 34;
+  const RULER_H = 16;
+  const VEL_H = 58;              // the velocity strip, when it is showing
 
   const DRUM_ROWS = ['kick', 'snare', 'clap', 'hh', 'oh', 'ride', 'tom', 'conga',
                      'perc', 'shaker', 'tamb', 'cowbell', 'crash', 'riser', 'impact'];
@@ -9649,6 +9798,22 @@ input[type="range"]::-moz-range-thumb {
     this.sel = [];
     this._marquee = null;
     this._clip = null;
+
+    /* The velocity strip under the grid, and which drum row it is showing.
+       A melodic part has one note per row-and-time, so the strip can simply
+       follow the pointer; a drum grid stacks nine instruments at the same
+       instant, so it has to be told which one you mean. */
+    this.velLane = false;
+    this.velRow = 0;
+    this._velDrag = false;
+    this._loopDrag = null;
+
+    /* The working loop, in beats — null for "the whole song". The editor owns
+       the markers because they are drawn here and dragged here; the player is
+       told about them through `onLoop`. */
+    this.loopFrom = null;
+    this.loopTo = null;
+    this.onLoop = opts.onLoop || function () {};
     this._bind();
   }
 
@@ -10000,12 +10165,19 @@ input[type="range"]::-moz-range-thumb {
   Editor.prototype.beatOfX = function (x) {
     return this.startBeat() + ((x - LABEL_W) / (this.w - LABEL_W)) * this.spanBeats();
   };
+  /** Height of the velocity strip — zero when it is hidden, which is the
+      only thing the rest of the geometry needs to know about it. */
+  Editor.prototype.velH = function () { return this.velLane ? VEL_H : 0; };
+
+  /** Where the note grid stops and the velocity strip begins. */
+  Editor.prototype.gridBottom = function () { return this.h - this.velH(); };
+
   Editor.prototype.rowH = function () {
     const n = this.isDrums() ? this.drumRows().length : this.rows;
-    return (this.h - 16) / Math.max(1, n);
+    return (this.gridBottom() - RULER_H) / Math.max(1, n);
   };
-  Editor.prototype.yOfRow = function (r) { return 16 + r * this.rowH(); };
-  Editor.prototype.rowOfY = function (y) { return Math.floor((y - 16) / this.rowH()); };
+  Editor.prototype.yOfRow = function (r) { return RULER_H + r * this.rowH(); };
+  Editor.prototype.rowOfY = function (y) { return Math.floor((y - RULER_H) / this.rowH()); };
 
   /** Melodic: row 0 is the top (highest pitch). */
   Editor.prototype.pitchOfRow = function (r) { return this.low + (this.rows - 1 - r); };
@@ -10052,9 +10224,10 @@ input[type="range"]::-moz-range-thumb {
     const start = this.startBeat();
     const rowH = this.rowH();
     const color = this.colorFor(this.track);
+    const bottom = this.gridBottom();
 
     cx.fillStyle = 'rgba(0,0,0,0.32)';
-    cx.fillRect(LABEL_W, 16, gridW, H - 16);
+    cx.fillRect(LABEL_W, RULER_H, gridW, bottom - RULER_H);
 
     if (this.isDrums()) this._drawDrumRows(rowH);
     else this._drawPitchRows(rowH, color);
@@ -10069,10 +10242,12 @@ input[type="range"]::-moz-range-thumb {
         : onBeat ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.055)';
       cx.lineWidth = 1;
       cx.beginPath();
-      cx.moveTo(Math.round(x) + 0.5, 16);
+      cx.moveTo(Math.round(x) + 0.5, RULER_H);
       cx.lineTo(Math.round(x) + 0.5, H);
       cx.stroke();
     }
+
+    this._drawLoopRange(bottom);
 
     // Bar numbers and the section this window sits in
     cx.font = '10px ui-monospace, monospace';
@@ -10093,6 +10268,8 @@ input[type="range"]::-moz-range-thumb {
     if (this.isDrums()) this._drawDrumHits(rowH);
     else this._drawNotes(rowH, color);
 
+    if (this.velLane) this._drawVelLane(color);
+
     // Playhead
     const beat = this.player.currentBeat();
     if (beat >= start && beat <= start + beats) {
@@ -10100,9 +10277,104 @@ input[type="range"]::-moz-range-thumb {
       cx.strokeStyle = '#ffffff';
       cx.lineWidth = 1.4;
       cx.beginPath();
-      cx.moveTo(px, 16); cx.lineTo(px, H);
+      cx.moveTo(px, RULER_H); cx.lineTo(px, H);
       cx.stroke();
     }
+  };
+
+  /**
+   * The working loop: a bar on the ruler, and everything outside it dimmed.
+   *
+   * Dimming the rest rather than only marking the range is what makes it read
+   * at a glance — you see which bars are live without reading two markers and
+   * working out what is between them.
+   */
+  Editor.prototype._drawLoopRange = function (bottom) {
+    if (this.loopFrom === null) return;
+    const cx = this.cx;
+    const start = this.startBeat(), end = start + this.spanBeats();
+    const a = Math.max(this.loopFrom, start), b = Math.min(this.loopTo, end);
+    cx.fillStyle = 'rgba(0,0,0,0.34)';
+    if (this.loopFrom > start) {
+      cx.fillRect(LABEL_W, RULER_H, this.xOfBeat(Math.min(this.loopFrom, end)) - LABEL_W,
+                  bottom - RULER_H);
+    }
+    if (this.loopTo < end) {
+      const x = this.xOfBeat(Math.max(this.loopTo, start));
+      cx.fillRect(x, RULER_H, this.w - x, bottom - RULER_H);
+    }
+    if (b <= a) return;
+    const x0 = this.xOfBeat(a), x1 = this.xOfBeat(b);
+    cx.fillStyle = 'rgba(255,200,87,0.7)';
+    cx.fillRect(x0, 0, Math.max(2, x1 - x0), 3);
+    cx.fillStyle = 'rgba(255,200,87,0.22)';
+    if (this.loopFrom >= start) cx.fillRect(x0, 0, 2, RULER_H);
+    if (this.loopTo <= end) cx.fillRect(x1 - 2, 0, 2, RULER_H);
+  };
+
+  /**
+   * The velocity strip: one stem per note, as tall as the note is loud.
+   *
+   * It shares the grid's time axis exactly, so a stem sits directly under the
+   * note it belongs to and you never have to work out which is which.
+   */
+  Editor.prototype._drawVelLane = function (color) {
+    const cx = this.cx;
+    const song = this.getSong();
+    const top = this.gridBottom();
+    const pad = 4;
+    const h = VEL_H - pad * 2;
+    const W = this.w;
+
+    cx.fillStyle = 'rgba(0,0,0,0.5)';
+    cx.fillRect(LABEL_W, top, W - LABEL_W, VEL_H);
+    cx.strokeStyle = 'rgba(255,255,255,0.16)';
+    cx.beginPath();
+    cx.moveTo(LABEL_W, Math.round(top) + 0.5);
+    cx.lineTo(W, Math.round(top) + 0.5);
+    cx.stroke();
+
+    cx.font = '9px ui-monospace, monospace';
+    cx.textAlign = 'right';
+    cx.fillStyle = 'rgba(200,190,225,0.8)';
+    cx.fillText(this.velLaneLabel(), LABEL_W - 6, top + VEL_H * 0.58);
+    cx.textAlign = 'left';
+
+    const evs = this.velLaneEvents();
+    const start = this.startBeat(), end = start + this.spanBeats();
+    const stepW = (W - LABEL_W) / (this.spanBeats() / STEP_BEATS);
+    const barW = Math.max(3, Math.min(10, stepW - 2));
+    for (let i = 0; i < evs.length; i++) {
+      const e = evs[i];
+      if (e.t < start || e.t > end) continue;
+      const v = Math.max(0, Math.min(1, e.v));
+      const x = this.xOfBeat(e.t);
+      const bh = Math.max(2, v * h);
+      cx.fillStyle = color;
+      cx.globalAlpha = this.sel.length && this.isSelected(e) ? 1 : 0.72;
+      cx.fillRect(x + 1, top + pad + (h - bh), barW, bh);
+      cx.globalAlpha = 1;
+    }
+  };
+
+  /** The notes the velocity strip is showing — one drum piece, or the part. */
+  Editor.prototype.velLaneEvents = function () {
+    const song = this.getSong();
+    if (!song) return [];
+    if (!this.isDrums()) return song.tracks[this.track] || [];
+    const inst = this.velLaneInst();
+    return (song.tracks.drums || []).filter(function (e) { return e.inst === inst; });
+  };
+
+  Editor.prototype.velLaneInst = function () {
+    const rows = this.drumRows();
+    return rows[Math.max(0, Math.min(rows.length - 1, this.velRow))];
+  };
+
+  Editor.prototype.velLaneLabel = function () {
+    if (!this.isDrums()) return 'HOW HARD';
+    const inst = this.velLaneInst();
+    return (DRUM_LABEL[inst] || inst).toUpperCase();
   };
 
   Editor.prototype._drawPitchRows = function (rowH, color) {
@@ -10243,6 +10515,98 @@ input[type="range"]::-moz-range-thumb {
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
 
+  /**
+   * Capture the pointer, or carry on without it.
+   *
+   * `setPointerCapture` throws when the browser does not think that pointer is
+   * active — and an exception here abandons the whole gesture before any of it
+   * has run, so a drag that the browser merely could not capture becomes a
+   * drag that does nothing at all. Capture is a convenience (it keeps the
+   * drag alive when the pointer leaves the canvas), never a requirement.
+   */
+  Editor.prototype._capture = function (e) {
+    try { this.canvas.setPointerCapture(e.pointerId); } catch (err) { /* uncapturable */ }
+  };
+
+  /**
+   * Set the velocity of whatever is under the pointer in the strip.
+   *
+   * Only notes that start near the pointer count. Using the whole length of a
+   * note instead would mean a held chord swallowed every stem behind it, and
+   * you could never reach the notes underneath.
+   */
+  Editor.prototype.velocityAt = function (x, y) {
+    const top = this.gridBottom();
+    const pad = 4;
+    const h = VEL_H - pad * 2;
+    const v = Math.max(0.05, Math.min(1, 1 - (y - top - pad) / h));
+    const beat = this.beatOfX(x);
+    const stepW = (this.w - LABEL_W) / (this.spanBeats() / STEP_BEATS);
+    const reach = this.beatOfX(LABEL_W + Math.max(6, stepW * 0.6)) - this.beatOfX(LABEL_W);
+    const evs = this.velLaneEvents();
+    let hit = 0;
+    for (let i = 0; i < evs.length; i++) {
+      if (Math.abs(evs[i].t - beat) <= reach) { evs[i].v = v; hit++; }
+    }
+    if (hit) this.draw();
+    return hit;
+  };
+
+  /**
+   * Move every note in this part earlier or later.
+   *
+   * A note pushed off either end of the song is dropped and one whose tail
+   * runs past the end is trimmed. Refusing the whole shift instead — the rule
+   * a selection uses — would block the commonest reason to want this: nudging
+   * a part a sixteenth late so it sits behind the beat, where the final note
+   * almost always ends exactly on the last bar line.
+   */
+  Editor.prototype.shiftTrack = function (byBeats) {
+    const song = this.getSong();
+    if (!song || !byBeats) return 0;
+    const total = song.totalBeats;
+    const kept = [];
+    const evs = song.tracks[this.track] || [];
+    for (let i = 0; i < evs.length; i++) {
+      const e = evs[i];
+      const t = e.t + byBeats;
+      if (t < -1e-9 || t >= total - 1e-9) continue;
+      e.t = t;
+      if (e.t + e.d > total) e.d = Math.max(this.snap, total - e.t);
+      kept.push(e);
+    }
+    song.tracks[this.track] = kept;
+    this._pruneSelection();
+    this.draw();
+    return kept.length;
+  };
+
+  /* ------------------------------------------------------------------ *
+   * The working loop
+   * ------------------------------------------------------------------ */
+
+  Editor.prototype.setLoop = function (fromBeat, toBeat) {
+    const song = this.getSong();
+    if (!song || fromBeat === null || toBeat === null || !(toBeat - fromBeat >= 1)) {
+      this.loopFrom = this.loopTo = null;
+    } else {
+      this.loopFrom = Math.max(0, fromBeat);
+      this.loopTo = Math.min(song.totalBeats, toBeat);
+    }
+    this.onLoop(this.loopFrom, this.loopTo);
+    this.draw();
+    return this.loopFrom !== null;
+  };
+
+  /** Loop exactly the bars on screen — the ones you are looking at. */
+  Editor.prototype.loopVisible = function () {
+    const bpb = this.beatsPerBar();
+    return this.setLoop(this.startBar * bpb, (this.startBar + this.bars) * bpb);
+  };
+
+  Editor.prototype.clearLoop = function () { return this.setLoop(null, null); };
+  Editor.prototype.hasLoop = function () { return this.loopFrom !== null; };
+
   Editor.prototype._bind = function () {
     const self = this;
 
@@ -10252,6 +10616,19 @@ input[type="range"]::-moz-range-thumb {
       e.preventDefault();
       const p = self._pos(e);
       if (p.x < LABEL_W) return;
+
+      /* The ruler strip along the top sets the working loop. It is the one
+         place on the canvas that was doing nothing, and dragging across bar
+         numbers to pick bars needs no explaining. */
+      if (p.y < RULER_H) {
+        self._capture(e);
+        const bpb = self.beatsPerBar();
+        const bar = Math.floor(self.beatOfX(p.x) / bpb);
+        self._loopDrag = { bar0: bar, bar1: bar };
+        self.setLoop(bar * bpb, (bar + 1) * bpb);
+        return;
+      }
+
       /* Once you start editing, stop chasing the playhead. Otherwise the view
          scrolls out from under you mid-edit and the next click lands in a
          different bar than the one you were looking at. */
@@ -10259,7 +10636,14 @@ input[type="range"]::-moz-range-thumb {
         self.follow = false;
         if (self.onFollowOff) self.onFollowOff();
       }
-      self.canvas.setPointerCapture(e.pointerId);
+      self._capture(e);
+
+      if (self.velLane && p.y >= self.gridBottom()) {
+        self.pushHistory();
+        self._velDrag = true;
+        self.velocityAt(p.x, p.y);
+        return;
+      }
 
       if (self.tool === 'select' && !self.isDrums()) {
         self._selectDown(p, e.shiftKey);
@@ -10275,6 +10659,23 @@ input[type="range"]::-moz-range-thumb {
     });
 
     this.canvas.addEventListener('pointermove', function (e) {
+      if (self._loopDrag) {
+        const p = self._pos(e);
+        const bpb = self.beatsPerBar();
+        const song = self.getSong();
+        const maxBar = Math.max(0, Math.ceil(song.totalBeats / bpb) - 1);
+        self._loopDrag.bar1 = Math.max(0, Math.min(maxBar,
+          Math.floor(self.beatOfX(p.x) / bpb)));
+        const a = Math.min(self._loopDrag.bar0, self._loopDrag.bar1);
+        const b = Math.max(self._loopDrag.bar0, self._loopDrag.bar1) + 1;
+        self.setLoop(a * bpb, b * bpb);
+        return;
+      }
+      if (self._velDrag) {
+        const p = self._pos(e);
+        self.velocityAt(p.x, p.y);
+        return;
+      }
       if (self._marquee) {
         const p = self._pos(e);
         self._marquee.beat1 = self.beatOfX(p.x);
@@ -10293,7 +10694,12 @@ input[type="range"]::-moz-range-thumb {
     });
 
     function end(e) {
-      if (self._marquee) {
+      if (self._loopDrag) {
+        self._loopDrag = null;
+      } else if (self._velDrag) {
+        self._velDrag = null;
+        self.onChange();
+      } else if (self._marquee) {
         self._marquee = null;
         self.draw();
         if (self.onSelect) self.onSelect(self.sel.length);
@@ -10303,6 +10709,8 @@ input[type="range"]::-moz-range-thumb {
         self.onChange();
         if (self.onSelect) self.onSelect(self.sel.length);
       }
+      self._loopDrag = null;
+      self._velDrag = null;
       try { self.canvas.releasePointerCapture(e.pointerId); } catch (err) { /* already gone */ }
     }
     this.canvas.addEventListener('pointerup', end);
@@ -10319,9 +10727,11 @@ input[type="range"]::-moz-range-thumb {
    */
   Editor.prototype._selectDown = function (p, addToSelection) {
     const beat = this.beatOfX(p.x);
-    /* Clamped rather than refused. A marquee is usually started just outside
-       the notes you are after — a press a few pixels above the top row is the
-       normal way to begin one, and ignoring it makes the tool feel broken. */
+    /* Clamped rather than refused: a row out of range would abandon the press
+       and the tool would feel broken. Presses above the grid now belong to the
+       ruler, so this is a boundary guard rather than an affordance — but a
+       marquee still has to survive a rounding error at the very top or bottom
+       row, and refusing one is a worse answer than starting it one row in. */
     const row = Math.max(0, Math.min(this.rows - 1, this.rowOfY(p.y)));
     const hit = this.noteAt(beat, this.pitchOfRow(row));
 
@@ -10434,6 +10844,9 @@ input[type="range"]::-moz-range-thumb {
     const r = this.rowOfY(p.y);
     if (r < 0 || r >= rows.length) return;
     const inst = rows[r];
+    /* The velocity strip follows the drum you last touched: tap a hat, then
+       shape the hats. Anything else would need a second thing to point at. */
+    this.velRow = r;
     const beat = Math.round(this.beatOfX(p.x) / STEP_BEATS) * STEP_BEATS;
     const key = inst + '@' + beat;
     this._painted[key] = true;
@@ -11002,6 +11415,9 @@ input[type="range"]::-moz-range-thumb {
     if (editor) {
       editor.startBar = 0;
       editor.clearHistory();
+      /* The markers are bar numbers in the song that was open. A new song is a
+         different length with a different shape, so they mean nothing now. */
+      editor.clearLoop();
       editor.setTrack(editor.track);
       editor.resize();
       if (editorSoundPicker) editorSoundPicker();
@@ -11279,6 +11695,13 @@ input[type="range"]::-moz-range-thumb {
         el('followBtn').classList.remove('on');
         status('Follow off while you edit — turn it back on to scroll with the music.');
       },
+      /* The editor owns the markers; the player is simply told. Keeping the
+         two in one direction means there is never a disagreement about which
+         bars are looping. */
+      onLoop: function (from, to) {
+        player.setLoopRange(from, to);
+        syncLoopUI();
+      },
       onChange: function () {
         state.edited[editor.track] = true;
         player.refresh();
@@ -11351,6 +11774,10 @@ input[type="range"]::-moz-range-thumb {
       state.edited[editor.track] = true;
       player.refresh();
       markRollDirty();
+      /* The undo button is drawn from the history, and straightening pushes a
+         snapshot without going through onChange — so without this the undo is
+         there and the button says it is not. */
+      syncEditUI();
       status(moved
         ? moved + (moved === 1 ? ' note' : ' notes') + ' pulled onto the grid. Ctrl+Z puts it back.'
         : 'Those notes were already on the grid.');
@@ -11376,6 +11803,49 @@ input[type="range"]::-moz-range-thumb {
 
     el('snapSelect').addEventListener('change', function () { editor.snap = parseFloat(this.value); });
     el('lenSelect').addEventListener('change', function () { editor.noteLen = parseFloat(this.value); });
+
+    el('velLaneBtn').addEventListener('click', function () {
+      editor.velLane = !editor.velLane;
+      this.classList.toggle('on', editor.velLane);
+      /* The canvas grows to make room, so the note grid keeps the size it
+         had. Resize first, then draw, or the strip lands off the bottom. */
+      el('editor').classList.toggle('with-vel', editor.velLane);
+      editor.resize();
+      editor.draw();
+      status(editor.velLane
+        ? 'The strip under the grid is how hard each note hits — drag a bar up or down.'
+        : 'Velocity strip hidden.');
+    });
+
+    el('loopRangeBtn').addEventListener('click', function () {
+      if (!state.song) return;
+      if (editor.hasLoop()) {
+        editor.clearLoop();
+        status('Back to playing the whole song.');
+        return;
+      }
+      editor.loopVisible();
+      status('Looping bars ' + (editor.startBar + 1) + '–' + (editor.startBar + editor.bars) +
+        '. Drag across the bar numbers to pick different ones.');
+    });
+
+    function shiftPart(dir) {
+      if (!state.song) return;
+      editor.pushHistory();
+      const before = (state.song.tracks[editor.track] || []).length;
+      const left = editor.shiftTrack(dir * editor.snap);
+      if (!before) { status('Nothing in this part to shift.'); return; }
+      state.edited[editor.track] = true;
+      player.refresh();
+      markRollDirty();
+      const lost = before - left;
+      syncEditUI();
+      status(colorLabel(editor.track) + ' moved ' + snapName(editor.snap) +
+        (dir < 0 ? ' earlier' : ' later') +
+        (lost ? ' — ' + lost + (lost === 1 ? ' note' : ' notes') + ' fell off the end.' : '.'));
+    }
+    el('shiftEarlyBtn').addEventListener('click', function () { shiftPart(-1); });
+    el('shiftLateBtn').addEventListener('click', function () { shiftPart(1); });
 
     el('inKeyBtn').addEventListener('click', function () {
       editor.inKey = !editor.inKey;
@@ -11723,8 +12193,27 @@ input[type="range"]::-moz-range-thumb {
     return id;
   }
 
+  const SNAP_NAMES = { 1: 'a quarter note', 0.5: 'an eighth', 0.25: 'a sixteenth' };
+  function snapName(snap) { return SNAP_NAMES[snap] || (snap + ' beats'); }
+
+  /** The loop button, and the transport's own loop light, follow the markers. */
+  function syncLoopUI() {
+    if (!editor) return;
+    const on = editor.hasLoop();
+    const btn = el('loopRangeBtn');
+    if (btn) {
+      btn.classList.toggle('on', on);
+      const bpb = state.song ? (state.song.beatsPerBar || 4) : 4;
+      btn.textContent = on
+        ? '⟲ Looping bars ' + (Math.round(editor.loopFrom / bpb) + 1) + '–' +
+          Math.round(editor.loopTo / bpb)
+        : '⟲ Loop these bars';
+    }
+  }
+
   function syncEditUI() {
     if (!editor || !state.song) return;
+    syncLoopUI();
     Array.prototype.forEach.call(el('editTracks').children, function (b) {
       const on = b.dataset.id === editor.track;
       b.classList.toggle('on', on);
@@ -11773,7 +12262,8 @@ input[type="range"]::-moz-range-thumb {
 
     secs.forEach(function (sec, i) {
       const card = document.createElement('div');
-      card.className = 'sec-card' + (sec.type === 'chorus' ? ' chorus' : '');
+      card.className = 'sec-card' + (sec.type === 'chorus' ? ' chorus' : '') +
+        (sec.muted ? ' muted' : '');
       card.dataset.index = String(i);
 
       const name = document.createElement('div');
@@ -11803,6 +12293,29 @@ input[type="range"]::-moz-range-thumb {
         });
         btns.appendChild(b);
       }
+
+      /* Muting is not an arrangement change — nothing moves and nothing is
+         lost — so it takes no song snapshot and is its own undo: press it
+         again. It reaches the exported file as well as playback, because the
+         one place that turns the score into notes is where it is applied. */
+      const mute = document.createElement('button');
+      mute.type = 'button';
+      mute.textContent = sec.muted ? '🔇' : '🔊';
+      mute.className = 'sec-mute' + (sec.muted ? ' on' : '');
+      mute.title = (sec.muted ? 'Bring ' : 'Silence ') + sec.name +
+        (sec.muted ? ' back' : '');
+      mute.setAttribute('aria-label', mute.title);
+      mute.setAttribute('aria-pressed', sec.muted ? 'true' : 'false');
+      mute.addEventListener('click', function () {
+        sec.muted = !sec.muted;
+        player.refresh();
+        markRollDirty();
+        buildArrange();
+        status(sec.muted
+          ? sec.name + ' silenced — it stays in the song, and stays out of the export until you bring it back.'
+          : sec.name + ' is back.');
+      });
+      btns.appendChild(mute);
 
       button('◀', 'Move ' + sec.name + ' earlier', '', i === 0, function () {
         if (C.moveSection(state.song, i, -1)) structureChanged(sec.name + ' moved earlier.');

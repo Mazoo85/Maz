@@ -1117,10 +1117,14 @@ function launchOptions() {
     const dryData = dryBuf.getChannelData(0);
     const out = { off: stats(dryBuf) };
     /* The same render again, to find out how close "identical" can actually
-       get. Chromium's offline renderer is not bit-exact run to run — two
-       renders of the same graph differ in the last decimal place or so — so
-       "unchanged" has to mean "no further from the reference than the
-       reference is from itself", not "exactly equal". */
+       get, rather than assuming. This used to come back meaningfully different
+       and the difference was blamed on the browser; most of it was in fact our
+       own doing — shapers left running for ever holding an offset, since
+       fixed — and the floor now measures zero here. What can still differ is
+       the last bits of floating point, so "unchanged" goes on meaning "no
+       further from the reference than the reference is from itself" rather
+       than "exactly equal": one extra render is a cheap price for never
+       having to guess which it is. */
     out.floor = stats(await window.Engine.renderOffline(song(), mixWith(0)), dryData);
     for (const kind of ['ring', 'fold', 'wah']) {
       out[kind] = stats(await window.Engine.renderOffline(song(kind), mixWith(1)), dryData);
@@ -1232,9 +1236,10 @@ function launchOptions() {
     };
     return {
       flat: await run(),
-      /* The same render again: Chromium's offline renderer is not bit-exact
-         run to run, so "left alone" has to be measured against how far a
-         render sits from an identical one, not against zero. */
+      /* The same render again, measured rather than assumed: "left alone" is
+         compared against how far a render sits from an identical one rather
+         than against zero, which stays honest whether that distance is nothing
+         at all or the last bits of floating point. */
       floor: await run(),
       pumpLight: await run(function (s) { s.sidechain = 0.3; }),
       pumpHard: await run(function (s) { s.sidechain = 0.7; }),
@@ -1953,15 +1958,401 @@ function launchOptions() {
         clientX: cx, clientY: cy, pointerId: 1, bubbles: true, cancelable: true
       }));
     }
-    // Start on empty space above the notes, drag down and right across them.
-    send('pointerdown', x(0.1), y(70));
+    /* Start on empty space above the notes and drag down across them. The top
+       of the grid, not above it: the strip above the first row carries the bar
+       numbers and belongs to the working loop. */
+    const topPitch = ed.pitchOfRow(0);
+    send('pointerdown', x(0.1), y(topPitch));
     send('pointermove', x(2.4), y(58));
     send('pointerup', x(2.4), y(58));
-    return { n: ed.sel.length, pitches: ed.sel.map(function (e) { return e.p; }).sort() };
+    const out = { n: ed.sel.length, pitches: ed.sel.map(function (e) { return e.p; }).sort() };
+
+    /* And the resolution of the collision, stated as a test rather than left
+       to be rediscovered: a press on the bar numbers sets the loop even with
+       the select tool in hand. */
+    ed.clearLoop();
+    send('pointerdown', x(4.2), r.top + 6);
+    send('pointerup', x(4.2), r.top + 6);
+    out.ruledLoop = ed.loopFrom;
+    out.selKept = ed.sel.length;
+    ed.clearLoop();
+    return out;
   });
   check(dragged.n === 2 && dragged.pitches.join(',') === '60,62',
     'dragging a box on the canvas selects what is inside it (' +
     dragged.pitches.join(', ') + ')');
+  check(dragged.ruledLoop === 4,
+    'and a press on the bar numbers sets the loop, even with the select tool in hand');
+
+  console.log('\n— the working loop —');
+  /* This section takes the transport over to watch the playhead, so it notes
+     what the transport was doing and puts it back — a section that quietly
+     leaves the player stopped breaks a later one for reasons that look like
+     nothing to do with it. */
+  const loopTransportWas = await page.evaluate(function () {
+    return window.__songforge.player.playing;
+  });
+  /* Looping four bars while you fix them. The claim worth testing is not that
+     two numbers were stored but that the playhead never leaves the range and
+     that, with no range set, the arithmetic is byte-for-byte the old one. */
+  const loopOff = await page.evaluate(function () {
+    const p = window.__songforge.player;
+    return { a: p._loopA(), len: p._loopLen(), has: p.hasLoopRange(),
+             total: window.__songforge.song.totalBeats };
+  });
+  check(!loopOff.has && loopOff.a === 0 && Math.abs(loopOff.len - loopOff.total) < 1e-9,
+    'with no range set, the loop is the whole song — one code path, not two (' +
+    loopOff.a + '..' + loopOff.len + ' of ' + loopOff.total + ')');
+
+  const loopRun = await page.evaluate(async function () {
+    const ed = window.__songforge.editor;
+    const p = window.__songforge.player;
+    const bpb = window.__songforge.song.beatsPerBar || 4;
+    const out = {};
+
+    /* One bar starting at bar 5 — far enough in that a playhead ignoring the
+       range would very obviously be somewhere else, and short enough to go
+       round more than once inside the time this test is willing to wait. The
+       tempo is pushed up for the same reason and put back afterwards. */
+    const wasBpm = window.__songforge.song.bpm;
+    p.setTempo(220);
+    ed.setLoop(4 * bpb, 5 * bpb);
+    out.from = p.loopFrom; out.to = p.loopTo;
+
+    p.play();
+    /* Sampled until it comes round rather than for a fixed number of ticks.
+       Under load this browser's audio clock runs slower than the wall clock —
+       a fixed count covered only three and a half of the four beats and the
+       lap never happened, which is a slow machine rather than a broken loop. */
+    const seen = [];
+    const deadline = performance.now() + 12000;
+    let wrapped = false;
+    while (!wrapped && performance.now() < deadline) {
+      await new Promise(function (r) { setTimeout(r, 60); });
+      const b = p.currentBeat();
+      if (seen.length && b < seen[seen.length - 1] - 0.5) wrapped = true;
+      seen.push(b);
+    }
+    out.wrapped = wrapped;
+    out.samples = seen.length;
+    p.stop();
+    p.setTempo(wasBpm);
+    out.lo = Math.min.apply(null, seen);
+    out.hi = Math.max.apply(null, seen);
+    ed.clearLoop();
+    out.clearedEd = ed.loopFrom;
+    out.clearedPl = p.loopFrom;
+    return out;
+  });
+  check(loopRun.from === 16 && loopRun.to === 20,
+    'setting markers in the editor sets them on the player too (' +
+    loopRun.from + '–' + loopRun.to + ')');
+  check(loopRun.lo >= 16 - 1e-6 && loopRun.hi < 20,
+    'and the playhead never leaves those bars (' +
+    loopRun.lo.toFixed(2) + '–' + loopRun.hi.toFixed(2) + ')');
+  check(loopRun.wrapped, 'it goes round rather than stopping at the end of the range (' +
+    loopRun.samples + ' ticks)');
+  check(loopRun.clearedEd === null && loopRun.clearedPl === null,
+    'and turning it off puts the whole song back');
+
+  // The gesture: dragging across the bar numbers along the top of the grid.
+  const ruler = await page.evaluate(function () {
+    const ed = window.__songforge.editor;
+    ed.clearLoop();
+    ed.startBar = 0;
+    ed.bars = 4;
+    ed.draw();
+    const c = ed.canvas, r = c.getBoundingClientRect();
+    const bpb = ed.beatsPerBar();
+    function send(type, beat) {
+      c.dispatchEvent(new PointerEvent(type, {
+        clientX: r.left + ed.xOfBeat(beat) + 3, clientY: r.top + 6,
+        pointerId: 1, bubbles: true, cancelable: true
+      }));
+    }
+    send('pointerdown', bpb * 1);         // bar 2
+    send('pointermove', bpb * 2 + 1);     // into bar 3
+    send('pointerup', bpb * 2 + 1);
+    const out = { from: ed.loopFrom, to: ed.loopTo,
+                  player: window.__songforge.player.loopFrom };
+    ed.clearLoop();
+    return out;
+  });
+  check(ruler.from === 4 && ruler.to === 12 && ruler.player === 4,
+    'dragging across the bar numbers picks the bars to loop (' +
+    ruler.from + '–' + ruler.to + ')');
+  if (loopTransportWas && !(await page.evaluate(function () {
+    return window.__songforge.player.playing;
+  }))) {
+    await page.click('#playBtn');
+    await page.waitForTimeout(250);
+  }
+
+  console.log('\n— how hard each note hits —');
+  const vel = await page.evaluate(function () {
+    const ed = window.__songforge.editor;
+    const song = window.__songforge.song;
+    const out = {};
+    ed.setTrack('lead');
+    ed.tool = 'draw';
+    ed.startBar = 0;
+    ed.bars = 4;
+    song.tracks.lead = [
+      { t: 0, d: 0.5, p: 60, v: 0.8 },
+      { t: 1, d: 0.5, p: 62, v: 0.8 },
+      { t: 2, d: 0.5, p: 64, v: 0.8 }
+    ];
+    ed.refit();
+
+    const gridBefore = ed.gridBottom();
+    ed.velLane = true;
+    ed.canvas.classList.add('with-vel');
+    ed.resize();
+    ed.draw();
+    out.laneH = ed.velH();
+    /* The strip is added to the canvas rather than carved out of the grid: the
+       note rows must be no shorter than they were before it appeared. */
+    out.gridKept = ed.gridBottom() >= gridBefore - 1;
+
+    const c = ed.canvas, r = c.getBoundingClientRect();
+    const top = ed.gridBottom();
+    function send(type, beat, frac) {
+      c.dispatchEvent(new PointerEvent(type, {
+        clientX: r.left + ed.xOfBeat(beat) + 2,
+        clientY: r.top + top + 4 + (1 - frac) * (58 - 8),
+        pointerId: 1, bubbles: true, cancelable: true
+      }));
+    }
+    // Drag the middle note's stem down to about a quarter height.
+    send('pointerdown', 1, 0.25);
+    send('pointerup', 1, 0.25);
+    out.hit = song.tracks.lead[1].v;
+    out.left = song.tracks.lead[0].v;
+    out.right = song.tracks.lead[2].v;
+    return out;
+  });
+  check(vel.laneH > 40, 'the velocity strip has room to drag in (' + vel.laneH + 'px)');
+  check(vel.gridKept, 'and showing it does not shrink the note grid');
+  check(Math.abs(vel.hit - 0.25) < 0.08,
+    'dragging a stem sets that note’s velocity (' + vel.hit.toFixed(2) + ')');
+  /* The neighbours are the real test: a strip that grabs every note at once,
+     or the nearest one from half a bar away, is worse than no strip. */
+  check(vel.left === 0.8 && vel.right === 0.8,
+    'and leaves the notes either side of it alone');
+
+  const velDrum = await page.evaluate(function () {
+    const ed = window.__songforge.editor;
+    const song = window.__songforge.song;
+    ed.setTrack('drums');
+    ed.velLane = true;
+    const rows = ed.drumRows();
+    ed.velRow = rows.indexOf('hh') >= 0 ? rows.indexOf('hh') : 0;
+    const inst = ed.velLaneInst();
+    const evs = ed.velLaneEvents();
+    const others = (song.tracks.drums || []).filter(function (e) { return e.inst !== inst; });
+    ed.setTrack('lead');
+    ed.velLane = false;
+    ed.canvas.classList.remove('with-vel');
+    ed.resize();
+    return { inst: inst, mine: evs.length, othersExist: others.length > 0,
+             allMine: evs.every(function (e) { return e.inst === inst; }) };
+  });
+  /* A drum grid stacks nine instruments at the same instant, so the strip has
+     to be told which one it is showing or it would edit all of them at once. */
+  check(velDrum.allMine && velDrum.othersExist,
+    'on the drum grid the strip shows one piece at a time — ' + velDrum.inst +
+    ', ' + velDrum.mine + ' hits');
+
+  console.log('\n— no direct current under the mix —');
+  /* Found by silencing a section and discovering it was not silent. Web Audio
+     keeps a waveshaper alive for ever when its curve is not zero at zero — the
+     node has, by that definition, an endless tail — so every note ever played
+     left one behind quietly holding the output away from the middle. The drive
+     curve was built across −1 to +0.998 rather than −1 to +1, which is exactly
+     that. Measured as the average sample value, which is what "direct current"
+     means: it should be zero everywhere, during the music and after it. */
+  const dc = await page.evaluate(async function () {
+    const C = window.Composer, E = window.Engine;
+    const song = C.compose({ seed: 'DC-1', genre: 'house', length: 'short' });
+    song.presetOverride = {};
+    const bpb = song.beatsPerBar || 4;
+    song.sections = song.sections.slice(0, 2);
+    let bar = 0;
+    song.sections.forEach(function (s) { s.startBar = bar; bar += s.bars; });
+    song.bars = bar; song.totalBeats = bar * bpb;
+    song.duration = song.totalBeats * (60 / song.bpm);
+    Object.keys(song.tracks).forEach(function (k) {
+      song.tracks[k] = song.tracks[k].filter(function (e) { return e.t < song.totalBeats; });
+    });
+    const mix = {};
+    E.TRACKS.forEach(function (t) { mix[t] = { volume: 1, muted: false, solo: false }; });
+    const spb = 60 / song.bpm;
+    const buf = await E.renderOffline(song, mix);
+    function mean(a0, b0) {
+      const ch = buf.getChannelData(0);
+      const a = Math.max(0, Math.floor(a0 * buf.sampleRate));
+      const b = Math.min(ch.length, Math.floor(b0 * buf.sampleRate));
+      let s = 0; for (let i = a; i < b; i++) s += ch[i];
+      return b > a ? s / (b - a) : 0;
+    }
+    function rmsOf(a0, b0) {
+      const ch = buf.getChannelData(0);
+      const a = Math.max(0, Math.floor(a0 * buf.sampleRate));
+      const b = Math.min(ch.length, Math.floor(b0 * buf.sampleRate));
+      let s = 0; for (let i = a; i < b; i++) s += ch[i] * ch[i];
+      return b > a ? Math.sqrt(s / (b - a)) : 0;
+    }
+    const ctx = new OfflineAudioContext(1, 128, 44100);
+    const curve = window.Synth.driveCurve(ctx, 3);
+    return {
+      duringMusic: mean(spb, song.totalBeats * spb * 0.9),
+      musicRms: rmsOf(spb, song.totalBeats * spb * 0.9),
+      afterMusic: mean(song.totalBeats * spb + 1.5, song.totalBeats * spb + 3),
+      /* Web Audio reads the curve at its exact middle for a silent input, which
+         for an even-length curve is halfway between the two centre entries. */
+      curveAtZero: (curve[curve.length / 2 - 1] + curve[curve.length / 2]) / 2
+    };
+  });
+  check(Math.abs(dc.curveAtZero) < 1e-7,
+    'the drive curve answers silence with silence (' + dc.curveAtZero.toExponential(2) + ')');
+  /* While music is playing the average is never exactly zero — a few seconds
+     of a bass-heavy mix is not a symmetric waveform — so this is measured as a
+     share of the level. With the bug it was 57% of the level; a normal mix is
+     a fraction of one per cent. */
+  const dcShare = Math.abs(dc.duringMusic) / Math.max(1e-9, dc.musicRms);
+  check(dc.musicRms > 1e-3 && dcShare < 0.02,
+    'and the offset under the music is a rounding error beside it (' +
+    (dcShare * 100).toFixed(2) + '% of the level)');
+  /* After the last note is the telling one: this is where the offset used to
+     stand out on its own, at −0.075 with nothing playing at all. */
+  check(Math.abs(dc.afterMusic) < 1e-5,
+    'and stays there after the last note (' + dc.afterMusic.toExponential(2) + ')');
+
+  console.log('\n— silencing a section —');
+  /* Muting is applied where the score becomes a list of notes to play, so it
+     reaches the exported file as well as playback. Both are checked: the note
+     list, and the audio that comes out of an actual render. */
+  const hushSec = await page.evaluate(async function () {
+    const C = window.Composer, E = window.Engine;
+    const song = C.compose({ seed: 'MUTE-1', genre: 'house', length: 'short' });
+    song.presetOverride = {};
+    const bpb = song.beatsPerBar || 4;
+    const target = song.sections[1];
+    const from = target.startBar * bpb, to = from + target.bars * bpb;
+
+    const before = E.flatten(song);
+    target.muted = true;
+    const after = E.flatten(song);
+    /* Counted with a margin at each edge. Flattening applies the groove's
+       swing, which slides a note by up to a sixteenth, so a note sitting right
+       on a section border can land either side of it — a boundary case that
+       says nothing about whether muting works. */
+    const m = 0.3;
+    const inside = function (list) {
+      return list.filter(function (e) { return e.t >= from + m && e.t < to - m; }).length;
+    };
+    const outside = function (list) {
+      return list.filter(function (e) { return e.t < from - m || e.t >= to + m; }).length;
+    };
+    const out = {
+      name: target.name,
+      insideBefore: inside(before), insideAfter: inside(after),
+      outsideBefore: outside(before), outsideAfter: outside(after)
+    };
+
+    /* The audio proof. One render with the section silenced, one without, and
+       the level measured inside the section and in the bar before it. */
+    const mix = {};
+    E.TRACKS.forEach(function (t) { mix[t] = { volume: 1, muted: false, solo: false }; });
+    const spb = 60 / song.bpm;
+    function rms(buf, fromSec, toSec) {
+      const ch = buf.getChannelData(0);
+      const a = Math.max(0, Math.floor(fromSec * buf.sampleRate));
+      const b = Math.min(ch.length, Math.floor(toSec * buf.sampleRate));
+      let s2 = 0;
+      for (let i = a; i < b; i++) s2 += ch[i] * ch[i];
+      return b > a ? Math.sqrt(s2 / (b - a)) : 0;
+    }
+    /* The back half of the section, which is past anything the section before
+       it could still be ringing. Reverb and echo carry across the border by
+       design — they are the tail of music that really did play — so the front
+       of a silenced section is never digitally silent, and measuring there
+       would be measuring the reverb. */
+    const mid = (from + to) / 2;
+    const hush = await E.renderOffline(song, mix);
+    target.muted = false;
+    const full = await E.renderOffline(song, mix);
+    out.insideFull = rms(full, mid * spb, to * spb - 0.5);
+    out.insideHush = rms(hush, mid * spb, to * spb - 0.5);
+    out.frontHush = rms(hush, from * spb + 0.5, mid * spb);
+    out.beforeFull = rms(full, Math.max(0, from * spb - 3.5), from * spb - 0.5);
+    out.beforeHush = rms(hush, Math.max(0, from * spb - 3.5), from * spb - 0.5);
+
+    // And it survives a save and a reload.
+    target.muted = true;
+    const round = C.unpackSong(C.packSong(song));
+    out.saved = round ? !!round.sections[1].muted : false;
+    out.savedOthers = round ? round.sections.filter(function (s) { return s.muted; }).length : -1;
+    return out;
+  });
+  check(hushSec.insideBefore > 20 && hushSec.insideAfter === 0,
+    'silencing ' + hushSec.name + ' takes every note in it out of the score (' +
+    hushSec.insideBefore + ' → ' + hushSec.insideAfter + ')');
+  check(hushSec.outsideAfter === hushSec.outsideBefore,
+    'and touches nothing outside it (' + hushSec.outsideAfter + ' left)');
+  /* Not "quieter" — silent. Since the shaper that was leaving a direct-current
+     rail under everything was fixed, a section with nothing scheduled in it
+     renders as actual zeroes, so this can be an exact claim rather than a
+     ratio. */
+  check(hushSec.insideHush < 1e-6 && hushSec.insideFull > 1e-3,
+    'the exported audio really is silent there — digital zero, not merely quiet (' +
+    hushSec.insideHush.toExponential(2) + ' against ' + hushSec.insideFull.toExponential(2) + ')');
+  /* And the front of it is only the previous section's tail, not the section
+     itself carrying on: two orders of magnitude below the music. */
+  check(hushSec.frontHush < hushSec.insideFull * 0.02,
+    'with nothing but the tail of the section before it at the front (' +
+    hushSec.frontHush.toExponential(2) + ')');
+  /* The bar before has to be untouched, or "muted" would just be a fade and
+     the section boundary would be a guess. */
+  check(Math.abs(hushSec.beforeHush - hushSec.beforeFull) < hushSec.beforeFull * 0.05,
+    'while the bar before it plays exactly as it did (' +
+    hushSec.beforeHush.toFixed(4) + ' against ' + hushSec.beforeFull.toFixed(4) + ')');
+  check(hushSec.saved && hushSec.savedOthers === 1,
+    'and a saved song remembers which section was silenced');
+
+  console.log('\n— sliding a whole part —');
+  const shift = await page.evaluate(function () {
+    const ed = window.__songforge.editor;
+    const song = window.__songforge.song;
+    ed.setTrack('lead');
+    ed.snap = 0.25;
+    const total = song.totalBeats;
+    song.tracks.lead = [
+      { t: 0, d: 1, p: 60, v: 0.8 },
+      { t: 4, d: 1, p: 62, v: 0.8 },
+      { t: total - 1, d: 1, p: 64, v: 0.8 },      // ends exactly on the last bar line
+      { t: total - 0.1, d: 0.1, p: 65, v: 0.8 }   // right at the end: pushed off
+    ];
+    const out = {};
+    out.left = ed.shiftTrack(0.25);
+    const evs = song.tracks.lead;
+    out.times = evs.map(function (e) { return Math.round((e.t) * 100) / 100; });
+    out.trimmed = evs.length ? Math.round((evs[evs.length - 1].t + evs[evs.length - 1].d) * 100) / 100 : 0;
+    out.total = total;
+    // And back the other way, with nothing left at the start to lose.
+    out.back = ed.shiftTrack(-0.25);
+    out.backTimes = song.tracks.lead.map(function (e) { return Math.round(e.t * 100) / 100; });
+    return out;
+  });
+  check(shift.left === 3 && shift.times[0] === 0.25 && shift.times[1] === 4.25,
+    'the whole part slides together (' + shift.times.join(', ') + ')');
+  /* Refusing the move, the rule a selection uses, would block the commonest
+     reason to want this — the last note of a part almost always ends exactly
+     on the final bar line. */
+  check(shift.trimmed <= shift.total + 1e-9 && shift.trimmed > shift.total - 1,
+    'a tail that would run past the end is trimmed rather than blocking the move');
+  check(shift.back === 3 && shift.backTimes[0] === 0 && shift.backTimes[1] === 4,
+    'and sliding back puts what is left exactly where it started');
 
   console.log('\n— the Station —');
   /* The groovebox. The thing worth proving is not that the pads light up but
