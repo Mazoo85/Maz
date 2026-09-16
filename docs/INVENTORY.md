@@ -13,7 +13,7 @@ size is in the wiring between the parts, not in any one part.
 
 | | Count | |
 |---|---:|---|
-| Native games and demos (`apps/`) | 184 | 41,914 lines |
+| Native games and demos (`apps/`) | 185 | 42,845 lines |
 | Engine capabilities (`engine/include/maz/`) | 699 | 88,770 lines across 20 subsystems |
 | C++ test files (`tests/`) | 390 | |
 | Browser apps and games | 8 | 26,857 lines |
@@ -21,15 +21,15 @@ size is in the wiring between the parts, not in any one part.
 | CI gates (`scripts/`) | 3 | |
 | Build and codegen helpers (`tools/`) | 11 | |
 | Documents (`docs/`) | 20 | |
-| **Catalogued artifacts** | **929** | |
+| **Catalogued artifacts** | **930** | |
 
 | Health signal | Score | |
 |---|---:|---|
-| Completeness checks passing | 89% | █████████░ 2933 of 3282 |
+| Completeness checks passing | 90% | █████████░ 2952 of 3288 |
 | Apps that run headless in CI | 100% | ██████████ |
-| Apps with a golden screenshot | 85% | █████████░ |
+| Apps with a golden screenshot | 84% | ████████░░ |
 | Engine modules a test exercises | 100% | ██████████ |
-| Engine modules an app demonstrates | 54% | █████░░░░░ |
+| Engine modules an app demonstrates | 56% | ██████░░░░ |
 | Open tasks in the queue below | 7 | |
 
 ## 1. Everything you have built
@@ -70,7 +70,7 @@ module with neither is working code nobody can find.
 | `render` | 168 | 168 (100%) | 87 (52%) |
 | `math` | 133 | 133 (100%) | 43 (32%) |
 | `game` | 125 | 125 (100%) | 59 (47%) |
-| `core` | 104 | 104 (100%) | 47 (45%) |
+| `core` | 104 | 104 (100%) | 61 (59%) |
 | `io` | 30 | 30 (100%) | 26 (87%) |
 | `audio` | 27 | 27 (100%) | 23 (85%) |
 | `ui` | 27 | 27 (100%) | 21 (78%) |
@@ -96,7 +96,7 @@ module with neither is working code nobody can find.
 
 **`game`** — AStar2D, ~AStar3D, ~AStarGrid2D, ~Achievements, ~AggroTable, ~AimAssist, ~AllPairsShortestPath, Area2D, AssetDef, AutoTile, Avoidance, ~Ballistics, ~BarnesHut, BehaviorTree, BspDungeon, ~Bvh, CameraController2D, ~ChargePool, ~ChunkStreamer, Collision, CollisionLayers, ~CombineMode, ~ComboMeter, ~ConvexHull3D, ConvexShape2D, Cooldown, Crafting, Csg, Damage, ~DayNightCycle, ~DetectionMeter, ~Dialogue, ~DiamondSquare, ~Dice, DijkstraMap, ~Elo, ~Erosion, ~ExposureMap, FieldOfView, ~FillDepressions, ~FireSpread, FloodFill, ~FlowAccumulation, FlowField, FlyCamera, FogOfWar, ~Formation, Goap, GravityField2D, ~GridLine, ~GridMap, ~GridRaycast, Health, ~HeightField3D, ~HexGrid, ~HexPath, InfluenceMap, ~InputSequencer, ~InterceptAim, Inventory, ~IsoGrid, ~JumpAssist, JumpPointSearch, KinematicBody2D, LSystem, ~Leaderboard, Leveling, LootTable, ~Magazine, ~MarkovName, MazeGen, ~Minimax, NavGrid, NavMesh, ~NavMesh3D, NormalLight2D, ~Octree, OneWayPlatform, ~Overlap3D, Parallax, ~PathFollow2D, ~PathFollow3D, ~PatrolRoute, Physics2D, Physics3D, PhysicsQuery2D, ~Poise, ~Quadtree, Quest, ~Ragdoll, ~ReactionDiffusion, ~Recoil, ~Reputation, Shake, ShapeCast2D, Shop, ~SkillTree, ~SoftBody, SoftShadow2D, ~SoundPropagation, ~SpanningTree, SpatialGrid, ~Sph2D, ~Spread, Stat, StateMachine, StatusEffect, Steering, ~SweepPrune2D, ThetaStar, TileSet, Tilemap, ~TimeControl, ~Timer, ~TriMesh3D, TurnOrder, UtilityAI, ViewCone, Visibility2D, ~VisibleOnScreenNotifier2D, ~VoxelRaycast, WangTiles, ~WaveField2D, WaveFunctionCollapse, ~WaveSpawner
 
-**`core`** — AhoCorasick, ~AliasTable, ~Assert, AssetServer, ~BitSet, BloomFilter, CVars, ~CellularNoise, ~Checkpoints, Config, Containers, CountMinSketch, ~CurlNoise, DamerauLevenshtein, ~DateTime, Diff, ~DisjointSet, Events, Expression, ~FenwickTree, Fixed, ~FixedTimestep, FramePacer, FuzzyMatch, ~GapBuffer, ~GrayCode, ~Halton, Hash, Histogram, ~Hungarian, HyperLogLog, ~IndexedHeap, Interpolate, ~IntervalTree, JaroWinkler, Jobs, ~Kalman, ~KdTree2D, ~KdTree3D, KeyValueStore, Log, ~LogSinks, ~LruCache, ~Memory, MovingAverage, ~Murmur3, ~NodePath, Noise, NumberFormat, ~ObjectPool, ~OneEuroFilter, P2Quantile, Pcg32, ~PerfBudget, ~PidController, ~PoissonDisk, Profiler, ~ProjectSettings, ~RadixSort, Random, ~RandomDistributions, ~Reflect, Replay, ReservoirSampler, Resources, RingBuffer, ~RollingWindow, RunningMedian, RunningStats, SceneStack, Scheduler, ~SegmentTree, ~ShuffleBag, Signal, ~SimplexNoise, ~SimulatedAnnealing, SlotMap, ~SmoothDamp, ~SpaceFilling, ~SparseTable, Spring, ~StringFormat, ~StringHash, StringId, StringUtils, ~StronglyConnected, ~SuffixArray, ~SummedAreaTable, Telemetry, Time, ~TokenBucket, ~TopologicalSort, Trie, ~Utf16, Utf8, Uuid, ~ValueNoise, ~Variant, ~VariantContainerText, ~VariantContainers, ~VariantText, ~Version, ~WeightedReservoir, ~WorleyNoise
+**`core`** — AhoCorasick, AliasTable, ~Assert, AssetServer, BitSet, BloomFilter, CVars, ~CellularNoise, ~Checkpoints, Config, Containers, CountMinSketch, ~CurlNoise, DamerauLevenshtein, ~DateTime, Diff, DisjointSet, Events, Expression, FenwickTree, Fixed, ~FixedTimestep, FramePacer, FuzzyMatch, ~GapBuffer, ~GrayCode, ~Halton, Hash, Histogram, ~Hungarian, HyperLogLog, IndexedHeap, Interpolate, IntervalTree, JaroWinkler, Jobs, ~Kalman, ~KdTree2D, ~KdTree3D, KeyValueStore, Log, ~LogSinks, LruCache, ~Memory, MovingAverage, ~Murmur3, ~NodePath, Noise, NumberFormat, ObjectPool, ~OneEuroFilter, P2Quantile, Pcg32, ~PerfBudget, ~PidController, ~PoissonDisk, Profiler, ~ProjectSettings, RadixSort, Random, ~RandomDistributions, ~Reflect, Replay, ReservoirSampler, Resources, RingBuffer, ~RollingWindow, RunningMedian, RunningStats, SceneStack, Scheduler, SegmentTree, ~ShuffleBag, Signal, ~SimplexNoise, ~SimulatedAnnealing, SlotMap, ~SmoothDamp, ~SpaceFilling, SparseTable, Spring, ~StringFormat, ~StringHash, StringId, StringUtils, StronglyConnected, ~SuffixArray, SummedAreaTable, Telemetry, Time, ~TokenBucket, TopologicalSort, Trie, ~Utf16, Utf8, Uuid, ~ValueNoise, ~Variant, ~VariantContainerText, ~VariantContainers, ~VariantText, ~Version, ~WeightedReservoir, ~WorleyNoise
 
 **`io`** — Base64, BinaryDiff, BundlePlan, Bwt, Compression, Config, ConfigFile, ~ExportConfig, GettextPo, Gzip, ~Hdr, Huffman, ~ImportFile, Inflate, Json, Localization, Lzw, MessagePack, MobileBundlePlan, MobileBundlePreflight, MoveToFront, PrefabText, ~RangeCoder, ResourcePack, SceneSerializer, Serialize, StreamPeer, Varint, VirtualFileSystem, Xml
 
@@ -219,6 +219,7 @@ engine capability, a handful of them complete games.
 | **joints** | 2D physics constraints, toward Godot's PinJoint2D / DampedSpringJoint2D) The rigid-body world gained joints: a Pin forces two anchor points together… | 210 | ✓ | ✓ | — |
 | **kinematic** | game::moveAndSlide, toward Godot's CharacterBody2D.move_and_slide) A kinematic character is driven directly by a velocity and must slide along the st… | 160 | ✓ | ✓ | — |
 | **layers** | collision layers & masks, toward Godot's collision_layer / collision_mask) Same overlap geometry as the AREA2D demo, but now each zone only REACTS to… | 282 | ✓ | ✓ | — |
+| **ledger** | core's data structures: FenwickTree, SegmentTree, SparseTable, SummedAreaTable, IntervalTree, IndexedHeap, DisjointSet, BitSet, AliasTable, RadixSort… | 931 | ✓ | · | no golden screenshot |
 | **level** | on-disk JSON level pipeline) The whole level is an editable file on disk: assets/levels/arena.json describes a tile grid (rows of single-char tile co… | 216 | ✓ | ✓ | — |
 | **lights2d** | 2D lights + shadows, toward Godot's Light2D + LightOccluder2D) A dark room with a few solid occluder boxes and three colored point lights. For each l… | 160 | ✓ | ✓ | — |
 | **limiter** | audio::Limiter, toward Godot's AudioEffectHardLimiter) A4 of the audio deep-dive: a brickwall lookahead limiter — an absolute ceiling the output can… | 174 | ✓ | ✓ | — |
@@ -372,13 +373,13 @@ not by judging the work. Every failing check below is a specific, finishable job
 
 | Kind | Check | Passing |
 |---|---|---:|
-| engine-module | shown by a sample app | 377/699 (54%) |
-| app | has a golden screenshot | 157/184 (85%) |
-| app | built by CMake | 184/184 (100%) |
-| app | has CMakeLists.txt | 184/184 (100%) |
-| app | header comment says what it shows | 184/184 (100%) |
-| app | runs headless for CI | 184/184 (100%) |
-| app | exercises a named engine module | 184/184 (100%) |
+| engine-module | shown by a sample app | 391/699 (56%) |
+| app | has a golden screenshot | 157/185 (85%) |
+| app | built by CMake | 185/185 (100%) |
+| app | has CMakeLists.txt | 185/185 (100%) |
+| app | header comment says what it shows | 185/185 (100%) |
+| app | runs headless for CI | 185/185 (100%) |
+| app | exercises a named engine module | 185/185 (100%) |
 | build-tool | says what it does | 11/11 (100%) |
 | doc | reachable from somewhere | 20/20 (100%) |
 | engine-module | header has a doc comment | 699/699 (100%) |
@@ -401,17 +402,17 @@ projects without declaring it. Everything below is written to end up in that man
 
 ### Found by the scan
 
-#### 322 engine modules are tested but no app shows them
+#### 308 engine modules are tested but no app shows them
 
 These are finished, working features that nobody can see, and `apps/` is how this engine
-documents itself. They are not spread evenly: 90 in `math`, 81 in `render`, 66 in `game`, 57 in
+documents itself. They are not spread evenly: 90 in `math`, 81 in `render`, 66 in `game`, 43 in
 `core`, 6 in `ui`, 4 in `audio`, and 11 other subsystems. Writing 499 apps is not the answer and
 never was: one demo can show a dozen related modules at once — a single "mesh repair" app for
 the degenerate, self-intersection and closest-point analysers, one "curve fitting" app for the
 least-squares family — so the work is closer to a few dozen apps than 499. Start where the count
 is highest and the modules cluster most naturally.
 
-<sub>322 affected · effort: medium · value: ★★★ · queued below as the `engine-module:demoed` task</sub>
+<sub>308 affected · effort: medium · value: ★★★ · queued below as the `engine-module:demoed` task</sub>
 
 ### Already wired together
 
@@ -551,15 +552,15 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
 
 ### P1 — broken or unprotected (2)
 
-- **322 engine modules are tested but no app shows them**
-  <br>These are finished, working features that nobody can see, and `apps/` is how this engine documents itself. They are not spread evenly: 90 in `math`, 81 in `render`, 66 in `game`, 57 in `core`, 6 in `ui`, 4 in `audio`, and 11 other subsystems. Writing 499 apps is not the answer and never was: one demo can show a dozen related modules at once — a single "mesh repair" app for the degenerate, self-intersection and closest-point analysers, one "curve fitting" app for the least-squares family — so the work is closer to a few dozen apps than 499. Start where the count is highest and the modules clus…
+- **308 engine modules are tested but no app shows them**
+  <br>These are finished, working features that nobody can see, and `apps/` is how this engine documents itself. They are not spread evenly: 90 in `math`, 81 in `render`, 66 in `game`, 43 in `core`, 6 in `ui`, 4 in `audio`, and 11 other subsystems. Writing 499 apps is not the answer and never was: one demo can show a dozen related modules at once — a single "mesh repair" app for the degenerate, self-intersection and closest-point analysers, one "curve fitting" app for the least-squares family — so the work is closer to a few dozen apps than 499. Start where the count is highest and the modules clus…
 - **SONG FORGE supplies the one music layer the engine does not have**
   <br>The engine already has the layers underneath and above a composer: audio::MusicTheory does note/pitch conversion, audio::MusicScales the scale tables, audio::Oscillator and audio::BusGraph the synthesis and mixing, and audio::MusicSequencer switches between music segments on the beat as the action changes. What nothing under engine/include/maz/audio/ does is WRITE the segments — pick a progression, lay a bassline and a drum pattern under it, arrange verses and choruses. music/js/genres.js and music/js/composer.js do exactly that, as plain data and pure functions, for eight genres. Porting the…
 
 ### P2 — coverage gaps (5)
 
-- **27 apps fail "has a golden screenshot"**
-  <br>_template, cutscene_export, darkroom, earshot, economy, genworld, handheld, heft, hitbox, interchange, lookup, meshdoctor, and 15 more. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.
+- **28 apps fail "has a golden screenshot"**
+  <br>_template, cutscene_export, darkroom, earshot, economy, genworld, handheld, heft, hitbox, interchange, ledger, lookup, and 16 more. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.
 - **CODA PICS can be lent now — but not to SCRIPT FORGE or MADLIBS as they speak today**
   <br>The surface exists: coda-pics/painter is published, takes a sentence and a canvas, and — unlike the studio page — reports how much of the picture came from the words. It refuses rather than guessing when asked to, because CODA PICS invents a subject for anything it does not recognise and a caller cannot otherwise tell a picture of the thing it asked for from a picture of something else.  What is NOT true is the obvious next step, and it was measured rather than assumed. Fed SCRIPT FORGE's scene headings, about half painted something unrelated, and fed MADLIBS loglines, six of twelve were refu…
 - **The golden screenshots become the arcade's cover art**
