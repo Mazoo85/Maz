@@ -2245,6 +2245,28 @@ function laidDown(ctx, gradient) {
   }
   check(haloMarks(false) > haloMarks(true),
     'a halo is left out of the flat passes, so the stag\'s shadow has no ring in it');
+  /* Parts belong to the thing the sentence is about. "A haloed knight by a
+   * campfire" is a knight with a halo standing beside an ordinary fire. */
+  var pair = PROMPT.parse('a haloed knight by a campfire at night', { seed: 3 });
+  check(!!pair.companion && pair.parts.indexOf('halo') >= 0,
+    'a haloed knight by a campfire has both a knight and a fire in it');
+  /* Counted by the ring itself: a flat ellipse stroked in the light's own
+   * colour, which nothing else in the picture draws. */
+  function haloes(spec) {
+    var ctx = recorder(480, 360);
+    PAINT.render(ctx, 480, 360, spec);
+    var ring = PAINT.makePalette(spec).light(0.85);
+    return shapesOf(ctx).filter(function (sh) {
+      return !sh.filled && sh.colour === ring && sh.w > 8 && sh.h < sh.w * 0.6;
+    }).length;
+  }
+  var withFire = haloes(pair);
+  var alone = {};
+  for (var k in pair) alone[k] = pair[k];
+  alone.companion = null;
+  check(withFire > 0 && withFire === haloes(alone),
+    'and only the knight is wearing it — taking the fire out of the picture ' +
+    'changes nothing about the halo (' + withFire + ' rings either way)');
   pass('parts go on anything, and combine');
 })();
 

@@ -2373,8 +2373,19 @@
       sheen(ctx, w, h, hz, P, spec, L, L.hue, 0.9 * L.strength);
     });
 
+    /* Parts belong to the thing the sentence is about. "A haloed knight by a
+     * campfire" is a knight with a halo standing next to an ordinary fire, and
+     * putting one over the fire as well is the picture misreading the
+     * sentence. */
+    var plain = null;
+    if (spec.companion && spec.parts && spec.parts.length) {
+      plain = {};
+      for (var key in spec) plain[key] = spec[key];
+      plain.parts = [];
+    }
     placed.forEach(function (item) {
-      paintSubject(ctx, item.s, item.box, P, PS, sr, spec, light, hz, h, extras);
+      var mine = (plain && item.s === spec.companion) ? plain : spec;
+      paintSubject(ctx, item.s, item.box, P, PS, sr, mine, light, hz, h, extras);
     });
 
     if (!onPhoto) foreground(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'fore'));
