@@ -84,6 +84,23 @@
 
   /* Build the `locked` map for a new take: every salt covered by a held lock
    * keeps the seed it had. */
+  /*
+   * Put the sun at a given angle and keep the rest of the picture honest about
+   * it.
+   *
+   * The hour is an angle, but a few things still ask which band of the day it
+   * is — stars come out at night, windows light up when it is not daylight —
+   * so moving the sun by hand has to move the band with it, or a picture ends
+   * up at midnight with the sun overhead.
+   */
+  function atSun(spec, sun) {
+    spec.sun = Math.max(-60, Math.min(90, Math.round(sun * 10) / 10));
+    if (spec.sun < -10) spec.time = 'night';
+    else if (spec.sun < 14) spec.time = spec.rising ? 'dawn' : 'dusk';
+    else spec.time = 'day';
+    return spec;
+  }
+
   function holdLocks(previousSeed, locks) {
     var out = {};
     Object.keys(LOCKS).forEach(function (name) {
@@ -827,6 +844,7 @@
     rng: rng,
     LOCKS: LOCKS,
     holdLocks: holdLocks,
+    atSun: atSun,
     rngFrom: rngFrom,
     hash: hash,
     normalise: normalise,

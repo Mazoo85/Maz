@@ -169,6 +169,33 @@
         <label><input type="checkbox" id="lockLand" /> the land</label>
       </fieldset>
 
+      <details class="dials" id="dials">
+        <summary>Turn the dials yourself</summary>
+        <p class="dial-why">The words set all of these. Move one and it stays where you put it,
+          for this picture and the next, until you hand it back.</p>
+        <div class="dial">
+          <label for="dialSun">Time of day</label>
+          <input type="range" id="dialSun" min="-55" max="88" step="1" value="30" />
+          <output id="dialSunOut">the words decide</output>
+        </div>
+        <div class="dial">
+          <label for="dialWeather">How much weather</label>
+          <input type="range" id="dialWeather" min="20" max="200" step="5" value="100" />
+          <output id="dialWeatherOut">the words decide</output>
+        </div>
+        <div class="dial">
+          <label for="dialWear">How worn</label>
+          <input type="range" id="dialWear" min="0" max="100" step="5" value="0" />
+          <output id="dialWearOut">the words decide</output>
+        </div>
+        <div class="dial">
+          <label for="dialMood">How dramatic</label>
+          <input type="range" id="dialMood" min="0" max="100" step="5" value="40" />
+          <output id="dialMoodOut">the words decide</output>
+        </div>
+        <button id="dialsClear" type="button" class="dials-clear">Give them all back to the words</button>
+      </details>
+
       <div class="buttons">
         <button id="paint" class="primary" type="button">🎨 Paint it</button>
         <button id="reroll" type="button" title="Same words, a different take">🎲 Another take</button>

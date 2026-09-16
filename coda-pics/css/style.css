@@ -334,6 +334,42 @@ canvas {
 .gphotos .buttons { margin-top: 11px; }
 .gphotos .buttons button { font-size: 12.5px; padding: 8px 12px; }
 
+/* ---------------------------------------------------------------- dials
+ * The words set every number in a picture. These hand four of them over when
+ * somebody would rather turn a knob than find the right adjective.
+ */
+.dials {
+  margin-top: 14px; padding: 11px 13px; border: 1px solid var(--line); border-radius: 10px;
+  background: rgba(255, 255, 255, .02);
+}
+.dials > summary {
+  cursor: pointer; font-size: 12.5px; letter-spacing: .4px; color: #cdc4e2;
+}
+.dials[open] > summary { margin-bottom: 9px; }
+.dial-why { margin: 0 0 11px; font-size: 11.5px; line-height: 1.5; color: var(--muted); }
+.dial {
+  display: grid; grid-template-columns: 116px 1fr auto; gap: 10px; align-items: center;
+  margin-bottom: 8px;
+}
+.dial label { font-size: 12px; color: #cdc4e2; }
+.dial input[type="range"] { width: 100%; accent-color: var(--accent); min-width: 0; }
+.dial output {
+  font-size: 11.5px; color: var(--muted); min-width: 108px; text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.dial.set label { color: #fff; }
+.dial.set output { color: var(--accent); }
+.dials-clear {
+  margin-top: 4px; font-size: 11.5px; padding: 6px 10px;
+  background: none; border: 1px solid var(--line); color: var(--muted);
+}
+.dials-clear:hover { color: var(--accent); border-color: var(--accent); }
+
+@media (max-width: 560px) {
+  .dial { grid-template-columns: 1fr; gap: 4px; }
+  .dial output { text-align: left; min-width: 0; }
+}
+
 /* -------------------------------------------------------- palette library */
 .palette-box {
   margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--line);

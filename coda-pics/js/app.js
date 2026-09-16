@@ -473,6 +473,50 @@
     };
   }
 
+  /* ------------------------------------------------------------- the dials
+   *
+   * Every number in a picture comes from the words, which is the whole idea —
+   * but "slightly more worn than that" is a thing people want to say and no
+   * adjective quite covers. Four of those numbers can be taken over by hand.
+   *
+   * A dial that has not been touched stays out of the way: `null` means the
+   * words are still deciding. Once moved it holds, for this picture and the
+   * next, until it is handed back — because the point of a dial is that it
+   * stays where you put it.
+   */
+  var dials = { sun: null, weather: null, wear: null, mood: null };
+
+  function hourName(sun) {
+    if (sun < -14) return 'night';
+    if (sun < -3) return 'twilight';
+    if (sun < 4) return 'sunrise or sunset';
+    if (sun < 14) return 'the golden hour';
+    if (sun < 35) return 'mid-morning';
+    if (sun < 62) return 'afternoon';
+    return 'high noon';
+  }
+
+  function showDials() {
+    [['sun', el.dialSun, el.dialSunOut, function (v) { return v + '° · ' + hourName(v); }],
+     ['weather', el.dialWeather, el.dialWeatherOut, function (v) { return Math.round(v) + '%'; }],
+     ['wear', el.dialWear, el.dialWearOut, function (v) { return Math.round(v) + '%'; }],
+     ['mood', el.dialMood, el.dialMoodOut, function (v) { return Math.round(v) + '%'; }]
+    ].forEach(function (row) {
+      var held = dials[row[0]];
+      row[2].textContent = held == null ? 'the words decide' : row[3](Number(row[1].value));
+      if (row[1].parentNode) row[1].parentNode.classList.toggle('set', held != null);
+    });
+  }
+
+  /* Whatever the words said, the dials have the last word. */
+  function withDials(spec) {
+    if (dials.sun != null) PROMPT.atSun(spec, dials.sun);
+    if (dials.weather != null) spec.weatherStrength = dials.weather / 100;
+    if (dials.wear != null) spec.age = dials.wear / 100;
+    if (dials.mood != null) spec.mood = dials.mood / 100;
+    return spec;
+  }
+
   function specFor(text, useSeed) {
     var locks = locksNow();
     var any = locks.subject || locks.sky || locks.land;
@@ -483,7 +527,7 @@
     });
     var ph = photoSpec();
     if (ph) spec.photo = ph;
-    return spec;
+    return withDials(spec);
   }
 
   /* ---------------------------------------------- changing just one thing
@@ -537,7 +581,9 @@
      */
     for (var tries = 0; tries < 8; tries++) {
       seed = 1 + Math.floor(Math.random() * 999999);
-      spec = PROMPT.parse(text, { seed: seed, style: el.style.value, locked: kept });
+      spec = withDials(PROMPT.parse(text, {
+        seed: seed, style: el.style.value, locked: kept
+      }));
       if (part !== 'sky' || !current.sun || skyMoved(current, spec)) break;
     }
     var ph = photoSpec();
@@ -981,10 +1027,10 @@
         var s = 1 + Math.floor(Math.random() * 999999);
         var spec;
         if (nearby === true && current) {
-          spec = PROMPT.parse(text, {
+          spec = withDials(PROMPT.parse(text, {
             seed: s, style: el.style.value,
             locked: PROMPT.holdLocks(current.seed, { sky: true, land: true })
-          });
+          }));
           var nph = photoSpec();
           if (nph) spec.photo = nph;
         } else {
@@ -1318,6 +1364,8 @@
       'photoFile', 'photoInfo', 'photoThumb', 'photoNote', 'stylePhoto', 'clearPhoto',
       'usePhotoColours', 'usePhotoSkyline', 'usePhotoBackdrop',
       'paletteBox', 'paletteChips', 'clearPalettes',
+      'dials', 'dialSun', 'dialSunOut', 'dialWeather', 'dialWeatherOut',
+      'dialWear', 'dialWearOut', 'dialMood', 'dialMoodOut', 'dialsClear',
       'gphotos', 'gpClientId', 'gpRedirect', 'gpConnect', 'gpPick', 'gpForget',
       'gpNote', 'gpSetup', 'gpOrigin', 'gpCopied', 'gpLink'].forEach(function (id) {
       el[id] = document.getElementById(id);
@@ -1331,6 +1379,27 @@
     });
     el.six.addEventListener('click', function () { showSix(false); });
     el.nearby.addEventListener('click', function () { showSix(true); });
+    /* Moving a dial takes that number off the words and repaints at once, so
+     * the picture answers the hand rather than waiting for a button. */
+    [['sun', el.dialSun], ['weather', el.dialWeather],
+     ['wear', el.dialWear], ['mood', el.dialMood]].forEach(function (row) {
+      row[1].addEventListener('input', function () {
+        dials[row[0]] = Number(row[1].value);
+        showDials();
+      });
+      row[1].addEventListener('change', function () {
+        dials[row[0]] = Number(row[1].value);
+        showDials();
+        if (current) repaint(seed);
+      });
+    });
+    el.dialsClear.addEventListener('click', function () {
+      dials = { sun: null, weather: null, wear: null, mood: null };
+      showDials();
+      if (current) repaint(seed);
+    });
+    showDials();
+
     el.newSky.addEventListener('click', function () { repaintPart('sky'); });
     el.newLand.addEventListener('click', function () { repaintPart('land'); });
     el.newSubject.addEventListener('click', function () { repaintPart('subject'); });

@@ -3117,6 +3117,46 @@ function laidDown(ctx, gradient) {
   pass('an animal is doing something, and all fifteen bodies do it');
 })();
 
+/* ------------------------------------------------- putting the sun by hand
+ * The hour is an angle, but a few things still ask which band of the day it
+ * is — stars come out at night, windows light up when it is not daylight — so
+ * moving the sun by hand has to move the band with it.
+ */
+(function sunByHand() {
+  console.log('\nPutting the sun where you want it');
+
+  function moved(text, sun) {
+    var spec = PROMPT.parse(text, { seed: 2 });
+    return PROMPT.atSun(spec, sun);
+  }
+
+  check(moved('a wolf in a meadow at noon', -40).time === 'night',
+    'pulling the sun down to -40 makes it night, not noon with a dark sky');
+  check(moved('a wolf in a meadow at midnight', 70).time === 'day',
+    'and pushing it up to 70 makes it day');
+  var rising = moved('a wolf in a meadow at dawn', 4);
+  var setting = moved('a wolf in a meadow at dusk', 4);
+  check(rising.time === 'dawn' && setting.time === 'dusk',
+    'and at the horizon it is a sunrise or a sunset depending which way the ' +
+    'sun was already going');
+
+  check(moved('a wolf in a meadow', 200).sun <= 90 &&
+        moved('a wolf in a meadow', -400).sun >= -60,
+    'and the sun stays somewhere a sun can be');
+
+  /* And the picture follows it: stars come out. */
+  var day = PROMPT.parse('a wolf in a meadow at noon', { seed: 2 });
+  var night = PROMPT.atSun(PROMPT.parse('a wolf in a meadow at noon', { seed: 2 }), -40);
+  function stars(spec) {
+    var ctx = recorder(320, 240);
+    PAINT.render(ctx, 320, 240, spec);
+    return ctx.log.filter(function (c) { return c.op === 'arc' && c.args[2] < 2.5; }).length;
+  }
+  check(stars(night) > stars(day) + 50,
+    'and the stars come out with it (' + stars(night) + ' against ' + stars(day) + ')');
+  pass('the sun can be put where you want it, and the picture follows');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);

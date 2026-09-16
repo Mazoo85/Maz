@@ -569,6 +569,90 @@ let paintsThisLoad = 0;
       null, { timeout: 40000 });
     check(true, 'more like this renders six of them');
 
+    /* ------------------------------------------------------------- dials
+     * Every number in a picture comes from the words. Four of them can be
+     * taken over by hand, and the point of a dial is that it stays where it is
+     * put — so this checks both halves: that moving one changes the picture,
+     * and that handing it back changes it again.
+     */
+    await idle();
+    /* A picture chosen so every dial has something to bite on: an hour to
+     * move, weather to turn up, and a thing that can be worn. Turning the
+     * weather up on a clear day is 200% of nothing and changes nothing, which
+     * is right of the app and useless as a test. */
+    await page.fill('#prompt', 'a stone tower in a meadow at noon in the rain');
+    let nStart = await page.evaluate(
+      () => Number(document.getElementById('canvas').dataset.painted || 0));
+    await page.click('#paint');
+    await painted(page, nStart);
+    await bandsSettled();
+    await page.click('#dials > summary');
+    await page.waitForTimeout(120);
+    check(await page.isVisible('#dialSun'), 'the dials open');
+    check((await page.textContent('#dialSunOut')).indexOf('words') >= 0,
+      'and each one starts out saying the words decide');
+
+    async function turn(id, value) {
+      await idle();
+      const before = await bandsSettled();
+      const n = await page.evaluate(
+        () => Number(document.getElementById('canvas').dataset.painted || 0));
+      await page.locator(id).fill(String(value));
+      await page.locator(id).dispatchEvent('change');
+      await painted(page, n);
+      const after = await bandsSettled();
+      return Math.max(moved(after.sky, before.sky), moved(after.mid, before.mid),
+        moved(after.land, before.land));
+    }
+
+    const byNight = await turn('#dialSun', -40);
+    check(byNight > 8,
+      `pulling the sun down to -40 repaints the picture as night (moved ${byNight.toFixed(1)})`);
+    check((await page.textContent('#dialSunOut')).indexOf('night') >= 0,
+      'and it says what hour that is, in words rather than in degrees');
+
+    const byNoon = await turn('#dialSun', 80);
+    check(byNoon > 8, `and pushing it back up to 80 repaints it as day (moved ${byNoon.toFixed(1)})`);
+
+    /* It holds across a fresh painting of the same words, which is what makes
+     * it a dial rather than a one-off nudge. */
+    await idle();
+    let n2 = await page.evaluate(
+      () => Number(document.getElementById('canvas').dataset.painted || 0));
+    await page.click('#paint');
+    await painted(page, n2);
+    await bandsSettled();
+    const stillHigh = await page.evaluate(`(() => {
+      const t = document.getElementById('dialSunOut').textContent;
+      return t.indexOf('words') < 0;
+    })()`);
+    check(stillHigh, 'and it is still holding after the next painting');
+
+    await turn('#dialWeather', 20);
+    const byWeather = await turn('#dialWeather', 200);
+    check(byWeather > 2,
+      `turning the weather from a drizzle to a downpour changes the picture (moved ${byWeather.toFixed(1)})`);
+
+    const byWear = await turn('#dialWear', 100);
+    check(byWear > 0.5, `and so does wearing the tower out (moved ${byWear.toFixed(1)})`);
+
+    /* And handing them back lets the words have them again. Put the sun
+     * somewhere the words plainly did not ask for first, or giving it back
+     * lands within a few degrees of where it already was and proves nothing. */
+    await turn('#dialSun', -45);
+    await idle();
+    const beforeClear = await bandsSettled();
+    let n3 = await page.evaluate(
+      () => Number(document.getElementById('canvas').dataset.painted || 0));
+    await page.click('#dialsClear');
+    await painted(page, n3);
+    const afterClear = await bandsSettled();
+    const gaveBack = Math.max(moved(afterClear.sky, beforeClear.sky),
+      moved(afterClear.mid, beforeClear.mid), moved(afterClear.land, beforeClear.land));
+    check(gaveBack > 8, `giving them back changes the picture again (moved ${gaveBack.toFixed(1)})`);
+    check((await page.textContent('#dialSunOut')).indexOf('words') >= 0,
+      'and every dial says the words decide once more');
+
     /* ------------------------------------------------- installable as an app
      * The manifest and its icons are what let someone add CODA PICS to a home
      * screen. They are easy to break by renaming a file and never notice,
