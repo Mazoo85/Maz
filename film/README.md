@@ -251,6 +251,17 @@ shortage it was curing. The same fault turned up twice more, one level down each
 observation in three consecutive scenes, and three details in a row about the same thing. Every one
 of them is now a check.
 
+It is worth being as plain about this ceiling as about the voice's. Building sentences from parts
+fixes **repetition**. It does not give the writer **comprehension**: type *"a baker inherits a
+recipe"* and it still does not know what a baker is, and no amount of further offline work will get
+it there. That needs a language model, which needs an account and an API key and a connection — for
+every film, including the ones this writer would have handled perfectly well. Per film the money is
+trivial, a few pence; the cost is that you could no longer open this on a plane, having signed up for
+nothing, and make a film. **That trade was considered and declined.** The condition that would
+reopen it is narrow and worth writing down: if what disappoints in a finished film is *the words
+repeating*, the fix is here already; if it is *the film not grasping the idea*, nothing offline
+reaches that.
+
 **Three acts, and a long film that has a middle.** Every length splits into
 three acts, and every scene and every shot on the reel carries which one it is
 in — so anything that wants to pace a film by its shape can read it rather than
