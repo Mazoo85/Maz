@@ -13,7 +13,7 @@ size is in the wiring between the parts, not in any one part.
 
 | | Count | |
 |---|---:|---|
-| Native games and demos (`apps/`) | 179 | 38,639 lines |
+| Native games and demos (`apps/`) | 180 | 39,139 lines |
 | Engine capabilities (`engine/include/maz/`) | 698 | 88,558 lines across 20 subsystems |
 | C++ test files (`tests/`) | 385 | |
 | Browser apps and games | 8 | 26,857 lines |
@@ -21,11 +21,11 @@ size is in the wiring between the parts, not in any one part.
 | CI gates (`scripts/`) | 3 | |
 | Build and codegen helpers (`tools/`) | 11 | |
 | Documents (`docs/`) | 20 | |
-| **Catalogued artifacts** | **923** | |
+| **Catalogued artifacts** | **924** | |
 
 | Health signal | Score | |
 |---|---:|---|
-| Completeness checks passing | 88% | █████████░ 2860 of 3249 |
+| Completeness checks passing | 88% | █████████░ 2865 of 3255 |
 | Apps that run headless in CI | 100% | ██████████ |
 | Apps with a golden screenshot | 87% | █████████░ |
 | Engine modules a test exercises | 100% | ██████████ |
@@ -239,6 +239,7 @@ engine capability, a handful of them complete games.
 | **normals** | render::computeNormals, toward Godot's SurfaceTool.generate_normals) Given only positions + indices, computeNormals derives a smooth per-vertex norma… | 163 | ✓ | ✓ | — |
 | **oneway** | one-way platforms, toward Godot's one_way_collision) A one-way platform is solid only from above: a ball dropped onto it LANDS, but a ball launched u… | 176 | ✓ | ✓ | — |
 | **orbs** | sample arcade game) An original, genre-neutral mini-game showing the engine can ship a real title: a game-state machine (title -> play -> win/lose ->… | 481 | ✓ | · | no golden screenshot |
+| **orchestra** | audio::scaleNotes / chordNotes, Oscillator, ADSR, computeSpatialMix, BusGraph, stereoMid / stereoSide / fromMidSide, StreamRandomizer — making sound… | 500 | ✓ | · | no golden screenshot |
 | **ortho3d** | 3D orthographic camera, toward Godot's Camera3D Orthogonal projection) A parallel-projection camera: no perspective divide, so equal-size objects sta… | 143 | ✓ | ✓ | — |
 | **oscillator** | audio::Oscillator, toward Godot's AudioStreamGenerator) A6 of the audio deep-dive: the raw waveforms a synth voice is built from. This demo is a scop… | 176 | ✓ | ✓ | — |
 | **parallax** | multi-layer scrolling backgrounds, toward Godot's ParallaxBackground) A parallax background is several layers that scroll at DIFFERENT rates so the s… | 178 | ✓ | ✓ | — |
@@ -368,12 +369,12 @@ not by judging the work. Every failing check below is a specific, finishable job
 | Kind | Check | Passing |
 |---|---|---:|
 | engine-module | shown by a sample app | 331/698 (47%) |
-| app | has a golden screenshot | 157/179 (88%) |
-| app | built by CMake | 179/179 (100%) |
-| app | has CMakeLists.txt | 179/179 (100%) |
-| app | header comment says what it shows | 179/179 (100%) |
-| app | runs headless for CI | 179/179 (100%) |
-| app | exercises a named engine module | 179/179 (100%) |
+| app | has a golden screenshot | 157/180 (87%) |
+| app | built by CMake | 180/180 (100%) |
+| app | has CMakeLists.txt | 180/180 (100%) |
+| app | header comment says what it shows | 180/180 (100%) |
+| app | runs headless for CI | 180/180 (100%) |
+| app | exercises a named engine module | 180/180 (100%) |
 | build-tool | says what it does | 11/11 (100%) |
 | doc | reachable from somewhere | 20/20 (100%) |
 | engine-module | header has a doc comment | 698/698 (100%) |
@@ -553,8 +554,8 @@ gap, **P3** is polish. `forge/forge/signals/inventory.py` reads the same list ou
 
 ### P2 — coverage gaps (5)
 
-- **22 apps fail "has a golden screenshot"**
-  <br>_template, cutscene_export, earshot, economy, genworld, handheld, heft, interchange, lookup, meshdoctor, orbs, rpgstats, and 10 more. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.
+- **23 apps fail "has a golden screenshot"**
+  <br>_template, cutscene_export, earshot, economy, genworld, handheld, heft, interchange, lookup, meshdoctor, orbs, orchestra, and 11 more. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.
 - **CODA PICS can be lent now — but not to SCRIPT FORGE or MADLIBS as they speak today**
   <br>The surface exists: coda-pics/painter is published, takes a sentence and a canvas, and — unlike the studio page — reports how much of the picture came from the words. It refuses rather than guessing when asked to, because CODA PICS invents a subject for anything it does not recognise and a caller cannot otherwise tell a picture of the thing it asked for from a picture of something else.  What is NOT true is the obvious next step, and it was measured rather than assumed. Fed SCRIPT FORGE's scene headings, about half painted something unrelated, and fed MADLIBS loglines, six of twelve were refu…
 - **The golden screenshots become the arcade's cover art**

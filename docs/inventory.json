@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "stats": {
-    "apps": 179,
+    "apps": 180,
     "engineModules": 698,
     "engineSubsystems": 20,
     "cppTests": 385,
@@ -10,16 +10,16 @@
     "gates": 3,
     "buildTools": 11,
     "docs": 20,
-    "totalArtifacts": 923,
-    "linesOfApps": 38639,
+    "totalArtifacts": 924,
+    "linesOfApps": 39139,
     "linesOfEngine": 88558,
     "linesOfWeb": 26857,
     "appsHeadless": 100,
     "appsGolden": 87,
     "modulesTested": 100,
     "modulesDemoed": 47,
-    "checksPassed": 2860,
-    "checksTotal": 3249,
+    "checksPassed": 2865,
+    "checksTotal": 3255,
     "openTasks": 7
   },
   "queue": [
@@ -337,8 +337,8 @@
       "priority": 2,
       "kind": "app",
       "check": "golden",
-      "title": "22 apps fail \"has a golden screenshot\"",
-      "detail": "_template, cutscene_export, earshot, economy, genworld, handheld, heft, interchange, lookup, meshdoctor, orbs, rpgstats, and 10 more. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.",
+      "title": "23 apps fail \"has a golden screenshot\"",
+      "detail": "_template, cutscene_export, earshot, economy, genworld, handheld, heft, interchange, lookup, meshdoctor, orbs, orchestra, and 11 more. Example: Capture a golden frame for _template into tests/golden/_template.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test.",
       "paths": [
         "apps/_template",
         "apps/cutscene_export",
@@ -351,6 +351,7 @@
         "apps/lookup",
         "apps/meshdoctor",
         "apps/orbs",
+        "apps/orchestra",
         "apps/rpgstats",
         "apps/sandbox",
         "apps/setting",
@@ -364,7 +365,7 @@
         "apps/wire"
       ],
       "source": "inventory:app:golden",
-      "memberCount": 22,
+      "memberCount": 23,
       "members": [
         {
           "id": "app:_template",
@@ -431,6 +432,12 @@
           "name": "orbs",
           "path": "apps/orbs",
           "fix": "Capture a golden frame for orbs into tests/golden/orbs.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test."
+        },
+        {
+          "id": "app:orchestra",
+          "name": "orchestra",
+          "path": "apps/orchestra",
+          "fix": "Capture a golden frame for orchestra into tests/golden/orchestra.png and add it to the CASES list in tools/golden.sh, so a rendering regression is caught by the golden_images test."
         },
         {
           "id": "app:rpgstats",
