@@ -235,6 +235,22 @@ Each beat then gets a scene: a slug line, action lines built from the beat's
 own bank, and a dialogue *exchange* (whole exchanges, not stray lines, so what
 the characters say follows on).
 
+**Sentences are built from parts, not picked off a list.** Two films of the same genre used to read
+as the same film, and the reason was countable rather than mysterious: five description lines per
+beat and eighteen details per genre, against a script that writes fifty-four lines of description.
+Two takes shared **40%** of their description word for word. Now each beat has a handful of things
+somebody *does* and there is a shared pool of observations that can follow any of them — seventy-odd
+clauses crossed with eighteen observations — and details are a thing crossed with what it is doing.
+Two takes now share **26%**.
+
+The parts are pooled separately, never the finished sentences, and that distinction is the whole
+trick. A pool over whole lines will not repeat a line, but two lines built from the same clause are
+two different lines — so the first version cheerfully said *"JOSS picks the key up and puts it
+straight back down"* twice in four lines with a different tail each time, which reads worse than the
+shortage it was curing. The same fault turned up twice more, one level down each time: the same
+observation in three consecutive scenes, and three details in a row about the same thing. Every one
+of them is now a check.
+
 **Three acts, and a long film that has a middle.** Every length splits into
 three acts, and every scene and every shot on the reel carries which one it is
 in — so anything that wants to pace a film by its shape can read it rather than

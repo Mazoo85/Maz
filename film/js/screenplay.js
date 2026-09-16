@@ -65,6 +65,65 @@
     };
   }
 
+  /* Where a detail comes from.
+   *
+   * Two sources, drawn from in turn: the hand-written ones, which are the better sentences, and one
+   * assembled from a thing and what it is doing. THREE pools, not one, for the reason the beats
+   * taught twice over — a pool over finished sentences cannot see that two of them share a half. The
+   * first version poured every assembled detail into one list, and a film came out saying "The light
+   * waits, and goes on waiting", then "The hour waits, and goes on waiting", then "The space between
+   * them waits, and goes on waiting". Three different sentences, one predicate, and it reads like a
+   * fault in the program rather than like a film.
+   *
+   * With the halves pooled separately no predicate can come back until every other has had a turn,
+   * and there are a hundred and forty-four pairings before one repeats exactly.
+   */
+  function detailVoice(genre, rng) {
+    var nextWritten = pool(genre.details, rng);
+    var nextThing = pool(LEX.DETAIL_THINGS, rng);
+    var nextDoing = pool(LEX.DETAIL_DOES, rng);
+    // One hand-written line in three, not one in two. Alternating sounds fairer and is not: there are
+    // eighteen written details and a hundred and forty-four pairings, so an even split spends half
+    // the film's details on an eighth of what is available and two takes come out sharing 30% of
+    // their description. At one in three it is 26%. The written ones are still the better sentences
+    // and still turn up often enough to set the tone; they just stop being most of it.
+    var since = 0;
+    return function () {
+      since++;
+      if (since % 3 === 1) {
+        return nextWritten();
+      }
+      return nextThing() + ' ' + nextDoing();
+    };
+  }
+
+  /* What this beat says next.
+   *
+   * The obvious way to do this was to build every sentence the beat can make — hand-written lines
+   * plus every clause crossed with every observation — and draw from that one big list. It was
+   * obvious and it was wrong, and reading a script is what showed it: `pool` keeps a drawn line from
+   * coming back, but two sentences built from the SAME CLAUSE and different observations are two
+   * different strings, so nothing stopped a scene saying "JOSS picks the key up and puts it straight
+   * back down" twice in four lines with a different tail each time. That is worse than the
+   * repetition it was meant to cure, because it reads as a stutter rather than as a shortage.
+   *
+   * So the parts are pooled, not the product: one pool of clauses per beat and one pool of
+   * observations, each of which will not repeat until it has been all the way round. The
+   * observations are pooled for the WHOLE SCRIPT rather than per beat, because the same tail
+   * arriving in three scenes running is the same fault one level up — and that also happened.
+   */
+  function beatVoice(beat, rng, closerPool) {
+    var openings = beat.action.concat(beat.does || []);
+    var nextOpening = pool(openings, rng);
+    var whole = {};
+    beat.action.forEach(function (line) { whole[line] = true; });
+    return function () {
+      var opening = nextOpening();
+      // A hand-written line is already a sentence. A clause is not, and gets an observation.
+      return whole[opening] ? opening : opening + closerPool();
+    };
+  }
+
   function capitalize(s) {
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
@@ -263,7 +322,7 @@
         // here covers both, and never double-swaps (an outdoor twin is not
         // itself a key).
         return function () { return ctx.exterior ? LEX.outdoors(next()) : next(); };
-      }(pool(genre.details, rng))),
+      }(detailVoice(genre, rng))),
       nextSound: (function (next) {
         return function () { return ctx.exterior ? LEX.outdoors(next()) : next(); };
       }(pool(genre.sounds, rng)))
@@ -297,6 +356,10 @@
     var previousHeading = null;
     var introduced = {};
 
+    // One pool of observations for the whole film, so the same tail does not turn up in three
+    // consecutive scenes — which it did when each beat had its own.
+    var closerPool = pool(LEX.CLOSERS, rng);
+
     var spine = spineFor(lengthKey, seed);
     var placement = placesForSpine(spine, premise.places.length, seed);
     // The object's arc, laid along this spine in the order it can happen in —
@@ -316,7 +379,13 @@
       ctx.exterior = heading.int === 'EXT.';
 
       var sceneElements = [{ type: 'scene_heading', text: heading.text }];
-      var actionPool = pool(beat.action, rng);
+      // Everything this beat can say: the hand-written lines, and every sentence its clauses and the
+      // shared observations make between them. Five lines a beat is why two films of the same genre
+      // used to read as the same film — an eleven-scene script draws two or three from each beat, so
+      // two takes were picking from almost the same five and shared 40% of their description
+      // word for word. Built here rather than in the lexicon because it is a product, not a list:
+      // writing it out would be five hundred lines to maintain by hand.
+      var actionPool = beatVoice(beat, rng, closerPool);
 
       // First time we meet someone, screenplay convention introduces them in
       // caps with one line of who they are.

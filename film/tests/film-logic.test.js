@@ -1552,22 +1552,313 @@ test('every shot on a reel knows which act it is in', () => {
 test('a long film is actually longer, and its middle is the biggest part of it', () => {
   const premise = Parse.parse('A night nurse finds a key that opens a door that should not be there.',
     { seed: 606 });
-  const of = (len) => Reel.build(Writer.write(premise, { length: len, seed: 33 }));
-  const micro = of('micro');
-  const short = of('short');
-  const festival = of('festival');
-  const feature = of('feature');
-  assert(short.duration > micro.duration, 'a short film runs longer than a micro one');
-  assert(festival.duration > short.duration, 'and a festival one longer than a short');
-  assert(feature.duration > festival.duration * 1.25,
+  //
+  // Averaged over several takes, and that is not belt-and-braces. The first version of this compared
+  // one take of each and asserted the feature ran a quarter longer than the festival; measured
+  // properly it runs about a fifth longer, and the single pair it happened to pick came out at 1.28.
+  // So the check was passing on the luck of one seed, and the first unrelated change to the wording
+  // tipped it over. One sample of a thing that varies is not a measurement.
+  const runs = (len) => {
+    let total = 0;
+    for (let s = 0; s < 5; s++) {
+      total += Reel.build(Writer.write(premise, { length: len, seed: 33 + s })).duration;
+    }
+    return total / 5;
+  };
+  const micro = runs('micro');
+  const short = runs('short');
+  const festival = runs('festival');
+  const feature = runs('feature');
+  assert(short > micro, 'a short film runs longer than a micro one');
+  assert(festival > short, 'and a festival one longer than a short');
+  assert(feature > festival * 1.15,
     'and the feature length is a real step up rather than a couple of scenes more (' +
-    Math.round(festival.duration) + 's to ' + Math.round(feature.duration) + 's)');
+    Math.round(festival) + 's to ' + Math.round(feature) + 's on average)');
 
   // The thing the length is FOR. In everything shorter the middle is the gap
   // between the beginning and the end; here it is the biggest part of the film.
   const inAct = (reel, n) => reel.shots.filter((s) => s.act === n).length;
-  assert(inAct(feature, 2) > inAct(feature, 1) && inAct(feature, 2) > inAct(feature, 3),
+  const oneFeature = Reel.build(Writer.write(premise, { length: 'feature', seed: 33 }));
+  assert(inAct(oneFeature, 2) > inAct(oneFeature, 1) && inAct(oneFeature, 2) > inAct(oneFeature, 3),
     'the feature length spends more of itself in act two than in either of the others');
+});
+
+test('a beat has far more to say than it used to', () => {
+  // The felt sameness of two films had one cause, and it was countable rather than mysterious: five
+  // description lines per beat, and an eleven-scene film draws two or three from each. Two horror
+  // films made a minute apart used nearly the same words because there were nearly no other words.
+  //
+  // The fix is not five hundred hand-written lines. It is lines built from PARTS — a thing somebody
+  // does, and an observation that can follow any of them — so a few dozen pieces make thousands of
+  // sentences. Which only works if the pieces genuinely fit together, and that is what everything
+  // below is about.
+  LEX.BEATS.forEach((beat) => {
+    assert(Array.isArray(beat.does) && beat.does.length >= 5,
+      beat.id + ' has a handful of things somebody actually does in it');
+  });
+  assert(Array.isArray(LEX.CLOSERS) && LEX.CLOSERS.length >= 8,
+    'and there are observations to follow them with');
+
+  const per = LEX.BEATS.map((b) => b.action.length + b.does.length * LEX.CLOSERS.length);
+  const fewest = Math.min(...per);
+  assert(fewest >= 60,
+    'the thinnest beat can say at least sixty different things (got ' + fewest + ')');
+});
+
+test('every piece fits every other piece', () => {
+  // Enumerated, not sampled. The whole point of building sentences from parts is that there are
+  // thousands of them, which is exactly why nobody will ever read them all — so the rules that keep
+  // them well-formed have to be checked on all of them, every time.
+  const bad = [];
+  let built = 0;
+
+  LEX.BEATS.forEach((beat) => {
+    beat.does.forEach((doing) => {
+      // A clause is a clause: it says who, and it stops without punctuating, because something is
+      // going to be joined onto it.
+      if (/[.!?,;:]$/.test(doing)) {
+        bad.push(beat.id + ': a clause finishes itself — "' + doing + '"');
+      }
+      // Somebody has to be doing it. The observations that follow are written to attach to a person
+      // doing something; hang one off a sentence about the weather and it attaches to the weather.
+      if (doing.indexOf('{HERO}') === -1 && doing.indexOf('{OTHER}') === -1) {
+        bad.push(beat.id + ': nobody is doing it — "' + doing + '"');
+      }
+      if (/^[a-z]/.test(doing)) {
+        bad.push(beat.id + ': a clause starts mid-sentence — "' + doing + '"');
+      }
+    });
+  });
+
+  LEX.CLOSERS.forEach((closer) => {
+    if (!/[.!?]$/.test(closer)) {
+      bad.push('an observation does not finish — "' + closer + '"');
+    }
+    if (!/^[,.\u2014 ]/.test(closer)) {
+      bad.push('an observation does not join onto anything — "' + closer + '"');
+    }
+    // Naming somebody in the observation is the trap: "…and does not look at REN" reads as nonsense
+    // after a clause that was already about REN. The observations stay about the room and the hour.
+    if (closer.indexOf('{OTHER}') !== -1 || closer.indexOf('{HERO}') !== -1) {
+      bad.push('an observation names somebody, so it cannot follow every clause — "' + closer + '"');
+    }
+  });
+
+  // And now every sentence the two lists can make between them.
+  const seen = Object.create(null);
+  LEX.BEATS.forEach((beat) => {
+    beat.does.forEach((doing) => {
+      LEX.CLOSERS.forEach((closer) => {
+        const line = doing + closer;
+        built++;
+        if (/\s\s/.test(line)) bad.push('two spaces in "' + line + '"');
+        if (/[,;:]\s*[,.;:]/.test(line)) bad.push('punctuation runs together in "' + line + '"');
+        if (line.length < 25 || line.length > 220) {
+          bad.push('an odd length (' + line.length + ') for "' + line + '"');
+        }
+        if (seen[line]) bad.push('the same sentence twice: "' + line + '"');
+        seen[line] = 1;
+      });
+    });
+  });
+
+  assert(built > 600, 'there are hundreds of sentences to check (got ' + built + ')');
+  eq(bad.slice(0, 3).join(' | '), '', built + ' assembled sentences, and ' + bad.length + ' of them are wrong');
+});
+
+test('a written film uses the new sentences, and they come out filled in', () => {
+  const premise = Parse.parse('A night nurse finds a key that opens a door that should not be there.',
+    { seed: 8080 });
+  const lines = [];
+  for (let s = 0; s < 14; s++) {
+    const script = Writer.write(premise, { length: 'feature', seed: 100 + s });
+    script.scenes.forEach((sc) => {
+      sc.elements.forEach((el) => {
+        if (el.type === 'action') lines.push(el.text);
+      });
+    });
+  }
+  assert(lines.length > 150, 'there are plenty of description lines to look at');
+
+  // Nothing half-substituted. A {PLACE} that reached the page is the most visible possible bug and
+  // the easiest to ship, because it only shows up in the combinations nobody happened to read.
+  const leftovers = lines.filter((t) => /\{[A-Z_]+\}/.test(t));
+  eq(leftovers.slice(0, 2).join(' | '), '', leftovers.length + ' lines still have a placeholder in them');
+
+  // And they are sentences: a capital at the front, a full stop at the back, no doubled spaces.
+  const malformed = lines.filter((t) => !/^[A-Z“]/.test(t) || !/[.!?”]$/.test(t) || /\s\s/.test(t));
+  eq(malformed.slice(0, 2).join(' | '), '', malformed.length + ' lines are not well-formed sentences');
+});
+
+test('the details are built from parts too, and none of them is stuck indoors', () => {
+  assert(LEX.DETAIL_THINGS.length >= 8 && LEX.DETAIL_DOES.length >= 8,
+    'there are things and things they can be doing');
+  // Counted as what a film can SAY, not as the length of a list. The assembled details deliberately
+  // do not live in genre.details — they are drawn from their two pools at writing time, because a
+  // pool over finished sentences cannot see that two of them share a predicate — so the number that
+  // matters is the pairings plus the hand-written ones.
+  const canSay = LEX.DETAIL_THINGS.length * LEX.DETAIL_DOES.length + LEX.GENRES.horror.details.length;
+  assert(canSay > 140,
+    'a genre has a hundred-odd details to draw on rather than eighteen (got ' + canSay + ')');
+
+  // Nothing assembled may name something that only exists indoors. The indoor-to-outdoor rewrite is
+  // a lookup keyed on the whole line, and an assembled line is not in that table — so a detail about
+  // a window would follow a character out into the woods and stay a window.
+  //
+  // The clauses and the observations are held to the same rule, and a first version was not: it
+  // checked only the details, and an observation reading ", and something in the room resets" went
+  // out and turned up in an alley. Same fault, one list over.
+  const indoorOnly = /\b(room|rooms|window|windows|wall|walls|floor|floorboard|ceiling|corridor|hallway|kettle|fridge|doorway)\b/i;
+  const bad = [];
+  LEX.CLOSERS.forEach((c) => {
+    if (indoorOnly.test(c)) bad.push('an observation that only works indoors: "' + c + '"');
+  });
+  LEX.BEATS.forEach((beat) => {
+    (beat.does || []).forEach((d) => {
+      if (indoorOnly.test(d)) bad.push(beat.id + ': a clause that only works indoors: "' + d + '"');
+    });
+  });
+  LEX.DETAIL_THINGS.forEach((thing) => {
+    LEX.DETAIL_DOES.forEach((doing) => {
+      const line = thing + ' ' + doing;
+      if (indoorOnly.test(line)) bad.push('indoors only: "' + line + '"');
+      if (!/^[A-Z]/.test(line)) bad.push('does not start a sentence: "' + line + '"');
+      if (!/[.!?]$/.test(line)) bad.push('does not finish a sentence: "' + line + '"');
+      if (/\s\s/.test(line)) bad.push('two spaces: "' + line + '"');
+      if (/\{[A-Z_]+\}/.test(line)) {
+        bad.push('has a placeholder nothing fills here: "' + line + '"');
+      }
+    });
+  });
+  eq(bad.slice(0, 3).join(' | '), '', bad.length + ' assembled details are wrong');
+
+  // Every one of them is different from every other, and from the hand-written ones.
+  const all = LEX.GENRES.horror.details.slice();
+  LEX.DETAIL_THINGS.forEach((t) => LEX.DETAIL_DOES.forEach((d) => all.push(t + ' ' + d)));
+  eq(new Set(all).size, all.length, 'no detail can be written the same way twice');
+});
+
+test('no scene says the same thing twice with a different ending', () => {
+  // The fault that building sentences from parts introduces, and that the first version shipped:
+  // `pool` will not repeat a LINE, but two lines built from the same clause and different tails are
+  // two different lines, so a scene happily said "JOSS picks the key up and puts it straight back
+  // down" twice in four lines. That reads worse than the repetition it was curing — as a stutter
+  // rather than as a shortage — and every check passed, because every check was looking at whole
+  // sentences. This one looks at the clauses.
+  const premise = Parse.parse('A night nurse finds a key that opens a door that should not be there.',
+    { seed: 8080 });
+  const stutters = [];
+  const tails = [];
+  for (let take = 0; take < 10; take++) {
+    const script = Writer.write(premise, { length: 'feature', seed: 700 + take });
+    const usedInFilm = Object.create(null);
+    script.scenes.forEach((sc) => {
+      const usedHere = Object.create(null);
+      sc.elements.forEach((el) => {
+        if (el.type !== 'action') return;
+        // The clause is the sentence up to where an observation would have been joined on.
+        const clause = el.text.split(/[,.]/)[0].trim();
+        if (clause.length < 12) return;
+        if (usedHere[clause]) {
+          stutters.push('take ' + take + ', ' + sc.beat.id + ': "' + clause + '" twice in one scene');
+        }
+        usedHere[clause] = 1;
+        // And the tails, film-wide: the same observation three scenes running is the same fault one
+        // level up, and that happened too.
+        const tail = el.text.slice(clause.length);
+        if (tail.length > 12) {
+          usedInFilm[tail] = (usedInFilm[tail] || 0) + 1;
+          if (usedInFilm[tail] === 3) tails.push('take ' + take + ': "' + tail.trim() + '" three times');
+        }
+      });
+    });
+  }
+  eq(stutters.slice(0, 3).join(' | '), '', stutters.length + ' scenes say the same thing twice');
+  eq(tails.slice(0, 3).join(' | '), '', tails.length + ' films lean on one observation three times');
+
+  // And the same for what a detail is ABOUT. The two checks above look at the front of a line and at
+  // the back of one, and a film whose every detail began "The light" slipped between them — "The
+  // light has nothing to add" and "The light does not help" are different at both ends. It is the
+  // subject that repeats, so the subject is what gets counted.
+  const overused = [];
+  for (let take = 0; take < 10; take++) {
+    const script = Writer.write(premise, { length: 'feature', seed: 700 + take });
+    const subjects = Object.create(null);
+    script.scenes.forEach((sc) => sc.elements.forEach((el) => {
+      if (el.type !== 'action') return;
+      LEX.DETAIL_THINGS.forEach((thing) => {
+        if (el.text.indexOf(thing + ' ') !== -1) {
+          subjects[thing] = (subjects[thing] || 0) + 1;
+        }
+      });
+    }));
+    Object.keys(subjects).forEach((thing) => {
+      if (subjects[thing] > 3) {
+        overused.push('take ' + take + ': "' + thing + '" is the subject ' + subjects[thing] +
+                      ' times');
+      }
+    });
+  }
+  eq(overused.slice(0, 3).join(' | '), '',
+     overused.length + ' films keep going back to the same thing to describe');
+});
+
+test('a place is always spoken about as a place', () => {
+  // "{HERO} runs out of {PLACE} to put between themselves and it" reads fine until the place is a
+  // front porch: "runs out of front porch". The substitution drops a bare noun in, so every mention
+  // of one in a clause or an observation needs its article written in.
+  //
+  // The rule is aimed at that failure and not at a general theory of articles: a first attempt
+  // demanded a determiner directly before every {PLACE}, and flagged "The same {PLACE}, the same
+  // light" — which is correct English and had been in the file all along. What actually goes wrong
+  // is a PREPOSITION with nothing between it and the noun.
+  const bad = [];
+  const bareAfterPreposition =
+    /\b(of|in|to|at|on|from|into|onto|through|across|round|around|past|toward|towards|by|with|inside|outside|behind|beneath|under|over)\s*$/i;
+  const needsArticle = (line, where) => {
+    const at = line.split('{PLACE}');
+    for (let i = 0; i < at.length - 1; i++) {
+      if (bareAfterPreposition.test(at[i])) {
+        bad.push(where + ': "' + line + '"');
+      }
+    }
+  };
+  LEX.BEATS.forEach((beat) => {
+    (beat.does || []).forEach((d) => needsArticle(d, beat.id));
+    beat.action.forEach((d) => needsArticle(d, beat.id));
+  });
+  LEX.CLOSERS.forEach((c) => needsArticle(c, 'an observation'));
+  eq(bad.slice(0, 3).join(' | '), '', bad.length + ' lines name a place without an article');
+});
+
+test('two films of the same genre stop sounding like each other', () => {
+  // The number this whole change exists for. Two eleven-scene films, same premise, different takes:
+  // how much of their description is word-for-word the same line?
+  const premise = Parse.parse('A night nurse finds a key that opens a door that should not be there.',
+    { seed: 8080 });
+  const linesOf = (seed) => {
+    const script = Writer.write(premise, { length: 'feature', seed: seed });
+    const out = [];
+    script.scenes.forEach((sc) => sc.elements.forEach((el) => {
+      if (el.type === 'action') out.push(el.text);
+    }));
+    return out;
+  };
+  let worst = 0;
+  for (let a = 0; a < 6; a++) {
+    for (let b = a + 1; b < 6; b++) {
+      const one = linesOf(500 + a);
+      const two = new Set(linesOf(500 + b));
+      const shared = one.filter((t) => two.has(t)).length;
+      const overlap = shared / one.length;
+      if (overlap > worst) worst = overlap;
+    }
+  }
+  // Measured at 40% before any of this and 26% after, so the gate sits just above what it achieves:
+  // close enough to catch a regression, not so close that a reshuffle of the word lists trips it.
+  assert(worst < 0.30,
+    'no two takes share more than a third of their description (worst pair shares ' +
+    Math.round(worst * 100) + '%, and it was 40% before the lines were built from parts)');
 });
 
 test('every length offers more than one shape', () => {

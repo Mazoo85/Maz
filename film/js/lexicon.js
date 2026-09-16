@@ -485,6 +485,14 @@
         'A life, in the shorthand of a room: {DETAIL}',
         '{HERO} checks the time twice inside a minute, for no reason either of them could name.'
       ],
+      does: [
+        '{HERO} puts everything back where it lives before leaving the {PLACE}',
+        '{HERO} does the last of it standing up',
+        '{HERO} counts something under their breath',
+        '{HERO} takes the long way round the {PLACE}',
+        '{HERO} finishes a job nobody will notice was done',
+        '{HERO} waits for a sound that does not come'
+      ],
       shots: ['WIDE — the {PLACE}, and one small figure in it', 'CLOSE — hands, working', 'INSERT — {DETAIL_SHOT}']
     },
     {
@@ -497,6 +505,14 @@
         '{SOUND_CUE} {HERO} turns. The {OBJ} is waiting to be picked up.',
         '{HERO} picks up the {OBJ} the way you pick up something that might still be warm.',
         'Everything about the {OBJ} says it was meant to be found. That is the part that lands wrong.'
+      ],
+      does: [
+        '{HERO} sees the {OBJ} before deciding to look at it',
+        '{HERO} picks the {OBJ} up and puts it straight back down',
+        '{HERO} reads the {OBJ} the way you read bad news',
+        '{HERO} turns the {OBJ} over once',
+        '{HERO} checks whether anyone else in the {PLACE} has seen it',
+        '{HERO} stops in the middle of the {PLACE} and does not go on'
       ],
       shots: ['PUSH IN — {HERO} clocking the {OBJ}', 'INSERT — the {OBJ}, held', 'REACTION — the decision arriving']
     },
@@ -511,6 +527,14 @@
         '{DETAIL} {HERO} does not stop to think about it, which is the point.',
         'The {OBJ} goes into a pocket. That is a choice, and both of them know it.'
       ],
+      does: [
+        '{HERO} goes through a door that was not left open for them',
+        '{HERO} puts the {OBJ} somewhere it cannot be taken from',
+        '{HERO} moves like somebody who has stopped asking',
+        '{HERO} does it before there is time to think better of it',
+        '{HERO} takes the {OBJ} and does not write it down',
+        '{HERO} crosses the {PLACE} without stopping'
+      ],
       shots: ['TRACKING — behind {HERO}, moving', 'CLOSE — a hand, deciding', 'WIDE — the room after']
     },
     {
@@ -523,6 +547,14 @@
         'Whatever {HERO} expected, it was not {OTHER}, and not this.',
         '{DETAIL} The conversation that follows will cost one of them something.',
         '{OTHER} looks at the {OBJ} first, and at {HERO} second. That order matters.'
+      ],
+      does: [
+        '{OTHER} says the name of the {OBJ} out loud',
+        '{OTHER} stands between {HERO} and the door without appearing to',
+        '{OTHER} asks the one thing {HERO} has no answer ready for',
+        '{HERO} works out that {OTHER} has been in the {PLACE} the whole time',
+        '{OTHER} looks at the {OBJ} first and at {HERO} second',
+        '{HERO} gives an answer that is true and is not the truth'
       ],
       shots: ['OTS — {OTHER} over {HERO}’s shoulder', 'TWO-SHOT — the gap between them', 'CLOSE — {OTHER}, not blinking']
     },
@@ -537,6 +569,14 @@
         '{DETAIL} {HERO} sits down in the middle of it because standing has stopped working.',
         'The {OBJ} is on the floor between them and neither will be the one to pick it up.'
       ],
+      does: [
+        '{HERO} runs out of places to stand',
+        '{HERO} says the thing that cannot be taken back',
+        '{HERO} stops moving, because moving has stopped helping',
+        '{OTHER} watches and does not step in',
+        '{HERO} tries the door that was open an hour ago',
+        '{HERO} asks for help out loud, to nobody'
+      ],
       shots: ['HANDHELD — close, unsteady', 'LOW ANGLE — the room over them', 'CUTAWAY — {DETAIL_SHOT}']
     },
     {
@@ -549,6 +589,14 @@
         'The {OBJ} does exactly what {HERO} hoped it would do. That is the first thing that frightens them.',
         '{HERO} lets themselves believe it for the length of one held breath.',
         '{OTHER} congratulates {HERO}, and means it, and is wrong.'
+      ],
+      does: [
+        '{HERO} gets exactly what they came for',
+        '{HERO} lets the relief show for about a second',
+        '{HERO} does the thing that was supposed to be impossible',
+        '{OTHER} tells {HERO} that it is finished now',
+        '{HERO} puts the {OBJ} down like it is theirs to put down',
+        '{HERO} allows themselves to think about afterwards'
       ],
       shots: ['WIDE — {HERO} standing in the middle of it, winning',
               'CLOSE — a smile arriving late', 'INSERT — the {OBJ}, doing what it was asked']
@@ -564,6 +612,14 @@
         '{OTHER} stops helping. Nothing is said about it; the {PLACE} simply has one fewer ally in it.',
         'Everything {HERO} did to get here is now a reason somebody has to be somewhere else.'
       ],
+      does: [
+        '{HERO} finds out what the easy part cost',
+        '{HERO} goes back over it and finds the place it went wrong',
+        '{OTHER} stops coming to the {PLACE}',
+        '{HERO} starts explaining before anyone has asked',
+        '{HERO} does the sum twice and gets the same answer',
+        '{HERO} keeps the {OBJ} closer than is sensible'
+      ],
       shots: ['TRACKING — {HERO}, going the wrong way fast',
               'OTS — {OTHER} not meeting their eye', 'CUTAWAY — {DETAIL_SHOT}']
     },
@@ -577,6 +633,14 @@
         'Nobody is coming, and this time {HERO} does not spend any of the night hoping they will.',
         '{DETAIL} {HERO} says the true thing to an empty room, which is the only place it can be said yet.',
         '{HERO} understands, finally, that the person who did this was them.'
+      ],
+      does: [
+        '{HERO} sits down in the {PLACE} and stays there',
+        '{HERO} holds the {OBJ} and cannot think what it was for',
+        '{HERO} stops waiting for anyone',
+        '{HERO} says the true thing where nobody can hear it',
+        '{HERO} counts what is left and stops counting',
+        '{HERO} works out whose fault this is'
       ],
       shots: ['HOLD — {HERO}, still, for longer than is comfortable',
               'LOW ANGLE — the {PLACE} over them', 'CLOSE — the {OBJ}, no longer worth anything']
@@ -592,6 +656,14 @@
         '{DETAIL} The {OBJ} sits between them while the two of them finally talk about it.',
         '{OTHER} says the one sentence {HERO} has spent the whole film not saying.'
       ],
+      does: [
+        '{OTHER} comes back into the {PLACE} anyway',
+        '{HERO} tells {OTHER} the part they left out',
+        '{HERO} stops performing and says it',
+        '{OTHER} says the sentence {HERO} has spent all night not saying',
+        '{HERO} puts the {OBJ} on the table between them',
+        '{HERO} asks {OTHER} a question they actually want answered'
+      ],
       shots: ['TWO-SHOT — no gap left between them',
               'CLOSE — {HERO}, hearing it', 'CLOSE — {OTHER}, having said it']
     },
@@ -606,6 +678,14 @@
         'No music. {HERO} chooses, and the room lets them.',
         '{HERO} looks at {OTHER} and finally says it out loud: they want to {WANT}.'
       ],
+      does: [
+        '{HERO} takes the harder of the two',
+        '{HERO} lets go of the {OBJ} on purpose',
+        '{HERO} says out loud that they want to {WANT}',
+        '{HERO} chooses, and does not explain it',
+        '{HERO} does the small brave thing',
+        '{HERO} stops trying to have it both ways'
+      ],
       shots: ['CLOSE — {HERO}, the moment before', 'SLOW PUSH — into the choice', 'WIDE — the room, the decision made']
     },
     {
@@ -619,8 +699,49 @@
         '{HERO} lets the door stay open behind them.',
         'The {OBJ} sits where it will sit from now on, and {HERO} walks past it.'
       ],
+      does: [
+        '{HERO} comes back into the {PLACE} as somebody else',
+        '{HERO} does the ordinary thing, differently',
+        '{HERO} leaves the door open behind them',
+        '{HERO} walks past the {OBJ} without slowing',
+        '{HERO} puts the {PLACE} back the way it was',
+        '{HERO} takes the long way out'
+      ],
       shots: ['MATCHING WIDE — the opening frame, later', 'CLOSE — {HERO}, lighter or heavier', 'HOLD — the empty frame, then out']
     }
+  ];
+
+  /* What can follow any of them.
+   *
+   * Every beat has a handful of things somebody DOES, and these are the observations that come after.
+   * Multiplied together they are the reason a beat can say seventy-two different things instead of
+   * five, without five hundred lines of hand-written description.
+   *
+   * Two rules make the multiplication safe, and both are checked on every combination rather than
+   * spot-checked. The clauses stop without punctuating and these carry their own; and NONE of these
+   * names anybody. "...and does not look at REN" reads as nonsense after a clause that was already
+   * about REN, and the only way to be sure it never happens is for the observation never to know who
+   * is in the scene. They are about the room, the hour, and the manner of the thing.
+   */
+  var CLOSERS = [
+    ', and does not hurry about it.',
+    ', the way people do when the deciding is already done.',
+    '. It takes a second longer than it should.',
+    ', and the {PLACE} is quieter afterwards.',
+    '. Nobody watching would think twice about it.',
+    ', carefully, which is not the same thing as slowly.',
+    ', and does not look back at it.',
+    '. Whatever it costs is not due yet.',
+    ', once, and that is enough.',
+    '. The {PLACE} takes no position on it.',
+    ', and the {PLACE} closes over it again.',
+    '. That is a decision, whatever else it is.',
+    '. Nothing about it is an accident.',
+    ', and lets the {PLACE} have the last word.',
+    '. It is not the first time.',
+    ', and does not say why.',
+    '. Afterwards there is a little more space in the {PLACE}.',
+    ', and does not stop to see what it looks like.'
   ];
 
   /* Beat orders by target length. Short films earn their length; a 2-minute
@@ -799,6 +920,51 @@
     'WIDE — the room, the decision made': 'WIDE — the open ground, the decision made'
   };
 
+  /* Details, built from parts, for the same reason the beats are.
+   *
+   * Eighteen details per genre sounded like plenty until it was counted against a film that uses
+   * them: an eleven-scene script writes fifty-four lines of description, so the pool is drained and
+   * recycled twice over and two takes of the same idea come out sharing whole sentences. Measured
+   * before this existed, two takes shared 40% of their description word for word — and when the
+   * beats alone were made combinatorial it barely moved, because the repeated lines were nearly all
+   * DETAILS rather than actions. That is the sort of thing only counting finds.
+   *
+   * One rule these have that the hand-written details do not: none of them may name anything that
+   * exists only indoors. The indoor-to-outdoor rewrite (OUTDOORS, below) is a lookup table keyed on
+   * the whole line, and an assembled line is not in it — so a detail about a window would follow a
+   * character into the woods. These are about the light, the hour, the cold and the quiet, which are
+   * everywhere. There is a check that says so.
+   */
+  var DETAIL_THINGS = [
+    'The light',
+    'The air',
+    'The hour',
+    'The quiet',
+    'The space between them',
+    'Everything not being looked at',
+    'Whatever was happening before this',
+    'The cold',
+    'A sound that stopped a moment ago',
+    'The dark at the edges',
+    'What is left of the night',
+    'Everything within reach'
+  ];
+
+  var DETAIL_DOES = [
+    'has nothing to add.',
+    'stays exactly as it is.',
+    'takes no position on any of it.',
+    'goes on without them.',
+    'is doing none of the work here.',
+    'gets no say in it.',
+    'waits, and goes on waiting.',
+    'means nothing, and is there anyway.',
+    'changes by one degree and settles.',
+    'is exactly what it was ten minutes ago.',
+    'does not help.',
+    'carries on being ordinary.'
+  ];
+
   /* The outdoor twin of a line, or the line itself when it needs no swap. */
   function outdoors(text) {
     var swap = OUTDOORS[text];
@@ -806,6 +972,11 @@
   }
 
   Object.keys(GENRES).forEach(function (key) {
+    // The hand-written details only. The assembled ones are NOT poured in here, and the reason is the
+    // same one the beats taught: a pool over finished sentences cannot see that three of them share a
+    // predicate, and a film that says "The light waits, and goes on waiting", "The hour waits, and
+    // goes on waiting" and "The space between them waits, and goes on waiting" is worse than one
+    // short of details. The writer draws the two halves from their own pools instead.
     GENRES[key].details = GENRES[key].details.concat(NEUTRAL_DETAILS);
     GENRES[key].sounds = GENRES[key].sounds.concat(NEUTRAL_SOUNDS);
   });
@@ -813,6 +984,8 @@
   var LEX = {
     GENRES: GENRES,
     NEUTRAL_DETAILS: NEUTRAL_DETAILS,
+    DETAIL_THINGS: DETAIL_THINGS,
+    DETAIL_DOES: DETAIL_DOES,
     OUTDOORS: OUTDOORS,
     outdoors: outdoors,
     NEUTRAL_SOUNDS: NEUTRAL_SOUNDS,
@@ -823,6 +996,7 @@
     FOILS: FOILS,
     WANTS: WANTS,
     BEATS: BEATS,
+    CLOSERS: CLOSERS,
     actOf: actOf,
     STRUCTURES: STRUCTURES
   };
