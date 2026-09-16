@@ -342,6 +342,24 @@
   /* --------------------------------------------------------------- sizeing
    * Words that make the subject bigger or smaller than its default.
    */
+  /* --------------------------------------------------------------- poses
+   * What it is doing.
+   *
+   * Every animal in every picture stood in exactly the same way: four legs
+   * down, head level, facing right. A herd of them was the same statue three
+   * times. What an animal is doing is most of what a picture of an animal is
+   * about — a stag with its head down grazing and a stag standing alert are
+   * not the same picture of a stag.
+   */
+  var POSES = [
+    { id: 'standing', label: 'standing', words: ['standing', 'stood', 'still'] },
+    { id: 'alert',    label: 'alert',    words: ['alert', 'watching', 'watchful', 'looking', 'staring', 'listening', 'wary'] },
+    { id: 'grazing',  label: 'grazing',  words: ['grazing', 'drinking', 'feeding', 'eating', 'head down', 'browsing'] },
+    { id: 'walking',  label: 'walking',  words: ['walking', 'wandering', 'roaming', 'strolling', 'padding', 'trotting'] },
+    { id: 'running',  label: 'running',  words: ['running', 'galloping', 'charging', 'fleeing', 'bounding', 'racing', 'chasing'] },
+    { id: 'resting',  label: 'resting',  words: ['resting', 'lying', 'lying down', 'asleep', 'sleeping', 'curled up', 'sitting'] }
+  ];
+
   /* --------------------------------------------------------------- parts
    * Things a thing can have.
    *
@@ -456,6 +474,7 @@
     MATERIALS: MATERIALS,
     AGES: AGES,
     PARTS: PARTS,
+    POSES: POSES,
     MOODS: MOODS,
     SCALE_WORDS: SCALE_WORDS,
     DEGREES: DEGREES,

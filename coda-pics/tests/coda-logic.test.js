@@ -2994,6 +2994,129 @@ function laidDown(ctx, gradient) {
   pass('distance is one number, seen twice');
 })();
 
+/* ---------------------------------------------------------- what it is doing
+ * Every animal in every picture stood in exactly the same way: four legs down,
+ * head level, facing right. A herd of them was the same statue three times
+ * over — and what an animal is doing is most of what a picture of an animal is
+ * about.
+ */
+(function whatItIsDoing() {
+  console.log('\nWhat the animal is doing');
+
+  var missing = LEX.POSES.filter(function (p) { return !SUBJECTS.POSE[p.id]; });
+  check(missing.length === 0,
+    LEX.POSES.length + ' things an animal can be doing, each with a way of ' +
+    'standing' + (missing.length ? ' — but not ' + missing.map(function (p) { return p.id; }).join(', ') : ''));
+
+  check(PROMPT.parse('a stag grazing in a meadow', { seed: 3 }).pose === 'grazing',
+    'a grazing stag is grazing');
+  check(PROMPT.parse('a wolf running on the plains', { seed: 3 }).pose === 'running',
+    'and a running wolf is running');
+
+  /* Said nothing, and they are not all doing the same thing. */
+  var doing = {};
+  for (var seed = 0; seed < 60; seed++) {
+    doing[PROMPT.parse('a wolf in a meadow at noon', { seed: seed }).pose] = true;
+  }
+  check(Object.keys(doing).length >= 4,
+    'and sixty wolves nobody said anything about are doing ' +
+    Object.keys(doing).length + ' different things');
+
+  /* Drawn, not declared. One animal, one box, one seed — only the pose. */
+  function posed(pose) {
+    var spec = PROMPT.parse('a stag in a meadow at noon', { seed: 4 });
+    spec.pose = pose;
+    var ctx = recorder(400, 300);
+    SUBJECTS.draw(ctx, { draw: 'quadruped', form: 'deer' },
+      { x: 110, y: 70, w: 190, h: 180, depth: 0, anchor: 'ground' },
+      PAINT.makePalette(spec), PROMPT.rng(spec, 'subject'), spec);
+    var shapes = shapesOf(ctx);
+    /* Facing right, so the muzzle is the rightmost thing drawn. */
+    var head = shapes.reduce(function (a, sh) {
+      return (!a || sh.x > a.x) ? sh : a;
+    }, null);
+    var top = shapes.reduce(function (a, sh) { return Math.min(a, sh.top); }, 1e9);
+    var spread = shapes.reduce(function (a, sh) { return Math.max(a, sh.w); }, 0);
+    return { head: head, top: top, spread: spread, shapes: shapes };
+  }
+
+  var grazing = posed('grazing'), alert = posed('alert'), standing = posed('standing');
+  check(grazing.head.y > alert.head.y + 30,
+    'a grazing stag has its head down where the grass is and an alert one has ' +
+    'it up (' + Math.round(grazing.head.y) + ' against ' + Math.round(alert.head.y) + ')');
+
+  var resting = posed('resting');
+  check(resting.top > standing.top + 15,
+    'a resting one sits lower than a standing one (' + Math.round(resting.top) +
+    ' against ' + Math.round(standing.top) + ')');
+
+  /* Legs thrown further when it is running. Measured as how far apart the feet
+   * finish up, which is what a stride is. */
+  function feet(bag) {
+    var low = bag.shapes.filter(function (sh) { return sh.bottom > 240; });
+    if (!low.length) return 0;
+    var lo = 1e9, hi = -1e9;
+    low.forEach(function (sh) { lo = Math.min(lo, sh.x); hi = Math.max(hi, sh.x); });
+    return hi - lo;
+  }
+  var running = posed('running');
+  check(feet(running) > feet(standing) + 4,
+    'and a running one throws its legs further out than a standing one (' +
+    Math.round(feet(running)) + 'px apart against ' + Math.round(feet(standing)) + ')');
+  /*
+   * A walk is the diagonals out of step and a gallop is not. Measured as which
+   * way each leg leans — a leg's foot against its own shoulder — because
+   * comparing how far apart the feet end up cannot tell the two apart: a walk
+   * with a short stride and a gallop with a long one spread the same way round
+   * whatever the diagonals are doing.
+   */
+  function gait(pose) {
+    var spec = PROMPT.parse('a stag in a meadow at noon', { seed: 4 });
+    spec.pose = pose;
+    var ctx = recorder(400, 300);
+    SUBJECTS.draw(ctx, { draw: 'quadruped', form: 'deer' },
+      { x: 110, y: 70, w: 190, h: 180, depth: 0, anchor: 'ground' },
+      PAINT.makePalette(spec), PROMPT.rng(spec, 'subject'), spec);
+    var pts = [], legs = [];
+    ctx.log.forEach(function (c) {
+      if (c.op === 'beginPath') pts = [];
+      else if (c.op === 'moveTo' || c.op === 'lineTo' || c.op === 'quadraticCurveTo') {
+        pts.push(c.args.slice(-2));
+      } else if (c.op === 'fill' && pts.length) {
+        var top = Math.min.apply(null, pts.map(function (q) { return q[1]; }));
+        var low = Math.max.apply(null, pts.map(function (q) { return q[1]; }));
+        if (low - top > 20) {
+          function meanAt(y) {
+            var near = pts.filter(function (q) { return Math.abs(q[1] - y) < 1; });
+            return near.reduce(function (a, q) { return a + q[0]; }, 0) / (near.length || 1);
+          }
+          /* Which way the foot is thrown from the shoulder above it. */
+          legs.push({ lean: meanAt(low) - meanAt(top), at: meanAt(top), tall: low - top });
+        }
+        pts = [];
+      }
+    });
+    return legs;
+  }
+
+  var walkLegs = gait('walking'), runLegs = gait('running');
+  function outOfStep(shapes) {
+    /* The legs are the four tallest things drawn — a body and a neck are in
+     * there too, and picking them up instead reads a lean off the wrong shape
+     * entirely. Of those four the leftmost two are the hind legs, one near and
+     * one far, and out of step means they lean opposite ways. */
+    var four = shapes.slice().sort(function (a, b) { return b.tall - a.tall; }).slice(0, 4);
+    if (four.length < 4) return null;
+    four.sort(function (a, b) { return a.at - b.at; });
+    return four[0].lean * four[1].lean < 0;
+  }
+  check(outOfStep(walkLegs) === true,
+    'a walking stag has its diagonals out of step');
+  check(outOfStep(runLegs) === false,
+    'and a running one reaches out with everything at once');
+  pass('an animal is doing something, and all fifteen bodies do it');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);

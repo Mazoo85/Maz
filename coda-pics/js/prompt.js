@@ -623,6 +623,21 @@
     var material = materialHit ? materialHit.entry : null;
     if (material) note('material', material.label, materialHit.word);
 
+    /* --- what it is doing ---
+     * Said or rolled. Mostly standing or alert, because that is mostly what an
+     * animal caught in a photograph is doing. */
+    var poseHit = findOne(LEX.POSES, flat, toks);
+    var pose;
+    if (poseHit) {
+      pose = poseHit.entry.id;
+      note('doing', poseHit.entry.label, poseHit.word);
+    } else {
+      var roll = base();
+      pose = roll < 0.40 ? 'standing' : roll < 0.68 ? 'alert'
+        : roll < 0.82 ? 'grazing' : roll < 0.93 ? 'walking'
+        : roll < 0.98 ? 'running' : 'resting';
+    }
+
     /* --- what it has got ---
      * Parts, not creatures: any of them goes on any subject, and more than one
      * can be asked for at once. */
@@ -673,6 +688,7 @@
       scene: { id: scene.id, label: scene.label, prep: scene.prep || 'in', horizon: scene.horizon },
       material: material,
       parts: parts,
+      pose: pose,
       age: age,
       time: time,
       /* How high the sun (or, below the horizon, the moon) stands, in degrees,

@@ -357,12 +357,41 @@
     ctx.fill();
   }
 
+  /*
+   * What an animal is doing, as four numbers.
+   *
+   * Every animal stood identically: four legs down, head level. A herd was the
+   * same statue three times over. These change where the head goes, how far
+   * the legs are thrown, and how low the body sits — and because everything
+   * else on the animal hangs off the head position and the leg positions, one
+   * set of numbers repoises all fifteen bodies, with their ears and antlers
+   * and trunks along with them.
+   *
+   *   `leg`     how much of its leg length it is standing on. Less means lower.
+   *   `stride`  how far the legs are thrown out from under it.
+   *   `head`    forward and down, in fractions of the animal's own size.
+   *   `graze`   the head goes to the ground instead, wherever that is.
+   */
+  var POSE = {
+    standing: { leg: 1,    stride: 1,   swap: 1,  head: [0, 0] },
+    alert:    { leg: 1.04, stride: 0.8, swap: 1,  head: [0.02, -0.10] },
+    grazing:  { leg: 0.96, stride: 1.2, swap: 1,  head: [0.05, 0], graze: true },
+    /* A walk is the diagonals out of step: the near pair swings the opposite
+     * way from the far pair. A gallop is not — everything reaches out at once,
+     * which is why a running animal looks stretched and a walking one does
+     * not. */
+    walking:  { leg: 0.98, stride: 2.0, swap: -1, head: [0.03, 0.02] },
+    running:  { leg: 0.88, stride: 3.4, swap: 1,  head: [0.09, 0.05] },
+    resting:  { leg: 0.26, stride: 0.5, swap: 1,  head: [0, 0.02] }
+  };
+
   DRAW.quadruped = function (ctx, b, P, r, spec, form) {
     var f = QUAD[form] || QUAD.wolf;
     var col = ink(P, b);
     var back = P.ink(0.34 + b.depth * 0.3);            // the far pair of legs
+    var pose = POSE[(spec && spec.pose) || 'standing'] || POSE.standing;
     var groundY = b.y + b.h;
-    var legLen = b.h * f.leg;
+    var legLen = b.h * f.leg * pose.leg;
     var bodyH = b.h * f.body;
     var bodyTop = groundY - legLen - bodyH;
     var cx = b.x + b.w * 0.46, bw = b.w * 0.5 * (f.barrel || 1);
@@ -370,8 +399,10 @@
 
     /* Far legs first, a shade lighter, so the animal has a near and a far
      * side instead of four legs in one plane. */
-    limb(ctx, cx - bw * 0.26, bodyTop + bodyH * 0.72, groundY - b.h * 0.004, lw, lw * 0.45, -b.w * 0.012, back);
-    limb(ctx, cx + bw * 0.30, bodyTop + bodyH * 0.66, groundY - b.h * 0.004, lw, lw * 0.45, b.w * 0.012, back);
+    limb(ctx, cx - bw * 0.26, bodyTop + bodyH * 0.72, groundY - b.h * 0.004, lw, lw * 0.45,
+      -b.w * 0.012 * pose.stride, back);
+    limb(ctx, cx + bw * 0.30, bodyTop + bodyH * 0.66, groundY - b.h * 0.004, lw, lw * 0.45,
+      b.w * 0.012 * pose.stride, back);
 
     if (f.fleece) {                                    // wool: a lumpy outline, not a curve
       ctx.fillStyle = col;
@@ -404,8 +435,12 @@
     }
 
     var neckLen = b.h * f.neck;                        // neck, tapering to the head
-    var hx = cx + bw * (0.55 + f.neck * 0.5);
-    var hy = bodyTop - neckLen * 0.62;
+    var hx = cx + bw * (0.55 + f.neck * 0.5) + b.w * pose.head[0];
+    var hy = bodyTop - neckLen * 0.62 + b.h * pose.head[1];
+    /* Grazing puts the head on the ground rather than a fixed distance down,
+     * so a long-necked animal reaches the grass and a short-necked one does
+     * not have its chin through it. */
+    if (pose.graze) hy = groundY - b.h * (0.06 + f.head * 0.55);
     var nw = b.h * f.head * 0.46;
     ctx.beginPath();
     ctx.moveTo(cx + bw * 0.24, bodyTop + bodyH * 0.36);
@@ -416,8 +451,10 @@
     ctx.fillStyle = col;
     ctx.fill();
 
-    limb(ctx, cx - bw * 0.34, bodyTop + bodyH * 0.74, groundY, lw * 1.1, lw * 0.5, -b.w * 0.016, col);
-    limb(ctx, cx + bw * 0.38, bodyTop + bodyH * 0.68, groundY, lw * 1.1, lw * 0.5, b.w * 0.016, col);
+    limb(ctx, cx - bw * 0.34, bodyTop + bodyH * 0.74, groundY, lw * 1.1, lw * 0.5,
+      -b.w * 0.016 * pose.stride * 0.8 * pose.swap, col);
+    limb(ctx, cx + bw * 0.38, bodyTop + bodyH * 0.68, groundY, lw * 1.1, lw * 0.5,
+      b.w * 0.016 * pose.stride * 0.8 * pose.swap, col);
 
     var hr = b.h * f.head;                             // head and muzzle
     ellipse(ctx, hx, hy, hr * 0.46, hr * 0.40, col);
@@ -1797,7 +1834,7 @@
   }
 
   var API = { draw: draw, setStencil: setStencil, META: META, DRAW: DRAW, QUAD: QUAD,
-    BIRDS: BIRDS, PEOPLE: PEOPLE, TREES: TREES, PART_DRAW: PART_DRAW, PART_LAYER: PART_LAYER,
+    BIRDS: BIRDS, PEOPLE: PEOPLE, TREES: TREES, PART_DRAW: PART_DRAW, PART_LAYER: PART_LAYER, POSE: POSE,
     ANATOMY: ANATOMY, parts: parts };
   root.CodaSubjects = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
