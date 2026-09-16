@@ -305,6 +305,29 @@
       words: ['made of copper', 'patina', 'verdigris'] }
   ];
 
+  /* ------------------------------------------------------------ wear and age
+   * How long it has been standing there.
+   *
+   * Everything in these pictures was brand new. Nothing had a streak of dirt
+   * down it, nothing had moss at its foot, nothing had been rained on for a
+   * hundred years — and new is the one thing almost nothing in the world
+   * actually is. One number: 0 is out of the box, 1 has been abandoned for a
+   * century.
+   */
+  var AGES = [
+    { id: 'pristine', label: 'brand new', age: 0,
+      words: ['pristine', 'immaculate', 'brand new', 'gleaming', 'polished', 'spotless'] },
+    { id: 'kept',     label: 'well kept', age: 0.18,
+      words: ['well kept', 'tidy', 'cared for', 'restored'] },
+    { id: 'worn',     label: 'worn',      age: 0.45,
+      words: ['worn', 'weathered', 'battered', 'scuffed', 'faded', 'used', 'tired'] },
+    { id: 'old',      label: 'old',       age: 0.65,
+      words: ['old', 'aged', 'ageing', 'aging', 'mossy', 'lichen', 'grimy', 'dirty'] },
+    { id: 'ancient',  label: 'ancient',   age: 0.88,
+      words: ['ancient', 'crumbling', 'decaying', 'derelict', 'abandoned',
+        'long abandoned', 'overgrown', 'ruined', 'forgotten'] }
+  ];
+
   /* ------------------------------------------------------------------ mood
    * A single 0..1 dial. Low is calm and open; high is dramatic and contrasty.
    */
@@ -389,6 +412,7 @@
     STYLES: STYLES,
     PALETTES: PALETTES,
     MATERIALS: MATERIALS,
+    AGES: AGES,
     MOODS: MOODS,
     SCALE_WORDS: SCALE_WORDS,
     COUNT_WORDS: COUNT_WORDS,

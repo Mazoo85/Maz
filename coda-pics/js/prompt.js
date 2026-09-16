@@ -480,6 +480,13 @@
     var material = materialHit ? materialHit.entry : null;
     if (material) note('material', material.label, materialHit.word);
 
+    /* --- how long it has been standing there ---
+     * Some of these words name a place as well ("abandoned", "overgrown"), and
+     * they are allowed to do both: an ancient tower stands in ancient ruins. */
+    var ageHit = findOne(LEX.AGES, flat, toks);
+    var age = ageHit ? ageHit.entry.age : 0;
+    if (ageHit) note('wear', ageHit.entry.label, ageHit.word);
+
     LEX.FILLER.forEach(function (f) { filler[f] = true; });
     /* A relation word is understood English even when there is only one thing
      * in the picture for it to be about. */
@@ -504,6 +511,7 @@
       relation: relation,
       scene: { id: scene.id, label: scene.label, prep: scene.prep || 'in', horizon: scene.horizon },
       material: material,
+      age: age,
       time: time,
       /* How high the sun (or, below the horizon, the moon) stands, in degrees,
        * and which way it is going. The hour is an angle; `time` is only the

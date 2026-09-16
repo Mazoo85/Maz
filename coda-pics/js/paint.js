@@ -1898,7 +1898,8 @@
         mirror.addColorStop(1, P.css(P.scene.land, 0.80));
         stencil(ctx, subject, box, PS, r, spec, mirror, 0, 0, 0.48 * made.metal);
       }
-      var shine = 1 - made.rough;
+      /* A hundred years of weather takes the shine off anything. */
+      var shine = (1 - made.rough) * (1 - (spec.age || 0) * 0.75);
       if (shine > 0.05) {
         /* Tight and bright for a polished thing, broad and faint for a dull
          * one: that width is what the eye reads as "how smooth is this". */
@@ -1925,6 +1926,51 @@
             Math.cos(qa) * lip, Math.sin(qa) * lip, 0.12 * made.clear);
         }
       }
+    }
+
+    /*
+     * What time has done to it.
+     *
+     * Everything here was brand new — no streak of dirt down it, no moss at
+     * its foot, nothing that had been rained on for a hundred years — and new
+     * is the one thing almost nothing in the world actually is.
+     *
+     * Two passes, both clipped to the thing's own shape. Dirt runs downwards
+     * in streaks, because that is the way rain runs, and a canvas gradient can
+     * make streaks: stops laid across the shape, alternating between grime and
+     * nothing, at widths that never repeat. Then growth at the foot of it,
+     * where the damp is — moss on stone, verdigris on bronze, weeds against a
+     * wall. Nothing gathers on the top of a thing, which is why both of these
+     * read as age rather than as dirty paint.
+     */
+    var age = spec.age || 0;
+    if (age > 0.02) {
+      var grimy = PROMPT.rng(spec, 'wear');
+      var streaks = ctx.createLinearGradient(box.x, 0, box.x + box.w, 0);
+      var grime = [28, 14, 22];
+      var at = 0;
+      streaks.addColorStop(0, P.css(grime, 0));
+      while (at < 0.98) {
+        var gap = 0.03 + grimy() * 0.10;
+        var wide = 0.012 + grimy() * 0.05;
+        at = Math.min(0.98, at + gap);
+        streaks.addColorStop(at, P.css(grime, 0));
+        streaks.addColorStop(Math.min(0.99, at + wide * 0.35),
+          P.css(grime, 0.5 + grimy() * 0.5));
+        at = Math.min(0.98, at + wide);
+        streaks.addColorStop(at, P.css(grime, 0));
+      }
+      streaks.addColorStop(1, P.css(grime, 0));
+      stencil(ctx, subject, box, PS, r, spec, streaks, 0, 0, 0.46 * age);
+
+      /* And the damp at its foot. Whatever grows there is the colour of the
+       * ground it is growing out of, shifted towards green. */
+      var mossy = ctx.createLinearGradient(0, base, 0, base - box.h * 0.45);
+      var moss = [lerp(P.scene.land[0], 108, 0.75), 46, 24];
+      mossy.addColorStop(0, P.css(moss, 0.85));
+      mossy.addColorStop(0.42, P.css(moss, 0.28));
+      mossy.addColorStop(1, P.css(moss, 0));
+      stencil(ctx, subject, box, PS, r, spec, mossy, 0, 0, 0.72 * age);
     }
 
     /*

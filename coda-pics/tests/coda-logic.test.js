@@ -920,6 +920,24 @@ function shapesOf(ctx) {
   return shapes;
 }
 
+/*
+ * Was this gradient ever actually put on the canvas?
+ *
+ * A gradient that is built and then not used is not a pass — and a test that
+ * counts the gradients a render made will happily pass against code that has
+ * stopped drawing with them. This looks for the moment it became the fill and
+ * something was filled with it.
+ */
+function laidDown(ctx, gradient) {
+  var chosen = false;
+  for (var i = 0; i < ctx.log.length; i++) {
+    var c = ctx.log[i];
+    if (c.op === 'set' && c.args[0] === 'fillStyle') chosen = c.args[1] === gradient;
+    else if (chosen && (c.op === 'fill' || c.op === 'fillRect')) return true;
+  }
+  return false;
+}
+
 /* ------------------------------------------------------------- the shadow
  * A shadow is not a smudge under a thing. It is dark and sharp where the thing
  * meets the ground and it opens out, softens and fades as it runs away from
@@ -1890,6 +1908,105 @@ function shapesOf(ctx) {
   var pine = tree('pine'), pine2 = tree('pine', 'another');
   check(pine.trace !== pine2.trace, 'and two firs are not the same fir');
   pass('trees are grown, and no two of them come out alike');
+})();
+
+/* --------------------------------------------------------- wear, dirt and age
+ * Everything was brand new: no streak of dirt down it, no moss at its foot,
+ * nothing that had been rained on for a hundred years. New is the one thing
+ * almost nothing in the world actually is.
+ */
+(function wearAndAge() {
+  console.log('\nWhat time has done to it');
+
+  var ages = LEX.AGES, bad = [];
+  var seen = {};
+  ages.forEach(function (a) {
+    if (seen[a.id]) bad.push('two ' + a.id + 's');
+    seen[a.id] = true;
+    if (typeof a.age !== 'number' || a.age < 0 || a.age > 1) bad.push(a.id + ' has a silly age');
+    if (!a.words || !a.words.length) bad.push(a.id + ' cannot be asked for');
+  });
+  check(bad.length === 0,
+    ages.length + ' degrees of wear, from brand new to abandoned' +
+    (bad.length ? ' — ' + bad.join(', ') : ''));
+
+  check(PROMPT.parse('a tower on a hill', { seed: 2 }).age === 0,
+    'a tower nobody said anything about is new');
+  var worn = PROMPT.parse('a weathered tower on a hill', { seed: 2 }).age;
+  var ancient = PROMPT.parse('an ancient tower', { seed: 2 }).age;
+  check(worn > 0 && ancient > worn,
+    'a weathered one has some wear and an ancient one more (' + worn +
+    ' against ' + ancient + ')');
+  check(PROMPT.parse('a pristine tower on a hill', { seed: 2 }).age === 0,
+    'and a pristine one is new however long it has been there');
+
+  /* Some of these words name a place as well, and are allowed to do both. */
+  check(PROMPT.parse('an ancient tower', { seed: 2 }).scene.id === 'ruins',
+    'an ancient tower still stands in ancient ruins');
+
+  /* Drawn, not declared. Same tower, same seed, same everything but the age. */
+  function marked(age, materialId) {
+    var spec = PROMPT.parse('a tower on a hill at noon', { seed: 12 });
+    spec.age = age;
+    spec.material = materialId
+      ? LEX.MATERIALS.filter(function (m) { return m.id === materialId; })[0] : null;
+    var P = PAINT.makePalette(spec);
+    var PS = PAINT.makePalette(spec, { tintStrength: 0.85 });
+    var ctx = recorder(400, 300);
+    PAINT.paintSubject(ctx, spec.subject,
+      { x: 150, y: 80, w: 70, h: 190, depth: 0, anchor: 'ground' },
+      P, PS, PROMPT.rng(spec, 'subject'), spec, { x: 80, y: 30 }, 230, 300);
+    return { ctx: ctx, P: P };
+  }
+
+  /* Dirt runs downwards, in streaks, because that is the way rain runs — which
+   * in a canvas gradient is a lot of stops laid across the shape, alternating
+   * between grime and nothing at widths that never repeat. */
+  function streaks(bag) {
+    return bag.ctx.gradients.filter(function (g) {
+      return g.stops.length > 8 && laidDown(bag.ctx, g);
+    }).length;
+  }
+  var neglected = marked(0.88), fresh = marked(0);
+  check(streaks(neglected) > 0 && streaks(fresh) === 0,
+    'an old tower has dirt running down it and a new one has none');
+
+  /* And growth at its foot, where the damp is — which is green, and which the
+   * ground it is standing on is not. */
+  function mossHue(bag) {
+    var found = null;
+    bag.ctx.gradients.forEach(function (g) {
+      if (g.stops.length !== 3 || !laidDown(bag.ctx, g)) return;
+      var m = /^hsla\(([0-9.]+),([0-9.]+)%,([0-9.]+)%,0\.85\)$/.exec(g.stops[0].colour);
+      if (m) found = parseFloat(m[1]);
+    });
+    return found;
+  }
+  var hue = mossHue(neglected);
+  check(hue !== null && hue > 70 && hue < 150,
+    'and moss at its foot, which is green (hue ' + (hue === null ? 'none' : Math.round(hue)) + ')');
+  check(mossHue(fresh) === null, 'and a new one has nothing growing on it');
+
+  /* A hundred years of weather takes the shine off anything. */
+  function shine(bag) {
+    var want = bag.P.css(bag.P.sky.light, 0.95);
+    for (var i = 0; i < bag.ctx.log.length; i++) {
+      var c = bag.ctx.log[i];
+      if (c.op !== 'gradient' || !c.gradient.stops.length) continue;
+      if (c.gradient.stops[0].colour !== want) continue;
+      for (var j = i + 1; j < bag.ctx.log.length; j++) {
+        if (bag.ctx.log[j].op === 'set' && bag.ctx.log[j].args[0] === 'globalAlpha') {
+          return bag.ctx.log[j].args[1];
+        }
+      }
+    }
+    return 0;
+  }
+  var polished = shine(marked(0, 'iron')), corroded = shine(marked(0.88, 'iron'));
+  check(polished > 0 && corroded < polished * 0.75,
+    'polished iron catches the sun much harder than iron left out for a century (' +
+    polished.toFixed(2) + ' against ' + corroded.toFixed(2) + ')');
+  pass('things have been standing there a while');
 })();
 
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
