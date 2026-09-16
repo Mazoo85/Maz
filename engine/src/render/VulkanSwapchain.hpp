@@ -16,6 +16,11 @@ class VulkanContext;
 class VulkanSwapchain {
 public:
     bool create(VulkanContext& ctx, uint32_t width, uint32_t height, bool vsync);
+    // Headless variant: build the same scene + composite passes but with NO VkSwapchainKHR. The
+    // composite writes into one owned single-sample LDR color image (TRANSFER_SRC, so it can be copied
+    // back to the CPU) instead of a presentable swapchain image. Used by the surfaceless renderer for
+    // captureImage(). Everything else (MSAA scene target, HDR sceneColor, bloom/post) is identical.
+    bool createOffscreen(VulkanContext& ctx, uint32_t width, uint32_t height);
     void destroy(VulkanContext& ctx);
 
     // Force MSAA off (mobile render tier). Call before create()/resize; chooseSampleCount then pins 1x
@@ -29,6 +34,10 @@ public:
     // The composite pass writing the swapchain image, and its per-image framebuffers.
     VkRenderPass compositePass() const { return m_compositePass; }
     VkFramebuffer compositeFramebuffer(uint32_t i) const { return m_compositeFramebuffers[i]; }
+    // Headless offscreen mode (createOffscreen): true, and the owned LDR color image the composite
+    // wrote (left in TRANSFER_SRC_OPTIMAL) so it can be copied back with vkCmdCopyImageToBuffer.
+    bool isOffscreen() const { return m_offscreen; }
+    VkImage compositeImage() const { return m_offscreenImage; }
     // The resolved scene color, sampled by the composite/post-process.
     VkImageView sceneColorView() const { return m_sceneView; }
     VkSampler sceneSampler() const { return m_sceneSampler; }
@@ -37,7 +46,10 @@ public:
     VkFormat format() const { return m_format; }
     VkFormat sceneFormat() const { return m_sceneFormat; } // HDR float format of the scene target
     VkSampleCountFlagBits samples() const { return m_samples; }
-    uint32_t imageCount() const { return static_cast<uint32_t>(m_images.size()); }
+    // Number of composite targets: one per swapchain image, or a single owned image when offscreen.
+    uint32_t imageCount() const {
+        return m_offscreen ? 1u : static_cast<uint32_t>(m_images.size());
+    }
 
 private:
     void chooseSampleCount(VulkanContext& ctx);
@@ -58,11 +70,16 @@ private:
     VkFormat m_depthFormat = VK_FORMAT_D32_SFLOAT;
     VkSampleCountFlagBits m_samples = VK_SAMPLE_COUNT_1_BIT;
     bool m_forceSingleSample = false; // mobile tier: pin MSAA to 1x
+    bool m_offscreen = false;         // createOffscreen(): no VkSwapchainKHR, own the composite target
     VkExtent2D m_extent{};
     std::vector<VkImage> m_images;
     std::vector<VkImageView> m_views;
     std::vector<VkFramebuffer> m_compositeFramebuffers; // one per swapchain image
     VkFramebuffer m_sceneFramebuffer = VK_NULL_HANDLE;  // single (scene target)
+
+    // Offscreen mode only: the owned single-sample LDR composite target (readable via TRANSFER_SRC).
+    VkImage m_offscreenImage = VK_NULL_HANDLE;
+    VkDeviceMemory m_offscreenMemory = VK_NULL_HANDLE;
 
     // Multisampled color + depth for the scene pass.
     VkImage m_colorImage = VK_NULL_HANDLE;

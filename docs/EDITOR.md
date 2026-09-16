@@ -55,11 +55,14 @@ its colours without per-part textures. The result is one draw call and one expor
 ## Exporting a turntable (full-motion video)
 
 The headless `cutscene_export` tool renders a saved asset to a looping animated **GIF** — an orbiting
-turntable — entirely on the CPU (no GPU/window), by baking it and rendering each frame with
-`render::renderMeshPreview`:
+turntable — by baking it and rendering each frame. By default it renders **on the CPU** (no
+GPU/window) with `render::renderMeshPreview`; with `--gpu` it renders the **real Vulkan PBR frame
+graph** (sky, shadows, bloom, tonemap, colour grade) into an offscreen target and reads each frame
+back with `Renderer::captureImage` — no window needed:
 
 ```sh
 cutscene_export assets/characters/hero.mazprefab --out hero.gif --fps 30 --seconds 4 --size 256
+cutscene_export assets/characters/hero.mazprefab --out hero.gif --gpu        # real PBR frames
 ```
 
 | Flag | Meaning (default) |
@@ -71,6 +74,9 @@ cutscene_export assets/characters/hero.mazprefab --out hero.gif --fps 30 --secon
 | `--frames N` | Cap the frame count (0 = no cap) |
 | `--frames-dir DIR` | Also write each frame as a numbered image (`frame_0000.<ext>`, …) into `DIR` |
 | `--frame-format ppm\|qoi` | Frame image format when `--frames-dir` is set (`ppm`) |
+| `--aa 1-4` | Supersample anti-aliasing factor (`2`), CPU path only — higher is smoother but slower |
+| `--gpu` | Render the real PBR frame graph offscreen (surfaceless Vulkan + `captureImage`) instead of the CPU preview. Falls back to the CPU rasterizer when no Vulkan device is available. |
 
 The GIF is a self-contained preview; the `--frames-dir` PPM/QOI sequence is for pulling into `ffmpeg`
-or a video editor (e.g. `ffmpeg -i frame_%04d.ppm out.mp4`).
+or a video editor (e.g. `ffmpeg -i frame_%04d.ppm out.mp4`). `--gpu` produces frames that match the
+in-editor viewport; the CPU default runs anywhere the engine compiles.
