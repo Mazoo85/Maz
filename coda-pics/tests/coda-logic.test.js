@@ -2609,6 +2609,101 @@ function laidDown(ctx, gradient) {
   pass('the bright end rolls off, the shadows come up at night, and the lens leaks');
 })();
 
+/* ------------------------------------------------ weather landing on things
+ * Weather was painted in front of everything and then stopped. It never
+ * landed: a thing standing out in the rain was perfectly dry, and a thing
+ * standing in falling snow had nothing on it.
+ */
+(function weatherLands() {
+  console.log('\nWeather landing on the things in the picture');
+
+  function standing(weather) {
+    var spec = PROMPT.parse('a knight on the plains at noon', { seed: 5 });
+    spec.weather = weather;
+    spec.weatherStrength = 1;
+    var P = PAINT.makePalette(spec);
+    var PS = PAINT.makePalette(spec, { tintStrength: 0.85 });
+    var ctx = recorder(400, 300);
+    PAINT.paintSubject(ctx, spec.subject,
+      { x: 160, y: 90, w: 80, h: 170, depth: 0, anchor: 'ground' },
+      P, PS, PROMPT.rng(spec, 'subject'), spec, { x: 60, y: 30 }, 200, 300);
+    return { ctx: ctx, P: P, shapes: shapesOf(ctx) };
+  }
+
+  /* Wet is darker and deeper, and it runs down — so the bottom of a thing
+   * standing in the rain is wetter than its top. */
+  function soaked(bag) {
+    var want = bag.P.css(bag.P.scene.ink, 0.62);
+    return bag.ctx.gradients.some(function (g) {
+      return g.stops.length && g.stops[0].colour === want && laidDown(bag.ctx, g);
+    });
+  }
+  var rained = standing('rain'), dry = standing('clear');
+  check(soaked(rained), 'a knight standing in the rain is wet');
+  check(!soaked(dry), 'and one standing in the sun is not');
+
+  /* And a wet surface is a mirror, so the sky comes off it. */
+  function slick(bag) {
+    var want = bag.P.css(bag.P.sky.low, 0.55);
+    return bag.ctx.gradients.some(function (g) {
+      return g.stops.length && g.stops[0].colour === want && laidDown(bag.ctx, g);
+    });
+  }
+  check(slick(rained) && !slick(dry), 'and the sky comes off him, because wet is a mirror');
+
+  /* Snow gathers on whatever faces upwards. One clean line of it reads as a
+   * hat, so it goes down at three heights. */
+  /* Counted by how many different heights it was laid at, not by how many
+   * marks are white: one pass redraws the whole knight in white and puts down
+   * a dozen marks, so counting marks cannot tell one pass from three. */
+  function capped(bag) {
+    var white = bag.P.css([205, 18, 97], 1);
+    var heights = {}, lastShift = null;
+    bag.ctx.log.forEach(function (c) {
+      if (c.op === 'translate') lastShift = Math.round(c.args[1] * 10) / 10;
+      else if (c.op === 'set' && c.args[0] === 'fillStyle' && c.args[1] === white &&
+               lastShift !== null && lastShift < 0) {
+        heights[lastShift] = true;
+      }
+    });
+    return Object.keys(heights).length;
+  }
+  var snowed = standing('snowfall');
+  check(capped(snowed) >= 3,
+    'snow settles on top of him at ' + capped(snowed) + ' different heights, ' +
+    'because one clean line of it reads as a hat');
+  check(capped(dry) === 0, 'and none settles on him in the sun');
+
+  /* It is the amount of weather, not merely the name of it. */
+  function wetAlpha(weather, strength) {
+    var spec = PROMPT.parse('a knight on the plains at noon', { seed: 5 });
+    spec.weather = weather;
+    spec.weatherStrength = strength;
+    var P = PAINT.makePalette(spec);
+    var ctx = recorder(400, 300);
+    PAINT.paintSubject(ctx, spec.subject,
+      { x: 160, y: 90, w: 80, h: 170, depth: 0, anchor: 'ground' },
+      P, PAINT.makePalette(spec, { tintStrength: 0.85 }),
+      PROMPT.rng(spec, 'subject'), spec, { x: 60, y: 30 }, 200, 300);
+    var want = P.css(P.scene.ink, 0.62);
+    for (var i = 0; i < ctx.log.length; i++) {
+      var c = ctx.log[i];
+      if (c.op !== 'gradient' || !c.gradient.stops.length) continue;
+      if (c.gradient.stops[0].colour !== want) continue;
+      for (var j = i + 1; j < ctx.log.length; j++) {
+        if (ctx.log[j].op === 'set' && ctx.log[j].args[0] === 'globalAlpha') {
+          return ctx.log[j].args[1];
+        }
+      }
+    }
+    return 0;
+  }
+  check(wetAlpha('rain', 1.4) > wetAlpha('rain', 0.6),
+    'a downpour soaks him more than a drizzle does (' +
+    wetAlpha('rain', 1.4).toFixed(3) + ' against ' + wetAlpha('rain', 0.6).toFixed(3) + ')');
+  pass('the weather happens to the picture rather than in front of it');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);

@@ -1907,8 +1907,42 @@
      * when the light is the whole sky, so cloud takes it away. */
     stencil(ctx, subject, box, PS, r, spec, P.light(0.95), -dx * off, -dy * off,
       0.65 * (1 - softness(spec) * 0.62));
-    if (spec.weather === 'snowfall') {          // snow settles on upward faces
-      stencil(ctx, subject, box, PS, r, spec, P.css([205, 18, 97], 1), 0, -off * 1.1, 0.75);
+    /*
+     * What the weather does to the thing itself.
+     *
+     * Weather was painted in front of everything — streaks of rain, flecks of
+     * snow — and then stopped. It never landed. A thing standing out in the
+     * rain is wet, and a thing standing out in falling snow has snow on top of
+     * it, and those are the two things that make a picture look as though the
+     * weather is happening to it rather than in front of it.
+     */
+    if (spec.weather === 'snowfall') {
+      /* Snow gathers on whatever faces upwards, so a copy of the shape shifted
+       * up shows only along its top edges. Three of them at different heights,
+       * because snow piles unevenly and one clean line reads as a hat. */
+      var deep = softness(spec) * 1.4;
+      for (var sn = 0; sn < 3; sn++) {
+        stencil(ctx, subject, box, PS, r, spec, P.css([205, 18, 97], 1),
+          (r() - 0.5) * off * 0.7, -off * (0.7 + sn * 0.5) * (0.6 + deep),
+          0.34 - sn * 0.08);
+      }
+    }
+
+    var soaked = wetness(spec);
+    if (soaked > 0.35) {
+      /* Wet is darker and deeper, the same as wet ground — and it runs down,
+       * so the bottom of a thing standing in the rain is wetter than its top. */
+      var damp = ctx.createLinearGradient(0, base, 0, box.y);
+      damp.addColorStop(0, P.css(P.scene.ink, 0.62));
+      damp.addColorStop(0.55, P.css(P.scene.ink, 0.22));
+      damp.addColorStop(1, P.css(P.scene.ink, 0.06));
+      stencil(ctx, subject, box, PS, r, spec, damp, 0, 0, 0.42 * soaked);
+      /* And the sky comes off it, because a wet surface is a mirror too. */
+      var slick = ctx.createLinearGradient(0, box.y, 0, base);
+      slick.addColorStop(0, P.css(P.sky.low, 0.55));
+      slick.addColorStop(0.5, P.css(P.sky.low, 0.10));
+      slick.addColorStop(1, P.css(P.sky.low, 0));
+      stencil(ctx, subject, box, PS, r, spec, slick, 0, 0, 0.30 * soaked);
     }
 
     var made = spec.material || null;
