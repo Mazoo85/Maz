@@ -215,15 +215,34 @@ int main(int argc, char** argv) {
                     baked.vertices.size(), baked.indices.size() / 3);
     }
 
-    // Optional: also export the baked composite as a binary glTF (.glb) — carries vertex colour natively.
+    // Optional: also export as a binary glTF (.glb) with one pbrMetallicRoughness material PER PART
+    // (colour + roughness + metallic + emissive), so the composed asset's materials carry into other
+    // tools — not just a flat vertex-coloured mesh.
     if (!glbOut.empty()) {
-        const std::vector<std::uint8_t> glb = render::encodeGlb(baked);
+        const std::vector<editor::MeshSegment> segs = editor::bakeSegments(scene, palette, &swatches);
+        std::vector<render::GlbPart> parts;
+        parts.reserve(segs.size());
+        for (const editor::MeshSegment& s : segs) {
+            render::GlbPart p;
+            p.mesh = &s.mesh;
+            p.baseColor[0] = s.baseColor.x;
+            p.baseColor[1] = s.baseColor.y;
+            p.baseColor[2] = s.baseColor.z;
+            p.baseColor[3] = 1.0f;
+            p.metallic = s.metallic;
+            p.roughness = s.roughness;
+            p.emissive[0] = s.emissive.x;
+            p.emissive[1] = s.emissive.y;
+            p.emissive[2] = s.emissive.z;
+            parts.push_back(p);
+        }
+        const std::vector<std::uint8_t> glb = render::encodeGlbParts(parts);
         if (glb.empty() || !io::writeFile(glbOut, glb)) {
             std::fprintf(stderr, "cutscene_export: failed to write %s\n", glbOut.c_str());
             return 1;
         }
-        std::printf("cutscene_export: wrote %s (%zu verts, %zu tris)\n", glbOut.c_str(),
-                    baked.vertices.size(), baked.indices.size() / 3);
+        std::printf("cutscene_export: wrote %s (%zu parts, %zu tris)\n", glbOut.c_str(), segs.size(),
+                    baked.indices.size() / 3);
     }
 
     // Bounds -> a centre and radius to frame the orbit camera.

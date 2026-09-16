@@ -87,6 +87,32 @@ int main() {
               "tint applied to baked vertices");
     }
 
+    // --- bakeSegments: one MeshSegment per visible part, carrying its material (not flattened) ---
+    {
+        editor::Scene s;
+        editor::Node a;
+        a.meshId = 0;
+        a.colorIndex = 1;
+        a.roughness = 0.3f;
+        a.metallic = 0.8f;
+        a.emissive = math::vec3(0.1f, 0.2f, 0.3f);
+        editor::Node b;
+        b.meshId = 1;
+        b.colorIndex = 0;
+        b.visible = false; // hidden parts are skipped
+        s.nodes = {a, b};
+        const std::vector<math::vec3> tints = {math::vec3(0, 0, 0), math::vec3(0.25f, 0.5f, 0.75f)};
+        const std::vector<editor::MeshSegment> segs = editor::bakeSegments(s, palette, &tints);
+        CHECK(segs.size() == 1, "bakeSegments skips hidden parts (one visible)");
+        if (!segs.empty()) {
+            CHECK(segs[0].mesh.vertices.size() == 4 && segs[0].mesh.indices.size() == 6,
+                  "segment keeps the part's own geometry (unmerged)");
+            CHECK(near(segs[0].baseColor.x, 0.25f) && near(segs[0].roughness, 0.3f) &&
+                      near(segs[0].metallic, 0.8f) && near(segs[0].emissive.z, 0.3f),
+                  "segment carries the part's material");
+        }
+    }
+
     // --- scene<->prefab in-memory round-trip over every editable field ---
     {
         editor::Scene s;
