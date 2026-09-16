@@ -3,6 +3,7 @@
 #include "maz/render/ColorOps.hpp" // Color
 #include "maz/render/Image.hpp"     // Image
 
+#include <type_traits>
 #include <vector>
 
 // maz::render GRADIENT MAP (colorize) — recolour a greyscale image by running each pixel's brightness through a
@@ -36,7 +37,15 @@ inline float luminance01(const Color& c) {
 } // namespace detail
 
 // General form: colorize `grey` by mapping each pixel's luminance through `ramp`, any callable `Color(float)`.
-template <typename Ramp>
+//
+// The constraint is load-bearing, not decoration. Without it this template takes a forwarding reference and
+// therefore binds a NON-CONST std::vector<ColorStop> better than the stop-list overload below does — that one
+// takes `const&`, and a less cv-qualified reference binding wins the tie. The result was that the documented
+// multi-stop form only compiled when the caller happened to declare their stops `const`; written the obvious
+// way, or passed as a temporary, it selected this overload instead and failed deep inside the header with
+// "no match for call to (std::vector<ColorStop>)(float)". Requiring Ramp to actually be callable keeps the
+// forwarding reference out of the running for anything that is not a ramp function.
+template <typename Ramp, typename = std::enable_if_t<std::is_invocable_r_v<Color, Ramp&, float>>>
 inline Image gradientMap(const Image& grey, Ramp&& ramp) {
     Image out(grey.width(), grey.height());
     if (out.empty()) return out;

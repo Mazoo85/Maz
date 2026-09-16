@@ -86,6 +86,39 @@ int main() {
         CHECK(rmx - rmn > 0.1f && bmx - bmn > 0.1f, "colorized noise varies across the image (real colour range)");
     }
 
+    // --- Calling it the obvious way has to work. ---
+    // This section is a COMPILE-time regression as much as a run-time one, and it exists because
+    // every stop list above is declared `const`, which is the only reason the bug it guards was
+    // invisible. The general `gradientMap(grey, ramp)` overload takes a forwarding reference, so it
+    // bound a non-const std::vector<ColorStop> BETTER than the stop-list overload's `const&` did —
+    // a less cv-qualified reference binding wins that tie. The documented multi-stop form therefore
+    // compiled only when the caller happened to write `const`, and otherwise failed inside the
+    // header with "no match for call to (std::vector<ColorStop>)(float)". The template is now
+    // constrained to things that are actually callable; these three spellings must all work.
+    {
+        Image grey(4, 4);
+        grey.fill(Color{0.5f, 0.5f, 0.5f, 1});
+
+        std::vector<ColorStop> mutableStops = {{0.0f, Color{0, 0, 0, 1}},
+                                               {1.0f, Color{1, 1, 1, 1}}};
+        const std::vector<ColorStop> constStops = mutableStops;
+
+        const Image fromMutable = gradientMap(grey, mutableStops);
+        const Image fromConst = gradientMap(grey, constStops);
+        const Image fromTemporary =
+            gradientMap(grey, std::vector<ColorStop>{{0.0f, Color{0, 0, 0, 1}},
+                                                     {1.0f, Color{1, 1, 1, 1}}});
+
+        CHECK(colEq(fromMutable.getPixel(0, 0), 0.5f, 0.5f, 0.5f),
+              "a non-const stop list reaches the multi-stop overload");
+        CHECK(colEq(fromConst.getPixel(0, 0), 0.5f, 0.5f, 0.5f), "a const stop list still works");
+        CHECK(colEq(fromTemporary.getPixel(0, 0), 0.5f, 0.5f, 0.5f), "a temporary stop list works");
+
+        // And the callback form must still be reachable, which is what the constraint selects on.
+        const Image fromLambda = gradientMap(grey, [](float t) { return Color{t, t, t, 1}; });
+        CHECK(colEq(fromLambda.getPixel(0, 0), 0.5f, 0.5f, 0.5f), "a callable still selects the general form");
+    }
+
     if (g_fail == 0) {
         std::printf("imagegradientmap: OK — sized, two-colour, multi-stop clamp/lerp, callback, deterministic, safe.\n");
         return 0;
