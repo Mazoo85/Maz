@@ -813,6 +813,297 @@ function paintOnce(text, opts, w, h) {
   pass('surfaces have grain, and things with fur have a fringe');
 })();
 
+/* --------------------------------------------------- shadow, bounce, detail
+ * Three things every real photograph has and no painted one here had.
+ *
+ * FakeContext counts operations but throws their numbers away, and its
+ * gradients forget their colours — so none of the three can be seen through
+ * it. This records both: every call with its arguments, and every colour stop
+ * of every gradient. It is the drawing itself, not a tally of it.
+ */
+function recorder(w, h) {
+  var inner = new FakeContext(w, h);
+  var log = [];  /* not "calls" — FakeContext owns that name, and it is a number */
+  var gradients = [];
+  var proxy = { log: log, gradients: gradients, inner: inner };
+  for (var key in inner) {
+    (function (k) {
+      if (typeof inner[k] !== 'function') {
+        Object.defineProperty(proxy, k, {
+          get: function () { return inner[k]; },
+          set: function (v) { log.push({ op: 'set', args: [k, v] }); inner[k] = v; },
+          enumerable: true, configurable: true
+        });
+        return;
+      }
+      proxy[k] = function () {
+        log.push({ op: k, args: Array.prototype.slice.call(arguments) });
+        return inner[k].apply(inner, arguments);
+      };
+    })(key);
+  }
+  /* The style properties are never set on FakeContext itself, so the loop
+   * above never sees them — and the colour of a mark is half of what it is. */
+  ['fillStyle', 'strokeStyle', 'globalAlpha', 'lineWidth', 'globalCompositeOperation',
+   'filter', 'shadowBlur', 'shadowColor', 'lineCap', 'lineJoin', 'font'].forEach(function (k) {
+    var held;
+    Object.defineProperty(proxy, k, {
+      get: function () { return held; },
+      set: function (v) { log.push({ op: 'set', args: [k, v] }); held = v; },
+      enumerable: true, configurable: true
+    });
+  });
+
+  function grad() {
+    var g = { stops: [], addColorStop: function (o, c) { this.stops.push({ at: o, colour: c }); } };
+    gradients.push(g);
+    /* The arguments matter as much as the stops: they are where the gradient
+     * starts and where it dies out, which is the shape of the light. */
+    log.push({ op: 'gradient', args: Array.prototype.slice.call(arguments), gradient: g });
+    return g;
+  }
+  proxy.createLinearGradient = grad;
+  proxy.createRadialGradient = grad;
+  proxy.of = function (op) {
+    return log.filter(function (c) { return c.op === op; });
+  };
+  return proxy;
+}
+
+/* ------------------------------------------------------------- the shadow
+ * A shadow is not a smudge under a thing. It is dark and sharp where the thing
+ * meets the ground and it opens out, softens and fades as it runs away from
+ * the light — and when the sun is low it runs a long way. The old one was a
+ * single ellipse, which is why everything looked pasted on.
+ */
+(function shadowsSoften() {
+  console.log('\nShadows that soften as they run');
+
+  var box = { x: 100, y: 100, w: 120, h: 160 };
+  var cx = box.x + box.w / 2;
+
+  function cast(text, lightX) {
+    var spec = PROMPT.parse(text, { seed: 5 });
+    var ctx = recorder(400, 400);
+    PAINT.groundShadow(ctx, box, PAINT.makePalette(spec),
+      { x: lightX == null ? cx - 300 : lightX, y: 20 }, spec);
+    /* Each ellipse is one translate → scale → arc, in that order. */
+    var out = [];
+    for (var i = 0; i < ctx.log.length; i++) {
+      if (ctx.log[i].op !== 'arc') continue;
+      var arc = ctx.log[i];
+      var scale = null, move = null, g = null;
+      for (var j = i - 1; j >= 0 && (!scale || !move || !g); j--) {
+        if (!scale && ctx.log[j].op === 'scale') scale = ctx.log[j];
+        else if (!move && ctx.log[j].op === 'translate') move = ctx.log[j];
+        else if (!g && ctx.log[j].op === 'gradient') g = ctx.log[j].gradient;
+      }
+      out.push({ rx: arc.args[2], squash: scale.args[1],
+                 x: move.args[0], stops: g.stops });
+    }
+    return out;
+  }
+
+  var noon = cast('a wolf in a meadow at noon');
+  check(noon.length >= 4,
+    'a shadow is built from ' + noon.length + ' shapes, not one — one ellipse is a smudge');
+
+  var widens = true, flattens = true;
+  for (var i = 1; i < noon.length; i++) {
+    if (noon[i].rx <= noon[i - 1].rx) widens = false;
+    if (noon[i].squash >= noon[i - 1].squash) flattens = false;
+  }
+  check(widens, 'each one is wider than the last, so the edge opens out');
+  check(flattens, 'and flatter, so it lies on the ground rather than standing up');
+
+  /* It has to run away from the light, and it has to change sides when the
+   * light does — otherwise it is only leaning in a direction that happens to
+   * look right in one picture. */
+  function drift(shapes) { return shapes[shapes.length - 1].x - shapes[0].x; }
+  var fromLeft = cast('a wolf in a meadow at noon', cx - 300);
+  var fromRight = cast('a wolf in a meadow at noon', cx + 300);
+  check(drift(fromLeft) > 0 && drift(fromRight) < 0,
+    'and it runs away from the light, whichever side the light is on (' +
+    Math.round(drift(fromLeft)) + 'px right of a left-hand sun, ' +
+    Math.round(drift(fromRight)) + 'px of a right-hand one)');
+
+  /* Softening is in the alpha of the near stop: the far end of the shadow is
+   * fainter than the end touching the thing's feet. */
+  function alphaOf(stop) {
+    var m = /,\s*([0-9.]+)\s*\)$/.exec(stop.colour);
+    return m ? parseFloat(m[1]) : NaN;
+  }
+  var firstDark = alphaOf(noon[0].stops[0]);
+  var lastDark = alphaOf(noon[noon.length - 1].stops[0]);
+  check(firstDark > lastDark,
+    'the contact end is the darkest (' + firstDark.toFixed(2) + ' against ' +
+    lastDark.toFixed(2) + ' at the far end)');
+
+  /* A low sun throws a long shadow. This is the same animal, the same light
+   * position, the same seed — only the hour differs. */
+  function reach(shapes) {
+    var far = 0;
+    shapes.forEach(function (s) { far = Math.max(far, Math.abs(s.x - cx)); });
+    return far;
+  }
+  var dusk = cast('a wolf in a meadow at dusk');
+  check(reach(dusk) > reach(noon) * 1.5,
+    'and at dusk it stretches ' + Math.round(reach(dusk)) + 'px against ' +
+    Math.round(reach(noon)) + 'px at noon');
+  pass('a shadow opens, softens, fades and lengthens with the hour');
+})();
+
+/* ------------------------------------------------------- light that bounces
+ * Light does not stop when it hits the ground. Grass throws green up under a
+ * horse's belly; sea throws blue-green up a boat's hull. Without it the
+ * underside of everything goes to flat black, which is the single clearest
+ * tell of a drawing.
+ */
+(function lightBounces() {
+  console.log('\nLight that bounces off the ground');
+
+  /* The subject is painted on its own, into a box of a size chosen here, so
+   * that how far the bounce climbs can be measured against something known. */
+  function bounce(text, box) {
+    var spec = PROMPT.parse(text, { seed: 3 });
+    var P = PAINT.makePalette(spec);
+    var PS = PAINT.makePalette(spec, { tintStrength: 0.85 });
+    var ground = box.anchor === 'water' ? (P.scene.sea || P.scene.far) : P.scene.land;
+    var want = P.css(ground, 0.62);
+    var ctx = recorder(480, 360);
+    PAINT.paintSubject(ctx, spec.subject, box, P, PS,
+      PROMPT.rng(spec, 'subject'), spec, { x: 60, y: 30 }, 260, 360);
+
+    for (var i = 0; i < ctx.log.length; i++) {
+      var c = ctx.log[i];
+      if (c.op !== 'gradient' || !c.gradient.stops.length) continue;
+      if (c.gradient.stops[0].colour !== want) continue;
+      var found = { colour: want, stops: c.gradient.stops, alpha: 0, climb: 0 };
+      /* The gradient's own geometry: y0 at the feet, y1 where it dies out. */
+      found.climb = Math.abs(c.args[3] - c.args[1]);
+      /* And the strength it is laid on at — the next alpha the stencil sets. */
+      for (var j = i + 1; j < ctx.log.length; j++) {
+        if (ctx.log[j].op === 'set' && ctx.log[j].args[0] === 'globalAlpha') {
+          found.alpha = ctx.log[j].args[1];
+          break;
+        }
+      }
+      return found;
+    }
+    return null;
+  }
+
+  var stands = { x: 160, y: 140, w: 120, h: 160, depth: 0, anchor: 'ground' };
+  var floats = { x: 160, y: 140, w: 120, h: 160, depth: 0, anchor: 'water' };
+
+  var grass = bounce('a horse in a meadow at noon', stands);
+  check(!!grass, 'a horse standing on grass is lit from below by the grass');
+
+  var water = bounce('a boat on the sea at noon', floats);
+  check(!!water, 'and a boat on water by the water');
+  check(grass && water && grass.colour !== water.colour,
+    'and the two are different colours, so it really is the ground it stands on');
+
+  /* It fades out going up: the belly is lit, the back is not. */
+  check(grass && /,\s*0\)$/.test(grass.stops[grass.stops.length - 1].colour),
+    'it has died away entirely by the top, so only the underside catches it');
+
+  /* Bounced light is reflected sunlight, so there has to be sunlight. The
+   * first attempt washed the same green up a castle wall at midnight, which is
+   * a picture admitting it was drawn. */
+  var noon = bounce('a horse in a meadow at noon', stands);
+  var night = bounce('a horse in a meadow at night', stands);
+  check(noon && night && noon.alpha > night.alpha * 3,
+    'a field hands back far more at noon than at midnight (' +
+    (noon ? noon.alpha.toFixed(3) : '-') + ' against ' +
+    (night ? night.alpha.toFixed(3) : '-') + ')');
+
+  /* How high it climbs is set by how wide the thing is, not how tall. Bounce
+   * falls away with distance from the ground: it licks a horse's belly and the
+   * foot of a castle wall, and a wash halfway up a keep is a mistake. */
+  var wide = bounce('a castle in a meadow at noon',
+    { x: 100, y: 120, w: 220, h: 180, depth: 0, anchor: 'ground' });
+  var narrow = bounce('a tower in a meadow at noon',
+    { x: 200, y: 40, w: 60, h: 280, depth: 0, anchor: 'ground' });
+  check(wide && narrow && narrow.climb < wide.climb,
+    'a tower two hundred and eighty high takes less of it than a castle a ' +
+    'hundred and eighty high, because the tower is the narrower (' +
+    (narrow ? Math.round(narrow.climb) : '-') + 'px against ' +
+    (wide ? Math.round(wide.climb) : '-') + 'px)');
+  check(narrow && narrow.climb < 280 * 0.35,
+    'and it stays down at the foot of it (' +
+    (narrow ? Math.round(narrow.climb) : '-') + 'px of 280)');
+  pass('the ground throws its own colour back up into what stands on it');
+})();
+
+/* --------------------------------------------- detail that comes with closeness
+ * A mountain a mile off is a silhouette. The same mountain from its foot is
+ * rock faces and boulders and single trees. The engine drew both the same.
+ */
+(function detailWithCloseness() {
+  console.log('\nDetail that arrives as you walk closer');
+
+  var SHOTS = {};
+  LEX.SHOTS.forEach(function (s) { SHOTS[s.id] = s; });
+
+  /* One scene, one seed. Only where the camera stands changes — otherwise a
+   * different scene is being measured, not a different distance. */
+  function paint(shotId, seed) {
+    var spec = PROMPT.parse('mountains at noon', { seed: seed });
+    spec.shot = shotId ? SHOTS[shotId] : null;
+    var ctx = recorder(640, 480);
+    PAINT.render(ctx, 640, 480, spec);
+    return ctx.log;
+  }
+
+  var order = ['wide', null, 'near', 'closeup'];
+  var names = ['a wide shot', 'an ordinary shot', 'a near shot', 'a close-up'];
+  var rising = true, counts = [];
+  for (var seed = 1; seed <= 3; seed++) {
+    var row = order.map(function (s) {
+      return paint(s, seed).filter(function (c) { return c.op === 'fillRect'; }).length;
+    });
+    for (var i = 1; i < row.length; i++) if (row[i] <= row[i - 1]) rising = false;
+    if (seed === 1) counts = row;
+  }
+  check(rising,
+    'the same mountain is made of more marks the closer you stand — ' +
+    names.map(function (n, i) { return n + ' ' + counts[i]; }).join(', ') +
+    ', and the same order on three seeds');
+
+  /* More marks alone would just be a denser mess. They also have to be
+   * smaller, or a close-up is a distant view with the speckle turned up. */
+  function median(list) {
+    var s = list.slice().sort(function (a, b) { return a - b; });
+    return s[Math.floor(s.length / 2)];
+  }
+  /* Only the grain's own marks, found by the colour set immediately before
+   * them: a whisper of black or white. Every fillRect in the picture would
+   * measure the mix of everything drawn, which shifts with the framing anyway
+   * and so would report a change even if no mark had altered its size. */
+  function markSize(shotId) {
+    var log = paint(shotId, 1);
+    var sizes = [];
+    for (var i = 1; i < log.length; i++) {
+      if (log[i].op !== 'fillRect') continue;
+      var before = log[i - 1];
+      if (before.op !== 'set' || before.args[0] !== 'fillStyle') continue;
+      if (!/^rgba\((0,0,0|255,255,255),0\.0/.test(String(before.args[1]))) continue;
+      sizes.push(Math.abs(log[i].args[3]));
+    }
+    return { n: sizes.length, size: median(sizes) };
+  }
+  var closeGrain = markSize('closeup'), wideGrain = markSize('wide');
+  check(closeGrain.n > 200 && wideGrain.n > 100,
+    'the grain is what is being measured (' + closeGrain.n + ' marks close up, ' +
+    wideGrain.n + ' wide)');
+  var closeMark = closeGrain.size, wideMark = wideGrain.size;
+  check(closeMark < wideMark,
+    'and each mark is finer close up (' + closeMark.toFixed(2) + 'px against ' +
+    wideMark.toFixed(2) + 'px wide), so it reads as texture and not as noise');
+  pass('walking closer brings more detail, and finer detail');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);

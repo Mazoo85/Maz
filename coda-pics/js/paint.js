@@ -39,6 +39,9 @@
     night: { top: [240, 62, 6],  mid: [232, 56, 13], low: [220, 46, 21], light: [210, 28, 94], lightY: 0.26, haze: [225, 44, 24] }
   };
 
+  /* How much light the ground has to hand back up at whatever stands on it. */
+  var GROUND_LIT = { day: 1, dawn: 0.5, dusk: 0.45, night: 0.1 };
+
   /* Each setting pulls the sky and the land its own way. `ink` is what a
    * silhouette is made of, `land` the lit ground, `far` the distance. */
   var SCENE_COLOUR = {
@@ -535,10 +538,12 @@
       if (pts[i][1] > bottom) bottom = pts[i][1];
     }
     var span = Math.max(bottom - top, h * 0.04);
+    /* More bands of rock show as you get closer to the rock. */
+    var bands = Math.max(2, Math.round((n || 5) * ((GRAIN && GRAIN.detail) || 1)));
     ctx.save();
     clipTo(ctx, pts, closeY);
-    for (var b = 0; b < (n || 5); b++) {
-      var y = top + span * (0.25 + b * 0.17) + (r() - 0.5) * span * 0.06;
+    for (var b = 0; b < bands; b++) {
+      var y = top + span * (0.22 + b * (0.72 / bands)) + (r() - 0.5) * span * 0.06;
       var thick = Math.max(1.5, span * (0.012 + r() * 0.02));
       ctx.fillStyle = b % 2 ? 'rgba(255,255,255,0.055)' : 'rgba(0,0,0,0.085)';
       ctx.beginPath();
@@ -582,11 +587,14 @@
     /* One mark per ten-by-ten patch or so. Sparser than that and it reads as
      * specks of dust rather than as a surface; the first attempt here was one
      * per thirty-by-thirty and was invisible at any size. */
-    var n = Math.round((opts.density == null ? 1 : opts.density) * (w * span) / 90);
+    var detail = (GRAIN && GRAIN.detail) || 1;
+    var n = Math.round((opts.density == null ? 1 : opts.density) * detail * (w * span) / 90);
     if (n < 8) return;
-    n = Math.min(n, 9000);
+    n = Math.min(n, 14000);
     var long = opts.streak || 1;           // >1 draws marks along, like sediment
-    var size = Math.max(0.7, Math.min(w, h) * (opts.size || 0.0022));
+    /* Closer means finer, not merely more: coarse marks enlarged would read as
+     * a picture of a texture rather than as the surface itself. */
+    var size = Math.max(0.7, Math.min(w, h) * (opts.size || 0.0022) / Math.sqrt(detail));
 
     ctx.save();
     clipTo(ctx, pts, closeY);
@@ -611,11 +619,13 @@
     }
     if (bottom - top < h * 0.02) return;
     var line = top + (bottom - top) * (0.55 + r() * 0.18);
+    var closeness = (GRAIN && GRAIN.detail) || 1;
     var size = Math.max(2.5, h * 0.016);
     ctx.save();
     clipTo(ctx, pts, closeY);
     ctx.fillStyle = P.ink(Math.max(0, (depth || 0) - 0.18), 0.55);
-    var step = Math.max(5, w / 90);
+    /* Individual trees, closer together, the nearer you stand to them. */
+    var step = Math.max(3, w / (90 * closeness));
     for (var x = -w * 0.05; x < w * 1.05; x += step) {
       var jitter = (r() - 0.5) * step * 1.4;
       var y = line + (r() - 0.3) * (bottom - top) * 0.30;
@@ -1207,21 +1217,45 @@
   /* A soft pool of shade where a thing meets the ground, thrown away from the
    * light rather than straight down — the give-away that a picture was lit by
    * something in particular and not by nothing. */
-  function groundShadow(ctx, box, P, light) {
+  /*
+   * A shadow is sharp where the thing touches the ground and spreads as it runs
+   * away from it — because the further from the contact point, the more of the
+   * sky the ground can still see. One blob of even softness is the shape a
+   * sticker casts, and it is one of the reasons things looked stuck on.
+   *
+   * Drawn as a run of ellipses along the direction the light throws it, each
+   * further one wider, softer and fainter than the last. The first sits under
+   * the feet and is nearly hard.
+   */
+  function groundShadow(ctx, box, P, light, spec) {
     var cx = box.x + box.w / 2, cy = box.y + box.h;
     var lean = 0;
     if (light) lean = clamp((cx - light.x) / Math.max(box.w, 1), -2.2, 2.2);
-    var rx = box.w * 0.55, ry = box.h * 0.05;
-    var g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
-    g.addColorStop(0, P.silhouette(0, 0.5));
-    g.addColorStop(1, P.silhouette(0, 0));
+    /* A low sun throws a long shadow. */
+    var low = spec && (spec.time === 'dawn' || spec.time === 'dusk');
+    var reach = box.w * (low ? 1.25 : 0.55);
+    var steps = 6;
+
     ctx.save();
-    ctx.translate(cx + lean * box.w * 0.18, cy);
-    ctx.scale(1, ry / rx);
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(0, 0, rx, 0, Math.PI * 2);
-    ctx.fill();
+    for (var i = 0; i < steps; i++) {
+      var t = i / (steps - 1);                  // 0 at the feet, 1 at the far end
+      var rx = box.w * (0.30 + t * 0.58);
+      var ry = box.h * (0.030 + t * 0.055);
+      var alpha = (0.46 - t * 0.34) / (1 + t * 1.4);
+      var g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+      /* Tight near the contact, feathered far from it. */
+      g.addColorStop(0, P.silhouette(0, alpha));
+      g.addColorStop(Math.max(0.05, 0.62 - t * 0.55), P.silhouette(0, alpha * 0.75));
+      g.addColorStop(1, P.silhouette(0, 0));
+      ctx.save();
+      ctx.translate(cx + lean * (box.w * 0.10 + reach * t), cy + box.h * 0.004 * t);
+      ctx.scale(1, ry / rx);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(0, 0, rx, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
     ctx.restore();
   }
 
@@ -1284,7 +1318,7 @@
       ctx.globalAlpha = 1;
     }
 
-    if (box.anchor === 'ground') groundShadow(ctx, box, P, light);
+    if (box.anchor === 'ground') groundShadow(ctx, box, P, light, spec);
 
     /*
      * How far away this thing is, which is not box.depth: that only separates
@@ -1390,6 +1424,35 @@
     bleed.addColorStop(0.55, P.css(P.sky.haze, 1));
     bleed.addColorStop(1, P.css(P.scene.land, 1));
     stencil(ctx, subject, box, PS, r, spec, bleed, 0, 0, 0.10 + air * 0.16);
+
+    /*
+     * Light that bounces.
+     *
+     * Sunlight hitting snow throws blue up under everything standing on it; red
+     * rock warms the belly of an animal above it. Nothing in the picture lit
+     * anything else, which is why undersides read as simply dark rather than as
+     * being in shade. The ground's own colour, thrown up into the lower part of
+     * the subject and fading out before it reaches the top.
+     */
+    if (box.anchor === 'ground' || box.anchor === 'water') {
+      /* How far up it reaches. Bounced light falls away fast with distance from
+       * the ground, so what sets its height is how wide the thing standing
+       * there is, not how tall: it licks the belly of a horse and the foot of a
+       * castle wall, and a wash halfway up a keep is a mistake. */
+      var lick = Math.min(box.h * 0.62, box.w * 0.80);
+      var bounced = ctx.createLinearGradient(0, base, 0, base - lick);
+      var from = box.anchor === 'water' ? (P.scene.sea || P.scene.far) : P.scene.land;
+      bounced.addColorStop(0, P.css(from, 0.62));
+      bounced.addColorStop(0.45, P.css(from, 0.18));
+      bounced.addColorStop(1, P.css(from, 0));
+      /* Weakest at noon overhead, strongest with a low sun raking the ground. */
+      var raking = (spec.time === 'dawn' || spec.time === 'dusk') ? 1.25 : 1;
+      /* And only as much as the ground has to give back: this is reflected
+       * sunlight, so it follows the hour. A castle lit green from below at
+       * midnight is the picture admitting it was drawn. */
+      stencil(ctx, subject, box, PS, r, spec, bounced, 0, 0,
+        0.34 * raking * (GROUND_LIT[spec.time] == null ? 0.6 : GROUND_LIT[spec.time]));
+    }
 
     if (far > 0.02) {
       stencil(ctx, subject, box, PS, r, spec, P.haze(1), 0, 0, far * 0.40 * (1 - P.drama * 0.4));
@@ -1556,7 +1619,19 @@
     HAZE_EDGE = spec.scene.id === 'cave'
       ? null
       : { on: P.haze(0.30 - P.drama * 0.12), off: P.haze(0) };
-    GRAIN = { w: w, h: h, P: P, r: PROMPT.rng(spec, 'grain') };
+    /*
+     * How close the camera is, and therefore how fine the detail should be.
+     *
+     * A mountain a mile off is a silhouette; the same mountain from its foot is
+     * rock faces and boulders and individual trees. Grain already gets denser on
+     * a close-up simply because the same ground covers more pixels — what was
+     * missing is that it should also get *finer*, and that there should be more
+     * kinds of it. One number, read off the framing the picture already has,
+     * and every dressing pass takes its lead from it.
+     */
+    var CLOSENESS = { closeup: 2.1, near: 1.5, low: 1.35, wide: 0.55, aerial: 0.65 };
+    P.detail = shot ? (CLOSENESS[shot.id] || 1) : 1;
+    GRAIN = { w: w, h: h, P: P, r: PROMPT.rng(spec, 'grain'), detail: P.detail };
     var hz = clamp(spec.scene.horizon + (r() - 0.5) * 0.05 + (shot ? shot.horizon : 0),
       0.22, 1.3) * h;
 
