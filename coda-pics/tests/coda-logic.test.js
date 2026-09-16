@@ -3157,6 +3157,67 @@ function laidDown(ctx, gradient) {
   pass('the sun can be put where you want it, and the picture follows');
 })();
 
+/* ----------------------------------------------------- what can be said
+ * The examples on the page and the "surprise me" button are the only two
+ * places most people ever find out what this understands. A vocabulary nobody
+ * is shown may as well not be there.
+ */
+(function whatCanBeSaid() {
+  console.log('\nShowing people what can be said');
+
+  /* Every one of its own suggestions has to be a sentence it understands.
+   * A button that writes a prompt and then reports back that it did not know
+   * one of the words in it is the app arguing with itself. */
+  var puzzled = [], empty = 0;
+  for (var i = 0; i < 400; i++) {
+    var text = PROMPT.surprise(i);
+    if (!text || text.indexOf('{') >= 0) { empty++; continue; }
+    if (/\s\s/.test(text)) { puzzled.push('double space: ' + text); continue; }
+    var spec = PROMPT.parse(text, { seed: 1 });
+    if (spec.unknown.length) puzzled.push(text + ' → ' + spec.unknown.join(', '));
+  }
+  check(empty === 0, 'every surprise comes out as words rather than as a template');
+  check(puzzled.length === 0,
+    'and all four hundred of them are sentences it understands' +
+    (puzzled.length ? ' — ' + puzzled.slice(0, 3).join(' · ') : ''));
+
+  /* And they reach the words that were added later, not only the ones that
+   * were there first. */
+  var all = [];
+  for (var j = 0; j < 400; j++) all.push(PROMPT.surprise(j));
+  var joined = all.join(' | ');
+  var reaches = {
+    'an hour that is not one of four': /first light|mid-morning|golden hour|blue hour|high noon/,
+    'what a thing is made of': /bronze|stone|glass|marble|copper|jade|obsidian|iron/,
+    'a part it can be given': /winged|horned|antlered|spiked|armoured|haloed|crested/,
+    'how worn it is': /weathered|ancient|pristine|worn|crumbling/,
+    'how much of something': /slightly|very|barely|extremely|incredibly/
+  };
+  var unreached = Object.keys(reaches).filter(function (k) { return !reaches[k].test(joined); });
+  check(unreached.length === 0,
+    'and between them they show off ' + Object.keys(reaches).length + ' kinds of word ' +
+    'that were added after the first draft' +
+    (unreached.length ? ' — but never ' + unreached.join(', ') : ''));
+
+  /* And they are written in English: "a iron dragon" is the app not reading
+   * its own sentence. */
+  var articles = all.filter(function (t) {
+    return /(^|\s)a\s+[aeiou]/i.test(t) || /(^|\s)an\s+[^aeiou\s]/i.test(t);
+  });
+  check(articles.length === 0,
+    'and each one says "a" or "an" to suit the word after it' +
+    (articles.length ? ' — ' + articles.slice(0, 3).join(' · ') : ''));
+
+  /* An animal can be doing something; a portal cannot graze. */
+  var nonsense = all.filter(function (t) {
+    return /(portal|tower|castle|comet|planet|sword|crystal|ufo|rocket) (grazing|drinking|resting|walking|running)/.test(t);
+  });
+  check(nonsense.length === 0,
+    'and nothing without legs is grazing' +
+    (nonsense.length ? ' — ' + nonsense.slice(0, 2).join(' · ') : ''));
+  pass('the app shows people what it can be told');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);

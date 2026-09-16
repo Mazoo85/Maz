@@ -205,7 +205,7 @@
     { id: 'clear',  label: 'clear',        words: ['clear', 'cloudless'] },
     { id: 'clouds', label: 'clouded',      words: ['cloud', 'clouds', 'cloudy', 'overcast'] },
     { id: 'rain',   label: 'in the rain',  words: ['rain', 'rainy', 'drizzle', 'downpour', 'monsoon', 'wet'] },
-    { id: 'snowfall', label: 'in falling snow', words: ['snowfall', 'snowing', 'flurry', 'snowflakes'] },
+    { id: 'snowfall', label: 'in falling snow', words: ['snowfall', 'snowing', 'flurry', 'snowflakes', 'falling snow'] },
     { id: 'fog',    label: 'in fog',       words: ['fog', 'foggy', 'mist', 'misty', 'haze', 'hazy', 'smoke'] },
     { id: 'storm',  label: 'in a storm',   words: ['storm', 'stormy', 'lightning', 'thunder', 'tempest', 'hurricane'] },
     { id: 'aurora', label: 'under an aurora', words: ['aurora', 'northern lights', 'borealis'] }
@@ -397,7 +397,8 @@
     { factor: 0.42, words: ['barely', 'faintly', 'hardly', 'just about'] },
     { factor: 0.62, words: ['slightly', 'a little', 'a bit', 'somewhat', 'mildly', 'lightly'] },
     { factor: 0.82, words: ['fairly', 'quite', 'rather', 'moderately', 'pretty'] },
-    { factor: 1.30, words: ['very', 'really', 'deeply', 'heavily', 'thoroughly', 'properly', 'so'] },
+    { factor: 1.30, words: ['very', 'really', 'deeply', 'heavily', 'heavy', 'thick', 'thickly',
+      'thoroughly', 'properly', 'so'] },
     { factor: 1.60, words: ['extremely', 'incredibly', 'unbelievably', 'impossibly',
       'utterly', 'absurdly', 'insanely', 'ridiculously', 'terribly', 'wildly'] }
   ];
@@ -459,7 +460,9 @@
     'and', 'or', 'but', 'with', 'from', 'into', 'onto', 'for', 'by', 'very',
     'some', 'that', 'this', 'there', 'here', 'looking', 'style', 'art', 'image',
     'picture', 'draw', 'drawing', 'make', 'me', 'please', 'show', 'want', 'like',
-    'really', 'quite', 'sort', 'kind', 'scene', 'background', 'foreground'
+    'really', 'quite', 'sort', 'kind', 'scene', 'background', 'foreground',
+    /* Words that hold a phrase together and name nothing: "at the edge of". */
+    'edge', 'middle', 'side', 'front', 'back', 'top', 'bottom', 'near', 'beside'
   ];
 
   var LEXICON = {

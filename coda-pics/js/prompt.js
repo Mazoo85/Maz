@@ -810,31 +810,89 @@
    * A random prompt in the app's own vocabulary, for the "Surprise me"
    * button — so a blank page is never a blank page.
    */
+  /*
+   * "Surprise me" is the second place people find out what can be said — so
+   * these shapes reach for the words that were added later, not only the ones
+   * that were here first. A prompt nobody would have thought to type is the
+   * whole point of the button.
+   */
+  /*
+   * "Surprise me" is one of the two places people find out what can be said —
+   * the examples on the page are the other — so it reaches for the words that
+   * were added later and not only the ones that were here first.
+   *
+   * The phrases are written out rather than assembled from the tables'
+   * vocabulary, because the tables hold every word that *means* a thing and
+   * this needs the ones that *read* as English: "blazing" is a perfectly good
+   * word for high noon and "a bird in snow blazing" is not a sentence.
+   */
   var SURPRISE_SHAPES = [
     '{adj} {subject} {prep} {scene}, {time}, {style}',
-    '{subject} {prep} {scene} {time}',
+    '{a} {subject} {doing} {prep} {scene} {time}',
     '{adj} {subject}, {scene}, {style}',
-    '{colour} {subject} {prep} {scene}, {style}'
+    '{colour} {subject} {prep} {scene}, {style}',
+    '{a} {material} {subject} {prep} {scene} {time}',
+    '{a} {part} {subject} {prep} {scene}, {time}',
+    '{a} {much} {wear} {subject} {prep} {scene} {time}',
+    '{a} {subject} {prep} {scene} {time}, {weather}'
   ];
   var SURPRISE_ADJ = ['a lonely', 'an ancient', 'a giant', 'a tiny', 'a glowing', 'a ruined', 'a peaceful', 'an epic'];
   var SURPRISE_PREP = ['over', 'in', 'above', 'beside', 'deep in', 'at the edge of'];
+  var SURPRISE_HOURS = [
+    'at first light', 'at dawn', 'at sunrise', 'in the morning', 'at mid-morning',
+    'at noon', 'at high noon', 'in the afternoon', 'at golden hour', 'at sunset',
+    'at dusk', 'at twilight', 'at blue hour', 'at night', 'at midnight', 'in daylight'
+  ];
+  var SURPRISE_WEATHER = [
+    'in the rain', 'in a downpour', 'in fog', 'in falling snow', 'in a storm',
+    'under an aurora', 'in thick mist', 'under heavy cloud'
+  ];
+  var SURPRISE_DOING = ['grazing', 'walking', 'running', 'resting', 'watching', 'drinking'];
+
+  /* "A" or "an", decided by the word that follows rather than by the letter
+   * the writer happened to reach for. */
+  function article(word) {
+    return /^[aeiou]/i.test(word) ? 'an' : 'a';
+  }
 
   function surprise(seed) {
     var r = rngFrom(hash('surprise|' + (seed == null ? Date.now() : seed)));
     var shape = pick(SURPRISE_SHAPES, r);
     var subject = pick(LEX.SUBJECTS, r);
     var scene = pick(LEX.SCENES, r);
-    var time = pick(LEX.TIMES, r);
     var style = pick(LEX.STYLES, r);
     var colour = pick(LEX.PALETTES, r);
+    var material = pick(LEX.MATERIALS, r).words[0];
+    var part = pick(LEX.PARTS, r).words[0];
+    var wear = pick(LEX.AGES, r).words[0];
+    var much = pick(LEX.DEGREES, r).words[0];
+
+    /* Only a thing with legs can be doing something; a portal cannot graze. */
+    var animal = subject.draw === 'quadruped' || subject.draw === 'bird' ||
+      subject.draw === 'humanoid';
+    if (!animal && shape.indexOf('{doing}') >= 0) shape = SURPRISE_SHAPES[0];
+
+    /* The article belongs to whichever word ends up first. */
+    var lead = shape.indexOf('{a} {material}') >= 0 ? material
+      : shape.indexOf('{a} {part}') >= 0 ? part
+        : shape.indexOf('{a} {much}') >= 0 ? much
+          : subject.words[0];
+
     return shape
+      .replace('{a}', article(lead))
       .replace('{adj}', pick(SURPRISE_ADJ, r))
-      .replace('{colour}', 'a ' + colour.words[0])
+      .replace('{colour}', article(colour.words[0]) + ' ' + colour.words[0])
       .replace('{subject}', subject.words[0])
       .replace('{prep}', pick(SURPRISE_PREP, r))
       .replace('{scene}', scene.words[0])
-      .replace('{time}', time.words[0])
-      .replace('{style}', style.words[0]);
+      .replace('{time}', pick(SURPRISE_HOURS, r))
+      .replace('{style}', style.words[0])
+      .replace('{material}', material)
+      .replace('{part}', part)
+      .replace('{doing}', pick(SURPRISE_DOING, r))
+      .replace('{wear}', wear)
+      .replace('{weather}', pick(SURPRISE_WEATHER, r))
+      .replace('{much}', much);
   }
 
   var API = {

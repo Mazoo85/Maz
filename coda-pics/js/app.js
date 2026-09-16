@@ -38,17 +38,25 @@
     a3:        { w: 3508, h: 4961 }
   };
 
+  /*
+   * The examples are the only place most people find out what can be said.
+   * Half of these are here to show a kind of word rather than to be a good
+   * picture: an hour that is not one of four, an amount, what a thing is made
+   * of, what it is doing, a part it can be given.
+   */
   var EXAMPLES = [
     'a red dragon over snowy mountains at sunset',
-    'a lonely lighthouse in a storm, watercolour',
+    'a stag grazing in a misty meadow at first light',
+    'a bronze lighthouse in a storm, watercolour',
+    'an ancient stone tower, very foggy, at golden hour',
+    'a winged wolf running on the plains at blue hour',
     'a cat under a tree at night',
+    'a slightly rainy neon city street',
     'a whale under a huge moon, woodblock',
-    'neon city street in the rain',
-    'an astronaut on a quiet desert planet',
+    'an antlered horse on a hill at mid-morning',
+    'a weathered glass dragon over the sea at high noon',
     'a tiny cabin in falling snow, storybook',
-    'a castle behind the mountains, film noir',
-    'giant mushrooms in a glowing cave',
-    'a hot air balloon over a canyon, poster'
+    'giant mushrooms in a glowing cave'
   ];
 
   var PALETTE_KEY = 'codaPics.palettes.v1';
