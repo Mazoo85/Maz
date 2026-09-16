@@ -647,24 +647,123 @@
     return { x: x, y: y, r: rad };
   }
 
-  function clouds(ctx, w, h, horizon, P, spec, r) {
+  /*
+   * Clouds with an inside.
+   *
+   * A cloud here was two flat blobs, one pale and one paler, and it read as a
+   * sticker on the sky — which matters more than it sounds, because a cloud is
+   * in most of these pictures and it is the largest thing in a lot of them.
+   *
+   * A real cloud is a pile of lumps with a flat wet bottom. The sun hits the
+   * tops, so they are bright on the side facing it; the underside is in the
+   * shadow of everything above it, so it is dark, flat and slightly blue; and
+   * the edge where the two meet is the only part that looks like cotton. Those
+   * three passes, plus lumps of different sizes sat on one base line rather
+   * than one blob stretched wide, are the whole difference.
+   *
+   * What kind of cloud is the weather's business. A clear day has a few small
+   * fair-weather lumps and some thin streaks much higher up; an overcast one
+   * has a low grey deck; a storm has towers with ragged bottoms.
+   */
+  var CLOUD_KINDS = {
+    clear:    { count: 4, lump: 0.55, tall: 0.85, dark: 0.30, alpha: 0.55, wisps: 5, deck: 0 },
+    clouds:   { count: 11, lump: 1.15, tall: 1.05, dark: 0.66, alpha: 0.86, wisps: 2, deck: 0.52 },
+    rain:     { count: 9, lump: 1.10, tall: 0.80, dark: 0.80, alpha: 0.90, wisps: 0, deck: 0.62 },
+    storm:    { count: 10, lump: 1.25, tall: 1.45, dark: 0.92, alpha: 0.94, wisps: 0, deck: 0.55 },
+    snowfall: { count: 8, lump: 1.00, tall: 0.75, dark: 0.55, alpha: 0.80, wisps: 1, deck: 0.45 },
+    fog:      { count: 3, lump: 0.85, tall: 0.55, dark: 0.35, alpha: 0.45, wisps: 0, deck: 0.20 },
+    aurora:   { count: 3, lump: 0.60, tall: 0.80, dark: 0.35, alpha: 0.50, wisps: 3, deck: 0 }
+  };
+
+  function clouds(ctx, w, h, horizon, P, spec, r, light) {
     if (spec.scene.id === 'space' || spec.scene.id === 'cave') return;
-    var heavy = spec.weather === 'storm' || spec.weather === 'clouds' || spec.weather === 'rain';
-    var n = heavy ? 9 : spec.weather === 'clear' ? 3 : 5;
-    for (var i = 0; i < n; i++) {
-      var y = horizon * (0.12 + r() * 0.62);
-      var x = r() * w;
-      var scale = (0.5 + r() * 0.9) * (0.9 + (1 - y / horizon) * 0.5);
-      var rx = w * 0.16 * scale, ry = h * 0.028 * scale;
-      var depth = clamp(y / Math.max(horizon, 1), 0, 1);
-      var light = heavy ? 0.30 : 0.55;
-      ctx.globalAlpha = heavy ? 0.85 : 0.5;
-      blob(ctx, x, y, rx, ry * 2.2, 11, r,
-        P.css([P.sky.haze[0], P.sky.haze[1] * 0.8, P.sky.haze[2] * (heavy ? 0.55 : 1.05)], light + 0.25));
-      ctx.globalAlpha = heavy ? 0.5 : 0.34;
-      blob(ctx, x + rx * 0.2, y - ry * 0.9, rx * 0.7, ry * 1.5, 9, r, P.light(heavy ? 0.16 : 0.4));
+    var kind = CLOUD_KINDS[spec.weather] || CLOUD_KINDS.clear;
+    var lightX = light ? light.x : w * 0.5;
+    var lightY = light ? light.y : 0;
+
+    /* The overcast deck: not a cloud but the absence of a sky, so it goes
+     * behind everything else and simply lowers the lid. */
+    if (kind.deck > 0.01) {
+      var lid = ctx.createLinearGradient(0, 0, 0, Math.max(horizon, h * 0.4));
+      var grey = [P.sky.haze[0], P.sky.haze[1] * 0.55, P.sky.haze[2] * 0.45];
+      lid.addColorStop(0, P.css(grey, 0.78 * kind.deck));
+      lid.addColorStop(0.72, P.css(grey, 0.34 * kind.deck));
+      lid.addColorStop(1, P.css(grey, 0));
+      ctx.fillStyle = lid;
+      ctx.fillRect(0, 0, w, Math.max(horizon, h * 0.4));
+    }
+
+    /* Thin streaks, very high up and going nowhere: the fair-weather sky is
+     * never quite empty. */
+    for (var s = 0; s < kind.wisps; s++) {
+      var wy = horizon * (0.05 + r() * 0.30);
+      var wx = r() * w;
+      var wl = w * (0.12 + r() * 0.26);
+      ctx.globalAlpha = 0.10 + r() * 0.14;
+      ctx.fillStyle = P.css(P.sky.haze, 1);
+      for (var q = 0; q < 5; q++) {
+        var qy = wy + q * h * 0.004 + (r() - 0.5) * h * 0.004;
+        ctx.fillRect(wx + q * wl * 0.06, qy, wl * (0.5 + r() * 0.6), Math.max(1, h * 0.0035));
+      }
       ctx.globalAlpha = 1;
-      void depth;
+    }
+
+    for (var i = 0; i < kind.count; i++) {
+      /* Where it sits, and therefore how far off it is: a cloud low in the
+       * frame is not a low cloud, it is the same cloud a long way off, and it
+       * is smaller, flatter and hazier for it. Spread evenly from overhead to
+       * the horizon, so a sky has big ones above and a crowd of small ones
+       * along the bottom rather than all of one or all of the other. */
+      var t = (i + r()) / kind.count;
+      var y = horizon * (0.08 + t * 0.78);
+      var far = clamp(y / Math.max(horizon, 1), 0, 1);
+      var x = r() * w * 1.1 - w * 0.05;
+      /* One place, and only one, where distance shrinks a cloud: two of them
+       * would each hide the other going missing. */
+      var scale = (0.55 + r() * 0.85) * (1.30 - far * 0.85) * kind.lump;
+      var rx = w * 0.13 * scale;
+      var ry = h * 0.026 * scale * kind.tall;
+      var baseY = y + ry * 0.55;
+
+      /* The lumps. Sat side by side on one flat base rather than stacked
+       * anywhere, which is what gives a cloud a bottom. */
+      var lumps = 3 + Math.floor(r() * 4);
+      var puffs = [];
+      for (var k = 0; k < lumps; k++) {
+        var px = x + (k / Math.max(lumps - 1, 1) - 0.5) * rx * 1.75;
+        var size = ry * (0.75 + r() * 1.25) * (1 - Math.abs(k / Math.max(lumps - 1, 1) - 0.5) * 0.7);
+        puffs.push({ x: px, y: baseY - size * 0.72, rx: size * (1.5 + r() * 0.7), ry: size });
+      }
+
+      /* Underside first: in the shadow of everything above it, flat along the
+       * base, and blue rather than grey because what light reaches it comes
+       * from the sky. */
+      ctx.globalAlpha = kind.alpha * (0.55 + kind.dark * 0.45) * (1 - far * 0.3);
+      var under = [P.sky.haze[0] + 8, P.sky.haze[1] * 0.75,
+        P.sky.haze[2] * (0.72 - kind.dark * 0.34)];
+      puffs.forEach(function (pf) {
+        blob(ctx, pf.x, pf.y + pf.ry * 0.36, pf.rx, pf.ry * 0.78, 9, r, P.css(under, 1));
+      });
+
+      /* Then the body, which is most of the cloud. */
+      ctx.globalAlpha = kind.alpha * (1 - far * 0.25);
+      var body = [P.sky.haze[0], P.sky.haze[1] * 0.8,
+        P.sky.haze[2] * (1.04 - kind.dark * 0.55)];
+      puffs.forEach(function (pf) {
+        blob(ctx, pf.x, pf.y, pf.rx, pf.ry, 11, r, P.css(body, 1));
+      });
+
+      /* And the tops that can see the sun. Offset towards it, so a cloud at
+       * dusk is lit along its underside and one at noon along its crown —
+       * which is the single thing that tells you where the light is. */
+      var vx = lightX - x, vy = lightY - baseY;
+      var len = Math.sqrt(vx * vx + vy * vy) || 1;
+      ctx.globalAlpha = kind.alpha * (0.55 - kind.dark * 0.34) * (1 - far * 0.4);
+      puffs.forEach(function (pf) {
+        blob(ctx, pf.x + (vx / len) * pf.ry * 0.5, pf.y + (vy / len) * pf.ry * 0.5,
+          pf.rx * 0.72, pf.ry * 0.62, 9, r, P.light(0.85));
+      });
+      ctx.globalAlpha = 1;
     }
   }
 
@@ -2076,7 +2175,7 @@
       paintSky(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'sky'));
       light = paintLight(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'light'));
       P.light_at = PS.light_at = light;
-      clouds(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'cloud'));
+      clouds(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'cloud'), light);
 
       (GROUND[spec.scene.id] || GROUND.plains)(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'ground'), light);
     }
@@ -2169,6 +2268,8 @@
     softness: softness,
     wetness: wetness,
     clad: clad,
+    clouds: clouds,
+    CLOUD_KINDS: CLOUD_KINDS,
     extraLights: extraLights,
     GLOWING: GLOWING,
     paintSubject: paintSubject,

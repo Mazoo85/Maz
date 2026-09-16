@@ -639,9 +639,25 @@ function paintOnce(text, opts, w, h) {
   check(plains.clips > 0 && plains.clips < mountains.clips / 2,
     'flat ground gets its grain but none of the slope work (' +
     plains.clips + ' against a mountain\'s ' + mountains.clips + ')');
-  check(mountains.marks > plains.marks * 3,
+  /* Counted on the ground pass alone. A whole picture includes its sky, and a
+   * sky full of clouds is a great deal of drawing that has nothing to do with
+   * what the ground is made of — measuring the lot would have this check
+   * quietly reporting on the weather. */
+  function groundMarks(text) {
+    var spec = PROMPT.parse(text, { seed: 3 });
+    var ctx = new FakeContext(320, 240);
+    var draw = PAINT.GROUND[spec.scene.id] || PAINT.GROUND.plains;
+    draw(ctx, 320, 240, 150, PAINT.makePalette(spec), spec,
+      PROMPT.rng(spec, 'ground'), { x: 100, y: 40 });
+    var total = 0;
+    Object.keys(ctx.ops).forEach(function (k) { total += ctx.ops[k]; });
+    return total;
+  }
+  var ridgeWork = groundMarks('mountains at noon');
+  var fieldWork = groundMarks('open plains at noon');
+  check(ridgeWork > fieldWork * 3,
     'a mountain now takes several times the drawing a field does (' +
-    mountains.marks + ' vs ' + plains.marks + ')');
+    ridgeWork + ' vs ' + fieldWork + ')');
   pass('ridges are made of something now');
 })();
 
@@ -1583,6 +1599,107 @@ function recorder(w, h) {
   check(PROMPT.describe(PROMPT.parse('an iron tower', { seed: 1 })).indexOf('an iron tower') === 0,
     'and an iron tower, because the article agrees with the material now');
   pass('a thing is made of something, and the light knows it');
+})();
+
+/* ------------------------------------------------------- clouds with insides
+ * A cloud was two flat blobs, one pale and one paler, and it read as a sticker
+ * on the sky — which matters, because a cloud is in most of these pictures and
+ * the largest thing in a good many of them.
+ */
+(function cloudsWithInsides() {
+  console.log('\nClouds with an inside');
+
+  /* Every closed shape drawn, with the colour it was filled in and where its
+   * middle ended up. A cloud is made of shapes; this is what was drawn. */
+  function sky(weather, light) {
+    var spec = PROMPT.parse('open plains at noon', { seed: 9 });
+    spec.weather = weather;
+    var P = PAINT.makePalette(spec);
+    var ctx = recorder(480, 360);
+    PAINT.clouds(ctx, 480, 360, 200, P, spec, PROMPT.rng(spec, 'cloud'), light || { x: 60, y: 20 });
+
+    var shapes = [], colour = null, alpha = 1, pts = [];
+    ctx.log.forEach(function (c) {
+      if (c.op === 'set' && c.args[0] === 'fillStyle') colour = c.args[1];
+      else if (c.op === 'set' && c.args[0] === 'globalAlpha') alpha = c.args[1];
+      else if (c.op === 'moveTo' || c.op === 'lineTo') pts.push(c.args);
+      else if (c.op === 'fill' && pts.length) {
+        var sx = 0, sy = 0, lo = pts[0][0], hi = pts[0][0];
+        pts.forEach(function (pt) {
+          sx += pt[0]; sy += pt[1];
+          lo = Math.min(lo, pt[0]); hi = Math.max(hi, pt[0]);
+        });
+        shapes.push({ colour: colour, alpha: alpha,
+          x: sx / pts.length, y: sy / pts.length, w: hi - lo });
+        pts = [];
+      } else if (c.op === 'beginPath') pts = [];
+    });
+    return { shapes: shapes, P: P, ctx: ctx };
+  }
+
+  var fair = sky('clear'), heavy = sky('storm');
+  check(fair.shapes.length >= 30,
+    'a fair sky is built from ' + fair.shapes.length + ' shapes — lumps, not one blob each');
+  check(heavy.shapes.length > fair.shapes.length,
+    'and a storm from more still (' + heavy.shapes.length + ')');
+
+  /* Three passes per lump: the shadowed underside, the body, and the top that
+   * can see the sun. Three distinct colours, and the lit one is the light's. */
+  var lit = fair.P.light(0.85);
+  var litShapes = fair.shapes.filter(function (sh) { return sh.colour === lit; });
+  check(litShapes.length > 8,
+    'and every lump has a top that catches the sun (' + litShapes.length + ' of them)');
+  /* Drawn where they can be seen. A pass laid down at no opacity at all is a
+   * pass that is not there, and counting the calls would never know. */
+  var faintest = litShapes.reduce(function (a, sh) { return Math.min(a, sh.alpha); }, 1);
+  check(faintest > 0.05,
+    'and they are laid down thickly enough to see (the faintest at ' +
+    faintest.toFixed(2) + ')');
+  var colours = {};
+  fair.shapes.forEach(function (sh) { colours[sh.colour] = true; });
+  check(Object.keys(colours).length >= 3,
+    'drawn in ' + Object.keys(colours).length + ' colours: the dark underside, ' +
+    'the body, and the lit top');
+
+  /* And the lit side is the side the light is on. This is the one thing that
+   * tells you where the sun is when the sun is behind the cloud. */
+  function lean(at) {
+    var s = sky('clear', at);
+    var l = s.P.light(0.85);
+    var caps = 0, sum = 0;
+    s.shapes.forEach(function (sh) {
+      if (sh.colour !== l) return;
+      caps++; sum += sh.x;
+    });
+    return caps ? sum / caps : 0;
+  }
+  var leftSun = lean({ x: 20, y: 20 }), rightSun = lean({ x: 460, y: 20 });
+  check(rightSun > leftSun,
+    'the lit tops move to whichever side the sun is on (' + Math.round(leftSun) +
+    'px against ' + Math.round(rightSun) + 'px)');
+
+  /* A cloud low in the frame is not a low cloud, it is the same cloud further
+   * off — so it is smaller. */
+  var near = [], far = [];
+  fair.shapes.forEach(function (sh) { (sh.y < 90 ? near : far).push(sh.w); });
+  function mean(list) {
+    return list.length ? list.reduce(function (a, b) { return a + b; }, 0) / list.length : 0;
+  }
+  check(near.length && far.length && mean(near) > mean(far) * 1.5,
+    'clouds near the horizon are smaller than the ones overhead (' +
+    Math.round(mean(far)) + 'px against ' + Math.round(mean(near)) + 'px)');
+
+  /* Overcast is not a lot of clouds, it is the lid coming down. */
+  function hasDeck(weather) {
+    var s = sky(weather);
+    return s.ctx.gradients.some(function (g) {
+      return g.stops.length === 3 && /,\s*0\)$/.test(g.stops[2].colour) &&
+        g.stops[0].colour.indexOf('hsla') === 0;
+    });
+  }
+  check(hasDeck('rain') && !hasDeck('clear'),
+    'a wet sky has a lid over it and a clear one does not');
+  pass('a cloud has a lit top, a dark underside and lumps in between');
 })();
 
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
