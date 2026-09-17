@@ -243,25 +243,40 @@ jobs:
           echo "Ended on branch: $(git rev-parse --abbrev-ref HEAD)"
           ls -1 "$dest" 2>/dev/null || echo "(nothing captured)"
 
-      - name: Refuse to record anything that is not the ledger
-        # The run's own work belongs on its own branch, reached by a pull
-        # request. Anything it left loose in this tree is a bug worth failing
-        # the job over, not something to commit quietly.
+      - name: Note anything the run left loose
+        # Checked here but NOT failed here. The first live run failed this
+        # step, which skipped the recording below and lost the night's ledger
+        # line — the one thing every night is supposed to leave behind, thrown
+        # away by a canary. So it is noted now, acted on after the record is
+        # safe.
+        #
+        # The Forge's own bookkeeping is excused, and the list comes from the
+        # Forge rather than being retyped here: `.claude/codebase-memory.json`
+        # is one of those paths, and spelling the list out in YAML is how this
+        # step wrongly failed the first time.
         run: |
           set -euo pipefail
-          outside="$(git status --porcelain -- . ':(exclude)forge/ledger' || true)"
-          if [ -n "$outside" ]; then
-            echo "::error::The run left changes outside forge/ledger/:"
-            echo "$outside"
-            exit 1
+          excludes=()
+          while IFS= read -r path; do
+            [ -n "$path" ] && excludes+=(":(exclude)$path")
+          done < <(PYTHONPATH=forge python -c 'from forge.do import FORGE_OWN_PATHS; print(chr(10).join(FORGE_OWN_PATHS))')
+          echo "Excusing the Forge's own paths: ${excludes[*]}"
+          git status --porcelain -- . "${excludes[@]}" > "$RUNNER_TEMP/loose.txt" || true
+          if [ -s "$RUNNER_TEMP/loose.txt" ]; then
+            echo "Loose changes found (reported after the ledger is safe):"
+            cat "$RUNNER_TEMP/loose.txt"
+          else
+            echo "Nothing loose."
           fi
 
       - name: Record the night on the ledger branch
         run: |
           set -euo pipefail
           # The captured copy is the only thing that matters from here, so
-          # whatever the run left in this tree can go.
-          git checkout -- forge/ledger 2>/dev/null || true
+          # whatever the run left in this tree can go. Everything, not just the
+          # ledger: a modified file that differs between branches would
+          # otherwise stop the checkout below.
+          git checkout -- . 2>/dev/null || true
           git checkout forge-ledger
 
           PYTHONPATH=forge python -m forge.cli graft-ledger "$RUNNER_TEMP/captured-ledger"
@@ -273,6 +288,19 @@ jobs:
             git commit -m "forge: ledger for $(date -u +%Y-%m-%d)"
           fi
           git push origin forge-ledger:refs/heads/forge/ledger
+
+      - name: Fail if the run left anything loose
+        # Now that the night is recorded, a stray file is worth failing over.
+        # The run's own work belongs on its own branch, reached by a pull
+        # request; anything loose in this tree is a bug worth knowing about.
+        run: |
+          set -euo pipefail
+          if [ -s "$RUNNER_TEMP/loose.txt" ]; then
+            echo "::error::The run left changes outside the Forge's own paths:"
+            cat "$RUNNER_TEMP/loose.txt"
+            exit 1
+          fi
+          echo "The run left nothing loose."
 
       - name: Put tonight's line in the run summary
         # So the result is readable from the Actions tab without checking out

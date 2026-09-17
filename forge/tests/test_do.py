@@ -537,3 +537,41 @@ def test_crew_non_zero_exit_with_valid_numeric_cost_is_preserved(tmp_path):
     assert out.ok is False
     assert "oops" in out.error
     assert out.cost_usd == 2.5, "valid numeric cost must be preserved"
+
+
+def test_a_crew_that_changed_nothing_is_not_reported_as_a_leash_violation(tmp_path):
+    """The first live run recorded "touched a path outside the safe zones"
+    for a Crew that had done nothing at all.
+
+    `zone_for(())` is None, so an empty file list falls through the zone check
+    and is described as a transgression that never happened. The ledger is the
+    only evidence the loop's judgement is any good, and a night filed under the
+    wrong reason corrupts exactly that.
+    """
+    git = FakeGit()
+    git.changed = []  # Crew committed nothing
+
+    out = do(CHOSEN, tmp_path, ForgeConfig(), git=git,
+             crew=lambda task, root, timeout_s: (0, "did nothing", 0.01))
+
+    assert out.ok is False
+    assert "changed nothing" in out.error
+    assert "outside the safe zones" not in out.error
+    assert "no-touch" not in out.error
+    assert out.files == ()
+
+
+def test_touching_only_the_forges_own_paths_also_reads_as_nothing(tmp_path):
+    """Its own bookkeeping is filtered out before the count, so a Crew that
+    touched only that has still, as far as the leash is concerned, done
+    nothing — and must be described that way rather than as a violation.
+    """
+    git = FakeGit()
+    git.changed = ["forge/ledger/2026-09.jsonl", ".claude/codebase-memory.json"]
+
+    out = do(CHOSEN, tmp_path, ForgeConfig(), git=git,
+             crew=lambda task, root, timeout_s: (0, "bookkeeping only", 0.01))
+
+    assert out.ok is False
+    assert "changed nothing" in out.error
+    assert "outside the safe zones" not in out.error
