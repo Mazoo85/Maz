@@ -1971,6 +1971,241 @@
    * the shape it throws away from the light, the shape itself, the edge the
    * light catches, then whatever the weather is doing to it.
    */
+  /*
+   * A small canvas to work on, wherever this is running.
+   *
+   * The painter runs in three places: a worker, which has OffscreenCanvas; a
+   * page, which has document; and Node, which has neither and where the passes
+   * that need one simply do not run. The tests hand one in instead, so what
+   * they check is the real pass rather than a stub of it.
+   */
+  var makeScratch = null;
+  function useScratch(fn) { makeScratch = fn; }
+  function scratch(sw, sh) {
+    try {
+      if (makeScratch) return makeScratch(sw, sh);
+      if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(sw, sh);
+      if (typeof document !== 'undefined' && document.createElement) {
+        var c = document.createElement('canvas');
+        c.width = sw; c.height = sh;
+        return c;
+      }
+    } catch (e) { /* no scratch, no texture; the picture is still a picture */ }
+    return null;
+  }
+
+  /*
+   * What a thing's surface is made of, in marks rather than in colour.
+   *
+   * The same flatness that made the ground read as paint was true of
+   * everything standing on it, and worse. Every pass over a subject — the
+   * modelling, the rim, the metal, the wear — is a smooth gradient, so however
+   * carefully a stone tower was lit it had no stone in it: run a magnifier
+   * over it and there was nothing there. Real surfaces are the opposite of
+   * smooth at small scale, and which *kind* of not-smooth is most of how you
+   * tell stone from bark from beaten iron without being told.
+   *
+   * Drawn as a repeating tile and handed to the existing stencil pass as a
+   * fill, which is what makes this affordable: one tile, built once, clipped
+   * to the subject's own outline by machinery that already exists. The tile
+   * has to wrap, or its seams show up as a grid, so every mark near an edge is
+   * drawn again on the opposite side.
+   *
+   * Always a dark mark and a light one, never a tint: this is relief, and a
+   * surface lit from one side has both. Tinting would just make things dirty.
+   */
+  var SURFACE = {
+    /* pitted — knocked about, at every scale at once */
+    stone:    { kind: 'pit',   tile: 46, depth: 1.00 },
+    concrete: { kind: 'pit',   tile: 38, depth: 0.70 },
+    clay:     { kind: 'pit',   tile: 34, depth: 0.55 },
+    rust:     { kind: 'pit',   tile: 30, depth: 1.00 },
+    bone:     { kind: 'pit',   tile: 34, depth: 0.45 },
+    marble:   { kind: 'vein',  tile: 64, depth: 0.45 },
+    jade:     { kind: 'vein',  tile: 58, depth: 0.40 },
+    /* along the grain */
+    wood:     { kind: 'grain', tile: 44, depth: 0.85 },
+    paper:    { kind: 'grain', tile: 30, depth: 0.25 },
+    leather:  { kind: 'pit',   tile: 26, depth: 0.60 },
+    cloth:    { kind: 'weave', tile: 18, depth: 0.45 },
+    /* turned or beaten, so the marks run one way and are fine */
+    iron:     { kind: 'brush', tile: 40, depth: 0.45 },
+    bronze:   { kind: 'brush', tile: 40, depth: 0.40 },
+    copper:   { kind: 'brush', tile: 40, depth: 0.50 },
+    gold:     { kind: 'brush', tile: 44, depth: 0.25 },
+    silver:   { kind: 'brush', tile: 44, depth: 0.22 },
+    /* broken inside rather than on the surface */
+    glass:    { kind: 'facet', tile: 60, depth: 0.30 },
+    ice:      { kind: 'facet', tile: 54, depth: 0.55 },
+    obsidian: { kind: 'facet', tile: 52, depth: 0.45 }
+  };
+
+  /* And for anything the sentence did not say the material of, what it is
+   * made of by nature. A stag has fur whether or not anybody said so. */
+  var MADE_OF = {
+    quadruped: { kind: 'fur',   tile: 26, depth: 0.78 },
+    bird:      { kind: 'fur',   tile: 22, depth: 0.68 },
+    humanoid:  { kind: 'weave', tile: 18, depth: 0.38 },
+    tree:      { kind: 'grain', tile: 34, depth: 0.55 },
+    castle:    { kind: 'pit',   tile: 44, depth: 0.80 },
+    tower:     { kind: 'pit',   tile: 44, depth: 0.80 },
+    cabin:     { kind: 'grain', tile: 40, depth: 0.70 },
+    ruin:      { kind: 'pit',   tile: 44, depth: 0.90 },
+    bridge:    { kind: 'pit',   tile: 42, depth: 0.70 },
+    ship:      { kind: 'grain', tile: 38, depth: 0.60 },
+    serpent:   { kind: 'scale', tile: 20, depth: 0.72 },
+    dragon:    { kind: 'scale', tile: 22, depth: 0.78 },
+    fish:      { kind: 'scale', tile: 18, depth: 0.66 },
+    whale:     { kind: 'pit',   tile: 30, depth: 0.30 },
+    crab:      { kind: 'pit',   tile: 22, depth: 0.45 }
+  };
+
+  /* One tile of surface, wrapping at every edge. */
+  function surfaceTile(kind, px, dark, pale, r) {
+    var can = scratch(px, px);
+    if (!can || !can.getContext) return null;
+    var c = can.getContext('2d');
+    if (!c) return null;
+
+    /* Draw it, and again wherever it crosses an edge, so the tile meets itself
+     * on all four sides and the repeat leaves no grid. */
+    function both(fn) {
+      for (var ox = -1; ox <= 1; ox++) {
+        for (var oy = -1; oy <= 1; oy++) fn(ox * px, oy * px);
+      }
+    }
+    function speck(x, y, rx, ry, turn, fill) {
+      c.fillStyle = fill;
+      both(function (ox, oy) {
+        c.beginPath();
+        c.ellipse(x + ox, y + oy, rx, ry, turn, 0, Math.PI * 2);
+        c.fill();
+      });
+    }
+    function line(x0, y0, x1, y1, wide, stroke) {
+      c.strokeStyle = stroke;
+      c.lineWidth = wide;
+      both(function (ox, oy) {
+        c.beginPath();
+        c.moveTo(x0 + ox, y0 + oy);
+        c.lineTo(x1 + ox, y1 + oy);
+        c.stroke();
+      });
+    }
+
+    var i;
+    if (kind === 'pit') {
+      /* Hollows, each with its lit lip above it. Several sizes, because what
+       * makes a knocked-about surface read is that it is knocked about at more
+       * than one scale. */
+      for (i = 0; i < Math.round(px * px / 34); i++) {
+        var pr = px * (0.045 + r() * r() * 0.19);
+        var px0 = r() * px, py0 = r() * px;
+        speck(px0, py0, pr, pr * (0.6 + r() * 0.6), r() * 3, dark);
+        speck(px0 - pr * 0.35, py0 - pr * 0.45, pr * 0.55, pr * 0.40, 0, pale);
+      }
+    } else if (kind === 'grain') {
+      /* Long fibres, nearly parallel, never quite straight. */
+      for (i = 0; i < Math.round(px / 1.5); i++) {
+        var gy = r() * px;
+        var lean = (r() - 0.5) * px * 0.10;
+        line(-px * 0.1, gy, px * 1.1, gy + lean,
+          px * (0.014 + r() * 0.045), r() < 0.55 ? dark : pale);
+      }
+    } else if (kind === 'brush') {
+      /* Turned metal: fine, straight, all one way. */
+      for (i = 0; i < px * 1.6; i++) {
+        var bx = r() * px;
+        line(bx, -px * 0.1, bx + (r() - 0.5) * px * 0.02, px * 1.1,
+          px * (0.010 + r() * 0.022), r() < 0.5 ? dark : pale);
+      }
+    } else if (kind === 'weave') {
+      /* Cloth: threads over and under, so both directions and neither wins. */
+      var step = Math.max(2, px / 7);
+      for (i = 0; i * step < px; i++) {
+        line(i * step, -px * 0.1, i * step, px * 1.1, px * 0.060, dark);
+        line(-px * 0.1, i * step + step * 0.5, px * 1.1, i * step + step * 0.5,
+          px * 0.060, pale);
+      }
+    } else if (kind === 'fur') {
+      /* Short strokes lying the same general way, as a coat does. */
+      for (i = 0; i < px * 2.2; i++) {
+        var fx = r() * px, fy = r() * px;
+        var len = px * (0.10 + r() * 0.16);
+        var ang = -1.15 + (r() - 0.5) * 0.7;
+        line(fx, fy, fx + Math.cos(ang) * len, fy + Math.sin(ang) * len,
+          px * 0.040, r() < 0.5 ? dark : pale);
+      }
+    } else if (kind === 'scale') {
+      /* Rows of overlapping plates, offset every other row. */
+      var rows = 5, cols = 5;
+      for (var ry = 0; ry < rows; ry++) {
+        for (var cx2 = 0; cx2 < cols; cx2++) {
+          var sx = (cx2 + (ry % 2 ? 0.5 : 0)) * (px / cols);
+          var sy = ry * (px / rows);
+          speck(sx, sy, px / cols * 0.52, px / rows * 0.60, 0, dark);
+          speck(sx, sy - px / rows * 0.12, px / cols * 0.34, px / rows * 0.30, 0, pale);
+        }
+      }
+    } else if (kind === 'facet') {
+      /* Flat planes meeting at edges, which is what makes glass glassy. */
+      for (i = 0; i < 14; i++) {
+        var ax = r() * px, ay = r() * px;
+        var a2 = r() * Math.PI;
+        var reach = px * (0.4 + r() * 0.7);
+        line(ax - Math.cos(a2) * reach, ay - Math.sin(a2) * reach,
+          ax + Math.cos(a2) * reach, ay + Math.sin(a2) * reach,
+          px * 0.026, r() < 0.5 ? dark : pale);
+      }
+    } else if (kind === 'vein') {
+      /* Marble: a few wandering seams and nothing else. */
+      for (i = 0; i < 7; i++) {
+        var vx = r() * px, vy = r() * px;
+        var va = r() * Math.PI * 2;
+        for (var seg = 0; seg < 8; seg++) {
+          var nx = vx + Math.cos(va) * px * 0.18;
+          var ny = vy + Math.sin(va) * px * 0.18;
+          line(vx, vy, nx, ny, px * (0.018 + r() * 0.030), seg % 3 ? dark : pale);
+          vx = nx; vy = ny;
+          va += (r() - 0.5) * 1.1;
+        }
+      }
+    } else {
+      return null;
+    }
+    return can;
+  }
+
+  /*
+   * How coarse the surface should be on screen, which is not how coarse it is
+   * in the world. The same brickwork is inches across on a tower filling the
+   * frame and invisible on one at the horizon, so the tile is built at a size
+   * taken from how big the thing is being drawn — and skipped when that comes
+   * out too small to hold a mark, because past that distance a real surface is
+   * a tone as well.
+   */
+  function surfaceOn(ctx, subject, box, P, PS, r, spec, made, far) {
+    var kit = (made && SURFACE[made.id]) || MADE_OF[subject.draw];
+    if (!kit) return null;
+    var across = Math.min(box.w, box.h);
+    /* Six tiles across the thing, give or take: fewer and it reads as a
+     * pattern on it rather than as what it is made of. */
+    var px = Math.round(clamp(across / 6, 8, kit.tile));
+    if (px < 8 || across < 26) return null;
+    var tile = surfaceTile(kit.kind,
+      px, 'rgba(0,0,0,0.52)', 'rgba(255,255,255,0.42)', r);
+    if (!tile) return null;
+    var pat = null;
+    try { pat = ctx.createPattern(tile, 'repeat'); } catch (e) { pat = null; }
+    if (!pat) return null;
+    /* Distance flattens a surface out, the same as it flattens everything. */
+    stencil(ctx, subject, box, PS, r, spec, pat, 0, 0,
+      clamp(0.46 * kit.depth * (1 - far * 0.75), 0, 0.62));
+    /* It says which surface it used, so a test can ask rather than work it out
+     * from the same two tables and end up checking its own copy of the rule. */
+    return kit.kind;
+  }
+
   function paintSubject(ctx, subject, box, P, PS, r, spec, light, hz, h, extras) {
     var cx = box.x + box.w / 2, cy = box.y + box.h / 2;
     var dx = 0, dy = 0;
@@ -2261,6 +2496,11 @@
       stencil(ctx, subject, box, PS, r, spec, mossy, 0, 0, 0.72 * age);
     }
 
+    /* And what it is made of, in marks: the grain of the wood, the pitting of
+     * the stone, the lie of the fur. After the light and the wear, because it
+     * is the surface those are happening to. */
+    surfaceOn(ctx, subject, box, P, PS, r, spec, made, far);
+
     /*
      * Then the air it is standing in: what the sky and the ground throw back at
      * it, and then how far away it is. Both after the modelling, because
@@ -2378,6 +2618,154 @@
     volcano:   { kinds: ['rock', 'pebble'],           n: 30 },
     cave:      { kinds: ['rock', 'pebble'],           n: 24 }
   };
+
+  /*
+   * The ground, close up.
+   *
+   * Measured down the frame, every picture the engine made sat at the same
+   * level of detail from top to bottom — and that level was exactly the
+   * sensor noise added above it. The ground had no texture of its own at all:
+   * a wash of colour, a slow drift across it, and a scatter of thirty or so
+   * pebbles. Ground is forty to fifty per cent of most of these pictures, so
+   * that one fact did more to make them read as drawings than anything to do
+   * with the things standing on it.
+   *
+   * What a photograph of ground has, and this did not, is a *texture
+   * gradient*: the same clods and tufts and stones all the way to the
+   * horizon, appearing large and far apart at your feet and tiny and crowded
+   * in the distance. That gradient is the strongest depth cue in any
+   * landscape photograph ever taken — stronger than haze, stronger than
+   * overlap — and an evenly-grained plane actively says "flat picture" in a
+   * way that no amount of shading on top of it can undo.
+   *
+   * So the marks are placed on an actual ground plane rather than on the
+   * screen. For a flat plane under a camera, a point at distance d lands at
+   * u = k/d below the horizon, which gives three things at once and all of
+   * them for free:
+   *
+   *   a feature of fixed real size appears at a screen size proportional to
+   *   u, so marks shrink towards the horizon;
+   *
+   *   screen area per unit ground area goes as u cubed, so to keep the ground
+   *   evenly covered the marks must be drawn with a density in u of 1/u³ —
+   *   which is why they crowd towards the skyline;
+   *
+   *   and the plane is foreshortened more the further off it is, so a round
+   *   stone is an ellipse, and a flatter one the further away it lies.
+   *
+   * The sizes follow that exactly. The density does not, and the difference is
+   * deliberate. True 1/u³ density spends almost everything it has on the far
+   * field: with the cutoff where a mark is a pixel wide, ninety-eight per cent
+   * of the marks land in ground so distant that they overlap into a flat tone,
+   * and the near ground — the part anybody is actually looking at — is left
+   * bare. So the density used is 1/u², which is the law that keeps the *screen*
+   * evenly covered rather than the ground, and which lands the marks where
+   * they can be seen. What the eye reads as perspective is the size gradient,
+   * and that is the one kept honest.
+   *
+   * Sampled directly rather than by rejection: with B = 1/uMin, drawing v
+   * evenly and taking u = 1/(B - v(B-1)) distributes points as 1/u².
+   *
+   * It stops where a mark would be a pixel wide. That is not only a
+   * shortcut — past that distance real ground genuinely stops being a texture
+   * and becomes a tone, which is why the far half of a landscape photograph
+   * looks smooth. The sensor noise carries on underneath it.
+   */
+  var BED = {
+    meadow:    { n: 1.00, size: 0.075, lift: 0.60 },
+    plains:    { n: 0.90, size: 0.072, lift: 0.55 },
+    forest:    { n: 1.05, size: 0.081, lift: 0.66 },
+    jungle:    { n: 1.10, size: 0.084, lift: 0.70 },
+    desert:    { n: 0.68, size: 0.066, lift: 0.34, flat: 1.5 },
+    canyon:    { n: 0.95, size: 0.086, lift: 0.78 },
+    mountains: { n: 0.90, size: 0.084, lift: 0.72 },
+    snow:      { n: 0.42, size: 0.069, lift: 0.30, flat: 1.4 },
+    /* On a shore the sand starts well down the frame; above it is water, and
+     * water is not ground however textured it looks. */
+    shore:     { n: 0.66, size: 0.060, lift: 0.34, from: 0.62, flat: 1.3 },
+    swamp:     { n: 0.82, size: 0.075, lift: 0.56, from: 0.35 },
+    ruins:     { n: 1.00, size: 0.081, lift: 0.72 },
+    road:      { n: 0.70, size: 0.058, lift: 0.42 },
+    city:      { n: 0.64, size: 0.058, lift: 0.38 },
+    volcano:   { n: 1.05, size: 0.086, lift: 0.82 },
+    cave:      { n: 1.00, size: 0.084, lift: 0.76 }
+  };
+
+  function bed(ctx, w, h, hz, P, spec, r, light) {
+    var kit = BED[spec.scene.id];
+    if (!kit) return;
+    var top = hz + (h - hz) * (kit.from || 0);
+    var deep = h - top;
+    if (deep < 8) return;
+
+    /* How big a clod is at the very front of the picture. */
+    var S = Math.max(1.4, deep * kit.size);
+    /* And where it has shrunk to a pixel, which is where this stops and the
+     * ground becomes a tone. The horizon in these pictures usually sits about
+     * seven tenths of the way down, so the whole ground band is often only a
+     * hundred pixels deep; a cutoff of two pixels, tried first, blanked the
+     * near half of it. */
+    var uMin = clamp(1.0 / S, 0.05, 0.85);
+    var B = 1 / uMin;
+
+    /* Enough of them to cover the near ground, scaled by the area there is to
+     * cover so a thumbnail does not pay a full-size picture's price. */
+    var n = Math.round(kit.n * (w * deep) / 14);
+    if (n < 12) return;
+    n = Math.min(n, 9000);
+
+    /* Which way the light is coming from, so a bump has a lit top and a
+     * shadow on the far side of it. Without that these are speckles; with it
+     * they are lumps, and the difference is most of the effect. */
+    var sx = 0.4, sy = 0.5;
+    if (light) {
+      var lx = w * 0.5 - light.x, ly = h * 0.8 - light.y;
+      var len = Math.sqrt(lx * lx + ly * ly) || 1;
+      sx = lx / len; sy = Math.abs(ly / len);
+    }
+
+    /*
+     * Tones in buckets. Each mark needs a shadow colour and a lit colour, both
+     * fading towards the sky with distance, and building those strings per
+     * mark would cost more than the drawing does. Ten steps is under what the
+     * eye can pick out in a gradient this shallow.
+     */
+    var STEPS = 10, dim = [], lit = [];
+    for (var k = 0; k < STEPS; k++) {
+      var uk = uMin + (1 - uMin) * ((k + 0.5) / STEPS);
+      var fade = 0.28 + 0.72 * uk;           // distance flattens contrast
+      dim.push(P.cast(1 - uk, 0.50 * fade * kit.lift));
+      lit.push(P.css(P.sky.light, 0.34 * fade * kit.lift));
+    }
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, top, w, deep);
+    ctx.clip();
+    for (var i = 0; i < n; i++) {
+      var u = 1 / (B - r() * (B - 1));
+      var y = top + deep * u;
+      var x = r() * w;
+      var mw = S * u * (0.55 + r() * 0.9);
+      /* Foreshortening: the same stone is flatter the further off it lies. */
+      var mh = mw * (0.30 + 0.50 * u) / (kit.flat || 1);
+      var step = Math.min(STEPS - 1, Math.floor(((u - uMin) / (1 - uMin)) * STEPS));
+      var wob = (r() - 0.5) * 0.5;
+
+      ctx.fillStyle = dim[step];
+      ctx.beginPath();
+      ctx.ellipse(x + sx * mw * 0.34, y + sy * mh * 0.40, mw * 0.5, mh * 0.5,
+        wob, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = lit[step];
+      ctx.beginPath();
+      ctx.ellipse(x - sx * mw * 0.20, y - sy * mh * 0.26, mw * 0.36, mh * 0.36,
+        wob, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
 
   function scatter(ctx, w, h, hz, P, spec, r) {
     var kit = SCATTER[spec.scene.id];
@@ -2623,7 +3011,9 @@
       (GROUND[spec.scene.id] || GROUND.plains)(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'ground'), light);
     }
 
-    /* The small things lying on the ground, before anything stands on it. */
+    /* The ground's own texture, receding — then the small things lying on it,
+     * and only then anything standing on them. */
+    if (!onPhoto) bed(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'bed'), light);
     if (!onPhoto) scatter(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'scatter'));
 
     /* Subjects, furthest first so a nearer one overlaps it. */
@@ -2737,6 +3127,13 @@
     foreground: foreground,
     scatter: scatter,
     SCATTER: SCATTER,
+    bed: bed,
+    BED: BED,
+    surfaceOn: surfaceOn,
+    surfaceTile: surfaceTile,
+    SURFACE: SURFACE,
+    MADE_OF: MADE_OF,
+    useScratch: useScratch,
     helpers: { ridge: ridge, fillPoly: fillPoly, hills: hills, pine: pine, blob: blob, clamp: clamp, lerp: lerp }
   };
 

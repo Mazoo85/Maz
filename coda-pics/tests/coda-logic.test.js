@@ -3450,6 +3450,346 @@ function laidDown(ctx, gradient) {
   pass('shadows are the colour of the sky that fills them, not black');
 })();
 
+/*
+ * The ground underfoot.
+ *
+ * Measured row by row down the frame, the engine's pictures sat at one flat
+ * level of detail from top to bottom, and that level was exactly the sensor
+ * noise laid over them. The ground had no texture of its own: a wash of
+ * colour, a slow drift, and thirty-odd pebbles scattered on it.
+ *
+ * What a photograph of ground has is a texture gradient — the same clods and
+ * tufts all the way out, large and sparse at your feet, small and crowded at
+ * the horizon. It is the strongest depth cue in any landscape photograph, and
+ * an evenly-grained plane says "flat picture" however well it is shaded.
+ */
+(function theGroundUnderfoot() {
+  console.log('\nThe ground underfoot');
+
+  var w = 640, h = 400, hz = h * 0.70;
+  /* Every mark the ground pass lays down, with the colour it was laid in. */
+  function bedOf(text, light, seed) {
+    var spec = PROMPT.parse(text, { seed: seed || 4, style: 'auto' });
+    var ctx = recorder(w, h);
+    var P = PAINT.makePalette(spec);
+    PAINT.bed(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'bed'), light);
+    var out = [], fill = null;
+    ctx.log.forEach(function (c) {
+      if (c.op === 'set' && c.args[0] === 'fillStyle') fill = c.args[1];
+      else if (c.op === 'ellipse') {
+        out.push({ x: c.args[0], y: c.args[1], rx: c.args[2], ry: c.args[3], fill: fill });
+      }
+    });
+    return out;
+  }
+  function mean(list, of) {
+    if (!list.length) return 0;
+    return list.reduce(function (a, m) { return a + of(m); }, 0) / list.length;
+  }
+
+  var left = { x: w * 0.15, y: h * 0.10, r: 20 };
+  var field = bedOf('a stone tower in a meadow at noon', left);
+  check(field.length > 400,
+    'the ground has a texture of its own, not just a colour (' +
+    field.length + ' marks)');
+
+  /* None of it in the sky. */
+  var floating = field.filter(function (m) { return m.y < hz - 1; });
+  check(floating.length === 0,
+    'and all of it is on the ground — nothing is lying in the air');
+
+  /*
+   * The gradient itself, which is the whole point. A clod at your feet and a
+   * clod at the horizon are the same clod; only the distance differs, so the
+   * near one must be drawn far larger. Split the band in half by depth and
+   * compare.
+   */
+  var deep = h - hz;
+  var near = field.filter(function (m) { return m.y > hz + deep * 0.72; });
+  var far = field.filter(function (m) { return m.y < hz + deep * 0.34; });
+  var nearWide = mean(near, function (m) { return m.rx; });
+  var farWide = mean(far, function (m) { return m.rx; });
+  check(near.length > 20 && far.length > 20,
+    'with marks at both ends of it to compare (' + near.length + ' near, ' +
+    far.length + ' far)');
+  check(nearWide > farWide * 2,
+    'and the near ones are far bigger than the far ones (' + nearWide.toFixed(2) +
+    'px against ' + farWide.toFixed(2) + 'px)');
+
+  /* And crowded the other way: the further ground holds more of them per inch
+   * of picture, because more of it fits up there. */
+  var nearPer = near.length / (deep * 0.28);
+  var farPer = far.length / (deep * 0.34);
+  check(farPer > nearPer * 1.5,
+    'while the far ones are more crowded, as receding ground is (' +
+    farPer.toFixed(1) + ' against ' + nearPer.toFixed(1) + ' marks a pixel of depth)');
+
+  /* Foreshortening: the same stone lies flatter the further off it is, because
+   * you are looking across the plane rather than down at it. */
+  var nearFlat = mean(near, function (m) { return m.ry / Math.max(m.rx, 0.001); });
+  var farFlat = mean(far, function (m) { return m.ry / Math.max(m.rx, 0.001); });
+  check(farFlat < nearFlat * 0.85,
+    'and it lies flatter the further off it is, the way a plane seen at an ' +
+    'angle does (' + farFlat.toFixed(2) + ' against ' + nearFlat.toFixed(2) + ')');
+
+  /*
+   * Lumps, not speckles. Each mark is a shadow and a highlight offset from one
+   * another, and which way round decides whether the ground reads as bumpy or
+   * as dirty. The shadow goes on the side away from the light.
+   */
+  var pairs = [];
+  for (var i = 0; i + 1 < field.length; i += 2) {
+    pairs.push({ dim: field[i], lit: field[i + 1] });
+  }
+  var twoTone = pairs.filter(function (p) { return p.dim.fill !== p.lit.fill; });
+  check(twoTone.length === pairs.length,
+    'every mark is drawn twice, in two colours — a shadow and a lit top');
+  /*
+   * Pulled properly apart, not nudged. Checking only which side the shadow
+   * falls on lets half the offset be deleted and still pass — the highlight
+   * alone keeps the sign — so what is measured is the gap as a share of the
+   * lump it belongs to. A shadow a tenth of a stone's width off centre is not
+   * a lit stone, it is a smudge on a flat one.
+   */
+  var lean = mean(pairs, function (p) { return p.dim.x - p.lit.x; });
+  var leanBy = mean(pairs, function (p) {
+    return (p.dim.x - p.lit.x) / Math.max(p.dim.rx * 2, 0.001);
+  });
+  var dropBy = mean(pairs, function (p) {
+    return (p.dim.y - p.lit.y) / Math.max(p.dim.ry * 2, 0.001);
+  });
+  check(lean > 0,
+    'and with the light off to the left the shadows fall to the right (' +
+    lean.toFixed(2) + 'px)');
+  check(leanBy > 0.25,
+    'by a real part of the lump rather than a nudge (' +
+    (leanBy * 100).toFixed(0) + '% of its width)');
+  check(dropBy > 0.25,
+    'and they sit below the lit top by as much again (' +
+    (dropBy * 100).toFixed(0) + '% of its height)');
+
+  /* Move the light and they follow, or they are decoration rather than lumps. */
+  var right = bedOf('a stone tower in a meadow at noon', { x: w * 0.85, y: h * 0.10, r: 20 });
+  var other = [];
+  for (var j = 0; j + 1 < right.length; j += 2) other.push({ dim: right[j], lit: right[j + 1] });
+  var otherLean = mean(other, function (p) { return p.dim.x - p.lit.x; });
+  check(otherLean < 0,
+    'and putting the light on the other side turns every one of them round (' +
+    otherLean.toFixed(2) + 'px)');
+
+  /* Ground only. There is no ground in space, and a texture of clods hanging
+   * in it would be the picture forgetting where it is. */
+  check(bedOf('a comet in space', left).length === 0,
+    'and there is none of it in space, where there is no ground to have any');
+
+  /* On a shore the sand starts well down the frame; above it is open water. */
+  var beach = bedOf('a lighthouse on the shore at noon', left);
+  var wet = beach.filter(function (m) { return m.y < hz + deep * 0.5; });
+  check(beach.length > 100 && wet.length === 0,
+    'and on a shore it starts where the sand does, not out on the water (' +
+    beach.length + ' marks, none above the tideline)');
+
+  /* Finally, that the painter actually runs it. Nothing else in the engine
+   * draws ellipses in these numbers, so counting them in a whole picture is
+   * enough to catch the pass being written and never called. */
+  var whole = recorder(w, h);
+  var spec = PROMPT.parse('a stone tower in a meadow at noon', { seed: 4, style: 'auto' });
+  PAINT.render(whole, w, h, spec);
+  var drawn = whole.log.filter(function (c) { return c.op === 'ellipse'; }).length;
+  check(drawn > 400,
+    'and the painter lays it down as part of painting a picture (' + drawn +
+    ' marks in a whole one)');
+  pass('the ground has a texture, and it recedes');
+})();
+
+/*
+ * What a thing is made of, in marks.
+ *
+ * The flatness that made the ground read as paint was true of everything
+ * standing on it, and worse: every pass over a subject is a smooth gradient,
+ * so however carefully a stone tower was lit there was no stone in it. Put a
+ * magnifier on one and there was nothing there at all. Real surfaces are the
+ * opposite of smooth close up, and which kind of not-smooth is most of how
+ * anybody tells stone from bark from beaten iron without being told.
+ */
+(function madeOfMarks() {
+  console.log('\nWhat a thing is made of');
+
+  var w = 640, h = 400;
+  /* The painter asks its host for a small canvas to build the tile on. Node
+   * has none, so the test lends it one that records instead of drawing — which
+   * means what is checked below is the real pass, not a stand-in for it. */
+  var asked = [];
+  function lend() {
+    PAINT.useScratch(function (tw, th) {
+      var tc = recorder(tw, th);
+      var can = { width: tw, height: th, getContext: function () { return tc; }, ctx: tc };
+      asked.push(can);
+      return can;
+    });
+  }
+  function giveBack() { PAINT.useScratch(null); asked = []; }
+
+  /* Every mark the tile builder lays down, by kind. */
+  function tileOps(kind, px) {
+    asked = [];
+    lend();
+    var r = PROMPT.rng(PROMPT.parse('a wall', { seed: 3 }), 'tile');
+    var can = PAINT.surfaceTile(kind, px, 'rgba(0,0,0,0.5)', 'rgba(255,255,255,0.4)', r);
+    var ops = can ? can.ctx.log.filter(function (c) {
+      return c.op === 'ellipse' || c.op === 'lineTo';
+    }) : [];
+    giveBack();
+    return ops;
+  }
+
+  var KINDS = ['pit', 'grain', 'brush', 'weave', 'fur', 'scale', 'facet', 'vein'];
+  var empty = KINDS.filter(function (k) { return tileOps(k, 40).length < 20; });
+  check(empty.length === 0,
+    'all ' + KINDS.length + ' kinds of surface draw something' +
+    (empty.length ? ' — but not ' + empty.join(', ') : ''));
+
+  /*
+   * Seamless. A repeating tile whose marks stop at its edge shows the edge as
+   * a grid across the whole thing, which is worse than the flatness it is
+   * fixing. So every mark is drawn nine times, once for each way the tile can
+   * meet itself.
+   */
+  var pits = tileOps('pit', 40);
+  var first = pits.slice(0, 9);
+  var xs = first.map(function (c) { return Math.round(c.args[0]); });
+  var ys = first.map(function (c) { return Math.round(c.args[1]); });
+  function spread(list) {
+    var seen = list.filter(function (v, i) { return list.indexOf(v) === i; }).sort(function (a, b) { return a - b; });
+    return seen;
+  }
+  var acrossX = spread(xs), acrossY = spread(ys);
+  check(acrossX.length === 3 && acrossY.length === 3,
+    'and each one is drawn in three places across and three down, so the tile ' +
+    'meets itself on every side');
+  check(acrossX[1] - acrossX[0] === 40 && acrossX[2] - acrossX[1] === 40,
+    'exactly one tile apart, which is what makes the repeat seamless (' +
+    acrossX.join(', ') + ')');
+
+  /* Each kind is its own thing: pitted stone is specks, wood grain is lines. */
+  check(tileOps('pit', 40).every(function (c) { return c.op === 'ellipse'; }),
+    'stone is pitted — hollows, not lines');
+  check(tileOps('grain', 40).every(function (c) { return c.op === 'lineTo'; }),
+    'and wood runs in a grain — lines, not hollows');
+
+  /*
+   * How coarse it is on screen is not how coarse it is in the world. The same
+   * brickwork is inches across on a tower filling the frame and invisible on
+   * one at the horizon, so the tile is built at a size taken from how big the
+   * thing is being drawn.
+   */
+  function tileFor(text, scale) {
+    asked = [];
+    lend();
+    var spec = PROMPT.parse(text, { seed: 4, style: 'auto' });
+    var ctx = recorder(w, h);
+    var patterns = 0;
+    ctx.createPattern = function () { patterns++; return { pattern: true }; };
+    var P = PAINT.makePalette(spec);
+    var box = { x: 100, y: 100, w: 240 * scale, h: 300 * scale, depth: 0, anchor: 'ground' };
+    PAINT.surfaceOn(ctx, spec.subject, box, P, P,
+      PROMPT.rng(spec, 's'), spec, spec.material, 0);
+    var size = asked.length ? asked[0].width : 0;
+    var alpha = null;
+    ctx.log.forEach(function (c) {
+      if (c.op === 'set' && c.args[0] === 'globalAlpha') alpha = c.args[1];
+    });
+    giveBack();
+    return { size: size, patterns: patterns, alpha: alpha };
+  }
+
+  var big = tileFor('a huge stone tower in a meadow', 1);
+  var small = tileFor('a huge stone tower in a meadow', 0.35);
+  check(big.patterns === 1, 'a stone tower is given a surface');
+  check(big.size > small.size,
+    'and the nearer it is drawn the coarser that surface is, because it is ' +
+    'the same stone either way (' + big.size + 'px against ' + small.size + 'px)');
+
+  /* And past a certain distance a real surface is a tone rather than a
+   * texture, which is why the far half of a landscape photograph is smooth. */
+  var tiny = tileFor('a huge stone tower in a meadow', 0.06);
+  check(tiny.patterns === 0,
+    'and a thing drawn small enough is given none at all, as distance does');
+
+  /* Distance flattens what is left of it. */
+  asked = []; lend();
+  var spec2 = PROMPT.parse('a huge stone tower in a meadow', { seed: 4, style: 'auto' });
+  function strengthAt(far) {
+    var ctx = recorder(w, h);
+    ctx.createPattern = function () { return { pattern: true }; };
+    var P = PAINT.makePalette(spec2);
+    PAINT.surfaceOn(ctx, spec2.subject,
+      { x: 100, y: 100, w: 240, h: 300, depth: 0, anchor: 'ground' },
+      P, P, PROMPT.rng(spec2, 's'), spec2, spec2.material, far);
+    var a = 0;
+    ctx.log.forEach(function (c) {
+      if (c.op === 'set' && c.args[0] === 'globalAlpha') a = c.args[1];
+    });
+    return a;
+  }
+  var near = strengthAt(0), away = strengthAt(0.9);
+  giveBack();
+  check(near > away * 1.5,
+    'and it fades with distance, the way everything else does (' +
+    near.toFixed(2) + ' near, ' + away.toFixed(2) + ' far)');
+
+  /*
+   * Things the sentence never said the material of still have one. A stag has
+   * fur whether or not anybody mentioned it, and a cabin is made of wood.
+   */
+  var natural = [
+    ['a stag in a meadow', 'fur'],
+    ['a wooden cabin in a forest', 'grain'],
+    ['a red dragon over the mountains', 'scale'],
+    ['an iron knight in a meadow', 'brush']
+  ];
+  /* Asked of the painter, not worked out from the same two tables it uses —
+   * that would be checking this test's copy of the rule rather than the rule. */
+  var missed = natural.filter(function (pair) {
+    asked = []; lend();
+    var spec3 = PROMPT.parse(pair[0], { seed: 5, style: 'auto' });
+    var ctx3 = recorder(w, h);
+    ctx3.createPattern = function () { return { pattern: true }; };
+    var P3 = PAINT.makePalette(spec3);
+    var got = PAINT.surfaceOn(ctx3, spec3.subject,
+      { x: 100, y: 100, w: 240, h: 300, depth: 0, anchor: 'ground' },
+      P3, P3, PROMPT.rng(spec3, 's'), spec3, spec3.material, 0);
+    giveBack();
+    return got !== pair[1];
+  });
+  check(missed.length === 0,
+    'and a thing nobody said the material of still has one — fur on a stag, ' +
+    'grain on a cabin, scales on a dragon' +
+    (missed.length ? ' — but not ' + missed[0][0] : ''));
+
+  /* Finally, that the painter runs it while painting a subject. */
+  asked = []; lend();
+  var whole = recorder(w, h);
+  var patterned = 0;
+  whole.createPattern = function () { patterned++; return { pattern: true }; };
+  var spec4 = PROMPT.parse('a close-up of a huge stone tower in a meadow at noon',
+    { seed: 4, style: 'auto' });
+  PAINT.render(whole, w, h, spec4);
+  giveBack();
+  check(patterned > 0,
+    'and the painter lays it on while painting a picture (' + patterned + ' surfaces)');
+
+  /* With no canvas to build a tile on — an old browser, a stripped host — the
+   * picture still gets painted, just without this. */
+  PAINT.useScratch(function () { return null; });
+  var bare = recorder(w, h);
+  var threw = false;
+  try { PAINT.render(bare, w, h, spec4); } catch (e) { threw = true; }
+  PAINT.useScratch(null);
+  check(!threw, 'and where there is no canvas to build one on, it simply goes without');
+  pass('things are made of something, and it shows');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);

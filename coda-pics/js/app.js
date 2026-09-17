@@ -832,6 +832,10 @@
   /* -------------------------------------------------------------- sharing
    * A picture is its prompt, its seed, its style and its shape — four short
    * values, so a link to one is a link, not an upload. */
+  /* The four short names the dials travel under, so a link stays a link and
+   * not a paragraph. */
+  var DIAL_KEYS = { sun: 'du', weather: 'dw', wear: 'dr', mood: 'dm' };
+
   function shareLink() {
     if (!current) return location.href;
     var p = [
@@ -839,8 +843,22 @@
       's=' + current.seed,
       'y=' + encodeURIComponent(el.style.value),
       'z=' + encodeURIComponent(el.shape.value)
-    ].join('&');
-    return location.origin + location.pathname + '#' + p;
+    ];
+    /*
+     * And the dials, which were not in it.
+     *
+     * The status line says "It paints this exact picture", and with a dial
+     * turned that was not true: the link carried the words, the seed, the
+     * style and the shape, and the person opening it got the picture the words
+     * alone would have made. Somebody who had spent a minute putting the sun
+     * where they wanted it shared a link to a picture with the sun somewhere
+     * else. A dial that has not been touched is still left out, so an ordinary
+     * link is exactly as short as it was.
+     */
+    Object.keys(DIAL_KEYS).forEach(function (k) {
+      if (dials[k] != null) p.push(DIAL_KEYS[k] + '=' + dials[k]);
+    });
+    return location.origin + location.pathname + '#' + p.join('&');
   }
 
   function readLink() {
@@ -852,11 +870,23 @@
       if (bits.length === 2) out[bits[0]] = decodeURIComponent(bits[1]);
     });
     if (!out.p) return null;
+    /* Anything the link does not mention is left to the words, which is what
+     * an untouched dial means everywhere else in the app. */
+    var turned = {};
+    Object.keys(DIAL_KEYS).forEach(function (k) {
+      var raw = out[DIAL_KEYS[k]];
+      if (raw == null || raw === '') return;
+      var v = parseFloat(raw);
+      if (!isFinite(v)) return;
+      var lo = k === 'sun' ? -40 : 0, hi = k === 'sun' ? 90 : 200;
+      turned[k] = Math.max(lo, Math.min(hi, v));
+    });
     return {
       prompt: out.p,
       seed: parseInt(out.s, 10) || 1,
       style: out.y || 'auto',
-      shape: SIZES[out.z] ? out.z : 'wide'
+      shape: SIZES[out.z] ? out.z : 'wide',
+      dials: turned
     };
   }
 
@@ -1537,6 +1567,14 @@
       el.prompt.value = shared.prompt;
       el.style.value = shared.style;
       el.shape.value = shared.shape;
+      /* Put the dials where the link says before painting, or the first
+       * picture is the one the link was meant to replace. */
+      Object.keys(shared.dials || {}).forEach(function (k) {
+        dials[k] = shared.dials[k];
+        var slider = el['dial' + k.charAt(0).toUpperCase() + k.slice(1)];
+        if (slider) slider.value = String(shared.dials[k]);
+      });
+      showDials();
       renderGallery();
       repaint(shared.seed);
       return;

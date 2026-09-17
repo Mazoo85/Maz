@@ -499,13 +499,50 @@ let paintsThisLoad = 0;
     const moved = (a, b) => Math.max(
       Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]), Math.abs(a[2] - b[2]));
 
+    /*
+     * The whole picture, thinned, for the dials whose effect is real but
+     * local. Three band averages cannot see a change that darkens one part of
+     * a band and lightens another by as much — and wearing a tower out does
+     * exactly that, streaking it dark and putting pale moss at its foot. That
+     * check failed about one run in three on unchanged code, because how much
+     * survived the averaging depended on where in the band the tower happened
+     * to land. Comparing pixel against pixel cannot cancel.
+     */
+    const SHOT = `(() => {
+      const c = document.getElementById('canvas');
+      const ctx = c.getContext('2d');
+      const d = ctx.getImageData(0, 0, c.width, c.height).data;
+      const out = [];
+      for (let i = 0; i < d.length; i += 4 * 17) out.push(d[i], d[i + 1], d[i + 2]);
+      return out;
+    })()`;
+    const differs = (a, b) => {
+      if (!a || !b || a.length !== b.length) return 255;
+      let sum = 0;
+      for (let i = 0; i < a.length; i++) sum += Math.abs(a[i] - b[i]);
+      return sum / a.length;
+    };
+
+    /*
+     * Settled means settled, which is not the same as "twice the same".
+     *
+     * The app paints a quarter-size preview and upscales it before the real
+     * picture arrives from the worker, so two polls 120ms apart can both land
+     * on the preview and be called stable. That made the small dials — the
+     * ones whose effect is a few levels of tone — read as barely moving about
+     * a third of the time, on unchanged code. So the paint counter has to hold
+     * still as well: the same picture, and no picture since.
+     */
     async function bandsSettled() {
-      let last = null;
+      let last = null, lastCount = -1;
       for (let i = 0; i < 50; i++) {
         const now = await page.evaluate(BANDS);
-        if (last && moved(now.sky, last.sky) < 1e-9 && moved(now.land, last.land) < 1e-9 &&
+        const count = await page.evaluate(
+          () => Number(document.getElementById('canvas').dataset.painted || 0));
+        if (last && count === lastCount &&
+            moved(now.sky, last.sky) < 1e-9 && moved(now.land, last.land) < 1e-9 &&
             moved(now.mid, last.mid) < 1e-9) return now;
-        last = now;
+        last = now; lastCount = count;
         await page.waitForTimeout(120);
       }
       return last;
@@ -529,6 +566,7 @@ let paintsThisLoad = 0;
         () => Number(document.getElementById('canvas').dataset.painted || 0));
       await page.click(button);
       await painted(page, n0);
+      await idle();
       bands = await bandsSettled();
       count = await page.evaluate(
         () => Number(document.getElementById('canvas').dataset.painted || 0));
@@ -625,6 +663,13 @@ let paintsThisLoad = 0;
       await page.locator(id).fill(String(value));
       await page.locator(id).dispatchEvent('change');
       await painted(page, n);
+      /* The counter ticks when a picture lands, and the app paints a quick one
+       * before the real one. Waiting only on the counter, this read the quick
+       * one about a quarter of the time — two identical polls 120ms apart is a
+       * settled picture as far as `bandsSettled` can tell, and the small dials
+       * then looked as though they had barely moved. `idle` is the app saying
+       * it has finished, which is the thing actually worth waiting for. */
+      await idle();
       const after = await bandsSettled();
       return Math.max(moved(after.sky, before.sky), moved(after.mid, before.mid),
         moved(after.land, before.land));
@@ -658,8 +703,95 @@ let paintsThisLoad = 0;
     check(byWeather > 2,
       `turning the weather from a drizzle to a downpour changes the picture (moved ${byWeather.toFixed(1)})`);
 
-    const byWear = await turn('#dialWear', 100);
-    check(byWear > 0.5, `and so does wearing the tower out (moved ${byWear.toFixed(1)})`);
+    /*
+     * A link to a picture with the dials turned.
+     *
+     * The link carried the words, the seed, the style and the shape, and the
+     * status line said "It paints this exact picture" — which with a dial
+     * turned was not true. Somebody who had spent a minute putting the sun
+     * where they wanted it shared a link to the picture the words alone would
+     * have made, with the sun back where it started.
+     *
+     * Done on a clean page rather than this one. By now this page has a photo
+     * palette kept from the fixtures above, and a kept palette is not in the
+     * link either — deliberately, since those colours are measured off
+     * somebody's own photographs and a URL is a thing people paste in public.
+     * Testing here would have measured that instead and called the dial
+     * broken. Checked with the sun pulled right down, where the words plainly
+     * did not put it: if the link drops the dial, what opens is a daylight
+     * picture and the difference is the whole sky.
+     */
+    const clean = await browser.newPage({ viewport: { width: 1100, height: 900 } });
+    /*
+     * Opened on a link with the seed written into it, so this page paints one
+     * known picture rather than a fresh roll.
+     *
+     * The dial checks used to run on whatever Paint happened to roll, and the
+     * quiet dials were measured against a fixed bar. Wearing a tower out moves
+     * the picture by a lot when the roll puts a big tower in the foreground
+     * and by very little when it puts a small one at the horizon — measured
+     * across runs, anywhere from 0.10 to 0.89 — so that check failed about one
+     * run in three on code nobody had touched. A fixed seed is one tower every
+     * time, and the number below stops being a lottery.
+     */
+    const pinned = `http://127.0.0.1:${PORT}/coda-pics/` +
+      '#p=' + encodeURIComponent('a close-up of a huge stone tower in a meadow at noon') +
+      '&s=20250917&y=auto&z=wide';
+    await clean.goto(pinned, { waitUntil: 'load' });
+    await clean.waitForFunction(
+      () => Number(document.getElementById('canvas').dataset.painted || 0) > 0,
+      null, { timeout: 30000 });
+    await clean.click('#dials > summary');
+    await clean.waitForTimeout(150);
+
+    /* Wearing it out. Measured pixel against pixel: three band averages cannot
+     * see a change that darkens one part of a band and lightens another by as
+     * much, and grime down a tower with moss at its foot does exactly that. */
+    let nClean = await clean.evaluate(
+      () => Number(document.getElementById('canvas').dataset.painted || 0));
+    const beforeWear = await clean.evaluate(SHOT);
+    await clean.locator('#dialWear').fill('100');
+    await clean.locator('#dialWear').dispatchEvent('change');
+    await painted(clean, nClean);
+    await settled(clean, INSPECT);
+    const byWear = differs(beforeWear, await clean.evaluate(SHOT));
+    check(differs(beforeWear, beforeWear) === 0,
+      'the same picture compared with itself moves not at all, so anything ' +
+      'above nothing here is the dial and not the measurement');
+    /* The bar sits below the measured 0.51 rather than on it: the seed is
+     * pinned so the number is the same every run, and a dial that does nothing
+     * scores exactly nothing, as the line above shows. */
+    check(byWear > 0.3,
+      `wearing the tower out changes the picture (every pixel moved ${byWear.toFixed(2)} on average)`);
+
+    nClean = await clean.evaluate(
+      () => Number(document.getElementById('canvas').dataset.painted || 0));
+    await clean.locator('#dialSun').fill('-38');
+    await clean.locator('#dialSun').dispatchEvent('change');
+    await painted(clean, nClean);
+    const dialled = await settled(clean, INSPECT);
+
+    await clean.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await clean.click('#share');
+    await clean.waitForTimeout(200);
+    const dialUrl = await clean.evaluate(() => navigator.clipboard.readText());
+    check(/du=-38/.test(dialUrl),
+      'the link carries the dial that was turned' +
+      ` (${dialUrl.slice(dialUrl.indexOf('&y='))})`);
+
+    const page3 = await browser.newPage({ viewport: { width: 1100, height: 900 } });
+    await page3.goto(dialUrl, { waitUntil: 'load' });
+    await page3.waitForFunction(
+      () => Number(document.getElementById('canvas').dataset.painted || 0) > 0,
+      null, { timeout: 30000 });
+    const opened = await settled(page3, INSPECT);
+    check(Math.abs(opened.mean - dialled.mean) < 0.001,
+      'and opening it paints the picture with the sun where it was put, not ' +
+      `where the words wanted it (${dialled.mean.toFixed(3)} against ${opened.mean.toFixed(3)})`);
+    check((await page3.textContent('#dialSunOut')).indexOf('words') < 0,
+      'with the dial itself shown as turned, so it can be moved on from there');
+    await page3.close();
+    await clean.close();
 
     /* And handing them back lets the words have them again. Put the sun
      * somewhere the words plainly did not ask for first, or giving it back
