@@ -25,8 +25,24 @@ def current_branch(root: Path | None, runner=None) -> str:
     return out.strip() if code == 0 else ""
 
 
-def create_branch(name: str, root: Path | None = None, runner=None) -> bool:
-    code, _, _ = _runner_for(root, runner)(["checkout", "-b", name])
+def create_branch(name: str, root: Path | None = None, runner=None,
+                  start_point: str | None = None) -> bool:
+    """Cut a new branch, from ``start_point`` when one is given.
+
+    Without a start point this is ``git checkout -b <name>``, which cuts from
+    wherever HEAD happens to be. That was fine only because every caller
+    happened to be standing on the trunk — an assumption nothing stated and
+    nothing checked. Run the cycle from any other branch (the ledger branch,
+    say) and the night's work is cut from there instead, so the draft PR
+    carries that branch's commits as part of its own diff.
+
+    Naming the start point makes the intent explicit and removes the hidden
+    coupling to whatever the caller last checked out.
+    """
+    args = ["checkout", "-b", name]
+    if start_point:
+        args.append(start_point)
+    code, _, _ = _runner_for(root, runner)(args)
     return code == 0
 
 

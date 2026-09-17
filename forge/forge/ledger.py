@@ -281,3 +281,50 @@ def recent_zones(root: Path, config: ForgeConfig, n: int = 3) -> list[str]:
         if entry.get("outcome") in ACTING_OUTCOMES and entry.get("zone")
     ]
     return list(reversed(zones))[:n]
+
+
+def graft(source_dir: Path, root: Path, config: ForgeConfig) -> dict[str, int]:
+    """Append lines from ``source_dir``'s month files that the ledger lacks.
+
+    The nightly job needs this because a live run does not end where it
+    started. It reads the ledger to score (strikes, recent zones), then cuts
+    its branch from the trunk, and on the way out returns the tree to the
+    trunk — so the line it finally appends lands on whatever copy of the
+    ledger the *trunk* carries, which is not the real one. The real ledger
+    lives on its own branch precisely so it is never rewritten by a merge.
+
+    So the job captures the ledger directory after the run and grafts it back
+    onto the real one here. Append-only and by exact line, which makes it
+    idempotent and safe on a stale source: lines the ledger already has are
+    skipped however many times this runs, and lines it lacks are added in
+    source order. Nothing is reordered, edited or removed — the one property
+    the whole record depends on.
+
+    A malformed line is an error, not something to skip. Skipping would drop
+    a night's only evidence and still report success, which is the failure
+    this module exists to make impossible. Returns {filename: lines added}.
+    """
+    if not source_dir.is_dir():
+        raise FileNotFoundError(f"no such ledger directory: {source_dir}")
+
+    added: dict[str, int] = {}
+    for src in sorted(source_dir.glob("*.jsonl")):
+        lines = [ln for ln in src.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        for i, ln in enumerate(lines, 1):
+            try:
+                json.loads(ln)
+            except (json.JSONDecodeError, ValueError) as exc:
+                raise ValueError(f"{src}:{i} is not valid JSON: {exc}") from exc
+
+        dest = config.ledger_dir(root) / src.name
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        have = set()
+        if dest.exists():
+            have = {ln for ln in dest.read_text(encoding="utf-8").splitlines() if ln.strip()}
+
+        new = [ln for ln in lines if ln not in have]
+        if new:
+            with dest.open("a", encoding="utf-8") as fh:
+                fh.write("\n".join(new) + "\n")
+        added[src.name] = len(new)
+    return added
