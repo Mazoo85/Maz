@@ -342,6 +342,32 @@
       ];
     }
 
+    /*
+     * The colour of shadow.
+     *
+     * Every shadow in this engine was painted in black, and black is the one
+     * colour a shadow is never. A surface with the sun off it is not unlit: it
+     * is lit by the whole sky instead, and so it takes the sky's colour — blue
+     * at noon, violet at dusk, almost nothing at midnight. That split, a warm
+     * lit side against a cool dark side, is the strongest single cue the eye
+     * has for "this was photographed" rather than "this was drawn", and the
+     * pictures had none of it. Black shadows are why they read as posters.
+     *
+     * Saturation goes *up* as it goes down, which looks wrong written out and
+     * is right: skylight is a narrower band of colour than sunlight, so what
+     * little light reaches a shadow is bluer than the light that missed it.
+     *
+     * `dark` 0 leaves the sky as it is, 1 takes it right down to shadow.
+     */
+    function skylight(dark) {
+      var d = clamp(dark == null ? 1 : dark, 0, 1);
+      return [
+        sky.mid[0],
+        clamp(sky.mid[1] * (1 + d * 0.34), 0, 100),
+        clamp(sky.mid[2] * (1 - d * 0.76), 0, 100)
+      ];
+    }
+
     return {
       sky: sky,
       scene: scene,
@@ -370,6 +396,40 @@
       /* Open water, which is not the same colour as the land beside it. */
       sea: function (depth, a) { return css(depthMix(scene.sea || scene.far, depth), a); },
       haze: function (a) { return css(sky.haze, a); },
+      /* The dark side of a thing: what the sky alone leaves on it. */
+      shadow: function (dark, a) { return css(skylight(dark), a); },
+      /*
+       * A shadow lying on the ground, which is a different thing again. It is
+       * not a dark shape on the grass, it is the grass with the sun off it —
+       * so it keeps the ground's own colour and hue, pulled part of the way
+       * towards the sky that is still lighting it, and taken well down. Drawn
+       * in the scene's ink instead, as it was, every shadow on the ground came
+       * out the colour of the animals rather than the colour of the field.
+       */
+      cast: function (depth, a) {
+        var g = depthMix(scene.land, depth || 0);
+        var s2 = skylight(0.5);
+        /*
+         * A short way only, and capped. Shadowed grass is still grass: it goes
+         * a little towards the sky that is lighting it and no further. Pulled
+         * hard — the first try here pulled it nearly half way — a green field
+         * casts teal shadows, which is a different mistake from the black one
+         * and no better.
+         *
+         * The cap matters as much as the fraction. Sand sits almost opposite
+         * the sky on the wheel, so a share of that gap is a big rotation and
+         * the shadows on a desert came out yellow-green. What actually happens
+         * is that the surface's own colour still does most of the reflecting,
+         * so the hue barely moves however far away the sky's hue is; a limit
+         * in degrees says that, and a proportion does not.
+         */
+        var dh = ((s2[0] - g[0]) % 360 + 540) % 360 - 180;
+        return css([
+          (g[0] + clamp(dh * 0.15, -14, 14) + 360) % 360,
+          clamp(lerp(g[1], s2[1], 0.34), 0, 100),
+          clamp(g[2] * 0.30, 0, 100)
+        ], a);
+      },
       shade: function (c, dl, a) { return css([c[0], c[1], clamp(c[2] + dl, 0, 100)], a); }
     };
   }
@@ -1676,9 +1736,9 @@
       var alpha = (0.46 - t * 0.34) / (1 + t * 1.4) * (1 - soft * 0.72);
       var g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
       /* Tight near the contact, feathered far from it. */
-      g.addColorStop(0, P.silhouette(0, alpha));
-      g.addColorStop(Math.max(0.05, 0.62 - t * 0.55), P.silhouette(0, alpha * 0.75));
-      g.addColorStop(1, P.silhouette(0, 0));
+      g.addColorStop(0, P.cast(0, alpha));
+      g.addColorStop(Math.max(0.05, 0.62 - t * 0.55), P.cast(0, alpha * 0.75));
+      g.addColorStop(1, P.cast(0, 0));
       ctx.save();
       ctx.translate(cx + lean * (box.w * 0.10 + reach * t), cy + box.h * 0.004 * t);
       ctx.scale(1, ry / rx);
@@ -1701,7 +1761,8 @@
       sky: P.sky, scene: P.scene, drama: P.drama, isWater: P.isWater,
       light_at: P.light_at, bend: P.bend,
       css: same, ink: same, silhouette: same, land: same, far: same,
-      sea: same, light: same, haze: same, shade: same
+      sea: same, light: same, haze: same, shade: same,
+      shadow: same, cast: same
     };
   }
 
@@ -2069,8 +2130,11 @@
      * suggestion of where the light is, not a repaint of the subject. */
     model.addColorStop(0, P.css(P.sky.light, 0.30));
     model.addColorStop(0.44, P.css(P.sky.light, 0.03));
-    model.addColorStop(0.62, 'rgba(0,0,0,0.03)');
-    model.addColorStop(1, 'rgba(0,0,0,0.34)');
+    /* And the dark side is the sky, not black — see `shadow` in the palette.
+     * Under an overcast sky there is no lit side to be the other side of, so
+     * the two ends draw together and the colour in them stops mattering. */
+    model.addColorStop(0.62, P.shadow(1, 0.03));
+    model.addColorStop(1, P.shadow(1, 0.40));
     /* Under cloud the lit side and the dark side draw together, because the
      * light is arriving from the whole sky rather than from one point in it. */
     stencil(ctx, subject, box, PS, r, spec, model, 0, 0,
@@ -2251,8 +2315,8 @@
        * quietly bleached the legs of every animal in the engine. Where a thing
        * meets the ground it is darker. That is all this is. */
       var occ = ctx.createLinearGradient(0, base - box.h * 0.16, 0, base);
-      occ.addColorStop(0, 'rgba(0,0,0,0)');
-      occ.addColorStop(1, 'rgba(0,0,0,0.42)');
+      occ.addColorStop(0, P.cast(0, 0));
+      occ.addColorStop(1, P.cast(0, 0.62));
       stencil(ctx, subject, box, PS, r, spec, occ, 0, 0, 0.6);
     }
 

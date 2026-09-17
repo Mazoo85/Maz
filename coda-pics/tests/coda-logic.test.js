@@ -3218,6 +3218,238 @@ function laidDown(ctx, gradient) {
   pass('the app shows people what it can be told');
 })();
 
+/*
+ * The noise floor.
+ *
+ * Grain used to be added only below `day < 0.55`, so every picture taken in
+ * daylight came out mathematically perfect: whole regions where neighbouring
+ * pixels were bit-for-bit identical. Nothing photographed is ever like that.
+ * Measured across the painter, half of a noon frame had no variation at all,
+ * which is most of why the daylight pictures read as posters while the dusk
+ * ones read as photographs.
+ */
+(function theNoiseFloor() {
+  console.log('\nThe noise floor');
+
+  var w = 96, h = 72;
+  function flat(v) {
+    var img = { data: new Uint8ClampedArray(w * h * 4), width: w, height: h };
+    for (var i = 0; i < w * h; i++) {
+      img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = v;
+      img.data[i * 4 + 3] = 255;
+    }
+    return img;
+  }
+  /* Spread of a single channel, which is what "how grainy" actually means. */
+  function spread(img, c) {
+    var n = w * h, sum = 0, sum2 = 0;
+    for (var i = 0; i < n; i++) { var v = img.data[i * 4 + c]; sum += v; sum2 += v * v; }
+    var m = sum / n;
+    return Math.sqrt(Math.max(0, sum2 / n - m * m));
+  }
+  /*
+   * A whole picture put through the finisher at a given hour.
+   *
+   * The recording context does not rasterise, so its buffer arrives full of
+   * the pattern it was born with — which is variation, and made the first
+   * version of this test pass with the daylight bug still in place. So the
+   * buffer is flattened to one exact grey after the painter has run and
+   * before the finisher does: then anything but a flat sheet coming out the
+   * other end is the finishing passes' own work, which is what is under test.
+   */
+  function finished(hour) {
+    var spec = PROMPT.parse('a stone tower in a meadow ' + hour, { seed: 4, style: 'auto' });
+    var ctx = new FakeContext(w, h);
+    var P = PAINT.render(ctx, w, h, spec);
+    for (var i = 0; i < w * h; i++) {
+      ctx._pixels[i * 4] = ctx._pixels[i * 4 + 1] = ctx._pixels[i * 4 + 2] = 128;
+      ctx._pixels[i * 4 + 3] = 255;
+    }
+    FINISH.apply(ctx, w, h, spec, P);
+    var got = ctx.getImageData(0, 0, w, h);
+    return { data: got.data, width: w, height: h };
+  }
+  /* How often two side-by-side pixels are bit-for-bit identical. A photograph
+   * almost never does this; a flat fill does it everywhere. */
+  function twins(img) {
+    var same = 0, n = 0;
+    for (var y = 0; y < h; y++) {
+      for (var x = 1; x < w; x++) {
+        var a = (y * w + x) * 4, b = (y * w + x - 1) * 4;
+        if (img.data[a] === img.data[b] && img.data[a + 1] === img.data[b + 1] &&
+            img.data[a + 2] === img.data[b + 2]) same++;
+        n++;
+      }
+    }
+    return same / n;
+  }
+
+  var noon = finished('at noon');
+  var night = finished('at midnight');
+  check(twins(noon) < 0.10,
+    'a picture taken at noon has no two identical neighbours to speak of (' +
+    (twins(noon) * 100).toFixed(1) + '% of pairs, and it was far more)');
+  check(twins(night) < 0.10,
+    'and neither does one taken at midnight (' + (twins(night) * 100).toFixed(1) + '%)');
+
+  /*
+   * And the amount of it follows the light, the way an ISO dial does. Asked of
+   * `sensor` directly this proves nothing — handing it two numbers and finding
+   * that the bigger one is noisier is a test of arithmetic. It has to be asked
+   * of the finisher, which is the thing that decides which number to use.
+   */
+  /* Measured between neighbours rather than across the frame: the vignette and
+   * the slow drift both spread the picture out too, and a picture that merely
+   * has a dark corner is not a grainy one. Noise is what changes from one pixel
+   * to the next. */
+  function fineness(img) {
+    var sum = 0, n = 0;
+    for (var y = 0; y < h; y++) {
+      for (var x = 1; x < w; x++) {
+        sum += Math.abs(img.data[(y * w + x) * 4] - img.data[(y * w + x - 1) * 4]);
+        n++;
+      }
+    }
+    return sum / n;
+  }
+  var byDay = fineness(noon), byNight = fineness(night);
+  check(byNight > byDay * 1.6,
+    'a picture taken at midnight is grainier than one taken at noon (' +
+    byNight.toFixed(2) + ' against ' + byDay.toFixed(2) + ')');
+  check(byDay > 1.2,
+    'but the noon one is never perfectly clean either (' +
+    byDay.toFixed(2) + ' levels between one pixel and the next)');
+
+  /*
+   * Two components, because a sensor has two. If the noise were luminance only
+   * it would be film grain; a digital frame also has the channels disagreeing
+   * with each other, which is what makes a dark patch go faintly purple.
+   */
+  var one = flat(128);
+  FINISH.helpers.sensor(one, 12, 7, PROMPT.rng(PROMPT.parse('a wall', { seed: 2 }), 'n2'));
+  var apart = 0;
+  for (var i = 0; i < w * h; i++) {
+    apart += Math.abs(one.data[i * 4] - one.data[i * 4 + 2]);
+  }
+  apart /= w * h;
+  check(apart > 1.2,
+    'the channels do not move together — there is colour in the noise, not ' +
+    'just brightness (red and blue differ by ' + apart.toFixed(2) + ' on average)');
+
+  /* And green is the quiet one: a sensor has twice as many green photosites,
+   * so it averages twice the light and comes out the least noisy channel. */
+  var g = spread(one, 1), rr = spread(one, 0), bb = spread(one, 2);
+  check(g < rr && g < bb,
+    'and green is the quietest of the three, as it is on real silicon (' +
+    'r ' + rr.toFixed(2) + ' · g ' + g.toFixed(2) + ' · b ' + bb.toFixed(2) + ')');
+
+  /* It must not shift the picture. Noise is a wobble around the value, not a
+   * change to it. */
+  var tone = 0;
+  for (var j = 0; j < w * h; j++) tone += one.data[j * 4];
+  check(Math.abs(tone / (w * h) - 128) < 1.5,
+    'and it leaves the picture exactly as bright as it found it (' +
+    (tone / (w * h)).toFixed(2) + ')');
+  pass('every picture has noise in it, in daylight as much as after dark');
+})();
+
+/*
+ * The colour of a shadow.
+ *
+ * Every shadow in the painter was black. Nothing is. A surface with the sun
+ * off it is lit by the sky instead and takes the sky's colour, and that split
+ * between a warm lit side and a cool dark one is the strongest cue there is
+ * for a photograph rather than a drawing.
+ */
+(function theColourOfShadow() {
+  console.log('\nThe colour of a shadow');
+
+  function paletteFor(text) {
+    var spec = PROMPT.parse(text, { seed: 5, style: 'auto' });
+    return { P: PAINT.makePalette(spec), spec: spec };
+  }
+  /* hsla(h,s%,l%,a) back into numbers. */
+  function read(css) {
+    var m = /hsla?\(([-0-9.]+),\s*([-0-9.]+)%,\s*([-0-9.]+)%/.exec(css);
+    return m ? [parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3])] : null;
+  }
+
+  var noon = paletteFor('a stone tower in a meadow at noon');
+  var shadow = read(noon.P.shadow(1, 1));
+  check(shadow !== null, 'the palette can be asked for the colour of a shadow');
+  check(shadow[1] > 4,
+    'and a shadow at noon has colour in it — it is not black or grey (' +
+    shadow[1].toFixed(1) + '% saturated)');
+  check(shadow[2] < 30,
+    'while still being dark enough to read as shadow (' + shadow[2].toFixed(1) + '% light)');
+
+  /* It is the sky's colour, because the sky is what is lighting it. The hue
+   * has to follow the sky round the day rather than being a fixed blue. */
+  var sky = noon.P.sky.mid;
+  var off = Math.abs(((shadow[0] - sky[0]) % 360 + 540) % 360 - 180);
+  check(off < 1,
+    'and it is the sky\'s own colour, because the sky is what is lighting it');
+
+  var dusk = paletteFor('a stone tower in a meadow at sunset');
+  var duskShadow = read(dusk.P.shadow(1, 1));
+  var moved = Math.abs(((duskShadow[0] - shadow[0]) % 360 + 540) % 360 - 180);
+  check(moved > 12,
+    'so a shadow at sunset is a different colour from one at noon (' +
+    moved.toFixed(0) + ' degrees round the wheel)');
+
+  /*
+   * And a shadow lying on the ground is a third thing again: not a dark shape
+   * on the grass but the grass with the sun off it. Drawn in the scene's ink,
+   * as it was, every shadow came out the colour of the animals standing in it.
+   */
+  var cast = read(noon.P.cast(0, 1));
+  var land = noon.P.bend(noon.P.scene.land);
+  check(cast[2] < land[2],
+    'a shadow on the ground is darker than the ground (' + cast[2].toFixed(1) +
+    '% against ' + land[2].toFixed(1) + '%)');
+
+  /*
+   * And it is that ground's colour, not a colour of its own: a shadow on sand
+   * and a shadow on grass are different colours because sand and grass are.
+   * Comparing it against the scene's ink instead would prove nothing here —
+   * in a meadow the ink and the field share a hue — so the test is whether it
+   * follows the ground from scene to scene.
+   */
+  var grounds = ['a meadow', 'the desert', 'a snowy plain', 'a forest',
+    'the open sea', 'a cave'].map(function (where) {
+    var q = paletteFor('a stone tower in ' + where + ' at noon');
+    return {
+      where: where, cast: read(q.P.cast(0, 1)),
+      ink: read(q.P.ink(0, 1)), land: q.P.bend(q.P.scene.land)
+    };
+  });
+  var strays = grounds.filter(function (g) {
+    return Math.abs(((g.cast[0] - g.land[0]) % 360 + 540) % 360 - 180) > 22;
+  });
+  check(strays.length === 0,
+    'and in every scene it is that scene\'s ground, gone dark — never more ' +
+    'than 22 degrees off the colour it is lying on' +
+    (strays.length ? ' (' + strays[0].where + ' is not)' : ''));
+
+  /*
+   * Against the ink it replaced, and by saturation rather than by hue: in most
+   * of these scenes the ink and the ground already share a hue, so a hue test
+   * here would pass against the old code and prove nothing. What the ink does
+   * and a shadow must not is drain the colour out — grass in shade is still
+   * as green as grass, only darker.
+   */
+  var drained = grounds.filter(function (g) { return g.cast[1] <= g.ink[1]; });
+  check(drained.length === 0,
+    'and it keeps the colour the ink drained away — a shadow on grass is as ' +
+    'green as the grass' +
+    (drained.length ? ' (' + drained[0].where + ' is not)' : ''));
+  /* And the two really do differ, or the check above is measuring nothing. */
+  var same = grounds.filter(function (g) { return Math.abs(g.cast[1] - g.ink[1]) < 4; });
+  check(same.length === 0,
+    'by a margin that is actually there in every scene, not a rounding error');
+  pass('shadows are the colour of the sky that fills them, not black');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);

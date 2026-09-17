@@ -237,6 +237,39 @@
     });
   }
 
+  /*
+   * Sensor noise — the floor under every picture.
+   *
+   * Grain was only ever added to dark pictures: `day < 0.55` and nothing at
+   * all above it, on the reasoning that a bright noon is stopped down. Stopped
+   * down is not silent. Every photograph ever taken has noise in it, and a
+   * clear noon sky shot at the lowest ISO a camera has still measures a couple
+   * of levels of wobble per pixel. Nothing drawn does. Measured across the
+   * engine, half of a noon picture had *no* variation between neighbouring
+   * pixels whatsoever — a mathematically perfect surface, which is the one
+   * thing a photograph never contains — and that is a large part of why these
+   * read as posters in daylight and as photographs at dusk.
+   *
+   * Two components, because a sensor has two. Luminance noise is the same
+   * wobble on all three channels and is what everyone means by grain. Chroma
+   * noise is each channel wobbling on its own, which is what turns a dark
+   * patch faintly purple-and-green in a real high-ISO frame. Green gets less
+   * of it: a sensor has twice as many green photosites as red or blue, so it
+   * averages twice as much light and comes out the quietest channel. That
+   * imbalance is small and is exactly the kind of thing the eye reads without
+   * being able to name.
+   */
+  function sensor(img, lum, chroma, r) {
+    if (lum <= 0 && chroma <= 0) return;
+    var d = img.data;
+    for (var i = 0; i < d.length; i += 4) {
+      var n = (r() - 0.5) * lum;
+      d[i]     = clamp(d[i]     + n + (r() - 0.5) * chroma, 0, 255);
+      d[i + 1] = clamp(d[i + 1] + n + (r() - 0.5) * chroma * 0.55, 0, 255);
+      d[i + 2] = clamp(d[i + 2] + n + (r() - 0.5) * chroma, 0, 255);
+    }
+  }
+
   function vignette(img, w, h, strength) {
     var d = img.data, cx = w / 2, cy = h / 2, max = Math.sqrt(cx * cx + cy * cy);
     for (var y = 0; y < h; y++) {
@@ -861,8 +894,14 @@
       /* The slow drift that stops every large fill being one exact colour. */
       mottle(img, w, h, PROMPT.rng(spec, 'mottle'), DRIFT);
 
-      /* And the grain a long exposure leaves. */
-      if (day < 0.55) grain(img, (0.55 - day) * 26, PROMPT.rng(spec, 'exposure'));
+      /*
+       * And the noise the sensor leaves — always, not only after dark. How
+       * much follows the light the way an ISO dial does: barely there at
+       * noon, loud at midnight, and squared on the way so that the middle of
+       * the day stays clean rather than merely quieter.
+       */
+      var iso = Math.pow(1 - day, 3);
+      sensor(img, 6.2 + iso * 13, 2.4 + iso * 7, PROMPT.rng(spec, 'exposure'));
 
       /*
        * Black-and-white film has no colour in it, and the camera comes before
@@ -886,6 +925,7 @@
       posterize: posterize, dither: dither, edges: edges, inkEdges: inkEdges,
       contrast: contrast, saturate: saturate, grade: grade, grain: grain,
       focusPass: focusPass, daylight: daylight, expose: expose, mottle: mottle,
+      sensor: sensor,
       DRIFT: DRIFT, lens: lens, GLASS: GLASS,
       vignette: vignette, luma: luma, mosaic: mosaic
     }
