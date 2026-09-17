@@ -242,12 +242,19 @@ def do(chosen: dict, root: Path, config: ForgeConfig, git=None, crew=None,
         return CrewOutcome(False, name, files, cost, duration,
                            _with_note(f"touched {len(files)} files, over the "
                                       f"{config.max_files_touched} cap", cost_note))
+    # Name the paths. "touched a path outside the safe zones" without saying
+    # which path sent the first live runs round in circles: the ledger recorded
+    # a refusal every night and no way to tell what had been refused. The
+    # offender turned out to be Crew's own session checkpoint, which took a
+    # separate investigation to find and one line of .gitignore to fix.
+    shown = ", ".join(files[:5]) + ("…" if len(files) > 5 else "")
     if is_no_touch(files, config):
         return CrewOutcome(False, name, files, cost, duration,
-                           _with_note("touched a no-touch path", cost_note))
+                           _with_note(f"touched a no-touch path: {shown}", cost_note))
     if zone_for(files, config) is None:
         return CrewOutcome(False, name, files, cost, duration,
-                           _with_note("touched a path outside the safe zones", cost_note))
+                           _with_note(f"touched a path outside the safe zones: {shown}",
+                                      cost_note))
 
     return CrewOutcome(True, name, files, cost, duration, cost_note)
 

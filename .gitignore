@@ -39,3 +39,13 @@ __pycache__/
 # The Forge's run state. Its ledger under forge/ledger/ IS committed — that is
 # the record of what the nightly loop did; only the scratch state is ignored.
 forge/state/
+
+# Crew's run state — its session checkpoint, written after every phase so a
+# run can be resumed. The same kind of thing as .scraper/ and forge/state/
+# above, and it was the only one of the three left out.
+#
+# That omission had teeth once the Forge started handing work to Crew for
+# real: the Forge asks git what Crew changed, git reported this checkpoint as
+# a new file outside every safe zone, and the leash refused the night's work.
+# Every live run failed the same way, blaming Crew for its own bookkeeping.
+.crew/
