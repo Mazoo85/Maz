@@ -776,22 +776,91 @@
     aurora:   { count: 3, lump: 0.60, tall: 0.80, dark: 0.35, alpha: 0.50, wisps: 3, deck: 0 }
   };
 
+  /*
+   * A cloud lump, and the lumps on the lump, and the lumps on those.
+   *
+   * Measured as energy per octave on the sky alone, adding cloud to a clear
+   * day made it *less* structured at every scale — 9.98 down to 7.51 at
+   * thirty-two pixels, 6.95 down to 6.05 at eight. A storm barely beat a clear
+   * noon. That is exactly backwards: cloud is one of the most structured
+   * things anybody has ever photographed, and here it was flattening the sky.
+   *
+   * Two reasons, and this is the first. A cloud was three to six smooth blobs,
+   * each a nine-sided polygon with a bit of wobble on it — one scale of detail
+   * and nothing above or below it. What makes a real cumulus read is that it
+   * has the same shape at every size: towers with bulges, bulges with
+   * cauliflower, cauliflower with a ragged fringe, all the way down to where
+   * it goes to mist. That is a recursion, and it is the whole of what this is.
+   *
+   * Piled upward. A cloud grows where it is rising, so the sub-lumps go round
+   * the top rather than all the way round, which is what gives one a heaped
+   * crown and a flat bottom instead of a ball.
+   */
+  function billow(ctx, x, y, rx, ry, depth, r, style) {
+    blob(ctx, x, y, rx, ry, 9, r, style);
+    /* Stopping on size rather than only on depth: a small cloud far off should
+     * not be given the same three storeys of detail as one overhead, and
+     * lumps under a couple of pixels are a cost with nothing to show. */
+    if (depth <= 0 || Math.min(rx, ry) < 3) return;
+    var n = 3 + Math.floor(r() * 2);
+    for (var i = 0; i < n; i++) {
+      /* The upper half only: pi to two pi, which is up when y runs downward. */
+      var a = Math.PI + ((i + r() * 0.9) / n) * Math.PI;
+      var k = 0.52 + r() * 0.46;
+      billow(ctx,
+        x + Math.cos(a) * rx * k,
+        y + Math.sin(a) * ry * k * 0.92,
+        rx * (0.32 + r() * 0.24),
+        ry * (0.38 + r() * 0.28),
+        depth - 1, r, style);
+    }
+  }
+
   function clouds(ctx, w, h, horizon, P, spec, r, light) {
-    if (spec.scene.id === 'space' || spec.scene.id === 'cave') return;
+    if (spec.scene.id === 'space' || spec.scene.id === 'cave') return [];
     var kind = CLOUD_KINDS[spec.weather] || CLOUD_KINDS.clear;
     var lightX = light ? light.x : w * 0.5;
     var lightY = light ? light.y : 0;
 
-    /* The overcast deck: not a cloud but the absence of a sky, so it goes
-     * behind everything else and simply lowers the lid. */
+    /*
+     * The overcast deck, which is the second reason cloud was flattening the
+     * sky. It was one grey gradient across the whole of it at up to seventy-
+     * eight per cent — a sheet of paint over everything, and of course a sky
+     * with a sheet of paint over it measures flatter than one without.
+     *
+     * An overcast sky is not featureless. Stand under one and it is all
+     * texture: a darker mass here, a thinner patch there, the underside of
+     * something enormous going over. So the gradient is eased off and the rest
+     * of the lid is made of that mass — big soft overlapping shapes, some
+     * heavier than the deck and some lighter, which is what a break in the
+     * cloud looks like from below.
+     */
+    var lidTo = Math.max(horizon, h * 0.4);
     if (kind.deck > 0.01) {
-      var lid = ctx.createLinearGradient(0, 0, 0, Math.max(horizon, h * 0.4));
+      var lid = ctx.createLinearGradient(0, 0, 0, lidTo);
       var grey = [P.sky.haze[0], P.sky.haze[1] * 0.55, P.sky.haze[2] * 0.45];
-      lid.addColorStop(0, P.css(grey, 0.78 * kind.deck));
-      lid.addColorStop(0.72, P.css(grey, 0.34 * kind.deck));
+      lid.addColorStop(0, P.css(grey, 0.58 * kind.deck));
+      lid.addColorStop(0.72, P.css(grey, 0.26 * kind.deck));
       lid.addColorStop(1, P.css(grey, 0));
       ctx.fillStyle = lid;
-      ctx.fillRect(0, 0, w, Math.max(horizon, h * 0.4));
+      ctx.fillRect(0, 0, w, lidTo);
+
+      /* And the mass in it. Drawn large and soft, a third of them lighter than
+       * the deck so the sky is thinning somewhere as well as thickening. */
+      var masses = 5 + Math.round(kind.deck * 7);
+      for (var m = 0; m < masses; m++) {
+        var thin = r() < 0.34;
+        var my = lidTo * (0.02 + r() * 0.92);
+        var mfar = clamp(my / Math.max(lidTo, 1), 0, 1);
+        var mrx = w * (0.22 + r() * 0.34) * (1.25 - mfar * 0.7);
+        var mry = lidTo * (0.07 + r() * 0.15) * (1.2 - mfar * 0.7);
+        var tone = thin
+          ? [P.sky.mid[0], P.sky.mid[1] * 0.9, P.sky.mid[2] * 1.12]
+          : [grey[0], grey[1] * 1.1, grey[2] * 0.74];
+        ctx.globalAlpha = (thin ? 0.20 : 0.30) * kind.deck * (1 - mfar * 0.35);
+        billow(ctx, r() * w * 1.2 - w * 0.1, my, mrx, mry, 2, r, P.css(tone, 1));
+        ctx.globalAlpha = 1;
+      }
     }
 
     /* Thin streaks, very high up and going nowhere: the fair-weather sky is
@@ -809,6 +878,7 @@
       ctx.globalAlpha = 1;
     }
 
+    var sky = [];
     for (var i = 0; i < kind.count; i++) {
       /* Where it sits, and therefore how far off it is: a cloud low in the
        * frame is not a low cloud, it is the same cloud a long way off, and it
@@ -843,7 +913,7 @@
       var under = [P.sky.haze[0] + 8, P.sky.haze[1] * 0.75,
         P.sky.haze[2] * (0.72 - kind.dark * 0.34)];
       puffs.forEach(function (pf) {
-        blob(ctx, pf.x, pf.y + pf.ry * 0.36, pf.rx, pf.ry * 0.78, 9, r, P.css(under, 1));
+        billow(ctx, pf.x, pf.y + pf.ry * 0.36, pf.rx, pf.ry * 0.78, 1, r, P.css(under, 1));
       });
 
       /* Then the body, which is most of the cloud. */
@@ -851,7 +921,7 @@
       var body = [P.sky.haze[0], P.sky.haze[1] * 0.8,
         P.sky.haze[2] * (1.04 - kind.dark * 0.55)];
       puffs.forEach(function (pf) {
-        blob(ctx, pf.x, pf.y, pf.rx, pf.ry, 11, r, P.css(body, 1));
+        billow(ctx, pf.x, pf.y, pf.rx, pf.ry, 2, r, P.css(body, 1));
       });
 
       /* And the tops that can see the sun. Offset towards it, so a cloud at
@@ -861,11 +931,15 @@
       var len = Math.sqrt(vx * vx + vy * vy) || 1;
       ctx.globalAlpha = kind.alpha * (0.55 - kind.dark * 0.34) * (1 - far * 0.4);
       puffs.forEach(function (pf) {
-        blob(ctx, pf.x + (vx / len) * pf.ry * 0.5, pf.y + (vy / len) * pf.ry * 0.5,
-          pf.rx * 0.72, pf.ry * 0.62, 9, r, P.light(0.85));
+        billow(ctx, pf.x + (vx / len) * pf.ry * 0.5, pf.y + (vy / len) * pf.ry * 0.5,
+          pf.rx * 0.72, pf.ry * 0.62, 2, r, P.light(0.85));
       });
       ctx.globalAlpha = 1;
+      /* Where each one ended up and how big, so a test can ask rather than
+       * pick the clouds back out of a few thousand lumps. */
+      sky.push({ x: x, y: y, rx: rx, ry: ry, far: far });
     }
+    return sky;
   }
 
   /* ------------------------------------------------------------- the ground
@@ -3413,6 +3487,7 @@
     wetness: wetness,
     clad: clad,
     clouds: clouds,
+    billow: billow,
     shafts: shafts,
     CLOUD_KINDS: CLOUD_KINDS,
     extraLights: extraLights,

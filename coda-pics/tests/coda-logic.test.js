@@ -1730,9 +1730,10 @@ function laidDown(ctx, gradient) {
     spec.weatherStrength = 1;
     var P = PAINT.makePalette(spec);
     var ctx = recorder(480, 360);
-    PAINT.clouds(ctx, 480, 360, 200, P, spec, PROMPT.rng(spec, 'cloud'), light || { x: 60, y: 20 });
+    var put = PAINT.clouds(ctx, 480, 360, 200, P, spec,
+      PROMPT.rng(spec, 'cloud'), light || { x: 60, y: 20 });
 
-    return { shapes: shapesOf(ctx), P: P, ctx: ctx };
+    return { shapes: shapesOf(ctx), P: P, ctx: ctx, put: put };
   }
 
   var fair = sky('clear'), heavy = sky('storm');
@@ -1776,16 +1777,31 @@ function laidDown(ctx, gradient) {
     'the lit tops move to whichever side the sun is on (' + Math.round(leftSun) +
     'px against ' + Math.round(rightSun) + 'px)');
 
-  /* A cloud low in the frame is not a low cloud, it is the same cloud further
-   * off — so it is smaller. */
-  var near = [], far = [];
-  fair.shapes.forEach(function (sh) { (sh.y < 90 ? near : far).push(sh.w); });
+  /*
+   * A cloud low in the frame is not a low cloud, it is the same cloud further
+   * off — so it is smaller.
+   *
+   * Measured on the bodies rather than on every shape. A cloud is built as a
+   * lump with lumps on it and lumps on those, so most of the shapes in any
+   * band are the smallest ones, and those come out about the same size
+   * wherever they are — averaging the lot said an overhead cloud and a distant
+   * one were both eight pixels across. The widest quarter of each band is the
+   * clouds themselves.
+   */
   function mean(list) {
     return list.length ? list.reduce(function (a, b) { return a + b; }, 0) / list.length : 0;
   }
-  check(near.length && far.length && mean(near) > mean(far) * 1.5,
+  var overcast = sky('clouds');
+  var high = overcast.put.filter(function (c) { return c.far < 0.45; });
+  var low = overcast.put.filter(function (c) { return c.far > 0.6; });
+  check(high.length > 0 && low.length > 0,
+    'with clouds both overhead and down by the skyline (' + high.length +
+    ' and ' + low.length + ')');
+  var overhead = mean(high.map(function (c) { return c.rx; }));
+  var distant = mean(low.map(function (c) { return c.rx; }));
+  check(overhead > distant * 1.3,
     'clouds near the horizon are smaller than the ones overhead (' +
-    Math.round(mean(far)) + 'px against ' + Math.round(mean(near)) + 'px)');
+    Math.round(distant) + 'px against ' + Math.round(overhead) + 'px)');
 
   /* Overcast is not a lot of clouds, it is the lid coming down. */
   function hasDeck(weather) {
@@ -3951,6 +3967,180 @@ function laidDown(ctx, gradient) {
     { seed: 2, style: 'auto' }));
   check(whole.log.length > before, 'and the painter draws a whole picture with it in');
   pass('the landscape has more in it than one thing');
+})();
+
+/*
+ * Cloud at every size.
+ *
+ * Measured as energy per octave on the sky alone — which is seventy per cent
+ * of most of these pictures — adding cloud to a clear day made it *less*
+ * structured at every scale: 9.98 down to 7.51 at thirty-two pixels, 6.95 down
+ * to 6.05 at eight. A storm barely beat a clear noon. That is backwards.
+ * Cloud is one of the most structured things anybody has ever photographed.
+ *
+ * Two causes. A cloud was three to six smooth blobs — one scale of detail with
+ * nothing above or below it — where a real one has the same shape at every
+ * size, towers to bulges to cauliflower to a ragged fringe. And the overcast
+ * deck was a single grey gradient across the whole sky at up to seventy-eight
+ * per cent, a sheet of paint over everything, which of course measures flatter
+ * than no sheet at all.
+ */
+(function cloudAtEverySize() {
+  console.log('\nCloud at every size');
+
+  function lumpsOf(depth, rx, ry) {
+    var ctx = recorder(480, 360);
+    var r = PROMPT.rng(PROMPT.parse('open plains at noon', { seed: 9 }), 'cloud');
+    PAINT.billow(ctx, 240, 120, rx == null ? 90 : rx, ry == null ? 30 : ry,
+      depth, r, 'rgba(255,255,255,1)');
+    return shapesOf(ctx);
+  }
+
+  var one = lumpsOf(0);
+  var many = lumpsOf(2);
+  check(one.length === 1, 'asked for no detail, a cloud lump is one lump');
+  check(many.length > 8,
+    'asked for three storeys of it, it is built from ' + many.length +
+    ' — a lump, the lumps on it, and the lumps on those');
+
+  /* More than one scale is the whole point: the same shape at every size. */
+  var wide = many.map(function (sh) { return sh.w; }).sort(function (a, b) { return b - a; });
+  check(wide[0] > wide[wide.length - 1] * 3,
+    'and they run from ' + Math.round(wide[0]) + 'px down to ' +
+    Math.round(wide[wide.length - 1]) + 'px, which is what makes it a cloud ' +
+    'rather than a blob');
+  /* And filled in at the sizes between, rather than one big and one tiny. */
+  var middling = many.filter(function (sh) {
+    return sh.w < wide[0] * 0.7 && sh.w > wide[wide.length - 1] * 1.6;
+  });
+  check(middling.length > 2,
+    'with ' + middling.length + ' at the sizes in between, not just big and small');
+
+  /*
+   * A continuum of sizes rather than a few of them. Shrinking every lump by
+   * the same fraction gives three sizes exactly, three storeys of identical
+   * bobbles, which reads as a pattern rather than as weather. Pooled across
+   * several clouds so the gaps mean something: sorted by width, no step
+   * between one lump and the next bigger should swallow a large part of the
+   * whole range.
+   */
+  var pooled = [];
+  for (var seed = 1; seed <= 6; seed++) {
+    var c2 = recorder(480, 360);
+    PAINT.billow(c2, 240, 120, 90, 30, 2,
+      PROMPT.rng(PROMPT.parse('open plains at noon', { seed: seed }), 'cloud'),
+      'rgba(255,255,255,1)');
+    shapesOf(c2).forEach(function (sh) { pooled.push(sh.w); });
+  }
+  pooled.sort(function (a, b) { return a - b; });
+  /* Without the single biggest lump of each cloud, which sits well clear of
+   * everything below it by construction — there is one of those per cloud and
+   * a real gap under it, and counting it would measure the shape of the
+   * recursion rather than whether the sizes inside it run continuously. */
+  var inner = pooled.slice(0, Math.floor(pooled.length * 0.9));
+  var range = inner[inner.length - 1] - inner[0];
+  var widest = 0;
+  for (var g = 1; g < inner.length; g++) {
+    widest = Math.max(widest, inner[g] - inner[g - 1]);
+  }
+  check(inner.length > 40 && widest < range * 0.22,
+    'and every size in between is used, not three sizes repeated — the biggest ' +
+    'step between one lump and the next is ' + Math.round(100 * widest / range) +
+    '% of the range across ' + inner.length + ' of them');
+
+  /*
+   * Piled upward. A cloud grows where it is rising, so the lumps go round the
+   * top rather than all the way round — which is what gives one a heaped crown
+   * and a flat bottom instead of a ball.
+   */
+  /*
+   * Pooled across several clouds. One cloud is fifteen lumps, and on fifteen
+   * the difference between heaping upward and not is inside the noise — the
+   * first version of this check passed against lumps placed all the way round.
+   * Across eight it is not close: 0.8% of them below the middle against 46%.
+   */
+  var lift = 0, counted = 0;
+  for (var heapSeed = 1; heapSeed <= 8; heapSeed++) {
+    var c3 = recorder(480, 360);
+    PAINT.billow(c3, 240, 120, 90, 30, 2,
+      PROMPT.rng(PROMPT.parse('open plains at noon', { seed: heapSeed }), 'cloud'),
+      'rgba(255,255,255,1)');
+    var lot = shapesOf(c3);
+    var root = lot[0];
+    var mid = root.y + root.h / 2;
+    lot.slice(1).forEach(function (sh) {
+      /* How far above the middle it sits, as a share of the whole lump's
+       * height. A count of above-versus-below is a cliff — it read 10.4%
+       * against a 10% bar, which is no separation at all — where the average
+       * offset separates the two cases by a mile. */
+      lift += (mid - (sh.y + sh.h / 2)) / Math.max(root.h, 1);
+      counted++;
+    });
+  }
+  var heaped = lift / Math.max(counted, 1);
+  /* Measured both ways: 0.67 heaped upward, 0.38 placed all the way round.
+   * Both are deterministic, so the bar sits between them rather than near
+   * either. */
+  check(counted > 60 && heaped > 0.52,
+    'and they heap upward rather than all the way round — their middles sit ' +
+    heaped.toFixed(2) + ' of a lump above its centre');
+
+  /* It has to stop. A recursion with no floor is a hang, and lumps under a
+   * pixel are a cost with nothing to show for it. */
+  var tiny = lumpsOf(6, 7, 3);
+  check(tiny.length < 40,
+    'and it stops when the lumps get small, whatever depth it is asked for (' +
+    tiny.length + ' from a lump seven pixels across)');
+
+  /*
+   * The overcast deck. Not a lid of paint but the underside of something
+   * enormous, which is all texture: a heavier mass here, a thinner patch
+   * there.
+   */
+  function skyOf(weather) {
+    var spec = PROMPT.parse('open plains at noon', { seed: 9 });
+    spec.weather = weather;
+    spec.weatherStrength = 1;
+    var P = PAINT.makePalette(spec);
+    var ctx = recorder(480, 360);
+    PAINT.clouds(ctx, 480, 360, 200, P, spec, PROMPT.rng(spec, 'cloud'), { x: 60, y: 20 });
+    return { shapes: shapesOf(ctx), ctx: ctx, P: P };
+  }
+  var dull = skyOf('clouds'), fine = skyOf('clear');
+  /* Big shapes up in the sky: the mass in the deck, which a gradient has none
+   * of. Measured against a clear sky, which has no deck to have mass in. */
+  function masses(s) {
+    return s.shapes.filter(function (sh) { return sh.w > 110 && sh.y < 200; }).length;
+  }
+  check(masses(dull) > masses(fine) + 3,
+    'an overcast sky has mass in it rather than one flat grey lid (' +
+    masses(dull) + ' big shapes against a clear sky\'s ' + masses(fine) + ')');
+
+  /* And some of it thinner than the deck, because a break in the cloud is a
+   * real thing and a sky that only ever thickens is a ceiling. */
+  function lightness(css) {
+    var m = /hsla?\([-0-9.]+,\s*[-0-9.]+%,\s*([-0-9.]+)%/.exec(css || '');
+    return m ? parseFloat(m[1]) : null;
+  }
+  var tones = {};
+  dull.shapes.forEach(function (sh) {
+    if (sh.w > 110 && sh.y < 200) {
+      var v = lightness(sh.colour);
+      if (v != null) tones[Math.round(v)] = true;
+    }
+  });
+  check(Object.keys(tones).length >= 2,
+    'in more than one tone, so the cloud thins somewhere as well as thickening (' +
+    Object.keys(tones).join('%, ') + '%)');
+
+  /* Fog is the one weather that should stay featureless — it is the absence of
+   * anything to see, and giving it towers would be the picture disagreeing
+   * with the word. */
+  var mist = skyOf('fog');
+  check(masses(mist) < masses(dull),
+    'and fog stays the flat thing fog is (' + masses(mist) + ' against ' +
+    masses(dull) + ')');
+  pass('cloud has structure at every size, and overcast has mass');
 })();
 
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
