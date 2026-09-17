@@ -66,6 +66,53 @@ inline render::shapes::MeshData bakeComposite(const Scene& scene,
     return render::mergeMeshes(parts);
 }
 
+// One baked part kept separate from the others, with its transformed geometry and its PBR material.
+// Unlike bakeComposite (which flattens everything into one vertex-coloured mesh, losing per-part
+// roughness/metallic/emissive), bakeSegments preserves each part's material — so an exporter can emit
+// real per-part materials (e.g. glTF pbrMetallicRoughness) that carry into Blender / other engines.
+struct MeshSegment {
+    render::shapes::MeshData mesh;      // transformed into world space (positions + normals baked)
+    math::vec3 baseColor{1.0f, 1.0f, 1.0f};
+    math::vec3 emissive{0.0f, 0.0f, 0.0f};
+    float roughness = 0.6f;
+    float metallic = 0.0f;
+};
+
+// Bake the scene's visible nodes into one MeshSegment each (same transform + tint rules as
+// bakeComposite, but NOT merged), carrying every part's material. Nodes with an out-of-range meshId
+// are skipped; the result is empty when nothing qualifies.
+inline std::vector<MeshSegment> bakeSegments(const Scene& scene,
+                                             const std::vector<render::shapes::MeshData>& palette,
+                                             const std::vector<math::vec3>* tintColors = nullptr) {
+    std::vector<MeshSegment> segments;
+    segments.reserve(scene.nodes.size());
+    for (const Node& n : scene.nodes) {
+        if (!n.visible) {
+            continue;
+        }
+        const std::size_t mesh = static_cast<std::size_t>(n.meshId);
+        if (mesh >= palette.size()) {
+            continue;
+        }
+        MeshSegment seg;
+        seg.mesh = render::applyTransform(palette[mesh], n.modelMatrix());
+        seg.emissive = n.emissive;
+        seg.roughness = n.roughness;
+        seg.metallic = n.metallic;
+        if (tintColors && n.colorIndex >= 0 &&
+            static_cast<std::size_t>(n.colorIndex) < tintColors->size()) {
+            seg.baseColor = (*tintColors)[static_cast<std::size_t>(n.colorIndex)];
+            for (render::MeshVertex& v : seg.mesh.vertices) {
+                v.r = seg.baseColor.x;
+                v.g = seg.baseColor.y;
+                v.b = seg.baseColor.z;
+            }
+        }
+        segments.push_back(std::move(seg));
+    }
+    return segments;
+}
+
 // --- Prefab round-trip ------------------------------------------------------------------------------
 
 namespace detail {
