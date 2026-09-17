@@ -2650,6 +2650,161 @@ function launchOptions() {
   check(asked && asked.length > 20 && !/^Ready/.test(asked),
     'and the No sound? button answers at any time (' + asked.slice(0, 60) + '…)');
 
+  console.log('\n— the room —');
+  /* The reverb used to be white noise multiplied by a fading curve, which is an
+     honest description of hiss and a poor one of a space. Every claim below is
+     read off the impulse response itself rather than off how it sounds, because
+     "sounds like a room" is exactly the kind of thing that cannot be asserted. */
+  const room = await page.evaluate(function () {
+    const ctx = new OfflineAudioContext(2, 44100, 44100);
+    const ir = window.Synth.reverbImpulse(ctx, 2.6, 2.4, 'room');
+    const L = ir.getChannelData(0), R = ir.getChannelData(1);
+    const rate = ir.sampleRate;
+    const out = {};
+
+    // Where the very first sound of any kind appears.
+    let first = -1;
+    for (let i = 0; i < L.length; i++) if (Math.abs(L[i]) > 1e-6) { first = i; break; }
+    out.gapMs = first / rate * 1000;
+
+    /* Between the gap and the diffuse tail there must be only discrete taps and
+       silence — that sparse pattern is what a listener measures a room's size
+       from, and noise has no pattern at all. */
+    const a = Math.floor(0.022 * rate), z = Math.floor(0.050 * rate);
+    let taps = 0, lit = 0;
+    for (let i = a; i < z; i++) {
+      if (Math.abs(L[i]) > 1e-6) lit++;
+      if (Math.abs(L[i]) > 0.02 && Math.abs(L[i]) > Math.abs(L[i - 1]) &&
+          Math.abs(L[i]) > Math.abs(L[i + 1])) taps++;
+    }
+    out.taps = taps;
+    out.earlyFill = lit / (z - a);
+
+    function density(f, t) {
+      const i0 = Math.floor(f * rate), i1 = Math.floor(t * rate);
+      let n = 0;
+      for (let i = i0; i < i1; i++) if (Math.abs(L[i]) > 1e-7) n++;
+      return n / (i1 - i0);
+    }
+    out.densityEarly = density(0.055, 0.075);
+    out.densityLate = density(0.35, 0.40);
+
+    /* How much of the energy is in fast movement between samples — a stand-in
+       for treble that needs no transform. */
+    function bright(f, t) {
+      const i0 = Math.floor(f * rate), i1 = Math.floor(t * rate);
+      let e = 0, hf = 0;
+      for (let i = i0 + 1; i < i1; i++) {
+        e += L[i] * L[i];
+        hf += (L[i] - L[i - 1]) * (L[i] - L[i - 1]);
+      }
+      return e > 0 ? hf / e : 0;
+    }
+    out.brightEarly = bright(0.10, 0.25);
+    out.brightLate = bright(1.2, 1.8);
+
+    function corr(f, t) {
+      const i0 = Math.floor(f * rate), i1 = Math.floor(t * rate);
+      let xy = 0, xx = 0, yy = 0;
+      for (let i = i0; i < i1; i++) { xy += L[i] * R[i]; xx += L[i] * L[i]; yy += R[i] * R[i]; }
+      return (xx > 0 && yy > 0) ? xy / Math.sqrt(xx * yy) : 0;
+    }
+    out.corrEarly = corr(0.05, 0.20);
+    out.corrLate = corr(1.2, 1.8);
+
+    /* Size must change the shape of the space and not its loudness. Total
+       energy is what a convolver's output level follows, so that is what is
+       compared — across a room seven times the size. */
+    function energy(seconds) {
+      const c = new OfflineAudioContext(2, 44100, 44100);
+      const b = window.Synth.reverbImpulse(c, seconds, 2.4, 'room');
+      const x = b.getChannelData(0), y = b.getChannelData(1);
+      let e = 0;
+      for (let i = 0; i < b.length; i++) e += x[i] * x[i] + y[i] * y[i];
+      return e / b.sampleRate;
+    }
+    out.energySmall = energy(0.7);
+    out.energyLarge = energy(5.0);
+
+    /* A bigger room takes longer for the first reflection to come back — which
+       is most of how the size of a space is judged. */
+    function gapOf(seconds) {
+      const c = new OfflineAudioContext(2, 44100, 44100);
+      const b = window.Synth.reverbImpulse(c, seconds, 2.4, 'room');
+      const x = b.getChannelData(0);
+      for (let i = 0; i < b.length; i++) if (Math.abs(x[i]) > 1e-6) return i / b.sampleRate * 1000;
+      return -1;
+    }
+    out.gapSmall = gapOf(0.7);
+    out.gapLarge = gapOf(5.0);
+
+    let bad = 0, peak = 0, sum = 0;
+    for (let i = 0; i < L.length; i++) {
+      if (!isFinite(L[i]) || !isFinite(R[i])) bad++;
+      peak = Math.max(peak, Math.abs(L[i]));
+      sum += L[i] * L[i];
+    }
+    out.bad = bad; out.peak = peak; out.rms = Math.sqrt(sum / L.length);
+
+    out.shapes = {};
+    ['gated', 'reverse'].forEach(function (k) {
+      const c = new OfflineAudioContext(2, 44100, 44100);
+      const b = window.Synth.reverbImpulse(c, 2.0, 2.4, k);
+      const d = b.getChannelData(0);
+      let nan = 0, pk = 0, e = 0;
+      for (let i = 0; i < d.length; i++) {
+        if (!isFinite(d[i])) nan++;
+        pk = Math.max(pk, Math.abs(d[i]));
+        e += d[i] * d[i];
+      }
+      out.shapes[k] = { bad: nan, peak: pk, rms: Math.sqrt(e / d.length) };
+    });
+    return out;
+  });
+
+  check(room.bad === 0 && room.rms > 0.05,
+    'the impulse is sound and not broken (rms ' + room.rms.toFixed(3) +
+    ', peak ' + room.peak.toFixed(2) + ')');
+  /* Sound has to reach a wall and come back. Without that gap the reverb starts
+     at the same instant as the note and merely thickens it. */
+  check(room.gapMs > 8 && room.gapMs < 60,
+    'nothing happens at all for the first ' + room.gapMs.toFixed(1) +
+    ' ms — the sound is still on its way to the wall');
+  check(room.gapLarge > room.gapSmall * 1.5,
+    'and a bigger room waits longer for it (' + room.gapSmall.toFixed(1) + ' ms → ' +
+    room.gapLarge.toFixed(1) + ' ms)');
+  /* The pattern of the first few reflections is what a listener measures the
+     size and shape of a space from. Noise has no pattern, which is why a noise
+     reverb has no size — turning it up only made it wetter. */
+  check(room.taps >= 2 && room.earlyFill < 0.02,
+    'the early reflections are discrete: ' + room.taps + ' taps in a window that is ' +
+    (100 - room.earlyFill * 100).toFixed(1) + '% silence');
+  /* Echo density in a real room grows with the square of time: the start of a
+     tail is countable and the end of it is a wash. */
+  check(room.densityEarly < room.densityLate * 0.9,
+    'the tail starts sparse and fills in (' + room.densityEarly.toFixed(2) + ' → ' +
+    room.densityLate.toFixed(2) + ' of samples sounding)');
+  /* Air and soft furnishings eat treble on every bounce, so the top of a real
+     tail is gone long before the bottom of it. A single lowpass in front of the
+     convolver — which is what this used to rely on — makes the whole tail
+     equally dull from the first millisecond instead. */
+  check(room.brightLate < room.brightEarly * 0.7,
+    'and it loses its top as it decays, not all at once (' +
+    room.brightEarly.toFixed(2) + ' → ' + room.brightLate.toFixed(2) + ')');
+  /* Two unrelated noises are maximally wide and read as hiss. Both ears have to
+     hear the same room first and drift apart afterwards. */
+  check(room.corrEarly > 0.12 && room.corrLate < room.corrEarly * 0.6,
+    'both ears hear the same room, then it opens out (correlation ' +
+    room.corrEarly.toFixed(2) + ' → ' + room.corrLate.toFixed(2) + ')');
+  /* Otherwise every move of the size control is half a volume change. */
+  const eRatio = room.energyLarge / Math.max(1e-9, room.energySmall);
+  check(eRatio > 0.8 && eRatio < 1.25,
+    'size changes the shape of the space and not its loudness (a room seven ' +
+    'times larger is ' + eRatio.toFixed(2) + '× the energy)');
+  check(room.shapes.gated.bad === 0 && room.shapes.gated.rms > 0.05 &&
+        room.shapes.reverse.bad === 0 && room.shapes.reverse.rms > 0.05,
+    'the gated and reverse shapes still build, at matched loudness');
+
   console.log('\n— the Station —');
   /* The groovebox. The thing worth proving is not that the pads light up but
      that it is genuinely part of this program: it arrives already filled in

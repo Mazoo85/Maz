@@ -597,10 +597,32 @@
     const revReturn = ctx.createGain();
     revReturn.gain.value = Math.min(1, fx.reverb * moodRev);
     const revPre = ctx.createGain();
+
+    /*
+     * Keep the bottom out of the reverb.
+     *
+     * Sending a whole part in, bass and all, washes the tail out: low notes
+     * carry most of the energy, they mask everything above them, and a room
+     * full of them turns to mud. Engineers have highpassed a reverb send since
+     * plates were physical objects, and this is the same 250 Hz they used.
+     */
+    const revCut = ctx.createBiquadFilter();
+    revCut.type = 'highpass';
+    revCut.frequency.value = 250;
+    revCut.Q.value = BUTTERWORTH_Q_DB;
+
+    /*
+     * Air, not damping. The impulse now loses its own treble as it decays —
+     * three bands, each with its own decay time — so this no longer has to
+     * stand in for that by making the whole tail equally dull from the first
+     * millisecond. It is back to what a tone control on a reverb is for:
+     * taking the very top off so the tail sits behind the music.
+     */
     const revDamp = ctx.createBiquadFilter();
     revDamp.type = 'lowpass';
-    revDamp.frequency.value = revKind === 'shimmer' ? 7200 : 5200;
-    revPre.connect(revDamp).connect(convolver).connect(revReturn).connect(master);
+    revDamp.frequency.value = revKind === 'shimmer' ? 11000 : 9000;
+    revPre.connect(revCut).connect(revDamp).connect(convolver)
+      .connect(revReturn).connect(master);
 
     if (revKind === 'shimmer') {
       /* A real octave above the tail. Squaring a signal doubles its frequency

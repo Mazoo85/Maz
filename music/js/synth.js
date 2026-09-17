@@ -29,7 +29,35 @@
   }
 
   /**
-   * A room tail built from decaying noise, in four shapes.
+   * A room, built the way a room is built.
+   *
+   * The first version of this was white noise multiplied by a fading curve.
+   * That is an honest description of hiss and a poor one of a space, and it is
+   * why every reverb setting here used to read as "wash" rather than "room".
+   * A real impulse response has three parts and this builds all three:
+   *
+   *   1. A gap. Sound has to reach a wall and come back, so nothing at all
+   *      happens for the first several milliseconds. That silence is most of
+   *      what separates an instrument standing *in* a room from one drowning
+   *      in it — without it the reverb starts at the same instant as the note
+   *      and simply thickens it.
+   *
+   *   2. A handful of discrete early reflections. Their *pattern* — how many,
+   *      how spread out, how loud relative to each other — is what your ear
+   *      measures the size and shape of a space from. Noise has no pattern, so
+   *      a noise reverb has no size: turning it up only made it wetter.
+   *
+   *   3. A diffuse tail that starts sparse and fills in. Echo density in a real
+   *      room grows roughly with the square of time, so the first part of a
+   *      tail is countable and the end of it is a smooth wash. Noise is
+   *      maximally dense from the very first sample, which is the other half of
+   *      why synthetic reverb sounds flat.
+   *
+   * The tail is also built in three frequency bands with different decay times,
+   * because air and soft furnishings eat treble as the sound bounces: the top
+   * of a real tail is gone long before the bottom of it. A single lowpass in
+   * front of the convolver — which is what this used to rely on — makes the
+   * whole tail equally dull from the first millisecond instead.
    *
    * `room` is the plain one. `gated` is the same tail cut off part way through,
    * which is what the eighties snare actually is — a long reverb with the end
@@ -44,33 +72,146 @@
     const rate = ctx.sampleRate;
     const len = Math.max(1, Math.floor(rate * seconds));
     const buf = ctx.createBuffer(2, len, rate);
+
+    /* One generator, drawn from twice per sample — once for the part both ears
+       share and once for the part they do not. Deterministic, so the same room
+       is the same room in every render. */
     let seed = 987654321;
+    function rnd() {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return (seed / 0x3fffffff) - 1;
+    }
+
+    /*
+     * How far away the walls are. A bigger room means a longer gap before the
+     * first reflection and a wider spread of them afterwards — which is the
+     * whole of how a listener judges size, so it is derived from the one size
+     * control rather than invented separately.
+     */
+    const size = Math.max(0.3, Math.min(6, seconds));
+    const preDelay = Math.min(0.045, 0.006 + size * 0.006);   // 8 ms to 42 ms
+    const erSpan = Math.min(0.13, 0.025 + size * 0.018);      // early window
+
+    const L = buf.getChannelData(0);
+    const R = buf.getChannelData(1);
+
+    /* ---- 2. Early reflections ------------------------------------- *
+     * Times from the distances a sound travels bouncing off six surfaces, not
+     * a random scatter: the ratios between them are what makes a room read as
+     * a room rather than as a pile of echoes. Each ear hears the same surfaces
+     * at slightly different moments, which is what gives the space width
+     * without the swishiness of two unrelated noises.
+     */
+    const TAPS = [0.0, 0.14, 0.21, 0.35, 0.44, 0.58, 0.67, 0.79, 0.88, 1.0];
+    const erGain = shape === 'gated' ? 0.5 : 0.62;
+    for (let k = 0; k < TAPS.length; k++) {
+      const at = preDelay + TAPS[k] * erSpan;
+      /* Amplitude falls with distance, and the later ones are progressively
+         softer because each bounce has lost energy to a surface. */
+      const amp = erGain * Math.pow(1 - TAPS[k] * 0.82, 1.6) * (k === 0 ? 1 : 0.8);
+      /* Alternating polarity. Real reflections arrive either way up depending
+         on the surface, and all-positive taps sum into a single thud. */
+      const sign = (k % 3 === 1) ? -1 : 1;
+      const spread = 0.0007 + (k % 4) * 0.00035;     // the two ears differ
+      const iL = Math.floor((at - spread * 0.5) * rate);
+      const iR = Math.floor((at + spread * 0.5) * rate);
+      if (iL > 0 && iL < len) L[iL] += sign * amp;
+      if (iR > 0 && iR < len) R[iR] += sign * amp * 0.94;
+    }
+
+    /* ---- 3. The diffuse tail --------------------------------------- *
+     * Three bands, each with its own decay. The one-pole filters below are the
+     * cheapest split that works on a buffer being written a sample at a time,
+     * and a reverb tail does not need steep crossovers — it needs the top to
+     * die before the bottom, which this does.
+     */
+    const tailStart = preDelay + erSpan * 0.45;       // overlaps the reflections
     const gateAt = Math.floor(len * 0.28);
-    for (let ch = 0; ch < 2; ch++) {
-      const d = buf.getChannelData(ch);
-      for (let i = 0; i < len; i++) {
-        seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-        const n = (seed / 0x3fffffff) - 1;
-        const t = i / len;
-        let env;
-        if (shape === 'reverse') {
-          // Grows instead of decaying, with a hard stop at the note itself.
-          env = Math.pow(t, decay * 0.6) * Math.min(1, (1 - t) * 40);
-        } else {
-          env = Math.pow(1 - t, decay) * Math.min(1, t * 40);
-          if (shape === 'gated') {
-            if (i > gateAt) {
-              // A short fade rather than a click, then nothing.
-              const past = (i - gateAt) / (rate * 0.008);
-              env *= Math.max(0, 1 - past);
-            } else {
-              env = Math.min(1, t * 40) * 0.9;     // flat while the gate is open
-            }
+    /* Time constants for a one-pole at roughly 450 Hz and 3.2 kHz. */
+    const aLow = Math.exp(-2 * Math.PI * 450 / rate);
+    const aHigh = Math.exp(-2 * Math.PI * 3200 / rate);
+    let lowL = 0, lowR = 0, midL = 0, midR = 0;
+
+    /* Treble dies fastest, bass slowest — the ratios a carpeted room gives. */
+    const dLow = decay * 0.72;
+    const dMid = decay;
+    const dTop = decay * 2.6;
+
+    for (let i = 0; i < len; i++) {
+      const t = i / len;
+      const secs = i / rate;
+
+      /* Shared and independent noise. The shared part is what makes both ears
+         hear the same room; it is faded out over the first half second so the
+         tail opens up rather than sitting in the middle. */
+      const common = rnd();
+      const sideL = rnd();
+      const sideR = rnd();
+      const shared = Math.max(0, 1 - secs / 0.5) * 0.55;
+      let nL = common * shared + sideL * (1 - shared);
+      let nR = common * shared + sideR * (1 - shared);
+
+      /* Density. Below the ramp the tail is thinned rather than quietened, so
+         the early part is a scatter of separate echoes and the late part is a
+         wash — which is the actual difference between the two. */
+      const ramp = Math.min(1, Math.pow(Math.max(0, secs - tailStart) / 0.09, 2));
+      if (ramp < 1 && Math.abs(rnd()) > ramp) { nL = 0; nR = 0; }
+
+      /* Split into three bands and fade each at its own rate. */
+      lowL += (1 - aLow) * (nL - lowL);
+      lowR += (1 - aLow) * (nR - lowR);
+      midL += (1 - aHigh) * (nL - midL);
+      midR += (1 - aHigh) * (nR - midR);
+      const topL = nL - midL, topR = nR - midR;
+      const bandL = midL - lowL, bandR = midR - lowR;
+
+      let eLow, eMid, eTop;
+      if (shape === 'reverse') {
+        /* Grows instead of decaying, with a hard stop at the note itself. The
+           bands run together here: a swell that changed colour on the way in
+           reads as a mistake rather than as a room. */
+        const e = Math.pow(t, decay * 0.6) * Math.min(1, (1 - t) * 40);
+        eLow = eMid = eTop = e;
+      } else {
+        eLow = Math.pow(1 - t, dLow);
+        eMid = Math.pow(1 - t, dMid);
+        eTop = Math.pow(1 - t, dTop);
+        if (shape === 'gated') {
+          if (i > gateAt) {
+            // A short fade rather than a click, then nothing.
+            const past = (i - gateAt) / (rate * 0.008);
+            const g = Math.max(0, 1 - past);
+            eLow *= g; eMid *= g; eTop *= g;
+          } else {
+            eLow = eMid = eTop = 0.9;              // flat while the gate is open
           }
         }
-        d[i] = n * env;
       }
+
+      /* Nothing at all before the first reflection comes back. */
+      const open = secs < tailStart ? 0 : Math.min(1, (secs - tailStart) / 0.01);
+      const gL = (lowL * eLow + bandL * eMid + topL * eTop) * open * 0.85;
+      const gR = (lowR * eLow + bandR * eMid + topR * eTop) * open * 0.85;
+      L[i] += gL;
+      R[i] += gR;
     }
+
+    /*
+     * Normalise to a fixed total energy.
+     *
+     * A convolver's output level is the energy in its impulse, so without this
+     * a bigger room is also a louder one and every change to the size control
+     * is half a volume change. Normalising means size changes the *shape* of
+     * the space and nothing else, which is what the control claims to do — and
+     * it keeps the three shapes at matched loudness, so switching from a room
+     * to a gated tail is a change of character rather than of level.
+     */
+    let energy = 0;
+    for (let i = 0; i < len; i++) energy += L[i] * L[i] + R[i] * R[i];
+    const want = 0.30 * rate;
+    const scale = energy > 1e-9 ? Math.sqrt(want / energy) : 1;
+    for (let i = 0; i < len; i++) { L[i] *= scale; R[i] *= scale; }
+
     ctx[key] = buf;
     return buf;
   }
