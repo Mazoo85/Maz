@@ -47,8 +47,23 @@
    * So it is on where there is no clock — the command-line renderer, which has all night — and off
    * where there is one. If the play path ever gets cheaper, this is the first thing that should have
    * the room. */
-  var PLAY = { supersample: 1, shadows: 1, shutter: 0 };
-  var KEEP = { supersample: 2, shadows: 2, shutter: 50 };
+  //
+  // `contact` is the shading that collects in corners and where things meet — the thing that makes
+  // something rest on a floor rather than hover in front of it. It goes the same way as the shutter,
+  // and for the same reason, after an estimate that was wrong.
+  //
+  // The estimate came from the command-line renderer, where the pass costs 4.6 ms (37.8 ms a frame
+  // to 42.4 ms, best of three over 48 frames) — comfortably affordable. Measured where it actually
+  // has to run it costs 10 ms: this machine draws a play-tier frame in 34 ms without it and 44 ms
+  // with, against a limit of 41. WebAssembly is about twice as slow at it as native is, and a figure
+  // measured on the wrong side of that gap is not a figure.
+  //
+  // So it is on for KEEP, which has no clock, and off for PLAY, which does. Nothing about the effect
+  // changed — it is on in every frame of a film that gets recorded or exported, which is the film
+  // anyone actually watches. If the play path ever gets cheaper this is second in the queue behind
+  // the shutter, and halving the ring or dropping to quarter resolution would both buy it room.
+  var PLAY = { supersample: 1, shadows: 1, shutter: 0, contact: 0 };
+  var KEEP = { supersample: 2, shadows: 2, shutter: 50, contact: 55 };
 
   /* ------------------------------------------------------------------ the module */
 
@@ -84,7 +99,7 @@
         load: m.cwrap('maz3d_load', 'number', ['string']),
         errorAt: m.cwrap('maz3d_error', 'number', []),
         render: m.cwrap('maz3d_render', 'number',
-                        ['number', 'number', 'number', 'number', 'number', 'number'])
+                        ['number', 'number', 'number', 'number', 'number', 'number', 'number'])
       };
       return mod;
     }, function (err) {
@@ -116,7 +131,8 @@
   function draw3D(ctx, width, height, reel, time, opts) {
     if (!mod || !giveReel(reel)) return false;
     var how = (opts && opts.keep) ? KEEP : PLAY;
-    var ptr = mod.render(time || 0, width, height, how.supersample, how.shadows, how.shutter);
+    var ptr = mod.render(time || 0, width, height, how.supersample, how.shadows, how.shutter,
+                         how.contact);
     if (!ptr) return false;
     var bytes = mod.raw.HEAPU8.subarray(ptr, ptr + width * height * 4);
     var image = ctx.createImageData(width, height);

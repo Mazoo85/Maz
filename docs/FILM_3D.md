@@ -375,11 +375,89 @@ length is depth per metre whichever way the light points, and that is what is re
 
 ---
 
+## Contact shading
+
+Where two surfaces meet, light gets trapped and it goes dark. Without it a chair does not rest on a
+floor, it is pasted in front of one — and that was true of every room in every film here. It is the
+single cheapest thing that makes a render stop looking like flat shapes in front of each other.
+
+`render/ScreenAmbient.hpp` does it from the depth buffer, which is already read back for the lens, so
+it costs one pass over the frame and no geometry at all. `--corners 0..100` on the command line, and
+the browser plays at 55.
+
+**The baker was tried first and does not work here.** The engine already has `bakeVertexAO`, which is
+the textbook answer, and it was the obvious thing to reach for. Rendered and looked at, it was worse
+than nothing: muddy gradients across whole walls and no shading in any corner. The reason is worth
+keeping, because it says when to come back to it. These sets are built from large boxes, so a wall
+has four corners and no vertices anywhere in between — per-vertex occlusion can only darken those
+four and interpolate over everything between them. Worse, inside a closed room nearly every vertex is
+occluded by the room itself, so the bake mostly just turns the lights down. It becomes the right tool
+the day the sets are built from more than a few hundred triangles.
+
+Screen space does not care how anything is tessellated, costs the same on a box as on a carving, and
+works on the **people** — who are rebuilt from scratch every frame and could never have been baked.
+
+**It runs at half resolution.** Occlusion in a corner is soft and wide; there is no detail in it
+finer than a few pixels, so computing it per pixel spends four times the samples on an answer that
+comes out nearly the same for all four. At full resolution the pass cost 10.2 ms of a 38 ms frame,
+which the budget does not have. At half it costs **4.6 ms** (37.8 ms → 42.4 ms a frame, measured
+best-of-three over 48 frames) for a picture nobody can tell apart.
+
+That figure is the command line's, and it is not the one that decides anything. In the browser the
+same pass costs **10 ms** — a play-tier frame goes from 34 ms to 44 ms against a 41 ms limit — so
+contact shading is **off while the film is playing and on for anything recorded or exported**, the
+same split the shutter takes, for the same reason and after the same mistake of quoting a native
+measurement at a WebAssembly budget. The four depths behind each
+half-resolution pixel are reduced by taking the **nearest**, not the average, so an edge stays an
+edge instead of being blurred into whatever is behind it, and the result is read back bilinearly so
+the coarse grid does not show up as a staircase.
+
+### Three things it got wrong first
+
+Each of these was found by rendering a frame and looking at it, and each is now a test.
+
+**Every floor darkened along its whole length.** The first version asked "is my neighbour nearer than
+me?", which on a floor running away from the camera is true at every single pixel. The question has
+to be whether the neighbour is nearer *than this surface, carried on, would have put it* — whether it
+rises off the pixel's own plane. Of the two slopes either side, the gentler is taken: at the edge of
+an object one side steps off a cliff and the other stays on the surface.
+
+**Long vertical smears down every wall.** The slope was measured over one pixel and then extrapolated
+up to forty-nine. A wall seen at a grazing angle changes distance fast enough per pixel that this is
+metres out by the edge of the ring. The slope is now measured at the ring's own radius.
+
+**The whole floor darkened again, more subtly.** The surface was predicted from the offset that was
+*asked* for while the depth was read from the pixel actually *sampled* — up to half a pixel apart,
+which on a steep floor is several centimetres against a 2.7 cm threshold. The rounding has to happen
+before the prediction, not after it.
+
+### A guard that could not fail, and a read off the end of the array
+
+Two guards were written to stop a figure's silhouette drawing a halo around itself. Mutation testing
+could kill neither, and instrumenting the case showed why: the fade already fell to zero well before
+a silhouette's distance, so both were dead code. Chasing that down turned up a real bug — the fade
+was going **negative** for anything further forward than the reach, and a negative contribution does
+not reject a sample, it *cancels the others*. A pixel with one genuine corner beside it and one
+distant object in the ring came out unshaded, the corner silently subtracted away. Clamping the fade
+at zero is a correctness fix; the two guards were then provably dead and were deleted, because a
+guard nobody can make fail is a guard nobody can reason about.
+
+The unit test passed throughout all of that. What caught the last bug was **compiling it with
+`-fsanitize=address`**: one of the two slope reads indexed the half-resolution buffer with the
+full-resolution stride and ran off the end of the allocation. Native read whatever followed on the
+heap; WebAssembly read zeroes. CI already runs the unit tests under the sanitizers, so it would have
+been caught there — but the lesson for anything new is to spend the fifteen seconds locally:
+
+```sh
+g++ -std=c++20 -g -fsanitize=address,undefined -Iengine/include -I<glm> tests/render/<new>.cpp \
+    engine/src/render/Shapes.cpp -o /tmp/t && /tmp/t
+```
+
 ## One renderer, compiled twice
 
-`film/tests/film-3d.test.js` demands that the browser draw **exactly** the film the command line
-draws — every pixel of nine frames, no tolerance at all. That standard was not where the test
-started, and how it got there is worth keeping.
+`film/tests/film-3d.test.js` holds the browser to the film the command line draws. How closely, and
+why not more closely than it does, took two goes to get right — and the first answer, which stood in
+this document for a while, was wrong.
 
 The first version allowed a step or two of difference, on the reasoning that two compilers round
 arithmetic differently. It failed anyway: a tenth of the pixels in a street scene disagreed, by up to
@@ -397,10 +475,51 @@ stand(dice.range(3.0f, 7.0f), dice.range(4.0f, 9.0f), dice.range(3.0f, 6.0f), x,
 C++ does not specify which argument is evaluated first, and GCC and Clang genuinely choose
 differently — so the random numbers were dealt out in a different order and the skyline came out
 different, for the same film with the same seed, depending only on which compiler built the renderer.
-One roll per statement, and the two builds agree on all 881,280 pixels of the fixture without a single
-step between them.
+One roll per statement fixed it, and the fixture's nine frames came back identical, to the pixel.
 
-The tolerance stays at zero, because anything else would have hidden it.
+### What that did not prove
+
+The sentence that went in here afterwards — that the two builds agree on every pixel — was true of
+the nine frames in the fixture and not true in general. It went unnoticed because nothing had looked
+anywhere else.
+
+Sweeping fifty-eight moments of the same reel found frames where the two builds do not agree. The
+worst of them, the middle of shot 14, differs on 3.8 per cent of its pixels by up to 5 steps; most
+frames differ on none. Looking at that frame is what settles what it is: the differences are not
+spread over the picture, they lie in a scatter along **one diagonal edge** — the lit side of a
+doorway — and nowhere else in frame.
+
+That is sub-pixel geometry, and it does not round away. The two builds reach `sin`, `cos` and `tan`
+through different C libraries, which are permitted to disagree in the last bit and do. A vertex
+therefore projects about a hundred-thousandth of a pixel apart in the two builds. That is invisible
+everywhere except on a pixel whose centre sits within a hundred-thousandth of a triangle edge, where
+coverage flips outright — and if the edge divides a lit wall from a dark one, that pixel jumps
+several steps at once.
+
+Quantising the geometry does not help, and it is worth saying why, because it is the obvious idea:
+snapping vertices to a finer grid makes the disagreement rarer in exactly the proportion that it
+makes it bigger, and the product is unchanged. Only arithmetic that is bit-identical in both builds
+closes it, which means shipping our own trigonometry rather than the platform's. That is a real piece
+of work, and until someone wants it, this is a known and measured property of the renderer rather
+than a bug in it.
+
+### So the standard is measured
+
+The fixture now carries eleven frames, and the two extra ones are the worst moments anyone has found
+rather than nine that happen to be clean — a test that only looks where the answer is easy is not a
+test. Three gates, each set between what sub-pixel edges actually do and what the dice bug actually
+did:
+
+| | worst step | pixels differing | mean difference |
+|---|---|---|---|
+| edge coverage, measured | 5 | 3.84% | 0.043 |
+| **the gates** | **12** | **6%** | **0.25** |
+| the dice bug, as it was | 42 | ~10% | ~2.0 |
+
+Each gate was mutation-tested: one pixel pushed 20 steps trips the first alone, a tenth of the frame
+inverted trips all three, and the whole frame moved by one step trips the last two and correctly
+leaves the first alone. A logic bug moves geometry, and moved geometry is loud in all three numbers
+at once — which is the property the zero-tolerance version was really buying, and this keeps.
 
 ### And which renderer is for what
 

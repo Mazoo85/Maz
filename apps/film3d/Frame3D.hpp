@@ -6,6 +6,7 @@
 #include "maz/film/AirVolume.hpp"
 #include "maz/render/DepthOfField.hpp"
 #include "maz/render/MotionBlur.hpp"
+#include "maz/render/ScreenAmbient.hpp"
 #include "maz/film/Expression.hpp"
 
 #include "maz/render/Tonemap.hpp"
@@ -37,6 +38,10 @@ struct Look {
     // camera at twelve frames a second is a slideshow. A separate knob from the lens because it
     // costs a different amount and only on the frames where the camera is actually moving.
     int shutter = 50;
+    // How hard corners and contacts are shaded, in hundredths. 0 is off. It costs a pass over the
+    // frame and nothing else — no geometry, no bake, no per-shot stall — so unlike the shutter it is
+    // affordable while a film is playing.
+    int contact = 55;
     int supersample = 2;   // 1 plays, 2 is for keeps: the frame is drawn twice over and averaged
     int shadows = 2;       // 0 none, 1 a hard edge, 2 a soft one
 };
@@ -625,7 +630,7 @@ inline Image drawFrame3D(const Reel& reel, const std::map<std::string, Cast>& ca
     const bool wantsShutter = look.shutter > 0 && cache != nullptr && cache->lensShot == shot->index &&
                               cache->at >= 0.0 && time > cache->at && time - cache->at < 0.35;
     std::vector<float> depth;
-    if (look.lens > 0 || wantsShutter) {
+    if (look.lens > 0 || wantsShutter || look.contact > 0) {
         depth.assign(static_cast<std::size_t>(frameW) * static_cast<std::size_t>(frameH), 1.0f);
         for (int y = 0; y < static_cast<int>(frameH); ++y) {
             for (int x = 0; x < static_cast<int>(frameW); ++x) {
@@ -633,6 +638,21 @@ inline Image drawFrame3D(const Reel& reel, const std::map<std::string, Cast>& ca
                       static_cast<std::size_t>(x)] = raster.depthAt(x * S + S / 2, y * S + S / 2);
             }
         }
+    }
+
+    // ---- contact shading ---------------------------------------------------------------------------
+    //
+    // Where two surfaces meet, light gets trapped. Without it a chair does not rest on a floor, it is
+    // pasted in front of one — and that was true of every room in every film here. Done from the
+    // depth buffer that is already read back below for the lens, so it works on the people as well as
+    // the room, which a baked answer never could: the figures are rebuilt from scratch every frame.
+    //
+    // Before the print curve and before the lens, because it is light being absorbed in a corner
+    // rather than something done to a photograph afterwards.
+    if (look.contact > 0 && !depth.empty()) {
+        maz::render::screenAmbientOcclusion(img, y0, y0 + static_cast<int>(frameH), depth, 0.04f,
+                                            220.0f, 0.45f,
+                                            static_cast<float>(look.contact) / 100.0f);
     }
 
     // ---- the shutter ------------------------------------------------------------------------------

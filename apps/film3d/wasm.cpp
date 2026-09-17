@@ -78,7 +78,8 @@ EMSCRIPTEN_KEEPALIVE int maz3d_shot_at(double seconds) {
 // it. Anything that calls this without saying gets no shutter, which is the safe answer for a caller
 // that has not thought about its frame budget.
 EMSCRIPTEN_KEEPALIVE const std::uint8_t* maz3d_render(double seconds, int width, int height,
-                                                      int supersample, int shadows, int shutter) {
+                                                      int supersample, int shadows, int shutter,
+                                                      int contact) {
     if (!g_reel.valid || width < 8 || height < 8) {
         return nullptr;
     }
@@ -86,6 +87,7 @@ EMSCRIPTEN_KEEPALIVE const std::uint8_t* maz3d_render(double seconds, int width,
     look.supersample = supersample;
     look.shadows = shadows;
     look.shutter = shutter < 0 ? 0 : (shutter > 100 ? 100 : shutter);
+    look.contact = contact < 0 ? 0 : (contact > 100 ? 100 : contact);
     g_frame = film3d::drawFrame3D(g_reel, g_cast, seconds, width, height, look, &g_cache);
     return g_frame.data().data();
 }

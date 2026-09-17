@@ -8,6 +8,7 @@
   "height": 204,
   "supersample": 1,
   "shadows": 1,
+  "corners": 55,
   "fps": 12,
   "frames": [
     {
@@ -54,6 +55,16 @@
       "file": "frame-08.ppm.gz",
       "time": 151.5,
       "shot": 40
+    },
+    {
+      "file": "frame-09.ppm.gz",
+      "time": 65.33333333333333,
+      "shot": 14
+    },
+    {
+      "file": "frame-10.ppm.gz",
+      "time": 66.41666666666667,
+      "shot": 14
     }
   ]
 }

@@ -63,7 +63,7 @@ function run(Module) {
   var people = Module.cwrap('maz3d_people', 'number', []);
   var shotAt = Module.cwrap('maz3d_shot_at', 'number', ['number']);
   var render = Module.cwrap('maz3d_render', 'number',
-                            ['number', 'number', 'number', 'number', 'number', 'number']);
+                            ['number', 'number', 'number', 'number', 'number', 'number', 'number']);
 
   function errorText() { return Module.UTF8ToString(errorPtr()); }
 
@@ -93,59 +93,107 @@ function run(Module) {
 
   // ------------------------------------------------------------------ 3. the same picture
   //
-  // Exactly the same picture. Not "close enough", not "within a tolerance" — every pixel of every
-  // frame, identical to the ones the native renderer wrote.
+  // The browser has to draw the film the command line draws. How exactly, and why not more exactly
+  // than this, is the whole of what follows — because the answer changed once the question was
+  // measured properly.
   //
-  // That standard was not the one this test started with, and the story of how it got here is the
-  // reason it is worth keeping. The first version allowed a step or two of difference, on the
-  // reasoning that two compilers round arithmetic differently. It failed anyway: a tenth of the pixels
-  // in a street scene disagreed, by up to 42 steps. Blurring did not absorb it, so it was not
-  // sub-pixel. Turning the shadows off did not change it, so it was not the lighting. Cropping the
-  // worst pixel and looking at both showed the same buildings STANDING IN DIFFERENT PLACES.
+  // This test used to demand every pixel be identical, and that standard earned its keep. The first
+  // version allowed a step or two, on the reasoning that two compilers round arithmetic differently.
+  // It failed anyway: a tenth of the pixels in a street scene disagreed, by up to 42 steps. Blurring
+  // did not absorb it, so it was not sub-pixel. Turning the shadows off did not change it, so it was
+  // not the lighting. Cropping the worst pixel and looking at both showed the same buildings STANDING
+  // IN DIFFERENT PLACES. The cause was two dice rolls inside one function call: C++ does not specify
+  // which argument is evaluated first, GCC and Clang really do choose differently, so the random
+  // numbers were dealt out in a different order and the skyline came out different — same film, same
+  // seed, different compiler. One roll per statement fixed it.
   //
-  // The cause was two dice rolls inside one function call. C++ does not specify which argument is
-  // evaluated first, and GCC and Clang really do choose differently, so the random numbers were dealt
-  // out in a different order and the skyline came out different — for the same film, with the same
-  // seed, depending only on which compiler built the renderer. One roll per statement fixed it, and
-  // the two builds then agreed on all 881,280 pixels without a single step between them.
+  // What was NOT true is the sentence that went in the docs afterwards: that the two builds agree on
+  // every pixel. They agree on every pixel of the nine frames that were in the fixture. Sweeping
+  // fifty-eight moments of the same reel found frames where they do not — and looking at one showed
+  // what it is. Not blocks in the wrong place: a single diagonal edge, the lit side of a doorway,
+  // with a scatter of pixels along it and nothing anywhere else in frame.
   //
-  // So the tolerance stays at zero. Anything else here would have hidden that.
+  // That is sub-pixel geometry, and it is not fixable by rounding more carefully. The two builds
+  // reach `sin`, `cos` and `tan` through different C libraries, which are allowed to differ in the
+  // last bit and do. A vertex therefore projects perhaps a hundred-thousandth of a pixel apart in the
+  // two builds, which is invisible everywhere except on a pixel whose centre sits within a
+  // hundred-thousandth of a triangle edge — where coverage flips, and if that edge divides a lit wall
+  // from a dark one the pixel jumps several steps. Quantising the geometry does not help: it makes
+  // the disagreement rarer and correspondingly bigger, and the product does not move. Only arithmetic
+  // that is bit-identical in both builds would close it, which means shipping our own trigonometry,
+  // and that is a real piece of work rather than a rounding tweak.
+  //
+  // So the standard is now a measured one, and the fixture deliberately includes the worst moment
+  // found (frame-09) rather than nine that happen to be clean. What the two phenomena score:
+  //
+  //                            worst step    pixels differing    mean difference
+  //   edge coverage, measured       5             3.84%              0.043
+  //   the dice bug, as it was      42            ~10%              ~2.0
+  //
+  // The gates sit between them, nearer the measurement: a few times what sub-pixel edges can do, and
+  // several times under what a genuine divergence did. A logic bug moves geometry, and moved geometry
+  // is loud in all three numbers at once.
+  var WORST_STEP = 12;     // 2.4x the measured edge flip, 3.5x under the dice bug
+  var MOST_PIXELS = 0.06;  // 1.6x the measured share, under the dice bug's tenth
+  var MEAN_STEP = 0.25;    // 6x the measured mean, 8x under the dice bug
+
   var worst = 0;
   var worstFrame = '';
   var differing = 0;
   var samples = 0;
+  var loudest = 0;         // the largest share of any one frame
+  var loudestMean = 0;     // and the largest mean difference of any one frame
+  var loudestFrame = '';
 
   manifest.frames.forEach(function (f) {
     var want = readPpm(path.join(FIXTURE_DIR, f.file));
     // Shutter 0, explicitly. Every fixture frame is a lone still and a still has no previous
     // camera to smear from, so the shutter could not fire here anyway — but saying so beats
     // relying on an absent argument becoming a zero.
-    var ptr = render(f.time, want.width, want.height, manifest.supersample, manifest.shadows, 0);
+    var ptr = render(f.time, want.width, want.height, manifest.supersample, manifest.shadows, 0,
+                     manifest.corners == null ? 0 : manifest.corners);
     check(ptr !== 0, 'the module returns a frame for ' + f.file);
     if (!ptr) return;
     var got = Module.HEAPU8.subarray(ptr, ptr + want.width * want.height * 4);
 
-    for (var i = 0, p = 0; i < want.width * want.height; i++, p += 3) {
+    var count = want.width * want.height;
+    var here = 0;
+    var sum = 0;
+    for (var i = 0, p = 0; i < count; i++, p += 3) {
       var d = 0;
       for (var c = 0; c < 3; c++) {
         var v = Math.abs(got[i * 4 + c] - want.rgb[p + c]);
+        sum += v;
         if (v > d) d = v;
       }
-      if (d > 0) differing++;
+      if (d > 0) { here++; differing++; }
       if (d > worst) { worst = d; worstFrame = f.file; }
     }
+    var share = here / count;
+    var mean = sum / (count * 3);
+    if (share > loudest) { loudest = share; loudestFrame = f.file; }
+    if (mean > loudestMean) { loudestMean = mean; }
     samples++;
   });
 
   check(samples === manifest.frames.length, 'every fixture frame was rendered');
-  check(worst === 0,
-        'the browser draws exactly the film the command line draws — ' + differing +
-        ' pixels differed, worst by ' + worst + (worstFrame ? ' in ' + worstFrame : ''));
+  check(worst <= WORST_STEP,
+        'no pixel of the browser\'s film is more than ' + WORST_STEP + ' steps from the command ' +
+        'line\'s — worst was ' + worst + (worstFrame ? ' in ' + worstFrame : '') +
+        ', over ' + differing + ' pixels in all');
+  check(loudest <= MOST_PIXELS,
+        'the disagreement stays on edges rather than spreading over the frame — ' +
+        (loudest * 100).toFixed(2) + '% of one frame differed' +
+        (loudestFrame ? ' (' + loudestFrame + ')' : '') + ', the gate is ' +
+        (MOST_PIXELS * 100).toFixed(0) + '%');
+  check(loudestMean <= MEAN_STEP,
+        'averaged over the whole frame the two builds draw the same picture — worst mean ' +
+        'difference ' + loudestMean.toFixed(4) + ' of 255, the gate is ' + MEAN_STEP);
 
   // ------------------------------------------------------------------ 4. it is a picture
   {
     var f = manifest.frames[manifest.frames.length - 1];
-    var ptr = render(f.time, 320, 136, 1, 1, 0);
+    var ptr = render(f.time, 320, 136, 1, 1, 0, 0);
     check(ptr !== 0, 'a frame comes back at a size nobody asked for in the fixture');
     var px = Module.HEAPU8.subarray(ptr, ptr + 320 * 136 * 4);
     var seen = {};
@@ -159,9 +207,9 @@ function run(Module) {
   }
 
   // ------------------------------------------------------------------ 5. it refuses the impossible
-  check(render(0, 2, 2, 1, 1, 0) === 0, 'a frame smaller than a thumbnail is refused, not crashed on');
+  check(render(0, 2, 2, 1, 1, 0, 0) === 0, 'a frame smaller than a thumbnail is refused, not crashed on');
   check(load('nonsense') === 0, 'and a bad reel after a good one is still refused');
-  check(render(0, 320, 136, 1, 1, 0) === 0, 'after which there is no film to render');
+  check(render(0, 320, 136, 1, 1, 0, 0) === 0, 'after which there is no film to render');
 }
 
 var factory = require(path.join(WASM_DIR, 'film3d.js'));

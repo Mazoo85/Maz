@@ -36,12 +36,16 @@ H=204
 SS=1
 SHADOWS=1
 FPS=12
+# Recorded in the manifest and passed explicitly, so the two sides cannot drift. They did: a new
+# setting arrived with a non-zero default, the fixture picked it up and the test did not, and
+# 226,416 pixels disagreed for a reason nobody had chosen.
+CORNERS=55
 
-python3 - "$reel" "$out" "$bin" "$W" "$H" "$SS" "$SHADOWS" "$FPS" <<'PY'
+python3 - "$reel" "$out" "$bin" "$W" "$H" "$SS" "$SHADOWS" "$FPS" "$CORNERS" <<'PY'
 import json, subprocess, sys, os, shutil
 
-reel_path, out, binary, W, H, SS, SHADOWS, FPS = sys.argv[1:9]
-W, H, SS, SHADOWS, FPS = int(W), int(H), int(SS), int(SHADOWS), int(FPS)
+reel_path, out, binary, W, H, SS, SHADOWS, FPS, CORNERS = sys.argv[1:10]
+W, H, SS, SHADOWS, FPS, CORNERS = int(W), int(H), int(SS), int(SHADOWS), int(FPS), int(CORNERS)
 reel = json.load(open(reel_path))
 shots = reel['shots']
 
@@ -57,12 +61,29 @@ for i in range(0, len(shots), step):
     if len(picks) == 9:
         break
 
+# And the awkward moments, kept on purpose.
+#
+# Nine evenly spaced frames are a fair sample of the film and a poor sample of where the two builds
+# disagree. Sweeping fifty-eight moments of this reel found the disagreement is not spread evenly at
+# all: it lives on high-contrast edges seen at a slant, and one frame — the middle of shot 14, a
+# doorway edge running diagonally across a lit wall — carried more of it than the other fifty-seven
+# put together. The evenly spaced nine missed it entirely, which meant the test was passing by luck
+# of sampling rather than by agreement. So the worst moment anyone has found goes in the fixture
+# deliberately: a test that only looks where the answer is easy is not a test.
+for extra in (65.33333333333333, 66.41666666666667):
+    t = round(extra * FPS) / FPS
+    for s in shots:
+        if s['start'] <= t <= s['start'] + s['duration']:
+            picks.append((t, s['index']))
+            break
+
 frames = []
 tmp = os.path.join(out, '_tmp')
 for n, (t, idx) in enumerate(picks):
     os.makedirs(tmp, exist_ok=True)
     subprocess.run([binary, reel_path, '--out', tmp, '--ppm', '--width', str(W),
-                    '--ss', str(SS), '--shadows', str(SHADOWS), '--still', repr(t)],
+                    '--ss', str(SS), '--shadows', str(SHADOWS),
+                    '--corners', str(CORNERS), '--still', repr(t)],
                    check=True, stdout=subprocess.DEVNULL)
     # Gzipped: these are nine uncompressed frames and they live in the repository forever.
     name = 'frame-%02d.ppm.gz' % n
@@ -81,7 +102,7 @@ manifest = {
     'shots': len(shots),
     'people': len(reel['characters']),
     'width': W, 'height': H,
-    'supersample': SS, 'shadows': SHADOWS, 'fps': FPS,
+    'supersample': SS, 'shadows': SHADOWS, 'corners': CORNERS, 'fps': FPS,
     'frames': frames,
 }
 json.dump(manifest, open(os.path.join(out, 'manifest.json'), 'w'), indent=2)

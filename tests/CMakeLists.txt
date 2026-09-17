@@ -384,6 +384,10 @@ add_executable(maz_depth_of_field_tests render/depthoffield.cpp)
 target_link_libraries(maz_depth_of_field_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME depth_of_field COMMAND maz_depth_of_field_tests)
 
+add_executable(maz_screen_ambient_tests render/screenambient.cpp)
+target_link_libraries(maz_screen_ambient_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME screen_ambient COMMAND maz_screen_ambient_tests)
+
 add_executable(maz_motion_blur_tests render/motionblur.cpp)
 target_link_libraries(maz_motion_blur_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME motion_blur COMMAND maz_motion_blur_tests)
