@@ -575,3 +575,21 @@ def test_touching_only_the_forges_own_paths_also_reads_as_nothing(tmp_path):
     assert out.ok is False
     assert "changed nothing" in out.error
     assert "outside the safe zones" not in out.error
+
+
+def test_a_silent_crew_still_reports_what_it_said(tmp_path):
+    """Crew's output is the only account of a run that changed nothing.
+
+    The first live run threw it away: the `code != 0` branch keeps Crew's
+    words, the zero-exit path did not, and a night that did nothing was
+    therefore unexplainable after the fact.
+    """
+    git = FakeGit()
+    git.changed = []
+
+    out = do(CHOSEN, tmp_path, ForgeConfig(), git=git,
+             crew=lambda task, root, timeout_s: (0, "planner stopped: no plan produced", 0.0))
+
+    assert out.ok is False
+    assert "changed nothing" in out.error
+    assert "planner stopped: no plan produced" in out.error

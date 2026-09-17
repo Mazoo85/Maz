@@ -226,9 +226,17 @@ def do(chosen: dict, root: Path, config: ForgeConfig, git=None, crew=None,
     # filed under none. Caught on the very first live run, which reported a
     # leash violation for a Crew that had simply done nothing at all.
     if not files:
+        # Carry Crew's own words. The `code != 0` branch above already does
+        # this, and the first live run showed why the quiet branch needs it
+        # more: Crew exited 0, changed nothing, and its output — the only
+        # account of what it actually did — was thrown away because the exit
+        # code looked fine. A night that did nothing must still say why.
+        said = output.strip()[-400:]
+        note = "Crew exited cleanly but changed nothing"
+        if said:
+            note += f"; it said: {said}"
         return CrewOutcome(False, name, (), cost, duration,
-                           _with_note("Crew exited cleanly but changed nothing",
-                                      cost_note))
+                           _with_note(note, cost_note))
 
     if len(files) > config.max_files_touched:
         return CrewOutcome(False, name, files, cost, duration,
