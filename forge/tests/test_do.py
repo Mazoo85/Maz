@@ -62,7 +62,11 @@ def test_do_creates_a_branch_then_runs_crew(tmp_path):
     assert out.cost_usd == 1.25
     assert seen["task"] == "Write the loot table docs"
     assert seen["timeout_s"] == 45 * 60
-    assert ["checkout", "-b", out.branch] in git.calls
+    # Cut from the configured trunk by name, not from whatever HEAD was:
+    # the start point is the whole point, so assert it rather than just the
+    # branch name.
+    cfg = ForgeConfig()
+    assert ["checkout", "-b", out.branch, cfg.base_branch] in git.calls
 
 
 def test_crew_failure_is_reported_not_raised(tmp_path):

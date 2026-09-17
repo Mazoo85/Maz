@@ -227,6 +227,40 @@ def ledger(root: str | None = _ROOT_OPT, limit: int = typer.Option(10, help="How
     console.print(table)
 
 
+@app.command("graft-ledger")
+def graft_ledger(
+    source: str = typer.Argument(..., help="Directory of month files captured after a run."),
+    root: str | None = _ROOT_OPT,
+) -> None:
+    """Append a captured run's ledger lines onto the real ledger.
+
+    A live run ends on the trunk, not on the branch that holds the record, so
+    the line it writes lands on the trunk's copy. The nightly job captures the
+    ledger directory afterwards and grafts it back here. Append-only and
+    idempotent: re-running adds nothing.
+    """
+    r = _root(root)
+    cfg = load_config(r)
+    try:
+        added = ledger_mod.graft(Path(source), r, cfg)
+    except FileNotFoundError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1)
+    except ValueError as exc:
+        console.print(f"[red]refusing to graft a malformed ledger: {exc}[/red]")
+        raise typer.Exit(1)
+
+    total = sum(added.values())
+    if not added:
+        console.print("[yellow]No month files found to graft.[/yellow]")
+        return
+    if total == 0:
+        console.print("Ledger already has every captured line — nothing added.")
+        return
+    for name, n in sorted(added.items()):
+        console.print(f"  {name}: +{n} line(s)")
+
+
 @app.command()
 def followup(root: str | None = _ROOT_OPT) -> None:
     """Backfill merged / human_edits for PRs the Forge opened earlier.

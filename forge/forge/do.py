@@ -138,8 +138,14 @@ def do(chosen: dict, root: Path, config: ForgeConfig, git=None, crew=None,
     # (FileNotFoundError) or an unreadable cwd (PermissionError) must become
     # a CrewOutcome here, not an exception out of a function that promises
     # it never raises.
+    #
+    # The start point is named rather than inherited from HEAD. Tonight's
+    # branch must come off the trunk wherever the caller happens to be
+    # standing: a run started from the ledger branch would otherwise cut from
+    # there and hand a reviewer a draft PR with the ledger in its diff.
     try:
-        created = create_branch(name, root, runner=git)
+        created = create_branch(name, root, runner=git,
+                                start_point=config.base_branch)
     except Exception as exc:  # noqa: BLE001 — a crash is an outcome, not a traceback
         return CrewOutcome(False, name, (), None, _minutes(started),
                            f"could not create the branch: {exc}")
