@@ -593,3 +593,41 @@ def test_a_silent_crew_still_reports_what_it_said(tmp_path):
     assert out.ok is False
     assert "changed nothing" in out.error
     assert "planner stopped: no plan produced" in out.error
+
+
+def test_a_rejected_run_names_the_paths_it_rejected(tmp_path):
+    """"Touched a path outside the safe zones" is useless without the path.
+
+    The first live runs recorded exactly that, every night, with no way to
+    tell what had been refused. The offender was Crew's own session
+    checkpoint; finding it took a separate investigation that the ledger
+    should have made unnecessary.
+    """
+    git = FakeGit()
+    git.changed = [".crew/session.json", "engine/include/maz/core/App.hpp"]
+
+    out = do(CHOSEN, tmp_path, ForgeConfig(), git=git,
+             crew=lambda task, root, timeout_s: (0, "done", 0.0))
+
+    assert out.ok is False
+    assert ".crew/session.json" in out.error
+    assert "engine/include/maz/core/App.hpp" in out.error
+
+
+def test_the_named_paths_are_capped_so_one_note_cannot_run_away(tmp_path):
+    """A run that touched many files must not write an unbounded line into an
+    append-only record.
+
+    Eight files, not thirty: above `max_files_touched` the run is refused by
+    the count check before the zone check is ever reached, so a larger number
+    would pass this test for the wrong reason.
+    """
+    git = FakeGit()
+    git.changed = [f"engine/f{i}.hpp" for i in range(8)]
+
+    out = do(CHOSEN, tmp_path, ForgeConfig(), git=git,
+             crew=lambda task, root, timeout_s: (0, "done", 0.0))
+
+    assert out.ok is False
+    assert "…" in out.error
+    assert "engine/f6.hpp" not in out.error
