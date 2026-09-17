@@ -13,7 +13,7 @@ size is in the wiring between the parts, not in any one part.
 
 | | Count | |
 |---|---:|---|
-| Native games and demos (`apps/`) | 186 | 43,643 lines |
+| Native games and demos (`apps/`) | 186 | 43,665 lines |
 | Engine capabilities (`engine/include/maz/`) | 699 | 88,969 lines across 20 subsystems |
 | C++ test files (`tests/`) | 390 | |
 | Browser apps and games | 8 | 26,857 lines |
@@ -56,7 +56,7 @@ will ever see, and the ones that can most easily lend each other capabilities.
 |---|---|---:|---|---:|---|---|
 | **consolidate** | Fold many repositories into one clean repository, keeping every commit. | 1,781 | consolidate | 8 | consolidate-ci.yml | — |
 | **crew** | A personal CLI that orchestrates a team of AI coding agents (planner, coder, reviewer, tester) on the Claude Agent SDK. | 1,048 | crew | 14 | crew-ci.yml | — |
-| **forge** | The Forge: a nightly loop that reads the Maz repo's own state, does one useful thing, and records what happened. | 3,589 | forge | 22 | forge-ci.yml, forge-nightly.yml | — |
+| **forge** | The Forge: a nightly loop that reads the Maz repo's own state, does one useful thing, and records what happened. | 3,678 | forge | 23 | forge-ci.yml, forge-nightly.yml | — |
 | **scraper** | A general-purpose, recipe-driven scraper for static HTML pages: crawl, extract with CSS selectors, and write JSONL/CSV/… | 944 | scrape | 8 | scraper-ci.yml | — |
 
 ### The engine, by capability
@@ -176,7 +176,7 @@ engine capability, a handful of them complete games.
 | **crowd** | steering + pathfinding demo) A flock of agents navigates a shared maze toward a roving goal. Each agent plans its own A* route (maz::game::NavGrid)… | 214 | ✓ | ✓ | — |
 | **cube** | 3D demo) A lit, depth-tested spinning cube rendered through the engine's 3D mesh path, with 2D HUD text drawn over it — proving 2D and 3D compose in… | 134 | ✓ | ✓ | — |
 | **curve** | cubic Bézier path, toward Godot's Curve2D / Path2D) A Curve2D is authored from points with in/out control handles and drawn as a smooth spline. On to… | 177 | ✓ | ✓ | — |
-| **cutscene_export** | exporter. Loads a composed character/item (.mazprefab), bakes it into one mesh, orbits a camera around it over a timeline, renders each frame on the… | 321 | ✓ | · | no golden screenshot |
+| **cutscene_export** | exporter. Loads a composed character/item (.mazprefab), bakes it into one mesh, orbits a camera around it over a timeline, renders each frame on the… | 343 | ✓ | · | no golden screenshot |
 | **darkroom** | render's image processing: ImageBlur, BilateralFilter, MedianFilter, SobelEdge, OtsuThreshold, HarrisCorners, SeamCarve, SeamlessClone, ImageNormalMa… | 944 | ✓ | · | no golden screenshot |
 | **data** | data-driven scene from JSON) Nothing on screen is hard-coded: the entire scene — clear color, title, and every sprite (its shape, position, size, tin… | 186 | ✓ | ✓ | — |
 | **deadzone** | input::analogVector / applyDeadzone, toward Godot's Input.get_vector) A raw thumbstick drifts near centre and reaches ~√2 at the diagonals, so naive… | 173 | ✓ | ✓ | — |
