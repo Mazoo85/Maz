@@ -399,6 +399,22 @@
       /* The dark side of a thing: what the sky alone leaves on it. */
       shadow: function (dark, a) { return css(skylight(dark), a); },
       /*
+       * A thing growing or lying on the ground, which belongs to the ground
+       * without being the same colour as it. A bush is darker and greener than
+       * the field it grows in; a boulder is greyer; a drift of snow is
+       * brighter. Painted in the ground's own colour, as the first attempt
+       * did, a field full of bushes came out as a field — the shapes were all
+       * there and none of them could be seen.
+       */
+      prop: function (depth, dl, ds, a) {
+        var c = depthMix(scene.land, depth || 0);
+        return css([
+          c[0],
+          clamp(c[1] * (ds == null ? 1 : ds), 0, 100),
+          clamp(c[2] + (dl || 0), 0, 100)
+        ], a);
+      },
+      /*
        * A shadow lying on the ground, which is a different thing again. It is
        * not a dark shape on the grass, it is the grass with the sun off it —
        * so it keeps the ground's own colour and hue, pulled part of the way
@@ -1762,7 +1778,7 @@
       light_at: P.light_at, bend: P.bend,
       css: same, ink: same, silhouette: same, land: same, far: same,
       sea: same, light: same, haze: same, shade: same,
-      shadow: same, cast: same
+      shadow: same, cast: same, prop: same
     };
   }
 
@@ -2767,6 +2783,285 @@
     ctx.restore();
   }
 
+  /*
+   * Company.
+   *
+   * Measured as energy per octave — halve the picture and see how much
+   * structure was lost — a photograph of the natural world is close to flat:
+   * roughly as much going on at every scale, from whole hillsides down to
+   * grains of sand. That scale-invariance is one of the most reliable ways
+   * there is of telling a photograph from a drawing.
+   *
+   * These pictures were badly tilted, and the reason turned out to be a plain
+   * gap in the engine rather than anything subtle. Everything it drew on the
+   * ground was under about five pixels — the surface texture is one to three,
+   * the scattered pebbles and tufts one to four — and the only other thing in
+   * the frame was one large subject. Between five pixels and the subject there
+   * was nothing at all. A real landscape is full of that band: bushes,
+   * boulders, tussocks, fallen logs, clumps of scrub, a line of small trees.
+   * A desert measured nine times more energy at thirty-two pixels than at one;
+   * a forest floor had almost nothing above eight.
+   *
+   * So: bigger things, standing on the same ground plane and obeying the same
+   * perspective, between those two scales. Painted far to near, which gives
+   * the engine the one thing it has never had — things in front of other
+   * things. Nothing in a CODA picture has ever overlapped anything before.
+   *
+   * They go behind the subject on purpose. A bush that hides the dragon
+   * somebody asked for is the picture arguing with the sentence.
+   */
+  var COMPANY = {
+    meadow:    { kinds: ['bush', 'tussock', 'rock'],        n: 32, size: 0.26 },
+    plains:    { kinds: ['bush', 'tussock', 'rock'],        n: 24, size: 0.24 },
+    forest:    { kinds: ['fern', 'log', 'rock', 'sapling'], n: 32, size: 0.30 },
+    jungle:    { kinds: ['fern', 'sapling', 'log'],         n: 39, size: 0.34 },
+    desert:    { kinds: ['boulder', 'scrub', 'ripple'],     n: 20, size: 0.28 },
+    canyon:    { kinds: ['boulder', 'rock', 'scrub'],       n: 21, size: 0.32 },
+    mountains: { kinds: ['boulder', 'rock', 'sapling'],     n: 20, size: 0.30 },
+    snow:      { kinds: ['drift', 'rock', 'sapling'],       n: 13, size: 0.28 },
+    shore:     { kinds: ['log', 'rock', 'tussock'],         n: 15, size: 0.22, from: 0.62 },
+    swamp:     { kinds: ['reed', 'log', 'tussock'],         n: 28, size: 0.28, from: 0.35 },
+    ruins:     { kinds: ['rubble', 'scrub', 'rock'],        n: 24, size: 0.28 },
+    road:      { kinds: ['scrub', 'rock', 'post'],          n: 14, size: 0.22 },
+    city:      { kinds: ['post', 'rubble', 'scrub'],        n: 14, size: 0.20 },
+    volcano:   { kinds: ['boulder', 'rubble', 'rock'],      n: 21, size: 0.30 },
+    cave:      { kinds: ['boulder', 'rubble', 'rock'],      n: 20, size: 0.32 },
+    lake:      { kinds: ['reed', 'rock', 'tussock'],        n: 14, size: 0.22, from: 0.70 },
+    island:    { kinds: ['tussock', 'rock', 'log'],         n: 14, size: 0.22, from: 0.66 }
+  };
+
+  /*
+   * How far each kind sits from the ground underneath it: how much darker or
+   * lighter, and how much of the ground's own colour it keeps. Living things
+   * are darker and hold their colour; stone is barely darker and nearly grey;
+   * snow and dry sand are brighter than what they lie on.
+   */
+  var TONE = {
+    bush:    [-21, 1.12], fern:    [-19, 1.16], scrub:   [-16, 0.86],
+    tussock: [-15, 1.10], reed:    [-13, 1.06], sapling: [-23, 1.12],
+    rock:    [-12, 0.55], boulder: [-14, 0.50], rubble:  [-10, 0.56],
+    log:     [-25, 0.76], drift:   [ 10, 0.68], ripple:  [  6, 0.86],
+    post:    [-29, 0.60]
+  };
+
+  /* One thing standing on the ground, drawn at `size` pixels across with the
+   * light coming from (sx, sy). Each one gets its own shadow first, or it
+   * floats. */
+  function standing(ctx, kind, x, y, size, sx, sy, tone, r) {
+    var lit = tone.lit, dim = tone.dim, dark = tone.dark, shade = tone.shade;
+    var i;
+
+    /* What it puts on the ground. Every one of them, or the whole pass reads
+     * as stickers rather than as things standing in a field. */
+    ctx.fillStyle = shade;
+    ctx.beginPath();
+    ctx.ellipse(x + sx * size * 0.45, y + size * 0.05,
+      size * 0.62, size * 0.17, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (kind === 'bush' || kind === 'fern' || kind === 'scrub') {
+      /* A clump of lumps, dark at the foot and catching light on top. */
+      var lumps = kind === 'scrub' ? 3 : 5;
+      for (i = 0; i < lumps; i++) {
+        var bx = x + (r() - 0.5) * size * 0.9;
+        var by = y - size * (0.15 + r() * 0.55);
+        var br = size * (0.22 + r() * 0.26);
+        blob(ctx, bx, by, br, br * (kind === 'fern' ? 0.62 : 0.82), 8, r, dim);
+      }
+      /* The lit crown, on the side the light is on. */
+      for (i = 0; i < 3; i++) {
+        blob(ctx, x - sx * size * (0.10 + r() * 0.22),
+          y - size * (0.45 + r() * 0.35),
+          size * (0.12 + r() * 0.16), size * (0.10 + r() * 0.12), 7, r, lit);
+      }
+      if (kind === 'scrub') {
+        /* Twigs poking out of it, which is what makes scrub scrub. */
+        ctx.strokeStyle = dark;
+        ctx.lineWidth = Math.max(0.6, size * 0.05);
+        ctx.beginPath();
+        for (i = 0; i < 5; i++) {
+          var ta = -Math.PI * (0.25 + r() * 0.5);
+          ctx.moveTo(x, y - size * 0.1);
+          ctx.lineTo(x + Math.cos(ta) * size * 0.8, y - size * 0.1 + Math.sin(ta) * size * 0.9);
+        }
+        ctx.stroke();
+      }
+    } else if (kind === 'tussock' || kind === 'reed') {
+      var blades = kind === 'reed' ? 9 : 7;
+      var tall = kind === 'reed' ? 2.1 : 1.15;
+      ctx.lineWidth = Math.max(0.6, size * (kind === 'reed' ? 0.055 : 0.075));
+      for (i = 0; i < blades; i++) {
+        ctx.strokeStyle = i % 3 === 0 ? lit : dim;
+        var lean = (r() - 0.5) * size * 1.1;
+        ctx.beginPath();
+        ctx.moveTo(x + (r() - 0.5) * size * 0.4, y);
+        ctx.quadraticCurveTo(x + lean * 0.4, y - size * tall * 0.6,
+          x + lean, y - size * tall * (0.7 + r() * 0.5));
+        ctx.stroke();
+      }
+    } else if (kind === 'rock' || kind === 'boulder' || kind === 'rubble') {
+      /* An angular lump with one face to the light and one away from it —
+       * which is the whole difference between a rock and a grey blob. */
+      var wide = size * (kind === 'boulder' ? 0.78 : kind === 'rubble' ? 0.42 : 0.54);
+      var high = wide * (0.52 + r() * 0.45);
+      blob(ctx, x, y - high * 0.55, wide, high, 7, r, dim);
+      /* The lit facet: a smaller lump offset towards the light and up. */
+      blob(ctx, x - sx * wide * 0.28, y - high * 0.95,
+        wide * 0.52, high * 0.40, 6, r, lit);
+      /* And the underside, where nothing reaches. */
+      blob(ctx, x + sx * wide * 0.18, y - high * 0.16,
+        wide * 0.62, high * 0.24, 6, r, dark);
+    } else if (kind === 'log') {
+      /* Lying down, so it is long and low and has an end you can see. */
+      var len = size * (0.9 + r() * 0.7);
+      var thick = size * (0.16 + r() * 0.12);
+      var tilt = (r() - 0.5) * 0.5;
+      ctx.save();
+      ctx.translate(x, y - thick * 0.7);
+      ctx.rotate(tilt);
+      ctx.fillStyle = dim;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, len * 0.5, thick, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = lit;
+      ctx.beginPath();
+      ctx.ellipse(0, -thick * 0.42, len * 0.44, thick * 0.34, 0, 0, Math.PI * 2);
+      ctx.fill();
+      /* The sawn end. */
+      ctx.fillStyle = dark;
+      ctx.beginPath();
+      ctx.ellipse(-sx * len * 0.5, 0, thick * 0.34, thick, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    } else if (kind === 'sapling') {
+      /* A small tree: one leaning trunk and a head of leaves. */
+      var lean2 = (r() - 0.5) * size * 0.3;
+      ctx.strokeStyle = dark;
+      ctx.lineWidth = Math.max(0.7, size * 0.09);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.quadraticCurveTo(x + lean2 * 0.4, y - size * 0.7, x + lean2, y - size * 1.25);
+      ctx.stroke();
+      for (i = 0; i < 4; i++) {
+        blob(ctx, x + lean2 + (r() - 0.5) * size * 0.5,
+          y - size * (1.15 + r() * 0.45),
+          size * (0.24 + r() * 0.20), size * (0.20 + r() * 0.16), 8, r,
+          i === 0 ? lit : dim);
+      }
+    } else if (kind === 'drift' || kind === 'ripple') {
+      /* A low ridge: one face towards the light, one away. Sand and snow both
+       * do this, and it is most of what makes either read as a surface with
+       * weather on it rather than a flat sheet. */
+      var span = size * (1.4 + r() * 1.3);
+      ctx.fillStyle = lit;
+      ctx.beginPath();
+      ctx.ellipse(x, y, span * 0.5, size * 0.17, (r() - 0.5) * 0.16, Math.PI, 0);
+      ctx.fill();
+      ctx.fillStyle = dim;
+      ctx.beginPath();
+      ctx.ellipse(x + sx * span * 0.10, y + size * 0.03,
+        span * 0.44, size * 0.11, (r() - 0.5) * 0.16, 0, Math.PI);
+      ctx.fill();
+    } else if (kind === 'post') {
+      /* Something somebody put there: a post, a bollard, a sign. */
+      var ph = size * (0.9 + r() * 0.8);
+      ctx.fillStyle = dim;
+      ctx.fillRect(x - size * 0.07, y - ph, size * 0.14, ph);
+      ctx.fillStyle = lit;
+      ctx.fillRect(x - sx * size * 0.05 - size * 0.03, y - ph, size * 0.05, ph);
+    }
+  }
+
+  function company(ctx, w, h, hz, P, spec, r, light) {
+    var kit = COMPANY[spec.scene.id];
+    if (!kit) return [];
+    var top = hz + (h - hz) * (kit.from || 0);
+    var deep = h - top;
+    if (deep < 14) return [];
+
+    /* How big one is at the very front. Everything further off is this times
+     * its own u, exactly as the ground texture is. */
+    var S = Math.max(5, deep * kit.size);
+    /* And it stops where one would be too small to be a thing rather than a
+     * speck — below that the scatter and the surface texture carry on. */
+    var uMin = clamp(5 / S, 0.06, 0.8);
+
+    var n = Math.round(kit.n * ((P.detail || 1) * 0.45 + 0.55));
+    if (n < 3) return [];
+
+    /* Which way the light is coming from, so every one of them agrees about
+     * it — a field where each bush is lit from its own direction is worse
+     * than a field of flat ones. */
+    var sx = 0.45;
+    if (light) {
+      var lx = w * 0.5 - light.x, ly = h * 0.85 - light.y;
+      var len = Math.sqrt(lx * lx + ly * ly) || 1;
+      sx = lx / len;
+    }
+
+    /* Placed first, then sorted, then drawn — far ones before near ones, so a
+     * near one covers part of a far one. Nothing in these pictures has ever
+     * been in front of anything else. */
+    var put = [];
+    for (var i = 0; i < n; i++) {
+      /*
+       * Spread across the whole band rather than by the density law the ground
+       * texture uses. That law is right for a texture, where what matters is
+       * that the ground stays evenly covered — but it puts nineteen bushes out
+       * of twenty within a stone's throw of the horizon, and leaves the
+       * foreground bare. These are things rather than grain, and a photograph
+       * of a landscape nearly always has some of them close to. The perspective
+       * is still exact: whatever u comes out, its size and its place follow
+       * from it. Only how many land at each distance is a choice, and it is
+       * made for the composition.
+       */
+      var u = uMin + (1 - uMin) * Math.pow(r(), 1.5);
+      put.push({
+        u: u,
+        x: r() * w * 1.06 - w * 0.03,
+        y: top + deep * u,
+        /*
+         * A wide spread on purpose, and the width matters more than the count.
+         * Filling the ground with a lot of same-sized bushes measured *worse*
+         * than a few: they merge into an even field, and an even field is the
+         * flatness this pass exists to fix, only greener. A handful of big
+         * ones with many small ones between them is what a real hillside has,
+         * and it more than doubled the structure at sixteen pixels while using
+         * fewer things to do it.
+         */
+        size: S * u * (0.42 + r() * 1.90),
+        kind: kit.kinds[Math.floor(r() * kit.kinds.length) % kit.kinds.length]
+      });
+    }
+    put.sort(function (a, b) { return a.u - b.u; });
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, top - S * 0.2, w, deep + S * 0.2);
+    ctx.clip();
+    put.forEach(function (it) {
+      /* Distance drains it, the same as it drains everything. */
+      var far = 1 - it.u;
+      var fade = 0.30 + 0.70 * it.u;
+      var tone = TONE[it.kind] || TONE.rock;
+      /* Kept on the item, so a test can ask what colour a bush came out
+       * rather than work it out from the same table and check its own
+       * arithmetic. */
+      it.dim = P.prop(far * 0.85, tone[0], tone[1], 0.94);
+      it.ground = P.land(far * 0.85, 0.94);
+      standing(ctx, it.kind, it.x, it.y, it.size, sx, 1, {
+        lit: P.css(P.sky.light, 0.34 * fade),
+        dim: it.dim,
+        dark: P.prop(far * 0.70, tone[0] - 13, tone[1], 0.92),
+        shade: P.cast(far * 0.70, 0.42 * fade)
+      }, r);
+    });
+    ctx.restore();
+    /* What it put out there, in the order it drew them, so a test can ask
+     * rather than pick the answer back out of the draw calls. */
+    return put;
+  }
+
   function scatter(ctx, w, h, hz, P, spec, r) {
     var kit = SCATTER[spec.scene.id];
     if (!kit || hz >= h - 4) return;
@@ -3012,9 +3307,11 @@
     }
 
     /* The ground's own texture, receding — then the small things lying on it,
-     * and only then anything standing on them. */
+     * then the bigger things standing among them, and only then whatever the
+     * sentence was actually about. */
     if (!onPhoto) bed(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'bed'), light);
     if (!onPhoto) scatter(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'scatter'));
+    if (!onPhoto) company(ctx, w, h, hz, P, spec, PROMPT.rng(spec, 'company'), light);
 
     /* Subjects, furthest first so a nearer one overlaps it. */
     var sr = PROMPT.rng(spec, 'subject');
@@ -3129,6 +3426,9 @@
     SCATTER: SCATTER,
     bed: bed,
     BED: BED,
+    company: company,
+    COMPANY: COMPANY,
+    standing: standing,
     surfaceOn: surfaceOn,
     surfaceTile: surfaceTile,
     SURFACE: SURFACE,

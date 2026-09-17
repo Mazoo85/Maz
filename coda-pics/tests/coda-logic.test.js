@@ -3790,6 +3790,169 @@ function laidDown(ctx, gradient) {
   pass('things are made of something, and it shows');
 })();
 
+/*
+ * Company.
+ *
+ * Measured as energy per octave — halve the picture, see how much structure
+ * was lost, repeat — a photograph of the natural world comes out close to
+ * flat: about as much going on at every scale. These pictures were badly
+ * tilted, and the reason was a plain gap rather than anything subtle.
+ * Everything the engine drew on the ground was under about five pixels, and
+ * the only other thing in the frame was one large subject. Between the two
+ * there was nothing: no bushes, no boulders, no fallen logs, no clumps of
+ * scrub. A forest floor measured three times more structure at one pixel than
+ * at sixteen, where a photograph of one has more at sixteen.
+ */
+(function theCompanyItKeeps() {
+  console.log('\nCompany');
+
+  var w = 640, h = 400, hz = h * 0.70;
+  function out(text, light, seed) {
+    var spec = PROMPT.parse(text, { seed: seed || 4, style: 'auto' });
+    var ctx = recorder(w, h);
+    var P = PAINT.makePalette(spec);
+    var put = PAINT.company(ctx, w, h, hz, P, spec,
+      PROMPT.rng(spec, 'company'), light);
+    var marks = [], fill = null;
+    ctx.log.forEach(function (c) {
+      if (c.op === 'set' && c.args[0] === 'fillStyle') fill = c.args[1];
+      else if (c.op === 'ellipse') {
+        marks.push({ x: c.args[0], y: c.args[1], rx: c.args[2], ry: c.args[3], fill: fill });
+      }
+    });
+    return { put: put, marks: marks, P: P, spec: spec };
+  }
+  function mean(list, of) {
+    if (!list.length) return 0;
+    return list.reduce(function (a, m) { return a + of(m); }, 0) / list.length;
+  }
+
+  var left = { x: w * 0.12, y: h * 0.10, r: 20 };
+  var field = out('a stag in a meadow at noon', left, 2);
+  check(field.put.length > 12,
+    'a meadow has things standing about in it (' + field.put.length + ')');
+
+  /* All of it on the ground. */
+  var floating = field.put.filter(function (it) { return it.y < hz - 1; });
+  check(floating.length === 0, 'and all of it on the ground, none in the sky');
+
+  /*
+   * Painted far to near, which is how the engine gets the one thing it has
+   * never had: something in front of something else. Nothing in a CODA picture
+   * used to overlap anything.
+   */
+  var backwards = 0;
+  for (var i = 1; i < field.put.length; i++) {
+    if (field.put[i].y < field.put[i - 1].y - 0.001) backwards++;
+  }
+  check(backwards === 0,
+    'and drawn from the back forwards, so a near one covers part of a far one' +
+    (backwards ? ' — ' + backwards + ' out of order' : ''));
+
+  /* Perspective, the same as the ground under it. */
+  var deep = h - hz;
+  var near = field.put.filter(function (it) { return it.y > hz + deep * 0.7; });
+  var far = field.put.filter(function (it) { return it.y < hz + deep * 0.35; });
+  check(near.length > 2 && far.length > 2,
+    'with things at both ends of the field (' + near.length + ' near, ' +
+    far.length + ' far)');
+  var nearBig = mean(near, function (it) { return it.size; });
+  var farBig = mean(far, function (it) { return it.size; });
+  check(nearBig > farBig * 2,
+    'and the near ones far bigger than the far ones (' + nearBig.toFixed(1) +
+    'px against ' + farBig.toFixed(1) + 'px)');
+
+  /*
+   * And a wide spread of sizes, which turned out to matter more than how many
+   * there are. A field of same-sized bushes measures *worse* than a few: they
+   * merge into an even field, and an even field is the flatness this exists to
+   * fix, only greener.
+   */
+  var sizes = near.map(function (it) { return it.size; }).sort(function (a, b) { return a - b; });
+  check(sizes.length > 3 && sizes[sizes.length - 1] > sizes[0] * 2.5,
+    'a few big ones and many small, rather than a field of one size (' +
+    sizes[0].toFixed(1) + 'px to ' + sizes[sizes.length - 1].toFixed(1) + 'px)');
+
+  /*
+   * Each one puts something on the ground. Without that they are stickers on a
+   * picture of a field rather than things standing in one.
+   */
+  check(field.marks.length >= field.put.length,
+    'every one of them puts a shadow on the ground');
+
+  /* And they all agree about where the light is. A field where each bush is
+   * lit from its own direction is worse than a field of flat ones. */
+  var shadowsLeft = mean(field.marks.slice(0, field.put.length),
+    function (m, k) { return m.x; });
+  var right = out('a stag in a meadow at noon', { x: w * 0.88, y: h * 0.10, r: 20 }, 2);
+  var shadowsRight = mean(right.marks.slice(0, right.put.length),
+    function (m) { return m.x; });
+  check(shadowsRight < shadowsLeft,
+    'and they all agree which way the light is coming from — moving it moves ' +
+    'every shadow (' + shadowsLeft.toFixed(1) + ' against ' + shadowsRight.toFixed(1) + ')');
+
+  /*
+   * Painted in the ground's own colour they cannot be seen, which is how the
+   * first attempt went: every shape was there and a field full of bushes came
+   * out as a field. What grows on a surface is not the colour of the surface.
+   */
+  function light3(css) {
+    var m = /hsla?\([-0-9.]+,\s*([-0-9.]+)%,\s*([-0-9.]+)%/.exec(css);
+    return m ? [parseFloat(m[1]), parseFloat(m[2])] : null;
+  }
+  /* Asked of the colours the pass actually used, against the ground it used
+   * them on — not worked out here from the same table, which would be this
+   * test checking its own arithmetic. */
+  var greens = field.put.filter(function (it) {
+    return it.kind === 'bush' || it.kind === 'tussock';
+  });
+  var pale = greens.filter(function (it) {
+    var a = light3(it.dim), b = light3(it.ground);
+    return !a || !b || a[1] > b[1] - 5;
+  });
+  check(greens.length > 3 && pale.length === 0,
+    'what grows on the ground is darker than the ground it grows in — all ' +
+    greens.length + ' of them');
+  var stones = field.put.filter(function (it) { return it.kind === 'rock'; });
+  var bright = stones.filter(function (it) {
+    var a = light3(it.dim), b = light3(it.ground);
+    return !a || !b || a[0] > b[0] * 0.8;
+  });
+  check(stones.length > 2 && bright.length === 0,
+    'and a stone is greyer than either — all ' + stones.length + ' of them');
+
+  /* Where there is no ground there is nothing standing on it. */
+  check(out('a comet in space', left).put.length === 0,
+    'there is none of it in space, where there is nothing to stand on');
+  check(out('a whale in the open sea', left).put.length === 0,
+    'and none on the open sea');
+
+  /* A street is not a meadow. Filling one in would be a different mistake from
+   * leaving it empty. */
+  var street = out('a robot in the city at night', left, 3);
+  check(street.put.length > 0 && street.put.length < field.put.length * 0.7,
+    'and a city street has less of it than a meadow does (' +
+    street.put.length + ' against ' + field.put.length + ')');
+
+  /* On a shore it starts where the sand does; above that is open water. */
+  var beach = out('a lighthouse on the shore at noon', left, 5);
+  var afloat = beach.put.filter(function (it) { return it.y < hz + deep * 0.5; });
+  check(beach.put.length > 4 && afloat.length === 0,
+    'and on a shore nothing is standing out on the water (' +
+    beach.put.length + ' on the sand, none above the tideline)');
+
+  /* Finally, that the painter runs it while painting a picture. */
+  var whole = recorder(w, h);
+  var before = whole.log.length;
+  PAINT.render(whole, w, h, PROMPT.parse('a stag in a meadow at noon',
+    { seed: 2, style: 'auto' }));
+  var bare = recorder(w, h);
+  PAINT.render(bare, w, h, PROMPT.parse('a whale in the open sea',
+    { seed: 2, style: 'auto' }));
+  check(whole.log.length > before, 'and the painter draws a whole picture with it in');
+  pass('the landscape has more in it than one thing');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);
