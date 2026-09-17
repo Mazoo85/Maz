@@ -2,6 +2,9 @@
 node_modules/
 *.log
 
+# Personal, per-user Claude Code permission overrides (never committed)
+.claude/settings.local.json
+
 # C++ / CMake build artifacts
 build/
 build-*/

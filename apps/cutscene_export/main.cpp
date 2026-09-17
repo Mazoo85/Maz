@@ -22,6 +22,7 @@
 #include "maz/render/ImageCodecGif.hpp"
 #include "maz/render/ImageCodecPnm.hpp" // render::encodePnmP6
 #include "maz/render/ImageCodecQoi.hpp" // render::encodeQoi
+#include "maz/render/GltfWriter.hpp"    // render::encodeGlb (--glb mesh export)
 #include "maz/render/ObjWriter.hpp"     // render::encodeObj (--obj mesh export)
 #include "maz/render/Renderer.hpp"      // render::createVulkanRenderer (GPU offscreen path)
 #include "maz/render/Shapes.hpp"
@@ -70,7 +71,7 @@ std::vector<math::vec3> swatchRgb() {
 // surfaceless offscreen renderer + captureImage — the GPU counterpart to the CPU renderMeshPreview
 // loop. Returns the frames, or an empty vector when no Vulkan device is available (so the caller
 // falls back to the CPU rasterizer). The camera orbit matches the CPU path exactly.
-std::vector<render::Image> renderFramesGpu(const render::shapes::MeshData& baked,
+std::vector<render::Image> renderFramesGpu(const std::vector<editor::MeshSegment>& segments,
                                            const math::vec3& centre, float dist, float elev,
                                            float fovY, float nearZ, float farZ,
                                            const anim::Timeline& tl, const anim::FrameSequence& seq,
@@ -94,13 +95,36 @@ std::vector<render::Image> renderFramesGpu(const render::shapes::MeshData& baked
         return frames; // no GPU device -> caller uses the CPU rasterizer
     }
 
-    const render::MeshHandle mesh =
-        renderer->createMesh(baked.vertices.data(), static_cast<uint32_t>(baked.vertices.size()),
-                             baked.indices.data(), static_cast<uint32_t>(baked.indices.size()));
+    // One GPU mesh per part, each with its own PBR material (roughness/metallic/emissive). The white
+    // albedo lets the part's baked vertex colour (its swatch) show through the material.
     const uint8_t white[4] = {255, 255, 255, 255};
     const render::TextureHandle albedo = renderer->createTexture(1, 1, white);
+    struct GpuPart {
+        render::MeshHandle handle;
+        render::Renderer::Material mat;
+    };
+    std::vector<GpuPart> parts;
+    parts.reserve(segments.size());
+    for (const editor::MeshSegment& s : segments) {
+        if (s.mesh.vertices.empty() || s.mesh.indices.size() < 3) {
+            continue;
+        }
+        GpuPart gp;
+        gp.handle = renderer->createMesh(
+            s.mesh.vertices.data(), static_cast<uint32_t>(s.mesh.vertices.size()),
+            s.mesh.indices.data(), static_cast<uint32_t>(s.mesh.indices.size()));
+        gp.mat.albedo = albedo;
+        gp.mat.roughness = s.roughness;
+        gp.mat.metallic = s.metallic;
+        gp.mat.specular = 1.0f; // enable the PBR BRDF; roughness/metallic shape the highlight
+        gp.mat.emissive[0] = s.emissive.x;
+        gp.mat.emissive[1] = s.emissive.y;
+        gp.mat.emissive[2] = s.emissive.z;
+        parts.push_back(gp);
+    }
+
     const glm::mat4 proj = math::perspective(fovY, 1.0f, nearZ, farZ); // Vulkan-correct (Y-flipped)
-    const glm::mat4 model(1.0f);
+    const glm::mat4 model(1.0f); // segments are already world-space
 
     frames.reserve(static_cast<std::size_t>(frameCount));
     for (int i = 0; i < frameCount; ++i) {
@@ -114,11 +138,9 @@ std::vector<render::Image> renderFramesGpu(const render::shapes::MeshData& baked
         if (renderer->beginFrame()) {
             renderer->setViewProjection3D(glm::value_ptr(viewProj));
             renderer->setCameraPosition(glm::value_ptr(eye));
-            render::Renderer::Material mat;
-            mat.albedo = albedo;
-            mat.roughness = 0.5f;
-            mat.specular = 1.0f;
-            renderer->drawMeshMaterial(mesh, glm::value_ptr(model), mat);
+            for (const GpuPart& gp : parts) {
+                renderer->drawMeshMaterial(gp.handle, glm::value_ptr(model), gp.mat);
+            }
             renderer->endFrame();
             renderer->captureImage(shot);
         }
@@ -132,7 +154,7 @@ std::vector<render::Image> renderFramesGpu(const render::shapes::MeshData& baked
 } // namespace
 
 int main(int argc, char** argv) {
-    std::string input, out = "cutscene.gif", framesDir, frameFormat = "ppm", objOut;
+    std::string input, out = "cutscene.gif", framesDir, frameFormat = "ppm", objOut, glbOut;
     float fps = 30.0f, seconds = 3.0f;
     int size = 256, framesCap = 0, aa = 2; // aa = supersample factor (anti-aliasing)
     bool useGpu = false; // --gpu: render the real PBR frame graph offscreen instead of the CPU preview
@@ -160,6 +182,8 @@ int main(int argc, char** argv) {
             useGpu = true;
         } else if (std::strcmp(a, "--obj") == 0) {
             objOut = next("");
+        } else if (std::strcmp(a, "--glb") == 0) {
+            glbOut = next("");
         } else if (a[0] != '-' && input.empty()) {
             input = a;
         }
@@ -212,6 +236,36 @@ int main(int argc, char** argv) {
                     baked.vertices.size(), baked.indices.size() / 3);
     }
 
+    // Optional: also export as a binary glTF (.glb) with one pbrMetallicRoughness material PER PART
+    // (colour + roughness + metallic + emissive), so the composed asset's materials carry into other
+    // tools — not just a flat vertex-coloured mesh.
+    if (!glbOut.empty()) {
+        const std::vector<editor::MeshSegment> segs = editor::bakeSegments(scene, palette, &swatches);
+        std::vector<render::GlbPart> parts;
+        parts.reserve(segs.size());
+        for (const editor::MeshSegment& s : segs) {
+            render::GlbPart p;
+            p.mesh = &s.mesh;
+            p.baseColor[0] = s.baseColor.x;
+            p.baseColor[1] = s.baseColor.y;
+            p.baseColor[2] = s.baseColor.z;
+            p.baseColor[3] = 1.0f;
+            p.metallic = s.metallic;
+            p.roughness = s.roughness;
+            p.emissive[0] = s.emissive.x;
+            p.emissive[1] = s.emissive.y;
+            p.emissive[2] = s.emissive.z;
+            parts.push_back(p);
+        }
+        const std::vector<std::uint8_t> glb = render::encodeGlbParts(parts);
+        if (glb.empty() || !io::writeFile(glbOut, glb)) {
+            std::fprintf(stderr, "cutscene_export: failed to write %s\n", glbOut.c_str());
+            return 1;
+        }
+        std::printf("cutscene_export: wrote %s (%zu parts, %zu tris)\n", glbOut.c_str(), segs.size(),
+                    baked.indices.size() / 3);
+    }
+
     // Bounds -> a centre and radius to frame the orbit camera.
     math::vec3 lo(baked.vertices[0].px, baked.vertices[0].py, baked.vertices[0].pz), hi = lo;
     for (const render::MeshVertex& v : baked.vertices) {
@@ -247,7 +301,9 @@ int main(int argc, char** argv) {
     std::vector<render::Image> frames;
     bool gpu = false;
     if (useGpu) {
-        frames = renderFramesGpu(baked, centre, dist, elev, fovY, nearZ, farZ, tl, seq, frameCount, size);
+        // Draw each part with its own material (roughness/metallic/emissive), not one flat mesh.
+        const std::vector<editor::MeshSegment> segs = editor::bakeSegments(scene, palette, &swatches);
+        frames = renderFramesGpu(segs, centre, dist, elev, fovY, nearZ, farZ, tl, seq, frameCount, size);
         gpu = !frames.empty();
         if (!gpu) {
             std::fprintf(stderr, "cutscene_export: --gpu requested but no Vulkan device available; "
