@@ -8,10 +8,16 @@ name: Forge nightly
 # scheduled-session Routine fired three times and produced no run and no
 # notification, with no log anyone could read. A workflow run leaves a log.
 #
-# What happens here is a DRY RUN and nothing else. It reads the repo, decides
-# what it *would* do, writes one line to the ledger, and stops. It never hands
-# work to Crew, never opens a pull request, and never pushes to the default
-# branch. Going live is a separate, deliberate change.
+# What happens depends on one thing: whether ANTHROPIC_API_KEY is set.
+#
+# Without it the night is a DRY RUN — it reads the repo, decides what it
+# *would* do, writes one line to the ledger, and stops. With it, the night is
+# LIVE: the pick is handed to Crew, the zone's checks must pass, and the result
+# is offered as a DRAFT pull request. Nothing is merged, and nothing is ever
+# pushed to the trunk either way.
+#
+# The key is read rather than assumed so a missing secret degrades to the
+# quieter night instead of failing every night; the run warns when it does.
 #
 # Note this file is inside `.github/workflows/`, which `forge/forge/config.py`
 # welds into HARD_NO_TOUCH on every config load. The Forge cannot edit its own
@@ -148,6 +154,44 @@ jobs:
             exit 1
           fi
 
+      - name: Decide whether tonight can be a live run
+        id: mode
+        # Live needs Crew, and Crew needs a key. Without one the night still
+        # happens — it senses, scores and records, exactly as it has been —
+        # rather than failing nightly over a missing secret. The warning is
+        # there so "nothing is going live" is never silent.
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+            echo "live=true" >> "$GITHUB_OUTPUT"
+            echo "Live: Crew can be reached."
+          else
+            echo "live=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::ANTHROPIC_API_KEY is not set, so Crew cannot be reached. Recording a dry run instead."
+          fi
+
+      - name: Install Crew and the zone's test dependencies
+        if: steps.mode.outputs.live == 'true'
+        # Only a live run needs these: it hands the job to Crew and then runs
+        # the zone's own check commands. A dry run senses and scores, and needs
+        # nothing beyond typer and rich.
+        run: |
+          set -euo pipefail
+          python -m pip install -e crew
+          python -m pip install "pytest>=8" "httpx>=0.27" "selectolax>=0.3.21" "PyYAML>=6.0"
+
+      - name: Point the trunk at the remote before any branch is cut
+        # The night's branch is cut from the trunk *by name*, so the local name
+        # has to mean what the remote means. Safe here only because the tree is
+        # on the ledger branch: git refuses to force the branch it is standing on.
+        run: |
+          set -euo pipefail
+          trunk="${{ steps.branches.outputs.default }}"
+          git branch -f "$trunk" "origin/$trunk"
+          echo "$trunk -> $(git rev-parse --short "$trunk")"
+
       - name: Ask GitHub what happened to earlier pull requests
         # Whether work was merged, and how much a human changed first, is the
         # only evidence in the ledger that a night's work was any good. Green
@@ -156,32 +200,78 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: PYTHONPATH=forge python -m forge.cli followup
 
-      - name: Sense, decide, record — changing nothing
+      - name: Commit anything followup learned
+        # Committed before the run, not after, and that ordering is load-bearing.
+        # A live run ends by checking out the trunk, and git refuses to switch
+        # branches over an uncommitted file that differs between them — which
+        # the ledger always does. Left dirty, the run would fail to return to
+        # the trunk and quietly record that in its notes.
+        run: |
+          set -euo pipefail
+          if [ -n "$(git status --porcelain -- forge/ledger)" ]; then
+            git add forge/ledger
+            git commit -m "forge: backfill what GitHub said about earlier pull requests"
+          else
+            echo "Nothing backfilled."
+          fi
+
+      - name: Sense, decide, and — if it can — do
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: PYTHONPATH=forge python -m forge.cli run --dry-run
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.mode.outputs.live }}" = "true" ]; then
+            PYTHONPATH=forge python -m forge.cli run --live
+          else
+            PYTHONPATH=forge python -m forge.cli run --dry-run
+          fi
 
-      - name: Refuse to commit anything that is not the ledger
-        # A dry run touching anything else is a bug worth failing the job over,
-        # not something to commit quietly.
+      - name: Capture the ledger the run just wrote
+        # A live run does not end where it started. It reads the ledger to
+        # score, cuts its branch from the trunk, and on the way out returns the
+        # tree to the trunk — so the line it appended is sitting on the *trunk's*
+        # copy of the ledger, which on this repo is one line from 10 September.
+        # Capture it here, before any branch change, and graft it onto the real
+        # one below. A quiet night never leaves the ledger branch, in which case
+        # this captures the real ledger and the graft finds nothing to add.
+        run: |
+          set -euo pipefail
+          dest="$RUNNER_TEMP/captured-ledger"
+          rm -rf "$dest"; mkdir -p "$dest"
+          cp forge/ledger/*.jsonl "$dest"/ 2>/dev/null || true
+          echo "Ended on branch: $(git rev-parse --abbrev-ref HEAD)"
+          ls -1 "$dest" 2>/dev/null || echo "(nothing captured)"
+
+      - name: Refuse to record anything that is not the ledger
+        # The run's own work belongs on its own branch, reached by a pull
+        # request. Anything it left loose in this tree is a bug worth failing
+        # the job over, not something to commit quietly.
         run: |
           set -euo pipefail
           outside="$(git status --porcelain -- . ':(exclude)forge/ledger' || true)"
           if [ -n "$outside" ]; then
-            echo "::error::A dry run changed files outside forge/ledger/:"
+            echo "::error::The run left changes outside forge/ledger/:"
             echo "$outside"
             exit 1
           fi
 
-      - name: Record the night
+      - name: Record the night on the ledger branch
         run: |
           set -euo pipefail
+          # The captured copy is the only thing that matters from here, so
+          # whatever the run left in this tree can go.
+          git checkout -- forge/ledger 2>/dev/null || true
+          git checkout forge-ledger
+
+          PYTHONPATH=forge python -m forge.cli graft-ledger "$RUNNER_TEMP/captured-ledger"
+
           if [ -z "$(git status --porcelain -- forge/ledger)" ]; then
             echo "Ledger unchanged — nothing to record."
-            exit 0
+          else
+            git add forge/ledger
+            git commit -m "forge: ledger for $(date -u +%Y-%m-%d)"
           fi
-          git add forge/ledger
-          git commit -m "forge: ledger for $(date -u +%Y-%m-%d)"
           git push origin forge-ledger:refs/heads/forge/ledger
 
       - name: Put tonight's line in the run summary
