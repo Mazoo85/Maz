@@ -9,6 +9,7 @@
   "supersample": 1,
   "shadows": 1,
   "corners": 55,
+  "texture": 18,
   "fps": 12,
   "frames": [
     {

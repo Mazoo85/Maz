@@ -65,6 +65,7 @@ void usage() {
         "  --shutter <0..100> how far the camera's shutter opens, in hundredths of a frame;\n"
         "                     50 is what a film camera does, 0 is a stills camera (default 50)\n"
         "  --corners <0..100> how hard corners and contacts are shaded (default 55)\n"
+        "  --texture <0..100> how much grain the surfaces themselves carry (default 18)\n"
         "  --from <s> --to <s>  render only this stretch of the film\n"
         "  --still <s>        render exactly one frame, at this moment\n"
         "  --ppm              write .ppm rather than .qoi for frames and contact sheets\n");
@@ -100,6 +101,7 @@ int main(int argc, char** argv) {
     // --corners, not --contact: --contact already names the contact-sheet file, and the two would
     // have collided silently — the shading would have parsed a filename as a number and come out 0.
     look.contact = std::atoi(arg(argc, argv, "--corners", "55").c_str());
+    look.texture = std::atoi(arg(argc, argv, "--texture", "18").c_str());
     const bool ppm = flag(argc, argv, "--ppm");
     const double from = std::atof(arg(argc, argv, "--from", "0").c_str());
     const double to = std::atof(arg(argc, argv, "--to", "0").c_str());

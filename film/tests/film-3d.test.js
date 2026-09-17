@@ -63,7 +63,8 @@ function run(Module) {
   var people = Module.cwrap('maz3d_people', 'number', []);
   var shotAt = Module.cwrap('maz3d_shot_at', 'number', ['number']);
   var render = Module.cwrap('maz3d_render', 'number',
-                            ['number', 'number', 'number', 'number', 'number', 'number', 'number']);
+                            ['number', 'number', 'number', 'number', 'number', 'number', 'number',
+                             'number']);
 
   function errorText() { return Module.UTF8ToString(errorPtr()); }
 
@@ -151,7 +152,8 @@ function run(Module) {
     // camera to smear from, so the shutter could not fire here anyway — but saying so beats
     // relying on an absent argument becoming a zero.
     var ptr = render(f.time, want.width, want.height, manifest.supersample, manifest.shadows, 0,
-                     manifest.corners == null ? 0 : manifest.corners);
+                     manifest.corners == null ? 0 : manifest.corners,
+                     manifest.texture == null ? 0 : manifest.texture);
     check(ptr !== 0, 'the module returns a frame for ' + f.file);
     if (!ptr) return;
     var got = Module.HEAPU8.subarray(ptr, ptr + want.width * want.height * 4);
@@ -193,7 +195,7 @@ function run(Module) {
   // ------------------------------------------------------------------ 4. it is a picture
   {
     var f = manifest.frames[manifest.frames.length - 1];
-    var ptr = render(f.time, 320, 136, 1, 1, 0, 0);
+    var ptr = render(f.time, 320, 136, 1, 1, 0, 0, 0);
     check(ptr !== 0, 'a frame comes back at a size nobody asked for in the fixture');
     var px = Module.HEAPU8.subarray(ptr, ptr + 320 * 136 * 4);
     var seen = {};
@@ -207,9 +209,9 @@ function run(Module) {
   }
 
   // ------------------------------------------------------------------ 5. it refuses the impossible
-  check(render(0, 2, 2, 1, 1, 0, 0) === 0, 'a frame smaller than a thumbnail is refused, not crashed on');
+  check(render(0, 2, 2, 1, 1, 0, 0, 0) === 0, 'a frame smaller than a thumbnail is refused, not crashed on');
   check(load('nonsense') === 0, 'and a bad reel after a good one is still refused');
-  check(render(0, 320, 136, 1, 1, 0, 0) === 0, 'after which there is no film to render');
+  check(render(0, 320, 136, 1, 1, 0, 0, 0) === 0, 'after which there is no film to render');
 }
 
 var factory = require(path.join(WASM_DIR, 'film3d.js'));

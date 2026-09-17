@@ -94,6 +94,49 @@ int main() {
               "test would darken along its whole length");
     }
 
+    // ------------------------------------------------------------------ 1b. and at a quarter too
+    //
+    // The pass works at one pixel in `step`, and the play tier asks for a quarter where the recording
+    // tier asks for a half — 1.9 ms a frame against 6.9, which is the difference between the preview
+    // showing the film that comes out and the preview showing a different one. A quarter has to find
+    // the same corner; it is allowed to be softer about where exactly it starts.
+    {
+        const int w = 80, h = 60;
+        render::Image img(w, h, render::Color{0.6f, 0.6f, 0.6f, 1.0f});
+        render::Image quarter = img;
+        std::vector<float> depth(static_cast<std::size_t>(w) * static_cast<std::size_t>(h), 0.0f);
+        for (int y = 0; y < h; ++y) {
+            for (int x = 0; x < w; ++x) {
+                depth[static_cast<std::size_t>(y) * static_cast<std::size_t>(w) +
+                      static_cast<std::size_t>(x)] = depthFor(x < w / 2 ? 3.0f : 2.4f);
+            }
+        }
+        render::screenAmbientOcclusion(img, 0, h, depth, kNear, kFar, 0.5f, 0.85f, 2);
+        render::screenAmbientOcclusion(quarter, 0, h, depth, kNear, kFar, 0.5f, 0.85f, 4);
+
+        const auto darkestNear = [&](const render::Image& in) {
+            float d = 1.0f;
+            for (int x = w / 2 - 8; x < w / 2; ++x) {
+                d = std::fmin(d, in.getPixel(x, h / 2).r);
+            }
+            return d;
+        };
+        check(darkestNear(quarter) < 0.6f - 0.04f, "a quarter-resolution pass finds the corner too");
+        check(std::fabs(darkestNear(quarter) - darkestNear(img)) < 0.12f,
+              "and darkens it by much the same amount as the half-resolution one");
+        // And the open wall is still left alone, which is the thing a coarser grid could most easily
+        // get wrong: one working cell now covers sixteen pixels, so a corner smeared over four times
+        // the distance would show up here as the open wall going dark as well.
+        check(quarter.getPixel(4, h / 2).r > 0.55f,
+              "while the open wall away from it is still not darkened at a quarter");
+
+        // A step outside the range is clamped rather than dividing by nothing or indexing off the end.
+        render::Image silly(w, h, render::Color{0.6f, 0.6f, 0.6f, 1.0f});
+        render::screenAmbientOcclusion(silly, 0, h, depth, kNear, kFar, 0.5f, 0.85f, 0);
+        render::screenAmbientOcclusion(silly, 0, h, depth, kNear, kFar, 0.5f, 0.85f, 99);
+        check(silly.getPixel(4, h / 2).r > 0.0f, "an absurd step is clamped, not crashed on");
+    }
+
     // ------------------------------------------------------------------ 2. a corner goes dark
     {
         const int w = 80, h = 60;

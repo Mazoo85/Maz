@@ -42,6 +42,11 @@ struct Look {
     // frame and nothing else — no geometry, no bake, no per-shot stall — so unlike the shutter it is
     // affordable while a film is playing.
     int contact = 55;
+    // How much grain the surfaces themselves carry, in hundredths. 0 is off. Unlike the contact
+    // shading this one is paid for per pixel of whatever is close enough to the camera to show it,
+    // so what it costs depends on the shot: a close-up pays for a whole frame of it, a wide pays for
+    // almost none because everything in a wide is past the fade.
+    int texture = 18;
     int supersample = 2;   // 1 plays, 2 is for keeps: the frame is drawn twice over and averaged
     int shadows = 2;       // 0 none, 1 a hard edge, 2 a soft one
 };
@@ -486,6 +491,14 @@ inline Image drawFrame3D(const Reel& reel, const std::map<std::string, Cast>& ca
 
     Surface surf = surfaceFor(sc.palette, *shot, time);
     setAir(surf, sc.palette, *shot, sc.stage.indoors);
+    // The grain in the surfaces themselves, near the camera. Seeded from the film so two films get
+    // different plaster and one film gets the same plaster in every shot of it.
+    surf.grain = static_cast<float>(look.texture) / 100.0f;
+    surf.grainCell = 0.035f;
+    surf.grainFade = 6.0f;
+    surf.grainSeed = reel.seed * 2246822519u + 101u;
+    surf.grime = look.texture > 0 ? (sc.stage.indoors ? 0.22f : 0.14f) : 0.0f;
+    surf.grimeOver = 0.9f;
     // The room's own lamp, wherever this set keeps one. It carries the set's accent rather than the
     // key's colour, because the whole point of a practical is that it is a DIFFERENT light: two lamps
     // of the same colour are one lamp with a longer shadow.
@@ -650,9 +663,21 @@ inline Image drawFrame3D(const Reel& reel, const std::map<std::string, Cast>& ca
     // Before the print curve and before the lens, because it is light being absorbed in a corner
     // rather than something done to a photograph afterwards.
     if (look.contact > 0 && !depth.empty()) {
+        // Half resolution where there is time and a quarter where there is not, and the tier says
+        // which: supersampling is the thing only the unhurried path turns on, so it is a reliable
+        // stand-in for "this frame is being written to a file, not watched".
+        //
+        // The numbers behind it, measured in a browser at the size the film plays, alternating the
+        // settings inside one session: at half resolution the pass costs 6.9 ms of a 26.8 ms frame
+        // against a 41 ms limit, which is real headroom on a quiet machine and about seven
+        // milliseconds on a busy one. At a quarter it is 1.9 ms. Occlusion in a corner has no detail
+        // in it finer than a few pixels, so what a quarter loses is very little — and the alternative
+        // was leaving the effect out of the preview altogether, which means directing a film that
+        // does not look like the film that comes out.
+        const int step = look.supersample >= 2 ? 2 : 4;
         maz::render::screenAmbientOcclusion(img, y0, y0 + static_cast<int>(frameH), depth, 0.04f,
                                             220.0f, 0.45f,
-                                            static_cast<float>(look.contact) / 100.0f);
+                                            static_cast<float>(look.contact) / 100.0f, step);
     }
 
     // ---- the shutter ------------------------------------------------------------------------------

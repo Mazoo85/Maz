@@ -38,12 +38,20 @@ namespace maz::render {
 //               corner wants about half a metre; a figure's feet want less.
 //   strength    0 off, 1 takes the light out of a fully enclosed corner
 inline void screenAmbientOcclusion(Image& img, int y0, int y1, const std::vector<float>& depth,
-                                   float nearPlane, float farPlane, float radius, float strength) {
+                                   float nearPlane, float farPlane, float radius, float strength,
+                                   int step = 2) {
     const int w = img.width();
     const int rows = y1 - y0;
     if (strength <= 0.0001f || radius <= 0.0f || rows < 3 || w < 3) {
         return;
     }
+    // How many pixels across one working cell is. 2 is half resolution, 4 is quarter.
+    if (step < 1) {
+        step = 1;
+    } else if (step > 4) {
+        step = 4;
+    }
+    const float invStep = 1.0f / static_cast<float>(step);
     if (depth.size() < static_cast<std::size_t>(w) * static_cast<std::size_t>(rows)) {
         return;
     }
@@ -62,16 +70,16 @@ inline void screenAmbientOcclusion(Image& img, int y0, int y1, const std::vector
     // which the budget does not have; at half it is a quarter of that for a picture nobody can tell
     // apart. The nearest of the four depths is kept rather than the average, so an edge stays an edge
     // instead of being blurred into the surface behind it.
-    const int hw = w / 2 < 2 ? 2 : w / 2;
-    const int hh = rows / 2 < 2 ? 2 : rows / 2;
+    const int hw = w / step < 2 ? 2 : w / step;
+    const int hh = rows / step < 2 ? 2 : rows / step;
     std::vector<float> away(static_cast<std::size_t>(hw) * static_cast<std::size_t>(hh), 0.0f);
     for (int y = 0; y < hh; ++y) {
         for (int x = 0; x < hw; ++x) {
             float nearest = 1e30f;
-            for (int dy = 0; dy < 2; ++dy) {
-                for (int dx = 0; dx < 2; ++dx) {
-                    const int sx = x * 2 + dx < w ? x * 2 + dx : w - 1;
-                    const int sy = y * 2 + dy < rows ? y * 2 + dy : rows - 1;
+            for (int dy = 0; dy < step; ++dy) {
+                for (int dx = 0; dx < step; ++dx) {
+                    const int sx = x * step + dx < w ? x * step + dx : w - 1;
+                    const int sy = y * step + dy < rows ? y * step + dy : rows - 1;
                     const float d = depth[static_cast<std::size_t>(sy) * static_cast<std::size_t>(w) +
                                           static_cast<std::size_t>(sx)];
                     const float metres = viewDistance(d, nearPlane, farPlane);
@@ -105,14 +113,14 @@ inline void screenAmbientOcclusion(Image& img, int y0, int y1, const std::vector
             // How many pixels half a metre spans at this distance. Near things get a wide ring and far
             // things a tight one, which is what keeps the effect the same SIZE IN THE WORLD rather
             // than the same size on screen.
-            float span = radius / (here * perPixel) * 0.5f;   // half resolution, half the pixels
+            float span = radius / (here * perPixel) * invStep;   // working at one pixel in `step`
             // And capped hard. A contact shadow is a few pixels wide; a ring that reaches a
             // twentieth of the frame is not finding corners, it is comparing one wall with another
             // wall across the room, which came back as long dark smears down every surface that ran
             // away from the camera. Near geometry is where the cap bites, and near geometry is
             // exactly where an over-wide reach does the most damage.
-            if (span > fw * 0.009f) {
-                span = fw * 0.009f;
+            if (span > fw * 0.018f * invStep) {
+                span = fw * 0.018f * invStep;
             }
             // The floor is applied AFTER the cap, so it wins. Applied before, the cap could shrink the
             // ring below a pixel on a small frame and the eight samples all landed on the same pixel.
@@ -229,8 +237,8 @@ inline void screenAmbientOcclusion(Image& img, int y0, int y1, const std::vector
         for (int x = 0; x < w; ++x) {
             // Read back with bilinear interpolation, so the half-resolution grid does not show up as
             // a staircase along every edge it darkens.
-            const float fx = (static_cast<float>(x) - 0.5f) * 0.5f;
-            const float fy = (static_cast<float>(y) - 0.5f) * 0.5f;
+            const float fx = (static_cast<float>(x) - 0.5f) * invStep;
+            const float fy = (static_cast<float>(y) - 0.5f) * invStep;
             int x0 = static_cast<int>(fx < 0.0f ? 0.0f : fx);
             int y0s = static_cast<int>(fy < 0.0f ? 0.0f : fy);
             if (x0 > hw - 2) x0 = hw - 2;

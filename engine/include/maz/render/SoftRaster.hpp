@@ -3,6 +3,7 @@
 #include "maz/math/Math.hpp"
 #include "maz/render/Image.hpp"
 #include "maz/render/Shapes.hpp"
+#include "maz/render/SurfaceGrain.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -127,6 +128,43 @@ struct Surface {
     float fogStart = 0.0f;
     float fogEnd = 0.0f;
     float fogMax = 0.85f;                // how far toward the air colour the furthest thing goes
+
+    // FINE GRAIN, per pixel. Nothing in a real room is one flat value, and until this every surface
+    // in these films was: a wall, a floor, a table top, one number edge to edge. The eye reads that
+    // instantly as a drawing.
+    //
+    // Vertex colour was tried for this first and cannot do it. It is free — the rasteriser already
+    // interpolates colour — so the sets carry it and it earns its place varying one prop against the
+    // next. But the vertices are a third of a metre apart, which four metres from the camera is about
+    // ten pixels, and a ramp across ten pixels reads as lighting rather than as a material. Pushed to
+    // three and a half times the amount wanted it was still barely visible. Detail at the scale of a
+    // material has to be worked out per pixel, and this is that.
+    //
+    // It FADES OUT WITH DISTANCE, which is doing two jobs. It is what a real surface does — plaster
+    // stops being plaster and becomes a tone somewhere past a few metres — and it is also the whole
+    // of the anti-aliasing. A six-centimetre cell is about five pixels across at six metres and one
+    // pixel at sixteen, and one-pixel detail on a moving camera crawls. Reaching zero at six metres
+    // means the pattern is never sampled near the size of a pixel, so there is nothing to crawl.
+    float grain = 0.0f;                  // 0 off; how far the brightness swings either way
+    float grainCell = 0.06f;             // metres per cell of the pattern
+    float grainFade = 6.0f;              // metres at which it has gone entirely
+    std::uint32_t grainSeed = 1u;
+
+    // GRIME, low down. Rooms are dirty at the bottom: skirting boards are scuffed, floors are worn
+    // where they are walked, and the corner where a wall meets a floor collects everything.
+    //
+    // This is done per pixel and not, as it was first, by darkening vertices. Per vertex it needed
+    // the walls cut into a grid to have anywhere to land, and while that refinement turns out to be
+    // free on its own, it is not free in combination: it multiplies the number of triangle edges,
+    // every shared edge is deliberately shaded twice so no seam can show through, and the grain
+    // above then gets paid for eight times over. Measured, 0.9 ms a frame became 7.2. Here it costs
+    // a subtraction, it is sharp at any distance, and the walls can stay as cheap as they were.
+    //
+    // It does NOT fade with distance the way the grain does. Grain is detail, and detail past a few
+    // metres is a lie; a dirty skirting board is a large dark shape and stays one across a room.
+    float grime = 0.0f;                  // how much darker the bottom is
+    float grimeOver = 0.9f;              // metres over which that fades back to clean
+    float grimeFrom = 0.0f;              // the height it is measured up from
 
     // What the key light cannot see. Null means nothing casts.
     const ShadowMap* shadows = nullptr;
@@ -399,7 +437,31 @@ class SoftRaster {
                                         b.world * static_cast<float>(pb) +
                                         c.world * static_cast<float>(pc);
 
-                Color lit = shade(nrm, col, here, key, surf);
+                math::vec3 surfaceColor = col;
+                float wear = 1.0f;
+                if (surf.grime > 0.0f && surf.grimeOver > 0.0f) {
+                    const float up = (here.y - surf.grimeFrom) / surf.grimeOver;
+                    const float low = up <= 0.0f ? 1.0f : (up >= 1.0f ? 0.0f : 1.0f - up);
+                    // Squared, so it is a scuff along the skirting rather than a wall painted as a
+                    // gradient — and so it stays well clear of anybody's face.
+                    wear -= surf.grime * low * low;
+                }
+                if (surf.grain > 0.0f && surf.grainFade > 0.0f) {
+                    // 1/iw is the perspective-correct distance along the view axis, the same number
+                    // the fog below uses. Everything past the fade is skipped outright, which is most
+                    // of a wide shot and is where the cost would otherwise be.
+                    const float away = static_cast<float>(rw);
+                    if (away < surf.grainFade) {
+                        const float closeness = 1.0f - away / surf.grainFade;
+                        const float n = grainAt(here.x, here.y, here.z, surf.grainCell, surf.grainSeed);
+                        wear += surf.grain * n * closeness;
+                    }
+                }
+                if (wear != 1.0f) {
+                    surfaceColor = col * (wear < 0.0f ? 0.0f : wear);
+                }
+
+                Color lit = shade(nrm, surfaceColor, here, key, surf);
                 if (foggy) {
                     // 1/iw is the perspective-correct distance along the view axis at this pixel.
                     const float away = static_cast<float>(rw);

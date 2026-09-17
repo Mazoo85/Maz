@@ -1319,8 +1319,13 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
         const ctx = el.getContext('2d');
         const reel = window.__filmState.reel();
         window.FilmLook.drawFrame(ctx, el.width, el.height, reel, 2);   // warm it up
+        // Twelve batches rather than five. Contention only ever ADDS time, so the best batch is the
+        // honest estimate and more batches get nearer the truth — the cost is a couple of seconds.
+        // This was raised after two settings were compared by running this gate twice, which is a
+        // thing it cannot do: one run said 34 ms and another 44 ms for a difference that careful
+        // measurement puts at 6.9. The threshold is untouched; only the estimate is steadier.
         const batches = [];
-        for (let b = 0; b < 5; b++) {
+        for (let b = 0; b < 12; b++) {
           const t0 = performance.now();
           for (let i = 0; i < 10; i++) {
             window.FilmLook.drawFrame(ctx, el.width, el.height, reel, 3 + (b * 10 + i) / 12);
@@ -1336,7 +1341,7 @@ const IDEA = "A lonely lighthouse keeper finds a radio that plays tomorrow's new
         let acc = 0;
         for (let i = 1; i < 4000000; i++) acc += Math.sqrt(i);
         const reference = performance.now() - r0;
-        return { best: batches[0], median: batches[2], worst: batches[4], reference, acc };
+        return { best: batches[0], median: batches[6], worst: batches[11], reference, acc };
       });
       check(timing.best < 41,
             `a 3D frame is drawn in ${timing.best.toFixed(0)} ms at best ` +

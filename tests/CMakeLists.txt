@@ -384,6 +384,14 @@ add_executable(maz_depth_of_field_tests render/depthoffield.cpp)
 target_link_libraries(maz_depth_of_field_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME depth_of_field COMMAND maz_depth_of_field_tests)
 
+add_executable(maz_mesh_refine_tests render/meshrefine.cpp)
+target_link_libraries(maz_mesh_refine_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME mesh_refine COMMAND maz_mesh_refine_tests)
+
+add_executable(maz_surface_grain_tests render/surfacegrain.cpp)
+target_link_libraries(maz_surface_grain_tests PRIVATE maz::maz maz_warnings)
+add_test(NAME surface_grain COMMAND maz_surface_grain_tests)
+
 add_executable(maz_screen_ambient_tests render/screenambient.cpp)
 target_link_libraries(maz_screen_ambient_tests PRIVATE maz::maz maz_warnings)
 add_test(NAME screen_ambient COMMAND maz_screen_ambient_tests)

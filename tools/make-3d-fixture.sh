@@ -40,12 +40,14 @@ FPS=12
 # setting arrived with a non-zero default, the fixture picked it up and the test did not, and
 # 226,416 pixels disagreed for a reason nobody had chosen.
 CORNERS=55
+TEXTURE=18
 
-python3 - "$reel" "$out" "$bin" "$W" "$H" "$SS" "$SHADOWS" "$FPS" "$CORNERS" <<'PY'
+python3 - "$reel" "$out" "$bin" "$W" "$H" "$SS" "$SHADOWS" "$FPS" "$CORNERS" "$TEXTURE" <<'PY'
 import json, subprocess, sys, os, shutil
 
-reel_path, out, binary, W, H, SS, SHADOWS, FPS, CORNERS = sys.argv[1:10]
-W, H, SS, SHADOWS, FPS, CORNERS = int(W), int(H), int(SS), int(SHADOWS), int(FPS), int(CORNERS)
+reel_path, out, binary, W, H, SS, SHADOWS, FPS, CORNERS, TEXTURE = sys.argv[1:11]
+W, H, SS, SHADOWS, FPS, CORNERS, TEXTURE = (int(W), int(H), int(SS), int(SHADOWS), int(FPS),
+                                           int(CORNERS), int(TEXTURE))
 reel = json.load(open(reel_path))
 shots = reel['shots']
 
@@ -83,7 +85,8 @@ for n, (t, idx) in enumerate(picks):
     os.makedirs(tmp, exist_ok=True)
     subprocess.run([binary, reel_path, '--out', tmp, '--ppm', '--width', str(W),
                     '--ss', str(SS), '--shadows', str(SHADOWS),
-                    '--corners', str(CORNERS), '--still', repr(t)],
+                    '--corners', str(CORNERS), '--texture', str(TEXTURE),
+                    '--still', repr(t)],
                    check=True, stdout=subprocess.DEVNULL)
     # Gzipped: these are nine uncompressed frames and they live in the repository forever.
     name = 'frame-%02d.ppm.gz' % n
@@ -102,7 +105,7 @@ manifest = {
     'shots': len(shots),
     'people': len(reel['characters']),
     'width': W, 'height': H,
-    'supersample': SS, 'shadows': SHADOWS, 'corners': CORNERS, 'fps': FPS,
+    'supersample': SS, 'shadows': SHADOWS, 'corners': CORNERS, 'texture': TEXTURE, 'fps': FPS,
     'frames': frames,
 }
 json.dump(manifest, open(os.path.join(out, 'manifest.json'), 'w'), indent=2)

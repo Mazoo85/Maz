@@ -5,7 +5,9 @@
 #include "maz/math/Math.hpp"
 #include "maz/render/MeshMerge.hpp"
 #include "maz/render/MeshTransform.hpp"
+#include "maz/render/MeshRefine.hpp"
 #include "maz/render/Shapes.hpp"
+#include "maz/render/SurfaceGrain.hpp"
 #include "maz/render/Shapes3D.hpp"
 
 #include <cmath>
@@ -118,6 +120,22 @@ inline render::shapes::MeshData box(float sx, float sy, float sz, const math::ve
         render::translationMatrix(at));
 }
 
+// The same box, with somewhere to put detail on it.
+//
+// A wall is one enormous quad, and a quad has four corners. Anything worked out per vertex — a
+// colour variation, a bake, dirt at the skirting — can only be linear across the whole wall, which
+// means it cannot be seen. So the surfaces big enough to read as flat get cut into a grid first.
+//
+// A THIRD of a metre is where this landed. Coarser and the variation reads as a few large stains;
+// finer and the triangle count climbs with nothing to show for it, and the count is not free — every
+// triangle is rasterised twice, once for the picture and once into the shadow map.
+inline render::shapes::MeshData surface(float sx, float sy, float sz, const math::vec3& at,
+                                        const render::Color& c, float cell = 99.0f) {
+    render::shapes::MeshData m = box(sx, sy, sz, at, c);
+    render::refineMesh(m, cell);
+    return m;
+}
+
 // A box standing ON the floor at `at`, which is how furniture is actually described.
 inline render::shapes::MeshData stand(float sx, float sy, float sz, float x, float z,
                                       const render::Color& c) {
@@ -166,14 +184,14 @@ inline render::shapes::MeshData wallWithDoor(float halfW, float height, float z,
     const float dh = 2.05f;  // and 2.05m tall
     render::shapes::MeshData m;
     if (!withDoor) {
-        add(m, box(halfW * 2.0f, height, 0.12f, math::vec3(0.0f, height * 0.5f, z), c));
+        add(m, surface(halfW * 2.0f, height, 0.12f, math::vec3(0.0f, height * 0.5f, z), c));
         return m;
     }
     const float leftW = (doorX - dw * 0.5f) + halfW;
     const float rightW = halfW - (doorX + dw * 0.5f);
-    add(m, box(leftW, height, 0.12f, math::vec3(-halfW + leftW * 0.5f, height * 0.5f, z), c));
-    add(m, box(rightW, height, 0.12f, math::vec3(halfW - rightW * 0.5f, height * 0.5f, z), c));
-    add(m, box(dw, height - dh, 0.12f, math::vec3(doorX, dh + (height - dh) * 0.5f, z), c));
+    add(m, surface(leftW, height, 0.12f, math::vec3(-halfW + leftW * 0.5f, height * 0.5f, z), c));
+    add(m, surface(rightW, height, 0.12f, math::vec3(halfW - rightW * 0.5f, height * 0.5f, z), c));
+    add(m, surface(dw, height - dh, 0.12f, math::vec3(doorX, dh + (height - dh) * 0.5f, z), c));
     return m;
 }
 
@@ -276,18 +294,18 @@ inline Stage buildStage(const Shot& shot, const Palette& pal, std::uint32_t seed
     // ---- floor, walls, ceiling -------------------------------------------------------------------
     {
         const float w = st.halfWidth * 2.0f + 0.4f;
-        add(st.mesh, box(w, 0.12f, st.depth + 4.0f, math::vec3(0.0f, -0.06f, st.depth * 0.5f - 1.5f),
-                         floorC));
+        add(st.mesh, surface(w, 0.12f, st.depth + 4.0f,
+                             math::vec3(0.0f, -0.06f, st.depth * 0.5f - 1.5f), floorC));
         if (st.indoors) {
             const float h = st.ceiling;
             add(st.mesh, wallWithDoor(st.halfWidth, h, st.depth, dice.range(-0.5f, 0.5f) * st.halfWidth,
                                       wallC, set != "chapel"));
-            add(st.mesh, box(0.12f, h, st.depth + 3.0f,
-                             math::vec3(-st.halfWidth, h * 0.5f, st.depth * 0.5f - 1.0f), wallC));
-            add(st.mesh, box(0.12f, h, st.depth + 3.0f,
-                             math::vec3(st.halfWidth, h * 0.5f, st.depth * 0.5f - 1.0f), wallC));
-            add(st.mesh, box(st.halfWidth * 2.0f, 0.10f, st.depth + 3.0f,
-                             math::vec3(0.0f, h, st.depth * 0.5f - 1.0f), ceilC));
+            add(st.mesh, surface(0.12f, h, st.depth + 3.0f,
+                                 math::vec3(-st.halfWidth, h * 0.5f, st.depth * 0.5f - 1.0f), wallC));
+            add(st.mesh, surface(0.12f, h, st.depth + 3.0f,
+                                 math::vec3(st.halfWidth, h * 0.5f, st.depth * 0.5f - 1.0f), wallC));
+            add(st.mesh, surface(st.halfWidth * 2.0f, 0.10f, st.depth + 3.0f,
+                                 math::vec3(0.0f, h, st.depth * 0.5f - 1.0f), ceilC));
             // A skirting line, which is most of what tells you a wall is a wall and not a backdrop.
             add(st.mesh, box(st.halfWidth * 2.0f, 0.11f, 0.02f, math::vec3(0.0f, 0.055f, st.depth - 0.07f),
                              inkC));
@@ -619,6 +637,47 @@ inline Stage buildStage(const Shot& shot, const Palette& pal, std::uint32_t seed
     st.markLeft = math::vec3(-apart, 0.0f, 1.05f);
     st.markRight = math::vec3(apart, 0.0f, 1.05f);
     st.objectAt = math::vec3(0.0f, 0.755f, 1.9f);
+
+    // ---- and the set is worn ---------------------------------------------------------------------
+    //
+    // Last, over everything the set is made of at once, because it is sampled by where a vertex IS.
+    // Two boxes that meet — a wall and its skirting, a counter and the floor under it — have to agree
+    // about the dirt in the seam between them, and doing this per box would put a hard line down
+    // every one of those joins.
+    //
+    // It runs over the props as well as the walls. A prop is small enough to have no vertices inside
+    // it, so what it gets is not a texture across it but a single nudge of its own — which is exactly
+    // what was wanted there too: five identical crates lit identically read as five copies of one
+    // crate, and five crates a few per cent apart read as five crates.
+    //
+    // The held object is deliberately left out. It is the one thing in the film the audience is
+    // asked to look at and recognise across a cut, and a fleck of dirt on it is a fleck of doubt.
+    //
+    // The seed is the film's. Two films get different walls; the same film gets the same wall in
+    // every shot it appears in, which is the part that would be glaring if it were wrong.
+    {
+        render::Grain g;
+        g.seed = seed * 2654435761u + 17u;
+        // The close scale is 0.80 and not something finer, and that is not taste. The vertices are a
+        // third of a metre apart, so a variation finer than two thirds of a metre has nowhere to be
+        // recorded and averages itself away — asking for 0.38 here, which is what this had first,
+        // simply threw that octave in the bin. Nothing about the picture said so; the numbers did.
+        g.broad = 2.4f;
+        g.close = 0.80f;
+        // And the amount is modest on purpose. Pushed to three and a half times this it was still
+        // barely visible at the size a film plays at, which is the honest measure of what vertex
+        // colour can do on triangles this size: it varies one prop against the next and it puts dirt
+        // in the corner where the wall meets the floor, and it does not make a surface look like a
+        // material. That job belongs to the per-pixel grain in the rasteriser.
+        g.amount = 0.12f;
+        // The dirt low down is NOT done here any more. Per vertex it needed the walls cut into a
+        // grid to land on at all; per pixel, in the rasteriser, it costs a subtraction and is sharp
+        // at any distance. What is left here is the part vertex colour is actually good at: a box
+        // with no vertices inside it gets one nudge of its own, so five identical crates stop being
+        // five copies of one crate.
+        g.low = 0.0f;
+        render::grainMesh(st.mesh, g);
+    }
     return st;
 }
 

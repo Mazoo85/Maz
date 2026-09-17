@@ -403,11 +403,12 @@ comes out nearly the same for all four. At full resolution the pass cost 10.2 ms
 which the budget does not have. At half it costs **4.6 ms** (37.8 ms → 42.4 ms a frame, measured
 best-of-three over 48 frames) for a picture nobody can tell apart.
 
-That figure is the command line's, and it is not the one that decides anything. In the browser the
-same pass costs **10 ms** — a play-tier frame goes from 34 ms to 44 ms against a 41 ms limit — so
-contact shading is **off while the film is playing and on for anything recorded or exported**, the
-same split the shutter takes, for the same reason and after the same mistake of quoting a native
-measurement at a WebAssembly budget. The four depths behind each
+That figure is the command line's, and it is not the one that decides anything — the browser is about
+twice as slow at this particular work. Getting the browser figure took three goes and the middle one
+is the instructive failure; it is written up under **Measuring a change in the browser** below. The
+answer: **6.9 ms at half resolution, 1.9 at a quarter**, so the play tier takes a quarter and the
+recording tier a half, and the effect is in both. A preview that does not look like the export is a
+preview that has to be second-guessed. The four depths behind each
 half-resolution pixel are reduced by taking the **nearest**, not the average, so an edge stays an
 edge instead of being blurred into whatever is behind it, and the result is read back bilinearly so
 the coarse grid does not show up as a staircase.
@@ -452,6 +453,89 @@ been caught there — but the lesson for anything new is to spend the fifteen se
 g++ -std=c++20 -g -fsanitize=address,undefined -Iengine/include -I<glm> tests/render/<new>.cpp \
     engine/src/render/Shapes.cpp -o /tmp/t && /tmp/t
 ```
+
+## Grain in the surfaces
+
+Every surface in these films was one flat colour: a wall, a floor, a table top, one value edge to
+edge. Nothing in a room is one value, and the eye reads it as a drawing immediately.
+
+`render/SurfaceGrain.hpp` is a field of value noise in world space — integer hashes and plain float
+arithmetic, nothing from a maths library, because this has to come out identical in both builds. It
+is sampled in two places, and the pair of them is the whole of the answer.
+
+**Per pixel, in the rasteriser**, near the camera. This is the one that works. `--texture 0..100` on
+the command line, 18 by default, about 2 ms a frame.
+
+It **fades out with distance**, which does two jobs at once. It is what a real surface does — plaster
+stops being plaster and becomes a tone past a few metres — and it is the whole of the anti-aliasing:
+a six-centimetre cell is about five pixels across at six metres and one pixel at sixteen, and
+one-pixel detail on a moving camera crawls. Reaching zero at six metres means the pattern is never
+sampled near the size of a pixel, so there is nothing to crawl with.
+
+It is also **sampled on a turned frame**, and that is a fix rather than a flourish. Value noise lives
+on a grid, and every wall, floor and ceiling here is axis aligned, so the grid lined up with the
+surfaces exactly and a regular diagonal lattice came up across the flat ones — it looked like woven
+fabric. A fixed rotation of 0.9 radians about (0.3, 0.87, 0.39), worked out once and written down,
+means no surface in the film can be parallel to the lattice.
+
+**Per vertex**, over the whole set mesh, which costs nothing because the rasteriser already
+interpolates colour. This was tried first as the whole answer, and the honest result is that it is
+not one. The walls were cut into a grid a third of a metre across so the variation had somewhere to
+land, and then the amount was pushed to three and a half times what was wanted — and it was still
+barely visible. A third of a metre four metres from the camera is about ten pixels, and a ramp across
+ten pixels reads as lighting, not as material.
+
+What it is genuinely good for is the thing a box with no vertices inside it can still show: one nudge
+of its own. Five identical crates lit identically read as five copies of one crate; five crates a few
+per cent apart read as five crates.
+
+The grid went away with it. `render/MeshRefine.hpp` — adaptive, crack-free, splitting only what is
+too coarse and leaving a doorknob alone — stays in the engine and is tested, because the day these
+rooms are built out of real architecture it is exactly the tool for it. It is worth knowing why it
+was not free even though it measured free: on its own it costs nothing (33.4 ms a frame against 33.2
+without, which is noise), but it multiplies the number of triangle EDGES, every shared edge is
+deliberately shaded twice so that no seam can show through, and the per-pixel grain is the most
+expensive thing done per fragment. 0.9 ms a frame became 7.2.
+
+The dirt low down — scuffed skirting, worn floor, the corner where a wall meets a floor that collects
+everything — moved to the rasteriser for the same reason. Per vertex it needed the grid; per pixel it
+costs a subtraction and is sharp at any distance.
+
+## Measuring a change in the browser
+
+Three attempts to cost contact shading produced three different answers, and the wrong ones were
+wrong in instructive ways. Anyone measuring the next feature should start here.
+
+**Do not time it on the command line.** The first figure, 4.6 ms a frame, was measured natively and
+declared affordable. WebAssembly is about twice as slow at this work, so a native number quoted at
+this budget is not a number.
+
+**Do not run the frame-budget gate twice and subtract.** The second attempt ran
+`film/tests/film-browser.test.js` with the setting off (34 ms) and on (44 ms), concluded 10 ms, found
+it over the 41 ms limit and moved the effect out of the preview. That looked like a measurement and
+was not one. The gate is a **floor, not a comparison** — its own comment records the same binaries
+coming out at 24 ms and at 31 ms on different days — so the difference between two of its runs is
+mostly how busy the machine was. The reference sum it prints is the tell: 8 ms on one run, 13 on
+another is a machine two thirds as fast, not a renderer two thirds as fast.
+
+**Time the settings alternately inside one session.** Best of eight rounds, at 480 across, which is
+the size the film actually plays:
+
+| | best of 8 | cost |
+|---|---|---|
+| plain | 18.3 ms | |
+| contact only | 25.2 ms | +6.9 |
+| texture only | 20.1 ms | +1.8 |
+| both | 26.8 ms | +8.5 |
+
+6.9 + 1.8 = 8.7 against a measured 8.5. That the parts add up to the whole is what says the numbers
+are real; the earlier ones never did, and that was the thing to notice. The same discipline applies
+natively, where the machine drifts by more than ten per cent between runs — enough to have nearly got
+a feature cut over a cost that turned out to be noise.
+
+The gate itself now takes twelve batches rather than five, which makes its estimate steadier without
+touching the 41 ms threshold. Moving the threshold to fit a feature would be marking one's own
+homework; making the estimate less noisy is not.
 
 ## One renderer, compiled twice
 

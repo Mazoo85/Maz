@@ -48,22 +48,41 @@
    * where there is one. If the play path ever gets cheaper, this is the first thing that should have
    * the room. */
   //
-  // `contact` is the shading that collects in corners and where things meet — the thing that makes
-  // something rest on a floor rather than hover in front of it. It goes the same way as the shutter,
-  // and for the same reason, after an estimate that was wrong.
+  // `contact` is the shading that collects in corners and where things meet, and `texture` is the
+  // grain in the surfaces themselves. Both are ON while playing, and getting to that answer took
+  // three goes at measuring, which is worth writing down because the first two were wrong in
+  // opposite directions.
   //
-  // The estimate came from the command-line renderer, where the pass costs 4.6 ms (37.8 ms a frame
-  // to 42.4 ms, best of three over 48 frames) — comfortably affordable. Measured where it actually
-  // has to run it costs 10 ms: this machine draws a play-tier frame in 34 ms without it and 44 ms
-  // with, against a limit of 41. WebAssembly is about twice as slow at it as native is, and a figure
-  // measured on the wrong side of that gap is not a figure.
+  // First the pass was timed on the COMMAND LINE — 4.6 ms a frame — and called affordable. That is
+  // the wrong side of the gap: WebAssembly turns out to be about twice as slow at this particular
+  // work as native is, so a native figure quoted at this budget means nothing.
   //
-  // So it is on for KEEP, which has no clock, and off for PLAY, which does. Nothing about the effect
-  // changed — it is on in every frame of a film that gets recorded or exported, which is the film
-  // anyone actually watches. If the play path ever gets cheaper this is second in the queue behind
-  // the shutter, and halving the ring or dropping to quarter resolution would both buy it room.
-  var PLAY = { supersample: 1, shadows: 1, shutter: 0, contact: 0 };
-  var KEEP = { supersample: 2, shadows: 2, shutter: 50, contact: 55 };
+  // Then it was timed in the browser, by running the frame-budget gate once with it off and once
+  // with it on: 34 ms against 44 ms, over the 41 ms limit, and it was moved out of PLAY. That was
+  // also wrong, and worse, because it looked like a real measurement. The gate is a FLOOR and not a
+  // comparison — its own comment records the same binaries coming out at 24 ms and at 31 ms on
+  // different days — so two of its runs cannot be subtracted from one another. What was measured
+  // there was mostly how busy the box was.
+  //
+  // What settles it is timing the settings ALTERNATELY inside one page session, at the size the film
+  // actually plays. Best of eight rounds, 480 across:
+  //
+  //     plain                18.3 ms
+  //     contact only         25.2 ms     + 6.9
+  //     texture only         20.1 ms     + 1.8
+  //     both                 26.8 ms     + 8.5   (and 6.9 + 1.8 = 8.7, which is the arithmetic
+  //                                                agreeing with itself — the earlier numbers never
+  //                                                did, and that was the tell)
+  //
+  // 26.8 against a limit of 41. A device half this machine's speed still plays the film, which is
+  // exactly what that limit is for. So the preview shows the film the recording will show, which is
+  // worth a good deal on its own: a preview that looks different from the export is a preview that
+  // has to be second-guessed.
+  //
+  // The shutter stays off, on its own merits: it is 10 ms rather than 8.5 for the pair of these, and
+  // a smeared pan matters less than a room that looks like a room.
+  var PLAY = { supersample: 1, shadows: 1, shutter: 0, contact: 55, texture: 18 };
+  var KEEP = { supersample: 2, shadows: 2, shutter: 50, contact: 55, texture: 18 };
 
   /* ------------------------------------------------------------------ the module */
 
@@ -99,7 +118,8 @@
         load: m.cwrap('maz3d_load', 'number', ['string']),
         errorAt: m.cwrap('maz3d_error', 'number', []),
         render: m.cwrap('maz3d_render', 'number',
-                        ['number', 'number', 'number', 'number', 'number', 'number', 'number'])
+                        ['number', 'number', 'number', 'number', 'number', 'number', 'number',
+                         'number'])
       };
       return mod;
     }, function (err) {
@@ -132,7 +152,7 @@
     if (!mod || !giveReel(reel)) return false;
     var how = (opts && opts.keep) ? KEEP : PLAY;
     var ptr = mod.render(time || 0, width, height, how.supersample, how.shadows, how.shutter,
-                         how.contact);
+                         how.contact, how.texture);
     if (!ptr) return false;
     var bytes = mod.raw.HEAPU8.subarray(ptr, ptr + width * height * 4);
     var image = ctx.createImageData(width, height);
