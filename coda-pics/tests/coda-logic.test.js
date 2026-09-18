@@ -4143,6 +4143,218 @@ function laidDown(ctx, gradient) {
   pass('cloud has structure at every size, and overcast has mass');
 })();
 
+/*
+ * An edge worth having.
+ *
+ * Measured with the coastline method — take a silhouette as a mask, count its
+ * boundary pixels, halve the resolution, count again — every subject in this
+ * engine came out between 1.01 and 1.13, where a smooth mathematical curve is
+ * 1.0. A wolf measured 1.032: as smooth as a crystal. That is what being built
+ * out of ellipses and swept curves does, and no amount of light, texture or
+ * weather fixes it, because the shape is already wrong when they arrive.
+ */
+(function anEdgeWorthHaving() {
+  console.log('\nAn edge worth having');
+
+  var SUBJECTS = require('../js/subjects.js');
+
+  /* Every point a path was built from. */
+  function pathOf(fn) {
+    var ctx = recorder(400, 400);
+    fn(ctx);
+    var pts = [];
+    ctx.log.forEach(function (c) {
+      if (c.op === 'moveTo' || c.op === 'lineTo') pts.push([c.args[0], c.args[1]]);
+    });
+    return pts;
+  }
+  function ringOf(amount) {
+    return pathOf(function (ctx) {
+      SUBJECTS.roughEllipse(ctx, 200, 200, 80, 80, 0, 200, amount);
+    });
+  }
+
+  var ring = ringOf(1);
+  check(ring.length > 30, 'a circle is walked round rather than swept (' + ring.length + ' points)');
+
+  /* It is no longer a circle, which is the point. */
+  var offs = ring.map(function (pt) {
+    return Math.sqrt((pt[0] - 200) * (pt[0] - 200) + (pt[1] - 200) * (pt[1] - 200)) - 80;
+  });
+  var worst = Math.max.apply(null, offs.map(Math.abs));
+  var swing = Math.max.apply(null, offs) - Math.min.apply(null, offs);
+  check(worst > 1.5 && worst < 80 * 0.25,
+    'and its edge wanders — up to ' + worst.toFixed(1) + 'px off a true radius ' +
+    'of 80, which is an edge rather than a deformity');
+  check(swing > 2.5,
+    'in and out rather than simply bigger (' + swing.toFixed(1) + 'px between ' +
+    'its closest and furthest)');
+
+  /* Smooth, not fizzing: neighbours along the edge agree with each other. */
+  var jump = 0;
+  for (var i = 1; i < offs.length; i++) jump = Math.max(jump, Math.abs(offs[i] - offs[i - 1]));
+  check(jump < swing * 0.6,
+    'and it wanders rather than fizzes — no two neighbouring points differ by ' +
+    'more than ' + jump.toFixed(1) + 'px while the edge spans ' + swing.toFixed(1));
+
+  /*
+   * The same wander every time, because it is a function of where a point is
+   * and nothing else. This matters more than it looks: the painter redraws
+   * every subject a dozen times over — as its own shadow, its rim light, its
+   * coat, its settled snow, its wear — and if the edge were rolled from the
+   * random stream each of those passes would wander differently and a wolf's
+   * shadow would not be the shape of the wolf.
+   */
+  var again = ringOf(1);
+  var drift = 0;
+  for (var j = 0; j < Math.min(ring.length, again.length); j++) {
+    drift = Math.max(drift, Math.abs(ring[j][0] - again[j][0]),
+      Math.abs(ring[j][1] - again[j][1]));
+  }
+  check(ring.length === again.length && drift === 0,
+    'and the same shape drawn again comes out identical, so a subject and its ' +
+    'own shadow have one outline between them');
+
+  /* And it closes. A field of position gives this for nothing: the last point
+   * and the first are in the same place, so they agree. */
+  var first = ring[0], last = ring[ring.length - 1];
+  check(Math.abs(first[0] - last[0]) < 0.001 && Math.abs(first[1] - last[1]) < 0.001,
+    'and the loop closes on itself exactly, with no seam where it meets');
+
+  /*
+   * A long line and a line chopped into pieces must wander by the same amount.
+   * The first attempt measured the wander against each segment's own length,
+   * which did nothing at all to a wolf — a wolf is eight hundred and fifteen
+   * straight lines, each three pixels long, and five per cent of three pixels
+   * is nothing. Size has to come from the subject, not the segment.
+   */
+  function deviation(pts, x0, y0, x1, y1) {
+    var dx = x1 - x0, dy = y1 - y0;
+    var len = Math.sqrt(dx * dx + dy * dy) || 1;
+    var most = 0;
+    pts.forEach(function (pt) {
+      most = Math.max(most, Math.abs((pt[0] - x0) * dy - (pt[1] - y0) * dx) / len);
+    });
+    return most;
+  }
+  var oneGo = pathOf(function (ctx) {
+    var c = SUBJECTS.rough(ctx, 200, 1);
+    c.beginPath(); c.moveTo(60, 200); c.lineTo(340, 200);
+  });
+  var inBits = pathOf(function (ctx) {
+    var c = SUBJECTS.rough(ctx, 200, 1);
+    c.beginPath(); c.moveTo(60, 200);
+    for (var k = 1; k <= 80; k++) c.lineTo(60 + (280 * k) / 80, 200);
+  });
+  var whole = deviation(oneGo, 60, 200, 340, 200);
+  var chopped = deviation(inBits, 60, 200, 340, 200);
+  check(whole > 2, 'one long line wanders off true by ' + whole.toFixed(1) + 'px');
+  check(chopped > whole * 0.5,
+    'and the same line drawn in eighty pieces wanders just as far (' +
+    chopped.toFixed(1) + 'px) — the size comes from the subject, not the segment');
+
+  /*
+   * How much depends on what the thing is. A stag's outline is fur and should
+   * fray; a tower has been rained on but is still a tower, and one that
+   * wobbles like a bush reads as a melted one. A crystal should be sharp —
+   * that is the whole point of a crystal.
+   */
+  /*
+   * Asked of the painter, not read out of its own table. How much of a path is
+   * wander rather than shape is the difference between drawing a subject the
+   * way the painter does and drawing the same subject with the wander turned
+   * off, so each thing is compared against itself and a tower built of
+   * straight lines is not held against a stag built of curves.
+   */
+  /*
+   * How far along that scale each thing is pushed. The wander moves points
+   * without changing where they are sampled, so the same subject drawn with
+   * the wander off and with it fully on gives two paths of the same length
+   * that can be compared point for point. Where the painter's own output sits
+   * between those two is the amount it chose — asked of it, rather than read
+   * back out of the table it reads.
+   */
+  function apart(a, b) {
+    var n = Math.min(a.length, b.length), sum = 0;
+    for (var k = 0; k < n; k++) {
+      sum += Math.abs(a[k][0] - b[k][0]) + Math.abs(a[k][1] - b[k][1]);
+    }
+    return n ? sum / n : 0;
+  }
+  function chosen(text) {
+    var spec = PROMPT.parse(text, { seed: 4, style: 'auto' });
+    var P = PAINT.makePalette(spec);
+    var box = { x: 60, y: 40, w: 280, h: 320, depth: 0, anchor: 'ground' };
+    var span = Math.min(box.w, box.h);
+    function run(amount) {
+      return pathOf(function (ctx) {
+        var c = amount == null
+          ? ctx
+          : SUBJECTS.rough(ctx, span, amount);
+        if (amount == null) {
+          SUBJECTS.draw(ctx, spec.subject, box, P, PROMPT.rng(spec, 'subject'), spec);
+        } else {
+          SUBJECTS.DRAW[spec.subject.draw](c, box, P,
+            PROMPT.rng(spec, 'subject'), spec, spec.subject.form);
+        }
+      });
+    }
+    var painter = run(null), off = run(0), full = run(1);
+    var span2 = apart(full, off);
+    return span2 > 0 ? apart(painter, off) / span2 : 0;
+  }
+  var furry = chosen('a stag'), built = chosen('a stone tower'), cut = chosen('a crystal');
+  check(furry > built * 1.8,
+    'a stag frays more than a tower does (' + furry.toFixed(2) + ' of the way ' +
+    'against ' + built.toFixed(2) + ')');
+  check(built > cut,
+    'and a tower more than a crystal, which should be sharp (' +
+    built.toFixed(2) + ' against ' + cut.toFixed(2) + ')');
+
+  /* A part-arc is a curve somebody meant, not an outline, and is left alone. */
+  var pie = pathOf(function (ctx) {
+    var c = SUBJECTS.rough(ctx, 200, 1);
+    c.beginPath(); c.arc(200, 200, 80, 0, Math.PI * 0.5);
+  });
+  check(pie.length === 0,
+    'a part-arc is passed straight through — it is a curve somebody drew, not an outline');
+
+  /*
+   * And it survives a context that will not be written to.
+   *
+   * `canvas` is read-only on a real browser context and an ordinary property
+   * on the recording one this suite uses, so forwarding it as a setter throws
+   * in a browser and passes in Node. That is the exact shape of bug a
+   * pixels-never-touched test suite cannot see, and it got through: every
+   * picture in the browser threw on the first subject drawn.
+   */
+  var strict = {};
+  ['save', 'restore', 'beginPath', 'closePath', 'moveTo', 'lineTo', 'fill',
+   'stroke', 'quadraticCurveTo', 'arc', 'ellipse', 'fillRect', 'translate',
+   'rotate', 'scale', 'clip', 'rect'].forEach(function (k) { strict[k] = function () {}; });
+  /* A styling property that refuses to be written to, which is what the guard
+   * is actually for — `canvas` is skipped outright, so leaving it as the only
+   * read-only thing here tested nothing. */
+  Object.defineProperty(strict, 'fillStyle', {
+    get: function () { return '#000'; },
+    enumerable: true, configurable: false
+  });
+  Object.defineProperty(strict, 'canvas', {
+    get: function () { return { width: 400, height: 400 }; },
+    enumerable: true, configurable: false
+  });
+  var blewUp = null;
+  try {
+    var wrapped = SUBJECTS.rough(strict, 200, 1);
+    wrapped.fillStyle = '#fff';
+    wrapped.beginPath(); wrapped.moveTo(10, 10); wrapped.lineTo(90, 90); wrapped.fill();
+  } catch (e) { blewUp = e.message; }
+  check(blewUp === null,
+    'and a context whose properties refuse to be written to is handled rather ' +
+    'than thrown at' + (blewUp ? ' — ' + blewUp : ''));
+  pass('outlines wander the way real ones do, and every pass agrees on how');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);

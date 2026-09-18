@@ -1822,18 +1822,261 @@
     return drew;
   }
 
+  /*
+   * An edge worth having.
+   *
+   * Measured with the coastline method — take the silhouette as a mask, count
+   * its boundary pixels, halve the resolution, count again — a smooth
+   * mathematical curve comes out at D = 1.0 and a real outline at 1.1 to 1.3.
+   * Every subject in this engine measured between 1.01 and 1.13, and a wolf
+   * came out at 1.032: as smooth as a crystal. That is what it means to be
+   * built out of ellipses and swept curves, and no amount of light, texture or
+   * weather fixes it, because the shape is already wrong when they arrive.
+   *
+   * The wander is a field in space rather than anything to do with the line
+   * being drawn, and that choice is doing a lot of work.
+   *
+   * Roughening each segment by a share of its own length was the obvious way
+   * and it did nothing: a wolf is eight hundred and fifteen straight lines, so
+   * each one is three pixels long and a five per cent wander on three pixels
+   * is nothing at all. Worse, a stone tower is four long lines and would have
+   * been mangled by the same rule. Size has to come from the subject, not the
+   * segment.
+   *
+   * A field also closes every loop for nothing. Displacement depends on where
+   * a point *is*, so the last point of a path and its first agree because they
+   * are in the same place — no seams, no gaps, no special case. Two shapes
+   * that touch deform together, which reads as one animal made of one
+   * material rather than a pile of separately crumpled parts.
+   *
+   * And it is a function of position alone, so the dozen passes that redraw
+   * each subject — its shadow, its rim light, its coat, its settled snow, its
+   * wear — all get the same outline. Rolled from the random stream instead,
+   * every pass would wander differently and a wolf's shadow would not be the
+   * shape of the wolf.
+   */
+  var EDGE = 0.052;
+
+  function hash2(i, j) {
+    var x = (Math.imul(i, 374761393) + Math.imul(j, 668265263)) | 0;
+    x = Math.imul(x ^ (x >>> 13), 1274126177);
+    return ((x ^ (x >>> 16)) >>> 0) / 4294967296 - 0.5;
+  }
+  /* Smooth value noise, so the edge wanders rather than fizzes. */
+  function field(x, y) {
+    var xi = Math.floor(x), yi = Math.floor(y);
+    var fx = x - xi, fy = y - yi;
+    fx = fx * fx * (3 - 2 * fx);
+    fy = fy * fy * (3 - 2 * fy);
+    var a = hash2(xi, yi), b = hash2(xi + 1, yi);
+    var c = hash2(xi, yi + 1), d = hash2(xi + 1, yi + 1);
+    var top = a + (b - a) * fx, bot = c + (d - c) * fx;
+    return top + (bot - top) * fy;
+  }
+  /* Two octaves: the coarse one gives an outline its lumps, the fine one its
+   * fray. Both measured against the subject's own size. */
+  function swell(x, y, scale, amount) {
+    return (field(x / (scale * 0.085), y / (scale * 0.085)) * scale * 0.026 +
+      field(x / (scale * 0.026) + 91, y / (scale * 0.026) + 57) * scale * 0.009 +
+      field(x / (scale * 0.009) + 313, y / (scale * 0.009) + 177) * scale * 0.0045
+    ) * (amount == null ? 1 : amount);
+  }
+
+  /*
+   * How much edge a thing gets, by what it is.
+   *
+   * One amount for everything is wrong in both directions. A stag's outline is
+   * fur and should fray; a stone tower has been rained on for a century and
+   * has a slightly eaten edge, but it is still a tower and a tower that
+   * wobbles like a bush reads as a melted one. A crystal should be sharp —
+   * that is the entire point of a crystal.
+   */
+  var EDGE_BY = {
+    quadruped: 1.00, bird: 1.00, humanoid: 0.85, tree: 1.00,
+    dragon: 0.70, serpent: 0.70, fish: 0.60, whale: 0.55, crab: 0.70,
+    butterfly: 0.55, jellyfish: 0.80, mushroom: 0.85, flower: 0.85,
+    cactus: 0.75, skull: 0.70, waterfall: 0.90, peak: 0.95, island: 0.95,
+    castle: 0.45, tower: 0.40, cabin: 0.50, lighthouse: 0.40, temple: 0.45,
+    torii: 0.35, pyramid: 0.40, windmill: 0.40, bridge: 0.45, city: 0.35,
+    ruins: 0.80, campfire: 0.90,
+    crystal: 0.22, sword: 0.25, portal: 0.30, rocket: 0.20, ufo: 0.20,
+    car: 0.22, train: 0.22, ship: 0.45, balloon: 0.30, planet: 0.25,
+    bigmoon: 0.30, eye: 0.35
+  };
+
+  function roughEllipse(target, x, y, rx, ry, turn, scale, amount) {
+    var n = Math.max(20, Math.min(220, Math.round(Math.max(rx, ry) * 2.2)));
+    var cos = Math.cos(turn || 0), sin = Math.sin(turn || 0);
+    for (var i = 0; i <= n; i++) {
+      var a = (i / n) * Math.PI * 2;
+      var px = Math.cos(a) * rx, py = Math.sin(a) * ry;
+      var qx = x + px * cos - py * sin, qy = y + px * sin + py * cos;
+      /* Outward along the normal, which for an ellipse is near enough the
+       * direction from its centre. */
+      var len = Math.sqrt((qx - x) * (qx - x) + (qy - y) * (qy - y)) || 1;
+      var off = swell(qx, qy, scale, amount);
+      var ox = qx + ((qx - x) / len) * off, oy = qy + ((qy - y) / len) * off;
+      if (i === 0) target.moveTo(ox, oy); else target.lineTo(ox, oy);
+    }
+    target.closePath();
+  }
+
+  /* The same for a rectangle, walked round its four sides. A wall is not a
+   * ruled line either — it has been rained on. */
+  function rectPath(target, x, y, w, h, scale, amount) {
+    var per = (Math.abs(w) + Math.abs(h)) * 2;
+    if (per < 4) { target.rect(x, y, w, h); return; }
+    var n = Math.max(20, Math.min(300, Math.round(per / 2)));
+    for (var i = 0; i <= n; i++) {
+      var d = (i / n) * per, px, py, nx, ny;
+      if (d <= Math.abs(w)) { px = x + d; py = y; nx = 0; ny = -1; }
+      else if (d <= Math.abs(w) + Math.abs(h)) {
+        px = x + w; py = y + (d - Math.abs(w)); nx = 1; ny = 0;
+      } else if (d <= Math.abs(w) * 2 + Math.abs(h)) {
+        px = x + w - (d - Math.abs(w) - Math.abs(h)); py = y + h; nx = 0; ny = 1;
+      } else {
+        px = x; py = y + h - (d - Math.abs(w) * 2 - Math.abs(h)); nx = -1; ny = 0;
+      }
+      var off = swell(px, py, scale, amount);
+      if (i === 0) target.moveTo(px + nx * off, py + ny * off);
+      else target.lineTo(px + nx * off, py + ny * off);
+    }
+    target.closePath();
+  }
+
+  /*
+   * The context the subject routines are actually handed.
+   *
+   * One wrapper rather than two hundred edits, so every routine gains this —
+   * including any written later — and so it can be taken away again in one
+   * place if it is ever wrong. A partial arc is left alone: that is a curve
+   * somebody meant, not an outline. `fillRect` fills through a Path2D where
+   * there is one, because the real `fillRect` leaves the current path
+   * untouched and building one would quietly wreck whatever the caller was
+   * halfway through drawing.
+   */
+  var WRAPPED = null;
+  function rough(ctx, scale, amount) {
+    if (!ctx) return ctx;
+    var span = scale || 100;
+    var much = (amount == null ? 1 : amount) * (EDGE / 0.052);
+    if (ctx.__coda_rough) { ctx.__coda_scale = span; ctx.__coda_edge = much; return ctx; }
+    if (WRAPPED && WRAPPED.__coda_for === ctx) {
+      WRAPPED.__coda_scale = span; WRAPPED.__coda_edge = much; return WRAPPED;
+    }
+    var p = { __coda_rough: true, __coda_for: ctx, __coda_scale: span,
+      __coda_edge: much, __x: null, __y: null };
+    var hasPath = typeof Path2D !== 'undefined';
+    for (var key in ctx) {
+      (function (k) {
+        /* `canvas` is read-only on a real context and a plain property on the
+         * recording one the tests use, so forwarding it as a setter throws in
+         * a browser and passes in Node — exactly the shape of bug a logic
+         * suite cannot see. It is copied across as a value instead. */
+        if (k === 'canvas') return;
+        if (typeof ctx[k] === 'function') {
+          p[k] = function () { return ctx[k].apply(ctx, arguments); };
+        } else {
+          Object.defineProperty(p, k, {
+            get: function () { return ctx[k]; },
+            set: function (v) { try { ctx[k] = v; } catch (e) { /* read-only */ } },
+            enumerable: true, configurable: true
+          });
+        }
+      })(key);
+    }
+    p.canvas = ctx.canvas;
+
+    /* Walk a segment, putting down points along it and pushing each one
+     * sideways by what the field says at the place it lands. Stepped fine
+     * enough to carry the smaller octave, whatever length the caller asked
+     * for — which is what makes this work on a tower's four long lines and on
+     * a wolf's eight hundred short ones alike. */
+    function walk(x0, y0, at, far) {
+      var span2 = p.__coda_scale;
+      /* Stepped fine enough to carry the smallest octave. Stepping at the
+       * coarse octave's wavelength — which the first version did — samples a
+       * three-pixel ripple every thirty pixels and returns a smooth bulge:
+       * the outline got fatter and no rougher, which is not what was wanted. */
+      var n = Math.max(1, Math.min(90, Math.ceil(far / Math.max(span2 * 0.005, 0.9))));
+      for (var i = 1; i <= n; i++) {
+        var t = i / n;
+        var here = at(t), back = at(Math.max(0, t - 1 / n));
+        var dx = here[0] - back[0], dy = here[1] - back[1];
+        var len = Math.sqrt(dx * dx + dy * dy) || 1;
+        var off = swell(here[0], here[1], span2, p.__coda_edge);
+        ctx.lineTo(here[0] - (dy / len) * off, here[1] + (dx / len) * off);
+      }
+    }
+
+    p.moveTo = function (x, y) {
+      var off = swell(x, y, p.__coda_scale, p.__coda_edge);
+      ctx.moveTo(x + off * 0.5, y + off * 0.5);
+      p.__x = x; p.__y = y;
+    };
+    p.lineTo = function (x, y) {
+      if (p.__x == null) { ctx.lineTo(x, y); p.__x = x; p.__y = y; return; }
+      var x0 = p.__x, y0 = p.__y;
+      var far = Math.sqrt((x - x0) * (x - x0) + (y - y0) * (y - y0));
+      walk(x0, y0, function (t) { return [x0 + (x - x0) * t, y0 + (y - y0) * t]; }, far);
+      p.__x = x; p.__y = y;
+    };
+    p.quadraticCurveTo = function (cx, cy, x, y) {
+      if (p.__x == null) { ctx.quadraticCurveTo(cx, cy, x, y); p.__x = x; p.__y = y; return; }
+      var x0 = p.__x, y0 = p.__y;
+      var far = Math.abs(cx - x0) + Math.abs(cy - y0) + Math.abs(x - cx) + Math.abs(y - cy);
+      walk(x0, y0, function (t) {
+        var u = 1 - t;
+        return [u * u * x0 + 2 * u * t * cx + t * t * x,
+          u * u * y0 + 2 * u * t * cy + t * t * y];
+      }, far);
+      p.__x = x; p.__y = y;
+    };
+    p.bezierCurveTo = function (a, b, c, d, x, y) {
+      ctx.bezierCurveTo(a, b, c, d, x, y); p.__x = x; p.__y = y;
+    };
+    p.beginPath = function () { ctx.beginPath(); p.__x = null; };
+    p.closePath = function () { ctx.closePath(); p.__x = null; };
+    p.rect = function (x, y, w, h) { ctx.rect(x, y, w, h); p.__x = null; };
+    p.ellipse = function (x, y, rx, ry, turn) {
+      roughEllipse(ctx, x, y, rx, ry, turn, p.__coda_scale, p.__coda_edge);
+      p.__x = null;
+    };
+    p.arc = function (x, y, rad, from, to, ccw) {
+      if (Math.abs(to - from) >= Math.PI * 2 - 1e-6) {
+        roughEllipse(ctx, x, y, rad, rad, 0, p.__coda_scale, p.__coda_edge);
+      } else ctx.arc(x, y, rad, from, to, ccw);
+      p.__x = null;
+    };
+    p.fillRect = function (x, y, w, h) {
+      if (!hasPath || Math.min(Math.abs(w), Math.abs(h)) < 4) {
+        ctx.fillRect(x, y, w, h);
+        return;
+      }
+      var path = new Path2D();
+      rectPath(path, x, y, w, h, p.__coda_scale, p.__coda_edge);
+      ctx.fill(path);
+    };
+
+    WRAPPED = p;
+    return p;
+  }
+
   function draw(ctx, subject, box, P, r, spec) {
     var fn = DRAW[subject.draw];
     if (!fn) return false;
-    ctx.save();
-    parts(ctx, subject, box, P, r, spec, 'behind');
-    fn(ctx, box, P, r, spec, subject.form);
-    parts(ctx, subject, box, P, r, spec, 'front');
-    ctx.restore();
+    var c = rough(ctx, Math.min(box.w, box.h),
+      EDGE_BY[subject.draw] == null ? 0.7 : EDGE_BY[subject.draw]);
+    c.save();
+    parts(c, subject, box, P, r, spec, 'behind');
+    fn(c, box, P, r, spec, subject.form);
+    parts(c, subject, box, P, r, spec, 'front');
+    c.restore();
     return true;
   }
 
   var API = { draw: draw, setStencil: setStencil, META: META, DRAW: DRAW, QUAD: QUAD,
+    rough: rough, roughEllipse: roughEllipse, rectPath: rectPath, swell: swell, field: field, EDGE: EDGE, EDGE_BY: EDGE_BY,
     BIRDS: BIRDS, PEOPLE: PEOPLE, TREES: TREES, PART_DRAW: PART_DRAW, PART_LAYER: PART_LAYER, POSE: POSE,
     ANATOMY: ANATOMY, parts: parts };
   root.CodaSubjects = API;
