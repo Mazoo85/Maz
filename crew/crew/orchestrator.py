@@ -79,6 +79,22 @@ def _extract_text(message) -> str:
     return "".join(parts)
 
 
+class EngineSilentError(RuntimeError):
+    """The engine returned no messages at all for a phase.
+
+    Not "it had nothing to say" — the SDK's underlying process never answered.
+    When it dies at startup (a bad or unfunded API key, a missing binary, no
+    network) ``receive_response()`` simply yields nothing, every phase collects
+    an empty string, and the run walks to "done" having done nothing. Crew then
+    printed "Crew finished" and exited 0.
+
+    That is how a total failure came to be recorded, by the loop that hands
+    Crew its work, as a successful night that happened to change nothing. Any
+    real phase yields at least a terminal result message, so nothing at all is
+    unambiguous: the engine never ran.
+    """
+
+
 async def _run_phase(client, prompt: str, *, title: str) -> PhaseResult:
     """Send one phase prompt, stream the response, return collected text + session id."""
     console.print(Rule(f"[bold cyan]{title}[/bold cyan]"))
@@ -87,7 +103,9 @@ async def _run_phase(client, prompt: str, *, title: str) -> PhaseResult:
     collected: list[str] = []
     session_id: str | None = None
     cost: float | None = None
+    answered = False
     async for message in client.receive_response():
+        answered = True
         text = _extract_text(message)
         if text:
             console.print(text, end="")
@@ -100,6 +118,12 @@ async def _run_phase(client, prompt: str, *, title: str) -> PhaseResult:
         if c is not None:
             cost = c
     console.print()  # newline after streamed output
+    if not answered:
+        raise EngineSilentError(
+            f"the engine returned nothing for the {title!r} phase — it did not run. "
+            "Check that the API key is valid and the account can be billed, then "
+            "try again."
+        )
     return PhaseResult(text="".join(collected), session_id=session_id, cost_usd=cost)
 
 
