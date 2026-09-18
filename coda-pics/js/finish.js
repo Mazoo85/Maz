@@ -270,6 +270,62 @@
     }
   }
 
+  /*
+   * Colour gives out at the top.
+   *
+   * Measured across the engine, the brightest tenth of a picture was its most
+   * saturated: 60% against 38% in the midtones for a stag at noon, 64% against
+   * 21% for a ship at sunset, 76% against 46% for a desert. In a photograph
+   * that is the wrong way round, always and everywhere. A sensor approaching
+   * full well, or film approaching the shoulder of its curve, runs out of
+   * headroom in the brightest channel first — so the channels converge and the
+   * colour drains towards white. The same thing happens in the world before
+   * the camera ever sees it: a surface bright enough to be near white is
+   * usually bright because it is scattering everything back at you, and
+   * scattering everything back is what white means.
+   *
+   * Nothing drawn does this, because a paint bucket does not run out of
+   * headroom, and colour that keeps its strength all the way to white is one
+   * of the most reliable marks of a picture that came out of a program.
+   *
+   * What drives it took some finding, and getting it wrong is instructive.
+   * Driven by lightness — the obvious choice — it missed most of what it was
+   * aimed at, because a strongly coloured pixel has a *low* lightness by that
+   * measure however bright it looks. A near-clipped orange, red at 252 of 255
+   * and three levels from the end of the scale, reads as 57% light and got a
+   * 5% nudge.
+   *
+   * The right question is not how bright a pixel is but how much room its
+   * brightest channel has left, because that is the whole mechanism: the
+   * channel that runs out first stops rising, the others keep going, and the
+   * colour walks towards white. Headroom is the driver.
+   */
+  var SHOULDER = 0.92;
+
+  function shoulder(img, amount) {
+    if (amount <= 0) return;
+    var d = img.data;
+    for (var i = 0; i < d.length; i += 4) {
+      var r = d[i], g = d[i + 1], b = d[i + 2];
+      var mx = r > g ? (r > b ? r : b) : (g > b ? g : b);
+      /* Nothing below three quarters is near enough the end to be affected.
+       * The second test is not redundant: 191 of 255 is a hair under three
+       * quarters, so `t` came out very slightly negative there, a fractional
+       * power of a negative number is NaN, and NaN stored into a clamped byte
+       * array is zero. That put a scatter of pure black pixels through every
+       * picture — 0.23% of a snowy one — which is not a thing photographs
+       * contain and would have been very hard to find by looking. */
+      if (mx < 191) continue;
+      var t = (mx / 255 - 0.75) / 0.25;
+      if (t <= 0) continue;
+      var pull = Math.pow(t, 1.4) * amount;
+      var grey = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      d[i] = r + (grey - r) * pull;
+      d[i + 1] = g + (grey - g) * pull;
+      d[i + 2] = b + (grey - b) * pull;
+    }
+  }
+
   function vignette(img, w, h, strength) {
     var d = img.data, cx = w / 2, cy = h / 2, max = Math.sqrt(cx * cx + cy * cy);
     for (var y = 0; y < h; y++) {
@@ -885,6 +941,9 @@
       daylight(img, P, 0.16);
       focusPass(img, w, h, P && P.focus);
       var day = expose(img, w, h, spec, P);
+      /* The shoulder, which belongs with the exposure: it is the same curve
+       * running out of room, seen in colour rather than in brightness. */
+      shoulder(img, SHOULDER);
       /* The lens leaking. Kept small: this is glass, not a filter. */
       bloom(img, w, h, 205, Math.max(2, Math.round(Math.min(w, h) * 0.012)),
         0.16 + (1 - day) * 0.14);
@@ -925,7 +984,7 @@
       posterize: posterize, dither: dither, edges: edges, inkEdges: inkEdges,
       contrast: contrast, saturate: saturate, grade: grade, grain: grain,
       focusPass: focusPass, daylight: daylight, expose: expose, mottle: mottle,
-      sensor: sensor,
+      sensor: sensor, shoulder: shoulder, SHOULDER: SHOULDER,
       DRIFT: DRIFT, lens: lens, GLASS: GLASS,
       vignette: vignette, luma: luma, mosaic: mosaic
     }

@@ -4355,6 +4355,159 @@ function laidDown(ctx, gradient) {
   pass('outlines wander the way real ones do, and every pass agrees on how');
 })();
 
+/*
+ * Colour gives out at the top.
+ *
+ * Measured across the engine, the brightest tenth of a picture was its most
+ * saturated part: 60% against 38% in the midtones for a stag at noon, 64%
+ * against 21% for a ship at sunset, 76% against 46% for a desert. In a
+ * photograph that is the wrong way round, always. A sensor approaching full
+ * well runs out of headroom in its brightest channel first, so the channels
+ * converge and the colour drains towards white. Nothing drawn does this — a
+ * paint bucket does not run out of headroom — and colour that keeps its full
+ * strength all the way to white is one of the most reliable marks of a
+ * picture that came out of a program.
+ */
+(function colourGivesOut() {
+  console.log('\nColour gives out at the top');
+
+  function hsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    var mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, h = 0, s = 0;
+    if (mx !== mn) {
+      var d = mx - mn;
+      s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+      h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      h *= 60;
+    }
+    return [h, s * 100, l * 100];
+  }
+  /* A strip of one hue climbing from dark to white, at full strength all the
+   * way — which is what a paint program gives you and a camera never does. */
+  function ramp(n) {
+    var img = { data: new Uint8ClampedArray(n * 4), width: n, height: 1 };
+    for (var i = 0; i < n; i++) {
+      var t = i / (n - 1);
+      /* An orange held at full saturation as it brightens. */
+      var l = t;
+      var c = l < 0.5 ? l * 2 : 1;
+      var lo = l < 0.5 ? 0 : (l - 0.5) * 2;
+      img.data[i * 4] = Math.round(255 * c);
+      img.data[i * 4 + 1] = Math.round(255 * (lo + (c - lo) * 0.55));
+      img.data[i * 4 + 2] = Math.round(255 * lo);
+      img.data[i * 4 + 3] = 255;
+    }
+    return img;
+  }
+  function satAt(img, i) {
+    return hsl(img.data[i * 4], img.data[i * 4 + 1], img.data[i * 4 + 2])[1];
+  }
+  function hueAt(img, i) {
+    return hsl(img.data[i * 4], img.data[i * 4 + 1], img.data[i * 4 + 2])[0];
+  }
+
+  var N = 41;
+  var before = ramp(N), after = ramp(N);
+  FINISH.helpers.shoulder(after, FINISH.helpers.SHOULDER);
+
+  /* The top of the strip loses its colour. */
+  var high = 34;                                  /* about 85% bright */
+  check(satAt(after, high) < satAt(before, high) * 0.55,
+    'a colour near white comes back with most of its strength gone (' +
+    satAt(before, high).toFixed(0) + '% down to ' + satAt(after, high).toFixed(0) + '%)');
+
+  /* And the middle does not. */
+  /* Well clear of the top: this strip is fully saturated all the way up, so
+   * even at 40% lightness its red channel is at 204 and legitimately inside
+   * the shoulder. The midtone sample has to be somewhere with real headroom. */
+  var midIdx = 10;                                /* red channel at 128 of 255 */
+  check(Math.abs(satAt(after, midIdx) - satAt(before, midIdx)) < 3,
+    'while the midtones keep theirs (' + satAt(before, midIdx).toFixed(0) +
+    '% to ' + satAt(after, midIdx).toFixed(0) + '%)');
+
+  /* It has to be a slope rather than a step, or it shows as a band across
+   * every bright surface. */
+  /*
+   * Measured across the part of the strip the shoulder actually touches. Both
+   * ends of it are artefacts of the strip rather than of anything under test:
+   * it starts at pure black and finishes at pure white, and both have no
+   * saturation by definition, so the steps in and out of them are a hundred
+   * points wide whatever the shoulder does.
+   */
+  var steps = [];
+  for (var i = midIdx + 1; i < N - 1; i++) {
+    steps.push(Math.abs(satAt(after, i) - satAt(after, i - 1)));
+  }
+  var biggest = Math.max.apply(null, steps);
+  var span = satAt(after, midIdx) - satAt(after, N - 2);
+  check(biggest < Math.abs(span) * 0.45,
+    'and it comes on gradually rather than as a line across the picture ' +
+    '(worst step ' + biggest.toFixed(1) + '% over a fall of ' + Math.abs(span).toFixed(1) + '%)');
+
+  /* Draining colour, not changing it: an orange goes pale orange, not pink. */
+  /* Only where there is enough colour left to have a hue worth measuring: at
+   * three per cent the angle is numerical noise. */
+  var turned = 0;
+  for (var j = 20; j < N - 1; j++) {
+    if (satAt(after, j) > 12) {
+      turned = Math.max(turned, Math.abs(((hueAt(after, j) - hueAt(before, j)) % 360 + 540) % 360 - 180));
+    }
+  }
+  check(turned < 4,
+    'and it drains the colour rather than turning it — the hue moves at most ' +
+    turned.toFixed(1) + ' degrees');
+
+  /* And it leaves brightness alone: this is the colour running out, not the
+   * exposure. */
+  function lum(img, i) {
+    return 0.2126 * img.data[i * 4] + 0.7152 * img.data[i * 4 + 1] + 0.0722 * img.data[i * 4 + 2];
+  }
+  var moved = 0;
+  for (var k = 0; k < N; k++) moved = Math.max(moved, Math.abs(lum(after, k) - lum(before, k)));
+  check(moved < 1.5,
+    'and nothing gets brighter or darker for it (' + moved.toFixed(2) + ' levels at worst)');
+
+  /* A grey has nothing to lose and must come back untouched. */
+  var grey = { data: new Uint8ClampedArray(4 * 8), width: 8, height: 1 };
+  for (var g = 0; g < 8; g++) {
+    var v = 140 + g * 16;
+    grey.data[g * 4] = grey.data[g * 4 + 1] = grey.data[g * 4 + 2] = v;
+    grey.data[g * 4 + 3] = 255;
+  }
+  var was = Array.prototype.slice.call(grey.data);
+  FINISH.helpers.shoulder(grey, FINISH.helpers.SHOULDER);
+  var same = was.every(function (v, i) { return Math.abs(v - grey.data[i]) < 1; });
+  check(same, 'and a grey, having no colour to lose, comes back exactly as it went in');
+
+  /*
+   * Through the whole finisher, which is where the fault was measured. The
+   * buffer is seeded with bright, strongly coloured pixels — the thing a
+   * photograph does not contain — and they have to come back weaker.
+   */
+  var w = 64, h = 48;
+  var spec = PROMPT.parse('a stone tower in a meadow at noon', { seed: 4, style: 'auto' });
+  var ctx = new FakeContext(w, h);
+  var P = PAINT.render(ctx, w, h, spec);
+  for (var q = 0; q < w * h; q++) {
+    ctx._pixels[q * 4] = 252;
+    ctx._pixels[q * 4 + 1] = 176;
+    ctx._pixels[q * 4 + 2] = 40;
+    ctx._pixels[q * 4 + 3] = 255;
+  }
+  var started = hsl(252, 176, 40)[1];
+  FINISH.apply(ctx, w, h, spec, P);
+  var got = ctx.getImageData(0, 0, w, h);
+  var ended = 0;
+  for (var z = 0; z < w * h; z++) {
+    ended += hsl(got.data[z * 4], got.data[z * 4 + 1], got.data[z * 4 + 2])[1];
+  }
+  ended /= w * h;
+  check(ended < started * 0.7,
+    'and a picture full of bright strong colour comes out of the finisher ' +
+    'with it given up (' + started.toFixed(0) + '% down to ' + ended.toFixed(0) + '%)');
+  pass('bright colour gives out the way it does in a camera');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);
