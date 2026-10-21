@@ -596,7 +596,7 @@
   });
   // Moving by default — unless the device asks for less motion.
   var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  el.motion.value = calm ? 'still' : 'flow';
+  el.motion.value = calm ? 'still' : 'vortex';
   showSpeed();
 
   buildSwatches();
