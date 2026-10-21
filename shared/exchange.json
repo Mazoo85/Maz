@@ -20,6 +20,18 @@
         "madlibs/js/templates.js",
         "madlibs/js/generator.js"
       ]
+    },
+    "coda-pics/imagemaker": {
+      "project": "coda-pics",
+      "summary": "Paint a picture from a sentence, and decide whether a headline has a picture in it at all.",
+      "files": [
+        "coda-pics/js/lexicon.js",
+        "coda-pics/js/prompt.js",
+        "coda-pics/js/subjects.js",
+        "coda-pics/js/paint.js",
+        "coda-pics/js/finish.js",
+        "coda-pics/js/headline.js"
+      ]
     }
   },
   "consumes": [

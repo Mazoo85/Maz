@@ -50,6 +50,11 @@ jobs:
       # polling, paging, fetching pixels — is driven against a fake Google.
       - name: CODA PICS Google Photos connector
         run: node coda-pics/tests/gphotos.test.js
+      # Turning a headline into a picture is mostly about refusing: a picture
+      # beside a story is a claim about that story, and the painter will
+      # illustrate any sentence at all if nobody stops it.
+      - name: CODA PICS headline adapter
+        run: node coda-pics/tests/headline.test.js
       # NEON CELLS' level generator, combat maths and save file are plain
       # modules too — level reachability is checked over hundreds of seeds here,
       # which is the check that stops a run ending behind a wall.
