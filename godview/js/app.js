@@ -186,6 +186,7 @@
       dd.textContent = v;
       rows.append(dt, dd);
     }
+    showPicture(d.image || null);
     const link = $('sheet-link');
     if (d.link) {
       link.href = d.link;
@@ -199,6 +200,28 @@
 
   function closeSheet() {
     $('sheet').hidden = true;
+    showPicture(null);
+  }
+
+  /* A camera's latest picture, fetched afresh every minute while the sheet is
+   * open (the URL is cache-busted so the phone does not show a stale copy). */
+  let pictureTimer = null;
+  function showPicture(url) {
+    clearInterval(pictureTimer);
+    pictureTimer = null;
+    const img = $('sheet-image');
+    $('sheet-image-note').hidden = true;
+    if (!url) {
+      img.hidden = true;
+      img.removeAttribute('src');
+      return;
+    }
+    const load = () => { img.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now(); };
+    img.onload = () => { img.hidden = false; $('sheet-image-note').hidden = true; };
+    img.onerror = () => { img.hidden = true; $('sheet-image-note').hidden = false; };
+    img.hidden = false;
+    load();
+    pictureTimer = setInterval(load, 60000);
   }
 
   /* ------------------------------------------------------------ layers */
@@ -383,6 +406,7 @@
     addLayer(window.GV_SATS_LAYER.create({ fetchText: fetchText }));
     addLayer(window.GV_WEATHER_LAYER.create({ fetchJson: fetchJson, loadPixels: loadPixels }));
     addLayer(window.GV_PLANES_LAYER.create({ fetchJson: fetchJson, getView: () => state.globe.pointOfView() }));
+    addLayer(window.GV_CAMERAS_LAYER.create({ fetchJson: fetchJson, getView: () => state.globe.pointOfView() }));
     followView();
     startTicker();
 

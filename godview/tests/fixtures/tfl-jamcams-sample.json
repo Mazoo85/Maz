@@ -1,0 +1,52 @@
+[
+  {
+    "$type": "Tfl.Api.Presentation.Entities.Place, Tfl.Api.Presentation.Entities",
+    "id": "JamCams_00001.01251",
+    "url": "/Place/JamCams_00001.01251",
+    "commonName": "Rotherhithe Tunnel",
+    "placeType": "JamCam",
+    "additionalProperties": [
+      { "category": "payload", "key": "available", "sourceSystemKey": "JamCams", "value": "true" },
+      { "category": "payload", "key": "imageUrl", "sourceSystemKey": "JamCams", "value": "https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/00001.01251.jpg" },
+      { "category": "payload", "key": "videoUrl", "sourceSystemKey": "JamCams", "value": "https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/00001.01251.mp4" },
+      { "category": "cameraView", "key": "view", "sourceSystemKey": "JamCams", "value": "East" }
+    ],
+    "children": [],
+    "lat": 51.5076,
+    "lon": -0.0459
+  },
+  {
+    "$type": "Tfl.Api.Presentation.Entities.Place, Tfl.Api.Presentation.Entities",
+    "id": "JamCams_00001.06514",
+    "commonName": "Trafalgar Sq/Cockspur St",
+    "placeType": "JamCam",
+    "additionalProperties": [
+      { "category": "payload", "key": "available", "value": "true" },
+      { "category": "payload", "key": "imageUrl", "value": "https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/00001.06514.jpg" }
+    ],
+    "lat": 51.5074,
+    "lon": -0.1278
+  },
+  {
+    "id": "JamCams_00001.09999",
+    "commonName": "Out of service camera",
+    "placeType": "JamCam",
+    "additionalProperties": [
+      { "category": "payload", "key": "available", "value": "false" },
+      { "category": "payload", "key": "imageUrl", "value": "https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/00001.09999.jpg" }
+    ],
+    "lat": 51.5,
+    "lon": -0.1
+  },
+  {
+    "id": "JamCams_00001.08888",
+    "commonName": "Insecure picture link",
+    "placeType": "JamCam",
+    "additionalProperties": [
+      { "category": "payload", "key": "available", "value": "true" },
+      { "category": "payload", "key": "imageUrl", "value": "http://example.com/x.jpg" }
+    ],
+    "lat": 51.5,
+    "lon": -0.1
+  }
+]

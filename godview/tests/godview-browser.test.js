@@ -88,6 +88,11 @@ const RAIN_PNG = png(16, 16, () => [0, 120, 255, 220]);
 const CLEAR_PNG = png(16, 16, () => [0, 0, 0, 0]);
 const ADSB = fs.readFileSync(path.join(__dirname, 'fixtures', 'adsb-sample.json'));
 const OPENSKY = fs.readFileSync(path.join(__dirname, 'fixtures', 'opensky-sample.json'));
+const TFL = fs.readFileSync(path.join(__dirname, 'fixtures', 'tfl-jamcams-sample.json'));
+const DIGITRAFFIC = fs.readFileSync(path.join(__dirname, 'fixtures', 'digitraffic-stations-sample.json'));
+const CALTRANS = fs.readFileSync(path.join(__dirname, 'fixtures', 'caltrans-d4-sample.json'));
+/* A camera picture: a grey road under a pale sky. */
+const CAMERA_PNG = png(32, 24, (x, y) => (y < 10 ? [180, 200, 220, 255] : [90, 90, 90, 255]));
 const RAIN_INDEX = JSON.stringify({
   version: '2.0',
   host: 'https://tilecache.rainviewer.com',
@@ -158,9 +163,10 @@ function launchOptions() {
 }
 
 /* A phone-sized page with the network answered by us. `quakes`, `sats`,
- * `weather`, `adsb`, `opensky` and `globe` are 'ok' or 'down'. Errors caused on purpose (a feed
+ * `weather`, `adsb`, `opensky`, `cameras` and `globe` are 'ok' or 'down'.
+ * Finland's camera pictures are always cut, to show the "no picture" note. Errors caused on purpose (a feed
  * we cut) are not problems. */
-async function openPage(browser, base, { quakes = 'ok', sats = 'ok', weather = 'ok', adsb = 'ok', opensky = 'ok', globe = 'ok' } = {}) {
+async function openPage(browser, base, { quakes = 'ok', sats = 'ok', weather = 'ok', adsb = 'ok', opensky = 'ok', cameras = 'ok', globe = 'ok' } = {}) {
   const page = await browser.newPage({
     viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true
   });
@@ -204,6 +210,15 @@ async function openPage(browser, base, { quakes = 'ok', sats = 'ok', weather = '
     route.fulfill({ status: 200, contentType: 'application/json', body: fresh(ADSB, 'now', 1), headers: cors }) : route.abort('failed')));
   await page.route('https://opensky-network.org/**', (route) => (opensky === 'ok' ?
     route.fulfill({ status: 200, contentType: 'application/json', body: fresh(OPENSKY, 'time', 1000), headers: cors }) : route.abort('failed')));
+  const list = (body) => (route) => (cameras === 'ok' ?
+    route.fulfill({ status: 200, contentType: 'application/json', body: body, headers: cors }) : route.abort('failed'));
+  const picture = (route) => route.fulfill({ status: 200, contentType: 'image/png', body: CAMERA_PNG });
+  await page.route('https://api.tfl.gov.uk/**', list(TFL));
+  await page.route('https://tie.digitraffic.fi/**', list(DIGITRAFFIC));
+  await page.route('https://cwwp2.dot.ca.gov/**', (route) =>
+    (/\.json$/.test(new URL(route.request().url()).pathname) ? list(CALTRANS)(route) : picture(route)));
+  await page.route('https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/**', picture);
+  await page.route('https://weathercam.digitraffic.fi/**', (route) => route.abort('failed'));
   await page.route(GLOBE_URL, (route) => {
     if (globe !== 'ok') return route.abort('failed');
     if (process.env.GLOBE_JS) {
@@ -374,6 +389,45 @@ async function tapMarker(page, sel, layerId, index) {
       check((await page.$$('.marker--plane')).length === 0 || (await plVal()) === 'OFF', 'tapping again turns planes off');
       await page.evaluate(() => { window.GODVIEW.globe.pointOfView({ lat: 20, lng: -40, altitude: 2.4 }, 0); });
 
+      console.log('\nCAMERAS');
+      const cam = 'button.layer-btn[data-layer="cameras"]';
+      const camVal = async () => (await page.textContent(cam + ' .val')).trim();
+      check((await page.getAttribute(cam, 'aria-pressed')) === 'false', 'cameras wait to be asked for');
+      await page.tap(cam);
+      await page.waitForFunction((sel) => document.querySelector(sel).textContent === '5', cam + ' .val', { timeout: 15000 })
+        .catch(() => {});
+      check((await camVal()) === '5', 'tapping it finds 5 cameras in London, Finland and California (' + (await camVal()) + ')');
+      await page.waitForFunction(() => document.querySelectorAll('.marker[data-layer="cameras"]').length === 5, null, { timeout: 10000 })
+        .catch(() => {});
+      check((await page.$$('.marker[data-layer="cameras"]')).length === 5, '5 camera markers on the globe');
+      const trafalgar = await page.evaluate(() => window.GODVIEW.layers.find((l) => l.id === 'cameras').html
+        .findIndex((h) => h.item.id === 'tfl:00001.06514'));
+      const camTap = await tapMarker(page, '.marker[aria-label="Trafalgar Sq/Cockspur St"]', 'cameras', trafalgar);
+      check(camTap.opened && (await page.textContent('#sheet-title')) === 'Trafalgar Sq/Cockspur St',
+        'tapping a camera opens it' + (camTap.opened ? '' : ' — under the finger: ' + camTap.underFinger));
+      await page.waitForFunction(() => document.getElementById('sheet-image').naturalWidth > 0, null, { timeout: 10000 })
+        .catch(() => {});
+      const pic = await page.evaluate(() => {
+        const i = document.getElementById('sheet-image');
+        return { shown: !i.hidden && i.naturalWidth > 0, src: i.getAttribute('src') || '' };
+      });
+      check(pic.shown, 'and shows its latest picture');
+      check(/jamcams\.tfl\.gov\.uk\/00001\.06514\.jpg\?t=\d+$/.test(pic.src), 'fetched fresh, not from the cache');
+      check((await page.textContent('#credits')).includes('TfL'), 'TfL is credited');
+      await page.tap('#sheet-close');
+      check(await page.evaluate(() => document.getElementById('sheet-image').hidden), 'closing it puts the picture away');
+      await page.evaluate(() => {
+        const l = window.GODVIEW.layers.find((x) => x.id === 'cameras');
+        window.GODVIEW.openSheet(l.html.find((h) => h.item.id === 'fi:C04507'));
+      });
+      await page.waitForFunction(() => !document.getElementById('sheet-image-note').hidden, null, { timeout: 10000 })
+        .catch(() => {});
+      check(await page.evaluate(() => !document.getElementById('sheet-image-note').hidden &&
+        document.getElementById('sheet-image').hidden), 'a picture that will not load says so instead');
+      await page.tap('#sheet-close');
+      await page.tap(cam);
+      await page.evaluate(() => { window.GODVIEW.globe.pointOfView({ lat: 20, lng: -40, altitude: 2.4 }, 0); });
+
       console.log('\nDETAILS SHEET');
       await page.evaluate(() => window.GODVIEW.openSheet(window.GODVIEW.globe.pointsData()[0]));
       check(await page.evaluate(() => !document.getElementById('sheet').hidden), 'tapping a quake opens the sheet');
@@ -476,6 +530,19 @@ async function tapMarker(page, sel, layerId, index) {
         .catch(() => {});
       check((await page.textContent(pl + ' .val')).trim() === 'OFFLINE', 'the PLANES button says OFFLINE');
       check((await page.textContent('button.layer-btn[data-layer="quakes"] .val')).trim() === '3', 'quakes carry on regardless');
+      check(problems.length === 0, 'and nothing throws' + (problems.length ? ' — ' + problems.join('; ') : ''));
+      await page.close();
+    }
+
+    console.log('\nEVERY CAMERA LIST DOWN');
+    {
+      const { page, problems } = await openPage(browser, base, { cameras: 'down' });
+      const cam = 'button.layer-btn[data-layer="cameras"]';
+      await page.tap(cam);
+      await page.waitForFunction((sel) => document.querySelector(sel).textContent === 'OFFLINE', cam + ' .val', { timeout: 15000 })
+        .catch(() => {});
+      check((await page.textContent(cam + ' .val')).trim() === 'OFFLINE', 'the CAMERAS button says OFFLINE');
+      check((await page.textContent('button.layer-btn[data-layer="sats"] .val')).trim() === '4', 'satellites carry on regardless');
       check(problems.length === 0, 'and nothing throws' + (problems.length ? ' — ' + problems.join('; ') : ''));
       await page.close();
     }
