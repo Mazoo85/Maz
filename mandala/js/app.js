@@ -49,6 +49,11 @@
     var lc = document.createElement('canvas');
     layers.push({ canvas: lc, ctx: lc.getContext('2d') });
   }
+  // Every ring together on one layer, for the vortex, which moves the whole
+  // picture as one. Repainted from the ring layers only when it is needed.
+  var flat = document.createElement('canvas');
+  var flatCtx = flat.getContext('2d');
+  var flatDirty = true;
 
   var state = {
     strokes: [],
@@ -183,6 +188,35 @@
     for (var i = 0; i < state.strokes.length; i++) {
       drawStroke(layers[M.strokeBand(state.strokes[i])].ctx, state.strokes[i], g);
     }
+    flatDirty = true;
+  }
+
+  function paintFlat() {
+    flatCtx.clearRect(0, 0, flat.width, flat.height);
+    for (var b = 0; b < layers.length; b++) flatCtx.drawImage(layers[b].canvas, 0, 0);
+    flatDirty = false;
+  }
+
+  // The vortex: each copy of the picture, turned and shrunk, shown only in
+  // its own ring of the screen, so together they spiral into the centre.
+  function paintVortex(g) {
+    if (flatDirty) paintFlat();
+    var copies = M.vortexCopies(state.phase);
+    for (var i = 0; i < copies.length; i++) {
+      var c = copies[i];
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(g.cx, g.cy, c.outer * g.r, 0, Math.PI * 2);
+      ctx.arc(g.cx, g.cy, c.inner * g.r, 0, Math.PI * 2, true);
+      ctx.clip();
+      ctx.translate(g.cx, g.cy);
+      ctx.rotate(c.angle);
+      ctx.scale(c.scale, c.scale);
+      ctx.translate(-g.cx, -g.cy);
+      ctx.drawImage(flat, 0, 0);
+      if (state.live) drawStroke(ctx, state.live, g);
+      ctx.restore();
+    }
   }
 
   function bandMotion(band) {
@@ -217,11 +251,15 @@
     ctx.fillRect(0, 0, w, w);
     // Guide lines are a drawing aid: never in a video.
     if (el.guides.checked && !state.recording) paintGuides(ctx, g);
-    for (var b = 0; b < layers.length; b++) {
-      withBand(ctx, g, b, function () { ctx.drawImage(layers[b].canvas, 0, 0); });
-    }
-    if (state.live) {
-      withBand(ctx, g, state.live.band, function () { drawStroke(ctx, state.live, g); });
+    if (el.motion.value === 'vortex') {
+      paintVortex(g);
+    } else {
+      for (var b = 0; b < layers.length; b++) {
+        withBand(ctx, g, b, function () { ctx.drawImage(layers[b].canvas, 0, 0); });
+      }
+      if (state.live) {
+        withBand(ctx, g, state.live.band, function () { drawStroke(ctx, state.live, g); });
+      }
     }
 
     showCue();
@@ -248,6 +286,7 @@
     if (el.canvas.width === px) return;
     el.canvas.width = el.canvas.height = px;
     for (var b = 0; b < layers.length; b++) layers[b].canvas.width = layers[b].canvas.height = px;
+    flat.width = flat.height = px;
     state.layerDirty = true;
   }
 
@@ -264,6 +303,11 @@
   // moving ring lands under the finger and then travels with that ring.
   function pointerOnBand(e, band) {
     var u = pointerUnit(e);
+    // In the vortex a line belongs to the copy it was started on, and
+    // follows that copy as it spirals in.
+    if (state.live && state.live.vortexLevel !== undefined) {
+      return M.intoBand(u[0], u[1], M.vortexLevel(state.live.vortexLevel, state.phase));
+    }
     return M.intoBand(u[0], u[1], bandMotion(band));
   }
 
@@ -278,6 +322,14 @@
     try { el.canvas.setPointerCapture(e.pointerId); } catch (err) { /* older browsers */ }
     // The ring the line starts in is the ring it belongs to.
     var start = pointerUnit(e);
+    var level;
+    if (el.motion.value === 'vortex') {
+      // Find the copy under the finger, and the spot on the picture it shows.
+      var copy = M.vortexPick(Math.hypot(start[0], start[1]), M.vortexCopies(state.phase));
+      if (!copy) return; // the very centre, too small to draw on
+      level = copy.level;
+      start = M.intoBand(start[0], start[1], copy);
+    }
     var band = M.bandOf(Math.hypot(start[0], start[1]));
     state.live = M.makeStroke({
       color: state.color,
@@ -287,8 +339,9 @@
       mirror: el.mirror.checked,
       glow: el.glow.checked,
       band: band,
-      points: [pointerOnBand(e, band)]
+      points: [level === undefined ? pointerOnBand(e, band) : start]
     });
+    if (level !== undefined) state.live.vortexLevel = level;
     el.hint.classList.add('gone');
   });
 
@@ -306,6 +359,7 @@
     state.strokes.push(state.live);
     // Draw just the new stroke onto its ring's layer — no need to repaint them all.
     drawStroke(layers[state.live.band].ctx, state.live, geometry(layers[0].canvas));
+    flatDirty = true;
     state.live = null;
     state.pointerId = null;
     save();
@@ -542,7 +596,7 @@
   });
   // Moving by default — unless the device asks for less motion.
   var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  el.motion.value = calm ? 'still' : 'flow';
+  el.motion.value = calm ? 'still' : 'vortex';
   showSpeed();
 
   buildSwatches();
