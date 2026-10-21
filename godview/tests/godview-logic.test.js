@@ -18,6 +18,7 @@ const fs = require('fs');
 const F = require('../js/lib/format.js');
 const P = require('../js/lib/poller.js');
 const Q = require('../js/lib/quakes.js');
+const QL = require('../js/layers/quakes-layer.js');
 
 const FIXTURE = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'usgs-sample.json'), 'utf8'));
 
@@ -224,6 +225,71 @@ test('refresh fetches now and leaves exactly one timer', async () => {
   await flush();
   eq(seen.join(), 'A,B');
   eq(t.queue.length, 1);
+});
+
+/* ------------------------------------------------------------- quake layer */
+function quakeLayer(fetchJson) {
+  const t = fakeTimers();
+  const layer = QL.create({
+    fetchJson, now: () => 1792560000000, setTimer: t.set, clearTimer: t.clear
+  });
+  return { layer, t };
+}
+
+test('the quake layer asks USGS and turns the feed into points and rings', async () => {
+  const asked = [];
+  const { layer } = quakeLayer((url) => { asked.push(url); return Promise.resolve(FIXTURE); });
+  let changes = 0;
+  layer.onChange(() => changes++);
+  eq(layer.id, 'quakes');
+  eq(layer.status, 'idle');
+  layer.start();
+  await flush();
+  eq(asked[0], Q.FEED_URL);
+  eq(layer.status, 'live');
+  eq(layer.count, 3);
+  eq(layer.points.length, 3);
+  eq(layer.rings.length, 2, 'only M2.5 and up get a ring');
+  const p = layer.points[0];
+  eq(p.layer, 'quakes');
+  eq(p.item.id, 'us0003');
+  eq(p.lat, -30.1);
+  eq(p.color, '#ff3b3b');
+  assert(p.radius > layer.points[2].radius, 'bigger quake, bigger dot');
+  assert(changes >= 2, 'told the app about loading and data');
+});
+
+test('describe says what, where, when and how deep', async () => {
+  const { layer } = quakeLayer(() => Promise.resolve(FIXTURE));
+  layer.start();
+  await flush();
+  const d = layer.describe(layer.points[0].item);
+  eq(d.title, 'M6.1 EARTHQUAKE');
+  eq(d.rows[0].join('|'), 'WHERE|offshore Coquimbo, Chile');
+  eq(d.rows[1].join('|'), 'WHEN|1 h ago');
+  eq(d.rows[2].join('|'), 'DEPTH|40 km');
+  eq(d.link, 'https://earthquake.usgs.gov/earthquakes/eventpage/us0003');
+});
+
+test('a failed feed leaves the layer OFFLINE with nothing drawn', async () => {
+  const { layer } = quakeLayer(() => Promise.reject(new Error('HTTP 503')));
+  layer.start();
+  await flush();
+  eq(layer.status, 'offline');
+  eq(layer.count, 0);
+  eq(layer.points.length, 0);
+});
+
+test('stop clears everything off the globe', async () => {
+  const { layer, t } = quakeLayer(() => Promise.resolve(FIXTURE));
+  layer.start();
+  await flush();
+  layer.stop();
+  eq(layer.status, 'idle');
+  eq(layer.count, 0);
+  eq(layer.points.length, 0);
+  eq(layer.rings.length, 0);
+  eq(t.queue.length, 0);
 });
 
 /* ------------------------------------------------------------- run */
