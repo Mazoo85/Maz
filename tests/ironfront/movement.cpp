@@ -32,12 +32,19 @@ int main() {
         fx::add(w, UnitType::Infantry, Germany, 0, 1);
         CHECK(fx::has(reachable(w, w.units[0]), offsetToHex(1, 1)));
     }
-    {   // Domains: land never enters sea, destroyers only sail, fighters fly over everything.
+    {   // Domains: land units only touch the sea by embarking next to the coast, destroyers only sail,
+        // fighters fly over everything.
         World w = fx::world({"..~~~~", "..~~~~", "..mmm."});
         fx::add(w, UnitType::Tank, Germany, 1, 0);
         fx::add(w, UnitType::Destroyer, Germany, 3, 0);
         fx::add(w, UnitType::Fighter, Germany, 0, 1);
-        for (const Hex& h : reachable(w, w.units[0])) CHECK(w.map.terrain(h) != Terrain::Sea);
+        for (const Hex& h : reachable(w, w.units[0])) {
+            if (w.map.terrain(h) != Terrain::Sea) continue;
+            bool coastal = false; // embarking happens only straight off a shore
+            for (const Hex& n : maz::game::hexNeighbors(h))
+                if (w.map.inBounds(n) && w.map.terrain(n) != Terrain::Sea) coastal = true;
+            CHECK(coastal);
+        }
         const auto ship = reachable(w, w.units[1]);
         CHECK(!ship.empty());
         for (const Hex& h : ship) CHECK(w.map.terrain(h) == Terrain::Sea);
@@ -93,6 +100,28 @@ int main() {
         // Without the enemy it sails all three hexes.
         w.units.pop_back();
         CHECK(fx::has(reachable(w, w.units[0]), offsetToHex(3, 0)));
+    }
+    {   // Transports: embarking ends the move; at sea a land unit sails 2 hexes; landing ends the move.
+        World w = fx::world({"..~~~~..", "..~~~~.."});
+        fx::add(w, UnitType::Tank, Britain, 1, 0);
+        const auto r = reachable(w, w.units[0]);
+        CHECK(fx::has(r, offsetToHex(2, 0)));               // onto the water beside it
+        CHECK(!fx::has(r, offsetToHex(3, 0)));              // but no further this turn
+        CHECK(fx::has(r, offsetToHex(0, 0)));               // ordinary land moves still fine
+        w.units[0].hex = offsetToHex(2, 0);                 // next turn, embarked
+        CHECK(embarked(w, w.units[0]));
+        const auto s2 = reachable(w, w.units[0]);
+        CHECK(fx::has(s2, offsetToHex(4, 0)));              // 2 sea hexes
+        CHECK(!fx::has(s2, offsetToHex(5, 0)));             // not 3
+        CHECK(fx::has(s2, offsetToHex(1, 0)));              // may land straight back
+        w.units[0].hex = offsetToHex(5, 0);
+        const auto s3 = reachable(w, w.units[0]);
+        CHECK(fx::has(s3, offsetToHex(6, 0)));              // landing on the far shore
+        CHECK(!fx::has(s3, offsetToHex(7, 0)));             // landing ends the move
+        // Inland a unit cannot reach the water at all.
+        World inland = fx::world({".....~"});
+        fx::add(inland, UnitType::Infantry, France, 0, 0);
+        for (const Hex& h : reachable(inland, inland.units[0])) CHECK(inland.map.terrain(h) != Terrain::Sea);
     }
     return finish("ironfront_movement");
 }

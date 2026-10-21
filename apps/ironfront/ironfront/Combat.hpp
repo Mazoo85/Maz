@@ -11,22 +11,24 @@
 //   damage = max(1, round(attack x hp/maxHp x flank x roll x 10 / (10 + defense x T)))
 //
 // with T the defender's terrain multiplier and roll in [0.9, 1.1]. Tanks fighting from or into
-// mountains deal x0.75. A surviving defender that can reach the attacker hits back once.
+// mountains deal x0.75. Embarked land units defend at kEmbarkedDefense and cannot attack or counter.
+// A surviving defender that can reach the attacker hits back once.
 namespace ironfront {
 
 inline bool canTarget(const World& w, const Unit& a, const Unit& d) {
     if (a.owner == d.owner) return false;
     const int dist = maz::game::hexDistance(a.hex, d.hex);
     if (dist < 1 || dist > a.st().range) return false;
-    // Ships at sea can only be hit by artillery, other ships and aircraft.
-    if (d.st().domain == Domain::Sea && a.st().domain == Domain::Land && a.type != UnitType::Artillery)
+    if (embarked(w, a)) return false; // transports can't fight
+    // Anything on the water (ships, transports) can only be hit by artillery, ships and aircraft.
+    if (atSea(w, d) && d.st().domain != Domain::Air && a.st().domain == Domain::Land &&
+        a.type != UnitType::Artillery)
         return false;
-    (void)w;
     return true;
 }
 
 inline float terrainDefense(const World& w, const Unit& d) {
-    if (d.st().domain == Domain::Air) return 1.0f;
+    if (d.st().domain == Domain::Air || atSea(w, d)) return 1.0f;
     const bool infantry = d.type == UnitType::Infantry;
     if (w.map.cityAt(d.hex)) return infantry ? 1.75f : 1.5f;
     switch (w.map.terrain(d.hex)) {
@@ -50,8 +52,9 @@ inline int flankingFriends(const World& w, const Unit& a, const Unit& d) {
 inline int computeDamage(const World& w, const Unit& a, const Unit& d, float roll, bool counter) {
     const float flank = counter ? 1.0f : 1.0f + 0.15f * static_cast<float>(flankingFriends(w, a, d));
     const float health = static_cast<float>(a.hp) / static_cast<float>(a.st().maxHp);
+    const int defense = embarked(w, d) ? kEmbarkedDefense : d.st().defense;
     float dmg = static_cast<float>(a.st().attack) * health * flank * roll * 10.0f /
-                (10.0f + static_cast<float>(d.st().defense) * terrainDefense(w, d));
+                (10.0f + static_cast<float>(defense) * terrainDefense(w, d));
     if (a.type == UnitType::Tank &&
         (w.map.terrain(a.hex) == Terrain::Mountain || w.map.terrain(d.hex) == Terrain::Mountain))
         dmg *= 0.75f;

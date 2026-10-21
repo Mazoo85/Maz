@@ -106,5 +106,23 @@ int main() {
         CHECK(!canTarget(w, inf, w.units[4])); // out of range (distance 2)
         CHECK(canTarget(w, art, w.units[4]));  // artillery's range 2 covers it
     }
+    {   // Transports are easy prey and harmless.
+        World w = fx::world({"~~~~", "...."});
+        const int boat = fx::add(w, UnitType::Tank, Britain, 1, 0).id;   // a tank at sea
+        const int ship = fx::add(w, UnitType::Destroyer, Germany, 2, 0).id;
+        const int inf = fx::add(w, UnitType::Infantry, Germany, 1, 1).id;
+        const int art = fx::add(w, UnitType::Artillery, Germany, 2, 1).id;
+        const Unit& b = *w.unitById(boat);
+        CHECK(embarked(w, b));
+        CHECK(!canTarget(w, b, *w.unitById(ship)));  // can't attack from a transport
+        CHECK(!canTarget(w, b, *w.unitById(inf)));
+        CHECK(!canTarget(w, *w.unitById(inf), b));   // infantry can't reach it on the water
+        CHECK(canTarget(w, *w.unitById(art), b));
+        CHECK(canTarget(w, *w.unitById(ship), b));
+        // Destroyer vs transport: 5 x 10 / (10 + 1 x 1.0) = 4.55 -> 5, and no counter.
+        CHECK(computeDamage(w, *w.unitById(ship), b, 1.0f, false) == 5);
+        const CombatResult r = resolveAttack(w, ship, boat, 1.0f, 1.0f);
+        CHECK(r.damageDealt == 5 && r.damageTaken == 0);
+    }
     return finish("ironfront_combat");
 }

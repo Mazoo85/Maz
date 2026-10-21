@@ -20,7 +20,7 @@ mouse unified, safe-area UI) but packaging for iOS/Android needs a Mac / Android
 ## Gameplay rules
 
 ### Setup
-- Map: a hand-authored hex map of Europe, about 40×30 pointy-top hexes (axial coordinates,
+- Map: a hex map of Europe, 40×40 pointy-top hexes (axial coordinates,
   `maz::game::Hex`).
 - Countries: Germany, United Kingdom, France, Soviet Union, Italy. The player picks one on the
   start screen; the AI plays the other four. Every country is hostile to every other (no
@@ -37,7 +37,11 @@ mouse unified, safe-area UI) but packaging for iOS/Android needs a Mac / Android
 | City / Capital | 1 | 1.5 | Infantry defending here: `T` = 1.75 |
 | Sea | — (naval only) | 1.0 | |
 
-Land units cannot enter sea in Stage 1 (no transports). Naval units move only on sea.
+**Transports (added during the build).** Without them Britain could never be conquered and an
+island power could never leave home, so no game could be won. As in WC4, a land unit that steps
+onto a sea hex embarks (its move ends). Embarked, it sails 2 sea hexes a turn, cannot attack or
+counter-attack, defends with defense 1 and `T` = 1.0, and can only be hit by artillery, ships and
+aircraft. Stepping ashore disembarks it and ends its move. Naval units move only on sea.
 Fighters ignore terrain cost (every hex costs 1) and terrain defense (`T` = 1.0).
 
 ### Units
@@ -152,6 +156,6 @@ conventions: C++20, header-only, namespace `ironfront`, clean under `-Werror` wi
   (`--headless --frames N`) in CI without crashing.
 
 ## Out of scope for Stage 1
-Economy and buying units, buildings, generals, unit healing, alliances/diplomacy, transports
-and amphibious landings, bombers/submarines/other unit types, campaigns, the world map,
+Economy and buying units, buildings, generals, unit healing, alliances/diplomacy,
+bombers/submarines/other unit types, campaigns, the world map,
 multiplayer, sound, final art.

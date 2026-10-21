@@ -59,7 +59,8 @@ struct Game {
             if (alive[static_cast<std::size_t>(c)]) return c;
         return -1;
     }
-    bool playerLost() const { return !alive[static_cast<std::size_t>(player)]; }
+    // player == kNeutral is a spectator game (all AI), which only ends with one power left.
+    bool playerLost() const { return player >= 0 && !alive[static_cast<std::size_t>(player)]; }
     bool playerWon() const { return winner() == player; }
     bool isOver() const { return playerLost() || winner() >= 0; }
 
@@ -96,7 +97,7 @@ struct Game {
         if (!u || !canAct(*u) || u->moved || u->attacked || !canReach(world, *u, to)) return false;
         u->hex = to;
         u->moved = true;
-        if (u->st().domain == Domain::Land) claim(u->owner, to);
+        if (u->st().domain == Domain::Land && !atSea(world, *u)) claim(u->owner, to);
         return true;
     }
 

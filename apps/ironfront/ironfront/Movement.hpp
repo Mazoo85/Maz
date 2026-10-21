@@ -10,6 +10,10 @@
 // (plains/city 1, forest 2, mountain 3), never stacks two units in a hex, and obeys zone of control:
 // a land or sea unit that steps next to an enemy ground/naval unit must stop there. Fighters fly:
 // every hex costs 1 and zone of control does not apply.
+//
+// Land units cross water the way World Conqueror's do: stepping onto sea embarks them as transports
+// (ending the move); embarked units sail kEmbarkedMove hexes a turn, cannot attack, defend weakly,
+// and stepping ashore disembarks them (ending the move).
 namespace ironfront {
 
 struct Unit {
@@ -23,6 +27,9 @@ struct Unit {
 
     const UnitStats& st() const { return stats(type); }
 };
+
+constexpr int kEmbarkedMove = 2;
+constexpr int kEmbarkedDefense = 1;
 
 struct World {
     Map map;
@@ -50,7 +57,13 @@ struct World {
     }
 };
 
-// Cost for `u` to enter `to`, ignoring other units; -1 when the unit can never go there.
+inline bool atSea(const World& w, const Unit& u) { return w.map.terrain(u.hex) == Terrain::Sea; }
+
+// A land unit currently being carried over water.
+inline bool embarked(const World& w, const Unit& u) { return u.st().domain == Domain::Land && atSea(w, u); }
+
+// Terrain cost for `u` to enter `to` as a land unit walking, ignoring other units and embarking; -1
+// for water or off-map. Air and naval units: their own rules.
 inline int moveCost(const World& w, const Unit& u, const Hex& to) {
     if (!w.map.inBounds(to)) return -1;
     const Terrain t = w.map.terrain(to);
@@ -84,7 +97,9 @@ inline std::vector<Hex> reachable(const World& w, const Unit& u) {
         int left; // move points remaining on arrival
         bool stop; // movement must end here (zone of control)
     };
-    const int full = u.st().move;
+    const bool land = u.st().domain == Domain::Land;
+    const bool startsAtSea = embarked(w, u);
+    const int full = startsAtSea ? kEmbarkedMove : u.st().move;
     const bool flies = u.st().domain == Domain::Air;
     std::vector<Node> best{{u.hex, full, false}}; // best[i] = best arrival found so far
     std::vector<Node> open{best[0]};
@@ -102,15 +117,28 @@ inline std::vector<Hex> reachable(const World& w, const Unit& u) {
         open.erase(it);
         if (cur.stop || cur.left <= 0) continue;
         for (const Hex& n : maz::game::hexNeighbors(cur.hex)) {
-            const int cost = moveCost(w, u, n);
-            if (cost < 0 || w.unitAt(n)) continue;
-            int left = cur.left - cost;
-            if (left < 0) {
-                // A unit with full move points may always take one step, ending its move.
-                if (!(cur.hex == u.hex && cur.left == full)) continue;
-                left = 0;
+            if (!w.map.inBounds(n) || w.unitAt(n)) continue;
+            int left = 0;
+            bool stop = false;
+            const bool seaHex = w.map.terrain(n) == Terrain::Sea;
+            if (land && startsAtSea) {
+                // Sailing: 1 per sea hex; stepping ashore (any terrain) ends the move.
+                left = cur.left - 1;
+                stop = !seaHex;
+            } else if (land && seaHex) {
+                // Embarking ends the move.
+                stop = true;
+            } else {
+                const int cost = moveCost(w, u, n);
+                if (cost < 0) continue;
+                left = cur.left - cost;
+                if (left < 0) {
+                    // A unit with full move points may always take one step, ending its move.
+                    if (!(cur.hex == u.hex && cur.left == full)) continue;
+                    left = 0;
+                }
             }
-            const bool stop = !flies && inEnemyZoc(w, u.owner, n);
+            if (!flies && inEnemyZoc(w, u.owner, n)) stop = true;
             if (stop) left = 0;
             Node* seen = find(n);
             if (seen && seen->left >= left) continue;
