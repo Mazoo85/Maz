@@ -134,6 +134,47 @@ body::after {
 .layer-btn.is-offline .val { color: var(--red); }
 .layer-btn.is-loading .val { color: var(--amber); }
 
+/* ------------------------------------------------- floating globe markers */
+/* A small glowing dot with a generous invisible tap area around it. */
+.marker {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: opacity 0.3s;
+}
+.marker::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: 0 0 6px 1px var(--c);
+}
+.marker-label {
+  position: absolute;
+  left: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--c);
+  text-shadow: 0 0 4px #000;
+  white-space: nowrap;
+}
+/* Behind the Earth: invisible and untappable. */
+.marker.is-hidden { opacity: 0; pointer-events: none; }
+
 /* ---------------------------------------------------------- details sheet */
 #sheet {
   position: fixed;

@@ -45,7 +45,8 @@ The app owns the one-second clock (and skips it while the page is hidden). Every
    (km/h and mph) / position / NORAD id with an N2YO link. Tests: counts, dedupe, station
    labels, one group down still live, both down OFFLINE, tick moves the ISS, stop clears.
 3. **Page** — vendor script tag, HTML-marker channel and one-second ticker in `app.js`, marker
-   CSS, SATS on by default. Browser test (clock pinned near the fixture epoch, CelesTrak answered
-   from fixtures): markers drawn, a real tap on the ISS marker opens its sheet, markers move,
+   CSS, SATS on by default. Browser test (CelesTrak answered from fixtures re-dated to a day
+   before the run — pinning the page clock instead stops Playwright's page timers, and the
+   satellites move on a timer): markers drawn, a real tap on the ISS marker opens its sheet, markers move,
    SATS OFFLINE when CelesTrak is down while QUAKES stays live.
 4. **Docs** — godview README (layer row, vendored licence), hub blurb, root README row.

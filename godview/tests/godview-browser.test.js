@@ -6,8 +6,8 @@
  * details sheet, toggles a layer off, survives the feed going down, and shows
  * a readable message instead of crashing when the globe cannot load.
  *
- * The USGS feed is always answered from the saved fixture, so this never
- * depends on what the Earth did today. The globe library comes from the CDN;
+ * The USGS and CelesTrak feeds are always answered from saved fixtures, so
+ * this never depends on what the Earth (or the sky) did today. The globe library comes from the CDN;
  * set GLOBE_JS to a local copy of globe.gl.min.js (2.46.2) to run offline.
  *
  *   npm --prefix music/tests install     # once, for Playwright
@@ -23,6 +23,31 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..', '..');
 const FIXTURE = fs.readFileSync(path.join(__dirname, 'fixtures', 'usgs-sample.json'));
+/* The satellite fixtures are re-dated to a day ago on every run, so their
+ * orbits are fresh whatever today's date is. (Pinning the page's clock
+ * instead stops its timers in Playwright, and satellites move on a timer.) */
+function checksum(line) {
+  let sum = 0;
+  for (const c of line.slice(0, 68)) sum += c >= '0' && c <= '9' ? Number(c) : c === '-' ? 1 : 0;
+  return sum % 10;
+}
+function redate(text, date) {
+  const yy = String(date.getUTCFullYear() % 100).padStart(2, '0');
+  const dayOfYear = (date - Date.UTC(date.getUTCFullYear(), 0, 1)) / 86400000 + 1;
+  const epoch = yy + Math.floor(dayOfYear).toString().padStart(3, '0') + '.' +
+    (dayOfYear % 1).toFixed(8).slice(2);
+  return text.split('\n').map((line) => {
+    if (!line.startsWith('1 ') || line.length < 69) return line;
+    const out = line.slice(0, 18) + epoch + line.slice(32, 68);
+    /* A line whose checksum was deliberately broken stays broken. */
+    const wasValid = checksum(line) === Number(line[68]);
+    const sum = wasValid ? checksum(out) : (checksum(out) + 1) % 10;
+    return out + sum + line.slice(69);
+  }).join('\n');
+}
+const YESTERDAY = new Date(Date.now() - 86400000);
+const STATIONS_TLE = redate(fs.readFileSync(path.join(__dirname, 'fixtures', 'celestrak-stations.txt'), 'utf8'), YESTERDAY);
+const VISUAL_TLE = redate(fs.readFileSync(path.join(__dirname, 'fixtures', 'celestrak-visual.txt'), 'utf8'), YESTERDAY);
 const GLOBE_URL = 'https://cdn.jsdelivr.net/npm/globe.gl@2.46.2/dist/globe.gl.min.js';
 
 let chromium = null;
@@ -85,9 +110,10 @@ function launchOptions() {
   return opts;
 }
 
-/* A phone-sized page with the network answered by us. `quakes` and `globe` are
- * 'ok' or 'down'. Errors caused on purpose (a feed we cut) are not problems. */
-async function openPage(browser, base, { quakes = 'ok', globe = 'ok' } = {}) {
+/* A phone-sized page with the network answered by us. `quakes`, `sats` and
+ * `globe` are 'ok' or 'down'. Errors caused on purpose (a feed we cut) are not
+ * problems. */
+async function openPage(browser, base, { quakes = 'ok', sats = 'ok', globe = 'ok' } = {}) {
   const page = await browser.newPage({
     viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true
   });
@@ -103,6 +129,12 @@ async function openPage(browser, base, { quakes = 'ok', globe = 'ok' } = {}) {
       ? route.fulfill({ status: 200, contentType: 'application/json', body: FIXTURE,
         headers: { 'access-control-allow-origin': '*' } })
       : route.abort('failed'));
+  await page.route('https://celestrak.org/**', (route) => {
+    if (sats !== 'ok') return route.abort('failed');
+    const body = /GROUP=stations/.test(route.request().url()) ? STATIONS_TLE : VISUAL_TLE;
+    return route.fulfill({ status: 200, contentType: 'text/plain', body: body,
+      headers: { 'access-control-allow-origin': '*' } });
+  });
   await page.route(GLOBE_URL, (route) => {
     if (globe !== 'ok') return route.abort('failed');
     if (process.env.GLOBE_JS) {
@@ -145,6 +177,38 @@ async function openPage(browser, base, { quakes = 'ok', globe = 'ok' } = {}) {
       check(await page.evaluate(() => window.GODVIEW.globe.pointsData().length === 3), '3 quake dots on the globe');
       check(await page.evaluate(() => window.GODVIEW.globe.ringsData().length === 2), '2 pulsing rings (M2.5+)');
       check(await page.evaluate(() => document.getElementById('live').classList.contains('is-on')), 'the LIVE light is on');
+
+      console.log('\nSATELLITES');
+      const sats = 'button.layer-btn[data-layer="sats"]';
+      check((await page.getAttribute(sats, 'aria-pressed')) === 'true', 'satellites are on by default');
+      check((await page.textContent(sats + ' .val')).trim() === '4', 'the button counts 4 satellites (ISS once)');
+      await page.waitForFunction(() => document.querySelectorAll('.marker[data-layer="sats"]').length === 4, null, { timeout: 10000 })
+        .catch(() => {});
+      check((await page.$$('.marker[data-layer="sats"]')).length === 4, '4 satellite markers on the globe');
+      check((await page.textContent('.marker[aria-label="ISS (ZARYA)"] .marker-label')) === 'ISS', 'the ISS is labelled');
+      const lngBefore = await page.evaluate(() => window.GODVIEW.layers.find((l) => l.id === 'sats').html[0].lng);
+      await page.waitForTimeout(2500);
+      const lngAfter = await page.evaluate(() => window.GODVIEW.layers.find((l) => l.id === 'sats').html[0].lng);
+      check(lngBefore !== lngAfter, 'the ISS moves on its own');
+      /* Turn the Earth to face the ISS, then tap its marker like a finger would. */
+      await page.evaluate(() => {
+        const g = window.GODVIEW.globe;
+        g.controls().autoRotate = false;
+        const iss = window.GODVIEW.layers.find((l) => l.id === 'sats').html[0];
+        g.pointOfView({ lat: iss.lat, lng: iss.lng, altitude: 2 }, 0);
+      });
+      await page.waitForTimeout(1200);
+      /* It never stops moving, so tap where it is right now, as a finger would. */
+      const issBox = await page.$eval('.marker[aria-label="ISS (ZARYA)"]', (e) => {
+        const r = e.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      });
+      await page.touchscreen.tap(issBox.x, issBox.y);
+      await page.waitForTimeout(200);
+      check((await page.textContent('#sheet-title')) === 'ISS (ZARYA)', 'tapping the ISS opens its details');
+      check((await page.textContent('#sheet-rows')).includes('ALTITUDE'), 'which give its altitude');
+      check((await page.getAttribute('#sheet-link', 'href')) === 'https://www.n2yo.com/satellite/?s=25544', 'and link to its live track');
+      await page.tap('#sheet-close');
 
       console.log('\nDETAILS SHEET');
       await page.evaluate(() => window.GODVIEW.openSheet(window.GODVIEW.globe.pointsData()[0]));
@@ -192,7 +256,17 @@ async function openPage(browser, base, { quakes = 'ok', globe = 'ok' } = {}) {
       const { page, problems } = await openPage(browser, base, { quakes: 'down' });
       const btn = 'button.layer-btn[data-layer="quakes"]';
       check((await page.textContent(btn + ' .val')).trim() === 'OFFLINE', 'the quake button says OFFLINE');
+      check((await page.textContent('button.layer-btn[data-layer="sats"] .val')).trim() === '4', 'satellites carry on regardless');
       check(await page.evaluate(() => document.getElementById('fallback').hidden), 'the globe still shows');
+      check(problems.length === 0, 'and nothing throws' + (problems.length ? ' — ' + problems.join('; ') : ''));
+      await page.close();
+    }
+
+    console.log('\nCELESTRAK DOWN');
+    {
+      const { page, problems } = await openPage(browser, base, { sats: 'down' });
+      check((await page.textContent('button.layer-btn[data-layer="sats"] .val')).trim() === 'OFFLINE', 'the SATS button says OFFLINE');
+      check((await page.textContent('button.layer-btn[data-layer="quakes"] .val')).trim() === '3', 'quakes carry on regardless');
       check(problems.length === 0, 'and nothing throws' + (problems.length ? ' — ' + problems.join('; ') : ''));
       await page.close();
     }
