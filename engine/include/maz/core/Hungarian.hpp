@@ -75,6 +75,9 @@ inline Assignment hungarian(const std::vector<double>& cost, std::size_t rows, s
                     minv[static_cast<std::size_t>(j)] -= delta;
                 }
             }
+            if (j1 < 0) {
+                return out; // no free column left; can't happen with rows <= cols, and proves j0 in range
+            }
             j0 = j1;
         } while (p[static_cast<std::size_t>(j0)] != 0);
         // Augment along the recorded path.
