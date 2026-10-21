@@ -253,17 +253,40 @@ async function openPage(browser, base, { quakes = 'ok', sats = 'ok', weather = '
         g.pointOfView({ lat: iss.lat, lng: iss.lng, altitude: 2 }, 0);
       });
       await page.waitForTimeout(1200);
-      /* It never stops moving, so tap where it is right now, as a finger would. */
-      const issBox = await page.$eval('.marker[aria-label="ISS (ZARYA)"]', (e) => {
-        const r = e.getBoundingClientRect();
-        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-      });
-      await page.touchscreen.tap(issBox.x, issBox.y);
-      await page.waitForTimeout(200);
-      check((await page.textContent('#sheet-title')) === 'ISS (ZARYA)', 'tapping the ISS opens its details');
-      check((await page.textContent('#sheet-rows')).includes('ALTITUDE'), 'which give its altitude');
-      check((await page.getAttribute('#sheet-link', 'href')) === 'https://www.n2yo.com/satellite/?s=25544', 'and link to its live track');
-      await page.tap('#sheet-close');
+      /* It never stops moving, so tap where it is right now, as a finger would.
+       * On a slow software GPU a frame can land between finding it and tapping,
+       * so wait until it is shown and settled, and give it three goes. */
+      const issSel = '.marker[aria-label="ISS (ZARYA)"]';
+      const sheetOpen = () => page.evaluate(() => !document.getElementById('sheet').hidden);
+      let underFinger = '';
+      for (let attempt = 0; attempt < 3 && !(await sheetOpen()); attempt++) {
+        await page.waitForFunction((sel) => {
+          const el = document.querySelector(sel);
+          if (!el || el.classList.contains('is-hidden')) return false;
+          const r = el.getBoundingClientRect();
+          const prev = window.__issBox;
+          window.__issBox = [r.left, r.top];
+          return prev && Math.abs(prev[0] - r.left) < 2 && Math.abs(prev[1] - r.top) < 2;
+        }, issSel, { timeout: 10000, polling: 250 }).catch(() => {});
+        const box = await page.$eval(issSel, (e) => {
+          const r = e.getBoundingClientRect();
+          return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+        });
+        underFinger = await page.evaluate(({ x, y }) => {
+          const el = document.elementFromPoint(x, y);
+          return el ? el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + '.' + el.className : 'nothing';
+        }, box);
+        await page.touchscreen.tap(box.x, box.y);
+        await page.waitForTimeout(300);
+      }
+      const opened = await sheetOpen();
+      check(opened && (await page.textContent('#sheet-title')) === 'ISS (ZARYA)',
+        'tapping the ISS opens its details' + (opened ? '' : ' — under the finger: ' + underFinger));
+      if (opened) {
+        check((await page.textContent('#sheet-rows')).includes('ALTITUDE'), 'which give its altitude');
+        check((await page.getAttribute('#sheet-link', 'href')) === 'https://www.n2yo.com/satellite/?s=25544', 'and link to its live track');
+        await page.tap('#sheet-close');
+      }
 
       console.log('\nWEATHER');
       const wx = 'button.layer-btn[data-layer="weather"]';
