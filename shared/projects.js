@@ -128,6 +128,21 @@
       docs: 'coda-pics/README.md'
     },
     {
+      id: 'godview',
+      name: "GOD'S EYE VIEW",
+      kind: 'app',
+      path: 'godview/',
+      tag: 'live globe of the planet',
+      accent: '#1aff8c',
+      blurb:
+        'A spy-console 3D globe you spin with a finger, showing what the planet is doing ' +
+        'right now: every earthquake of the past day from USGS, and the space stations ' +
+        'and brightest satellites gliding along their real orbits. Free public data, ' +
+        'no account, no key.',
+      badges: ['Phone + desktop', '3D globe', 'Live data'],
+      docs: 'godview/README.md'
+    },
+    {
       id: 'engine',
       name: 'MAZ ENGINE',
       kind: 'code',

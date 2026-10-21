@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#f6f1e7" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#14121c" media="(prefers-color-scheme: dark)" />
+  <title>Mandala Maker</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='7' fill='%23f6f1e7'/><g fill='none' stroke='%23b4532a' stroke-width='.9'><circle cx='8' cy='8' r='5.2'/><path d='M8 2.8c1.6 1.6 1.6 3.6 0 5.2-1.6-1.6-1.6-3.6 0-5.2zM8 13.2c1.6-1.6 1.6-3.6 0-5.2-1.6 1.6-1.6 3.6 0 5.2zM2.8 8c1.6-1.6 3.6-1.6 5.2 0-1.6 1.6-3.6 1.6-5.2 0zM13.2 8c-1.6-1.6-3.6-1.6-5.2 0 1.6 1.6 3.6 1.6 5.2 0z'/></g></svg>" />
+</head>
+<body>
+  <div id="app">
+    <header class="masthead">
+      <h1>Mandala Maker</h1>
+      <p class="lede">Draw a single line and watch it bloom all the way round. Or let it surprise you.</p>
+    </header>
+
+    <main class="studio">
+      <section class="stage" aria-label="Drawing area">
+        <div class="canvas-wrap" id="canvasWrap">
+          <canvas id="canvas" aria-label="Mandala canvas. Drag to draw; every line is repeated round the centre."></canvas>
+          <p class="hint" id="hint">Drag anywhere to draw</p>
+        </div>
+        <div class="actions">
+          <button id="surprise" class="primary" title="Make a random mandala">Surprise me</button>
+          <button id="undo" title="Undo the last line (Ctrl+Z)">Undo</button>
+          <button id="clear" title="Start again with a blank page">Clear</button>
+          <button id="savePng" title="Download a picture of your mandala">Save picture</button>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="Brush settings">
+        <div class="control">
+          <label for="slices"><span>Repeats</span> <output id="slicesOut">8</output></label>
+          <input type="range" id="slices" min="2" max="32" step="1" value="8" />
+        </div>
+
+        <div class="control">
+          <label for="size"><span>Brush size</span> <output id="sizeOut">4</output></label>
+          <input type="range" id="size" min="1" max="30" step="1" value="4" />
+        </div>
+
+        <div class="control">
+          <label for="motion"><span>Motion</span></label>
+          <select id="motion"></select>
+        </div>
+
+        <div class="control">
+          <label for="speed"><span>Speed</span> <output id="speedOut">1×</output></label>
+          <input type="range" id="speed" min="0" max="3" step="0.25" value="1" />
+        </div>
+
+        <div class="control">
+          <span class="label">Colour</span>
+          <div class="swatches" id="swatches" role="radiogroup" aria-label="Brush colour"></div>
+        </div>
+
+        <div class="control">
+          <label for="palette"><span>Colour set</span></label>
+          <select id="palette"></select>
+        </div>
+
+        <fieldset class="toggles">
+          <legend class="label">Options</legend>
+          <label class="toggle"><input type="checkbox" id="mirror" checked /> <span>Mirror</span></label>
+          <label class="toggle"><input type="checkbox" id="glow" /> <span>Glow</span></label>
+          <label class="toggle"><input type="checkbox" id="guides" checked /> <span>Guide lines</span></label>
+        </fieldset>
+
+        <p class="note">Your drawing is kept in this browser, so it is still here next time. Guide lines are never in the saved picture.</p>
+      </aside>
+    </main>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+  </div>
+
+  <script src="js/mandala.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

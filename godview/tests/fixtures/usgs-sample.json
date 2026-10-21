@@ -1,0 +1,31 @@
+{
+  "type": "FeatureCollection",
+  "metadata": { "generated": 1792560000000, "title": "USGS All Earthquakes, Past Day (test sample)" },
+  "features": [
+    {
+      "type": "Feature", "id": "ak0001",
+      "properties": { "mag": 4.6, "place": "62 km NW of Anchorage, Alaska", "time": 1792559280000, "url": "https://earthquake.usgs.gov/earthquakes/eventpage/ak0001" },
+      "geometry": { "type": "Point", "coordinates": [-150.6, 61.6, 35.2] }
+    },
+    {
+      "type": "Feature", "id": "ci0002",
+      "properties": { "mag": 1.2, "place": "5 km S of Ridgecrest, CA", "time": 1792559900000, "url": "https://earthquake.usgs.gov/earthquakes/eventpage/ci0002" },
+      "geometry": { "type": "Point", "coordinates": [-117.67, 35.58, 7.1] }
+    },
+    {
+      "type": "Feature", "id": "us0003",
+      "properties": { "mag": 6.1, "place": "offshore Coquimbo, Chile", "time": 1792556400000, "url": "https://earthquake.usgs.gov/earthquakes/eventpage/us0003" },
+      "geometry": { "type": "Point", "coordinates": [-71.9, -30.1, 40] }
+    },
+    {
+      "type": "Feature", "id": "nomag",
+      "properties": { "mag": null, "place": "no magnitude", "time": 1792559000000 },
+      "geometry": { "type": "Point", "coordinates": [10, 10, 1] }
+    },
+    {
+      "type": "Feature", "id": "nogeo",
+      "properties": { "mag": 3.0, "place": "no geometry", "time": 1792559000000 },
+      "geometry": null
+    }
+  ]
+}
