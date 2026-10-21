@@ -137,8 +137,59 @@
     { id: 'spin', label: 'Spin — the whole mandala turns' },
     { id: 'swirl', label: 'Swirl — rings turn opposite ways' },
     { id: 'breathe', label: 'Breathe — slowly in and out' },
-    { id: 'flow', label: 'Flow — swirl and breathe' }
+    { id: 'flow', label: 'Flow — swirl and breathe' },
+    { id: 'vortex', label: 'Vortex — spirals into itself' }
   ];
+
+  /* ------------------------------------------------------------- vortex
+   * The mandala turning into itself, forever. The page draws it as a
+   * stack of copies of itself, each VORTEX_RATIO the size of the one
+   * outside it and turned a little further, and each copy shows only its
+   * own outer ring — the part between VORTEX_RATIO and full size — so the
+   * copies fit together into one picture. As time passes every copy
+   * shrinks towards the centre and turns; by the end of one cycle each has
+   * taken exactly the place of the copy inside it, so the motion never
+   * jumps and a recording of one cycle loops.
+   *
+   * A copy is named by its level `j`: level 0 is full size at phase 0, and
+   * each level inward is one step smaller. Levels are fixed to the picture,
+   * not the screen, so a line drawn on one stays with it as it spirals in.
+   */
+  var VORTEX_SECONDS = 6;   // one cycle at speed 1
+  var VORTEX_RATIO = 0.55;  // each copy's size against the one outside it
+  var VORTEX_TWIST = 0.6;   // radians each copy is turned past the one outside it
+
+  // Where level `j` is at `phase`: { angle, scale }.
+  function vortexLevel(j, phase) {
+    var k = j + (Number(phase) || 0) / VORTEX_SECONDS;
+    return { angle: VORTEX_TWIST * k, scale: Math.pow(VORTEX_RATIO, k) };
+  }
+
+  /*
+   * Every copy needed to draw the vortex at `phase`, outermost first: its
+   * level, its { angle, scale }, and the ring of the screen it fills, from
+   * `inner` to `outer` (unit radii). The first copy is always large enough
+   * to reach the edge; copies stop once they are too small to see.
+   */
+  function vortexCopies(phase) {
+    var cycle = Math.floor((Number(phase) || 0) / VORTEX_SECONDS);
+    var out = [];
+    for (var j = -cycle - 1; ; j++) {
+      var m = vortexLevel(j, phase);
+      if (m.scale < 0.004) break;
+      if (m.scale * VORTEX_RATIO >= 1.05) continue;
+      out.push({ level: j, angle: m.angle, scale: m.scale, inner: m.scale * VORTEX_RATIO, outer: m.scale });
+    }
+    return out;
+  }
+
+  // The copy that fills distance `r` from the centre, or null at the very centre.
+  function vortexPick(r, copies) {
+    for (var i = 0; i < copies.length; i++) {
+      if (r > copies[i].inner && r <= copies[i].outer) return copies[i];
+    }
+    return null;
+  }
 
   // Which ring a point at distance `r` from the centre is in.
   function bandOf(r) {
@@ -217,7 +268,8 @@
   function videoSeconds(mode, speed) {
     speed = Number(speed) || 0;
     if (mode === 'still' || speed <= 0) return 4;
-    return Math.min(12, Math.max(3, BREATH_SECONDS / speed));
+    var cycle = mode === 'vortex' ? VORTEX_SECONDS : BREATH_SECONDS;
+    return Math.min(12, Math.max(3, cycle / speed));
   }
 
   // Unit-space point → the same point as ring `band` sees it, given the
@@ -555,6 +607,11 @@
     breath: breath,
     breathCue: breathCue,
     videoFormat: videoFormat,
+    VORTEX_SECONDS: VORTEX_SECONDS,
+    VORTEX_RATIO: VORTEX_RATIO,
+    vortexLevel: vortexLevel,
+    vortexCopies: vortexCopies,
+    vortexPick: vortexPick,
     videoSeconds: videoSeconds,
     rng: rng,
     newSeed: newSeed,
