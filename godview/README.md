@@ -41,7 +41,10 @@ latest picture, which refreshes every minute while it is open. Only the camera
 York City and Florida cameras are left out on purpose: NYC DOT requires a signed
 data agreement and FL511 is for personal use only.
 
-Ships are planned — see the
+Ships are left out for now (October 2026). The only keyless source that a web page
+can use, Fintraffic's marine AIS, covers just the Baltic Sea; worldwide ships
+(AISStream) need a key and a small relay server to keep it off the page. Either
+can be added later as one more layer — see the
 [design](../docs/superpowers/specs/2026-10-21-godview-design.md).
 
 If a source stops answering, its button says **OFFLINE** and it retries on its
