@@ -24,7 +24,11 @@ const S = require('../js/lib/sats.js');
 const SL = require('../js/layers/sats-layer.js');
 const W = require('../js/lib/weather.js');
 const WL = require('../js/layers/weather-layer.js');
+const PL = require('../js/lib/planes.js');
+const PLL = require('../js/layers/planes-layer.js');
 
+const ADSB = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'adsb-sample.json'), 'utf8'));
+const OPENSKY = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'opensky-sample.json'), 'utf8'));
 const STATIONS_TLE = fs.readFileSync(path.join(__dirname, 'fixtures', 'celestrak-stations.txt'), 'utf8');
 const VISUAL_TLE = fs.readFileSync(path.join(__dirname, 'fixtures', 'celestrak-visual.txt'), 'utf8');
 /* Four days after the fixtures' epoch (17 Oct 2026 12:00 UTC). */
@@ -662,6 +666,186 @@ test('stop clears the weather off the globe', async () => {
   layer.stop();
   eq(layer.status, 'idle');
   eq(layer.texture, null);
+  eq(t.queue.length, 0);
+});
+
+
+/* ------------------------------------------------------------- planes */
+test('the plane URLs ask for a 250 nm circle, or the same-sized box', () => {
+  eq(PL.adsbUrl(40.123456, -74.5), 'https://api.adsb.lol/v2/point/40.12/-74.50/250');
+  const o = PL.openskyUrl(40, -74);
+  assert(o.startsWith('https://opensky-network.org/api/states/all?'), o);
+  const q = Object.fromEntries(new URL(o).searchParams);
+  near(Number(q.lamax) - Number(q.lamin), 2 * 250 * 1.852 / 111.32, 0.01, 'box height ~ the circle');
+  assert(Number(q.lomax) - Number(q.lomin) > Number(q.lamax) - Number(q.lamin), 'wider in longitude away from the equator');
+  const polar = Object.fromEntries(new URL(PL.openskyUrl(89, 0)).searchParams);
+  assert(Number(polar.lamax) <= 90 && Number(polar.lomin) >= -180 && Number(polar.lomax) <= 180, 'clamped near the pole');
+});
+
+test('parseAdsb keeps placed, fresh aircraft and reads the ground', () => {
+  const list = PL.parseAdsb(ADSB);
+  eq(list.map((p) => p.hex).join(','), 'a1b2c3,abc001,a00f00', 'stale, unplaced and impossible rows dropped');
+  const ual = list[0];
+  eq(ual.callsign, 'UAL123', 'callsign trimmed');
+  eq(ual.altFt, 35000);
+  eq(ual.onGround, false);
+  near(ual.speedKt, 480.2, 1e-9);
+  eq(ual.track, 90);
+  eq(ual.type, 'B738');
+  eq(ual.reg, 'N12345');
+  const cessna = list[2];
+  eq(cessna.onGround, true, '"ground" altitude');
+  eq(cessna.altFt, 0);
+  eq(cessna.callsign, '', 'no callsign is an empty string, not undefined');
+  throws(() => PL.parseAdsb({}), 'not a feed');
+});
+
+test('parseOpensky converts metres and m/s, and drops stale or unplaced rows', () => {
+  const list = PL.parseOpensky(OPENSKY);
+  eq(list.map((p) => p.hex).join(','), '3c6444,4b1805');
+  const dlh = list[0];
+  eq(dlh.callsign, 'DLH9LF');
+  eq(Math.round(dlh.altFt), 35000, '10668 m');
+  eq(Math.round(dlh.speedKt), 450, '231.5 m/s');
+  eq(dlh.track, 45);
+  eq(list[1].onGround, true);
+  eq(list[1].altFt, 0, 'no altitude on the ground reads as 0');
+  throws(() => PL.parseOpensky({ time: 1 }), 'no states list');
+  eq(PL.parseOpensky({ time: 1, states: null }).length, 0, 'an empty sky is not an error');
+});
+
+test('distanceKm is the great-circle distance', () => {
+  near(PL.distanceKm({ lat: 0, lng: 0 }, { lat: 0, lng: 1 }), 111.19, 0.05);
+  near(PL.distanceKm({ lat: 51.47, lng: -0.45 }, { lat: 40.64, lng: -73.78 }), 5555, 15, 'London to New York');
+});
+
+test('nearest keeps the closest aircraft up to the cap', () => {
+  const list = PL.parseAdsb(ADSB);
+  const two = PL.nearest(list, { lat: 40.64, lng: -73.78 }, 2);
+  eq(two.map((p) => p.hex).join(','), 'a00f00,a1b2c3');
+});
+
+test('advance flies a plane along its track at its speed', () => {
+  const east = { lat: 40, lng: -74, speedKt: 480, track: 90, onGround: false };
+  const after = PL.advance(east, 60);
+  near(after.lat, 40, 0.01, 'still at 40°N heading due east');
+  near(after.lng, -74 + 14.816 / (111.19 * Math.cos(40 * Math.PI / 180)), 0.002, '8 nm east');
+  const north = PL.advance({ lat: 10, lng: 20, speedKt: 600, track: 0, onGround: false }, 3600);
+  near(north.lat, 20, 0.05, '600 nm north is 10°');
+  const parked = PL.advance({ lat: 10, lng: 20, speedKt: 0, track: 0, onGround: true }, 60);
+  eq(parked.lat + ',' + parked.lng, '10,20', 'parked planes stay put');
+  const dateline = PL.advance({ lat: 0, lng: 179.99, speedKt: 600, track: 90, onGround: false }, 60);
+  assert(dateline.lng < -179, 'wraps across the date line: ' + dateline.lng);
+});
+
+
+/* ------------------------------------------------------------- planes layer */
+/* sources: { adsb: 'ok'|'down', opensky: 'ok'|'down' } */
+function planesLayer(sources) {
+  const t = fakeTimers();
+  const asked = [];
+  let view = { lat: 40.64, lng: -73.78, altitude: 2 };
+  let clock = 1000000;
+  const layer = PLL.create({
+    now: () => clock,
+    fetchJson: (url) => {
+      asked.push(url);
+      const ok = url.includes('adsb.lol') ? sources.adsb === 'ok' : sources.opensky === 'ok';
+      if (!ok) return Promise.reject(new Error('blocked'));
+      return Promise.resolve(url.includes('adsb.lol') ? ADSB : OPENSKY);
+    },
+    getView: () => view,
+    setTimer: t.set,
+    clearTimer: t.clear
+  });
+  return { layer, t, asked, look: (v) => { view = v; }, advance: (ms) => { clock += ms; } };
+}
+
+test('planes come from adsb.lol around the view, nearest first', async () => {
+  const { layer, asked, t } = planesLayer({ adsb: 'ok', opensky: 'ok' });
+  eq(layer.followsView, true);
+  layer.start();
+  await flush();
+  eq(asked.join(' '), PL.adsbUrl(40.64, -73.78), 'only the primary is asked');
+  eq(layer.status, 'live');
+  eq(layer.count, 3);
+  eq(layer.html[0].item.hex, 'a00f00', 'nearest the centre first');
+  eq(layer.credit, 'Planes: adsb.lol (ODbL)');
+  eq(t.queue[0].ms, 15000, 'every 15 seconds');
+  const ual = layer.html.find((h) => h.item.hex === 'a1b2c3');
+  eq(ual.layer, 'planes');
+  eq(ual.rotation, 90, 'pointing along its track');
+  eq(ual.label, null);
+  near(ual.altitude, 35000 * 0.3048 / 1000 / 6371, 1e-9, 'real altitude in Earth radii');
+});
+
+test('OpenSky answers when adsb.lol will not', async () => {
+  const { layer, asked } = planesLayer({ adsb: 'down', opensky: 'ok' });
+  layer.start();
+  await flush();
+  eq(asked.length, 2);
+  assert(asked[1].includes('opensky-network.org'), 'fell back to OpenSky');
+  eq(layer.status, 'live');
+  eq(layer.count, 2);
+  eq(layer.credit, 'Planes: OpenSky Network');
+});
+
+test('both flight sources down is OFFLINE', async () => {
+  const { layer } = planesLayer({ adsb: 'down', opensky: 'down' });
+  layer.start();
+  await flush();
+  eq(layer.status, 'offline');
+  eq(layer.count, 0);
+});
+
+test('the next fetch follows the view', async () => {
+  const { layer, asked, look } = planesLayer({ adsb: 'ok', opensky: 'ok' });
+  layer.start();
+  await flush();
+  look({ lat: 51.47, lng: -0.45, altitude: 2 });
+  layer.refresh();
+  await flush();
+  eq(asked[1], PL.adsbUrl(51.47, -0.45));
+});
+
+test('tick flies airborne planes and leaves parked ones', async () => {
+  const { layer, advance } = planesLayer({ adsb: 'ok', opensky: 'ok' });
+  layer.start();
+  await flush();
+  const ual = layer.html.find((h) => h.item.hex === 'a1b2c3');
+  const cessna = layer.html.find((h) => h.item.hex === 'a00f00');
+  const before = [ual.lng, cessna.lat, cessna.lng];
+  advance(10000);
+  layer.tick();
+  assert(ual.lng > before[0], 'the eastbound airliner moved east');
+  eq(cessna.lat + ',' + cessna.lng, before[1] + ',' + before[2], 'the parked Cessna did not');
+});
+
+test('describe gives callsign, height, speed, heading and type', async () => {
+  const { layer } = planesLayer({ adsb: 'ok', opensky: 'ok' });
+  layer.start();
+  await flush();
+  const ual = layer.html.find((h) => h.item.hex === 'a1b2c3').item;
+  const d = layer.describe(ual);
+  eq(d.title, 'UAL123');
+  eq(d.rows[0].join('|'), 'ALTITUDE|35,000 ft / 10,668 m');
+  eq(d.rows[1].join('|'), 'SPEED|480 kt / 553 mph');
+  eq(d.rows[2].join('|'), 'HEADING|090° E');
+  eq(d.rows[3].join('|'), 'AIRCRAFT|B738 · N12345');
+  eq(d.link, 'https://globe.adsb.lol/?icao=a1b2c3');
+  const cessna = layer.describe(layer.html.find((h) => h.item.hex === 'a00f00').item);
+  eq(cessna.title, 'N9999X', 'no callsign: the registration');
+  eq(cessna.rows[0].join('|'), 'ALTITUDE|ON THE GROUND');
+});
+
+test('stop clears the planes', async () => {
+  const { layer, t } = planesLayer({ adsb: 'ok', opensky: 'ok' });
+  layer.start();
+  await flush();
+  layer.stop();
+  eq(layer.status, 'idle');
+  eq(layer.html.length, 0);
+  eq(layer.count, 0);
   eq(t.queue.length, 0);
 });
 
