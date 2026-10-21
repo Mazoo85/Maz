@@ -11,7 +11,21 @@ from forge.ledger import OUTCOMES, _entry_month, append, new_entry, read_all, re
 
 
 def _entry(root, cfg, **kw):
-    append(new_entry(kw.pop("run_id", "2026-09-10"), **kw), root, cfg)
+    """Append one entry, filed by its run id rather than by today's date.
+
+    `at` is stamped from the run id unless the caller sets one. Without that,
+    `new_entry` stamps `at` with `datetime.now()`, the entry is filed under the
+    *current* month, and every test below that names "2026-09.jsonl" starts
+    failing on 1 October. That is not hypothetical: it happened, and took out
+    seven tests across two files.
+
+    The insight was already written down in the test immediately below this —
+    "pass an explicit at so the test doesn't rot" — and applied to that one
+    call site rather than to the helper every other test goes through.
+    """
+    run_id = kw.pop("run_id", "2026-09-10")
+    kw.setdefault("at", f"{run_id}T12:00:00Z")
+    append(new_entry(run_id, **kw), root, cfg)
 
 
 def test_append_creates_a_month_file(tmp_path):
@@ -407,3 +421,27 @@ def test_entry_month_never_raises_on_a_datetime_object(tmp_path):
     now = datetime.now(timezone.utc)
     result = _entry_month({"at": datetime(2026, 9, 10, tzinfo=timezone.utc)})
     assert (result.year, result.month) == (now.year, now.month)
+
+
+def test_the_seed_helper_files_by_run_id_not_by_today(tmp_path):
+    """The helper every other test goes through must not depend on the date.
+
+    Seven tests across two files broke on 1 October because `_entry` let
+    `new_entry` stamp `at` with `datetime.now()`, so entries landed in the
+    current month while the assertions named September. They all passed for
+    the three weeks the two happened to agree.
+
+    This asserts the property directly, so the rot cannot come back quietly:
+    a run id in September must produce a September file whatever today is.
+    """
+    cfg = ForgeConfig()
+    _entry(tmp_path, cfg, run_id="2026-03-04", outcome="no_task")
+
+    files = sorted(p.name for p in cfg.ledger_dir(tmp_path).glob("*.jsonl"))
+    assert files == ["2026-03.jsonl"], files
+
+    now_month = f"{datetime.now(timezone.utc):%Y-%m}.jsonl"
+    assert now_month not in files, (
+        "the entry was filed under the current month, so this suite will rot "
+        "again the moment the calendar moves"
+    )
