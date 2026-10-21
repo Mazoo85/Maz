@@ -225,7 +225,6 @@ add_subdirectory(apps/platformer)
 add_subdirectory(apps/adventure)
 add_subdirectory(apps/_template)
 add_subdirectory(apps/mobilepack)
-add_subdirectory(apps/ironfront)
 
 # Documentation-site generator CLI (maz::docs): turns docs/*.md into a linked static HTML site.
 add_executable(maz_docsgen tools/gen_docs.cpp)

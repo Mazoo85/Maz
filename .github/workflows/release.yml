@@ -11,7 +11,7 @@ on:
     inputs:
       apps:
         description: "Space-separated app targets to package"
-        default: "zomboid pong platformer adventure ironfront"
+        default: "zomboid pong platformer adventure"
 
 permissions:
   contents: write
@@ -47,7 +47,7 @@ jobs:
         # tools/package.sh assembles a self-contained, redistributable bundle per app under dist/ and
         # verifies it runs from a scratch directory (headless).
         env:
-          APPS: ${{ github.event.inputs.apps || 'zomboid pong platformer adventure ironfront' }}
+          APPS: ${{ github.event.inputs.apps || 'zomboid pong platformer adventure' }}
           VERSION: ${{ github.ref_name }}
         run: |
           set -euo pipefail
