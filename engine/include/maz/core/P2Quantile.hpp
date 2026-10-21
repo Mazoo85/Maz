@@ -4,6 +4,7 @@
 #include <array>
 #include <cstddef>
 #include <iterator>
+#include <limits>
 
 // maz::core::P2Quantile — the P-Square (P²) algorithm of Jain & Chlamtac (1985) for estimating a single
 // quantile (median, p95, p99, …) of a data stream in CONSTANT memory and a single pass, WITHOUT storing
@@ -106,16 +107,47 @@ public:
             return 0.0;
         }
         if (m_count < 5) {
-            // Fewer than five samples: return the interpolated order statistic of what we have so far.
-            // Copy/sort via std::array + std::sort (not hand-indexed loops, which some optimizers
-            // mis-flag as out-of-range after inlining) — the count is always in [1,4] on this path.
-            const std::size_t n = static_cast<std::size_t>(m_count);
-            std::array<double, 5> tmp{};
-            std::copy_n(std::begin(m_q), n, tmp.begin());
-            std::sort(tmp.begin(), tmp.begin() + static_cast<std::ptrdiff_t>(n));
-            const double idx = m_p * static_cast<double>(n - 1);
-            const std::size_t lo = static_cast<std::size_t>(idx);
-            const std::size_t hi = lo + 1 < n ? lo + 1 : lo;
+            // Fewer than five samples: return the interpolated order statistic of what we have.
+            //
+            // This is written with NO variable loop bound and NO variable array subscript, and that
+            // is the whole point. Every shape that sorts "the first m_count of five" with a runtime
+            // bound -- std::sort over a runtime range, or a hand-written insertion sort -- is
+            // rejected by GCC 14 and 15 at -O3 under the engine's -Werror: first
+            // -Werror=array-bounds, reporting a subscript range of [8, 576460752303423487] into a
+            // five-element array, then -Werror=aggressive-loop-optimizations ("iteration 4 invokes
+            // undefined behavior"). Clamping m_count into [1,4] first did not satisfy it either.
+            // Those bounds are unreachable in fact -- the branch above guarantees [1,4] -- but the
+            // optimizer cannot see it through the inlining, and the engine treats the warning as an
+            // error, so the fix is to leave it nothing to analyse.
+            //
+            // So: copy all five marker slots unconditionally (all five are valid storage), fill the
+            // ones we have not collected yet with +infinity so they sort to the far end and never
+            // land inside the first m_count entries, then sort all five with a fixed nine-comparator
+            // sorting network. Every index below is a compile-time constant.
+            constexpr double inf = std::numeric_limits<double>::infinity();
+            std::array<double, 5> tmp{inf, inf, inf, inf, inf};
+            for (int i = 0; i < 5; ++i) {
+                if (i < m_count) {
+                    tmp[static_cast<std::size_t>(i)] = m_q[static_cast<std::size_t>(i)];
+                }
+            }
+            const auto cas = [&tmp](std::size_t a, std::size_t b) {
+                if (tmp[a] > tmp[b]) {
+                    const double t = tmp[a];
+                    tmp[a] = tmp[b];
+                    tmp[b] = t;
+                }
+            };
+            cas(0, 1); cas(3, 4); cas(2, 4); cas(2, 3); cas(0, 3);
+            cas(0, 2); cas(1, 4); cas(1, 3); cas(1, 2);
+
+            // Interpolate within the m_count real entries. n is clamped into [1,4] so the two
+            // subscripts below stay compile-time-provably inside the array.
+            const int cnt = m_count < 1 ? 1 : (m_count > 4 ? 4 : m_count);
+            const double n = static_cast<double>(cnt);
+            const double idx = m_p * (n - 1.0);
+            const std::size_t lo = static_cast<std::size_t>(idx) & std::size_t{3};
+            const std::size_t hi = lo + 1 < static_cast<std::size_t>(cnt) ? lo + 1 : lo;
             const double frac = idx - static_cast<double>(lo);
             return tmp[lo] + frac * (tmp[hi] - tmp[lo]);
         }

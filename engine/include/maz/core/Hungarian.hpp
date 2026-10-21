@@ -29,6 +29,19 @@ inline Assignment hungarian(const std::vector<double>& cost, std::size_t rows, s
         return out;
     }
 
+    // The e-maxx formulation below indexes with `int`, so a matrix wider than
+    // INT_MAX would wrap the conversion and index nonsense. Reject it rather
+    // than misbehave. `rows <= cols` is already established, so bounding cols
+    // bounds both.
+    //
+    // This also gives the compiler the bound it was missing: without it GCC 14
+    // and 15 cannot rule out `static_cast<std::size_t>(m) + 1` wrapping to
+    // zero, so they treat the matching arrays as possibly empty and reject
+    // every write into them at -O3 under -Werror=stringop-overflow.
+    if (cols > static_cast<std::size_t>(std::numeric_limits<int>::max()) - 1) {
+        return out;
+    }
+
     const int n = static_cast<int>(rows);
     const int m = static_cast<int>(cols);
     const double INF = std::numeric_limits<double>::max() / 4.0;
