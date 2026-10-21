@@ -1,0 +1,33 @@
+name: Probe flight sources (temporary)
+
+# One-off diagnostic for GOD'S EYE VIEW's PLANES layer, which reports OFFLINE
+# on a real phone. Asks each keyless flight API for aircraft near New York the
+# way the page does (a plain cross-origin GET from the Pages origin) and prints
+# the status and the CORS header. Lives only on a throwaway branch.
+on: push
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask each source
+        run: |
+          probe() {
+            echo "=== $1"
+            curl -sS -m 20 -o body.txt -D headers.txt -H "Origin: https://mazoo85.github.io" "$1" || echo "curl failed"
+            head -1 headers.txt
+            grep -i -E "^access-control-allow-origin|^content-type|^retry-after|^x-rate" headers.txt || echo "(no CORS header)"
+            echo "body: $(head -c 160 body.txt | tr '\n' ' ')"
+            echo
+          }
+          probe "https://api.adsb.lol/v2/point/40.64/-73.78/250"
+          probe "https://api.adsb.lol/v2/lat/40.64/lon/-73.78/dist/250"
+          probe "https://opensky-network.org/api/states/all?lamin=36.5&lomin=-79.2&lamax=44.8&lomax=-68.3"
+          probe "https://api.airplanes.live/v2/point/40.64/-73.78/250"
+          probe "https://opendata.adsb.fi/api/v2/lat/40.64/lon/-73.78/dist/250"
+          probe "https://api.adsb.one/v2/point/40.64/-73.78/250"
+          echo "=== preflight check (adsb.lol), in case a browser sends one"
+          curl -sS -m 20 -o /dev/null -D - -X OPTIONS -H "Origin: https://mazoo85.github.io" -H "Access-Control-Request-Method: GET" "https://api.adsb.lol/v2/point/40.64/-73.78/250" | grep -i -E "^HTTP|^access-control" || true
