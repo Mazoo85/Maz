@@ -23,6 +23,7 @@ with their full history.
 | [`examples`](examples) |
 | [`film`](film) |
 | [`forge`](forge) |
+| [`godview`](godview) |
 | [`madlibs`](madlibs) |
 | [`mandala`](mandala) |
 | [`music`](music) |
