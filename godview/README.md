@@ -12,6 +12,7 @@ and it opens full screen like an app.
 |---|---|---|---|
 | 〰 Earthquakes | [USGS](https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php), every quake of the past day | 60 s | U.S. public domain |
 | 🛰 Satellites | [CelesTrak](https://celestrak.org/NORAD/elements/) space stations + ~150 brightest, moved every second by the SGP4 orbit model | orbits every 2 h | U.S. government data; CelesTrak asks for credit |
+| ✈ Planes | [adsb.lol](https://adsb.lol) (ODbL) around the view; [OpenSky Network](https://opensky-network.org) if adsb.lol fails | 15 s, and when you stop spinning somewhere new | ODbL / OpenSky non-commercial; credited on screen |
 | ☁ Weather | Rain: [RainViewer](https://www.rainviewer.com/api.html) radar, newest frame · Clouds: [NASA GIBS](https://gibs.earthdata.nasa.gov) VIIRS photo of yesterday (UTC) | rain 10 min · clouds hourly | Both ask for credit, shown on screen while WEATHER is on |
 
 Stations glow amber (the ISS and Tiangong are labelled), other satellites green.
@@ -26,7 +27,13 @@ We acknowledge the use of imagery provided by services from NASA's Global Imager
 Browse Services (GIBS), part of NASA's Earth Science Data and Information System
 (ESDIS).
 
-Planes, cameras and ships are planned — see the
+PLANES is off until you tap it. It shows up to 300 aircraft within 250 nautical
+miles (460 km) of the middle of the screen — the free flight services only answer
+for one area at a time — and asks again whenever you stop spinning the globe
+somewhere new. Between updates each plane flies on along its heading at its
+speed, so they move smoothly. Planes on the ground are dimmed.
+
+Cameras and ships are planned — see the
 [design](../docs/superpowers/specs/2026-10-21-godview-design.md).
 
 If a source stops answering, its button says **OFFLINE** and it retries on its
@@ -56,8 +63,9 @@ dependency-free Node tests use the very same copy.
     node godview/tests/godview-browser.test.js      # phone-size Chromium
 
 The browser test answers USGS and CelesTrak from `tests/fixtures/`, and NASA and
-RainViewer with small pictures it draws itself, so it never depends on today's
-earthquakes, orbits or weather. The satellite fixtures are synthetic
+RainViewer with small pictures it draws itself, and the flight services from
+saved samples, so it never depends on today's earthquakes, orbits, weather or
+traffic. The satellite fixtures are synthetic
 but valid elements; the browser test re-dates them to a day before each run. Set `GLOBE_JS` to a local copy of
 `globe.gl.min.js` to run it with no internet.
 

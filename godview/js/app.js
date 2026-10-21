@@ -149,8 +149,14 @@
     el.type = 'button';
     el.className = 'marker';
     el.style.setProperty('--c', d.color);
-    el.setAttribute('aria-label', d.item.name || 'marker');
+    const it = d.item;
+    el.setAttribute('aria-label', it.name || it.callsign || it.reg || it.hex || 'marker');
     el.dataset.layer = d.layer;
+    if (typeof d.rotation === 'number') {
+      /* A plane: a small drawn silhouette, nose up, turned to its heading. */
+      el.classList.add('marker--plane');
+      el.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c.8 0 1.3.9 1.3 2v5.2l7.7 4.6v2.1l-7.7-2.3v4.6l2.2 1.7V21L12 20l-3.5 1v-1.1l2.2-1.7v-4.6L3 15.9v-2.1l7.7-4.6V4c0-1.1.5-2 1.3-2z"/></svg>';
+    }
     if (d.label) {
       const tag = document.createElement('span');
       tag.className = 'marker-label';
@@ -211,7 +217,12 @@
     const rings = on.flatMap((l) => l.rings);
     if (!sameItems(points, state.globe.pointsData())) state.globe.pointsData(points);
     if (!sameItems(rings, state.globe.ringsData())) state.globe.ringsData(rings);
-    state.globe.htmlElementsData(on.flatMap((l) => l.html || []));
+    const html = on.flatMap((l) => l.html || []);
+    for (const d of html) {
+      const el = markerEls.get(d);
+      if (el && typeof d.rotation === 'number') el.style.setProperty('--rot', d.rotation + 'deg');
+    }
+    state.globe.htmlElementsData(html);
     paintSurface(on.map((l) => l.texture).find(Boolean) || null);
     paintCredits(on);
   }
@@ -251,6 +262,20 @@
     const el = $('credits');
     el.textContent = text;
     el.hidden = !text;
+  }
+
+  /* Layers that only fetch around the view (planes) are asked again as soon
+   * as a drag or zoom ends somewhere new, instead of waiting for their timer. */
+  function followView() {
+    let last = state.globe.pointOfView();
+    state.globe.controls().addEventListener('end', () => {
+      const v = state.globe.pointOfView();
+      if (window.GV_PLANES.distanceKm(last, v) < 220) return;
+      last = v;
+      for (const l of state.layers) {
+        if (l.followsView && state.enabled[l.id]) l.refresh();
+      }
+    });
   }
 
   /* One clock for everything that moves between fetches. Paused while the
@@ -357,6 +382,8 @@
     addLayer(window.GV_QUAKES_LAYER.create({ fetchJson: fetchJson }));
     addLayer(window.GV_SATS_LAYER.create({ fetchText: fetchText }));
     addLayer(window.GV_WEATHER_LAYER.create({ fetchJson: fetchJson, loadPixels: loadPixels }));
+    addLayer(window.GV_PLANES_LAYER.create({ fetchJson: fetchJson, getView: () => state.globe.pointOfView() }));
+    followView();
     startTicker();
 
     window.GODVIEW = {
