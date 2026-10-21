@@ -226,13 +226,46 @@
   /* A near miss on a word nobody typed on purpose. Only for words long enough
    * that a near match means something — "cat" and "bat" are two animals, not a
    * typo, so short words are never corrected. */
+  /*
+   * Every single word the lexicon knows, in any sense at all.
+   *
+   * A word that is already understood is not a typo, and must never be
+   * "corrected" into something else. Without this, "a meadow in a storm" came
+   * back with a swan standing in it: the prompt names no subject, so the
+   * near-miss matcher ran, and `storm` is one letter from `stork`. Every
+   * subjectless prompt that mentioned a storm got a bird — in a meadow, in a
+   * forest, on the shore, anywhere.
+   */
+  var KNOWN = null;
+  function knownWords() {
+    if (KNOWN) return KNOWN;
+    KNOWN = Object.create(null);
+    Object.keys(LEX).forEach(function (key) {
+      var table = LEX[key];
+      if (!table) return;
+      var rows = Array.isArray(table) ? table : [table];
+      rows.forEach(function (row) {
+        if (!row) return;
+        var list = Array.isArray(row) ? row : (row.words || []);
+        if (!Array.isArray(list)) return;
+        list.forEach(function (w) {
+          if (typeof w === 'string') KNOWN[w.toLowerCase()] = true;
+        });
+      });
+    });
+    return KNOWN;
+  }
+
   function findNear(table, tokenList) {
+    var known = knownWords();
     var best = null;
     table.forEach(function (entry) {
       (entry.words || []).forEach(function (w) {
         if (w.length < 5 || w.indexOf(' ') >= 0) return;
         tokenList.forEach(function (t, at) {
           if (t.length < 5) return;
+          /* Already a word in its own right, so leave it alone. */
+          if (known[t]) return;
           var limit = t.length > 7 ? 2 : 1;
           var d = editDistance(t, w, limit);
           if (d <= limit && (!best || d < best.distance)) {

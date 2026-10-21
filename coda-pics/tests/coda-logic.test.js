@@ -4508,6 +4508,70 @@ function laidDown(ctx, gradient) {
   pass('bright colour gives out the way it does in a camera');
 })();
 
+/*
+ * A word it already knows is never a typo.
+ *
+ * The parser corrects near misses, so "a dragn" gets you a dragon. It was
+ * offering every unmatched word to that corrector, including words it had
+ * already understood perfectly well in another sense — and "storm" is one
+ * letter from "stork". So every prompt that named no subject and did mention a
+ * storm came back with a swan standing in it: in a meadow, in a forest, on the
+ * shore, anywhere. The picture was adding a bird to weather.
+ */
+(function alreadyAWord() {
+  console.log('\nA word it already knows is never a typo');
+
+  var stormy = ['a meadow in a storm', 'a forest in a storm', 'the shore in a storm',
+    'the mountains in a storm'];
+  var birds = stormy.filter(function (text) {
+    var spec = PROMPT.parse(text, { seed: 3, style: 'auto' });
+    return !!spec.subject;
+  });
+  check(birds.length === 0,
+    'a storm with nothing in it stays a storm with nothing in it' +
+    (birds.length ? ' — "' + birds[0] + '" grew a ' +
+      PROMPT.parse(birds[0], { seed: 3, style: 'auto' }).subject.id : ''));
+  check(PROMPT.parse('a meadow in a storm', { seed: 3 }).weather === 'storm',
+    'while the storm itself is still read as a storm');
+
+  /* The correction has to go on working, or this traded one fault for a
+   * worse one. */
+  /* Within the distance the corrector allows, which is one letter for a short
+   * word and two for a long one. "castel" is a transposition — two edits — and
+   * was never corrected; picking it as an example here only proved that the
+   * test had not checked its own examples. */
+  var typos = [['a dragn over the mountains', 'dragon'], ['a castl in the snow', 'castle'],
+    ['a lighthosue on the shore', 'lighthouse']];
+  var missed = typos.filter(function (pair) {
+    var spec = PROMPT.parse(pair[0], { seed: 2, style: 'auto' });
+    return !spec.subject || spec.subject.id !== pair[1];
+  });
+  check(missed.length === 0,
+    'and a word it does not know is still read as the nearest one it does' +
+    (missed.length ? ' — "' + missed[0][0] + '"' : ''));
+
+  /* Every single word in the lexicon, in any sense, is safe from correction.
+   * Checked across the whole vocabulary rather than on the one that bit. */
+  var every = [];
+  Object.keys(LEX).forEach(function (key) {
+    var table = LEX[key];
+    if (!Array.isArray(table)) return;
+    table.forEach(function (row) {
+      (row && row.words ? row.words : []).forEach(function (w) {
+        if (typeof w === 'string' && w.length >= 5 && w.indexOf(' ') < 0) every.push(w);
+      });
+    });
+  });
+  var bent = every.filter(function (w) {
+    var near = PROMPT.findNear(LEX.SUBJECTS, [w]);
+    return near && near.meant !== w;
+  });
+  check(every.length > 200 && bent.length === 0,
+    'and none of the ' + every.length + ' words it knows is read as another one' +
+    (bent.length ? ' — "' + bent[0] + '"' : ''));
+  pass('the corrector only corrects what needs correcting');
+})();
+
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));
 process.exit(failures ? 1 : 0);

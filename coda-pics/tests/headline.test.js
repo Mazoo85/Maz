@@ -50,6 +50,26 @@ var CONCRETE = [
   'New telescope captures distant galaxy'
 ];
 
+var LEX = require(path.join(__dirname, '..', 'js', 'lexicon.js'));
+/*
+ * The spec the painter hands back carries a subject with an id and a label but
+ * no vocabulary — the word list lives in the lexicon. Asking the spec's own
+ * object which words mean it therefore always answered "none", and the first
+ * version of the check below failed every headline it was given, including the
+ * ones that were perfectly grounded.
+ */
+function entryFor(list, id) {
+  for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+  return null;
+}
+function saidIn(entry, headline) {
+  if (!entry) return false;
+  var line = headline.toLowerCase();
+  var said = H.words(headline);
+  return (entry.words || []).some(function (w) {
+    return w.indexOf(' ') >= 0 ? line.indexOf(w) >= 0 : said.indexOf(w) >= 0;
+  });
+}
 /* ------------------------------------------------------- knowing to say no */
 section('Knowing when there is no picture');
 
@@ -76,26 +96,6 @@ section('Only what the story said');
  * headline mentioned — checked by asking the painter what it would draw and
  * looking for one of that thing's own words back in the headline.
  */
-var LEX = require(path.join(__dirname, '..', 'js', 'lexicon.js'));
-/*
- * The spec the painter hands back carries a subject with an id and a label but
- * no vocabulary — the word list lives in the lexicon. Asking the spec's own
- * object which words mean it therefore always answered "none", and the first
- * version of the check below failed every headline it was given, including the
- * ones that were perfectly grounded.
- */
-function entryFor(list, id) {
-  for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
-  return null;
-}
-function saidIn(entry, headline) {
-  if (!entry) return false;
-  var line = headline.toLowerCase();
-  var said = H.words(headline);
-  return (entry.words || []).some(function (w) {
-    return w.indexOf(' ') >= 0 ? line.indexOf(w) >= 0 : said.indexOf(w) >= 0;
-  });
-}
 var ungrounded = [];
 CONCRETE.forEach(function (h) {
   var got = H.pictureFor(h);
@@ -114,15 +114,40 @@ check(ungrounded.length === 0,
   'nothing in the picture that was not in the headline' +
   (ungrounded.length ? ' — ' + ungrounded[0] : ''));
 
-/* Where the painter fills in a subject of its own, that is said out loud
- * rather than passed off as the story's. */
-var storm = H.pictureFor('Storm warning issued for the coast this weekend');
-check(storm && storm.invented === true,
-  'and where the painter adds a subject of its own, the caller is told' +
-  (storm ? ' (it drew a ' + storm.paints.subject + ')' : ''));
+/*
+ * A picture containing anything the article never mentioned is not returned at
+ * all. The painter fills in a subject of its own when it cannot find one,
+ * which is a good default for somebody typing a prompt and the wrong one
+ * beside a news story.
+ */
 var wolf = H.pictureFor('Wolves return to the national park after 40 years');
 check(wolf && wolf.invented === false,
-  'while a subject the headline named is not flagged as invented');
+  'a subject the article named is never flagged as invented');
+
+/*
+ * The whole requirement in one line, checked over the corpus rather than on a
+ * single contrived case: everything any returned picture paints has to be
+ * something its article mentioned.
+ *
+ * The guard in the adapter that drops an invented subject is, as of the fix
+ * that stopped the painter reading "storm" as "stork", unreachable from here —
+ * the painter only invents when it finds neither subject nor scene, and an
+ * article with neither is refused before it gets that far. It is kept because
+ * it is the thing that holds if the painter's defaults ever change, and the
+ * invariant below is what actually proves the promise.
+ */
+var strays = [];
+CONCRETE.concat(ABSTRACT).forEach(function (h) {
+  var got = H.pictureFor(h);
+  if (!got) return;
+  var back = PROMPT.parse(got.prompt, { seed: got.seed, style: 'auto' });
+  if (back.subject && !saidIn(entryFor(LEX.SUBJECTS, back.subject.id), h)) {
+    strays.push(h + ' → ' + back.subject.id);
+  }
+});
+check(strays.length === 0,
+  'and across the whole page, no picture paints a thing its story never ' +
+  'mentioned' + (strays.length ? ' — ' + strays[0] : ''));
 pass('a picture beside a story claims nothing the story did not');
 
 /* ---------------------------------------------------------- the round trip */
@@ -219,11 +244,61 @@ var picked = H.pickable(all);
 check(picked.length === CONCRETE.length,
   'given a page of stories it returns only the ones worth a picture (' +
   picked.length + ' of ' + all.length + ')');
-check(picked.every(function (p) { return p.headline && p.prompt && p.seed >= 0; }),
-  'each one carrying its headline, its prompt and its seed');
+check(picked.every(function (p) { return p.article && p.prompt && p.seed >= 0; }),
+  'each one carrying the story it came from, its prompt and its seed');
 check(H.pickable([]).length === 0 && H.pickable(null).length === 0,
   'and nothing at all is not an error');
 pass('a newsroom can hand it the whole page');
+
+/* -------------------------------------------------- about the whole article */
+section('About the story, not a word in it');
+
+/*
+ * Taking the first entry that matched meant taking whichever came first in the
+ * lexicon, which has nothing to do with the story. "Cathedral restoration
+ * uncovers medieval cat carving" was illustrated with a cat, because cats are
+ * listed well above temples. What matters is prominence: the headline far
+ * above the body, early above late, often above once.
+ */
+var cathedral = H.pictureFor('Cathedral restoration uncovers medieval cat carving');
+check(cathedral && cathedral.paints.subject === 'temple',
+  'a story about a cathedral is illustrated with the cathedral, not with the ' +
+  'cat it mentions in passing (' + (cathedral ? cathedral.paints.subject : 'nothing') + ')');
+
+var late = H.pictureFor('Bridge reopens months after the wolf sightings ended');
+check(late && late.paints.subject === 'bridge',
+  'and what the headline leads with beats what it trails off into (' +
+  (late ? late.paints.subject : 'nothing') + ')');
+
+/* The body is worth reading: a great many headlines name nothing drawable at
+ * all, and the story underneath says plainly what it is about. */
+var bare = { headline: 'Restoration work begins next month',
+  body: 'Scaffolding went up around the lighthouse this week. The tower has ' +
+    'stood on the shore since 1847.' };
+check(H.pictureFor(bare.headline) === null,
+  'a headline that names nothing gets no picture on its own');
+var full = H.pictureFor(bare);
+check(full && full.paints.subject === 'lighthouse',
+  'but the story underneath it does (' + (full ? full.prompt : 'nothing') + ')');
+check(full && full.fromHeadline === false,
+  'and says the headline was not where that came from, so a desk that wants ' +
+  'only what a story leads with can tell');
+check(H.pictureFor('Lighthouse restored after a decade of neglect').fromHeadline === true,
+  'while one the headline did name says so');
+
+/* Every shape of feed object, because no two of them agree on the field. */
+var shapes = [
+  { headline: 'Numbers rise', body: 'Eleven wolves counted in the forest.' },
+  { title: 'Numbers rise', text: 'Eleven wolves counted in the forest.' },
+  { headline: 'Numbers rise', summary: 'Eleven wolves counted in the forest.' },
+  { title: 'Numbers rise', description: 'Eleven wolves counted in the forest.' }
+];
+var readAll = shapes.map(function (a) { return H.pictureFor(a); });
+check(readAll.every(function (g) { return g && g.paints.subject === 'wolf'; }),
+  'and a story is read whichever names its feed uses for the headline and the body');
+check(readAll.every(function (g) { return g.seed === readAll[0].seed; }),
+  'with the same story getting the same seed through any of them');
+pass('the picture is about what the story is about');
 
 console.log('\n' + (failures ? 'FAILED ' + failures + ' of ' + checks + ' checks'
   : 'All ' + checks + ' checks passed'));

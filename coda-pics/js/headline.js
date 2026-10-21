@@ -63,17 +63,94 @@
    * against the whole line; single words against the token list, so that
    * "ratepayer" does not count as "rat".
    */
-  function grounded(entry, said, line) {
-    if (!entry || !entry.words) return null;
-    for (var i = 0; i < entry.words.length; i++) {
-      var w = entry.words[i];
+  /*
+   * Where an entry's own vocabulary appears, and how prominently.
+   *
+   * The lexicon gives every subject, scene and weather the list of words that
+   * mean it, so this asks the lexicon rather than keeping a second copy of its
+   * vocabulary here. Multi-word entries ("hot air balloon") are matched against
+   * the whole line; single words against the token list, so that "ratepayer"
+   * does not count as "rat".
+   */
+  function hits(entry, text) {
+    if (!entry || !entry.words || !text) return [];
+    var line = text.line, said = text.said, found = [];
+    entry.words.forEach(function (w) {
       if (w.indexOf(' ') >= 0) {
-        if (line.indexOf(w) >= 0) return w;
-      } else if (said.indexOf(w) >= 0) {
-        return w;
+        var at = line.indexOf(w);
+        if (at >= 0) found.push({ word: w, at: at / Math.max(line.length, 1), phrase: true });
+      } else {
+        for (var i = 0; i < said.length; i++) {
+          if (said[i] === w) found.push({ word: w, at: i / Math.max(said.length, 1), phrase: false });
+        }
       }
+    });
+    return found;
+  }
+
+  /*
+   * Which of the things an article mentions it is actually about.
+   *
+   * Taking the first entry that matched meant taking whichever came first in
+   * the lexicon, which has nothing to do with the story: "Cathedral
+   * restoration uncovers medieval cat carving" was illustrated with a cat,
+   * because cats are listed well above temples. A picture beside a story has
+   * to be about the story, so what matters is prominence — in the headline far
+   * above in the body, early above late, often above once.
+   */
+  function rank(list, head, body) {
+    var best = null;
+    list.forEach(function (entry) {
+      var inHead = hits(entry, head), inBody = hits(entry, body);
+      if (!inHead.length && !inBody.length) return;
+      var score = 0;
+      inHead.forEach(function (h) {
+        /* A headline is the story's own summary of itself, and it front-loads
+         * what the story is about. */
+        score += 10 + (1 - h.at) * 6 + (h.phrase ? 3 : 0);
+      });
+      inBody.forEach(function (h) {
+        score += 1 + (1 - h.at) * 0.5 + (h.phrase ? 0.5 : 0);
+      });
+      if (!best || score > best.score) {
+        best = {
+          entry: entry, score: score,
+          word: (inHead[0] || inBody[0]).word,
+          inHeadline: inHead.length > 0,
+          times: inHead.length + inBody.length
+        };
+      }
+    });
+    return best;
+  }
+
+  /*
+   * What came in. A bare string is a headline; an object may carry the body
+   * too, under whichever of the usual names a feed happens to use. The body is
+   * worth reading because it is where a story says what it is about at length,
+   * and because a headline alone often names nothing that can be drawn.
+   */
+  function piecesOf(text) {
+    return { line: String(text || '').toLowerCase(), said: words(text) };
+  }
+  function readArticle(input) {
+    if (!input) return null;
+    var head, body, whole;
+    if (typeof input === 'string') { head = input; body = ''; }
+    else {
+      head = input.headline || input.title || '';
+      body = [input.standfirst, input.summary, input.description, input.body, input.text]
+        .filter(function (v) { return typeof v === 'string'; }).join(' ');
     }
-    return null;
+    if (!String(head).trim() && !String(body).trim()) return null;
+    /* The seed is taken from headline and body together, so correcting a typo
+     * in the copy gives the story a new picture — which is right, because it
+     * is a new version of the story. */
+    whole = String(head) + ' \u0000 ' + String(body);
+    return {
+      headline: whole, head: piecesOf(head), body: piecesOf(body),
+      shown: String(head)
+    };
   }
 
   function seedOf(headline) {
@@ -92,7 +169,7 @@
     return list.length ? list[0] : match.word;
   }
 
-  function article(word) {
+  function aOrAn(word) {
     return /^[aeiou]/i.test(word) ? 'an' : 'a';
   }
 
@@ -113,14 +190,15 @@
    */
   function pictureFor(headline, opts) {
     if (!LEX || !PROMPT) return null;
-    var line = String(headline || '').toLowerCase();
-    var said = words(headline);
-    if (!said.length) return null;
+    var piece = readArticle(headline);
+    if (!piece) return null;
+    var head = piece.head, body = piece.body;
+    var whole = piece.headline;
 
-    var subject = find(LEX.SUBJECTS, said, line);
-    var scene = find(LEX.SCENES, said, line);
-    var weather = find(LEX.WEATHER, said, line);
-    var time = find(LEX.TIMES, said, line);
+    var subject = rank(LEX.SUBJECTS, head, body);
+    var scene = rank(LEX.SCENES, head, body);
+    var weather = rank(LEX.WEATHER, head, body);
+    var time = rank(LEX.TIMES, head, body);
 
     /* Nothing in the headline the painter can draw. */
     if (!subject && !scene) return null;
@@ -153,7 +231,7 @@
       if (subject) {
         bits.push(useLabel && subject.entry.label
           ? subject.entry.label
-          : article(plain(subject)) + ' ' + plain(subject));
+          : aOrAn(plain(subject)) + ' ' + plain(subject));
       }
       if (scene) {
         var where = useLabel && scene.entry.label ? scene.entry.label : 'the ' + plain(scene);
@@ -175,7 +253,7 @@
       return bits.join(' ').replace(/\s+/g, ' ').trim();
     }
 
-    var seed = seedOf(headline);
+    var seed = seedOf(whole);
     function reads(text) {
       var back = PROMPT.parse(text, { seed: seed, style: 'auto' });
       return {
@@ -195,11 +273,15 @@
     }
     var back = got.back;
     var faithful = got.faithful;
-    /* The painter fills in a subject of its own when it cannot find one, which
-     * is how a storm warning for the coast acquired a swan. Not a failure —
-     * the picture is still worth having — but a caller that wants only what
-     * the story paid for can read this and show nothing otherwise. */
+    /*
+     * The painter fills in a subject of its own when it cannot find one. That
+     * is a good default for somebody typing a prompt and the wrong one beside
+     * a news story, because a picture next to an article is a claim about the
+     * article — so a picture containing anything the article never mentioned
+     * is not returned at all unless the caller asks for it.
+     */
     var invented = !!(back.subject && !subject);
+    if (invented && !(opts && opts.allowInvented)) return null;
 
     return {
       prompt: prompt,
@@ -217,6 +299,10 @@
       /* How much of the picture the headline actually paid for. A caller may
        * want to show only the sure ones. */
       standing: subject && scene ? 'both' : subject ? 'subject' : 'scene',
+      /* Whether the story said it in its own headline or only down in the
+       * copy. A desk that wants pictures only for what a story leads with can
+       * require this; one filling a page can take either. */
+      fromHeadline: !!((subject && subject.inHeadline) || (scene && scene.inHeadline)),
       from: [subject, scene, weather, time]
         .filter(Boolean).map(function (m) { return m.word; })
     };
@@ -224,11 +310,11 @@
 
   /* Every headline in a list that can be illustrated, in order, with the ones
    * that cannot left out — which is usually most of them. */
-  function pickable(headlines) {
+  function pickable(articles, opts) {
     var out = [];
-    (headlines || []).forEach(function (h) {
-      var got = pictureFor(h);
-      if (got) { got.headline = h; out.push(got); }
+    (articles || []).forEach(function (a) {
+      var got = pictureFor(a, opts);
+      if (got) { got.article = a; out.push(got); }
     });
     return out;
   }
