@@ -313,9 +313,31 @@
         pts.push([centre[0] + rad * Math.cos(a), centre[1] + rad * Math.sin(a)]);
       }
       return pts;
+    },
+    // A teardrop: round at the inner edge, coming to a point outwards.
+    drop: function (r0, r1, wedge) {
+      var mid = wedge / 2;
+      var w = wedge * 0.36;
+      var pts = [];
+      for (var i = 0; i <= 24; i++) {
+        var a = (TAU * i) / 24;
+        var t = (1 - Math.cos(a)) / 2;              // 0 at the tip, 1 at the round end
+        var bulge = Math.sin(a) * Math.pow(t, 0.6); // fat at the round end, sharp at the tip
+        pts.push(polar(r1 - (r1 - r0) * t, mid + w * bulge));
+      }
+      return pts;
+    },
+    // Crossing lines that make a row of diamonds — a lattice.
+    diamond: function (r0, r1, wedge) {
+      var m = (r0 + r1) / 2;
+      return [polar(m, 0), polar(r1, wedge / 2), polar(m, wedge), polar(r0, wedge / 2), polar(m, 0)];
     }
   };
   var SHAPE_NAMES = Object.keys(SHAPES);
+
+  // Bands that carry the design, and the finer bands that sit between them.
+  var FEATURES = ['petal', 'lotus', 'leaf', 'drop', 'arch', 'loop', 'diamond'];
+  var DETAILS = ['ring', 'beads', 'zigzag', 'scallop', 'diamond'];
 
   function paletteById(id) {
     for (var i = 0; i < PALETTES.length; i++) if (PALETTES[i].id === id) return PALETTES[i];
@@ -323,10 +345,17 @@
   }
 
   /*
-   * Build a whole mandala from a seed: rings of shapes from the centre out,
-   * every ring sharing the same symmetry so the design reads as one piece.
+   * Build a whole mandala from a seed. It is laid out the way a hand-drawn
+   * one is: a rosette at the heart, then rings from the centre out that
+   * alternate between bold feature bands — petals, lotus petals, leaves,
+   * teardrops, lattices, each layered with a smaller echo inside and often
+   * dots at the tips — and fine detail bands of beads, scallops, zigzags
+   * and rings between them, finished with a border at the edge. Colours
+   * step through the palette rather than landing at random, so neighbouring
+   * rings belong together.
    *
-   *   opts.slices   number of copies round the circle (random when left out)
+   *   opts.slices   number of copies round the circle (random when left out);
+   *                 some fine bands use twice as many, for detail
    *   opts.palette  palette id (random when left out)
    *   opts.mirror   reflect each copy (default true)
    */
@@ -334,48 +363,124 @@
     opts = opts || {};
     var rand = rng(seed);
     var pick = function (list) { return list[Math.floor(rand() * list.length)]; };
+    var between = function (lo, hi) { return lo + rand() * (hi - lo); };
 
     var slices = opts.slices ? clampSlices(opts.slices) : pick([6, 8, 10, 12, 16, 24]);
     var palette = opts.palette ? paletteById(opts.palette) : pick(PALETTES);
     var mirror = opts.mirror === undefined ? true : !!opts.mirror;
-    var wedge = TAU / slices;
+    // Twice the repeats, for fine detail — only when that still fits.
+    var fine = slices * 2 <= MAX_SLICES ? slices * 2 : slices;
+
+    // Walk the palette in a shuffled order, so colours progress ring by ring.
+    var order = palette.colors.slice();
+    for (var o = order.length - 1; o > 0; o--) {
+      var j = Math.floor(rand() * (o + 1));
+      var tmp = order[o]; order[o] = order[j]; order[j] = tmp;
+    }
+    var ci = 0;
+    var nextColor = function () { return order[ci++ % order.length]; };
+    var accent = order[order.length - 1];
 
     var strokes = [];
-    var bands = 5 + Math.floor(rand() * 4);
-    var r = 0.04 + rand() * 0.04;
-    var step = (0.94 - r) / bands;
-
-    // A centre dot, always — every mandala has a heart.
-    strokes.push(makeStroke({
-      color: pick(palette.colors), size: 0.03 + rand() * 0.03,
-      slices: slices, mirror: false, points: [[0, 0]]
-    }));
-
-    for (var b = 0; b < bands; b++) {
-      var r0 = r;
-      var r1 = Math.min(0.96, r + step * (0.8 + rand() * 0.5));
-      var shape = pick(SHAPE_NAMES);
-      var color = rand() < 0.08 ? 'rainbow' : pick(palette.colors);
-      var size = shape === 'dot' ? 0.012 + rand() * 0.02 : 0.003 + rand() * 0.008;
+    function add(points, color, size, extra) {
+      extra = extra || {};
       strokes.push(makeStroke({
         color: color, hue: Math.floor(rand() * 360), size: size,
-        slices: slices, mirror: mirror, glow: rand() < 0.35,
-        points: SHAPES[shape](r0, r1, wedge)
+        slices: extra.slices || slices, mirror: mirror, glow: !!extra.glow, points: points
       }));
-      // Sometimes a band carries a second, finer shape on top.
-      if (rand() < 0.4) {
-        var extra = pick(SHAPE_NAMES);
-        strokes.push(makeStroke({
-          color: pick(palette.colors), size: 0.002 + rand() * 0.004,
-          slices: slices, mirror: mirror,
-          points: SHAPES[extra](r0 + (r1 - r0) * 0.2, r1 - (r1 - r0) * 0.2, wedge)
-        }));
-      }
-      r = r1;
     }
+    function shape(name, r0, r1, n) {
+      return SHAPES[name](r0, r1, TAU / (n || slices));
+    }
+
+    // The heart: a dot, a rosette of petals round it, and a ring to hold them.
+    var heart = between(0.09, 0.13);
+    strokes.push(makeStroke({
+      color: accent, size: between(0.025, 0.04), slices: slices, mirror: false, points: [[0, 0]]
+    }));
+    add(shape('petal', 0.025, heart), nextColor(), between(0.004, 0.007));
+    add(shape('ring', heart + 0.01, heart + 0.01), nextColor(), 0.004);
+
+    var r = heart + 0.03;
+    var feature = true;
+    var EDGE = 0.9;
+    while (r < EDGE - 0.03) {
+      var r0 = r;
+      var r1;
+      if (feature) {
+        r1 = Math.min(EDGE, r0 + between(0.09, 0.16));
+        var name = pick(FEATURES);
+        var color = rand() < 0.06 ? 'rainbow' : nextColor();
+        var size = between(0.005, 0.011);
+        var glow = rand() < 0.25;
+        var span = r1 - r0;
+
+        if (name === 'lotus') {
+          // Two rows of petals, the second sitting between the first.
+          add(shape('petal', r0, r1), color, size, { glow: glow });
+          add(SHAPES.petal(r0, r0 + span * 0.75, TAU / slices).map(function (p) {
+            return rotate(p, Math.PI / slices);
+          }), nextColor(), size * 0.8);
+        } else if (name === 'leaf') {
+          // A petal with a vein down the middle.
+          add(shape('petal', r0, r1), color, size, { glow: glow });
+          add(shape('ray', r0 + span * 0.1, r1 - span * 0.1), color, size * 0.5);
+        } else {
+          add(shape(name, r0, r1), color, size, { glow: glow });
+        }
+
+        // An echo: the same shape again, smaller, inside the first.
+        if (name !== 'diamond' && rand() < 0.75) {
+          var echo = name === 'lotus' || name === 'leaf' ? 'petal' : name;
+          add(shape(echo, r0 + span * 0.18, r1 - span * 0.22), nextColor(), size * 0.6);
+        }
+        // Dots at the tips, just beyond the band.
+        if (rand() < 0.6 && r1 + 0.025 < EDGE) {
+          add(shape('dot', r1 + 0.01, r1 + 0.03), accent, between(0.012, 0.02));
+          r1 += 0.03;
+        }
+      } else {
+        r1 = Math.min(EDGE, r0 + between(0.025, 0.045));
+        var kind = pick(DETAILS);
+        var dc = nextColor();
+        var n = rand() < 0.5 ? fine : slices;
+        if (kind === 'beads') {
+          // A string of beads: several dots spread across each slice.
+          var count = 3;
+          var mid = (r0 + r1) / 2;
+          for (var k = 0; k < count; k++) {
+            var a = ((k + 0.5) * TAU) / (n * count);
+            strokes.push(makeStroke({
+              color: dc, size: between(0.009, 0.015), slices: n, mirror: false,
+              points: [polar(mid, a)]
+            }));
+          }
+        } else if (kind === 'scallop') {
+          add(shape('arch', r0, r1, n), dc, between(0.003, 0.005), { slices: n });
+        } else if (kind === 'ring') {
+          // Two fine rings, close together.
+          add(shape('ring', r0, r0, n), dc, 0.003, { slices: n });
+          add(shape('ring', r1, r1, n), dc, 0.003, { slices: n });
+        } else {
+          add(shape(kind, r0, r1, n), dc, between(0.003, 0.006), { slices: n });
+        }
+      }
+      r = r1 + between(0.005, 0.02);
+      feature = !feature;
+    }
+
+    // The border: a ring at the edge, with a scalloped trim just inside it.
+    add(shape('ring', 0.95, 0.95), nextColor(), 0.007);
+    add(shape('arch', 0.92, 0.95, fine), nextColor(), 0.003, { slices: fine });
 
     return { seed: seed, slices: slices, mirror: mirror, palette: palette.id,
       background: palette.bg, strokes: strokes };
+  }
+
+  function rotate(p, a) {
+    var c = Math.cos(a);
+    var s = Math.sin(a);
+    return [p[0] * c - p[1] * s, p[0] * s + p[1] * c];
   }
 
   /* --------------------------------------------------------- save file */
