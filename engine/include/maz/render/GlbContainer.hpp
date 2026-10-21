@@ -75,12 +75,6 @@ inline bool parseGlb(const std::vector<std::uint8_t>& bytes, GlbChunks& out) {
 // exported scene into a single self-contained file). Chunks are 4-byte aligned per the spec (JSON padded
 // with spaces, BIN with zeros).
 inline std::vector<std::uint8_t> buildGlb(const std::string& json, const std::vector<std::uint8_t>& bin = {}) {
-    auto pushU32 = [](std::vector<std::uint8_t>& v, std::uint32_t x) {
-        v.push_back(static_cast<std::uint8_t>(x & 0xff));
-        v.push_back(static_cast<std::uint8_t>((x >> 8) & 0xff));
-        v.push_back(static_cast<std::uint8_t>((x >> 16) & 0xff));
-        v.push_back(static_cast<std::uint8_t>((x >> 24) & 0xff));
-    };
     const std::size_t jsonPad = (4 - (json.size() % 4)) % 4;
     const std::size_t binPad = bin.empty() ? 0 : (4 - (bin.size() % 4)) % 4;
     const std::uint32_t jsonChunkLen = static_cast<std::uint32_t>(json.size() + jsonPad);
@@ -89,22 +83,39 @@ inline std::vector<std::uint8_t> buildGlb(const std::string& json, const std::ve
     std::uint32_t total = 12 + 8 + jsonChunkLen;
     if (!bin.empty()) total += 8 + binChunkLen;
 
-    std::vector<std::uint8_t> out;
-    out.reserve(total);
-    pushU32(out, kGlbMagic);
-    pushU32(out, 2);
-    pushU32(out, total);
+    // Sized once and filled by index, rather than reserve()-then-push_back().
+    // The buffer is exactly `total` bytes and every write below is accounted
+    // for in that sum, so there was never a reallocation at run time — but the
+    // compiler cannot know `total` is the final size, so it keeps push_back's
+    // growth path and reasons about the deallocation inside it. GCC 14 and 15
+    // conclude at -O3 that `operator delete` may be called on a pointer with a
+    // nonzero offset and fail the build under -Werror=free-nonheap-object.
+    // Writing by index removes the growth path instead of arguing about it,
+    // and leaves a single allocation. (Debug builds never saw this: the
+    // diagnostic only appears once the optimiser inlines the reallocation.)
+    std::vector<std::uint8_t> out(total);
+    std::size_t at = 0;
+    const auto putU32 = [&out, &at](std::uint32_t x) {
+        out[at++] = static_cast<std::uint8_t>(x & 0xff);
+        out[at++] = static_cast<std::uint8_t>((x >> 8) & 0xff);
+        out[at++] = static_cast<std::uint8_t>((x >> 16) & 0xff);
+        out[at++] = static_cast<std::uint8_t>((x >> 24) & 0xff);
+    };
 
-    pushU32(out, jsonChunkLen);
-    pushU32(out, kGlbChunkJson);
-    out.insert(out.end(), json.begin(), json.end());
-    for (std::size_t i = 0; i < jsonPad; ++i) out.push_back(0x20); // space pad
+    putU32(kGlbMagic);
+    putU32(2);
+    putU32(total);
+
+    putU32(jsonChunkLen);
+    putU32(kGlbChunkJson);
+    for (const char c : json) out[at++] = static_cast<std::uint8_t>(c);
+    for (std::size_t i = 0; i < jsonPad; ++i) out[at++] = 0x20; // space pad
 
     if (!bin.empty()) {
-        pushU32(out, binChunkLen);
-        pushU32(out, kGlbChunkBin);
-        out.insert(out.end(), bin.begin(), bin.end());
-        for (std::size_t i = 0; i < binPad; ++i) out.push_back(0x00); // zero pad
+        putU32(binChunkLen);
+        putU32(kGlbChunkBin);
+        for (const std::uint8_t b : bin) out[at++] = b;
+        for (std::size_t i = 0; i < binPad; ++i) out[at++] = 0x00; // zero pad
     }
     return out;
 }
