@@ -38,6 +38,10 @@ CI gates run on **every** push, engine changes included:
 
 - `film/` `music/` `madlibs/` `names/` `zomboid/` `shooter/` — MAZ ARCADE, dependency-free browser apps
   behind the hub at `index.html`. Tests are plain Node: `node film/tests/film-logic.test.js`.
+- **New projects do not join MAZ ARCADE unless Cody asks for it.** Build them standalone — their
+  own folder, look and docs, with no entry in `shared/projects.js`, no `shared/maz-nav.js`, no
+  hub link, and their own CI workflow rather than steps in `site-ci.yml`. `mandala/` is the
+  example.
 - `crew/` `scraper/` `forge/` — Python tools. `forge/` is **the Forge**, a nightly loop that picks
   one task, hands it to Maz Crew and opens a draft PR (`docs/FORGE.md`).
 - `shared/exchange.json` — the manifest of which project may use another's files.
