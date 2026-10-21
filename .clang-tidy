@@ -10,6 +10,7 @@
 # fails on any diagnostic (WarningsAsErrors '*'), so violations block merge. Run locally with:
 #   cmake -S . -B build            # exports compile_commands.json
 #   clang-tidy -p build engine/src/**/*.cpp
+# portability-avoid-pragma-once (new in clang-tidy 21) is off: #pragma once is the engine-wide idiom.
 Checks: >
   -*,
   bugprone-*,
@@ -34,6 +35,7 @@ Checks: >
   -performance-avoid-endl,
   -performance-enum-size,
   -performance-move-const-arg,
+  -portability-avoid-pragma-once,
   -readability-identifier-length
 
 # Only diagnose the engine's own headers/sources, never fetched third-party deps (SDL, GLM, stb, ...).
