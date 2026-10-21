@@ -22,6 +22,8 @@ const QL = require('../js/layers/quakes-layer.js');
 const SATLIB = require('../vendor/satellite.min.js');
 const S = require('../js/lib/sats.js');
 const SL = require('../js/layers/sats-layer.js');
+const W = require('../js/lib/weather.js');
+const WL = require('../js/layers/weather-layer.js');
 
 const STATIONS_TLE = fs.readFileSync(path.join(__dirname, 'fixtures', 'celestrak-stations.txt'), 'utf8');
 const VISUAL_TLE = fs.readFileSync(path.join(__dirname, 'fixtures', 'celestrak-visual.txt'), 'utf8');
@@ -462,6 +464,204 @@ test('stop clears the satellites', async () => {
   eq(layer.status, 'idle');
   eq(layer.html.length, 0);
   eq(layer.count, 0);
+  eq(t.queue.length, 0);
+});
+
+
+/* ------------------------------------------------------------- weather */
+/* A tiny RGBA image filled by a function of (x, y). */
+function image(width, height, fill) {
+  const data = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) data.set(fill(x, y), (y * width + x) * 4);
+  }
+  return { width, height, data };
+}
+function pixel(img, x, y) {
+  const i = (y * img.width + x) * 4;
+  return Array.from(img.data.slice(i, i + 4));
+}
+
+test('the clouds URL asks NASA for one whole-world image of a given day', () => {
+  const url = W.cloudsUrl('2026-10-20');
+  assert(url.startsWith('https://wvs.earthdata.nasa.gov/api/v1/snapshot?'), url);
+  assert(url.includes('LAYERS=VIIRS_NOAA21_CorrectedReflectance_TrueColor'), 'layer');
+  assert(url.includes('TIME=2026-10-20'), 'date');
+  assert(url.includes('BBOX=-90,-180,90,180'), 'whole world');
+  assert(url.includes('WIDTH=2048') && url.includes('HEIGHT=1024'), '2:1 size');
+});
+
+test('the clouds day is yesterday in UTC, so the mosaic is complete', () => {
+  eq(W.cloudsDay(Date.UTC(2026, 9, 21, 0, 30)), '2026-10-20');
+  eq(W.cloudsDay(Date.UTC(2026, 0, 1, 12)), '2025-12-31');
+});
+
+test('cloudAlpha keeps cloud and drops land, sea, desert and gaps', () => {
+  near(W.cloudAlpha(240, 240, 240), 1, 0.001, 'bright white cloud');
+  assert(W.cloudAlpha(170, 175, 180) > 0.4, 'grey cloud is partly kept');
+  eq(W.cloudAlpha(10, 40, 90), 0, 'sea');
+  eq(W.cloudAlpha(60, 110, 40), 0, 'forest');
+  eq(W.cloudAlpha(210, 180, 140), 0, 'desert is bright but coloured');
+  eq(W.cloudAlpha(0, 0, 0), 0, 'the black gap between orbits');
+});
+
+test('latestRainFrame picks the newest radar frame and rejects junk', () => {
+  const f = W.latestRainFrame({
+    host: 'https://tilecache.rainviewer.com',
+    radar: { past: [{ time: 100, path: '/v2/radar/100' }, { time: 200, path: '/v2/radar/200' }] }
+  });
+  eq(f.host, 'https://tilecache.rainviewer.com');
+  eq(f.path, '/v2/radar/200');
+  eq(f.time, 200);
+  throws(() => W.latestRainFrame({}), 'no radar');
+  throws(() => W.latestRainFrame({ host: 'h', radar: { past: [] } }), 'no frames');
+  eq(W.rainTileUrl('https://h', '/v2/radar/200', 2, 1, 3), 'https://h/v2/radar/200/256/2/1/3/2/1_1.png');
+});
+
+test('mercatorY puts the equator in the middle and the poles off the map', () => {
+  eq(W.mercatorY(0, 1024), 512);
+  assert(Math.abs(W.mercatorY(85.0511, 1024)) < 0.5, 'top edge');
+  assert(Math.abs(W.mercatorY(-85.0511, 1024) - 1024) < 0.5, 'bottom edge');
+  assert(W.mercatorY(60, 1024) < 512 - 512 / 3, 'high latitudes are stretched');
+});
+
+test('stitch lays tiles out in a grid and leaves missing ones clear', () => {
+  const red = image(2, 2, () => [255, 0, 0, 255]);
+  const out = W.stitch([[red, null], [null, red]], 2);
+  eq(out.width, 4);
+  eq(out.height, 4);
+  eq(pixel(out, 0, 0).join(), '255,0,0,255');
+  eq(pixel(out, 3, 0).join(), '0,0,0,0', 'missing tile is transparent');
+  eq(pixel(out, 3, 3).join(), '255,0,0,255');
+});
+
+test('composite: dark base, clouds where clouds are, nothing past the poles', () => {
+  /* Clouds image: the left half is white cloud, the right half is sea. */
+  const clouds = image(8, 4, (x) => (x < 4 ? [245, 245, 245, 255] : [10, 40, 90, 255]));
+  const out = W.composite({ width: 8, height: 4, clouds: clouds, rain: null });
+  eq(pixel(out, 6, 2).join(), W.BASE.concat(255).join(), 'sea is plain dark globe');
+  const c = pixel(out, 1, 2);
+  assert(c[0] > 150 && c[1] > 150, 'cloud is bright: ' + c);
+  eq(c[3], 255, 'the texture itself is opaque');
+});
+
+test('composite reprojects rain onto the right latitude', () => {
+  /* A Mercator rain map with rain only in its top quarter (far north). */
+  const rain = image(16, 16, (x, y) => (y < 4 ? [0, 120, 255, 255] : [0, 0, 0, 0]));
+  /* 32 rows of 5.625°: row 0 is centred at 87.2°N (past Mercator's 85.05° edge),
+   * row 2 at 75.9°N (Mercator row 2.7 of 16: rainy), row 16 at 2.8°S (dry). */
+  const out = W.composite({ width: 16, height: 32, clouds: null, rain: rain });
+  const north = pixel(out, 5, 2);
+  assert(north[2] > 150, 'rain painted in the far north: ' + north);
+  eq(pixel(out, 5, 16).join(), W.BASE.concat(255).join(), 'dry at the equator');
+  eq(pixel(out, 5, 0).join(), W.BASE.concat(255).join(), 'nothing beyond the Mercator edge');
+});
+
+
+/* ------------------------------------------------------------- weather layer */
+const RAIN_INDEX = {
+  host: 'https://tilecache.rainviewer.com',
+  radar: { past: [{ time: 1792563000, path: '/v2/radar/1792563000' }] }
+};
+
+/* sources: { clouds: 'ok'|'down', rain: 'ok'|'down' } */
+function weatherLayer(sources) {
+  const t = fakeTimers();
+  const asked = [];
+  const cloudImg = image(16, 8, (x) => (x < 8 ? [245, 245, 245, 255] : [10, 40, 90, 255]));
+  const rainTile = image(4, 4, () => [0, 120, 255, 255]);
+  let clock = Date.UTC(2026, 9, 21, 6, 12);
+  const layer = WL.create({
+    fetchJson: (url) => {
+      asked.push(url);
+      return sources.rain === 'ok' ? Promise.resolve(RAIN_INDEX) : Promise.reject(new Error('503'));
+    },
+    loadPixels: (url) => {
+      asked.push(url);
+      if (url.includes('wvs.earthdata')) {
+        return sources.clouds === 'ok' ? Promise.resolve(cloudImg) : Promise.reject(new Error('503'));
+      }
+      return Promise.resolve(rainTile);
+    },
+    now: () => clock,
+    setTimer: t.set,
+    clearTimer: t.clear,
+    size: { width: 32, height: 16 }
+  });
+  return { layer, t, asked, advance: (ms) => { clock += ms; } };
+}
+
+test('weather paints clouds and rain into one texture', async () => {
+  const { layer, asked, t } = weatherLayer({ clouds: 'ok', rain: 'ok' });
+  eq(layer.texture, null, 'nothing before it starts');
+  layer.start();
+  await flush();
+  eq(layer.status, 'live');
+  assert(layer.texture && layer.texture.width === 32 && layer.texture.height === 16, 'a texture');
+  eq(layer.summary, '06:10 UTC', 'the button shows the radar time');
+  eq(layer.credit, 'Clouds: NASA GIBS / VIIRS · Rain: RainViewer');
+  assert(asked.includes(W.cloudsUrl('2026-10-20')), 'asked NASA for yesterday');
+  eq(asked.filter((u) => u.includes('tilecache')).length, 16, 'all 16 radar tiles');
+  eq(t.queue[0].ms, 600000, 'refreshes every 10 minutes');
+  eq(layer.points.length + layer.rings.length + layer.html.length, 0, 'draws nothing but the texture');
+});
+
+test('weather with only clouds, or only rain, still shows', async () => {
+  const clouds = weatherLayer({ clouds: 'ok', rain: 'down' });
+  clouds.layer.start();
+  await flush();
+  eq(clouds.layer.status, 'live');
+  eq(clouds.layer.summary, 'CLOUDS');
+  eq(clouds.layer.credit, 'Clouds: NASA GIBS / VIIRS');
+  const rain = weatherLayer({ clouds: 'down', rain: 'ok' });
+  rain.layer.start();
+  await flush();
+  eq(rain.layer.status, 'live');
+  eq(rain.layer.summary, '06:10 UTC');
+  eq(rain.layer.credit, 'Rain: RainViewer');
+});
+
+test('weather with both sources down is OFFLINE with no texture', async () => {
+  const { layer } = weatherLayer({ clouds: 'down', rain: 'down' });
+  layer.start();
+  await flush();
+  eq(layer.status, 'offline');
+  eq(layer.texture, null);
+});
+
+test('the clouds photo is only fetched again when it is stale', async () => {
+  const { layer, asked, t, advance } = weatherLayer({ clouds: 'ok', rain: 'ok' });
+  layer.start();
+  await flush();
+  const nasa = () => asked.filter((u) => u.includes('wvs.earthdata')).length;
+  eq(nasa(), 1);
+  advance(600000);
+  t.fire();
+  await flush();
+  eq(nasa(), 1, 'ten minutes later: radar again, clouds kept');
+  advance(3600000);
+  t.fire();
+  await flush();
+  eq(nasa(), 2, 'an hour later: clouds again');
+});
+
+test('the same radar frame is not downloaded twice', async () => {
+  const { layer, asked, t, advance } = weatherLayer({ clouds: 'ok', rain: 'ok' });
+  layer.start();
+  await flush();
+  advance(600000);
+  t.fire();
+  await flush();
+  eq(asked.filter((u) => u.includes('tilecache')).length, 16, 'still 16: the frame had not changed');
+});
+
+test('stop clears the weather off the globe', async () => {
+  const { layer, t } = weatherLayer({ clouds: 'ok', rain: 'ok' });
+  layer.start();
+  await flush();
+  layer.stop();
+  eq(layer.status, 'idle');
+  eq(layer.texture, null);
   eq(t.queue.length, 0);
 });
 
