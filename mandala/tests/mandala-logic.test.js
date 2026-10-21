@@ -38,8 +38,8 @@ function eq(actual, expected, message) {
   }
 }
 
-function near(a, b, message) {
-  if (Math.abs(a - b) > 1e-9) throw new Error((message || 'not close') + ': ' + a + ' vs ' + b);
+function near(a, b, message, tol) {
+  if (Math.abs(a - b) > (tol || 1e-9)) throw new Error((message || 'not close') + ': ' + a + ' vs ' + b);
 }
 
 console.log('\nMANDALA MAKER — logic');
@@ -137,9 +137,51 @@ test('the generator follows the chosen repeats, palette and mirror', () => {
   eq(m.palette, 'ocean');
   eq(m.background, M.paletteById('ocean').bg);
   for (const st of m.strokes) {
-    eq(st.slices, 10);
+    // Fine detail bands may use twice the repeats; nothing else is allowed.
+    assert(st.slices === 10 || st.slices === 20, 'repeats ' + st.slices);
     eq(st.mirror, false);
   }
+  const main = m.strokes.filter((st) => st.slices === 10).length;
+  assert(main > m.strokes.length / 2, 'the design is mostly at the chosen repeats');
+});
+
+test('doubled detail never goes past the most repeats there are', () => {
+  for (const n of [17, 24, 32]) {
+    for (const st of M.generate(5, { slices: n }).strokes) assert(st.slices <= M.MAX_SLICES, n + ' gave ' + st.slices);
+  }
+});
+
+test('Surprise me makes full designs, not a few outlines', () => {
+  let total = 0;
+  for (let s = 0; s < 100; s++) {
+    const n = M.generate(s).strokes.length;
+    assert(n >= 12, 'seed ' + s + ' made only ' + n + ' strokes');
+    total += n;
+  }
+  assert(total / 100 >= 16, 'average ' + total / 100 + ' strokes');
+});
+
+test('a design fills the circle from the heart to a border at the edge', () => {
+  for (let s = 0; s < 100; s++) {
+    let far = 0;
+    let near0 = 1;
+    for (const st of M.generate(s).strokes) {
+      for (const p of st.points) {
+        const r = Math.hypot(p[0], p[1]);
+        far = Math.max(far, r);
+        if (r > 0) near0 = Math.min(near0, r);
+      }
+    }
+    assert(far >= 0.94, 'seed ' + s + ' stops at ' + far.toFixed(2));
+    assert(near0 <= 0.05, 'seed ' + s + ' leaves an empty heart');
+  }
+});
+
+test('neighbouring rings step through the palette instead of repeating a colour', () => {
+  const m = M.generate(11, { palette: 'lotus' });
+  const plain = m.strokes.map((st) => st.color).filter((c) => c !== 'rainbow');
+  const used = new Set(plain);
+  eq(used.size, M.paletteById('lotus').colors.length, 'every colour in the set is used');
 });
 
 test('every generated mandala has a centre and several rings', () => {
@@ -238,17 +280,48 @@ test('Swirl turns neighbouring rings opposite ways', () => {
   }
 });
 
-test('Breathe pulses gently without turning', () => {
+test('Breathe draws in and opens out slowly, without turning', () => {
   let lo = Infinity;
   let hi = -Infinity;
-  for (let t = 0; t < 20; t += 0.05) {
+  for (let t = 0; t < 12; t += 0.02) {
     const m = M.motion('breathe', 2, t);
     eq(m.angle, 0);
     lo = Math.min(lo, m.scale);
     hi = Math.max(hi, m.scale);
   }
-  assert(hi > 1.04 && lo < 0.96, 'pulse too small: ' + lo + '..' + hi);
-  assert(hi <= 1.06 + 1e-9 && lo >= 0.94 - 1e-9, 'pulse too big: ' + lo + '..' + hi);
+  near(Math.round(hi * 1000) / 1000, 1, 'full size at the top of the breath');
+  near(Math.round(lo * 1000) / 1000, 1 - M.BREATH_DEPTH, 'drawn in at the bottom');
+  assert(M.BREATH_DEPTH >= 0.1, 'a breath you can see');
+});
+
+test('the mandala never grows past full size, so it stays inside the circle', () => {
+  for (const mode of ['breathe', 'flow']) {
+    for (let b = 0; b < M.BANDS; b++) {
+      for (let t = 0; t < 30; t += 0.1) assert(M.motion(mode, b, t).scale <= 1 + 1e-12, mode + ' grew');
+    }
+  }
+});
+
+test('one breath takes BREATH_SECONDS: in for half, out for half', () => {
+  const T = M.BREATH_SECONDS;
+  near(M.breath(0), 1);
+  near(M.breath(T / 2), 0);
+  near(M.breath(T), 1);
+  assert(T >= 4 && T <= 10, 'a calm breath, not a flicker: ' + T + 's');
+  eq(M.breathCue(T * 0.25), 'out');
+  eq(M.breathCue(T * 0.75), 'in');
+  eq(M.breathCue(T * 1.25), 'out');
+  eq(M.breathCue(-T * 0.25), 'in');
+});
+
+test('the breath starts at the heart and travels out', () => {
+  // Just after the top of the breath, inner rings have drawn in further.
+  const t = 0.8;
+  assert(M.motion('breathe', 0, t).scale < M.motion('breathe', 5, t).scale, 'centre leads');
+});
+
+test('a mandala at rest is full size', () => {
+  for (let b = 0; b < M.BANDS; b++) eq(M.motion('breathe', b, 0).scale, 1, 'ring ' + b);
 });
 
 test('Flow both turns and pulses', () => {
@@ -295,6 +368,30 @@ test('a saved drawing keeps each stroke in its ring', () => {
   }));
   eq(back.strokes[0].band, 5);
   eq(back.strokes[1].band, undefined);
+});
+
+console.log('\nMANDALA MAKER — video');
+
+test('video prefers MP4, which plays on iPhones too', () => {
+  eq(M.videoFormat(() => true).ext, 'mp4');
+});
+
+test('video falls back to WebM, and to nothing', () => {
+  eq(M.videoFormat((m) => m.indexOf('webm') !== -1).ext, 'webm');
+  eq(M.videoFormat(() => false), null);
+  eq(M.videoFormat(() => { throw new Error('old browser'); }), null);
+});
+
+test('a video is one whole breath long, so it loops', () => {
+  near(M.videoSeconds('breathe', 1), M.BREATH_SECONDS);
+  near(M.videoSeconds('flow', 2), M.BREATH_SECONDS / 2);
+});
+
+test('a video is never too short or too long', () => {
+  eq(M.videoSeconds('flow', 3), 3);
+  eq(M.videoSeconds('flow', 0.25), 12);
+  eq(M.videoSeconds('still', 1), 4);
+  eq(M.videoSeconds('spin', 0), 4);
 });
 
 console.log('\n' + passed + ' passed, ' + failures.length + ' failed');

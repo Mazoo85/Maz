@@ -122,11 +122,21 @@
   var BANDS = 6;
   var BASE_TURN = 0.25; // radians per second at speed 1
 
+  // One breath at speed 1: in for half of it, out for the other half — the
+  // slow pace of a calm breath, not a flicker.
+  var BREATH_SECONDS = 6;
+  // How far the mandala draws in at the bottom of a breath. It is at full
+  // size at the top, so it never grows past the edge of the circle.
+  var BREATH_DEPTH = 0.14;
+  // Each ring a moment behind the one inside it, so the breath starts at the
+  // heart and travels out — measured as a fraction of one breath.
+  var BREATH_LAG = 0.04;
+
   var MOTIONS = [
     { id: 'still', label: 'Still' },
     { id: 'spin', label: 'Spin — the whole mandala turns' },
     { id: 'swirl', label: 'Swirl — rings turn opposite ways' },
-    { id: 'breathe', label: 'Breathe — gently pulses' },
+    { id: 'breathe', label: 'Breathe — slowly in and out' },
     { id: 'flow', label: 'Flow — swirl and breathe' }
   ];
 
@@ -163,10 +173,51 @@
       angle = BASE_TURN * k * (band % 2 ? -1 : 1) * (1 + band * 0.15);
     }
     if (mode === 'breathe' || mode === 'flow') {
-      // A ripple: each ring swells a moment after the one inside it.
-      scale = 1 + 0.06 * Math.sin(k * 1.6 - band * 0.6);
+      // Outer rings wait their turn, then follow — so all start at rest.
+      var lagged = Math.max(0, k - band * BREATH_LAG * BREATH_SECONDS);
+      scale = 1 - BREATH_DEPTH * (1 - breath(lagged));
     }
     return { angle: angle, scale: scale };
+  }
+
+  // How full the breath is at `phase`: 1 at the top (fully in), 0 at the
+  // bottom (fully out). Starts full, so a mandala at rest is full size.
+  function breath(phase) {
+    return (1 + Math.cos((2 * Math.PI * phase) / BREATH_SECONDS)) / 2;
+  }
+
+  // Which half of the breath `phase` is in, for the breathing guide: the
+  // mandala is drawing in ('out') or opening up ('in').
+  function breathCue(phase) {
+    var t = (((Number(phase) || 0) % BREATH_SECONDS) + BREATH_SECONDS) % BREATH_SECONDS;
+    return t < BREATH_SECONDS / 2 ? 'out' : 'in';
+  }
+
+  /* ------------------------------------------------------------- video
+   * The format to record in: the first this browser can make. MP4 first —
+   * it plays everywhere, iPhones included — then WebM.
+   */
+  var VIDEO_TYPES = [
+    { mime: 'video/mp4;codecs=avc1', ext: 'mp4' },
+    { mime: 'video/mp4', ext: 'mp4' },
+    { mime: 'video/webm;codecs=vp9', ext: 'webm' },
+    { mime: 'video/webm', ext: 'webm' }
+  ];
+
+  function videoFormat(isSupported) {
+    for (var i = 0; i < VIDEO_TYPES.length; i++) {
+      try { if (isSupported(VIDEO_TYPES[i].mime)) return VIDEO_TYPES[i]; } catch (e) { /* next */ }
+    }
+    return null;
+  }
+
+  // How long to record: exactly one breath at the chosen speed, so the clip
+  // loops — kept between 3 and 12 seconds. A still or paused mandala gets a
+  // short clip of its own.
+  function videoSeconds(mode, speed) {
+    speed = Number(speed) || 0;
+    if (mode === 'still' || speed <= 0) return 4;
+    return Math.min(12, Math.max(3, BREATH_SECONDS / speed));
   }
 
   // Unit-space point → the same point as ring `band` sees it, given the
@@ -262,9 +313,31 @@
         pts.push([centre[0] + rad * Math.cos(a), centre[1] + rad * Math.sin(a)]);
       }
       return pts;
+    },
+    // A teardrop: round at the inner edge, coming to a point outwards.
+    drop: function (r0, r1, wedge) {
+      var mid = wedge / 2;
+      var w = wedge * 0.36;
+      var pts = [];
+      for (var i = 0; i <= 24; i++) {
+        var a = (TAU * i) / 24;
+        var t = (1 - Math.cos(a)) / 2;              // 0 at the tip, 1 at the round end
+        var bulge = Math.sin(a) * Math.pow(t, 0.6); // fat at the round end, sharp at the tip
+        pts.push(polar(r1 - (r1 - r0) * t, mid + w * bulge));
+      }
+      return pts;
+    },
+    // Crossing lines that make a row of diamonds — a lattice.
+    diamond: function (r0, r1, wedge) {
+      var m = (r0 + r1) / 2;
+      return [polar(m, 0), polar(r1, wedge / 2), polar(m, wedge), polar(r0, wedge / 2), polar(m, 0)];
     }
   };
   var SHAPE_NAMES = Object.keys(SHAPES);
+
+  // Bands that carry the design, and the finer bands that sit between them.
+  var FEATURES = ['petal', 'lotus', 'leaf', 'drop', 'arch', 'loop', 'diamond'];
+  var DETAILS = ['ring', 'beads', 'zigzag', 'scallop', 'diamond'];
 
   function paletteById(id) {
     for (var i = 0; i < PALETTES.length; i++) if (PALETTES[i].id === id) return PALETTES[i];
@@ -272,10 +345,17 @@
   }
 
   /*
-   * Build a whole mandala from a seed: rings of shapes from the centre out,
-   * every ring sharing the same symmetry so the design reads as one piece.
+   * Build a whole mandala from a seed. It is laid out the way a hand-drawn
+   * one is: a rosette at the heart, then rings from the centre out that
+   * alternate between bold feature bands — petals, lotus petals, leaves,
+   * teardrops, lattices, each layered with a smaller echo inside and often
+   * dots at the tips — and fine detail bands of beads, scallops, zigzags
+   * and rings between them, finished with a border at the edge. Colours
+   * step through the palette rather than landing at random, so neighbouring
+   * rings belong together.
    *
-   *   opts.slices   number of copies round the circle (random when left out)
+   *   opts.slices   number of copies round the circle (random when left out);
+   *                 some fine bands use twice as many, for detail
    *   opts.palette  palette id (random when left out)
    *   opts.mirror   reflect each copy (default true)
    */
@@ -283,48 +363,124 @@
     opts = opts || {};
     var rand = rng(seed);
     var pick = function (list) { return list[Math.floor(rand() * list.length)]; };
+    var between = function (lo, hi) { return lo + rand() * (hi - lo); };
 
     var slices = opts.slices ? clampSlices(opts.slices) : pick([6, 8, 10, 12, 16, 24]);
     var palette = opts.palette ? paletteById(opts.palette) : pick(PALETTES);
     var mirror = opts.mirror === undefined ? true : !!opts.mirror;
-    var wedge = TAU / slices;
+    // Twice the repeats, for fine detail — only when that still fits.
+    var fine = slices * 2 <= MAX_SLICES ? slices * 2 : slices;
+
+    // Walk the palette in a shuffled order, so colours progress ring by ring.
+    var order = palette.colors.slice();
+    for (var o = order.length - 1; o > 0; o--) {
+      var j = Math.floor(rand() * (o + 1));
+      var tmp = order[o]; order[o] = order[j]; order[j] = tmp;
+    }
+    var ci = 0;
+    var nextColor = function () { return order[ci++ % order.length]; };
+    var accent = order[order.length - 1];
 
     var strokes = [];
-    var bands = 5 + Math.floor(rand() * 4);
-    var r = 0.04 + rand() * 0.04;
-    var step = (0.94 - r) / bands;
-
-    // A centre dot, always — every mandala has a heart.
-    strokes.push(makeStroke({
-      color: pick(palette.colors), size: 0.03 + rand() * 0.03,
-      slices: slices, mirror: false, points: [[0, 0]]
-    }));
-
-    for (var b = 0; b < bands; b++) {
-      var r0 = r;
-      var r1 = Math.min(0.96, r + step * (0.8 + rand() * 0.5));
-      var shape = pick(SHAPE_NAMES);
-      var color = rand() < 0.08 ? 'rainbow' : pick(palette.colors);
-      var size = shape === 'dot' ? 0.012 + rand() * 0.02 : 0.003 + rand() * 0.008;
+    function add(points, color, size, extra) {
+      extra = extra || {};
       strokes.push(makeStroke({
         color: color, hue: Math.floor(rand() * 360), size: size,
-        slices: slices, mirror: mirror, glow: rand() < 0.35,
-        points: SHAPES[shape](r0, r1, wedge)
+        slices: extra.slices || slices, mirror: mirror, glow: !!extra.glow, points: points
       }));
-      // Sometimes a band carries a second, finer shape on top.
-      if (rand() < 0.4) {
-        var extra = pick(SHAPE_NAMES);
-        strokes.push(makeStroke({
-          color: pick(palette.colors), size: 0.002 + rand() * 0.004,
-          slices: slices, mirror: mirror,
-          points: SHAPES[extra](r0 + (r1 - r0) * 0.2, r1 - (r1 - r0) * 0.2, wedge)
-        }));
-      }
-      r = r1;
     }
+    function shape(name, r0, r1, n) {
+      return SHAPES[name](r0, r1, TAU / (n || slices));
+    }
+
+    // The heart: a dot, a rosette of petals round it, and a ring to hold them.
+    var heart = between(0.09, 0.13);
+    strokes.push(makeStroke({
+      color: accent, size: between(0.025, 0.04), slices: slices, mirror: false, points: [[0, 0]]
+    }));
+    add(shape('petal', 0.025, heart), nextColor(), between(0.004, 0.007));
+    add(shape('ring', heart + 0.01, heart + 0.01), nextColor(), 0.004);
+
+    var r = heart + 0.03;
+    var feature = true;
+    var EDGE = 0.9;
+    while (r < EDGE - 0.03) {
+      var r0 = r;
+      var r1;
+      if (feature) {
+        r1 = Math.min(EDGE, r0 + between(0.09, 0.16));
+        var name = pick(FEATURES);
+        var color = rand() < 0.06 ? 'rainbow' : nextColor();
+        var size = between(0.005, 0.011);
+        var glow = rand() < 0.25;
+        var span = r1 - r0;
+
+        if (name === 'lotus') {
+          // Two rows of petals, the second sitting between the first.
+          add(shape('petal', r0, r1), color, size, { glow: glow });
+          add(SHAPES.petal(r0, r0 + span * 0.75, TAU / slices).map(function (p) {
+            return rotate(p, Math.PI / slices);
+          }), nextColor(), size * 0.8);
+        } else if (name === 'leaf') {
+          // A petal with a vein down the middle.
+          add(shape('petal', r0, r1), color, size, { glow: glow });
+          add(shape('ray', r0 + span * 0.1, r1 - span * 0.1), color, size * 0.5);
+        } else {
+          add(shape(name, r0, r1), color, size, { glow: glow });
+        }
+
+        // An echo: the same shape again, smaller, inside the first.
+        if (name !== 'diamond' && rand() < 0.75) {
+          var echo = name === 'lotus' || name === 'leaf' ? 'petal' : name;
+          add(shape(echo, r0 + span * 0.18, r1 - span * 0.22), nextColor(), size * 0.6);
+        }
+        // Dots at the tips, just beyond the band.
+        if (rand() < 0.6 && r1 + 0.025 < EDGE) {
+          add(shape('dot', r1 + 0.01, r1 + 0.03), accent, between(0.012, 0.02));
+          r1 += 0.03;
+        }
+      } else {
+        r1 = Math.min(EDGE, r0 + between(0.025, 0.045));
+        var kind = pick(DETAILS);
+        var dc = nextColor();
+        var n = rand() < 0.5 ? fine : slices;
+        if (kind === 'beads') {
+          // A string of beads: several dots spread across each slice.
+          var count = 3;
+          var mid = (r0 + r1) / 2;
+          for (var k = 0; k < count; k++) {
+            var a = ((k + 0.5) * TAU) / (n * count);
+            strokes.push(makeStroke({
+              color: dc, size: between(0.009, 0.015), slices: n, mirror: false,
+              points: [polar(mid, a)]
+            }));
+          }
+        } else if (kind === 'scallop') {
+          add(shape('arch', r0, r1, n), dc, between(0.003, 0.005), { slices: n });
+        } else if (kind === 'ring') {
+          // Two fine rings, close together.
+          add(shape('ring', r0, r0, n), dc, 0.003, { slices: n });
+          add(shape('ring', r1, r1, n), dc, 0.003, { slices: n });
+        } else {
+          add(shape(kind, r0, r1, n), dc, between(0.003, 0.006), { slices: n });
+        }
+      }
+      r = r1 + between(0.005, 0.02);
+      feature = !feature;
+    }
+
+    // The border: a ring at the edge, with a scalloped trim just inside it.
+    add(shape('ring', 0.95, 0.95), nextColor(), 0.007);
+    add(shape('arch', 0.92, 0.95, fine), nextColor(), 0.003, { slices: fine });
 
     return { seed: seed, slices: slices, mirror: mirror, palette: palette.id,
       background: palette.bg, strokes: strokes };
+  }
+
+  function rotate(p, a) {
+    var c = Math.cos(a);
+    var s = Math.sin(a);
+    return [p[0] * c - p[1] * s, p[0] * s + p[1] * c];
   }
 
   /* --------------------------------------------------------- save file */
@@ -394,6 +550,12 @@
     strokeBand: strokeBand,
     motion: motion,
     intoBand: intoBand,
+    BREATH_SECONDS: BREATH_SECONDS,
+    BREATH_DEPTH: BREATH_DEPTH,
+    breath: breath,
+    breathCue: breathCue,
+    videoFormat: videoFormat,
+    videoSeconds: videoSeconds,
     rng: rng,
     newSeed: newSeed,
     paletteById: paletteById,
