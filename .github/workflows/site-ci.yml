@@ -55,6 +55,11 @@ jobs:
       # which is the check that stops a run ending behind a wall.
       - name: NEON CELLS logic tests
         run: node cells/tests/cells-logic.test.js
+      # GOD'S EYE VIEW's feed parsers, poller and layers are plain modules:
+      # a broken feed, a source going down and coming back, and a layer
+      # stopped mid-request are all proved here without a browser.
+      - name: GOD'S EYE VIEW logic tests
+        run: node godview/tests/godview-logic.test.js
 
   browser:
     name: Site smoke test (Chromium)
@@ -93,3 +98,8 @@ jobs:
       # plays one: a real run, every biome, every screen, and a death.
       - name: NEON CELLS end to end (a real run)
         run: node cells/tests/cells-browser.test.js
+      # The globe drawn at phone size, live quakes from a saved feed, the
+      # details sheet, a layer toggled, the feed cut, and the globe library
+      # unreachable — none of which may throw.
+      - name: GOD'S EYE VIEW end to end (phone)
+        run: node godview/tests/godview-browser.test.js
