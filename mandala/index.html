@@ -42,6 +42,16 @@
         </div>
 
         <div class="control">
+          <label for="motion"><span>Motion</span></label>
+          <select id="motion"></select>
+        </div>
+
+        <div class="control">
+          <label for="speed"><span>Speed</span> <output id="speedOut">1×</output></label>
+          <input type="range" id="speed" min="0" max="3" step="0.25" value="1" />
+        </div>
+
+        <div class="control">
           <span class="label">Colour</span>
           <div class="swatches" id="swatches" role="radiogroup" aria-label="Brush colour"></div>
         </div>
@@ -56,7 +66,6 @@
           <label class="toggle"><input type="checkbox" id="mirror" checked /> <span>Mirror</span></label>
           <label class="toggle"><input type="checkbox" id="glow" /> <span>Glow</span></label>
           <label class="toggle"><input type="checkbox" id="guides" checked /> <span>Guide lines</span></label>
-          <label class="toggle"><input type="checkbox" id="spin" /> <span>Spin</span></label>
         </fieldset>
 
         <p class="note">Your drawing is kept in this browser, so it is still here next time. Guide lines are never in the saved picture.</p>

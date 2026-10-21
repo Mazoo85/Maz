@@ -2,8 +2,9 @@
  * MANDALA MAKER — UI layer
  * ------------------------
  * Wires the DOM and a canvas to window.Mandala. Finished strokes are painted
- * once onto an offscreen layer; each frame copies that layer and draws only
- * the stroke under the finger on top, so a busy mandala stays smooth.
+ * once onto offscreen layers, one per ring; each frame turns and sizes each
+ * ring's layer as the chosen motion says, then draws only the stroke under
+ * the finger on top — so even a busy, moving mandala stays smooth.
  *
  * The only state that outlives a visit is the drawing itself, in
  * localStorage — nothing leaves the browser.
@@ -14,7 +15,6 @@
   var M = window.Mandala;
   var SAVE_KEY = 'mandala.drawing.v1';
   var EXPORT_PX = 2048;
-  var SPIN_RATE = 0.12; // radians per second — one turn in under a minute
 
   var el = {
     wrap: document.getElementById('canvasWrap'),
@@ -33,13 +33,19 @@
     mirror: document.getElementById('mirror'),
     glow: document.getElementById('glow'),
     guides: document.getElementById('guides'),
-    spin: document.getElementById('spin'),
+    motion: document.getElementById('motion'),
+    speed: document.getElementById('speed'),
+    speedOut: document.getElementById('speedOut'),
     toast: document.getElementById('toast')
   };
 
   var ctx = el.canvas.getContext('2d');
-  var layer = document.createElement('canvas');
-  var layerCtx = layer.getContext('2d');
+  // One offscreen layer per ring, so each ring can move on its own.
+  var layers = [];
+  for (var li = 0; li < M.BANDS; li++) {
+    var lc = document.createElement('canvas');
+    layers.push({ canvas: lc, ctx: lc.getContext('2d') });
+  }
 
   var state = {
     strokes: [],
@@ -48,7 +54,7 @@
     color: M.PALETTES[0].colors[0],
     live: null,       // the stroke being drawn right now
     pointerId: null,
-    angle: 0,         // current spin angle
+    phase: 0,         // the animation's clock: seconds × speed
     lastTime: 0,
     layerDirty: true
   };
@@ -164,53 +170,82 @@
     c.restore();
   }
 
+  // Every finished stroke onto its ring's (transparent) layer.
+  function paintLayers() {
+    var g = geometry(layers[0].canvas);
+    for (var b = 0; b < layers.length; b++) {
+      layers[b].ctx.clearRect(0, 0, layers[b].canvas.width, layers[b].canvas.height);
+    }
+    for (var i = 0; i < state.strokes.length; i++) {
+      drawStroke(layers[M.strokeBand(state.strokes[i])].ctx, state.strokes[i], g);
+    }
+  }
+
+  function bandMotion(band) {
+    return M.motion(el.motion.value, band, state.phase);
+  }
+
+  // Place ring `band` on `c`: turn and size it about the centre.
+  function withBand(c, g, band, draw) {
+    var m = bandMotion(band);
+    c.save();
+    c.translate(g.cx, g.cy);
+    c.rotate(m.angle);
+    c.scale(m.scale, m.scale);
+    c.translate(-g.cx, -g.cy);
+    draw();
+    c.restore();
+  }
+
   function frame(time) {
     var dt = state.lastTime ? Math.min(0.1, (time - state.lastTime) / 1000) : 0;
     state.lastTime = time;
-    if (el.spin.checked) state.angle = (state.angle + dt * SPIN_RATE) % (Math.PI * 2);
+    if (el.motion.value !== 'still') state.phase += dt * Number(el.speed.value);
 
     if (state.layerDirty) {
-      paintArt(layerCtx);
+      paintLayers();
       state.layerDirty = false;
     }
 
     var g = geometry(el.canvas);
     var w = el.canvas.width;
-    ctx.save();
     ctx.fillStyle = state.background;
     ctx.fillRect(0, 0, w, w);
-    ctx.translate(g.cx, g.cy);
-    ctx.rotate(state.angle);
-    ctx.translate(-g.cx, -g.cy);
-    ctx.drawImage(layer, 0, 0);
     if (el.guides.checked) paintGuides(ctx, g);
-    if (state.live) drawStroke(ctx, state.live, g);
-    ctx.restore();
+    for (var b = 0; b < layers.length; b++) {
+      withBand(ctx, g, b, function () { ctx.drawImage(layers[b].canvas, 0, 0); });
+    }
+    if (state.live) {
+      withBand(ctx, g, state.live.band, function () { drawStroke(ctx, state.live, g); });
+    }
 
     requestAnimationFrame(frame);
   }
 
   function resize() {
-    var dpr = Math.min(window.devicePixelRatio || 1, 3);
+    // 2x is sharp on any phone, and keeps seven full-size canvases light.
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
     var px = Math.max(1, Math.round(el.wrap.clientWidth * dpr));
     if (el.canvas.width === px) return;
     el.canvas.width = el.canvas.height = px;
-    layer.width = layer.height = px;
+    for (var b = 0; b < layers.length; b++) layers[b].canvas.width = layers[b].canvas.height = px;
     state.layerDirty = true;
   }
 
   /* -------------------------------------------------------------- input */
 
-  // Where the pointer is, in unit space, undoing the spin so the line lands
-  // under the finger even while the mandala turns.
+  // Where the pointer is on screen, in unit space.
   function pointerUnit(e) {
     var rect = el.canvas.getBoundingClientRect();
     var half = rect.width / 2;
-    var radius = half * 0.96;
-    var u = M.toUnit(e.clientX - rect.left, e.clientY - rect.top, half, half, radius);
-    var c = Math.cos(-state.angle);
-    var s = Math.sin(-state.angle);
-    return [u[0] * c - u[1] * s, u[0] * s + u[1] * c];
+    return M.toUnit(e.clientX - rect.left, e.clientY - rect.top, half, half, half * 0.96);
+  }
+
+  // The same point as ring `band` sees it right now, so a line drawn on a
+  // moving ring lands under the finger and then travels with that ring.
+  function pointerOnBand(e, band) {
+    var u = pointerUnit(e);
+    return M.intoBand(u[0], u[1], bandMotion(band));
   }
 
   function brushSize() {
@@ -222,6 +257,9 @@
     e.preventDefault();
     state.pointerId = e.pointerId;
     try { el.canvas.setPointerCapture(e.pointerId); } catch (err) { /* older browsers */ }
+    // The ring the line starts in is the ring it belongs to.
+    var start = pointerUnit(e);
+    var band = M.bandOf(Math.hypot(start[0], start[1]));
     state.live = M.makeStroke({
       color: state.color,
       hue: Math.floor(Math.random() * 360),
@@ -229,14 +267,15 @@
       slices: el.slices.value,
       mirror: el.mirror.checked,
       glow: el.glow.checked,
-      points: [pointerUnit(e)]
+      band: band,
+      points: [pointerOnBand(e, band)]
     });
     el.hint.classList.add('gone');
   });
 
   el.canvas.addEventListener('pointermove', function (e) {
     if (!state.live || e.pointerId !== state.pointerId) return;
-    var p = pointerUnit(e);
+    var p = pointerOnBand(e, state.live.band);
     var pts = state.live.points;
     var prev = pts[pts.length - 1];
     // Skip points closer than a few pixels — they add weight, not detail.
@@ -246,8 +285,8 @@
   function finish(e) {
     if (!state.live || e.pointerId !== state.pointerId) return;
     state.strokes.push(state.live);
-    // Draw just the new stroke onto the layer — no need to repaint them all.
-    drawStroke(layerCtx, state.live, geometry(layer));
+    // Draw just the new stroke onto its ring's layer — no need to repaint them all.
+    drawStroke(layers[state.live.band].ctx, state.live, geometry(layers[0].canvas));
     state.live = null;
     state.pointerId = null;
     save();
@@ -409,11 +448,27 @@
   el.size.addEventListener('input', function () {
     el.sizeOut.textContent = el.size.value;
   });
-  el.spin.addEventListener('change', function () {
-    if (!el.spin.checked) state.angle = 0;
+  function showSpeed() {
+    el.speedOut.textContent = Number(el.speed.value) + '×';
+  }
+  el.speed.addEventListener('input', showSpeed);
+  el.motion.addEventListener('change', function () {
+    // Back to Still puts every ring home; picking a motion starts it fresh.
+    state.phase = 0;
   });
 
   /* --------------------------------------------------------------- boot */
+
+  M.MOTIONS.forEach(function (m) {
+    var o = document.createElement('option');
+    o.value = m.id;
+    o.textContent = m.label;
+    el.motion.appendChild(o);
+  });
+  // Moving by default — unless the device asks for less motion.
+  var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  el.motion.value = calm ? 'still' : 'flow';
+  showSpeed();
 
   buildSwatches();
   load();
