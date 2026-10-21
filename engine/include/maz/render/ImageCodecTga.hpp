@@ -24,11 +24,15 @@ inline std::vector<std::uint8_t> encodeTga(const Image& img) {
     const std::size_t pixels = px.size() / 4u;        // whole RGBA groups only
 
     // Size the buffer exactly and fill it by index rather than reserve-then-push_back. The two are
-    // equivalent here -- the reserve was already exact -- but GCC 14 and 15 cannot see that through
-    // the inlined push_back, so they keep the reallocation path alive and report the growth
+    // equivalent here -- the reserve was already exact -- but GCC 14 cannot see that through the
+    // inlined push_back, so it keeps the reallocation path alive and reports the growth
     // deallocating a pointer "with nonzero offset [2, 9223372036854775807]"
-    // (-Werror=free-nonheap-object). With a fixed size there is no growth path to analyse. The same
-    // diagnostic, with the same cause and the same fix, took out buildGlb in render/GlbContainer.hpp.
+    // (-Werror=free-nonheap-object), which stops the Release build. A fixed size leaves no growth
+    // path to analyse.
+    //
+    // GCC 15 does not flag this one, so CI never saw it; GCC 14 is the default compiler on Ubuntu
+    // 24.04 LTS, so anyone building there does. buildGlb in render/GlbContainer.hpp met the same
+    // diagnostic from GCC 15 and dodges it another way, by appending each u32 with one insert.
     std::vector<std::uint8_t> out(18u + pixels * 4u);
     std::size_t at = 0;
     const auto put8 = [&out, &at](int v) { out[at++] = static_cast<std::uint8_t>(v & 0xFF); };

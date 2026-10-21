@@ -1,0 +1,51 @@
+{
+  "type": "FeatureCollection",
+  "dataUpdatedTime": "2026-10-21T06:50:00Z",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "C01502",
+      "geometry": { "type": "Point", "coordinates": [25.6633, 60.3922, 0.0] },
+      "properties": {
+        "id": "C01502",
+        "name": "vt7_Porvoo",
+        "collectionStatus": "GATHERING",
+        "state": null,
+        "dataUpdatedTime": "2026-10-21T06:45:00Z",
+        "presets": [
+          { "id": "C0150200", "inCollection": false },
+          { "id": "C0150201", "inCollection": true },
+          { "id": "C0150202", "inCollection": true }
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "C04507",
+      "geometry": { "type": "Point", "coordinates": [24.9384, 60.1699, 12.0] },
+      "properties": {
+        "id": "C04507",
+        "name": "kt51_Helsinki_Lauttasaari",
+        "collectionStatus": "GATHERING",
+        "presets": [{ "id": "C0450701", "inCollection": true }]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "C09999",
+      "geometry": { "type": "Point", "coordinates": [27.0, 64.0, 0.0] },
+      "properties": {
+        "id": "C09999",
+        "name": "removed station",
+        "collectionStatus": "REMOVED_TEMPORARILY",
+        "presets": [{ "id": "C0999901", "inCollection": true }]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "C08888",
+      "geometry": { "type": "Point", "coordinates": [26.0, 62.0, 0.0] },
+      "properties": { "id": "C08888", "name": "no presets", "collectionStatus": "GATHERING", "presets": [] }
+    }
+  ]
+}

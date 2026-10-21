@@ -13,8 +13,10 @@
   const F = window.GV_FORMAT;
   const $ = (id) => document.getElementById(id);
 
-  /* Which layers start switched on. */
+  /* Which layers start switched on. Weather is the heaviest download, so it
+   * waits to be asked for. */
   const DEFAULT_ON = { quakes: true, sats: true };
+  const GLOBE_COLOR = '#03140c';
 
   function fail(message) {
     $('fallback-msg').textContent = message;
@@ -40,6 +42,36 @@
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return res.text();
+  }
+
+  /* An image's pixels, for layers that work on pictures (weather). The
+   * request is anonymous-CORS, so a source that does not allow web pages
+   * fails here, cleanly, instead of tainting the canvas. */
+  function loadPixels(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      const timer = setTimeout(() => reject(new Error('timed out: ' + url)), 30000);
+      img.onload = () => {
+        clearTimeout(timer);
+        try {
+          const c = document.createElement('canvas');
+          c.width = img.naturalWidth;
+          c.height = img.naturalHeight;
+          const ctx = c.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          const d = ctx.getImageData(0, 0, c.width, c.height);
+          resolve({ width: c.width, height: c.height, data: d.data });
+        } catch (e) {
+          reject(e);
+        }
+      };
+      img.onerror = () => {
+        clearTimeout(timer);
+        reject(new Error('image failed: ' + url));
+      };
+      img.src = url;
+    });
   }
 
   /* ------------------------------------------------------------ clock */
@@ -89,7 +121,7 @@
       });
 
     const material = globe.globeMaterial();
-    material.color.set('#03140c');
+    material.color.set(GLOBE_COLOR);
     if (material.emissive) material.emissive.set('#010a05');
 
     globe.renderer().setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -117,8 +149,14 @@
     el.type = 'button';
     el.className = 'marker';
     el.style.setProperty('--c', d.color);
-    el.setAttribute('aria-label', d.item.name || 'marker');
+    const it = d.item;
+    el.setAttribute('aria-label', it.name || it.callsign || it.reg || it.hex || 'marker');
     el.dataset.layer = d.layer;
+    if (typeof d.rotation === 'number') {
+      /* A plane: a small drawn silhouette, nose up, turned to its heading. */
+      el.classList.add('marker--plane');
+      el.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c.8 0 1.3.9 1.3 2v5.2l7.7 4.6v2.1l-7.7-2.3v4.6l2.2 1.7V21L12 20l-3.5 1v-1.1l2.2-1.7v-4.6L3 15.9v-2.1l7.7-4.6V4c0-1.1.5-2 1.3-2z"/></svg>';
+    }
     if (d.label) {
       const tag = document.createElement('span');
       tag.className = 'marker-label';
@@ -148,6 +186,7 @@
       dd.textContent = v;
       rows.append(dt, dd);
     }
+    showPicture(d.image || null);
     const link = $('sheet-link');
     if (d.link) {
       link.href = d.link;
@@ -161,6 +200,28 @@
 
   function closeSheet() {
     $('sheet').hidden = true;
+    showPicture(null);
+  }
+
+  /* A camera's latest picture, fetched afresh every minute while the sheet is
+   * open (the URL is cache-busted so the phone does not show a stale copy). */
+  let pictureTimer = null;
+  function showPicture(url) {
+    clearInterval(pictureTimer);
+    pictureTimer = null;
+    const img = $('sheet-image');
+    $('sheet-image-note').hidden = true;
+    if (!url) {
+      img.hidden = true;
+      img.removeAttribute('src');
+      return;
+    }
+    const load = () => { img.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now(); };
+    img.onload = () => { img.hidden = false; $('sheet-image-note').hidden = true; };
+    img.onerror = () => { img.hidden = true; $('sheet-image-note').hidden = false; };
+    img.hidden = false;
+    load();
+    pictureTimer = setInterval(load, 60000);
   }
 
   /* ------------------------------------------------------------ layers */
@@ -179,7 +240,65 @@
     const rings = on.flatMap((l) => l.rings);
     if (!sameItems(points, state.globe.pointsData())) state.globe.pointsData(points);
     if (!sameItems(rings, state.globe.ringsData())) state.globe.ringsData(rings);
-    state.globe.htmlElementsData(on.flatMap((l) => l.html || []));
+    const html = on.flatMap((l) => l.html || []);
+    for (const d of html) {
+      const el = markerEls.get(d);
+      if (el && typeof d.rotation === 'number') el.style.setProperty('--rot', d.rotation + 'deg');
+    }
+    state.globe.htmlElementsData(html);
+    paintSurface(on.map((l) => l.texture).find(Boolean) || null);
+    paintCredits(on);
+  }
+
+  /* A layer's texture becomes the globe's surface; with none, the plain dark
+   * globe comes back. The globe library loads an image a moment after it is
+   * set and does not clear it when unset, so the surface is cleared here, and
+   * once more shortly after in case a load was still landing. */
+  let shownTexture = null;
+  function clearSurface() {
+    const m = state.globe.globeMaterial();
+    if (m.map) {
+      m.map.dispose();
+      m.map = null;
+    }
+    if (m.color) m.color.set(GLOBE_COLOR);
+    m.needsUpdate = true;
+  }
+  function paintSurface(texture) {
+    if (texture === shownTexture) return;
+    shownTexture = texture;
+    if (texture) {
+      const c = document.createElement('canvas');
+      c.width = texture.width;
+      c.height = texture.height;
+      c.getContext('2d').putImageData(new ImageData(texture.data, texture.width, texture.height), 0, 0);
+      state.globe.globeImageUrl(c.toDataURL('image/jpeg', 0.9));
+    } else {
+      state.globe.globeImageUrl(null);
+      clearSurface();
+      setTimeout(() => { if (!shownTexture) clearSurface(); }, 1500);
+    }
+  }
+
+  function paintCredits(on) {
+    const text = on.map((l) => l.credit).filter(Boolean).join(' · ');
+    const el = $('credits');
+    el.textContent = text;
+    el.hidden = !text;
+  }
+
+  /* Layers that only fetch around the view (planes) are asked again as soon
+   * as a drag or zoom ends somewhere new, instead of waiting for their timer. */
+  function followView() {
+    let last = state.globe.pointOfView();
+    state.globe.controls().addEventListener('end', () => {
+      const v = state.globe.pointOfView();
+      if (window.GV_PLANES.distanceKm(last, v) < 220) return;
+      last = v;
+      for (const l of state.layers) {
+        if (l.followsView && state.enabled[l.id]) l.refresh();
+      }
+    });
   }
 
   /* One clock for everything that moves between fetches. Paused while the
@@ -203,6 +322,7 @@
     if (!enabled) val = 'OFF';
     else if (layer.status === 'offline') val = 'OFFLINE';
     else if (layer.status === 'loading') val = '…';
+    else if (layer.summary) val = layer.summary;
     else val = F.count(layer.count);
     btn.querySelector('.val').textContent = val;
   }
@@ -284,6 +404,10 @@
 
     addLayer(window.GV_QUAKES_LAYER.create({ fetchJson: fetchJson }));
     addLayer(window.GV_SATS_LAYER.create({ fetchText: fetchText }));
+    addLayer(window.GV_WEATHER_LAYER.create({ fetchJson: fetchJson, loadPixels: loadPixels }));
+    addLayer(window.GV_PLANES_LAYER.create({ fetchJson: fetchJson, getView: () => state.globe.pointOfView() }));
+    addLayer(window.GV_CAMERAS_LAYER.create({ fetchJson: fetchJson, getView: () => state.globe.pointOfView() }));
+    followView();
     startTicker();
 
     window.GODVIEW = {

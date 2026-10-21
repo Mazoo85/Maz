@@ -10033,7 +10033,7 @@ void testHeightField3D() {
         CHECK_NEAR(nrm.y, 1.0f, 1e-3f);
         CHECK_NEAR(nrm.z, 0.0f, 1e-3f);
         float t = 0.0f;
-        math::vec3 hp{};
+        math::vec3 hp;
         CHECK(hf.raycast(math::vec3(1.5f, 20.0f, 1.5f), math::vec3(0, -1, 0), 100.0f, t, hp));
         CHECK_NEAR(hp.y, 5.0f, 1e-3f);
         CHECK_NEAR(t, 15.0f, 1e-3f);
@@ -10055,7 +10055,7 @@ void testHeightField3D() {
         CHECK(nrm.x < 0.0f); // surface rises toward +x -> normal leans -x
         CHECK(nrm.y > 0.0f);
         float t = 0.0f;
-        math::vec3 hp{};
+        math::vec3 hp;
         CHECK(hf.raycast(math::vec3(6.0f, 10.0f, 2.0f), math::vec3(0, -1, 0), 100.0f, t, hp));
         CHECK_NEAR(hp.y, 3.0f, 1e-3f);
     }
@@ -10068,7 +10068,7 @@ void testHeightField3D() {
             }
         }
         float t = 0.0f;
-        math::vec3 hp{};
+        math::vec3 hp;
         CHECK(hf.raycast(math::vec3(0.5f, 5.0f, 0.5f), math::vec3(1, -1, 0), 100.0f, t, hp));
         CHECK_NEAR(hp.y, 0.0f, 1e-3f);
         CHECK_NEAR(hp.x, 5.5f, 1e-3f);
@@ -10089,7 +10089,7 @@ void testHeightField3D() {
             }
         }
         float t = 0.0f;
-        math::vec3 hp{};
+        math::vec3 hp;
         CHECK(hf.raycast(math::vec3(-5.0f, 10.0f, 2.5f), math::vec3(1, -1, 0), 100.0f, t, hp));
         CHECK_NEAR(hp.y, 2.0f, 1e-3f);
         CHECK_NEAR(hp.x, 3.0f, 1e-3f);
@@ -28830,11 +28830,7 @@ void testEditorWorldToScreen() {
     const math::mat4 viewProj = proj * view;
 
     const math::vec3 target(0.2f, 0.3f, 0.0f);
-    // Zero-initialised, not left indeterminate: CHECK reports a failure and
-    // carries on rather than returning, so if worldToScreen ever fails it
-    // leaves this untouched and the lines below read it. GCC 14 says so under
-    // -Werror=maybe-uninitialized and is right.
-    math::vec2 px{};
+    math::vec2 px(0.0f); // worldToScreen leaves it untouched on failure; newer GCC flags the read
     CHECK(editor::worldToScreen(viewProj, target, w, h, px));
     CHECK_NEAR(px.x, w * 0.5f, 1.5f); // look target projects to screen centre
     CHECK_NEAR(px.y, h * 0.5f, 1.5f);
@@ -28846,14 +28842,14 @@ void testEditorWorldToScreen() {
     CHECK(glm::dot(rd, toTarget) > 0.999f);
 
     // A point off to the side projects off-centre in the expected direction.
-    math::vec2 pr{};  // same reason as px above
+    math::vec2 pr(0.0f);
     CHECK(editor::worldToScreen(viewProj, math::vec3(2.0f, 0.3f, 0.0f), w, h, pr));
     CHECK(pr.x > px.x); // +x world moves right on screen for this camera
 }
 
 void testEditorGizmoDrag() {
     // A ray from above pointing down at an angle hits the ground plane at a predictable point.
-    math::vec3 hit{};
+    math::vec3 hit;
     CHECK(editor::rayPlaneY(math::vec3(0, 4, 0), math::vec3(1, -1, 0), 0.0f, hit));
     CHECK_NEAR(hit.x, 4.0f, 1e-4f); // travel 4 down => 4 along x
     CHECK_NEAR(hit.y, 0.0f, 1e-4f);

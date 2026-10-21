@@ -1,0 +1,15 @@
+{
+  "ac": [
+    { "hex": "a1b2c3", "type": "adsb_icao", "flight": "UAL123  ", "r": "N12345", "t": "B738", "alt_baro": 35000, "gs": 480.2, "track": 90.0, "lat": 40.10, "lon": -74.00, "seen_pos": 0.4 },
+    { "hex": "abc001", "type": "adsb_icao", "flight": "DAL45   ", "r": "N800DL", "t": "A321", "alt_baro": 12025, "gs": 310.5, "track": 225.4, "lat": 41.20, "lon": -73.10, "seen_pos": 1.2 },
+    { "hex": "a00f00", "type": "adsb_icao", "r": "N9999X", "t": "C172", "alt_baro": "ground", "gs": 0, "track": 0, "lat": 40.64, "lon": -73.78, "seen_pos": 3.0 },
+    { "hex": "stale1", "type": "adsb_icao", "flight": "OLD1    ", "alt_baro": 30000, "gs": 400, "track": 10, "lat": 39.0, "lon": -75.0, "seen_pos": 120 },
+    { "hex": "nopos1", "type": "mode_s", "flight": "NOPOS   ", "alt_baro": 20000 },
+    { "hex": "badlat", "type": "adsb_icao", "flight": "BAD     ", "alt_baro": 20000, "gs": 300, "track": 0, "lat": 140, "lon": -73.0, "seen_pos": 1 }
+  ],
+  "msg": "No error",
+  "now": 1792563000000,
+  "total": 6,
+  "ctime": 1792563000000,
+  "ptime": 3
+}

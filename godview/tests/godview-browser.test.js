@@ -18,6 +18,7 @@
 'use strict';
 
 const http = require('http');
+const zlib = require('zlib');
 const fs = require('fs');
 const path = require('path');
 
@@ -46,6 +47,57 @@ function redate(text, date) {
   }).join('\n');
 }
 const YESTERDAY = new Date(Date.now() - 86400000);
+
+/* Weather pictures, made here so no binary fixtures are needed: a minimal PNG
+ * encoder (8-bit RGBA, no filtering) over a fill function. */
+function crc32(buf) {
+  let c = ~0;
+  for (const b of buf) {
+    c ^= b;
+    for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1));
+  }
+  return ~c >>> 0;
+}
+function png(width, height, fill) {
+  const raw = Buffer.alloc((width * 4 + 1) * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) Buffer.from(fill(x, y)).copy(raw, y * (width * 4 + 1) + 1 + x * 4);
+  }
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([len, body, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))
+  ]);
+}
+/* Clouds: one white bank over 0–45°N, 0–90°E; sea everywhere else. */
+const CLOUDS_PNG = png(64, 32, (x, y) => (x >= 32 && x < 48 && y >= 8 && y < 16 ? [245, 245, 245, 255] : [10, 40, 90, 255]));
+/* Rain: one radar tile of the 4 × 4 has rain in it; the rest are clear. */
+const RAIN_PNG = png(16, 16, () => [0, 120, 255, 220]);
+const CLEAR_PNG = png(16, 16, () => [0, 0, 0, 0]);
+const ADSB = fs.readFileSync(path.join(__dirname, 'fixtures', 'adsb-sample.json'));
+const OPENSKY = fs.readFileSync(path.join(__dirname, 'fixtures', 'opensky-sample.json'));
+const TFL = fs.readFileSync(path.join(__dirname, 'fixtures', 'tfl-jamcams-sample.json'));
+const DIGITRAFFIC = fs.readFileSync(path.join(__dirname, 'fixtures', 'digitraffic-stations-sample.json'));
+const CALTRANS = fs.readFileSync(path.join(__dirname, 'fixtures', 'caltrans-d4-sample.json'));
+/* A camera picture: a grey road under a pale sky. */
+const CAMERA_PNG = png(32, 24, (x, y) => (y < 10 ? [180, 200, 220, 255] : [90, 90, 90, 255]));
+const RAIN_INDEX = JSON.stringify({
+  version: '2.0',
+  host: 'https://tilecache.rainviewer.com',
+  radar: { past: [{ time: 1792563000, path: '/v2/radar/1792563000' }], nowcast: [] }
+});
 const STATIONS_TLE = redate(fs.readFileSync(path.join(__dirname, 'fixtures', 'celestrak-stations.txt'), 'utf8'), YESTERDAY);
 const VISUAL_TLE = redate(fs.readFileSync(path.join(__dirname, 'fixtures', 'celestrak-visual.txt'), 'utf8'), YESTERDAY);
 const GLOBE_URL = 'https://cdn.jsdelivr.net/npm/globe.gl@2.46.2/dist/globe.gl.min.js';
@@ -110,10 +162,11 @@ function launchOptions() {
   return opts;
 }
 
-/* A phone-sized page with the network answered by us. `quakes`, `sats` and
- * `globe` are 'ok' or 'down'. Errors caused on purpose (a feed we cut) are not
- * problems. */
-async function openPage(browser, base, { quakes = 'ok', sats = 'ok', globe = 'ok' } = {}) {
+/* A phone-sized page with the network answered by us. `quakes`, `sats`,
+ * `weather`, `adsb`, `opensky`, `cameras` and `globe` are 'ok' or 'down'.
+ * Finland's camera pictures are always cut, to show the "no picture" note. Errors caused on purpose (a feed
+ * we cut) are not problems. */
+async function openPage(browser, base, { quakes = 'ok', sats = 'ok', weather = 'ok', adsb = 'ok', opensky = 'ok', cameras = 'ok', globe = 'ok' } = {}) {
   const page = await browser.newPage({
     viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true
   });
@@ -135,6 +188,37 @@ async function openPage(browser, base, { quakes = 'ok', sats = 'ok', globe = 'ok
     return route.fulfill({ status: 200, contentType: 'text/plain', body: body,
       headers: { 'access-control-allow-origin': '*' } });
   });
+  const cors = { 'access-control-allow-origin': '*' };
+  await page.route('https://wvs.earthdata.nasa.gov/**', (route) => (weather === 'ok' ?
+    route.fulfill({ status: 200, contentType: 'image/png', body: CLOUDS_PNG, headers: cors }) : route.abort('failed')));
+  await page.route('https://api.rainviewer.com/**', (route) => (weather === 'ok' ?
+    route.fulfill({ status: 200, contentType: 'application/json', body: RAIN_INDEX, headers: cors }) : route.abort('failed')));
+  await page.route('https://tilecache.rainviewer.com/**', (route) => {
+    if (weather !== 'ok') return route.abort('failed');
+    const rainy = /\/256\/2\/1\/1\//.test(route.request().url());
+    return route.fulfill({ status: 200, contentType: 'image/png', body: rainy ? RAIN_PNG : CLEAR_PNG, headers: cors });
+  });
+  /* The plane samples are dated; serve them with the times moved to now, so
+   * nothing is dropped as stale. */
+  const fresh = (buf, field, scale) => {
+    const j = JSON.parse(buf);
+    j[field] = Math.floor(Date.now() / scale);
+    if (j.states) for (const st of j.states) if (st[3] !== null) st[3] += j.time - 1792563000;
+    return JSON.stringify(j);
+  };
+  await page.route('https://api.adsb.lol/**', (route) => (adsb === 'ok' ?
+    route.fulfill({ status: 200, contentType: 'application/json', body: fresh(ADSB, 'now', 1), headers: cors }) : route.abort('failed')));
+  await page.route('https://opensky-network.org/**', (route) => (opensky === 'ok' ?
+    route.fulfill({ status: 200, contentType: 'application/json', body: fresh(OPENSKY, 'time', 1000), headers: cors }) : route.abort('failed')));
+  const list = (body) => (route) => (cameras === 'ok' ?
+    route.fulfill({ status: 200, contentType: 'application/json', body: body, headers: cors }) : route.abort('failed'));
+  const picture = (route) => route.fulfill({ status: 200, contentType: 'image/png', body: CAMERA_PNG });
+  await page.route('https://api.tfl.gov.uk/**', list(TFL));
+  await page.route('https://tie.digitraffic.fi/**', list(DIGITRAFFIC));
+  await page.route('https://cwwp2.dot.ca.gov/**', (route) =>
+    (/\.json$/.test(new URL(route.request().url()).pathname) ? list(CALTRANS)(route) : picture(route)));
+  await page.route('https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/**', picture);
+  await page.route('https://weathercam.digitraffic.fi/**', (route) => route.abort('failed'));
   await page.route(GLOBE_URL, (route) => {
     if (globe !== 'ok') return route.abort('failed');
     if (process.env.GLOBE_JS) {
@@ -152,6 +236,44 @@ async function openPage(browser, base, { quakes = 'ok', sats = 'ok', globe = 'ok
   }, null, { timeout: 15000 }).catch(() => {});
   await page.waitForTimeout(300);
   return { page, problems };
+}
+
+/* Turn the Earth to face a moving marker, then tap it like a finger would.
+ * It never stops moving, and on a slow software GPU a frame can land between
+ * finding it and tapping, so wait until it is shown and settled, and give it
+ * three goes. Says what was under the finger if the sheet never opens. */
+async function tapMarker(page, sel, layerId, index) {
+  await page.evaluate(({ layerId, index }) => {
+    const g = window.GODVIEW.globe;
+    g.controls().autoRotate = false;
+    const m = window.GODVIEW.layers.find((l) => l.id === layerId).html[index];
+    g.pointOfView({ lat: m.lat, lng: m.lng, altitude: 2 }, 0);
+  }, { layerId, index });
+  await page.waitForTimeout(1200);
+  const sheetOpen = () => page.evaluate(() => !document.getElementById('sheet').hidden);
+  let underFinger = '';
+  for (let attempt = 0; attempt < 3 && !(await sheetOpen()); attempt++) {
+    await page.evaluate(() => { window.__markerBox = null; });
+    await page.waitForFunction((s) => {
+      const el = document.querySelector(s);
+      if (!el || el.classList.contains('is-hidden')) return false;
+      const r = el.getBoundingClientRect();
+      const prev = window.__markerBox;
+      window.__markerBox = [r.left, r.top];
+      return prev && Math.abs(prev[0] - r.left) < 2 && Math.abs(prev[1] - r.top) < 2;
+    }, sel, { timeout: 10000, polling: 250 }).catch(() => {});
+    const box = await page.$eval(sel, (e) => {
+      const r = e.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    });
+    underFinger = await page.evaluate(({ x, y }) => {
+      const el = document.elementFromPoint(x, y);
+      return el ? el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + '.' + el.className : 'nothing';
+    }, box);
+    await page.touchscreen.tap(box.x, box.y);
+    await page.waitForTimeout(300);
+  }
+  return { opened: await sheetOpen(), underFinger };
 }
 
 (async () => {
@@ -190,25 +312,121 @@ async function openPage(browser, base, { quakes = 'ok', sats = 'ok', globe = 'ok
       await page.waitForTimeout(2500);
       const lngAfter = await page.evaluate(() => window.GODVIEW.layers.find((l) => l.id === 'sats').html[0].lng);
       check(lngBefore !== lngAfter, 'the ISS moves on its own');
-      /* Turn the Earth to face the ISS, then tap its marker like a finger would. */
-      await page.evaluate(() => {
-        const g = window.GODVIEW.globe;
-        g.controls().autoRotate = false;
-        const iss = window.GODVIEW.layers.find((l) => l.id === 'sats').html[0];
-        g.pointOfView({ lat: iss.lat, lng: iss.lng, altitude: 2 }, 0);
+      const { opened, underFinger } = await tapMarker(page, '.marker[aria-label="ISS (ZARYA)"]', 'sats', 0);
+      check(opened && (await page.textContent('#sheet-title')) === 'ISS (ZARYA)',
+        'tapping the ISS opens its details' + (opened ? '' : ' — under the finger: ' + underFinger));
+      if (opened) {
+        check((await page.textContent('#sheet-rows')).includes('ALTITUDE'), 'which give its altitude');
+        check((await page.getAttribute('#sheet-link', 'href')) === 'https://www.n2yo.com/satellite/?s=25544', 'and link to its live track');
+        await page.tap('#sheet-close');
+      }
+
+      console.log('\nWEATHER');
+      const wx = 'button.layer-btn[data-layer="weather"]';
+      const wxVal = async () => (await page.textContent(wx + ' .val')).trim();
+      check((await page.getAttribute(wx, 'aria-pressed')) === 'false', 'weather waits to be asked for');
+      check((await wxVal()) === 'OFF', 'its button says OFF');
+      check(await page.evaluate(() => document.getElementById('credits').hidden), 'no credit strip yet');
+      await page.tap(wx);
+      await page.waitForFunction((sel) => /UTC$/.test(document.querySelector(sel).textContent), wx + ' .val', { timeout: 15000 })
+        .catch(() => {});
+      check((await wxVal()) === '06:10 UTC', 'tapping it shows the radar time (' + (await wxVal()) + ')');
+      const tex = await page.evaluate(() => {
+        const t = window.GODVIEW.layers.find((l) => l.id === 'weather').texture;
+        if (!t) return null;
+        /* 22.5°N 45°E sits in the cloud bank; 22.5°S 45°W is open sea. */
+        const at = (lat, lng) => {
+          const x = Math.floor((lng + 180) / 360 * t.width);
+          const y = Math.floor((90 - lat) / 180 * t.height);
+          return Array.from(t.data.slice((y * t.width + x) * 4, (y * t.width + x) * 4 + 3));
+        };
+        return { w: t.width, h: t.height, cloud: at(22.5, 45), sea: at(-22.5, -45) };
       });
-      await page.waitForTimeout(1200);
-      /* It never stops moving, so tap where it is right now, as a finger would. */
-      const issBox = await page.$eval('.marker[aria-label="ISS (ZARYA)"]', (e) => {
-        const r = e.getBoundingClientRect();
-        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      check(tex && tex.w === 2048 && tex.h === 1024, 'a whole-world weather picture is made');
+      check(tex && tex.cloud[0] > 150 && tex.cloud[1] > 150, 'clouds are painted where the clouds are');
+      check(tex && tex.sea.join() === '3,20,12', 'open sea stays the dark globe colour');
+      check(await page.evaluate(() => /^data:image\/jpeg/.test(window.GODVIEW.globe.globeImageUrl() || '')), 'the globe wears it');
+      await page.waitForTimeout(800);
+      check(await page.evaluate(() => !!window.GODVIEW.globe.globeMaterial().map), 'the globe surface shows the picture');
+      const credits = await page.evaluate(() => { const c = document.getElementById('credits'); return c.hidden ? '' : c.textContent; });
+      check(credits.includes('NASA') && credits.includes('RainViewer'), 'both sources are credited');
+      await page.tap(wx);
+      check((await wxVal()) === 'OFF', 'tapping again turns weather off');
+      await page.waitForTimeout(1800);
+      check(await page.evaluate(() => !window.GODVIEW.globe.globeMaterial().map), 'and the plain dark globe is back');
+      check(await page.evaluate(() => document.getElementById('credits').hidden), 'and the credits go');
+
+      console.log('\nPLANES');
+      const pl = 'button.layer-btn[data-layer="planes"]';
+      const plVal = async () => (await page.textContent(pl + ' .val')).trim();
+      check((await page.getAttribute(pl, 'aria-pressed')) === 'false', 'planes wait to be asked for');
+      await page.tap(pl);
+      await page.waitForFunction((sel) => document.querySelector(sel).textContent === '3', pl + ' .val', { timeout: 15000 })
+        .catch(() => {});
+      check((await plVal()) === '3', 'tapping it shows 3 planes (' + (await plVal()) + ')');
+      await page.waitForFunction(() => document.querySelectorAll('.marker--plane').length === 3, null, { timeout: 10000 })
+        .catch(() => {});
+      check((await page.$$('.marker--plane')).length === 3, '3 plane markers on the globe');
+      check((await page.$eval('.marker[aria-label="UAL123"]', (e) => e.style.getPropertyValue('--rot'))) === '90deg',
+        'UAL123 points east, along its track');
+      const ualLng = () => page.evaluate(() => window.GODVIEW.layers.find((l) => l.id === 'planes').html
+        .find((h) => h.item.hex === 'a1b2c3').lng);
+      const lng0 = await ualLng();
+      await page.waitForTimeout(2500);
+      check((await ualLng()) > lng0, 'it flies on between updates');
+      const ualIndex = await page.evaluate(() => window.GODVIEW.layers.find((l) => l.id === 'planes').html
+        .findIndex((h) => h.item.hex === 'a1b2c3'));
+      const tapped = await tapMarker(page, '.marker[aria-label="UAL123"]', 'planes', ualIndex);
+      check(tapped.opened && (await page.textContent('#sheet-title')) === 'UAL123',
+        'tapping it opens its details' + (tapped.opened ? '' : ' — under the finger: ' + tapped.underFinger));
+      if (tapped.opened) {
+        check((await page.textContent('#sheet-rows')).includes('35,000 ft'), 'which give its height');
+        await page.tap('#sheet-close');
+      }
+      const plCredit = await page.evaluate(() => document.getElementById('credits').textContent);
+      check(plCredit.includes('adsb.lol'), 'adsb.lol is credited');
+      await page.tap(pl);
+      check((await page.$$('.marker--plane')).length === 0 || (await plVal()) === 'OFF', 'tapping again turns planes off');
+      await page.evaluate(() => { window.GODVIEW.globe.pointOfView({ lat: 20, lng: -40, altitude: 2.4 }, 0); });
+
+      console.log('\nCAMERAS');
+      const cam = 'button.layer-btn[data-layer="cameras"]';
+      const camVal = async () => (await page.textContent(cam + ' .val')).trim();
+      check((await page.getAttribute(cam, 'aria-pressed')) === 'false', 'cameras wait to be asked for');
+      await page.tap(cam);
+      await page.waitForFunction((sel) => document.querySelector(sel).textContent === '5', cam + ' .val', { timeout: 15000 })
+        .catch(() => {});
+      check((await camVal()) === '5', 'tapping it finds 5 cameras in London, Finland and California (' + (await camVal()) + ')');
+      await page.waitForFunction(() => document.querySelectorAll('.marker[data-layer="cameras"]').length === 5, null, { timeout: 10000 })
+        .catch(() => {});
+      check((await page.$$('.marker[data-layer="cameras"]')).length === 5, '5 camera markers on the globe');
+      const trafalgar = await page.evaluate(() => window.GODVIEW.layers.find((l) => l.id === 'cameras').html
+        .findIndex((h) => h.item.id === 'tfl:00001.06514'));
+      const camTap = await tapMarker(page, '.marker[aria-label="Trafalgar Sq/Cockspur St"]', 'cameras', trafalgar);
+      check(camTap.opened && (await page.textContent('#sheet-title')) === 'Trafalgar Sq/Cockspur St',
+        'tapping a camera opens it' + (camTap.opened ? '' : ' — under the finger: ' + camTap.underFinger));
+      await page.waitForFunction(() => document.getElementById('sheet-image').naturalWidth > 0, null, { timeout: 10000 })
+        .catch(() => {});
+      const pic = await page.evaluate(() => {
+        const i = document.getElementById('sheet-image');
+        return { shown: !i.hidden && i.naturalWidth > 0, src: i.getAttribute('src') || '' };
       });
-      await page.touchscreen.tap(issBox.x, issBox.y);
-      await page.waitForTimeout(200);
-      check((await page.textContent('#sheet-title')) === 'ISS (ZARYA)', 'tapping the ISS opens its details');
-      check((await page.textContent('#sheet-rows')).includes('ALTITUDE'), 'which give its altitude');
-      check((await page.getAttribute('#sheet-link', 'href')) === 'https://www.n2yo.com/satellite/?s=25544', 'and link to its live track');
+      check(pic.shown, 'and shows its latest picture');
+      check(/jamcams\.tfl\.gov\.uk\/00001\.06514\.jpg\?t=\d+$/.test(pic.src), 'fetched fresh, not from the cache');
+      check((await page.textContent('#credits')).includes('TfL'), 'TfL is credited');
       await page.tap('#sheet-close');
+      check(await page.evaluate(() => document.getElementById('sheet-image').hidden), 'closing it puts the picture away');
+      await page.evaluate(() => {
+        const l = window.GODVIEW.layers.find((x) => x.id === 'cameras');
+        window.GODVIEW.openSheet(l.html.find((h) => h.item.id === 'fi:C04507'));
+      });
+      await page.waitForFunction(() => !document.getElementById('sheet-image-note').hidden, null, { timeout: 10000 })
+        .catch(() => {});
+      check(await page.evaluate(() => !document.getElementById('sheet-image-note').hidden &&
+        document.getElementById('sheet-image').hidden), 'a picture that will not load says so instead');
+      await page.tap('#sheet-close');
+      await page.tap(cam);
+      await page.evaluate(() => { window.GODVIEW.globe.pointOfView({ lat: 20, lng: -40, altitude: 2.4 }, 0); });
 
       console.log('\nDETAILS SHEET');
       await page.evaluate(() => window.GODVIEW.openSheet(window.GODVIEW.globe.pointsData()[0]));
@@ -233,6 +451,11 @@ async function openPage(browser, base, { quakes = 'ok', sats = 'ok', globe = 'ok
       const box = await page.$eval(btn, (e) => { const r = e.getBoundingClientRect(); return { h: r.height, right: r.right }; });
       check(box.h >= 44, 'the layer button is at least 44 px tall (' + Math.round(box.h) + ')');
       check(box.right <= 390, 'the layer button fits on screen');
+      const allFit = await page.$$eval('.layer-btn', (els) => els.every((e) => {
+        const r = e.getBoundingClientRect();
+        return r.left >= 0 && r.right <= window.innerWidth && r.bottom <= window.innerHeight;
+      }));
+      check(allFit, 'every layer button is on screen at once, no scrolling');
       check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'no sideways scrolling');
       await page.waitForSelector('.mazNav-pill', { timeout: 5000 }).catch(() => {});
       const overlap = await page.evaluate(() => {
@@ -267,6 +490,59 @@ async function openPage(browser, base, { quakes = 'ok', sats = 'ok', globe = 'ok
       const { page, problems } = await openPage(browser, base, { sats: 'down' });
       check((await page.textContent('button.layer-btn[data-layer="sats"] .val')).trim() === 'OFFLINE', 'the SATS button says OFFLINE');
       check((await page.textContent('button.layer-btn[data-layer="quakes"] .val')).trim() === '3', 'quakes carry on regardless');
+      check(problems.length === 0, 'and nothing throws' + (problems.length ? ' — ' + problems.join('; ') : ''));
+      await page.close();
+    }
+
+    console.log('\nWEATHER SOURCES DOWN');
+    {
+      const { page, problems } = await openPage(browser, base, { weather: 'down' });
+      const wx = 'button.layer-btn[data-layer="weather"]';
+      await page.tap(wx);
+      await page.waitForFunction((sel) => document.querySelector(sel).textContent === 'OFFLINE', wx + ' .val', { timeout: 15000 })
+        .catch(() => {});
+      check((await page.textContent(wx + ' .val')).trim() === 'OFFLINE', 'the WEATHER button says OFFLINE');
+      check(await page.evaluate(() => !window.GODVIEW.globe.globeMaterial().map), 'the globe stays plain');
+      check((await page.textContent('button.layer-btn[data-layer="sats"] .val')).trim() === '4', 'satellites carry on regardless');
+      check(problems.length === 0, 'and nothing throws' + (problems.length ? ' — ' + problems.join('; ') : ''));
+      await page.close();
+    }
+
+    console.log('\nADSB.LOL DOWN, OPENSKY UP');
+    {
+      const { page, problems } = await openPage(browser, base, { adsb: 'down' });
+      const pl = 'button.layer-btn[data-layer="planes"]';
+      await page.tap(pl);
+      await page.waitForFunction((sel) => document.querySelector(sel).textContent === '2', pl + ' .val', { timeout: 15000 })
+        .catch(() => {});
+      check((await page.textContent(pl + ' .val')).trim() === '2', 'OpenSky fills in: 2 planes');
+      check((await page.textContent('#credits')).includes('OpenSky'), 'and OpenSky is credited');
+      check(problems.length === 0, 'and nothing throws' + (problems.length ? ' — ' + problems.join('; ') : ''));
+      await page.close();
+    }
+
+    console.log('\nBOTH FLIGHT SOURCES DOWN');
+    {
+      const { page, problems } = await openPage(browser, base, { adsb: 'down', opensky: 'down' });
+      const pl = 'button.layer-btn[data-layer="planes"]';
+      await page.tap(pl);
+      await page.waitForFunction((sel) => document.querySelector(sel).textContent === 'OFFLINE', pl + ' .val', { timeout: 15000 })
+        .catch(() => {});
+      check((await page.textContent(pl + ' .val')).trim() === 'OFFLINE', 'the PLANES button says OFFLINE');
+      check((await page.textContent('button.layer-btn[data-layer="quakes"] .val')).trim() === '3', 'quakes carry on regardless');
+      check(problems.length === 0, 'and nothing throws' + (problems.length ? ' — ' + problems.join('; ') : ''));
+      await page.close();
+    }
+
+    console.log('\nEVERY CAMERA LIST DOWN');
+    {
+      const { page, problems } = await openPage(browser, base, { cameras: 'down' });
+      const cam = 'button.layer-btn[data-layer="cameras"]';
+      await page.tap(cam);
+      await page.waitForFunction((sel) => document.querySelector(sel).textContent === 'OFFLINE', cam + ' .val', { timeout: 15000 })
+        .catch(() => {});
+      check((await page.textContent(cam + ' .val')).trim() === 'OFFLINE', 'the CAMERAS button says OFFLINE');
+      check((await page.textContent('button.layer-btn[data-layer="sats"] .val')).trim() === '4', 'satellites carry on regardless');
       check(problems.length === 0, 'and nothing throws' + (problems.length ? ' — ' + problems.join('; ') : ''));
       await page.close();
     }

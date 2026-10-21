@@ -1,0 +1,46 @@
+{
+  "data": [
+    {
+      "cctv": {
+        "index": "1",
+        "recordTimestamp": { "recordDate": "2026-10-21", "recordTime": "06:40:00" },
+        "location": {
+          "district": "4",
+          "locationName": "TV101 -- I-80 : Bay Bridge Toll Plaza",
+          "nearbyPlace": "Oakland",
+          "longitude": "-122.3075",
+          "latitude": "37.8253",
+          "elevation": "10",
+          "direction": "West",
+          "county": "Alameda",
+          "route": "I-80"
+        },
+        "inService": "true",
+        "imageData": {
+          "imageDescription": "",
+          "streamingVideoURL": "https://wzmedia.dot.ca.gov/D4/W80_at_Toll_Plaza.stream/playlist.m3u8",
+          "static": {
+            "currentImageUpdateFrequency": "5",
+            "currentImageURL": "https://cwwp2.dot.ca.gov/data/d4/cctv/image/tv101i80baybridgetollplaza/tv101i80baybridgetollplaza.jpg"
+          }
+        }
+      }
+    },
+    {
+      "cctv": {
+        "index": "2",
+        "location": { "district": "4", "locationName": "TV999 -- out of service", "longitude": "-122.4", "latitude": "37.7" },
+        "inService": "false",
+        "imageData": { "static": { "currentImageURL": "https://cwwp2.dot.ca.gov/data/d4/cctv/image/x/x.jpg" } }
+      }
+    },
+    {
+      "cctv": {
+        "index": "3",
+        "location": { "district": "4", "locationName": "TV998 -- no picture", "longitude": "-122.2", "latitude": "37.6" },
+        "inService": "true",
+        "imageData": { "static": { "currentImageURL": "Not Reported" } }
+      }
+    }
+  ]
+}

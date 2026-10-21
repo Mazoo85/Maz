@@ -23,13 +23,18 @@
     </div>
   </header>
 
-  <nav id="layerbar" aria-label="Layers"></nav>
+  <div id="bottom">
+    <p id="credits" hidden></p>
+    <nav id="layerbar" aria-label="Layers"></nav>
+  </div>
 
   <section id="sheet" hidden aria-live="polite">
     <div class="sheet-head">
       <h2 id="sheet-title"></h2>
       <button id="sheet-close" type="button">CLOSE</button>
     </div>
+    <img id="sheet-image" alt="" hidden />
+    <p id="sheet-image-note" hidden>The camera's picture could not be loaded right now.</p>
     <dl id="sheet-rows"></dl>
     <a id="sheet-link" target="_blank" rel="noopener" hidden>SOURCE ↗</a>
   </section>
@@ -49,8 +54,14 @@
   <script src="vendor/satellite.min.js"></script>
   <script src="js/lib/quakes.js"></script>
   <script src="js/lib/sats.js"></script>
+  <script src="js/lib/weather.js"></script>
+  <script src="js/lib/planes.js"></script>
+  <script src="js/lib/cameras.js"></script>
   <script src="js/layers/quakes-layer.js"></script>
   <script src="js/layers/sats-layer.js"></script>
+  <script src="js/layers/weather-layer.js"></script>
+  <script src="js/layers/planes-layer.js"></script>
+  <script src="js/layers/cameras-layer.js"></script>
   <script src="js/app.js"></script>
 
   <!-- shared MAZ ARCADE nav: back to the hub + jump to any other project -->
