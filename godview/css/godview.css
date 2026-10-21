@@ -1,0 +1,289 @@
+/* GOD'S EYE VIEW — the spy-console look. Phone first. */
+:root {
+  --bg: #000000;
+  --green: #1aff8c;
+  --green-dim: rgba(26, 255, 140, 0.35);
+  --amber: #ffb300;
+  --red: #ff3b3b;
+  --panel: rgba(2, 14, 8, 0.86);
+  --text: #c8ffe0;
+  --muted: #5f9c7c;
+  --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Menlo, Consolas, monospace;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+#globe {
+  position: fixed;
+  inset: 0;
+  touch-action: none;
+}
+
+/* Faint scan lines over everything, for the console feel. */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(26, 255, 140, 0.035) 0 1px, transparent 1px 3px);
+  z-index: 5;
+}
+
+/* ---------------------------------------------------------------- top bar */
+#topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  /* The left gap keeps everything clear of the floating MAZ nav pill. */
+  padding: calc(var(--safe-top) + 10px) calc(var(--safe-right) + 12px) 10px calc(var(--safe-left) + 96px);
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.85), transparent);
+  pointer-events: none;
+}
+
+#topbar h1 {
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: 0.18em;
+  color: var(--green);
+  text-shadow: 0 0 8px var(--green-dim);
+  white-space: nowrap;
+}
+
+#status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+#live {
+  padding: 2px 6px;
+  border: 1px solid var(--muted);
+  border-radius: 3px;
+  letter-spacing: 0.1em;
+}
+#live.is-on { color: var(--red); border-color: var(--red); }
+#live.is-blink { background: var(--red); color: #000; }
+
+#clock { color: var(--text); }
+
+/* -------------------------------------------------------------- layer bar */
+/* The credit strip and the layer bar stack at the bottom, so the strip always
+ * sits just above the buttons however many rows they take. */
+#bottom {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  padding: 0 calc(var(--safe-right) + 10px) calc(var(--safe-bottom) + 10px) calc(var(--safe-left) + 10px);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 60%, transparent);
+  pointer-events: none;
+}
+
+/* Every layer visible at once, no sideways scrolling: three to a row on a
+ * phone, more on a wider screen. */
+#layerbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 8px;
+  padding-top: 10px;
+  pointer-events: auto;
+}
+
+.layer-btn {
+  min-width: 0;
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 6px;
+  align-items: center;
+  padding: 6px 10px;
+  border: 1px solid var(--green-dim);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.layer-btn .icon { grid-row: 1 / span 2; font-size: 20px; }
+.layer-btn .name { font-size: 11px; letter-spacing: 0.12em; color: var(--green); }
+.layer-btn .val { font-size: 14px; }
+
+.layer-btn[aria-pressed='false'] { opacity: 0.55; border-color: rgba(95, 156, 124, 0.4); }
+.layer-btn[aria-pressed='false'] .name { color: var(--muted); }
+.layer-btn.is-offline { border-color: var(--red); }
+.layer-btn.is-offline .val { color: var(--red); }
+.layer-btn.is-loading .val { color: var(--amber); }
+
+/* ------------------------------------------------- floating globe markers */
+/* A small glowing dot with a generous invisible tap area around it. */
+.marker {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: opacity 0.3s;
+}
+.marker::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: 0 0 6px 1px var(--c);
+}
+.marker-label {
+  position: absolute;
+  left: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--c);
+  text-shadow: 0 0 4px #000;
+  white-space: nowrap;
+}
+/* A plane: the silhouette instead of the dot, turned to its heading. */
+.marker--plane::before { display: none; }
+.marker--plane svg {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  fill: var(--c);
+  filter: drop-shadow(0 0 2px var(--c));
+  transform: rotate(var(--rot, 0deg));
+}
+
+/* Behind the Earth: invisible and untappable. */
+.marker.is-hidden { opacity: 0; pointer-events: none; }
+
+/* ---------------------------------------------------------- credit strip */
+#credits {
+  margin: 0;
+  padding: 0 2px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  pointer-events: none;
+}
+#credits[hidden] { display: none; }
+
+/* ---------------------------------------------------------- details sheet */
+#sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  max-height: 60%;
+  overflow-y: auto;
+  padding: 14px calc(var(--safe-right) + 16px) calc(var(--safe-bottom) + 16px) calc(var(--safe-left) + 16px);
+  background: #020e08;
+  border-top: 1px solid var(--green);
+  box-shadow: 0 -6px 24px rgba(26, 255, 140, 0.15);
+}
+#sheet[hidden] { display: none; }
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+#sheet-title {
+  margin: 0;
+  font-size: 16px;
+  letter-spacing: 0.1em;
+  color: var(--amber);
+}
+#sheet-close {
+  min-height: 44px;
+  min-width: 72px;
+  border: 1px solid var(--green-dim);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--green);
+  font: inherit;
+  letter-spacing: 0.1em;
+}
+
+#sheet-rows {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+#sheet-rows dt { color: var(--muted); letter-spacing: 0.1em; }
+#sheet-rows dd { margin: 0; overflow-wrap: anywhere; }
+
+#sheet-link {
+  display: inline-block;
+  padding: 10px 0;
+  color: var(--green);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+}
+
+/* -------------------------------------------------------------- fallback */
+#fallback {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  background: var(--bg);
+}
+#fallback[hidden] { display: none; }
+.fallback-title {
+  margin: 0 0 10px;
+  font-size: 22px;
+  letter-spacing: 0.2em;
+  color: var(--red);
+}
+#fallback-msg { max-width: 30em; line-height: 1.5; color: var(--text); }
+
+.noscript { padding: 80px 24px; text-align: center; }

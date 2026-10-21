@@ -109,7 +109,8 @@ const APPS = [
   { id: 'madlibs', url: '/madlibs/', name: 'MADLIBS STORY FORGE', mode: 'inline' },
   { id: 'names', url: '/names/', name: 'NAME FORGE', mode: 'inline' },
   { id: 'film', url: '/film/', name: 'SCRIPT FORGE', mode: 'inline' },
-  { id: 'coda-pics', url: '/coda-pics/', name: 'CODA PICS', mode: 'inline' }
+  { id: 'coda-pics', url: '/coda-pics/', name: 'CODA PICS', mode: 'inline' },
+  { id: 'godview', url: '/godview/', name: "GOD'S EYE VIEW", mode: 'overlay' }
 ];
 
 (async () => {

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="description" content="GOD'S EYE VIEW — a live globe of earthquakes, satellites, weather and more, in your browser." />
+  <title>GOD'S EYE VIEW</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="css/godview.css" />
+</head>
+<body>
+  <div id="globe" aria-label="Live globe"></div>
+
+  <header id="topbar">
+    <h1>GOD'S EYE VIEW</h1>
+    <div id="status">
+      <span id="live" title="Lights up when live data arrives">LIVE</span>
+      <span id="clock">--:--:-- UTC</span>
+    </div>
+  </header>
+
+  <div id="bottom">
+    <p id="credits" hidden></p>
+    <nav id="layerbar" aria-label="Layers"></nav>
+  </div>
+
+  <section id="sheet" hidden aria-live="polite">
+    <div class="sheet-head">
+      <h2 id="sheet-title"></h2>
+      <button id="sheet-close" type="button">CLOSE</button>
+    </div>
+    <dl id="sheet-rows"></dl>
+    <a id="sheet-link" target="_blank" rel="noopener" hidden>SOURCE ↗</a>
+  </section>
+
+  <div id="fallback" hidden>
+    <p class="fallback-title">NO SIGNAL</p>
+    <p id="fallback-msg"></p>
+  </div>
+
+  <noscript>
+    <div class="noscript">GOD'S EYE VIEW needs JavaScript switched on.</div>
+  </noscript>
+
+  <script src="https://cdn.jsdelivr.net/npm/globe.gl@2.46.2/dist/globe.gl.min.js"></script>
+  <script src="js/lib/format.js"></script>
+  <script src="js/lib/poller.js"></script>
+  <script src="vendor/satellite.min.js"></script>
+  <script src="js/lib/quakes.js"></script>
+  <script src="js/lib/sats.js"></script>
+  <script src="js/lib/weather.js"></script>
+  <script src="js/lib/planes.js"></script>
+  <script src="js/layers/quakes-layer.js"></script>
+  <script src="js/layers/sats-layer.js"></script>
+  <script src="js/layers/weather-layer.js"></script>
+  <script src="js/layers/planes-layer.js"></script>
+  <script src="js/app.js"></script>
+
+  <!-- shared MAZ ARCADE nav: back to the hub + jump to any other project -->
+  <script src="../shared/maz-nav.js" data-current="godview" data-mode="overlay" defer></script>
+</body>
+</html>
