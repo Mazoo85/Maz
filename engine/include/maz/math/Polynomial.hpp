@@ -110,9 +110,26 @@ inline CubicRoots solveCubic(float a, float b, float c, float d) {
         }
     }
 
-    std::sort(roots, roots + n);
-    // De-duplicate near-equal roots.
-    for (int i = 0; i < n; ++i) {
+    // Sort the (at most 3) roots with a tiny manual insertion sort, for the same
+    // reason solveQuartic below does: std::sort on such a small stack array trips a
+    // libstdc++ -Warray-bounds false positive at -O3 (GCC 15 reports a subscript of
+    // [7, 576460752303423486] into this double[3], from inside stl_heap.h). The
+    // clamp gives GCC a provable bound and the manual sort avoids that library path
+    // entirely. The quartic was fixed this way and the cubic was left on std::sort,
+    // which is what broke the build when CI moved to GCC 15.
+    const int cnt = n < 3 ? n : 3;
+    for (int i = 1; i < cnt; ++i) {
+        const double key = roots[i];
+        int j = i - 1;
+        while (j >= 0 && roots[j] > key) {
+            roots[j + 1] = roots[j];
+            --j;
+        }
+        roots[j + 1] = key;
+    }
+    // De-duplicate near-equal roots. Bounded by `cnt` for the same reason as the
+    // sort above: it is the value GCC can prove, and it equals n.
+    for (int i = 0; i < cnt; ++i) {
         if (out.count == 0 || std::fabs(roots[i] - static_cast<double>(out.x[out.count - 1])) > 1e-5) {
             out.x[out.count++] = static_cast<float>(roots[i]);
         }
