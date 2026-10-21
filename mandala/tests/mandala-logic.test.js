@@ -196,6 +196,107 @@ test('junk strokes inside a save are skipped', () => {
   eq(back.strokes[0].points.length, 1);
 });
 
+console.log('\nMANDALA MAKER — motion');
+
+test('every motion mode is offered', () => {
+  eq(M.MOTIONS.map((m) => m.id).join(','), 'still,spin,swirl,breathe,flow');
+});
+
+test('Still never moves, at any time or speed', () => {
+  for (const t of [0, 1, 37.5]) {
+    for (let b = 0; b < M.BANDS; b++) {
+      const m = M.motion('still', b, t);
+      eq(m.angle, 0);
+      eq(m.scale, 1);
+    }
+  }
+});
+
+test('the same moment always gives the same pose, and the start is unturned', () => {
+  for (const mode of ['spin', 'swirl', 'breathe', 'flow']) {
+    for (let b = 0; b < M.BANDS; b++) {
+      eq(JSON.stringify(M.motion(mode, b, 7.25)), JSON.stringify(M.motion(mode, b, 7.25)));
+      near(M.motion(mode, b, 0).angle, 0, mode + ' start angle');
+    }
+  }
+});
+
+test('Spin turns every ring together and does not resize', () => {
+  const a = M.motion('spin', 0, 4);
+  assert(a.angle > 0, 'should turn');
+  for (let b = 1; b < M.BANDS; b++) {
+    near(M.motion('spin', b, 4).angle, a.angle, 'ring ' + b);
+    eq(M.motion('spin', b, 4).scale, 1);
+  }
+});
+
+test('Swirl turns neighbouring rings opposite ways', () => {
+  for (let b = 0; b + 1 < M.BANDS; b++) {
+    const here = M.motion('swirl', b, 3).angle;
+    const next = M.motion('swirl', b + 1, 3).angle;
+    assert(here * next < 0, 'rings ' + b + ' and ' + (b + 1) + ' turn the same way');
+  }
+});
+
+test('Breathe pulses gently without turning', () => {
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (let t = 0; t < 20; t += 0.05) {
+    const m = M.motion('breathe', 2, t);
+    eq(m.angle, 0);
+    lo = Math.min(lo, m.scale);
+    hi = Math.max(hi, m.scale);
+  }
+  assert(hi > 1.04 && lo < 0.96, 'pulse too small: ' + lo + '..' + hi);
+  assert(hi <= 1.06 + 1e-9 && lo >= 0.94 - 1e-9, 'pulse too big: ' + lo + '..' + hi);
+});
+
+test('Flow both turns and pulses', () => {
+  const m = M.motion('flow', 1, 2.3);
+  assert(m.angle !== 0, 'should turn');
+  assert(m.scale !== 1, 'should pulse');
+});
+
+test('rings are counted from the centre out and clamped', () => {
+  eq(M.bandOf(0), 0);
+  eq(M.bandOf(0.99), M.BANDS - 1);
+  eq(M.bandOf(5), M.BANDS - 1);
+  eq(M.bandOf(-1), 0);
+  eq(M.bandOf(NaN), 0);
+  assert(M.bandOf(0.1) < M.bandOf(0.5), 'outer rings have higher numbers');
+});
+
+test('a stroke keeps the ring it was started in', () => {
+  const s = M.makeStroke({ band: 4, points: [[0.01, 0], [0.02, 0]] });
+  eq(M.strokeBand(s), 4);
+});
+
+test('without one, a stroke sits in the ring of its average distance', () => {
+  eq(M.strokeBand(M.makeStroke({ points: [[0, 0]] })), 0);
+  eq(M.strokeBand(M.makeStroke({ points: [[0.9, 0], [0, 0.9]] })), M.bandOf(0.9));
+});
+
+test('a line drawn on a moving ring lands under the finger', () => {
+  for (const mode of ['spin', 'swirl', 'breathe', 'flow']) {
+    const m = M.motion(mode, 3, 8.55);
+    const p = M.intoBand(0.4, -0.2, m);
+    // Put it back the way the renderer does: scale, then turn.
+    const c = Math.cos(m.angle);
+    const s = Math.sin(m.angle);
+    near((p[0] * c - p[1] * s) * m.scale, 0.4, mode + ' x');
+    near((p[0] * s + p[1] * c) * m.scale, -0.2, mode + ' y');
+  }
+});
+
+test('a saved drawing keeps each stroke in its ring', () => {
+  const back = M.deserialize(M.serialize({
+    background: '#000000',
+    strokes: [M.makeStroke({ band: 5, points: [[0.1, 0]] }), M.makeStroke({ points: [[0.1, 0]] })]
+  }));
+  eq(back.strokes[0].band, 5);
+  eq(back.strokes[1].band, undefined);
+});
+
 console.log('\n' + passed + ' passed, ' + failures.length + ' failed');
 if (failures.length) {
   for (const f of failures) console.log('  - ' + f);
