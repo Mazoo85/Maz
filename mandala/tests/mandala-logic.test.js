@@ -241,7 +241,7 @@ test('junk strokes inside a save are skipped', () => {
 console.log('\nMANDALA MAKER — motion');
 
 test('every motion mode is offered', () => {
-  eq(M.MOTIONS.map((m) => m.id).join(','), 'still,spin,swirl,breathe,flow');
+  eq(M.MOTIONS.map((m) => m.id).join(','), 'still,spin,swirl,breathe,flow,vortex');
 });
 
 test('Still never moves, at any time or speed', () => {
@@ -368,6 +368,70 @@ test('a saved drawing keeps each stroke in its ring', () => {
   }));
   eq(back.strokes[0].band, 5);
   eq(back.strokes[1].band, undefined);
+});
+
+console.log('\nMANDALA MAKER — vortex');
+
+test('the vortex copies fit together with no gaps or overlaps', () => {
+  for (const phase of [0, 1.3, 2.9, 5.99, 6, 40.2]) {
+    const c = M.vortexCopies(phase);
+    for (let i = 0; i + 1 < c.length; i++) near(c[i].inner, c[i + 1].outer, 'phase ' + phase + ' copy ' + i);
+  }
+});
+
+test('the vortex always reaches the edge and runs down to the centre', () => {
+  for (let phase = 0; phase < 20; phase += 0.37) {
+    const c = M.vortexCopies(phase);
+    assert(c[0].outer >= 1, 'outermost copy stops at ' + c[0].outer + ' (phase ' + phase + ')');
+    assert(c[c.length - 1].inner < 0.01, 'leaves a hole at the centre (phase ' + phase + ')');
+  }
+});
+
+test('a copy shrinks towards the centre and turns as time passes', () => {
+  const a = M.vortexLevel(0, 0);
+  const b = M.vortexLevel(0, 2);
+  assert(b.scale < a.scale, 'shrinks');
+  assert(b.angle !== a.angle, 'turns');
+});
+
+test('after one cycle every copy has taken the place of the one inside it', () => {
+  const T = M.VORTEX_SECONDS;
+  for (const j of [-1, 0, 3]) {
+    const later = M.vortexLevel(j, 2.5 + T);
+    const inner = M.vortexLevel(j + 1, 2.5);
+    near(later.scale, inner.scale, 'scale ' + j);
+    near(later.angle, inner.angle, 'angle ' + j);
+  }
+});
+
+test('one cycle loops: the picture at the end matches the start', () => {
+  const T = M.VORTEX_SECONDS;
+  const pose = (phase) => M.vortexCopies(phase).filter((c) => c.scale < 1 && c.scale > 0.02)
+    .map((c) => c.scale.toFixed(9) + '@' + c.angle.toFixed(9));
+  // Same scales and angles, just named one level apart.
+  eq(pose(1.7).join(','), pose(1.7 + T).join(','));
+});
+
+test('a point is drawn into the copy it is on', () => {
+  const c = M.vortexCopies(3.3);
+  for (const r of [0.99, 0.6, 0.31, 0.12, 0.05]) {
+    const hit = M.vortexPick(r, c);
+    assert(hit && r > hit.inner && r <= hit.outer, 'r ' + r);
+  }
+  eq(M.vortexPick(0, c), null);
+});
+
+test('a line drawn on a vortex copy lands under the finger', () => {
+  const c = M.vortexPick(0.4, M.vortexCopies(4.1));
+  const p = M.intoBand(0.4 * Math.cos(1), 0.4 * Math.sin(1), c);
+  const cs = Math.cos(c.angle);
+  const sn = Math.sin(c.angle);
+  near((p[0] * cs - p[1] * sn) * c.scale, 0.4 * Math.cos(1), 'x');
+  near((p[0] * sn + p[1] * cs) * c.scale, 0.4 * Math.sin(1), 'y');
+});
+
+test('a vortex video is one whole cycle, so it loops', () => {
+  near(M.videoSeconds('vortex', 1), M.VORTEX_SECONDS);
 });
 
 console.log('\nMANDALA MAKER — video');
