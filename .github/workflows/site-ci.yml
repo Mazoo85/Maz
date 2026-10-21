@@ -40,6 +40,10 @@ jobs:
       # really rolled rather than always adjective-first.
       - name: NAME FORGE logic tests
         run: node names/tests/names-logic.test.js
+      # MANDALA MAKER's symmetry, generator and save file are plain modules:
+      # these prove a line really repeats evenly and a seed is reproducible.
+      - name: MANDALA MAKER logic tests
+        run: node mandala/tests/mandala-logic.test.js
       # CODA PICS paints onto a recording canvas, so its whole pipeline —
       # reading the words, painting the scene, finishing it in every style —
       # is checked here without a browser too.

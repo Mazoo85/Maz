@@ -95,6 +95,20 @@
       docs: 'names/README.md'
     },
     {
+      id: 'mandala',
+      name: 'MANDALA MAKER',
+      kind: 'app',
+      path: 'mandala/',
+      tag: 'draw a mandala',
+      accent: '#b06bff',
+      blurb:
+        'Draw one line and watch it repeat all the way round — 2 to 32 times, ' +
+        'mirrored like a kaleidoscope, with glow and rainbow ink. Or press Surprise me ' +
+        'for a whole mandala, then save it as a picture.',
+      badges: ['Phone + desktop', 'Touch drawing', 'PNG export'],
+      docs: 'mandala/README.md'
+    },
+    {
       id: 'film',
       name: 'SCRIPT FORGE',
       kind: 'app',

@@ -40,6 +40,7 @@ happening twice.
 | 🎮 | **DEAD SECTOR** — [play](shooter/) · [docs](shooter/README.md) | Phone-first top-down twin-stick shooter in one self-contained HTML file. |
 | ✍️ | **MADLIBS STORY FORGE** — [open](madlibs/) · [docs](madlibs/README.md) | Forges story ideas broken into scene beats, ready to seed a script. |
 | 🎲 | **NAME FORGE** — [open](names/) · [docs](names/README.md) | Random name maker: a random adjective and then a random noun, drawn from 1000 of each — a million names, in six styles, in batches, exportable. |
+| ✺ | **MANDALA MAKER** — [open](mandala/) · [docs](mandala/README.md) | Draw one line and it repeats round the centre, 2 to 32 times, mirrored like a kaleidoscope — or press Surprise me for a whole mandala. Saves as a picture. |
 | 🕸️ | **maz-scrape** — [docs](scraper/README.md) | Recipe-driven scraper for static HTML: point it at a YAML recipe, get JSONL/CSV/SQLite. |
 | 🧰 | **crew** — [docs](crew/README.md) | Small shared tooling. |
 | ⚒️ | **The Forge** — [docs](docs/FORGE.md) | The repo's own nightly loop: reads the roadmap, CI and `TODO` markers, picks one task, hands it to Maz Crew, and opens a draft PR. Verifies against every project declared to depend on what it changed. Never pushes to the default branch, never merges. |

@@ -108,6 +108,7 @@ const APPS = [
   { id: 'music', url: '/music/', name: 'SONG FORGE', mode: 'inline' },
   { id: 'madlibs', url: '/madlibs/', name: 'MADLIBS STORY FORGE', mode: 'inline' },
   { id: 'names', url: '/names/', name: 'NAME FORGE', mode: 'inline' },
+  { id: 'mandala', url: '/mandala/', name: 'MANDALA MAKER', mode: 'inline' },
   { id: 'film', url: '/film/', name: 'SCRIPT FORGE', mode: 'inline' },
   { id: 'coda-pics', url: '/coda-pics/', name: 'CODA PICS', mode: 'inline' }
 ];
