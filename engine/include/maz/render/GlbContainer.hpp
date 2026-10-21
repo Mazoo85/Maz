@@ -75,11 +75,12 @@ inline bool parseGlb(const std::vector<std::uint8_t>& bytes, GlbChunks& out) {
 // exported scene into a single self-contained file). Chunks are 4-byte aligned per the spec (JSON padded
 // with spaces, BIN with zeros).
 inline std::vector<std::uint8_t> buildGlb(const std::string& json, const std::vector<std::uint8_t>& bin = {}) {
+    // Little-endian u32, appended in one insert (four push_backs make GCC 15 report a bogus
+    // "operator delete with nonzero offset" from the inlined reallocation path).
     auto pushU32 = [](std::vector<std::uint8_t>& v, std::uint32_t x) {
-        v.push_back(static_cast<std::uint8_t>(x & 0xff));
-        v.push_back(static_cast<std::uint8_t>((x >> 8) & 0xff));
-        v.push_back(static_cast<std::uint8_t>((x >> 16) & 0xff));
-        v.push_back(static_cast<std::uint8_t>((x >> 24) & 0xff));
+        const std::uint8_t b[4] = {static_cast<std::uint8_t>(x & 0xff), static_cast<std::uint8_t>((x >> 8) & 0xff),
+                                   static_cast<std::uint8_t>((x >> 16) & 0xff), static_cast<std::uint8_t>((x >> 24) & 0xff)};
+        v.insert(v.end(), b, b + 4);
     };
     const std::size_t jsonPad = (4 - (json.size() % 4)) % 4;
     const std::size_t binPad = bin.empty() ? 0 : (4 - (bin.size() % 4)) % 4;

@@ -1,9 +1,10 @@
 # Maz — project guide for Claude
 
-**Maz is the default game engine for this account.** When Cody asks to build a game — any game,
-any genre — build it as a **Maz app** in this repo, on top of the existing engine. Do not reach for
-Godot, Unity, a web-canvas one-off, or a from-scratch engine unless Cody explicitly asks for
-something other than Maz.
+**Do not build any new project on the Maz engine.** As of 21 October 2026, Cody does not want
+any more projects built on the Maz engine (games or anything else) unless he explicitly says
+otherwise. When he asks for something new, build it with something else, and ask him what to use
+if he hasn't said. The engine and its docs below stay in the repo for reference and for the
+existing apps only; don't start new work on it or suggest it.
 
 ## What Maz is
 
@@ -51,6 +52,9 @@ CI gates run on **every** push, engine changes included:
   a README, or a cross-project import.
 
 ## Starting a new game — the workflow
+
+*Historical: this is how Maz games were started. Per the note at the top, don't start any new
+project on the Maz engine unless Cody explicitly asks for it.*
 
 ```sh
 tools/new-game.sh <name> ["Game Title"]     # e.g. tools/new-game.sh spacegame "Space Game"
