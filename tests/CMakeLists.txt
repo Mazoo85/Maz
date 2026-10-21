@@ -3485,3 +3485,20 @@ target_link_libraries(maz_zomboid_sim_tests PRIVATE maz::maz maz_warnings)
 target_include_directories(maz_zomboid_sim_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/zomboid)
 add_test(NAME zomboid_sim COMMAND maz_zomboid_sim_tests)
 set_tests_properties(zomboid_sim PROPERTIES TIMEOUT 30)
+
+# IRON FRONT — the WC4-style hex strategy game's rules (apps/ironfront/ironfront/*.hpp), one fast
+# standalone executable per logic header so a rules change verifies in seconds.
+foreach(ironfront_test units map movement combat game fog ai save)
+    add_executable(maz_ironfront_${ironfront_test}_tests ironfront/${ironfront_test}.cpp)
+    target_link_libraries(maz_ironfront_${ironfront_test}_tests PRIVATE maz::maz maz_warnings)
+    target_include_directories(maz_ironfront_${ironfront_test}_tests PRIVATE ${CMAKE_SOURCE_DIR}/apps/ironfront)
+    add_test(NAME ironfront_${ironfront_test} COMMAND maz_ironfront_${ironfront_test}_tests)
+    set_tests_properties(ironfront_${ironfront_test} PROPERTIES TIMEOUT 60)
+endforeach()
+
+add_test(
+    NAME ironfront_headless_smoke
+    COMMAND ironfront --headless --frames 120)
+set_tests_properties(ironfront_headless_smoke PROPERTIES
+    TIMEOUT 60
+    ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
