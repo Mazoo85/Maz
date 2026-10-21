@@ -108,8 +108,76 @@
       slices: clampSlices(opts.slices || 8),
       mirror: !!opts.mirror,
       glow: !!opts.glow,
+      band: opts.band,
       points: opts.points ? opts.points.slice() : []
     };
+  }
+
+  /* ------------------------------------------------------------ motion
+   * A moving mandala turns as rings, not as one plate. The circle is cut
+   * into BANDS rings from the centre out; every stroke belongs to one ring
+   * and moves with it. Each mode says, for a ring at a moment in time, how
+   * far it is turned and how large it is drawn.
+   */
+  var BANDS = 6;
+  var BASE_TURN = 0.25; // radians per second at speed 1
+
+  var MOTIONS = [
+    { id: 'still', label: 'Still' },
+    { id: 'spin', label: 'Spin — the whole mandala turns' },
+    { id: 'swirl', label: 'Swirl — rings turn opposite ways' },
+    { id: 'breathe', label: 'Breathe — gently pulses' },
+    { id: 'flow', label: 'Flow — swirl and breathe' }
+  ];
+
+  // Which ring a point at distance `r` from the centre is in.
+  function bandOf(r) {
+    var b = Math.floor(r * BANDS);
+    if (!(b >= 0)) return 0;
+    return b >= BANDS ? BANDS - 1 : b;
+  }
+
+  // A stroke's ring: the one it was started in, else where it sits on average.
+  function strokeBand(stroke) {
+    if (stroke.band >= 0 && stroke.band < BANDS) return Math.floor(stroke.band);
+    var sum = 0;
+    for (var i = 0; i < stroke.points.length; i++) {
+      sum += Math.hypot(stroke.points[i][0], stroke.points[i][1]);
+    }
+    return bandOf(stroke.points.length ? sum / stroke.points.length : 0);
+  }
+
+  /*
+   * How ring `band` is placed at `phase`: the animation's own clock, which
+   * the page advances by (seconds × speed) each frame — so changing the speed
+   * never makes the picture jump, and speed 0 pauses it where it is.
+   * Returns { angle, scale }. Still always gives { 0, 1 }.
+   */
+  function motion(mode, band, phase) {
+    var k = Number(phase) || 0;
+    var angle = 0;
+    var scale = 1;
+    if (mode === 'spin') angle = BASE_TURN * k;
+    if (mode === 'swirl' || mode === 'flow') {
+      // Even rings turn one way, odd rings the other; outer rings a little faster.
+      angle = BASE_TURN * k * (band % 2 ? -1 : 1) * (1 + band * 0.15);
+    }
+    if (mode === 'breathe' || mode === 'flow') {
+      // A ripple: each ring swells a moment after the one inside it.
+      scale = 1 + 0.06 * Math.sin(k * 1.6 - band * 0.6);
+    }
+    return { angle: angle, scale: scale };
+  }
+
+  // Unit-space point → the same point as ring `band` sees it, given the
+  // ring's current { angle, scale } — so a line drawn on a moving ring lands
+  // under the finger.
+  function intoBand(x, y, m) {
+    var c = Math.cos(-m.angle);
+    var s = Math.sin(-m.angle);
+    x /= m.scale;
+    y /= m.scale;
+    return [x * c - y * s, x * s + y * c];
   }
 
   /* ------------------------------------------------------------ the dice */
@@ -270,7 +338,7 @@
       strokes: drawing.strokes.map(function (s) {
         return {
           color: s.color, hue: s.hue, size: s.size, slices: s.slices,
-          mirror: s.mirror, glow: s.glow,
+          mirror: s.mirror, glow: s.glow, band: s.band,
           // Three decimals is well under a pixel on any screen, and keeps
           // the save small enough for localStorage.
           points: s.points.map(function (p) {
@@ -298,7 +366,8 @@
       strokes.push(makeStroke({
         color: typeof s.color === 'string' ? s.color : '#ffffff',
         hue: Number(s.hue) || 0, size: Number(s.size) || 0.01,
-        slices: s.slices, mirror: s.mirror, glow: s.glow, points: pts
+        slices: s.slices, mirror: s.mirror, glow: s.glow,
+        band: typeof s.band === 'number' ? s.band : undefined, points: pts
       }));
     }
     return {
@@ -319,6 +388,12 @@
     fromUnit: fromUnit,
     colorAt: colorAt,
     makeStroke: makeStroke,
+    BANDS: BANDS,
+    MOTIONS: MOTIONS,
+    bandOf: bandOf,
+    strokeBand: strokeBand,
+    motion: motion,
+    intoBand: intoBand,
     rng: rng,
     newSeed: newSeed,
     paletteById: paletteById,
