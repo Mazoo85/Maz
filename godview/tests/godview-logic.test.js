@@ -22,7 +22,13 @@ const QL = require('../js/layers/quakes-layer.js');
 const SATLIB = require('../vendor/satellite.min.js');
 const S = require('../js/lib/sats.js');
 const SL = require('../js/layers/sats-layer.js');
+const W = require('../js/lib/weather.js');
+const WL = require('../js/layers/weather-layer.js');
+const PL = require('../js/lib/planes.js');
+const PLL = require('../js/layers/planes-layer.js');
 
+const ADSB = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'adsb-sample.json'), 'utf8'));
+const OPENSKY = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'opensky-sample.json'), 'utf8'));
 const STATIONS_TLE = fs.readFileSync(path.join(__dirname, 'fixtures', 'celestrak-stations.txt'), 'utf8');
 const VISUAL_TLE = fs.readFileSync(path.join(__dirname, 'fixtures', 'celestrak-visual.txt'), 'utf8');
 /* Four days after the fixtures' epoch (17 Oct 2026 12:00 UTC). */
@@ -456,6 +462,384 @@ test('describe gives name, height, speed, position and a link', async () => {
 
 test('stop clears the satellites', async () => {
   const { layer, t } = satsLayer({ stations: STATIONS_TLE, visual: VISUAL_TLE });
+  layer.start();
+  await flush();
+  layer.stop();
+  eq(layer.status, 'idle');
+  eq(layer.html.length, 0);
+  eq(layer.count, 0);
+  eq(t.queue.length, 0);
+});
+
+
+/* ------------------------------------------------------------- weather */
+/* A tiny RGBA image filled by a function of (x, y). */
+function image(width, height, fill) {
+  const data = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) data.set(fill(x, y), (y * width + x) * 4);
+  }
+  return { width, height, data };
+}
+function pixel(img, x, y) {
+  const i = (y * img.width + x) * 4;
+  return Array.from(img.data.slice(i, i + 4));
+}
+
+test('the clouds URL asks NASA for one whole-world image of a given day', () => {
+  const url = W.cloudsUrl('2026-10-20');
+  assert(url.startsWith('https://wvs.earthdata.nasa.gov/api/v1/snapshot?'), url);
+  assert(url.includes('LAYERS=VIIRS_NOAA21_CorrectedReflectance_TrueColor'), 'layer');
+  assert(url.includes('TIME=2026-10-20'), 'date');
+  assert(url.includes('BBOX=-90,-180,90,180'), 'whole world');
+  assert(url.includes('WIDTH=2048') && url.includes('HEIGHT=1024'), '2:1 size');
+});
+
+test('the clouds day is yesterday in UTC, so the mosaic is complete', () => {
+  eq(W.cloudsDay(Date.UTC(2026, 9, 21, 0, 30)), '2026-10-20');
+  eq(W.cloudsDay(Date.UTC(2026, 0, 1, 12)), '2025-12-31');
+});
+
+test('cloudAlpha keeps cloud and drops land, sea, desert and gaps', () => {
+  near(W.cloudAlpha(240, 240, 240), 1, 0.001, 'bright white cloud');
+  assert(W.cloudAlpha(170, 175, 180) > 0.4, 'grey cloud is partly kept');
+  eq(W.cloudAlpha(10, 40, 90), 0, 'sea');
+  eq(W.cloudAlpha(60, 110, 40), 0, 'forest');
+  eq(W.cloudAlpha(210, 180, 140), 0, 'desert is bright but coloured');
+  eq(W.cloudAlpha(0, 0, 0), 0, 'the black gap between orbits');
+});
+
+test('latestRainFrame picks the newest radar frame and rejects junk', () => {
+  const f = W.latestRainFrame({
+    host: 'https://tilecache.rainviewer.com',
+    radar: { past: [{ time: 100, path: '/v2/radar/100' }, { time: 200, path: '/v2/radar/200' }] }
+  });
+  eq(f.host, 'https://tilecache.rainviewer.com');
+  eq(f.path, '/v2/radar/200');
+  eq(f.time, 200);
+  throws(() => W.latestRainFrame({}), 'no radar');
+  throws(() => W.latestRainFrame({ host: 'h', radar: { past: [] } }), 'no frames');
+  eq(W.rainTileUrl('https://h', '/v2/radar/200', 2, 1, 3), 'https://h/v2/radar/200/256/2/1/3/2/1_1.png');
+});
+
+test('mercatorY puts the equator in the middle and the poles off the map', () => {
+  eq(W.mercatorY(0, 1024), 512);
+  assert(Math.abs(W.mercatorY(85.0511, 1024)) < 0.5, 'top edge');
+  assert(Math.abs(W.mercatorY(-85.0511, 1024) - 1024) < 0.5, 'bottom edge');
+  assert(W.mercatorY(60, 1024) < 512 - 512 / 3, 'high latitudes are stretched');
+});
+
+test('stitch lays tiles out in a grid and leaves missing ones clear', () => {
+  const red = image(2, 2, () => [255, 0, 0, 255]);
+  const out = W.stitch([[red, null], [null, red]], 2);
+  eq(out.width, 4);
+  eq(out.height, 4);
+  eq(pixel(out, 0, 0).join(), '255,0,0,255');
+  eq(pixel(out, 3, 0).join(), '0,0,0,0', 'missing tile is transparent');
+  eq(pixel(out, 3, 3).join(), '255,0,0,255');
+});
+
+test('composite: dark base, clouds where clouds are, nothing past the poles', () => {
+  /* Clouds image: the left half is white cloud, the right half is sea. */
+  const clouds = image(8, 4, (x) => (x < 4 ? [245, 245, 245, 255] : [10, 40, 90, 255]));
+  const out = W.composite({ width: 8, height: 4, clouds: clouds, rain: null });
+  eq(pixel(out, 6, 2).join(), W.BASE.concat(255).join(), 'sea is plain dark globe');
+  const c = pixel(out, 1, 2);
+  assert(c[0] > 150 && c[1] > 150, 'cloud is bright: ' + c);
+  eq(c[3], 255, 'the texture itself is opaque');
+});
+
+test('composite reprojects rain onto the right latitude', () => {
+  /* A Mercator rain map with rain only in its top quarter (far north). */
+  const rain = image(16, 16, (x, y) => (y < 4 ? [0, 120, 255, 255] : [0, 0, 0, 0]));
+  /* 32 rows of 5.625°: row 0 is centred at 87.2°N (past Mercator's 85.05° edge),
+   * row 2 at 75.9°N (Mercator row 2.7 of 16: rainy), row 16 at 2.8°S (dry). */
+  const out = W.composite({ width: 16, height: 32, clouds: null, rain: rain });
+  const north = pixel(out, 5, 2);
+  assert(north[2] > 150, 'rain painted in the far north: ' + north);
+  eq(pixel(out, 5, 16).join(), W.BASE.concat(255).join(), 'dry at the equator');
+  eq(pixel(out, 5, 0).join(), W.BASE.concat(255).join(), 'nothing beyond the Mercator edge');
+});
+
+
+/* ------------------------------------------------------------- weather layer */
+const RAIN_INDEX = {
+  host: 'https://tilecache.rainviewer.com',
+  radar: { past: [{ time: 1792563000, path: '/v2/radar/1792563000' }] }
+};
+
+/* sources: { clouds: 'ok'|'down', rain: 'ok'|'down' } */
+function weatherLayer(sources) {
+  const t = fakeTimers();
+  const asked = [];
+  const cloudImg = image(16, 8, (x) => (x < 8 ? [245, 245, 245, 255] : [10, 40, 90, 255]));
+  const rainTile = image(4, 4, () => [0, 120, 255, 255]);
+  let clock = Date.UTC(2026, 9, 21, 6, 12);
+  const layer = WL.create({
+    fetchJson: (url) => {
+      asked.push(url);
+      return sources.rain === 'ok' ? Promise.resolve(RAIN_INDEX) : Promise.reject(new Error('503'));
+    },
+    loadPixels: (url) => {
+      asked.push(url);
+      if (url.includes('wvs.earthdata')) {
+        return sources.clouds === 'ok' ? Promise.resolve(cloudImg) : Promise.reject(new Error('503'));
+      }
+      return Promise.resolve(rainTile);
+    },
+    now: () => clock,
+    setTimer: t.set,
+    clearTimer: t.clear,
+    size: { width: 32, height: 16 }
+  });
+  return { layer, t, asked, advance: (ms) => { clock += ms; } };
+}
+
+test('weather paints clouds and rain into one texture', async () => {
+  const { layer, asked, t } = weatherLayer({ clouds: 'ok', rain: 'ok' });
+  eq(layer.texture, null, 'nothing before it starts');
+  layer.start();
+  await flush();
+  eq(layer.status, 'live');
+  assert(layer.texture && layer.texture.width === 32 && layer.texture.height === 16, 'a texture');
+  eq(layer.summary, '06:10 UTC', 'the button shows the radar time');
+  eq(layer.credit, 'Clouds: NASA GIBS / VIIRS · Rain: RainViewer');
+  assert(asked.includes(W.cloudsUrl('2026-10-20')), 'asked NASA for yesterday');
+  eq(asked.filter((u) => u.includes('tilecache')).length, 16, 'all 16 radar tiles');
+  eq(t.queue[0].ms, 600000, 'refreshes every 10 minutes');
+  eq(layer.points.length + layer.rings.length + layer.html.length, 0, 'draws nothing but the texture');
+});
+
+test('weather with only clouds, or only rain, still shows', async () => {
+  const clouds = weatherLayer({ clouds: 'ok', rain: 'down' });
+  clouds.layer.start();
+  await flush();
+  eq(clouds.layer.status, 'live');
+  eq(clouds.layer.summary, 'CLOUDS');
+  eq(clouds.layer.credit, 'Clouds: NASA GIBS / VIIRS');
+  const rain = weatherLayer({ clouds: 'down', rain: 'ok' });
+  rain.layer.start();
+  await flush();
+  eq(rain.layer.status, 'live');
+  eq(rain.layer.summary, '06:10 UTC');
+  eq(rain.layer.credit, 'Rain: RainViewer');
+});
+
+test('weather with both sources down is OFFLINE with no texture', async () => {
+  const { layer } = weatherLayer({ clouds: 'down', rain: 'down' });
+  layer.start();
+  await flush();
+  eq(layer.status, 'offline');
+  eq(layer.texture, null);
+});
+
+test('the clouds photo is only fetched again when it is stale', async () => {
+  const { layer, asked, t, advance } = weatherLayer({ clouds: 'ok', rain: 'ok' });
+  layer.start();
+  await flush();
+  const nasa = () => asked.filter((u) => u.includes('wvs.earthdata')).length;
+  eq(nasa(), 1);
+  advance(600000);
+  t.fire();
+  await flush();
+  eq(nasa(), 1, 'ten minutes later: radar again, clouds kept');
+  advance(3600000);
+  t.fire();
+  await flush();
+  eq(nasa(), 2, 'an hour later: clouds again');
+});
+
+test('the same radar frame is not downloaded twice', async () => {
+  const { layer, asked, t, advance } = weatherLayer({ clouds: 'ok', rain: 'ok' });
+  layer.start();
+  await flush();
+  advance(600000);
+  t.fire();
+  await flush();
+  eq(asked.filter((u) => u.includes('tilecache')).length, 16, 'still 16: the frame had not changed');
+});
+
+test('stop clears the weather off the globe', async () => {
+  const { layer, t } = weatherLayer({ clouds: 'ok', rain: 'ok' });
+  layer.start();
+  await flush();
+  layer.stop();
+  eq(layer.status, 'idle');
+  eq(layer.texture, null);
+  eq(t.queue.length, 0);
+});
+
+
+/* ------------------------------------------------------------- planes */
+test('the plane URLs ask for a 250 nm circle, or the same-sized box', () => {
+  eq(PL.adsbUrl(40.123456, -74.5), 'https://api.adsb.lol/v2/point/40.12/-74.50/250');
+  const o = PL.openskyUrl(40, -74);
+  assert(o.startsWith('https://opensky-network.org/api/states/all?'), o);
+  const q = Object.fromEntries(new URL(o).searchParams);
+  near(Number(q.lamax) - Number(q.lamin), 2 * 250 * 1.852 / 111.32, 0.01, 'box height ~ the circle');
+  assert(Number(q.lomax) - Number(q.lomin) > Number(q.lamax) - Number(q.lamin), 'wider in longitude away from the equator');
+  const polar = Object.fromEntries(new URL(PL.openskyUrl(89, 0)).searchParams);
+  assert(Number(polar.lamax) <= 90 && Number(polar.lomin) >= -180 && Number(polar.lomax) <= 180, 'clamped near the pole');
+});
+
+test('parseAdsb keeps placed, fresh aircraft and reads the ground', () => {
+  const list = PL.parseAdsb(ADSB);
+  eq(list.map((p) => p.hex).join(','), 'a1b2c3,abc001,a00f00', 'stale, unplaced and impossible rows dropped');
+  const ual = list[0];
+  eq(ual.callsign, 'UAL123', 'callsign trimmed');
+  eq(ual.altFt, 35000);
+  eq(ual.onGround, false);
+  near(ual.speedKt, 480.2, 1e-9);
+  eq(ual.track, 90);
+  eq(ual.type, 'B738');
+  eq(ual.reg, 'N12345');
+  const cessna = list[2];
+  eq(cessna.onGround, true, '"ground" altitude');
+  eq(cessna.altFt, 0);
+  eq(cessna.callsign, '', 'no callsign is an empty string, not undefined');
+  throws(() => PL.parseAdsb({}), 'not a feed');
+});
+
+test('parseOpensky converts metres and m/s, and drops stale or unplaced rows', () => {
+  const list = PL.parseOpensky(OPENSKY);
+  eq(list.map((p) => p.hex).join(','), '3c6444,4b1805');
+  const dlh = list[0];
+  eq(dlh.callsign, 'DLH9LF');
+  eq(Math.round(dlh.altFt), 35000, '10668 m');
+  eq(Math.round(dlh.speedKt), 450, '231.5 m/s');
+  eq(dlh.track, 45);
+  eq(list[1].onGround, true);
+  eq(list[1].altFt, 0, 'no altitude on the ground reads as 0');
+  throws(() => PL.parseOpensky({ time: 1 }), 'no states list');
+  eq(PL.parseOpensky({ time: 1, states: null }).length, 0, 'an empty sky is not an error');
+});
+
+test('distanceKm is the great-circle distance', () => {
+  near(PL.distanceKm({ lat: 0, lng: 0 }, { lat: 0, lng: 1 }), 111.19, 0.05);
+  near(PL.distanceKm({ lat: 51.47, lng: -0.45 }, { lat: 40.64, lng: -73.78 }), 5555, 15, 'London to New York');
+});
+
+test('nearest keeps the closest aircraft up to the cap', () => {
+  const list = PL.parseAdsb(ADSB);
+  const two = PL.nearest(list, { lat: 40.64, lng: -73.78 }, 2);
+  eq(two.map((p) => p.hex).join(','), 'a00f00,a1b2c3');
+});
+
+test('advance flies a plane along its track at its speed', () => {
+  const east = { lat: 40, lng: -74, speedKt: 480, track: 90, onGround: false };
+  const after = PL.advance(east, 60);
+  near(after.lat, 40, 0.01, 'still at 40°N heading due east');
+  near(after.lng, -74 + 14.816 / (111.19 * Math.cos(40 * Math.PI / 180)), 0.002, '8 nm east');
+  const north = PL.advance({ lat: 10, lng: 20, speedKt: 600, track: 0, onGround: false }, 3600);
+  near(north.lat, 20, 0.05, '600 nm north is 10°');
+  const parked = PL.advance({ lat: 10, lng: 20, speedKt: 0, track: 0, onGround: true }, 60);
+  eq(parked.lat + ',' + parked.lng, '10,20', 'parked planes stay put');
+  const dateline = PL.advance({ lat: 0, lng: 179.99, speedKt: 600, track: 90, onGround: false }, 60);
+  assert(dateline.lng < -179, 'wraps across the date line: ' + dateline.lng);
+});
+
+
+/* ------------------------------------------------------------- planes layer */
+/* sources: { adsb: 'ok'|'down', opensky: 'ok'|'down' } */
+function planesLayer(sources) {
+  const t = fakeTimers();
+  const asked = [];
+  let view = { lat: 40.64, lng: -73.78, altitude: 2 };
+  let clock = 1000000;
+  const layer = PLL.create({
+    now: () => clock,
+    fetchJson: (url) => {
+      asked.push(url);
+      const ok = url.includes('adsb.lol') ? sources.adsb === 'ok' : sources.opensky === 'ok';
+      if (!ok) return Promise.reject(new Error('blocked'));
+      return Promise.resolve(url.includes('adsb.lol') ? ADSB : OPENSKY);
+    },
+    getView: () => view,
+    setTimer: t.set,
+    clearTimer: t.clear
+  });
+  return { layer, t, asked, look: (v) => { view = v; }, advance: (ms) => { clock += ms; } };
+}
+
+test('planes come from adsb.lol around the view, nearest first', async () => {
+  const { layer, asked, t } = planesLayer({ adsb: 'ok', opensky: 'ok' });
+  eq(layer.followsView, true);
+  layer.start();
+  await flush();
+  eq(asked.join(' '), PL.adsbUrl(40.64, -73.78), 'only the primary is asked');
+  eq(layer.status, 'live');
+  eq(layer.count, 3);
+  eq(layer.html[0].item.hex, 'a00f00', 'nearest the centre first');
+  eq(layer.credit, 'Planes: adsb.lol (ODbL)');
+  eq(t.queue[0].ms, 15000, 'every 15 seconds');
+  const ual = layer.html.find((h) => h.item.hex === 'a1b2c3');
+  eq(ual.layer, 'planes');
+  eq(ual.rotation, 90, 'pointing along its track');
+  eq(ual.label, null);
+  near(ual.altitude, 35000 * 0.3048 / 1000 / 6371, 1e-9, 'real altitude in Earth radii');
+});
+
+test('OpenSky answers when adsb.lol will not', async () => {
+  const { layer, asked } = planesLayer({ adsb: 'down', opensky: 'ok' });
+  layer.start();
+  await flush();
+  eq(asked.length, 2);
+  assert(asked[1].includes('opensky-network.org'), 'fell back to OpenSky');
+  eq(layer.status, 'live');
+  eq(layer.count, 2);
+  eq(layer.credit, 'Planes: OpenSky Network');
+});
+
+test('both flight sources down is OFFLINE', async () => {
+  const { layer } = planesLayer({ adsb: 'down', opensky: 'down' });
+  layer.start();
+  await flush();
+  eq(layer.status, 'offline');
+  eq(layer.count, 0);
+});
+
+test('the next fetch follows the view', async () => {
+  const { layer, asked, look } = planesLayer({ adsb: 'ok', opensky: 'ok' });
+  layer.start();
+  await flush();
+  look({ lat: 51.47, lng: -0.45, altitude: 2 });
+  layer.refresh();
+  await flush();
+  eq(asked[1], PL.adsbUrl(51.47, -0.45));
+});
+
+test('tick flies airborne planes and leaves parked ones', async () => {
+  const { layer, advance } = planesLayer({ adsb: 'ok', opensky: 'ok' });
+  layer.start();
+  await flush();
+  const ual = layer.html.find((h) => h.item.hex === 'a1b2c3');
+  const cessna = layer.html.find((h) => h.item.hex === 'a00f00');
+  const before = [ual.lng, cessna.lat, cessna.lng];
+  advance(10000);
+  layer.tick();
+  assert(ual.lng > before[0], 'the eastbound airliner moved east');
+  eq(cessna.lat + ',' + cessna.lng, before[1] + ',' + before[2], 'the parked Cessna did not');
+});
+
+test('describe gives callsign, height, speed, heading and type', async () => {
+  const { layer } = planesLayer({ adsb: 'ok', opensky: 'ok' });
+  layer.start();
+  await flush();
+  const ual = layer.html.find((h) => h.item.hex === 'a1b2c3').item;
+  const d = layer.describe(ual);
+  eq(d.title, 'UAL123');
+  eq(d.rows[0].join('|'), 'ALTITUDE|35,000 ft / 10,668 m');
+  eq(d.rows[1].join('|'), 'SPEED|480 kt / 553 mph');
+  eq(d.rows[2].join('|'), 'HEADING|090° E');
+  eq(d.rows[3].join('|'), 'AIRCRAFT|B738 · N12345');
+  eq(d.link, 'https://globe.adsb.lol/?icao=a1b2c3');
+  const cessna = layer.describe(layer.html.find((h) => h.item.hex === 'a00f00').item);
+  eq(cessna.title, 'N9999X', 'no callsign: the registration');
+  eq(cessna.rows[0].join('|'), 'ALTITUDE|ON THE GROUND');
+});
+
+test('stop clears the planes', async () => {
+  const { layer, t } = planesLayer({ adsb: 'ok', opensky: 'ok' });
   layer.start();
   await flush();
   layer.stop();

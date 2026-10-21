@@ -24,6 +24,9 @@
     undo: document.getElementById('undo'),
     clear: document.getElementById('clear'),
     savePng: document.getElementById('savePng'),
+    saveVideo: document.getElementById('saveVideo'),
+    cue: document.getElementById('cue'),
+    breathGuide: document.getElementById('breathGuide'),
     slices: document.getElementById('slices'),
     slicesOut: document.getElementById('slicesOut'),
     size: document.getElementById('size'),
@@ -46,6 +49,11 @@
     var lc = document.createElement('canvas');
     layers.push({ canvas: lc, ctx: lc.getContext('2d') });
   }
+  // Every ring together on one layer, for the vortex, which moves the whole
+  // picture as one. Repainted from the ring layers only when it is needed.
+  var flat = document.createElement('canvas');
+  var flatCtx = flat.getContext('2d');
+  var flatDirty = true;
 
   var state = {
     strokes: [],
@@ -55,6 +63,7 @@
     live: null,       // the stroke being drawn right now
     pointerId: null,
     phase: 0,         // the animation's clock: seconds × speed
+    recording: false, // true while a video is being made
     lastTime: 0,
     layerDirty: true
   };
@@ -179,6 +188,35 @@
     for (var i = 0; i < state.strokes.length; i++) {
       drawStroke(layers[M.strokeBand(state.strokes[i])].ctx, state.strokes[i], g);
     }
+    flatDirty = true;
+  }
+
+  function paintFlat() {
+    flatCtx.clearRect(0, 0, flat.width, flat.height);
+    for (var b = 0; b < layers.length; b++) flatCtx.drawImage(layers[b].canvas, 0, 0);
+    flatDirty = false;
+  }
+
+  // The vortex: each copy of the picture, turned and shrunk, shown only in
+  // its own ring of the screen, so together they spiral into the centre.
+  function paintVortex(g) {
+    if (flatDirty) paintFlat();
+    var copies = M.vortexCopies(state.phase);
+    for (var i = 0; i < copies.length; i++) {
+      var c = copies[i];
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(g.cx, g.cy, c.outer * g.r, 0, Math.PI * 2);
+      ctx.arc(g.cx, g.cy, c.inner * g.r, 0, Math.PI * 2, true);
+      ctx.clip();
+      ctx.translate(g.cx, g.cy);
+      ctx.rotate(c.angle);
+      ctx.scale(c.scale, c.scale);
+      ctx.translate(-g.cx, -g.cy);
+      ctx.drawImage(flat, 0, 0);
+      if (state.live) drawStroke(ctx, state.live, g);
+      ctx.restore();
+    }
   }
 
   function bandMotion(band) {
@@ -211,15 +249,34 @@
     var w = el.canvas.width;
     ctx.fillStyle = state.background;
     ctx.fillRect(0, 0, w, w);
-    if (el.guides.checked) paintGuides(ctx, g);
-    for (var b = 0; b < layers.length; b++) {
-      withBand(ctx, g, b, function () { ctx.drawImage(layers[b].canvas, 0, 0); });
-    }
-    if (state.live) {
-      withBand(ctx, g, state.live.band, function () { drawStroke(ctx, state.live, g); });
+    // Guide lines are a drawing aid: never in a video.
+    if (el.guides.checked && !state.recording) paintGuides(ctx, g);
+    if (el.motion.value === 'vortex') {
+      paintVortex(g);
+    } else {
+      for (var b = 0; b < layers.length; b++) {
+        withBand(ctx, g, b, function () { ctx.drawImage(layers[b].canvas, 0, 0); });
+      }
+      if (state.live) {
+        withBand(ctx, g, state.live.band, function () { drawStroke(ctx, state.live, g); });
+      }
     }
 
+    showCue();
     requestAnimationFrame(frame);
+  }
+
+  // The breath guide: "Breathe in" while the mandala opens, "Breathe out"
+  // while it draws in. Only when it is breathing, and only if asked for.
+  var lastCue = '';
+  function showCue() {
+    var breathing = el.motion.value === 'breathe' || el.motion.value === 'flow';
+    var cue = el.breathGuide.checked && breathing && Number(el.speed.value) > 0
+      ? M.breathCue(state.phase) : '';
+    if (cue === lastCue) return;
+    lastCue = cue;
+    el.cue.hidden = !cue;
+    el.cue.textContent = cue === 'in' ? 'Breathe in' : 'Breathe out';
   }
 
   function resize() {
@@ -229,6 +286,7 @@
     if (el.canvas.width === px) return;
     el.canvas.width = el.canvas.height = px;
     for (var b = 0; b < layers.length; b++) layers[b].canvas.width = layers[b].canvas.height = px;
+    flat.width = flat.height = px;
     state.layerDirty = true;
   }
 
@@ -245,6 +303,11 @@
   // moving ring lands under the finger and then travels with that ring.
   function pointerOnBand(e, band) {
     var u = pointerUnit(e);
+    // In the vortex a line belongs to the copy it was started on, and
+    // follows that copy as it spirals in.
+    if (state.live && state.live.vortexLevel !== undefined) {
+      return M.intoBand(u[0], u[1], M.vortexLevel(state.live.vortexLevel, state.phase));
+    }
     return M.intoBand(u[0], u[1], bandMotion(band));
   }
 
@@ -259,6 +322,14 @@
     try { el.canvas.setPointerCapture(e.pointerId); } catch (err) { /* older browsers */ }
     // The ring the line starts in is the ring it belongs to.
     var start = pointerUnit(e);
+    var level;
+    if (el.motion.value === 'vortex') {
+      // Find the copy under the finger, and the spot on the picture it shows.
+      var copy = M.vortexPick(Math.hypot(start[0], start[1]), M.vortexCopies(state.phase));
+      if (!copy) return; // the very centre, too small to draw on
+      level = copy.level;
+      start = M.intoBand(start[0], start[1], copy);
+    }
     var band = M.bandOf(Math.hypot(start[0], start[1]));
     state.live = M.makeStroke({
       color: state.color,
@@ -268,8 +339,9 @@
       mirror: el.mirror.checked,
       glow: el.glow.checked,
       band: band,
-      points: [pointerOnBand(e, band)]
+      points: [level === undefined ? pointerOnBand(e, band) : start]
     });
+    if (level !== undefined) state.live.vortexLevel = level;
     el.hint.classList.add('gone');
   });
 
@@ -287,6 +359,7 @@
     state.strokes.push(state.live);
     // Draw just the new stroke onto its ring's layer — no need to repaint them all.
     drawStroke(layers[state.live.band].ctx, state.live, geometry(layers[0].canvas));
+    flatDirty = true;
     state.live = null;
     state.pointerId = null;
     save();
@@ -346,23 +419,79 @@
     toast('Draw on top, or press it again');
   });
 
+  function stamp() {
+    return new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  }
+
+  function download(blob, name) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  }
+
   el.savePng.addEventListener('click', function () {
     var out = document.createElement('canvas');
     out.width = out.height = EXPORT_PX;
     paintArt(out.getContext('2d'));
-    var name = 'mandala-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.png';
     out.toBlob(function (blob) {
       if (!blob) { toast('Could not make the picture'); return; }
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = url;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+      download(blob, 'mandala-' + stamp() + '.png');
       toast('Picture saved');
     }, 'image/png');
+  });
+
+  /*
+   * Save video: records the canvas for exactly one breath at the current
+   * speed, so the clip loops. Starts at the top of a breath, with the guide
+   * lines left out. MP4 where the browser can make it, else WebM.
+   */
+  el.saveVideo.addEventListener('click', function () {
+    if (state.recording) return;
+    var fmt = window.MediaRecorder && el.canvas.captureStream
+      ? M.videoFormat(function (m) { return MediaRecorder.isTypeSupported(m); }) : null;
+    if (!fmt) { toast('This browser cannot record video'); return; }
+
+    var seconds = M.videoSeconds(el.motion.value, el.speed.value);
+    var chunks = [];
+    var recorder;
+    try {
+      recorder = new MediaRecorder(el.canvas.captureStream(30), { mimeType: fmt.mime });
+    } catch (err) {
+      toast('This browser cannot record video');
+      return;
+    }
+
+    // From the top of a breath, once every ring has joined in.
+    var T = M.BREATH_SECONDS;
+    state.phase = Math.max(T, Math.ceil(state.phase / T) * T);
+    state.recording = true;
+    el.saveVideo.classList.add('recording');
+
+    var left = Math.ceil(seconds);
+    el.saveVideo.textContent = 'Recording… ' + left;
+    var tick = setInterval(function () {
+      left -= 1;
+      if (left > 0) el.saveVideo.textContent = 'Recording… ' + left;
+    }, 1000);
+
+    recorder.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+    recorder.onstop = function () {
+      clearInterval(tick);
+      state.recording = false;
+      el.saveVideo.classList.remove('recording');
+      el.saveVideo.textContent = 'Save video';
+      var blob = new Blob(chunks, { type: fmt.mime.split(';')[0] });
+      if (!blob.size) { toast('Could not make the video'); return; }
+      download(blob, 'mandala-' + stamp() + '.' + fmt.ext);
+      toast('Video saved');
+    };
+    recorder.start(250);
+    setTimeout(function () { recorder.stop(); }, seconds * 1000);
   });
 
   document.addEventListener('keydown', function (e) {
@@ -467,7 +596,7 @@
   });
   // Moving by default — unless the device asks for less motion.
   var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  el.motion.value = calm ? 'still' : 'flow';
+  el.motion.value = calm ? 'still' : 'vortex';
   showSpeed();
 
   buildSwatches();

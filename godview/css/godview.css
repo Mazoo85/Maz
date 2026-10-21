@@ -91,24 +91,31 @@ body::after {
 #clock { color: var(--text); }
 
 /* -------------------------------------------------------------- layer bar */
-#layerbar {
+/* The credit strip and the layer bar stack at the bottom, so the strip always
+ * sits just above the buttons however many rows they take. */
+#bottom {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 10;
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 10px calc(var(--safe-right) + 10px) calc(var(--safe-bottom) + 10px) calc(var(--safe-left) + 10px);
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
-  scrollbar-width: none;
+  padding: 0 calc(var(--safe-right) + 10px) calc(var(--safe-bottom) + 10px) calc(var(--safe-left) + 10px);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 60%, transparent);
+  pointer-events: none;
 }
-#layerbar::-webkit-scrollbar { display: none; }
+
+/* Every layer visible at once, no sideways scrolling: three to a row on a
+ * phone, more on a wider screen. */
+#layerbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 8px;
+  padding-top: 10px;
+  pointer-events: auto;
+}
 
 .layer-btn {
-  flex: 0 0 auto;
-  min-width: 96px;
+  min-width: 0;
   min-height: 52px;
   display: grid;
   grid-template-columns: auto 1fr;
@@ -172,8 +179,33 @@ body::after {
   text-shadow: 0 0 4px #000;
   white-space: nowrap;
 }
+/* A plane: the silhouette instead of the dot, turned to its heading. */
+.marker--plane::before { display: none; }
+.marker--plane svg {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  fill: var(--c);
+  filter: drop-shadow(0 0 2px var(--c));
+  transform: rotate(var(--rot, 0deg));
+}
+
 /* Behind the Earth: invisible and untappable. */
 .marker.is-hidden { opacity: 0; pointer-events: none; }
+
+/* ---------------------------------------------------------- credit strip */
+#credits {
+  margin: 0;
+  padding: 0 2px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  pointer-events: none;
+}
+#credits[hidden] { display: none; }
 
 /* ---------------------------------------------------------- details sheet */
 #sheet {
