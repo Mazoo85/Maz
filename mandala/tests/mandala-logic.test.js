@@ -137,9 +137,51 @@ test('the generator follows the chosen repeats, palette and mirror', () => {
   eq(m.palette, 'ocean');
   eq(m.background, M.paletteById('ocean').bg);
   for (const st of m.strokes) {
-    eq(st.slices, 10);
+    // Fine detail bands may use twice the repeats; nothing else is allowed.
+    assert(st.slices === 10 || st.slices === 20, 'repeats ' + st.slices);
     eq(st.mirror, false);
   }
+  const main = m.strokes.filter((st) => st.slices === 10).length;
+  assert(main > m.strokes.length / 2, 'the design is mostly at the chosen repeats');
+});
+
+test('doubled detail never goes past the most repeats there are', () => {
+  for (const n of [17, 24, 32]) {
+    for (const st of M.generate(5, { slices: n }).strokes) assert(st.slices <= M.MAX_SLICES, n + ' gave ' + st.slices);
+  }
+});
+
+test('Surprise me makes full designs, not a few outlines', () => {
+  let total = 0;
+  for (let s = 0; s < 100; s++) {
+    const n = M.generate(s).strokes.length;
+    assert(n >= 12, 'seed ' + s + ' made only ' + n + ' strokes');
+    total += n;
+  }
+  assert(total / 100 >= 16, 'average ' + total / 100 + ' strokes');
+});
+
+test('a design fills the circle from the heart to a border at the edge', () => {
+  for (let s = 0; s < 100; s++) {
+    let far = 0;
+    let near0 = 1;
+    for (const st of M.generate(s).strokes) {
+      for (const p of st.points) {
+        const r = Math.hypot(p[0], p[1]);
+        far = Math.max(far, r);
+        if (r > 0) near0 = Math.min(near0, r);
+      }
+    }
+    assert(far >= 0.94, 'seed ' + s + ' stops at ' + far.toFixed(2));
+    assert(near0 <= 0.05, 'seed ' + s + ' leaves an empty heart');
+  }
+});
+
+test('neighbouring rings step through the palette instead of repeating a colour', () => {
+  const m = M.generate(11, { palette: 'lotus' });
+  const plain = m.strokes.map((st) => st.color).filter((c) => c !== 'rainbow');
+  const used = new Set(plain);
+  eq(used.size, M.paletteById('lotus').colors.length, 'every colour in the set is used');
 });
 
 test('every generated mandala has a centre and several rings', () => {
