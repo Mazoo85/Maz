@@ -198,13 +198,17 @@ async function openPage(browser, base, { quakes = 'ok', sats = 'ok', globe = 'ok
         g.pointOfView({ lat: iss.lat, lng: iss.lng, altitude: 2 }, 0);
       });
       await page.waitForTimeout(1200);
-      /* It never stops moving, so tap where it is right now, as a finger would. */
-      const issBox = await page.$eval('.marker[aria-label="ISS (ZARYA)"]', (e) => {
-        const r = e.getBoundingClientRect();
-        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-      });
-      await page.touchscreen.tap(issBox.x, issBox.y);
-      await page.waitForTimeout(200);
+      /* It never stops moving, so tap where it is right now, as a finger would. A tap can land just
+         as the marker glides on (it is re-placed every second), so measure again and retry a miss. */
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const issBox = await page.$eval('.marker[aria-label="ISS (ZARYA)"]', (e) => {
+          const r = e.getBoundingClientRect();
+          return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+        });
+        await page.touchscreen.tap(issBox.x, issBox.y);
+        await page.waitForTimeout(200);
+        if ((await page.textContent('#sheet-title')) === 'ISS (ZARYA)') break;
+      }
       check((await page.textContent('#sheet-title')) === 'ISS (ZARYA)', 'tapping the ISS opens its details');
       check((await page.textContent('#sheet-rows')).includes('ALTITUDE'), 'which give its altitude');
       check((await page.getAttribute('#sheet-link', 'href')) === 'https://www.n2yo.com/satellite/?s=25544', 'and link to its live track');
