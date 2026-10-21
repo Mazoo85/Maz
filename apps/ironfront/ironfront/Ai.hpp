@@ -227,9 +227,11 @@ public:
     bool step(Game& g) {
         const auto a = next(g);
         if (!a) return false;
-        if (!applyAiAction(g, *a)) m_done.push_back(a->unitId);
+        if (!applyAiAction(g, *a)) retire(a->unitId);
         return true;
     }
+    // Takes a unit out of this turn (e.g. after the caller applied a step that was refused).
+    void retire(int unitId) { m_done.push_back(unitId); }
 
 private:
     bool isDone(int id) const {

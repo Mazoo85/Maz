@@ -29,11 +29,11 @@ struct Game {
     uint64_t seed = 1;
     uint64_t rolls = 0; // combat rolls drawn so far; each roll is derived from (seed, index)
 
-    static Game fromScenario(const Scenario& s, int playerCountry, uint64_t seed) {
+    static Game fromScenario(const Scenario& s, int playerCountry, uint64_t rngSeed) {
         Game g;
         g.world.map = s.map;
         g.player = playerCountry;
-        g.seed = seed;
+        g.seed = rngSeed;
         for (const UnitSpawn& sp : s.units) {
             Unit u;
             u.id = g.nextId++;
@@ -45,7 +45,7 @@ struct Game {
         }
         return g;
     }
-    static Game newGame(int playerCountry, uint64_t seed) { return fromScenario(europe1939(), playerCountry, seed); }
+    static Game newGame(int playerCountry, uint64_t rngSeed) { return fromScenario(europe1939(), playerCountry, rngSeed); }
 
     // --- queries ---------------------------------------------------------------------------
     int aliveCount() const {
