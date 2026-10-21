@@ -21,12 +21,14 @@
         <div class="canvas-wrap" id="canvasWrap">
           <canvas id="canvas" aria-label="Mandala canvas. Drag to draw; every line is repeated round the centre."></canvas>
           <p class="hint" id="hint">Drag anywhere to draw</p>
+          <p class="cue" id="cue" aria-live="off" hidden></p>
         </div>
         <div class="actions">
           <button id="surprise" class="primary" title="Make a random mandala">Surprise me</button>
           <button id="undo" title="Undo the last line (Ctrl+Z)">Undo</button>
           <button id="clear" title="Start again with a blank page">Clear</button>
           <button id="savePng" title="Download a picture of your mandala">Save picture</button>
+          <button id="saveVideo" title="Record one breath of your moving mandala">Save video</button>
         </div>
       </section>
 
@@ -66,9 +68,10 @@
           <label class="toggle"><input type="checkbox" id="mirror" checked /> <span>Mirror</span></label>
           <label class="toggle"><input type="checkbox" id="glow" /> <span>Glow</span></label>
           <label class="toggle"><input type="checkbox" id="guides" checked /> <span>Guide lines</span></label>
+          <label class="toggle"><input type="checkbox" id="breathGuide" /> <span>Breath guide</span></label>
         </fieldset>
 
-        <p class="note">Your drawing is kept in this browser, so it is still here next time. Guide lines are never in the saved picture.</p>
+        <p class="note">Your drawing is kept in this browser, so it is still here next time. Guide lines are never in a saved picture or video. Breath guide shows when to breathe in and out while it breathes.</p>
       </aside>
     </main>
 

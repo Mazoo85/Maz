@@ -122,11 +122,21 @@
   var BANDS = 6;
   var BASE_TURN = 0.25; // radians per second at speed 1
 
+  // One breath at speed 1: in for half of it, out for the other half — the
+  // slow pace of a calm breath, not a flicker.
+  var BREATH_SECONDS = 6;
+  // How far the mandala draws in at the bottom of a breath. It is at full
+  // size at the top, so it never grows past the edge of the circle.
+  var BREATH_DEPTH = 0.14;
+  // Each ring a moment behind the one inside it, so the breath starts at the
+  // heart and travels out — measured as a fraction of one breath.
+  var BREATH_LAG = 0.04;
+
   var MOTIONS = [
     { id: 'still', label: 'Still' },
     { id: 'spin', label: 'Spin — the whole mandala turns' },
     { id: 'swirl', label: 'Swirl — rings turn opposite ways' },
-    { id: 'breathe', label: 'Breathe — gently pulses' },
+    { id: 'breathe', label: 'Breathe — slowly in and out' },
     { id: 'flow', label: 'Flow — swirl and breathe' }
   ];
 
@@ -163,10 +173,51 @@
       angle = BASE_TURN * k * (band % 2 ? -1 : 1) * (1 + band * 0.15);
     }
     if (mode === 'breathe' || mode === 'flow') {
-      // A ripple: each ring swells a moment after the one inside it.
-      scale = 1 + 0.06 * Math.sin(k * 1.6 - band * 0.6);
+      // Outer rings wait their turn, then follow — so all start at rest.
+      var lagged = Math.max(0, k - band * BREATH_LAG * BREATH_SECONDS);
+      scale = 1 - BREATH_DEPTH * (1 - breath(lagged));
     }
     return { angle: angle, scale: scale };
+  }
+
+  // How full the breath is at `phase`: 1 at the top (fully in), 0 at the
+  // bottom (fully out). Starts full, so a mandala at rest is full size.
+  function breath(phase) {
+    return (1 + Math.cos((2 * Math.PI * phase) / BREATH_SECONDS)) / 2;
+  }
+
+  // Which half of the breath `phase` is in, for the breathing guide: the
+  // mandala is drawing in ('out') or opening up ('in').
+  function breathCue(phase) {
+    var t = (((Number(phase) || 0) % BREATH_SECONDS) + BREATH_SECONDS) % BREATH_SECONDS;
+    return t < BREATH_SECONDS / 2 ? 'out' : 'in';
+  }
+
+  /* ------------------------------------------------------------- video
+   * The format to record in: the first this browser can make. MP4 first —
+   * it plays everywhere, iPhones included — then WebM.
+   */
+  var VIDEO_TYPES = [
+    { mime: 'video/mp4;codecs=avc1', ext: 'mp4' },
+    { mime: 'video/mp4', ext: 'mp4' },
+    { mime: 'video/webm;codecs=vp9', ext: 'webm' },
+    { mime: 'video/webm', ext: 'webm' }
+  ];
+
+  function videoFormat(isSupported) {
+    for (var i = 0; i < VIDEO_TYPES.length; i++) {
+      try { if (isSupported(VIDEO_TYPES[i].mime)) return VIDEO_TYPES[i]; } catch (e) { /* next */ }
+    }
+    return null;
+  }
+
+  // How long to record: exactly one breath at the chosen speed, so the clip
+  // loops — kept between 3 and 12 seconds. A still or paused mandala gets a
+  // short clip of its own.
+  function videoSeconds(mode, speed) {
+    speed = Number(speed) || 0;
+    if (mode === 'still' || speed <= 0) return 4;
+    return Math.min(12, Math.max(3, BREATH_SECONDS / speed));
   }
 
   // Unit-space point → the same point as ring `band` sees it, given the
@@ -394,6 +445,12 @@
     strokeBand: strokeBand,
     motion: motion,
     intoBand: intoBand,
+    BREATH_SECONDS: BREATH_SECONDS,
+    BREATH_DEPTH: BREATH_DEPTH,
+    breath: breath,
+    breathCue: breathCue,
+    videoFormat: videoFormat,
+    videoSeconds: videoSeconds,
     rng: rng,
     newSeed: newSeed,
     paletteById: paletteById,
