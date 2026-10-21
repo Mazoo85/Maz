@@ -19,7 +19,7 @@
 - Phone first: tap targets ≥ 44 px tall, no horizontal page scroll at 390 px wide, safe-area insets respected, `viewport-fit=cover`.
 - A failing source shows its button as `OFFLINE` and retries on its own; it never breaks another layer or throws.
 - If the globe library cannot load or WebGL is missing, show a readable fallback message — never an uncaught error.
-- The shared MAZ ARCADE nav is a floating pill in the top-left corner (`data-mode="overlay"`); the top bar leaves 56 px free on the left for it.
+- The shared MAZ ARCADE nav is a floating pill in the top-left corner (`data-mode="overlay"`); the top bar must not overlap it (it is ~75 px wide; the bar leaves 96 px).
 - Every file in `js/` follows the arcade module pattern (IIFE, `module.exports` + `GV_*` global).
 - Repo gates must pass before every push: `node scripts/check-links.mjs && node scripts/check-exchange.mjs`.
 
