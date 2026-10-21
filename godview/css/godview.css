@@ -175,6 +175,22 @@ body::after {
 /* Behind the Earth: invisible and untappable. */
 .marker.is-hidden { opacity: 0; pointer-events: none; }
 
+/* ---------------------------------------------------------- credit strip */
+#credits {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--safe-bottom) + 76px);
+  z-index: 10;
+  margin: 0;
+  padding: 0 calc(var(--safe-right) + 12px) 0 calc(var(--safe-left) + 12px);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  pointer-events: none;
+}
+#credits[hidden] { display: none; }
+
 /* ---------------------------------------------------------- details sheet */
 #sheet {
   position: fixed;

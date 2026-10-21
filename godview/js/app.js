@@ -13,8 +13,10 @@
   const F = window.GV_FORMAT;
   const $ = (id) => document.getElementById(id);
 
-  /* Which layers start switched on. */
+  /* Which layers start switched on. Weather is the heaviest download, so it
+   * waits to be asked for. */
   const DEFAULT_ON = { quakes: true, sats: true };
+  const GLOBE_COLOR = '#03140c';
 
   function fail(message) {
     $('fallback-msg').textContent = message;
@@ -40,6 +42,36 @@
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return res.text();
+  }
+
+  /* An image's pixels, for layers that work on pictures (weather). The
+   * request is anonymous-CORS, so a source that does not allow web pages
+   * fails here, cleanly, instead of tainting the canvas. */
+  function loadPixels(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      const timer = setTimeout(() => reject(new Error('timed out: ' + url)), 30000);
+      img.onload = () => {
+        clearTimeout(timer);
+        try {
+          const c = document.createElement('canvas');
+          c.width = img.naturalWidth;
+          c.height = img.naturalHeight;
+          const ctx = c.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          const d = ctx.getImageData(0, 0, c.width, c.height);
+          resolve({ width: c.width, height: c.height, data: d.data });
+        } catch (e) {
+          reject(e);
+        }
+      };
+      img.onerror = () => {
+        clearTimeout(timer);
+        reject(new Error('image failed: ' + url));
+      };
+      img.src = url;
+    });
   }
 
   /* ------------------------------------------------------------ clock */
@@ -89,7 +121,7 @@
       });
 
     const material = globe.globeMaterial();
-    material.color.set('#03140c');
+    material.color.set(GLOBE_COLOR);
     if (material.emissive) material.emissive.set('#010a05');
 
     globe.renderer().setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
@@ -180,6 +212,45 @@
     if (!sameItems(points, state.globe.pointsData())) state.globe.pointsData(points);
     if (!sameItems(rings, state.globe.ringsData())) state.globe.ringsData(rings);
     state.globe.htmlElementsData(on.flatMap((l) => l.html || []));
+    paintSurface(on.map((l) => l.texture).find(Boolean) || null);
+    paintCredits(on);
+  }
+
+  /* A layer's texture becomes the globe's surface; with none, the plain dark
+   * globe comes back. The globe library loads an image a moment after it is
+   * set and does not clear it when unset, so the surface is cleared here, and
+   * once more shortly after in case a load was still landing. */
+  let shownTexture = null;
+  function clearSurface() {
+    const m = state.globe.globeMaterial();
+    if (m.map) {
+      m.map.dispose();
+      m.map = null;
+    }
+    if (m.color) m.color.set(GLOBE_COLOR);
+    m.needsUpdate = true;
+  }
+  function paintSurface(texture) {
+    if (texture === shownTexture) return;
+    shownTexture = texture;
+    if (texture) {
+      const c = document.createElement('canvas');
+      c.width = texture.width;
+      c.height = texture.height;
+      c.getContext('2d').putImageData(new ImageData(texture.data, texture.width, texture.height), 0, 0);
+      state.globe.globeImageUrl(c.toDataURL('image/jpeg', 0.9));
+    } else {
+      state.globe.globeImageUrl(null);
+      clearSurface();
+      setTimeout(() => { if (!shownTexture) clearSurface(); }, 1500);
+    }
+  }
+
+  function paintCredits(on) {
+    const text = on.map((l) => l.credit).filter(Boolean).join(' · ');
+    const el = $('credits');
+    el.textContent = text;
+    el.hidden = !text;
   }
 
   /* One clock for everything that moves between fetches. Paused while the
@@ -203,6 +274,7 @@
     if (!enabled) val = 'OFF';
     else if (layer.status === 'offline') val = 'OFFLINE';
     else if (layer.status === 'loading') val = '…';
+    else if (layer.summary) val = layer.summary;
     else val = F.count(layer.count);
     btn.querySelector('.val').textContent = val;
   }
@@ -284,6 +356,7 @@
 
     addLayer(window.GV_QUAKES_LAYER.create({ fetchJson: fetchJson }));
     addLayer(window.GV_SATS_LAYER.create({ fetchText: fetchText }));
+    addLayer(window.GV_WEATHER_LAYER.create({ fetchJson: fetchJson, loadPixels: loadPixels }));
     startTicker();
 
     window.GODVIEW = {

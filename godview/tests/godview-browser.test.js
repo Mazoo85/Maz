@@ -18,6 +18,7 @@
 'use strict';
 
 const http = require('http');
+const zlib = require('zlib');
 const fs = require('fs');
 const path = require('path');
 
@@ -46,6 +47,50 @@ function redate(text, date) {
   }).join('\n');
 }
 const YESTERDAY = new Date(Date.now() - 86400000);
+
+/* Weather pictures, made here so no binary fixtures are needed: a minimal PNG
+ * encoder (8-bit RGBA, no filtering) over a fill function. */
+function crc32(buf) {
+  let c = ~0;
+  for (const b of buf) {
+    c ^= b;
+    for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1));
+  }
+  return ~c >>> 0;
+}
+function png(width, height, fill) {
+  const raw = Buffer.alloc((width * 4 + 1) * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) Buffer.from(fill(x, y)).copy(raw, y * (width * 4 + 1) + 1 + x * 4);
+  }
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([len, body, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))
+  ]);
+}
+/* Clouds: one white bank over 0–45°N, 0–90°E; sea everywhere else. */
+const CLOUDS_PNG = png(64, 32, (x, y) => (x >= 32 && x < 48 && y >= 8 && y < 16 ? [245, 245, 245, 255] : [10, 40, 90, 255]));
+/* Rain: one radar tile of the 4 × 4 has rain in it; the rest are clear. */
+const RAIN_PNG = png(16, 16, () => [0, 120, 255, 220]);
+const CLEAR_PNG = png(16, 16, () => [0, 0, 0, 0]);
+const RAIN_INDEX = JSON.stringify({
+  version: '2.0',
+  host: 'https://tilecache.rainviewer.com',
+  radar: { past: [{ time: 1792563000, path: '/v2/radar/1792563000' }], nowcast: [] }
+});
 const STATIONS_TLE = redate(fs.readFileSync(path.join(__dirname, 'fixtures', 'celestrak-stations.txt'), 'utf8'), YESTERDAY);
 const VISUAL_TLE = redate(fs.readFileSync(path.join(__dirname, 'fixtures', 'celestrak-visual.txt'), 'utf8'), YESTERDAY);
 const GLOBE_URL = 'https://cdn.jsdelivr.net/npm/globe.gl@2.46.2/dist/globe.gl.min.js';
@@ -110,10 +155,10 @@ function launchOptions() {
   return opts;
 }
 
-/* A phone-sized page with the network answered by us. `quakes`, `sats` and
- * `globe` are 'ok' or 'down'. Errors caused on purpose (a feed we cut) are not
- * problems. */
-async function openPage(browser, base, { quakes = 'ok', sats = 'ok', globe = 'ok' } = {}) {
+/* A phone-sized page with the network answered by us. `quakes`, `sats`,
+ * `weather` and `globe` are 'ok' or 'down'. Errors caused on purpose (a feed
+ * we cut) are not problems. */
+async function openPage(browser, base, { quakes = 'ok', sats = 'ok', weather = 'ok', globe = 'ok' } = {}) {
   const page = await browser.newPage({
     viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true
   });
@@ -134,6 +179,16 @@ async function openPage(browser, base, { quakes = 'ok', sats = 'ok', globe = 'ok
     const body = /GROUP=stations/.test(route.request().url()) ? STATIONS_TLE : VISUAL_TLE;
     return route.fulfill({ status: 200, contentType: 'text/plain', body: body,
       headers: { 'access-control-allow-origin': '*' } });
+  });
+  const cors = { 'access-control-allow-origin': '*' };
+  await page.route('https://wvs.earthdata.nasa.gov/**', (route) => (weather === 'ok' ?
+    route.fulfill({ status: 200, contentType: 'image/png', body: CLOUDS_PNG, headers: cors }) : route.abort('failed')));
+  await page.route('https://api.rainviewer.com/**', (route) => (weather === 'ok' ?
+    route.fulfill({ status: 200, contentType: 'application/json', body: RAIN_INDEX, headers: cors }) : route.abort('failed')));
+  await page.route('https://tilecache.rainviewer.com/**', (route) => {
+    if (weather !== 'ok') return route.abort('failed');
+    const rainy = /\/256\/2\/1\/1\//.test(route.request().url());
+    return route.fulfill({ status: 200, contentType: 'image/png', body: rainy ? RAIN_PNG : CLEAR_PNG, headers: cors });
   });
   await page.route(GLOBE_URL, (route) => {
     if (globe !== 'ok') return route.abort('failed');
@@ -210,6 +265,41 @@ async function openPage(browser, base, { quakes = 'ok', sats = 'ok', globe = 'ok
       check((await page.getAttribute('#sheet-link', 'href')) === 'https://www.n2yo.com/satellite/?s=25544', 'and link to its live track');
       await page.tap('#sheet-close');
 
+      console.log('\nWEATHER');
+      const wx = 'button.layer-btn[data-layer="weather"]';
+      const wxVal = async () => (await page.textContent(wx + ' .val')).trim();
+      check((await page.getAttribute(wx, 'aria-pressed')) === 'false', 'weather waits to be asked for');
+      check((await wxVal()) === 'OFF', 'its button says OFF');
+      check(await page.evaluate(() => document.getElementById('credits').hidden), 'no credit strip yet');
+      await page.tap(wx);
+      await page.waitForFunction((sel) => /UTC$/.test(document.querySelector(sel).textContent), wx + ' .val', { timeout: 15000 })
+        .catch(() => {});
+      check((await wxVal()) === '06:10 UTC', 'tapping it shows the radar time (' + (await wxVal()) + ')');
+      const tex = await page.evaluate(() => {
+        const t = window.GODVIEW.layers.find((l) => l.id === 'weather').texture;
+        if (!t) return null;
+        /* 22.5°N 45°E sits in the cloud bank; 22.5°S 45°W is open sea. */
+        const at = (lat, lng) => {
+          const x = Math.floor((lng + 180) / 360 * t.width);
+          const y = Math.floor((90 - lat) / 180 * t.height);
+          return Array.from(t.data.slice((y * t.width + x) * 4, (y * t.width + x) * 4 + 3));
+        };
+        return { w: t.width, h: t.height, cloud: at(22.5, 45), sea: at(-22.5, -45) };
+      });
+      check(tex && tex.w === 2048 && tex.h === 1024, 'a whole-world weather picture is made');
+      check(tex && tex.cloud[0] > 150 && tex.cloud[1] > 150, 'clouds are painted where the clouds are');
+      check(tex && tex.sea.join() === '3,20,12', 'open sea stays the dark globe colour');
+      check(await page.evaluate(() => /^data:image\/jpeg/.test(window.GODVIEW.globe.globeImageUrl() || '')), 'the globe wears it');
+      await page.waitForTimeout(800);
+      check(await page.evaluate(() => !!window.GODVIEW.globe.globeMaterial().map), 'the globe surface shows the picture');
+      const credits = await page.evaluate(() => { const c = document.getElementById('credits'); return c.hidden ? '' : c.textContent; });
+      check(credits.includes('NASA') && credits.includes('RainViewer'), 'both sources are credited');
+      await page.tap(wx);
+      check((await wxVal()) === 'OFF', 'tapping again turns weather off');
+      await page.waitForTimeout(1800);
+      check(await page.evaluate(() => !window.GODVIEW.globe.globeMaterial().map), 'and the plain dark globe is back');
+      check(await page.evaluate(() => document.getElementById('credits').hidden), 'and the credits go');
+
       console.log('\nDETAILS SHEET');
       await page.evaluate(() => window.GODVIEW.openSheet(window.GODVIEW.globe.pointsData()[0]));
       check(await page.evaluate(() => !document.getElementById('sheet').hidden), 'tapping a quake opens the sheet');
@@ -267,6 +357,20 @@ async function openPage(browser, base, { quakes = 'ok', sats = 'ok', globe = 'ok
       const { page, problems } = await openPage(browser, base, { sats: 'down' });
       check((await page.textContent('button.layer-btn[data-layer="sats"] .val')).trim() === 'OFFLINE', 'the SATS button says OFFLINE');
       check((await page.textContent('button.layer-btn[data-layer="quakes"] .val')).trim() === '3', 'quakes carry on regardless');
+      check(problems.length === 0, 'and nothing throws' + (problems.length ? ' — ' + problems.join('; ') : ''));
+      await page.close();
+    }
+
+    console.log('\nWEATHER SOURCES DOWN');
+    {
+      const { page, problems } = await openPage(browser, base, { weather: 'down' });
+      const wx = 'button.layer-btn[data-layer="weather"]';
+      await page.tap(wx);
+      await page.waitForFunction((sel) => document.querySelector(sel).textContent === 'OFFLINE', wx + ' .val', { timeout: 15000 })
+        .catch(() => {});
+      check((await page.textContent(wx + ' .val')).trim() === 'OFFLINE', 'the WEATHER button says OFFLINE');
+      check(await page.evaluate(() => !window.GODVIEW.globe.globeMaterial().map), 'the globe stays plain');
+      check((await page.textContent('button.layer-btn[data-layer="sats"] .val')).trim() === '4', 'satellites carry on regardless');
       check(problems.length === 0, 'and nothing throws' + (problems.length ? ' — ' + problems.join('; ') : ''));
       await page.close();
     }
