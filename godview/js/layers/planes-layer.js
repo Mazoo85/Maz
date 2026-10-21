@@ -2,8 +2,9 @@
  * GOD'S EYE VIEW — planes.
  *
  * Live aircraft within 250 nautical miles of the point under the camera,
- * every 15 seconds: adsb.lol first, OpenSky only when adsb.lol fails (its
- * anonymous allowance is small). Between fetches every airborne plane is
+ * every 15 seconds: through the planes relay when one is configured (every
+ * free flight service refuses web pages); otherwise adsb.lol first, OpenSky
+ * only when adsb.lol fails (its anonymous allowance is small). Between fetches every airborne plane is
  * flown along its track at its speed from where it was last seen, so planes
  * glide instead of jumping. At most 300, nearest the centre, for phone speed.
  * Follows the layer contract (step 1 plan) with the rotation / followsView
@@ -86,8 +87,17 @@
       place();
     }
 
+    /* Every free flight service refuses web pages, so with a relay configured
+     * (godview/relay/) only the relay is asked; asking the services directly
+     * as well would only add refused requests. */
+    const relay = opts.relayUrl ? String(opts.relayUrl).replace(/\/+$/, '') : '';
+
     async function fetchAround() {
       const v = opts.getView();
+      if (relay) {
+        const json = await opts.fetchJson(relay + '/planes?lat=' + v.lat.toFixed(2) + '&lng=' + v.lng.toFixed(2));
+        return { planes: PL.parseAdsb(json), credit: 'Planes: ' + (json.source || 'relay') + ' (via relay)' };
+      }
       try {
         return { planes: PL.parseAdsb(await opts.fetchJson(PL.adsbUrl(v.lat, v.lng))), credit: 'Planes: adsb.lol (ODbL)' };
       } catch (e) {

@@ -164,9 +164,10 @@ function launchOptions() {
 
 /* A phone-sized page with the network answered by us. `quakes`, `sats`,
  * `weather`, `adsb`, `opensky`, `cameras` and `globe` are 'ok' or 'down'.
- * Finland's camera pictures are always cut, to show the "no picture" note. Errors caused on purpose (a feed
+ * Finland's camera pictures are always cut, to show the "no picture" note.
+ * `relay` set to 'ok' or 'down' gives the page a planes relay to use. Errors caused on purpose (a feed
  * we cut) are not problems. */
-async function openPage(browser, base, { quakes = 'ok', sats = 'ok', weather = 'ok', adsb = 'ok', opensky = 'ok', cameras = 'ok', globe = 'ok' } = {}) {
+async function openPage(browser, base, { quakes = 'ok', sats = 'ok', weather = 'ok', adsb = 'ok', opensky = 'ok', cameras = 'ok', globe = 'ok', relay = null } = {}) {
   const page = await browser.newPage({
     viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true
   });
@@ -219,6 +220,18 @@ async function openPage(browser, base, { quakes = 'ok', sats = 'ok', weather = '
     (/\.json$/.test(new URL(route.request().url()).pathname) ? list(CALTRANS)(route) : picture(route)));
   await page.route('https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/**', picture);
   await page.route('https://weathercam.digitraffic.fi/**', (route) => route.abort('failed'));
+  if (relay) {
+    await page.route('**/godview/js/config.js', (route) => route.fulfill({
+      status: 200, contentType: 'text/javascript',
+      body: "window.GV_CONFIG = { planesRelay: 'https://gv-relay.example.workers.dev' };"
+    }));
+    await page.route('https://gv-relay.example.workers.dev/**', (route) => {
+      if (relay !== 'ok') return route.fulfill({ status: 502, contentType: 'application/json', headers: cors, body: '{"error":"no flight source answered"}' });
+      const j = JSON.parse(fresh(ADSB, 'now', 1));
+      return route.fulfill({ status: 200, contentType: 'application/json', headers: cors,
+        body: JSON.stringify({ source: 'adsb.fi', ac: j.ac }) });
+    });
+  }
   await page.route(GLOBE_URL, (route) => {
     if (globe !== 'ok') return route.abort('failed');
     if (process.env.GLOBE_JS) {
@@ -517,6 +530,29 @@ async function tapMarker(page, sel, layerId, index) {
         .catch(() => {});
       check((await page.textContent(pl + ' .val')).trim() === '2', 'OpenSky fills in: 2 planes');
       check((await page.textContent('#credits')).includes('OpenSky'), 'and OpenSky is credited');
+      check(problems.length === 0, 'and nothing throws' + (problems.length ? ' — ' + problems.join('; ') : ''));
+      await page.close();
+    }
+
+    console.log('\nPLANES THROUGH THE RELAY');
+    {
+      const { page, problems } = await openPage(browser, base, { relay: 'ok', adsb: 'down', opensky: 'down' });
+      const pl = 'button.layer-btn[data-layer="planes"]';
+      await page.tap(pl);
+      await page.waitForFunction((sel) => document.querySelector(sel).textContent === '3', pl + ' .val', { timeout: 15000 })
+        .catch(() => {});
+      check((await page.textContent(pl + ' .val')).trim() === '3', 'the relay brings 3 planes even though both services refuse the page');
+      check((await page.textContent('#credits')).includes('adsb.fi (via relay)'), 'and the source is credited');
+      check(problems.length === 0, 'and nothing throws' + (problems.length ? ' — ' + problems.join('; ') : ''));
+      await page.close();
+    }
+    {
+      const { page, problems } = await openPage(browser, base, { relay: 'down' });
+      const pl = 'button.layer-btn[data-layer="planes"]';
+      await page.tap(pl);
+      await page.waitForFunction((sel) => document.querySelector(sel).textContent === 'OFFLINE', pl + ' .val', { timeout: 15000 })
+        .catch(() => {});
+      check((await page.textContent(pl + ' .val')).trim() === 'OFFLINE', 'a relay with no source answering shows OFFLINE');
       check(problems.length === 0, 'and nothing throws' + (problems.length ? ' — ' + problems.join('; ') : ''));
       await page.close();
     }

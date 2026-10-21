@@ -745,16 +745,22 @@ test('advance flies a plane along its track at its speed', () => {
 
 
 /* ------------------------------------------------------------- planes layer */
-/* sources: { adsb: 'ok'|'down', opensky: 'ok'|'down' } */
-function planesLayer(sources) {
+/* sources: { adsb: 'ok'|'down', opensky: 'ok'|'down', relay: 'ok'|'down' };
+ * relayUrl set means the page has a relay configured. */
+function planesLayer(sources, relayUrl) {
   const t = fakeTimers();
   const asked = [];
   let view = { lat: 40.64, lng: -73.78, altitude: 2 };
   let clock = 1000000;
   const layer = PLL.create({
     now: () => clock,
+    relayUrl: relayUrl,
     fetchJson: (url) => {
       asked.push(url);
+      if (relayUrl && url.startsWith(relayUrl)) {
+        return sources.relay === 'ok' ?
+          Promise.resolve({ source: 'adsb.fi', ac: ADSB.ac }) : Promise.reject(new Error('relay down'));
+      }
       const ok = url.includes('adsb.lol') ? sources.adsb === 'ok' : sources.opensky === 'ok';
       if (!ok) return Promise.reject(new Error('blocked'));
       return Promise.resolve(url.includes('adsb.lol') ? ADSB : OPENSKY);
@@ -841,6 +847,24 @@ test('describe gives callsign, height, speed, heading and type', async () => {
   const cessna = layer.describe(layer.html.find((h) => h.item.hex === 'a00f00').item);
   eq(cessna.title, 'N9999X', 'no callsign: the registration');
   eq(cessna.rows[0].join('|'), 'ALTITUDE|ON THE GROUND');
+});
+
+test('with a relay set, planes come through it and it is credited', async () => {
+  const { layer, asked } = planesLayer({ relay: 'ok', adsb: 'down', opensky: 'down' }, 'https://gv.example.workers.dev/');
+  layer.start();
+  await flush();
+  eq(asked.join(' '), 'https://gv.example.workers.dev/planes?lat=40.64&lng=-73.78', 'only the relay is asked');
+  eq(layer.status, 'live');
+  eq(layer.count, 3);
+  eq(layer.credit, 'Planes: adsb.fi (via relay)');
+});
+
+test('a relay that is down is OFFLINE, without asking services that refuse web pages', async () => {
+  const { layer, asked } = planesLayer({ relay: 'down', adsb: 'ok', opensky: 'ok' }, 'https://gv.example.workers.dev');
+  layer.start();
+  await flush();
+  eq(layer.status, 'offline');
+  eq(asked.length, 1);
 });
 
 test('stop clears the planes', async () => {

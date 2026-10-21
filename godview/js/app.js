@@ -405,7 +405,11 @@
     addLayer(window.GV_QUAKES_LAYER.create({ fetchJson: fetchJson }));
     addLayer(window.GV_SATS_LAYER.create({ fetchText: fetchText }));
     addLayer(window.GV_WEATHER_LAYER.create({ fetchJson: fetchJson, loadPixels: loadPixels }));
-    addLayer(window.GV_PLANES_LAYER.create({ fetchJson: fetchJson, getView: () => state.globe.pointOfView() }));
+    addLayer(window.GV_PLANES_LAYER.create({
+      fetchJson: fetchJson,
+      getView: () => state.globe.pointOfView(),
+      relayUrl: (window.GV_CONFIG || {}).planesRelay
+    }));
     addLayer(window.GV_CAMERAS_LAYER.create({ fetchJson: fetchJson, getView: () => state.globe.pointOfView() }));
     followView();
     startTicker();
