@@ -24,6 +24,7 @@ with their full history.
 | [`film`](film) |
 | [`forge`](forge) |
 | [`madlibs`](madlibs) |
+| [`mandala`](mandala) |
 | [`music`](music) |
 | [`names`](names) |
 | [`scraper`](scraper) |
