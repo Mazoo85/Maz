@@ -136,8 +136,9 @@
       accent: '#1aff8c',
       blurb:
         'A spy-console 3D globe you spin with a finger, showing what the planet is doing ' +
-        'right now: every earthquake of the past day from USGS, live, with more layers on ' +
-        'the way. Free public data, no account, no key.',
+        'right now: every earthquake of the past day from USGS, and the space stations ' +
+        'and brightest satellites gliding along their real orbits. Free public data, ' +
+        'no account, no key.',
       badges: ['Phone + desktop', '3D globe', 'Live data'],
       docs: 'godview/README.md'
     },

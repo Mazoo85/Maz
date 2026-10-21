@@ -14,7 +14,7 @@
   const $ = (id) => document.getElementById(id);
 
   /* Which layers start switched on. */
-  const DEFAULT_ON = { quakes: true };
+  const DEFAULT_ON = { quakes: true, sats: true };
 
   function fail(message) {
     $('fallback-msg').textContent = message;
@@ -34,6 +34,12 @@
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return res.json();
+  }
+
+  async function fetchText(url) {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.text();
   }
 
   /* ------------------------------------------------------------ clock */
@@ -71,7 +77,16 @@
       .ringColor((r) => (t) => F.rgba(r.color, 1 - t))
       .ringMaxRadius('maxRadius')
       .ringPropagationSpeed(2)
-      .ringRepeatPeriod(1400);
+      .ringRepeatPeriod(1400)
+      .htmlElementsData([])
+      .htmlLat('lat')
+      .htmlLng('lng')
+      .htmlAltitude('altitude')
+      .htmlElement(markerFor)
+      .htmlTransitionDuration(1000)
+      .htmlElementVisibilityModifier((el, visible) => {
+        el.classList.toggle('is-hidden', !visible);
+      });
 
     const material = globe.globeMaterial();
     material.color.set('#03140c');
@@ -89,6 +104,33 @@
       globe.width(window.innerWidth).height(window.innerHeight);
     });
     return globe;
+  }
+
+  /* ------------------------------------------------------------ markers */
+  /* One DOM element per floating marker, made once and reused: the globe
+   * moves it, and a tap on it opens the sheet. */
+  const markerEls = new WeakMap();
+  function markerFor(d) {
+    let el = markerEls.get(d);
+    if (el) return el;
+    el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'marker';
+    el.style.setProperty('--c', d.color);
+    el.setAttribute('aria-label', d.item.name || 'marker');
+    el.dataset.layer = d.layer;
+    if (d.label) {
+      const tag = document.createElement('span');
+      tag.className = 'marker-label';
+      tag.textContent = d.label;
+      el.append(tag);
+    }
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openSheet(d);
+    });
+    markerEls.set(d, el);
+    return el;
   }
 
   /* ------------------------------------------------------------ sheet */
@@ -124,10 +166,31 @@
   /* ------------------------------------------------------------ layers */
   const state = { globe: null, layers: [], enabled: {}, buttons: {} };
 
+  /* Points and rings are only re-set when what is in them changed, so a
+   * satellite tick does not restart the quake rings; markers are re-set on
+   * every change so the globe glides them to their new positions. */
+  function sameItems(a, b) {
+    return a.length === b.length && a.every((x, i) => x === b[i]);
+  }
+
   function redraw() {
     const on = state.layers.filter((l) => state.enabled[l.id]);
-    state.globe.pointsData(on.flatMap((l) => l.points));
-    state.globe.ringsData(on.flatMap((l) => l.rings));
+    const points = on.flatMap((l) => l.points);
+    const rings = on.flatMap((l) => l.rings);
+    if (!sameItems(points, state.globe.pointsData())) state.globe.pointsData(points);
+    if (!sameItems(rings, state.globe.ringsData())) state.globe.ringsData(rings);
+    state.globe.htmlElementsData(on.flatMap((l) => l.html || []));
+  }
+
+  /* One clock for everything that moves between fetches. Paused while the
+   * page is hidden, to save the phone's battery. */
+  function startTicker() {
+    setInterval(() => {
+      if (document.hidden) return;
+      for (const l of state.layers) {
+        if (state.enabled[l.id] && typeof l.tick === 'function') l.tick();
+      }
+    }, 1000);
   }
 
   function paintButton(layer) {
@@ -220,6 +283,8 @@
       .catch(() => { /* outlines are decoration; the live layers still work */ });
 
     addLayer(window.GV_QUAKES_LAYER.create({ fetchJson: fetchJson }));
+    addLayer(window.GV_SATS_LAYER.create({ fetchText: fetchText }));
+    startTicker();
 
     window.GODVIEW = {
       globe: state.globe,

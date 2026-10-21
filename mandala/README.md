@@ -20,10 +20,11 @@ A standalone app: it is not part of MAZ ARCADE.
 | **Colour** | Six colour sets (Earth, Jewel, Lotus, Ocean, Ink, Gold), rainbow ink, or any colour you pick. Each set brings its own background. |
 | **Glow** | A soft glow on the lines. |
 | **Guide lines** | Faint spokes and rings to draw along. Never in the saved picture. |
-| **Spin** | The mandala slowly turns, and you can keep drawing while it does. |
+| **Motion** | Still; Spin (the whole mandala turns); Swirl (rings turn opposite ways, outer ones faster); Breathe (it gently pulses, ring after ring); Flow (swirl and breathe together, the default). Keep drawing while it moves: a line lands under your finger and then travels with its ring. Devices set to reduce motion start on Still. |
+| **Speed** | 0× to 3×. Changing it never makes the picture jump, and 0× pauses it where it is. |
 | **Surprise me** | A random mandala: petals, arches, zigzags, rays, dots and loops in rings from the centre out, using your repeats, colour set and mirror setting. |
 | **Undo / Clear** | Take back the last line (or Ctrl+Z), or start again. |
-| **Save picture** | Downloads a 2048 × 2048 PNG. |
+| **Save picture** | Downloads a 2048 × 2048 PNG of the mandala at rest. |
 
 Your drawing is kept in the browser (localStorage), so it is still there when
 you come back.
@@ -32,7 +33,7 @@ you come back.
 
 | File | What it is |
 |---|---|
-| `js/mandala.js` | The engine: symmetry, the Surprise-me generator, the save format. No DOM, so it is tested in plain Node. |
+| `js/mandala.js` | The engine: symmetry, ring motion, the Surprise-me generator, the save format. No DOM, so it is tested in plain Node. |
 | `js/app.js` | The page: canvas, touch and mouse drawing, buttons, saving. |
 | `css/style.css` | The look: warm paper in light mode, ink-dark in dark mode. |
 | `tests/mandala-logic.test.js` | `node mandala/tests/mandala-logic.test.js`. Runs in CI via `.github/workflows/mandala.yml`. |

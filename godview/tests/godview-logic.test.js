@@ -19,7 +19,14 @@ const F = require('../js/lib/format.js');
 const P = require('../js/lib/poller.js');
 const Q = require('../js/lib/quakes.js');
 const QL = require('../js/layers/quakes-layer.js');
+const SATLIB = require('../vendor/satellite.min.js');
+const S = require('../js/lib/sats.js');
+const SL = require('../js/layers/sats-layer.js');
 
+const STATIONS_TLE = fs.readFileSync(path.join(__dirname, 'fixtures', 'celestrak-stations.txt'), 'utf8');
+const VISUAL_TLE = fs.readFileSync(path.join(__dirname, 'fixtures', 'celestrak-visual.txt'), 'utf8');
+/* Four days after the fixtures' epoch (17 Oct 2026 12:00 UTC). */
+const SAT_TIME = Date.UTC(2026, 9, 21, 6, 0, 0);
 const FIXTURE = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'usgs-sample.json'), 'utf8'));
 
 const tests = [];
@@ -32,6 +39,11 @@ function eq(actual, expected, message) {
   if (actual !== expected) {
     throw new Error((message || 'values differ') + ': got ' + JSON.stringify(actual) +
       ', expected ' + JSON.stringify(expected));
+  }
+}
+function near(actual, expected, tolerance, message) {
+  if (Math.abs(actual - expected) > tolerance) {
+    throw new Error((message || 'values differ') + ': got ' + actual + ', expected ~' + expected);
   }
 }
 function throws(fn, message) {
@@ -289,6 +301,167 @@ test('stop clears everything off the globe', async () => {
   eq(layer.count, 0);
   eq(layer.points.length, 0);
   eq(layer.rings.length, 0);
+  eq(t.queue.length, 0);
+});
+
+
+/* ------------------------------------------------------------- satellites */
+test('checksum is the TLE mod-10 rule (digits, and 1 for each minus)', () => {
+  const l1 = STATIONS_TLE.split(/\r?\n/)[1];
+  eq(S.checksum(l1), Number(l1[68]));
+  eq(S.checksum('1 -' + ' '.repeat(65) + '0'), 2, 'one digit and one minus');
+});
+
+test('parseTle keeps whole, valid records and drops broken ones', () => {
+  const stations = S.parseTle(STATIONS_TLE);
+  eq(stations.length, 2);
+  eq(stations[0].name, 'ISS (ZARYA)', 'name is trimmed');
+  eq(stations[0].norad, 25544);
+  eq(stations[1].norad, 48274);
+  const visual = S.parseTle(VISUAL_TLE);
+  eq(visual.map((r) => r.name).join('|'), 'ISS (ZARYA)|HST|NOAA 19', 'bad checksum and truncated record skipped');
+});
+
+test('parseTle copes with nothing useful', () => {
+  eq(S.parseTle('').length, 0);
+  eq(S.parseTle('<html>Too many requests</html>').length, 0);
+  throws(() => S.parseTle(null), 'null is not a feed');
+});
+
+test('positionAt puts the ISS where the ISS can be', () => {
+  const iss = S.parseTle(STATIONS_TLE)[0];
+  const rec = SATLIB.twoline2satrec(iss.line1, iss.line2);
+  const p = S.positionAt(rec, new Date(SAT_TIME), SATLIB);
+  assert(p, 'got a position');
+  assert(p.altKm > 370 && p.altKm < 460, 'altitude ' + p.altKm);
+  assert(p.speedKmS > 7.5 && p.speedKmS < 7.8, 'speed ' + p.speedKmS);
+  assert(Math.abs(p.lat) <= 51.7, 'latitude within the inclination: ' + p.lat);
+  assert(p.lng >= -180 && p.lng <= 180, 'longitude in range: ' + p.lng);
+  const later = S.positionAt(rec, new Date(SAT_TIME + 60000), SATLIB);
+  assert(Math.abs(later.lng - p.lng) + Math.abs(later.lat - p.lat) > 1, 'a minute later it has moved');
+});
+
+test('positionAt gives null instead of a made-up place', () => {
+  const iss = S.parseTle(STATIONS_TLE)[0];
+  const rec = SATLIB.twoline2satrec(iss.line1, iss.line2);
+  eq(S.positionAt(rec, new Date(Date.UTC(2040, 0, 1)), SATLIB), null, 'decayed long before 2040');
+  eq(S.positionAt({ error: 1 }, new Date(SAT_TIME), { propagate: () => ({ position: false, velocity: false }) }), null);
+});
+
+
+/* ------------------------------------------------------------- sats layer */
+function satsLayer(answers) {
+  /* answers: { stations: text|Error, visual: text|Error } */
+  const t = fakeTimers();
+  let clock = SAT_TIME;
+  const asked = [];
+  const layer = SL.create({
+    fetchText: (url) => {
+      asked.push(url);
+      const a = url === S.FEEDS.stations ? answers.stations : answers.visual;
+      return a instanceof Error ? Promise.reject(a) : Promise.resolve(a);
+    },
+    satlib: SATLIB,
+    now: () => clock,
+    setTimer: t.set,
+    clearTimer: t.clear
+  });
+  return { layer, t, asked, advance: (ms) => { clock += ms; } };
+}
+
+test('the sats layer merges both groups, once each, stations first', async () => {
+  const { layer, asked, t } = satsLayer({ stations: STATIONS_TLE, visual: VISUAL_TLE });
+  layer.start();
+  await flush();
+  eq(asked.slice().sort().join(' '), [S.FEEDS.stations, S.FEEDS.visual].sort().join(' '));
+  eq(layer.status, 'live');
+  eq(layer.count, 4, 'ISS is in both groups but drawn once');
+  eq(layer.html.map((h) => h.item.name).join('|'), 'ISS (ZARYA)|CSS (TIANHE)|HST|NOAA 19');
+  eq(layer.points.length, 0);
+  eq(layer.rings.length, 0);
+  eq(t.queue[0].ms, 2 * 3600 * 1000, 'refetches every two hours');
+});
+
+test('stations are amber and the big two are labelled', async () => {
+  const { layer } = satsLayer({ stations: STATIONS_TLE, visual: VISUAL_TLE });
+  layer.start();
+  await flush();
+  const [iss, css, hst] = layer.html;
+  eq(iss.layer, 'sats');
+  eq(iss.label, 'ISS');
+  eq(css.label, 'TIANGONG');
+  eq(hst.label, null);
+  eq(iss.color, '#ffb300');
+  eq(hst.color, '#1aff8c');
+  near(iss.altitude, iss.item.altKm / 6371, 1e-9, 'altitude in Earth radii');
+});
+
+test('one group down is still live; both down is OFFLINE', async () => {
+  const half = satsLayer({ stations: new Error('503'), visual: VISUAL_TLE });
+  half.layer.start();
+  await flush();
+  eq(half.layer.status, 'live');
+  eq(half.layer.count, 3);
+  const none = satsLayer({ stations: new Error('503'), visual: new Error('503') });
+  none.layer.start();
+  await flush();
+  eq(none.layer.status, 'offline');
+  eq(none.layer.count, 0);
+});
+
+test('tick moves the satellites, keeping the same marker objects', async () => {
+  const { layer, advance } = satsLayer({ stations: STATIONS_TLE, visual: VISUAL_TLE });
+  layer.start();
+  await flush();
+  const iss = layer.html[0];
+  const before = [iss.lat, iss.lng];
+  let changed = 0;
+  layer.onChange(() => changed++);
+  advance(30000);
+  layer.tick();
+  assert(layer.html[0] === iss, 'same object, moved in place');
+  assert(iss.lat !== before[0] || iss.lng !== before[1], 'it moved');
+  eq(changed, 1, 'one change per tick');
+});
+
+test('a satellite the model cannot place is left off the globe', async () => {
+  const { layer, advance } = satsLayer({ stations: STATIONS_TLE, visual: VISUAL_TLE });
+  layer.start();
+  await flush();
+  advance(14 * 365 * 86400000);
+  layer.tick();
+  /* By 2040 the low, draggy stations have come down in the model; the higher
+   * satellites have not. */
+  const names = layer.html.map((h) => h.item.name);
+  assert(names.indexOf('ISS (ZARYA)') < 0 && names.indexOf('CSS (TIANHE)') < 0, 'stations dropped: ' + names.join(', '));
+  assert(names.indexOf('NOAA 19') >= 0, 'NOAA 19 still placed');
+  eq(layer.count, layer.html.length, 'the count matches what is drawn');
+});
+
+test('describe gives name, height, speed, position and a link', async () => {
+  const { layer } = satsLayer({ stations: STATIONS_TLE, visual: VISUAL_TLE });
+  layer.start();
+  await flush();
+  const d = layer.describe(layer.html[0].item);
+  eq(d.title, 'ISS (ZARYA)');
+  eq(d.rows[0][0], 'ALTITUDE');
+  assert(/^\d{3} km \/ \d{3} mi$/.test(d.rows[0][1]), d.rows[0][1]);
+  eq(d.rows[1][0], 'SPEED');
+  assert(/^2\d,\d{3} km\/h \/ 1\d,\d{3} mph$/.test(d.rows[1][1]), d.rows[1][1]);
+  eq(d.rows[2][0], 'POSITION');
+  assert(/^\d+\.\d° [NS], \d+\.\d° [EW]$/.test(d.rows[2][1]), d.rows[2][1]);
+  eq(d.rows[3].join('|'), 'NORAD ID|25544');
+  eq(d.link, 'https://www.n2yo.com/satellite/?s=25544');
+});
+
+test('stop clears the satellites', async () => {
+  const { layer, t } = satsLayer({ stations: STATIONS_TLE, visual: VISUAL_TLE });
+  layer.start();
+  await flush();
+  layer.stop();
+  eq(layer.status, 'idle');
+  eq(layer.html.length, 0);
+  eq(layer.count, 0);
   eq(t.queue.length, 0);
 });
 
