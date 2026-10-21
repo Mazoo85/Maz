@@ -24,6 +24,9 @@
     undo: document.getElementById('undo'),
     clear: document.getElementById('clear'),
     savePng: document.getElementById('savePng'),
+    saveVideo: document.getElementById('saveVideo'),
+    cue: document.getElementById('cue'),
+    breathGuide: document.getElementById('breathGuide'),
     slices: document.getElementById('slices'),
     slicesOut: document.getElementById('slicesOut'),
     size: document.getElementById('size'),
@@ -55,6 +58,7 @@
     live: null,       // the stroke being drawn right now
     pointerId: null,
     phase: 0,         // the animation's clock: seconds × speed
+    recording: false, // true while a video is being made
     lastTime: 0,
     layerDirty: true
   };
@@ -211,7 +215,8 @@
     var w = el.canvas.width;
     ctx.fillStyle = state.background;
     ctx.fillRect(0, 0, w, w);
-    if (el.guides.checked) paintGuides(ctx, g);
+    // Guide lines are a drawing aid: never in a video.
+    if (el.guides.checked && !state.recording) paintGuides(ctx, g);
     for (var b = 0; b < layers.length; b++) {
       withBand(ctx, g, b, function () { ctx.drawImage(layers[b].canvas, 0, 0); });
     }
@@ -219,7 +224,21 @@
       withBand(ctx, g, state.live.band, function () { drawStroke(ctx, state.live, g); });
     }
 
+    showCue();
     requestAnimationFrame(frame);
+  }
+
+  // The breath guide: "Breathe in" while the mandala opens, "Breathe out"
+  // while it draws in. Only when it is breathing, and only if asked for.
+  var lastCue = '';
+  function showCue() {
+    var breathing = el.motion.value === 'breathe' || el.motion.value === 'flow';
+    var cue = el.breathGuide.checked && breathing && Number(el.speed.value) > 0
+      ? M.breathCue(state.phase) : '';
+    if (cue === lastCue) return;
+    lastCue = cue;
+    el.cue.hidden = !cue;
+    el.cue.textContent = cue === 'in' ? 'Breathe in' : 'Breathe out';
   }
 
   function resize() {
@@ -346,23 +365,79 @@
     toast('Draw on top, or press it again');
   });
 
+  function stamp() {
+    return new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  }
+
+  function download(blob, name) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  }
+
   el.savePng.addEventListener('click', function () {
     var out = document.createElement('canvas');
     out.width = out.height = EXPORT_PX;
     paintArt(out.getContext('2d'));
-    var name = 'mandala-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.png';
     out.toBlob(function (blob) {
       if (!blob) { toast('Could not make the picture'); return; }
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = url;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+      download(blob, 'mandala-' + stamp() + '.png');
       toast('Picture saved');
     }, 'image/png');
+  });
+
+  /*
+   * Save video: records the canvas for exactly one breath at the current
+   * speed, so the clip loops. Starts at the top of a breath, with the guide
+   * lines left out. MP4 where the browser can make it, else WebM.
+   */
+  el.saveVideo.addEventListener('click', function () {
+    if (state.recording) return;
+    var fmt = window.MediaRecorder && el.canvas.captureStream
+      ? M.videoFormat(function (m) { return MediaRecorder.isTypeSupported(m); }) : null;
+    if (!fmt) { toast('This browser cannot record video'); return; }
+
+    var seconds = M.videoSeconds(el.motion.value, el.speed.value);
+    var chunks = [];
+    var recorder;
+    try {
+      recorder = new MediaRecorder(el.canvas.captureStream(30), { mimeType: fmt.mime });
+    } catch (err) {
+      toast('This browser cannot record video');
+      return;
+    }
+
+    // From the top of a breath, once every ring has joined in.
+    var T = M.BREATH_SECONDS;
+    state.phase = Math.max(T, Math.ceil(state.phase / T) * T);
+    state.recording = true;
+    el.saveVideo.classList.add('recording');
+
+    var left = Math.ceil(seconds);
+    el.saveVideo.textContent = 'Recording… ' + left;
+    var tick = setInterval(function () {
+      left -= 1;
+      if (left > 0) el.saveVideo.textContent = 'Recording… ' + left;
+    }, 1000);
+
+    recorder.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+    recorder.onstop = function () {
+      clearInterval(tick);
+      state.recording = false;
+      el.saveVideo.classList.remove('recording');
+      el.saveVideo.textContent = 'Save video';
+      var blob = new Blob(chunks, { type: fmt.mime.split(';')[0] });
+      if (!blob.size) { toast('Could not make the video'); return; }
+      download(blob, 'mandala-' + stamp() + '.' + fmt.ext);
+      toast('Video saved');
+    };
+    recorder.start(250);
+    setTimeout(function () { recorder.stop(); }, seconds * 1000);
   });
 
   document.addEventListener('keydown', function (e) {
