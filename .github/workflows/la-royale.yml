@@ -1,0 +1,27 @@
+name: LA Royale
+
+# LA Royale is a standalone browser game with no build step. Its world
+# (terrain, city generator, collision) is plain modules with no DOM, so the
+# map's tests run in plain Node in seconds.
+
+on:
+  push:
+    paths:
+      - "la-royale/**"
+      - ".github/workflows/la-royale.yml"
+  pull_request:
+    paths:
+      - "la-royale/**"
+      - ".github/workflows/la-royale.yml"
+
+jobs:
+  world:
+    name: LA Royale world tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run the world tests
+        run: node la-royale/tests/world.test.js

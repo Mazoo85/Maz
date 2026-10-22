@@ -1,0 +1,9 @@
+{
+  "name": "la-royale",
+  "private": true,
+  "type": "module",
+  "description": "LA Royale — a 3D battle royale map of Los Angeles that runs in the browser.",
+  "scripts": {
+    "test": "node tests/world.test.js"
+  }
+}
