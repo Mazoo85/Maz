@@ -1440,9 +1440,12 @@ export function buildRealScene(RW, renderer, opts = {}) {
     }
     yield;
 
-    /* shop signs: each named shop, café and bar on the wall of its building */
-    const signs = [];
-    for (const p of d.pois) {
+    /* shop signs: each named shop, café and bar on the wall of its building; the cinemas and
+     * theatres get a marquee and a blade sign */
+    const signs = [], theatres = [];
+    const isStage = (p) => /cinema|theat|movie|performing_arts|music_venue|concert/.test(p.what || '');
+    const rank = (p) => (isStage(p) ? (/theat|cinema|dome|bowl/i.test(p.name) ? 0 : 1) : 2);
+    for (const p of [...d.pois].sort((a, b) => rank(a) - rank(b))) {
       const [x, z] = W2([p.x, p.z]);
       let best = null, bd = 28;
       const l = [];
@@ -1462,8 +1465,9 @@ export function buildRealScene(RW, renderer, opts = {}) {
           if (dd + street < bd) { bd = dd + street; best = { r, qx, qz, nx, nz, len: L, dx: dx / L, dz: dz / L }; }
         }
       }
-      if (!best || signs.length >= 40) continue;
-      signs.push({ ...best, name: p.name.slice(0, 28) });
+      if (!best) continue;
+      if (isStage(p) && theatres.length < 8 && best.r.b.h > 7 && !theatres.some((q) => q.r === best.r)) theatres.push({ ...best, name: p.name.replace(/^(The |Hollywood )/, '').slice(0, 22) });
+      else if (signs.length < 40) signs.push({ ...best, name: p.name.slice(0, 28) });
     }
     const awnings = new Mesh();
     if (signs.length) {
@@ -1486,7 +1490,7 @@ export function buildRealScene(RW, renderer, opts = {}) {
         // the sign on the wall
         const w = Math.min(s.len * 0.8, Math.max(2.6, Math.min(9, ctx.measureText(s.name).width / size * 1.1 + 1))), hgt = w * (CH / CW);
         const y = s.r.base + Math.min(4.2, s.r.b.h - hgt / 2 - 0.4);
-        const ox = s.qx + s.nx * 0.12, oz = s.qz + s.nz * 0.12;
+        const ox = s.qx + s.nx * 0.34, oz = s.qz + s.nz * 0.34;
         const A = [ox - s.dx * w / 2, y - hgt / 2, oz - s.dz * w / 2], B = [ox + s.dx * w / 2, y - hgt / 2, oz + s.dz * w / 2];
         const Cc = [B[0], y + hgt / 2, B[2]], D = [A[0], y + hgt / 2, A[2]];
         const u0 = x0 / 1024, u1 = (x0 + CW) / 1024, v0 = 1 - (y0 + CH) / 2048, v1 = 1 - y0 / 2048;
@@ -1497,7 +1501,7 @@ export function buildRealScene(RW, renderer, opts = {}) {
         if (hashOf(s.qz, s.qx) < 0.55 && yt - s.r.base > 2.7) {
           const aw = Math.min(s.len * 0.9, w + 0.6) / 2, out = 1.3, drop = 0.55;
           const col = new THREE.Color(AWNINGS[Math.floor(hashOf(s.qx * 3, s.qz) * AWNINGS.length)]);
-          const P = (along, o, yy) => [s.qx + s.dx * along + s.nx * (0.15 + o), yy, s.qz + s.dz * along + s.nz * (0.15 + o)];
+          const P = (along, o, yy) => [s.qx + s.dx * along + s.nx * (0.35 + o), yy, s.qz + s.dz * along + s.nz * (0.35 + o)];
           const sl = Math.hypot(out, drop), ny = out / sl, nh = drop / sl;
           awnings.quad(P(-aw, 0, yt), P(aw, 0, yt), P(aw, out, yt - drop), P(-aw, out, yt - drop), s.nx * nh, ny, s.nz * nh, col, null);
           awnings.quad(P(-aw, out, yt - drop), P(aw, out, yt - drop), P(aw, out, yt - drop - 0.3), P(-aw, out, yt - drop - 0.3), s.nx, 0, s.nz, col, null);
@@ -1518,6 +1522,56 @@ export function buildRealScene(RW, renderer, opts = {}) {
       const mesh = new THREE.Mesh(m.geometry(), mat);
       group.add(mesh);
       culls.push({ mesh, cx: tcx, cz: tcz, half: T / 2, far: 500 });
+    }
+
+    if (theatres.length) {
+      // one atlas: the marquee's name (rows 0-7) and the blade's (rows 8-15), lit at night
+      const c = document.createElement('canvas');
+      c.width = 1024; c.height = 2048;
+      const ctx = c.getContext('2d');
+      const m = new Mesh(), bulbs = new Mesh();
+      theatres.forEach((s, i) => {
+        const [bg, fg] = [['#14110d', '#ffd36b'], ['#7a1010', '#fff4d0'], ['#0e2a4a', '#ffe9a8'], ['#1b1b1b', '#ff5ec4']][Math.floor(hashOf(s.qx, s.qz) * 4)];
+        for (const row of [i, i + 8]) {
+          ctx.fillStyle = bg; ctx.fillRect(0, row * 128, 1024, 128);
+          ctx.strokeStyle = fg; ctx.lineWidth = 6; ctx.strokeRect(8, row * 128 + 8, 1008, 112);
+          ctx.fillStyle = fg; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          let size = 92; ctx.font = `bold ${size}px "Arial Narrow", Helvetica, Arial, sans-serif`;
+          const txt = s.name.toUpperCase();
+          while (ctx.measureText(txt).width > 960 && size > 30) { size -= 4; ctx.font = `bold ${size}px "Arial Narrow", Helvetica, Arial, sans-serif`; }
+          ctx.shadowColor = fg; ctx.shadowBlur = 14; ctx.fillText(txt, 512, row * 128 + 68); ctx.shadowBlur = 0;
+        }
+        const cell = (row) => [1 - (row + 1) / 16, 1 - row / 16];
+        const base = s.r.base, w = Math.min(s.len * 0.85, 16), out = 3.4, y0 = base + 4.3, y1 = y0 + 2.4;
+        const P = (along, o, y) => [s.qx + s.dx * along + s.nx * (0.34 + o), y, s.qz + s.dz * along + s.nz * (0.34 + o)];
+        const [v0, v1] = cell(i);
+        // the marquee: its name on the front and both ends, bulbs round the edges, lit underneath
+        m.quad(P(w / 2, out, y0), P(-w / 2, out, y0), P(-w / 2, out, y1), P(w / 2, out, y1), s.nx, 0, s.nz, white, null, [[0, v0], [1, v0], [1, v1], [0, v1]]);
+        for (const e of [-1, 1]) m.quad(P(e * w / 2, 0, y0), P(e * w / 2, out, y0), P(e * w / 2, out, y1), P(e * w / 2, 0, y1), s.dx * e, 0, s.dz * e, white, null, e > 0 ? [[0.2, v0], [0.8, v0], [0.8, v1], [0.2, v1]] : [[0.8, v0], [0.2, v0], [0.2, v1], [0.8, v1]]);
+        const plain = (a, b, cc, d, nx, ny, nz) => m.quad(a, b, cc, d, nx, ny, nz, white, null, [[0.01, v0 + 0.002], [0.02, v0 + 0.002], [0.02, v0 + 0.004], [0.01, v0 + 0.004]]);
+        plain(P(-w / 2, 0, y1), P(w / 2, 0, y1), P(w / 2, out, y1), P(-w / 2, out, y1), 0, 1, 0);   // (the roof of the marquee: a corner of its own cell, plain)
+        bulbs.quad(P(-w / 2, 0, y0), P(w / 2, 0, y0), P(w / 2, out, y0), P(-w / 2, out, y0), 0, -1, 0, white, null);
+        for (const y of [y0 + 0.08, y1 - 0.08]) bulbs.quad(P(w / 2, out + 0.02, y - 0.07), P(-w / 2, out + 0.02, y - 0.07), P(-w / 2, out + 0.02, y + 0.07), P(w / 2, out + 0.02, y + 0.07), s.nx, 0, s.nz, white, null);
+        // the blade: a tall sign standing out from the wall, the name running up it
+        const bh = Math.min(13, s.r.b.h - 8), bx = w / 2 - 0.6;
+        if (bh > 4) {
+          const [u0, u1] = cell(i + 8), by0 = y1 + 0.8, by1 = by0 + bh, dep = 1.8;
+          for (const e of [-1, 1]) {
+            const Q = (o, y) => P(bx + e * 0.22, o, y);
+            m.quad(Q(0, by0), Q(dep, by0), Q(dep, by1), Q(0, by1), s.dx * e, 0, s.dz * e, white, null,
+              e > 0 ? [[0, u1], [0, u0], [1, u0], [1, u1]] : [[0, u0], [0, u1], [1, u1], [1, u0]]);
+          }
+          const R = (y) => [P(bx - 0.22, dep, y), P(bx + 0.22, dep, y)];
+          bulbs.quad(R(by0)[0], R(by0)[1], R(by1)[1], R(by1)[0], s.nx, 0, s.nz, white, null);
+        }
+      });
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+      const mat = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.15, roughness: 0.5, side: THREE.DoubleSide });
+      glowMats.push({ mat, day: 0.15, night: 1.6 });
+      disposables.push(tex, mat);
+      group.add(new THREE.Mesh(m.geometry(), mat));
+      group.add(new THREE.Mesh(bulbs.geometry(), LM.lamp));
     }
 
     return { group, colliders, water, culls, disposables };
