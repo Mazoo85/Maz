@@ -398,6 +398,7 @@ float surfaceDetail(int kind, vec2 uv, inout vec3 col, inout float rough) {
     vec2 tie = fract(p * vec2(2.0, 2.0)) - 0.5;
     float hole = 1.0 - smoothstep(0.015, 0.025, length(tie * vec2(0.61, 0.305)));
     float k = sFade(0.3, fw);
+    hole *= sFade(0.06, fw);          // the 2 cm tie holes go before they're smaller than a pixel
     h = (sfbm(uv * 25.0) * 0.0015 - (joint + hole) * 0.006) * k;
     col *= (0.86 + 0.18 * sfbm(uv * 2.5)) * (1.0 - 0.25 * (joint + hole) * k);
     rough = 0.9;
@@ -654,9 +655,14 @@ export function facadeMaterial(uniforms, real = false) {
             winTint = vWin > 2.5 ? vec3(0.78, 0.86, 1.0) : mix(vec3(1.0, 0.78, 0.5), vec3(0.85, 0.9, 1.0), step(0.8, h21(id * 0.7 + vSeed)));
             // glass: tinted per building, reflections from the sky do the rest
             vec3 tint = mix(vec3(0.1, 0.12, 0.15), mix(vec3(0.12, 0.17, 0.16), vec3(0.16, 0.13, 0.1), vary2), step(0.5, vary));
-            vec3 glass = vWin > 2.5 ? mix(vec3(0.16, 0.23, 0.3), diffuseColor.rgb, 0.3) : tint;
+            #ifdef REAL_ATTRS
+              // curtain walls: tinted, mirrored glass (blue, green, bronze or silver, from the building's colour)
+              vec3 glass = vWin > 2.5 ? mix(vec3(0.24, 0.32, 0.38), diffuseColor.rgb, 0.55) : tint;
+            #else
+              vec3 glass = vWin > 2.5 ? mix(vec3(0.16, 0.23, 0.3), diffuseColor.rgb, 0.3) : tint;
+            #endif
             // curtains and blinds, half-drawn at random
-            float blind = step(0.5, h21(id * 1.7 + vSeed)) * (vWin < 2.5 ? 0.25 : 0.0) * (1.0 - far);
+            float blind = step(0.5, h21(id * 1.7 + vSeed)) * (vWin < 2.5 ? 0.25 : 0.0) * (1.0 - smoothstep(0.04, 0.12, max(fw.x, fw.y)));
             float blindLine = step(fract(f.y * 1.0), mix(pane.w, pane.z, h21(id + 3.1)));
             diffuseColor.rgb = mix(diffuseColor.rgb, glass + blind * blindLine * vec3(0.5, 0.48, 0.42), winMask);
             diffuseColor.rgb *= 1.0 - frame * 0.3;
@@ -676,7 +682,11 @@ export function facadeMaterial(uniforms, real = false) {
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
         roughnessFactor = mix(roughnessFactor, 0.04, glassy);`)
       .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
-        metalnessFactor = mix(metalnessFactor, 0.85, glassy * step(2.5, vWin)) + glassy * 0.25;`)
+        #ifdef REAL_ATTRS
+          metalnessFactor = mix(metalnessFactor, 0.6, glassy * step(2.5, vWin)) + glassy * 0.2;
+        #else
+          metalnessFactor = mix(metalnessFactor, 0.85, glassy * step(2.5, vWin)) + glassy * 0.25;
+        #endif`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         totalEmissiveRadiance += lit * uNight * winTint * (0.25 + 0.35 * h21(floor(vWPos.xz * 0.3) + floor(vWPos.y / 3.6)));`);
   };

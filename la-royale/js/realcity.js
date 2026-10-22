@@ -239,7 +239,7 @@ const pick = (arr, h) => arr[Math.floor(h * arr.length) % arr.length];
 const STUCCO = ['#e8dcc4', '#efe6d2', '#d9c7a7', '#f2efe6', '#cbb89a', '#e3cfb0', '#d6b79a', '#c9c2b4', '#e9d9c9', '#b9a68c', '#dcd3c0', '#f4f1ea', '#c98d6a', '#a9b5a4', '#e6c4b8', '#d8d0bd'];
 const BRICK = ['#8a4b38', '#9a5a43', '#7b4636', '#a0654c'];
 const CONCRETE = ['#bdb7ac', '#a9a49b', '#c8c3b8', '#b3aea4'];
-const GLASS = ['#6f8796', '#55707f', '#7d93a0', '#4a6372', '#8a9aa3'];
+const GLASS = ['#7f9fb4', '#6d8f8a', '#9aa8b0', '#5f7f9c', '#a08a6c', '#8fb0c0', '#b4bcc0'];   // blue, green, silver, bronze
 const WOOD = ['#a08668', '#8a7a64', '#b39a7a'];
 const STONE = ['#cdbf9f', '#d8ccb0', '#bfb293'];
 const TILE_ROOF = ['#b5643c', '#a8593a', '#c0704a', '#9c5236'];
