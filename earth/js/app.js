@@ -228,6 +228,9 @@
       zoom: PHONE.matches ? 0.9 : 1.6,
       hash: true, // the view is kept in the address, so a copied link opens right here
       maxPitch: 80,
+      // Phones like the iPhone draw at 3× the screen's size; 2× looks the same
+      // and needs less than half the graphics memory.
+      pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
       attributionControl: { compact: true },
     });
   } catch (e) {
@@ -243,6 +246,10 @@
   let ready = false;     // the style has loaded and the layers can be changed
   let warnedOffline = false;
 
+  map.on('webglcontextlost', () => {
+    toast('The map ran out of graphics memory. Reload the page to carry on where you were.');
+  });
+
   map.on('error', (e) => {
     // A missing tile is normal at the edges of what a source covers; only say
     // something when a whole source cannot be reached.
@@ -256,21 +263,37 @@
 
   // ---- Spinning globe -------------------------------------------------
 
-  let interacting = false;
+  // The globe is turned a little on every animation frame, never by chaining
+  // easeTo() from moveend: when a pinch or a fly-to stops a running ease,
+  // MapLibre fires moveend from inside stop(), and starting a new ease there
+  // breaks its animation state and freezes the map for good.
   const SPIN_MAX_ZOOM = 3.5;
+  const SPIN_DEG_PER_SEC = 4;
+  const SPIN_PAUSE_MS = 3000;
+  let interacting = false;  // a finger or mouse button is down on the map
+  let resumeAt = 0;         // no spinning before this time
+  let spinJump = false;     // the move happening now is our own spin
+  let lastFrame = 0;
 
-  function spin() {
-    if (!prefs.spin || REDUCED_MOTION || interacting || map.getZoom() > SPIN_MAX_ZOOM) return;
+  function pauseSpin() { resumeAt = performance.now() + SPIN_PAUSE_MS; }
+
+  function spinFrame(now) {
+    window.requestAnimationFrame(spinFrame);
+    const dt = lastFrame ? Math.min(100, now - lastFrame) : 0;
+    lastFrame = now;
+    if (!ready || !prefs.spin || REDUCED_MOTION || interacting || now < resumeAt) return;
+    if (map.isMoving() || map.getZoom() > SPIN_MAX_ZOOM) return;
     const c = map.getCenter();
-    c.lng -= 4; // degrees per second
-    map.easeTo({ center: c, duration: 1000, easing: (t) => t });
+    spinJump = true;
+    map.jumpTo({ center: [c.lng - (SPIN_DEG_PER_SEC * dt) / 1000, c.lat] });
+    spinJump = false;
   }
-  ['mousedown', 'touchstart', 'wheel'].forEach((ev) => map.on(ev, () => { interacting = true; }));
-  ['mouseup', 'touchend', 'dragend', 'zoomend', 'pitchend', 'rotateend'].forEach((ev) => map.on(ev, () => {
-    interacting = false;
-    setTimeout(spin, 2500);
-  }));
-  map.on('moveend', (e) => { if (!e.originalEvent) spin(); });
+
+  ['mousedown', 'touchstart'].forEach((ev) => map.on(ev, () => { interacting = true; pauseSpin(); }));
+  ['mouseup', 'touchend', 'touchcancel'].forEach((ev) => map.on(ev, () => { interacting = false; pauseSpin(); }));
+  map.on('wheel', pauseSpin);
+  map.on('movestart', () => { if (!spinJump) pauseSpin(); });
+  map.on('moveend', () => { if (!spinJump) pauseSpin(); });
 
   // ---- Panels ---------------------------------------------------------
 
@@ -732,7 +755,7 @@
   $('layer-labels').addEventListener('change', (e) => { prefs.labels = e.target.checked; applyLayers(); });
   $('layer-terrain').addEventListener('change', (e) => { prefs.terrain = e.target.checked; applyLayers(); });
   $('layer-buildings').addEventListener('change', (e) => { prefs.buildings = e.target.checked; applyLayers(); });
-  $('layer-spin').addEventListener('change', (e) => { prefs.spin = e.target.checked; save(PREFS_KEY, prefs); spin(); });
+  $('layer-spin').addEventListener('change', (e) => { prefs.spin = e.target.checked; save(PREFS_KEY, prefs); });
   $('terrain-x').addEventListener('input', (e) => { prefs.exaggeration = Number(e.target.value); applyLayers(); });
   document.querySelectorAll('[data-units]').forEach((b) => b.addEventListener('click', () => {
     prefs.units = b.dataset.units;
@@ -797,13 +820,15 @@
 
   // ---- Start ----------------------------------------------------------
 
-  map.on('load', () => {
+  // 'style.load' rather than 'load': 'load' waits for every first tile, which
+  // on a slow phone connection can hold the pins and the spin back for ages.
+  map.once('style.load', () => {
     ready = true;
     addMeasureLayers();
     applyLayers();
     renderPlaces();
     updateTilt();
-    spin();
+    window.requestAnimationFrame(spinFrame);
   });
   renderMeasure();
 })();
