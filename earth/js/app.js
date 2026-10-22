@@ -274,6 +274,7 @@
   let resumeAt = 0;         // no spinning before this time
   let spinJump = false;     // the move happening now is our own spin
   let lastFrame = 0;
+  let real3dOpen = false;   // the real 3D view covers the map
 
   function pauseSpin() { resumeAt = performance.now() + SPIN_PAUSE_MS; }
 
@@ -281,7 +282,7 @@
     window.requestAnimationFrame(spinFrame);
     const dt = lastFrame ? Math.min(100, now - lastFrame) : 0;
     lastFrame = now;
-    if (!ready || !prefs.spin || REDUCED_MOTION || interacting || now < resumeAt) return;
+    if (!ready || !prefs.spin || REDUCED_MOTION || interacting || real3dOpen || now < resumeAt) return;
     if (map.isMoving() || map.getZoom() > SPIN_MAX_ZOOM) return;
     const c = map.getCenter();
     spinJump = true;
@@ -435,7 +436,8 @@
 
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (!$('results').hidden) clearResults();
+    if (real3dOpen) closeReal3d();
+    else if (!$('results').hidden) clearResults();
     else if (pinMode) setPinMode(false);
     else if (openPanel) hidePanel();
   });
@@ -817,6 +819,241 @@
   }
   map.on('mousemove', (e) => { lastHover = Date.now(); showStatus(e.lngLat); });
   map.on('moveend', () => { if (Date.now() - lastHover > 1500) showStatus(map.getCenter(), 'Middle: '); });
+
+  // ---- Real 3D cities -------------------------------------------------
+  //
+  // Google's Photorealistic 3D Tiles, drawn by CesiumJS in a view of its own
+  // laid over the map rather than mixed into it: Google's terms limit showing
+  // its tiles together with other map data. CesiumJS is big, so
+  // it is only downloaded the first time someone opens the view. The key is
+  // the person's own, kept in this browser only.
+
+  const CESIUM_BASE = 'https://cdn.jsdelivr.net/npm/cesium@1.145.0/Build/Cesium/';
+  const KEY_STORE = 'earth-explorer.google-key.v1';
+  const GOOGLE_KEY_SHAPE = /^[A-Za-z0-9_-]{30,60}$/;
+  let googleKey = String(load(KEY_STORE, '') || '');
+  let cesiumLoading = null;
+  let viewer = null;
+  let real3dSession = 0;    // tells a slow load that its view was closed
+  let statusTimer = 0;
+
+  function loadCesium() {
+    if (window.Cesium) return Promise.resolve(window.Cesium);
+    if (cesiumLoading) return cesiumLoading;
+    window.CESIUM_BASE_URL = CESIUM_BASE;
+    cesiumLoading = new Promise((resolve, reject) => {
+      const css = el('link');
+      css.rel = 'stylesheet';
+      css.href = CESIUM_BASE + 'Widgets/widgets.css';
+      document.head.appendChild(css);
+      const script = el('script');
+      script.src = CESIUM_BASE + 'Cesium.js';
+      script.onload = () => (window.Cesium ? resolve(window.Cesium) : reject(new Error('Cesium missing')));
+      script.onerror = () => {
+        cesiumLoading = null;
+        script.remove();
+        css.remove();
+        reject(new Error('Cesium did not load'));
+      };
+      document.head.appendChild(script);
+    });
+    return cesiumLoading;
+  }
+
+  function setReal3dStatus(text, linger) {
+    clearTimeout(statusTimer);
+    $('real3d-status').textContent = text || '';
+    if (text && linger) statusTimer = setTimeout(() => { $('real3d-status').textContent = ''; }, linger);
+  }
+
+  function showChangeKey(show) {
+    let b = $('real3d-change');
+    if (!b && show) {
+      b = el('button', 'btn', 'Change key');
+      b.type = 'button';
+      b.id = 'real3d-change';
+      b.addEventListener('click', () => { closeReal3d(); openReal3dSetup(); });
+      $('real3d-close').after(b);
+    }
+    if (b) b.hidden = !show;
+  }
+
+  function openReal3dSetup() {
+    $('real3d-key').value = googleKey;
+    $('real3d-forget').hidden = !googleKey;
+    $('real3d-site').textContent = (location.host || 'mazoo85.github.io') + '/*';
+    showPanel('real3d');
+  }
+
+  // What the map is looking at now, in a form the 3D camera can use.
+  function mapView() {
+    const c = map.getCenter();
+    let ground = 0;
+    if (prefs.terrain) {
+      const h = map.queryTerrainElevation(c);
+      if (h != null) ground = h / prefs.exaggeration;
+    }
+    return {
+      lng: G.wrapLng(c.lng), lat: c.lat, zoom: map.getZoom(), pitch: map.getPitch(),
+      bearing: map.getBearing(), ground, height: map.getCanvas().clientHeight || window.innerHeight,
+    };
+  }
+
+  function aimCamera(Cesium, v) {
+    const target = Cesium.Cartesian3.fromDegrees(v.lng, v.lat, v.ground);
+    const range = G.cameraRangeForZoom(v.lat, v.zoom, v.height);
+    viewer.camera.lookAt(target, new Cesium.HeadingPitchRange(
+      Cesium.Math.toRadians(v.bearing), Cesium.Math.toRadians(G.viewPitchFromMap(v.pitch)), range));
+    viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY); // free the camera again
+  }
+
+  // The reverse: where the 3D camera is looking, as a map view.
+  function viewFromCamera(Cesium) {
+    const cam = viewer.camera;
+    const canvas = viewer.scene.canvas;
+    const ray = cam.getPickRay(new Cesium.Cartesian2(canvas.clientWidth / 2, canvas.clientHeight / 2));
+    const hit = ray && Cesium.IntersectionTests.rayEllipsoid(ray, Cesium.Ellipsoid.WGS84);
+    const from = Cesium.Cartographic.fromCartesian(cam.positionWC);
+    let lat, lng, range, pitch;
+    if (hit) {
+      const point = Cesium.Ray.getPoint(ray, hit.start);
+      const at = Cesium.Cartographic.fromCartesian(point);
+      lat = Cesium.Math.toDegrees(at.latitude);
+      lng = Cesium.Math.toDegrees(at.longitude);
+      range = Cesium.Cartesian3.distance(cam.positionWC, point);
+      pitch = G.mapPitchFromView(Cesium.Math.toDegrees(cam.pitch));
+    } else {
+      // Looking at the sky: put the map under the camera instead.
+      lat = Cesium.Math.toDegrees(from.latitude);
+      lng = Cesium.Math.toDegrees(from.longitude);
+      range = Math.max(50, from.height);
+      pitch = 0;
+    }
+    return {
+      center: [lng, lat],
+      zoom: G.zoomForCameraRange(lat, range, map.getCanvas().clientHeight || window.innerHeight),
+      pitch,
+      bearing: G.bearingFromHeading(Cesium.Math.toDegrees(cam.heading)),
+    };
+  }
+
+  function keyProblem(err) {
+    const code = err && (err.statusCode || (err.error && err.error.statusCode));
+    if (code === 400 || code === 401 || code === 403) {
+      return 'Google turned the key down. Check that the Map Tiles API is enabled, billing is set up, and the key allows this website.';
+    }
+    if (code === 429) return 'Google says the key has used up its limit for today. Try again tomorrow, or raise the limit.';
+    return 'The 3D city models could not load. Check your internet connection and try again.';
+  }
+
+  async function openReal3d() {
+    if (!googleKey) {
+      openReal3dSetup();
+      return;
+    }
+    hidePanel();
+    clearResults();
+    const start = mapView();
+    const session = ++real3dSession;
+    real3dOpen = true;
+    $('real3d').hidden = false;
+    showChangeKey(false);
+    setReal3dStatus('Loading the 3D view…');
+
+    let Cesium;
+    try {
+      Cesium = await loadCesium();
+    } catch (e) {
+      if (session === real3dSession) setReal3dStatus('The 3D view could not load. Check your internet connection and try again.');
+      return;
+    }
+    if (session !== real3dSession) return;
+
+    try {
+      viewer = new Cesium.Viewer('real3d-view', {
+        globe: false,            // Google's tiles are the whole Earth, ground included
+        baseLayer: false,
+        baseLayerPicker: false, geocoder: false, homeButton: false, sceneModePicker: false,
+        navigationHelpButton: false, animation: false, timeline: false, fullscreenButton: false,
+        infoBox: false, selectionIndicator: false,
+        requestRenderMode: true, // only draw when something changes: easier on phone batteries
+        useBrowserRecommendedResolution: PHONE.matches,
+      });
+    } catch (e) {
+      setReal3dStatus('This browser cannot draw the 3D view (it needs WebGL).');
+      return;
+    }
+    // With no globe, the sky would glow white below the horizon until the
+    // city arrives, so it stays off until there is ground to stand on.
+    viewer.scene.skyAtmosphere.show = false;
+    viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#070b12');
+    aimCamera(Cesium, start);
+
+    try {
+      const tileset = await Cesium.createGooglePhotorealistic3DTileset(
+        // There is no search inside this view, so no other geocoder is used with it.
+        { key: googleKey, onlyUsingWithGoogleGeocoder: true },
+        {
+          maximumScreenSpaceError: PHONE.matches ? 24 : 16,
+          cacheBytes: (PHONE.matches ? 256 : 512) * 1024 * 1024,
+        }
+      );
+      if (session !== real3dSession || !viewer) {
+        tileset.destroy();
+        return;
+      }
+      viewer.scene.primitives.add(tileset);
+      viewer.scene.skyAtmosphere.show = true;
+      viewer.scene.requestRender();
+      setReal3dStatus(window.matchMedia('(hover: none)').matches
+        ? 'Drag to move, pinch to zoom, drag with two fingers to tilt and turn.'
+        : 'Drag to move, scroll to zoom, right-drag or Ctrl-drag to tilt and turn.', 6000);
+    } catch (err) {
+      if (session !== real3dSession) return;
+      setReal3dStatus(keyProblem(err));
+      showChangeKey(true);
+    }
+  }
+
+  function closeReal3d() {
+    real3dSession++;
+    if (viewer && window.Cesium) {
+      try {
+        map.jumpTo(viewFromCamera(window.Cesium));
+      } catch (e) { /* keep the map where it was */ }
+    }
+    if (viewer) {
+      viewer.destroy();
+      viewer = null;
+    }
+    real3dOpen = false;
+    $('real3d').hidden = true;
+    setReal3dStatus('');
+    showChangeKey(false);
+    updateTilt();
+  }
+
+  $('real3d-open').addEventListener('click', openReal3d);
+  $('real3d-close').addEventListener('click', closeReal3d);
+  $('real3d-settings').addEventListener('click', openReal3dSetup);
+  $('real3d-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const key = $('real3d-key').value.trim();
+    if (!GOOGLE_KEY_SHAPE.test(key)) {
+      toast('That doesn’t look like a Google key. It is a long code that starts with AIza.');
+      return;
+    }
+    googleKey = key;
+    if (!save(KEY_STORE, key)) toast('This browser won’t keep the key, so you’ll need to paste it again next time.');
+    openReal3d();
+  });
+  $('real3d-forget').addEventListener('click', () => {
+    googleKey = '';
+    try { window.localStorage.removeItem(KEY_STORE); } catch (e) { /* nothing kept */ }
+    $('real3d-key').value = '';
+    $('real3d-forget').hidden = true;
+    toast('Removed the key from this browser');
+  });
 
   // ---- Start ----------------------------------------------------------
 

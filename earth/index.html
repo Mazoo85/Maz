@@ -44,6 +44,10 @@
       <span>Layers</span>
     </button>
     <span class="rail-gap" aria-hidden="true"></span>
+    <button type="button" class="tool" id="real3d-open" title="Real 3D city view">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18" /><path d="M5 21V9l4-2v14" /><path d="M9 21V4l6 3v14" /><path d="M15 21v-9l4 2v7" /><path d="M11.5 9h1M11.5 12h1M11.5 15h1" /></svg>
+      <span>Real 3D</span>
+    </button>
     <button type="button" class="tool" id="tilt" title="Tilt to see 3D">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16L16 8H8z" /><path d="M12 8V4" /></svg>
       <span id="tilt-label">3D</span>
@@ -109,6 +113,30 @@
       </div>
     </section>
 
+    <!-- Real 3D: one-time setup -->
+    <section class="panel-body" data-for="real3d" hidden>
+      <div class="panel-head">
+        <h2>Real 3D cities</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Close">×</button>
+      </div>
+      <p class="hint">See real buildings, trees and bridges in photo detail. The 3D models come from Google, which needs a free key of your own. You only do this once on each device.</p>
+      <ol class="steps">
+        <li>Open the <a href="https://console.cloud.google.com/apis/library/tile.googleapis.com" target="_blank" rel="noopener">Map Tiles API page</a>, sign in, and press <b>Enable</b>. Google asks you to set up billing the first time.</li>
+        <li>Open <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Credentials</a>, press <b>Create credentials</b>, then <b>API key</b>.</li>
+        <li>Edit the key. Under <b>Application restrictions</b> choose <b>Websites</b> and add <code class="mono" id="real3d-site">mazoo85.github.io/*</code>. Under <b>API restrictions</b> choose <b>Map Tiles API</b>. Save.</li>
+        <li>Copy the key and paste it here.</li>
+      </ol>
+      <form id="real3d-form" class="place-form">
+        <label for="real3d-key">Your Google key</label>
+        <input id="real3d-key" type="text" autocomplete="off" spellcheck="false" placeholder="AIza…" />
+        <div class="row">
+          <button type="submit" class="btn primary">Save and open 3D</button>
+          <button type="button" class="btn" id="real3d-forget" hidden>Remove key</button>
+        </div>
+      </form>
+      <p class="fine">The key stays in this browser on this device. Each time you open the 3D view counts as one visit on your Google account. To be sure you're never charged, set a daily limit for the Map Tiles API under <a href="https://console.cloud.google.com/apis/api/tile.googleapis.com/quotas" target="_blank" rel="noopener">Quotas</a>.</p>
+    </section>
+
     <!-- Layers -->
     <section class="panel-body" data-for="layers" hidden>
       <div class="panel-head">
@@ -129,6 +157,7 @@
         <button type="button" role="radio" aria-checked="false" data-units="imperial">Miles</button>
       </div>
       <div class="row">
+        <button type="button" class="btn" id="real3d-settings">Real 3D key</button>
         <button type="button" class="btn" id="copy-link">Copy a link to this view</button>
       </div>
       <p class="fine">Satellite photos: Esri World Imagery. Mountains: AWS Terrain Tiles. Names and buildings: OpenStreetMap via OpenFreeMap. Search: OpenStreetMap Nominatim.</p>
@@ -139,6 +168,17 @@
     <span id="status-coord" class="mono">Move over the globe</span>
     <span id="status-elev" class="mono"></span>
   </footer>
+
+  <div id="real3d" class="real3d" hidden>
+    <div id="real3d-view" class="real3d-view"></div>
+    <div class="real3d-bar">
+      <button type="button" class="btn primary" id="real3d-close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+        Back to map
+      </button>
+      <span class="real3d-status" id="real3d-status" role="status" aria-live="polite"></span>
+    </div>
+  </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
