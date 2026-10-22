@@ -4,6 +4,7 @@
  *
  *   node la-royale/tools/fetch.mjs osm     # buildings, roads, areas, trees, shops (OpenStreetMap, via Overpass)
  *   node la-royale/tools/fetch.mjs dem     # ground elevation (Terrarium tiles, AWS open data)
+ *   node la-royale/tools/fetch.mjs far     # the mountains and coast round it, coarser, for the horizon
  *
  * Raw downloads go to la-royale/data/raw/ (not committed; it's large and
  * rebuildable). Then run tools/build-tiles.mjs.
@@ -17,7 +18,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, existsSync, writeFileSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { REAL } from '../js/osm.js';
+import { REAL, FAR } from '../js/osm.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const RAW = join(ROOT, 'data', 'raw');
@@ -94,8 +95,25 @@ function dem() {
   }
 }
 
+/* The country round the map, coarser, for the horizon (FAR in osm.js). */
+function far() {
+  const z = FAR.z, n = 2 ** z;
+  const midLat = (REAL.south + REAL.north) / 2, midLon = (REAL.west + REAL.east) / 2;
+  const dLat = FAR.reach / 110574, dLon = FAR.reach / (111320 * Math.cos((midLat * Math.PI) / 180));
+  const tx = (lon) => Math.floor(((lon + 180) / 360) * n);
+  const ty = (lat) => { const r = (lat * Math.PI) / 180; return Math.floor(((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * n); };
+  const [x0, x1, y0, y1] = [tx(midLon - dLon), tx(midLon + dLon), ty(midLat + dLat), ty(midLat - dLat)];
+  console.log(`${(x1 - x0 + 1) * (y1 - y0 + 1)} elevation tiles for the horizon`);
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const out = join(RAW, `far_${z}_${x}_${y}.png`);
+    if (existsSync(out) && statSync(out).size > 100) continue;
+    curl([`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`], out);
+  }
+}
+
 const what = process.argv[2];
 if (what === 'osm') osm();
 else if (what === 'dem') dem();
-else { console.log('usage: fetch.mjs osm | dem'); process.exit(1); }
+else if (what === 'far') far();
+else { console.log('usage: fetch.mjs osm | dem | far'); process.exit(1); }
 writeFileSync(join(RAW, '.fetched'), new Date().toISOString());

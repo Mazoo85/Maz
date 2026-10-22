@@ -20,6 +20,11 @@ export const REAL = {
   tile: 1000                                 // metres per streamed tile
 };
 
+/* The country round it, coarser (zoom-10 elevation, ~150 m a pixel), out
+ * to 64 km each way: the San Gabriels, the Santa Monica Mountains, the
+ * Verdugos, Palos Verdes and the coast, for the horizon. */
+export const FAR = { z: 10, reach: 64000, step: 400 };
+
 const M_LAT = 110574, M_LON = 111320;
 export function projector(lat0 = REAL.lat0, lon0 = REAL.lon0) {
   const kx = M_LON * Math.cos((lat0 * Math.PI) / 180);

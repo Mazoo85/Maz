@@ -29,18 +29,23 @@ export function makeAtmosphere(scene, renderer, opts = {}) {
     u.mieDirectionalG.value = 0.86;
   };
   const sky = new Sky();
-  sky.scale.setScalar(9000);
+  // the sky dome: bigger on the true-scale map, so the far mountains sit inside it
+  const R = opts.skyRadius || 9000, rk = R / 9000;
+  sky.scale.setScalar(R);
   skyParams(sky);
   sky.frustumCulled = false;
   scene.add(sky);
   // the night sky: a deep blue veil over the scattering sky, then stars
   const nightSky = new THREE.Mesh(new THREE.SphereGeometry(8800, 24, 12), new THREE.MeshBasicMaterial({ color: 0x050a18, transparent: true, opacity: 0, side: THREE.BackSide, depthWrite: false, fog: false }));
   nightSky.renderOrder = -1;
+  nightSky.scale.setScalar(rk);
   nightSky.frustumCulled = false;
   scene.add(nightSky);
   const stars = makeStars();
+  stars.scale.setScalar(rk);
   scene.add(stars);
   const moon = new THREE.Mesh(new THREE.CircleGeometry(90, 32), new THREE.MeshBasicMaterial({ color: 0xf2f0e6, transparent: true, fog: false, toneMapped: false }));
+  moon.scale.setScalar(rk);
   scene.add(moon);
 
   const envScene = new THREE.Scene();
@@ -151,7 +156,7 @@ export function makeAtmosphere(scene, renderer, opts = {}) {
     sky.position.copy(camera.position);
     stars.position.copy(camera.position);
     nightSky.position.copy(camera.position);
-    moon.position.copy(camera.position).addScaledVector(sunDir, -8000);
+    moon.position.copy(camera.position).addScaledVector(sunDir, -8000 * rk);
     moon.lookAt(camera.position);
     // the haze thins as you climb above the ground
     const high = Math.max(0, camera.position.y - groundAt(camera.position.x, camera.position.z) - 120);

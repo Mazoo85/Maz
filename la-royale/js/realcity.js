@@ -87,19 +87,21 @@ export async function loadRealWorld(base = 'data/real/', onStep = () => {}) {
   };
   const M = await get('manifest.json');
   onStep('Surveying the real ground, every 10 metres…');
-  const [hbuf, ovBlob, skyline, arteries] = await Promise.all([
+  const int16 = (j) => new Int16Array(Uint8Array.from(atob(j.int16le), (ch) => ch.charCodeAt(0)).buffer);
+  const [hbuf, ovBlob, skyline, arteries, far] = await Promise.all([
     M.height.file.endsWith('.json')
       ? get(M.height.file).then((j) => Uint8Array.from(atob(j.int16le), (ch) => ch.charCodeAt(0)).buffer)
       : get(M.height.file, 'buf'), get(M.overview.file, 'blob'),
-    M.skyline ? get(M.skyline) : {}, M.arteries ? get(M.arteries) : []
+    M.skyline ? get(M.skyline) : {}, M.arteries ? get(M.arteries) : [],
+    M.far ? get(M.far.file).then(int16) : null
   ]);
   const overview = await createImageBitmap(ovBlob);
-  return makeRealWorld(M, new Int16Array(hbuf), { overview, skyline, arteries, base });
+  return makeRealWorld(M, new Int16Array(hbuf), { overview, skyline, arteries, base, far });
 }
 
 /* Builds the world object from loaded data (split out so tests can feed it
  * data directly). */
-export function makeRealWorld(M, heights, { overview = null, skyline = {}, arteries = [], base = '' } = {}) {
+export function makeRealWorld(M, heights, { overview = null, skyline = {}, arteries = [], base = '', far = null } = {}) {
   const P = projector(M.lat0, M.lon0);
   const size = Math.ceil(Math.max(M.width, M.depth) / G) * G, half = size / 2;
   const OX = M.x0 + half, OZ = M.z0 + half;
@@ -126,7 +128,9 @@ export function makeRealWorld(M, heights, { overview = null, skyline = {}, arter
   }
 
   const RW = {
-    real: true, manifest: M, base, size, half, OX, OZ, gridN: N, cell: G, heights: H, overview, skyline,
+    real: true, manifest: M, base, size, half, OX, OZ,
+    // the country round the map, for the horizon
+    far: far && M.far ? { data: far, n: M.far.n, step: M.far.step, x0: M.far.cx - OX - ((M.far.n - 1) / 2) * M.far.step, z0: M.far.cz - OZ - ((M.far.n - 1) / 2) * M.far.step } : null, gridN: N, cell: G, heights: H, overview, skyline,
     toWorld, toLatLon, groundHeight,
     gridHalf: half + 2000,                     // for the collider grid in world.js
     colliders: [], _dirty: true,
@@ -317,10 +321,14 @@ class Mesh {
 
 /* One building into the wall and roof meshes. Returns its collider. */
 function addBuilding(walls, roofs, b, base, st, opts = {}) {
-  const pts = b.pts, n = pts.length;
+  const n = b.pts.length;
+  // OSM maps many tall buildings as parts sharing an outline (a podium and a
+  // tower): their walls would sit in the same plane and flicker. Each is drawn
+  // a few centimetres out, more the taller it is, so the taller always shows.
+  const pts = offsetRing(b.pts, Math.min(0.3, 0.015 + b.h * 0.002));
   const y0 = base + b.mh, top = base + b.h;
-  const area = Math.abs(ringArea(pts));
-  const seed = hashOf(pts[0][0] * 0.37, pts[0][1] * 0.71);
+  const area = Math.abs(ringArea(b.pts));
+  const seed = hashOf(b.pts[0][0] * 0.37, b.pts[0][1] * 0.71);
   const wallCol = new THREE.Color(st.wall), roofCol = new THREE.Color(st.roofCol);
   const parapet = st.roof === ROOF.flat && !st.house && b.h >= 6 && !opts.far ? 0.8 : 0;
   // storeys that fit the building's real height exactly
@@ -354,9 +362,9 @@ function addBuilding(walls, roofs, b, base, st, opts = {}) {
     for (const [a, c, d] of tris) walls.tri([pts[a][0], top, pts[a][1]], [pts[c][0], top, pts[c][1]], [pts[d][0], top, pts[d][1]], 0, 1, 0, roofCol, rex);
   }
   let r = 0, cx = 0, cz = 0;
-  for (const [x, z] of pts) { cx += x / n; cz += z / n; }
-  for (const [x, z] of pts) r = Math.max(r, Math.hypot(x - cx, z - cz));
-  return { k: 2, x: cx, z: cz, r, y0, y1: top, pts };
+  for (const [x, z] of b.pts) { cx += x / n; cz += z / n; }
+  for (const [x, z] of b.pts) r = Math.max(r, Math.hypot(x - cx, z - cz));
+  return { k: 2, x: cx, z: cz, r, y0, y1: top, pts: b.pts };
 }
 
 /* A footprint grown outward by d metres, corners mitred (limited on sharp ones). */
@@ -544,6 +552,216 @@ function helipadTex() {
   });
 }
 
+/* The country round the map out to 64 km, from coarse elevation: the
+ * San Gabriels (Mount Baldy, 3,068 m), the Santa Monica Mountains, the
+ * Verdugos, Palos Verdes, the basin and the Pacific. Coloured by height —
+ * the city spreads over everything low and flat, chaparral on the slopes,
+ * pines up high, bare rock on the peaks — and hazed by distance like the
+ * real view across the basin. At night the flat land glows with streetlights. */
+function buildHorizon(RW, scene, uniforms, lo) {
+  if (!RW.far) return null;
+  const F = RW.far, n = F.n, keep = lo ? 2 : 1, m = Math.floor((n - 1) / keep) + 1;
+  const hAt = (i, j) => F.data[Math.min(n - 1, j) * n + Math.min(n - 1, i)];
+  const pos = new Float32Array(m * m * 3), col = new Float32Array(m * m * 3), urb = new Float32Array(m * m);
+  const C = (hex) => new THREE.Color(hex);
+  const city = C('#b3aea4'), sand = C('#d8c8a0'), chap = C('#6e7050'), dry = C('#8f7f5c'), pine = C('#4a573d'), rock = C('#8e877c');
+  const c = new THREE.Color();
+  for (let j = 0; j < m; j++) for (let i = 0; i < m; i++) {
+    const gi = i * keep, gj = j * keep, k = j * m + i;
+    let h = hAt(gi, gj);
+    const x = F.x0 + gi * F.step, z = F.z0 + gj * F.step;
+    const slope = Math.hypot(hAt(gi + 1, gj) - hAt(Math.max(0, gi - 1), gj), hAt(gi, gj + 1) - hAt(gi, Math.max(0, gj - 1))) / (2 * F.step);
+    const noise = hashOf(x * 0.001, z * 0.001);
+    let u = 0;
+    if (h <= 0.5) { h = -25; c.copy(sand); }
+    else if (h < 12 && slope < 0.02) c.copy(sand);
+    else if (h < 450 && slope < 0.09) { c.copy(city).multiplyScalar(0.9 + noise * 0.2); u = 1; }
+    else if (h < 1700) c.copy(noise < 0.5 ? chap : dry).lerp(rock, Math.min(1, slope * 0.8));
+    else if (h < 2500) c.copy(pine).lerp(rock, Math.min(1, slope));
+    else c.copy(rock);
+    // under the detailed map: tuck it out of sight
+    if (Math.abs(x) < RW.half - F.step && Math.abs(z) < RW.half - F.step) h -= 60;
+    pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = z;
+    col[k * 3] = c.r; col[k * 3 + 1] = c.g; col[k * 3 + 2] = c.b;
+    urb[k] = u;
+  }
+  const idx = new Uint32Array((m - 1) * (m - 1) * 6);
+  let q = 0;
+  for (let j = 0; j < m - 1; j++) for (let i = 0; i < m - 1; i++) {
+    const a = j * m + i, d = a + 1, b = a + m, cc = b + 1;
+    idx[q++] = a; idx[q++] = b; idx[q++] = d; idx[q++] = b; idx[q++] = cc; idx[q++] = d;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  g.setAttribute('aUrban', new THREE.BufferAttribute(urb, 1));
+  g.setIndex(new THREE.BufferAttribute(idx, 1));
+  g.computeVertexNormals();
+  const haze = { value: scene.fog ? scene.fog.color : new THREE.Color(0xcfd3d0) };
+  const hazed = (m0, urban) => {
+    m0.fog = false;
+    m0.onBeforeCompile = (sh) => {
+      sh.uniforms.uHaze = haze; sh.uniforms.uNight = uniforms.uNight;
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', `#include <common>\nvarying vec3 vHzW; ${urban ? 'attribute float aUrban; varying float vUrb;' : ''}`)
+        .replace('#include <project_vertex>', `#include <project_vertex>\nvHzW = (modelMatrix * vec4(transformed, 1.0)).xyz; ${urban ? 'vUrb = aUrban;' : ''}`);
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', `#include <common>\nuniform vec3 uHaze; uniform float uNight; varying vec3 vHzW; ${urban ? 'varying float vUrb;' : ''}
+          float hzh(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }`)
+        .replace('#include <dithering_fragment>', `#include <dithering_fragment>
+          float hzd = distance(vHzW, cameraPosition);
+          ${urban ? `// the city at night: a carpet of sodium streetlights on the grid
+          vec2 cell = floor(vHzW.xz / 90.0);
+          float lamp = step(0.55, hzh(cell)) * vUrb * uNight;
+          gl_FragColor.rgb *= 1.0 - vUrb * (0.18 * hzh(floor(vHzW.xz / 140.0)) - 0.06);   // blocks, lots and roofs
+          gl_FragColor.rgb += lamp * vec3(1.0, 0.62, 0.3) * (0.6 + 0.8 * hzh(cell + 7.0));` : ''}
+          // aerial perspective: the further, the more it fades into the haze (but the peaks still show)
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, uHaze, clamp(1.0 - exp(-hzd / 16000.0), 0.0, 0.88) * (1.0 - 0.5 * uNight));`);
+    };
+    m0.customProgramCacheKey = () => `horizon:${urban}`;
+    return m0;
+  };
+  const land = new THREE.Mesh(g, hazed(new THREE.MeshLambertMaterial({ vertexColors: true }), true));
+  land.frustumCulled = false;
+  scene.add(land);
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(400000, 400000), hazed(new THREE.MeshStandardMaterial({ color: 0x24627e, roughness: 0.25, metalness: 0.1 }), false));
+  sea.rotation.x = -Math.PI / 2; sea.position.y = 0;
+  scene.add(sea);
+  return { land, sea, haze };
+}
+
+/* ------------------------------------------------------- street paint */
+
+/* The road markings atlas: a solid cell for stripes, then STOP, a left-turn
+ * arrow, a straight arrow and BUS ONLY, white on transparent (each 512×128,
+ * read along the road: the top of the cell is "ahead"). */
+function paintAtlas() {
+  return canvasTex('paint', 512, 1024, (ctx, w) => {
+    ctx.clearRect(0, 0, w, 1024);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, w, 128);
+    const cell = (k, draw) => { ctx.save(); ctx.translate(0, k * 128); draw(); ctx.restore(); };
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = 'bold 118px Helvetica, Arial, sans-serif';
+    cell(1, () => { ctx.save(); ctx.translate(256, 64); ctx.scale(1, 1); ctx.fillText('STOP', 0, 4); ctx.restore(); });
+    cell(2, () => {           // left-turn arrow: up the stem, then hooked left
+      ctx.fillRect(300, 50, 34, 78); ctx.fillRect(220, 40, 114, 30);
+      ctx.beginPath(); ctx.moveTo(170, 55); ctx.lineTo(232, 14); ctx.lineTo(232, 96); ctx.fill();
+    });
+    cell(3, () => { ctx.fillRect(240, 40, 34, 88); ctx.beginPath(); ctx.moveTo(257, 0); ctx.lineTo(206, 50); ctx.lineTo(308, 50); ctx.fill(); });
+    cell(4, () => { ctx.font = 'bold 62px Helvetica, Arial, sans-serif'; ctx.fillText('BUS', 256, 34); ctx.fillText('ONLY', 256, 98); });
+  });
+}
+const CELL_V = (k) => [1 - (k + 1) / 8, 1 - k / 8];      // atlas cell k → [v0, v1]
+
+/* Junctions, crosswalks, stop lines, arrows, bus lanes and the coloured
+ * kerbs of LA (red: no stopping, yellow: loading, white: drop-off, green:
+ * short stay, blue: disabled) for one tile's roads. */
+function streetPaint(roads, gh, onOtherRoad, yOff, busLane) {
+  const paint = new Mesh(), curbs = new Mesh();
+  const white = new THREE.Color(0xf2f1ea), red = new THREE.Color(0xb3261e), busRed = new THREE.Color(0x9c2a22);
+  const CURB = { grey: new THREE.Color(0xc9c5bb), red: new THREE.Color(0xc0392b), yellow: new THREE.Color(0xe0b63a), white: new THREE.Color(0xf0eee6), green: new THREE.Color(0x3f8f4e), blue: new THREE.Color(0x2e5fa8) };
+  const drivable = (r) => r.cls <= RCLASS.service;
+  const key = (p) => `${Math.round(p[0] * 5)},${Math.round(p[1] * 5)}`;
+  // every vertex shared by roads, with the legs that leave it
+  const verts = new Map();
+  roads.forEach((r) => {
+    if (!drivable(r)) return;
+    r.pts.forEach((p, i) => {
+      const k = key(p);
+      let v = verts.get(k);
+      if (!v) verts.set(k, (v = { p, legs: [] }));
+      if (i > 0) v.legs.push({ r, i, dir: -1 });
+      if (i < r.pts.length - 1) v.legs.push({ r, i, dir: 1 });
+    });
+  });
+  // a point s metres along a road from vertex i, going dir
+  const along = (r, i, dir, s) => {
+    let j = i, x = r.pts[i][0], z = r.pts[i][1];
+    for (;;) {
+      const n = j + dir;
+      if (n < 0 || n >= r.pts.length) { const [ax, az] = r.pts[j - dir] || r.pts[j], l = Math.hypot(x - ax, z - az) || 1; return [x, z, (x - ax) / l, (z - az) / l]; }
+      const [bx, bz] = r.pts[n], l = Math.hypot(bx - x, bz - z);
+      if (l >= s) { const tx = (bx - x) / (l || 1), tz = (bz - z) / (l || 1); return [x + tx * s, z + tz * s, tx, tz]; }
+      s -= l; x = bx; z = bz; j = n;
+    }
+  };
+  const lay = (cx, cz, tx, tz, len, wid, col, cell, yo) => {
+    // a decal centred on (cx, cz), len along (tx, tz), wid across; the atlas cell's top faces +t
+    const nx = -tz, nz = tx, hl = len / 2, hw = wid / 2;
+    const P = (a, b) => { const x = cx + tx * a + nx * b, z = cz + tz * a + nz * b; return [x, gh(x, z) + yo, z]; };
+    const [v0, v1] = CELL_V(cell);
+    paint.quad(P(-hl, hw), P(-hl, -hw), P(hl, -hw), P(hl, hw), 0, 1, 0, col, null, [[0, v0], [1, v0], [1, v1], [0, v1]]);
+  };
+  const junctionRoads = new Set();
+  for (const v of verts.values()) {
+    if (v.legs.length < 3) continue;
+    const minCls = Math.min(...v.legs.map((l) => l.r.cls));
+    const reach = Math.max(...v.legs.map((l) => l.r.w)) / 2;
+    for (const leg of v.legs) {
+      const r = leg.r, w = r.w, yo = (yOff[r.cls] ?? 0.1) + 0.012;
+      junctionRoads.add(r);
+      if (r.cls === RCLASS.service || w < 6) continue;
+      const set = reach + 1.2;
+      // a continental crosswalk: white bars along the road, across its width
+      if (minCls <= RCLASS.tertiary && r.cls !== RCLASS.motorway && r.cls !== RCLASS.trunk) {
+        const [x, z, tx, tz] = along(r, leg.i, leg.dir, set + 1.6);
+        const nx = -tz, nz = tx;
+        for (let b = -w / 2 + 0.6; b < w / 2 - 0.3; b += 1.2) lay(x + nx * b, z + nz * b, tx, tz, 3, 0.6, white, 0, yo);
+      }
+      // traffic comes in along −t; its right-hand half gets the stop line
+      const [sx, sz, tx, tz] = along(r, leg.i, leg.dir, set + 4.0);
+      const rx = tz, rz = -tx;
+      if (r.cls > minCls || r.cls === RCLASS.residential) {
+        lay(sx + rx * w / 4, sz + rz * w / 4, tx, tz, 0.5, w / 2 - 0.4, white, 0, yo);
+        if (r.cls >= RCLASS.tertiary) { const [qx, qz] = along(r, leg.i, leg.dir, set + 7.5); lay(qx + rx * w / 4, qz + rz * w / 4, -tx, -tz, 4.2, Math.min(3, w / 2 - 0.6), white, 1, yo); }
+      } else if (!r.oneway && w >= 18) {
+        // the inside lane: a left-turn arrow; outside: straight on
+        const [ax, az] = along(r, leg.i, leg.dir, set + 14);
+        lay(ax + rx * 1.9, az + rz * 1.9, -tx, -tz, 6, 1.8, white, 2, yo);
+        lay(ax + rx * (w / 2 - 2.2), az + rz * (w / 2 - 2.2), -tx, -tz, 6, 1.4, white, 3, yo);
+      }
+    }
+  }
+  // the red bus lanes (Wilshire's, the real ones), with BUS ONLY every 80 m
+  for (const r of roads) {
+    if (!busLane(r)) continue;
+    const yo = (yOff[r.cls] ?? 0.1) + 0.008;
+    const pts = resample(r.pts, 6);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [ax, az] = pts[i], [bx, bz] = pts[i + 1], l = Math.hypot(bx - ax, bz - az) || 1, tx = (bx - ax) / l, tz = (bz - az) / l;
+      for (const s of [-1, 1]) {
+        const off = s * (r.w / 2 - 2.3), mx = (ax + bx) / 2 - tz * off, mz = (az + bz) / 2 + tx * off;
+        if (onOtherRoad(mx, mz, r.id)) continue;
+        lay(mx, mz, tx, tz, l + 0.05, 3.4, busRed, 0, yo);
+        if (i % 13 === 6) lay(mx, mz, tx * -s, tz * -s, 5, 2.8, white, 4, yo + 0.004);
+      }
+    }
+  }
+  // the kerbs: a low concrete edge, painted where you can't park
+  for (const r of roads) {
+    if (r.cls < RCLASS.primary || r.cls > RCLASS.residential) continue;
+    const yo = (yOff[r.cls] ?? 0.1);
+    const pts = resample(r.pts, 3);
+    const ends = [pts[0], pts[pts.length - 1]].filter((p) => (verts.get(key(p))?.legs.length || 0) >= 3);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [ax, az] = pts[i], [bx, bz] = pts[i + 1], l = Math.hypot(bx - ax, bz - az) || 1, tx = (bx - ax) / l, tz = (bz - az) / l;
+      for (const s of [-1, 1]) {
+        const ox = -tz * s * r.w / 2, oz = tx * s * r.w / 2;
+        const A = [ax + ox, az + oz], B = [bx + ox, bz + oz];
+        if (onOtherRoad(A[0], A[1], r.id) || onOtherRoad(B[0], B[1], r.id)) continue;
+        const dEnd = Math.min(...ends.map((p) => Math.hypot(p[0] - ax, p[1] - az)), 99);
+        const run = Math.floor(i / 7), hh = hashOf(r.pts[0][0] + run * 7.3 + s, r.pts[0][1] - run * 3.1);
+        const col = dEnd < 14 ? CURB.red : r.cls <= RCLASS.secondary ? (hh < 0.07 ? CURB.yellow : hh < 0.1 ? CURB.green : hh < 0.12 ? CURB.white : hh < 0.13 ? CURB.blue : hh < 0.2 ? CURB.red : CURB.grey) : (hh < 0.04 ? CURB.red : CURB.grey);
+        const ya = gh(...A) + yo, yb = gh(...B) + yo, nx = -tz * s, nz = tx * s, k = 0.16, ins = 0.18;
+        const A2 = [A[0] + nx * ins, A[1] + nz * ins], B2 = [B[0] + nx * ins, B[1] + nz * ins];
+        curbs.quad([A[0], ya - 0.02, A[1]], [B[0], yb - 0.02, B[1]], [B[0], yb + k, B[1]], [A[0], ya + k, A[1]], -nx, 0, -nz, col, null);
+        curbs.quad([A[0], ya + k, A[1]], [B[0], yb + k, B[1]], [B2[0], yb + k, B2[1]], [A2[0], ya + k, A2[1]], 0, 1, 0, col, null);
+      }
+    }
+  }
+  return { paint, curbs };
+}
+
 /* ------------------------------------------------------------ the scene */
 
 export function buildRealScene(RW, renderer, opts = {}) {
@@ -623,11 +841,6 @@ export function buildRealScene(RW, renderer, opts = {}) {
   terrain.receiveShadow = !lo;
   scene.add(terrain);
   // the rest of the basin, out to the horizon
-  let minH = Infinity;
-  for (const h of RW.heights) minH = Math.min(minH, h);
-  const apron = new THREE.Mesh(new THREE.PlaneGeometry(80000, 80000), new THREE.MeshStandardMaterial({ color: 0x8c877a, roughness: 1 }));
-  apron.rotation.x = -Math.PI / 2; apron.position.y = minH - 2;
-  scene.add(apron);
 
   /* -------------------------------------------------------- materials */
   const facade = facadeMaterial(uniforms, true);
@@ -655,6 +868,12 @@ export function buildRealScene(RW, renderer, opts = {}) {
   const carGeo = carGeometries(), carMat = carMaterials();
   const tmpCol = new THREE.Color();
   const BOX = new THREE.BoxGeometry(1, 1, 1);
+  const wireMat = new THREE.LineBasicMaterial({ color: 0x1d1d1d, transparent: true, opacity: 0.8 });
+  const paintMat = new THREE.MeshStandardMaterial({ map: paintAtlas(), vertexColors: true, alphaTest: 0.45, roughness: 0.55 });
+  const curbMat = withSurface(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }), '4');
+  // the real bus lanes: Wilshire Blvd's red lanes, from Western Ave east to MacArthur Park
+  const [wx0] = RW.toWorld(34.0617, -118.3092), [wx1] = RW.toWorld(34.0577, -118.2745);
+  const busLanes = (r) => /^Wilshire Boulevard/.test(r.name || '') && r.pts.some(([x]) => x > wx0 && x < wx1);
   const awningMat = withSurface(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: THREE.DoubleSide }), '8');
   const padMat = new THREE.MeshStandardMaterial({ map: helipadTex(), roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -2 });
   const acMat = withSurface(new THREE.MeshStandardMaterial({ roughness: 0.6, metalness: 0.3 }), '7');
@@ -910,6 +1129,12 @@ export function buildRealScene(RW, renderer, opts = {}) {
         m.tri(P3(pts[i]), P3(pts[j]), P3(pts[k]), 0, 1, 0, white, null, [uvOf(...pts[i]), uvOf(...pts[j]), uvOf(...pts[k])]);
       }
     }
+    {
+      const { paint, curbs } = streetPaint(roads, gh, onOtherRoad, Y_OFF, (r) => busLanes(r));
+      if (paint.count) { const pm = new THREE.Mesh(paint.geometry(), paintMat); pm.receiveShadow = !lo; group.add(pm); culls.push({ mesh: pm, cx: tcx, cz: tcz, half: T / 2, far: 700 }); }
+      if (curbs.count) { const cm = new THREE.Mesh(curbs.geometry(), curbMat); cm.receiveShadow = !lo; group.add(cm); culls.push({ mesh: cm, cx: tcx, cz: tcz, half: T / 2, far: 500 }); }
+    }
+    yield;
     for (const [mat, m] of groups) {
       if (!m.count) continue;
       const mesh = new THREE.Mesh(m.geometry(), mat);
@@ -1043,6 +1268,43 @@ export function buildRealScene(RW, renderer, opts = {}) {
         }
       }
     }
+    /* wooden power poles down the residential streets, wires sagging between
+     * them: three on the crossarm, a phone and cable line lower down */
+    const poles = [], wires = [];
+    for (const r of roads) {
+      if (r.cls !== RCLASS.residential && r.cls !== RCLASS.tertiary) continue;
+      const side = hashOf(r.pts[0][0] * 0.3, r.pts[0][1] * 0.3) < 0.5 ? 1 : -1;
+      const pts = resample(r.pts, 38);
+      let prev = null;
+      for (let i = 0; i < pts.length; i++) {
+        const [ax, az] = pts[Math.max(0, i - 1)], [bx, bz] = pts[Math.min(pts.length - 1, i + 1)], l = Math.hypot(bx - ax, bz - az) || 1;
+        const tx = (bx - ax) / l, tz = (bz - az) / l, off = (r.w / 2 + 1.0) * side;
+        const x = pts[i][0] - tz * off, z = pts[i][1] + tx * off;
+        if (onOtherRoad(x, z, r.id) || inBuilding(x, z, 0.8)) { prev = null; continue; }
+        const y = gh(x, z), a = Math.atan2(-tz, tx), sa = Math.sin(a), ca = Math.cos(a);
+        poles.push({ x, z, py: y, ry: a });
+        const here = [[sa * 0.95, 9.9, ca * 0.95], [-sa * 0.95, 9.9, -ca * 0.95], [0, 10.45, 0], [0, 7.2, 0], [0, 6.6, 0]].map(([dx, dy, dz]) => [x + dx, y + dy, z + dz]);
+        if (prev && Math.hypot(prev[0][0] - x, prev[0][2] - z) < 60) {
+          for (let k = 0; k < here.length; k++) {
+            const A = prev[k], B = here[k], L = Math.hypot(B[0] - A[0], B[2] - A[2]), sag = 0.35 + L * 0.012;
+            for (let s2 = 0; s2 < 8; s2++) {
+              const t0 = s2 / 8, t1 = (s2 + 1) / 8;
+              const P = (t) => [A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t - 4 * sag * t * (1 - t), A[2] + (B[2] - A[2]) * t];
+              wires.push(...P(t0), ...P(t1));
+            }
+          }
+        }
+        prev = here;
+      }
+    }
+    for (const part of furniture[PROP.POWER_POLE]) batch(poles, part.geo, part.mat, { far: part.far, cast: !lo });
+    if (wires.length) {
+      const wg = new THREE.BufferGeometry();
+      wg.setAttribute('position', new THREE.Float32BufferAttribute(wires, 3));
+      const wm = new THREE.LineSegments(wg, wireMat);
+      group.add(wm);
+      culls.push({ mesh: wm, cx: tcx, cz: tcz, half: T / 2, far: 450 });
+    }
     for (const part of furniture[PROP.STREETLIGHT]) batch(lights, part.geo, part.mat, { far: part.far, cast: part.cast !== false });
     for (const part of furniture[PROP.HYDRANT]) batch(hydrants, part.geo, part.mat, { far: part.far, cast: false });
     const byKind = {};
@@ -1166,7 +1428,9 @@ export function buildRealScene(RW, renderer, opts = {}) {
 
   /* --------------------------------------- sky, sun, light, bloom */
   // a bigger map: the haze starts further out than on the classic one
-  const atmo = makeAtmosphere(scene, renderer, { quality, uniforms, fogNear: 800, fogFar: 8000, groundAt: RW.groundHeight });
+  const atmo = makeAtmosphere(scene, renderer, { quality, uniforms, fogNear: 800, fogFar: 8000, groundAt: RW.groundHeight, skyRadius: RW.far ? 150000 : 9000 });
+  /* --------------------------------- the horizon: mountains, basin, sea */
+  const horizon = buildHorizon(RW, scene, uniforms, lo);
   atmo.onTime.push((night) => {
     for (const m of roadMats) m.emissiveIntensity = night * 0.5;
     for (const g of glowMats) g.mat.emissiveIntensity = g.day + (g.night - g.day) * night;
@@ -1199,6 +1463,7 @@ export function buildRealScene(RW, renderer, opts = {}) {
         await new Promise((r) => setTimeout(r, 0));
       }
     },
-    stats: () => ({ tiles: [...tiles.values()].map((t) => `${t.key}:${t.state}`), colliders: RW.colliders.length, focus: lastFocus })
+    stats: () => ({ tiles: [...tiles.values()].map((t) => `${t.key}:${t.state}`), colliders: RW.colliders.length, focus: lastFocus, farShown: [...far.entries()].filter(([, m]) => m.visible).map(([k]) => k) }),
+    far
   };
 }

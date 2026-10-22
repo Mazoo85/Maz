@@ -83,7 +83,7 @@ async function boot() {
 
 function makeGame(W, R, renderer) {
   const scene = R.scene;
-  const camera = new THREE.PerspectiveCamera(62, 1, 0.3, 14000);
+  const camera = new THREE.PerspectiveCamera(62, 1, 0.3, W.real ? 200000 : 14000);   // (the real map sees the mountains 60 km off)
   const hud = makeHud(W, R.groundCanvas);
   const ambient = makeAmbient(W, scene, { quality: settings.quality });
 

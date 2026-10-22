@@ -16,7 +16,7 @@
 import { readFileSync, readdirSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { REAL, projector, toBuilding, toRoad, areaKind, treeKind, toPoi, encodeTile, ringArea, RCLASS, AREA, BTYPE } from '../js/osm.js';
+import { REAL, projector, toBuilding, toRoad, areaKind, treeKind, toPoi, encodeTile, ringArea, RCLASS, AREA, BTYPE, FAR } from '../js/osm.js';
 import { decodePNG, encodePNG } from './png.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -94,12 +94,17 @@ const counts = { buildings: 0, parts: 0, roads: 0, areas: 0, trees: 0, pois: 0, 
  * parts and skip the outline */
 const partWays = [...ways.values()].filter((w) => w.tags && w.tags['building:part'] && w.tags['building:part'] !== 'no');
 const partCentres = partWays.map((w) => centroid(xz(w.geometry)));
+const seen = new Map();          // the same footprint twice (two sources): keep the taller
 const addBuilding = (tags, ring) => {
   const b = toBuilding(tags, ring);
   if (!b) return;
   const [cx, cz] = centroid(b.pts);
   const [i, j] = tileOf(cx, cz);
   if (!inside(i, j)) return;
+  const key = `${Math.round(cx * 2)},${Math.round(cz * 2)},${Math.round(Math.abs(ringArea(b.pts)) / 5)},${b.mh > 1 ? 1 : 0}`;
+  const prev = seen.get(key);
+  if (prev) { if (b.h > prev.h) Object.assign(prev, { h: b.h }); return; }
+  seen.set(key, b);
   tile(i, j).buildings.push(b);
   counts.buildings++;
   if (tags.height) counts.heightTagged++;
@@ -228,23 +233,29 @@ writeFileSync(join(OUT, 'arteries.json'), JSON.stringify(arteries));
 const STEP = 10;
 const HX = Math.ceil((X1 - X0) / STEP) + 1, HZ = Math.ceil((Z1 - Z0) / STEP) + 1;
 const height = new Int16Array(HX * HZ);
-const demFiles = existsSync(DEM) ? readdirSync(DEM).filter((f) => f.startsWith('dem_')) : [];
-if (demFiles.length) {
+/* elevation from Terrarium tiles (height = R·256 + G + B/256 − 32768 m), bilinear */
+function terrarium(prefix) {
+  const files = existsSync(DEM) ? readdirSync(DEM).filter((f) => f.startsWith(prefix)) : [];
+  if (!files.length) return null;
   const dem = new Map();
-  for (const f of demFiles) { const [, z, x, y] = f.replace('.png', '').split('_').map(Number); dem.set(`${x}_${y}`, { z, img: decodePNG(readFileSync(join(DEM, f))) }); }
-  const z = 14, n = 2 ** z;
-  const sample = (lat, lon) => {
+  let z = 0;
+  for (const f of files) { const [, zz, x, y] = f.replace('.png', '').split('_').map(Number); z = zz; dem.set(`${x}_${y}`, decodePNG(readFileSync(join(DEM, f)))); }
+  const n = 2 ** z;
+  return (lat, lon) => {
     const r = (lat * Math.PI) / 180;
     const px = ((lon + 180) / 360) * n * 256, py = ((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * n * 256;
     const at = (gx, gy) => {
       const t = dem.get(`${Math.floor(gx / 256)}_${Math.floor(gy / 256)}`);
       if (!t) return 0;
-      const ix = Math.floor(gx) % 256, iy = Math.floor(gy) % 256, o = (iy * 256 + ix) * 4, d = t.img.data;
+      const ix = Math.floor(gx) % 256, iy = Math.floor(gy) % 256, o = (iy * 256 + ix) * 4, d = t.data;
       return d[o] * 256 + d[o + 1] + d[o + 2] / 256 - 32768;
     };
     const fx = px - 0.5, fy = py - 0.5, x0 = Math.floor(fx), y0 = Math.floor(fy), u = fx - x0, v = fy - y0;
     return (at(x0, y0) * (1 - u) + at(x0 + 1, y0) * u) * (1 - v) + (at(x0, y0 + 1) * (1 - u) + at(x0 + 1, y0 + 1) * u) * v;
   };
+}
+const sample = terrarium('dem_');
+if (sample) {
   for (let j = 0; j < HZ; j++) for (let i = 0; i < HX; i++) {
     const [lat, lon] = P.toLatLon(X0 + i * STEP, Z0 + j * STEP);
     height[j * HX + i] = Math.round(sample(lat, lon) * 10);
@@ -252,6 +263,20 @@ if (demFiles.length) {
 } else console.warn('No elevation downloads (tools/fetch.mjs dem): the ground will be flat.');
 // as base64 in JSON, which every web host serves (some won't serve a .bin)
 writeFileSync(join(OUT, 'height.json'), JSON.stringify({ int16le: Buffer.from(height.buffer).toString('base64') }));
+
+/* the country round it, for the horizon: every FAR.step metres out to FAR.reach */
+const farSample = terrarium('far_');
+let farInfo = null;
+if (farSample) {
+  const cx = (X0 + X1) / 2, cz = (Z0 + Z1) / 2, FN = Math.round((2 * FAR.reach) / FAR.step) + 1;
+  const far = new Int16Array(FN * FN);
+  for (let j = 0; j < FN; j++) for (let i = 0; i < FN; i++) {
+    const [lat, lon] = P.toLatLon(cx - FAR.reach + i * FAR.step, cz - FAR.reach + j * FAR.step);
+    far[j * FN + i] = Math.max(-32000, Math.min(32000, Math.round(farSample(lat, lon))));
+  }
+  writeFileSync(join(OUT, 'far.json'), JSON.stringify({ int16le: Buffer.from(far.buffer).toString('base64') }));
+  farInfo = { file: 'far.json', n: FN, step: FAR.step, cx, cz, scale: 1 };
+} else console.warn('No horizon elevation (tools/fetch.mjs far): no mountains on the horizon.');
 
 /* --------------------------------------------------------------- overview */
 const OV = 4096, S = OV / Math.max(X1 - X0, Z1 - Z0);
@@ -305,7 +330,7 @@ for (const t of all) for (const b of t.buildings) {
   const [cx, cz] = centroid(b.pts), k = (Math.sin(cx * 0.013 + cz * 0.029) + 1) / 2;
   disc(cx, cz, Math.sqrt(area) * 0.6 + 10, k < 0.7 ? [118 + k * 20, 146 + k * 10, 82] : [176, 168, 120]);
 }
-for (const t of all) for (const r of [...t.roads].sort((a, b) => b.cls - a.cls)) line(r.pts, r.cls === RCLASS.footway ? 2 : r.w, r.cls <= RCLASS.trunk ? [242, 196, 92] : r.cls === RCLASS.rail ? [120, 110, 100] : r.cls <= RCLASS.tertiary ? [250, 250, 248] : [236, 234, 228]);
+for (const t of all) for (const r of [...t.roads].sort((a, b) => b.cls - a.cls)) line(r.pts, r.cls === RCLASS.footway ? 2 : r.w, r.cls <= RCLASS.trunk ? [214, 208, 196] : r.cls === RCLASS.rail ? [120, 110, 100] : r.cls <= RCLASS.tertiary ? [250, 250, 248] : [236, 234, 228]);
 for (const t of all) for (const b of t.buildings) poly(b.pts, b.h > 40 ? [120, 116, 124] : [168, 160, 152]);
 writeFileSync(join(OUT, 'overview.png'), encodePNG(OV, OV, img));
 
@@ -313,7 +338,7 @@ writeFileSync(join(OUT, 'overview.png'), encodePNG(OV, OV, img));
 const manifest = {
   v: 1, name: process.env.LA_NAME || REAL.name, lat0: REAL.lat0, lon0: REAL.lon0, bounds: { south: REAL.south, north: REAL.north, west: REAL.west, east: REAL.east },
   x0: X0, z0: Z0, width: X1 - X0, depth: Z1 - Z0, tile: T, tilesX: NX, tilesZ: NZ, tiles: list.sort(),
-  skyline: 'skyline.json', arteries: 'arteries.json',
+  skyline: 'skyline.json', arteries: 'arteries.json', far: farInfo,
   height: { file: 'height.json', nx: HX, nz: HZ, step: STEP, scale: 0.1 }, overview: { file: 'overview.png', size: OV },
   counts, built: new Date().toISOString(), attribution: `Map data © OpenStreetMap contributors (ODbL)${files.some((f) => f.includes('overture')) ? ', via Overture Maps (overturemaps.org; places CDLA-Permissive-2.0)' : ''}. Elevation: Mapzen Terrarium tiles (AWS Open Data).`
 };

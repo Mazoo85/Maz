@@ -353,7 +353,8 @@ export function buildScene(W, renderer, opts = {}) {
  * in metres, turned into a bumped normal) and roughness, for the materials
  * LA is built from. Fades out detail smaller than a pixel. */
 export const SURFACE_GLSL = `
-float sh21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+// (a hash without sin(): sin() loses precision far from the origin, which shows as noise)
+float sh21(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
 float svn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(sh21(i), sh21(i + vec2(1.0, 0.0)), f.x), mix(sh21(i + vec2(0.0, 1.0)), sh21(i + vec2(1.0, 1.0)), f.x), f.y); }
 float sfbm(vec2 p) { return svn(p) * 0.5 + svn(p * 2.03 + 7.1) * 0.3 + svn(p * 4.07 + 3.3) * 0.2; }
@@ -365,13 +366,13 @@ float surfaceDetail(int kind, vec2 uv, inout vec3 col, inout float rough) {
   float h = 0.0;
   if (kind == 0) {
     float n = sfbm(uv * 38.0);
-    h = n * 0.004 * sFade(0.05, fw);
+    h = n * 0.0012 * sFade(0.12, fw);       // fine stucco: subtle, and gone before it can sparkle
     col *= (0.9 + 0.14 * sfbm(uv * 0.45)) * (0.96 + 0.08 * n);
     col *= 1.0 - 0.09 * svn(vec2(uv.x * 0.7, uv.y * 0.06));          // rain streaks
     rough = 0.94;
   } else if (kind == 1) {
     float n = sfbm(uv * 14.0);
-    h = n * 0.0015 * sFade(0.1, fw);
+    h = n * 0.0006 * sFade(0.2, fw);
     col *= 0.93 + 0.1 * sfbm(uv * 0.5);
     rough = 0.85;
   } else if (kind == 2) {
@@ -399,7 +400,7 @@ float surfaceDetail(int kind, vec2 uv, inout vec3 col, inout float rough) {
     float hole = 1.0 - smoothstep(0.015, 0.025, length(tie * vec2(0.61, 0.305)));
     float k = sFade(0.3, fw);
     hole *= sFade(0.06, fw);          // the 2 cm tie holes go before they're smaller than a pixel
-    h = (sfbm(uv * 25.0) * 0.0015 - (joint + hole) * 0.006) * k;
+    h = (sfbm(uv * 25.0) * 0.0004 * sFade(0.12, fw) - (joint + hole) * 0.004) * k;
     col *= (0.86 + 0.18 * sfbm(uv * 2.5)) * (1.0 - 0.25 * (joint + hole) * k);
     rough = 0.9;
   } else if (kind == 5) {
@@ -500,7 +501,9 @@ export function withSurface(m, kind, extraVertex = '') {
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
         if (sRough >= 0.0) roughnessFactor = sRough;`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
-        normal = bumpNormal(-vViewPosition, normal, sH * sBumpK);`);
+        // (blend the relief out by sBumpK rather than scaling the height by it: a height that drops to
+        // zero at a window's edge is a cliff, and lighting the cliff scatters speckles along every edge)
+        normal = normalize(mix(normal, bumpNormal(-vViewPosition, normal, sH), clamp(sBumpK, 0.0, 1.0)));`);
   };
   const key = `surface:${kind}:${prev ? prev.toString().length : 0}`;
   m.customProgramCacheKey = () => key;
@@ -572,7 +575,7 @@ export function facadeMaterial(uniforms, real = false) {
         #ifdef REAL_ATTRS
           attribute float aSeed; attribute float aBase; attribute float aTop; attribute float aFloor;
         #endif
-        varying vec3 vWPos; varying vec3 vWNrm; varying float vWin; varying float vSeed; varying float vH; varying float vTop; varying float vFloor;`)
+        varying vec3 vWPos; varying vec3 vWNrm; flat varying float vWin; flat varying float vSeed; varying float vH; varying float vTop; flat varying float vFloor;`)
       .replace('#include <project_vertex>', `#include <project_vertex>
         vec4 wp = vec4(transformed, 1.0);
         vec3 wn = objectNormal;
@@ -581,7 +584,7 @@ export function facadeMaterial(uniforms, real = false) {
           wp = instanceMatrix * wp;
           wn = mat3(instanceMatrix) * wn;
           sy = length(instanceMatrix[1].xyz);
-          vSeed = fract(sin(dot(instanceMatrix[3].xz, vec2(12.9898, 78.233))) * 43758.5453);
+          { vec2 p = instanceMatrix[3].xz; vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); vSeed = fract((p3.x + p3.y) * p3.z); }
         #else
           vSeed = 0.5;
         #endif
@@ -598,10 +601,16 @@ export function facadeMaterial(uniforms, real = false) {
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
         uniform float uNight;
-        varying vec3 vWPos; varying vec3 vWNrm; varying float vWin; varying float vSeed; varying float vH; varying float vTop; varying float vFloor;
+        varying vec3 vWPos; varying vec3 vWNrm; flat varying float vWin; flat varying float vSeed; varying float vH; varying float vTop; flat varying float vFloor;
         // a band from a to b of a repeating 0..1 coordinate, anti-aliased by its screen-space width
         float aaBand(float f, float a, float b, float w) { return smoothstep(a - w, a + w, f) * (1.0 - smoothstep(b - w, b + w, f)); }
-        float h21(vec2 p) { return fract(sin(dot(p, vec2(41.3, 289.1))) * 43758.5453); }
+        // a repeating band from a to b (0 ≤ a < b ≤ 1 within each unit), box-filtered over the pixel's width w:
+        // exact at any distance or angle, fading to its average (b − a) when many repeats share a pixel
+        float pulseI(float x, float a, float b) { return floor(x) * (b - a) + clamp(fract(x) - a, 0.0, b - a); }
+        float aaPulse(float x, float a, float b, float w) {
+          w = max(w, 1e-4); x -= floor(x);     // (keep the numbers small: big ones lose the precision this needs)
+          return (pulseI(x + 0.5 * w, a, b) - pulseI(x - 0.5 * w, a, b)) / w; }
+        float h21(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
         float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
           return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }`)
       .replace('#include <color_fragment>', `#include <color_fragment>
@@ -613,6 +622,7 @@ export function facadeMaterial(uniforms, real = false) {
         } else if (abs(n.y) < 0.5) {
           vec2 t = normalize(vec2(-n.z, n.x));
           float u = dot(vWPos.xz, t);
+          u -= 1024.0 * floor(u / 1024.0);         // near zero, for precision (a seam once a kilometre)
           float v = vWPos.y;
           float grain = vn(vec2(u, v) * 1.7) * 0.5 + vn(vec2(u * 0.25, v * 0.05) * 3.0) * 0.5;
           diffuseColor.rgb *= 0.86 + 0.2 * grain;
@@ -636,19 +646,20 @@ export function facadeMaterial(uniforms, real = false) {
             vec2 g = vec2(u, v) / cell;
             vec2 f = fract(g);
             vec2 fw = max(fwidth(g), vec2(1e-4));
-            winMask = aaBand(f.x, pane.x, pane.y, fw.x) * aaBand(f.y, pane.z, pane.w, fw.y);
-            float frame = vWin < 2.5 || vWin > 3.5 ? aaBand(f.x, pane.x - 0.04, pane.y + 0.04, fw.x) * aaBand(f.y, pane.z - 0.05, pane.w + 0.05, fw.y) - winMask : 0.0;
-            float sill = vWin < 1.5 ? aaBand(f.x, pane.x - 0.05, pane.y + 0.05, fw.x) * aaBand(f.y, pane.z - 0.07, pane.z - 0.02, fw.y) : 0.0;
+            pane = clamp(pane, 0.0, 1.0);
+            winMask = aaPulse(g.x, pane.x, pane.y, fw.x) * aaPulse(g.y, pane.z, pane.w, fw.y);
+            float frame = vWin < 2.5 || vWin > 3.5
+              ? aaPulse(g.x, max(0.0, pane.x - 0.04), min(1.0, pane.y + 0.04), fw.x) * aaPulse(g.y, max(0.0, pane.z - 0.05), min(1.0, pane.w + 0.05), fw.y) - winMask : 0.0;
+            float sill = vWin < 1.5 ? aaPulse(g.x, max(0.0, pane.x - 0.05), min(1.0, pane.y + 0.05), fw.x) * aaPulse(g.y, max(0.0, pane.z - 0.07), max(0.0, pane.z - 0.02), fw.y) : 0.0;
             if (vWin > 1.5 && vWin < 2.5 && vH < 4.2) {
               // the storefronts: big glass between piers, a fascia above
-              float sf = fract(u / 6.0), sw = max(fwidth(u / 6.0), 1e-4);
-              winMask = aaBand(sf, 0.06, 0.94, sw) * smoothstep(0.45, 0.55, vH) * (1.0 - smoothstep(3.5, 3.7, vH));
+              float sg = u / 6.0, sw = max(fwidth(sg), 1e-4);
+              winMask = aaPulse(sg, 0.06, 0.94, sw) * smoothstep(0.45, 0.55, vH) * (1.0 - smoothstep(3.5, 3.7, vH));
               frame = 0.0; sill = 0.0;
             }
-            // far off, a window is less than a pixel: fade to the average so the grid never shimmers
+            // far off: the per-window details (blinds, frames) go before they alias
             float far = smoothstep(0.25, 0.6, max(fw.x, fw.y));
-            float avg = clamp(pane.y - pane.x, 0.0, 1.0) * clamp(pane.w - pane.z, 0.0, 1.0);
-            winMask = mix(winMask, avg * 0.8, far); frame *= 1.0 - far; sill *= 1.0 - far;
+            frame *= 1.0 - far; sill *= 1.0 - far;
             vec2 id = floor(g);
             float floorOn = step(0.25, h21(vec2(id.y, vSeed * 31.0)));
             lit = step(0.58, h21(id + vSeed * 97.0)) * floorOn * winMask;
@@ -662,15 +673,15 @@ export function facadeMaterial(uniforms, real = false) {
               vec3 glass = vWin > 2.5 ? mix(vec3(0.16, 0.23, 0.3), diffuseColor.rgb, 0.3) : tint;
             #endif
             // curtains and blinds, half-drawn at random
-            float blind = step(0.5, h21(id * 1.7 + vSeed)) * (vWin < 2.5 ? 0.25 : 0.0) * (1.0 - smoothstep(0.04, 0.12, max(fw.x, fw.y)));
-            float blindLine = step(fract(f.y * 1.0), mix(pane.w, pane.z, h21(id + 3.1)));
+            float blind = step(0.72, h21(id * 1.7 + vSeed)) * (vWin < 2.5 ? 0.16 : 0.0) * (1.0 - smoothstep(0.04, 0.12, max(fw.x, fw.y)));
+            float blindLine = step(f.y, mix(pane.w, pane.z, h21(id + 3.1)));
             diffuseColor.rgb = mix(diffuseColor.rgb, glass + blind * blindLine * vec3(0.5, 0.48, 0.42), winMask);
             diffuseColor.rgb *= 1.0 - frame * 0.3;
             diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.84, 0.8), sill * 0.7);
             glassy = winMask * (1.0 - blind * blindLine * 2.0);
             sBumpK = 1.0 - winMask;
             // a line at each floor slab on commercial buildings
-            if (vWin > 1.5) diffuseColor.rgb *= 1.0 - 0.16 * aaBand(fract(v / cell.y), -0.02, 0.05, max(fwidth(v / cell.y), 1e-4)) * (1.0 - far);
+            if (vWin > 1.5) diffuseColor.rgb *= 1.0 - 0.16 * aaPulse(v / cell.y, 0.0, 0.05, max(fwidth(v / cell.y), 1e-4));
           }
           #ifdef REAL_ATTRS
             diffuseColor.rgb *= mix(0.68, 1.0, smoothstep(0.0, 1.8, vH));   // a soft contact shadow at the foot of the wall
