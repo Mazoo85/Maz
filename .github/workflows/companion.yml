@@ -1,0 +1,26 @@
+name: Companion
+
+# Companion is a standalone browser game with no build step. Its brain and its
+# Claude mind are plain modules, so their tests run in plain Node in seconds.
+
+on:
+  push:
+    paths:
+      - "companion/**"
+      - ".github/workflows/companion.yml"
+  pull_request:
+    paths:
+      - "companion/**"
+      - ".github/workflows/companion.yml"
+
+jobs:
+  logic:
+    name: Companion logic tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run the logic tests
+        run: node companion/tests/companion-logic.test.js
