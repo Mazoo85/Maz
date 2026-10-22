@@ -181,7 +181,7 @@ function busGeometry() {
 /* ========================================================= street life */
 
 const BUSY = { hollywood: 1, downtown: 1, mixed: 0.7, coastal: 0.75, beach: 0.8, midrise: 0.6, towers: 0.5, campus: 0.5, residential: 0.12, suburb: 0.06, industrial: 0.04, port: 0.02 };
-const HOTSPOTS = ['Walk of Fame', 'TCL Chinese Theatre', 'Third Street Promenade', 'Venice Beach', 'Santa Monica Pier', 'Grand Central Market', 'Olvera Street', 'Rodeo Drive', 'Sunset Strip', 'Koreatown', 'Pershing Square', 'The Grove', 'Abbot Kinney', 'Little Tokyo', 'Chinatown Dragon Gate', 'Muscle Beach', 'Westwood Village'];
+const HOTSPOTS = ['Walk of Fame', 'Hollywood Walk of Fame', 'Hollywood & Vine', 'Capitol Records Building', 'The Broad', 'Los Angeles City Hall', 'TCL Chinese Theatre', 'Third Street Promenade', 'Venice Beach', 'Santa Monica Pier', 'Grand Central Market', 'Olvera Street', 'Rodeo Drive', 'Sunset Strip', 'Koreatown', 'Pershing Square', 'The Grove', 'Abbot Kinney', 'Little Tokyo', 'Chinatown Dragon Gate', 'Muscle Beach', 'Westwood Village'];
 const PEOPLE = 1000;
 
 export function buildStreetLife(W, scene, ctx) {
@@ -225,9 +225,9 @@ export function buildStreetLife(W, scene, ctx) {
   };
   for (const r of W.roads) {
     if (r.kind !== 'blvd') continue;
-    for (const side of [-1, 1]) addPath(offset(r.pts, side * (ROAD_WIDTH.blvd / 2 + 1.65)), 0.34 + 0.16);
+    for (const side of [-1, 1]) addPath(offset(r.pts, side * ((r.w || ROAD_WIDTH.blvd) / 2 + 1.65)), W.real ? 0.1 : 0.34 + 0.16);   // (the true-scale map's streets have their real widths)
   }
-  const boardwalk = W.paint.find((o) => o.t === 'line' && o.c === '#c7bfb0');
+  const boardwalk = (W.paint || []).find((o) => o.t === 'line' && o.c === '#c7bfb0');
   if (boardwalk) addPath(boardwalk.pts, 0.02, 3);
 
   // where to put people: weighted by how busy the neighbourhood is

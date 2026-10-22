@@ -14,13 +14,14 @@ import { loadRealWorld, buildRealScene } from './realcity.js';
 import { makeHud } from './hud.js';
 import { makePlayer, makeCar, makeBlimp, CAR_TYPES } from './models.js';
 import { makeAmbient } from './ambient.js';
+import { makeAudio } from './audio.js';
 
 const $ = (id) => document.getElementById(id);
 const isTouch = matchMedia('(pointer: coarse)').matches;
 
 const SETTINGS_KEY = 'la-royale-settings';
 const settings = Object.assign(
-  { quality: isTouch ? 'low' : 'medium', sensitivity: 1, invertY: false, dayLength: 24, startHour: 16.5, map: 'real' },
+  { quality: isTouch ? 'low' : 'medium', sensitivity: 1, invertY: false, dayLength: 24, startHour: 16.5, map: 'real', sound: true },
   safeRead()
 );
 function safeRead() { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch { return {}; } }
@@ -86,6 +87,7 @@ function makeGame(W, R, renderer) {
   const camera = new THREE.PerspectiveCamera(62, 1, 0.3, W.real ? 200000 : 14000);   // (the real map sees the mountains 60 km off)
   const hud = makeHud(W, R.groundCanvas);
   const ambient = makeAmbient(W, scene, { quality: settings.quality });
+  const sound = makeAudio({ enabled: settings.sound });
 
   /* the player */
   const player = makePlayer();
@@ -569,6 +571,7 @@ function makeGame(W, R, renderer) {
     else updateCamera(dt);
     const focus = state === 'drive' ? car : state === 'blimp' ? { x: bx, y: by, z: bz } : state === 'title' ? { x: camera.position.x, y: 0, z: camera.position.z } : body;
     ambient.update(dt, state === 'drive' ? car : body, R.uniforms.uNight.value);
+    sound.update(dt, { night: R.uniforms.uNight.value, heliDist: ambient.heli ? ambient.heli.position.distanceTo(camera.position) : Infinity, parrotsNear: ambient.parrotsNear });
     R.update(dt, clock, camera, focus);
     pressed.clear();
   }
@@ -644,6 +647,8 @@ function makeGame(W, R, renderer) {
   $('quality').addEventListener('change', (e) => { settings.quality = e.target.value; saveSettings(); location.reload(); });
   $('sens').value = settings.sensitivity;
   $('sens').addEventListener('input', (e) => { settings.sensitivity = Number(e.target.value); saveSettings(); });
+  $('sound').checked = settings.sound;
+  $('sound').addEventListener('change', (e) => { settings.sound = e.target.checked; saveSettings(); sound.setEnabled(settings.sound); });
   $('invert').checked = settings.invertY;
   $('invert').addEventListener('change', (e) => { settings.invertY = e.target.checked; saveSettings(); });
   $('helpBtn').addEventListener('click', () => { $('help').hidden = !$('help').hidden; });

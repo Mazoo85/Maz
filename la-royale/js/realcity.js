@@ -21,7 +21,7 @@ import { makeAtmosphere } from './atmosphere.js';
 import { facadeMaterial, withSurface, fadeNearCamera, buildFurniture, makeDetailTexture, makeWaterNormals, mulberry, shadeHex, resample, noiseFill, SURFACE_GLSL } from './render.js';
 import { buildFlora } from './flora.js';
 import { REAL_LANDMARKS, landmarkMaterials, Kit } from './reallandmarks.js';
-import { carGeometries, carMaterials } from './streetlife.js';
+import { carGeometries, carMaterials, buildStreetLife } from './streetlife.js';
 import { PROP } from './street.js';
 import { projector, decodeTile, BTYPE, ROOF, MATERIAL, RCLASS, AREA, ringArea } from './osm.js';
 
@@ -1915,6 +1915,27 @@ export function buildRealScene(RW, renderer, opts = {}) {
   /* --------------------------------------- sky, sun, light, bloom */
   // a bigger map: the haze starts further out than on the classic one
   const atmo = makeAtmosphere(scene, renderer, { quality, uniforms, fogNear: 800, fogFar: 8000, groundAt: RW.groundHeight, skyRadius: RW.far ? 150000 : 9000 });
+  /* ------------------------------ premiere searchlights over Hollywood at night */
+  const beams = [];
+  {
+    const beamMat = new THREE.MeshBasicMaterial({ color: 0xfff1d2, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false, fog: false });
+    const g = new THREE.CylinderGeometry(6, 0.5, 900, 16, 1, true).translate(0, 450, 0);
+    for (const [lat, lon, ph] of [[34.10195, -118.34097, 0], [34.10175, -118.34080, 2.1], [34.10116, -118.34010, 4.2]]) {
+      const [x, z] = RW.toWorld(lat, lon);
+      const m = new THREE.Mesh(g, beamMat);
+      m.position.set(x, RW.groundHeight(x, z) + 1, z);
+      m.frustumCulled = false;
+      scene.add(m);
+      beams.push({ m, ph });
+    }
+    beams.mat = beamMat;
+  }
+
+  /* ------------------------------------- people on the boulevards' sidewalks */
+  const busy = (x, z) => { const d = RW.districtAt(x, z).name; return /Hollywood$|Downtown|Bunker Hill|Little Tokyo|Chinatown|Koreatown|Fashion District|South Park/.test(d) ? 'hollywood' : /Silver Lake|Echo Park|Los Feliz|Westlake|Thai Town|East Hollywood|Larchmont|Fairfax/.test(d) ? 'mixed' : 'residential'; };
+  const streetLife = buildStreetLife({ real: true, pois: RW.pois, roads: RW.roads, half: RW.half, isSea: () => false, groundHeight: RW.groundHeight, paint: [], parked: [], styleAt: busy },
+    scene, { THREE, batch: () => {}, lo, hi, mulberry, fadeNearCamera });
+
   /* --------------------------------- the horizon: mountains, basin, sea */
   const horizon = buildHorizon(RW, scene, uniforms, lo);
   atmo.onTime.push((night) => {
@@ -1925,6 +1946,9 @@ export function buildRealScene(RW, renderer, opts = {}) {
   atmo.onUpdate.push((dt, time, camera, focus) => {
     waterNormals.offset.set((time * 0.01) % 1, (time * 0.007) % 1);
     if (horizon && scene.fog) horizon.update(scene.fog.color);
+    // the searchlights sweep at night
+    beams.mat.opacity = uniforms.uNight.value * 0.09;
+    for (const b of beams) { b.m.visible = uniforms.uNight.value > 0.2; b.m.rotation.set(0.35 + 0.15 * Math.sin(time * 0.31 + b.ph), time * 0.4 + b.ph, 0, 'YXZ'); }
     const f = focus || camera.position;
     stream(f.x, f.z, lo ? 5 : 8);
     const cx = camera.position.x, cz = camera.position.z;
@@ -1937,7 +1961,7 @@ export function buildRealScene(RW, renderer, opts = {}) {
   });
 
   return {
-    scene, uniforms, groundCanvas, sun: atmo.sun, streetLife: null,
+    scene, uniforms, groundCanvas, sun: atmo.sun, streetLife,
     update: atmo.update, setTime: atmo.setTime, render: atmo.render, setSize: atmo.setSize,
     /* load everything round (x, z) now, for the title screen and tests */
     async preload(x, z, onProgress = () => {}) {

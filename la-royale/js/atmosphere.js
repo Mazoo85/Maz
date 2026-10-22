@@ -21,6 +21,8 @@ export function makeAtmosphere(scene, renderer, opts = {}) {
   const uniforms = opts.uniforms || { uNight: { value: 0 }, uTime: { value: 0 } };
   const fogNear = opts.fogNear ?? 400, fogFar = opts.fogFar ?? 5200, groundAt = opts.groundAt || (() => 0);
   const onTime = [], onUpdate = [];
+  let gloom = 0;
+  const smooth = (e0, e1, v) => { const t = Math.min(1, Math.max(0, (v - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
   const skyParams = (s) => {
     const u = s.material.uniforms;
     u.turbidity.value = 7;          // a little smog
@@ -124,6 +126,14 @@ export function makeAtmosphere(scene, renderer, opts = {}) {
     scene.environmentIntensity = a[5] + (b[5] - a[5]) * t;
     // at night the light is the moon: dim and blue
     if (sunDir.y < -0.05) { sun.color.set('#8fa6e0'); sun.intensity = 0.35 * night; }
+    // the marine layer: on the mornings of the warm months a low grey overcast rolls in off the
+    // Pacific and burns off toward late morning ("May Gray", "June Gloom")
+    gloom = opts.marineLayer === false ? 0 : smooth(5.5, 7.5, hours) * (1 - smooth(9.5, 11.5, hours));
+    if (gloom > 0) {
+      sun.intensity *= 1 - 0.6 * gloom;
+      scene.fog.color.lerp(C('#c4c8cc'), gloom * 0.8);
+      hemi.intensity *= 1 + 0.25 * gloom;
+    }
     uniforms.uNight.value = night;
     stars.material.opacity = night;
     moon.material.opacity = night;
@@ -160,8 +170,8 @@ export function makeAtmosphere(scene, renderer, opts = {}) {
     moon.lookAt(camera.position);
     // the haze thins as you climb above the ground
     const high = Math.max(0, camera.position.y - groundAt(camera.position.x, camera.position.z) - 120);
-    scene.fog.near = fogNear + high * 2;
-    scene.fog.far = fogFar + high * 6;
+    scene.fog.near = (fogNear + high * 2) * (1 - 0.75 * gloom);
+    scene.fog.far = (fogFar + high * 6) * (1 - 0.6 * gloom) + high * 4 * gloom;   // (climb above the layer and it thins)
     const lightDir = sunDir.y > -0.05 ? sunDir : tmpV.copy(sunDir).negate().setY(0.6).normalize();
     // snap the shadow box to its texels so shadows don't crawl as you move
     const step = (box * 2) / sm;

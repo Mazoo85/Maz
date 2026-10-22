@@ -156,9 +156,53 @@ export function makeAmbient(W, scene, opts = {}) {
   const patrol = [[1460, -540], [300, -1450], [900, 500], [-650, -880]];
   const h = { leg: 0, t: 0, cx: patrol[0][0], cz: patrol[0][1] };
 
+  /* ------------------------------------------------------------ birds */
+  // crows wheeling over wherever you are, and now and then a flock of LA's wild parrots
+  // (escaped pets' descendants, green, loud) crossing the sky
+  const birdGeo = new THREE.BufferGeometry();
+  birdGeo.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0.18, -0.6, 0, -0.1, 0, 0.05, -0.15, 0, 0, 0.18, 0, 0.05, -0.15, 0.6, 0, -0.1], 3));
+  birdGeo.computeVertexNormals();
+  const flock = (n, color, size) => {
+    const m = new THREE.InstancedMesh(birdGeo, new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide }), n);
+    m.frustumCulled = false; scene.add(m);
+    return { m, n, size, birds: Array.from({ length: n }, () => ({ a: rnd() * 6.28, r: 20 + rnd() * 25, h: rnd() * 8, ph: rnd() * 6.28, sp: 0.25 + rnd() * 0.2 })) };
+  };
+  const crows = flock(10, 0x15161a, 1.1), parrots = flock(14, 0x3fa34d, 0.8);
+  const parrot = { t: -40 - rnd() * 60, ox: 0, oz: 0, dx: 1, dz: 0 };
+  const bq = new THREE.Quaternion(), be = new THREE.Euler(), bs = new THREE.Vector3(), bp = new THREE.Vector3();
+  function birds(dt, player, night) {
+    crows.m.visible = night < 0.6;
+    const cy = groundAt(player.x, player.z) + 35;
+    crows.birds.forEach((b, i) => {
+      b.a += dt * b.sp;
+      const flap = Math.abs(Math.sin(clock * 7 + b.ph));
+      bp.set(player.x + 30 + Math.cos(b.a) * b.r, cy + b.h + Math.sin(clock * 0.5 + b.ph) * 2, player.z - 20 + Math.sin(b.a) * b.r);
+      bq.setFromEuler(be.set(0, -b.a, 0.2));
+      crows.m.setMatrixAt(i, m4.compose(bp, bq, bs.set(crows.size, crows.size * (0.25 + flap), crows.size)));
+    });
+    crows.m.instanceMatrix.needsUpdate = true;
+    // the parrots: across the sky every minute or two, by day
+    parrot.t += dt;
+    if (parrot.t > 30 || night > 0.5) { if (parrot.t > 30) { parrot.t = -60 - rnd() * 90; } }
+    if (parrot.t === 0 || (parrot.t > -0.05 && parrot.t < 0)) { const a = rnd() * 6.28; parrot.dx = Math.cos(a); parrot.dz = Math.sin(a); parrot.ox = player.x - parrot.dx * 300; parrot.oz = player.z - parrot.dz * 300; }
+    parrots.m.visible = parrot.t > 0 && night < 0.5;
+    if (parrots.m.visible) {
+      const d = parrot.t * 20, py = groundAt(player.x, player.z) + 45;
+      parrots.birds.forEach((b, i) => {
+        const flap = Math.abs(Math.sin(clock * 11 + b.ph));
+        bp.set(parrot.ox + parrot.dx * (d + Math.cos(b.ph) * 8) - parrot.dz * Math.sin(b.ph * 3) * 10, py + Math.sin(b.ph * 5) * 4, parrot.oz + parrot.dz * (d + Math.cos(b.ph) * 8) + parrot.dx * Math.sin(b.ph * 3) * 10);
+        bq.setFromEuler(be.set(0, Math.atan2(parrot.dx, parrot.dz), 0));
+        parrots.m.setMatrixAt(i, m4.compose(bp, bq, bs.set(parrots.size, parrots.size * (0.25 + flap), parrots.size)));
+      });
+      parrots.m.instanceMatrix.needsUpdate = true;
+    }
+    api.parrotsNear = parrots.m.visible && Math.hypot(parrot.ox + parrot.dx * parrot.t * 20 - player.x, parrot.oz + parrot.dz * parrot.t * 20 - player.z) < 160;
+  }
+
   let clock = 0;
   function update(dt, player, night) {
     clock += dt;
+    birds(dt, player, night);
     // traffic: cruise, keep a gap to whoever is ahead in the lane, stop for the player
     for (const c of cars) {
       const [x0, z0, dx0, dz0] = along(c.r, c.s);
@@ -237,7 +281,8 @@ export function makeAmbient(W, scene, opts = {}) {
     return hit;
   }
 
-  return { update, push, cars };
+  const api = { update, push, cars, heli, parrotsNear: false };
+  return api;
 }
 
 function mulberry(a) {
