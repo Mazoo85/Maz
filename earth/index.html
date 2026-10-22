@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Earth Explorer</title>
+  <meta name="description" content="Earth Explorer — a 3D globe with satellite photos, mountains and buildings. Search anywhere, save your own places, and measure distances and areas." />
+  <meta name="theme-color" content="#070b12" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Sora:wght@600&display=swap" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.css" />
+  <link rel="stylesheet" href="css/earth.css" />
+</head>
+<body>
+  <div id="map" aria-label="Map of the Earth"></div>
+
+  <header class="topbar">
+    <div class="brand" aria-hidden="true">
+      <img src="icon.svg" alt="" width="28" height="28" />
+    </div>
+    <form id="search" class="search" role="search" autocomplete="off">
+      <label for="search-input" class="sr-only">Search for a place</label>
+      <input id="search-input" type="search" placeholder="Search places or coordinates" enterkeyhint="search" />
+      <button type="submit" class="search-go" aria-label="Search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5 21 21" /></svg>
+      </button>
+    </form>
+    <ul id="results" class="results" role="listbox" aria-label="Search results" hidden></ul>
+  </header>
+
+  <nav class="rail" aria-label="Tools">
+    <button type="button" class="tool" data-panel="places" aria-pressed="false" title="My places">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-6.1-6.5-11a6.5 6.5 0 0 1 13 0c0 4.9-6.5 11-6.5 11z" /><circle cx="12" cy="10" r="2.4" /></svg>
+      <span>Places</span>
+    </button>
+    <button type="button" class="tool" data-panel="measure" aria-pressed="false" title="Measure">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17 17 3l4 4L7 21z" /><path d="M7 13l2 2M10 10l2 2M13 7l2 2" /></svg>
+      <span>Measure</span>
+    </button>
+    <button type="button" class="tool" data-panel="layers" aria-pressed="false" title="Layers">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5z" /><path d="m3 13 9 5 9-5" /></svg>
+      <span>Layers</span>
+    </button>
+    <span class="rail-gap" aria-hidden="true"></span>
+    <button type="button" class="tool" id="tilt" title="Tilt to see 3D">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16L16 8H8z" /><path d="M12 8V4" /></svg>
+      <span id="tilt-label">3D</span>
+    </button>
+    <button type="button" class="tool" id="locate" title="Go to where I am">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></svg>
+      <span>Me</span>
+    </button>
+  </nav>
+
+  <aside id="panel" class="panel" hidden>
+    <!-- My places -->
+    <section class="panel-body" data-for="places" hidden>
+      <div class="panel-head">
+        <h2>My places</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Close">×</button>
+      </div>
+      <p class="hint" id="pin-hint">Tap <b>Drop a pin</b>, then tap the map.<span class="mouse-only"> Right-clicking the map drops one too.</span></p>
+      <div class="row">
+        <button type="button" class="btn primary" id="drop-pin">Drop a pin</button>
+        <button type="button" class="btn" id="pin-center">Pin the middle</button>
+      </div>
+      <form id="place-form" class="place-form" hidden>
+        <p class="coord mono" id="place-form-coord"></p>
+        <label for="place-name">Name</label>
+        <input id="place-name" type="text" maxlength="80" required />
+        <label for="place-note">Notes</label>
+        <textarea id="place-note" rows="3" maxlength="1000" placeholder="Anything you want to remember"></textarea>
+        <div class="row">
+          <button type="submit" class="btn primary">Save place</button>
+          <button type="button" class="btn" id="place-cancel">Cancel</button>
+        </div>
+      </form>
+      <ul id="place-list" class="place-list"></ul>
+      <p class="empty" id="place-empty" hidden>No places yet. Drop a pin to save your first one.</p>
+      <div class="panel-foot">
+        <button type="button" class="link-btn" id="export-places">Save to a file</button>
+        <label class="link-btn" for="import-places">Open a file</label>
+        <input id="import-places" type="file" accept=".json,application/json" class="sr-only" />
+      </div>
+      <p class="fine">Places are kept in this browser on this device. Save them to a file to move them to another device.</p>
+    </section>
+
+    <!-- Measure -->
+    <section class="panel-body" data-for="measure" hidden>
+      <div class="panel-head">
+        <h2>Measure</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Close">×</button>
+      </div>
+      <div class="segmented" role="radiogroup" aria-label="What to measure">
+        <button type="button" role="radio" aria-checked="true" data-mode="distance">Distance</button>
+        <button type="button" role="radio" aria-checked="false" data-mode="area">Area</button>
+      </div>
+      <p class="hint" id="measure-hint">Tap the map to add points. Lines follow the curve of the Earth.</p>
+      <div class="readout">
+        <span class="readout-label" id="measure-label">Distance</span>
+        <span class="readout-value mono" id="measure-value">0 m</span>
+        <span class="readout-sub mono" id="measure-sub">0 points</span>
+      </div>
+      <div class="row">
+        <button type="button" class="btn" id="measure-undo">Undo point</button>
+        <button type="button" class="btn" id="measure-clear">Clear</button>
+      </div>
+    </section>
+
+    <!-- Layers -->
+    <section class="panel-body" data-for="layers" hidden>
+      <div class="panel-head">
+        <h2>Layers</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Close">×</button>
+      </div>
+      <label class="switch"><input type="checkbox" id="layer-labels" checked /> <span>Place names and roads</span></label>
+      <label class="switch"><input type="checkbox" id="layer-terrain" checked /> <span>3D mountains</span></label>
+      <div class="slider">
+        <label for="terrain-x">Make mountains taller</label>
+        <input type="range" id="terrain-x" min="1" max="3" step="0.25" value="1.25" />
+        <output id="terrain-x-out" for="terrain-x" class="mono">1.25×</output>
+      </div>
+      <label class="switch"><input type="checkbox" id="layer-buildings" checked /> <span>3D buildings <small>(zoom into a city)</small></span></label>
+      <label class="switch"><input type="checkbox" id="layer-spin" checked /> <span>Spin the globe when zoomed out</span></label>
+      <div class="segmented" role="radiogroup" aria-label="Units">
+        <button type="button" role="radio" aria-checked="true" data-units="metric">Kilometres</button>
+        <button type="button" role="radio" aria-checked="false" data-units="imperial">Miles</button>
+      </div>
+      <div class="row">
+        <button type="button" class="btn" id="copy-link">Copy a link to this view</button>
+      </div>
+      <p class="fine">Satellite photos: Esri World Imagery. Mountains: AWS Terrain Tiles. Names and buildings: OpenStreetMap via OpenFreeMap. Search: OpenStreetMap Nominatim.</p>
+    </section>
+  </aside>
+
+  <footer class="status" aria-live="off">
+    <span id="status-coord" class="mono">Move over the globe</span>
+    <span id="status-elev" class="mono"></span>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <noscript><div class="noscript">Earth Explorer needs JavaScript switched on.</div></noscript>
+
+  <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+  <script src="js/geo.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
