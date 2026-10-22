@@ -77,16 +77,28 @@ export function buildScene(W, renderer, opts = {}) {
   terrainMat.onBeforeCompile = (sh) => {
     sh.uniforms.uDetail = { value: detail };
     sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vTN;')
-      .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nvTN = objectNormal;');
+      .replace('#include <common>', '#include <common>\nvarying vec3 vTN; varying vec3 vTW;')
+      .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nvTN = objectNormal; vTW = position;');
     sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform sampler2D uDetail;\nvarying vec3 vTN;')
+      .replace('#include <common>', '#include <common>\nuniform sampler2D uDetail;\nvarying vec3 vTN; varying vec3 vTW;\n' + SURFACE_GLSL)
       .replace('#include <map_fragment>', `#include <map_fragment>
         float dn = texture2D(uDetail, vMapUv * 760.0).r * 0.55 + texture2D(uDetail, vMapUv * 113.0).g * 0.45;
         float slope = 1.0 - clamp(vTN.y, 0.0, 1.0);
         vec3 rock = vec3(0.47, 0.42, 0.36) * (0.75 + 0.5 * texture2D(uDetail, vMapUv * 300.0).b);
         diffuseColor.rgb = mix(diffuseColor.rgb, rock, smoothstep(0.32, 0.55, slope));
-        diffuseColor.rgb *= 0.8 + 0.4 * dn;`);
+        diffuseColor.rgb *= 0.8 + 0.4 * dn;
+        vec3 gc = diffuseColor.rgb;
+        float gsat = max(gc.r, max(gc.g, gc.b)) - min(gc.r, min(gc.g, gc.b));
+        int tk = 12;
+        if (gc.g > gc.r * 1.02 && gc.g > gc.b * 1.15) tk = 10;
+        else if (gc.r > gc.b * 1.3 && gc.r > 0.35 && gsat > 0.1) tk = 11;
+        else if (gsat > 0.06) tk = 13;
+        float tR = 0.95;
+        float tH = surfaceDetail(tk, vTW.xz, diffuseColor.rgb, tR);`)
+      .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+        roughnessFactor = tR;`)
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+        normal = bumpNormal(-vViewPosition, normal, tH);`);
   };
   const terrain = new THREE.Mesh(tg, terrainMat);
   terrain.receiveShadow = !lo;
@@ -134,7 +146,7 @@ export function buildScene(W, renderer, opts = {}) {
   const facade = facadeMaterial(uniforms);
   const glow = new THREE.MeshBasicMaterial({ toneMapped: false });
   const mats = {
-    matte: new THREE.MeshStandardMaterial({ roughness: 0.82, metalness: 0 }),
+    matte: withSurface(new THREE.MeshStandardMaterial({ roughness: 0.85, metalness: 0 }), '1'),
     glow,
     metal: new THREE.MeshStandardMaterial({ roughness: 0.22, metalness: 0.9 }),
     glass: new THREE.MeshStandardMaterial({ roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }),
@@ -199,12 +211,14 @@ export function buildScene(W, renderer, opts = {}) {
   }
 
   /* --------------------------------------------------------- buildings */
-  batch(W.buildings.map((b) => ({ x: b.x, z: b.z, py: b.y + b.h / 2, sx: b.w, sy: b.h, sz: b.d, ry: b.rot, c: b.color, aWin: b.win })), geo.box, facade, { attrs: { aWin: 1 } });
+  const MATS = { stucco: 0, plaster: 1, brick: 2, wood: 3, concrete: 4 };
+  const wallOf = (b) => MATS[b.mat] ?? (b.win === 3 ? 4 : isBrick(b.color) ? 2 : 0);
+  batch(W.buildings.map((b) => ({ x: b.x, z: b.z, py: b.y + b.h / 2, sx: b.w, sy: b.h, sz: b.d, ry: b.rot, c: b.color, aWin: b.win, aMat: wallOf(b) })), geo.box, facade, { attrs: { aWin: 1, aMat: 1 } });
   batch(W.buildings.filter((b) => b.roof).map((b) => ({ x: b.x, z: b.z, py: b.y + b.h, sx: b.w * 1.08, sy: Math.min(b.w, b.d) * 0.3, sz: b.d * 1.08, ry: b.rot, c: b.roofColor })), geo.roof, tileRoofMaterial(), { far: 2400 });
   // flat roofs get a parapet lip
   const lips = [];
   for (const b of W.buildings) {
-    if (b.roof || b.h < 7 || b.win === 0) continue;
+    if (b.roof || b.noLip || b.h < 7 || b.win === 0) continue;
     const top = b.y + b.h, c = Math.cos(b.rot), s = Math.sin(b.rot);
     for (const [lx, lz, w, d] of [[0, b.d / 2, b.w, 0.35], [0, -b.d / 2, b.w, 0.35], [b.w / 2, 0, 0.35, b.d], [-b.w / 2, 0, 0.35, b.d]]) {
       lips.push({ x: b.x + lx * c + lz * s, z: b.z - lx * s + lz * c, py: top + 0.45, sx: w, sy: 0.9, sz: d, ry: b.rot, c: b.color });
@@ -224,11 +238,11 @@ export function buildScene(W, renderer, opts = {}) {
     const k = `${p.s}|${m}|${big ? 1 : 0}`;
     let arr = buckets.get(k);
     if (!arr) buckets.set(k, (arr = []));
-    arr.push({ x: p.x, z: p.z, py: p.y, sx: p.sx, sy: p.sy, sz: p.sz, rx: p.rx, ry: p.ry, rz: p.rz, c: p.c, aWin: p.win ?? 3 });
+    arr.push({ x: p.x, z: p.z, py: p.y, sx: p.sx, sy: p.sy, sz: p.sz, rx: p.rx, ry: p.ry, rz: p.rz, c: p.c, aWin: p.win ?? 3, aMat: { stucco: 0, plaster: 1, brick: 2, wood: 3, concrete: 4 }[p.wall] ?? (p.win === 3 || p.win === undefined ? 4 : 0) });
   }
   for (const [k, items] of buckets) {
     const [shape, m, big] = k.split('|');
-    batch(items, geo[shape], mats[m], { far: big === '1' ? 0 : 1500, cast: m !== 'glow' && m !== 'glass', attrs: m === 'win' ? { aWin: 1 } : null });
+    batch(items, geo[shape], mats[m] || mats.matte, { far: big === '1' ? 0 : 1500, cast: m !== 'glow' && m !== 'glass', attrs: m === 'win' ? { aWin: 1, aMat: 1 } : null });
   }
   const animated = [];
   for (const [id, parts] of Object.entries(groups)) {
@@ -336,7 +350,7 @@ export function buildScene(W, renderer, opts = {}) {
   envSky.scale.setScalar(1000);
   skyParams(envSky);
   envScene.add(envSky);
-  const envGround = new THREE.Mesh(new THREE.SphereGeometry(900, 16, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x5a5448, side: THREE.BackSide }));
+  const envGround = new THREE.Mesh(new THREE.SphereGeometry(900, 16, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x7a6a55, side: THREE.BackSide }));
   envScene.add(envGround);
   const envVeil = new THREE.Mesh(new THREE.SphereGeometry(950, 16, 8), new THREE.MeshBasicMaterial({ color: 0x050a18, transparent: true, opacity: 0, side: THREE.BackSide, depthWrite: false }));
   envScene.add(envVeil);
@@ -344,7 +358,7 @@ export function buildScene(W, renderer, opts = {}) {
   let envRT = null, envAge = 99, envNight = -1;
   const envSun = new THREE.Vector3(9, 9, 9);
 
-  const hemi = new THREE.HemisphereLight(0xcfe3ff, 0x8a7a5c, 0.35);
+  const hemi = new THREE.HemisphereLight(0xdfe6ee, 0x9a8466, 0.3);
   scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xfff1d6, 3);
   sun.castShadow = !lo;
@@ -377,9 +391,9 @@ export function buildScene(W, renderer, opts = {}) {
     [-0.4, C('#7f93c8'), 0.25, 0.85, C('#0e1424'), 0.1],
     [-0.08, C('#8fa0d0'), 0.2, 0.7, C('#2a2236'), 0.18],
     [0.0, C('#ff8a4a'), 0.8, 0.35, C('#c2876b'), 0.45],
-    [0.1, C('#ffc88a'), 2.2, 0.35, C('#dcc0a0'), 0.8],
-    [0.3, C('#fff0d8'), 3.0, 0.35, C('#cfd2cc'), 1.0],
-    [1.0, C('#ffffff'), 3.3, 0.35, C('#c9d3d6'), 1.0]
+    [0.1, C('#ffc88a'), 2.6, 0.3, C('#dcc0a0'), 0.5],
+    [0.3, C('#fff0d8'), 3.6, 0.28, C('#d6d3c8'), 0.55],
+    [1.0, C('#fff8ec'), 3.9, 0.28, C('#d2d4cc'), 0.6]
   ];
   const tc = [new THREE.Color(), new THREE.Color()];
   const sunDir = new THREE.Vector3();
@@ -401,8 +415,8 @@ export function buildScene(W, renderer, opts = {}) {
     sun.color.copy(tc[0].copy(a[1]).lerp(b[1], t));
     sun.intensity = a[2] + (b[2] - a[2]) * t;
     hemi.intensity = a[3] + (b[3] - a[3]) * t;
-    hemi.groundColor.set(0x8a7a5c).lerp(C('#ff9a4a'), night * 0.7);
-    hemi.color.set(0xcfe3ff).lerp(C('#4a5a90'), night);
+    hemi.groundColor.set(0x9a8466).lerp(C('#ff9a4a'), night * 0.7);
+    hemi.color.set(0xdfe6ee).lerp(C('#4a5a90'), night);
     scene.fog.color.copy(tc[1].copy(a[4]).lerp(b[4], t));
     scene.environmentIntensity = a[5] + (b[5] - a[5]) * t;
     // at night the light is the moon: dim and blue
@@ -426,7 +440,7 @@ export function buildScene(W, renderer, opts = {}) {
     envNight = nightNow;
     envAge = 0;
     envSun.copy(sunDir);
-    envGround.material.color.set(0x5a5448).multiplyScalar(Math.max(0.08, 1 - nightNow * 0.9));
+    envGround.material.color.set(0x7a6a55).multiplyScalar(Math.max(0.08, 1 - nightNow * 0.9));
     envVeil.material.opacity = nightNow * 0.92;
     const rt = pmrem.fromScene(envScene, 0, 1, 2000);
     if (envRT) envRT.dispose();
@@ -486,17 +500,180 @@ export function buildScene(W, renderer, opts = {}) {
 
 /* ================================================================ helpers */
 
+/* Procedural surfaces in world space: albedo variation, relief (as a height
+ * in metres, turned into a bumped normal) and roughness, for the materials
+ * LA is built from. Fades out detail smaller than a pixel. */
+const SURFACE_GLSL = `
+float sh21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float svn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(sh21(i), sh21(i + vec2(1.0, 0.0)), f.x), mix(sh21(i + vec2(0.0, 1.0)), sh21(i + vec2(1.0, 1.0)), f.x), f.y); }
+float sfbm(vec2 p) { return svn(p) * 0.5 + svn(p * 2.03 + 7.1) * 0.3 + svn(p * 4.07 + 3.3) * 0.2; }
+float sFade(float period, float fw) { return 1.0 - smoothstep(0.15 * period, 0.5 * period, fw); }
+// kinds: 0 stucco 1 plaster 2 brick 3 wood siding 4 concrete 5 clay tile 6 shingle
+//        7 corrugated metal 8 awning fabric 9 foliage 10 grass 11 sand 12 asphalt 13 dirt
+float surfaceDetail(int kind, vec2 uv, inout vec3 col, inout float rough) {
+  float fw = max(length(fwidth(uv)), 1e-4);
+  float h = 0.0;
+  if (kind == 0) {
+    float n = sfbm(uv * 38.0);
+    h = n * 0.004 * sFade(0.05, fw);
+    col *= (0.9 + 0.14 * sfbm(uv * 0.45)) * (0.96 + 0.08 * n);
+    col *= 1.0 - 0.09 * svn(vec2(uv.x * 0.7, uv.y * 0.06));          // rain streaks
+    rough = 0.94;
+  } else if (kind == 1) {
+    float n = sfbm(uv * 14.0);
+    h = n * 0.0015 * sFade(0.1, fw);
+    col *= 0.93 + 0.1 * sfbm(uv * 0.5);
+    rough = 0.85;
+  } else if (kind == 2) {
+    float row = floor(uv.y / 0.075);
+    float u2 = uv.x / 0.21 + row * 0.5;
+    vec2 id = vec2(floor(u2), row);
+    vec2 f = vec2(fract(u2) * 0.21, fract(uv.y / 0.075) * 0.075);
+    float m = 1.0 - smoothstep(0.004, 0.009, min(min(f.x, 0.21 - f.x), min(f.y, 0.075 - f.y)));
+    float k = sFade(0.075, fw);
+    h = (1.0 - m) * 0.008 * k + svn(uv * 60.0) * 0.001 * k;
+    vec3 brick = col * (0.78 + 0.34 * sh21(id)) * (0.95 + 0.1 * svn(uv * 30.0));
+    col = mix(col * (0.9 + 0.1 * sfbm(uv * 0.5)), mix(brick, vec3(0.7, 0.68, 0.63), m), k);
+    rough = 0.92;
+  } else if (kind == 3) {
+    float f = fract(uv.y / 0.2);
+    float k = sFade(0.2, fw);
+    h = (f * 0.012 + svn(vec2(uv.x * 2.0, uv.y * 60.0)) * 0.0008) * k;
+    col *= mix(1.0, (0.78 + 0.22 * smoothstep(0.0, 0.18, f)) * (0.93 + 0.08 * svn(vec2(uv.x * 1.5, floor(uv.y / 0.2) * 3.1))), k);
+    rough = 0.8;
+  } else if (kind == 4) {
+    vec2 p = uv / vec2(1.22, 0.61);
+    vec2 f = fract(p);
+    float joint = 1.0 - smoothstep(0.004, 0.012, min(min(f.x, 1.0 - f.x) * 1.22, min(f.y, 1.0 - f.y) * 0.61));
+    vec2 tie = fract(p * vec2(2.0, 2.0)) - 0.5;
+    float hole = 1.0 - smoothstep(0.015, 0.025, length(tie * vec2(0.61, 0.305)));
+    float k = sFade(0.3, fw);
+    h = (sfbm(uv * 25.0) * 0.0015 - (joint + hole) * 0.006) * k;
+    col *= (0.86 + 0.18 * sfbm(uv * 2.5)) * (1.0 - 0.25 * (joint + hole) * k);
+    rough = 0.9;
+  } else if (kind == 5) {
+    float course = floor(uv.y / 0.33);
+    float x = uv.x / 0.24 + course * 0.5;
+    float k = sFade(0.24, fw);
+    float barrel = abs(sin(x * 3.14159));
+    h = (barrel * 0.035 + fract(uv.y / 0.33) * 0.012) * k;
+    col *= mix(1.0, (0.78 + 0.28 * sh21(vec2(floor(x), course))) * (0.82 + 0.22 * barrel), k);
+    col *= 0.9 + 0.12 * sfbm(uv * 0.6);
+    rough = 0.72;
+  } else if (kind == 6) {
+    float row = floor(uv.y / 0.14);
+    float x = uv.x / 0.33 + row * 0.5;
+    float k = sFade(0.14, fw);
+    h = (fract(uv.y / 0.14) * 0.006 - (1.0 - smoothstep(0.0, 0.03, min(fract(x), 1.0 - fract(x)))) * 0.003) * k;
+    col *= mix(1.0, (0.8 + 0.3 * sh21(vec2(floor(x), row))) * (0.9 + 0.2 * svn(uv * 80.0)), k);
+    rough = 0.95;
+  } else if (kind == 7) {
+    float k = sFade(0.076, fw);
+    h = sin(uv.x * 6.2832 / 0.076) * 0.009 * k;
+    col *= 0.88 + 0.16 * svn(vec2(uv.x * 0.5, uv.y * 0.12));
+    rough = 0.45 + 0.25 * svn(uv * 0.8);
+  } else if (kind == 8) {
+    col *= mix(1.0, 0.55, step(0.5, fract(uv.x / 0.62)));
+    h = sin(uv.y * 25.0) * 0.002 * sFade(0.25, fw);
+    rough = 1.0;
+  } else if (kind == 9) {
+    float n = sfbm(uv * 5.5);
+    h = n * 0.09 * sFade(0.3, fw);
+    col *= (0.62 + 0.55 * n) * (0.9 + 0.2 * svn(uv * 0.8));
+    rough = 0.95;
+  } else if (kind == 10) {
+    float n = sfbm(uv * 9.0), blades = svn(uv * 70.0);
+    float k = sFade(0.08, fw);
+    h = (n * 0.015 + blades * 0.006) * k;
+    col *= (0.8 + 0.3 * n) * mix(1.0, 0.88 + 0.24 * blades, k) * (0.92 + 0.16 * sfbm(uv * 0.15));
+    rough = 0.97;
+  } else if (kind == 11) {
+    float rip = sin(uv.x * 9.0 + sfbm(uv * 0.8) * 9.0 + uv.y * 3.0);
+    h = (rip * 0.006 + svn(uv * 90.0) * 0.002) * sFade(0.5, fw);
+    col *= 0.94 + 0.08 * sfbm(uv * 0.7) + 0.04 * rip;
+    rough = 0.98;
+  } else if (kind == 12) {
+    float g = svn(uv * 140.0);
+    h = g * 0.002 * sFade(0.02, fw);
+    col *= (0.9 + 0.12 * sfbm(uv * 0.4)) * mix(1.0, 0.9 + 0.2 * g, sFade(0.02, fw));
+    rough = 0.9;
+  } else if (kind == 13) {
+    float n = sfbm(uv * 4.0);
+    h = (n * 0.05 + svn(uv * 50.0) * 0.004) * sFade(0.2, fw);
+    col *= 0.85 + 0.3 * n;
+    rough = 0.98;
+  }
+  return h;
+}
+// bend the normal by the gradient of a height field (Mikkelsen's surface gradient)
+vec3 bumpNormal(vec3 p, vec3 n, float h) {
+  vec3 dpdx = dFdx(p), dpdy = dFdy(p);
+  vec3 r1 = cross(dpdy, n), r2 = cross(n, dpdx);
+  float det = dot(dpdx, r1);
+  if (abs(det) < 1e-10) return n;
+  vec3 grad = (dFdx(h) * r1 + dFdy(h) * r2) / det;
+  return normalize(n - grad);
+}
+vec2 surfaceUV(vec3 wp, vec3 wn) {
+  if (abs(wn.y) > 0.55) return wp.xz;
+  return vec2(dot(wp.xz, normalize(vec2(-wn.z, wn.x) + 1e-5)), wp.y);
+}
+`;
+
+/* Give a material a procedural surface. `kind` is a GLSL int expression
+ * (a constant, or a varying for per-instance surfaces). */
+function withSurface(m, kind, extraVertex = '') {
+  const prev = m.onBeforeCompile;
+  m.onBeforeCompile = (sh, r) => {
+    if (prev) prev(sh, r);
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', `#include <common>
+        varying vec3 vSW; varying vec3 vSN; ${extraVertex ? 'attribute float aMat; varying float vMat;' : ''}`)
+      .replace('#include <project_vertex>', `#include <project_vertex>
+        vec4 swp = vec4(transformed, 1.0);
+        vec3 swn = objectNormal;
+        #ifdef USE_INSTANCING
+          swp = instanceMatrix * swp;
+          swn = mat3(instanceMatrix) * swn;
+        #endif
+        vSW = (modelMatrix * swp).xyz;
+        vSN = normalize(mat3(modelMatrix) * swn);
+        ${extraVertex}`);
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', `#include <common>
+        varying vec3 vSW; varying vec3 vSN; ${extraVertex ? 'varying float vMat;' : ''}
+        ${SURFACE_GLSL}`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        float sRough = -1.0; float sBumpK = 1.0;
+        float sH = surfaceDetail(${kind}, surfaceUV(vSW, normalize(vSN)), diffuseColor.rgb, sRough);`)
+      .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+        if (sRough >= 0.0) roughnessFactor = sRough;`)
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+        normal = bumpNormal(-vViewPosition, normal, sH * sBumpK);`);
+  };
+  const key = `surface:${kind}:${prev ? prev.toString().length : 0}`;
+  m.customProgramCacheKey = () => key;
+  return m;
+}
+
+
 function surfaceMaterials() {
-  const m = (o) => new THREE.MeshStandardMaterial({ roughness: 0.9, metalness: 0, ...o });
+  const m = (o, kind) => withSurface(new THREE.MeshStandardMaterial({ roughness: 0.9, metalness: 0, ...o }), String(kind));
   return {
-    stucco: m({}), plaster: m({}), brick: m({}), wood: m({ roughness: 0.8 }), concrete: m({}),
-    tile: m({ roughness: 0.7 }), asphalt: m({ roughness: 0.95 }), metal: m({ roughness: 0.35, metalness: 0.8 }),
-    chrome: m({ roughness: 0.15, metalness: 1 }), fabric: m({ roughness: 1, side: THREE.DoubleSide }), foliage: m({ roughness: 0.9 })
+    stucco: m({}, 0), plaster: m({}, 1), brick: m({}, 2), wood: m({ roughness: 0.8 }, 3), concrete: m({}, 4),
+    tile: m({ roughness: 0.7 }, 5), asphalt: m({ roughness: 0.95 }, 6), metal: m({ roughness: 0.4, metalness: 0.75 }, 7),
+    chrome: new THREE.MeshStandardMaterial({ roughness: 0.12, metalness: 1 }), fabric: m({ side: THREE.DoubleSide }, 8), foliage: m({}, 9)
   };
 }
 
 /* A gable roof: a triangular prism, ridge along x, base (1 × 1) at y = 0,
  * apex at y = 1. Scale x = length, z = span, y = rise. */
+function isBrick(hex) {
+  const c = new THREE.Color(hex);
+  return c.r > c.g * 1.25 && c.r > c.b * 1.35 && c.r < 0.8;
+}
+
 function gableGeometry() {
   const v = [
     -0.5, 0, -0.5, 0.5, 0, -0.5, 0.5, 1, 0, -0.5, 1, 0,   // north slope
@@ -595,6 +772,7 @@ function facadeMaterial(uniforms) {
             diffuseColor.rgb = mix(diffuseColor.rgb, glass + blind * vec3(0.5, 0.48, 0.42), winMask);
             diffuseColor.rgb *= 1.0 - frame * 0.35;
             glassy = winMask * (1.0 - blind * 2.0);
+            sBumpK = 1.0 - winMask;
             if (vWin > 1.5) diffuseColor.rgb *= 1.0 - 0.18 * (1.0 - step(0.06, fract(v / 3.6)));
           }
           diffuseColor.rgb *= mix(0.42, 1.0, smoothstep(0.0, 3.5, vH));
@@ -607,7 +785,7 @@ function facadeMaterial(uniforms) {
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         totalEmissiveRadiance += lit * uNight * winTint * (0.25 + 0.35 * h21(floor(vWPos.xz * 0.3) + floor(vWPos.y / 3.6)));`);
   };
-  return m;
+  return withSurface(m, 'int(vMat + 0.5)', 'vMat = aMat;');
 }
 
 /* Terracotta tile roofs: rows of barrel tiles, from world position. */
@@ -976,8 +1154,8 @@ function buildRoads(W, scene, aniso, lo) {
   for (const [r, idx] of kinds.blvd) {
     const w = ROAD_WIDTH.blvd;
     for (const pts of clearOfFreeways(W, resample(r.pts, 6))) {
-      strip(pts, w / 2 + 0.1, w / 2 + 3.2, 0.34 + idx * 0.004, 0.16, 6, walks);
-      strip(pts, -w / 2 - 3.2, -w / 2 - 0.1, 0.34 + idx * 0.004, 0.16, 6, walks);
+      strip(pts, w / 2 + 0.1, w / 2 + 4.2, 0.34 + idx * 0.004, 0.16, 6, walks);
+      strip(pts, -w / 2 - 4.2, -w / 2 - 0.1, 0.34 + idx * 0.004, 0.16, 6, walks);
     }
   }
   finish(walks, new THREE.MeshStandardMaterial({ map: walkTex, roughness: 0.9 }));
@@ -1066,14 +1244,26 @@ function roadTexture(kind) {
   for (let k = 0; k < 10; k++) { ctx.beginPath(); let x = rnd() * 256, y = rnd() * 512; ctx.moveTo(x, y); for (let s = 0; s < 6; s++) { x += (rnd() - 0.5) * 30; y += rnd() * 25; ctx.lineTo(x, y); } ctx.stroke(); }
   const line = (u, w, color, dash) => { ctx.fillStyle = color; ctx.fillRect(u * 256 - w / 2, 0, w, 512 * (dash || 1)); };
   if (kind === 'freeway') {
-    line(0.035, 4, '#e2c04a'); line(0.965, 4, '#f0f0ea');
-    line(0.47, 3, '#e2c04a'); line(0.53, 3, '#e2c04a');
-    for (const u of [0.18, 0.33, 0.67, 0.82]) line(u, 3, '#efefe8', 0.3);
-    ctx.fillStyle = 'rgba(0,0,0,0.12)'; for (const u of [0.1, 0.25, 0.4, 0.6, 0.75, 0.9]) ctx.fillRect(u * 256 - 6, 0, 12, 512);
+    // 46 m: median barrier, yellow inside edge, five 3.7 m lanes, white outside edge
+    const u = (m) => 0.5 + m / 46;
+    for (const sg of [-1, 1]) {
+      line(u(sg * 2.5), 3, '#e2c04a');
+      for (let k = 1; k <= 4; k++) line(u(sg * (2.5 + 3.7 * k)), 3, '#efefe8', 0.3);
+      line(u(sg * 21), 3, '#f0f0ea');
+      ctx.fillStyle = 'rgba(0,0,0,0.12)';
+      for (let k = 0; k < 5; k++) ctx.fillRect(u(sg * (2.5 + 3.7 * k + 1.85)) * 256 - 4, 0, 8, 512);
+    }
   } else if (kind === 'blvd') {
-    line(0.488, 3, '#e3c04a'); line(0.512, 3, '#e3c04a');
-    for (const u of [0.25, 0.75]) line(u, 3, '#ececec', 0.35);
-    ctx.fillStyle = 'rgba(0,0,0,0.1)'; for (const u of [0.13, 0.37, 0.63, 0.87]) ctx.fillRect(u * 256 - 6, 0, 12, 512);
+    // 26 m: centre turn lane between double yellows, two lanes each way, kerb parking
+    const u = (m) => 0.5 + m / 26;
+    for (const sg of [-1, 1]) {
+      line(u(sg * 1.65), 2.5, '#e3c04a'); line(u(sg * 1.95), 2.5, '#e3c04a');
+      line(u(sg * 5.4), 3, '#ececec', 0.35);
+      line(u(sg * 9.0), 2, '#e8e8e8');
+      ctx.fillStyle = 'rgba(0,0,0,0.1)';
+      for (const m of [3.6, 7.2]) ctx.fillRect(u(sg * m) * 256 - 5, 0, 10, 512);
+    }
+    ctx.fillStyle = 'rgba(160,160,160,0.25)'; ctx.fillRect(0, 0, 256 * (1.2 / 26), 512); ctx.fillRect(256 * (1 - 1.2 / 26), 0, 256 * (1.2 / 26), 512);
   } else line(0.5, 3, '#d9b84a', 0.5);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
