@@ -19,6 +19,7 @@ import * as THREE from '../vendor/three.module.min.js';
 import { makeAtmosphere } from './atmosphere.js';
 import { facadeMaterial, withSurface, fadeNearCamera, buildFurniture, makeDetailTexture, makeWaterNormals, mulberry, shadeHex, resample, noiseFill, SURFACE_GLSL } from './render.js';
 import { buildFlora } from './flora.js';
+import { REAL_LANDMARKS, landmarkMaterials } from './reallandmarks.js';
 import { carGeometries, carMaterials } from './streetlife.js';
 import { PROP } from './street.js';
 import { projector, decodeTile, BTYPE, ROOF, MATERIAL, RCLASS, AREA, ringArea } from './osm.js';
@@ -42,27 +43,27 @@ export const NEIGHBOURHOODS = [
 
 /* Landmarks, at their real spots (lat, lon, radius in metres). */
 export const LANDMARKS = [
-  ['Hollywood Sign', 34.1341, -118.3215, 160], ['Griffith Observatory', 34.1184, -118.3004, 90], ['Greek Theatre', 34.1196, -118.2965, 80],
+  ['Hollywood Sign', 34.1341, -118.3215, 160], ['Griffith Observatory', 34.11824, -118.30037, 90], ['Greek Theatre', 34.11951, -118.29642, 80],
   ['Mount Hollywood', 34.1286, -118.3005, 120], ['Bronson Caves', 34.1214, -118.3133, 60], ['Lake Hollywood Reservoir', 34.1219, -118.3326, 220],
-  ['Hollywood Bowl', 34.1122, -118.3391, 120], ['Runyon Canyon', 34.1105, -118.3500, 200],
-  ['Capitol Records Building', 34.1032, -118.3262, 40], ['Hollywood & Vine', 34.1016, -118.3267, 50], ['Pantages Theatre', 34.1022, -118.3254, 40],
-  ['TCL Chinese Theatre', 34.1022, -118.3409, 50], ['Dolby Theatre', 34.1022, -118.3393, 50], ['El Capitan Theatre', 34.1013, -118.3397, 30],
-  ['Hollywood Roosevelt Hotel', 34.1016, -118.3417, 40], ['Egyptian Theatre', 34.1015, -118.3374, 30], ['Musso & Frank Grill', 34.1016, -118.3355, 25],
-  ['Hollywood Walk of Fame', 34.1016, -118.3310, 60], ['Hollywood Palladium', 34.0981, -118.3247, 50], ['Cinerama Dome', 34.0976, -118.3283, 45],
+  ['Hollywood Bowl', 34.11276, -118.33890, 120], ['Runyon Canyon', 34.1105, -118.3500, 200],
+  ['Capitol Records Building', 34.1032, -118.3262, 40], ['Hollywood & Vine', 34.1016, -118.3267, 50], ['Pantages Theatre', 34.10223, -118.32578, 40],
+  ['TCL Chinese Theatre', 34.10195, -118.34097, 50], ['Dolby Theatre', 34.1022, -118.3393, 50], ['El Capitan Theatre', 34.10116, -118.34010, 30],
+  ['Hollywood Roosevelt Hotel', 34.1016, -118.3417, 40], ['Egyptian Theatre', 34.10081, -118.33659, 30], ['Musso & Frank Grill', 34.10169, -118.33538, 25],
+  ['Hollywood Walk of Fame', 34.1016, -118.3310, 60], ['Hollywood Palladium', 34.09851, -118.32446, 50], ['Cinerama Dome', 34.09767, -118.32802, 45],
   ['Hollywood High School', 34.0982, -118.3386, 80], ["Pink's Hot Dogs", 34.0838, -118.3443, 25], ['Paramount Pictures', 34.0838, -118.3200, 250],
   ['Hollywood Forever Cemetery', 34.0899, -118.3195, 200], ['Barnsdall Art Park', 34.1001, -118.2944, 90], ['Vista Theatre', 34.0977, -118.2873, 25],
   ['Sunset Junction', 34.0906, -118.2770, 50], ['Silver Lake Reservoir', 34.0925, -118.2625, 300], ['Echo Park Lake', 34.0730, -118.2606, 160],
   ['Dodger Stadium', 34.0739, -118.2400, 230], ['Philippe the Original', 34.0597, -118.2368, 25], ['Chinatown Central Plaza', 34.0636, -118.2383, 50],
-  ['Union Station', 34.0562, -118.2365, 120], ['Olvera Street', 34.0574, -118.2378, 60], ['Los Angeles City Hall', 34.0537, -118.2427, 70],
-  ['Grand Park', 34.0555, -118.2460, 120], ['Cathedral of Our Lady of the Angels', 34.0577, -118.2456, 70], ['Dorothy Chandler Pavilion', 34.0573, -118.2488, 60],
-  ['Walt Disney Concert Hall', 34.0553, -118.2498, 70], ['The Broad', 34.0544, -118.2506, 45], ['Angels Flight', 34.0513, -118.2500, 30],
+  ['Union Station', 34.0562, -118.2365, 120], ['Olvera Street', 34.0574, -118.2378, 60], ['Los Angeles City Hall', 34.05374, -118.24277, 70],
+  ['Grand Park', 34.0555, -118.2460, 120], ['Cathedral of Our Lady of the Angels', 34.05795, -118.24545, 70], ['Dorothy Chandler Pavilion', 34.05662, -118.24892, 60],
+  ['Walt Disney Concert Hall', 34.05563, -118.24959, 70], ['The Broad', 34.0544, -118.2506, 45], ['Angels Flight', 34.0513, -118.2500, 30],
   ['Grand Central Market', 34.0508, -118.2489, 40], ['Bradbury Building', 34.0505, -118.2478, 25], ['Los Angeles Central Library', 34.0505, -118.2551, 60],
   ['US Bank Tower', 34.0511, -118.2541, 40], ['Wilshire Grand Center', 34.0502, -118.2601, 50], ['Millennium Biltmore Hotel', 34.0495, -118.2535, 40],
   ['Pershing Square', 34.0484, -118.2532, 80], ['The Last Bookstore', 34.0477, -118.2497, 25], ['Hotel Cecil', 34.0441, -118.2504, 25],
   ['Eastern Columbia Building', 34.0447, -118.2560, 25], ['Orpheum Theatre', 34.0436, -118.2562, 25], ['Ace Hotel', 34.0425, -118.2569, 25],
   ['Crypto.com Arena', 34.0430, -118.2673, 110], ['L.A. Live', 34.0447, -118.2655, 90], ['Los Angeles Convention Center', 34.0403, -118.2696, 180],
   ['Japanese American National Museum', 34.0498, -118.2389, 40], ['Sixth Street Viaduct', 34.0423, -118.2310, 200], ['MacArthur Park', 34.0577, -118.2770, 180],
-  ['Bullocks Wilshire', 34.0617, -118.2848, 50], ['The Wiltern', 34.0617, -118.3086, 40], ['LACMA', 34.0639, -118.3592, 130],
+  ['Bullocks Wilshire', 34.0617, -118.2848, 50], ['The Wiltern', 34.06145, -118.30886, 40], ['LACMA', 34.0639, -118.3592, 130],
   ['La Brea Tar Pits', 34.0638, -118.3554, 120], ['Original Farmers Market', 34.0719, -118.3596, 100], ['Larchmont Village', 34.0763, -118.3237, 80]
 ];
 
@@ -542,6 +543,22 @@ function parkingTex() {
   }, { wrapS: THREE.RepeatWrapping });
 }
 
+/* One square of the Walk of Fame: charcoal terrazzo, a coral-pink star with a brass rim,
+ * the brass name strip and the round emblem below it. */
+function walkOfFameTex() {
+  return canvasTex('star', 256, 256, (ctx, w) => {
+    noiseFill(ctx, w, w, '#3a3735', 22, 31);
+    ctx.fillStyle = 'rgba(200,190,180,0.25)';
+    for (let i = 0; i < 400; i++) ctx.fillRect(Math.random() * w, Math.random() * w, 2, 2);   // the terrazzo chips
+    ctx.strokeStyle = '#8a8580'; ctx.lineWidth = 4; ctx.strokeRect(2, 2, w - 4, w - 4);
+    const star = (r0, r1) => { ctx.beginPath(); for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + (k * Math.PI) / 5, r = k % 2 ? r1 : r0; ctx.lineTo(w / 2 + Math.cos(a) * r, w / 2 + Math.sin(a) * r); } ctx.closePath(); };
+    star(118, 47); ctx.fillStyle = '#c7a24a'; ctx.fill();            // brass rim
+    star(108, 42); ctx.fillStyle = '#d98c8c'; ctx.fill();            // coral pink
+    ctx.fillStyle = '#c7a24a'; ctx.fillRect(w / 2 - 52, w / 2 - 22, 104, 12); ctx.fillRect(w / 2 - 40, w / 2 - 4, 80, 10);
+    ctx.beginPath(); ctx.arc(w / 2, w / 2 + 34, 14, 0, 6.283); ctx.fill();
+  });
+}
+
 function helipadTex() {
   return canvasTex('helipad', 256, 256, (ctx, w) => {
     noiseFill(ctx, w, w, '#56585a', 18, 21);
@@ -882,6 +899,12 @@ export function buildRealScene(RW, renderer, opts = {}) {
   const carGeo = carGeometries(), carMat = carMaterials();
   const tmpCol = new THREE.Color();
   const BOX = new THREE.BoxGeometry(1, 1, 1);
+  const STAR = new THREE.PlaneGeometry(1.0, 1.0).rotateX(-Math.PI / 2);
+  const starMat = new THREE.MeshStandardMaterial({ map: walkOfFameTex(), roughness: 0.35, metalness: 0.1 });
+  const LM = landmarkMaterials(withSurface);
+  glowMats.push({ mat: LM.lamp, day: 0.2, night: 2.5 });
+  const tileKeyAt = (x, z) => `${Math.floor((x + RW.OX - M.x0) / T)}_${Math.floor((z + RW.OZ - M.z0) / T)}`;
+  const centroid2 = (pts) => { let x = 0, z = 0; for (const p of pts) { x += p[0]; z += p[1]; } return [x / pts.length, z / pts.length]; };
   const wireMat = new THREE.LineBasicMaterial({ color: 0x1d1d1d, transparent: true, opacity: 0.8 });
   const paintMat = new THREE.MeshStandardMaterial({ map: paintAtlas(), vertexColors: true, alphaTest: 0.45, roughness: 0.55 });
   const curbMat = withSurface(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }), '4');
@@ -1012,15 +1035,42 @@ export function buildRealScene(RW, renderer, opts = {}) {
     const walls = new Mesh({ aWin: 1, aMat: 1, aSeed: 1, aBase: 1, aTop: 1, aFloor: 1 }), roofs = new Mesh({ aMat: 1 });
     const blds = [];
     const bgrid = new Map();                     // 20 m cells → buildings, for "is this spot inside a building?"
+    /* the landmarks in this tile: find their buildings in the data first */
+    const lmHere = REAL_LANDMARKS.map((l) => ({ l, xz: RW.toWorld(...l.at) })).filter(({ xz: [x, z] }) => tileKeyAt(x, z) === t.key);
+    const drop = new Set(), styleFor = new Map(), hostOf = new Map();
+    for (const lm of lmHere) {
+      const [x, z] = lm.xz, near = lm.l.near ?? (lm.l.find ? 200 : 0);
+      let host = null;
+      d.buildings.forEach((b0, i) => {
+        const [cx, cz] = W2(centroid2(b0.pts)), dist = Math.hypot(cx - x, cz - z);
+        if (lm.l.clear && dist < lm.l.clear) drop.add(i);
+        if (!lm.l.find || dist > near || !lm.l.find(b0)) return;
+        if (!host || b0.h > d.buildings[host].h) host = i;
+        if (lm.l.replace) drop.add(i);
+      });
+      if (host !== null) { hostOf.set(lm, host); if (lm.l.style) styleFor.set(host, lm.l.style); }
+    }
+    const hostRecs = new Map();
     let n = 0;
-    for (const b0 of d.buildings) {
+    for (let bi = 0; bi < d.buildings.length; bi++) {
+      const b0 = d.buildings[bi];
       const pts = b0.pts.map(W2);
       const b = { ...b0, pts };
+      if (drop.has(bi)) {
+        // (replaced by its model: just remember where it was)
+        let base = Infinity; for (const [x, z] of pts) base = Math.min(base, gh(x, z));
+        const [cx, cz] = centroid2(pts);
+        hostRecs.set(bi, { pts, h: b.h, base, cx, cz, R: minRect(pts), area: Math.abs(ringArea(pts)), name: b.name });
+        continue;
+      }
       const area = Math.abs(ringArea(pts));
       let base = Infinity;
       for (const [x, z] of pts) base = Math.min(base, gh(x, z));
       const st = styleOf(b, area);
+      const over = styleFor.get(bi);
+      if (over) { if (over.wall) { st.wall = over.wall; st.trim = shadeHex(over.wall, 1.15); } if (over.win !== undefined) st.win = over.win; }
       const col = addBuilding(walls, roofs, b, base, st);
+      if ([...hostOf.values()].includes(bi)) { const [cx, cz] = centroid2(pts); hostRecs.set(bi, { pts, h: b.h, base, cx, cz, R: minRect(pts), area, name: b.name }); }
       colliders.push(col);
       let a = Infinity, bb = Infinity, c = -Infinity, e = -Infinity;
       for (const [x, z] of pts) { a = Math.min(a, x); bb = Math.min(bb, z); c = Math.max(c, x); e = Math.max(e, z); }
@@ -1073,6 +1123,18 @@ export function buildRealScene(RW, renderer, opts = {}) {
       pads.quad(P(-half, -half), P(half, -half), P(half, half), P(-half, half), 0, 1, 0, padCol, null, [[0, 0], [1, 0], [1, 1], [0, 1]]);
     }
     if (pads.count) { const pm = new THREE.Mesh(pads.geometry(), padMat); pm.receiveShadow = !lo; group.add(pm); }
+
+    /* the landmark models */
+    for (const lm of lmHere) {
+      if (!lm.l.build) continue;
+      const hi = hostOf.get(lm), host = hi !== undefined ? hostRecs.get(hi) : null;
+      if (lm.l.find && !host) continue;                // its building isn't in the data: leave it be
+      const kit = lm.l.build({ x: lm.xz[0], z: lm.xz[1], host, gh, rect: minRect, M: LM });
+      group.add(kit.object());
+      if (kit.extra) group.add(kit.extra);
+      colliders.push(...kit.colliders);
+    }
+    yield;
 
     /* roads, sidewalks, parking lots */
     const groups = new Map();                    // material → Mesh builder
@@ -1339,6 +1401,26 @@ export function buildRealScene(RW, renderer, opts = {}) {
       group.add(wm);
       culls.push({ mesh: wm, cx: tcx, cz: tcz, half: T / 2, far: 450 });
     }
+    /* the Hollywood Walk of Fame: a coral-pink terrazzo star every six feet down both sidewalks of
+     * Hollywood Blvd from Gower to La Brea and of Vine from Yucca to Sunset */
+    const stars = [];
+    for (const r of roads) {
+      const onHwd = /^Hollywood Boulevard/.test(r.name || ''), onVine = /^Vine Street/.test(r.name || '');
+      if (!onHwd && !onVine) continue;
+      const pts = resample(r.pts, 1.83);
+      for (let i = 1; i < pts.length - 1; i++) {
+        const [px, pz] = pts[i], [lat, lon] = RW.toLatLon(px, pz);
+        if (onHwd ? lon < -118.3446 || lon > -118.3218 : lat < 34.0980 || lat > 34.1035) continue;
+        const [ax, az] = pts[i - 1], [bx, bz] = pts[i + 1], l = Math.hypot(bx - ax, bz - az) || 1, tx = (bx - ax) / l, tz = (bz - az) / l;
+        for (const sd of [-1, 1]) {
+          const off = r.w / 2 + 1.9, x = px - tz * off * sd, z = pz + tx * off * sd;
+          if (onOtherRoad(x, z, r.id, 0.3) || inBuilding(x, z, 0.3)) continue;
+          stars.push({ x, z, py: gh(x, z) + 0.09, ry: Math.atan2(-tz, tx) + (sd < 0 ? Math.PI : 0) });
+        }
+      }
+    }
+    if (stars.length) batch(stars, STAR, starMat, { far: 250, cast: false });
+
     for (const part of furniture[PROP.STREETLIGHT]) batch(lights, part.geo, part.mat, { far: part.far, cast: part.cast !== false });
     for (const part of furniture[PROP.HYDRANT]) batch(hydrants, part.geo, part.mat, { far: part.far, cast: false });
     const byKind = {};

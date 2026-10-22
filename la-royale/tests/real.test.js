@@ -121,7 +121,7 @@ test('the ground follows the elevation data', () => {
 test('landmarks and neighbourhoods are at their real spots', () => {
   const big = makeRealWorld({ ...M, x0: -6000, z0: -6000, width: 12000, depth: 12000 }, hts);
   const obs = big.pois.find((p) => p.name === 'Griffith Observatory');
-  const [x, z] = P.toXZ(34.1184, -118.3004);
+  const [x, z] = P.toXZ(34.11824, -118.30037);
   near(obs.x, x - big.OX, 1e-6, 'x'); near(obs.z, z - big.OZ, 1e-6, 'z');
   assert.equal(big.districtAt(...big.toWorld(34.0488, -118.2518)).name, 'Downtown');
   assert.equal(big.districtAt(...big.toWorld(34.1016, -118.3267)).name, 'Hollywood');
