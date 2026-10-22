@@ -1380,7 +1380,12 @@ export function buildRealScene(RW, renderer, opts = {}) {
         const y = gh(x, z), a = Math.atan2(-tz, tx), sa = Math.sin(a), ca = Math.cos(a);
         poles.push({ x, z, py: y, ry: a });
         const here = [[sa * 0.95, 9.9, ca * 0.95], [-sa * 0.95, 9.9, -ca * 0.95], [0, 10.45, 0], [0, 7.2, 0], [0, 6.6, 0]].map(([dx, dy, dz]) => [x + dx, y + dy, z + dz]);
-        if (prev && Math.hypot(prev[0][0] - x, prev[0][2] - z) < 60) {
+        // (no span that would cut through the hillside between the poles)
+        const clear = prev && [0.25, 0.5, 0.75].every((t) => {
+          const qx = prev[3][0] + (x - prev[3][0]) * t, qz = prev[3][2] + (z - prev[3][2]) * t;
+          return gh(qx, qz) + 3.5 < prev[3][1] + (here[3][1] - prev[3][1]) * t - 1.5 && !inBuilding(qx, qz, 0);
+        });
+        if (prev && clear && Math.hypot(prev[0][0] - x, prev[0][2] - z) < 60) {
           for (let k = 0; k < here.length; k++) {
             const A = prev[k], B = here[k], L = Math.hypot(B[0] - A[0], B[2] - A[2]), sag = 0.35 + L * 0.012;
             for (let s2 = 0; s2 < 8; s2++) {
