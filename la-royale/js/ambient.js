@@ -3,61 +3,76 @@
  * Inglewood and taking off over the Pacific at LAX, and an LAPD helicopter
  * circling with its searchlight at night.
  *
- * None of it is solid except the traffic, which stops for you and which
- * your car bumps off (see push()).
+ * None of it is solid except the traffic (cars and LA Metro buses), which
+ * keeps its lane, stops for you, and which your car bumps off (see push()).
+ * It also drives the pedestrians in streetlife.js each frame.
  */
 
 import * as THREE from '../vendor/three.module.min.js';
-import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
+import { carGeometries, carMaterials, CAR_DIMS, live } from './streetlife.js';
 
 const TRAFFIC = 260;
+const LANES = [3.6, 7.2];          // travel lanes on a 26 m boulevard, from the centre line
+const BUS_ROUTES = ['Wilshire Blvd', 'Sunset Blvd', 'Vermont Ave', 'Western Ave', 'Santa Monica Blvd', 'Hollywood Blvd', 'Venice Blvd', 'Crenshaw Blvd', 'Olympic Blvd', 'La Brea Ave'];
 
 export function makeAmbient(W, scene, opts = {}) {
   const lo = opts.quality === 'low';
   const rnd = mulberry(4242);
 
-  /* ------------------------------------------------------------ traffic */
+  /* ------------------------------------------------- traffic and buses */
   const roads = W.roads.filter((r) => r.kind === 'blvd').map((r) => {
     const pts = r.pts, cum = [0];
     for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
-    return { pts, cum, len: cum[cum.length - 1] };
+    return { name: r.name, pts, cum, len: cum[cum.length - 1], vehicles: [] };
   });
   const total = roads.reduce((s, r) => s + r.len, 0);
+  const geos = carGeometries(), mats = carMaterials();
+  const lightMat = mats.lights;
+  const kinds = ['sedan', 'sedan', 'sedan', 'compact', 'compact', 'suv', 'suv', 'pickup', 'van'];
+  const palette = ['#c0392b', '#f5f5f5', '#1d1d1f', '#2c3e50', '#bdc3c7', '#7f8c8d', '#2980b9', '#f1c40f', '#16a085', '#e8e2d0', '#8e2b2b', '#3c4a57', '#ffffff', '#111111', '#a3a7ab'];
   const cars = [];
+  const spawn = (kind, r, s, lane, cruise, color) => {
+    const v = { kind, r, s, dir: rnd() < 0.5 ? 1 : -1, lane, speed: 0, cruise, color, x: 0, y: 0, z: 0, yaw: 0, half: CAR_DIMS[kind].L / 2, halfW: CAR_DIMS[kind].W / 2, dwell: 0, lastStop: -1 };
+    cars.push(v); r.vehicles.push(v);
+    return v;
+  };
   for (let i = 0; i < TRAFFIC; i++) {
     let pick = rnd() * total, ri = 0;
     while (pick > roads[ri].len) { pick -= roads[ri].len; ri++; }
-    const dir = rnd() < 0.5 ? 1 : -1;
-    cars.push({ r: roads[ri], s: pick, dir, lane: rnd() < 0.5 ? 2.4 : 6.2, speed: 0, cruise: 11 + rnd() * 4, x: 0, y: 0, z: 0, yaw: 0 });
+    spawn(kinds[Math.floor(rnd() * kinds.length)], roads[ri], pick, LANES[rnd() < 0.5 ? 0 : 1], 11 + rnd() * 4, palette[i % palette.length]);
   }
-  const palette = ['#c0392b', '#f5f5f5', '#1d1d1f', '#2c3e50', '#bdc3c7', '#7f8c8d', '#2980b9', '#f1c40f', '#16a085', '#e8e2d0', '#8e2b2b', '#3c4a57'];
-  const vc = (g, hex) => {
-    const c = new THREE.Color(hex), ng = g.index ? g.toNonIndexed() : g, n = ng.attributes.position.count, a = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) { a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b; }
-    ng.setAttribute('color', new THREE.BufferAttribute(a, 3));
-    return ng;
-  };
-  const B = (w, h, d, x, y, z, hex) => { const g = new THREE.BoxGeometry(w, h, d); g.translate(x, y, z); return vc(g, hex); };
-  const wheel = (x, z) => { const g = new THREE.CylinderGeometry(0.36, 0.36, 0.28, 12); g.rotateX(Math.PI / 2); g.translate(x, 0.36, z); return vc(g, '#141414'); };
-  const bodyGeo = mergeGeometries([
-    B(4.5, 0.72, 1.84, 0, 0.78, 0, '#ffffff'),
-    B(2.3, 0.62, 1.66, -0.25, 1.45, 0, '#1b232b'),
-    B(2.1, 0.06, 1.7, -0.25, 1.78, 0, '#ffffff'),
-    B(0.2, 0.2, 1.86, 2.26, 0.6, 0, '#9aa0a6'), B(0.2, 0.2, 1.86, -2.26, 0.6, 0, '#9aa0a6'),
-    wheel(1.45, 0.86), wheel(1.45, -0.86), wheel(-1.45, 0.86), wheel(-1.45, -0.86)
-  ]);
-  const lightGeo = mergeGeometries([
-    B(0.05, 0.16, 0.36, 2.27, 0.86, 0.62, '#fff6d5'), B(0.05, 0.16, 0.36, 2.27, 0.86, -0.62, '#fff6d5'),
-    B(0.05, 0.16, 0.4, -2.27, 0.9, 0.62, '#ff2a2a'), B(0.05, 0.16, 0.4, -2.27, 0.9, -0.62, '#ff2a2a')
-  ]);
-  const bodyMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.3, metalness: 0.4 });
-  const lightMat = new THREE.MeshStandardMaterial({ vertexColors: true, emissive: 0xffffff, emissiveIntensity: 0.4, roughness: 0.4 });
-  const bodies = new THREE.InstancedMesh(bodyGeo, bodyMat, TRAFFIC);
-  const lights = new THREE.InstancedMesh(lightGeo, lightMat, TRAFFIC);
-  cars.forEach((c, i) => bodies.setColorAt(i, new THREE.Color(palette[i % palette.length])));
-  bodies.castShadow = !lo;
-  bodies.frustumCulled = false; lights.frustumCulled = false;
-  scene.add(bodies, lights);
+  // LA Metro buses, in the kerb lane, stopping at the bus benches
+  const benches = W.props.filter((p) => p.t === 3);
+  for (const r of roads.filter((q) => BUS_ROUTES.includes(q.name))) {
+    r.stops = [];
+    for (const b of benches) {
+      let best = Infinity, bs = 0, side = 0;
+      for (let i = 0; i < r.pts.length - 1; i++) {
+        const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1];
+        const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz;
+        const t = Math.max(0, Math.min(1, ((b.x - ax) * dx + (b.z - az) * dz) / L2));
+        const d = Math.hypot(ax + dx * t - b.x, az + dz * t - b.z);
+        if (d < best) { best = d; bs = r.cum[i] + t * Math.sqrt(L2); side = Math.sign((b.x - ax) * -dz + (b.z - az) * dx); }
+      }
+      if (best < 20) r.stops.push({ s: bs, dir: side });
+    }
+    for (let k = 0; k < 2; k++) spawn('bus', r, rnd() * r.len, LANES[1], 10, '#f26a1b');
+  }
+  // one instanced mesh per kind and part; instances are re-placed each frame
+  const meshes = {};
+  for (const kind of new Set(cars.map((c) => c.kind))) {
+    const list = cars.filter((c) => c.kind === kind);
+    const parts = {
+      paint: new THREE.InstancedMesh(geos[kind].paint, mats.paint, list.length),
+      trim: new THREE.InstancedMesh(geos[kind].trim, mats.trim, list.length),
+      glass: new THREE.InstancedMesh(geos[kind].glass, mats.glass, list.length),
+      lights: new THREE.InstancedMesh(geos[kind].lights, lightMat, list.length)
+    };
+    list.forEach((c, i) => { c.slot = i; parts.paint.setColorAt(i, new THREE.Color(c.color)); });
+    for (const m of Object.values(parts)) { m.frustumCulled = false; scene.add(m); }
+    parts.paint.castShadow = !lo;
+    meshes[kind] = parts;
+  }
 
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), v = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1);
   function along(r, s) {
@@ -143,16 +158,28 @@ export function makeAmbient(W, scene, opts = {}) {
   let clock = 0;
   function update(dt, player, night) {
     clock += dt;
-    // traffic: cruise, stop for whoever is in the road ahead
-    for (let i = 0; i < cars.length; i++) {
-      const c = cars[i];
+    // traffic: cruise, keep a gap to whoever is ahead in the lane, stop for the player
+    for (const c of cars) {
       const [x0, z0, dx0, dz0] = along(c.r, c.s);
       const fx = dx0 * c.dir, fz = dz0 * c.dir;
       const ahead = (player.x - c.x) * fx + (player.z - c.z) * fz, side = Math.abs((player.x - c.x) * -fz + (player.z - c.z) * fx);
-      const blocked = ahead > 0 && ahead < 14 && side < 2.6;
+      let blocked = ahead > 0 && ahead < c.half + 9 && side < 2.4;
+      for (const o of c.r.vehicles) {
+        if (o === c || o.dir !== c.dir || o.lane !== c.lane) continue;
+        const gap = (o.s - c.s) * c.dir;
+        if (gap > 0 && gap < c.half + o.half + 5) { blocked = true; break; }
+      }
+      // buses pull in at their stops for a few seconds
+      if (c.kind === 'bus' && c.r.stops) {
+        if (c.dwell > 0) { c.dwell -= dt; blocked = true; }
+        else for (const st of c.r.stops) {
+          const d = (st.s - c.s) * c.dir;
+          if (st.dir === c.dir && d > 0 && d < 1.5 && st !== c.lastStop) { c.dwell = 8; c.lastStop = st; break; }
+        }
+      }
       c.speed += ((blocked ? 0 : c.cruise) - c.speed) * Math.min(1, dt * (blocked ? 4 : 0.8));
       c.s += c.speed * c.dir * dt;
-      if (c.s > c.r.len - 5) { c.s = c.r.len - 5; c.dir = -1; c.lane = 2.4 + (c.lane > 3 ? 0 : 3.8); }
+      if (c.s > c.r.len - 5) { c.s = c.r.len - 5; c.dir = -1; }
       if (c.s < 5) { c.s = 5; c.dir = 1; }
       const nx = -fz, nz = fx;                 // the right-hand side
       c.x = x0 + nx * c.lane; c.z = z0 + nz * c.lane;
@@ -160,12 +187,11 @@ export function makeAmbient(W, scene, opts = {}) {
       c.yaw = Math.atan2(-fz, fx);
       q.setFromAxisAngle(up, c.yaw);
       m4.compose(v.set(c.x, c.y, c.z), q, one);
-      bodies.setMatrixAt(i, m4);
-      lights.setMatrixAt(i, m4);
+      for (const m of Object.values(meshes[c.kind])) m.setMatrixAt(c.slot, m4);
     }
-    bodies.instanceMatrix.needsUpdate = true;
-    lights.instanceMatrix.needsUpdate = true;
-    lightMat.emissiveIntensity = 0.4 + night * 3;
+    for (const parts of Object.values(meshes)) for (const m of Object.values(parts)) m.instanceMatrix.needsUpdate = true;
+    lightMat.emissiveIntensity = 0.3 + night * 3.2;
+    if (live.streetLife) live.streetLife.update(dt, player, night);
 
     for (const f of flights) {
       fly(f, dt);
@@ -198,10 +224,10 @@ export function makeAmbient(W, scene, opts = {}) {
     let hit = false;
     for (const c of cars) {
       const dx = b.x - c.x, dz = b.z - c.z;
-      if (dx * dx + dz * dz > 25 || Math.abs(b.y - c.y) > 2.5) continue;
+      if (dx * dx + dz * dz > (c.half + 3) ** 2 || Math.abs(b.y - c.y) > 3) continue;
       const fx = Math.cos(c.yaw), fz = -Math.sin(c.yaw);
       const lx = dx * fx + dz * fz, lz = -dx * fz + dz * fx;
-      const px = 2.3 + r - Math.abs(lx), pz = 0.95 + r - Math.abs(lz);
+      const px = c.half + r - Math.abs(lx), pz = c.halfW + r - Math.abs(lz);
       if (px <= 0 || pz <= 0) continue;
       hit = true;
       if (px < pz) { const s = Math.sign(lx) || 1; b.x += fx * px * s; b.z += fz * px * s; }
