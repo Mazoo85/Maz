@@ -20,7 +20,7 @@ const isTouch = matchMedia('(pointer: coarse)').matches;
 
 const SETTINGS_KEY = 'la-royale-settings';
 const settings = Object.assign(
-  { quality: isTouch ? 'low' : 'medium', sensitivity: 1, invertY: false, dayLength: 24, startHour: 16.5, map: 'classic' },
+  { quality: isTouch ? 'low' : 'medium', sensitivity: 1, invertY: false, dayLength: 24, startHour: 16.5, map: 'real' },
   safeRead()
 );
 function safeRead() { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch { return {}; } }
@@ -38,7 +38,7 @@ const step = (pct, text) => new Promise((r) => { loadBar.style.width = `${pct}%`
 const params = new URLSearchParams(location.search);
 const realBase = params.get('data') === 'fixture' ? 'data/fixture/' : 'data/real/';
 async function realAvailable() {
-  try { return (await fetch(`${realBase}manifest.json`, { method: 'HEAD' })).ok; } catch { return false; }
+  try { return (await fetch(`${realBase}manifest.json`)).ok; } catch { return false; }
 }
 
 async function boot() {

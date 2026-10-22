@@ -9,7 +9,7 @@
  *   tiles/i_j.json    one 1 km square each: buildings, roads, areas, trees, shops
  *   skyline.json      the taller buildings of every tile, drawn plain from afar
  *   arteries.json     the named two-way boulevards and avenues, for traffic
- *   height.bin        ground elevation every 10 m (Int16, decimetres)
+ *   height.json       ground elevation every 10 m (Int16 decimetres, base64)
  *   overview.png      a top-down map of the whole area for the minimap and map
  */
 
@@ -250,7 +250,8 @@ if (demFiles.length) {
     height[j * HX + i] = Math.round(sample(lat, lon) * 10);
   }
 } else console.warn('No elevation downloads (tools/fetch.mjs dem): the ground will be flat.');
-writeFileSync(join(OUT, 'height.bin'), Buffer.from(height.buffer));
+// as base64 in JSON, which every web host serves (some won't serve a .bin)
+writeFileSync(join(OUT, 'height.json'), JSON.stringify({ int16le: Buffer.from(height.buffer).toString('base64') }));
 
 /* --------------------------------------------------------------- overview */
 const OV = 4096, S = OV / Math.max(X1 - X0, Z1 - Z0);
@@ -299,7 +300,7 @@ const manifest = {
   v: 1, name: process.env.LA_NAME || REAL.name, lat0: REAL.lat0, lon0: REAL.lon0, bounds: { south: REAL.south, north: REAL.north, west: REAL.west, east: REAL.east },
   x0: X0, z0: Z0, width: X1 - X0, depth: Z1 - Z0, tile: T, tilesX: NX, tilesZ: NZ, tiles: list.sort(),
   skyline: 'skyline.json', arteries: 'arteries.json',
-  height: { file: 'height.bin', nx: HX, nz: HZ, step: STEP, scale: 0.1 }, overview: { file: 'overview.png', size: OV },
+  height: { file: 'height.json', nx: HX, nz: HZ, step: STEP, scale: 0.1 }, overview: { file: 'overview.png', size: OV },
   counts, built: new Date().toISOString(), attribution: `Map data © OpenStreetMap contributors (ODbL)${files.some((f) => f.includes('overture')) ? ', via Overture Maps (overturemaps.org; places CDLA-Permissive-2.0)' : ''}. Elevation: Mapzen Terrarium tiles (AWS Open Data).`
 };
 writeFileSync(join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 1));

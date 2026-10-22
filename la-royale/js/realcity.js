@@ -88,7 +88,9 @@ export async function loadRealWorld(base = 'data/real/', onStep = () => {}) {
   const M = await get('manifest.json');
   onStep('Surveying the real ground, every 10 metres…');
   const [hbuf, ovBlob, skyline, arteries] = await Promise.all([
-    get(M.height.file, 'buf'), get(M.overview.file, 'blob'),
+    M.height.file.endsWith('.json')
+      ? get(M.height.file).then((j) => Uint8Array.from(atob(j.int16le), (ch) => ch.charCodeAt(0)).buffer)
+      : get(M.height.file, 'buf'), get(M.overview.file, 'blob'),
     M.skyline ? get(M.skyline) : {}, M.arteries ? get(M.arteries) : []
   ]);
   const overview = await createImageBitmap(ovBlob);
