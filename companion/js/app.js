@@ -11,7 +11,6 @@
   var Brain = window.CompanionBrain;
   var Mind = window.CompanionMind;
 
-  var SDK_URL = 'https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@0.132.1/+esm';
   var BRAIN_KEY = 'companion.brain.v1';
   var API_KEY = 'companion.apikey';
   var VOICE_KEY = 'companion.voice';
@@ -109,7 +108,7 @@
     return {
       items: items.map(function (it) { return it.kind; }),
       places: PLACES.map(function (p) { return p.name; }),
-      collected: bagText()
+      notes: bagText() ? 'The player\'s bag: ' + bagText() + '.' : ''
     };
   }
 
@@ -599,7 +598,7 @@
         var ai = await askClaude(text, world);
         r = { say: ai.say, actions: ai.actions, mood: 'happy', kind: 'ai' };
       } catch (e) {
-        addLine('note', explain(e));
+        addLine('note', Mind.explain(e) + ' So I answered on my own.');
       } finally {
         thinking = false;
       }
@@ -656,27 +655,16 @@
 
   var apiKey = load(API_KEY) || '';
   var voiceOn = load(VOICE_KEY) === '1';
-  var sdk = null, client = null;
+  var client = null;
 
   async function askClaude(text, world) {
-    if (!sdk) {
-      var mod = await import(SDK_URL);
-      sdk = mod.default || mod.Anthropic;
-    }
-    if (!client) client = new sdk({ apiKey: apiKey, dangerouslyAllowBrowser: true });
+    if (!client) client = await Mind.connect(apiKey);
     var self = { mode: pip.task ? 'busy with a task' : pip.mode, carrying: pip.carrying };
-    var body = Mind.request(brain, history, text, world, self);
-    var response = await client.beta.messages.create(body);
-    return Mind.read(response, worldInfo());
-  }
-
-  function explain(e) {
-    if (sdk && e instanceof sdk.AuthenticationError) return 'Claude didn\'t accept that API key, so I answered on my own. Check the key under "Smart chat".';
-    if (sdk && e instanceof sdk.PermissionDeniedError) return 'That API key isn\'t allowed to use this model, so I answered on my own.';
-    if (sdk && e instanceof sdk.RateLimitError) return 'Claude is busy (too many messages). I answered on my own; try again in a moment.';
-    if (sdk && e instanceof sdk.APIConnectionError) return 'Couldn\'t reach Claude (are you online?), so I answered on my own.';
-    if (sdk && e instanceof sdk.APIError) return 'Claude had a problem (' + (e.status || 'error') + '), so I answered on my own.';
-    return 'Couldn\'t load smart chat (are you online?), so I answered on my own.';
+    // Checked against the world as it is when the answer arrives, not when asked.
+    var reply = await Mind.ask(client, brain, history, text, world, self);
+    var now = worldInfo();
+    reply.actions = reply.actions.filter(function (a) { return brain.canDo(a, now); });
+    return reply;
   }
 
   var keyInput = document.getElementById('keyInput');
@@ -729,7 +717,7 @@
     if (brain.playerName) ul.appendChild(row('Your name: ' + brain.playerName));
     keysList.forEach(function (k) {
       var ph = brain.phrases[k];
-      var what = ph.reply ? 'say "' + ph.reply + '"' : Brain.describe(ph.actions);
+      var what = ph.reply ? 'say "' + ph.reply + '"' : brain.describe(ph.actions);
       ul.appendChild(row('"' + k + '" → ' + what, function () { delete brain.phrases[k]; }));
     });
     brain.facts.forEach(function (f, i) {

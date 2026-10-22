@@ -6,8 +6,9 @@
  * No dependencies, no browser and no network: the brain and the mind are
  * plain modules. What these prove is the promise the game makes: everyday
  * commands work out of the box, anything you teach it sticks (and survives a
- * save and reload), "good job" and "wrong" really train it, and whatever Claude
- * says, the game only ever gets actions it can actually perform.
+ * save and reload), "good job" and "wrong" really train it, whatever Claude
+ * says, the game only ever gets actions it can actually perform, and all of
+ * it works the same for another game's character, not just Pip.
  */
 'use strict';
 
@@ -18,9 +19,15 @@ const M = require(path.join(__dirname, '..', 'js', 'mind.js'));
 let passed = 0;
 const failures = [];
 
+const pending = [];
+
 function test(name, fn) {
   try {
-    fn();
+    const r = fn();
+    if (r && r.then) {
+      pending.push(r.then(() => { passed++; }, e => { failures.push(name + '\n    ' + e.message); }));
+      return;
+    }
     passed++;
   } catch (e) {
     failures.push(name + '\n    ' + e.message);
@@ -220,7 +227,7 @@ test('a bad or foreign save file is refused, not half-loaded', () => {
   const b = fresh();
   eq(b.load('not json'), false);
   eq(b.load({ version: 99 }), false);
-  b.load({ version: 1, phrases: { evil: { actions: [{ type: 'explode' }] }, ok: { actions: [{ type: 'jump' }] } } });
+  b.load({ version: 1, phrases: { evil: { actions: [{ type: 'explode' }] }, empty: { actions: [] }, ok: { actions: [{ type: 'jump' }] } } });
   eq(Object.keys(b.phrases), ['ok']);
 });
 
@@ -241,14 +248,14 @@ test('Claude\'s actions are kept only if the game can do them', () => {
       { type: 'fly', target: '' },
       { type: 'dance', target: 'ignored' }
     ]
-  }), WORLD);
+  }), fresh(), WORLD);
   eq(r.say, 'Sure!');
   eq(r.actions, [{ type: 'fetch', target: 'apple' }, { type: 'goto', target: 'pond' }, { type: 'dance' }]);
 });
 
 test('a refusal or broken reply still leaves the companion something to say', () => {
-  eq(M.read(reply({ say: 'x', actions: [] }, { stop_reason: 'refusal' }), WORLD).ok, false);
-  const broken = M.read({ stop_reason: 'end_turn', content: [{ type: 'text', text: 'Hello there' }] }, WORLD);
+  eq(M.read(reply({ say: 'x', actions: [] }, { stop_reason: 'refusal' }), fresh(), WORLD).ok, false);
+  const broken = M.read({ stop_reason: 'end_turn', content: [{ type: 'text', text: 'Hello there' }] }, fresh(), WORLD);
   eq(broken.say, 'Hello there');
   eq(broken.actions, []);
 });
@@ -264,7 +271,7 @@ test('the request carries the brain\'s memory and what is in the world', () => {
   eq(req.messages.length, 3);
   eq(req.messages.map(m => m.role), ['user', 'assistant', 'user']);
   const last = req.messages[2].content;
-  ok(/Cody/.test(last) && /"heel" = follow you/.test(last) && /apple \(2\)/.test(last) && /tell me a story/.test(last), last);
+  ok(/Cody/.test(last) && /"heel" = follow you/.test(last) && /Items around you: apple \(2\)/.test(last) && /tell me a story/.test(last), last);
   eq(req.output_config.format.type, 'json_schema');
   eq(req.fallbacks, 'default');
   ok(!/Cody/.test(req.system), 'the standing instructions do not change from turn to turn');
@@ -277,14 +284,99 @@ test('history stays short and always starts with the player', () => {
   eq(h.turns[0].role, 'user');
 });
 
-test('the reply schema lists exactly the actions the brain knows', () => {
-  eq(M.REPLY_SCHEMA.properties.actions.items.properties.type.enum, B.ACTION_TYPES);
+test('the reply schema lists exactly the actions the character has', () => {
+  eq(M.schema(fresh()).properties.actions.items.properties.type.enum,
+    ['follow', 'stay', 'come', 'goto', 'fetch', 'jump', 'dance', 'sit', 'wander', 'sleep']);
+});
+
+test('ask() sends the request and reads the reply', async () => {
+  let sent = null;
+  const claude = { beta: { messages: { create: async body => { sent = body; return reply({ say: 'Hi!', actions: [{ type: 'jump', target: '' }] }); } } } };
+  const r = await M.ask(claude, fresh(), new M.History(), 'hello', WORLD, {});
+  eq(r, { say: 'Hi!', actions: [{ type: 'jump' }], ok: true });
+  eq(sent.model, M.MODEL);
+});
+
+// ---- another game's character -------------------------------------------------
+
+// A robot guard for a sci-fi game: different name, actions, words and targets.
+const BOLT = {
+  name: 'Bolt',
+  personality: 'brave, loyal, and very literal, like a friendly robot',
+  setting: 'a space station adventure',
+  actions: [
+    { type: 'guard', words: ['guard', 'protect', 'watch my back', 'cover me'], replies: ['Shields up!'], does: 'guard you', help: 'stay next to the player and watch for danger' },
+    { type: 'patrol', words: ['patrol', 'keep watch', 'scout'], replies: ['Patrolling.'], does: 'patrol', help: 'walk around the area' },
+    { type: 'attack', words: ['attack', 'zap', 'shoot', 'blast', 'take out'], target: 'enemies', replies: ['Zapping the {target}!'], does: 'zap the {target}', help: 'zap an enemy' },
+    { type: 'open', words: ['open', 'unlock', 'hack'], target: 'doors', replies: ['Opening the {target}.'], does: 'open the {target}', help: 'open a door' },
+    { type: 'beep', words: ['beep', 'make a noise', 'say something robot'], replies: ['Beep boop!'], does: 'beep', help: 'beep happily' }
+  ],
+  reactions: { praised: 'beep', greeted: 'beep' }
+};
+const STATION = { enemies: ['alien', 'drone', 'drone'], doors: ['airlock', 'red door'] };
+const bolt = () => B.create(null, { character: BOLT, rand: () => 0 });
+
+test('another character understands its own commands and targets', () => {
+  eq(bolt().hear('Bolt, cover me!', STATION).actions, [{ type: 'guard' }]);
+  eq(bolt().hear('zap the drones', STATION).actions, [{ type: 'attack', target: 'drone' }]);
+  eq(bolt().hear('please open the red door', STATION).actions, [{ type: 'open', target: 'red door' }]);
+  eq(bolt().hear('open the red door', STATION).say, 'Opening the red door.');
+  eq(bolt().hear('scout and then beep', STATION).actions, [{ type: 'patrol' }, { type: 'beep' }]);
+});
+
+test('another character knows nothing of Pip\'s actions', () => {
+  eq(bolt().hear('follow me', STATION).understood, false);
+  eq(bolt().hear('hi', STATION).actions, [{ type: 'beep' }]);
+  eq(bolt().hear('thanks', STATION).actions, []);
+  ok(/zap the enemies|zap things/.test(bolt().hear('help', STATION).say) || /guard you/.test(bolt().hear('help', STATION).say));
+});
+
+test('another character can be trained the same way', () => {
+  const b = bolt();
+  ok(/it means guard/.test(b.hear('lasers', STATION).say), 'suggests one of its own actions');
+  b.hear('it means attack the alien', STATION);
+  eq(b.hear('lasers', STATION).actions, [{ type: 'attack', target: 'alien' }]);
+  b.hear('when I say pew pew, zap the drone and then beep', STATION);
+  eq(b.hear('pew pew', STATION).actions, [{ type: 'attack', target: 'drone' }, { type: 'beep' }]);
+  eq(b.hear('zap the dragon', STATION).kind, 'missing');
+});
+
+test('a brain saved by one game loads into another, keeping only what fits', () => {
+  const pip = fresh();
+  pip.hear('my name is Cody', WORLD);
+  pip.hear('when I say heel, follow me', WORLD);
+  pip.hear('when I say hi there, say Howdy', WORLD);
+  const b = B.create(pip.toJSON(), { character: BOLT });
+  eq(b.playerName, 'Cody');
+  eq(Object.keys(b.phrases), ['hi there']);
+});
+
+test('Claude is told about the other character, and kept to its actions', () => {
+  const b = bolt();
+  const req = M.request(b, new M.History(), 'what do you see?', STATION, {});
+  ok(/Bolt/.test(req.system) && /space station/.test(req.system) && /attack \(target = one of the enemies\)/.test(req.system), req.system);
+  ok(/Enemies around you: alien, drone \(2\)/.test(req.messages[0].content) && /Doors around you/.test(req.messages[0].content), req.messages[0].content);
+  eq(M.schema(b).properties.actions.items.properties.type.enum, ['guard', 'patrol', 'attack', 'open', 'beep']);
+  const r = M.read(reply({ say: 'Zap!', actions: [{ type: 'attack', target: 'drone' }, { type: 'attack', target: 'dragon' }, { type: 'follow', target: '' }] }), b, STATION);
+  eq(r.actions, [{ type: 'attack', target: 'drone' }]);
+});
+
+test('a broken character is caught at once, with a clear message', () => {
+  const bad = (spec, msg) => {
+    try { B.create(null, { character: spec }); } catch (e) { ok(e.message.indexOf(msg) !== -1, e.message); return; }
+    throw new Error('expected an error about ' + msg);
+  };
+  bad({ actions: [] }, 'list of actions');
+  bad({ actions: [{ type: 'jump' }] }, 'needs some words');
+  bad({ actions: [{ type: 'jump', words: ['jump'] }, { type: 'jump', words: ['hop'] }] }, 'both called "jump"');
 });
 
 // ---- report -----------------------------------------------------------------
 
-if (failures.length) {
-  console.error(failures.length + ' failed, ' + passed + ' passed:\n  ' + failures.join('\n  '));
-  process.exit(1);
-}
-console.log('companion logic: ' + passed + ' passed');
+Promise.all(pending).then(() => {
+  if (failures.length) {
+    console.error(failures.length + ' failed, ' + passed + ' passed:\n  ' + failures.join('\n  '));
+    process.exit(1);
+  }
+  console.log('companion logic: ' + passed + ' passed');
+});
