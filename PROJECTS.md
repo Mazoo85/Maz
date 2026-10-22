@@ -16,6 +16,7 @@ with their full history.
 | [`cells`](cells) |
 | [`cmake`](cmake) |
 | [`coda-pics`](coda-pics) |
+| [`companion`](companion) |
 | [`consolidate`](consolidate) |
 | [`crew`](crew) |
 | [`docs`](docs) |
@@ -24,6 +25,7 @@ with their full history.
 | [`film`](film) |
 | [`forge`](forge) |
 | [`godview`](godview) |
+| [`livecams`](livecams) |
 | [`madlibs`](madlibs) |
 | [`mandala`](mandala) |
 | [`music`](music) |
