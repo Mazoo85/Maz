@@ -184,11 +184,11 @@ for (const [k, t] of tiles) {
   list.push(k);
 }
 
-/* skyline: everything 15 m and up, as [height, colour, flat points] per tile */
+/* skyline: everything 9 m and up, as [height, colour, flat points] per tile */
 const q = (v, o) => Math.round((v - o) * 10);
 const skyline = {};
 for (const [k, t] of tiles) {
-  const list = t.buildings.filter((b) => b.h >= 15 && b.mh < 1).map((b) => [Math.round(b.h * 10) / 10, b.col ?? -1, b.pts.flatMap(([x, z]) => [q(x, X0), q(z, Z0)])]);
+  const list = t.buildings.filter((b) => b.h >= 9 && b.mh < 1).map((b) => [Math.round(b.h * 10) / 10, b.col ?? -1, b.pts.flatMap(([x, z]) => [q(x, X0), q(z, Z0)])]);
   if (list.length) skyline[k] = list;
 }
 writeFileSync(join(OUT, 'skyline.json'), JSON.stringify(skyline));

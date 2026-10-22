@@ -304,7 +304,7 @@ class Mesh {
     for (let k = 0; k < 3; k++) {
       this.p.push(vs[k][0], vs[k][1], vs[k][2]); this.n.push(nx, ny, nz); this.c.push(col.r, col.g, col.b);
       if (us) this.uv.push(us[k][0], us[k][1]);
-      for (const key in this.x) { const v = ex[key]; if (Array.isArray(v)) this.x[key].push(...v); else this.x[key].push(v); }
+      for (const key in this.x) { const v = ex[key]; if (Array.isArray(v)) this.x[key].push(...v); else this.x[key].push(typeof v === 'function' ? v(vs[k][0], vs[k][2]) : v); }
     }
   }
   quad(a, b, c, d, nx, ny, nz, col, ex, uvs) {
@@ -330,7 +330,14 @@ function addBuilding(walls, roofs, b, base, st, opts = {}) {
   // tower): their walls would sit in the same plane and flicker. Each is drawn
   // a few centimetres out, more the taller it is, so the taller always shows.
   const pts = offsetRing(b.pts, Math.min(0.3, 0.015 + b.h * 0.002));
-  const y0 = base + b.mh, top = base + b.h;
+  // a measured height is to the top of the roof: under a pitched roof the walls stop at the eaves
+  let top = base + b.h;
+  const pitched = st.roof !== ROOF.flat && !opts.far;
+  if (pitched) {
+    const R = minRect(b.pts);
+    if (R) top = base + Math.max(Math.min(2.7, b.h), b.h - Math.min((R.Wd + 0.45) * (st.roofMat === 5 ? 0.42 : 0.5), 4.5));
+  }
+  const y0 = base + b.mh;
   const area = Math.abs(ringArea(b.pts));
   const seed = hashOf(b.pts[0][0] * 0.37, b.pts[0][1] * 0.71);
   const wallCol = new THREE.Color(st.wall), roofCol = new THREE.Color(st.roofCol);
@@ -338,7 +345,8 @@ function addBuilding(walls, roofs, b, base, st, opts = {}) {
   // storeys that fit the building's real height exactly
   const typical = st.win === 1 || st.win === 5 ? 3.1 : st.win === 3 ? 3.9 : st.win === 4 ? 6.5 : 3.8;
   const floor = b.h / Math.max(1, Math.round(b.h / typical));
-  const ex = { aWin: st.win, aMat: st.surf, aSeed: seed, aBase: base, aTop: top, aFloor: floor };
+  // (aGround: the ground under each corner, so the facade knows where the pavement meets it)
+  const ex = { aWin: st.win, aMat: st.surf, aSeed: seed, aBase: base, aTop: top, aFloor: floor, aGround: opts.gh || base };
   // walls (from below the ground on slopes, so nothing floats)
   const yb = Math.min(y0, b.mh > 0 ? y0 : base - 1.5);
   for (let i = 0; i < n; i++) {
@@ -378,15 +386,39 @@ function addBuilding(walls, roofs, b, base, st, opts = {}) {
   let ridge = top;
   if (st.roof !== ROOF.flat && !opts.far) ridge = pitchedRoof(walls, roofs, b, top, st, area, roofCol, wallCol, ex);
   if (ridge === top) {
-    const contour = pts.map(([x, z]) => new THREE.Vector2(x, z));
-    const tris = THREE.ShapeUtils.triangulateShape(contour, []);
     const rex = { ...ex, aWin: 0 };
-    for (const [a, c, d] of tris) walls.tri([pts[a][0], top, pts[a][1]], [pts[c][0], top, pts[c][1]], [pts[d][0], top, pts[d][1]], 0, 1, 0, roofCol, rex);
+    for (const [p, q, r] of roofTriangles(pts)) walls.tri([p[0], top, p[1]], [q[0], top, q[1]], [r[0], top, r[1]], 0, 1, 0, roofCol, rex);
   }
   let r = 0, cx = 0, cz = 0;
   for (const [x, z] of b.pts) { cx += x / n; cz += z / n; }
   for (const [x, z] of b.pts) r = Math.max(r, Math.hypot(x - cx, z - cz));
   return { k: 2, x: cx, z: cz, r, y0, y1: top, pts: b.pts };
+}
+
+/* A flat roof over a footprint. Ear-clipping covers most outlines; a few
+ * mapped outlines cross themselves and it gives up on part of them, which
+ * left buildings open to the sky. Then: a fan from the middle if that covers
+ * it, else the convex hull. */
+export function roofTriangles(pts) {
+  const area = Math.abs(ringArea(pts));
+  const triArea = (a, b, c) => Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) / 2;
+  const ear = THREE.ShapeUtils.triangulateShape(pts.map(([x, z]) => new THREE.Vector2(x, z)), []).map(([a, b, c]) => [pts[a], pts[b], pts[c]]);
+  if (ear.reduce((s, [a, b, c]) => s + triArea(a, b, c), 0) > area * 0.97) return ear;
+  let cx = 0, cz = 0;
+  for (const [x, z] of pts) { cx += x / pts.length; cz += z / pts.length; }
+  const fan = pts.map((p, i) => [[cx, cz], p, pts[(i + 1) % pts.length]]);
+  // (a fan covers the outline exactly when its triangles don't overlap: their areas add up to the outline's)
+  if (Math.abs(fan.reduce((s, [a, b, c]) => s + triArea(a, b, c), 0) - area) < area * 0.03) return fan;
+  const hull = convexHull(pts);
+  return hull.slice(1, -1).map((p, i) => [hull[0], p, hull[i + 2]]);
+}
+function convexHull(pts) {
+  const p = [...pts].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], up = [];
+  for (const q of p) { while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  for (const q of p.reverse()) { while (up.length >= 2 && cross(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+  return lo.slice(0, -1).concat(up.slice(0, -1));
 }
 
 /* A footprint grown outward by d metres, corners mitred (limited on sharp ones). */
@@ -1097,15 +1129,16 @@ export function buildRealScene(RW, renderer, opts = {}) {
     const sky = RW.skyline || {};
     for (const [key, list] of Object.entries(sky)) {
       const [ti, tj] = key.split('_').map(Number);
-      const walls = new Mesh({ aWin: 1, aMat: 1, aSeed: 1, aBase: 1, aTop: 1, aFloor: 1 }), none = new Mesh({ aMat: 1 });
+      const walls = new Mesh({ aWin: 1, aMat: 1, aSeed: 1, aBase: 1, aTop: 1, aFloor: 1, aGround: 1 }), none = new Mesh({ aMat: 1 });
       for (const [h, col, flat] of list) {
+        if (lo && h < 15) continue;                     // (phones: just the taller ones far off)
         const pts = [];
         for (let i = 0; i < flat.length; i += 2) pts.push([M.x0 + flat[i] / 10 - RW.OX, M.z0 + flat[i + 1] / 10 - RW.OZ]);
         if (ringArea(pts) < 0) pts.reverse();
         let base = Infinity;
         for (const [x, z] of pts) base = Math.min(base, RW.groundHeight(x, z));
         const b = { pts, h, mh: 0, type: BTYPE.other, roof: ROOF.flat, mat: h > 60 ? MATERIAL.glass : MATERIAL.stucco, col: col < 0 ? null : col, roofCol: null };
-        addBuilding(walls, none, b, base, styleOf(b, Math.abs(ringArea(pts))), { far: true });
+        addBuilding(walls, none, b, base, styleOf(b, Math.abs(ringArea(pts))), { far: true, gh: RW.groundHeight });
       }
       if (!walls.count) continue;
       const mesh = new THREE.Mesh(walls.geometry(), facade);
@@ -1207,7 +1240,7 @@ export function buildRealScene(RW, renderer, opts = {}) {
     }
 
     /* buildings */
-    const walls = new Mesh({ aWin: 1, aMat: 1, aSeed: 1, aBase: 1, aTop: 1, aFloor: 1 }), roofs = new Mesh({ aMat: 1 });
+    const walls = new Mesh({ aWin: 1, aMat: 1, aSeed: 1, aBase: 1, aTop: 1, aFloor: 1, aGround: 1 }), roofs = new Mesh({ aMat: 1 });
     const blds = [];
     const bgrid = new Map();                     // 20 m cells → buildings, for "is this spot inside a building?"
     /* the landmarks in this tile: find their buildings in the data first */
@@ -1224,6 +1257,13 @@ export function buildRealScene(RW, renderer, opts = {}) {
         if (lm.l.replace) drop.add(i);
       });
       if (host !== null) { hostOf.set(lm, host); if (lm.l.style) styleFor.set(host, lm.l.style); }
+    }
+    // an upper part with nothing under it in the data (the lower part unmapped) comes down to the ground
+    for (const b0 of d.buildings) {
+      if (b0.mh < 0.5) continue;
+      const [cx, cz] = centroid2(b0.pts);
+      const held = d.buildings.some((o) => o !== b0 && o.h >= b0.mh - 0.6 && o.mh < b0.mh && pip(cx, cz, o.pts));
+      if (!held) b0.mh = 0;
     }
     const hostRecs = new Map();
     let n = 0;
@@ -1244,7 +1284,7 @@ export function buildRealScene(RW, renderer, opts = {}) {
       const st = styleOf(b, area);
       const over = styleFor.get(bi);
       if (over) { if (over.wall) { st.wall = over.wall; st.trim = shadeHex(over.wall, 1.15); } if (over.win !== undefined) st.win = over.win; }
-      const col = addBuilding(walls, roofs, b, base, st);
+      const col = addBuilding(walls, roofs, b, base, st, { gh });
       if ([...hostOf.values()].includes(bi)) { const [cx, cz] = centroid2(pts); hostRecs.set(bi, { pts, h: b.h, base, cx, cz, R: minRect(pts), area, name: b.name }); }
       colliders.push(col);
       let a = Infinity, bb = Infinity, c = -Infinity, e = -Infinity;

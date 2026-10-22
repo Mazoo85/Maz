@@ -573,9 +573,9 @@ export function facadeMaterial(uniforms, real = false) {
       .replace('#include <common>', `#include <common>
         attribute float aWin;
         #ifdef REAL_ATTRS
-          attribute float aSeed; attribute float aBase; attribute float aTop; attribute float aFloor;
+          attribute float aSeed; attribute float aBase; attribute float aTop; attribute float aFloor; attribute float aGround;
         #endif
-        varying vec3 vWPos; varying vec3 vWNrm; flat varying float vWin; flat varying float vSeed; varying float vH; varying float vTop; flat varying float vFloor;`)
+        varying vec3 vWPos; varying vec3 vWNrm; flat varying float vWin; flat varying float vSeed; varying float vH; varying float vTop; flat varying float vFloor; varying float vGround;`)
       .replace('#include <project_vertex>', `#include <project_vertex>
         vec4 wp = vec4(transformed, 1.0);
         vec3 wn = objectNormal;
@@ -595,13 +595,14 @@ export function facadeMaterial(uniforms, real = false) {
         vH = (position.y + 0.5) * sy;
         vTop = sy;
         vFloor = 0.0;
+        vGround = wp.y - vH;
         #ifdef REAL_ATTRS
-          vSeed = aSeed; vH = position.y - aBase; vTop = aTop - aBase; vFloor = aFloor;
+          vSeed = aSeed; vH = position.y - aBase; vTop = aTop - aBase; vFloor = aFloor; vGround = aGround;
         #endif`);
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
         uniform float uNight;
-        varying vec3 vWPos; varying vec3 vWNrm; flat varying float vWin; flat varying float vSeed; varying float vH; varying float vTop; flat varying float vFloor;
+        varying vec3 vWPos; varying vec3 vWNrm; flat varying float vWin; flat varying float vSeed; varying float vH; varying float vTop; flat varying float vFloor; varying float vGround;
         // a band from a to b of a repeating 0..1 coordinate, anti-aliased by its screen-space width
         float aaBand(float f, float a, float b, float w) { return smoothstep(a - w, a + w, f) * (1.0 - smoothstep(b - w, b + w, f)); }
         // a repeating band from a to b (0 ≤ a < b ≤ 1 within each unit), box-filtered over the pixel's width w:
@@ -624,6 +625,11 @@ export function facadeMaterial(uniforms, real = false) {
           float u = dot(vWPos.xz, t);
           u -= 1024.0 * floor(u / 1024.0);         // near zero, for precision (a seam once a kilometre)
           float v = vWPos.y;
+          // how high above the ground right here (on a slope that's not the height above the building's base)
+          float above = vWPos.y - vGround;
+          #ifdef REAL_ATTRS
+            v = vH;                                  // floors count up from the building's own base
+          #endif
           float grain = vn(vec2(u, v) * 1.7) * 0.5 + vn(vec2(u * 0.25, v * 0.05) * 3.0) * 0.5;
           diffuseColor.rgb *= 0.86 + 0.2 * grain;
           if (vWin > 0.5) {
@@ -652,10 +658,14 @@ export function facadeMaterial(uniforms, real = false) {
             float frame = wt < 2.5 || wt > 3.5
               ? aaPulse(g.x, max(0.0, pane.x - 0.04), min(1.0, pane.y + 0.04), fw.x) * aaPulse(g.y, max(0.0, pane.z - 0.05), min(1.0, pane.w + 0.05), fw.y) - winMask : 0.0;
             float sill = wt < 1.5 ? aaPulse(g.x, max(0.0, pane.x - 0.05), min(1.0, pane.y + 0.05), fw.x) * aaPulse(g.y, max(0.0, pane.z - 0.07), max(0.0, pane.z - 0.02), fw.y) : 0.0;
+            // no window whose sill would be under the pavement (on a hillside the lowest row goes)
+            float sillY = vWPos.y - (fract(g.y) - pane.z) * cell.y;
+            float clearOfGround = smoothstep(vGround + 0.25, vGround + 0.55, sillY);
+            winMask *= clearOfGround; frame *= clearOfGround; sill *= clearOfGround;
             if (wt > 1.5 && wt < 2.5 && vH < 4.2) {
               // the storefronts: big glass between piers, a fascia above
               float sg = u / 6.0, sw = max(fwidth(sg), 1e-4);
-              winMask = aaPulse(sg, 0.06, 0.94, sw) * smoothstep(0.45, 0.55, vH) * (1.0 - smoothstep(3.5, 3.7, vH));
+              winMask = aaPulse(sg, 0.06, 0.94, sw) * smoothstep(0.45, 0.55, above) * (1.0 - smoothstep(3.5, 3.7, vH));
               frame = 0.0; sill = 0.0;
             }
             // far off: the per-window details (blinds, frames) go before they alias
@@ -700,7 +710,7 @@ export function facadeMaterial(uniforms, real = false) {
             }
           }
           #ifdef REAL_ATTRS
-            diffuseColor.rgb *= mix(0.68, 1.0, smoothstep(0.0, 1.8, vH));   // a soft contact shadow at the foot of the wall
+            diffuseColor.rgb *= mix(0.68, 1.0, smoothstep(0.0, 1.8, above));   // a soft contact shadow at the foot of the wall
           #else
             diffuseColor.rgb *= mix(0.42, 1.0, smoothstep(0.0, 3.5, vH));
           #endif

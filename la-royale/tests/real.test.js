@@ -11,7 +11,7 @@ import {
   REAL, projector, toBuilding, toRoad, roadWidth, areaKind, toPoi, treeKind, encodeTile, decodeTile,
   BTYPE, ROOF, MATERIAL, RCLASS, AREA, ringArea, cleanRing
 } from '../js/osm.js';
-import { makeRealWorld, minRect, styleOf, pip, LANDMARKS, NEIGHBOURHOODS } from '../js/realcity.js';
+import { makeRealWorld, minRect, styleOf, pip, roofTriangles, LANDMARKS, NEIGHBOURHOODS } from '../js/realcity.js';
 import { collideBody } from '../js/world.js';
 
 let passed = 0, failed = 0;
@@ -174,6 +174,13 @@ test('roofs mostly get pitched on houses, and LA stucco colours by default', () 
     assert.match(st.wall, /^#[0-9a-f]{6}$/);
   }
   assert.ok(pitched > n * 0.7, `${pitched} of ${n}`);
+});
+
+test('every footprint gets a whole roof, even one whose outline crosses itself', () => {
+  const area = (tris) => tris.reduce((s, [a, b, c]) => s + Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) / 2, 0);
+  near(area(roofTriangles([[0, 0], [10, 0], [10, 4], [4, 4], [4, 10], [0, 10]])), 64, 1e-6, 'L-shaped roof');
+  const bow = roofTriangles([[0, 0], [10, 10], [10, 0], [0, 10]]);
+  assert.ok(area(bow) >= 49.9, `a crossed outline is still roofed (${area(bow)})`);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

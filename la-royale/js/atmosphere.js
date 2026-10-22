@@ -14,6 +14,9 @@ import { EffectComposer } from '../vendor/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from '../vendor/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from '../vendor/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from '../vendor/jsm/postprocessing/OutputPass.js';
+import { ShaderPass } from '../vendor/jsm/postprocessing/ShaderPass.js';
+import { GTAOPass } from '../vendor/jsm/postprocessing/GTAOPass.js';
+import { SMAAPass } from '../vendor/jsm/postprocessing/SMAAPass.js';
 
 export function makeAtmosphere(scene, renderer, opts = {}) {
   const quality = opts.quality || 'high';
@@ -79,15 +82,51 @@ export function makeAtmosphere(scene, renderer, opts = {}) {
   scene.fog = new THREE.Fog(0xcfd3d0, 400, 5200);
 
   /* ---------------------------------------------------- post-processing */
-  let composer = null, bloom = null;
+  let composer = null, bloom = null, gtao = null, grade = null;
   if (!lo) {
     const size = renderer.getDrawingBufferSize(new THREE.Vector2());
     const target = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: hi ? 4 : 2 });
     composer = new EffectComposer(renderer, target);
     composer.addPass(new RenderPass(scene, null));
+    // ambient occlusion: the soft dark where walls meet the ground, under eaves and awnings, between
+    // buildings, round the parked cars (GTAO, at half resolution on Medium)
+    if (opts.ao !== false) {
+      gtao = new GTAOPass(scene, opts.camera || new THREE.PerspectiveCamera(), size.x, size.y);
+      gtao.output = GTAOPass.OUTPUT.Default;
+      gtao.blendIntensity = 1.0;
+      gtao.updateGtaoMaterial({ radius: 2.2, distanceExponent: 1.6, thickness: 6, scale: 1.25, samples: hi ? 16 : 12 });
+      gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: hi ? 16 : 8 });
+      if (renderer.capabilities.logarithmicDepthBuffer) {
+        gtao.gtaoMaterial.defines.LOG_DEPTH = ''; gtao.gtaoMaterial.needsUpdate = true;
+        gtao.pdMaterial.defines.LOG_DEPTH = ''; gtao.pdMaterial.needsUpdate = true;
+      }
+      if (!hi) { const set = gtao.setSize.bind(gtao); gtao.setSize = (w, h) => set(Math.ceil(w / 2), Math.ceil(h / 2)); gtao.setSize(size.x, size.y); }
+      composer.addPass(gtao);
+    }
     bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.2, 0.55, 0.9);
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
+    // the grade: LA's light — warm highlights, cooler shadows, a little more contrast and colour,
+    // a soft vignette
+    grade = new ShaderPass({
+      uniforms: { tDiffuse: { value: null }, uWarm: { value: 1 }, uNight: uniforms.uNight },
+      vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: `uniform sampler2D tDiffuse; uniform float uWarm; uniform float uNight; varying vec2 vUv;
+        void main() {
+          vec3 c = texture2D(tDiffuse, vUv).rgb;
+          float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+          vec3 sat = mix(vec3(l), c, 1.12 - 0.08 * uNight);                      // a little more colour
+          c = sat;
+          c = mix(c, c * c * (3.0 - 2.0 * c), 0.28);                              // gentle S-curve
+          vec3 warm = vec3(1.04, 1.0, 0.93), cool = mix(vec3(0.95, 0.99, 1.06), vec3(0.9, 0.95, 1.1), uNight);
+          c *= mix(cool, warm, smoothstep(0.15, 0.7, l)) * mix(1.0, 1.0, uWarm);   // split tone
+          vec2 d = vUv - 0.5;
+          c *= 1.0 - 0.32 * smoothstep(0.35, 0.85, length(d * vec2(1.25, 1.0)));  // vignette
+          gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+        }`
+    });
+    composer.addPass(grade);
+    if (!hi) composer.addPass(new SMAAPass(size.x, size.y));          // (High has 4× MSAA already)
   }
 
   const C = (h) => new THREE.Color(h);
@@ -184,6 +223,11 @@ export function makeAtmosphere(scene, renderer, opts = {}) {
   function render(camera) {
     if (composer) {
       composer.passes[0].camera = camera;
+      if (gtao && gtao.camera !== camera) {
+        gtao.camera = camera;
+        gtao.gtaoMaterial.uniforms.cameraNear.value = camera.near; gtao.gtaoMaterial.uniforms.cameraFar.value = camera.far;
+        gtao.pdMaterial.uniforms.cameraNear.value = camera.near; gtao.pdMaterial.uniforms.cameraFar.value = camera.far;
+      }
       composer.render();
     } else renderer.render(scene, camera);
   }
