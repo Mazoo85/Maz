@@ -627,17 +627,18 @@ export function facadeMaterial(uniforms, real = false) {
           float grain = vn(vec2(u, v) * 1.7) * 0.5 + vn(vec2(u * 0.25, v * 0.05) * 3.0) * 0.5;
           diffuseColor.rgb *= 0.86 + 0.2 * grain;
           if (vWin > 0.5) {
+            float wt = vWin > 4.5 ? 1.0 : vWin;            // (5: a dingbat: homes upstairs, the carport below)
             // each kind of building's window: the cell it repeats in, and the pane within it
             vec2 cell; vec4 pane;
-            if (vWin < 1.5)      { cell = vec2(4.2, 3.3); pane = vec4(0.3, 0.68, 0.38, 0.78); }
-            else if (vWin < 2.5) { cell = vec2(3.2, 3.6); pane = vec4(0.14, 0.86, 0.26, 0.86); }
-            else if (vWin < 3.5) { cell = vec2(1.6, 3.8); pane = vec4(0.05, 1.5, 0.14, 1.5); }
+            if (wt < 1.5)      { cell = vec2(4.2, 3.3); pane = vec4(0.3, 0.68, 0.38, 0.78); }
+            else if (wt < 2.5) { cell = vec2(3.2, 3.6); pane = vec4(0.14, 0.86, 0.26, 0.86); }
+            else if (wt < 3.5) { cell = vec2(1.6, 3.8); pane = vec4(0.05, 1.5, 0.14, 1.5); }
             else                 { cell = vec2(9.0, 7.0); pane = vec4(0.2, 0.8, 0.72, 0.9); }
             float vary = h21(vec2(vSeed * 13.1, 7.0)), vary2 = h21(vec2(3.0, vSeed * 29.7));
             #ifdef REAL_ATTRS
               // real storey heights, and no two buildings with quite the same windows
               if (vFloor > 2.4) cell.y = vFloor;
-              if (vWin < 2.5) {
+              if (wt < 2.5) {
                 cell.x *= mix(0.75, 1.4, vary);
                 if (vary2 < 0.3) pane.xy = vec2(0.12, 0.88);                // ribbon windows
                 else if (vary2 < 0.55) pane = vec4(0.36, 0.64, 0.3, 0.85);  // tall narrow ones
@@ -648,10 +649,10 @@ export function facadeMaterial(uniforms, real = false) {
             vec2 fw = max(fwidth(g), vec2(1e-4));
             pane = clamp(pane, 0.0, 1.0);
             winMask = aaPulse(g.x, pane.x, pane.y, fw.x) * aaPulse(g.y, pane.z, pane.w, fw.y);
-            float frame = vWin < 2.5 || vWin > 3.5
+            float frame = wt < 2.5 || wt > 3.5
               ? aaPulse(g.x, max(0.0, pane.x - 0.04), min(1.0, pane.y + 0.04), fw.x) * aaPulse(g.y, max(0.0, pane.z - 0.05), min(1.0, pane.w + 0.05), fw.y) - winMask : 0.0;
-            float sill = vWin < 1.5 ? aaPulse(g.x, max(0.0, pane.x - 0.05), min(1.0, pane.y + 0.05), fw.x) * aaPulse(g.y, max(0.0, pane.z - 0.07), max(0.0, pane.z - 0.02), fw.y) : 0.0;
-            if (vWin > 1.5 && vWin < 2.5 && vH < 4.2) {
+            float sill = wt < 1.5 ? aaPulse(g.x, max(0.0, pane.x - 0.05), min(1.0, pane.y + 0.05), fw.x) * aaPulse(g.y, max(0.0, pane.z - 0.07), max(0.0, pane.z - 0.02), fw.y) : 0.0;
+            if (wt > 1.5 && wt < 2.5 && vH < 4.2) {
               // the storefronts: big glass between piers, a fascia above
               float sg = u / 6.0, sw = max(fwidth(sg), 1e-4);
               winMask = aaPulse(sg, 0.06, 0.94, sw) * smoothstep(0.45, 0.55, vH) * (1.0 - smoothstep(3.5, 3.7, vH));
@@ -663,25 +664,40 @@ export function facadeMaterial(uniforms, real = false) {
             vec2 id = floor(g);
             float floorOn = step(0.25, h21(vec2(id.y, vSeed * 31.0)));
             lit = step(0.58, h21(id + vSeed * 97.0)) * floorOn * winMask;
-            winTint = vWin > 2.5 ? vec3(0.78, 0.86, 1.0) : mix(vec3(1.0, 0.78, 0.5), vec3(0.85, 0.9, 1.0), step(0.8, h21(id * 0.7 + vSeed)));
+            winTint = wt > 2.5 ? vec3(0.78, 0.86, 1.0) : mix(vec3(1.0, 0.78, 0.5), vec3(0.85, 0.9, 1.0), step(0.8, h21(id * 0.7 + vSeed)));
             // glass: tinted per building, reflections from the sky do the rest
             vec3 tint = mix(vec3(0.1, 0.12, 0.15), mix(vec3(0.12, 0.17, 0.16), vec3(0.16, 0.13, 0.1), vary2), step(0.5, vary));
             #ifdef REAL_ATTRS
               // curtain walls: tinted, mirrored glass (blue, green, bronze or silver, from the building's colour)
-              vec3 glass = vWin > 2.5 ? mix(vec3(0.24, 0.32, 0.38), diffuseColor.rgb, 0.55) : tint;
+              vec3 glass = wt > 2.5 ? mix(vec3(0.24, 0.32, 0.38), diffuseColor.rgb, 0.55) : tint;
             #else
-              vec3 glass = vWin > 2.5 ? mix(vec3(0.16, 0.23, 0.3), diffuseColor.rgb, 0.3) : tint;
+              vec3 glass = wt > 2.5 ? mix(vec3(0.16, 0.23, 0.3), diffuseColor.rgb, 0.3) : tint;
             #endif
             // curtains and blinds, half-drawn at random
-            float blind = step(0.72, h21(id * 1.7 + vSeed)) * (vWin < 2.5 ? 0.16 : 0.0) * (1.0 - smoothstep(0.04, 0.12, max(fw.x, fw.y)));
+            float blind = step(0.72, h21(id * 1.7 + vSeed)) * (wt < 2.5 ? 0.16 : 0.0) * (1.0 - smoothstep(0.04, 0.12, max(fw.x, fw.y)));
             float blindLine = step(f.y, mix(pane.w, pane.z, h21(id + 3.1)));
             diffuseColor.rgb = mix(diffuseColor.rgb, glass + blind * blindLine * vec3(0.5, 0.48, 0.42), winMask);
+            // window air conditioners in the apartments, now and then
+            float acOn = step(0.82, h21(id * 2.3 + vSeed * 5.0)) * step(wt, 1.5) * (1.0 - far) * step(3.0, vH);
+            float acMask = acOn * aaPulse(g.x, 0.36, 0.62, fw.x) * aaPulse(g.y, pane.z, pane.z + 0.15, fw.y);
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.72, 0.7, 0.64) * (0.85 + 0.15 * step(0.5, fract(f.y * 60.0))), acMask);
+            // iron security bars over the ground-floor windows of some buildings
+            float barOn = step(h21(vec2(vSeed * 7.7, 1.0)), 0.45) * step(vH, cell.y * 0.98) * step(wt, 2.5) * (1.0 - far);
+            float bars = barOn * aaPulse(u / 0.13, 0.0, 0.16, max(fwidth(u / 0.13), 1e-4)) * winMask;
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.07, 0.07, 0.07), bars * 0.9);
+            winMask *= 1.0 - max(acMask, bars);
             diffuseColor.rgb *= 1.0 - frame * 0.3;
             diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.84, 0.8), sill * 0.7);
             glassy = winMask * (1.0 - blind * blindLine * 2.0);
             sBumpK = 1.0 - winMask;
             // a line at each floor slab on commercial buildings
-            if (vWin > 1.5) diffuseColor.rgb *= 1.0 - 0.16 * aaPulse(v / cell.y, 0.0, 0.05, max(fwidth(v / cell.y), 1e-4));
+            if (wt > 1.5) diffuseColor.rgb *= 1.0 - 0.16 * aaPulse(v / cell.y, 0.0, 0.05, max(fwidth(v / cell.y), 1e-4));
+            if (vWin > 4.5 && vH < 2.8) {
+              // the dingbat's carport: open bays between thin posts, dark inside
+              float bay = aaPulse(u / 5.6, 0.07, 1.0, max(fwidth(u / 5.6), 1e-4)) * (1.0 - smoothstep(2.55, 2.75, vH));
+              diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.05, 0.05, 0.055), bay);
+              winMask *= 1.0 - bay; glassy *= 1.0 - bay;
+            }
           }
           #ifdef REAL_ATTRS
             diffuseColor.rgb *= mix(0.68, 1.0, smoothstep(0.0, 1.8, vH));   // a soft contact shadow at the foot of the wall
@@ -694,9 +710,9 @@ export function facadeMaterial(uniforms, real = false) {
         roughnessFactor = mix(roughnessFactor, 0.04, glassy);`)
       .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
         #ifdef REAL_ATTRS
-          metalnessFactor = mix(metalnessFactor, 0.6, glassy * step(2.5, vWin)) + glassy * 0.2;
+          metalnessFactor = mix(metalnessFactor, 0.6, glassy * step(2.5, vWin) * step(vWin, 3.5)) + glassy * 0.2;
         #else
-          metalnessFactor = mix(metalnessFactor, 0.85, glassy * step(2.5, vWin)) + glassy * 0.25;
+          metalnessFactor = mix(metalnessFactor, 0.85, glassy * step(2.5, vWin) * step(vWin, 3.5)) + glassy * 0.25;
         #endif`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         totalEmissiveRadiance += lit * uNight * winTint * (0.25 + 0.35 * h21(floor(vWPos.xz * 0.3) + floor(vWPos.y / 3.6)));`);

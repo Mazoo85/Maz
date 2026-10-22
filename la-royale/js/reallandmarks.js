@@ -51,7 +51,7 @@ export function landmarkMaterials(withSurface) {
 /* ------------------------------------------------------------- helpers */
 
 /* Pieces collected per material, merged into one mesh each at the end. */
-class Kit {
+export class Kit {
   constructor() { this.parts = new Map(); this.colliders = []; }
   add(geo, mat, x = 0, y = 0, z = 0, ry = 0, rx = 0, rz = 0) {
     const g = geo.index ? geo.toNonIndexed() : geo.clone();
@@ -103,6 +103,48 @@ function letterTexture(ch) {
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 8;
   return t;
+}
+
+/* The LA Metro logo: a white M on the dark circle. */
+let METRO_TEX = null;
+function metroTex() {
+  if (METRO_TEX) return METRO_TEX;
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#2b2b2b'; ctx.fillRect(0, 0, 128, 128);
+  ctx.fillStyle = '#e8e8e8'; ctx.beginPath(); ctx.arc(64, 64, 52, 0, 6.283); ctx.fill();
+  ctx.fillStyle = '#2b2b2b'; ctx.font = 'bold 74px Helvetica, Arial, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('M', 64, 68);
+  METRO_TEX = new THREE.CanvasTexture(c);
+  METRO_TEX.colorSpace = THREE.SRGBColorSpace;
+  return METRO_TEX;
+}
+
+/* An LA Metro subway entrance: the stair down under a glass canopy, and the pylon with the M. */
+function metroPortal(name, lat, lon, deg) {
+  return {
+    name, at: [lat, lon], metro: true,
+    build({ x, z, gh, M }) {
+      const k = new Kit(), a = THREE.MathUtils.degToRad(deg), ux = Math.cos(a), uz = -Math.sin(a), y = gh(x, z);
+      k.box(9, 0.3, 3.6, M.dark, x, y - 0.2, z, a);                       // the stairwell, dark below
+      for (const s of [-1, 1]) k.box(9, 1.0, 0.25, M.concrete, x - uz * s * 1.9, y, z + ux * s * 1.9, a);
+      k.box(10.5, 0.15, 5.2, M.glass, x, y + 3.6, z, a);                   // the canopy
+      for (const [u, v] of [[-5, -2.4], [5, -2.4], [-5, 2.4], [5, 2.4]]) k.box(0.18, 3.6, 0.18, M.dark, x + ux * u - uz * v, y, z + uz * u + ux * v, a);
+      const px = x + ux * 6.5, pz = z + uz * 6.5;
+      k.box(0.9, 5.4, 0.9, M.dark, px, gh(px, pz), pz, a);
+      const logo = new THREE.MeshStandardMaterial({ map: metroTex(), roughness: 0.4, emissive: 0xffffff, emissiveMap: metroTex(), emissiveIntensity: 0.25 });
+      const g = new THREE.Group();
+      for (let f = 0; f < 4; f++) {
+        const p = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 0.85), logo);
+        const fa = a + (f * Math.PI) / 2;
+        p.position.set(px + Math.sin(fa) * 0.46, gh(px, pz) + 4.7, pz + Math.cos(fa) * 0.46);
+        p.rotation.y = fa;
+        g.add(p);
+      }
+      k.extra = g;
+      return k;
+    }
+  };
 }
 
 /* ----------------------------------------------------------- landmarks
@@ -355,6 +397,21 @@ export const REAL_LANDMARKS = [
   { name: 'Pantages Theatre', at: [34.10223, -118.32578], find: (b) => /Pantages/.test(b.name || ''), style: { wall: '#d8c7a2', win: 0 } },
   { name: 'Egyptian Theatre', at: [34.10081, -118.33659], find: (b) => /Egyptian/.test(b.name || ''), style: { wall: '#cdb48a', win: 0 } },
   { name: 'El Capitan Theatre', at: [34.10116, -118.34010], find: (b) => /El Capitan/.test(b.name || ''), style: { wall: '#e8dcc0', win: 1 } },
+  // the LA Metro B and D Line stations: an entrance at each
+  metroPortal('Hollywood/Highland station', 34.10172, -118.33858, 0),
+  metroPortal('Hollywood/Vine station', 34.10118, -118.32588, 90),
+  metroPortal('Hollywood/Western station', 34.10138, -118.30858, 0),
+  metroPortal('Vermont/Sunset station', 34.09812, -118.29188, 90),
+  metroPortal('Vermont/Santa Monica station', 34.09068, -118.29188, 90),
+  metroPortal('Vermont/Beverly station', 34.07662, -118.29188, 90),
+  metroPortal('Wilshire/Vermont station', 34.06238, -118.28998, 0),
+  metroPortal('Wilshire/Normandie station', 34.06212, -118.30068, 0),
+  metroPortal('Wilshire/Western station', 34.06212, -118.30858, 0),
+  metroPortal('Westlake/MacArthur Park station', 34.05665, -118.27582, 90),
+  metroPortal('7th St/Metro Center station', 34.04862, -118.25898, 54),
+  metroPortal('Pershing Square station', 34.04922, -118.25112, 54),
+  metroPortal('Civic Center/Grand Park station', 34.05532, -118.24598, 54),
+  metroPortal('Little Tokyo/Arts District station', 34.05002, -118.23802, 0),
   {
     name: 'Angels Flight', at: [34.05130, -118.25020],
     build({ x, z, gh, M }) {

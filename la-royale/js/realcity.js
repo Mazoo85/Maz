@@ -16,10 +16,11 @@
  */
 
 import * as THREE from '../vendor/three.module.min.js';
+import { mergeGeometries as mergeGeos } from '../vendor/jsm/utils/BufferGeometryUtils.js';
 import { makeAtmosphere } from './atmosphere.js';
 import { facadeMaterial, withSurface, fadeNearCamera, buildFurniture, makeDetailTexture, makeWaterNormals, mulberry, shadeHex, resample, noiseFill, SURFACE_GLSL } from './render.js';
 import { buildFlora } from './flora.js';
-import { REAL_LANDMARKS, landmarkMaterials } from './reallandmarks.js';
+import { REAL_LANDMARKS, landmarkMaterials, Kit } from './reallandmarks.js';
 import { carGeometries, carMaterials } from './streetlife.js';
 import { PROP } from './street.js';
 import { projector, decodeTile, BTYPE, ROOF, MATERIAL, RCLASS, AREA, ringArea } from './osm.js';
@@ -274,6 +275,8 @@ export function styleOf(b, area) {
   else if (houseLike || type === BTYPE.apartments || type === BTYPE.school || type === BTYPE.church) win = 1;
   else if (type === BTYPE.other) win = b.h > 30 ? (h < 0.4 ? 3 : 2) : area > 600 || b.h > 9 ? 2 : 1;
   else win = 2;
+  // the dingbat: a two- or three-storey stucco box of flats over an open carport (LA, 1950s–60s)
+  if (win === 1 && !houseLike && b.h >= 6.5 && b.h <= 12 && area > 150 && area < 900 && hashOf(b.pts[0][0] * 1.7, b.pts[0][1] * 0.3) < 0.4) win = 5;
   const wall = b.col !== null && b.col !== undefined ? `#${b.col.toString(16).padStart(6, '0')}`
     : mat === MATERIAL.brick ? pick(BRICK, h) : mat === MATERIAL.concrete || mat === MATERIAL.metal ? pick(CONCRETE, h)
       : mat === MATERIAL.glass ? pick(GLASS, h) : mat === MATERIAL.wood ? pick(WOOD, h) : mat === MATERIAL.stone ? pick(STONE, h) : pick(STUCCO, h);
@@ -333,7 +336,7 @@ function addBuilding(walls, roofs, b, base, st, opts = {}) {
   const wallCol = new THREE.Color(st.wall), roofCol = new THREE.Color(st.roofCol);
   const parapet = st.roof === ROOF.flat && !st.house && b.h >= 6 && !opts.far ? 0.8 : 0;
   // storeys that fit the building's real height exactly
-  const typical = st.win === 1 ? 3.1 : st.win === 3 ? 3.9 : st.win === 4 ? 6.5 : 3.8;
+  const typical = st.win === 1 || st.win === 5 ? 3.1 : st.win === 3 ? 3.9 : st.win === 4 ? 6.5 : 3.8;
   const floor = b.h / Math.max(1, Math.round(b.h / typical));
   const ex = { aWin: st.win, aMat: st.surf, aSeed: seed, aBase: base, aTop: top, aFloor: floor };
   // walls (from below the ground on slopes, so nothing floats)
@@ -352,6 +355,24 @@ function addBuilding(walls, roofs, b, base, st, opts = {}) {
     if (st.win !== 3 && b.h >= 8 && st.roof === ROOF.flat) ledge(walls, pts, top + parapet - 0.55, top + parapet + 0.1, 0.32, trim, plain);
     // a belt course over the shopfronts
     if (st.win === 2 && b.h >= 7) ledge(walls, pts, base + 3.9, base + 4.25, 0.18, trim, plain);
+    // balconies (or the open walkways of a courtyard block) along one or two walls of the flats
+    if ((st.win === 1 || st.win === 5) && b.h >= 8 && b.h <= 45 && hashOf(b.pts[0][1] * 0.9, b.pts[0][0] * 1.3) < 0.45) {
+      const rail = new THREE.Color(st.trim).multiplyScalar(0.55);
+      for (let i = 0; i < n; i++) {
+        const [ax, az] = pts[i], [bx, bz] = pts[(i + 1) % n], l = Math.hypot(bx - ax, bz - az);
+        if (l < 8 || hashOf(ax * 0.7 + i, az * 0.7) > 0.5) continue;
+        const nx = (bz - az) / l, nz = -(bx - ax) / l, tx = (bx - ax) / l, tz = (bz - az) / l;
+        const s0 = l * 0.08, s1 = l * 0.92, dep = 1.2;
+        const P = (s, o, y) => [ax + tx * s + nx * o, y, az + tz * s + nz * o];
+        for (let y = base + (st.win === 5 ? 2.8 : floor); y < top - 1.5; y += floor) {
+          walls.quad(P(s0, 0, y), P(s1, 0, y), P(s1, dep, y), P(s0, dep, y), 0, 1, 0, trim, plain);
+          walls.quad(P(s0, dep, y - 0.18), P(s1, dep, y - 0.18), P(s1, dep, y), P(s0, dep, y), nx, 0, nz, trim, plain);
+          walls.quad(P(s0, 0, y - 0.18), P(s1, 0, y - 0.18), P(s1, dep, y - 0.18), P(s0, dep, y - 0.18), 0, -1, 0, trim, plain);
+          walls.quad(P(s0, dep, y), P(s1, dep, y), P(s1, dep, y + 1.0), P(s0, dep, y + 1.0), nx, 0, nz, rail, plain);
+          walls.quad(P(s0, dep, y), P(s1, dep, y), P(s1, dep, y + 1.0), P(s0, dep, y + 1.0), -nx, 0, -nz, rail, plain);
+        }
+      }
+    }
   }
   // the roof
   let ridge = top;
@@ -556,6 +577,150 @@ function walkOfFameTex() {
     star(108, 42); ctx.fillStyle = '#d98c8c'; ctx.fill();            // coral pink
     ctx.fillStyle = '#c7a24a'; ctx.fillRect(w / 2 - 52, w / 2 - 22, 104, 12); ctx.fillRect(w / 2 - 40, w / 2 - 4, 80, 10);
     ctx.beginPath(); ctx.arc(w / 2, w / 2 + 34, 14, 0, 6.283); ctx.fill();
+  });
+}
+
+/* Eight murals, painted procedurally in LA's styles: a Pacific sunset through the palms, the
+ * San Gabriels at dusk, waves, Chicano-style sun and zigzags, bougainvillea, Memphis shapes,
+ * a postcard greeting, a hummingbird among flowers. */
+function muralAtlas() {
+  return canvasTex('murals', 2048, 1024, (ctx) => {
+    const rnd = mulberry(1977);
+    const cell = (k, draw) => { ctx.save(); ctx.translate((k % 4) * 512, Math.floor(k / 4) * 512); ctx.beginPath(); ctx.rect(0, 0, 512, 512); ctx.clip(); draw(); ctx.restore(); };
+    const grad = (stops) => { const g = ctx.createLinearGradient(0, 0, 0, 512); stops.forEach(([o, c]) => g.addColorStop(o, c)); ctx.fillStyle = g; ctx.fillRect(0, 0, 512, 512); };
+    const palm = (x, y, h, col) => {
+      ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 9;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + 18, y - h / 2, x + 10, y - h); ctx.stroke();
+      for (let f = 0; f < 9; f++) { const a = -Math.PI / 2 + (f - 4) * 0.42; ctx.beginPath(); ctx.ellipse(x + 10 + Math.cos(a) * 34, y - h + Math.sin(a) * 26 + 10, 40, 8, a, 0, 6.283); ctx.fill(); }
+    };
+    cell(0, () => {
+      grad([[0, '#2b1055'], [0.45, '#d7396b'], [0.75, '#ff9d3c'], [1, '#ffd36b']]);
+      ctx.fillStyle = '#ffe49a'; ctx.beginPath(); ctx.arc(256, 330, 90, 0, 6.283); ctx.fill();
+      ctx.fillStyle = '#1a3d6b'; ctx.fillRect(0, 380, 512, 132);
+      for (let i = 0; i < 6; i++) { ctx.fillStyle = `rgba(255,220,150,${0.5 - i * 0.07})`; ctx.fillRect(170 + i * 8, 392 + i * 16, 172 - i * 16, 5); }
+      palm(70, 512, 330, '#140a1e'); palm(420, 512, 380, '#140a1e'); palm(470, 512, 250, '#140a1e');
+    });
+    cell(1, () => {
+      grad([[0, '#f6b26b'], [0.5, '#e38b9e'], [1, '#6c5b9e']]);
+      for (const [base, col, amp] of [[300, '#4b3f72', 120], [360, '#352b55', 90], [420, '#22203a', 60]]) {
+        ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, 512);
+        for (let x = 0; x <= 512; x += 16) ctx.lineTo(x, base - Math.abs(Math.sin(x * 0.013 + base) * amp) - rnd() * 18);
+        ctx.lineTo(512, 512); ctx.fill();
+      }
+      ctx.fillStyle = '#fff6e0'; ctx.font = 'bold 64px Georgia, serif'; ctx.textAlign = 'center'; ctx.fillText('San Gabriel', 256, 110);
+    });
+    cell(2, () => {
+      grad([[0, '#8fd3e8'], [1, '#1b6ca8']]);
+      for (let row = 0; row < 7; row++) for (let x = -40; x < 560; x += 110) {
+        const y = 120 + row * 60;
+        ctx.strokeStyle = row % 2 ? '#ffffff' : '#0d4f86'; ctx.lineWidth = 12;
+        ctx.beginPath(); ctx.arc(x + (row % 2) * 55, y, 40, Math.PI, Math.PI * 1.9); ctx.stroke();
+      }
+    });
+    cell(3, () => {
+      ctx.fillStyle = '#1f4e79'; ctx.fillRect(0, 0, 512, 512);
+      for (let i = 0; i < 24; i++) { ctx.fillStyle = i % 2 ? '#f2c14e' : '#e4572e'; ctx.beginPath(); ctx.moveTo(256, 256); ctx.arc(256, 256, 260, (i / 24) * 6.283, ((i + 1) / 24) * 6.283); ctx.fill(); }
+      ctx.fillStyle = '#f9e076'; ctx.beginPath(); ctx.arc(256, 256, 95, 0, 6.283); ctx.fill();
+      ctx.fillStyle = '#3b7d4f';
+      for (let y = 0; y < 512; y += 64) for (let x = 0; x < 512; x += 64) if ((x + y) % 128 === 0) { ctx.beginPath(); ctx.moveTo(x, y + 64); ctx.lineTo(x + 32, y + 32); ctx.lineTo(x + 64, y + 64); ctx.fill(); }
+      ctx.fillStyle = '#7b2d26'; ctx.beginPath(); ctx.arc(256, 256, 40, 0, 6.283); ctx.fill();
+    });
+    cell(4, () => {
+      ctx.fillStyle = '#f4eee2'; ctx.fillRect(0, 0, 512, 512);
+      for (let i = 0; i < 70; i++) {
+        const x = rnd() * 512, y = rnd() * 512, r = 18 + rnd() * 30;
+        ctx.fillStyle = '#2f6b33'; ctx.beginPath(); ctx.ellipse(x, y, r * 1.2, r * 0.6, rnd() * 3, 0, 6.283); ctx.fill();
+        ctx.fillStyle = rnd() < 0.7 ? '#d6337a' : '#f07ab2';
+        for (let p = 0; p < 3; p++) { ctx.beginPath(); ctx.arc(x + (rnd() - 0.5) * r, y + (rnd() - 0.5) * r, r * 0.45, 0, 6.283); ctx.fill(); }
+      }
+    });
+    cell(5, () => {
+      ctx.fillStyle = '#fbe9d0'; ctx.fillRect(0, 0, 512, 512);
+      const cols = ['#ff5e7e', '#00b2a9', '#ffc845', '#2d2a6e', '#7ed957'];
+      for (let i = 0; i < 26; i++) {
+        ctx.fillStyle = cols[i % cols.length]; const x = rnd() * 512, y = rnd() * 512, s = 30 + rnd() * 80;
+        const t = i % 4;
+        if (t === 0) { ctx.beginPath(); ctx.arc(x, y, s / 2, 0, 6.283); ctx.fill(); }
+        else if (t === 1) { ctx.save(); ctx.translate(x, y); ctx.rotate(rnd() * 3); ctx.fillRect(-s / 2, -s / 6, s, s / 3); ctx.restore(); }
+        else if (t === 2) { ctx.beginPath(); ctx.moveTo(x, y - s / 2); ctx.lineTo(x + s / 2, y + s / 2); ctx.lineTo(x - s / 2, y + s / 2); ctx.fill(); }
+        else { ctx.strokeStyle = cols[(i + 2) % cols.length]; ctx.lineWidth = 8; ctx.beginPath(); for (let k = 0; k < 6; k++) ctx.lineTo(x + k * 18, y + (k % 2 ? 18 : -18)); ctx.stroke(); }
+      }
+    });
+    cell(6, () => {
+      grad([[0, '#79c7e3'], [1, '#e9f6fb']]);
+      ctx.fillStyle = '#ffcc33'; ctx.beginPath(); ctx.arc(420, 90, 50, 0, 6.283); ctx.fill();
+      ctx.font = 'italic bold 54px Georgia, serif'; ctx.fillStyle = '#c0392b'; ctx.textAlign = 'center'; ctx.fillText('Greetings from', 256, 170);
+      ctx.font = 'bold 118px Impact, Arial Black, sans-serif'; ctx.lineWidth = 10; ctx.strokeStyle = '#1d3557'; ctx.strokeText('L.A.', 256, 320); ctx.fillStyle = '#f4a261'; ctx.fillText('L.A.', 256, 320);
+      palm(60, 512, 220, '#2a6f4a'); palm(460, 512, 260, '#2a6f4a');
+    });
+    cell(7, () => {
+      ctx.fillStyle = '#163a2b'; ctx.fillRect(0, 0, 512, 512);
+      for (let i = 0; i < 40; i++) { ctx.fillStyle = ['#ff7f50', '#ffd166', '#ef476f', '#06d6a0'][i % 4]; ctx.beginPath(); ctx.arc(rnd() * 512, rnd() * 512, 10 + rnd() * 18, 0, 6.283); ctx.fill(); }
+      ctx.save(); ctx.translate(256, 250);
+      ctx.fillStyle = '#1e9e8a'; ctx.beginPath(); ctx.ellipse(0, 0, 70, 34, -0.4, 0, 6.283); ctx.fill();
+      ctx.fillStyle = '#c2185b'; ctx.beginPath(); ctx.ellipse(-40, 10, 26, 22, 0, 0, 6.283); ctx.fill();
+      ctx.fillStyle = '#2bc0a9'; ctx.beginPath(); ctx.ellipse(20, -60, 110, 26, -1.1, 0, 6.283); ctx.fill(); ctx.beginPath(); ctx.ellipse(40, 40, 100, 22, 0.9, 0, 6.283); ctx.fill();
+      ctx.strokeStyle = '#111'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(-60, 20); ctx.lineTo(-150, 60); ctx.stroke();
+      ctx.restore();
+    });
+  });
+}
+
+/* Graffiti: tags and throw-ups in bubble letters, on transparent. */
+function graffitiAtlas() {
+  return canvasTex('graffiti', 2048, 1024, (ctx) => {
+    ctx.clearRect(0, 0, 2048, 1024);
+    const rnd = mulberry(213);
+    const words = ['LA', 'SK8', 'RIOT', 'EKO', 'KRSH', 'NOVA', 'ZEPH', 'MSK'];
+    const fills = ['#ff3d7f', '#3ddcff', '#c6ff3d', '#ffb43d', '#ffffff', '#b06bff', '#ff5a36', '#4dff9c'];
+    words.forEach((w, k) => {
+      ctx.save(); ctx.translate((k % 4) * 512 + 256, Math.floor(k / 4) * 512 + 280); ctx.rotate((rnd() - 0.5) * 0.3);
+      ctx.font = `bold ${k % 2 ? 150 : 190}px "Arial Black", Impact, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.lineJoin = 'round'; ctx.lineWidth = 26; ctx.strokeStyle = '#111'; ctx.strokeText(w, 0, 0);
+      ctx.lineWidth = 12; ctx.strokeStyle = fills[(k + 3) % 8]; ctx.strokeText(w, 0, 0);
+      ctx.fillStyle = fills[k]; ctx.fillText(w, 0, 0);
+      ctx.fillStyle = fills[k]; for (let d = 0; d < 6; d++) ctx.fillRect(-180 + rnd() * 360, 60, 5, 20 + rnd() * 70);    // drips
+      ctx.restore();
+    });
+  });
+}
+
+/* The street-name blades of one tile: white names on LA blue (Hollywood) or green. */
+function streetSignAtlas(names) {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 32 * 64;
+  const ctx = c.getContext('2d');
+  names.forEach(({ name, hwd }, i) => {
+    const y = i * 64;
+    ctx.fillStyle = hwd ? '#1d4f9c' : '#1f6b3f'; ctx.fillRect(0, y, 512, 64);
+    ctx.strokeStyle = '#f2f2f2'; ctx.lineWidth = 3; ctx.strokeRect(4, y + 4, 504, 56);
+    ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    let size = 44; ctx.font = `bold ${size}px Helvetica, Arial, sans-serif`;
+    while (ctx.measureText(name).width > 470 && size > 16) { size -= 2; ctx.font = `bold ${size}px Helvetica, Arial, sans-serif`; }
+    ctx.fillText(name, 256, y + 34);
+    if (hwd) { ctx.fillStyle = '#ffd34a'; ctx.font = 'bold 14px Helvetica, Arial'; ctx.fillText('★ HOLLYWOOD', 70, y + 14); }
+  });
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  return t;
+}
+
+/* Eight billboards, all made up: a summer movie, a juice bar, an injury lawyer (it's LA),
+ * a surf school, a tequila, an energy drink, a streaming show and a radio station. */
+function adAtlas() {
+  return canvasTex('ads', 2048, 1024, (ctx) => {
+    const cell = (k, draw) => { ctx.save(); ctx.translate((k % 4) * 512, Math.floor(k / 4) * 512); ctx.beginPath(); ctx.rect(0, 0, 512, 512); ctx.clip(); draw(); ctx.restore(); };
+    const big = (t, y, size, col, font = 'Impact, "Arial Black", sans-serif') => { ctx.font = `bold ${size}px ${font}`; ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t, 256, y); };
+    cell(0, () => { const g = ctx.createLinearGradient(0, 0, 0, 512); g.addColorStop(0, '#0b0f2b'); g.addColorStop(1, '#c2410c'); ctx.fillStyle = g; ctx.fillRect(0, 0, 512, 512);
+      ctx.fillStyle = '#ffb703'; ctx.beginPath(); ctx.arc(256, 330, 120, 0, 6.283); ctx.fill(); big('SOLAR FLARE', 120, 76, '#ffffff'); big('IN THEATERS FRIDAY', 450, 34, '#ffe8c2', 'Helvetica, Arial'); });
+    cell(1, () => { ctx.fillStyle = '#9be15d'; ctx.fillRect(0, 0, 512, 512); ctx.fillStyle = '#ff6b6b'; ctx.beginPath(); ctx.arc(380, 260, 140, 0, 6.283); ctx.fill(); big('GREEN', 170, 96, '#0b3d20'); big('& GOLD', 290, 72, '#0b3d20'); big('JUICE BAR', 420, 40, '#0b3d20', 'Helvetica, Arial'); });
+    cell(2, () => { ctx.fillStyle = '#ffd400'; ctx.fillRect(0, 0, 512, 512); big('HURT?', 130, 120, '#111111'); big('CALL', 270, 70, '#111111'); big('1-800-555-0199', 370, 52, '#c1121f', 'Helvetica, Arial'); });
+    cell(3, () => { const g = ctx.createLinearGradient(0, 0, 0, 512); g.addColorStop(0, '#48cae4'); g.addColorStop(1, '#023e8a'); ctx.fillStyle = g; ctx.fillRect(0, 0, 512, 512);
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 16; ctx.beginPath(); ctx.arc(150, 420, 140, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); big('VENICE', 150, 92, '#ffffff'); big('SURF SCHOOL', 250, 52, '#ffffff'); });
+    cell(4, () => { ctx.fillStyle = '#1b1b1b'; ctx.fillRect(0, 0, 512, 512); ctx.fillStyle = '#c9a227'; ctx.fillRect(210, 160, 92, 250); ctx.fillRect(235, 110, 42, 60); big('CASA', 80, 70, '#c9a227'); big('LUNA', 460, 60, '#c9a227'); });
+    cell(5, () => { ctx.fillStyle = '#7209b7'; ctx.fillRect(0, 0, 512, 512); ctx.fillStyle = '#4cc9f0'; ctx.beginPath(); ctx.moveTo(280, 40); ctx.lineTo(170, 280); ctx.lineTo(260, 280); ctx.lineTo(220, 480); ctx.lineTo(350, 220); ctx.lineTo(260, 220); ctx.fill(); big('VOLT', 120, 90, '#ffffff'); });
+    cell(6, () => { ctx.fillStyle = '#e63946'; ctx.fillRect(0, 0, 512, 512); big('MIDNIGHT', 180, 86, '#ffffff'); big('ON MULHOLLAND', 280, 50, '#ffffff'); big('NOW STREAMING', 420, 36, '#ffd6d9', 'Helvetica, Arial'); });
+    cell(7, () => { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 512, 512); ctx.fillStyle = '#ff006e'; ctx.fillRect(0, 380, 512, 132); big('KMZR', 170, 140, '#3a0ca3'); big('104.3 FM', 445, 60, '#ffffff'); });
   });
 }
 
@@ -790,7 +955,11 @@ function streetPaint(roads, gh, onOtherRoad, yOff, busLane) {
       }
     }
   }
-  return { paint, curbs };
+  const junctions = [...verts.values()].filter((v) => v.legs.length >= 3).map((v) => ({
+    x: v.p[0], z: v.p[1], legs: v.legs, minCls: Math.min(...v.legs.map((l) => l.r.cls)),
+    reach: Math.max(...v.legs.map((l) => l.r.w)) / 2, dirs: v.legs.map((l) => along(l.r, l.i, l.dir, 6))
+  }));
+  return { paint, curbs, junctions, along };
 }
 
 /* ------------------------------------------------------------ the scene */
@@ -899,6 +1068,12 @@ export function buildRealScene(RW, renderer, opts = {}) {
   const carGeo = carGeometries(), carMat = carMaterials();
   const tmpCol = new THREE.Color();
   const BOX = new THREE.BoxGeometry(1, 1, 1);
+  const adMat = new THREE.MeshStandardMaterial({ map: adAtlas(), emissiveMap: adAtlas(), emissive: 0xffffff, emissiveIntensity: 0.05, roughness: 0.55 });
+  glowMats.push({ mat: adMat, day: 0.05, night: 0.7 });
+  const POST = new THREE.CylinderGeometry(0.05, 0.06, 3.9, 8).translate(0, 1.95, 0);
+  const METER = mergeGeos([new THREE.CylinderGeometry(0.04, 0.04, 1.15, 6).translate(0, 0.58, 0), new THREE.BoxGeometry(0.22, 0.34, 0.16).translate(0, 1.3, 0)]);
+  const muralMat = new THREE.MeshStandardMaterial({ map: muralAtlas(), roughness: 0.85 });
+  const tagMat = new THREE.MeshStandardMaterial({ map: graffitiAtlas(), roughness: 0.8, transparent: true, alphaTest: 0.08, depthWrite: false });
   const STAR = new THREE.PlaneGeometry(1.0, 1.0).rotateX(-Math.PI / 2);
   const starMat = new THREE.MeshStandardMaterial({ map: walkOfFameTex(), roughness: 0.35, metalness: 0.1 });
   const LM = landmarkMaterials(withSurface);
@@ -1109,6 +1284,31 @@ export function buildRealScene(RW, renderer, opts = {}) {
     }
     if (ac.length) batch(ac, BOX, acMat, { far: 600, cast: true });
 
+    /* billboards up on the commercial roofs, facing the street (the ads are made up) */
+    const boards = new Kit(), adFaces = new Mesh(), adCol = new THREE.Color(1, 1, 1);
+    let nb = 0;
+    for (const r of blds) {
+      if (nb >= 8 || r.st.roof !== ROOF.flat || r.st.house || (r.st.win !== 2 && r.st.win !== 4) || r.b.h < 5 || r.b.h > 30 || r.area < 300) continue;
+      if (hashOf(r.a * 0.13, r.e * 0.17) > 0.09) continue;
+      const R = minRect(r.pts);
+      if (!R || R.L < 9) continue;
+      const ry = -Math.atan2(R.uz, R.ux), y = r.base + r.b.h + 0.8;
+      const nx = -R.uz, nz = R.ux, cx = R.cx + nx * (R.Wd - 2), cz = R.cz + nz * (R.Wd - 2);
+      for (const s2 of [-4.5, 4.5]) boards.box(0.35, 4.2, 0.35, LM.dark, cx + R.ux * s2, y, cz + R.uz * s2, ry);
+      boards.box(15, 0.15, 1.2, LM.dark, cx - nx * 0.5, y + 4.0, cz - nz * 0.5, ry);
+      boards.box(14.9, 4.5, 0.3, LM.dark, cx - nx * 0.25, y + 4.2, cz - nz * 0.25, ry);
+      const cell = Math.floor(hashOf(r.e, r.a) * 8), cu = (cell % 4) / 4, cv = 1 - Math.floor(cell / 4) / 2;
+      const P = (s2, yy) => [cx + R.ux * s2 + nx * 0.05, yy, cz + R.uz * s2 + nz * 0.05];
+      adFaces.quad(P(-7.3, y + 4.25), P(7.3, y + 4.25), P(7.3, y + 8.6), P(-7.3, y + 8.6), nx, 0, nz, adCol, null, [[cu + 0.25, cv - 0.5], [cu, cv - 0.5], [cu, cv], [cu + 0.25, cv]]);
+      nb++;
+    }
+    if (nb) {
+      group.add(boards.object());
+      const am = new THREE.Mesh(adFaces.geometry(), adMat);
+      group.add(am); culls.push({ mesh: am, cx: tcx, cz: tcz, half: T / 2, far: 1400 });
+    }
+
+
     /* helipads: for decades LA's fire code made every tower over 75 ft have
      * one, which is why Downtown's skyline is flat-topped */
     const pads = new Mesh(), padCol = new THREE.Color(1, 1, 1);
@@ -1136,6 +1336,7 @@ export function buildRealScene(RW, renderer, opts = {}) {
     }
     yield;
 
+    let junctions = [], alongRoad = null;
     /* roads, sidewalks, parking lots */
     const groups = new Map();                    // material → Mesh builder
     const meshFor = (mat) => groups.get(mat) || groups.set(mat, new Mesh()).get(mat);
@@ -1226,7 +1427,9 @@ export function buildRealScene(RW, renderer, opts = {}) {
       }
     }
     {
-      const { paint, curbs } = streetPaint(roads, gh, onOtherRoad, Y_OFF, (r) => busLanes(r));
+      const sp = streetPaint(roads, gh, onOtherRoad, Y_OFF, (r) => busLanes(r));
+      const { paint, curbs } = sp;
+      junctions = sp.junctions; alongRoad = sp.along;
       if (paint.count) { const pm = new THREE.Mesh(paint.geometry(), paintMat); pm.receiveShadow = !lo; group.add(pm); culls.push({ mesh: pm, cx: tcx, cz: tcz, half: T / 2, far: 700 }); }
       if (curbs.count) { const cm = new THREE.Mesh(curbs.geometry(), curbMat); cm.receiveShadow = !lo; group.add(cm); culls.push({ mesh: cm, cx: tcx, cz: tcz, half: T / 2, far: 500 }); }
     }
@@ -1258,6 +1461,35 @@ export function buildRealScene(RW, renderer, opts = {}) {
       for (const [x, z] of pts) { a0 = Math.min(a0, x); b0 = Math.min(b0, z); c0 = Math.max(c0, x); d0 = Math.max(d0, z); }
       if (!pool) water.push({ pts, level: lvl, a: a0, b: b0, c: c0, d: d0 });
     }
+    yield;
+
+    /* murals on the blank walls (LA has thousands), graffiti low on the industrial ones */
+    const art = new Mesh(), tags = new Mesh(), artCol = new THREE.Color(1, 1, 1);
+    let murals = 0, tagged = 0;
+    for (const r of blds) {
+      const win = r.st.win;
+      if (r.st.house || r.b.h < 5 || r.b.mh > 0) continue;
+      for (let i = 0; i < r.pts.length; i++) {
+        const [ax, az] = r.pts[i], [bx, bz] = r.pts[(i + 1) % r.pts.length], l = Math.hypot(bx - ax, bz - az);
+        if (l < 6) continue;
+        const nx = (bz - az) / l, nz = -(bx - ax) / l, tx = (bx - ax) / l, tz = (bz - az) / l, hh = hashOf(ax * 1.1 + i, az * 0.9 - i);
+        const facesStreet = onOtherRoad((ax + bx) / 2 + nx * 9, (az + bz) / 2 + nz * 9, -1);
+        const P = (s, y) => [ax + tx * s + nx * 0.36, y, az + tz * s + nz * 0.36];
+        if ((win === 0 || win === 4) && l >= 10 && hh < 0.18 && murals < 30 && facesStreet) {
+          const cell = Math.floor(hashOf(bx, bz) * 8), cu = (cell % 4) / 4, cv = 1 - Math.floor(cell / 4) / 2;
+          const w = Math.min(l * 0.85, 30), s0 = (l - w) / 2, y0 = r.base + 0.6, y1 = r.base + Math.min(r.b.h - 0.8, 0.6 + w * 0.5);
+          art.quad(P(s0 + w, y0), P(s0, y0), P(s0, y1), P(s0 + w, y1), nx, 0, nz, artCol, null, [[cu, cv - 0.5], [cu + 0.25, cv - 0.5], [cu + 0.25, cv], [cu, cv]]);
+          murals++;
+        } else if ((win === 4 || win === 0 || win === 5) && hh > 0.62 && tagged < 60) {
+          const cell = Math.floor(hashOf(az, ax) * 8), cu = (cell % 4) / 4, cv = 1 - Math.floor(cell / 4) / 2;
+          const w = Math.min(l * 0.6, 5 + hh * 3), s0 = (l - w) * hashOf(ax, bz), y0 = r.base + 0.3, y1 = y0 + w * 0.42;
+          tags.quad(P(s0 + w, y0), P(s0, y0), P(s0, y1), P(s0 + w, y1), nx, 0, nz, artCol, null, [[cu, cv - 0.5], [cu + 0.25, cv - 0.5], [cu + 0.25, cv], [cu, cv]]);
+          tagged++;
+        }
+      }
+    }
+    if (art.count) { const am = new THREE.Mesh(art.geometry(), muralMat); am.receiveShadow = !lo; group.add(am); culls.push({ mesh: am, cx: tcx, cz: tcz, half: T / 2, far: 900 }); }
+    if (tags.count) { const tm = new THREE.Mesh(tags.geometry(), tagMat); tm.receiveShadow = !lo; group.add(tm); culls.push({ mesh: tm, cx: tcx, cz: tcz, half: T / 2, far: 350 }); }
     yield;
 
     /* trees: the mapped ones, then street trees down the parkways, park
@@ -1399,6 +1631,85 @@ export function buildRealScene(RW, renderer, opts = {}) {
       }
     }
     for (const part of furniture[PROP.POWER_POLE]) batch(poles, part.geo, part.mat, { far: part.far, cast: !lo });
+
+    /* street-name signs on a post at a corner of each junction (blue in Hollywood, green elsewhere),
+     * LA Metro bus stops by the junctions of the boulevards, bins out on the kerb, parking meters */
+    const nameOf = (r) => (r.name || '').replace(/\bBoulevard\b/, 'Blvd').replace(/\bAvenue\b/, 'Ave').replace(/\bStreet\b/, 'St').replace(/\bDrive\b/, 'Dr').replace(/\bPlace\b/, 'Pl').replace(/\bRoad\b/, 'Rd').replace(/^North /, 'N ').replace(/^South /, 'S ').replace(/^East /, 'E ').replace(/^West /, 'W ');
+    const signNames = [], signIdx = new Map(), namePosts = [], blades = new Mesh();
+    const stops = [], shelters = new Kit();
+    for (const jn of junctions.slice(0, 120)) {
+      if (jn.minCls > RCLASS.residential) continue;
+      const named = jn.legs.map((l, k) => ({ l, k, name: nameOf(l.r) })).filter((q) => q.name && q.l.r.cls <= RCLASS.residential);
+      const a = named[0], b = named.find((q) => q.name !== a?.name);
+      if (!a || !b || namePosts.length >= 40) continue;
+      const [, , ax, az] = jn.dirs[a.k], [, , bx, bz] = jn.dirs[b.k];
+      let mx = ax + bx, mz = az + bz; const ml = Math.hypot(mx, mz) || 1; mx /= ml; mz /= ml;
+      const off = (jn.reach + 1.6) / Math.max(0.5, Math.sqrt((1 + ax * bx + az * bz) / 2)) * 0.75 + 1;
+      const px = jn.x + mx * off, pz = jn.z + mz * off;
+      if (onOtherRoad(px, pz, -1, 0.2) || inBuilding(px, pz, 0.4)) continue;
+      const [lat, lon] = RW.toLatLon(px, pz), hwd = lat > 34.09 && lon < -118.30;
+      const y = gh(px, pz);
+      namePosts.push({ x: px, z: pz, py: y, ry: 0 });
+      [[a, ax, az, 3.25], [b, bx, bz, 3.55]].forEach(([q, tx, tz, hgt]) => {
+        const key = `${q.name}|${hwd ? 1 : 0}`;
+        if (!signIdx.has(key)) { signIdx.set(key, signNames.length); signNames.push({ name: q.name, hwd }); }
+        const cell = signIdx.get(key);
+        if (cell >= 32) return;
+        const [v0, v1] = [1 - (cell + 1) / 32, 1 - cell / 32];
+        const w = 1.9, hh = 0.32, nx = -tz, nz = tx;
+        const P = (s, yy) => [px + tx * s + nx * 0.03, y + yy, pz + tz * s + nz * 0.03];
+        const Q = (s, yy) => [px + tx * s - nx * 0.03, y + yy, pz + tz * s - nz * 0.03];
+        blades.quad(P(-w / 2, hgt), P(w / 2, hgt), P(w / 2, hgt + hh), P(-w / 2, hgt + hh), nx, 0, nz, white, null, [[1, v0], [0, v0], [0, v1], [1, v1]]);
+        blades.quad(Q(-w / 2, hgt), Q(w / 2, hgt), Q(w / 2, hgt + hh), Q(-w / 2, hgt + hh), -nx, 0, -nz, white, null, [[0, v0], [1, v0], [1, v1], [0, v1]]);
+      });
+      // a bus stop on the boulevard: bench, sign, and a shelter at the busier ones
+      const big = jn.legs.find((l) => l.r.cls <= RCLASS.secondary && !l.r.oneway);
+      if (big && hashOf(jn.x, jn.z) < 0.45 && stops.length < 10) {
+        const [sx, sz, tx, tz] = alongRoad(big.r, big.i, big.dir, jn.reach + 14);
+        const rx = tz, rz = -tx, so = big.r.w / 2 + 2.1;          // the kerb on the right of traffic coming in
+        const bx2 = sx + rx * so, bz2 = sz + rz * so;
+        if (!onOtherRoad(bx2, bz2, big.r.id, 0.2) && !inBuilding(bx2, bz2, 1.5)) {
+          const ry = Math.atan2(rx, rz), by = gh(bx2, bz2);
+          stops.push({ x: bx2, z: bz2, py: by, ry: ry + Math.PI });
+          if (hashOf(jn.z, jn.x) < 0.6) {
+            const ox = bx2 + rx * 0.9, oz = bz2 + rz * 0.9;
+            shelters.box(4.2, 0.12, 1.9, LM.dark, bx2 + rx * 0.2, by + 2.6, bz2 + rz * 0.2, ry);
+            shelters.box(4.2, 2.4, 0.06, LM.glass, ox, by + 0.15, oz, ry);
+            for (const e of [-1, 1]) shelters.box(0.1, 2.6, 0.1, LM.dark, ox - tx * e * 2, by, oz - tz * e * 2, ry);
+          }
+        }
+      }
+    }
+    if (namePosts.length) {
+      batch(namePosts, POST, LM.dark, { far: 350, cast: false });
+      const tex = streetSignAtlas(signNames.slice(0, 32));
+      const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.5, side: THREE.FrontSide });
+      disposables.push(tex, mat);
+      const bm = new THREE.Mesh(blades.geometry(), mat);
+      group.add(bm); culls.push({ mesh: bm, cx: tcx, cz: tcz, half: T / 2, far: 300 });
+    }
+    for (const part of furniture[PROP.BENCH]) batch(stops, part.geo, part.mat, { far: part.far, cast: false });
+    if (shelters.parts.size) { const so = shelters.object(); group.add(so); }
+    // bins out for collection on the residential kerbs, meters along the shopping streets
+    const bins = [], meters = [];
+    for (const r of roads) {
+      if (r.cls < RCLASS.primary || r.cls > RCLASS.residential) continue;
+      const res = r.cls === RCLASS.residential;
+      const pts = resample(r.pts, res ? 23 : 7.5);
+      for (let i = 1; i < pts.length - 1; i++) {
+        const [ax, az] = pts[i - 1], [bx, bz] = pts[i + 1], l = Math.hypot(bx - ax, bz - az) || 1, tx = (bx - ax) / l, tz = (bz - az) / l;
+        for (const sd of [-1, 1]) {
+          const hh = hashOf(pts[i][0] * 0.31 + sd, pts[i][1] * 0.27);
+          if (res ? hh > 0.25 : hh > 0.55 || r.cls > RCLASS.secondary) continue;
+          const off = res ? r.w / 2 - 0.5 : r.w / 2 + 0.55, x0 = pts[i][0] - tz * off * sd, z0 = pts[i][1] + tx * off * sd;
+          if (onOtherRoad(x0, z0, r.id, 0.3) || inBuilding(x0, z0, 0.6)) continue;
+          if (res) for (let k = 0; k < 3; k++) { const x = x0 + tx * (k - 1) * 0.85, z = z0 + tz * (k - 1) * 0.85; bins.push({ x, z, py: gh(x, z) + 0.1, ry: Math.atan2(-tz, tx) + Math.PI / 2 * sd, color: k }); }
+          else meters.push({ x: x0, z: z0, py: gh(x0, z0) + 0.1, ry: Math.atan2(-tz, tx) });
+        }
+      }
+    }
+    for (const part of furniture[PROP.BIN]) batch(bins.map((b) => ({ ...b, c: part.tint ? part.tint(b) : undefined })), part.geo, part.mat, { far: 260, cast: false });
+    batch(meters, METER, LM.dark, { far: 220, cast: false });
     if (wires.length) {
       const wg = new THREE.BufferGeometry();
       wg.setAttribute('position', new THREE.Float32BufferAttribute(wires, 3));
