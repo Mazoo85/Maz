@@ -27,8 +27,13 @@ const CELL = {
   coral: 8, bougain: 9, paradise: 10, magnolia: 11, sycBark: 12, palmBark: 13, canaryBark: 14, shrub: 15
 };
 
-export function buildFlora(W, scene, ctx) {
-  const { batch, lo, hi, fadeNearCamera, mulberry } = ctx;
+/* The textures, materials and tree models are built once and shared by
+ * every call (the true-scale map calls buildFlora once per streamed tile). */
+let LIB = null;
+function library(ctx) {
+  const key = `${ctx.lo}|${ctx.hi}`;
+  if (LIB && LIB.key === key) return LIB;
+  const { lo, hi, fadeNearCamera, mulberry } = ctx;
   const atlas = makeAtlas(mulberry);
   const mat = fadeNearCamera(new THREE.MeshStandardMaterial({ map: atlas, vertexColors: true, alphaTest: 0.42, roughness: 0.82, side: THREE.DoubleSide }));
   const solid = fadeNearCamera(new THREE.MeshStandardMaterial({ map: atlas, vertexColors: true, roughness: 0.9 }));
@@ -59,6 +64,13 @@ export function buildFlora(W, scene, ctx) {
   G.paradise = [birdOfParadise(mulberry(5))];
   G.agave = [agave()];
   G.bougain = variants((r) => shrub(r, 2.4, '#ffffff', CELL.bougain, 9, 1.5), 1);
+  LIB = { key, mat, solid, far, detail, hash, G };
+  return LIB;
+}
+
+export function buildFlora(W, scene, ctx) {
+  const { batch, lo, hi, fadeNearCamera, mulberry } = ctx;
+  const { mat, solid, far, detail, hash, G } = library(ctx);
 
   /* --------------------------------------------------- placing them */
   const buckets = {};

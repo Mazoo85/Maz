@@ -975,7 +975,8 @@ function segIntersect(a, b, c, d) {
  * colliders are still being added. Adding a collider marks it stale.
  */
 function ensureGrid(W) {
-  if (W._grid && W._gridCount === W.colliders.length) return;
+  if (W._grid && W._gridCount === W.colliders.length && !W._dirty) return;
+  W._dirty = false;
   const cells = new Map();
   for (let n = 0; n < W.colliders.length; n++) {
     const c = W.colliders[n];
@@ -1022,6 +1023,7 @@ export function query(W, x, z, r, out = []) {
  * Returns false if they don't touch; otherwise fills PEN. */
 const PEN = { d: 0, nx: 0, nz: 0 };
 export function penetrate(c, x, z, r) {
+  if (c.k === 2) return penetratePoly(c, x, z, r);
   if (c.k === 1) {
     const dx = x - c.x, dz = z - c.z;
     const d = Math.sqrt(dx * dx + dz * dz);
@@ -1047,6 +1049,32 @@ export function penetrate(c, x, z, r) {
   // back to world: inverse of the local transform
   PEN.nx = nlx * c.c + nlz * c.s;
   PEN.nz = -nlx * c.s + nlz * c.c;
+  return true;
+}
+
+/* A real building footprint: a polygon {k: 2, pts: [[x, z]…], x, z, r}
+ * (x, z, r a bounding circle). Inside it, push out through the nearest
+ * wall; outside it, push away from the nearest point on the outline. */
+function penetratePoly(c, x, z, r) {
+  const pts = c.pts;
+  let best = Infinity, bx = 0, bz = 0, inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [ax, az] = pts[j], [cx, cz] = pts[i];
+    if ((az > z) !== (cz > z) && x < ((cx - ax) * (z - az)) / (cz - az) + ax) inside = !inside;
+    const dx = cx - ax, dz = cz - az, L2 = dx * dx + dz * dz || 1;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2));
+    const px = ax + dx * t, pz = az + dz * t;
+    const d2 = (x - px) ** 2 + (z - pz) ** 2;
+    if (d2 < best) { best = d2; bx = px; bz = pz; }
+  }
+  const d = Math.sqrt(best);
+  if (!inside && d >= r) return false;
+  let nx = x - bx, nz = z - bz;
+  const l = Math.hypot(nx, nz) || 1;
+  nx /= l; nz /= l;
+  if (inside) { nx = -nx; nz = -nz; PEN.d = r + d; } else PEN.d = r - d;
+  if (l < 1e-6) { nx = x - c.x; nz = z - c.z; const m = Math.hypot(nx, nz) || 1; nx /= m; nz /= m; }
+  PEN.nx = nx; PEN.nz = nz;
   return true;
 }
 

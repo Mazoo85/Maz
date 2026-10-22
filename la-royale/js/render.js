@@ -11,11 +11,7 @@
  */
 
 import * as THREE from '../vendor/three.module.min.js';
-import { Sky } from '../vendor/jsm/objects/Sky.js';
-import { EffectComposer } from '../vendor/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from '../vendor/jsm/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from '../vendor/jsm/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from '../vendor/jsm/postprocessing/OutputPass.js';
+import { makeAtmosphere } from './atmosphere.js';
 import { mergeGeometries } from '../vendor/jsm/utils/BufferGeometryUtils.js';
 import { paintGround, paintNight } from './paint.js';
 import { ROAD_WIDTH } from './geo.js';
@@ -322,154 +318,19 @@ export function buildScene(W, renderer, opts = {}) {
   buildFlora(W, scene, ctx);
   const streetLife = buildStreetLife(W, scene, ctx);
 
-  /* ------------------------------------------ sky, sun, environment light */
-  const skyParams = (s) => {
-    const u = s.material.uniforms;
-    u.turbidity.value = 7;          // a little smog
-    u.rayleigh.value = 1.5;
-    u.mieCoefficient.value = 0.006;
-    u.mieDirectionalG.value = 0.86;
-  };
-  const sky = new Sky();
-  sky.scale.setScalar(9000);
-  skyParams(sky);
-  sky.frustumCulled = false;
-  scene.add(sky);
-  // the night sky: a deep blue veil over the scattering sky, then stars
-  const nightSky = new THREE.Mesh(new THREE.SphereGeometry(8800, 24, 12), new THREE.MeshBasicMaterial({ color: 0x050a18, transparent: true, opacity: 0, side: THREE.BackSide, depthWrite: false, fog: false }));
-  nightSky.renderOrder = -1;
-  nightSky.frustumCulled = false;
-  scene.add(nightSky);
-  const stars = makeStars();
-  scene.add(stars);
-  const moon = new THREE.Mesh(new THREE.CircleGeometry(90, 32), new THREE.MeshBasicMaterial({ color: 0xf2f0e6, transparent: true, fog: false, toneMapped: false }));
-  scene.add(moon);
-
-  const envScene = new THREE.Scene();
-  const envSky = new Sky();
-  envSky.scale.setScalar(1000);
-  skyParams(envSky);
-  envScene.add(envSky);
-  const envGround = new THREE.Mesh(new THREE.SphereGeometry(900, 16, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x7a6a55, side: THREE.BackSide }));
-  envScene.add(envGround);
-  const envVeil = new THREE.Mesh(new THREE.SphereGeometry(950, 16, 8), new THREE.MeshBasicMaterial({ color: 0x050a18, transparent: true, opacity: 0, side: THREE.BackSide, depthWrite: false }));
-  envScene.add(envVeil);
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  let envRT = null, envAge = 99, envNight = -1;
-  const envSun = new THREE.Vector3(9, 9, 9);
-
-  const hemi = new THREE.HemisphereLight(0xdfe6ee, 0x9a8466, 0.3);
-  scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xfff1d6, 3);
-  sun.castShadow = !lo;
-  const sm = hi ? 4096 : 2048;
-  sun.shadow.mapSize.set(sm, sm);
-  const sc = sun.shadow.camera;
-  const box = hi ? 260 : 200;
-  sc.left = -box; sc.right = box; sc.top = box; sc.bottom = -box; sc.near = 10; sc.far = 3000;
-  sun.shadow.bias = -0.0003;
-  sun.shadow.normalBias = 0.5;
-  sun.shadow.radius = 3;
-  scene.add(sun, sun.target);
-  scene.fog = new THREE.Fog(0xcfd3d0, 400, 5200);
-
-  /* ---------------------------------------------------- post-processing */
-  let composer = null, bloom = null;
-  if (!lo) {
-    const size = renderer.getDrawingBufferSize(new THREE.Vector2());
-    const target = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: hi ? 4 : 2 });
-    composer = new EffectComposer(renderer, target);
-    composer.addPass(new RenderPass(scene, null));
-    bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.2, 0.55, 0.9);
-    composer.addPass(bloom);
-    composer.addPass(new OutputPass());
-  }
-
-  const C = (h) => new THREE.Color(h);
-  // elevation → sun colour, sun intensity, ambient, fog, sky light
-  const keys = [
-    [-0.4, C('#7f93c8'), 0.25, 0.85, C('#0e1424'), 0.1],
-    [-0.08, C('#8fa0d0'), 0.2, 0.7, C('#2a2236'), 0.18],
-    [0.0, C('#ff8a4a'), 0.8, 0.35, C('#c2876b'), 0.45],
-    [0.1, C('#ffc88a'), 2.6, 0.3, C('#dcc0a0'), 0.5],
-    [0.3, C('#fff0d8'), 3.6, 0.28, C('#d6d3c8'), 0.55],
-    [1.0, C('#fff8ec'), 3.9, 0.28, C('#d2d4cc'), 0.6]
-  ];
-  const tc = [new THREE.Color(), new THREE.Color()];
-  const sunDir = new THREE.Vector3();
-  let nightNow = 0;
-
-  /* Time of day in hours. The sun rises over Pasadena and sets over the
-   * Pacific; the moon takes over at night. */
-  function setTime(hours) {
-    const ang = ((hours - 6) / 12) * Math.PI;
-    const elev = Math.sin(ang);
-    sunDir.set(Math.cos(ang), elev, 0.32).normalize();
-    let i = 0; while (i < keys.length - 2 && keys[i + 1][0] < elev) i++;
-    const a = keys[i], b = keys[i + 1];
-    const t = Math.min(1, Math.max(0, (elev - a[0]) / (b[0] - a[0])));
-    const night = Math.min(1, Math.max(0, (0.06 - elev) / 0.2));
-    nightNow = night;
-    sky.material.uniforms.sunPosition.value.copy(sunDir);
-    envSky.material.uniforms.sunPosition.value.copy(sunDir);
-    sun.color.copy(tc[0].copy(a[1]).lerp(b[1], t));
-    sun.intensity = a[2] + (b[2] - a[2]) * t;
-    hemi.intensity = a[3] + (b[3] - a[3]) * t;
-    hemi.groundColor.set(0x9a8466).lerp(C('#ff9a4a'), night * 0.7);
-    hemi.color.set(0xdfe6ee).lerp(C('#4a5a90'), night);
-    scene.fog.color.copy(tc[1].copy(a[4]).lerp(b[4], t));
-    scene.environmentIntensity = a[5] + (b[5] - a[5]) * t;
-    // at night the light is the moon: dim and blue
-    if (sunDir.y < -0.05) { sun.color.set('#8fa6e0'); sun.intensity = 0.35 * night; }
-    uniforms.uNight.value = night;
+  /* ------------------------------------- sky, sun, light, bloom */
+  const atmo = makeAtmosphere(scene, renderer, { quality, uniforms });
+  const { sun } = atmo;
+  atmo.onTime.push((night) => {
     terrainMat.emissiveIntensity = night * 0.9;
     for (const m of roadMats) m.emissiveIntensity = night * 1.1;
     for (const g of glowMats) g.mat.emissiveIntensity = g.day + (g.night - g.day) * night;
     glow.color.setScalar(0.85 + night * 0.9);
-    stars.material.opacity = night;
-    moon.material.opacity = night;
-    oceanMat.color.set(0x1a6b92).lerp(C('#04121c'), night * 0.75);
-    if (bloom) { bloom.strength = 0.16 + night * 0.4; bloom.threshold = 0.9 - night * 0.12; }
-    nightSky.material.opacity = night * 0.88;
-    return { elev, night };
-  }
-
-  /* Rebuild the sky's reflection now and then as the sun moves. */
-  function updateEnv() {
-    if (envRT && envAge < 1.5 && envSun.distanceTo(sunDir) < 0.03 && Math.abs(envNight - nightNow) < 0.05) return;
-    envNight = nightNow;
-    envAge = 0;
-    envSun.copy(sunDir);
-    envGround.material.color.set(0x7a6a55).multiplyScalar(Math.max(0.08, 1 - nightNow * 0.9));
-    envVeil.material.opacity = nightNow * 0.92;
-    const rt = pmrem.fromScene(envScene, 0, 1, 2000);
-    if (envRT) envRT.dispose();
-    envRT = rt;
-    scene.environment = rt.texture;
-  }
-
-  const tmpV = new THREE.Vector3();
-  /* Each frame: follow the player with the shadow box, animate, cull. */
-  function update(dt, time, camera, focus) {
-    uniforms.uTime.value = time;
-    envAge += dt;
-    updateEnv();
+    oceanMat.color.set(0x1a6b92).lerp(new THREE.Color('#04121c'), night * 0.75);
+  });
+  atmo.onUpdate.push((dt, time, camera) => {
     waterNormals.offset.set((time * 0.0021) % 1, (time * 0.0013) % 1);
     lakeNormals.offset.set((time * 0.01) % 1, (time * 0.007) % 1);
-    sky.position.copy(camera.position);
-    stars.position.copy(camera.position);
-    nightSky.position.copy(camera.position);
-    moon.position.copy(camera.position).addScaledVector(sunDir, -8000);
-    moon.lookAt(camera.position);
-    const high = Math.max(0, camera.position.y - 120);
-    scene.fog.near = 400 + high * 2;
-    scene.fog.far = 5200 + high * 6;
-    const lightDir = sunDir.y > -0.05 ? sunDir : tmpV.copy(sunDir).negate().setY(0.6).normalize();
-    // snap the shadow box to its texels so shadows don't crawl as you move
-    const step = (box * 2) / sm;
-    const fx = Math.round(focus.x / step) * step, fz = Math.round(focus.z / step) * step, fy = Math.max(focus.y, 0);
-    sun.position.set(fx + lightDir.x * 1400, fy + Math.max(lightDir.y, 0.1) * 1400, fz + lightDir.z * 1400);
-    sun.target.position.set(fx, fy, fz);
     for (const a of animated) {
       if (a.g.anim === 'spinZ') a.inner.rotation.z = time * a.g.speed;
       else if (a.g.anim === 'nod') a.inner.rotation.z = Math.sin(time * a.g.speed + a.g.phase) * 0.35;
@@ -480,20 +341,8 @@ export function buildScene(W, renderer, opts = {}) {
       const dx = Math.max(0, Math.abs(cx - t.cx) - TILE / 2), dz = Math.max(0, Math.abs(cz - t.cz) - TILE / 2);
       t.mesh.visible = dx * dx + dz * dz < t.far * t.far;
     }
-  }
-
-  function render(camera) {
-    if (composer) {
-      composer.passes[0].camera = camera;
-      composer.render();
-    } else renderer.render(scene, camera);
-  }
-  function setSize(w, h) {
-    if (!composer) return;
-    const pr = renderer.getPixelRatio();
-    composer.setPixelRatio(pr);
-    composer.setSize(w, h);
-  }
+  });
+  const { update, setTime, render, setSize } = atmo;
 
   return { scene, update, setTime, render, setSize, groundCanvas, sun, uniforms, streetLife, stats: { drawBatches: tiles.length } };
 }
@@ -503,7 +352,7 @@ export function buildScene(W, renderer, opts = {}) {
 /* Procedural surfaces in world space: albedo variation, relief (as a height
  * in metres, turned into a bumped normal) and roughness, for the materials
  * LA is built from. Fades out detail smaller than a pixel. */
-const SURFACE_GLSL = `
+export const SURFACE_GLSL = `
 float sh21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float svn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(sh21(i), sh21(i + vec2(1.0, 0.0)), f.x), mix(sh21(i + vec2(0.0, 1.0)), sh21(i + vec2(1.0, 1.0)), f.x), f.y); }
@@ -623,7 +472,7 @@ vec2 surfaceUV(vec3 wp, vec3 wn) {
 
 /* Give a material a procedural surface. `kind` is a GLSL int expression
  * (a constant, or a varying for per-instance surfaces). */
-function withSurface(m, kind, extraVertex = '') {
+export function withSurface(m, kind, extraVertex = '') {
   const prev = m.onBeforeCompile;
   m.onBeforeCompile = (sh, r) => {
     if (prev) prev(sh, r);
@@ -674,7 +523,7 @@ function isBrick(hex) {
   return c.r > c.g * 1.25 && c.r > c.b * 1.35 && c.r < 0.8;
 }
 
-function gableGeometry() {
+export function gableGeometry() {
   const v = [
     -0.5, 0, -0.5, 0.5, 0, -0.5, 0.5, 1, 0, -0.5, 1, 0,   // north slope
     0.5, 0, 0.5, -0.5, 0, 0.5, -0.5, 1, 0, 0.5, 1, 0,     // south slope
@@ -711,13 +560,17 @@ function archGeometry() {
  * shadow at the foot of each wall, all from the wall's position in the
  * world, so one mesh serves a bungalow and a 250 m tower. The glass is
  * mirror-smooth and picks up the sky; at night some windows light up. */
-function facadeMaterial(uniforms) {
-  const m = new THREE.MeshStandardMaterial({ roughness: 0.85, metalness: 0 });
+export function facadeMaterial(uniforms, real = false) {
+  const m = new THREE.MeshStandardMaterial({ roughness: 0.85, metalness: 0, vertexColors: real });
+  if (real) m.defines = { REAL_ATTRS: '' };
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uNight = uniforms.uNight;
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', `#include <common>
         attribute float aWin;
+        #ifdef REAL_ATTRS
+          attribute float aSeed; attribute float aBase; attribute float aTop;
+        #endif
         varying vec3 vWPos; varying vec3 vWNrm; varying float vWin; varying float vSeed; varying float vH; varying float vTop;`)
       .replace('#include <project_vertex>', `#include <project_vertex>
         vec4 wp = vec4(transformed, 1.0);
@@ -736,7 +589,10 @@ function facadeMaterial(uniforms) {
         vWNrm = normalize(mat3(modelMatrix) * wn);
         vWin = aWin;
         vH = (position.y + 0.5) * sy;
-        vTop = sy;`);
+        vTop = sy;
+        #ifdef REAL_ATTRS
+          vSeed = aSeed; vH = position.y - aBase; vTop = aTop - aBase;
+        #endif`);
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
         uniform float uNight;
@@ -789,7 +645,7 @@ function facadeMaterial(uniforms) {
 }
 
 /* Terracotta tile roofs: rows of barrel tiles, from world position. */
-function tileRoofMaterial() {
+export function tileRoofMaterial() {
   const m = new THREE.MeshStandardMaterial({ roughness: 0.7 });
   m.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
@@ -859,7 +715,7 @@ function makeSignAtlas() {
 
 /* Streetlights, poles, hydrants, benches, bins, mailboxes, signals and stop
  * signs: one merged geometry per piece, instanced per tile. */
-function buildFurniture(glowMats) {
+export function buildFurniture(glowMats) {
   const std = (o) => new THREE.MeshStandardMaterial({ roughness: 0.7, ...o });
   const paint = std({ vertexColors: true });
   const vc = (g, hex) => {
@@ -1066,7 +922,7 @@ function textMesh(p, glowMats) {
 
 /* Leaves right in front of the camera would fill the screen: let the
  * camera see through anything of this material that's very close. */
-function fadeNearCamera(m) {
+export function fadeNearCamera(m) {
   m.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vFadePos;')
@@ -1165,7 +1021,7 @@ function buildRoads(W, scene, aniso, lo) {
   return mats;
 }
 
-function lampPools(kind) {
+export function lampPools(kind) {
   const c = document.createElement('canvas');
   c.width = 64; c.height = 256;
   const ctx = c.getContext('2d');
@@ -1208,7 +1064,7 @@ function clearOfFreeways(W, pts) {
   return runs;
 }
 
-function resample(pts, step) {
+export function resample(pts, step) {
   const out = [pts[0]];
   for (let i = 0; i < pts.length - 1; i++) {
     const [ax, az] = pts[i], [bx, bz] = pts[i + 1];
@@ -1218,7 +1074,7 @@ function resample(pts, step) {
   return out;
 }
 
-function noiseFill(ctx, w, h, base, amt, seed) {
+export function noiseFill(ctx, w, h, base, amt, seed) {
   ctx.fillStyle = base; ctx.fillRect(0, 0, w, h);
   const img = ctx.getImageData(0, 0, w, h);
   const rnd = mulberry(seed);
@@ -1271,7 +1127,7 @@ function roadTexture(kind) {
   return t;
 }
 
-function sidewalkTexture() {
+export function sidewalkTexture() {
   const c = document.createElement('canvas');
   c.width = 128; c.height = 128;
   const ctx = c.getContext('2d');
@@ -1285,7 +1141,7 @@ function sidewalkTexture() {
   return t;
 }
 
-function makeDetailTexture() {
+export function makeDetailTexture() {
   const S = 256;
   const c = document.createElement('canvas');
   c.width = c.height = S;
@@ -1316,20 +1172,8 @@ function makeDetailTexture() {
 
 
 
-function makeStars() {
-  const n = 2500, p = new Float32Array(n * 3), rnd = mulberry(99);
-  for (let i = 0; i < n; i++) {
-    const y = rnd() * 0.95 + 0.05, a = rnd() * Math.PI * 2, r = Math.sqrt(1 - y * y);
-    p[i * 3] = Math.cos(a) * r * 8500; p[i * 3 + 1] = y * 8500; p[i * 3 + 2] = Math.sin(a) * r * 8500;
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(p, 3));
-  const pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false }));
-  pts.frustumCulled = false;
-  return pts;
-}
 
-function makeWaterNormals() {
+export function makeWaterNormals() {
   const S = 512;
   const c = document.createElement('canvas');
   c.width = c.height = S;
@@ -1354,11 +1198,11 @@ function makeWaterNormals() {
   return new THREE.CanvasTexture(c);
 }
 
-function shadeHex(h, k) {
+export function shadeHex(h, k) {
   return `#${new THREE.Color(h).multiplyScalar(k).getHexString()}`;
 }
 
-function mulberry(a) {
+export function mulberry(a) {
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
     let t = a;

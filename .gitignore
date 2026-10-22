@@ -49,3 +49,4 @@ forge/state/
 # a new file outside every safe zone, and the leash refused the night's work.
 # Every live run failed the same way, blaming Crew for its own bookkeeping.
 .crew/
+la-royale/data/raw/
