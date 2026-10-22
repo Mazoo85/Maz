@@ -96,7 +96,9 @@ inline GjkResult gjkDistance(const std::vector<vec2>& A, const std::vector<vec2>
             const vec2 a = mp[0];
             const vec2 b = mp[1];
             const vec2 ab = b - a;
-            float t = dot(vec2(-a.x, -a.y), ab) / dot(ab, ab);
+            // A zero-length edge (the same support point twice) is a vertex: t = 0, not 0/0 = NaN.
+            const float len2 = dot(ab, ab);
+            float t = len2 > 1e-12f ? dot(vec2(-a.x, -a.y), ab) / len2 : 0.0f;
             t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
             closest = a + ab * t;
             if (t <= 0.0f) {
@@ -141,14 +143,17 @@ inline GjkResult gjkDistance(const std::vector<vec2>& A, const std::vector<vec2>
                 const float vc = d1 * d4 - d3 * d2;
                 const float vb = d5 * d2 - d1 * d6;
                 const float va = d3 * d6 - d5 * d4;
+                // Each edge parameter guards its denominator: a degenerate (zero-length) edge reads as
+                // its first vertex instead of dividing 0 by 0 into NaN.
+                auto ratio = [](float num, float den) { return den > 1e-12f || den < -1e-12f ? num / den : 0.0f; };
                 if (vc <= 0.0f && d1 >= 0.0f && d3 <= 0.0f) {
-                    const float t = d1 / (d1 - d3);
+                    const float t = ratio(d1, d1 - d3);
                     keep = 2; idx[0] = 0; idx[1] = 1; bw[0] = 1.0f - t; bw[1] = t;
                 } else if (vb <= 0.0f && d2 >= 0.0f && d6 <= 0.0f) {
-                    const float t = d2 / (d2 - d6);
+                    const float t = ratio(d2, d2 - d6);
                     keep = 2; idx[0] = 0; idx[1] = 2; bw[0] = 1.0f - t; bw[1] = t;
                 } else if (va <= 0.0f && (d4 - d3) >= 0.0f && (d5 - d6) >= 0.0f) {
-                    const float t = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+                    const float t = ratio(d4 - d3, (d4 - d3) + (d5 - d6));
                     keep = 2; idx[0] = 1; idx[1] = 2; bw[0] = 1.0f - t; bw[1] = t;
                 } else {
                     keep = 3; // origin inside the triangle

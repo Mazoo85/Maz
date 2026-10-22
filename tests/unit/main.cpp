@@ -28830,7 +28830,7 @@ void testEditorWorldToScreen() {
     const math::mat4 viewProj = proj * view;
 
     const math::vec3 target(0.2f, 0.3f, 0.0f);
-    math::vec2 px;
+    math::vec2 px(0.0f); // worldToScreen leaves it untouched on failure; newer GCC flags the read
     CHECK(editor::worldToScreen(viewProj, target, w, h, px));
     CHECK_NEAR(px.x, w * 0.5f, 1.5f); // look target projects to screen centre
     CHECK_NEAR(px.y, h * 0.5f, 1.5f);
@@ -28842,7 +28842,7 @@ void testEditorWorldToScreen() {
     CHECK(glm::dot(rd, toTarget) > 0.999f);
 
     // A point off to the side projects off-centre in the expected direction.
-    math::vec2 pr;
+    math::vec2 pr(0.0f);
     CHECK(editor::worldToScreen(viewProj, math::vec3(2.0f, 0.3f, 0.0f), w, h, pr));
     CHECK(pr.x > px.x); // +x world moves right on screen for this camera
 }

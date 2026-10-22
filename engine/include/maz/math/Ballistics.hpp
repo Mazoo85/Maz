@@ -45,15 +45,19 @@ inline LaunchAngles ballisticAngles(float speed, float x, float y, float gravity
     const float a = gravity * x * x / (2.0f * s2); // coefficient on tan^2(theta)
     // a*u^2 - x*u + (y + a) = 0, where u = tan(theta).
     const float disc = x * x - 4.0f * a * (y + a);
-    if (disc < 0.0f) {
+    // At exactly max range disc is 0 in exact arithmetic but lands a few ulps either side in float
+    // (and differently with fused multiply-add), so anything within a relative hair of 0 is the single
+    // max-range solution.
+    const float tol = 1e-5f * x * x;
+    if (disc < -tol) {
         return out; // target out of range
     }
-    const float sq = std::sqrt(disc);
+    const float sq = disc > tol ? std::sqrt(disc) : 0.0f;
     const float uHigh = (x + sq) / (2.0f * a);
     const float uLow = (x - sq) / (2.0f * a);
     out.low = std::atan(uLow);
     out.high = std::atan(uHigh);
-    out.count = (sq < 1e-6f * (std::fabs(x) + 1.0f)) ? 1 : 2;
+    out.count = sq == 0.0f ? 1 : 2;
     return out;
 }
 

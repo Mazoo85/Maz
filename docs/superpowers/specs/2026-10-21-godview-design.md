@@ -79,7 +79,10 @@ backoff timer) lives in `js/lib/` with no DOM or globe dependency, so it is unit
 3. Weather
 4. Planes
 5. Cameras
-6. Ships, or a check-in if blocked
+6. Ships, or a check-in if blocked — **checked in 21 Oct 2026; Cody chose to leave ships out for
+   now.** The options on the table were: Baltic-only ships from Fintraffic's keyless marine AIS
+   (`meri.digitraffic.fi`), or worldwide AISStream through a small relay (e.g. a free Cloudflare
+   Worker) holding the key.
 
 ## Out of scope (for now)
 

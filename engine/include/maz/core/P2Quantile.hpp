@@ -4,6 +4,7 @@
 #include <array>
 #include <cstddef>
 #include <iterator>
+#include <limits>
 
 // maz::core::P2Quantile — the P-Square (P²) algorithm of Jain & Chlamtac (1985) for estimating a single
 // quantile (median, p95, p99, …) of a data stream in CONSTANT memory and a single pass, WITHOUT storing
@@ -107,12 +108,14 @@ public:
         }
         if (m_count < 5) {
             // Fewer than five samples: return the interpolated order statistic of what we have so far.
-            // Copy/sort via std::array + std::sort (not hand-indexed loops, which some optimizers
-            // mis-flag as out-of-range after inlining) — the count is always in [1,4] on this path.
+            // The count is always in [1,4] on this path. Sort a fixed five-slot array whose unused slots
+            // hold +infinity, so the first n come out in order: a variable-length std::sort here (or
+            // hand-indexed loops) makes optimizers mis-flag out-of-range accesses after inlining.
             const std::size_t n = static_cast<std::size_t>(m_count);
-            std::array<double, 5> tmp{};
+            std::array<double, 5> tmp;
+            tmp.fill(std::numeric_limits<double>::infinity());
             std::copy_n(std::begin(m_q), n, tmp.begin());
-            std::sort(tmp.begin(), tmp.begin() + static_cast<std::ptrdiff_t>(n));
+            std::sort(tmp.begin(), tmp.end());
             const double idx = m_p * static_cast<double>(n - 1);
             const std::size_t lo = static_cast<std::size_t>(idx);
             const std::size_t hi = lo + 1 < n ? lo + 1 : lo;

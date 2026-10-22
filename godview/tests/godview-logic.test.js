@@ -26,9 +26,14 @@ const W = require('../js/lib/weather.js');
 const WL = require('../js/layers/weather-layer.js');
 const PL = require('../js/lib/planes.js');
 const PLL = require('../js/layers/planes-layer.js');
+const CAM = require('../js/lib/cameras.js');
+const CAML = require('../js/layers/cameras-layer.js');
 
 const ADSB = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'adsb-sample.json'), 'utf8'));
 const OPENSKY = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'opensky-sample.json'), 'utf8'));
+const TFL = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'tfl-jamcams-sample.json'), 'utf8'));
+const DIGITRAFFIC = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'digitraffic-stations-sample.json'), 'utf8'));
+const CALTRANS = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'caltrans-d4-sample.json'), 'utf8'));
 const STATIONS_TLE = fs.readFileSync(path.join(__dirname, 'fixtures', 'celestrak-stations.txt'), 'utf8');
 const VISUAL_TLE = fs.readFileSync(path.join(__dirname, 'fixtures', 'celestrak-visual.txt'), 'utf8');
 /* Four days after the fixtures' epoch (17 Oct 2026 12:00 UTC). */
@@ -840,6 +845,148 @@ test('describe gives callsign, height, speed, heading and type', async () => {
 
 test('stop clears the planes', async () => {
   const { layer, t } = planesLayer({ adsb: 'ok', opensky: 'ok' });
+  layer.start();
+  await flush();
+  layer.stop();
+  eq(layer.status, 'idle');
+  eq(layer.html.length, 0);
+  eq(layer.count, 0);
+  eq(t.queue.length, 0);
+});
+
+
+/* ------------------------------------------------------------- cameras */
+test('there are three camera sources, each with its lists and a credit', () => {
+  eq(CAM.SOURCES.map((x) => x.id).join(','), 'tfl,digitraffic,caltrans');
+  eq(CAM.SOURCES[0].urls.join(), 'https://api.tfl.gov.uk/Place/Type/JamCam');
+  eq(CAM.SOURCES[1].urls.join(), 'https://tie.digitraffic.fi/api/weathercam/v1/stations');
+  eq(CAM.SOURCES[2].urls.length, 4, 'four Caltrans districts');
+  assert(CAM.SOURCES[2].urls.includes('https://cwwp2.dot.ca.gov/data/d4/cctv/cctvStatusD04.json'), 'district 4 URL');
+  assert(CAM.SOURCES.every((x) => x.credit && x.label), 'every source is credited and named');
+});
+
+test('parseTfl keeps working cameras with safe picture links', () => {
+  const list = CAM.parseTfl(TFL);
+  eq(list.map((c) => c.id).join(','), 'tfl:00001.01251,tfl:00001.06514', 'unavailable and http-only dropped');
+  const c = list[0];
+  eq(c.name, 'Rotherhithe Tunnel');
+  eq(c.lat, 51.5076);
+  eq(c.lng, -0.0459);
+  eq(c.image, 'https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/00001.01251.jpg');
+  eq(c.source, 'tfl');
+  throws(() => CAM.parseTfl({}), 'not a list');
+});
+
+test('parseDigitraffic makes one camera per working station, from a preset in collection', () => {
+  const list = CAM.parseDigitraffic(DIGITRAFFIC);
+  eq(list.map((c) => c.id).join(','), 'fi:C01502,fi:C04507', 'removed station and empty one dropped');
+  eq(list[0].image, 'https://weathercam.digitraffic.fi/C0150201.jpg', 'first preset that is collected');
+  eq(list[0].name, 'vt7 Porvoo', 'underscores read as spaces');
+  eq(list[0].lat, 60.3922);
+  eq(list[0].lng, 25.6633);
+  throws(() => CAM.parseDigitraffic({ features: 7 }), 'not a feature list');
+});
+
+test('parseCaltrans keeps in-service cameras that have a picture', () => {
+  const list = CAM.parseCaltrans(CALTRANS);
+  eq(list.length, 1);
+  const c = list[0];
+  eq(c.id, 'ca:4:1');
+  eq(c.name, 'I-80 : Bay Bridge Toll Plaza', 'the TV code is trimmed off');
+  eq(c.lat, 37.8253);
+  eq(c.lng, -122.3075);
+  eq(c.image, 'https://cwwp2.dot.ca.gov/data/d4/cctv/image/tv101i80baybridgetollplaza/tv101i80baybridgetollplaza.jpg');
+  throws(() => CAM.parseCaltrans([]), 'not a Caltrans answer');
+});
+
+
+/* ------------------------------------------------------------- cameras layer */
+/* down: the source ids that refuse */
+function camerasLayer(down) {
+  const t = fakeTimers();
+  const asked = [];
+  let view = { lat: 51.5074, lng: -0.1278, altitude: 2 };
+  let clock = 1000000;
+  const layer = CAML.create({
+    fetchJson: (url) => {
+      asked.push(url);
+      const src = url.includes('tfl.gov.uk') ? 'tfl' : url.includes('digitraffic') ? 'digitraffic' : 'caltrans';
+      if ((down || []).includes(src)) return Promise.reject(new Error('blocked'));
+      return Promise.resolve(src === 'tfl' ? TFL : src === 'digitraffic' ? DIGITRAFFIC : CALTRANS);
+    },
+    getView: () => view,
+    now: () => clock,
+    setTimer: t.set,
+    clearTimer: t.clear
+  });
+  return { layer, t, asked, look: (v) => { view = v; }, advance: (ms) => { clock += ms; } };
+}
+
+test('cameras come from every source, nearest the view first', async () => {
+  const { layer, asked, t } = camerasLayer();
+  eq(layer.followsView, true);
+  layer.start();
+  await flush();
+  eq(asked.length, 6, 'TfL, Digitraffic and four Caltrans districts');
+  eq(layer.status, 'live');
+  eq(layer.count, 5, 'the same Caltrans camera from four districts counts once');
+  eq(layer.html[0].item.id, 'tfl:00001.06514', 'Trafalgar Square is under the view');
+  eq(layer.html[0].layer, 'cameras');
+  eq(layer.credit, 'Cameras: TfL Open Data · Cameras: Fintraffic / digitraffic.fi, CC BY 4.0 · Cameras: Caltrans');
+  eq(t.queue[0].ms, 15 * 60000, 'the lists are fetched again every 15 minutes');
+});
+
+test('a source that refuses just drops out; all refusing is OFFLINE', async () => {
+  const some = camerasLayer(['tfl']);
+  some.layer.start();
+  await flush();
+  eq(some.layer.status, 'live');
+  eq(some.layer.count, 3);
+  assert(!some.layer.credit.includes('TfL'), 'TfL not credited when it gave nothing');
+  const none = camerasLayer(['tfl', 'digitraffic', 'caltrans']);
+  none.layer.start();
+  await flush();
+  eq(none.layer.status, 'offline');
+  eq(none.layer.count, 0);
+});
+
+test('looking somewhere else re-picks cameras without downloading again', async () => {
+  const { layer, asked, look } = camerasLayer();
+  layer.start();
+  await flush();
+  const trafalgar = layer.html[0];
+  look({ lat: 60.17, lng: 24.94, altitude: 2 });
+  layer.refresh();
+  await flush();
+  eq(asked.length, 6, 'no new downloads');
+  eq(layer.html[0].item.id, 'fi:C04507', 'Helsinki is now nearest');
+  assert(layer.html.includes(trafalgar), 'markers keep their identity when re-picked');
+});
+
+test('lists older than 15 minutes are downloaded again on refresh', async () => {
+  const { layer, asked, advance } = camerasLayer();
+  layer.start();
+  await flush();
+  advance(16 * 60000);
+  layer.refresh();
+  await flush();
+  eq(asked.length, 12);
+});
+
+test('describe gives the picture, the place and the source', async () => {
+  const { layer } = camerasLayer();
+  layer.start();
+  await flush();
+  const d = layer.describe(layer.html[0].item);
+  eq(d.title, 'Trafalgar Sq/Cockspur St');
+  eq(d.image, 'https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/00001.06514.jpg');
+  eq(d.rows[0].join('|'), 'SOURCE|TfL JamCams (London)');
+  eq(d.rows[1].join('|'), 'POSITION|51.507° N, 0.128° W');
+  eq(d.link, d.image, 'the link opens the full picture');
+});
+
+test('stop clears the cameras', async () => {
+  const { layer, t } = camerasLayer();
   layer.start();
   await flush();
   layer.stop();

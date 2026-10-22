@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bolt the Robot</title>
+  <!--
+    The smallest game that uses the Companion brain: a robot sidekick on a
+    space station, as text. Copy this file to start another game. The three
+    parts every game needs are marked 1, 2 and 3 below.
+  -->
+  <style>
+    :root { --bg: #f2f4f8; --paper: #fff; --ink: #1c2230; --muted: #5d6678; --line: #d5dae4; --accent: #3a6ff0; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #11151d; --paper: #1a202b; --ink: #e4e8f0; --muted: #96a0b4; --line: #2c3442; --accent: #7aa2ff; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 system-ui, sans-serif; }
+    main { max-width: 640px; margin: 0 auto; padding: 16px; }
+    h1 { margin: 0; }
+    .muted { color: var(--muted); }
+    #status { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+    #log { list-style: none; padding: 10px; margin: 12px 0; height: 300px; overflow-y: auto; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; }
+    #log li { margin: 4px 0; }
+    #log .me { text-align: right; }
+    #log .tag { color: var(--muted); font-size: .8rem; }
+    form { display: flex; gap: 6px; }
+    input { flex: 1; min-width: 0; font: inherit; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); }
+    button { font: inherit; padding: 8px 14px; border-radius: 10px; border: 0; background: var(--accent); color: #fff; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Bolt the Robot</h1>
+    <p class="muted">The Companion brain in a different game. Try "cover me", "zap the drone", "open the airlock",
+      "when I say pew pew, zap the alien", or "my name is …". <a href="../index.html">Back to Pip</a></p>
+    <p id="status"></p>
+    <ol id="log" aria-live="polite"></ol>
+    <form id="form" autocomplete="off">
+      <input id="input" placeholder="Talk to Bolt…" aria-label="Talk to Bolt" />
+      <button>Say</button>
+    </form>
+  </main>
+
+  <script src="../js/brain.js"></script>
+  <script src="../js/mind.js"></script>
+  <script>
+    // 1. Describe the character: its name and personality, and every action
+    //    its body can do, with the words a player might use for each.
+    var BOLT = {
+      name: 'Bolt',
+      personality: 'brave, loyal, and very literal, like a friendly robot',
+      setting: 'a space station adventure',
+      actions: [
+        { type: 'guard', words: ['guard', 'protect', 'watch my back', 'cover me'], replies: ['Shields up!', 'I have your back.'], does: 'guard you', help: 'stay next to the player and watch for danger' },
+        { type: 'patrol', words: ['patrol', 'keep watch', 'scout', 'look around'], replies: ['Patrolling.', 'Scanning the area.'], does: 'patrol', help: 'walk around the area' },
+        { type: 'attack', words: ['attack', 'zap', 'shoot', 'blast', 'take out'], target: 'enemies', replies: ['Zapping the {target}!', 'Target: {target}. Firing!'], does: 'zap the {target}', ability: 'zap enemies ("zap the drone")', help: 'zap an enemy' },
+        { type: 'open', words: ['open', 'unlock', 'hack'], target: 'doors', replies: ['Opening the {target}.', 'Hacking the {target}...'], does: 'open the {target}', ability: 'open doors ("open the airlock")', help: 'open a door' },
+        { type: 'beep', words: ['beep', 'make a noise'], replies: ['Beep boop!', 'Bweeep!'], does: 'beep', help: 'beep happily' }
+      ],
+      reactions: { praised: 'beep', greeted: 'beep', loved: 'beep' }
+    };
+
+    // The game's own state. A real game would have positions, health, art...
+    var enemies = ['alien', 'drone', 'drone'];
+    var doors = { airlock: 'locked', 'red door': 'locked' };
+    var mode = 'following you';
+
+    // 2. Tell the brain what is in the world right now: one list for each
+    //    `target` the actions use. `notes` is extra news for smart chat.
+    function world() {
+      return {
+        enemies: enemies.slice(),
+        doors: Object.keys(doors).filter(function (d) { return doors[d] === 'locked'; }),
+        notes: enemies.length ? '' : 'All the enemies are gone. The station is safe.'
+      };
+    }
+
+    // 3. Make the game do what the brain decided.
+    function perform(actions) {
+      actions.forEach(function (a) {
+        if (a.type === 'guard') mode = 'guarding you';
+        if (a.type === 'patrol') mode = 'patrolling';
+        if (a.type === 'attack') enemies.splice(enemies.indexOf(a.target), 1);
+        if (a.type === 'open') doors[a.target] = 'open';
+      });
+      render();
+    }
+
+    // Everything below is the same for any game: the brain, saving it, smart
+    // chat when there is a key, and a chat log.
+    var SAVE = 'bolt.brain.v1';
+    var saved = null;
+    try { saved = localStorage.getItem(SAVE); } catch (e) {}
+    var brain = CompanionBrain.create(saved, { character: BOLT });
+    var conversation = new CompanionMind.History(); // not "history": browsers already use that name
+    var claude = null;
+
+    async function hear(text) {
+      var w = world();
+      var r = brain.hear(text, w);
+      try { localStorage.setItem(SAVE, JSON.stringify(brain.toJSON())); } catch (e) {}
+      // The Companion game's key, if you saved one there (same site).
+      var key = null;
+      try { key = localStorage.getItem('companion.apikey'); } catch (e) {}
+      if (key && (r.kind === 'chat' || r.kind === 'unknown' || r.kind === 'missing')) {
+        try {
+          claude = claude || await CompanionMind.connect(key);
+          r = await CompanionMind.ask(claude, brain, conversation, text, w, { mode: mode });
+          r.kind = 'Claude';
+        } catch (e) {
+          line('', CompanionMind.explain(e), 'note');
+        }
+      }
+      line('pip', brain.name + ': ' + r.say, r.kind);
+      perform(r.actions);
+      conversation.add(text, r.say);
+    }
+
+    function line(cls, text, tag) {
+      var li = document.createElement('li');
+      li.className = cls;
+      li.textContent = text + ' ';
+      if (tag) {
+        var s = document.createElement('span');
+        s.className = 'tag';
+        s.textContent = '(' + tag + ')';
+        li.appendChild(s);
+      }
+      var log = document.getElementById('log');
+      log.appendChild(li);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function render() {
+      document.getElementById('status').textContent =
+        brain.name + ' is ' + mode + '. Enemies: ' + (enemies.join(', ') || 'none') +
+        '. Doors: ' + Object.keys(doors).map(function (d) { return d + ' (' + doors[d] + ')'; }).join(', ') + '.';
+    }
+
+    document.getElementById('form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var input = document.getElementById('input');
+      var text = input.value.trim();
+      input.value = '';
+      if (!text) return;
+      line('me', text);
+      hear(text);
+    });
+
+    render();
+    line('pip', brain.name + ': Beep! Bolt online. Awaiting orders.');
+  </script>
+</body>
+</html>

@@ -13,6 +13,7 @@ and it opens full screen like an app.
 | 〰 Earthquakes | [USGS](https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php), every quake of the past day | 60 s | U.S. public domain |
 | 🛰 Satellites | [CelesTrak](https://celestrak.org/NORAD/elements/) space stations + ~150 brightest, moved every second by the SGP4 orbit model | orbits every 2 h | U.S. government data; CelesTrak asks for credit |
 | ✈ Planes | [adsb.lol](https://adsb.lol) (ODbL) around the view; [OpenSky Network](https://opensky-network.org) if adsb.lol fails | 15 s, and when you stop spinning somewhere new | ODbL / OpenSky non-commercial; credited on screen |
+| 📷 Cameras | Public road cameras: [TfL JamCams](https://tfl.gov.uk/info-for/open-data-users/) (London), [Fintraffic](https://www.digitraffic.fi/en/road-traffic/) weather cameras (Finland, CC BY 4.0), [Caltrans](https://cwwp2.dot.ca.gov/) (SF Bay, LA, San Diego, Sacramento) | lists 15 min · pictures every minute while open | Credited on screen |
 | ☁ Weather | Rain: [RainViewer](https://www.rainviewer.com/api.html) radar, newest frame · Clouds: [NASA GIBS](https://gibs.earthdata.nasa.gov) VIIRS photo of yesterday (UTC) | rain 10 min · clouds hourly | Both ask for credit, shown on screen while WEATHER is on |
 
 Stations glow amber (the ISS and Tiangong are labelled), other satellites green.
@@ -33,7 +34,17 @@ for one area at a time — and asks again whenever you stop spinning the globe
 somewhere new. Between updates each plane flies on along its heading at its
 speed, so they move smoothly. Planes on the ground are dimmed.
 
-Cameras and ships are planned — see the
+CAMERAS is off until you tap it. It shows the 300 cameras nearest the middle of
+the screen and re-picks them when you stop spinning somewhere new. Tap one for its
+latest picture, which refreshes every minute while it is open. Only the camera
+*lists* need a source to allow web pages; the pictures are ordinary images. New
+York City and Florida cameras are left out on purpose: NYC DOT requires a signed
+data agreement and FL511 is for personal use only.
+
+Ships are left out for now (October 2026). The only keyless source that a web page
+can use, Fintraffic's marine AIS, covers just the Baltic Sea; worldwide ships
+(AISStream) need a key and a small relay server to keep it off the page. Either
+can be added later as one more layer — see the
 [design](../docs/superpowers/specs/2026-10-21-godview-design.md).
 
 If a source stops answering, its button says **OFFLINE** and it retries on its
@@ -64,8 +75,8 @@ dependency-free Node tests use the very same copy.
 
 The browser test answers USGS and CelesTrak from `tests/fixtures/`, and NASA and
 RainViewer with small pictures it draws itself, and the flight services from
-saved samples, so it never depends on today's earthquakes, orbits, weather or
-traffic. The satellite fixtures are synthetic
+saved samples, and the camera networks from saved lists and a drawn picture,
+so it never depends on today's earthquakes, orbits, weather or traffic. The satellite fixtures are synthetic
 but valid elements; the browser test re-dates them to a day before each run. Set `GLOBE_JS` to a local copy of
 `globe.gl.min.js` to run it with no internet.
 

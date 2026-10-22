@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 // maz::math analytic polynomial root solvers — closed-form real roots of quadratics and cubics. These
 // are the exact building blocks behind ray/sphere and ray/quadric intersection, solving for the time a
@@ -110,7 +111,14 @@ inline CubicRoots solveCubic(float a, float b, float c, float d) {
         }
     }
 
-    std::sort(roots, roots + n);
+    // n <= 3: sort with a fixed compare-swap network. (std::sort over roots[0..n) makes GCC 15 lose
+    // the bound on n through the inlined introsort and report out-of-bounds accesses under -Werror.)
+    auto order = [&](int i, int j) {
+        if (j < n && roots[j] < roots[i]) std::swap(roots[i], roots[j]);
+    };
+    order(0, 1);
+    order(1, 2);
+    order(0, 1);
     // De-duplicate near-equal roots.
     for (int i = 0; i < n; ++i) {
         if (out.count == 0 || std::fabs(roots[i] - static_cast<double>(out.x[out.count - 1])) > 1e-5) {
