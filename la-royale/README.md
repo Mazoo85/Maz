@@ -10,7 +10,8 @@ and the closing circle are the next step (see [What's next](#whats-next)).
 
 A standalone project: it is not part of MAZ ARCADE and does not use the Maz
 engine. It is built with [three.js](https://threejs.org) (r169, MIT licence,
-vendored in `vendor/` so the game needs nothing from the internet).
+vendored in `vendor/` with the few add-ons it uses, so the game needs nothing
+from the internet).
 
 ## Playing it
 
@@ -62,7 +63,8 @@ hills are houses clinging to the slopes, Venice is narrow lots in beach
 colours, Downtown is towers with helipads on the roofs (an old LA fire-code
 rule).
 
-**Landmarks** (more than 70): the Hollywood Sign, Griffith Observatory, the
+**Landmarks** (more than 140 named places; the full list is in
+`js/landmarks.js` and `js/landmarks2.js`), among them: the Hollywood Sign, Griffith Observatory, the
 Hollywood Bowl, Capitol Records, the TCL Chinese Theatre and the Walk of
 Fame, the Pantages, the Sunset Strip's billboards and the Whisky a Go Go,
 Chateau Marmont, Universal Studios, Warner Bros., the Santa Monica Pier
@@ -79,7 +81,13 @@ the Intuit Dome, SpaceX's Falcon 9, the El Segundo refinery, Downtown's
 skyline (Wilshire Grand, US Bank Tower, Aon, Gas Company Tower, City
 National), Walt Disney Concert Hall, the Broad, Grand Park, Grand Central
 Market, City Hall, Union Station, Olvera Street, Chinatown's Dragon Gate,
-Crypto.com Arena and LA Live, the Sixth Street Viaduct over the LA River's
+Crypto.com Arena and LA Live, the Bradbury Building, Angels Flight, the
+Broadway theatre marquees, the Last Bookstore, Pershing Square, the
+Cathedral, the Music Center, the Wiltern, the Academy Museum's sphere, El
+Capitan, the Egyptian, the Roosevelt, Musso & Frank, Amoeba, Paramount's gate,
+Pink's, Canter's, the Pacific Design Center, the Greek Theatre, the Zoo,
+Bronson Caves, the Venice Binoculars, Bob's Big Boy, the Farmer John mural,
+the Sears tower in Boyle Heights, Eagle Rock, the Sixth Street Viaduct over the LA River's
 concrete channel, Dodger Stadium, Echo Park Lake, Silver Lake Reservoir,
 Lake Hollywood, the Coliseum and its Olympic torch, Space Shuttle Endeavour,
 Watts Towers, Mariachi Plaza, the Rose Bowl, Pasadena City Hall, the Port's
@@ -92,17 +100,56 @@ Venice, Olympic, La Brea, Vermont, Western, Crenshaw, Lincoln, Sepulveda,
 Century, Ventura and Mulholland Drive along the crest. The freeways are
 jammed with hundreds of abandoned cars, the 405 worst of all.
 
+**Street level**: cobra-head streetlights down the boulevards, wooden power
+poles with sagging lines over the residential streets, traffic signals and
+zebra crosswalks where boulevards cross, stop signs, yellow hydrants, bus
+benches, blue mailboxes, bins out on the curb, raised sidewalks, Jersey
+barriers down the freeways, and green overhead signs with real shields and
+LA's real control cities ("405 NORTH · Sacramento", "10 WEST · Santa
+Monica"). Shops face every boulevard with signs that fit the neighbourhood:
+panaderías and carnicerías in East LA, Korean BBQ and noraebang in
+Koreatown, surf shops and juice bars in Venice, tattoo parlours and record
+stores in Hollywood.
+
+**A living city**: traffic on the boulevards (it stops for you), jets
+landing over Inglewood and taking off over the Pacific at LAX, and an LAPD
+helicopter circling with its searchlight at night.
+
 Also: 16,000+ trees (palms along the boulevards, jacarandas, cypresses,
 chaparral on the hills), nodding oil pumpjacks in the Baldwin Hills, a day
 that ends with the sun setting over the Pacific, and a city that lights up
 orange at night.
+
+## Graphics
+
+Aiming at a 2008-era console open world, in a browser:
+
+- physically based materials lit by the sun and by the sky itself: a
+  scattering sky (with a bit of smog) is rendered into an environment map
+  as the sun moves, so glass towers, car paint and the ocean reflect the
+  real sky, from noon blue to sunset orange;
+- soft shadows that follow you, plus contact shadows baked round every
+  building and tree;
+- facades from a shader: windows with frames, blinds and reflective glass,
+  floor lines, shop windows on the ground floor, grime at the foot of the
+  wall; terracotta barrel-tile roofs; windows that light up at night;
+- bloom on everything that glows: neon, streetlights, signals, lit windows;
+- textured leaves and palm fronds, asphalt with patches and cracks;
+- a night sky with stars and a moon, and streets glowing sodium-orange.
+
+**Graphics quality** in Settings: Low (no shadows or bloom, for phones),
+Medium, High (bigger shadow maps, more anti-aliasing). The game also lowers
+its resolution on its own when frames get slow, and raises it back when
+there's room. F shows the frame rate.
 
 ## How it's built
 
 | File | What it is |
 |---|---|
 | `js/geo.js` | LA as data: the coastline, ridges, river, lakes, freeways, boulevards and neighbourhoods, in latitude/longitude, plus the projection. |
-| `js/landmarks.js` | Every landmark, built from simple shapes at its real position. |
+| `js/landmarks.js`, `js/landmarks2.js` | Every landmark, built from simple shapes at its real position. |
+| `js/street.js` | Street furniture, shop signs and freeway signs. |
+| `js/ambient.js` | Traffic, the LAX flights and the LAPD helicopter. |
 | `js/world.js` | Turns the data into a world: terrain, the city generator, colliders, collision and "where am I". No DOM, no three.js. |
 | `js/paint.js` | Paints the ground (blocks, beaches, pools, runways): the terrain's texture, the minimap and the map. Also the night-time street glow. |
 | `js/render.js` | Builds the three.js scene: instanced buildings with a window shader, roads, trees, water, sky and the day cycle. |

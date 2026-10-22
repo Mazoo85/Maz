@@ -13,6 +13,7 @@ import assert from 'node:assert/strict';
 import { createWorld, collideBody, locationAt, rayClear, polyDist, queryPoint } from '../js/world.js';
 import { project, unproject, ROADS, ROAD_WIDTH, DISTRICTS, HALF } from '../js/geo.js';
 import { LANDMARKS } from '../js/landmarks.js';
+import { PROP, SIGN_TEXTS } from '../js/street.js';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -100,8 +101,10 @@ test('every neighbourhood with a street grid got built on', () => {
 test('the famous places are all on the map', () => {
   for (const name of ['Santa Monica Pier', 'Venice Beach', 'Hollywood Sign', 'Griffith Observatory', 'Dodger Stadium', 'LAX',
     'SoFi Stadium', 'Getty Center', 'Rodeo Drive', 'Walk of Fame', 'Universal Studios', 'Crypto.com Arena', 'Union Station',
-    'LA Memorial Coliseum', 'Watts Towers', 'Rose Bowl', 'Queen Mary', 'Port of Los Angeles', "Randy's Donuts", 'Urban Light (LACMA)']) at(name);
-  assert.ok(LANDMARKS.length >= 50);
+    'LA Memorial Coliseum', 'Watts Towers', 'Rose Bowl', 'Queen Mary', 'Port of Los Angeles', "Randy's Donuts", 'Urban Light (LACMA)',
+    'El Capitan Theatre', 'Hollywood Roosevelt', 'Paramount Pictures', 'Greek Theatre', 'Angels Flight', 'Bradbury Building', 'The Wiltern',
+    'Binoculars Building', "Bob's Big Boy", 'Colorado Street Bridge', 'Pacific Design Center', 'Bronson Caves']) at(name);
+  assert.ok(LANDMARKS.length >= 100);
 });
 test('the drivable cars are parked on dry land, not inside anything', () => {
   assert.ok(W.vehicles.length >= 35, `${W.vehicles.length} cars`);
@@ -109,6 +112,30 @@ test('the drivable cars are parked on dry land, not inside anything', () => {
     assert.ok(!W.isSea(v.x, v.z), `${v.type} at ${v.x.toFixed(0)},${v.z.toFixed(0)} is in the sea`);
     assert.equal(queryPoint(W, v.x, W.groundHeight(v.x, v.z) + 1, v.z, 1.5), null, `${v.type} spawns inside something`);
   }
+});
+
+console.log('streets');
+test('the streets are furnished', () => {
+  const count = (t) => W.props.filter((p) => p.t === t).length;
+  assert.ok(count(PROP.STREETLIGHT) > 400, `${count(PROP.STREETLIGHT)} streetlights`);
+  assert.ok(count(PROP.POWER_POLE) > 2000, `${count(PROP.POWER_POLE)} power poles`);
+  assert.ok(count(PROP.SIGNAL) > 20, 'traffic signals where boulevards cross');
+  assert.ok(W.wires.length / 6 > 5000, 'power lines between the poles');
+  assert.ok(W.crosswalks.length > 40, 'crosswalks');
+});
+test('no streetlight, pole or hydrant stands in the roadway', () => {
+  const inRoad = W.props.filter((p) => ROADS.some((r) => polyDist(r.pts, p.x, p.z) < ROAD_WIDTH[r.kind] / 2 - 0.2));
+  assert.equal(inRoad.length, 0, inRoad.slice(0, 3).map((p) => `${p.t}@${p.x.toFixed(0)},${p.z.toFixed(0)}`).join(' '));
+});
+test('shops have signs that fit the neighbourhood', () => {
+  assert.ok(W.signs.length > 300, `${W.signs.length} signs`);
+  const inEastLA = W.signs.filter((s) => W.districtAt(s.x, s.z).name === 'East LA' || W.districtAt(s.x, s.z).name === 'Boyle Heights').map((s) => SIGN_TEXTS[s.cell]);
+  assert.ok(inEastLA.some((t) => ['CARNICERÍA', 'PANADERÍA', 'TAQUERÍA', 'MERCADO', 'LAVANDERÍA'].includes(t)), 'East LA has its panaderías and carnicerías');
+});
+test('freeway signs name LA\'s real control cities', () => {
+  const t = W.gantryTexts.map((g) => `${g.num} ${g.dir} ${g.dest}`);
+  assert.ok(t.includes('405 NORTH Sacramento'), t.slice(0, 5).join(', '));
+  assert.ok(t.some((x) => x.startsWith('10 WEST Santa Monica')));
 });
 
 console.log('collision');

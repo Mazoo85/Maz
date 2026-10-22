@@ -135,6 +135,24 @@ export function paintGround(W, ctx, size) {
   /* 5. landmark paint that goes over the roads, pools, building footprints */
   for (const o of W.paint) if (o.layer === 1) op(o);
   for (const p of W.pools) { rect(p.x, p.z, p.w + 1.4, p.d + 1.4, p.rot, '#eeeae0'); rect(p.x, p.z, p.w, p.d, p.rot, '#48c0e6'); }
+  /* 6. baked ambient occlusion: soft dark halos where walls meet the
+   * ground and under the trees, layered to fake a blur */
+  for (const [grow, a] of [[7, 0.06], [4.5, 0.07], [2.5, 0.09], [1, 0.12]]) {
+    ctx.fillStyle = `rgba(20,16,10,${a})`;
+    for (const b of W.buildings) {
+      if (b.h < 2.5) continue;
+      ctx.save(); ctx.translate(P(b.x), P(b.z)); ctx.rotate(-b.rot);
+      const g = grow * Math.min(1.6, 0.6 + b.h / 30);
+      ctx.fillRect((-b.w / 2 - g) * S, (-b.d / 2 - g) * S, (b.w + 2 * g) * S, (b.d + 2 * g) * S);
+      ctx.restore();
+    }
+  }
+  ctx.fillStyle = 'rgba(20,24,10,0.18)';
+  for (const t of W.trees) {
+    if (t.t === 0 || t.t === 4) continue;
+    const r = (t.t === 3 ? t.h * 0.8 : t.h * 0.45) * S;
+    ctx.beginPath(); ctx.arc(P(t.x), P(t.z), Math.max(0.6, r), 0, Math.PI * 2); ctx.fill();
+  }
   for (const b of W.buildings) rect(b.x, b.z, b.w, b.d, b.rot, shade(b.roof ? b.roofColor : b.color, 0.82));
 }
 

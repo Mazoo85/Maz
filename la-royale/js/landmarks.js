@@ -12,6 +12,7 @@
  */
 
 import { project, COAST, DISTRICTS, ROADS, ROAD_WIDTH } from './geo.js';
+import { register as registerMore } from './landmarks2.js';
 
 const P = (lat, lon) => project(lat, lon);
 const rotv = (lx, lz, a) => { const c = Math.cos(a), s = Math.sin(a); return [lx * c + lz * s, -lx * s + lz * c]; };
@@ -1175,6 +1176,10 @@ def('Queen Mary', [[2860, 2600]], { poiR: 180 }, (api) => {
 });
 
 /* ------------------------------------------------------------------ build */
+
+/* The second wave of places (theatres, studios, murals, parks) lives in
+ * landmarks2.js; it registers through the same def(). */
+registerMore(def, { P, rotv, yawOf, shoreFrame, roadClear, DTLA });
 
 export const PADS = L.filter((l) => l.pad).map((l) => ({ name: l.name, x: l.at[0], z: l.at[1], r: l.pad.r, blend: l.pad.blend, dy: l.pad.dy, y: l.pad.y, open: l.pad.open }));
 export const LANDMARKS = L.map((l) => ({ name: l.name, x: l.at[0], z: l.at[1] }));

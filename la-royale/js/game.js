@@ -12,6 +12,7 @@ import { createWorld, collideBody, locationAt, rayClear, clamp, lerp } from './w
 import { buildScene } from './render.js';
 import { makeHud } from './hud.js';
 import { makePlayer, makeCar, makeBlimp, CAR_TYPES } from './models.js';
+import { makeAmbient } from './ambient.js';
 
 const $ = (id) => document.getElementById(id);
 const isTouch = matchMedia('(pointer: coarse)').matches;
@@ -38,11 +39,11 @@ async function boot() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, settings.quality === 'high' ? 2 : settings.quality === 'medium' ? 1.5 : 1));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = 0.62;
   renderer.shadowMap.enabled = settings.quality !== 'low';
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   await step(55, `Raising ${W.buildings.length.toLocaleString()} buildings and planting ${W.trees.length.toLocaleString()} trees…`);
-  const R = buildScene(W, { quality: settings.quality, maxAnisotropy: renderer.capabilities.getMaxAnisotropy() });
+  const R = buildScene(W, renderer, { quality: settings.quality });
   await step(85, 'Gassing up the blimp…');
   const game = makeGame(W, R, renderer);
   renderer.compile(R.scene, game.camera);
@@ -60,6 +61,7 @@ function makeGame(W, R, renderer) {
   const scene = R.scene;
   const camera = new THREE.PerspectiveCamera(62, 1, 0.3, 14000);
   const hud = makeHud(W, R.groundCanvas);
+  const ambient = makeAmbient(W, scene, { quality: settings.quality });
 
   /* the player */
   const player = makePlayer();
@@ -293,6 +295,7 @@ function makeGame(W, R, renderer) {
     body.x += body.vx * dt; body.y += body.vy * dt; body.z += body.vz * dt;
     clampToMap(body);
     collideBody(W, body);
+    ambient.push(body, body.r);
     if (water !== null && body.y < water - 1.15) { state = 'swim'; body.y = water - 1.1; }
     moveSpeed = Math.hypot(body.vx, body.vz);
     if (moveSpeed > 0.4) facing = Math.atan2(body.vx, body.vz);
@@ -347,6 +350,7 @@ function makeGame(W, R, renderer) {
     carBody.vy -= GRAV * dt;
     carBody.y += carBody.vy * dt;
     collideBody(W, carBody);
+    if (drive && ambient.push(carBody, 1.1)) { c.speed *= Math.pow(0.15, dt); carBody.hitWall = Math.max(carBody.hitWall, 1); }
     if (carBody.hitWall > 3) c.speed *= 0.35;
     else if (carBody.hitWall > 0) c.speed *= Math.pow(0.4, dt);
     c.x = carBody.x; c.z = carBody.z; c.y = carBody.y; c.vy = carBody.vy; c.onGround = carBody.onGround;
@@ -467,7 +471,13 @@ function makeGame(W, R, renderer) {
     else if (state !== 'walk' && state !== 'swim') $('meter').innerHTML = `<b>${Math.max(0, Math.round(alt))}</b> m`;
     $('clock').textContent = fmtTime(hours);
     fpsAcc += dt; fpsN++;
-    if (fpsAcc > 0.5) { fps = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; $('fps').textContent = `${fps} fps`; }
+    if (fpsAcc > 0.5) {
+      fps = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0;
+      $('fps').textContent = `${fps} fps · ${Math.round(pixelRatio * 100)}% resolution`;
+      // keep it smooth: drop the resolution when frames get slow, raise it back when there's room
+      if (fps < 38 && pixelRatio > 0.55) setPixelRatio(pixelRatio * 0.85);
+      else if (fps > 57 && pixelRatio < maxRatio) setPixelRatio(Math.min(maxRatio, pixelRatio * 1.08));
+    }
   }
   const gridRef = (x, z) => `${'ABCDEFGH'[clamp(Math.floor((x + W.half) / 750), 0, 7)]}${clamp(Math.floor((z + W.half) / 750), 0, 7) + 1}`;
   function unprojectLL(x, z) {
@@ -481,7 +491,7 @@ function makeGame(W, R, renderer) {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     update(dt);
-    renderer.render(scene, camera);
+    R.render(camera);
     if (state !== 'title') hudFrame(dt);
     if (hud.mapOpen) hud.drawMap();
     if (running) requestAnimationFrame(frame);
@@ -533,6 +543,7 @@ function makeGame(W, R, renderer) {
     if (state === 'title') { cam.yaw += dt * 0.04; titleCamera(); }
     else updateCamera(dt);
     const focus = state === 'drive' ? car : state === 'blimp' ? { x: bx, y: by, z: bz } : state === 'title' ? { x: camera.position.x, y: 0, z: camera.position.z } : body;
+    ambient.update(dt, state === 'drive' ? car : body, R.uniforms.uNight.value);
     R.update(dt, clock, camera, focus);
     pressed.clear();
   }
@@ -571,9 +582,13 @@ function makeGame(W, R, renderer) {
     } catch { /* no audio, no horn */ }
   }
 
+  const maxRatio = Math.min(window.devicePixelRatio || 1, settings.quality === 'high' ? 2 : settings.quality === 'medium' ? 1.5 : 1);
+  let pixelRatio = maxRatio;
+  function setPixelRatio(r) { pixelRatio = r; renderer.setPixelRatio(r); resize(); }
   function resize() {
     const w = window.innerWidth, h = window.innerHeight;
     renderer.setSize(w, h, false);
+    R.setSize(w, h);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   }

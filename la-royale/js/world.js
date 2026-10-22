@@ -15,6 +15,7 @@ import {
   ROAD_WIDTH, DISTRICTS, STYLES, PALETTE, project
 } from './geo.js';
 import { PADS, buildLandmarks } from './landmarks.js';
+import { buildStreets, SIGN_TEXTS, SIGN_POOLS } from './street.js';
 
 /* ---------------------------------------------------------------- maths */
 
@@ -227,7 +228,8 @@ export function createWorld(opts = {}) {
     mask: new Uint8Array(MASK_N * MASK_N),
     lakes: terrain.lakes, roads: ROADS, rivers: RIVERS, canals: CANALS, coast: COAST,
     waterPolys: WATER_POLYS, districts: DISTRICTS,
-    buildings: [], parts: [], groups: {}, trees: [], blocks: [], pools: [], paint: [],
+    buildings: [], parts: [], groups: {}, trees: [], blocks: [], pools: [], paint: [], signs: [],
+    props: [], wires: [], crosswalks: [], gantries: [],
     colliders: [], pois: [], vehicles: [], billboards: [], bridges: [],
     stats: {}
   };
@@ -410,7 +412,7 @@ export function createWorld(opts = {}) {
         part({ s: 'box', x: lerp(x0, x1, t), y: (top + bottom) / 2, z: lerp(z0, z1, t), sx: len * 1.02, sy: top - bottom, sz: width, ry: a, c, col: true });
       }
     },
-    canPlace, building, tree, car, pumpjack, billboard
+    canPlace, building, tree, car, pumpjack, billboard, stampLine: (pts, r, bit) => stampLine(pts, r, bit)
   };
 
   /* Footprint check: on dry land, clear of roads and landmarks, flat
@@ -520,6 +522,11 @@ export function createWorld(opts = {}) {
     }
   }
 
+  const signFor = (district) => {
+    const pool = SIGN_POOLS[district] || SIGN_POOLS.default;
+    return SIGN_TEXTS.indexOf(rnd.pick(pool));
+  };
+
   /* ---- the city: every neighbourhood's street grid, block by block */
   const core = project(34.0505, -118.2550);
   let blockCount = 0;
@@ -545,7 +552,7 @@ export function createWorld(opts = {}) {
         }
         if (wet || hi - lo > 11) continue;
         if (gh(cx, cz) - terrain.base(cx, cz) > 26) continue;
-        const blk = { x: cx, z: cz, w: st.bx, d: st.bz, rot: d.rot, color: st.lot, style: d.style };
+        const blk = { x: cx, z: cz, w: st.bx, d: st.bz, rot: d.rot, color: st.lot, style: d.style, district: d.name };
         W.blocks.push(blk);
         blockCount++;
         genBlock(blk, d, Math.hypot(cx - core[0], cz - core[1]));
@@ -565,34 +572,44 @@ export function createWorld(opts = {}) {
     for (const side of [-1, 1]) {
       let lx = -L / 2 + 1;
       while (lx < L / 2 - 6) {
-        const lw = rnd.range(o.lot[0], o.lot[1]);
+        let lw = rnd.range(o.lot[0], o.lot[1]);
         if (lx + lw > L / 2) break;
-        const w = Math.max(5, lw - o.gap);
-        const dd = Math.min(rnd.range(o.depth[0], o.depth[1]), Dd / 2 - o.setback - 2);
-        const lz = side * (Dd / 2 - o.setback - dd / 2);
+        // a lot fronting a boulevard is a shop, whatever the neighbourhood
+        const [fx, fz] = toWorld(blk, lx + lw / 2, side * (Dd / 2 + 4));
+        const shop = !o.signs && o.win === 1 && blk.style !== 'mansion' && (W.maskAt(fx, fz) & MASK.ROAD) !== 0;
+        const oo = shop ? { ...o, gap: 0.6, setback: 0.8, depth: [14, 20], h: [4.5, 8.5], palette: [...PALETTE.stucco, ...PALETTE.brick], win: 2, roofP: 0, signs: 0.9, poolP: 0, tallP: 0 } : o;
+        if (shop) lw = Math.max(lw, 14);
+        const w = Math.max(5, lw - oo.gap);
+        const dd = Math.min(rnd.range(oo.depth[0], oo.depth[1]), Dd / 2 - oo.setback - 2);
+        const lz = side * (Dd / 2 - oo.setback - dd / 2);
         const [x, z] = toWorld(blk, lx + lw / 2, lz);
-        const tall = rnd.chance(o.tallP || 0);
-        const h = tall ? rnd.range(o.tall[0], o.tall[1]) : rnd.range(o.h[0], o.h[1]);
+        const tall = rnd.chance(oo.tallP || 0);
+        const h = tall ? rnd.range(oo.tall[0], oo.tall[1]) : rnd.range(oo.h[0], oo.h[1]);
         const g = canPlace(x, z, w / 2, dd / 2, blk.rot, o.slope || 3);
         if (g) {
-          const pitched = !tall && rnd.chance(o.roofP || 0);
-          const palette = tall && o.tallPalette ? o.tallPalette : o.palette;
-          building(x, z, w, dd, h, blk.rot, rnd.pick(palette), tall ? o.tallWin || 2 : o.win,
+          const pitched = !tall && rnd.chance(oo.roofP || 0);
+          const palette = tall && oo.tallPalette ? oo.tallPalette : oo.palette;
+          building(x, z, w, dd, h, blk.rot, rnd.pick(palette), tall ? oo.tallWin || 2 : oo.win,
             pitched ? 'hip' : null, pitched ? rnd.pick(rnd.chance(0.7) ? PALETTE.roofTile : PALETTE.roofGray) : null, g);
-          if (o.poolP && rnd.chance(o.poolP)) {
+          // a shop sign on the street side: tacos, liquor, donuts, nails…
+          if (oo.signs && !tall && w > 6 && rnd.chance(oo.signs)) {
+            const [nx, nz] = rot(0, side, blk.rot);
+            W.signs.push({ x: x + nx * (dd / 2 + 0.08), y: g.hi + Math.min(h - 1.2, 3.9), z: z + nz * (dd / 2 + 0.08), ry: Math.atan2(nx, nz), w: Math.min(w * 0.8, 9), h: 1.5, cell: signFor(blk.district), look: rnd.int(0, 7) });
+          }
+          if (oo.poolP && rnd.chance(oo.poolP)) {
             const pw = Math.min(w * 0.6, 12), pd = 4 + rnd() * 3;
-            const pz = side * (Dd / 2 - o.setback - dd - 2.5 - pd / 2);
+            const pz = side * (Dd / 2 - oo.setback - dd - 2.5 - pd / 2);
             if (Math.abs(pz) - pd / 2 > 1.5) {
               const [qx, qz] = toWorld(blk, lx + lw / 2 + rnd.range(-2, 2), pz);
               W.pools.push({ x: qx, z: qz, w: pw, d: pd, rot: blk.rot });
             }
           }
-          if (o.treeP && rnd.chance(o.treeP)) {
-            const tz = side * (Dd / 2 - o.setback * 0.45);
+          if (oo.treeP && rnd.chance(oo.treeP)) {
+            const tz = side * (Dd / 2 - oo.setback * 0.45);
             const [tx, tz2] = toWorld(blk, lx + rnd.range(1.5, lw - 1.5), tz);
-            if (!(W.maskAt(tx, tz2) & MASK.ROAD)) tree(tx, tz2, rnd.pick(o.trees), rnd.range(7, 12));
+            if (!(W.maskAt(tx, tz2) & MASK.ROAD)) tree(tx, tz2, rnd.pick(oo.trees), rnd.range(7, 12));
           }
-          if (o.carP && rnd.chance(o.carP)) {
+          if (oo.carP && rnd.chance(oo.carP)) {
             const [cx, cz] = toWorld(blk, lx + lw / 2, side * (Dd / 2 + 2.6));
             if (W.maskAt(cx, cz) === 0) car(cx, cz, blk.rot + (side > 0 ? 0 : Math.PI), rnd.pick(PALETTE.car));
           }
@@ -626,6 +643,12 @@ export function createWorld(opts = {}) {
         o.roofP && rnd.chance(o.roofP) ? 'hip' : null, rnd.pick(PALETTE.roofTile), g);
       if (h > 90) helipad(b);
       else if (h > 30 && rnd.chance(0.5)) rooftopKit(b);
+      if (o.signs && rnd.chance(o.signs)) {
+        const face = rnd.int(0, 3), ax = face % 2 ? 0 : 1, sg = face < 2 ? 1 : -1;
+        const [nx, nz] = rot(ax ? 0 : sg, ax ? sg : 0, blk.rot);
+        const depth = ax ? dd : w, width = ax ? w : dd;
+        W.signs.push({ x: x + nx * (depth / 2 + 0.08), y: g.hi + 4, z: z + nz * (depth / 2 + 0.08), ry: Math.atan2(nx, nz), w: Math.min(width * 0.6, 10), h: 1.6, cell: signFor(blk.district), look: 0 });
+      }
     }
   }
 
@@ -658,17 +681,17 @@ export function createWorld(opts = {}) {
       case 'suburb':
         return rowOfLots(blk, { lot: [17, 23], gap: 5, depth: [12, 16], setback: 8, h: [3.8, 5.2], palette: PALETTE.stucco, win: 1, roofP: 0.85, poolP: 0.35, treeP: 0.6, trees: [1, 1, 5, 0], carP: 0.12 });
       case 'beach':
-        return rowOfLots(blk, { lot: [8, 12], gap: 1.5, depth: [12, 16], setback: 2.5, h: [5, 9.5], palette: PALETTE.beach, win: 1, roofP: 0.15, treeP: 0.25, trees: [0, 0, 1], carP: 0.1 });
+        return rowOfLots(blk, { lot: [8, 12], gap: 1.5, depth: [12, 16], setback: 2.5, h: [5, 9.5], palette: PALETTE.beach, win: 1, roofP: 0.15, treeP: 0.25, trees: [0, 0, 1], carP: 0.1, signs: 0.12 });
       case 'coastal':
-        return rowOfLots(blk, { lot: [18, 30], gap: 2, depth: [16, 24], setback: 3, h: [9, 18], tallP: 0.12, tall: [25, 45], palette: PALETTE.stucco, win: 2, treeP: 0.4, trees: [0, 0, 1], carP: 0.1, curbPalms: 20 });
+        return rowOfLots(blk, { lot: [18, 30], gap: 2, depth: [16, 24], setback: 3, h: [9, 18], tallP: 0.12, tall: [25, 45], palette: PALETTE.stucco, win: 2, treeP: 0.4, trees: [0, 0, 1], carP: 0.1, curbPalms: 20, signs: 0.35 });
       case 'mansion':
         return rowOfLots(blk, { lot: [34, 52], gap: 10, depth: [16, 24], setback: 9, h: [7, 11], palette: [...PALETTE.white, ...PALETTE.stucco], win: 1, roofP: 0.65, poolP: 0.85, treeP: 1, trees: [1, 4, 2, 0], carP: 0.06, curbPalms: 17, slope: 5 });
       case 'mixed':
-        return rowOfLots(blk, { lot: [12, 30], gap: 0.6, depth: [14, 24], setback: 0.6, h: [5, 12], tallP: 0.1, tall: [22, 45], palette: [...PALETTE.stucco, ...PALETTE.brick], win: 2, treeP: 0.2, trees: [0, 1], carP: 0.08 });
+        return rowOfLots(blk, { lot: [12, 30], gap: 0.6, depth: [14, 24], setback: 0.6, h: [5, 12], tallP: 0.1, tall: [22, 45], palette: [...PALETTE.stucco, ...PALETTE.brick], win: 2, treeP: 0.2, trees: [0, 1], carP: 0.08, signs: 0.85 });
       case 'hollywood':
-        return rowOfLots(blk, { lot: [12, 30], gap: 0.6, depth: [14, 26], setback: 0.6, h: [6, 16], tallP: 0.18, tall: [28, 70], tallPalette: PALETTE.glass, palette: [...PALETTE.stucco, ...PALETTE.brick, ...PALETTE.white], win: 2, treeP: 0.3, trees: [0, 0, 1], carP: 0.08 });
+        return rowOfLots(blk, { lot: [12, 30], gap: 0.6, depth: [14, 26], setback: 0.6, h: [6, 16], tallP: 0.18, tall: [28, 70], tallPalette: PALETTE.glass, palette: [...PALETTE.stucco, ...PALETTE.brick, ...PALETTE.white], win: 2, treeP: 0.3, trees: [0, 0, 1], carP: 0.08, signs: 0.8 });
       case 'midrise':
-        return blockOfBuildings(blk, rnd.chance(0.5) ? 4 : 2, { margin: [6, 14], palette: [...PALETTE.stucco, ...PALETTE.glass, ...PALETTE.brick], win: 2, skipP: 0.12, height: () => (rnd.chance(0.08) ? rnd.range(60, 120) : rnd.range(12, 42)) });
+        return blockOfBuildings(blk, rnd.chance(0.5) ? 4 : 2, { margin: [6, 14], palette: [...PALETTE.stucco, ...PALETTE.glass, ...PALETTE.brick], win: 2, skipP: 0.12, signs: 0.6, height: () => (rnd.chance(0.08) ? rnd.range(60, 120) : rnd.range(12, 42)) });
       case 'towers':
         return blockOfBuildings(blk, rnd.chance(0.6) ? 1 : 2, { margin: [14, 30], palette: PALETTE.glass, win: 3, height: () => rnd.range(55, 165) });
       case 'downtown': {
@@ -780,6 +803,9 @@ export function createWorld(opts = {}) {
     }
     return best;
   }
+
+  /* ---- street furniture: lights, poles, signals, signs, hydrants */
+  buildStreets(api, W);
 
   /* ---- the 405 at rush hour, forever: abandoned traffic on the freeways */
   let jam = 0;
