@@ -169,13 +169,23 @@ skyline is there from anywhere. Up close each square gets:
 - every named shop, café, bar and restaurant as a sign with its real name on
   the wall of the building it's in.
 
-To build it (it needs internet access to OpenStreetMap's Overpass service):
+To build it (about a minute, ~110 MB of downloads):
 
 ```sh
-node la-royale/tools/fetch.mjs osm        # the buildings, streets, parks, trees, shops
+pip install pyarrow
+python3 la-royale/tools/overture.py       # the buildings, streets, parks, water, shops (Overture Maps)
 node la-royale/tools/fetch.mjs dem        # the ground elevation
-node la-royale/tools/build-tiles.mjs      # → la-royale/data/real/
+node la-royale/tools/build-tiles.mjs      # → la-royale/data/real/ (33 MB, not committed)
 ```
+
+`overture.py` reads [Overture Maps](https://overturemaps.org), free open map
+data on AWS that is OpenStreetMap's buildings, streets, parks and water plus
+extra outlines, heights and named businesses; it fetches only the parts
+covering the area. (`node la-royale/tools/fetch.mjs osm` gets the same from
+OpenStreetMap's Overpass service directly, where that's reachable.) For
+Hollywood to Downtown that's 151,000 buildings, 149,000 of them with a
+measured height, 54,000 street pieces and 20,000 named shops and
+restaurants.
 
 Then a **Real LA** button appears on the title screen (or open
 `index.html?map=real`). `tools/fixture.mjs` builds a made-up test
@@ -183,7 +193,8 @@ neighbourhood instead, for checking the engine with no download
 (`index.html?map=real&data=fixture`); it's never published.
 
 Map data © OpenStreetMap contributors, under the
-[ODbL](https://www.openstreetmap.org/copyright). Elevation: Mapzen Terrarium
+[ODbL](https://www.openstreetmap.org/copyright), via Overture Maps (places
+under CDLA-Permissive-2.0). Elevation: Mapzen Terrarium
 tiles (AWS Open Data).
 
 ## How it's built
@@ -203,7 +214,7 @@ tiles (AWS Open Data).
 | `js/atmosphere.js` | Sky, sun, moon and stars, the light, fog and bloom: shared by both maps. |
 | `js/osm.js` | Turns OpenStreetMap buildings, streets, areas, trees and shops into compact tiles. No DOM. |
 | `js/realcity.js` | The true-scale map: loads the ground and skyline, streams the detailed city in around you. |
-| `tools/fetch.mjs`, `tools/build-tiles.mjs` | Download the real data and pack it into tiles (`tools/png.mjs` reads and writes the images). |
+| `tools/overture.py`, `tools/fetch.mjs`, `tools/build-tiles.mjs` | Download the real data and pack it into tiles (`tools/png.mjs` reads and writes the images). |
 | `tests/world.test.js`, `tests/real.test.js` | The tests (plain Node). |
 
 The world is generated from a seed, the same every time. Everything that

@@ -66,7 +66,7 @@ async function boot() {
   $('title').hidden = false;
   const c = W.manifest?.counts;
   $('titleStats').textContent = real
-    ? `Real LA, true scale: ${W.manifest.name} · ${c.buildings.toLocaleString()} real buildings · ${c.roads.toLocaleString()} streets · ${W.pois.length} landmarks · Map data © OpenStreetMap contributors`
+    ? `Real LA, true scale: ${W.manifest.name} · ${c.buildings.toLocaleString()} real buildings · ${c.roads.toLocaleString()} streets · ${W.pois.length} landmarks · Map data © OpenStreetMap contributors, via Overture Maps`
     : `${W.buildings.length.toLocaleString()} buildings · ${W.trees.length.toLocaleString()} trees · ${W.pois.length} landmarks · ${W.vehicles.length} cars to drive`;
   const realBtn = $('realBtn');
   realBtn.hidden = !hasReal;

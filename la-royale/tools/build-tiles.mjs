@@ -300,7 +300,7 @@ const manifest = {
   x0: X0, z0: Z0, width: X1 - X0, depth: Z1 - Z0, tile: T, tilesX: NX, tilesZ: NZ, tiles: list.sort(),
   skyline: 'skyline.json', arteries: 'arteries.json',
   height: { file: 'height.bin', nx: HX, nz: HZ, step: STEP, scale: 0.1 }, overview: { file: 'overview.png', size: OV },
-  counts, built: new Date().toISOString(), attribution: 'Map data © OpenStreetMap contributors (ODbL). Elevation: Mapzen Terrarium tiles (AWS Open Data).'
+  counts, built: new Date().toISOString(), attribution: `Map data © OpenStreetMap contributors (ODbL)${files.some((f) => f.includes('overture')) ? ', via Overture Maps (overturemaps.org; places CDLA-Permissive-2.0)' : ''}. Elevation: Mapzen Terrarium tiles (AWS Open Data).`
 };
 writeFileSync(join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 1));
 console.log(`${list.length} tiles · ${counts.buildings} buildings (${counts.heightTagged} with measured heights) · ${counts.roads} roads · ${counts.areas} areas · ${counts.trees} trees · ${counts.pois} named shops`);
