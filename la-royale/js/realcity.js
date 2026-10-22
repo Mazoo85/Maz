@@ -238,6 +238,7 @@ export function minRect(pts) {
 
 /* ----------------------------------------------------- how things look */
 
+const WHITE = new THREE.Color(1, 1, 1);
 const hashOf = (x, z) => { const s = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453; return s - Math.floor(s); };
 const pick = (arr, h) => arr[Math.floor(h * arr.length) % arr.length];
 
@@ -386,7 +387,7 @@ function addBuilding(walls, roofs, b, base, st, opts = {}) {
   }
   // the roof
   let ridge = top;
-  if (st.roof !== ROOF.flat && !opts.far) ridge = pitchedRoof(walls, roofs, b, top, st, area, roofCol, wallCol, ex);
+  if (st.roof !== ROOF.flat && !opts.far) ridge = pitchedRoof(walls, roofs, b, top, st, area, roofCol, wallCol, ex, opts.solar);
   if (ridge === top) {
     const rex = { ...ex, aWin: 0 };
     for (const [p, q, r] of roofTriangles(pts)) walls.tri([p[0], top, p[1]], [q[0], top, q[1]], [r[0], top, r[1]], 0, 1, 0, roofCol, rex);
@@ -487,7 +488,7 @@ function addCanopy(walls, b, base, st, opts) {
 
 /* Hipped, gabled or pyramid roofs. Returns the ridge height (or the eave
  * height if it fell back to a flat roof). */
-function pitchedRoof(walls, roofs, b, top, st, area, roofCol, wallCol, ex) {
+function pitchedRoof(walls, roofs, b, top, st, area, roofCol, wallCol, ex, solar = null) {
   const R = minRect(b.pts);
   if (!R) return top;
   const rect = area / (4 * R.L * R.Wd);
@@ -522,6 +523,16 @@ function pitchedRoof(walls, roofs, b, top, st, area, roofCol, wallCol, ex) {
       roofs.tri(c00, c01, r0, ex0, ey0, ez0, roofCol, rex);
       roofs.tri(c10, c11, r1, ex1, ey1, ez1, roofCol, rex);
       roofs.quad(c00, c10, c11, c01, 0, -1, 0, roofCol, rex);
+    }
+    // solar panels on the south-facing slope of about a quarter of the houses
+    if (solar && hashOf(R.cx * 0.37, R.cz * 0.53) < 0.28) {
+      const sg = R.ux >= 0 ? 1 : -1, [nx, ny, nz] = sideN(sg);
+      if (nz > 0.15) {
+        const k = st.roof === ROOF.gabled ? L : Math.max(0, L - Wd), um = st.roof === ROOF.gabled ? L * 0.72 : (k + (L - k) * 0.2) * 0.9;
+        const Q = (u, t) => { const p = P(u, sg * Wd * (1 - t), e + rise * t); return [p[0] + nx * 0.07, p[1] + ny * 0.07, p[2] + nz * 0.07]; };
+        const slope = Math.hypot(Wd, rise) * 0.62;
+        if (um > 1.5) solar.quad(Q(-um, 0.15), Q(um, 0.15), Q(um, 0.77), Q(-um, 0.77), nx, ny, nz, WHITE, null, [[0, 0], [(2 * um) / 1.7, 0], [(2 * um) / 1.7, slope / 1.05], [0, slope / 1.05]]);
+      }
     }
     return yR;
   }
@@ -1133,6 +1144,26 @@ export function buildRealScene(RW, renderer, opts = {}) {
   const carGeo = carGeometries(), carMat = carMaterials();
   const tmpCol = new THREE.Color();
   const BOX = new THREE.BoxGeometry(1, 1, 1);
+  const skylightMat = new THREE.MeshStandardMaterial({ color: 0x9fb6c4, roughness: 0.15, metalness: 0.5 });
+  const DISH = mergeGeos([new THREE.CylinderGeometry(0.03, 0.03, 0.8, 6).translate(0, 0.4, 0), new THREE.SphereGeometry(0.45, 12, 6, 0, Math.PI * 2, 0, Math.PI / 3).rotateX(-Math.PI / 2.4).translate(0, 0.85, 0.1)]);
+  const dishMat = new THREE.MeshStandardMaterial({ color: 0xdedcd6, roughness: 0.5, side: THREE.DoubleSide });
+  const ROCK = new THREE.IcosahedronGeometry(1, 0);
+  const rockMat = withSurface(new THREE.MeshStandardMaterial({ color: 0xa69a86, roughness: 0.95, flatShading: true }), '4');
+  const DOT = new THREE.SphereGeometry(0.07, 10, 4, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.4, 1);
+  const dotWhite = new THREE.MeshStandardMaterial({ color: 0xf2f0ea, roughness: 0.3 }), dotYellow = new THREE.MeshStandardMaterial({ color: 0xe8c12e, roughness: 0.3 });
+  const POOL = new THREE.PlaneGeometry(15, 15).rotateX(-Math.PI / 2);
+  const lampPoolMat = new THREE.MeshBasicMaterial({ map: canvasTex('pool', 128, 128, (ctx) => {
+    const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, 'rgba(255,190,120,1)'); g.addColorStop(0.45, 'rgba(255,160,90,0.45)'); g.addColorStop(1, 'rgba(255,140,70,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 128, 128);
+  }), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, fog: false });
+  const solarMat = new THREE.MeshStandardMaterial({ map: canvasTex('solar', 128, 128, (ctx) => {
+    ctx.fillStyle = '#1b2740'; ctx.fillRect(0, 0, 128, 128);
+    ctx.strokeStyle = '#8d97a6'; ctx.lineWidth = 3; ctx.strokeRect(1.5, 1.5, 125, 125);
+    ctx.strokeStyle = 'rgba(160,175,200,0.35)'; ctx.lineWidth = 1;
+    for (let i = 1; i < 6; i++) { ctx.beginPath(); ctx.moveTo((i * 128) / 6, 0); ctx.lineTo((i * 128) / 6, 128); ctx.stroke(); }
+    for (let j = 1; j < 10; j++) { ctx.beginPath(); ctx.moveTo(0, (j * 128) / 10); ctx.lineTo(128, (j * 128) / 10); ctx.stroke(); }
+  }, { wrapS: THREE.RepeatWrapping }), roughness: 0.18, metalness: 0.55 });
+  const driveMat = withSurface(new THREE.MeshStandardMaterial({ map: canvasTex('drive', 128, 128, (ctx) => { noiseFill(ctx, 128, 128, '#bdb8ad', 14, 9); ctx.fillStyle = 'rgba(60,55,50,0.3)'; ctx.fillRect(0, 0, 128, 2); ctx.fillStyle = 'rgba(40,35,30,0.12)'; ctx.beginPath(); ctx.ellipse(64, 70, 22, 34, 0, 0, 6.283); ctx.fill(); }, { wrapS: THREE.RepeatWrapping }), roughness: 0.9 }), '4');
   const adMat = new THREE.MeshStandardMaterial({ map: adAtlas(), emissiveMap: adAtlas(), emissive: 0xffffff, emissiveIntensity: 0.05, roughness: 0.55 });
   glowMats.push({ mat: adMat, day: 0.05, night: 0.7 });
   const POST = new THREE.CylinderGeometry(0.05, 0.06, 3.9, 8).translate(0, 1.95, 0);
@@ -1272,6 +1303,142 @@ export function buildRealScene(RW, renderer, opts = {}) {
       }
     }
 
+    const roadGrid = new Map();                  // 6 m cells → road ids, to keep things off other streets
+    const roads = d.roads.map((r, id) => ({ ...r, id, pts: r.pts.map(W2) }));
+    // which roads cross each 6 m cell (not footpaths: LA's sidewalks are often mapped as their own ways)
+    for (const r of roads) {
+      if (r.cls === RCLASS.footway) continue;
+      const hw = r.w / 2 + 1;
+      for (const [x, z] of resample(r.pts, 3)) {
+        const rr = Math.ceil(hw / 6);
+        for (let dz = -rr; dz <= rr; dz++) for (let dx = -rr; dx <= rr; dx++) {
+          const cx = Math.floor(x / 6) + dx, cz = Math.floor(z / 6) + dz;
+          if (Math.hypot((cx + 0.5) * 6 - x, (cz + 0.5) * 6 - z) > hw + 4.3) continue;
+          const k = cz * 100000 + cx; (roadGrid.get(k) || roadGrid.set(k, new Set()).get(k)).add(r.id);
+        }
+      }
+    }
+    /* is (x, z) on some other road's carriageway (within pad metres of its edge)? */
+    const onOtherRoad = (x, z, id, pad = 0.4) => {
+      const s = roadGrid.get(Math.floor(z / 6) * 100000 + Math.floor(x / 6));
+      if (!s) return false;
+      for (const o of s) {
+        if (o === id) continue;
+        const r = roads[o], lim = r.w / 2 + pad;
+        for (let i = 0; i < r.pts.length - 1; i++) {
+          const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1];
+          if (Math.min(ax, bx) - lim > x || Math.max(ax, bx) + lim < x || Math.min(az, bz) - lim > z || Math.max(az, bz) + lim < z) continue;
+          const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1;
+          const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2));
+          if (Math.hypot(ax + dx * t - x, az + dz * t - z) < lim) return true;
+        }
+      }
+      return false;
+    };
+    /* the nearest point on a carriageway within maxD: { d, x, z, r } or null */
+    const nearestRoad = (x, z, maxD = 40) => {
+      let best = null;
+      const c = Math.ceil(maxD / 6);
+      const seen = new Set();
+      for (let j = -c; j <= c; j++) for (let i = -c; i <= c; i++) {
+        const set = roadGrid.get((Math.floor(z / 6) + j) * 100000 + Math.floor(x / 6) + i);
+        if (set) for (const o of set) seen.add(o);
+      }
+      for (const o of seen) {
+        const r = roads[o];
+        if (r.cls > RCLASS.service) continue;
+        for (let k = 0; k < r.pts.length - 1; k++) {
+          const [ax, az] = r.pts[k], [bx, bz] = r.pts[k + 1], dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1;
+          const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2));
+          const px = ax + dx * t, pz = az + dz * t, dd = Math.hypot(px - x, pz - z) - r.w / 2;
+          if (dd < maxD && (!best || dd < best.d)) best = { d: dd, x: px, z: pz, r };
+        }
+      }
+      return best;
+    };
+
+    /* the details of a house, on the side that faces its street: the front door and its step, a
+     * Craftsman porch on columns, a brick chimney up one side, the garage door and its driveway
+     * down to the street, and along the front a hedge, a picket or wrought-iron fence or a low
+     * stucco wall */
+    const solar = new Mesh(), drives = new Mesh(), houseQueue = [];
+    const obox = (m, cx, cz, ux, uz, hl, hw, y0, y1, col, ex) => {
+      const vx = -uz, vz = ux, P = (a, b, y) => [cx + ux * a + vx * b, y, cz + uz * a + vz * b];
+      for (const [a0, b0, a1, b1, nx, nz] of [[-hl, -hw, hl, -hw, -vx, -vz], [hl, -hw, hl, hw, ux, uz], [hl, hw, -hl, hw, vx, vz], [-hl, hw, -hl, -hw, -ux, -uz]])
+        m.quad(P(a0, b0, y0), P(a1, b1, y0), P(a1, b1, y1), P(a0, b0, y1), nx, 0, nz, col, ex);
+      m.quad(P(-hl, -hw, y1), P(hl, -hw, y1), P(hl, hw, y1), P(-hl, hw, y1), 0, 1, 0, col, ex);
+    };
+    function houseDetails(pts, base, eave, st) {
+      const n = pts.length;
+      let cx = 0, cz = 0;
+      for (const [x, z] of pts) { cx += x / n; cz += z / n; }
+      const road = nearestRoad(cx, cz, 30);
+      if (!road) return;
+      const tox = road.x - cx, toz = road.z - cz, tl = Math.hypot(tox, toz) || 1;
+      // the front: the wall that faces the street
+      let fi = -1, best = 0.3;
+      for (let i = 0; i < n; i++) {
+        const [ax, az] = pts[i], [bx, bz] = pts[(i + 1) % n], l = Math.hypot(bx - ax, bz - az);
+        if (l < 3) continue;
+        const d = ((bz - az) / l) * (tox / tl) + (-(bx - ax) / l) * (toz / tl);
+        if (d * Math.min(1, l / 6) > best) { best = d * Math.min(1, l / 6); fi = i; }
+      }
+      if (fi < 0) return;
+      const [ax, az] = pts[fi], [bx, bz] = pts[(fi + 1) % n], len = Math.hypot(bx - ax, bz - az);
+      const tx = (bx - ax) / len, tz = (bz - az) / len, nx = tz, nz = -tx;
+      const h1 = hashOf(ax * 0.71, az * 0.39), h2 = hashOf(az * 0.57, ax * 0.83), h3 = hashOf(ax + az, ax - az);
+      const at = (s, o) => [ax + tx * s + nx * o, az + tz * s + nz * o];
+      const wallCol = new THREE.Color(st.wall), trim = new THREE.Color(st.trim), ex = { aWin: 0, aMat: 0, aSeed: 0.5, aBase: base, aTop: eave, aFloor: 3, aGround: gh };
+      const garage = len > 9 && h2 < 0.5, gs = h1 < 0.5 ? 0.6 : len - 3.4;        // the garage door's start along the wall
+      // the front door, a step, and (now and then) a porch on two square columns
+      const ds = garage ? (gs < len / 2 ? len * 0.62 : len * 0.32) : len * (0.35 + h3 * 0.3);
+      const [dx, dz] = at(ds, 0.34), gy = gh(dx, dz);
+      const doorCol = new THREE.Color(['#5a3a24', '#2f3b4c', '#7a2a1f', '#1f4d3a', '#e9e2d2'][Math.floor(h3 * 5)]);
+      walls.quad([dx - tx * 0.5, gy + 0.18, dz - tz * 0.5], [dx + tx * 0.5, gy + 0.18, dz + tz * 0.5], [dx + tx * 0.5, gy + 2.3, dz + tz * 0.5], [dx - tx * 0.5, gy + 2.3, dz - tz * 0.5], nx, 0, nz, doorCol, { ...ex, aMat: 3 });
+      const [sx, sz] = at(ds, 0.65);
+      obox(walls, sx, sz, tx, tz, 0.9, 0.35, gy - 0.3, gy + 0.18, new THREE.Color(0xb9b4aa), { ...ex, aMat: 4 });
+      if (h1 > 0.55 && len > 7 && eave - base > 2.6 && !garage) {
+        const p0 = Math.max(0.3, ds - 2.6), p1 = Math.min(len - 0.3, ds + 2.6), pc = (p0 + p1) / 2, [px, pz] = at(pc, 1.25);
+        obox(walls, px, pz, tx, tz, (p1 - p0) / 2, 1.25, eave - 0.35, eave - 0.1, trim, ex);
+        for (const s of [p0 + 0.3, p1 - 0.3]) { const [qx, qz] = at(s, 2.2); obox(walls, qx, qz, tx, tz, 0.2, 0.2, gh(qx, qz) - 0.2, eave - 0.35, trim, ex); }
+        const [fx, fz] = at(pc, 1.25); obox(walls, fx, fz, tx, tz, (p1 - p0) / 2, 1.25, gh(fx, fz) - 0.3, gh(fx, fz) + 0.35, new THREE.Color(0x8f8a82), { ...ex, aMat: 4 });
+      }
+      // a brick chimney up an end wall
+      if (h3 < 0.3 && eave - base < 8) {
+        const ei = (fi + 1) % n, [ex0, ez0] = pts[ei], [ex1, ez1] = pts[(ei + 1) % n], el = Math.hypot(ex1 - ex0, ez1 - ez0);
+        if (el > 4) {
+          const etx = (ex1 - ex0) / el, etz = (ez1 - ez0) / el, enx = etz, enz = -etx, mx = (ex0 + ex1) / 2 + enx * 0.7, mz = (ez0 + ez1) / 2 + enz * 0.7;
+          obox(walls, mx, mz, etx, etz, 0.6, 0.45, gh(mx, mz) - 0.3, eave + 3.4, new THREE.Color(0x8e4f3c), { ...ex, aMat: 2 });
+        }
+      }
+      // the garage door and the driveway to the street
+      if (garage) {
+        const [g0x, g0z] = at(gs, 0.34), g1x = g0x + tx * 2.8, g1z = g0z + tz * 2.8, y0 = gh(g0x, g0z);
+        walls.quad([g0x, y0 + 0.05, g0z], [g1x, y0 + 0.05, g1z], [g1x, y0 + 2.25, g1z], [g0x, y0 + 2.25, g0z], nx, 0, nz, new THREE.Color(0xe8e4dc), { ...ex, aMat: 3 });
+        const mx = (g0x + g1x) / 2, mz = (g0z + g1z) / 2, run = Math.min(28, Math.max(2, (road.x - mx) * nx + (road.z - mz) * nz - road.r.w / 2 + 0.6));
+        const D = (s, o) => { const x = mx + tx * s + nx * o, z = mz + tz * s + nz * o; return [x, gh(x, z) + 0.065, z]; };
+        drives.quad(D(-1.6, 0), D(1.6, 0), D(1.6, run), D(-1.6, run), 0, 1, 0, WHITE, null, [[0, 0], [1, 0], [1, run / 3], [0, run / 3]]);
+      }
+      // the front boundary: hedge, picket fence, wrought iron or a low stucco wall
+      const toRoad = (road.x - (ax + bx) / 2) * nx + (road.z - (az + bz) / 2) * nz - road.r.w / 2 - 4.2;
+      if (toRoad > 3 && h2 > 0.25) {
+        const kind = Math.floor(hashOf(bx * 0.3, bz * 0.3) * 4);
+        const [col, hgt, thick, mat] = [[new THREE.Color(0x3f6b32), 1.15, 0.7, 9], [new THREE.Color(0xf2f0ea), 0.95, 0.06, 3], [new THREE.Color(0x1e1e1e), 1.4, 0.05, 7], [wallCol, 1.15, 0.22, 0]][kind];
+        const off = toRoad - 0.4, s0 = -2.5, s1 = len + 2.5, gaps = [[ds - 0.8, ds + 0.8]];
+        if (garage) gaps.push([gs - 0.4, gs + 3.2]);
+        // (only in unbroken runs of four or more pieces: a stray piece of hedge reads as a box)
+        const run = [];
+        const flush = () => { if (run.length >= 4) for (const [qx, qz] of run) obox(walls, qx, qz, tx, tz, 0.76, thick / 2, gh(qx, qz) - 0.2, gh(qx, qz) + hgt, col, { ...ex, aMat: mat, aWin: 0 }); run.length = 0; };
+        for (let s = s0; s < s1 - 0.5; s += 1.5) {
+          const e0 = s, e1 = Math.min(s1, s + 1.5), m = (e0 + e1) / 2;
+          const [qx, qz] = at(m, off);
+          if (gaps.some(([g0, g1]) => e1 > g0 && e0 < g1) || inBuilding(qx, qz, 0.3) || onOtherRoad(qx, qz, -1, 0.5)) { flush(); continue; }
+          run.push([qx, qz]);
+        }
+        flush();
+      }
+    }
+
     /* buildings */
     const walls = new Mesh({ aWin: 1, aMat: 1, aSeed: 1, aBase: 1, aTop: 1, aFloor: 1, aGround: 1 }), roofs = new Mesh({ aMat: 1 });
     const blds = [];
@@ -1317,7 +1484,8 @@ export function buildRealScene(RW, renderer, opts = {}) {
       const st = styleOf(b, area);
       const over = styleFor.get(bi);
       if (over) { if (over.wall) { st.wall = over.wall; st.trim = shadeHex(over.wall, 1.15); } if (over.win !== undefined) st.win = over.win; }
-      const col = addBuilding(walls, roofs, b, base, st, { gh });
+      const col = addBuilding(walls, roofs, b, base, st, { gh, solar });
+      if (st.house && !lo) houseQueue.push([pts, base, col.y1, st]);
       if ([...hostOf.values()].includes(bi)) { const [cx, cz] = centroid2(pts); hostRecs.set(bi, { pts, h: b.h, base, cx, cz, R: minRect(pts), area, name: b.name }); }
       colliders.push(col);
       let a = Infinity, bb = Infinity, c = -Infinity, e = -Infinity;
@@ -1339,8 +1507,11 @@ export function buildRealScene(RW, renderer, opts = {}) {
       }
       return false;
     };
+    for (let q = 0; q < houseQueue.length; q++) { houseDetails(...houseQueue[q]); if (q % 150 === 149) yield; }
     if (walls.count) { const m = new THREE.Mesh(walls.geometry(), facade); m.castShadow = !lo; m.receiveShadow = !lo; group.add(m); }
     if (roofs.count) { const m = new THREE.Mesh(roofs.geometry(), roofMat); m.castShadow = !lo; m.receiveShadow = !lo; group.add(m); }
+    if (solar.count) { const m = new THREE.Mesh(solar.geometry(), solarMat); m.receiveShadow = !lo; group.add(m); culls.push({ mesh: m, cx: tcx, cz: tcz, half: T / 2, far: 900 }); }
+    if (drives.count) { const m = new THREE.Mesh(drives.geometry(), driveMat); m.receiveShadow = !lo; group.add(m); culls.push({ mesh: m, cx: tcx, cz: tcz, half: T / 2, far: 500 }); }
     yield;
 
     /* rooftop air-conditioning units and stair housings on the flat roofs */
@@ -1355,7 +1526,27 @@ export function buildRealScene(RW, renderer, opts = {}) {
         ac.push({ x, z, py: r.base + r.b.h + (big ? 1.2 : 0.55), sx: big ? 3 : 1.6, sy: big ? 2.4 : 1.1, sz: big ? 3.4 : 1.4, ry: hashOf(z, x) < 0.5 ? 0 : 0.6, c: big ? '#b8b4ac' : '#d4d2cc' });
       }
     }
+    // skylights over the shops and warehouses, satellite dishes on the apartments
+    const sky = [], dishes = [];
+    for (const r of blds) {
+      if (r.st.roof !== ROOF.flat || r.st.house || r.b.h < 4 || r.area < 120) continue;
+      const roofY = r.base + r.b.h;
+      if ((r.st.win === 2 || r.st.win === 4) && r.area > 400) {
+        const R = minRect(r.pts);
+        if (R) for (let k = -2; k <= 2; k++) {
+          if (hashOf(r.a + k * 3.1, r.e) < 0.4) continue;
+          const x = R.cx + R.ux * k * Math.min(5, R.L / 3), z = R.cz + R.uz * k * Math.min(5, R.L / 3);
+          if (pip(x + 1.5, z + 1.5, r.pts) && pip(x - 1.5, z - 1.5, r.pts)) sky.push({ x, z, py: roofY + 0.18, sx: 1.4, sy: 0.35, sz: 2.6, ry: -Math.atan2(R.uz, R.ux) });
+        }
+      }
+      if ((r.st.win === 1 || r.st.win === 5) && hashOf(r.e * 0.3, r.a * 0.7) < 0.55) {
+        const x = r.a + (r.c - r.a) * (0.25 + 0.5 * hashOf(r.a, r.bb * 2)), z = r.bb + (r.e - r.bb) * (0.25 + 0.5 * hashOf(r.c, r.e * 2));
+        if (pip(x, z, r.pts)) dishes.push({ x, z, py: roofY + (r.st.roof === ROOF.flat ? 0.8 : 0), ry: 2.4 + hashOf(x, z) * 0.8 });
+      }
+    }
     if (ac.length) batch(ac, BOX, acMat, { far: 600, cast: true });
+    if (sky.length) batch(sky, BOX, skylightMat, { far: 500, cast: false });
+    if (dishes.length) batch(dishes, DISH, dishMat, { far: 300, cast: true });
 
     /* billboards up on the commercial roofs, facing the street (the ads are made up) */
     const boards = new Kit(), adFaces = new Mesh(), adCol = new THREE.Color(1, 1, 1);
@@ -1413,38 +1604,6 @@ export function buildRealScene(RW, renderer, opts = {}) {
     /* roads, sidewalks, parking lots */
     const groups = new Map();                    // material → Mesh builder
     const meshFor = (mat) => groups.get(mat) || groups.set(mat, new Mesh()).get(mat);
-    const roadGrid = new Map();                  // 6 m cells → road ids, to keep things off other streets
-    const roads = d.roads.map((r, id) => ({ ...r, id, pts: r.pts.map(W2) }));
-    // which roads cross each 6 m cell (not footpaths: LA's sidewalks are often mapped as their own ways)
-    for (const r of roads) {
-      if (r.cls === RCLASS.footway) continue;
-      const hw = r.w / 2 + 1;
-      for (const [x, z] of resample(r.pts, 3)) {
-        const rr = Math.ceil(hw / 6);
-        for (let dz = -rr; dz <= rr; dz++) for (let dx = -rr; dx <= rr; dx++) {
-          const cx = Math.floor(x / 6) + dx, cz = Math.floor(z / 6) + dz;
-          if (Math.hypot((cx + 0.5) * 6 - x, (cz + 0.5) * 6 - z) > hw + 4.3) continue;
-          const k = cz * 100000 + cx; (roadGrid.get(k) || roadGrid.set(k, new Set()).get(k)).add(r.id);
-        }
-      }
-    }
-    /* is (x, z) on some other road's carriageway (within pad metres of its edge)? */
-    const onOtherRoad = (x, z, id, pad = 0.4) => {
-      const s = roadGrid.get(Math.floor(z / 6) * 100000 + Math.floor(x / 6));
-      if (!s) return false;
-      for (const o of s) {
-        if (o === id) continue;
-        const r = roads[o], lim = r.w / 2 + pad;
-        for (let i = 0; i < r.pts.length - 1; i++) {
-          const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1];
-          if (Math.min(ax, bx) - lim > x || Math.max(ax, bx) + lim < x || Math.min(az, bz) - lim > z || Math.max(az, bz) + lim < z) continue;
-          const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1;
-          const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2));
-          if (Math.hypot(ax + dx * t - x, az + dz * t - z) < lim) return true;
-        }
-      }
-      return false;
-    };
     const Y_OFF = [0.17, 0.16, 0.15, 0.14, 0.13, 0.12, 0.11, 0.1, 0.1];
     const white = new THREE.Color(1, 1, 1);
     let rn = 0;
@@ -1567,7 +1726,7 @@ export function buildRealScene(RW, renderer, opts = {}) {
 
     /* trees: the mapped ones, then street trees down the parkways, park
      * trees and big backyard trees */
-    const trees = [];
+    const trees = [], rocks = [];
     const treeGrid = new Set();
     const tkey = (x, z) => Math.floor(z / 5) * 100000 + Math.floor(x / 5);
     const nearTree = (x, z) => { for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) if (treeGrid.has(tkey(x + a * 5, z + b * 5))) return true; return false; };
@@ -1616,6 +1775,7 @@ export function buildRealScene(RW, renderer, opts = {}) {
         if (!pip(jx, jz, pts) || hashOf(jx * 3, jz) < 0.35) continue;
         if (onOtherRoad(jx, jz, -1) || inBuilding(jx, jz, 1) || nearTree(jx, jz)) continue;
         const hh = hashOf(jx, jz * 3);
+        if (a.kind === AREA.scrub && hh > 0.93) { const sz = 0.8 + hashOf(jz, jx * 2) * 2.4; rocks.push({ x: jx, z: jz, py: gh(jx, jz) - sz * 0.25, sx: sz * 1.3, sy: sz * 0.7, sz, ry: hh * 50, rx: hh * 7, c: '#ffffff' }); continue; }
         if (a.kind === AREA.scrub) plant(jx, jz, hh < 0.15 ? 5 : 3, hh < 0.15 ? 6 + hh * 20 : 1.2 + hh * 1.6);
         else if (a.kind === AREA.cemetery) plant(jx, jz, hh < 0.35 ? 4 : hh < 0.5 ? 0 : 1, hh < 0.35 ? 10 + hh * 6 : hh < 0.5 ? 18 + hh * 8 : 8 + hh * 6);
         else plant(jx, jz, hh < 0.15 ? 0 : a.kind === AREA.wood && hh < 0.6 ? 5 : 1, hh < 0.15 ? 16 + hh * 40 : 8 + hh * 8);
@@ -1633,6 +1793,7 @@ export function buildRealScene(RW, renderer, opts = {}) {
       plant(x, z, hh > 0.9 ? 0 : hh > 0.8 ? 4 : 1, hh > 0.9 ? 15 + hh * 8 : 8 + hh * 6);
     }
     yield;
+    if (rocks.length) batch(rocks, ROCK, rockMat, { far: 900, cast: true });
     if (trees.length) buildFlora({ trees, buildings: [], groundHeight: gh, maskAt: () => 0, isSea: () => false, queryPoint: () => null }, group, { THREE, batch, lo, hi, fadeNearCamera, mulberry, shadeHex, glowMats });
     yield;
 
@@ -1811,6 +1972,30 @@ export function buildRealScene(RW, renderer, opts = {}) {
     if (stars.length) batch(stars, STAR, starMat, { far: 250, cast: false });
 
     for (const part of furniture[PROP.STREETLIGHT]) batch(lights, part.geo, part.mat, { far: part.far, cast: part.cast !== false });
+    // at night, a warm pool of light on the street under each lamp
+    batch(lights.map((l) => ({ x: l.x + Math.cos(l.ry) * 2.75, z: l.z - Math.sin(l.ry) * 2.75, py: gh(l.x + Math.cos(l.ry) * 2.75, l.z - Math.sin(l.ry) * 2.75) + 0.22, ry: l.ry })), POOL, lampPoolMat, { far: 700, cast: false, receive: false });
+
+    /* Botts' dots: California's raised lane markers, white between the lanes, yellow in pairs
+     * down the double yellow line */
+    const dotsW = [], dotsY = [];
+    for (const r of roads) {
+      if (r.cls < RCLASS.primary || r.cls > RCLASS.tertiary) continue;
+      const two = !r.oneway, lanes = two ? Math.max(2, 2 * Math.round(r.w / 7.2)) : Math.max(1, Math.round(r.w / 3.7));
+      if (lanes < 2) continue;
+      const lw = r.w / lanes, pts = resample(r.pts, 1.2);
+      for (let i = 1; i < pts.length - 1; i++) {
+        const [ax, az] = pts[i - 1], [bx, bz] = pts[i + 1], l = Math.hypot(bx - ax, bz - az) || 1, nx = -(bz - az) / l, nz = (bx - ax) / l;
+        const [px, pz] = pts[i], y = gh(px, pz) + (Y_OFF[r.cls] ?? 0.12) + 0.01;
+        if (onOtherRoad(px, pz, r.id, 0.5)) continue;
+        for (let k = 1; k < lanes; k++) {
+          const o = -r.w / 2 + k * lw;
+          if (two && k === lanes / 2) { for (const e of [-0.1, 0.1]) dotsY.push({ x: px + nx * (o + e), z: pz + nz * (o + e), py: y }); }
+          else if (i % 3 === 0) dotsW.push({ x: px + nx * o, z: pz + nz * o, py: y });
+        }
+      }
+    }
+    if (dotsW.length) batch(dotsW, DOT, dotWhite, { far: 90, cast: false, receive: false });
+    if (dotsY.length) batch(dotsY, DOT, dotYellow, { far: 90, cast: false, receive: false });
     for (const part of furniture[PROP.HYDRANT]) batch(hydrants, part.geo, part.mat, { far: part.far, cast: false });
     const byKind = {};
     for (const p of parked) (byKind[p.kind] ||= []).push(p);
@@ -2012,6 +2197,7 @@ export function buildRealScene(RW, renderer, opts = {}) {
   /* --------------------------------- the horizon: mountains, basin, sea */
   const horizon = buildHorizon(RW, scene, uniforms, lo);
   atmo.onTime.push((night) => {
+    lampPoolMat.opacity = night * 0.42; lampPoolMat.visible = night > 0.05;
     for (const m of roadMats) m.emissiveIntensity = night * 0.5;
     for (const g of glowMats) g.mat.emissiveIntensity = g.day + (g.night - g.day) * night;
     poolMat.emissiveIntensity = 0.2 + night * 1.2;
