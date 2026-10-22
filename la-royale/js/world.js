@@ -16,6 +16,7 @@ import {
 } from './geo.js';
 import { PADS, buildLandmarks } from './landmarks.js';
 import { buildStreets, SIGN_TEXTS, SIGN_POOLS } from './street.js';
+import { makeArchitecture, houseKind } from './architecture.js';
 
 /* ---------------------------------------------------------------- maths */
 
@@ -384,6 +385,8 @@ export function createWorld(opts = {}) {
     roof: (x, y, z, sx, sy, sz, c, o = {}) => part({ s: 'roof', x, y, z, sx, sy, sz, c, ...o }),
     torus: (x, y, z, sx, sy, sz, c, o = {}) => part({ s: 'torus', x, y, z, sx, sy, sz, c, ...o }),
     prism: (x, y, z, sx, sy, sz, c, o = {}) => part({ s: 'prism', x, y, z, sx, sy, sz, c, ...o }),
+    gable: (x, y, z, sx, sy, sz, c, o = {}) => part({ s: 'gable', x, y, z, sx, sy, sz, c, ...o }),
+    archBlock: (x, y, z, sx, sy, sz, c, o = {}) => part({ s: 'arch', x, y, z, sx, sy, sz, c, ...o }),
     text: (x, y, z, w, h, text, c, o = {}) => part({ s: 'text', x, y, z, sx: w, sy: h, sz: 1, text, c, ...o }),
     paint: (op, layer = 0) => W.paint.push({ layer, ...op }),
     reserveDisc: (x, z, r) => stampDisc(x, z, r, MASK.RESERVED),
@@ -419,7 +422,10 @@ export function createWorld(opts = {}) {
    * enough. Returns the ground height to build from, or null. */
   function canPlace(x, z, hw, hd, a, maxSlope = 3, ignoreMask = 0) {
     let lo = Infinity, hi = -Infinity;
-    const pts = [[0, 0], [hw, hd], [-hw, hd], [hw, -hd], [-hw, -hd], [hw, 0], [-hw, 0], [0, hd], [0, -hd]];
+    // sample the footprint every ~6 m, so a big building can't straddle a road
+    const nx = Math.max(2, Math.ceil((hw * 2) / 6)), nz = Math.max(2, Math.ceil((hd * 2) / 6));
+    const pts = [];
+    for (let i = 0; i <= nx; i++) for (let j = 0; j <= nz; j++) pts.push([-hw + (2 * hw * i) / nx, -hd + (2 * hd * j) / nz]);
     for (const [lx, lz] of pts) {
       const [ox, oz] = rot(lx, lz, a);
       const px = x + ox, pz = z + oz;
@@ -520,6 +526,17 @@ export function createWorld(opts = {}) {
     return SIGN_TEXTS.indexOf(rnd.pick(pool));
   };
 
+  /* The architecture: real LA building types at real dimensions. */
+  const A = makeArchitecture({
+    W, rnd, part, building, canPlace, tree, car, gh, signFor, MASK, paint: api.paint, carColors: PALETTE.car,
+    donutCell: SIGN_TEXTS.indexOf('DONUTS'),
+    helipad: (b) => helipad(b), rooftopKit: (b, water) => rooftopKit(b, water),
+    rooftopUnit: (x, y, z, a) => part({ s: 'box', x, y: y + 0.7, z, sx: 2.2, sy: 1.4, sz: 1.6, ry: a, c: '#9a9ea2', m: 'metal' })
+  });
+  const blvdRoads = ROADS.filter((r) => r.kind === 'blvd');
+  const CORNER_STORE = { 'East LA': 0.45, 'Boyle Heights': 0.45, 'Highland Park': 0.3, Watts: 0.35, Compton: 0.3, 'South LA': 0.35, Vernon: 0.3, 'Echo Park': 0.25, 'Silver Lake': 0.2, Inglewood: 0.25, 'Leimert Park': 0.25, Gardena: 0.2 };
+  const onBoulevard = (x, z) => blvdRoads.some((r) => polyDist(r.pts, x, z) < ROAD_WIDTH.blvd / 2 + 12);
+
   /* ---- the city: every neighbourhood's street grid, block by block */
   const core = project(34.0505, -118.2550);
   let blockCount = 0;
@@ -559,55 +576,60 @@ export function createWorld(opts = {}) {
     return [blk.x + ox, blk.z + oz];
   }
 
-  /* Houses (or shops) in a row along both long sides of a block. */
+  /* Lots in a row along both long sides of a block. Anything fronting a
+   * boulevard becomes commercial, as in the real city: storefronts, the odd
+   * mini-mall, a gas station on the corner. */
   function rowOfLots(blk, o) {
-    const L = blk.w, Dd = blk.d;
+    const L = blk.w, Dd = blk.d, D = Dd / 2;
     for (const side of [-1, 1]) {
-      let lx = -L / 2 + 1;
+      const yaw = blk.rot + (side > 0 ? 0 : Math.PI);
+      let lx = -L / 2 + 1, first = true;
       while (lx < L / 2 - 6) {
-        let lw = rnd.range(o.lot[0], o.lot[1]);
+        const [fx, fz] = toWorld(blk, lx + 8, side * (Dd / 2 + 6));
+        let kind = o.kind;
+        let corner = false;
+        if (kind !== 'shop' && kind !== 'mansion' && onBoulevard(fx, fz)) kind = 'shop';
+        // the corner market (tienda, liquor store) on the end of a residential block
+        else if (kind === 'house' && first && rnd.chance(CORNER_STORE[blk.district] ?? 0.08)) { kind = 'shop'; corner = true; }
+        let lw;
+        if (corner) lw = rnd.range(12, 16);
+        else if (kind === 'shop') {
+          if (first && rnd.chance(0.25) && L / 2 - lx >= 36) { kind = 'gas'; lw = 34; }
+          else if (rnd.chance(0.14) && L / 2 - lx >= 48 && D >= 38) { kind = 'mall'; lw = 46; }
+          else lw = rnd.range(10, 22);
+        } else lw = rnd.range(o.lot[0], o.lot[1]);
         if (lx + lw > L / 2) break;
-        // a lot fronting a boulevard is a shop, whatever the neighbourhood
-        const [fx, fz] = toWorld(blk, lx + lw / 2, side * (Dd / 2 + 4));
-        const shop = !o.signs && o.win === 1 && blk.style !== 'mansion' && (W.maskAt(fx, fz) & MASK.ROAD) !== 0;
-        const oo = shop ? { ...o, gap: 0.6, setback: 0.8, depth: [14, 20], h: [4.5, 8.5], palette: [...PALETTE.stucco, ...PALETTE.brick], win: 2, roofP: 0, signs: 0.9, poolP: 0, tallP: 0 } : o;
-        if (shop) lw = Math.max(lw, 14);
-        const w = Math.max(5, lw - oo.gap);
-        const dd = Math.min(rnd.range(oo.depth[0], oo.depth[1]), Dd / 2 - oo.setback - 2);
-        const lz = side * (Dd / 2 - oo.setback - dd / 2);
-        const [x, z] = toWorld(blk, lx + lw / 2, lz);
-        const tall = rnd.chance(oo.tallP || 0);
-        const h = tall ? rnd.range(oo.tall[0], oo.tall[1]) : rnd.range(oo.h[0], oo.h[1]);
-        const g = canPlace(x, z, w / 2, dd / 2, blk.rot, o.slope || 3);
-        if (g) {
-          const pitched = !tall && rnd.chance(oo.roofP || 0);
-          const palette = tall && oo.tallPalette ? oo.tallPalette : oo.palette;
-          building(x, z, w, dd, h, blk.rot, rnd.pick(palette), tall ? oo.tallWin || 2 : oo.win,
-            pitched ? 'hip' : null, pitched ? rnd.pick(rnd.chance(0.7) ? PALETTE.roofTile : PALETTE.roofGray) : null, g);
-          // a shop sign on the street side: tacos, liquor, donuts, nails…
-          if (oo.signs && !tall && w > 6 && rnd.chance(oo.signs)) {
-            const [nx, nz] = rot(0, side, blk.rot);
-            W.signs.push({ x: x + nx * (dd / 2 + 0.08), y: g.hi + Math.min(h - 1.2, 3.9), z: z + nz * (dd / 2 + 0.08), ry: Math.atan2(nx, nz), w: Math.min(w * 0.8, 9), h: 1.5, cell: signFor(blk.district), look: rnd.int(0, 7) });
+        const [cx, cz] = toWorld(blk, lx + lw / 2, side * D / 2);
+        const F = A.frame(cx, cz, yaw);
+        let built = false;
+        if (kind === 'house') {
+          const hk = o.houseKind ? o.houseKind() : houseKind(blk.district, blk.style, rnd);
+          built = hk === 'dingbat' ? A.dingbat(blk, F, lw, D) : A.house(blk, F, lw, D, hk);
+        } else if (kind === 'beach') built = A.beachHouse(F, lw, D);
+        else if (kind === 'mansion') built = A.mansion(F, lw, D);
+        else if (kind === 'gas') built = A.gasStation(blk, F, lw, D);
+        else if (kind === 'mall') built = A.miniMall(blk, F, lw, D);
+        else if (kind === 'apartment') {
+          if (rnd.chance(0.2)) built = A.dingbat(blk, F, lw, D);
+          else {
+            const d = Math.min(D - 6, rnd.range(16, 24)), tall = rnd.chance(o.tallP || 0);
+            const F2 = A.frame(...F.at(0, D / 2 - 2.5 - d / 2), yaw);
+            built = !!A.midrise(blk, F2, lw - 2, d, tall ? rnd.range(25, 42) : rnd.range(10, 18), { aptP: 0.8, retailP: 0.2, palette: o.palette });
           }
-          if (oo.poolP && rnd.chance(oo.poolP)) {
-            const pw = Math.min(w * 0.6, 12), pd = 4 + rnd() * 3;
-            const pz = side * (Dd / 2 - oo.setback - dd - 2.5 - pd / 2);
-            if (Math.abs(pz) - pd / 2 > 1.5) {
-              const [qx, qz] = toWorld(blk, lx + lw / 2 + rnd.range(-2, 2), pz);
-              W.pools.push({ x: qx, z: qz, w: pw, d: pd, rot: blk.rot });
-            }
-          }
-          if (oo.treeP && rnd.chance(oo.treeP)) {
-            const tz = side * (Dd / 2 - oo.setback * 0.45);
-            const [tx, tz2] = toWorld(blk, lx + rnd.range(1.5, lw - 1.5), tz);
-            if (!(W.maskAt(tx, tz2) & MASK.ROAD)) tree(tx, tz2, rnd.pick(oo.trees), rnd.range(7, 12));
-          }
-          if (oo.carP && rnd.chance(oo.carP)) {
-            const [cx, cz] = toWorld(blk, lx + lw / 2, side * (Dd / 2 + 2.6));
-            if (W.maskAt(cx, cz) === 0) car(cx, cz, blk.rot + (side > 0 ? 0 : Math.PI), rnd.pick(PALETTE.car));
-          }
+        } else if (kind === 'shop') {
+          if (o.tallP && rnd.chance(o.tallP) && lw >= 16) {
+            const d = Math.min(D - 4, rnd.range(18, 26));
+            const F2 = A.frame(...F.at(0, D / 2 - 1 - d / 2), yaw);
+            built = !!A.midrise(blk, F2, lw - 0.6, d, rnd.range(...(o.tall || [18, 36])), { deco: rnd.chance(0.4), retailP: 0.9 });
+          } else built = A.storefront(blk, F, lw, D, { twoP: corner ? 0.2 : o.twoP });
+        }
+        // a car parked at the kerb out front
+        if (built && o.carP && kind !== 'gas' && kind !== 'mall' && rnd.chance(kind === 'shop' ? o.carP * 0.6 : o.carP)) {
+          const [px, pz] = toWorld(blk, lx + lw / 2, side * (Dd / 2 + 4.6));
+          if (W.maskAt(px, pz) === 0) car(px, pz, blk.rot + (side > 0 ? 0 : Math.PI), rnd.pick(PALETTE.car), rnd.pick(['sedan', 'sedan', 'compact', 'suv', 'pickup']));
         }
         lx += lw;
+        first = false;
       }
     }
     if (o.curbPalms) {
@@ -620,28 +642,16 @@ export function createWorld(opts = {}) {
     }
   }
 
-  /* One to four buildings sharing a block. */
-  function blockOfBuildings(blk, n, o) {
+  /* One to four big buildings sharing a block, each in its own frame. */
+  function blockOfBuildings(blk, n, make) {
     const L = blk.w, Dd = blk.d;
     const cells = n === 1 ? [[0, 0, L, Dd]] : n === 2 ? [[-L / 4, 0, L / 2, Dd], [L / 4, 0, L / 2, Dd]]
       : [[-L / 4, -Dd / 4, L / 2, Dd / 2], [L / 4, -Dd / 4, L / 2, Dd / 2], [-L / 4, Dd / 4, L / 2, Dd / 2], [L / 4, Dd / 4, L / 2, Dd / 2]];
     for (const [lx, lz, cw, cd] of cells) {
-      if (o.skipP && rnd.chance(o.skipP)) continue;
-      const w = cw - rnd.range(o.margin[0], o.margin[1]), dd = cd - rnd.range(o.margin[0], o.margin[1]);
-      const [x, z] = toWorld(blk, lx, lz);
-      const g = canPlace(x, z, w / 2, dd / 2, blk.rot, o.slope || 4);
-      if (!g) continue;
-      const h = o.height();
-      const b = building(x, z, w, dd, h, blk.rot, rnd.pick(o.palette), h > 40 ? 3 : o.win,
-        o.roofP && rnd.chance(o.roofP) ? 'hip' : null, rnd.pick(PALETTE.roofTile), g);
-      if (h > 90) helipad(b);
-      else if (h > 30 && rnd.chance(0.5)) rooftopKit(b);
-      if (o.signs && rnd.chance(o.signs)) {
-        const face = rnd.int(0, 3), ax = face % 2 ? 0 : 1, sg = face < 2 ? 1 : -1;
-        const [nx, nz] = rot(ax ? 0 : sg, ax ? sg : 0, blk.rot);
-        const depth = ax ? dd : w, width = ax ? w : dd;
-        W.signs.push({ x: x + nx * (depth / 2 + 0.08), y: g.hi + 4, z: z + nz * (depth / 2 + 0.08), ry: Math.atan2(nx, nz), w: Math.min(width * 0.6, 10), h: 1.6, cell: signFor(blk.district), look: 0 });
-      }
+      // face the nearer long side of the block: that's the street
+      const yaw = blk.rot + (lz < 0 ? Math.PI : 0);
+      const F = A.frame(...toWorld(blk, lx, lz), yaw);
+      make(F, cw, cd);
     }
   }
 
@@ -656,11 +666,11 @@ export function createWorld(opts = {}) {
     api.box(b.x - ax, top + 0.32, b.z - az, r * 0.14, 0.05, r * 0.9, '#f4f4f4', { ry: b.rot });
     api.box(b.x, top + 0.32, b.z, r * 0.7, 0.05, r * 0.14, '#f4f4f4', { ry: b.rot });
   }
-  function rooftopKit(b) {
+  function rooftopKit(b, water = false) {
     const top = b.y + b.h;
     const [ox, oz] = rot(b.w * 0.2, -b.d * 0.15, b.rot);
     api.box(b.x + ox, top + 1.2, b.z + oz, Math.min(6, b.w * 0.3), 2.4, Math.min(5, b.d * 0.3), '#8b8f94', { ry: b.rot, col: true });
-    if (rnd.chance(0.4)) {
+    if (water || rnd.chance(0.4)) {
       const [wx, wz] = rot(-b.w * 0.25, b.d * 0.2, b.rot);
       api.cyl(b.x + wx, top + 3, b.z + wz, 3, 3, 3, '#7a5b3e');
       for (const [lx, lz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) api.box(b.x + wx + lx, top + 1, b.z + wz + lz, 0.2, 2, 0.2, '#555');
@@ -668,41 +678,49 @@ export function createWorld(opts = {}) {
   }
 
   function genBlock(blk, d, coreDist) {
+    const deco = ['Koreatown', 'Miracle Mile', 'Hollywood', 'Long Beach', 'Downtown LA', 'Mid-City'].includes(d.name) ? 0.4 : 0.15;
     switch (d.style) {
       case 'residential':
-        return rowOfLots(blk, { lot: [13, 19], gap: 4, depth: [11, 16], setback: 6, h: [3.8, 7.5], palette: PALETTE.stucco, win: 1, roofP: 0.6, poolP: 0.22, treeP: 0.55, trees: [1, 1, 2, 0, 4], carP: 0.14 });
+        return rowOfLots(blk, { kind: 'house', lot: [14.2, 16.2], carP: 0.45 });
       case 'suburb':
-        return rowOfLots(blk, { lot: [17, 23], gap: 5, depth: [12, 16], setback: 8, h: [3.8, 5.2], palette: PALETTE.stucco, win: 1, roofP: 0.85, poolP: 0.35, treeP: 0.6, trees: [1, 1, 5, 0], carP: 0.12 });
+        return rowOfLots(blk, { kind: 'house', lot: [19, 23], carP: 0.3 });
       case 'beach':
-        return rowOfLots(blk, { lot: [8, 12], gap: 1.5, depth: [12, 16], setback: 2.5, h: [5, 9.5], palette: PALETTE.beach, win: 1, roofP: 0.15, treeP: 0.25, trees: [0, 0, 1], carP: 0.1, signs: 0.12 });
+        return rowOfLots(blk, { kind: 'beach', lot: [8.5, 11], carP: 0.25 });
       case 'coastal':
-        return rowOfLots(blk, { lot: [18, 30], gap: 2, depth: [16, 24], setback: 3, h: [9, 18], tallP: 0.12, tall: [25, 45], palette: PALETTE.stucco, win: 2, treeP: 0.4, trees: [0, 0, 1], carP: 0.1, curbPalms: 20, signs: 0.35 });
+        return rowOfLots(blk, { kind: 'apartment', lot: [18, 30], tallP: 0.12, palette: [...PALETTE.stucco, ...PALETTE.white], carP: 0.35, curbPalms: 20 });
       case 'mansion':
-        return rowOfLots(blk, { lot: [34, 52], gap: 10, depth: [16, 24], setback: 9, h: [7, 11], palette: [...PALETTE.white, ...PALETTE.stucco], win: 1, roofP: 0.65, poolP: 0.85, treeP: 1, trees: [1, 4, 2, 0], carP: 0.06, curbPalms: 17, slope: 5 });
+        return rowOfLots(blk, { kind: 'mansion', lot: [36, 52], carP: 0.08, curbPalms: 17 });
       case 'mixed':
-        return rowOfLots(blk, { lot: [12, 30], gap: 0.6, depth: [14, 24], setback: 0.6, h: [5, 12], tallP: 0.1, tall: [22, 45], palette: [...PALETTE.stucco, ...PALETTE.brick], win: 2, treeP: 0.2, trees: [0, 1], carP: 0.08, signs: 0.85 });
+        return rowOfLots(blk, { kind: 'shop', tallP: 0.08, tall: [18, 40], twoP: 0.35, carP: 0.3 });
       case 'hollywood':
-        return rowOfLots(blk, { lot: [12, 30], gap: 0.6, depth: [14, 26], setback: 0.6, h: [6, 16], tallP: 0.18, tall: [28, 70], tallPalette: PALETTE.glass, palette: [...PALETTE.stucco, ...PALETTE.brick, ...PALETTE.white], win: 2, treeP: 0.3, trees: [0, 0, 1], carP: 0.08, signs: 0.8 });
+        return rowOfLots(blk, { kind: 'shop', tallP: 0.16, tall: [24, 60], twoP: 0.45, carP: 0.3 });
       case 'midrise':
-        return blockOfBuildings(blk, rnd.chance(0.5) ? 4 : 2, { margin: [6, 14], palette: [...PALETTE.stucco, ...PALETTE.glass, ...PALETTE.brick], win: 2, skipP: 0.12, signs: 0.6, height: () => (rnd.chance(0.08) ? rnd.range(60, 120) : rnd.range(12, 42)) });
+        return blockOfBuildings(blk, rnd.chance(0.5) ? 4 : 2, (F, cw, cd) => {
+          if (rnd.chance(0.1)) return;
+          const tall = rnd.chance(0.08);
+          const F2 = A.frame(...F.at(0, cd / 2 - 2 - (cd - 8) / 2), F.yaw);
+          A.midrise(blk, F2, cw - rnd.range(4, 10), cd - 8, tall ? rnd.range(60, 110) : rnd.range(14, 42), { deco: !tall && rnd.chance(deco), palette: [...PALETTE.stucco, ...PALETTE.brick] });
+        });
       case 'towers':
-        return blockOfBuildings(blk, rnd.chance(0.6) ? 1 : 2, { margin: [14, 30], palette: PALETTE.glass, win: 3, height: () => rnd.range(55, 165) });
+        return blockOfBuildings(blk, rnd.chance(0.6) ? 1 : 2, (F, cw, cd) => A.tower(blk, F, cw - rnd.range(14, 26), cd - rnd.range(14, 26), rnd.range(55, 165)));
       case 'downtown': {
-        const near = coreDist < 520;
-        return blockOfBuildings(blk, near ? (rnd.chance(0.5) ? 1 : 2) : (rnd.chance(0.5) ? 2 : 4), {
-          margin: near ? [12, 26] : [6, 16], palette: [...PALETTE.glass, ...PALETTE.brick], win: 3,
-          height: () => (near ? (rnd.chance(0.25) ? rnd.range(150, 250) : rnd.range(60, 150)) : (rnd.chance(0.15) ? rnd.range(70, 130) : rnd.range(18, 60)))
+        const near = coreDist < 560;
+        return blockOfBuildings(blk, near ? (rnd.chance(0.5) ? 1 : 2) : (rnd.chance(0.5) ? 2 : 4), (F, cw, cd) => {
+          const h = near ? (rnd.chance(0.25) ? rnd.range(150, 250) : rnd.range(60, 150)) : (rnd.chance(0.15) ? rnd.range(70, 130) : rnd.range(18, 60));
+          const w = cw - rnd.range(4, 14), dd = cd - rnd.range(4, 14);
+          if (h > 50) A.tower(blk, F, w, dd, h);
+          else A.midrise(blk, F, w, dd, h, { deco: rnd.chance(0.45), retailP: 0.8, palette: [...PALETTE.brick, ...PALETTE.stucco] });
         });
       }
       case 'industrial':
         if ((d.name === 'El Segundo' || d.name === 'Carson') && rnd.chance(0.35)) return tankFarm(blk);
-        return blockOfBuildings(blk, rnd.chance(0.5) ? 1 : 2, { margin: [8, 22], palette: PALETTE.brick, win: 4, height: () => rnd.range(8, 15) });
+        return blockOfBuildings(blk, rnd.chance(0.5) ? 1 : 2, (F, cw, cd) => A.warehouse(blk, F, cw - rnd.range(14, 30), cd - rnd.range(16, 30), { brick: d.name === 'Arts District' ? rnd.chance(0.8) : rnd.chance(0.15) }));
       case 'campus':
-        blockOfBuildings(blk, 4, { margin: [16, 26], palette: ['#a5543d', '#b56a4c', '#c9b28c', '#9c4f3a'], win: 2, skipP: 0.3, roofP: 0.5, height: () => rnd.range(11, 22) });
-        for (let k = 0; k < 4; k++) { const [x, z] = toWorld(blk, rnd.range(-30, 30), rnd.range(-20, 20)); if (canPlace(x, z, 1, 1, 0)) tree(x, z, rnd.pick([1, 1, 2, 0]), rnd.range(8, 14)); }
+        blockOfBuildings(blk, 4, (F, cw, cd) => { if (!rnd.chance(0.25)) A.campusHall(blk, F, cw - rnd.range(16, 26), cd - rnd.range(18, 26)); });
+        for (let k = 0; k < 6; k++) { const [x, z] = toWorld(blk, rnd.range(-40, 40), rnd.range(-25, 25)); if (canPlace(x, z, 1, 1, 0)) tree(x, z, rnd.pick([1, 1, 2, 0, 5]), rnd.range(8, 14)); }
         return;
       case 'port':
-        return rnd.chance(0.25) ? blockOfBuildings(blk, 1, { margin: [10, 20], palette: PALETTE.brick, win: 4, height: () => rnd.range(10, 16) }) : containerYard(blk);
+        return rnd.chance(0.25) ? blockOfBuildings(blk, 1, (F, cw, cd) => A.warehouse(blk, F, cw - 30, cd - 30, { brick: false, fence: true })) : containerYard(blk);
     }
   }
 
@@ -740,19 +758,11 @@ export function createWorld(opts = {}) {
       const d = W.districtAt(px, pz);
       if (d.style !== 'hills' && !(d.style === 'mansion' && gh(px, pz) - terrain.base(px, pz) > 26)) continue;
       if (!rnd.chance(0.42)) continue;
-      const w = rnd.range(14, 24), dd = rnd.range(11, 18), a = rnd.range(0, Math.PI);
-      const g = canPlace(px, pz, w / 2, dd / 2, a, 9);
-      if (!g) continue;
-      const pitched = rnd.chance(0.5);
-      building(px, pz, w, dd, rnd.range(6, 10), a, rnd.pick([...PALETTE.white, ...PALETTE.stucco]), 1, pitched ? 'hip' : null, rnd.pick(PALETTE.roofTile), g);
-      if (rnd.chance(0.6)) {
-        const [ox, oz] = rot(0, dd / 2 + 4, a);
-        if (canPlace(px + ox, pz + oz, 4, 2.5, a, 6)) W.pools.push({ x: px + ox, z: pz + oz, w: 9, d: 4.5, rot: a });
-      }
-      for (let k = 0; k < 2; k++) {
-        const tx = px + rnd.range(-18, 18), tz = pz + rnd.range(-18, 18);
-        if (canPlace(tx, tz, 1, 1, 0, 8)) tree(tx, tz, rnd.pick([4, 1, 5, 0]), rnd.range(8, 16));
-      }
+      const a = rnd.range(0, Math.PI * 2);
+      // face downhill, towards the view
+      const [nx, , nz] = W.normalAt(px, pz);
+      const yaw = Math.hypot(nx, nz) > 0.02 ? Math.atan2(nx, nz) : a;
+      A.hillside(px, pz, yaw);
     }
   }
 

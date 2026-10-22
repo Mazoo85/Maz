@@ -138,6 +138,24 @@ test('freeway signs name LA\'s real control cities', () => {
   assert.ok(t.some((x) => x.startsWith('10 WEST Santa Monica')));
 });
 
+console.log('architecture');
+test('LA building types are all there', () => {
+  const by = (pred) => W.parts.filter(pred).length;
+  assert.ok(by((p) => p.s === 'gable' && p.m === 'tile') > 1000, 'Spanish tile roofs');
+  assert.ok(by((p) => p.s === 'gable' && p.m === 'asphalt') > 500, 'Craftsman and cottage roofs');
+  assert.ok(by((p) => p.s === 'arch') > 1000, 'arched windows, porches and arcades');
+  assert.ok(by((p) => p.m === 'fabric') > 200, 'shop awnings');
+  assert.ok(by((p) => p.m === 'foliage') > 100, 'hedges');
+  assert.ok(W.parts.some((p) => p.s === 'text' && /^GAS/.test(p.text)), 'gas stations');
+  assert.ok(W.parts.some((p) => p.s === 'text' && /^(The |Casa |Sea |Kona |Palm |Villa |Lanai |Royal |Shangri)/.test(p.text)), 'dingbats with their names');
+});
+test('houses are built to real dimensions', () => {
+  // single-storey bungalows and ranches: 2.8-3.6 m walls on 9-20 m wide footprints
+  const houses = W.buildings.filter((b) => b.win === 1 && b.noLip && b.h < 5 && b.w > 8);
+  assert.ok(houses.length > 3000, `${houses.length} houses`);
+  for (const b of houses) assert.ok(b.w <= 20 && b.d <= 17.5, `${b.w.toFixed(1)} × ${b.d.toFixed(1)} m`);
+});
+
 console.log('collision');
 const tall = W.buildings.find((b) => b.h > 60 && b.win === 3);
 const body = (x, z, y) => ({ x, y, z, vx: 0, vy: 0, vz: 0, r: 0.42, h: 1.8, step: 0.55, onGround: false, groundY: 0 });
