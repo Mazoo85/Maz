@@ -132,7 +132,6 @@ function makeGame(W, R, renderer) {
   /* touch: a stick on the left, look by dragging on the right */
   const touch = { stick: null, look: null, mx: 0, mz: 0, sprint: false };
   if (isTouch) {
-    $('touch').hidden = false;
     const stickEl = $('stick'), knob = $('knob');
     canvas.addEventListener('touchstart', (e) => {
       for (const t of e.changedTouches) {
@@ -332,7 +331,7 @@ function makeGame(W, R, renderer) {
     else if (throttle < 0) c.speed += (c.speed > 0 ? 30 : 8) * throttle * dt;
     else c.speed *= Math.pow(c.onGround === false ? 0.995 : 0.55, dt);
     if (brake) c.speed *= Math.pow(0.05, dt);
-    c.speed = clamp(c.speed, -12, T.top);
+    c.speed = clamp(c.speed, -8, T.top);
     c.steer = lerp(c.steer, steer, Math.min(1, dt * 6));
     const turn = c.steer * clamp(c.speed / 8, -1, 1) * (1 - Math.min(0.6, Math.abs(c.speed) / T.top * 0.6)) * 1.05;
     c.yaw += turn * dt * (brake ? 1.5 : 1);
@@ -398,7 +397,7 @@ function makeGame(W, R, renderer) {
     let tx, ty, tz;
     if (state === 'blimp') { const [bx, by, bz] = blimpPos(); tx = bx; ty = by - 6; tz = bz; }
     else if (state === 'drive') { tx = car.x; ty = car.y + 2.2; tz = car.z; }
-    else { tx = body.x; ty = body.y + (state === 'swim' ? 0.6 : 1.6); tz = body.z; }
+    else { tx = body.x; ty = state === 'swim' ? (W.waterLevelAt(body.x, body.z) ?? body.y) + 0.9 : body.y + 1.6; tz = body.z; }
     if (state === 'drive' && !keysLooking()) {
       // swing round behind the car when you're not steering the view
       const behind = car.yaw - Math.PI / 2;
@@ -421,7 +420,7 @@ function makeGame(W, R, renderer) {
     const g = W.groundHeight(cx, cz) + 0.6;
     if (cy < g) cy = g;
     const water = W.waterLevelAt(cx, cz);
-    if (water !== null && cy < water + 0.4 && state !== 'swim') cy = water + 0.4;
+    if (water !== null && cy < water + 0.5) cy = water + 0.5;
     camera.position.set(cx, cy, cz);
     camera.lookAt(tx + ox, ty, tz + oz);
   }
@@ -481,6 +480,15 @@ function makeGame(W, R, renderer) {
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
+    update(dt);
+    renderer.render(scene, camera);
+    if (state !== 'title') hudFrame(dt);
+    if (hud.mapOpen) hud.drawMap();
+    if (running) requestAnimationFrame(frame);
+  }
+
+  /* One step of the world: input, physics, animation, camera. */
+  function update(dt) {
     clock += dt;
     lookTimer -= dt;
     hours = (hours + (dt * 24) / (settings.dayLength * 60)) % 24;
@@ -526,11 +534,7 @@ function makeGame(W, R, renderer) {
     else updateCamera(dt);
     const focus = state === 'drive' ? car : state === 'blimp' ? { x: bx, y: by, z: bz } : state === 'title' ? { x: camera.position.x, y: 0, z: camera.position.z } : body;
     R.update(dt, clock, camera, focus);
-    renderer.render(scene, camera);
-    if (state !== 'title') hudFrame(dt);
-    if (hud.mapOpen) hud.drawMap();
     pressed.clear();
-    if (running) requestAnimationFrame(frame);
   }
 
   function titleCamera() {
@@ -577,13 +581,14 @@ function makeGame(W, R, renderer) {
   resize();
 
   /* ------------------------------------------------------ title & menu */
+  const showHud = () => { $('title').hidden = true; $('hud').hidden = false; $('touch').hidden = !isTouch; };
   $('playBtn').addEventListener('click', () => {
-    $('title').hidden = true; $('hud').hidden = false;
+    showHud();
     startDrop();
     if (!isTouch) canvas.requestPointerLock?.();
   });
   $('mapBtn').addEventListener('click', () => {
-    $('title').hidden = true; $('hud').hidden = false;
+    showHud();
     state = 'walk';
     Object.assign(body, { x: -2060, z: 240, y: W.groundHeight(-2060, 240) });
     hud.openMap({ player: body, yaw: 0, vehicles: cars, blimp: null, locate: (x, z) => locationAt(W, x, z) }, dropAt, false);
@@ -605,11 +610,22 @@ function makeGame(W, R, renderer) {
     debug: {
       W, body, cars, cam, R, CAR_TYPES, startDrop, dropAt, enterCar, leaveCar,
       get state() { return state; },
+      get car() { return car; },
+      /* run the world forward without drawing, holding some keys down */
+      simulate(seconds, hold = [], tap = []) {
+        for (const k of hold) keys.add(k);
+        for (const k of tap) pressed.add(k);
+        for (let t = 0; t < seconds; t += 1 / 30) {
+          update(1 / 30);
+          for (const k of hold) keys.add(k);
+        }
+        for (const k of hold) keys.delete(k);
+      },
       setHours: (h) => { hours = h; },
       /* stand somewhere, looking a given way (yaw 0 = north) */
       place(x, z, yaw = 0, pitch = -0.2, dist = 6.5) {
         if (car) leaveCar();
-        $('title').hidden = true; $('hud').hidden = false; hud.closeMap();
+        showHud(); hud.closeMap();
         state = 'walk';
         Object.assign(body, { x, z, y: Math.max(W.groundHeight(x, z), 0) + 0.5, vx: 0, vy: 0, vz: 0 });
         collideBody(W, body);

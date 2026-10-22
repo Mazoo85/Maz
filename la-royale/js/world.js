@@ -159,8 +159,11 @@ function makeTerrain(seed) {
     const land = base(x, z) + m;
     const s = shore(x, z);
     let h;
-    if (s < 80) h = Math.max(-22, -0.6 + s * 0.045);
-    else if (s < 220) h = lerp(-0.6 + 80 * 0.045, land, smoothstep(80, 220, s));
+    // the beach: a quick drop at the waterline, then a long gentle rise
+    if (s < 0) h = Math.max(-22, -1.0 + s * 0.05);
+    else if (s < 12) h = -1.0 + s * 0.12;
+    else if (s < 80) h = 0.44 + (s - 12) * 0.033;
+    else if (s < 220) h = lerp(2.68, land, smoothstep(80, 220, s));
     else h = land;
     if (inHardWater(x, z)) h = Math.min(h, -4);
     for (const r of rivers) {
