@@ -314,3 +314,31 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ---- Real 3D cities ---------------------------------------------------- */
+.steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.steps a, .fine a { color: var(--sky); }
+.steps b { font-weight: 600; }
+.steps code { font-size: 12px; padding: 1px 5px; border-radius: 5px; background: rgba(0, 0, 0, 0.35); overflow-wrap: anywhere; }
+
+.real3d { position: fixed; inset: 0; z-index: 20; background: var(--space); }
+.real3d-view { position: absolute; inset: 0; }
+.real3d-bar {
+  position: absolute; z-index: 2;
+  top: var(--edge-t); left: var(--edge-l); right: var(--edge-r);
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  pointer-events: none;
+}
+.real3d-bar > * { pointer-events: auto; }
+.real3d-bar .btn { display: inline-flex; align-items: center; gap: 4px; padding-left: 8px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35); }
+.real3d-bar .btn svg { width: 20px; height: 20px; stroke-width: 2.2; }
+.real3d-status {
+  max-width: 100%; padding: 8px 14px; border-radius: 18px;
+  background: var(--glass); border: 1px solid var(--line);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  font-size: 14px; color: var(--ink);
+}
+.real3d-status:empty { display: none; }
+/* Cesium's own credit line must stay visible (Google requires its logo). */
+.real3d .cesium-viewer-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.real3d .cesium-widget-credits { color: var(--ink-dim); }

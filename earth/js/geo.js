@@ -160,6 +160,48 @@
     return { lat, lng };
   }
 
+  // ---- Handing the view between the map and the 3D city view -----------
+  //
+  // The map describes a view by zoom level; the 3D view by how far the camera
+  // is from the point it looks at. These convert one into the other, so going
+  // into 3D and back keeps you looking at the same place from the same height.
+
+  // MapLibre's vertical field of view, in degrees, and its tile size.
+  const MAP_FOV_DEG = 36.87;
+  const MAP_TILE_PX = 512;
+  const EQUATOR_METRES = 2 * Math.PI * 6378137;
+
+  function metresPerPixel(lat, zoom) {
+    return (EQUATOR_METRES * Math.cos(rad(lat))) / (MAP_TILE_PX * 2 ** zoom);
+  }
+
+  // Distance in metres from the camera to the middle of the screen.
+  function cameraRangeForZoom(lat, zoom, viewportHeightPx) {
+    const visible = viewportHeightPx * metresPerPixel(lat, zoom);
+    return visible / 2 / Math.tan(rad(MAP_FOV_DEG) / 2);
+  }
+
+  function zoomForCameraRange(lat, range, viewportHeightPx) {
+    const visible = range * 2 * Math.tan(rad(MAP_FOV_DEG) / 2);
+    const z = Math.log2((EQUATOR_METRES * Math.cos(rad(lat)) * viewportHeightPx) / (MAP_TILE_PX * visible));
+    return Math.min(22, Math.max(0, z));
+  }
+
+  // Map pitch is 0 looking straight down and rises as you tilt; the 3D view's
+  // is -90 looking straight down and 0 looking at the horizon.
+  function viewPitchFromMap(mapPitch) {
+    return mapPitch - 90;
+  }
+
+  function mapPitchFromView(viewPitch) {
+    return Math.min(80, Math.max(0, viewPitch + 90));
+  }
+
+  // A heading in degrees, 0 to 360 (the 3D view) or -180 to 180 (the map).
+  function bearingFromHeading(headingDeg) {
+    return wrapLng(headingDeg);
+  }
+
   // ---- Saved places ------------------------------------------------------
 
   const NAME_MAX = 80;
@@ -234,6 +276,12 @@
     formatElevation,
     formatCoord,
     parseCoordinates,
+    metresPerPixel,
+    cameraRangeForZoom,
+    zoomForCameraRange,
+    viewPitchFromMap,
+    mapPitchFromView,
+    bearingFromHeading,
     newId,
     normalizePlace,
     serializePlaces,

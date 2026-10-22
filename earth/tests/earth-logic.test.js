@@ -185,6 +185,48 @@ test('place names are not mistaken for coordinates', () => {
   eq(G.parseCoordinates('95, 10'), null);
 });
 
+console.log('Going into 3D and back');
+
+test('a tile pixel at zoom 0 on the equator is about 78 km', () => {
+  near(G.metresPerPixel(0, 0), 78271.5, 1);
+  near(G.metresPerPixel(60, 0), 78271.5 / 2, 1);
+});
+
+test('zoom to camera distance and back gives the same zoom', () => {
+  for (const [lat, zoom] of [[0, 1], [40.7, 16], [-33.9, 12.3], [70, 5]]) {
+    const range = G.cameraRangeForZoom(lat, zoom, 800);
+    near(G.zoomForCameraRange(lat, range, 800), zoom, 1e-9, 'lat ' + lat + ' zoom ' + zoom);
+  }
+});
+
+test('one zoom level closer is half the distance', () => {
+  near(G.cameraRangeForZoom(51.5, 15, 800) / G.cameraRangeForZoom(51.5, 16, 800), 2, 1e-9);
+});
+
+test('a city at zoom 16 is seen from a few hundred metres', () => {
+  const range = G.cameraRangeForZoom(40.75, 16, 800);
+  assert(range > 300 && range < 1500, 'range ' + range);
+});
+
+test('zoom stays inside what the map allows', () => {
+  eq(G.zoomForCameraRange(0, 1e12, 800), 0);
+  eq(G.zoomForCameraRange(0, 0.001, 800), 22);
+});
+
+test('tilt carries over both ways', () => {
+  eq(G.viewPitchFromMap(0), -90);
+  eq(G.viewPitchFromMap(60), -30);
+  eq(G.mapPitchFromView(-30), 60);
+  eq(G.mapPitchFromView(10), 80, 'looking above the horizon is the most the map can tilt');
+  eq(G.mapPitchFromView(-120), 0);
+});
+
+test('compass headings become map bearings', () => {
+  eq(G.bearingFromHeading(90), 90);
+  eq(G.bearingFromHeading(270), -90);
+  eq(G.bearingFromHeading(360), 0);
+});
+
 console.log('Saved places');
 
 test('a place is cleaned up and kept within limits', () => {
