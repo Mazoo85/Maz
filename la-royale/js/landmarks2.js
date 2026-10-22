@@ -366,7 +366,7 @@ export function register(def, h) {
     }
   });
   // Santa Monica Place, the open-air mall at the end of the Promenade
-  add('Santa Monica Place', [34.0137, -118.4945], 28, (api, x, z, y, a, k) => {
+  add('Santa Monica Place', [34.0137, -118.4945], 34, (api, x, z, y, a, k) => {
     for (const [lx, lz] of [[-14, 0], [14, 0]]) { const [bx, bz] = k.at(lx, lz); api.building(bx, bz, 22, 40, 14, a, '#e8e2d6', 2); }
     k.sign(0, y + 12, 20.2, 18, 2, 'SANTA MONICA PLACE', '#1b1b1b', { bg: '#f4f1ea', font: 40 });
   });

@@ -229,7 +229,7 @@ export function createWorld(opts = {}) {
     lakes: terrain.lakes, roads: ROADS, rivers: RIVERS, canals: CANALS, coast: COAST,
     waterPolys: WATER_POLYS, districts: DISTRICTS,
     buildings: [], parts: [], groups: {}, trees: [], blocks: [], pools: [], paint: [], signs: [],
-    props: [], wires: [], crosswalks: [], gantries: [],
+    props: [], wires: [], crosswalks: [], gantries: [], parked: [], walkers: [],
     colliders: [], pois: [], vehicles: [], billboards: [], bridges: [],
     stats: {}
   };
@@ -454,20 +454,13 @@ export function createWorld(opts = {}) {
   }
 
   /* A parked or abandoned car, as instanced parts. */
+  /* A parked or abandoned car. Drawn by streetlife.js from W.parked; here
+   * it only needs to be solid. kind: sedan, van, suv, pickup, compact. */
   function car(x, z, a, color, kind = 'sedan') {
     const y = gh(x, z);
-    const L = kind === 'van' ? 5.4 : 4.6, Wd = kind === 'van' ? 2.1 : 1.9;
-    const bodyH = kind === 'van' ? 1.9 : 0.75;
-    part({ s: 'box', x, y: y + 0.45 + bodyH / 2, z, sx: L, sy: bodyH, sz: Wd, ry: a, c: color });
-    if (kind !== 'van') {
-      const [cx, cz] = rot(-0.3, 0, a);
-      part({ s: 'box', x: x + cx, y: y + 0.45 + bodyH + 0.33, z: z + cz, sx: L * 0.5, sy: 0.66, sz: Wd * 0.92, ry: a, c: '#26313a' });
-    }
-    for (const [wx, wz] of [[1.45, 0.85], [-1.45, 0.85], [1.45, -0.85], [-1.45, -0.85]]) {
-      const [ox, oz] = rot(wx * (L / 4.6), wz * (Wd / 1.9), a);
-      part({ s: 'cyl', x: x + ox, y: y + 0.36, z: z + oz, sx: 0.72, sy: 0.3, sz: 0.72, rx: Math.PI / 2, ry: a, c: '#141414' });
-    }
-    addBox(x, z, L / 2, Wd / 2, a, y, y + 0.45 + bodyH + (kind === 'van' ? 0 : 0.66), 'car');
+    const dims = { sedan: [4.85, 1.85, 1.45], van: [5.3, 2.0, 2.1], suv: [4.95, 1.95, 1.8], pickup: [5.6, 2.0, 1.9], compact: [4.35, 1.78, 1.45] }[kind] || [4.85, 1.85, 1.45];
+    W.parked.push({ x, y, z, ry: a, color, kind, len: dims[0], wid: dims[1], hgt: dims[2] });
+    addBox(x, z, dims[0] / 2, dims[1] / 2, a, y, y + dims[2], 'car');
   }
 
   /* An oil pumpjack — Baldwin Hills still has hundreds. The beam nods. */

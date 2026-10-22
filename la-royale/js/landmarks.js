@@ -11,7 +11,7 @@
  * so the renderer and the collision both come from the same description.
  */
 
-import { project, COAST, DISTRICTS, ROADS, ROAD_WIDTH } from './geo.js';
+import { project, COAST, DISTRICTS, ROADS, ROAD_WIDTH, STYLES } from './geo.js';
 import { register as registerMore } from './landmarks2.js';
 
 const P = (lat, lon) => project(lat, lon);
@@ -35,7 +35,7 @@ function shoreFrame(x, z) {
 
 /* Downtown's towers sit on its rotated street grid: (i, j) is a block. */
 const DTLA = DISTRICTS.find((d) => d.name === 'Downtown LA');
-const DT_PITCH = 92 + 16;
+const DT_PITCH = STYLES.downtown.bx + STYLES.downtown.st;
 const dt = (i, j) => { const [ox, oz] = rotv(i * DT_PITCH, j * DT_PITCH, DTLA.rot); return [DTLA.x + ox, DTLA.z + oz]; };
 
 const L = [];
@@ -501,8 +501,8 @@ def('Walk of Fame', [34.1016, -118.334], { poiR: 220 }, (api) => {
 
 def('Chateau Marmont', [34.0981, -118.3685], { poiR: 50 }, (api) => {
   const { building, roof, gh } = api;
-  const [x, z] = P(34.0981, -118.3685);
-  const zz = z - 34;
+  const [x] = P(34.0981, -118.3685);
+  const zz = -1340;                  // just north of Sunset, as on the real Strip
   const y = gh(x, zz);
   building(x, zz, 32, 20, 22, 0, '#efe9dc', 1);
   for (const s of [-1, 1]) {
@@ -907,7 +907,7 @@ def('Olvera Street', [[1690, -768]], { poiR: 50 }, (api) => {
   cyl(1690, y + 0.4, -768, 9, 0.8, 9, '#e8dcc4', { col: true });
   for (let k = 0; k < 8; k++) { const t = k / 8 * 6.28; cyl(1690 + Math.cos(t) * 4, y + 3, -768 + Math.sin(t) * 4, 0.4, 5, 0.4, '#f4efe6'); }
   cone(1690, y + 6.5, -768, 11, 3, 11, '#b5562f');
-  for (let k = 0; k < 4; k++) building(1655 + k * 14, -790, 11, 10, 5, 0, rnd.pick(['#f2c14e', '#e84a5f', '#48c9b0', '#f4ead5']), 1);
+  for (let k = 0; k < 4; k++) building(1714 + k * 13, -776, 11, 10, 5, 0, rnd.pick(['#f2c14e', '#e84a5f', '#48c9b0', '#f4ead5']), 1);
   reserveDisc(1690, -778, 30);
 });
 
@@ -1028,9 +1028,9 @@ function bowl(api, x, z, y, a, b, depth, h, rot, colors, gaps = 2) {
   }
 }
 
-def('LA Memorial Coliseum', [[1031, 110]], { pad: { r: 120, blend: 40 }, poiR: 160 }, (api) => {
+def('LA Memorial Coliseum', [[1029, 110]], { pad: { r: 120, blend: 40 }, poiR: 160 }, (api) => {
   const { arch, box, cyl, cone, paint, gh } = api;
-  const [x, z] = [1031, 110];
+  const [x, z] = [1029, 110];
   const y = gh(x, z);
   paint({ t: 'ellipse', x, z, rx: 84, rz: 58, rot: 0, c: '#3f8f3f' }, 1);
   paint({ t: 'rect', x, z, w: 92, d: 44, rot: 0, c: '#46994a' }, 1);

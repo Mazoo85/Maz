@@ -141,7 +141,11 @@ ROADS.push((() => {
   return { name: 'Mulholland Dr', kind: 'local', pts };
 })());
 
-export const ROAD_WIDTH = { freeway: 30, blvd: 18, local: 11 };
+/* Real cross-sections: a freeway like the 405 is five 3.7 m lanes each way
+ * plus shoulders and a median barrier (46 m); a boulevard like Wilshire is
+ * two lanes each way, a centre turn lane and kerbside parking (26 m);
+ * Mulholland is a two-lane canyon road. */
+export const ROAD_WIDTH = { freeway: 46, blvd: 26, local: 11 };
 
 /*
  * Neighbourhoods. Each is a Voronoi seed: a point belongs to whichever seed is
@@ -218,19 +222,21 @@ export const DISTRICTS = [
 /* How each style lays out its blocks: block length × depth, street width,
  * and the colour of the ground between the buildings. */
 export const STYLES = {
-  residential: { bx: 112, bz: 64, st: 12, lot: '#a3a679' },
-  suburb: { bx: 124, bz: 72, st: 12, lot: '#9fa874' },
-  beach: { bx: 84, bz: 46, st: 9, lot: '#cdbf98' },
-  coastal: { bx: 96, bz: 66, st: 12, lot: '#b8b19c' },
-  mansion: { bx: 150, bz: 92, st: 14, lot: '#7f9a5a' },
-  mixed: { bx: 100, bz: 70, st: 14, lot: '#a8a294' },
-  hollywood: { bx: 100, bz: 70, st: 14, lot: '#a49d92' },
-  midrise: { bx: 100, bz: 72, st: 16, lot: '#aaa59b' },
-  towers: { bx: 96, bz: 96, st: 18, lot: '#b4b0a8' },
-  downtown: { bx: 92, bz: 92, st: 16, lot: '#b3aea5' },
-  industrial: { bx: 160, bz: 100, st: 16, lot: '#a39d90' },
-  port: { bx: 170, bz: 110, st: 18, lot: '#8f8c86' },
-  campus: { bx: 140, bz: 100, st: 12, lot: '#8fa86a' },
+  // block length × depth and the street between blocks (roadway + both
+  // sidewalks), in metres, from LA's real street grid
+  residential: { bx: 180, bz: 84, st: 18, lot: '#a3a679' },
+  suburb: { bx: 200, bz: 90, st: 20, lot: '#9fa874' },
+  beach: { bx: 110, bz: 56, st: 10, lot: '#cdbf98' },
+  coastal: { bx: 160, bz: 90, st: 20, lot: '#b8b19c' },
+  mansion: { bx: 220, bz: 120, st: 20, lot: '#7f9a5a' },
+  mixed: { bx: 150, bz: 84, st: 22, lot: '#a8a294' },
+  hollywood: { bx: 150, bz: 84, st: 22, lot: '#a49d92' },
+  midrise: { bx: 140, bz: 90, st: 22, lot: '#aaa59b' },
+  towers: { bx: 130, bz: 110, st: 26, lot: '#b4b0a8' },
+  downtown: { bx: 120, bz: 100, st: 22, lot: '#b3aea5' },
+  industrial: { bx: 200, bz: 120, st: 22, lot: '#a39d90' },
+  port: { bx: 220, bz: 140, st: 24, lot: '#8f8c86' },
+  campus: { bx: 180, bz: 120, st: 18, lot: '#8fa86a' },
   hills: null, park: null, wild: null, oilfield: null, airport: null
 };
 
