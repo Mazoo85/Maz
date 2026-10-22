@@ -597,7 +597,7 @@ function buildHorizon(RW, scene, uniforms, lo) {
   g.setAttribute('aUrban', new THREE.BufferAttribute(urb, 1));
   g.setIndex(new THREE.BufferAttribute(idx, 1));
   g.computeVertexNormals();
-  const haze = { value: scene.fog ? scene.fog.color : new THREE.Color(0xcfd3d0) };
+  const haze = { value: new THREE.Color(0xcfd3d0) }, distance = new THREE.Color().setRGB(0.74, 0.79, 0.84, THREE.SRGBColorSpace).convertLinearToSRGB();
   const hazed = (m0, urban) => {
     m0.fog = false;
     m0.onBeforeCompile = (sh) => {
@@ -627,7 +627,10 @@ function buildHorizon(RW, scene, uniforms, lo) {
   const sea = new THREE.Mesh(new THREE.PlaneGeometry(400000, 400000), hazed(new THREE.MeshStandardMaterial({ color: 0x24627e, roughness: 0.25, metalness: 0.1 }), false));
   sea.rotation.x = -Math.PI / 2; sea.position.y = 0;
   scene.add(sea);
-  return { land, sea, haze };
+  // far off, the haze is bluer than the smog close in (the light scattered by the whole depth of air)
+  // (mixed in after the tone mapping, so in display colour)
+  const update = (fog) => haze.value.copy(fog).convertLinearToSRGB().lerp(distance, 0.5);
+  return { land, sea, haze, update };
 }
 
 /* ------------------------------------------------------- street paint */
@@ -692,6 +695,17 @@ function streetPaint(roads, gh, onOtherRoad, yOff, busLane) {
     const [v0, v1] = CELL_V(cell);
     paint.quad(P(-hl, hw), P(-hl, -hw), P(hl, -hw), P(hl, hw), 0, 1, 0, col, null, [[0, v0], [1, v0], [1, v1], [0, v1]]);
   };
+  /* a lane arrow pointing along (tx, tz): a stem and a head, the turn arrow hooked left */
+  const arrow = (cx, cz, tx, tz, left, yo) => {
+    const lx = tz, lz = -tx;                 // to the driver's left
+    const P = (a, b) => { const x = cx + tx * a + lx * b, z = cz + tz * a + lz * b; return [x, gh(x, z) + yo, z]; };
+    const v = CELL_V(0), uv = [[0, v[0]], [1, v[0]], [1, v[1]], [0, v[1]]];
+    paint.quad(P(-3, -0.12), P(-3, 0.12), P(left ? 0.4 : 0.6, 0.12), P(left ? 0.4 : 0.6, -0.12), 0, 1, 0, white, null, uv);
+    if (left) {
+      paint.quad(P(0.1, -0.12), P(0.1, 0.9), P(0.4, 0.9), P(0.4, -0.12), 0, 1, 0, white, null, uv);
+      paint.tri(P(-0.35, 0.9), P(0.85, 0.9), P(0.25, 1.75), 0, 1, 0, white, null, [uv[0], uv[1], uv[2]]);
+    } else paint.tri(P(0.6, -0.5), P(0.6, 0.5), P(2.0, 0), 0, 1, 0, white, null, [uv[0], uv[1], uv[2]]);
+  };
   const junctionRoads = new Set();
   for (const v of verts.values()) {
     if (v.legs.length < 3) continue;
@@ -717,8 +731,8 @@ function streetPaint(roads, gh, onOtherRoad, yOff, busLane) {
       } else if (!r.oneway && w >= 18) {
         // the inside lane: a left-turn arrow; outside: straight on
         const [ax, az] = along(r, leg.i, leg.dir, set + 14);
-        lay(ax + rx * 1.9, az + rz * 1.9, -tx, -tz, 6, 1.8, white, 2, yo);
-        lay(ax + rx * (w / 2 - 2.2), az + rz * (w / 2 - 2.2), -tx, -tz, 6, 1.4, white, 3, yo);
+        arrow(ax + rx * 1.9, az + rz * 1.9, -tx, -tz, true, yo);
+        arrow(ax + rx * (w / 2 - 2.2), az + rz * (w / 2 - 2.2), -tx, -tz, false, yo);
       }
     }
   }
@@ -729,7 +743,7 @@ function streetPaint(roads, gh, onOtherRoad, yOff, busLane) {
     const pts = resample(r.pts, 6);
     for (let i = 0; i < pts.length - 1; i++) {
       const [ax, az] = pts[i], [bx, bz] = pts[i + 1], l = Math.hypot(bx - ax, bz - az) || 1, tx = (bx - ax) / l, tz = (bz - az) / l;
-      for (const s of [-1, 1]) {
+      for (const s of r.oneway ? [1] : [-1, 1]) {      // (one-way halves of the boulevard: the kerb side only)
         const off = s * (r.w / 2 - 2.3), mx = (ax + bx) / 2 - tz * off, mz = (az + bz) / 2 + tx * off;
         if (onOtherRoad(mx, mz, r.id)) continue;
         lay(mx, mz, tx, tz, l + 0.05, 3.4, busRed, 0, yo);
@@ -1065,8 +1079,10 @@ export function buildRealScene(RW, renderer, opts = {}) {
     const meshFor = (mat) => groups.get(mat) || groups.set(mat, new Mesh()).get(mat);
     const roadGrid = new Map();                  // 6 m cells → road ids, to keep things off other streets
     const roads = d.roads.map((r, id) => ({ ...r, id, pts: r.pts.map(W2) }));
+    // which roads cross each 6 m cell (not footpaths: LA's sidewalks are often mapped as their own ways)
     for (const r of roads) {
-      const hw = r.w / 2 + 0.5;
+      if (r.cls === RCLASS.footway) continue;
+      const hw = r.w / 2 + 1;
       for (const [x, z] of resample(r.pts, 3)) {
         const rr = Math.ceil(hw / 6);
         for (let dz = -rr; dz <= rr; dz++) for (let dx = -rr; dx <= rr; dx++) {
@@ -1076,7 +1092,23 @@ export function buildRealScene(RW, renderer, opts = {}) {
         }
       }
     }
-    const onOtherRoad = (x, z, id) => { const s = roadGrid.get(Math.floor(z / 6) * 100000 + Math.floor(x / 6)); if (!s) return false; for (const o of s) if (o !== id) return true; return false; };
+    /* is (x, z) on some other road's carriageway (within pad metres of its edge)? */
+    const onOtherRoad = (x, z, id, pad = 0.4) => {
+      const s = roadGrid.get(Math.floor(z / 6) * 100000 + Math.floor(x / 6));
+      if (!s) return false;
+      for (const o of s) {
+        if (o === id) continue;
+        const r = roads[o], lim = r.w / 2 + pad;
+        for (let i = 0; i < r.pts.length - 1; i++) {
+          const [ax, az] = r.pts[i], [bx, bz] = r.pts[i + 1];
+          if (Math.min(ax, bx) - lim > x || Math.max(ax, bx) + lim < x || Math.min(az, bz) - lim > z || Math.max(az, bz) + lim < z) continue;
+          const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1;
+          const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2));
+          if (Math.hypot(ax + dx * t - x, az + dz * t - z) < lim) return true;
+        }
+      }
+      return false;
+    };
     const Y_OFF = [0.17, 0.16, 0.15, 0.14, 0.13, 0.12, 0.11, 0.1, 0.1];
     const white = new THREE.Color(1, 1, 1);
     let rn = 0;
@@ -1102,7 +1134,9 @@ export function buildRealScene(RW, renderer, opts = {}) {
           const B0 = [bx + nx * off0, Math.max(yb, gh(bx + nx * off0, bz + nz * off0)) + yoff, bz + nz * off0];
           const B1 = [bx + nx * off1, Math.max(yb, gh(bx + nx * off1, bz + nz * off1)) + yoff, bz + nz * off1];
           const v0 = s / vScale, v1 = (s + l) / vScale;
-          m.quad(A0, B0, B1, A1, 0, 1, 0, white, null, [[u0, v0], [u0, v1], [u1, v1], [u1, v0]]);
+          // (footpaths mapped across a street are its crosswalk, painted already: don't pave over the road)
+          if (!(footway && onOtherRoad((ax + bx) / 2, (az + bz) / 2, r.id, -0.5)))
+            m.quad(A0, B0, B1, A1, 0, 1, 0, white, null, [[u0, v0], [u0, v1], [u1, v1], [u1, v0]]);
           s += l;
         }
       };
@@ -1438,6 +1472,7 @@ export function buildRealScene(RW, renderer, opts = {}) {
   });
   atmo.onUpdate.push((dt, time, camera, focus) => {
     waterNormals.offset.set((time * 0.01) % 1, (time * 0.007) % 1);
+    if (horizon && scene.fog) horizon.update(scene.fog.color);
     const f = focus || camera.position;
     stream(f.x, f.z, lo ? 5 : 8);
     const cx = camera.position.x, cz = camera.position.z;
