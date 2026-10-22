@@ -16,7 +16,7 @@
 import { readFileSync, readdirSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { REAL, projector, toBuilding, toRoad, areaKind, treeKind, toPoi, encodeTile, ringArea, RCLASS, AREA } from '../js/osm.js';
+import { REAL, projector, toBuilding, toRoad, areaKind, treeKind, toPoi, encodeTile, ringArea, RCLASS, AREA, BTYPE } from '../js/osm.js';
 import { decodePNG, encodePNG } from './png.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -291,6 +291,20 @@ function line(pts, w, [r, g, b]) {
 const AREA_COL = { [AREA.water]: [86, 156, 196], [AREA.park]: [146, 180, 110], [AREA.grass]: [160, 186, 120], [AREA.beach]: [232, 218, 176], [AREA.parking]: [176, 174, 170], [AREA.pitch]: [120, 170, 96], [AREA.wood]: [110, 140, 90], [AREA.scrub]: [168, 170, 120], [AREA.cemetery]: [150, 176, 120], [AREA.sand]: [220, 205, 160], [AREA.plaza]: [200, 196, 188] };
 const all = [...tiles.values()];
 for (const t of all) for (const a of t.areas) poly(a.pts, AREA_COL[a.kind] || [200, 196, 188]);
+// lawns and gardens round the houses (LA's yards: green where watered, straw where not)
+function disc(x, z, r, [cr, cg, cb]) {
+  const cx = px(x), cz = pz(z), rr = r * S;
+  for (let y = Math.floor(cz - rr); y <= cz + rr; y++) for (let xx = Math.floor(cx - rr); xx <= cx + rr; xx++) {
+    if (xx < 0 || y < 0 || xx >= OV || y >= OV || (xx - cx) ** 2 + (y - cz) ** 2 > rr * rr) continue;
+    const o = (y * OV + xx) * 4; img[o] = cr; img[o + 1] = cg; img[o + 2] = cb;
+  }
+}
+for (const t of all) for (const b of t.buildings) {
+  const area = Math.abs(ringArea(b.pts));
+  if (b.h > 10 || area > 450 || (b.type !== BTYPE.house && b.type !== BTYPE.other && b.type !== BTYPE.garage)) continue;
+  const [cx, cz] = centroid(b.pts), k = (Math.sin(cx * 0.013 + cz * 0.029) + 1) / 2;
+  disc(cx, cz, Math.sqrt(area) * 0.6 + 10, k < 0.7 ? [118 + k * 20, 146 + k * 10, 82] : [176, 168, 120]);
+}
 for (const t of all) for (const r of [...t.roads].sort((a, b) => b.cls - a.cls)) line(r.pts, r.cls === RCLASS.footway ? 2 : r.w, r.cls <= RCLASS.trunk ? [242, 196, 92] : r.cls === RCLASS.rail ? [120, 110, 100] : r.cls <= RCLASS.tertiary ? [250, 250, 248] : [236, 234, 228]);
 for (const t of all) for (const b of t.buildings) poly(b.pts, b.h > 40 ? [120, 116, 124] : [168, 160, 152]);
 writeFileSync(join(OUT, 'overview.png'), encodePNG(OV, OV, img));

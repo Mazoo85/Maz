@@ -251,6 +251,8 @@ const SIGN_STYLES = [
   ['#2e6b3a', '#f6f1e1'], ['#ffffff', '#c0392b'], ['#5a2d82', '#ffe9fb'], ['#e86a1c', '#ffffff'], ['#222831', '#7ef0ff']
 ];
 
+const AWNINGS = ['#1f5f3a', '#7a1f1f', '#1d3557', '#c4572a', '#2b2b2b', '#d9a441', '#3f6e8c', '#5b2a4a'];
+
 const SURF = { [MATERIAL.stucco]: 0, [MATERIAL.plaster]: 1, [MATERIAL.brick]: 2, [MATERIAL.wood]: 3, [MATERIAL.concrete]: 4, [MATERIAL.glass]: 4, [MATERIAL.stone]: 1, [MATERIAL.metal]: 4 };
 
 /* How a footprint becomes a building: its windows, wall, colour and roof. */
@@ -273,7 +275,9 @@ export function styleOf(b, area) {
   const spanish = hashOf(b.pts[0][1], b.pts[0][0]) < 0.55;
   const roofCol = b.roofCol !== null && b.roofCol !== undefined ? `#${b.roofCol.toString(16).padStart(6, '0')}`
     : roof === ROOF.flat ? pick(FLAT_ROOF, h) : spanish ? pick(TILE_ROOF, h) : pick(SHINGLE, h);
-  return { win, wall, roof, roofCol, roofMat: roof === ROOF.flat ? 4 : spanish ? 5 : 6, surf: SURF[mat] ?? 0, house: houseLike };
+  // trim: a lighter or darker version of the wall
+  const trim = shadeHex(wall, hashOf(b.pts[0][0] + 1, b.pts[0][1]) < 0.6 ? 1.18 : 0.78);
+  return { win, wall, trim, roof, roofCol, roofMat: roof === ROOF.flat ? 4 : spanish ? 5 : 6, surf: SURF[mat] ?? 0, house: houseLike };
 }
 
 /* ----------------------------------------------------- geometry builders */
@@ -319,7 +323,10 @@ function addBuilding(walls, roofs, b, base, st, opts = {}) {
   const seed = hashOf(pts[0][0] * 0.37, pts[0][1] * 0.71);
   const wallCol = new THREE.Color(st.wall), roofCol = new THREE.Color(st.roofCol);
   const parapet = st.roof === ROOF.flat && !st.house && b.h >= 6 && !opts.far ? 0.8 : 0;
-  const ex = { aWin: st.win, aMat: st.surf, aSeed: seed, aBase: base, aTop: top };
+  // storeys that fit the building's real height exactly
+  const typical = st.win === 1 ? 3.1 : st.win === 3 ? 3.9 : st.win === 4 ? 6.5 : 3.8;
+  const floor = b.h / Math.max(1, Math.round(b.h / typical));
+  const ex = { aWin: st.win, aMat: st.surf, aSeed: seed, aBase: base, aTop: top, aFloor: floor };
   // walls (from below the ground on slopes, so nothing floats)
   const yb = Math.min(y0, b.mh > 0 ? y0 : base - 1.5);
   for (let i = 0; i < n; i++) {
@@ -329,6 +336,13 @@ function addBuilding(walls, roofs, b, base, st, opts = {}) {
     const nx = (bz - az) / l, nz = -(bx - ax) / l;
     walls.quad([ax, yb, az], [bx, yb, bz], [bx, top + parapet, bz], [ax, top + parapet, az], nx, 0, nz, wallCol, ex);
     if (parapet) walls.quad([ax, top, az], [bx, top, bz], [bx, top + parapet, bz], [ax, top + parapet, az], -nx, 0, -nz, wallCol, { ...ex, aWin: 0 });
+  }
+  if (!opts.far && !st.house && b.mh < 1) {
+    const trim = new THREE.Color(st.trim), plain = { ...ex, aWin: 0 };
+    // a cornice round the top of the older and mid-rise blocks
+    if (st.win !== 3 && b.h >= 8 && st.roof === ROOF.flat) ledge(walls, pts, top + parapet - 0.55, top + parapet + 0.1, 0.32, trim, plain);
+    // a belt course over the shopfronts
+    if (st.win === 2 && b.h >= 7) ledge(walls, pts, base + 3.9, base + 4.25, 0.18, trim, plain);
   }
   // the roof
   let ridge = top;
@@ -343,6 +357,37 @@ function addBuilding(walls, roofs, b, base, st, opts = {}) {
   for (const [x, z] of pts) { cx += x / n; cz += z / n; }
   for (const [x, z] of pts) r = Math.max(r, Math.hypot(x - cx, z - cz));
   return { k: 2, x: cx, z: cz, r, y0, y1: top, pts };
+}
+
+/* A footprint grown outward by d metres, corners mitred (limited on sharp ones). */
+export function offsetRing(pts, d) {
+  const n = pts.length, out = [];
+  for (let i = 0; i < n; i++) {
+    const [px, pz] = pts[(i + n - 1) % n], [x, z] = pts[i], [qx, qz] = pts[(i + 1) % n];
+    const l1 = Math.hypot(x - px, z - pz) || 1, l2 = Math.hypot(qx - x, qz - z) || 1;
+    const n1x = (z - pz) / l1, n1z = -(x - px) / l1, n2x = (qz - z) / l2, n2z = -(qx - x) / l2;
+    let mx = n1x + n2x, mz = n1z + n2z;
+    const ml = Math.hypot(mx, mz) || 1;
+    mx /= ml; mz /= ml;
+    const k = Math.min(2, 1 / Math.max(0.2, mx * n1x + mz * n1z));
+    out.push([x + mx * d * k, z + mz * d * k]);
+  }
+  return out;
+}
+
+/* A ledge (cornice, belt course) standing out d metres from the walls, from y0 to y1. */
+function ledge(m, pts, y0, y1, d, col, ex) {
+  const o = offsetRing(pts, d), n = pts.length;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    const [ax, az] = o[i], [bx, bz] = o[j];
+    const l = Math.hypot(bx - ax, bz - az);
+    if (l < 0.01) continue;
+    const nx = (bz - az) / l, nz = -(bx - ax) / l;
+    m.quad([ax, y0, az], [bx, y0, bz], [bx, y1, bz], [ax, y1, az], nx, 0, nz, col, ex);
+    m.quad([pts[i][0], y1, pts[i][1]], [pts[j][0], y1, pts[j][1]], [bx, y1, bz], [ax, y1, az], 0, 1, 0, col, ex);
+    m.quad([pts[i][0], y0, pts[i][1]], [pts[j][0], y0, pts[j][1]], [bx, y0, bz], [ax, y0, az], 0, -1, 0, col, ex);
+  }
 }
 
 /* Hipped, gabled or pyramid roofs. Returns the ridge height (or the eave
@@ -489,6 +534,16 @@ function parkingTex() {
   }, { wrapS: THREE.RepeatWrapping });
 }
 
+function helipadTex() {
+  return canvasTex('helipad', 256, 256, (ctx, w) => {
+    noiseFill(ctx, w, w, '#56585a', 18, 21);
+    ctx.strokeStyle = '#e8e6df'; ctx.lineWidth = 7; ctx.strokeRect(8, 8, w - 16, w - 16);
+    ctx.strokeStyle = '#f1c232'; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(w / 2, w / 2, w * 0.36, 0, 6.283); ctx.stroke();
+    ctx.fillStyle = '#efede6';
+    ctx.fillRect(w * 0.36, w * 0.3, w * 0.07, w * 0.4); ctx.fillRect(w * 0.57, w * 0.3, w * 0.07, w * 0.4); ctx.fillRect(w * 0.36, w * 0.465, w * 0.28, w * 0.07);
+  });
+}
+
 /* ------------------------------------------------------------ the scene */
 
 export function buildRealScene(RW, renderer, opts = {}) {
@@ -600,6 +655,8 @@ export function buildRealScene(RW, renderer, opts = {}) {
   const carGeo = carGeometries(), carMat = carMaterials();
   const tmpCol = new THREE.Color();
   const BOX = new THREE.BoxGeometry(1, 1, 1);
+  const awningMat = withSurface(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: THREE.DoubleSide }), '8');
+  const padMat = new THREE.MeshStandardMaterial({ map: helipadTex(), roughness: 0.85, polygonOffset: true, polygonOffsetFactor: -2 });
   const acMat = withSurface(new THREE.MeshStandardMaterial({ roughness: 0.6, metalness: 0.3 }), '7');
 
   /* ---------------------------------------------- the skyline, far off */
@@ -609,7 +666,7 @@ export function buildRealScene(RW, renderer, opts = {}) {
     const sky = RW.skyline || {};
     for (const [key, list] of Object.entries(sky)) {
       const [ti, tj] = key.split('_').map(Number);
-      const walls = new Mesh({ aWin: 1, aMat: 1, aSeed: 1, aBase: 1, aTop: 1 }), none = new Mesh({ aMat: 1 });
+      const walls = new Mesh({ aWin: 1, aMat: 1, aSeed: 1, aBase: 1, aTop: 1, aFloor: 1 }), none = new Mesh({ aMat: 1 });
       for (const [h, col, flat] of list) {
         const pts = [];
         for (let i = 0; i < flat.length; i += 2) pts.push([M.x0 + flat[i] / 10 - RW.OX, M.z0 + flat[i + 1] / 10 - RW.OZ]);
@@ -719,7 +776,7 @@ export function buildRealScene(RW, renderer, opts = {}) {
     }
 
     /* buildings */
-    const walls = new Mesh({ aWin: 1, aMat: 1, aSeed: 1, aBase: 1, aTop: 1 }), roofs = new Mesh({ aMat: 1 });
+    const walls = new Mesh({ aWin: 1, aMat: 1, aSeed: 1, aBase: 1, aTop: 1, aFloor: 1 }), roofs = new Mesh({ aMat: 1 });
     const blds = [];
     const bgrid = new Map();                     // 20 m cells → buildings, for "is this spot inside a building?"
     let n = 0;
@@ -768,6 +825,21 @@ export function buildRealScene(RW, renderer, opts = {}) {
       }
     }
     if (ac.length) batch(ac, BOX, acMat, { far: 600, cast: true });
+
+    /* helipads: for decades LA's fire code made every tower over 75 ft have
+     * one, which is why Downtown's skyline is flat-topped */
+    const pads = new Mesh(), padCol = new THREE.Color(1, 1, 1);
+    for (const r of blds) {
+      if (r.st.roof !== ROOF.flat || r.b.h < 70 || r.area < 500) continue;
+      const R = minRect(r.pts);
+      if (!R || !pip(R.cx, R.cz, r.pts)) continue;
+      const half = Math.min(R.Wd * 0.8, R.L * 0.8, 11);
+      if (half < 6) continue;
+      const y = r.base + r.b.h + 0.12;
+      const P = (u, v) => [R.cx + R.ux * u - R.uz * v, y, R.cz + R.uz * u + R.ux * v];
+      pads.quad(P(-half, -half), P(half, -half), P(half, half), P(-half, half), 0, 1, 0, padCol, null, [[0, 0], [1, 0], [1, 1], [0, 1]]);
+    }
+    if (pads.count) { const pm = new THREE.Mesh(pads.geometry(), padMat); pm.receiveShadow = !lo; group.add(pm); }
 
     /* roads, sidewalks, parking lots */
     const groups = new Map();                    // material → Mesh builder
@@ -1010,6 +1082,7 @@ export function buildRealScene(RW, renderer, opts = {}) {
       if (!best || signs.length >= 40) continue;
       signs.push({ ...best, name: p.name.slice(0, 28) });
     }
+    const awnings = new Mesh();
     if (signs.length) {
       const c = document.createElement('canvas');
       c.width = 1024; c.height = 2048;
@@ -1036,7 +1109,24 @@ export function buildRealScene(RW, renderer, opts = {}) {
         const u0 = x0 / 1024, u1 = (x0 + CW) / 1024, v0 = 1 - (y0 + CH) / 2048, v1 = 1 - y0 / 2048;
         // the wall runs a→b with the outside on the left (nx, nz): text reads left to right from outside
         m.quad(B, A, D, Cc, s.nx, 0, s.nz, white, null, [[u0, v0], [u1, v0], [u1, v1], [u0, v1]]);
+        // about half the shops have a canvas awning over the door
+        const yt = y - hgt / 2 - 0.15;
+        if (hashOf(s.qz, s.qx) < 0.55 && yt - s.r.base > 2.7) {
+          const aw = Math.min(s.len * 0.9, w + 0.6) / 2, out = 1.3, drop = 0.55;
+          const col = new THREE.Color(AWNINGS[Math.floor(hashOf(s.qx * 3, s.qz) * AWNINGS.length)]);
+          const P = (along, o, yy) => [s.qx + s.dx * along + s.nx * (0.15 + o), yy, s.qz + s.dz * along + s.nz * (0.15 + o)];
+          const sl = Math.hypot(out, drop), ny = out / sl, nh = drop / sl;
+          awnings.quad(P(-aw, 0, yt), P(aw, 0, yt), P(aw, out, yt - drop), P(-aw, out, yt - drop), s.nx * nh, ny, s.nz * nh, col, null);
+          awnings.quad(P(-aw, out, yt - drop), P(aw, out, yt - drop), P(aw, out, yt - drop - 0.3), P(-aw, out, yt - drop - 0.3), s.nx, 0, s.nz, col, null);
+          for (const e of [-1, 1]) awnings.tri(P(e * aw, 0, yt), P(e * aw, out, yt - drop), P(e * aw, 0, yt - drop), s.dx * e, 0, s.dz * e, col, null);
+        }
       });
+      if (awnings.count) {
+        const am = new THREE.Mesh(awnings.geometry(), awningMat);
+        am.castShadow = !lo;
+        group.add(am);
+        culls.push({ mesh: am, cx: tcx, cz: tcz, half: T / 2, far: 450 });
+      }
       const tex = new THREE.CanvasTexture(c);
       tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
       const mat = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.05, roughness: 0.6 });
@@ -1075,7 +1165,8 @@ export function buildRealScene(RW, renderer, opts = {}) {
   }
 
   /* --------------------------------------- sky, sun, light, bloom */
-  const atmo = makeAtmosphere(scene, renderer, { quality, uniforms });
+  // a bigger map: the haze starts further out than on the classic one
+  const atmo = makeAtmosphere(scene, renderer, { quality, uniforms, fogNear: 800, fogFar: 8000, groundAt: RW.groundHeight });
   atmo.onTime.push((night) => {
     for (const m of roadMats) m.emissiveIntensity = night * 0.5;
     for (const g of glowMats) g.mat.emissiveIntensity = g.day + (g.night - g.day) * night;

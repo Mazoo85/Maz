@@ -19,6 +19,7 @@ export function makeAtmosphere(scene, renderer, opts = {}) {
   const quality = opts.quality || 'high';
   const hi = quality === 'high', lo = quality === 'low';
   const uniforms = opts.uniforms || { uNight: { value: 0 }, uTime: { value: 0 } };
+  const fogNear = opts.fogNear ?? 400, fogFar = opts.fogFar ?? 5200, groundAt = opts.groundAt || (() => 0);
   const onTime = [], onUpdate = [];
   const skyParams = (s) => {
     const u = s.material.uniforms;
@@ -152,9 +153,10 @@ export function makeAtmosphere(scene, renderer, opts = {}) {
     nightSky.position.copy(camera.position);
     moon.position.copy(camera.position).addScaledVector(sunDir, -8000);
     moon.lookAt(camera.position);
-    const high = Math.max(0, camera.position.y - 120);
-    scene.fog.near = 400 + high * 2;
-    scene.fog.far = 5200 + high * 6;
+    // the haze thins as you climb above the ground
+    const high = Math.max(0, camera.position.y - groundAt(camera.position.x, camera.position.z) - 120);
+    scene.fog.near = fogNear + high * 2;
+    scene.fog.far = fogFar + high * 6;
     const lightDir = sunDir.y > -0.05 ? sunDir : tmpV.copy(sunDir).negate().setY(0.6).normalize();
     // snap the shadow box to its texels so shadows don't crawl as you move
     const step = (box * 2) / sm;

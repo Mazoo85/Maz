@@ -569,9 +569,9 @@ export function facadeMaterial(uniforms, real = false) {
       .replace('#include <common>', `#include <common>
         attribute float aWin;
         #ifdef REAL_ATTRS
-          attribute float aSeed; attribute float aBase; attribute float aTop;
+          attribute float aSeed; attribute float aBase; attribute float aTop; attribute float aFloor;
         #endif
-        varying vec3 vWPos; varying vec3 vWNrm; varying float vWin; varying float vSeed; varying float vH; varying float vTop;`)
+        varying vec3 vWPos; varying vec3 vWNrm; varying float vWin; varying float vSeed; varying float vH; varying float vTop; varying float vFloor;`)
       .replace('#include <project_vertex>', `#include <project_vertex>
         vec4 wp = vec4(transformed, 1.0);
         vec3 wn = objectNormal;
@@ -590,13 +590,16 @@ export function facadeMaterial(uniforms, real = false) {
         vWin = aWin;
         vH = (position.y + 0.5) * sy;
         vTop = sy;
+        vFloor = 0.0;
         #ifdef REAL_ATTRS
-          vSeed = aSeed; vH = position.y - aBase; vTop = aTop - aBase;
+          vSeed = aSeed; vH = position.y - aBase; vTop = aTop - aBase; vFloor = aFloor;
         #endif`);
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
         uniform float uNight;
-        varying vec3 vWPos; varying vec3 vWNrm; varying float vWin; varying float vSeed; varying float vH; varying float vTop;
+        varying vec3 vWPos; varying vec3 vWNrm; varying float vWin; varying float vSeed; varying float vH; varying float vTop; varying float vFloor;
+        // a band from a to b of a repeating 0..1 coordinate, anti-aliased by its screen-space width
+        float aaBand(float f, float a, float b, float w) { return smoothstep(a - w, a + w, f) * (1.0 - smoothstep(b - w, b + w, f)); }
         float h21(vec2 p) { return fract(sin(dot(p, vec2(41.3, 289.1))) * 43758.5453); }
         float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
           return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }`)
@@ -613,25 +616,61 @@ export function facadeMaterial(uniforms, real = false) {
           float grain = vn(vec2(u, v) * 1.7) * 0.5 + vn(vec2(u * 0.25, v * 0.05) * 3.0) * 0.5;
           diffuseColor.rgb *= 0.86 + 0.2 * grain;
           if (vWin > 0.5) {
-            vec2 cell; vec2 f; float frame = 0.0;
-            if (vWin < 1.5)      { cell = vec2(4.2, 3.3); f = fract(vec2(u, v) / cell); winMask = step(0.3, f.x) * step(f.x, 0.68) * step(0.38, f.y) * step(f.y, 0.78); frame = step(0.27, f.x) * step(f.x, 0.71) * step(0.35, f.y) * step(f.y, 0.81) - winMask; }
-            else if (vWin < 2.5) { cell = vec2(3.2, 3.6); f = fract(vec2(u, v) / cell); winMask = step(0.14, f.x) * step(f.x, 0.86) * step(0.26, f.y) * step(f.y, 0.86); frame = step(0.1, f.x) * step(f.x, 0.9) * step(0.2, f.y) * step(f.y, 0.9) - winMask; }
-            else if (vWin < 3.5) { cell = vec2(1.6, 3.8); f = fract(vec2(u, v) / cell); winMask = step(0.05, f.x) * step(0.14, f.y); }
-            else                 { cell = vec2(9.0, 7.0); f = fract(vec2(u, v) / cell); winMask = step(0.2, f.x) * step(f.x, 0.8) * step(0.72, f.y) * step(f.y, 0.9); }
-            if (vWin > 1.5 && vWin < 2.5 && vH < 4.2) { float sf = fract(u / 6.0); winMask = step(0.06, sf) * step(sf, 0.94) * step(0.5, vH) * step(vH, 3.6); frame = 0.0; }
-            vec2 id = floor(vec2(u, v) / cell);
+            // each kind of building's window: the cell it repeats in, and the pane within it
+            vec2 cell; vec4 pane;
+            if (vWin < 1.5)      { cell = vec2(4.2, 3.3); pane = vec4(0.3, 0.68, 0.38, 0.78); }
+            else if (vWin < 2.5) { cell = vec2(3.2, 3.6); pane = vec4(0.14, 0.86, 0.26, 0.86); }
+            else if (vWin < 3.5) { cell = vec2(1.6, 3.8); pane = vec4(0.05, 1.5, 0.14, 1.5); }
+            else                 { cell = vec2(9.0, 7.0); pane = vec4(0.2, 0.8, 0.72, 0.9); }
+            float vary = h21(vec2(vSeed * 13.1, 7.0)), vary2 = h21(vec2(3.0, vSeed * 29.7));
+            #ifdef REAL_ATTRS
+              // real storey heights, and no two buildings with quite the same windows
+              if (vFloor > 2.4) cell.y = vFloor;
+              if (vWin < 2.5) {
+                cell.x *= mix(0.75, 1.4, vary);
+                if (vary2 < 0.3) pane.xy = vec2(0.12, 0.88);                // ribbon windows
+                else if (vary2 < 0.55) pane = vec4(0.36, 0.64, 0.3, 0.85);  // tall narrow ones
+              }
+            #endif
+            vec2 g = vec2(u, v) / cell;
+            vec2 f = fract(g);
+            vec2 fw = max(fwidth(g), vec2(1e-4));
+            winMask = aaBand(f.x, pane.x, pane.y, fw.x) * aaBand(f.y, pane.z, pane.w, fw.y);
+            float frame = vWin < 2.5 || vWin > 3.5 ? aaBand(f.x, pane.x - 0.04, pane.y + 0.04, fw.x) * aaBand(f.y, pane.z - 0.05, pane.w + 0.05, fw.y) - winMask : 0.0;
+            float sill = vWin < 1.5 ? aaBand(f.x, pane.x - 0.05, pane.y + 0.05, fw.x) * aaBand(f.y, pane.z - 0.07, pane.z - 0.02, fw.y) : 0.0;
+            if (vWin > 1.5 && vWin < 2.5 && vH < 4.2) {
+              // the storefronts: big glass between piers, a fascia above
+              float sf = fract(u / 6.0), sw = max(fwidth(u / 6.0), 1e-4);
+              winMask = aaBand(sf, 0.06, 0.94, sw) * smoothstep(0.45, 0.55, vH) * (1.0 - smoothstep(3.5, 3.7, vH));
+              frame = 0.0; sill = 0.0;
+            }
+            // far off, a window is less than a pixel: fade to the average so the grid never shimmers
+            float far = smoothstep(0.25, 0.6, max(fw.x, fw.y));
+            float avg = clamp(pane.y - pane.x, 0.0, 1.0) * clamp(pane.w - pane.z, 0.0, 1.0);
+            winMask = mix(winMask, avg * 0.8, far); frame *= 1.0 - far; sill *= 1.0 - far;
+            vec2 id = floor(g);
             float floorOn = step(0.25, h21(vec2(id.y, vSeed * 31.0)));
             lit = step(0.58, h21(id + vSeed * 97.0)) * floorOn * winMask;
-            winTint = vWin > 2.5 ? vec3(0.78, 0.86, 1.0) : vec3(1.0, 0.78, 0.5);
-            vec3 glass = vWin > 2.5 ? mix(vec3(0.16, 0.23, 0.3), diffuseColor.rgb, 0.3) : vec3(0.1, 0.12, 0.15);
-            float blind = step(0.5, h21(id * 1.7 + vSeed)) * (vWin < 2.5 ? 0.25 : 0.0);
-            diffuseColor.rgb = mix(diffuseColor.rgb, glass + blind * vec3(0.5, 0.48, 0.42), winMask);
-            diffuseColor.rgb *= 1.0 - frame * 0.35;
-            glassy = winMask * (1.0 - blind * 2.0);
+            winTint = vWin > 2.5 ? vec3(0.78, 0.86, 1.0) : mix(vec3(1.0, 0.78, 0.5), vec3(0.85, 0.9, 1.0), step(0.8, h21(id * 0.7 + vSeed)));
+            // glass: tinted per building, reflections from the sky do the rest
+            vec3 tint = mix(vec3(0.1, 0.12, 0.15), mix(vec3(0.12, 0.17, 0.16), vec3(0.16, 0.13, 0.1), vary2), step(0.5, vary));
+            vec3 glass = vWin > 2.5 ? mix(vec3(0.16, 0.23, 0.3), diffuseColor.rgb, 0.3) : tint;
+            // curtains and blinds, half-drawn at random
+            float blind = step(0.5, h21(id * 1.7 + vSeed)) * (vWin < 2.5 ? 0.25 : 0.0) * (1.0 - far);
+            float blindLine = step(fract(f.y * 1.0), mix(pane.w, pane.z, h21(id + 3.1)));
+            diffuseColor.rgb = mix(diffuseColor.rgb, glass + blind * blindLine * vec3(0.5, 0.48, 0.42), winMask);
+            diffuseColor.rgb *= 1.0 - frame * 0.3;
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.84, 0.8), sill * 0.7);
+            glassy = winMask * (1.0 - blind * blindLine * 2.0);
             sBumpK = 1.0 - winMask;
-            if (vWin > 1.5) diffuseColor.rgb *= 1.0 - 0.18 * (1.0 - step(0.06, fract(v / 3.6)));
+            // a line at each floor slab on commercial buildings
+            if (vWin > 1.5) diffuseColor.rgb *= 1.0 - 0.16 * aaBand(fract(v / cell.y), -0.02, 0.05, max(fwidth(v / cell.y), 1e-4)) * (1.0 - far);
           }
-          diffuseColor.rgb *= mix(0.42, 1.0, smoothstep(0.0, 3.5, vH));
+          #ifdef REAL_ATTRS
+            diffuseColor.rgb *= mix(0.68, 1.0, smoothstep(0.0, 1.8, vH));   // a soft contact shadow at the foot of the wall
+          #else
+            diffuseColor.rgb *= mix(0.42, 1.0, smoothstep(0.0, 3.5, vH));
+          #endif
           diffuseColor.rgb *= 1.0 - 0.25 * (1.0 - smoothstep(0.0, 0.6, vTop - vH));
         }`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
