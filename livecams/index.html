@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>Live Cams</title>
+  <meta name="description" content="A wall of public live webcams and livestreams from cities in and near conflict zones.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="dot" aria-hidden="true"></span>
+      <h1>Live Cams</h1>
+    </div>
+    <p class="tag">Public webcams and livestreams from cities in and near conflict zones, on one wall.</p>
+  </header>
+
+  <main>
+    <section class="panel" aria-labelledby="findTitle">
+      <h2 id="findTitle">1. Find what's live now</h2>
+      <p class="help">Tap a city. YouTube opens showing only streams that are <b>live right now</b>,
+        including city webcams and people streaming themselves. Found a good one? Copy its link
+        and pin it below.</p>
+      <div id="places" class="places"></div>
+      <p class="help more">More public webcams:
+        <a href="https://www.skylinewebcams.com/" target="_blank" rel="noopener">SkylineWebcams</a> ·
+        <a href="https://www.earthcam.com/" target="_blank" rel="noopener">EarthCam</a> ·
+        <a href="https://www.webcamtaxi.com/" target="_blank" rel="noopener">Webcamtaxi</a>
+      </p>
+    </section>
+
+    <section class="panel" aria-labelledby="addTitle">
+      <h2 id="addTitle">2. Pin a stream to your wall</h2>
+      <form id="addForm" class="add" autocomplete="off">
+        <label class="field wide">
+          <span>Stream link</span>
+          <input id="link" type="text" inputmode="url" placeholder="Paste a YouTube link, e.g. https://youtu.be/…" required>
+        </label>
+        <label class="field">
+          <span>Name (optional)</span>
+          <input id="name" type="text" maxlength="60" placeholder="Kyiv skyline">
+        </label>
+        <label class="field">
+          <span>Area</span>
+          <select id="area"></select>
+        </label>
+        <button type="submit" class="primary">Pin to wall</button>
+      </form>
+      <p id="message" class="message" role="status" aria-live="polite"></p>
+    </section>
+
+    <section aria-labelledby="wallTitle">
+      <div class="wallbar">
+        <h2 id="wallTitle">3. Your wall</h2>
+        <div class="controls">
+          <label class="field inline">
+            <span>Show</span>
+            <select id="filter"></select>
+          </label>
+          <label class="field inline">
+            <span>Size</span>
+            <select id="cols">
+              <option value="1">Large</option>
+              <option value="2" selected>Medium</option>
+              <option value="3">Small</option>
+              <option value="4">Tiny</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div id="wall" class="wall cols-2"></div>
+      <p id="empty" class="empty" hidden>Nothing pinned yet. Find a live stream in step 1, copy its link, and paste it in step 2.</p>
+    </section>
+
+    <aside class="note">
+      <h2>Please keep in mind</h2>
+      <ul>
+        <li>Only streams their owners chose to make public belong here. Private or unsecured cameras don't.</li>
+        <li>Streams go offline without warning. A camera may go dark because of a power cut or worse.</li>
+        <li>Don't share clips that show air defences, military units or strike locations. In Ukraine and
+          Israel that is against the law, and it can get people hurt.</li>
+      </ul>
+    </aside>
+  </main>
+
+  <dialog id="big" class="big" aria-label="Stream, full size">
+    <div class="bigbar">
+      <span id="bigName"></span>
+      <button id="bigClose" type="button" class="ghost">Close</button>
+    </div>
+    <div id="bigFrame" class="frame"></div>
+  </dialog>
+
+  <script src="js/livecams.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
