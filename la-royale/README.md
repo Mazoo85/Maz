@@ -142,6 +142,50 @@ Medium, High (bigger shadow maps, more anti-aliasing). The game also lowers
 its resolution on its own when frames get slow, and raises it back when
 there's room. F shows the frame rate.
 
+## Real LA, true scale (beta)
+
+A second map is on its way: **real Los Angeles at 1:1 size**, built from
+OpenStreetMap. Every building comes from its real footprint and its measured
+height (most LA buildings in OpenStreetMap carry one from the LA County
+building survey), in its real spot; the streets are the real streets at
+their real widths, with the real names; the ground is real elevation data,
+every 10 m. The first area is **Hollywood to Downtown** (about 12 × 12 km);
+it will grow outward from there.
+
+Only the area near you is drawn in full detail (in 1 km squares, loaded as
+you move); the taller buildings of the whole area are always shown, so the
+skyline is there from anywhere. Up close each square gets:
+
+- each building's real outline and height, with windows by type (houses,
+  apartments, storefronts, glass towers, warehouses), LA stucco colours,
+  hipped and gabled roofs on the houses (half Spanish tile, half
+  shingle), parapets and rooftop air-conditioning on the flat roofs;
+- the streets with lanes worked out from their real width (yellow centre
+  lines on two-way streets), sidewalks, parking lots with painted stalls;
+- the mapped trees, plus palms or jacarandas down each street's parkways,
+  trees in the parks and back yards, chaparral on the hills;
+- backyard pools, lakes and reservoirs you can swim in;
+- streetlights, hydrants and cars parked along the kerbs;
+- every named shop, café, bar and restaurant as a sign with its real name on
+  the wall of the building it's in.
+
+To build it (it needs internet access to OpenStreetMap's Overpass service):
+
+```sh
+node la-royale/tools/fetch.mjs osm        # the buildings, streets, parks, trees, shops
+node la-royale/tools/fetch.mjs dem        # the ground elevation
+node la-royale/tools/build-tiles.mjs      # → la-royale/data/real/
+```
+
+Then a **Real LA** button appears on the title screen (or open
+`index.html?map=real`). `tools/fixture.mjs` builds a made-up test
+neighbourhood instead, for checking the engine with no download
+(`index.html?map=real&data=fixture`); it's never published.
+
+Map data © OpenStreetMap contributors, under the
+[ODbL](https://www.openstreetmap.org/copyright). Elevation: Mapzen Terrarium
+tiles (AWS Open Data).
+
 ## How it's built
 
 | File | What it is |
@@ -156,7 +200,11 @@ there's room. F shows the frame rate.
 | `js/models.js` | The player, the parachute, the eight kinds of car, the blimp. |
 | `js/hud.js` | Compass, minimap, location banner and the full map. |
 | `js/game.js` | The game loop: blimp, skydiving, walking, swimming, driving, the camera and the controls. |
-| `tests/world.test.js` | The world's tests (plain Node). |
+| `js/atmosphere.js` | Sky, sun, moon and stars, the light, fog and bloom: shared by both maps. |
+| `js/osm.js` | Turns OpenStreetMap buildings, streets, areas, trees and shops into compact tiles. No DOM. |
+| `js/realcity.js` | The true-scale map: loads the ground and skyline, streams the detailed city in around you. |
+| `tools/fetch.mjs`, `tools/build-tiles.mjs` | Download the real data and pack it into tiles (`tools/png.mjs` reads and writes the images). |
+| `tests/world.test.js`, `tests/real.test.js` | The tests (plain Node). |
 
 The world is generated from a seed, the same every time. Everything that
 needs to be solid (buildings, landmarks, cars, trees) is described once, and
@@ -166,13 +214,17 @@ both the renderer and the collision read that one description.
 
 ```sh
 node la-royale/tests/world.test.js
+node la-royale/tests/real.test.js
 ```
 
 They check the geography (the ocean is west, the Hollywood Sign is high in
 the hills, the river runs in a channel), that the generator keeps buildings
 out of the sea and off the freeways, that every landmark and car is where it
 should be, and that you can't walk through walls or fall through the ground.
-CI runs them on every push that touches `la-royale/`
+`real.test.js` checks the true-scale map: the projection is 1:1, OpenStreetMap
+heights, levels, roofs, materials and road widths are read right, tiles
+survive packing, the ground follows the elevation data, landmarks are at
+their real coordinates, and real building outlines stop you. CI runs them on every push that touches `la-royale/`
 (`.github/workflows/la-royale.yml`).
 
 ## What's next

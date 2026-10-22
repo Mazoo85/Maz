@@ -50,3 +50,5 @@ forge/state/
 # Every live run failed the same way, blaming Crew for its own bookkeeping.
 .crew/
 la-royale/data/raw/
+la-royale/data/fixture/
+la-royale/data/fixture-raw/

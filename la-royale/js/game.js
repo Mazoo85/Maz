@@ -10,6 +10,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { createWorld, collideBody, locationAt, rayClear, clamp, lerp } from './world.js';
 import { buildScene } from './render.js';
+import { loadRealWorld, buildRealScene } from './realcity.js';
 import { makeHud } from './hud.js';
 import { makePlayer, makeCar, makeBlimp, CAR_TYPES } from './models.js';
 import { makeAmbient } from './ambient.js';
@@ -19,7 +20,7 @@ const isTouch = matchMedia('(pointer: coarse)').matches;
 
 const SETTINGS_KEY = 'la-royale-settings';
 const settings = Object.assign(
-  { quality: isTouch ? 'low' : 'medium', sensitivity: 1, invertY: false, dayLength: 24, startHour: 16.5 },
+  { quality: isTouch ? 'low' : 'medium', sensitivity: 1, invertY: false, dayLength: 24, startHour: 16.5, map: 'classic' },
   safeRead()
 );
 function safeRead() { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch { return {}; } }
@@ -30,10 +31,22 @@ function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringif
 const loadBar = $('loadBar'), loadText = $('loadText');
 const step = (pct, text) => new Promise((r) => { loadBar.style.width = `${pct}%`; loadText.textContent = text; setTimeout(r, 30); });
 
+/* Which map: the hand-built one, or real LA at true scale from OpenStreetMap
+ * (when its data has been built: tools/build-tiles.mjs). ?map=real or
+ * ?map=classic picks one for this visit; ?data=fixture loads the made-up
+ * test data instead. */
+const params = new URLSearchParams(location.search);
+const realBase = params.get('data') === 'fixture' ? 'data/fixture/' : 'data/real/';
+async function realAvailable() {
+  try { return (await fetch(`${realBase}manifest.json`, { method: 'HEAD' })).ok; } catch { return false; }
+}
+
 async function boot() {
-  await step(5, 'Surveying the Los Angeles basin…');
-  const W = createWorld({ seed: 1985 });
-  await step(35, `Painting ${W.blocks.length.toLocaleString()} city blocks and the beaches…`);
+  const hasReal = await realAvailable();
+  const real = hasReal && (params.get('map') || settings.map) === 'real';
+  await step(5, real ? 'Downloading real Los Angeles…' : 'Surveying the Los Angeles basin…');
+  const W = real ? await loadRealWorld(realBase, (t) => step(15, t)) : createWorld({ seed: 1985 });
+  if (!real) await step(35, `Painting ${W.blocks.length.toLocaleString()} city blocks and the beaches…`);
   const canvas = $('scene');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: settings.quality !== 'low', powerPreference: 'high-performance', logarithmicDepthBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, settings.quality === 'high' ? 2 : settings.quality === 'medium' ? 1.5 : 1));
@@ -43,14 +56,25 @@ async function boot() {
   renderer.shadowMap.enabled = settings.quality !== 'low';
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   await step(55, `Raising ${W.buildings.length.toLocaleString()} buildings and planting ${W.trees.length.toLocaleString()} trees…`);
-  const R = buildScene(W, renderer, { quality: settings.quality });
+  const R = real ? buildRealScene(W, renderer, { quality: settings.quality }) : buildScene(W, renderer, { quality: settings.quality });
+  if (real) await R.preload(W.title.x, W.title.z, (d, n) => { loadBar.style.width = `${55 + (30 * d) / Math.max(1, n)}%`; loadText.textContent = `Raising the real buildings of Downtown… ${d} of ${n} km²`; });
   await step(85, 'Gassing up the blimp…');
   const game = makeGame(W, R, renderer);
   renderer.compile(R.scene, game.camera);
   await step(100, 'Ready.');
   $('loading').hidden = true;
   $('title').hidden = false;
-  $('titleStats').textContent = `${W.buildings.length.toLocaleString()} buildings · ${W.trees.length.toLocaleString()} trees · ${W.pois.length} landmarks · ${W.vehicles.length} cars to drive`;
+  const c = W.manifest?.counts;
+  $('titleStats').textContent = real
+    ? `Real LA, true scale: ${W.manifest.name} · ${c.buildings.toLocaleString()} real buildings · ${c.roads.toLocaleString()} streets · ${W.pois.length} landmarks · Map data © OpenStreetMap contributors`
+    : `${W.buildings.length.toLocaleString()} buildings · ${W.trees.length.toLocaleString()} trees · ${W.pois.length} landmarks · ${W.vehicles.length} cars to drive`;
+  const realBtn = $('realBtn');
+  realBtn.hidden = !hasReal;
+  realBtn.textContent = real ? 'Back to the classic map' : 'Real LA · true scale (beta)';
+  realBtn.addEventListener('click', () => {
+    settings.map = real ? 'classic' : 'real'; saveSettings();
+    const u = new URL(location.href); u.searchParams.delete('map'); location.href = u.toString();
+  });
   game.start();
   window.__laRoyale = game;   // for tests and the curious
 }
@@ -75,15 +99,16 @@ function makeGame(W, R, renderer) {
   const cam = { yaw: 0, pitch: -0.25, dist: 6.5, distTarget: 6.5, x: 0, y: 0, z: 0 };
 
   /* the blimp */
-  const blimp = { mesh: makeBlimp(), from: [0, 0], to: [0, 0], t: 0, len: 1, alt: 560, speed: 48 };
+  // (on the real map it flies clear of the Hollywood Hills)
+  const blimp = { mesh: makeBlimp(), from: [0, 0], to: [0, 0], t: 0, len: 1, alt: W.real ? W.heights.reduce((a, b) => Math.max(a, b), 0) + 280 : 560, speed: 48 };
   scene.add(blimp.mesh);
   function newBlimpPath() {
     const a = Math.random() * Math.PI * 2;
-    const off = (Math.random() - 0.5) * 2400;
+    const off = (Math.random() - 0.5) * W.half * 0.8;
     const nx = Math.cos(a), nz = Math.sin(a);
     const cx = -nz * off, cz = nx * off;
-    blimp.from = [cx - nx * 3300, cz - nz * 3300];
-    blimp.to = [cx + nx * 3300, cz + nz * 3300];
+    blimp.from = [cx - nx * W.half * 1.1, cz - nz * W.half * 1.1];
+    blimp.to = [cx + nx * W.half * 1.1, cz + nz * W.half * 1.1];
     blimp.len = Math.hypot(blimp.to[0] - blimp.from[0], blimp.to[1] - blimp.from[1]);
     blimp.t = 0;
   }
@@ -479,9 +504,9 @@ function makeGame(W, R, renderer) {
       else if (fps > 57 && pixelRatio < maxRatio) setPixelRatio(Math.min(maxRatio, pixelRatio * 1.08));
     }
   }
-  const gridRef = (x, z) => `${'ABCDEFGH'[clamp(Math.floor((x + W.half) / 750), 0, 7)]}${clamp(Math.floor((z + W.half) / 750), 0, 7) + 1}`;
+  const gridRef = (x, z) => `${'ABCDEFGH'[clamp(Math.floor(((x + W.half) * 8) / W.size), 0, 7)]}${clamp(Math.floor(((z + W.half) * 8) / W.size), 0, 7) + 1}`;
   function unprojectLL(x, z) {
-    const lat = 34.02 - z / 17600, lon = -118.355 + x / 14600;
+    const [lat, lon] = W.toLatLon ? W.toLatLon(x, z) : [34.02 - z / 17600, -118.355 + x / 14600];
     return `${lat.toFixed(3)}°N ${Math.abs(lon).toFixed(3)}°W`;
   }
 
@@ -549,6 +574,12 @@ function makeGame(W, R, renderer) {
   }
 
   function titleCamera() {
+    if (W.title) {
+      const t = W.title, cx = t.x + Math.sin(cam.yaw) * t.r, cz = t.z + Math.cos(cam.yaw) * t.r;
+      camera.position.set(cx, W.groundHeight(cx, cz) + t.h, cz);
+      camera.lookAt(t.look[0], W.groundHeight(t.look[0], t.look[2]) + t.look[1], t.look[2]);
+      return;
+    }
     const r = 900;
     const cx = -200 + Math.sin(cam.yaw) * r, cz = -700 + Math.cos(cam.yaw) * r;
     camera.position.set(cx, Math.max(W.groundHeight(cx, cz), 0) + 260, cz);
@@ -605,7 +636,8 @@ function makeGame(W, R, renderer) {
   $('mapBtn').addEventListener('click', () => {
     showHud();
     state = 'walk';
-    Object.assign(body, { x: -2060, z: 240, y: W.groundHeight(-2060, 240) });
+    const s = W.start || { x: -2060, z: 240 };
+    Object.assign(body, { x: s.x, z: s.z, y: W.groundHeight(s.x, s.z) });
     hud.openMap({ player: body, yaw: 0, vehicles: cars, blimp: null, locate: (x, z) => locationAt(W, x, z) }, dropAt, false);
   });
   $('quality').value = settings.quality;

@@ -214,7 +214,7 @@ export const GRID_N = 384;               // terrain cells per side
 export const CELL = SIZE / GRID_N;       // 15.625 m
 const MASK_RES = 4, MASK_N = SIZE / MASK_RES;
 export const MASK = { ROAD: 1, RESERVED: 2, CHANNEL: 4, LAKE: 8 };
-const CG = 32, CG_N = Math.ceil(SIZE / CG);   // collider grid
+const CG = 32, CG_KEY = 1 << 16;              // collider grid (cell size, row stride of the cell keys)
 
 export function createWorld(opts = {}) {
   const seed = opts.seed ?? 1985;
@@ -977,15 +977,16 @@ function segIntersect(a, b, c, d) {
 function ensureGrid(W) {
   if (W._grid && W._gridCount === W.colliders.length && !W._dirty) return;
   W._dirty = false;
+  const H = W.gridHalf || HALF;                 // the true-scale map is bigger
   const cells = new Map();
   for (let n = 0; n < W.colliders.length; n++) {
     const c = W.colliders[n];
     const r = c.r || Math.hypot(c.hx, c.hz);
-    const i0 = Math.floor((c.x - r + HALF) / CG), i1 = Math.floor((c.x + r + HALF) / CG);
-    const j0 = Math.floor((c.z - r + HALF) / CG), j1 = Math.floor((c.z + r + HALF) / CG);
+    const i0 = Math.floor((c.x - r + H) / CG), i1 = Math.floor((c.x + r + H) / CG);
+    const j0 = Math.floor((c.z - r + H) / CG), j1 = Math.floor((c.z + r + H) / CG);
     for (let j = j0; j <= j1; j++) {
       for (let i = i0; i <= i1; i++) {
-        const k = j * CG_N + i;
+        const k = j * CG_KEY + i;
         let list = cells.get(k);
         if (!list) cells.set(k, (list = []));
         list.push(n);
@@ -1003,11 +1004,12 @@ export function query(W, x, z, r, out = []) {
   ensureGrid(W);
   out.length = 0;
   const stamp = ++W._stampN;
-  const i0 = Math.floor((x - r + HALF) / CG), i1 = Math.floor((x + r + HALF) / CG);
-  const j0 = Math.floor((z - r + HALF) / CG), j1 = Math.floor((z + r + HALF) / CG);
+  const H = W.gridHalf || HALF;
+  const i0 = Math.floor((x - r + H) / CG), i1 = Math.floor((x + r + H) / CG);
+  const j0 = Math.floor((z - r + H) / CG), j1 = Math.floor((z + r + H) / CG);
   for (let j = j0; j <= j1; j++) {
     for (let i = i0; i <= i1; i++) {
-      const list = W._grid.get(j * CG_N + i);
+      const list = W._grid.get(j * CG_KEY + i);
       if (!list) continue;
       for (const n of list) {
         if (W._stamp[n] === stamp) continue;

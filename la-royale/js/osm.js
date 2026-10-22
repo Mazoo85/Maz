@@ -17,7 +17,7 @@ export const REAL = {
   name: 'Hollywood to Downtown',
   lat0: 34.0800, lon0: -118.3000,
   south: 34.0300, north: 34.1350, west: -118.3600, east: -118.2300,
-  tile: 500                                  // metres per streamed tile
+  tile: 1000                                 // metres per streamed tile
 };
 
 const M_LAT = 110574, M_LON = 111320;

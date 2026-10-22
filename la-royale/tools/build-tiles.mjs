@@ -6,7 +6,9 @@
  *
  * Writes to la-royale/data/real/:
  *   manifest.json     the area, projection, tile grid and counts
- *   tiles/i_j.json    one 500 m square each: buildings, roads, areas, trees, shops
+ *   tiles/i_j.json    one 1 km square each: buildings, roads, areas, trees, shops
+ *   skyline.json      the taller buildings of every tile, drawn plain from afar
+ *   arteries.json     the named two-way boulevards and avenues, for traffic
  *   height.bin        ground elevation every 10 m (Int16, decimetres)
  *   overview.png      a top-down map of the whole area for the minimap and map
  */
@@ -18,8 +20,10 @@ import { REAL, projector, toBuilding, toRoad, areaKind, treeKind, toPoi, encodeT
 import { decodePNG, encodePNG } from './png.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const RAW = join(ROOT, 'data', 'raw');
-const OUT = join(ROOT, 'data', 'real');
+// (LA_RAW / LA_OUT point it elsewhere, e.g. at the made-up test fixture)
+const RAW = process.env.LA_RAW || join(ROOT, 'data', 'raw');
+const OUT = process.env.LA_OUT || join(ROOT, 'data', 'real');
+const DEM = process.env.LA_DEM || RAW;
 mkdirSync(join(OUT, 'tiles'), { recursive: true });
 
 const P = projector();
@@ -175,14 +179,59 @@ for (const [k, t] of tiles) {
   list.push(k);
 }
 
+/* skyline: everything 15 m and up, as [height, colour, flat points] per tile */
+const q = (v, o) => Math.round((v - o) * 10);
+const skyline = {};
+for (const [k, t] of tiles) {
+  const list = t.buildings.filter((b) => b.h >= 15 && b.mh < 1).map((b) => [Math.round(b.h * 10) / 10, b.col ?? -1, b.pts.flatMap(([x, z]) => [q(x, X0), q(z, Z0)])]);
+  if (list.length) skyline[k] = list;
+}
+writeFileSync(join(OUT, 'skyline.json'), JSON.stringify(skyline));
+
+/* arteries: named two-way primary, secondary and tertiary streets, the
+ * OSM pieces of each street joined end to end so traffic runs its length */
+const byName = new Map();
+for (const w of ways.values()) {
+  const t = w.tags || {};
+  if (!t.highway || !t.name) continue;
+  const r = toRoad(t, xz(w.geometry));
+  if (!r || r.oneway || r.cls < RCLASS.primary || r.cls > RCLASS.tertiary || r.w < 15) continue;
+  (byName.get(t.name) || byName.set(t.name, []).get(t.name)).push(r);
+}
+const arteries = [];
+const near = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]) < 1;
+for (const [name, pieces] of byName) {
+  while (pieces.length) {
+    const first = pieces.shift();
+    let pts = first.pts.slice(), w = first.w, grown = true;
+    while (grown) {
+      grown = false;
+      for (let k = 0; k < pieces.length; k++) {
+        const p = pieces[k].pts;
+        if (near(p[0], pts[pts.length - 1])) pts = pts.concat(p.slice(1));
+        else if (near(p[p.length - 1], pts[pts.length - 1])) pts = pts.concat(p.slice(0, -1).reverse());
+        else if (near(p[p.length - 1], pts[0])) pts = p.slice(0, -1).concat(pts);
+        else if (near(p[0], pts[0])) pts = p.slice(1).reverse().concat(pts);
+        else continue;
+        w = Math.min(w, pieces[k].w);
+        pieces.splice(k, 1); grown = true; break;
+      }
+    }
+    let len = 0;
+    for (let i = 1; i < pts.length; i++) len += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    if (len > 150) arteries.push({ n: name, c: first.cls, w: Math.round(w * 10) / 10, p: pts.flatMap(([x, z]) => [q(x, X0), q(z, Z0)]) });
+  }
+}
+writeFileSync(join(OUT, 'arteries.json'), JSON.stringify(arteries));
+
 /* -------------------------------------------------------------- elevation */
 const STEP = 10;
 const HX = Math.ceil((X1 - X0) / STEP) + 1, HZ = Math.ceil((Z1 - Z0) / STEP) + 1;
 const height = new Int16Array(HX * HZ);
-const demFiles = existsSync(RAW) ? readdirSync(RAW).filter((f) => f.startsWith('dem_')) : [];
+const demFiles = existsSync(DEM) ? readdirSync(DEM).filter((f) => f.startsWith('dem_')) : [];
 if (demFiles.length) {
   const dem = new Map();
-  for (const f of demFiles) { const [, z, x, y] = f.replace('.png', '').split('_').map(Number); dem.set(`${x}_${y}`, { z, img: decodePNG(readFileSync(join(RAW, f))) }); }
+  for (const f of demFiles) { const [, z, x, y] = f.replace('.png', '').split('_').map(Number); dem.set(`${x}_${y}`, { z, img: decodePNG(readFileSync(join(DEM, f))) }); }
   const z = 14, n = 2 ** z;
   const sample = (lat, lon) => {
     const r = (lat * Math.PI) / 180;
@@ -247,8 +296,9 @@ writeFileSync(join(OUT, 'overview.png'), encodePNG(OV, OV, img));
 
 /* --------------------------------------------------------------- manifest */
 const manifest = {
-  v: 1, name: REAL.name, lat0: REAL.lat0, lon0: REAL.lon0, bounds: { south: REAL.south, north: REAL.north, west: REAL.west, east: REAL.east },
+  v: 1, name: process.env.LA_NAME || REAL.name, lat0: REAL.lat0, lon0: REAL.lon0, bounds: { south: REAL.south, north: REAL.north, west: REAL.west, east: REAL.east },
   x0: X0, z0: Z0, width: X1 - X0, depth: Z1 - Z0, tile: T, tilesX: NX, tilesZ: NZ, tiles: list.sort(),
+  skyline: 'skyline.json', arteries: 'arteries.json',
   height: { file: 'height.bin', nx: HX, nz: HZ, step: STEP, scale: 0.1 }, overview: { file: 'overview.png', size: OV },
   counts, built: new Date().toISOString(), attribution: 'Map data © OpenStreetMap contributors (ODbL). Elevation: Mapzen Terrarium tiles (AWS Open Data).'
 };

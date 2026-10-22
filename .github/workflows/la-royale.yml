@@ -25,3 +25,5 @@ jobs:
           node-version: "22"
       - name: Run the world tests
         run: node la-royale/tests/world.test.js
+      - name: Run the true-scale map tests
+        run: node la-royale/tests/real.test.js

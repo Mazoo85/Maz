@@ -36,7 +36,7 @@ export function makeAmbient(W, scene, opts = {}) {
     cars.push(v); r.vehicles.push(v);
     return v;
   };
-  for (let i = 0; i < TRAFFIC; i++) {
+  for (let i = 0; total > 0 && i < TRAFFIC; i++) {
     let pick = rnd() * total, ri = 0;
     while (pick > roads[ri].len) { pick -= roads[ri].len; ri++; }
     spawn(kinds[Math.floor(rnd() * kinds.length)], roads[ri], pick, LANES[rnd() < 0.5 ? 0 : 1], 11 + rnd() * 4, palette[i % palette.length]);
@@ -101,7 +101,8 @@ export function makeAmbient(W, scene, opts = {}) {
     return g;
   };
   const north = 1158, south = 1503;
-  const flights = [
+  // (LAX isn't on the true-scale map yet)
+  const flights = W.real ? [] : [
     { jet: makeJet('#c8102e'), kind: 'land', t: 0, z: north },
     { jet: makeJet('#1f4e9c'), kind: 'depart', t: 18, z: south }
   ];
