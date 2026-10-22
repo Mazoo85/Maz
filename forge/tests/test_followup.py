@@ -10,7 +10,15 @@ from forge.ledger import append, new_entry, read_all
 
 
 def _seed(root, cfg, **kw):
-    append(new_entry(kw.pop("run_id", "2026-09-10"), **kw), root, cfg)
+    """Seed one entry, filed by its run id rather than by today's date.
+
+    Same reason as `_entry` in test_ledger.py: without an explicit `at`,
+    `new_entry` stamps today, the entry lands in the current month's file, and
+    the assertions below that name "2026-09.jsonl" fail from 1 October onward.
+    """
+    run_id = kw.pop("run_id", "2026-09-10")
+    kw.setdefault("at", f"{run_id}T12:00:00Z")
+    append(new_entry(run_id, **kw), root, cfg)
 
 
 def test_pending_finds_open_questions():
