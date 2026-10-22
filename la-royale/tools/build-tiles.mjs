@@ -282,7 +282,7 @@ if (farSample) {
 const OV = 4096, S = OV / Math.max(X1 - X0, Z1 - Z0);
 const img = Buffer.alloc(OV * OV * 4);
 const fill = (r, g, b) => { for (let k = 0; k < OV * OV; k++) { img[k * 4] = r; img[k * 4 + 1] = g; img[k * 4 + 2] = b; img[k * 4 + 3] = 255; } };
-fill(214, 208, 196);
+fill(190, 188, 181);                // (lots, drives and pavement: light concrete, not sand)
 const px = (x) => (x - X0) * S, pz = (z) => (z - Z0) * S;
 function poly(pts, [r, g, b]) {
   const ys = pts.map((p) => pz(p[1]));
@@ -328,7 +328,7 @@ for (const t of all) for (const b of t.buildings) {
   const area = Math.abs(ringArea(b.pts));
   if (b.h > 10 || area > 450 || (b.type !== BTYPE.house && b.type !== BTYPE.other && b.type !== BTYPE.garage)) continue;
   const [cx, cz] = centroid(b.pts), k = (Math.sin(cx * 0.013 + cz * 0.029) + 1) / 2;
-  disc(cx, cz, Math.sqrt(area) * 0.6 + 10, k < 0.7 ? [118 + k * 20, 146 + k * 10, 82] : [176, 168, 120]);
+  disc(cx, cz, Math.sqrt(area) * 0.6 + 11, k < 0.75 ? [104 + k * 22, 140 + k * 12, 74] : [168, 162, 116]);
 }
 for (const t of all) for (const r of [...t.roads].sort((a, b) => b.cls - a.cls)) line(r.pts, r.cls === RCLASS.footway ? 2 : r.w, r.cls <= RCLASS.trunk ? [214, 208, 196] : r.cls === RCLASS.rail ? [120, 110, 100] : r.cls <= RCLASS.tertiary ? [250, 250, 248] : [236, 234, 228]);
 for (const t of all) for (const b of t.buildings) poly(b.pts, b.h > 40 ? [120, 116, 124] : [168, 160, 152]);

@@ -325,6 +325,8 @@ class Mesh {
 
 /* One building into the wall and roof meshes. Returns its collider. */
 function addBuilding(walls, roofs, b, base, st, opts = {}) {
+  // a "roof" in the data is a canopy — a carport, a gas station's, a covered walk: a slab on posts
+  if (b.type === BTYPE.roof && !opts.far) return addCanopy(walls, b, base, st, opts);
   const n = b.pts.length;
   // OSM maps many tall buildings as parts sharing an outline (a podium and a
   // tower): their walls would sit in the same plane and flicker. Each is drawn
@@ -450,6 +452,37 @@ function ledge(m, pts, y0, y1, d, col, ex) {
     m.quad([pts[i][0], y1, pts[i][1]], [pts[j][0], y1, pts[j][1]], [bx, y1, bz], [ax, y1, az], 0, 1, 0, col, ex);
     m.quad([pts[i][0], y0, pts[i][1]], [pts[j][0], y0, pts[j][1]], [bx, y0, bz], [ax, y0, az], 0, -1, 0, col, ex);
   }
+}
+
+function addCanopy(walls, b, base, st, opts) {
+  const pts = b.pts, n = pts.length, top = base + Math.max(b.h, 2.8), slab = 0.45;
+  const col = new THREE.Color(st.wall), roofCol = new THREE.Color(st.roofCol);
+  const ex = { aWin: 0, aMat: 4, aSeed: 0.5, aBase: base, aTop: top, aFloor: 3, aGround: opts.gh || base };
+  for (let i = 0; i < n; i++) {
+    const [ax, az] = pts[i], [bx, bz] = pts[(i + 1) % n], l = Math.hypot(bx - ax, bz - az);
+    if (l < 0.01) continue;
+    const nx = (bz - az) / l, nz = -(bx - ax) / l;
+    walls.quad([ax, top - slab, az], [bx, top - slab, bz], [bx, top, bz], [ax, top, az], nx, 0, nz, col, ex);
+  }
+  for (const [p, q, r] of roofTriangles(pts)) {
+    walls.tri([p[0], top, p[1]], [q[0], top, q[1]], [r[0], top, r[1]], 0, 1, 0, roofCol, ex);
+    walls.tri([p[0], top - slab, p[1]], [q[0], top - slab, q[1]], [r[0], top - slab, r[1]], 0, -1, 0, col, ex);
+  }
+  // posts at the corners (inset a little), down to the ground
+  const step = n > 8 ? 2 : 1;
+  let cx = 0, cz = 0;
+  for (const [x, z] of pts) { cx += x / n; cz += z / n; }
+  for (let i = 0; i < n; i += step) {
+    const [x0, z0] = pts[i], dl = Math.hypot(cx - x0, cz - z0) || 1, x = x0 + (cx - x0) / dl * 0.4, z = z0 + (cz - z0) / dl * 0.4;
+    const g = (opts.gh ? opts.gh(x, z) : base) - 0.2, w = 0.16;
+    for (const [dx, dz, nx, nz] of [[w, 0, 1, 0], [-w, 0, -1, 0], [0, w, 0, 1], [0, -w, 0, -1]]) {
+      const a = [x + dx - nz * w, g, z + dz + nx * w], c = [x + dx + nz * w, g, z + dz - nx * w];
+      walls.quad(a, c, [c[0], top - slab, c[2]], [a[0], top - slab, a[2]], nx, 0, nz, col, ex);
+    }
+  }
+  let r = 0;
+  for (const [x, z] of pts) r = Math.max(r, Math.hypot(x - cx, z - cz));
+  return { k: 2, x: cx, z: cz, r, y0: top - slab, y1: top, pts };
 }
 
 /* Hipped, gabled or pyramid roofs. Returns the ridge height (or the eave

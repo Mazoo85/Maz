@@ -53,6 +53,37 @@ export function makeAtmosphere(scene, renderer, opts = {}) {
   moon.scale.setScalar(rk);
   scene.add(moon);
 
+  /* clouds: wisps of high cirrus most days, and on marine-layer mornings a low grey deck over the
+   * basin that thins and breaks up as it burns off */
+  const cloudUniforms = { uTime: { value: 0 }, uCover: { value: 0.25 }, uSun: { value: new THREE.Vector3() }, uSunCol: { value: new THREE.Color() }, uFog: { value: new THREE.Color() }, uNight: uniforms.uNight, uDeck: { value: 0 } };
+  const cloudMat = (low) => new THREE.ShaderMaterial({
+    uniforms: { ...cloudUniforms, uLow: { value: low ? 1 : 0 } },
+    transparent: true, depthWrite: false, fog: false, side: THREE.DoubleSide,
+    vertexShader: 'varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
+    fragmentShader: `uniform float uTime, uCover, uNight, uDeck, uLow; uniform vec3 uSun, uSunCol, uFog; varying vec3 vW;
+      float h(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+      float n(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
+      float fbm(vec2 p) { float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++) { s += a * n(p); p = p * 2.03 + 17.1; a *= 0.5; } return s; }
+      void main() {
+        vec2 p = vW.xz / (uLow > 0.5 ? 2600.0 : 5200.0) + vec2(uTime * 0.004, uTime * 0.0015);
+        if (uLow < 0.5) p = vec2(p.x * 0.35, p.y * 1.4);                 // cirrus: drawn out in streaks
+        float c = fbm(p);
+        float cover = uLow > 0.5 ? uDeck : uCover;
+        float a = smoothstep(1.0 - cover, 1.0 - cover + (uLow > 0.5 ? 0.25 : 0.35), c) * (uLow > 0.5 ? 0.95 : 0.55);
+        float edge = 1.0 - smoothstep(30000.0, 75000.0, length(vW.xz - cameraPosition.xz));
+        vec3 lit = mix(vec3(0.93, 0.94, 0.96), uSunCol, 0.35) * (uLow > 0.5 ? 0.86 + 0.14 * c : 1.0);
+        lit = mix(lit, vec3(0.12, 0.14, 0.2), uNight * 0.85);
+        float d = length(vW - cameraPosition);
+        vec3 col = mix(lit, uFog, clamp(d / 60000.0, 0.0, 0.7));
+        gl_FragColor = vec4(col, a * edge);
+      }`
+  });
+  const cirrus = new THREE.Mesh(new THREE.PlaneGeometry(160000, 160000), cloudMat(false));
+  cirrus.rotation.x = -Math.PI / 2; cirrus.frustumCulled = false; cirrus.renderOrder = 2;
+  const deck = new THREE.Mesh(new THREE.PlaneGeometry(160000, 160000), cloudMat(true));
+  deck.rotation.x = -Math.PI / 2; deck.frustumCulled = false; deck.renderOrder = 3;
+  scene.add(cirrus, deck);
+
   const envScene = new THREE.Scene();
   const envSky = new Sky();
   envSky.scale.setScalar(1000);
@@ -178,6 +209,8 @@ export function makeAtmosphere(scene, renderer, opts = {}) {
     moon.material.opacity = night;
     if (bloom) { bloom.strength = 0.16 + night * 0.4; bloom.threshold = 0.9 - night * 0.12; }
     nightSky.material.opacity = night * 0.88;
+    cloudUniforms.uSun.value.copy(sunDir); cloudUniforms.uSunCol.value.copy(sun.color); cloudUniforms.uFog.value.copy(scene.fog.color);
+    cloudUniforms.uDeck.value = 0.85 * gloom;
     for (const fn of onTime) fn(night, elev);
     return { elev, night };
   }
@@ -209,6 +242,10 @@ export function makeAtmosphere(scene, renderer, opts = {}) {
     moon.lookAt(camera.position);
     // the haze thins as you climb above the ground
     const high = Math.max(0, camera.position.y - groundAt(camera.position.x, camera.position.z) - 120);
+    cloudUniforms.uTime.value = time;
+    cirrus.position.set(camera.position.x, groundAt(camera.position.x, camera.position.z) + 6500, camera.position.z);
+    deck.position.set(camera.position.x, 620, camera.position.z);     // the marine layer's top, ~600 m over the basin
+    deck.visible = gloom > 0.02;
     scene.fog.near = (fogNear + high * 2) * (1 - 0.75 * gloom);
     scene.fog.far = (fogFar + high * 6) * (1 - 0.6 * gloom) + high * 4 * gloom;   // (climb above the layer and it thins)
     const lightDir = sunDir.y > -0.05 ? sunDir : tmpV.copy(sunDir).negate().setY(0.6).normalize();
