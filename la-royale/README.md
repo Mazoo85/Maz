@@ -168,6 +168,21 @@ skyline is there from anywhere. Up close each square gets:
 - streetlights, hydrants and cars parked along the kerbs;
 - every named shop, café, bar and restaurant as a sign with its real name on
   the wall of the building it's in.
+- the landmarks modelled on their real buildings: the Hollywood Sign,
+  Griffith Observatory, Capitol Records, City Hall, the US Bank Tower's
+  crown, the Wilshire Grand's spire, Disney Hall's steel sails, the Cinerama
+  Dome, the Chinese Theatre, Union Station, the Hollywood Bowl, Dodger
+  Stadium, Angels Flight, and Metro entrances at the real B/D Line stations;
+- the Walk of Fame's stars down Hollywood Blvd and Vine, and a lit marquee
+  and blade sign on every theatre and cinema;
+- crosswalks, stop lines and arrows at every junction, LA's coloured kerbs,
+  Wilshire's red bus lanes, street-name signs, bus stops, power lines, bins,
+  meters, billboards (made-up ads), murals and graffiti;
+- dingbats over their carports, balconies, window air conditioners and
+  security bars;
+- the mountains and the sea on the horizon out to 64 km, the basin glowing
+  at night, grey marine-layer mornings, premiere searchlights, people on the
+  sidewalks, crows and parrots, and the city's sound (synthesised).
 
 To build it (about a minute, ~110 MB of downloads):
 
@@ -175,6 +190,7 @@ To build it (about a minute, ~110 MB of downloads):
 pip install pyarrow
 python3 la-royale/tools/overture.py       # the buildings, streets, parks, water, shops (Overture Maps)
 node la-royale/tools/fetch.mjs dem        # the ground elevation
+node la-royale/tools/fetch.mjs far        # the mountains and coast round it, for the horizon
 node la-royale/tools/build-tiles.mjs      # → la-royale/data/real/ (33 MB, not committed)
 ```
 
@@ -214,6 +230,8 @@ tiles (AWS Open Data).
 | `js/atmosphere.js` | Sky, sun, moon and stars, the light, fog and bloom: shared by both maps. |
 | `js/osm.js` | Turns OpenStreetMap buildings, streets, areas, trees and shops into compact tiles. No DOM. |
 | `js/realcity.js` | The true-scale map: loads the ground and skyline, streams the detailed city in around you. |
+| `js/reallandmarks.js` | The real map's landmarks, modelled on their real buildings. |
+| `js/audio.js` | The city's sound, synthesised with Web Audio. |
 | `tools/overture.py`, `tools/fetch.mjs`, `tools/build-tiles.mjs` | Download the real data and pack it into tiles (`tools/png.mjs` reads and writes the images). |
 | `tests/world.test.js`, `tests/real.test.js` | The tests (plain Node). |
 
