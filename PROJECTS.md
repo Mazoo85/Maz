@@ -24,6 +24,8 @@ with their full history.
 | [`film`](film) |
 | [`forge`](forge) |
 | [`godview`](godview) |
+| [`la-royale`](la-royale) |
+| [`livecams`](livecams) |
 | [`madlibs`](madlibs) |
 | [`mandala`](mandala) |
 | [`music`](music) |
