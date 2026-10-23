@@ -12,17 +12,14 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Ask the relay as GOD'S EYE VIEW
+      - name: Ask the relay as GOD'S EYE VIEW, around the world
         run: |
           R=https://godview-planes.cody-collins85-cc.workers.dev
-          echo "=== as our site (New York)"
-          curl -sS -m 30 -o body.json -D h.txt -H "Origin: https://mazoo85.github.io" "$R/planes?lat=40.6&lng=-73.8"
-          head -1 h.txt; grep -i "^access-control-allow-origin" h.txt || echo "(no CORS header)"
-          python3 -c "import json;d=json.load(open('body.json'));print('source:',d.get('source'),'aircraft:',len(d.get('ac') or []),'error:',d.get('error'),d.get('details'));a=(d.get('ac') or [{}])[0];print('first:',{k:a.get(k) for k in ['hex','flight','lat','lon','alt_baro','gs','track']})"
-          echo "=== as our site (London)"
-          curl -sS -m 30 -o body2.json -H "Origin: https://mazoo85.github.io" "$R/planes?lat=51.5&lng=-0.1"
-          python3 -c "import json;d=json.load(open('body2.json'));print('source:',d.get('source'),'aircraft:',len(d.get('ac') or []),'error:',d.get('error'))"
-          echo "=== preflight from our site"
-          curl -sS -m 30 -o /dev/null -D - -X OPTIONS -H "Origin: https://mazoo85.github.io" -H "Access-Control-Request-Method: GET" "$R/planes?lat=1&lng=1" | grep -i -E "^HTTP|^access-control-allow-origin"
-          echo "=== as some other site"
-          curl -sS -m 30 -D - -H "Origin: https://someone-else.example" "$R/planes?lat=40.6&lng=-73.8" | grep -i -E "^HTTP|^access-control|error"
+          for place in "20.00 -40.00 mid-Atlantic(app start)" "40.64 -73.78 New-York" "39.10 -94.60 Kansas-City" "51.47 -0.45 London" "48.86 2.35 Paris" "35.68 139.69 Tokyo"; do
+            set -- $place
+            curl -sS -m 30 -o b.json -H "Origin: https://mazoo85.github.io" "$R/planes?lat=$1&lng=$2"
+            python3 -c "import json,sys;d=json.load(open('b.json'));print(sys.argv[1].ljust(26),'source:',d.get('source'),' aircraft:',len(d.get('ac') or []),' error:',d.get('error'),d.get('details') or '')" "$3"
+          done
+          echo "=== direct, for comparison (no relay)"
+          curl -sS -m 30 -o fi.json "https://opendata.adsb.fi/api/v2/lat/40.6/lon/-73.8/dist/250"; python3 -c "import json;d=json.load(open('fi.json'));print('adsb.fi direct NY:',len(d.get('aircraft') or []))"
+          curl -sS -m 30 -o lol.json "https://api.adsb.lol/v2/point/40.6/-73.8/250"; python3 -c "import json;d=json.load(open('lol.json'));print('adsb.lol direct NY:',len(d.get('ac') or []))"
