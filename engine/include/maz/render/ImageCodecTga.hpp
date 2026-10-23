@@ -15,35 +15,50 @@ namespace maz::render {
 
 // Encode an Image to an uncompressed 32-bit TGA byte blob. Empty image -> empty vector.
 inline std::vector<std::uint8_t> encodeTga(const Image& img) {
-    std::vector<std::uint8_t> out;
     if (img.empty()) {
-        return out;
+        return {};
     }
     const int w = img.width();
     const int h = img.height();
-    out.reserve(18u + static_cast<std::size_t>(w) * static_cast<std::size_t>(h) * 4u);
-    auto push16 = [&out](int v) {
-        out.push_back(static_cast<std::uint8_t>(v & 0xFF));
-        out.push_back(static_cast<std::uint8_t>((v >> 8) & 0xFF));
-    };
-    out.push_back(0); // ID length
-    out.push_back(0); // colour-map type (none)
-    out.push_back(2); // image type: uncompressed true-colour
-    for (int i = 0; i < 5; ++i) {
-        out.push_back(0); // colour-map specification (unused)
-    }
-    push16(0); // x-origin
-    push16(0); // y-origin
-    push16(w);
-    push16(h);
-    out.push_back(32);   // bits per pixel
-    out.push_back(0x28); // descriptor: 8 alpha bits (0x08) + top-left origin (0x20)
     const std::vector<std::uint8_t>& px = img.data(); // RGBA8, top-left origin
-    for (std::size_t i = 0; i + 3 < px.size(); i += 4) {
-        out.push_back(px[i + 2]); // B
-        out.push_back(px[i + 1]); // G
-        out.push_back(px[i]);     // R
-        out.push_back(px[i + 3]); // A
+    const std::size_t pixels = px.size() / 4u;        // whole RGBA groups only
+
+    // Size the buffer exactly and fill it by index rather than reserve-then-push_back. The two are
+    // equivalent here -- the reserve was already exact -- but GCC 14 cannot see that through the
+    // inlined push_back, so it keeps the reallocation path alive and reports the growth
+    // deallocating a pointer "with nonzero offset [2, 9223372036854775807]"
+    // (-Werror=free-nonheap-object), which stops the Release build. A fixed size leaves no growth
+    // path to analyse.
+    //
+    // GCC 15 does not flag this one, so CI never saw it; GCC 14 is the default compiler on Ubuntu
+    // 24.04 LTS, so anyone building there does. buildGlb in render/GlbContainer.hpp met the same
+    // diagnostic from GCC 15 and dodges it another way, by appending each u32 with one insert.
+    std::vector<std::uint8_t> out(18u + pixels * 4u);
+    std::size_t at = 0;
+    const auto put8 = [&out, &at](int v) { out[at++] = static_cast<std::uint8_t>(v & 0xFF); };
+    const auto put16 = [&put8](int v) {
+        put8(v);
+        put8(v >> 8);
+    };
+
+    put8(0); // ID length
+    put8(0); // colour-map type (none)
+    put8(2); // image type: uncompressed true-colour
+    for (int i = 0; i < 5; ++i) {
+        put8(0); // colour-map specification (unused)
+    }
+    put16(0); // x-origin
+    put16(0); // y-origin
+    put16(w);
+    put16(h);
+    put8(32);   // bits per pixel
+    put8(0x28); // descriptor: 8 alpha bits (0x08) + top-left origin (0x20)
+    for (std::size_t i = 0; i < pixels; ++i) {
+        const std::size_t s4 = i * 4u;
+        out[at++] = px[s4 + 2]; // B
+        out[at++] = px[s4 + 1]; // G
+        out[at++] = px[s4];     // R
+        out[at++] = px[s4 + 3]; // A
     }
     return out;
 }

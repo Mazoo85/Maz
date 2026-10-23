@@ -16,13 +16,17 @@ with their full history.
 | [`cells`](cells) |
 | [`cmake`](cmake) |
 | [`coda-pics`](coda-pics) |
+| [`companion`](companion) |
 | [`consolidate`](consolidate) |
 | [`crew`](crew) |
 | [`docs`](docs) |
+| [`earth`](earth) |
 | [`engine`](engine) |
 | [`examples`](examples) |
 | [`film`](film) |
 | [`forge`](forge) |
+| [`godview`](godview) |
+| [`livecams`](livecams) |
 | [`madlibs`](madlibs) |
 | [`mandala`](mandala) |
 | [`music`](music) |
