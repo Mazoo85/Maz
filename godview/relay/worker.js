@@ -1,5 +1,5 @@
 /*
- * GOD'S EYE VIEW — the planes relay.
+ * GOD'S EYE VIEW - the planes relay.
  *
  * Every free flight-data service answers a server but refuses a web page
  * (no Access-Control-Allow-Origin for anyone else's site), so the PLANES layer
