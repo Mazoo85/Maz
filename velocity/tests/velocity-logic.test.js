@@ -325,6 +325,127 @@ test('a driver steers round a car directly ahead', () => {
   assert(Math.abs(blocked.steer - clear.steer) > 0.05, 'steers away from the blocker');
 });
 
+const Race = js('race.js');
+
+console.log('Race');
+
+function fakeStorage(initial) {
+  const data = Object.assign({}, initial || {});
+  return { get: (k) => (k in data ? data[k] : null), set: (k, v) => { data[k] = v; }, data };
+}
+function seeded(seed) {
+  let s = seed || 1;
+  return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+}
+// Move a car to a distance along the lap. The next physics step reads the new
+// distance from the position and remembers the old one as prevS, so a
+// teleport across the line looks like a crossing.
+function teleport(car, s) {
+  const p = track.at(s);
+  car.x = p.x; car.z = p.z; car.hint = p.i; car.heading = Math.atan2(p.dz, p.dx);
+}
+function runRace(race, playerInput, seconds) {
+  const dt = 1 / 60;
+  for (let t = 0; t < seconds && race.phase !== 'finished'; t += dt) {
+    Race.update(race, dt, typeof playerInput === 'function' ? playerInput(race) : playerInput);
+  }
+  return race;
+}
+const aiPlayer = (() => { const d = AI.makeDriver({ skill: 0.95, aggression: 0 }); return (race) => AI.input(Race.playerEntry(race).car, d, race.track, { time: race.time, cars: race.entries.map((e) => e.car) }); })();
+
+test('a race starts with a countdown during which nobody moves', () => {
+  const race = Race.create({ track, playerCar: 'comet', random: seeded(1) });
+  eq(race.phase, 'countdown');
+  eq(race.entries.length, 8);
+  assert(Race.playerEntry(race).isPlayer);
+  const before = race.entries.map((e) => [e.car.x, e.car.z]);
+  runRace(race, { steer: 0 }, 2);
+  race.entries.forEach((e, i) => { eq(e.car.x, before[i][0]); eq(e.car.z, before[i][1]); });
+  runRace(race, { steer: 0 }, 1.1);
+  eq(race.phase, 'racing');
+  eq(Race.lapNumber(Race.playerEntry(race), 3), 1);
+});
+
+test('the player starts at the back of the grid', () => {
+  const race = Race.create({ track, playerCar: 'comet', random: seeded(2) });
+  const p = Race.playerEntry(race);
+  race.entries.forEach((e) => { if (!e.isPlayer) assert(e.car.s >= p.car.s, 'opponent level or ahead on the grid'); });
+  eq(p.place, 8);
+});
+
+test('laps count only when the line is crossed forwards', () => {
+  const race = Race.create({ track, playerCar: 'comet', random: seeded(3) });
+  const e = Race.playerEntry(race);
+  race.phase = 'racing';
+  teleport(e.car, track.length - 5); e.crossings = 0;
+  Race.update(race, 0, { steer: 0 });
+  eq(e.crossings, 0, 'not yet');
+  // Across the line forwards.
+  teleport(e.car, 5); Race.update(race, 0, { steer: 0 });
+  eq(e.crossings, 1, 'forwards counts');
+  teleport(e.car, track.length - 5); Race.update(race, 0, { steer: 0 });
+  eq(e.crossings, 0, 'backwards uncounts');
+});
+
+test('positions order by distance covered, and finishers come first', () => {
+  const race = Race.create({ track, playerCar: 'comet', random: seeded(4) });
+  race.phase = 'racing';
+  race.entries.forEach((e, i) => { e.crossings = 1; teleport(e.car, 100 + i * 50); });
+  race.entries[2].finished = true; race.entries[2].finishTime = 100;
+  Race.update(race, 0, { steer: 0 });
+  const order = Race.standings(race);
+  assert(order[0] === race.entries[2], 'the finisher leads');
+  assert(order[1] === race.entries[7], 'then the car furthest round');
+  eq(race.entries[2].place, 1);
+});
+
+test('a full race: the player finishes, gets a place and a best time is saved', () => {
+  const storage = fakeStorage();
+  const race = Race.create({ track, playerCar: 'dart', laps: 1, storage, random: seeded(5) });
+  runRace(race, aiPlayer, 240);
+  eq(race.phase, 'finished', 'finished within 4 minutes');
+  const r = race.results;
+  assert(r.place >= 1 && r.place <= 8, 'a place: ' + r.place);
+  assert(r.total > 30 && r.total < 240, 'a sensible time: ' + r.total);
+  eq(r.lapTimes.length, 1);
+  eq(r.newBest, true, 'first time is a record');
+  const saved = Race.loadRecords(storage);
+  near(saved.bestTime, r.total, 0.001);
+  // A slower second race does not beat it.
+  const again = Race.create({ track, playerCar: 'dart', laps: 1, storage, random: seeded(6) });
+  again.phase = 'racing'; again.time = r.total + 10;
+  const e = Race.playerEntry(again); e.crossings = 1; e.lapStart = 0; teleport(e.car, track.length - 2);
+  Race.update(again, 0, { steer: 0 });
+  teleport(e.car, 1); Race.update(again, 0, { steer: 0 });
+  eq(again.phase, 'finished');
+  eq(again.results.newBest, false);
+  near(Race.loadRecords(storage).bestTime, r.total, 0.001, 'record kept');
+});
+
+test('records survive a broken storage', () => {
+  const broken = { get: () => { throw new Error('no'); }, set: () => { throw new Error('no'); } };
+  eq(Race.loadRecords(broken).bestTime, null);
+  Race.saveRecords(broken, { bestTime: 1 });
+  eq(Race.loadRecords(null).bestTime, null);
+});
+
+test('times format as m:ss.mmm', () => {
+  eq(Race.formatTime(0), '0:00.000');
+  eq(Race.formatTime(65.4321), '1:05.432');
+  eq(Race.formatTime(null), '--:--.---');
+});
+
+test('resuming after a pause brings the countdown back without moving the cars', () => {
+  const race = Race.create({ track, playerCar: 'comet', random: seeded(7) });
+  runRace(race, { steer: 0 }, 5);
+  eq(race.phase, 'racing');
+  Race.resume(race);
+  eq(race.phase, 'countdown');
+  const x = Race.playerEntry(race).car.x;
+  runRace(race, { steer: 0 }, 1);
+  eq(Race.playerEntry(race).car.x, x);
+});
+
 console.log('');
 if (failures.length) { console.log(failures.length + ' failed, ' + passed + ' passed'); process.exit(1); }
 console.log('All ' + passed + ' passed');
