@@ -220,11 +220,13 @@ async function openPage(browser, base, { quakes = 'ok', sats = 'ok', weather = '
     (/\.json$/.test(new URL(route.request().url()).pathname) ? list(CALTRANS)(route) : picture(route)));
   await page.route('https://s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/**', picture);
   await page.route('https://weathercam.digitraffic.fi/**', (route) => route.abort('failed'));
+  /* The page's settings come from the test, never from the real config.js, so
+   * no check ever reaches the real planes relay. */
+  await page.route('**/godview/js/config.js', (route) => route.fulfill({
+    status: 200, contentType: 'text/javascript',
+    body: 'window.GV_CONFIG = { planesRelay: ' + JSON.stringify(relay ? 'https://gv-relay.example.workers.dev' : '') + ' };'
+  }));
   if (relay) {
-    await page.route('**/godview/js/config.js', (route) => route.fulfill({
-      status: 200, contentType: 'text/javascript',
-      body: "window.GV_CONFIG = { planesRelay: 'https://gv-relay.example.workers.dev' };"
-    }));
     await page.route('https://gv-relay.example.workers.dev/**', (route) => {
       if (relay !== 'ok') return route.fulfill({ status: 502, contentType: 'application/json', headers: cors, body: '{"error":"no flight source answered"}' });
       const j = JSON.parse(fresh(ADSB, 'now', 1));

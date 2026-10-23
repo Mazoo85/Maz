@@ -10,6 +10,6 @@
   'use strict';
 
   global.GV_CONFIG = {
-    planesRelay: ''
+    planesRelay: 'https://godview-planes.cody-collins85-cc.workers.dev'
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
