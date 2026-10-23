@@ -1,0 +1,96 @@
+name: War Room 1936
+
+# War Room 1936 is a standalone browser game (three.js globe, no build step). Its
+# simulation and data checks are plain Node; the map pipeline and the Blender model
+# build are rebuilt here so the committed outputs can always be reproduced; one
+# Playwright smoke test opens the page in headless Chromium.
+
+on:
+  push:
+    paths:
+      - "warroom/**"
+      - ".github/workflows/warroom.yml"
+  pull_request:
+    paths:
+      - "warroom/**"
+      - ".github/workflows/warroom.yml"
+
+jobs:
+  logic:
+    name: Simulation and data tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run every Node test
+        run: |
+          set -e
+          for t in warroom/tests/*.test.js; do echo "== $t"; node "$t"; done
+      - name: Repo-wide link and exchange gates
+        run: node scripts/check-links.mjs && node scripts/check-exchange.mjs
+
+  smoke:
+    name: Headless browser smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Playwright and Chromium
+        run: |
+          mkdir -p /tmp/pw && cd /tmp/pw && npm init -y >/dev/null && npm install playwright@1.49.1 --no-audit --no-fund
+          npx --prefix /tmp/pw playwright install --with-deps chromium
+      - name: Run the smoke test
+        run: WARROOM_PLAYWRIGHT=/tmp/pw/node_modules/playwright/index.mjs node warroom/tests/smoke.playwright.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: warroom-smoke-screenshots
+          path: warroom/tests/out/*.png
+          if-no-files-found: ignore
+
+  pipeline:
+    name: Map pipeline rebuilds the committed data
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install the pipeline's packages
+        run: pip install -r warroom/pipeline/requirements.txt
+      - name: Cache the public inputs
+        uses: actions/cache@v4
+        with:
+          path: warroom/pipeline/cache
+          key: warroom-pipeline-inputs-v1
+      - name: Rebuild the map
+        run: python warroom/pipeline/build_map.py --out /tmp/map/map --common /tmp/map/common
+      - name: Compare with the committed data
+        run: python warroom/pipeline/compare.py /tmp/map warroom/data
+
+  models:
+    name: Blender rebuilds the models
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Blender as a Python module
+        run: pip install "bpy==5.0.*" numpy
+      - name: Build every model
+        run: python warroom/blender/build_models.py --out /tmp/models
+      - name: Every model in the manifest was rebuilt
+        run: |
+          python - <<'PY'
+          import json, os, sys
+          want = json.load(open('warroom/models/manifest.json'))['models']
+          got = json.load(open('/tmp/models/manifest.json'))['models']
+          missing = [n for n in want if n not in got or not os.path.exists(f'/tmp/models/{got[n]["file"]}')]
+          print(f'{len(got)} models rebuilt; missing: {missing}')
+          sys.exit(1 if missing else 0)
+          PY

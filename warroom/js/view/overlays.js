@@ -36,10 +36,10 @@ export function createOverlays(globe, data, models) {
   let meshes = [];
   let labels = [];
   const placements = [];   // { lat, lon, color, count }
-  const labelCanvas = document.createElement('canvas');
 
   function makeLabel(text) {
     const size = 64;
+    const labelCanvas = document.createElement('canvas');
     labelCanvas.width = size; labelCanvas.height = size;
     const ctx = labelCanvas.getContext('2d');
     ctx.clearRect(0, 0, size, size);

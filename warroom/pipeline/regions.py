@@ -42,8 +42,9 @@ def apply_regions(prov, provinces, states, out_dir):
         members = [s for s, l in zip(states, lab) if l == i]
         if not members:
             continue
-        big = max(members, key=lambda s: (s["people"], s["area_km2"]))
         pids = [pid for s in members for pid in s["provinces"]]
+        top = max((by_id[pid] for pid in pids), key=lambda p: (p.get("vp", 0), p["pixels"]))
+        big = {"name": top["name"] if top.get("vp", 0) > 0 else max(members, key=lambda s: s["area_km2"])["name"]}
         climate = Counter(by_id[pid]["koppen"] for pid in pids).most_common(1)[0][0]
         if climate == "ocean":
             climate = "temperate"

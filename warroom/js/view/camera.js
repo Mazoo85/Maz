@@ -24,6 +24,7 @@ export function createCamera(globe, domElement) {
   const api = {
     controls,
     distance() { return globe.camera.position.length(); },
+    isFlying() { return flying !== null; },
     /** 'globe' | 'continent' | 'state' | 'province' */
     zoomLevel() {
       const d = api.distance() - 1;

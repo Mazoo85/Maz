@@ -36,8 +36,8 @@ def terrain_and_more(prov, provinces, states, countries, places, args):
         s["lat"], s["lon"] = lat, lon
     apply_terrain(prov, provinces, states, places)
     apply_adjacency(prov, provinces, args.out)
-    apply_regions(prov, provinces, states, args.out)
     apply_victory_points(prov, provinces, states, countries, places, args)
+    apply_regions(prov, provinces, states, args.out)
     for s in states:
         for k in ("cx", "cy", "codes", "adm0", "pixels", "people"):
             s.pop(k, None)
