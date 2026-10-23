@@ -19,6 +19,7 @@
  */
 
 import * as THREE from '../vendor/three.module.min.js';
+import { FLORA } from './tiles.js';
 
 /* The atlas: 4 × 4 cells. Grey cells are tinted by vertex colour; coloured
  * cells carry their own colour (vertex colour white). */
@@ -443,6 +444,14 @@ function agave() {
 /* ======================================================= the texture */
 
 function makeAtlas(mulberry) {
+  // the atlas rendered in Blender, when it loaded
+  if (FLORA.image) {
+    const t = new THREE.Texture(FLORA.image);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 4;
+    t.needsUpdate = true;
+    return t;
+  }
   const S = 512, c = document.createElement('canvas');
   c.width = c.height = S * 4;
   const ctx = c.getContext('2d');

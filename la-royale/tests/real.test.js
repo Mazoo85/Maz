@@ -13,7 +13,7 @@ import {
 } from '../js/osm.js';
 import { makeRealWorld, minRect, styleOf, pip, roofTriangles, LANDMARKS, NEIGHBOURHOODS } from '../js/realcity.js';
 import { collideBody } from '../js/world.js';
-import { TILE_LAYERS, TILE_GLSL } from '../js/tiles.js';
+import { TILE_LAYERS, TILE_GLSL, ROOMS } from '../js/tiles.js';
 import { readFileSync, existsSync } from 'node:fs';
 
 let passed = 0, failed = 0;
@@ -192,6 +192,12 @@ test('the baked Blender tiles are the ones the shader expects, in the same order
   assert.deepEqual(baked.map((t) => [t.name, t.metres]), TILE_LAYERS);
   for (const [name] of TILE_LAYERS) for (const s of ['c', 'n']) assert.ok(existsSync(new URL(`${name}_${s}.jpg`, dir)), `${name}_${s}.jpg`);
   assert.match(TILE_GLSL, /bool tileOf\(int kind/);
+});
+
+test('the window rooms the shader looks into are laid out as Blender rendered them', () => {
+  const r = JSON.parse(readFileSync(new URL('../textures/rooms.json', import.meta.url), 'utf8'));
+  assert.deepEqual({ cols: r.cols, rows: r.rows, tile: r.tile, room: r.room, camera: r.camera }, ROOMS);
+  assert.equal(r.rooms.length, ROOMS.cols * ROOMS.rows);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

@@ -1,5 +1,9 @@
 /*
- * Surface tiles baked in Blender (tools/blender_tiles.py): a seamless colour
+ * Textures made in Blender. The trees' foliage and bark
+ * (tools/blender_flora.py). The rooms behind the windows
+ * (tools/blender_rooms.py): eight LA interiors rendered by day and by night,
+ * which the facade shader looks into with parallax. And the surface tiles
+ * (tools/blender_tiles.py): a seamless colour
  * tile and a bump (normal) tile for each material LA is built from. They're
  * packed into two texture arrays and sampled by surfaceDetail() in render.js
  * in place of its procedural patterns; until they load (or if they can't),
@@ -22,6 +26,15 @@ const KIND_TILES = {
   5: ['clay', 0.72], 6: ['shingle', 0.95], 7: ['metal', 0.5], 10: ['lawn', 0.97], 12: ['asphalt', 0.9],
   13: ['dirt', 0.98], 14: ['block', 0.9], 15: ['dryGrass', 0.97]
 };
+
+/* The rooms' atlas: its layout and the room geometry it was rendered with
+ * (tests/real.test.js checks these against rooms.json). */
+export const ROOMS = { cols: 4, rows: 2, tile: [320, 240], room: [4.0, 3.0, 4.5], camera: 4.0 };
+export const ROOM_UNIFORMS = { uRoomDay: { value: null }, uRoomNight: { value: null }, uRoomOn: { value: 0 } };
+
+/* The trees' leaves, fronds and bark (tools/blender_flora.py), laid out as
+ * flora.js's own atlas; flora.js draws that atlas itself when this is null. */
+export const FLORA = { image: null };
 
 export const TILE_UNIFORMS = {
   uTileC: { value: null }, uTileN: { value: null }, uTileOn: { value: 0 }
@@ -88,9 +101,26 @@ export async function loadTiles(base = 'textures/', size = 512) {
     TILE_UNIFORMS.uTileC.value = arrayTexture(colour, size, n);
     TILE_UNIFORMS.uTileN.value = arrayTexture(normal, size, n);
     TILE_UNIFORMS.uTileOn.value = 1;
-    return true;
   } catch (e) {
     console.warn('surface tiles unavailable, using procedural surfaces:', e);
-    return false;
   }
+  try {
+    const [day, night] = await Promise.all([loadImage(`${base}rooms_day.jpg`), loadImage(`${base}rooms_night.jpg`)]);
+    for (const [img, key] of [[day, 'uRoomDay'], [night, 'uRoomNight']]) {
+      const t = new THREE.Texture(img);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = 4;
+      t.needsUpdate = true;
+      ROOM_UNIFORMS[key].value = t;
+    }
+    ROOM_UNIFORMS.uRoomOn.value = 1;
+  } catch (e) {
+    console.warn('window rooms unavailable, windows stay plain glass:', e);
+  }
+  try {
+    FLORA.image = await loadImage(`${base}flora.webp`);
+  } catch (e) {
+    console.warn('foliage atlas unavailable, drawing it instead:', e);
+  }
+  return true;
 }

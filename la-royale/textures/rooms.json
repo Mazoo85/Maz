@@ -1,0 +1,24 @@
+{
+ "cols": 4,
+ "rows": 2,
+ "tile": [
+  320,
+  240
+ ],
+ "room": [
+  4.0,
+  3.0,
+  4.5
+ ],
+ "camera": 4.0,
+ "rooms": [
+  "living",
+  "tv",
+  "bed",
+  "kitchen",
+  "office0",
+  "office1",
+  "shop",
+  "vacant"
+ ]
+}

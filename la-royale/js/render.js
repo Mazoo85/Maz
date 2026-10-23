@@ -18,7 +18,7 @@ import { ROAD_WIDTH } from './geo.js';
 import { SIGN_TEXTS, PROP } from './street.js';
 import { buildFlora } from './flora.js';
 import { buildStreetLife } from './streetlife.js';
-import { TILE_GLSL, tileUniforms } from './tiles.js';
+import { TILE_GLSL, tileUniforms, ROOMS, ROOM_UNIFORMS } from './tiles.js';
 
 const TILE = 1000;
 
@@ -611,6 +611,7 @@ export function facadeMaterial(uniforms, real = false) {
   if (real) m.defines = { REAL_ATTRS: '' };
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uNight = uniforms.uNight;
+    Object.assign(sh.uniforms, ROOM_UNIFORMS);
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', `#include <common>
         attribute float aWin;
@@ -644,6 +645,7 @@ export function facadeMaterial(uniforms, real = false) {
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
         uniform float uNight;
+        uniform sampler2D uRoomDay; uniform sampler2D uRoomNight; uniform float uRoomOn;
         varying vec3 vWPos; varying vec3 vWNrm; flat varying float vWin; flat varying float vSeed; varying float vH; varying float vTop; flat varying float vFloor; varying float vGround;
         // a band from a to b of a repeating 0..1 coordinate, anti-aliased by its screen-space width
         float aaBand(float f, float a, float b, float w) { return smoothstep(a - w, a + w, f) * (1.0 - smoothstep(b - w, b + w, f)); }
@@ -658,6 +660,7 @@ export function facadeMaterial(uniforms, real = false) {
           return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }`)
       .replace('#include <color_fragment>', `#include <color_fragment>
         float winMask = 0.0; float lit = 0.0; float glassy = 0.0; vec3 winTint = vec3(1.0, 0.8, 0.55);
+        vec3 roomEmit = vec3(0.0); float roomCover = 1.0;
         vec3 n = normalize(vWNrm);
         if (n.y > 0.5) {
           float g = vn(vWPos.xz * 0.6) * 0.5 + vn(vWPos.xz * 3.1) * 0.5;
@@ -729,6 +732,38 @@ export function facadeMaterial(uniforms, real = false) {
             float blind = step(0.72, h21(id * 1.7 + vSeed)) * (wt < 2.5 ? 0.16 : 0.0) * (1.0 - smoothstep(0.04, 0.12, max(fw.x, fw.y)));
             float blindLine = step(f.y, mix(pane.w, pane.z, h21(id + 3.1)));
             diffuseColor.rgb = mix(diffuseColor.rgb, glass + blind * blindLine * vec3(0.5, 0.48, 0.42), winMask);
+            if (uRoomOn > 0.5) {
+              // the room behind the glass (interior mapping): follow the view ray into a box the size of the
+              // window's cell, find the wall, floor or ceiling it meets, and look that point up in the room
+              // Blender rendered from a camera ${ROOMS.camera} m in front of its opening
+              vec3 V = normalize(vWPos - cameraPosition);
+              vec3 rd = vec3(dot(V, vec3(t.x, 0.0, t.y)) / cell.x, V.y / cell.y, max(-dot(V, n), 0.02) / (cell.x * ${(ROOMS.room[2] / ROOMS.room[0]).toFixed(4)}));
+              rd.xy = sign(rd.xy + 1e-9) * max(abs(rd.xy), vec2(1e-5));
+              vec3 rp = vec3(fract(g), 0.0);
+              vec3 tm = max((1.0 - rp) / rd, -rp / rd);
+              vec3 hit = rp + rd * min(min(tm.x, tm.y), tm.z);
+              vec2 ruv = 0.5 + (hit.xy - 0.5) * ${ROOMS.camera.toFixed(2)} / (${ROOMS.camera.toFixed(2)} + hit.z * ${ROOMS.room[2].toFixed(2)});
+              // which room: homes in the apartments, offices up the towers, shops along the street
+              float rh = h21(id * 1.31 + vSeed * 7.3);
+              float room = rh > 0.95 ? 7.0 : floor(rh / 0.95 * 4.0);
+              if (wt > 2.5) room = 4.0 + step(0.7, rh);
+              else if (wt > 1.5) room = vH < 4.2 ? 6.0 : rh < 0.6 ? 4.0 : rh < 0.85 ? 5.0 : 7.0;
+              if (h21(id * 3.7 + vSeed * 11.0) > 0.5) ruv.x = 1.0 - ruv.x;     // half of them the other way round
+              ruv = clamp(ruv, 0.004, 0.996);
+              vec2 auv = vec2((mod(room, ${ROOMS.cols}.0) + ruv.x) / ${ROOMS.cols}.0, 1.0 - (floor(room / ${ROOMS.cols}.0) + 1.0 - ruv.y) / ${ROOMS.rows}.0);
+              float lod = log2(max(max(fw.x * ${ROOMS.tile[0]}.0, fw.y * ${ROOMS.tile[1]}.0), 1.0));
+              vec3 rDay = textureLod(uRoomDay, auv, lod).rgb, rNight = textureLod(uRoomNight, auv, lod).rgb;
+              // offices and shops keep their lights on; homes light up at random after dark
+              float on = room > 3.5 && room < 6.5 ? max(step(0.35, h21(id + vSeed * 97.0)) * floorOn, step(5.5, room)) : step(0.58, h21(id + vSeed * 97.0)) * floorOn;
+              vec3 inside = mix(rDay * 0.3, mix(rDay * 0.012, rNight * 1.1, on), uNight);
+              // through the glass: less of it at a glancing angle (more reflection), and less through tinted towers
+              float cosV = clamp(-dot(V, n), 0.0, 1.0);
+              float fres = 0.04 + 0.96 * pow(1.0 - cosV, 5.0);
+              roomCover = blind * blindLine > 0.0 ? 1.0 : 0.0;
+              roomEmit = inside * (1.0 - fres) * (wt > 2.5 ? 0.45 : 0.9) * winMask * (1.0 - roomCover);
+              diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.35, winMask * (1.0 - roomCover));
+              lit *= roomCover;               // (the old glow stays only behind drawn blinds)
+            }
             // window air conditioners in the apartments, now and then
             float acOn = step(0.82, h21(id * 2.3 + vSeed * 5.0)) * step(wt, 1.5) * (1.0 - far) * step(3.0, vH);
             float acMask = acOn * aaPulse(g.x, 0.36, 0.62, fw.x) * aaPulse(g.y, pane.z, pane.z + 0.15, fw.y);
@@ -767,7 +802,7 @@ export function facadeMaterial(uniforms, real = false) {
           metalnessFactor = mix(metalnessFactor, 0.85, glassy * step(2.5, vWin) * step(vWin, 3.5)) + glassy * 0.25;
         #endif`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-        totalEmissiveRadiance += lit * uNight * winTint * (0.25 + 0.35 * h21(floor(vWPos.xz * 0.3) + floor(vWPos.y / 3.6)));`);
+        totalEmissiveRadiance += lit * uNight * winTint * (0.25 + 0.35 * h21(floor(vWPos.xz * 0.3) + floor(vWPos.y / 3.6))) + roomEmit;`);
   };
   return withSurface(m, 'int(vMat + 0.5)', 'vMat = aMat;');
 }
