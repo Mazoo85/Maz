@@ -18,6 +18,7 @@ import { ROAD_WIDTH } from './geo.js';
 import { SIGN_TEXTS, PROP } from './street.js';
 import { buildFlora } from './flora.js';
 import { buildStreetLife } from './streetlife.js';
+import { TILE_GLSL, tileUniforms } from './tiles.js';
 
 const TILE = 1000;
 
@@ -72,6 +73,7 @@ export function buildScene(W, renderer, opts = {}) {
   const terrainMat = new THREE.MeshStandardMaterial({ map: groundTex, roughness: 0.95, metalness: 0, emissiveMap: nightTex, emissive: 0xffffff, emissiveIntensity: 0 });
   terrainMat.onBeforeCompile = (sh) => {
     sh.uniforms.uDetail = { value: detail };
+    tileUniforms(sh);
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vTN; varying vec3 vTW;')
       .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nvTN = objectNormal; vTW = position;');
@@ -94,7 +96,7 @@ export function buildScene(W, renderer, opts = {}) {
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
         roughnessFactor = tR;`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
-        normal = bumpNormal(-vViewPosition, normal, tH);`);
+        normal = surfaceNormal(-vViewPosition, normal, tH);`);
   };
   const terrain = new THREE.Mesh(tg, terrainMat);
   terrain.receiveShadow = !lo;
@@ -353,6 +355,11 @@ export function buildScene(W, renderer, opts = {}) {
  * in metres, turned into a bumped normal) and roughness, for the materials
  * LA is built from. Fades out detail smaller than a pixel. */
 export const SURFACE_GLSL = `
+// set by surfaceUV(): 1 on the ground and roofs, 0 on walls
+float sFlat = 1.0;
+// the Blender tile's normal (tangent space) and the uv it was sampled at, when one was used
+vec3 sTN = vec3(0.0, 0.0, 1.0); vec2 sTUV = vec2(0.0); float sTiled = 0.0;
+${TILE_GLSL}
 // (a hash without sin(): sin() loses precision far from the origin, which shows as noise)
 float sh21(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
 float svn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -361,9 +368,26 @@ float sfbm(vec2 p) { return svn(p) * 0.5 + svn(p * 2.03 + 7.1) * 0.3 + svn(p * 4
 float sFade(float period, float fw) { return 1.0 - smoothstep(0.15 * period, 0.5 * period, fw); }
 // kinds: 0 stucco 1 plaster 2 brick 3 wood siding 4 concrete 5 clay tile 6 shingle
 //        7 corrugated metal 8 awning fabric 9 foliage 10 grass 11 sand 12 asphalt 13 dirt
+//        14 concrete block 15 dry grass
 float surfaceDetail(int kind, vec2 uv, inout vec3 col, inout float rough) {
   float fw = max(length(fwidth(uv)), 1e-4);
   float h = 0.0;
+  float tL, tM, tR;
+  sTiled = 0.0;
+  if (uTileOn > 0.5 && tileOf(kind, tL, tM, tR)) {
+    // the baked tile (explicit gradients, so wrapping the coordinate leaves no seam)
+    vec2 tc = uv / tM, gx = dFdx(tc) * vec2(1.0, -1.0), gy = dFdy(tc) * vec2(1.0, -1.0);
+    vec3 st = vec3(fract(tc.x), fract(-tc.y), tL);
+    col *= textureGrad(uTileC, st, gx, gy).rgb * 2.0;
+    col *= 0.92 + 0.14 * sfbm(uv * 0.35);          // and a slow wash over it, so the repeat doesn't show
+    sTN = textureGrad(uTileN, st, gx, gy).rgb * 2.0 - 1.0;
+    sTUV = uv; sTiled = 1.0;
+    if (kind != 7) rough = tR;
+    else rough = 0.45 + 0.25 * svn(uv * 0.8);
+    return 0.0;
+  }
+  if (kind == 14) kind = 4;
+  if (kind == 15) kind = 11;
   if (kind == 0) {
     float n = sfbm(uv * 38.0);
     h = n * 0.0012 * sFade(0.12, fw);       // fine stucco: subtle, and gone before it can sparkle
@@ -466,7 +490,24 @@ vec3 bumpNormal(vec3 p, vec3 n, float h) {
   vec3 grad = (dFdx(h) * r1 + dFdy(h) * r2) / det;
   return normalize(n - grad);
 }
+// the tile's normal, turned to face the way the surface's uv runs (a cotangent frame from derivatives)
+vec3 tileNormal(vec3 p, vec3 n, vec2 uv, vec3 tn) {
+  vec3 q0 = dFdx(p), q1 = dFdy(p);
+  vec2 st0 = dFdx(uv), st1 = dFdy(uv);
+  vec3 q1p = cross(q1, n), q0p = cross(n, q0);
+  vec3 T = q1p * st0.x + q0p * st1.x, B = q1p * st0.y + q0p * st1.y;
+  float det = max(dot(T, T), dot(B, B));
+  if (det <= 0.0) return n;
+  float k = inversesqrt(det);
+  return normalize(T * (tn.x * k) + B * (tn.y * k) + n * tn.z);
+}
+// the relief, from the tile if one was used, else from the procedural height
+vec3 surfaceNormal(vec3 p, vec3 n, float h) {
+  vec3 tnrm = tileNormal(p, n, sTUV, sTN), hnrm = bumpNormal(p, n, h);
+  return sTiled > 0.5 ? tnrm : hnrm;
+}
 vec2 surfaceUV(vec3 wp, vec3 wn) {
+  sFlat = abs(wn.y) > 0.55 ? 1.0 : 0.0;
   if (abs(wn.y) > 0.55) return wp.xz;
   return vec2(dot(wp.xz, normalize(vec2(-wn.z, wn.x) + 1e-5)), wp.y);
 }
@@ -478,6 +519,7 @@ export function withSurface(m, kind, extraVertex = '') {
   const prev = m.onBeforeCompile;
   m.onBeforeCompile = (sh, r) => {
     if (prev) prev(sh, r);
+    tileUniforms(sh);
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', `#include <common>
         varying vec3 vSW; varying vec3 vSN; ${extraVertex ? 'attribute float aMat; varying float vMat;' : ''}`)
@@ -503,7 +545,7 @@ export function withSurface(m, kind, extraVertex = '') {
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
         // (blend the relief out by sBumpK rather than scaling the height by it: a height that drops to
         // zero at a window's edge is a cliff, and lighting the cliff scatters speckles along every edge)
-        normal = normalize(mix(normal, bumpNormal(-vViewPosition, normal, sH), clamp(sBumpK, 0.0, 1.0)));`);
+        normal = normalize(mix(normal, surfaceNormal(-vViewPosition, normal, sH), clamp(sBumpK, 0.0, 1.0)));`);
   };
   const key = `surface:${kind}:${prev ? prev.toString().length : 0}`;
   m.customProgramCacheKey = () => key;

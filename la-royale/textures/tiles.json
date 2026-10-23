@@ -1,0 +1,57 @@
+{
+ "res": 512,
+ "tiles": [
+  {
+   "name": "stucco",
+   "metres": 2.0
+  },
+  {
+   "name": "plaster",
+   "metres": 2.0
+  },
+  {
+   "name": "brick",
+   "metres": 1.6
+  },
+  {
+   "name": "siding",
+   "metres": 2.0
+  },
+  {
+   "name": "block",
+   "metres": 2.0
+  },
+  {
+   "name": "clay",
+   "metres": 2.0
+  },
+  {
+   "name": "shingle",
+   "metres": 2.0
+  },
+  {
+   "name": "metal",
+   "metres": 2.0
+  },
+  {
+   "name": "sidewalk",
+   "metres": 3.0
+  },
+  {
+   "name": "asphalt",
+   "metres": 4.0
+  },
+  {
+   "name": "lawn",
+   "metres": 2.0
+  },
+  {
+   "name": "dryGrass",
+   "metres": 3.0
+  },
+  {
+   "name": "dirt",
+   "metres": 3.0
+  }
+ ]
+}

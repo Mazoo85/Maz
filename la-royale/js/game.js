@@ -15,6 +15,7 @@ import { makeHud } from './hud.js';
 import { makePlayer, makeCar, makeBlimp, CAR_TYPES } from './models.js';
 import { makeAmbient } from './ambient.js';
 import { makeAudio } from './audio.js';
+import { loadTiles } from './tiles.js';
 
 const $ = (id) => document.getElementById(id);
 const isTouch = matchMedia('(pointer: coarse)').matches;
@@ -46,6 +47,7 @@ async function boot() {
   const hasReal = await realAvailable();
   const real = hasReal && (params.get('map') || settings.map) === 'real';
   await step(5, real ? 'Downloading real Los Angeles…' : 'Surveying the Los Angeles basin…');
+  const tilesReady = loadTiles('textures/', settings.quality === 'low' ? 256 : 512);   // (loads alongside the map)
   const W = real ? await loadRealWorld(realBase, (t) => step(15, t)) : createWorld({ seed: 1985 });
   if (!real) await step(35, `Painting ${W.blocks.length.toLocaleString()} city blocks and the beaches…`);
   const canvas = $('scene');
@@ -57,6 +59,7 @@ async function boot() {
   renderer.shadowMap.enabled = settings.quality !== 'low';
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   await step(55, `Raising ${W.buildings.length.toLocaleString()} buildings and planting ${W.trees.length.toLocaleString()} trees…`);
+  await tilesReady;
   const R = real ? buildRealScene(W, renderer, { quality: settings.quality }) : buildScene(W, renderer, { quality: settings.quality });
   if (real) await R.preload(W.title.x, W.title.z, (d, n) => { loadBar.style.width = `${55 + (30 * d) / Math.max(1, n)}%`; loadText.textContent = `Raising the real buildings of Downtown… ${d} of ${n} km²`; });
   await step(85, 'Gassing up the blimp…');

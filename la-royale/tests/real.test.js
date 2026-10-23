@@ -13,6 +13,8 @@ import {
 } from '../js/osm.js';
 import { makeRealWorld, minRect, styleOf, pip, roofTriangles, LANDMARKS, NEIGHBOURHOODS } from '../js/realcity.js';
 import { collideBody } from '../js/world.js';
+import { TILE_LAYERS, TILE_GLSL } from '../js/tiles.js';
+import { readFileSync, existsSync } from 'node:fs';
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -181,6 +183,15 @@ test('every footprint gets a whole roof, even one whose outline crosses itself',
   near(area(roofTriangles([[0, 0], [10, 0], [10, 4], [4, 4], [4, 10], [0, 10]])), 64, 1e-6, 'L-shaped roof');
   const bow = roofTriangles([[0, 0], [10, 10], [10, 0], [0, 10]]);
   assert.ok(area(bow) >= 49.9, `a crossed outline is still roofed (${area(bow)})`);
+});
+
+console.log('surface tiles');
+test('the baked Blender tiles are the ones the shader expects, in the same order and size', () => {
+  const dir = new URL('../textures/', import.meta.url);
+  const baked = JSON.parse(readFileSync(new URL('tiles.json', dir), 'utf8')).tiles;
+  assert.deepEqual(baked.map((t) => [t.name, t.metres]), TILE_LAYERS);
+  for (const [name] of TILE_LAYERS) for (const s of ['c', 'n']) assert.ok(existsSync(new URL(`${name}_${s}.jpg`, dir)), `${name}_${s}.jpg`);
+  assert.match(TILE_GLSL, /bool tileOf\(int kind/);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

@@ -23,6 +23,7 @@ import { buildFlora } from './flora.js';
 import { REAL_LANDMARKS, landmarkMaterials, Kit } from './reallandmarks.js';
 import { carGeometries, carMaterials, buildStreetLife } from './streetlife.js';
 import { PROP } from './street.js';
+import { tileUniforms } from './tiles.js';
 import { projector, decodeTile, BTYPE, ROOF, MATERIAL, RCLASS, AREA, ringArea } from './osm.js';
 
 /* ------------------------------------------------------------ the places */
@@ -1091,6 +1092,7 @@ export function buildRealScene(RW, renderer, opts = {}) {
   const rep = RW.size / 8;                       // detail repeats: 8 m, ~50 m, ~20 m
   terrainMat.onBeforeCompile = (sh) => {
     sh.uniforms.uDetail = { value: detail };
+    tileUniforms(sh);
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vTN; varying vec3 vTW;')
       .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nvTN = objectNormal; vTW = position;');
@@ -1106,12 +1108,12 @@ export function buildRealScene(RW, renderer, opts = {}) {
         float gsat = max(gc.r, max(gc.g, gc.b)) - min(gc.r, min(gc.g, gc.b));
         int tk = 12;
         if (gc.g > gc.r * 1.02 && gc.g > gc.b * 1.15) tk = 10;
-        else if (gc.r > gc.b * 1.3 && gc.r > 0.35 && gsat > 0.1) tk = 11;
+        else if (gc.r > gc.b * 1.3 && gc.r > 0.35 && gsat > 0.1) tk = 15;      // dry grass (no beach on this map)
         else if (gsat > 0.06) tk = 13;
         float tR = 0.95;
         float tH = surfaceDetail(tk, vTW.xz, diffuseColor.rgb, tR);`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = tR;')
-      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = bumpNormal(-vViewPosition, normal, tH);');
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = surfaceNormal(-vViewPosition, normal, tH);');
   };
   const terrain = new THREE.Mesh(tg, terrainMat);
   terrain.receiveShadow = !lo;
@@ -1148,7 +1150,7 @@ export function buildRealScene(RW, renderer, opts = {}) {
   const DISH = mergeGeos([new THREE.CylinderGeometry(0.03, 0.03, 0.8, 6).translate(0, 0.4, 0), new THREE.SphereGeometry(0.45, 12, 6, 0, Math.PI * 2, 0, Math.PI / 3).rotateX(-Math.PI / 2.4).translate(0, 0.85, 0.1)]);
   const dishMat = new THREE.MeshStandardMaterial({ color: 0xdedcd6, roughness: 0.5, side: THREE.DoubleSide });
   const ROCK = new THREE.IcosahedronGeometry(1, 0);
-  const rockMat = withSurface(new THREE.MeshStandardMaterial({ color: 0xa69a86, roughness: 0.95, flatShading: true }), '4');
+  const rockMat = withSurface(new THREE.MeshStandardMaterial({ color: 0xa69a86, roughness: 0.95, flatShading: true }), '13');
   const DOT = new THREE.SphereGeometry(0.07, 10, 4, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.4, 1);
   const dotWhite = new THREE.MeshStandardMaterial({ color: 0xf2f0ea, roughness: 0.3 }), dotYellow = new THREE.MeshStandardMaterial({ color: 0xe8c12e, roughness: 0.3 });
   const POOL = new THREE.PlaneGeometry(15, 15).rotateX(-Math.PI / 2);
@@ -1419,11 +1421,11 @@ export function buildRealScene(RW, renderer, opts = {}) {
         const D = (s, o) => { const x = mx + tx * s + nx * o, z = mz + tz * s + nz * o; return [x, gh(x, z) + 0.065, z]; };
         drives.quad(D(-1.6, 0), D(1.6, 0), D(1.6, run), D(-1.6, run), 0, 1, 0, WHITE, null, [[0, 0], [1, 0], [1, run / 3], [0, run / 3]]);
       }
-      // the front boundary: hedge, picket fence, wrought iron or a low stucco wall
+      // the front boundary: hedge, picket fence, wrought iron, a low stucco wall or a block wall
       const toRoad = (road.x - (ax + bx) / 2) * nx + (road.z - (az + bz) / 2) * nz - road.r.w / 2 - 4.2;
       if (toRoad > 3 && h2 > 0.25) {
-        const kind = Math.floor(hashOf(bx * 0.3, bz * 0.3) * 4);
-        const [col, hgt, thick, mat] = [[new THREE.Color(0x3f6b32), 1.15, 0.7, 9], [new THREE.Color(0xf2f0ea), 0.95, 0.06, 3], [new THREE.Color(0x1e1e1e), 1.4, 0.05, 7], [wallCol, 1.15, 0.22, 0]][kind];
+        const kind = Math.floor(hashOf(bx * 0.3, bz * 0.3) * 5);
+        const [col, hgt, thick, mat] = [[new THREE.Color(0x3f6b32), 1.15, 0.7, 9], [new THREE.Color(0xf2f0ea), 0.95, 0.06, 3], [new THREE.Color(0x1e1e1e), 1.4, 0.05, 7], [wallCol, 1.15, 0.22, 0], [new THREE.Color(0xb3ada2), 1.6, 0.2, 14]][kind];
         const off = toRoad - 0.4, s0 = -2.5, s1 = len + 2.5, gaps = [[ds - 0.8, ds + 0.8]];
         if (garage) gaps.push([gs - 0.4, gs + 3.2]);
         // (only in unbroken runs of four or more pieces: a stray piece of hedge reads as a box)
