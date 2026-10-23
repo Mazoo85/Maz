@@ -36,9 +36,10 @@ async function main() {
   const canvas = document.getElementById('globe');
   if (!canvas.getContext('webgl2') && !canvas.getContext('webgl')) throw new Error('This device cannot draw the map (no WebGL). See the README for device notes.');
   say('Reading the world of 1936…');
-  const [data, idImage] = await Promise.all([
+  const [data, idImage, reliefImage] = await Promise.all([
     loadData('./data/', async (url) => { const r = await fetch(url); if (!r.ok) throw new Error(r.status + ' ' + r.statusText); return r.text(); }),
     loadImage('./data/map/provinces.png'),
+    loadImage('./data/map/relief.png').catch((e) => { console.warn(e.message); return null; }),
   ]);
   say('Setting up the globe…');
   const url = new URL(location.href);
@@ -46,7 +47,7 @@ async function main() {
   let state = newGame(data, { seed });
   try { if (listSaves().some((s) => s.name === 'autosave') && url.searchParams.get('fresh') === null) state = loadLocal('autosave', data); } catch (e) { console.warn('autosave not loaded:', e.message); }
 
-  const globe = createGlobe({ canvas, idImage, provinceCount: data.provinceCount });
+  const globe = createGlobe({ canvas, idImage, reliefImage, provinceCount: data.provinceCount });
   const cam = createCamera(globe, canvas);
   const colors = new Uint8Array(128 * 128 * 4), info = new Uint8Array(128 * 128 * 4), flags = new Uint8Array(128 * 128 * 4);
   let mode = 'political';

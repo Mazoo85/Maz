@@ -3,7 +3,7 @@
 *A grand-strategy game of the Second World War in the style of Hearts of Iron IV, as a
 standalone browser game, with its 3D pieces made in Blender.*
 
-Date: 23 October 2026. Status: design, awaiting Cody's review.
+Date: 23 October 2026. Status: Stage 1 built on branch `claude/warroom-stage1`; the design as a whole awaits Cody's review.
 
 ## 1. What this is
 

@@ -107,6 +107,8 @@ const GLOBE_FRAG = /* glsl */`
 precision highp float;
 uniform sampler2D colorMap;
 uniform sampler2D idMap;
+uniform sampler2D relief;
+uniform float reliefStrength;
 uniform vec3 sunDir;
 uniform float night;         // 0..1 how dark the night side gets
 uniform float hoverId;
@@ -120,6 +122,9 @@ int decodeId(vec2 uv) {
 }
 void main() {
   vec3 rgb = texture2D(colorMap, vUv).rgb;
+  vec3 rn = texture2D(relief, vUv).rgb * 2.0 - 1.0;
+  float hill = clamp(1.0 + reliefStrength * (rn.x * -0.6 + rn.y * -0.8), 0.55, 1.3);
+  rgb *= hill;
   int id = decodeId(vUv);
   if (id == int(hoverId + 0.5)) rgb = mix(rgb, vec3(1.0), 0.18);
   if (id == int(selectedId + 0.5)) rgb = mix(rgb, vec3(1.0, 0.9, 0.5), 0.35);
@@ -136,7 +141,7 @@ uniform sampler2D idMap;
 varying vec2 vUv;
 void main() { gl_FragColor = vec4(texture2D(idMap, vUv).rgb, 1.0); }`;
 
-export function createGlobe({ canvas, idImage, provinceCount }) {
+export function createGlobe({ canvas, idImage, reliefImage, provinceCount }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setClearColor(0x05070c, 1);
@@ -178,11 +183,23 @@ export function createGlobe({ canvas, idImage, provinceCount }) {
   });
   paintScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), paintMat));
 
+  let relief;
+  if (reliefImage) {
+    relief = new THREE.Texture(reliefImage);
+    relief.minFilter = THREE.LinearMipmapLinearFilter; relief.magFilter = THREE.LinearFilter;
+    relief.colorSpace = THREE.NoColorSpace; relief.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+    relief.needsUpdate = true;
+  } else {
+    relief = new THREE.DataTexture(new Uint8Array([128, 128, 255, 255]), 1, 1, THREE.RGBAFormat);
+    relief.needsUpdate = true;
+  }
+
   const geometry = new THREE.SphereGeometry(1, 192, 96);
   const globeMat = new THREE.ShaderMaterial({
     vertexShader: GLOBE_VERT, fragmentShader: GLOBE_FRAG,
     uniforms: {
       colorMap: { value: paintTarget.texture }, idMap: { value: idMap },
+      relief: { value: relief }, reliefStrength: { value: reliefImage ? 1.1 : 0.0 },
       sunDir: { value: new THREE.Vector3(1, 0, 0) }, night: { value: 0.55 }, hoverId: { value: 0 }, selectedId: { value: 0 },
     },
   });
