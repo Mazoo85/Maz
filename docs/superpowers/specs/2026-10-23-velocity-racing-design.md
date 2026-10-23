@@ -33,8 +33,8 @@ phone, *Add to Home Screen* opens it like an app.
 
 ### Driving
 
-- The car **accelerates on its own** (Asphalt-style). Holding the right side
-  of the screen or the up key gives full throttle; releasing it coasts.
+- The car **accelerates on its own** at full throttle (Asphalt-style). The
+  brake/drift button is how you slow down.
 - **Steering:** tilt the phone (device orientation) or hold the left/right
   on-screen arrows. On a computer: arrow keys or A/D. The player can switch
   between tilt and arrows in the pause menu; arrows are the default so the
@@ -112,7 +112,7 @@ velocity/
   index.html                 the page: loads the game scripts, then Three.js from the CDN, then starts
   README.md                  what it is, how to play, how to run the tests
   css/style.css              the look of the menus and HUD
-  js/track.js                the circuit: centreline points, widths, banking, ramp
+  js/track.js                the circuit: centreline points, widths, ramp
   js/physics.js              car motion: throttle, steering, drift, nitro, collisions
   js/ai.js                   opponent driving and rubber-banding
   js/race.js                 laps, positions, countdown, finish, results, records
@@ -141,7 +141,7 @@ and `mandala/js/mandala.js` use. None of `track`, `physics`, `ai` or `race`
 touches the DOM or Three.js, so they are tested in plain Node.
 
 - **`track.js`** — holds Harbor Loop as an ordered list of centreline points,
-  each with a road width, banking angle and flags (tunnel, ramp). It answers:
+  each with a road width and flags (tunnel, ramp, water). It answers:
   the nearest point on the centreline to a position, the distance along the
   lap (for positions and lap counting), the road direction and width there,
   and whether a position is off the road (for wall collisions). It also
