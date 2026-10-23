@@ -1122,8 +1122,8 @@ export function buildRealScene(RW, renderer, opts = {}) {
   /* -------------------------------------------------------- materials */
   const facade = facadeMaterial(uniforms, true);
   const roofMat = withSurface(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8 }), 'int(vMat + 0.5)', 'vMat = aMat;');
-  const roadMat = (map) => {
-    const m = withSurface(new THREE.MeshStandardMaterial({ map, roughness: 0.92, emissive: 0x3a2410, emissiveIntensity: 0 }), '6');
+  const roadMat = (map, kind = 12) => {          // (12 asphalt; 4, the sidewalk tile, for footpaths)
+    const m = withSurface(new THREE.MeshStandardMaterial({ map, roughness: 0.92, emissive: 0x3a2410, emissiveIntensity: 0 }), String(kind));
     roadMats.push(m);
     return m;
   };
@@ -1131,7 +1131,7 @@ export function buildRealScene(RW, renderer, opts = {}) {
   const roadMatCache = new Map();
   const roadMaterial = (style, lanes) => {
     const k = `${style}:${lanes}`;
-    if (!roadMatCache.has(k)) roadMatCache.set(k, roadMat(style === 'rail' ? railTex() : style === 'path' ? pathTex() : roadTex(style, lanes)));
+    if (!roadMatCache.has(k)) roadMatCache.set(k, (style === 'rail' ? roadMat(railTex()) : style === 'path' ? roadMat(pathTex(), 4) : roadMat(roadTex(style, lanes))));
     return roadMatCache.get(k);
   };
   const sidewalkMat = withSurface(new THREE.MeshStandardMaterial({ map: sidewalkTex(), roughness: 0.9 }), '4');

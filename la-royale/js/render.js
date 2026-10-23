@@ -557,7 +557,7 @@ function surfaceMaterials() {
   const m = (o, kind) => withSurface(new THREE.MeshStandardMaterial({ roughness: 0.9, metalness: 0, ...o }), String(kind));
   return {
     stucco: m({}, 0), plaster: m({}, 1), brick: m({}, 2), wood: m({ roughness: 0.8 }, 3), concrete: m({}, 4),
-    tile: m({ roughness: 0.7 }, 5), asphalt: m({ roughness: 0.95 }, 6), metal: m({ roughness: 0.4, metalness: 0.75 }, 7),
+    tile: m({ roughness: 0.7 }, 5), asphalt: m({ roughness: 0.95 }, 12), metal: m({ roughness: 0.4, metalness: 0.75 }, 7),
     chrome: new THREE.MeshStandardMaterial({ roughness: 0.12, metalness: 1 }), fabric: m({ side: THREE.DoubleSide }, 8), foliage: m({}, 9)
   };
 }
