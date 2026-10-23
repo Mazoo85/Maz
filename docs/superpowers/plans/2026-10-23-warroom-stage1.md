@@ -440,3 +440,26 @@ helpers live in view, sim stays pure)
 - Type consistency: `applyCommand`/`validateCommand` names match in Tasks 3 and 10;
   `tickWeather(state, data, hour)` in 7 matches the `tick(state, data)` signature in 3;
   LUT names `colorLUT`/`flagLUT` only in Task 9.
+
+---
+
+## Addendum (23 October, later): the game moved to Unreal Engine
+
+Cody decided the game must be an Unreal game. The plan above was executed as the browser
+preview; the same Stage 1 was then rebuilt as an Unreal Engine 5.5 project in
+`warroom/unreal/` with these correspondences:
+
+| Browser build | Unreal project |
+| --- | --- |
+| `js/sim/*` (JavaScript simulation) | `Source/WarRoomSim/` (C++20, no engine dependency; `Tests/sim_tests.cpp` runs with g++ and in CI) |
+| `js/view/globe.js` (shader, LUTs, picking) | `GlobeActor` + `Shaders/Globe.ush` + `M_Globe` built by `Scripts/setup_content.py` |
+| `js/view/camera.js` | `OrbitCameraPawn` |
+| `js/view/input.js`, keyboard | `WarRoomPlayerController` + `Config/DefaultInput.ini` |
+| `js/view/panels/*`, search, saves | `SWarRoomHUD` (Slate) + `WarRoomSubsystem` saves in `Saved/SaveGames` |
+| `js/main.js` loop | `WarRoomSubsystem` (ticks by speed) + `WarRoomGameMode` (spawns globe, camera, HUD) |
+| `models/*.glb` via GLTFLoader | imported once by the setup script as static meshes; `M_Counter` tints the Body slot |
+| Playwright smoke test | Unreal automation tests `WarRoom.Sim.*` (editor); the Unreal build itself runs on Cody's PC |
+
+Data (`warroom/data`) and models (`warroom/models`) are shared unchanged. What could not
+be verified in the cloud box: compiling the Unreal module and running the editor. The
+first build on a PC with Unreal 5.5 is the remaining step of Stage 1.
