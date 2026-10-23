@@ -22,7 +22,7 @@ def apply_regions(prov, provinces, states, out_dir):
 
     # --- land regions: k-means over state centroids ---------------------------------
     pts = np.array([xyz(s["lat"], s["lon"]) for s in states])
-    k = max(1, round(len(states) / 9))
+    k = max(1, round(len(states) / 5))
     rng = np.random.default_rng(7)
     centers = [pts[rng.integers(len(pts))]]
     d = np.full(len(pts), np.inf)
