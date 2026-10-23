@@ -253,6 +253,78 @@ test('a near miss is close and fast but not a touch', () => {
   assert(!Physics.nearMiss(parked, b), 'no speed difference does not');
 });
 
+const AI = js('ai.js');
+
+console.log('AI');
+
+function simulate(car, driver, seconds, ctx) {
+  const dt = 1 / 60;
+  let time = 0, minS = Infinity, maxS = -Infinity, crossings = 0;
+  for (let t = 0; t < seconds; t += dt) {
+    const inp = AI.input(car, driver, track, Object.assign({ time }, ctx || {}));
+    const before = car.s;
+    Physics.step(car, inp, track, dt);
+    if (before > track.length * 0.8 && car.s < track.length * 0.2) crossings++;
+    time += dt;
+  }
+  return { crossings };
+}
+
+test('a skilled driver gets round the whole lap without wrecking', () => {
+  const car = carAt('comet', 10);
+  const driver = AI.makeDriver({ skill: 0.9, aggression: 0, lane: 0 });
+  const r = simulate(car, driver, 110);
+  assert(r.crossings >= 1, 'completed a lap: crossings ' + r.crossings);
+  eq(car.wrecks, 0, 'never wrecked');
+});
+
+test('a weak driver still finishes a lap, a little slower', () => {
+  const strong = carAt('comet', 10), weak = carAt('comet', 10);
+  const strongR = simulate(strong, AI.makeDriver({ skill: 1, aggression: 0, lane: 0 }), 120);
+  const weakR = simulate(weak, AI.makeDriver({ skill: 0.3, aggression: 0, lane: 1.5, phase: 2 }), 120);
+  assert(weak.wrecks <= 1, 'weak driver mostly stays clean: ' + weak.wrecks);
+  assert(strongR.crossings >= 1 && weakR.crossings >= 1, 'both finished a lap');
+  assert(strongR.crossings > weakR.crossings || strong.s > weak.s, 'the strong driver is ahead');
+});
+
+test('the driver slows for corners and uses nitro on straights', () => {
+  const car = carAt('comet', 10);
+  const driver = AI.makeDriver({ skill: 0.8, aggression: 0 });
+  assert(AI.cornerSpeed(track, 10, 0.8) > AI.cornerSpeed(track, 1000, 0.8) || AI.cornerSpeed(track, 10, 0.8) < 200, 'corner speed is a number');
+  let usedNitro = false, lifted = false;
+  const dt = 1 / 60;
+  for (let t = 0; t < 60; t += dt) {
+    car.nitro = 1;
+    const inp = AI.input(car, driver, track, { time: t });
+    if (inp.nitro) usedNitro = true;
+    if (inp.throttle < 0.5) lifted = true;
+    Physics.step(car, inp, track, dt);
+  }
+  assert(usedNitro, 'used nitro somewhere');
+  assert(lifted, 'lifted for a corner somewhere');
+});
+
+test('rubber-banding eases off when far ahead of the player and pushes when far behind', () => {
+  const car = carAt('comet', 500);
+  const driver = AI.makeDriver({ skill: 0.8, aggression: 0 });
+  const ahead = AI.input(car, driver, track, { time: 0, progress: 1000, playerProgress: 500 });
+  const behind = AI.input(car, driver, track, { time: 0, progress: 500, playerProgress: 1000 });
+  const level = AI.input(car, driver, track, { time: 0, progress: 500, playerProgress: 520 });
+  assert(ahead.powerScale < 1, 'eases off when far ahead');
+  assert(behind.powerScale > 1, 'pushes when far behind');
+  eq(level.powerScale, 1, 'level is normal');
+});
+
+test('a driver steers round a car directly ahead', () => {
+  const car = carAt('comet', 400, 0);
+  const blocker = carAt('comet', 410, 0);
+  const driver = AI.makeDriver({ skill: 0.8, aggression: 0, lane: 0 });
+  car.vx = Math.cos(car.heading) * 30; car.vz = Math.sin(car.heading) * 30;
+  const clear = AI.input(car, driver, track, { time: 0, cars: [car] });
+  const blocked = AI.input(car, driver, track, { time: 0, cars: [car, blocker] });
+  assert(Math.abs(blocked.steer - clear.steer) > 0.05, 'steers away from the blocker');
+});
+
 console.log('');
 if (failures.length) { console.log(failures.length + ' failed, ' + passed + ' passed'); process.exit(1); }
 console.log('All ' + passed + ' passed');
