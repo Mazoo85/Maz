@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <title>Velocity</title>
+  <meta name="description" content="Velocity — an arcade street racer in your browser. One sunset city circuit, seven rivals, three laps, drift, nitro and a jump. Phone-first, no install." />
+  <meta name="theme-color" content="#140a1e" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <canvas id="view"></canvas>
+  <canvas id="fx"></canvas>
+
+  <section id="screen-title" class="screen menu">
+    <div class="panel">
+      <h1 class="logo">VELOCITY</h1>
+      <p class="tag">Harbor Loop · 3 laps · 7 rivals</p>
+      <button id="btn-race" class="big">Race</button>
+      <p id="best" class="best">No best time yet</p>
+      <div class="row">
+        <button id="btn-sound" class="small" aria-pressed="false">Sound: on</button>
+        <button id="btn-steer" class="small">Steering: arrows</button>
+      </div>
+      <p class="hint">Phone: steer with the arrows or tilt, hold DRIFT in corners, tap NITRO.<br />Keyboard: arrows or WASD, Shift to drift, Space for nitro, P to pause.</p>
+    </div>
+  </section>
+
+  <section id="screen-cars" class="screen menu" hidden>
+    <div class="panel wide">
+      <h2>Choose your car</h2>
+      <div id="car-list" class="cars"></div>
+      <div class="row">
+        <button id="btn-back" class="small">Back</button>
+        <button id="btn-go" class="big">Start race</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="hud" hidden>
+    <div class="hud-top">
+      <div id="hud-pos" class="hud-box"><span class="big-num">8</span><span class="sub">/ 8</span></div>
+      <div id="hud-lap" class="hud-box"><span class="label">LAP</span><span class="big-num">1</span><span class="sub">/ 3</span></div>
+      <div id="hud-time" class="hud-box mono">0:00.000</div>
+      <button id="btn-pause" class="hud-btn" aria-label="Pause">II</button>
+    </div>
+    <div class="hud-bottom">
+      <div id="hud-speed" class="speed"><span class="big-num">0</span><span class="sub">km/h</span></div>
+      <div class="nitro"><div id="nitro-fill" class="nitro-fill"></div><span class="nitro-label">NITRO</span></div>
+    </div>
+    <div id="countdown" class="countdown" hidden>3</div>
+    <div id="toast" class="toast" hidden></div>
+  </div>
+
+  <div id="touch" hidden>
+    <div class="touch-left">
+      <button class="touch-btn" data-action="left" aria-label="Steer left">◀</button>
+      <button class="touch-btn" data-action="right" aria-label="Steer right">▶</button>
+    </div>
+    <div class="touch-right">
+      <button class="touch-btn drift" data-action="drift" aria-label="Drift">DRIFT</button>
+      <button class="touch-btn nitro" data-action="nitro" aria-label="Nitro">NITRO</button>
+    </div>
+  </div>
+
+  <section id="screen-pause" class="screen menu overlay" hidden>
+    <div class="panel">
+      <h2>Paused</h2>
+      <button id="btn-resume" class="big">Resume</button>
+      <div class="row">
+        <button id="btn-restart" class="small">Restart</button>
+        <button id="btn-steer2" class="small">Steering: arrows</button>
+        <button id="btn-sound2" class="small">Sound: on</button>
+        <button id="btn-quit" class="small">Quit</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="screen-results" class="screen menu overlay" hidden>
+    <div class="panel">
+      <h2 id="res-place">3rd</h2>
+      <p id="res-new" class="newbest" hidden>New best time!</p>
+      <table class="results">
+        <tr><td>Race time</td><td id="res-total" class="mono">0:00.000</td></tr>
+        <tr><td>Best lap</td><td id="res-lap" class="mono">0:00.000</td></tr>
+        <tr><td>Record</td><td id="res-record" class="mono">0:00.000</td></tr>
+      </table>
+      <div class="row">
+        <button id="btn-again" class="big">Race again</button>
+        <button id="btn-change" class="small">Change car</button>
+        <button id="btn-title" class="small">Title</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="offline" class="notice" hidden>Velocity needs an internet connection the first time it loads, to fetch its 3D engine. Connect and reload the page.</div>
+  <noscript><div class="notice">Velocity needs JavaScript switched on.</div></noscript>
+
+  <script src="js/track.js"></script>
+  <script src="js/physics.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/race.js"></script>
+  <script src="js/scene.js"></script>
+  <script src="js/app.js"></script>
+  <script type="module">
+    import('https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js')
+      .then((THREE) => { window.THREE = THREE; window.VelocityApp.start(); })
+      .catch(() => { document.getElementById('offline').hidden = false; });
+  </script>
+</body>
+</html>
