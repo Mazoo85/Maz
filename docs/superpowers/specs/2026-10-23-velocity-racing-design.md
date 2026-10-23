@@ -109,7 +109,7 @@ control scheme (tilt or arrows) and mute state. Nothing leaves the browser.
 
 ```
 velocity/
-  index.html                 the page, loads Three.js from the CDN then the modules
+  index.html                 the page: loads the game scripts, then Three.js from the CDN, then starts
   README.md                  what it is, how to play, how to run the tests
   css/style.css              the look of the menus and HUD
   js/track.js                the circuit: centreline points, widths, banking, ramp
@@ -124,9 +124,13 @@ velocity/
 
 ### Dependencies
 
-- **Three.js** from `https://cdn.jsdelivr.net/npm/three@<pinned version>/`,
-  loaded with a plain `<script>` tag the way `earth/index.html` loads
-  MapLibre. The version is pinned and at least two weeks old.
+- **Three.js 0.170.0** from
+  `https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js`. Modern
+  Three.js ships only as an ES module, so `index.html` loads the game's own
+  scripts as plain `<script>` tags (which run first) and then one small inline
+  `<script type="module">` that imports Three.js, puts it on `window.THREE`
+  and starts the app. If that import fails, the same module shows the
+  "needs an internet connection" message.
 - Nothing else. No bundler, no package manager, no build step.
 
 ### Module boundaries
