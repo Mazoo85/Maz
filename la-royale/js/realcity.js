@@ -623,8 +623,7 @@ function pathTex() {
 function sidewalkTex() {
   return canvasTex('sidewalk', 128, 128, (ctx, w, h) => {
     noiseFill(ctx, w, h, '#b9b4a8', 16, 5);
-    ctx.fillStyle = 'rgba(60,55,50,0.35)';
-    ctx.fillRect(0, 0, w, 2); ctx.fillRect(0, 64, w, 2); ctx.fillRect(64, 0, 2, h);
+    // (the slab joints come from the sidewalk tile; only the kerb is painted here)
     ctx.fillStyle = '#d6d2c8'; ctx.fillRect(0, 0, 8, h);           // the kerb
     ctx.fillStyle = 'rgba(50,45,40,0.5)'; ctx.fillRect(8, 0, 2, h);
   });
