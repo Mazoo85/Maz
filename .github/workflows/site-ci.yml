@@ -60,6 +60,10 @@ jobs:
       # stopped mid-request are all proved here without a browser.
       - name: GOD'S EYE VIEW logic tests
         run: node godview/tests/godview-logic.test.js
+      # The planes relay runs on Cloudflare, but it is the standard fetch API,
+      # so who may use it, bad input and the source fallback are checked here.
+      - name: GOD'S EYE VIEW planes relay
+        run: node godview/tests/relay.test.mjs
 
   browser:
     name: Site smoke test (Chromium)
