@@ -755,7 +755,8 @@ export function facadeMaterial(uniforms, real = false) {
               vec3 rDay = textureLod(uRoomDay, auv, lod).rgb, rNight = textureLod(uRoomNight, auv, lod).rgb;
               // offices and shops keep their lights on; homes light up at random after dark
               float on = room > 3.5 && room < 6.5 ? max(step(0.35, h21(id + vSeed * 97.0)) * floorOn, step(5.5, room)) : step(0.58, h21(id + vSeed * 97.0)) * floorOn;
-              vec3 inside = mix(rDay * 0.3, mix(rDay * 0.012, rNight * 1.1, on), uNight);
+              // (by day a room is darker than the street outside it, an office's white light most of all)
+              vec3 inside = mix(rDay * (room > 3.5 && room < 6.5 ? 0.15 : 0.22), mix(rDay * 0.012, rNight * 1.1, on), uNight);
               // through the glass: less of it at a glancing angle (more reflection), and less through tinted towers
               float cosV = clamp(-dot(V, n), 0.0, 1.0);
               float fres = 0.04 + 0.96 * pow(1.0 - cosV, 5.0);
