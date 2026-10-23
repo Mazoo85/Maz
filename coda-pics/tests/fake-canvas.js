@@ -39,9 +39,19 @@ NOOPS.forEach(function (name) {
   };
 });
 
+/* A colour stop takes a colour, as a real canvas insists: handing it anything
+ * else (a gradient, say) throws there, and so it throws here, or a picture
+ * that fails in every browser would pass every test. */
 FakeContext.prototype.createLinearGradient = function () {
   this.calls++;
-  return { addColorStop: function () {} };
+  return {
+    addColorStop: function (offset, colour) {
+      if (typeof colour !== 'string') {
+        throw new SyntaxError('addColorStop: ' + Object.prototype.toString.call(colour) +
+          ' is not a colour');
+      }
+    }
+  };
 };
 FakeContext.prototype.createRadialGradient = FakeContext.prototype.createLinearGradient;
 FakeContext.prototype.createPattern = function () { return null; };
