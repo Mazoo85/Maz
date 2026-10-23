@@ -94,6 +94,165 @@ test('the circuit has a tunnel and one ramp', () => {
   near(lip.rampHeight, 2.5, 0.3, 'ramp height at the lip');
 });
 
+const Physics = js('physics.js');
+
+console.log('Physics');
+
+// A straight, wide road with the same shape as a real track, for tests that
+// should not be about cornering.
+function straightRoad(width) {
+  const w = width || 14;
+  return {
+    length: 1e6, ramps: [], RAMP_HEIGHT: 2.5,
+    nearest: (x, z) => ({ i: 0, s: x, lateral: z, dx: 1, dz: 0, w, px: x, pz: 0, tunnel: false, curvature: 0, rampHeight: 0 }),
+    at: (s) => ({ x: s, z: 0, w, dx: 1, dz: 0, curvature: 0, i: 0, tunnel: false }),
+    isOffRoad: (x, z) => Math.abs(z) > w / 2,
+  };
+}
+function drive(car, input, seconds, road, dt) {
+  dt = dt || 1 / 60;
+  for (let t = 0; t < seconds; t += dt) Physics.step(car, input, road || track, dt);
+  return car;
+}
+function carAt(key, s, lateral) {
+  const p = track.at(s);
+  return Physics.createCar(key, { x: p.x - p.dz * (lateral || 0), z: p.z + p.dx * (lateral || 0), heading: Math.atan2(p.dz, p.dx), s, hint: p.i });
+}
+function carOnStraight(key, x) { return Physics.createCar(key, { x: x || 0, z: 0, heading: 0, s: x || 0, hint: 0 }); }
+// Steer towards the centreline a little way ahead, like a sensible driver.
+function aim(car) {
+  const p = track.at(car.s + 15);
+  const d = Math.atan2(p.z - car.z, p.x - car.x);
+  return Math.max(-1, Math.min(1, Track.wrapAngle(d - car.heading) * 2));
+}
+
+test('a car accelerates on its own and settles at its top speed', () => {
+  const car = drive(carOnStraight('comet'), { steer: 0 }, 60, straightRoad());
+  const v = Physics.forwardSpeed(car);
+  assert(v > Physics.CARS.comet.topSpeed * 0.97, 'reached top speed: ' + v);
+  assert(v <= Physics.CARS.comet.topSpeed + 0.01, 'did not exceed it: ' + v);
+});
+
+test('steering turns the heading', () => {
+  const car = drive(carOnStraight('comet'), { steer: 0 }, 3, straightRoad(40));
+  const before = car.heading;
+  drive(car, { steer: 1 }, 0.5, straightRoad(40));
+  assert(Track.wrapAngle(car.heading - before) > 0.2, 'turned right');
+});
+
+test('the Dart out-accelerates the Brawler off the line, the Brawler has the higher top speed', () => {
+  const dart = drive(carOnStraight('dart'), { steer: 0 }, 2, straightRoad());
+  const brawler = drive(carOnStraight('brawler'), { steer: 0 }, 2, straightRoad());
+  assert(Physics.forwardSpeed(dart) > Physics.forwardSpeed(brawler), 'dart quicker at 2 s');
+  assert(Physics.CARS.brawler.topSpeed > Physics.CARS.dart.topSpeed);
+});
+
+test('drifting keeps more speed than braking and fills the nitro bar', () => {
+  const wide = straightRoad(60);
+  const start = () => drive(carOnStraight('comet'), { steer: 0 }, 4, wide);
+  const drifting = start(); drifting.nitro = 0;
+  const braking = start(); braking.nitro = 0;
+  drive(drifting, { steer: 1, drift: true }, 0.5, wide);
+  drive(braking, { steer: 0, drift: true }, 0.5, wide);
+  assert(drifting.drifting, 'was drifting');
+  assert(braking.braking, 'was braking');
+  assert(Physics.forwardSpeed(drifting) > Physics.forwardSpeed(braking), 'drift kept speed');
+  assert(drifting.nitro > 0.03, 'drift filled nitro: ' + drifting.nitro);
+  eq(braking.nitro, 0, 'braking does not');
+});
+
+test('nitro pushes the car past its top speed and drains, then speed falls back', () => {
+  const road = straightRoad();
+  const car = drive(carOnStraight('comet'), { steer: 0 }, 30, road);
+  car.nitro = 1;
+  drive(car, { steer: 0, nitro: true }, 1.4, road);
+  const boosted = Physics.forwardSpeed(car);
+  assert(boosted > Physics.CARS.comet.topSpeed + 3, 'above top speed: ' + boosted);
+  assert(car.nitro < 1 && car.nitro > 0, 'drained some: ' + car.nitro);
+  drive(car, { steer: 0 }, 10, road);
+  assert(Physics.forwardSpeed(car) <= Physics.CARS.comet.topSpeed + 0.01, 'back to top speed');
+});
+
+test('a single tap of nitro burns for a moment and then stops', () => {
+  const road = straightRoad();
+  const car = drive(carOnStraight('comet'), { steer: 0 }, 5, road);
+  car.nitro = 1;
+  Physics.step(car, { steer: 0, nitro: true }, road, 1 / 60);
+  assert(car.nitroActive, 'active after the tap');
+  drive(car, { steer: 0 }, 1, road);
+  assert(car.nitroActive, 'still burning a second later');
+  drive(car, { steer: 0 }, 1, road);
+  assert(!car.nitroActive, 'stopped after the burn');
+  assert(car.nitro > 0.3, 'bar not emptied by one tap');
+});
+
+test('the ramp launches the car, it cannot steer in the air, then it lands', () => {
+  const car = carAt('comet', track.ramps[0] - 150);
+  let flew = false, maxY = 0, headingInAir = null, steeredInAir = false;
+  for (let t = 0; t < 10; t += 1 / 60) {
+    Physics.step(car, { steer: car.airborne ? 1 : aim(car) }, track, 1 / 60);
+    if (car.airborne) {
+      flew = true; maxY = Math.max(maxY, car.y);
+      if (headingInAir === null) headingInAir = car.heading;
+      else if (Math.abs(Track.wrapAngle(car.heading - headingInAir)) > 1e-6) steeredInAir = true;
+    }
+  }
+  assert(flew, 'went airborne');
+  assert(maxY > 3, 'got some height: ' + maxY);
+  assert(!steeredInAir, 'no steering in the air');
+  assert(!car.airborne && car.y === 0, 'landed');
+  eq(car.wrecks, 0, 'landed cleanly');
+});
+
+test('scraping a wall throws sparks and slows the car; a head-on hit wrecks and respawns', () => {
+  const road = straightRoad();
+  const scrape = drive(carOnStraight('comet'), { steer: 0 }, 8, road);
+  const vBefore = Physics.forwardSpeed(scrape);
+  drive(scrape, { steer: 0.15 }, 2, road);
+  assert(scrape.sparks, 'sparks while scraping');
+  assert(!scrape.wrecked, 'a scrape is not a wreck');
+  assert(Physics.forwardSpeed(scrape) < vBefore, 'scraping slowed it');
+  assert(!road.isOffRoad(scrape.x, scrape.z), 'kept on the road');
+
+  const crash = drive(carOnStraight('comet'), { steer: 0 }, 8, road);
+  drive(crash, { steer: 1 }, 0.8, road);
+  assert(crash.wrecked, 'head-on into the wall wrecks');
+  eq(Physics.forwardSpeed(crash), 0, 'stopped');
+  drive(crash, { steer: 0 }, 2.5, road);
+  assert(!crash.wrecked, 'respawned');
+  assert(!road.isOffRoad(crash.x, crash.z), 'back on the road');
+  near(Math.abs(crash.lateral), 0, 1, 'in the middle of the road');
+});
+
+test('a car with a bad hint still finds its stretch of road', () => {
+  const car = carAt('comet', 1500);
+  car.hint = 2;
+  Physics.step(car, { steer: 0 }, track, 1 / 60);
+  near(car.s, 1500, 3);
+});
+
+test('two overlapping cars are pushed apart; a hard ram wrecks the slower one', () => {
+  const a = carOnStraight('comet', 100), b = carOnStraight('comet', 100.5);
+  assert(Physics.collide(a, b), 'overlapping cars collide');
+  assert(Math.hypot(a.x - b.x, a.z - b.z) >= 2.7, 'pushed apart');
+  const slow = carOnStraight('comet', 200), fast = carOnStraight('brawler', 198);
+  fast.vx = 40;
+  assert(Physics.collide(fast, slow), 'ram collides');
+  assert(slow.wrecked, 'the slower car is wrecked');
+  assert(!fast.wrecked, 'the rammer drives on');
+  assert(!Physics.collide(fast, slow), 'wrecked cars are ghosts');
+});
+
+test('a near miss is close and fast but not a touch', () => {
+  const a = carOnStraight('comet', 300), b = Physics.createCar('comet', { x: 300, z: 3.5, heading: 0, s: 300, hint: 0 });
+  a.vx = 40;
+  assert(Physics.nearMiss(a, b), 'close pass counts');
+  const far = Physics.createCar('comet', { x: 300, z: 7, heading: 0, s: 300, hint: 0 });
+  assert(!Physics.nearMiss(a, far), 'too far does not');
+  const parked = carOnStraight('comet', 300);
+  assert(!Physics.nearMiss(parked, b), 'no speed difference does not');
+});
+
 console.log('');
 if (failures.length) { console.log(failures.length + ' failed, ' + passed + ' passed'); process.exit(1); }
 console.log('All ' + passed + ' passed');
