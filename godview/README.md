@@ -28,6 +28,11 @@ We acknowledge the use of imagery provided by services from NASA's Global Imager
 Browse Services (GIBS), part of NASA's Earth Science Data and Information System
 (ESDIS).
 
+PLANES needs the **planes relay** set up once: every free flight service refuses
+requests straight from a web page, so the page asks a tiny free Cloudflare Worker
+that asks them instead — see [`relay/README.md`](relay/README.md). Until its
+address is in `js/config.js`, PLANES says OFFLINE.
+
 PLANES is off until you tap it. It shows up to 300 aircraft within 250 nautical
 miles (460 km) of the middle of the screen — the free flight services only answer
 for one area at a time — and asks again whenever you stop spinning the globe

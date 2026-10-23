@@ -104,6 +104,18 @@
   var STENCIL = false;
   function setStencil(on) { STENCIL = !!on; }
 
+  /* A subject's own gradient, filled with its colour stops. In a stencil pass
+   * every colour the palette answers with is the one stencil fill, and that
+   * fill is sometimes a gradient itself (the modelling and occlusion passes),
+   * which a colour stop cannot take: it throws, and the whole picture fails.
+   * There the shape simply takes the stencil fill, as every flat part of it
+   * already does. */
+  function gradientFill(P, g, stops) {
+    if (STENCIL) return P.ink();
+    for (var i = 0; i < stops.length; i++) g.addColorStop(stops[i][0], stops[i][1]);
+    return g;
+  }
+
   /* A soft halo — what makes a dragon at dusk read as lit from behind. */
   function glow(ctx, x, y, rad, style) {
     if (STENCIL) return;
@@ -1059,10 +1071,8 @@
     ctx.quadraticCurveTo(cx, b.y - b.h * 0.06, cx + b.w * 0.38, cy);
     ctx.lineTo(cx + b.w * 0.38, b.y + b.h);
     ctx.closePath();
-    var g = ctx.createLinearGradient(0, b.y, 0, b.y + b.h);
-    g.addColorStop(0, P.light(0.85));
-    g.addColorStop(1, P.css([P.sky.top[0], 80, 40], 0.8));
-    ctx.fillStyle = g;
+    ctx.fillStyle = gradientFill(P, ctx.createLinearGradient(0, b.y, 0, b.y + b.h),
+      [[0, P.light(0.85)], [1, P.css([P.sky.top[0], 80, 40], 0.8)]]);
     ctx.fill();
     ctx.strokeStyle = ink(P, b);
     ctx.lineWidth = Math.max(2, b.w * 0.07);
@@ -1289,10 +1299,8 @@
     ctx.fillStyle = col;                               // the cliff either side
     ctx.fillRect(b.x - b.w * 0.5, b.y, b.w * 0.8, b.h);
     ctx.fillRect(b.x + b.w * 0.7, b.y, b.w * 0.8, b.h);
-    var g = ctx.createLinearGradient(0, b.y, 0, groundY);
-    g.addColorStop(0, P.light(0.75));
-    g.addColorStop(1, P.light(0.42));
-    ctx.fillStyle = g;
+    ctx.fillStyle = gradientFill(P, ctx.createLinearGradient(0, b.y, 0, groundY),
+      [[0, P.light(0.75)], [1, P.light(0.42)]]);
     ctx.fillRect(cx - b.w * 0.2, b.y, b.w * 0.4, b.h * 0.94);
     ctx.globalAlpha = 0.6;                             // spray at the bottom
     for (var i = 0; i < 16; i++) {
@@ -1352,9 +1360,8 @@
     ctx.clip();
     ellipse(ctx, cx, cy, rad * 1.9, rad * 0.42, P.css([P.sky.light[0], 40, 62], 0.75), -0.24);
     ctx.restore();
-    var g = ctx.createRadialGradient(cx - rad * 0.4, cy - rad * 0.4, rad * 0.1, cx, cy, rad);
-    g.addColorStop(0, P.css([P.sky.light[0], 52, 62]));
-    g.addColorStop(1, P.css([P.sky.top[0], 56, 24]));
+    var g = gradientFill(P, ctx.createRadialGradient(cx - rad * 0.4, cy - rad * 0.4, rad * 0.1, cx, cy, rad),
+      [[0, P.css([P.sky.light[0], 52, 62])], [1, P.css([P.sky.top[0], 56, 24])]]);
     ctx.beginPath();
     ctx.arc(cx, cy, rad, 0, Math.PI * 2);
     ctx.fillStyle = g;

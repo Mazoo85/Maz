@@ -20,6 +20,7 @@ with their full history.
 | [`consolidate`](consolidate) |
 | [`crew`](crew) |
 | [`docs`](docs) |
+| [`earth`](earth) |
 | [`engine`](engine) |
 | [`examples`](examples) |
 | [`film`](film) |

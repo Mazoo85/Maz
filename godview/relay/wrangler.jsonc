@@ -1,0 +1,9 @@
+// Cloudflare settings for the planes relay, for deploying straight from GitHub
+// (Workers & Pages -> Create -> Import a repository, root directory
+// godview/relay) or with `npx wrangler deploy` from this folder.
+{
+  "name": "godview-planes",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true
+}
