@@ -1,0 +1,87 @@
+// War Room 1936 — the globe's surface, included by the M_Globe material's Custom node.
+//
+// IdMap: 8192x4096 RGB, province id = r + g*256 + b*65536 (0..255 bytes), nearest sampled.
+// ColorLUT / InfoLUT / FlagLUT: 128x128 RGBA8, slot = id (x = id % 128, y = id / 128).
+//   ColorLUT: the province colour for the current map mode.
+//   InfoLUT:  rg = state id (16 bit), ba = owner index (16 bit): borders.
+//   FlagLUT:  r = highlight, g = dim.
+// Relief: tangent-space normal map baked from elevation.
+
+#ifndef WARROOM_GLOBE_USH
+#define WARROOM_GLOBE_USH
+
+int WR_DecodeId(Texture2D IdMap, SamplerState IdMapSampler, float2 UV)
+{
+    float3 c = IdMap.SampleLevel(IdMapSampler, UV, 0).rgb * 255.0 + 0.5;
+    return (int)c.r + (int)c.g * 256 + (int)c.b * 65536;
+}
+
+float2 WR_LutUV(int Id)
+{
+    int x = Id % 128;
+    int y = Id / 128;
+    return float2((x + 0.5) / 128.0, (y + 0.5) / 128.0);
+}
+
+// Returns the lit colour of the surface at UV.
+float3 WR_GlobeColor(
+    Texture2D IdMap, SamplerState IdMapSampler,
+    Texture2D ColorLUT, SamplerState ColorLUTSampler,
+    Texture2D InfoLUT, SamplerState InfoLUTSampler,
+    Texture2D FlagLUT, SamplerState FlagLUTSampler,
+    Texture2D Relief, SamplerState ReliefSampler,
+    float2 UV, float2 Texel, float BorderLevel, float HoverId, float SelectedId,
+    float3 WorldNormal, float3 SunDir, float Night, float ReliefStrength)
+{
+    int id = WR_DecodeId(IdMap, IdMapSampler, UV);
+    float2 lu = WR_LutUV(id);
+    float4 col = ColorLUT.SampleLevel(ColorLUTSampler, lu, 0);
+    float4 info = InfoLUT.SampleLevel(InfoLUTSampler, lu, 0);
+    float4 flags = FlagLUT.SampleLevel(FlagLUTSampler, lu, 0);
+
+    float country = 0, state = 0, prov = 0;
+    float2 d[4] = { float2(Texel.x, 0), float2(-Texel.x, 0), float2(0, Texel.y), float2(0, -Texel.y) };
+    [unroll]
+    for (int i = 0; i < 4; i++)
+    {
+        int n = WR_DecodeId(IdMap, IdMapSampler, UV + d[i]);
+        if (n != id)
+        {
+            float4 ni = InfoLUT.SampleLevel(InfoLUTSampler, WR_LutUV(n), 0);
+            prov = 1;
+            if (any(ni.rg != info.rg)) state = 1;
+            if (any(ni.ba != info.ba)) country = 1;
+        }
+    }
+    if (country < 0.5)
+    {
+        [unroll]
+        for (int j = 0; j < 4; j++)
+        {
+            int n2 = WR_DecodeId(IdMap, IdMapSampler, UV + 2.0 * d[j]);
+            if (n2 != id && any(InfoLUT.SampleLevel(InfoLUTSampler, WR_LutUV(n2), 0).ba != info.ba)) country = 0.7;
+        }
+    }
+
+    float3 rgb = col.rgb;
+    rgb = lerp(rgb, rgb * 0.45, flags.g);
+    rgb = lerp(rgb, lerp(rgb, float3(1.0, 0.95, 0.7), 0.45), flags.r);
+    float dark = 0;
+    if (BorderLevel > 1.5) dark = max(dark, prov * 0.22);
+    if (BorderLevel > 0.5) dark = max(dark, state * 0.4);
+    dark = max(dark, country * 0.75);
+    rgb *= (1.0 - dark);
+
+    float3 rn = Relief.SampleLevel(ReliefSampler, UV, 0).rgb * 2.0 - 1.0;
+    float hill = clamp(1.0 + ReliefStrength * (rn.x * -0.6 + rn.y * -0.8), 0.55, 1.3);
+    rgb *= hill;
+
+    if (id == (int)(HoverId + 0.5)) rgb = lerp(rgb, float3(1, 1, 1), 0.18);
+    if (id == (int)(SelectedId + 0.5)) rgb = lerp(rgb, float3(1.0, 0.9, 0.5), 0.35);
+
+    float sun = dot(normalize(WorldNormal), normalize(SunDir));
+    float light = lerp(1.0 - Night, 1.0, smoothstep(-0.12, 0.18, sun));
+    return pow(max(rgb * light, 0.0), 2.2);   // the colours are authored in sRGB; emissive wants linear
+}
+
+#endif

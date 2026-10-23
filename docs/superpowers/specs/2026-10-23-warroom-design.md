@@ -14,19 +14,20 @@ the Second World War as it happened or as you make it happen.
 
 It is built the way every recent project in this repo is built:
 
-- A **standalone browser app** served from the GitHub Pages site
-  (`https://mazoo85.github.io/Maz/warroom/`). Opens on a phone or a computer. No account,
-  no install. It is *not* part of MAZ ARCADE (no hub link, no `shared/` scripts, its own
-  CI workflow), and it is *not* built on the Maz engine, per the rule at the top of
-  `CLAUDE.md`.
-- **three.js** draws the world as a globe. It is vendored into the repo so the game has no
-  network dependency and can be run and screenshotted headlessly in CI and in this box.
+- An **Unreal Engine 5.5 game** (`warroom/unreal/`), C++ throughout, opened and built from
+  `WarRoom.uproject` on a PC with Unreal and Visual Studio installed. It is *not* built on
+  the Maz engine, per the rule at the top of `CLAUDE.md`, and it is not part of MAZ ARCADE.
+- The world is a **globe**: one sphere whose material reads a province-id texture through
+  small lookup textures (the technique Paradox's own map uses), so map modes and
+  ownership changes cost one tiny texture upload. A browser preview of the same globe
+  (`warroom/index.html`, three.js) was built first and stays as a reference.
 - **Blender** makes every 3D piece: the division, fleet and air-wing counters, ship, tank
   and plane models, building markers, and the relief of the globe. They are built by a
   Blender Python script, not by hand, so the models are reproducible and live in git as
   the script plus the exported `.glb` files.
-- The whole simulation is **plain JavaScript with no browser dependency**, so it runs under
-  Node for tests and for the AI to play thousands of games unattended.
+- The whole simulation is **plain C++20 with no engine dependency**, so it compiles and
+  runs under any compiler for tests and for the AI to play thousands of games unattended;
+  Unreal links the same sources.
 
 ### Names and ownership
 
@@ -43,7 +44,7 @@ game copies the *genre and mechanics*, which are not protectable, and nothing el
 
 | Decision | Choice | Why |
 | --- | --- | --- |
-| Engine | Browser, three.js, vendored | Cody's choice. Runs on phone from Pages; fully testable here. |
+| Engine | **Unreal Engine 5.5, C++** (Cody's decision of 23 October, replacing the browser choice made earlier that day) | The game is an Unreal game. The simulation is engine-independent C++ (`warroom/unreal/Source/WarRoomSim`) so it is tested without Unreal; the globe, camera and interface are the Unreal module. The browser build made first stays in `warroom/` as a preview of the same data and is not developed further. |
 | Players | Single-player first; built for multiplayer later | Everything the player does is a *command* applied to a deterministic simulation, which is exactly what lockstep multiplayer needs. Stage 9 adds the lobby and relay. |
 | Map | The real world, 1936, as a globe | It is a clone. Province shapes come from Natural Earth (public domain). |
 | Start dates | 1 January 1936 and 1 September 1939 | As HoI4. 1939 is a later stage because it needs a second full set of country data. |

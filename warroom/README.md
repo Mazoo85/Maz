@@ -1,6 +1,10 @@
 # War Room 1936
 
-**A grand-strategy game of the Second World War, on a globe, in your browser.** Pick any
+**The game is an Unreal Engine 5 project: see [`unreal/`](./unreal/README.md).** This
+folder also holds the data pipeline, the Blender scripts, the generated world data and
+the browser preview described below, which the Unreal game reads directly.
+
+**A grand-strategy game of the Second World War, on a globe.** Pick any
 country of January 1936 and run it hour by hour. This is Stage 1 of a game built in the
 style of Hearts of Iron IV: the whole world of 1936, every province and state in place, a
 running clock with weather, and the pieces that the later stages (economy, politics,

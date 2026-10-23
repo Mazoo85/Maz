@@ -52,6 +52,16 @@ jobs:
           path: warroom/tests/out/*.png
           if-no-files-found: ignore
 
+  unreal-sim:
+    name: Unreal simulation library (plain C++) tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run the simulation tests with g++
+        run: make -C warroom/unreal/Tests && warroom/unreal/Tests/sim_tests warroom/data
+      - name: Python setup script parses
+        run: python3 -m py_compile warroom/unreal/Scripts/setup_content.py
+
   pipeline:
     name: Map pipeline rebuilds the committed data
     runs-on: ubuntu-latest
