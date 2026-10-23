@@ -1,9 +1,8 @@
 name: Probe flight sources (temporary)
 
-# One-off diagnostic for GOD'S EYE VIEW's PLANES layer, which reports OFFLINE
-# on a real phone. Asks each keyless flight API for aircraft near New York the
-# way the page does (a plain cross-origin GET from the Pages origin) and prints
-# the status and the CORS header. Lives only on a throwaway branch.
+# One-off diagnostic for GOD'S EYE VIEW's PLANES layer: asks the planes relay
+# for aircraft the way the page does, and checks it turns other sites away.
+# Lives only on a throwaway branch.
 on: push
 
 permissions:
@@ -13,21 +12,17 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Ask each source
+      - name: Ask the relay as GOD'S EYE VIEW
         run: |
-          probe() {
-            echo "=== $1"
-            curl -sS -m 20 -o body.txt -D headers.txt -H "Origin: https://mazoo85.github.io" "$1" || echo "curl failed"
-            head -1 headers.txt
-            grep -i -E "^access-control-allow-origin|^content-type|^retry-after|^x-rate" headers.txt || echo "(no CORS header)"
-            echo "body: $(head -c 160 body.txt | tr '\n' ' ')"
-            echo
-          }
-          probe "https://api.adsb.lol/v2/point/40.64/-73.78/250"
-          probe "https://api.adsb.lol/v2/lat/40.64/lon/-73.78/dist/250"
-          probe "https://opensky-network.org/api/states/all?lamin=36.5&lomin=-79.2&lamax=44.8&lomax=-68.3"
-          probe "https://api.airplanes.live/v2/point/40.64/-73.78/250"
-          probe "https://opendata.adsb.fi/api/v2/lat/40.64/lon/-73.78/dist/250"
-          probe "https://api.adsb.one/v2/point/40.64/-73.78/250"
-          echo "=== preflight check (adsb.lol), in case a browser sends one"
-          curl -sS -m 20 -o /dev/null -D - -X OPTIONS -H "Origin: https://mazoo85.github.io" -H "Access-Control-Request-Method: GET" "https://api.adsb.lol/v2/point/40.64/-73.78/250" | grep -i -E "^HTTP|^access-control" || true
+          R=https://godview-planes.cody-collins85-cc.workers.dev
+          echo "=== as our site (New York)"
+          curl -sS -m 30 -o body.json -D h.txt -H "Origin: https://mazoo85.github.io" "$R/planes?lat=40.6&lng=-73.8"
+          head -1 h.txt; grep -i "^access-control-allow-origin" h.txt || echo "(no CORS header)"
+          python3 -c "import json;d=json.load(open('body.json'));print('source:',d.get('source'),'aircraft:',len(d.get('ac') or []),'error:',d.get('error'),d.get('details'));a=(d.get('ac') or [{}])[0];print('first:',{k:a.get(k) for k in ['hex','flight','lat','lon','alt_baro','gs','track']})"
+          echo "=== as our site (London)"
+          curl -sS -m 30 -o body2.json -H "Origin: https://mazoo85.github.io" "$R/planes?lat=51.5&lng=-0.1"
+          python3 -c "import json;d=json.load(open('body2.json'));print('source:',d.get('source'),'aircraft:',len(d.get('ac') or []),'error:',d.get('error'))"
+          echo "=== preflight from our site"
+          curl -sS -m 30 -o /dev/null -D - -X OPTIONS -H "Origin: https://mazoo85.github.io" -H "Access-Control-Request-Method: GET" "$R/planes?lat=1&lng=1" | grep -i -E "^HTTP|^access-control-allow-origin"
+          echo "=== as some other site"
+          curl -sS -m 30 -D - -H "Origin: https://someone-else.example" "$R/planes?lat=40.6&lng=-73.8" | grep -i -E "^HTTP|^access-control|error"
