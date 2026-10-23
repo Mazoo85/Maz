@@ -31,6 +31,14 @@ permission for our site; airplanes.live and adsb.one refused outright.
 7. Put the address into `planesRelay` in [`../js/config.js`](../js/config.js)
    (or send it to Claude to do).
 
+**If Deploy says "An unknown error occurred":** confirm your email first (Cloudflare
+will not deploy for an unconfirmed account), use a computer rather than a phone
+(the dashboard's code editor misbehaves on phones), and give a brand-new account a
+few minutes. Or skip the editor altogether and let Cloudflare take the code from
+GitHub: **Workers & Pages** → **Create** → **Import a repository** → connect GitHub
+→ pick `Mazoo85/Maz` → set the root directory to `godview/relay` → **Deploy**.
+[`wrangler.jsonc`](wrangler.jsonc) in this folder tells it what to build.
+
 The free Workers plan allows 100,000 requests a day; one phone with PLANES on
 uses about 240 an hour.
 
