@@ -37,6 +37,7 @@ with their full history.
 | [`shooter`](shooter) |
 | [`tests`](tests) |
 | [`tools`](tools) |
+| [`velocity`](velocity) |
 | [`web`](web) |
 | [`zomboid`](zomboid) |
 
