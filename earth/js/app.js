@@ -1055,6 +1055,25 @@
     toast('Removed the key from this browser');
   });
 
+  // ---- Install as an app ------------------------------------------------
+  // Chrome and Edge offer their own install prompt; this button shows only
+  // when they do. On an iPhone it is Safari's Share → Add to Home Screen.
+
+  let installPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    installPrompt = e;
+    $('install-app').hidden = false;
+  });
+  $('install-app').addEventListener('click', async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    try { await installPrompt.userChoice; } catch (e) { /* closed */ }
+    installPrompt = null;
+    $('install-app').hidden = true;
+  });
+  window.addEventListener('appinstalled', () => toast('Earth Explorer is installed. Open it from your apps.'));
+
   // ---- Start ----------------------------------------------------------
 
   // 'style.load' rather than 'load': 'load' waits for every first tile, which

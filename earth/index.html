@@ -7,6 +7,13 @@
   <meta name="description" content="Earth Explorer — a 3D globe with satellite photos, mountains and buildings. Search anywhere, save your own places, and measure distances and areas." />
   <meta name="theme-color" content="#070b12" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <!-- Installable: Add to Home Screen opens it full screen like an app. -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Earth" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Sora:wght@600&display=swap" />
@@ -157,6 +164,7 @@
         <button type="button" role="radio" aria-checked="false" data-units="imperial">Miles</button>
       </div>
       <div class="row">
+        <button type="button" class="btn" id="install-app" hidden>Install as an app</button>
         <button type="button" class="btn" id="real3d-settings">Real 3D key</button>
         <button type="button" class="btn" id="copy-link">Copy a link to this view</button>
       </div>

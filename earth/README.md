@@ -6,8 +6,12 @@ buildings in 3D. Search for anywhere, save your own places with notes, and
 measure distances and areas.
 
 **Open it:** [earth/](./index.html) — on the live site,
-`https://mazoo85.github.io/Maz/earth/`. On a phone, use your browser's
-*Add to Home Screen* and it opens like an app.
+`https://mazoo85.github.io/Maz/earth/`.
+
+**Install it as an app.** iPhone/iPad: open it in Safari, tap *Share*, then
+*Add to Home Screen*. Android or a computer with Chrome/Edge: *Install as an
+app* in Layers, or the install icon in the address bar. It then opens full
+screen from its own icon, like any other app.
 
 No account, no key and no build step: open `index.html` in any up-to-date
 browser. A standalone app: it is not part of MAZ ARCADE.
