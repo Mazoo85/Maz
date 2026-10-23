@@ -277,7 +277,7 @@ def c_fan():
             split = t0 > 0.66
             am = (a0 + a1) / 2
             # each strip narrows to a point at its tip
-            taper = lambda t: 1.0 if t < 0.45 else max(0.08, 1 - (t - 0.45) / 0.55 * 0.92)
+            taper = lambda t: 1.0 if t < 0.6 else max(0.35, 1 - (t - 0.6) / 0.4 * 0.65)
             for aa, ab in ((a0, am), (am, a1)) if split else ((a0, a1),):
                 g = l * (0.9 if aa == a0 else 1.0)
                 c, h = (aa + ab) / 2, (ab - aa) / 2
@@ -452,6 +452,7 @@ MAKERS = dict(leaf=c_leaf, jacaranda=c_jacaranda, fan=c_fan, feather=c_feather, 
               needles=c_needles, bark=c_bark, coral=c_coral, bougain=c_bougain, paradise=c_paradise, magnolia=c_magnolia,
               sycBark=c_sycBark, palmBark=c_palmBark, canaryBark=c_canaryBark, shrub=c_shrub)
 OPAQUE = {'bark', 'sycBark', 'palmBark', 'canaryBark'}
+GREY = {'leaf', 'fan', 'feather', 'needles', 'bark', 'shrub'}
 
 atlas = np.zeros((4 * S, 4 * S, 4), np.uint8)
 for name, cell in CELL.items():
@@ -466,6 +467,10 @@ for name, cell in CELL.items():
     if name in OPAQUE:
         img = img.copy()
         img[..., 3] = 255
+    if name in GREY:
+        # (the game tints these by vertex colour: keep them pure grey)
+        img = img.copy()
+        img[..., :3] = (img[..., :3].astype(np.float32) @ np.array([0.299, 0.587, 0.114]))[..., None].astype(np.uint8)
     ox, oy = (cell % 4) * S, (cell // 4) * S
     atlas[oy:oy + S, ox:ox + S] = img
     for ob in obs:
