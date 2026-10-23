@@ -15,7 +15,6 @@
 #include "Misc/Paths.h"
 #include "Modules/ModuleManager.h"
 #include "ProceduralMeshComponent.h"
-#include "UObject/ConstructorHelpers.h"
 #include "WarRoomModule.h"
 #include "WarRoomSubsystem.h"
 
@@ -33,10 +32,6 @@ AGlobeActor::AGlobeActor()
 	Counters->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Counters->NumCustomDataFloats = 3;
 
-	static ConstructorHelpers::FObjectFinder<UMaterialInterface> GlobeMat(TEXT("/Game/WarRoom/M_Globe.M_Globe"));
-	if (GlobeMat.Succeeded()) GlobeBaseMaterial = GlobeMat.Object;
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> CounterMesh(TEXT("/Game/WarRoom/Models/SM_division.SM_division"));
-	if (CounterMesh.Succeeded()) Counters->SetStaticMesh(CounterMesh.Object);
 }
 
 UWarRoomSubsystem* AGlobeActor::Sim() const
@@ -47,8 +42,17 @@ UWarRoomSubsystem* AGlobeActor::Sim() const
 void AGlobeActor::BeginPlay()
 {
 	Super::BeginPlay();
+	// Loaded here rather than in the constructor so assets made by the setup script are found
+	// even when it ran in the same editor session.
+	GlobeBaseMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/WarRoom/M_Globe.M_Globe"));
+	if (UStaticMesh* CounterMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/WarRoom/Models/SM_division.SM_division")))
+	{
+		Counters->SetStaticMesh(CounterMesh);
+		CounterHeight = FMath::Max(1.0, CounterMesh->GetBounds().BoxExtent.Z * 2.0);
+	}
 	BuildSphere();
 	if (!LoadIdMapForPicking()) UE_LOG(LogWarRoom, Error, TEXT("provinces.png could not be read; picking will not work"));
+	UTexture2D* Relief = LoadPngTexture(FPaths::Combine(UWarRoomSubsystem::FindDataDir(), TEXT("map"), TEXT("relief.png")), false);
 
 	ColorLUT = MakeLut(); InfoLUT = MakeLut(); FlagLUT = MakeLut();
 	ColorBytes.SetNumZeroed(kLut * kLut * 4); InfoBytes.SetNumZeroed(kLut * kLut * 4); FlagBytes.SetNumZeroed(kLut * kLut * 4);
@@ -62,6 +66,8 @@ void AGlobeActor::BeginPlay()
 		Material->SetScalarParameterValue(TEXT("BorderLevel"), 2.f);
 		Material->SetScalarParameterValue(TEXT("Night"), 0.55f);
 		Material->SetScalarParameterValue(TEXT("ReliefStrength"), 1.1f);
+		if (IdTexture) Material->SetTextureParameterValue(TEXT("IdMap"), IdTexture);
+		if (Relief) Material->SetTextureParameterValue(TEXT("Relief"), Relief);
 		Mesh->SetMaterial(0, Material);
 	}
 	else
@@ -72,7 +78,7 @@ void AGlobeActor::BeginPlay()
 	if (UWarRoomSubsystem* S = Sim())
 	{
 		S->OnStateReplaced.AddUObject(this, &AGlobeActor::RefreshCounters);
-		S->OnStateReplaced.AddLambda([this]() { PaintInfo(); Repaint(); });
+		S->OnStateReplaced.AddWeakLambda(this, [this]() { PaintInfo(); Repaint(); });
 		PaintInfo(); Repaint(); RefreshCounters();
 	}
 }
@@ -91,7 +97,7 @@ void AGlobeActor::BuildSphere()
 			const double Lon = u * 360.0 - 180.0;
 			const FVector N = LatLonToWorld(Lat, Lon, 0.0) / Radius;
 			Verts.Add(N * Radius); Normals.Add(N); UVs.Add(FVector2D(u, v));
-			const FVector East = FVector(-FMath::Sin(FMath::DegreesToRadians(Lon)), FMath::Cos(FMath::DegreesToRadians(Lon)), 0.0);
+			const FVector East = FVector(-FMath::Sin(FMath::DegreesToRadians(Lon)), -FMath::Cos(FMath::DegreesToRadians(Lon)), 0.0);
 			Tangents.Add(FProcMeshTangent(East, false));
 		}
 	}
@@ -110,7 +116,8 @@ FVector AGlobeActor::LatLonToWorld(double Lat, double Lon, double Altitude) cons
 {
 	// Unreal: X forward, Y right, Z up. Lon 0 points down +X, lon 90 down +Y (east), north is +Z.
 	const double La = FMath::DegreesToRadians(Lat), Lo = FMath::DegreesToRadians(Lon);
-	const FVector Dir(FMath::Cos(La) * FMath::Cos(Lo), FMath::Cos(La) * FMath::Sin(Lo), FMath::Sin(La));
+	// Unreal is left-handed: seen from outside with north up, +Y is on the left, so east goes to -Y.
+	const FVector Dir(FMath::Cos(La) * FMath::Cos(Lo), -FMath::Cos(La) * FMath::Sin(Lo), FMath::Sin(La));
 	return GetActorLocation() + Dir * (Radius + Altitude);
 }
 
@@ -118,7 +125,7 @@ void AGlobeActor::WorldDirToLatLon(const FVector& D, double& OutLat, double& Out
 {
 	const FVector N = D.GetSafeNormal();
 	OutLat = FMath::RadiansToDegrees(FMath::Asin(FMath::Clamp(N.Z, -1.0, 1.0)));
-	OutLon = FMath::RadiansToDegrees(FMath::Atan2(N.Y, N.X));
+	OutLon = FMath::RadiansToDegrees(FMath::Atan2(-N.Y, N.X));
 }
 
 bool AGlobeActor::LoadIdMapForPicking()
@@ -129,12 +136,40 @@ bool AGlobeActor::LoadIdMapForPicking()
 	IImageWrapperModule& Module = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
 	TSharedPtr<IImageWrapper> Wrapper = Module.CreateImageWrapper(EImageFormat::PNG);
 	if (!Wrapper.IsValid() || !Wrapper->SetCompressed(Bytes.GetData(), Bytes.Num())) return false;
-	TArray<uint8> Raw;
+	TArray64<uint8> Raw;
 	if (!Wrapper->GetRaw(ERGBFormat::RGBA, 8, Raw)) return false;
 	IdMapW = Wrapper->GetWidth(); IdMapH = Wrapper->GetHeight();
 	IdMap.SetNumUninitialized(IdMapW * IdMapH);
-	for (int32 i = 0, j = 0; i < IdMap.Num(); i++, j += 4) IdMap[i] = (uint16)(Raw[j] | (Raw[j + 1] << 8));
+	for (int64 i = 0, j = 0; i < IdMap.Num(); i++, j += 4) IdMap[i] = (uint16)(Raw[j] | (Raw[j + 1] << 8));
+	// The same pixels become the GPU id map, uncompressed and nearest-filtered, so ids stay exact.
+	IdTexture = MakeTexture(IdMapW, IdMapH, Raw, true);
 	return true;
+}
+
+UTexture2D* AGlobeActor::MakeTexture(int32 W, int32 H, const TArray64<uint8>& Rgba, bool bNearest)
+{
+	UTexture2D* T = UTexture2D::CreateTransient(W, H, PF_R8G8B8A8);
+	if (!T || !T->GetPlatformData()) return nullptr;
+	T->Filter = bNearest ? TF_Nearest : TF_Bilinear;
+	T->SRGB = false;
+	T->AddressX = TA_Wrap; T->AddressY = TA_Clamp;
+	FTexture2DMipMap& Mip = T->GetPlatformData()->Mips[0];
+	void* Dst = Mip.BulkData.Lock(LOCK_READ_WRITE);
+	FMemory::Memcpy(Dst, Rgba.GetData(), (SIZE_T)W * H * 4);
+	Mip.BulkData.Unlock();
+	T->UpdateResource();
+	return T;
+}
+
+UTexture2D* AGlobeActor::LoadPngTexture(const FString& Path, bool bNearest)
+{
+	TArray<uint8> Bytes;
+	if (!FFileHelper::LoadFileToArray(Bytes, *Path)) { UE_LOG(LogWarRoom, Warning, TEXT("could not read %s"), *Path); return nullptr; }
+	IImageWrapperModule& Module = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
+	TSharedPtr<IImageWrapper> Wrapper = Module.CreateImageWrapper(EImageFormat::PNG);
+	TArray64<uint8> Raw;
+	if (!Wrapper.IsValid() || !Wrapper->SetCompressed(Bytes.GetData(), Bytes.Num()) || !Wrapper->GetRaw(ERGBFormat::RGBA, 8, Raw)) return nullptr;
+	return MakeTexture(Wrapper->GetWidth(), Wrapper->GetHeight(), Raw, bNearest);
 }
 
 int32 AGlobeActor::PickAtWorld(const FVector& WorldPoint) const
@@ -166,7 +201,7 @@ int32 AGlobeActor::PickAtScreen(APlayerController* PC, const FVector2D& ScreenPo
 UTexture2D* AGlobeActor::MakeLut()
 {
 	UTexture2D* T = UTexture2D::CreateTransient(kLut, kLut, PF_B8G8R8A8);
-	T->Filter = TF_Nearest; T->SRGB = false; T->NeverStream = true;
+	T->Filter = TF_Nearest; T->SRGB = false;
 	T->UpdateResource();
 	return T;
 }
@@ -296,14 +331,13 @@ void AGlobeActor::RefreshCounters()
 			const warroom::Province& P = D.provinces[Sd->capital_province];
 			const FVector Pos = LatLonToWorld(P.lat, P.lon, 0.0);
 			const FVector Up = (Pos - GetActorLocation()).GetSafeNormal();
-			const FTransform T(FRotationMatrix::MakeFromZ(Up).ToQuat(), Pos, FVector(Scale));
+			const FTransform T(FRotationMatrix::MakeFromZ(Up).ToQuat(), Pos, FVector(Scale / CounterHeight));
 			const int32 Idx = Counters->AddInstance(T, true);
 			Counters->SetCustomDataValue(Idx, 0, r / 255.f); Counters->SetCustomDataValue(Idx, 1, g / 255.f); Counters->SetCustomDataValue(Idx, 2, b / 255.f);
 			UTextRenderComponent* Label = NewObject<UTextRenderComponent>(this);
 			Label->RegisterComponent();
 			Label->AttachToComponent(Mesh, FAttachmentTransformRules::KeepWorldTransform);
 			Label->SetWorldLocation(Pos + Up * Scale * 1.2);
-			Label->SetWorldRotation(FRotationMatrix::MakeFromZX(Up, -Up).Rotator());
 			Label->SetText(FText::AsNumber(A.divisions));
 			Label->SetHorizontalAlignment(EHTA_Center); Label->SetVerticalAlignment(EVRTA_TextCenter);
 			Label->SetWorldSize(Scale * 0.9);
@@ -333,17 +367,18 @@ void AGlobeActor::Tick(float DeltaTime)
 		const double K = FMath::Clamp(Dist / (Radius * 2.0), 0.08, 1.0);
 		const bool bVisible = Dist < Radius * 2.2;
 		Counters->SetVisibility(bVisible);
+		const double Size = Radius * 0.035 * K;   // counter height in world units
 		for (int32 i = 0; i < Counters->GetInstanceCount(); i++)
 		{
 			FTransform T; Counters->GetInstanceTransform(i, T, true);
-			T.SetScale3D(FVector(Radius * 0.035 * K));
+			T.SetScale3D(FVector(Size / CounterHeight));
 			Counters->UpdateInstanceTransform(i, T, true, i == Counters->GetInstanceCount() - 1, false);
 			if (CounterLabels.IsValidIndex(i) && CounterLabels[i])
 			{
 				const FVector Up = (T.GetLocation() - GetActorLocation()).GetSafeNormal();
 				CounterLabels[i]->SetVisibility(bVisible);
-				CounterLabels[i]->SetWorldLocation(T.GetLocation() + Up * Radius * 0.035 * K * 1.3);
-				CounterLabels[i]->SetWorldSize(Radius * 0.035 * K * 0.9);
+				CounterLabels[i]->SetWorldLocation(T.GetLocation() + Up * Size * 1.3);
+				CounterLabels[i]->SetWorldSize(Size * 0.9);
 				CounterLabels[i]->SetWorldRotation(FRotationMatrix::MakeFromXZ(CamLoc - T.GetLocation(), Up).Rotator());
 			}
 		}

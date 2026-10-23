@@ -5,23 +5,37 @@
 	"Description": "War Room 1936: a grand-strategy game of the Second World War on a globe.",
 	"Modules": [
 		{
+			"Name": "WarRoomShaders",
+			"Type": "Runtime",
+			"LoadingPhase": "PostConfigInit"
+		},
+		{
 			"Name": "WarRoomSim",
 			"Type": "Runtime",
-			"LoadingPhase": "PreDefault"
+			"LoadingPhase": "Default"
 		},
 		{
 			"Name": "WarRoom",
 			"Type": "Runtime",
-			"LoadingPhase": "PostConfigInit",
-			"AdditionalDependencies": [ "Engine", "CoreUObject" ]
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"Engine",
+				"CoreUObject"
+			]
 		}
 	],
 	"Plugins": [
-		{ "Name": "ProceduralMeshComponent", "Enabled": true },
-		{ "Name": "PythonScriptPlugin", "Enabled": true },
-		{ "Name": "EditorScriptingUtilities", "Enabled": true },
-		{ "Name": "Interchange", "Enabled": true },
-		{ "Name": "InterchangeEditor", "Enabled": true },
-		{ "Name": "ModelingToolsEditorMode", "Enabled": false }
+		{
+			"Name": "ProceduralMeshComponent",
+			"Enabled": true
+		},
+		{
+			"Name": "PythonScriptPlugin",
+			"Enabled": true
+		},
+		{
+			"Name": "EditorScriptingUtilities",
+			"Enabled": true
+		}
 	]
 }

@@ -55,6 +55,8 @@ private:
 	UPROPERTY() UInstancedStaticMeshComponent* Counters = nullptr;
 	UPROPERTY() TArray<UTextRenderComponent*> CounterLabels;
 	UPROPERTY() UMaterialInterface* GlobeBaseMaterial = nullptr;
+	UPROPERTY() UTexture2D* IdTexture = nullptr;
+	double CounterHeight = 100.0;   // height of the imported counter mesh, measured at load
 
 	TArray<uint16> IdMap;      // CPU copy of provinces.png for picking
 	int32 IdMapW = 0, IdMapH = 0;
@@ -64,6 +66,8 @@ private:
 	void BuildSphere();
 	bool LoadIdMapForPicking();
 	UTexture2D* MakeLut();
+	static UTexture2D* MakeTexture(int32 W, int32 H, const TArray64<uint8>& Rgba, bool bNearest);
+	static UTexture2D* LoadPngTexture(const FString& Path, bool bNearest);
 	void UploadLut(UTexture2D* Tex, const TArray<uint8>& Bytes);
 	void PaintInfo();
 	UWarRoomSubsystem* Sim() const;

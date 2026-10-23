@@ -16,7 +16,7 @@ Run it again any time; it overwrites what it made.
 import os
 import unreal
 
-PROJECT = os.path.normpath(unreal.Paths.project_dir())
+PROJECT = os.path.normpath(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_dir()))
 WARROOM = os.path.normpath(os.path.join(PROJECT, ".."))
 DATA = os.path.join(WARROOM, "data")
 MODELS = os.path.join(WARROOM, "models")
@@ -44,9 +44,9 @@ def import_texture(path, name, nearest=False, normal=False):
     if tex is None:
         raise RuntimeError(f"could not import {path}")
     if normal:
-        tex.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_NORMALMAP)
+        # read as plain linear colour; the shader unpacks it itself
+        tex.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_DEFAULT)
         tex.set_editor_property("srgb", False)
-        tex.set_editor_property("lod_group", unreal.TextureGroup.TEXTUREGROUP_WORLD_NORMAL_MAP)
     else:
         tex.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_EDITOR_ICON)  # uncompressed RGBA
         tex.set_editor_property("srgb", False)
@@ -66,25 +66,32 @@ def import_models():
         manifest = json.load(f)["models"]
     meshes = {}
     for name, m in manifest.items():
+        # each model gets its own folder: every glTF carries materials called Body/Accent/Base
+        folder = f"{ROOT}/Models/{name}"
+        target = f"{ROOT}/Models/SM_{name}"
+        if lib.does_asset_exist(target):
+            lib.delete_asset(target)
+        if lib.does_directory_exist(folder):
+            lib.delete_directory(folder)
         task = unreal.AssetImportTask()
         task.filename = os.path.join(MODELS, m["file"])
-        task.destination_path = ROOT + "/Models"
-        task.destination_name = f"SM_{name}"
+        task.destination_path = folder
         task.replace_existing = True
         task.automated = True
         task.save = True
         tools.import_asset_tasks([task])
-        asset = lib.load_asset(f"{ROOT}/Models/SM_{name}")
-        if asset is None:
-            # Interchange may import a glTF as a scene under a folder; look for the first static mesh
-            for a in lib.list_assets(f"{ROOT}/Models/SM_{name}", recursive=True):
-                obj = lib.load_asset(a)
-                if isinstance(obj, unreal.StaticMesh):
-                    asset = obj
-                    break
+        asset = None
+        for a in lib.list_assets(folder, recursive=True):
+            obj = lib.load_asset(a)
+            if isinstance(obj, unreal.StaticMesh):
+                asset = obj
+                break
         if asset is None:
             log(f"WARNING: {name} did not import as a static mesh")
             continue
+        # a fixed name the game looks for
+        if lib.rename_asset(asset.get_path_name().split(".")[0], target):
+            asset = lib.load_asset(target)
         meshes[name] = asset
     log(f"{len(meshes)} models imported")
     return meshes
@@ -161,30 +168,43 @@ def make_globe_material(id_tex, relief_tex):
     return mat
 
 
-def make_counter_material(meshes):
-    path = f"{ROOT}/M_Counter"
+def unlit_material(name, build):
+    """Unlit, so the pieces read clearly without any lights in the level."""
+    path = f"{ROOT}/{name}"
     if lib.does_asset_exist(path):
         lib.delete_asset(path)
-    mat = tools.create_asset("M_Counter", ROOT, unreal.Material, unreal.MaterialFactoryNew())
-    data = mel.create_material_expression(mat, unreal.MaterialExpressionPerInstanceCustomData3Vector, -500, 0)
-    mel.connect_material_property(data, "", unreal.MaterialProperty.MP_BASE_COLOR)
-    rough = mel.create_material_expression(mat, unreal.MaterialExpressionConstant, -500, 200)
-    rough.set_editor_property("r", 0.7)
-    mel.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
+    mat = tools.create_asset(name, ROOT, unreal.Material, unreal.MaterialFactoryNew())
+    mat.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    mat.set_editor_property("used_with_instanced_static_meshes", True)
+    build(mat)
     mel.recompile_material(mat)
     lib.save_loaded_asset(mat)
-    # the Body slot of every counter takes the tint
+    return mat
+
+
+def make_counter_material(meshes):
+    def tinted(mat):
+        # the owning country's colour, set per counter by the game (custom data 0..2)
+        data = mel.create_material_expression(mat, unreal.MaterialExpressionPerInstanceCustomData3Vector, -500, 0)
+        mel.connect_material_property(data, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+
+    def dark(mat):
+        c = mel.create_material_expression(mat, unreal.MaterialExpressionConstant3Vector, -500, 0)
+        c.set_editor_property("constant", unreal.LinearColor(0.02, 0.02, 0.025, 1.0))
+        mel.connect_material_property(c, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+
+    body = unlit_material("M_Counter", tinted)
+    other = unlit_material("M_CounterDark", dark)
     for name, mesh in meshes.items():
         mats = mesh.get_editor_property("static_materials")
-        changed = False
         for sm in mats:
-            if str(sm.get_editor_property("material_slot_name")) == "Body" or (sm.material_interface and sm.material_interface.get_name().startswith("Body")):
-                sm.set_editor_property("material_interface", mat)
-                changed = True
-        if changed:
-            mesh.set_editor_property("static_materials", mats)
-            lib.save_loaded_asset(mesh)
-    log("M_Counter built and applied to the Body slots")
+            slot = str(sm.get_editor_property("material_slot_name"))
+            mi = sm.get_editor_property("material_interface")
+            is_body = slot.startswith("Body") or (mi is not None and mi.get_name().startswith("Body"))
+            sm.set_editor_property("material_interface", body if is_body else other)
+        mesh.set_editor_property("static_materials", mats)
+        lib.save_loaded_asset(mesh)
+    log("M_Counter (tinted) and M_CounterDark built and applied")
 
 
 def make_level():

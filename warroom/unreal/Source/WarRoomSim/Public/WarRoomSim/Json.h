@@ -1,6 +1,9 @@
 // The one place the JSON library is included. Unreal builds without exceptions,
 // so the library is told never to throw: a bad parse yields a "discarded" value.
 #pragma once
+#ifdef UE_BUILD_SHIPPING
+#include "HAL/Platform.h"   // THIRD_PARTY_INCLUDES_START/END
+#endif
 #ifndef JSON_NOEXCEPTION
 #define JSON_NOEXCEPTION 1
 #endif

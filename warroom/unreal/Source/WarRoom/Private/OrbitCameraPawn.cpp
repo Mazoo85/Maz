@@ -12,7 +12,6 @@ AOrbitCameraPawn::AOrbitCameraPawn()
 	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	RootComponent = Camera;
 	Camera->FieldOfView = 42.f;
-	AutoPossessPlayer = EAutoReceiveInput::Player0;
 }
 
 void AOrbitCameraPawn::SetGlobe(AGlobeActor* InGlobe) { Globe = InGlobe; Place(); }
@@ -59,7 +58,7 @@ void AOrbitCameraPawn::Tick(float DeltaTime)
 	{
 		bFlying = false;
 		TargetLon -= TurnInput * TurnSpeed * 60.0 * 0.08;
-		TargetLat += LookInput * TurnSpeed * 60.0 * 0.08;
+		TargetLat -= LookInput * TurnSpeed * 60.0 * 0.08;
 	}
 	if (PanX != 0 || PanY != 0)
 	{

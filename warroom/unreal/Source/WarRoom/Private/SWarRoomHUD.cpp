@@ -39,9 +39,10 @@ FText SWarRoomHUD::Cap(const std::string& Str)
 void SWarRoomHUD::Construct(const FArguments& InArgs)
 {
 	Globe = InArgs._Globe; Camera = InArgs._Camera; Sim = InArgs._Subsystem;
+	SetVisibility(EVisibility::SelfHitTestInvisible);
 	ChildSlot
 	[
-		SNew(SOverlay)
+		SNew(SOverlay).Visibility(EVisibility::SelfHitTestInvisible)
 		+ SOverlay::Slot().HAlign(HAlign_Fill).VAlign(VAlign_Top) [ MakeTopBar() ]
 		+ SOverlay::Slot().HAlign(HAlign_Left).VAlign(VAlign_Bottom).Padding(10) [ MakeModeBar() ]
 		+ SOverlay::Slot().HAlign(HAlign_Right).VAlign(VAlign_Top).Padding(10, 60, 10, 80)
@@ -84,7 +85,7 @@ TSharedRef<SWidget> SWarRoomHUD::MakeTopBar()
 		TSharedPtr<SButton> B;
 		Speeds->AddSlot().AutoWidth().Padding(1, 0)
 		[
-			SAssignNew(B, SButton).Text(FText::FromString(Labels[i])).OnClicked_Lambda([this, i]() { SetSpeed(i); return FReply::Handled(); })
+			SAssignNew(B, SButton).IsFocusable(false).Text(FText::FromString(Labels[i])).OnClicked_Lambda([this, i]() { SetSpeed(i); return FReply::Handled(); })
 		];
 		SpeedButtons.Add(B);
 	}
@@ -94,7 +95,7 @@ TSharedRef<SWidget> SWarRoomHUD::MakeTopBar()
 		+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(0, 0, 6, 0) [ SAssignNew(PlayerFlag, SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush")).BorderBackgroundColor(FLinearColor(0.4f, 0.4f, 0.4f)).Padding(0) [ SNew(SBox).WidthOverride(24).HeightOverride(16) ] ]
 		+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
 		[
-			SNew(SButton).ButtonStyle(FCoreStyle::Get(), "NoBorder").OnClicked_Lambda([this]() {
+			SNew(SButton).IsFocusable(false).ButtonStyle(FCoreStyle::Get(), "NoBorder").OnClicked_Lambda([this]() {
 				if (Sim.IsValid() && !Sim->GetState().player.empty()) OpenCountry(F(Sim->GetState().player)); else Toast(LOCTEXT("PickCountry", "Pick a country: click one on the map, then \"Play as\""));
 				return FReply::Handled(); })
 			[ SAssignNew(PlayerText, STextBlock).Text(LOCTEXT("Observer", "Observer")).Font(FCoreStyle::GetDefaultFontStyle("Bold", 12)) ]
@@ -108,7 +109,7 @@ TSharedRef<SWidget> SWarRoomHUD::MakeTopBar()
 			SNew(SBox).WidthOverride(180)
 			[ SAssignNew(SearchBox, SEditableTextBox).HintText(LOCTEXT("Find", "Find a place")).OnTextChanged(this, &SWarRoomHUD::OnSearchChanged).OnTextCommitted(this, &SWarRoomHUD::OnSearchCommitted) ]
 		]
-		+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center) [ SNew(SButton).Text(LOCTEXT("Saves", "Saves")).OnClicked_Lambda([this]() { OpenSaves(); return FReply::Handled(); }) ]
+		+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center) [ SNew(SButton).IsFocusable(false).Text(LOCTEXT("Saves", "Saves")).OnClicked_Lambda([this]() { OpenSaves(); return FReply::Handled(); }) ]
 	];
 }
 
@@ -119,7 +120,7 @@ TSharedRef<SWidget> SWarRoomHUD::MakeModeBar()
 	for (int32 i = 0; i < 6; i++)
 	{
 		TSharedPtr<SButton> B;
-		Box->AddSlot().AutoWidth().Padding(2, 0) [ SAssignNew(B, SButton).Text(Names[i]).OnClicked_Lambda([this, i]() { SetMode(i); return FReply::Handled(); }) ];
+		Box->AddSlot().AutoWidth().Padding(2, 0) [ SAssignNew(B, SButton).IsFocusable(false).Text(Names[i]).OnClicked_Lambda([this, i]() { SetMode(i); return FReply::Handled(); }) ];
 		ModeButtons.Add(B);
 	}
 	SetMode(0);
@@ -186,13 +187,13 @@ TSharedRef<SWidget> SWarRoomHUD::Row(const FText& Key, const FText& Value) { ret
 
 TSharedRef<SWidget> SWarRoomHUD::Link(const FText& Label, TFunction<void()> OnClick)
 {
-	return SNew(SButton).ButtonStyle(FCoreStyle::Get(), "NoBorder").ContentPadding(0).OnClicked_Lambda([OnClick]() { OnClick(); return FReply::Handled(); })
+	return SNew(SButton).IsFocusable(false).ButtonStyle(FCoreStyle::Get(), "NoBorder").ContentPadding(0).OnClicked_Lambda([OnClick]() { OnClick(); return FReply::Handled(); })
 		[ SNew(STextBlock).Text(Label).ColorAndOpacity(kAccent) ];
 }
 
 TSharedRef<SWidget> SWarRoomHUD::Chip(const FText& Label, TFunction<void()> OnClick)
 {
-	return SNew(SButton).ContentPadding(FMargin(6, 2)).OnClicked_Lambda([OnClick]() { OnClick(); return FReply::Handled(); }) [ SNew(STextBlock).Text(Label).Font(FCoreStyle::GetDefaultFontStyle("Regular", 9)) ];
+	return SNew(SButton).IsFocusable(false).ContentPadding(FMargin(6, 2)).OnClicked_Lambda([OnClick]() { OnClick(); return FReply::Handled(); }) [ SNew(STextBlock).Text(Label).Font(FCoreStyle::GetDefaultFontStyle("Regular", 9)) ];
 }
 
 TSharedRef<SWidget> SWarRoomHUD::FlagBox(const FString& Hex)
@@ -214,7 +215,7 @@ void SWarRoomHUD::ShowPanel(const FText& Title, TSharedRef<SWidget> Body)
 	[
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot().FillWidth(1) [ SNew(STextBlock).Text(Title).Font(FCoreStyle::GetDefaultFontStyle("Bold", 14)).AutoWrapText(true) ]
-		+ SHorizontalBox::Slot().AutoWidth() [ SNew(SButton).ButtonStyle(FCoreStyle::Get(), "NoBorder").Text(FText::FromString(TEXT("X"))).OnClicked_Lambda([this]() { ClosePanel(); return FReply::Handled(); }) ]
+		+ SHorizontalBox::Slot().AutoWidth() [ SNew(SButton).IsFocusable(false).ButtonStyle(FCoreStyle::Get(), "NoBorder").Text(FText::FromString(TEXT("X"))).OnClicked_Lambda([this]() { ClosePanel(); return FReply::Handled(); }) ]
 	];
 	PanelBox->AddSlot().AutoHeight().Padding(0, 6, 0, 0) [ Body ];
 	PanelBorder->SetVisibility(EVisibility::Visible);
@@ -332,7 +333,7 @@ void SWarRoomHUD::OpenCountry(const FString& Tag)
 	Add(Row(LOCTEXT("Manpower", "Manpower"), FText::AsNumber(Manpower)));
 	Add(Row(LOCTEXT("Divisions", "Divisions"), FText::AsNumber(Divisions)));
 	const bool bPlaying = St.player == T;
-	Add(SNew(SButton).IsEnabled(!bPlaying).ButtonColorAndOpacity(kAccent)
+	Add(SNew(SButton).IsFocusable(false).IsEnabled(!bPlaying).ButtonColorAndOpacity(kAccent)
 		.Text(bPlaying ? LOCTEXT("YouPlay", "You play this country") : FText::Format(LOCTEXT("PlayAs", "Play as {0}"), S(C.name)))
 		.OnClicked_Lambda([this, Tag]() { if (Sim.IsValid()) { const FString R = Sim->SelectCountry(Tag); if (!R.IsEmpty()) Toast(FText::FromString(R)); } OpenCountry(Tag); return FReply::Handled(); }));
 	Add(Heading(LOCTEXT("States", "States")));
@@ -358,7 +359,7 @@ void SWarRoomHUD::OpenSaves()
 	const FString Current = Sim->GetState().player.empty() ? TEXT("My game") : F(Sim->GetState().countries.at(Sim->GetState().player).name);
 	Add(SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot().FillWidth(1) [ SAssignNew(SaveNameBox, SEditableTextBox).Text(FText::FromString(Current)).HintText(LOCTEXT("NameSave", "Name this save")) ]
-		+ SHorizontalBox::Slot().AutoWidth().Padding(4, 0, 0, 0) [ SNew(SButton).ButtonColorAndOpacity(kAccent).Text(LOCTEXT("Save", "Save")).OnClicked_Lambda([this]() {
+		+ SHorizontalBox::Slot().AutoWidth().Padding(4, 0, 0, 0) [ SNew(SButton).IsFocusable(false).ButtonColorAndOpacity(kAccent).Text(LOCTEXT("Save", "Save")).OnClicked_Lambda([this]() {
 			FString Err; const FString Name = SaveNameBox->GetText().ToString().TrimStartAndEnd();
 			if (Sim->SaveGame(Name.IsEmpty() ? TEXT("My game") : Name, Err)) Toast(FText::Format(LOCTEXT("Saved", "Saved \"{0}\""), FText::FromString(Name))); else Toast(FText::FromString(Err));
 			OpenSaves(); return FReply::Handled(); }) ]);
@@ -366,11 +367,11 @@ void SWarRoomHUD::OpenSaves()
 	{
 		Add(SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot().FillWidth(1).VAlign(VAlign_Center) [ SNew(STextBlock).Text(FText::FromString(Name)) ]
-			+ SHorizontalBox::Slot().AutoWidth() [ SNew(SButton).Text(LOCTEXT("Load", "Load")).OnClicked_Lambda([this, Name]() { FString Err; if (Sim->LoadGame(Name, Err)) { Toast(FText::Format(LOCTEXT("Loaded", "Loaded \"{0}\""), FText::FromString(Name))); ClosePanel(); } else Toast(FText::FromString(Err)); return FReply::Handled(); }) ]
-			+ SHorizontalBox::Slot().AutoWidth().Padding(2, 0, 0, 0) [ SNew(SButton).Text(LOCTEXT("Delete", "Delete")).OnClicked_Lambda([this, Name]() { Sim->DeleteSave(Name); OpenSaves(); return FReply::Handled(); }) ]);
+			+ SHorizontalBox::Slot().AutoWidth() [ SNew(SButton).IsFocusable(false).Text(LOCTEXT("Load", "Load")).OnClicked_Lambda([this, Name]() { FString Err; if (Sim->LoadGame(Name, Err)) { Toast(FText::Format(LOCTEXT("Loaded", "Loaded \"{0}\""), FText::FromString(Name))); ClosePanel(); } else Toast(FText::FromString(Err)); return FReply::Handled(); }) ]
+			+ SHorizontalBox::Slot().AutoWidth().Padding(2, 0, 0, 0) [ SNew(SButton).IsFocusable(false).Text(LOCTEXT("Delete", "Delete")).OnClicked_Lambda([this, Name]() { Sim->DeleteSave(Name); OpenSaves(); return FReply::Handled(); }) ]);
 	}
 	Add(SNew(STextBlock).AutoWrapText(true).ColorAndOpacity(kInkDim).Text(LOCTEXT("SavesWhere", "Saves are files in the project's Saved/SaveGames folder; copy one to another computer to move a game.")));
-	Add(SNew(SButton).Text(LOCTEXT("NewGame", "New game (1936)")).OnClicked_Lambda([this]() { Sim->NewGame(FString::Printf(TEXT("%lld"), (long long)FDateTime::UtcNow().GetTicks())); ClosePanel(); Toast(LOCTEXT("NewGameStarted", "A new game has begun: 1 January 1936")); return FReply::Handled(); }));
+	Add(SNew(SButton).IsFocusable(false).Text(LOCTEXT("NewGame", "New game (1936)")).OnClicked_Lambda([this]() { Sim->NewGame(FString::Printf(TEXT("%lld"), (long long)FDateTime::UtcNow().GetTicks())); ClosePanel(); Toast(LOCTEXT("NewGameStarted", "A new game has begun: 1 January 1936")); return FReply::Handled(); }));
 	ShowPanel(LOCTEXT("SavesTitle", "Saves"), Body);
 }
 
@@ -398,7 +399,7 @@ void SWarRoomHUD::OnSearchChanged(const FText& Text)
 		const FHit H = Hits[i];
 		SearchResults->AddSlot().AutoHeight()
 		[
-			SNew(SButton).ButtonStyle(FCoreStyle::Get(), "NoBorder").HAlign(HAlign_Left).OnClicked_Lambda([this, H]() {
+			SNew(SButton).IsFocusable(false).ButtonStyle(FCoreStyle::Get(), "NoBorder").HAlign(HAlign_Left).OnClicked_Lambda([this, H]() {
 				SearchResults->ClearChildren(); SearchBox->SetText(FText::GetEmpty());
 				if (H.Kind == TEXT("country")) OpenCountry(H.Tag); else if (H.Kind == TEXT("state")) OpenState(H.Id); else OpenProvince(H.Id);
 				return FReply::Handled(); })

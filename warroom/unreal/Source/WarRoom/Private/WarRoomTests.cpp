@@ -4,7 +4,7 @@
 #include "WarRoomSubsystem.h"
 #include "WarRoomSim/WarRoomSim.h"
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWarRoomClockTest, "WarRoom.Sim.Clock", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWarRoomClockTest, "WarRoom.Sim.Clock", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 bool FWarRoomClockTest::RunTest(const FString& Parameters)
 {
 	const warroom::Date D = warroom::HourToDate(0);
@@ -14,7 +14,7 @@ bool FWarRoomClockTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWarRoomDataTest, "WarRoom.Sim.RealData", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWarRoomDataTest, "WarRoom.Sim.RealData", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 bool FWarRoomDataTest::RunTest(const FString& Parameters)
 {
 	warroom::Data Data;
@@ -33,7 +33,7 @@ bool FWarRoomDataTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWarRoomDeterminismTest, "WarRoom.Sim.Determinism", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::ProductFilter)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FWarRoomDeterminismTest, "WarRoom.Sim.Determinism", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
 bool FWarRoomDeterminismTest::RunTest(const FString& Parameters)
 {
 	warroom::Data Data;
