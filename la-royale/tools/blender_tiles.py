@@ -287,8 +287,8 @@ def sidewalk(n):
     stains = n.smooth(0.72, 0.78, n.noise(10, detail=3, seed=15))
     gum = n.smooth(0.08, 0.04, n.voronoi(70, seed=3))
     tone = n.cell_random(n.math('MODULO', n.floor(pu), panels), n.math('MODULO', n.floor(pv), panels), 6)
-    c = n.add(0.86, n.mul(n.sub(tone, 0.5), 0.08), n.mul(n.sub(broom, 0.5), 0.12), n.mul(stains, -0.12), n.mul(gum, -0.3), n.mul(joint, -0.25))
-    h = n.add(n.mul(n.sub(1, joint), 0.8), n.mul(broom, 0.2))
+    c = n.add(0.86, n.mul(n.sub(tone, 0.5), 0.08), n.mul(n.sub(broom, 0.5), 0.04), n.mul(stains, -0.12), n.mul(gum, -0.3), n.mul(joint, -0.25))
+    h = n.add(n.mul(n.sub(1, joint), 0.95), n.mul(broom, 0.05))
     return grey(n, c), h, 1.8, 3.0
 
 
@@ -302,9 +302,9 @@ def asphalt(n):
     wander = n.mul(n.sub(n.noise(18, detail=3, seed=17), 0.5), 0.05)
     tar = n.mul(n.smooth(0.012, 0.0, n.math('ABSOLUTE', n.add(crack, wander))), n.smooth(0.45, 0.6, n.noise(3, detail=2, seed=18)))
     wear = n.noise(2.5, detail=3, seed=19)
-    c = n.add(0.82, n.mul(stone, 0.22), n.mul(n.sub(fine, 0.5), 0.2), n.mul(n.sub(wear, 0.5), 0.15), n.mul(tar, -0.55))
+    c = n.add(0.86, n.mul(stone, 0.1), n.mul(n.sub(fine, 0.5), 0.08), n.mul(n.sub(wear, 0.5), 0.15), n.mul(tar, -0.55))
     h = n.add(n.mul(stone, 0.5), n.mul(fine, 0.3), n.mul(tar, 0.25))
-    return grey(n, c), h, 2.0, 4.0
+    return grey(n, c), h, 0.7, 4.0
 
 
 def lawn(n):
