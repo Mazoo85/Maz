@@ -1,0 +1,253 @@
+{
+ "blender": "5.0.1",
+ "models": {
+  "division": {
+   "file": "division.glb",
+   "height": 0.23,
+   "radius": 0.5,
+   "pivot": "base",
+   "faces": 64,
+   "bytes": 14324
+  },
+  "division_armoured": {
+   "file": "division_armoured.glb",
+   "height": 0.235,
+   "radius": 0.5,
+   "pivot": "base",
+   "faces": 88,
+   "bytes": 20216
+  },
+  "division_motorised": {
+   "file": "division_motorised.glb",
+   "height": 0.25,
+   "radius": 0.5,
+   "pivot": "base",
+   "faces": 78,
+   "bytes": 16900
+  },
+  "division_special": {
+   "file": "division_special.glb",
+   "height": 0.23,
+   "radius": 0.5,
+   "pivot": "base",
+   "faces": 64,
+   "bytes": 14344
+  },
+  "fleet": {
+   "file": "fleet.glb",
+   "height": 0.235,
+   "radius": 0.5,
+   "pivot": "base",
+   "faces": 100,
+   "bytes": 21876
+  },
+  "air_wing": {
+   "file": "air_wing.glb",
+   "height": 0.25,
+   "radius": 0.5,
+   "pivot": "base",
+   "faces": 78,
+   "bytes": 16824
+  },
+  "infantry": {
+   "file": "infantry.glb",
+   "height": 0.545,
+   "radius": 0.1612,
+   "pivot": "base",
+   "faces": 152,
+   "bytes": 23436
+  },
+  "tank_light": {
+   "file": "tank_light.glb",
+   "height": 0.234,
+   "radius": 0.2925,
+   "pivot": "base",
+   "faces": 38,
+   "bytes": 8072
+  },
+  "tank_medium": {
+   "file": "tank_medium.glb",
+   "height": 0.268,
+   "radius": 0.3575,
+   "pivot": "base",
+   "faces": 38,
+   "bytes": 8072
+  },
+  "tank_heavy": {
+   "file": "tank_heavy.glb",
+   "height": 0.319,
+   "radius": 0.4225,
+   "pivot": "base",
+   "faces": 38,
+   "bytes": 8072
+  },
+  "truck": {
+   "file": "truck.glb",
+   "height": 0.28,
+   "radius": 0.38,
+   "pivot": "base",
+   "faces": 72,
+   "bytes": 14036
+  },
+  "artillery": {
+   "file": "artillery.glb",
+   "height": 0.2875,
+   "radius": 0.467,
+   "pivot": "base",
+   "faces": 56,
+   "bytes": 11500
+  },
+  "fighter": {
+   "file": "fighter.glb",
+   "height": 0.495,
+   "radius": 0.37,
+   "pivot": "base",
+   "faces": 45,
+   "bytes": 9652
+  },
+  "bomber": {
+   "file": "bomber.glb",
+   "height": 0.495,
+   "radius": 0.5,
+   "pivot": "base",
+   "faces": 65,
+   "bytes": 13048
+  },
+  "destroyer": {
+   "file": "destroyer.glb",
+   "height": 0.24,
+   "radius": 0.342,
+   "pivot": "base",
+   "faces": 43,
+   "bytes": 8692
+  },
+  "cruiser": {
+   "file": "cruiser.glb",
+   "height": 0.24,
+   "radius": 0.456,
+   "pivot": "base",
+   "faces": 61,
+   "bytes": 11664
+  },
+  "battleship": {
+   "file": "battleship.glb",
+   "height": 0.24,
+   "radius": 0.57,
+   "pivot": "base",
+   "faces": 79,
+   "bytes": 14648
+  },
+  "carrier": {
+   "file": "carrier.glb",
+   "height": 0.16,
+   "radius": 0.57,
+   "pivot": "base",
+   "faces": 23,
+   "bytes": 5272
+  },
+  "submarine": {
+   "file": "submarine.glb",
+   "height": 0.125,
+   "radius": 0.285,
+   "pivot": "base",
+   "faces": 17,
+   "bytes": 4428
+  },
+  "convoy": {
+   "file": "convoy.glb",
+   "height": 0.22,
+   "radius": 0.3135,
+   "pivot": "base",
+   "faces": 25,
+   "bytes": 5704
+  },
+  "factory": {
+   "file": "factory.glb",
+   "height": 0.55,
+   "radius": 0.25,
+   "pivot": "base",
+   "faces": 31,
+   "bytes": 6460
+  },
+  "dockyard": {
+   "file": "dockyard.glb",
+   "height": 0.575,
+   "radius": 0.3,
+   "pivot": "base",
+   "faces": 18,
+   "bytes": 4620
+  },
+  "airbase": {
+   "file": "airbase.glb",
+   "height": 0.26,
+   "radius": 0.3,
+   "pivot": "base",
+   "faces": 42,
+   "bytes": 8660
+  },
+  "naval_base": {
+   "file": "naval_base.glb",
+   "height": 0.38,
+   "radius": 0.255,
+   "pivot": "base",
+   "faces": 31,
+   "bytes": 7468
+  },
+  "fort": {
+   "file": "fort.glb",
+   "height": 0.28,
+   "radius": 0.28,
+   "pivot": "base",
+   "faces": 58,
+   "bytes": 10552
+  },
+  "radar": {
+   "file": "radar.glb",
+   "height": 0.558,
+   "radius": 0.22,
+   "pivot": "base",
+   "faces": 26,
+   "bytes": 6836
+  },
+  "supply_hub": {
+   "file": "supply_hub.glb",
+   "height": 0.32,
+   "radius": 0.35,
+   "pivot": "base",
+   "faces": 17,
+   "bytes": 5092
+  },
+  "capital": {
+   "file": "capital.glb",
+   "height": 0.62,
+   "radius": 0.26,
+   "pivot": "base",
+   "faces": 105,
+   "bytes": 18372
+  },
+  "victory_point": {
+   "file": "victory_point.glb",
+   "height": 0.5,
+   "radius": 0.23,
+   "pivot": "base",
+   "faces": 14,
+   "bytes": 4212
+  },
+  "battle": {
+   "file": "battle.glb",
+   "height": 0.28,
+   "radius": 0.2076,
+   "pivot": "base",
+   "faces": 52,
+   "bytes": 8788
+  },
+  "nuke": {
+   "file": "nuke.glb",
+   "height": 0.65,
+   "radius": 0.2,
+   "pivot": "base",
+   "faces": 70,
+   "bytes": 11472
+  }
+ }
+}

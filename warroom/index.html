@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>War Room 1936</title>
+<meta name="description" content="A grand-strategy game of the Second World War, played on a globe in your browser.">
+<meta name="theme-color" content="#1b2430">
+<link rel="stylesheet" href="./css/warroom.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.js",
+    "three/addons/": "./vendor/three/"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="globe" aria-label="The world map"></canvas>
+
+<header id="topbar" hidden>
+  <div class="who">
+    <span id="player-flag" class="flag" aria-hidden="true"></span>
+    <button id="player-name" class="linkish" title="Country overview">Observer</button>
+  </div>
+  <div class="clock">
+    <span id="date">1 Jan 1936, 00:00</span>
+    <div class="speeds" role="group" aria-label="Game speed">
+      <button data-speed="0" class="speed on" title="Pause (space)">❚❚</button>
+      <button data-speed="1" class="speed" title="Speed 1">1</button>
+      <button data-speed="2" class="speed" title="Speed 2">2</button>
+      <button data-speed="3" class="speed" title="Speed 3">3</button>
+      <button data-speed="4" class="speed" title="Speed 4">4</button>
+      <button data-speed="5" class="speed" title="Speed 5">5</button>
+    </div>
+  </div>
+  <div class="tools">
+    <input id="search" type="search" placeholder="Find a place" aria-label="Find a place" autocomplete="off">
+    <button id="saves-button" title="Save and load">Saves</button>
+  </div>
+</header>
+
+<nav id="mapmodes" aria-label="Map modes" hidden>
+  <button data-mode="political" class="on">Political</button>
+  <button data-mode="terrain">Terrain</button>
+  <button data-mode="states">States</button>
+  <button data-mode="regions">Regions</button>
+  <button data-mode="weather">Weather</button>
+  <button data-mode="vp">Victory points</button>
+</nav>
+
+<aside id="panel" hidden aria-live="polite"></aside>
+<ul id="search-results" hidden></ul>
+<div id="boot" role="status">Setting up the war room…</div>
+<div id="toast" hidden></div>
+
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>

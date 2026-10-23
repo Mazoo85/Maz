@@ -1,0 +1,5 @@
+numpy>=1.26
+pillow>=10
+scipy>=1.11
+netCDF4>=1.6
+kgcpy>=1.1

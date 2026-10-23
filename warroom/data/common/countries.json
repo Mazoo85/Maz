@@ -1,0 +1,1484 @@
+[
+ {
+  "tag": "GER",
+  "name": "Germany",
+  "adjective": "German",
+  "color": "#5e5e60",
+  "ideology": "fascist",
+  "leader": "Adolf Hitler",
+  "capital_name": "Berlin",
+  "flag": {
+   "kind": "plain",
+   "colors": [
+    "#c00000"
+   ]
+  },
+  "capital_state": 212,
+  "capital_province": 2076
+ },
+ {
+  "tag": "ENG",
+  "name": "United Kingdom",
+  "adjective": "British",
+  "color": "#c76b7c",
+  "ideology": "democratic",
+  "leader": "Stanley Baldwin",
+  "capital_name": "London",
+  "flag": {
+   "kind": "cross",
+   "colors": [
+    "#012169",
+    "#ffffff",
+    "#c8102e"
+   ]
+  },
+  "capital_state": 1180,
+  "capital_province": 11226
+ },
+ {
+  "tag": "FRA",
+  "name": "France",
+  "adjective": "French",
+  "color": "#4b6fd0",
+  "ideology": "democratic",
+  "leader": "Albert Lebrun",
+  "capital_name": "Paris",
+  "flag": {
+   "kind": "vtricolor",
+   "colors": [
+    "#002395",
+    "#ffffff",
+    "#ed2939"
+   ]
+  },
+  "capital_state": 1296,
+  "capital_province": 12251
+ },
+ {
+  "tag": "ITA",
+  "name": "Italy",
+  "adjective": "Italian",
+  "color": "#4e9d55",
+  "ideology": "fascist",
+  "leader": "Benito Mussolini",
+  "capital_name": "Rome",
+  "flag": {
+   "kind": "vtricolor",
+   "colors": [
+    "#009246",
+    "#ffffff",
+    "#ce2b37"
+   ]
+  },
+  "capital_state": 893,
+  "capital_province": 9221
+ },
+ {
+  "tag": "SOV",
+  "name": "Soviet Union",
+  "adjective": "Soviet",
+  "color": "#b3272d",
+  "ideology": "communist",
+  "leader": "Joseph Stalin",
+  "capital_name": "Moscow",
+  "flag": {
+   "kind": "plain",
+   "colors": [
+    "#cc0000"
+   ]
+  },
+  "capital_state": 224,
+  "capital_province": 2149
+ },
+ {
+  "tag": "JAP",
+  "name": "Japan",
+  "adjective": "Japanese",
+  "color": "#d99a5b",
+  "ideology": "non_aligned",
+  "leader": "Hirohito",
+  "capital_name": "Tokyo",
+  "flag": {
+   "kind": "disc",
+   "colors": [
+    "#ffffff",
+    "#bc002d"
+   ]
+  },
+  "capital_state": 797,
+  "capital_province": 8143
+ },
+ {
+  "tag": "USA",
+  "name": "United States",
+  "adjective": "American",
+  "color": "#3f7fbf",
+  "ideology": "democratic",
+  "leader": "Franklin D. Roosevelt",
+  "capital_name": "Washington",
+  "flag": {
+   "kind": "canton",
+   "colors": [
+    "#b22234",
+    "#ffffff",
+    "#3c3b6e"
+   ]
+  },
+  "capital_state": 750,
+  "capital_province": 7781
+ },
+ {
+  "tag": "POL",
+  "name": "Poland",
+  "adjective": "Polish",
+  "color": "#c04a6a",
+  "ideology": "non_aligned",
+  "leader": "Ignacy Mościcki",
+  "capital_name": "Warsaw",
+  "flag": {
+   "kind": "bicolor",
+   "colors": [
+    "#ffffff",
+    "#dc143c"
+   ]
+  },
+  "capital_state": 1227,
+  "capital_province": 11672
+ },
+ {
+  "tag": "CZE",
+  "name": "Czechoslovakia",
+  "adjective": "Czechoslovak",
+  "color": "#5a7fa8",
+  "ideology": "democratic",
+  "leader": "Edvard Beneš",
+  "capital_name": "Prague",
+  "flag": {
+   "kind": "bicolor",
+   "colors": [
+    "#ffffff",
+    "#d7141a"
+   ]
+  },
+  "capital_state": 1285,
+  "capital_province": 12179
+ },
+ {
+  "tag": "AUS",
+  "name": "Austria",
+  "adjective": "Austrian",
+  "color": "#d8d0c0",
+  "ideology": "non_aligned",
+  "leader": "Kurt Schuschnigg",
+  "capital_name": "Vienna",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#ed2939",
+    "#ffffff",
+    "#ed2939"
+   ]
+  },
+  "capital_state": 118,
+  "capital_province": 1281
+ },
+ {
+  "tag": "HUN",
+  "name": "Hungary",
+  "adjective": "Hungarian",
+  "color": "#9b7c4f",
+  "ideology": "non_aligned",
+  "leader": "Miklós Horthy",
+  "capital_name": "Budapest",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#ce2939",
+    "#ffffff",
+    "#477050"
+   ]
+  },
+  "capital_state": 1264,
+  "capital_province": 11986
+ },
+ {
+  "tag": "ROM",
+  "name": "Romania",
+  "adjective": "Romanian",
+  "color": "#c9b14a",
+  "ideology": "non_aligned",
+  "leader": "Carol II",
+  "capital_name": "Bucharest",
+  "flag": {
+   "kind": "vtricolor",
+   "colors": [
+    "#002b7f",
+    "#fcd116",
+    "#ce1126"
+   ]
+  },
+  "capital_state": 214,
+  "capital_province": 2087
+ },
+ {
+  "tag": "YUG",
+  "name": "Yugoslavia",
+  "adjective": "Yugoslav",
+  "color": "#7a6fb0",
+  "ideology": "non_aligned",
+  "leader": "Prince Paul",
+  "capital_name": "Belgrade",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#0c4076",
+    "#ffffff",
+    "#c6363c"
+   ]
+  },
+  "capital_state": 580,
+  "capital_province": 6109
+ },
+ {
+  "tag": "BUL",
+  "name": "Bulgaria",
+  "adjective": "Bulgarian",
+  "color": "#6e9b6a",
+  "ideology": "non_aligned",
+  "leader": "Boris III",
+  "capital_name": "Sofia",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#ffffff",
+    "#00966e",
+    "#d62612"
+   ]
+  },
+  "capital_state": 187,
+  "capital_province": 1857
+ },
+ {
+  "tag": "GRE",
+  "name": "Greece",
+  "adjective": "Greek",
+  "color": "#6fa3d6",
+  "ideology": "non_aligned",
+  "leader": "George II",
+  "capital_name": "Athens",
+  "flag": {
+   "kind": "stripes",
+   "colors": [
+    "#0d5eaf",
+    "#ffffff"
+   ]
+  },
+  "capital_state": 890,
+  "capital_province": 9204
+ },
+ {
+  "tag": "ALB",
+  "name": "Albania",
+  "adjective": "Albanian",
+  "color": "#b05a4a",
+  "ideology": "non_aligned",
+  "leader": "Zog I",
+  "capital_name": "Tirana",
+  "flag": {
+   "kind": "plain",
+   "colors": [
+    "#e41e20"
+   ]
+  },
+  "capital_state": 86,
+  "capital_province": 915
+ },
+ {
+  "tag": "TUR",
+  "name": "Turkey",
+  "adjective": "Turkish",
+  "color": "#8c6a8a",
+  "ideology": "non_aligned",
+  "leader": "Mustafa Kemal Atatürk",
+  "capital_name": "Ankara",
+  "flag": {
+   "kind": "disc",
+   "colors": [
+    "#e30a17",
+    "#ffffff"
+   ]
+  },
+  "capital_state": 1044,
+  "capital_province": 9849
+ },
+ {
+  "tag": "SPA",
+  "name": "Spain",
+  "adjective": "Spanish",
+  "color": "#d9b25e",
+  "ideology": "democratic",
+  "leader": "Niceto Alcalá-Zamora",
+  "capital_name": "Madrid",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#aa151b",
+    "#f1bf00",
+    "#aa151b"
+   ]
+  },
+  "capital_state": 1303,
+  "capital_province": 12302
+ },
+ {
+  "tag": "POR",
+  "name": "Portugal",
+  "adjective": "Portuguese",
+  "color": "#5f8f5a",
+  "ideology": "non_aligned",
+  "leader": "António de Oliveira Salazar",
+  "capital_name": "Lisbon",
+  "flag": {
+   "kind": "vbicolor",
+   "colors": [
+    "#006600",
+    "#ff0000"
+   ]
+  },
+  "capital_state": 900,
+  "capital_province": 9288
+ },
+ {
+  "tag": "SWI",
+  "name": "Switzerland",
+  "adjective": "Swiss",
+  "color": "#d25a5a",
+  "ideology": "democratic",
+  "leader": "Albert Meyer",
+  "capital_name": "Bern",
+  "flag": {
+   "kind": "plain",
+   "colors": [
+    "#d52b1e"
+   ]
+  },
+  "capital_state": 207,
+  "capital_province": 2039
+ },
+ {
+  "tag": "BEL",
+  "name": "Belgium",
+  "adjective": "Belgian",
+  "color": "#d6c35a",
+  "ideology": "democratic",
+  "leader": "Leopold III",
+  "capital_name": "Brussels",
+  "flag": {
+   "kind": "vtricolor",
+   "colors": [
+    "#000000",
+    "#fae042",
+    "#ed2939"
+   ]
+  },
+  "capital_state": 578,
+  "capital_province": 6096
+ },
+ {
+  "tag": "HOL",
+  "name": "Netherlands",
+  "adjective": "Dutch",
+  "color": "#e08a3c",
+  "ideology": "democratic",
+  "leader": "Wilhelmina",
+  "capital_name": "Amsterdam",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#ae1c28",
+    "#ffffff",
+    "#21468b"
+   ]
+  },
+  "capital_state": 905,
+  "capital_province": 9329
+ },
+ {
+  "tag": "LUX",
+  "name": "Luxembourg",
+  "adjective": "Luxembourgish",
+  "color": "#8fb6d6",
+  "ideology": "democratic",
+  "leader": "Charlotte",
+  "capital_name": "Luxembourg",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#ed2939",
+    "#ffffff",
+    "#00a1de"
+   ]
+  },
+  "capital_state": 83,
+  "capital_province": 888
+ },
+ {
+  "tag": "DEN",
+  "name": "Denmark",
+  "adjective": "Danish",
+  "color": "#c86a6a",
+  "ideology": "democratic",
+  "leader": "Christian X",
+  "capital_name": "Copenhagen",
+  "flag": {
+   "kind": "cross",
+   "colors": [
+    "#c60c30",
+    "#ffffff",
+    "#c60c30"
+   ]
+  },
+  "capital_state": 968,
+  "capital_province": 9562
+ },
+ {
+  "tag": "NOR",
+  "name": "Norway",
+  "adjective": "Norwegian",
+  "color": "#5a7dbf",
+  "ideology": "democratic",
+  "leader": "Haakon VII",
+  "capital_name": "Oslo",
+  "flag": {
+   "kind": "cross",
+   "colors": [
+    "#ba0c2f",
+    "#ffffff",
+    "#00205b"
+   ]
+  },
+  "capital_state": 879,
+  "capital_province": 9051
+ },
+ {
+  "tag": "SWE",
+  "name": "Sweden",
+  "adjective": "Swedish",
+  "color": "#5fa0c8",
+  "ideology": "democratic",
+  "leader": "Gustaf V",
+  "capital_name": "Stockholm",
+  "flag": {
+   "kind": "cross",
+   "colors": [
+    "#006aa7",
+    "#fecc00",
+    "#fecc00"
+   ]
+  },
+  "capital_state": 878,
+  "capital_province": 9030
+ },
+ {
+  "tag": "FIN",
+  "name": "Finland",
+  "adjective": "Finnish",
+  "color": "#8fa8c8",
+  "ideology": "democratic",
+  "leader": "Pehr Evind Svinhufvud",
+  "capital_name": "Helsinki",
+  "flag": {
+   "kind": "cross",
+   "colors": [
+    "#ffffff",
+    "#003580",
+    "#003580"
+   ]
+  },
+  "capital_state": 877,
+  "capital_province": 9010
+ },
+ {
+  "tag": "EST",
+  "name": "Estonia",
+  "adjective": "Estonian",
+  "color": "#6a8fb5",
+  "ideology": "non_aligned",
+  "leader": "Konstantin Päts",
+  "capital_name": "Tallinn",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#0072ce",
+    "#000000",
+    "#ffffff"
+   ]
+  },
+  "capital_state": 874,
+  "capital_province": 8998
+ },
+ {
+  "tag": "LAT",
+  "name": "Latvia",
+  "adjective": "Latvian",
+  "color": "#9c5a5a",
+  "ideology": "non_aligned",
+  "leader": "Kārlis Ulmanis",
+  "capital_name": "Riga",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#9e3039",
+    "#ffffff",
+    "#9e3039"
+   ]
+  },
+  "capital_state": 873,
+  "capital_province": 8990
+ },
+ {
+  "tag": "LIT",
+  "name": "Lithuania",
+  "adjective": "Lithuanian",
+  "color": "#b9a04a",
+  "ideology": "non_aligned",
+  "leader": "Antanas Smetona",
+  "capital_name": "Kaunas",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#fdb913",
+    "#006a44",
+    "#c1272d"
+   ]
+  },
+  "capital_state": 1082,
+  "capital_province": 10237
+ },
+ {
+  "tag": "IRE",
+  "name": "Ireland",
+  "adjective": "Irish",
+  "color": "#4f9a6a",
+  "ideology": "democratic",
+  "leader": "Éamon de Valera",
+  "capital_name": "Dublin",
+  "flag": {
+   "kind": "vtricolor",
+   "colors": [
+    "#169b62",
+    "#ffffff",
+    "#ff883e"
+   ]
+  },
+  "capital_state": 858,
+  "capital_province": 8747
+ },
+ {
+  "tag": "CHI",
+  "name": "China",
+  "adjective": "Chinese",
+  "color": "#7f9fbf",
+  "ideology": "non_aligned",
+  "leader": "Chiang Kai-shek",
+  "capital_name": "Nanjing",
+  "flag": {
+   "kind": "canton",
+   "colors": [
+    "#de2910",
+    "#ffffff",
+    "#000095"
+   ]
+  },
+  "capital_state": 779,
+  "capital_province": 8000
+ },
+ {
+  "tag": "PRC",
+  "name": "Communist China",
+  "adjective": "Chinese Communist",
+  "color": "#c4453f",
+  "ideology": "communist",
+  "leader": "Mao Zedong",
+  "capital_name": "Yan'an",
+  "flag": {
+   "kind": "plain",
+   "colors": [
+    "#de2910"
+   ]
+  },
+  "capital_state": 1126,
+  "capital_province": 10646
+ },
+ {
+  "tag": "MAN",
+  "name": "Manchukuo",
+  "adjective": "Manchurian",
+  "color": "#d6c35f",
+  "ideology": "non_aligned",
+  "leader": "Puyi",
+  "capital_name": "Hsinking",
+  "flag": {
+   "kind": "canton",
+   "colors": [
+    "#f5d33b",
+    "#000000",
+    "#c8102e"
+   ]
+  },
+  "capital_state": 248,
+  "capital_province": 2463
+ },
+ {
+  "tag": "SHX",
+  "name": "Shanxi",
+  "adjective": "Shanxi",
+  "color": "#a08f6a",
+  "ideology": "non_aligned",
+  "leader": "Yan Xishan",
+  "capital_name": "Taiyuan",
+  "flag": {
+   "kind": "canton",
+   "colors": [
+    "#de2910",
+    "#ffffff",
+    "#000095"
+   ]
+  },
+  "capital_state": 1131,
+  "capital_province": 10709
+ },
+ {
+  "tag": "GXC",
+  "name": "Guangxi Clique",
+  "adjective": "Guangxi",
+  "color": "#8aa07a",
+  "ideology": "non_aligned",
+  "leader": "Li Zongren",
+  "capital_name": "Guilin",
+  "flag": {
+   "kind": "canton",
+   "colors": [
+    "#de2910",
+    "#ffffff",
+    "#000095"
+   ]
+  },
+  "capital_state": 320,
+  "capital_province": 3116
+ },
+ {
+  "tag": "YUN",
+  "name": "Yunnan",
+  "adjective": "Yunnanese",
+  "color": "#b08a5a",
+  "ideology": "non_aligned",
+  "leader": "Long Yun",
+  "capital_name": "Kunming",
+  "flag": {
+   "kind": "canton",
+   "colors": [
+    "#de2910",
+    "#ffffff",
+    "#000095"
+   ]
+  },
+  "capital_state": 90,
+  "capital_province": 954
+ },
+ {
+  "tag": "XSM",
+  "name": "Xibei San Ma",
+  "adjective": "Ma",
+  "color": "#b7a37a",
+  "ideology": "non_aligned",
+  "leader": "Ma Bufang",
+  "capital_name": "Xining",
+  "flag": {
+   "kind": "canton",
+   "colors": [
+    "#de2910",
+    "#ffffff",
+    "#000095"
+   ]
+  },
+  "capital_state": 1130,
+  "capital_province": 10687
+ },
+ {
+  "tag": "SIK",
+  "name": "Sinkiang",
+  "adjective": "Sinkiang",
+  "color": "#9a8fa0",
+  "ideology": "non_aligned",
+  "leader": "Sheng Shicai",
+  "capital_name": "Urumqi",
+  "flag": {
+   "kind": "canton",
+   "colors": [
+    "#de2910",
+    "#ffffff",
+    "#000095"
+   ]
+  },
+  "capital_state": 12,
+  "capital_province": 131
+ },
+ {
+  "tag": "TIB",
+  "name": "Tibet",
+  "adjective": "Tibetan",
+  "color": "#c99a7a",
+  "ideology": "non_aligned",
+  "leader": "Reting Rinpoche",
+  "capital_name": "Lhasa",
+  "flag": {
+   "kind": "stripes",
+   "colors": [
+    "#c8102e",
+    "#003f87"
+   ]
+  },
+  "capital_state": 17,
+  "capital_province": 239
+ },
+ {
+  "tag": "MON",
+  "name": "Mongolia",
+  "adjective": "Mongolian",
+  "color": "#c46a4a",
+  "ideology": "communist",
+  "leader": "Khorloogiin Choibalsan",
+  "capital_name": "Ulaanbaatar",
+  "flag": {
+   "kind": "plain",
+   "colors": [
+    "#c4272f"
+   ]
+  },
+  "capital_state": 1233,
+  "capital_province": 11721
+ },
+ {
+  "tag": "TAN",
+  "name": "Tannu Tuva",
+  "adjective": "Tuvan",
+  "color": "#d08a8a",
+  "ideology": "communist",
+  "leader": "Salchak Toka",
+  "capital_name": "Kyzyl",
+  "flag": {
+   "kind": "plain",
+   "colors": [
+    "#cc3333"
+   ]
+  },
+  "capital_state": 236,
+  "capital_province": 2275
+ },
+ {
+  "tag": "PHI",
+  "name": "Philippines",
+  "adjective": "Filipino",
+  "color": "#6a8fd0",
+  "ideology": "democratic",
+  "leader": "Manuel Quezon",
+  "capital_name": "Manila",
+  "flag": {
+   "kind": "bicolor",
+   "colors": [
+    "#0038a8",
+    "#ce1126"
+   ]
+  },
+  "capital_state": 704,
+  "capital_province": 7401
+ },
+ {
+  "tag": "SIA",
+  "name": "Siam",
+  "adjective": "Siamese",
+  "color": "#9a6aa0",
+  "ideology": "non_aligned",
+  "leader": "Phraya Phahon",
+  "capital_name": "Bangkok",
+  "flag": {
+   "kind": "stripes",
+   "colors": [
+    "#a51931",
+    "#ffffff",
+    "#2d2a4a"
+   ]
+  },
+  "capital_state": 820,
+  "capital_province": 8366
+ },
+ {
+  "tag": "RAJ",
+  "name": "British Raj",
+  "adjective": "Indian",
+  "color": "#d08a9a",
+  "ideology": "non_aligned",
+  "leader": "Lord Linlithgow",
+  "capital_name": "Delhi",
+  "flag": {
+   "kind": "canton",
+   "colors": [
+    "#c8102e",
+    "#ffffff",
+    "#012169"
+   ]
+  },
+  "capital_state": 1050,
+  "capital_province": 9892
+ },
+ {
+  "tag": "NEP",
+  "name": "Nepal",
+  "adjective": "Nepali",
+  "color": "#c05a5a",
+  "ideology": "non_aligned",
+  "leader": "Tribhuvan",
+  "capital_name": "Kathmandu",
+  "flag": {
+   "kind": "plain",
+   "colors": [
+    "#dc143c"
+   ]
+  },
+  "capital_state": 272,
+  "capital_province": 2651
+ },
+ {
+  "tag": "BHU",
+  "name": "Bhutan",
+  "adjective": "Bhutanese",
+  "color": "#d8a050",
+  "ideology": "non_aligned",
+  "leader": "Jigme Wangchuck",
+  "capital_name": "Thimphu",
+  "flag": {
+   "kind": "vbicolor",
+   "colors": [
+    "#ffd520",
+    "#ff4e12"
+   ]
+  },
+  "capital_state": 566,
+  "capital_province": 6001
+ },
+ {
+  "tag": "AFG",
+  "name": "Afghanistan",
+  "adjective": "Afghan",
+  "color": "#6a7a5a",
+  "ideology": "non_aligned",
+  "leader": "Mohammed Zahir Shah",
+  "capital_name": "Kabul",
+  "flag": {
+   "kind": "vtricolor",
+   "colors": [
+    "#000000",
+    "#d32011",
+    "#007a36"
+   ]
+  },
+  "capital_state": 1175,
+  "capital_province": 11175
+ },
+ {
+  "tag": "PER",
+  "name": "Persia",
+  "adjective": "Persian",
+  "color": "#9aa85a",
+  "ideology": "non_aligned",
+  "leader": "Reza Shah Pahlavi",
+  "capital_name": "Tehran",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#239f40",
+    "#ffffff",
+    "#da0000"
+   ]
+  },
+  "capital_state": 945,
+  "capital_province": 9512
+ },
+ {
+  "tag": "IRQ",
+  "name": "Iraq",
+  "adjective": "Iraqi",
+  "color": "#a0845a",
+  "ideology": "non_aligned",
+  "leader": "Ghazi I",
+  "capital_name": "Baghdad",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#000000",
+    "#ffffff",
+    "#007a3d"
+   ]
+  },
+  "capital_state": 269,
+  "capital_province": 2630
+ },
+ {
+  "tag": "SAU",
+  "name": "Saudi Arabia",
+  "adjective": "Saudi",
+  "color": "#5f9a5f",
+  "ideology": "non_aligned",
+  "leader": "Abdulaziz Ibn Saud",
+  "capital_name": "Riyadh",
+  "flag": {
+   "kind": "plain",
+   "colors": [
+    "#006c35"
+   ]
+  },
+  "capital_state": 1075,
+  "capital_province": 10184
+ },
+ {
+  "tag": "YEM",
+  "name": "Yemen",
+  "adjective": "Yemeni",
+  "color": "#b07a4a",
+  "ideology": "non_aligned",
+  "leader": "Imam Yahya",
+  "capital_name": "Sana'a",
+  "flag": {
+   "kind": "plain",
+   "colors": [
+    "#c8102e"
+   ]
+  },
+  "capital_state": 1035,
+  "capital_province": 9766
+ },
+ {
+  "tag": "OMA",
+  "name": "Oman",
+  "adjective": "Omani",
+  "color": "#b89a6a",
+  "ideology": "non_aligned",
+  "leader": "Said bin Taimur",
+  "capital_name": "Muscat",
+  "flag": {
+   "kind": "plain",
+   "colors": [
+    "#c8102e"
+   ]
+  },
+  "capital_state": 726,
+  "capital_province": 7567
+ },
+ {
+  "tag": "EGY",
+  "name": "Egypt",
+  "adjective": "Egyptian",
+  "color": "#c9c070",
+  "ideology": "non_aligned",
+  "leader": "Fuad I",
+  "capital_name": "Cairo",
+  "flag": {
+   "kind": "plain",
+   "colors": [
+    "#1a7a3c"
+   ]
+  },
+  "capital_state": 719,
+  "capital_province": 7507
+ },
+ {
+  "tag": "ETH",
+  "name": "Ethiopia",
+  "adjective": "Ethiopian",
+  "color": "#7a9a5a",
+  "ideology": "non_aligned",
+  "leader": "Haile Selassie",
+  "capital_name": "Addis Ababa",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#078930",
+    "#fcdd09",
+    "#da121a"
+   ]
+  },
+  "capital_state": 1266,
+  "capital_province": 12002
+ },
+ {
+  "tag": "LIB",
+  "name": "Liberia",
+  "adjective": "Liberian",
+  "color": "#8a5a8a",
+  "ideology": "democratic",
+  "leader": "Edwin Barclay",
+  "capital_name": "Monrovia",
+  "flag": {
+   "kind": "canton",
+   "colors": [
+    "#bf0a30",
+    "#ffffff",
+    "#002868"
+   ]
+  },
+  "capital_state": 701,
+  "capital_province": 7363
+ },
+ {
+  "tag": "SAF",
+  "name": "South Africa",
+  "adjective": "South African",
+  "color": "#d0a050",
+  "ideology": "democratic",
+  "leader": "J. B. M. Hertzog",
+  "capital_name": "Pretoria",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#ff9b00",
+    "#ffffff",
+    "#002395"
+   ]
+  },
+  "capital_state": 1073,
+  "capital_province": 10154
+ },
+ {
+  "tag": "CAN",
+  "name": "Canada",
+  "adjective": "Canadian",
+  "color": "#d08080",
+  "ideology": "democratic",
+  "leader": "William Lyon Mackenzie King",
+  "capital_name": "Ottawa",
+  "flag": {
+   "kind": "canton",
+   "colors": [
+    "#c8102e",
+    "#ffffff",
+    "#012169"
+   ]
+  },
+  "capital_state": 346,
+  "capital_province": 3445
+ },
+ {
+  "tag": "AST",
+  "name": "Australia",
+  "adjective": "Australian",
+  "color": "#c88a9a",
+  "ideology": "democratic",
+  "leader": "Joseph Lyons",
+  "capital_name": "Canberra",
+  "flag": {
+   "kind": "canton",
+   "colors": [
+    "#012169",
+    "#ffffff",
+    "#c8102e"
+   ]
+  },
+  "capital_state": 622,
+  "capital_province": 6732
+ },
+ {
+  "tag": "NZL",
+  "name": "New Zealand",
+  "adjective": "New Zealander",
+  "color": "#c8a0b0",
+  "ideology": "democratic",
+  "leader": "Michael Joseph Savage",
+  "capital_name": "Wellington",
+  "flag": {
+   "kind": "canton",
+   "colors": [
+    "#012169",
+    "#ffffff",
+    "#c8102e"
+   ]
+  },
+  "capital_state": 1031,
+  "capital_province": 9746
+ },
+ {
+  "tag": "MEX",
+  "name": "Mexico",
+  "adjective": "Mexican",
+  "color": "#6a9a6a",
+  "ideology": "democratic",
+  "leader": "Lázaro Cárdenas",
+  "capital_name": "Mexico City",
+  "flag": {
+   "kind": "vtricolor",
+   "colors": [
+    "#006847",
+    "#ffffff",
+    "#ce1126"
+   ]
+  },
+  "capital_state": 1237,
+  "capital_province": 11747
+ },
+ {
+  "tag": "GUA",
+  "name": "Guatemala",
+  "adjective": "Guatemalan",
+  "color": "#7fa8c8",
+  "ideology": "non_aligned",
+  "leader": "Jorge Ubico",
+  "capital_name": "Guatemala City",
+  "flag": {
+   "kind": "vtricolor",
+   "colors": [
+    "#4997d0",
+    "#ffffff",
+    "#4997d0"
+   ]
+  },
+  "capital_state": 1096,
+  "capital_province": 10346
+ },
+ {
+  "tag": "HON",
+  "name": "Honduras",
+  "adjective": "Honduran",
+  "color": "#6a8fb8",
+  "ideology": "non_aligned",
+  "leader": "Tiburcio Carías Andino",
+  "capital_name": "Tegucigalpa",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#0073cf",
+    "#ffffff",
+    "#0073cf"
+   ]
+  },
+  "capital_state": 1095,
+  "capital_province": 10342
+ },
+ {
+  "tag": "ELS",
+  "name": "El Salvador",
+  "adjective": "Salvadoran",
+  "color": "#5a7fb0",
+  "ideology": "non_aligned",
+  "leader": "Maximiliano Hernández Martínez",
+  "capital_name": "San Salvador",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#0f47af",
+    "#ffffff",
+    "#0f47af"
+   ]
+  },
+  "capital_state": 766,
+  "capital_province": 7896
+ },
+ {
+  "tag": "NIC",
+  "name": "Nicaragua",
+  "adjective": "Nicaraguan",
+  "color": "#6a9fc0",
+  "ideology": "non_aligned",
+  "leader": "Juan Bautista Sacasa",
+  "capital_name": "Managua",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#0067c6",
+    "#ffffff",
+    "#0067c6"
+   ]
+  },
+  "capital_state": 767,
+  "capital_province": 7900
+ },
+ {
+  "tag": "COS",
+  "name": "Costa Rica",
+  "adjective": "Costa Rican",
+  "color": "#8fa8c0",
+  "ideology": "democratic",
+  "leader": "León Cortés Castro",
+  "capital_name": "San José",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#002b7f",
+    "#ffffff",
+    "#ce1126"
+   ]
+  },
+  "capital_state": 1101,
+  "capital_province": 10389
+ },
+ {
+  "tag": "PAN",
+  "name": "Panama",
+  "adjective": "Panamanian",
+  "color": "#9fb0c8",
+  "ideology": "democratic",
+  "leader": "Harmodio Arias Madrid",
+  "capital_name": "Panama City",
+  "flag": {
+   "kind": "bicolor",
+   "colors": [
+    "#ffffff",
+    "#da121a"
+   ]
+  },
+  "capital_state": 668,
+  "capital_province": 7122
+ },
+ {
+  "tag": "CUB",
+  "name": "Cuba",
+  "adjective": "Cuban",
+  "color": "#6fa0d0",
+  "ideology": "democratic",
+  "leader": "José Agripino Barnet",
+  "capital_name": "Havana",
+  "flag": {
+   "kind": "stripes",
+   "colors": [
+    "#002a8f",
+    "#ffffff"
+   ]
+  },
+  "capital_state": 1011,
+  "capital_province": 9688
+ },
+ {
+  "tag": "HAI",
+  "name": "Haiti",
+  "adjective": "Haitian",
+  "color": "#5a6fb0",
+  "ideology": "non_aligned",
+  "leader": "Sténio Vincent",
+  "capital_name": "Port-au-Prince",
+  "flag": {
+   "kind": "bicolor",
+   "colors": [
+    "#00209f",
+    "#d21034"
+   ]
+  },
+  "capital_state": 169,
+  "capital_province": 1701
+ },
+ {
+  "tag": "DOM",
+  "name": "Dominican Republic",
+  "adjective": "Dominican",
+  "color": "#6a7fc0",
+  "ideology": "non_aligned",
+  "leader": "Rafael Trujillo",
+  "capital_name": "Santo Domingo",
+  "flag": {
+   "kind": "cross",
+   "colors": [
+    "#002d62",
+    "#ffffff",
+    "#ce1126"
+   ]
+  },
+  "capital_state": 939,
+  "capital_province": 9478
+ },
+ {
+  "tag": "VEN",
+  "name": "Venezuela",
+  "adjective": "Venezuelan",
+  "color": "#c8b060",
+  "ideology": "non_aligned",
+  "leader": "Eleazar López Contreras",
+  "capital_name": "Caracas",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#ffcc00",
+    "#00247d",
+    "#cf142b"
+   ]
+  },
+  "capital_state": 683,
+  "capital_province": 7226
+ },
+ {
+  "tag": "COL",
+  "name": "Colombia",
+  "adjective": "Colombian",
+  "color": "#d8c060",
+  "ideology": "democratic",
+  "leader": "Alfonso López Pumarejo",
+  "capital_name": "Bogotá",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#fcd116",
+    "#003893",
+    "#ce1126"
+   ]
+  },
+  "capital_state": 1103,
+  "capital_province": 10407
+ },
+ {
+  "tag": "ECU",
+  "name": "Ecuador",
+  "adjective": "Ecuadorian",
+  "color": "#c8a850",
+  "ideology": "non_aligned",
+  "leader": "Federico Páez",
+  "capital_name": "Quito",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#ffdd00",
+    "#034ea2",
+    "#ed1c24"
+   ]
+  },
+  "capital_state": 192,
+  "capital_province": 1884
+ },
+ {
+  "tag": "PRU",
+  "name": "Peru",
+  "adjective": "Peruvian",
+  "color": "#c87070",
+  "ideology": "non_aligned",
+  "leader": "Óscar Benavides",
+  "capital_name": "Lima",
+  "flag": {
+   "kind": "vtricolor",
+   "colors": [
+    "#d91023",
+    "#ffffff",
+    "#d91023"
+   ]
+  },
+  "capital_state": 656,
+  "capital_province": 7028
+ },
+ {
+  "tag": "BOL",
+  "name": "Bolivia",
+  "adjective": "Bolivian",
+  "color": "#b8a060",
+  "ideology": "non_aligned",
+  "leader": "José Luis Tejada Sorzano",
+  "capital_name": "La Paz",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#d52b1e",
+    "#f9e300",
+    "#007934"
+   ]
+  },
+  "capital_state": 4,
+  "capital_province": 46
+ },
+ {
+  "tag": "PAR",
+  "name": "Paraguay",
+  "adjective": "Paraguayan",
+  "color": "#a07070",
+  "ideology": "non_aligned",
+  "leader": "Eusebio Ayala",
+  "capital_name": "Asunción",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#d52b1e",
+    "#ffffff",
+    "#0038a8"
+   ]
+  },
+  "capital_state": 195,
+  "capital_province": 1914
+ },
+ {
+  "tag": "URU",
+  "name": "Uruguay",
+  "adjective": "Uruguayan",
+  "color": "#8fb0d8",
+  "ideology": "democratic",
+  "leader": "Gabriel Terra",
+  "capital_name": "Montevideo",
+  "flag": {
+   "kind": "stripes",
+   "colors": [
+    "#ffffff",
+    "#0038a8"
+   ]
+  },
+  "capital_state": 605,
+  "capital_province": 6399
+ },
+ {
+  "tag": "ARG",
+  "name": "Argentina",
+  "adjective": "Argentine",
+  "color": "#8fc0e0",
+  "ideology": "democratic",
+  "leader": "Agustín Pedro Justo",
+  "capital_name": "Buenos Aires",
+  "flag": {
+   "kind": "htricolor",
+   "colors": [
+    "#74acdf",
+    "#ffffff",
+    "#74acdf"
+   ]
+  },
+  "capital_state": 608,
+  "capital_province": 6423
+ },
+ {
+  "tag": "CHL",
+  "name": "Chile",
+  "adjective": "Chilean",
+  "color": "#c07080",
+  "ideology": "democratic",
+  "leader": "Arturo Alessandri",
+  "capital_name": "Santiago",
+  "flag": {
+   "kind": "canton",
+   "colors": [
+    "#d52b1e",
+    "#ffffff",
+    "#0039a6"
+   ]
+  },
+  "capital_state": 408,
+  "capital_province": 4276
+ },
+ {
+  "tag": "BRA",
+  "name": "Brazil",
+  "adjective": "Brazilian",
+  "color": "#6fb06f",
+  "ideology": "non_aligned",
+  "leader": "Getúlio Vargas",
+  "capital_name": "Rio de Janeiro",
+  "flag": {
+   "kind": "disc",
+   "colors": [
+    "#009c3b",
+    "#ffdf00"
+   ]
+  },
+  "capital_state": 598,
+  "capital_province": 6312
+ }
+]

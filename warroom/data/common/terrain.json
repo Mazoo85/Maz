@@ -1,0 +1,94 @@
+{
+ "types": [
+  "plains",
+  "forest",
+  "hills",
+  "mountain",
+  "urban",
+  "jungle",
+  "marsh",
+  "desert",
+  "wasteland",
+  "ocean",
+  "lake"
+ ],
+ "modifiers": {
+  "plains": {
+   "movement": 1.0,
+   "attack": 0.0,
+   "defence": 0.0,
+   "width": 90,
+   "density": 9.0
+  },
+  "forest": {
+   "movement": 0.8,
+   "attack": -0.15,
+   "defence": 0.0,
+   "width": 84,
+   "density": 4.0
+  },
+  "hills": {
+   "movement": 0.75,
+   "attack": -0.25,
+   "defence": 0.0,
+   "width": 80,
+   "density": 3.5
+  },
+  "mountain": {
+   "movement": 0.5,
+   "attack": -0.5,
+   "defence": 0.2,
+   "width": 75,
+   "density": 1.2
+  },
+  "urban": {
+   "movement": 0.9,
+   "attack": -0.3,
+   "defence": 0.25,
+   "width": 96,
+   "density": 40.0
+  },
+  "jungle": {
+   "movement": 0.6,
+   "attack": -0.3,
+   "defence": 0.1,
+   "width": 84,
+   "density": 2.5
+  },
+  "marsh": {
+   "movement": 0.5,
+   "attack": -0.4,
+   "defence": 0.0,
+   "width": 78,
+   "density": 1.5
+  },
+  "desert": {
+   "movement": 0.9,
+   "attack": 0.0,
+   "defence": -0.1,
+   "width": 90,
+   "density": 0.2
+  },
+  "wasteland": {
+   "movement": 0.0,
+   "attack": 0.0,
+   "defence": 0.0,
+   "width": 0,
+   "density": 0.0
+  },
+  "ocean": {
+   "movement": 1.0,
+   "attack": 0.0,
+   "defence": 0.0,
+   "width": 0,
+   "density": 0.0
+  },
+  "lake": {
+   "movement": 0.0,
+   "attack": 0.0,
+   "defence": 0.0,
+   "width": 0,
+   "density": 0.0
+  }
+ }
+}

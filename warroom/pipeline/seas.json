@@ -1,0 +1,27 @@
+{
+  "_comment": "Named sea areas: every sea province joins the nearest one, which becomes its naval region.",
+  "seas": [
+    ["North Sea", 56, 3], ["English Channel", 50, -1.5], ["Irish Sea", 53.5, -5], ["Celtic Sea", 50, -8], ["Bay of Biscay", 45, -5],
+    ["Norwegian Sea", 66, 2], ["Barents Sea", 73, 38], ["White Sea", 65.5, 38], ["Kara Sea", 75, 70], ["Laptev Sea", 76, 125],
+    ["East Siberian Sea", 73, 160], ["Chukchi Sea", 70, -170], ["Beaufort Sea", 72, -140], ["Arctic Ocean", 85, 0], ["Greenland Sea", 76, -8],
+    ["Denmark Strait", 66, -27], ["Baffin Bay", 73, -65], ["Davis Strait", 65, -58], ["Labrador Sea", 58, -55], ["Hudson Bay", 60, -85],
+    ["Gulf of St Lawrence", 48, -62], ["Grand Banks", 45, -50], ["Gulf of Maine", 43, -68], ["Mid-Atlantic", 38, -70], ["Sargasso Sea", 28, -60],
+    ["Gulf of Mexico", 25, -90], ["Caribbean Sea", 15, -75], ["Western Caribbean", 17, -85], ["Bahamas", 24, -76], ["Azores", 38, -28],
+    ["Canary Basin", 28, -18], ["Cape Verde Basin", 15, -25], ["Gulf of Guinea", 2, 2], ["South Atlantic", -20, -15], ["Brazil Basin", -10, -30],
+    ["Rio de la Plata", -36, -52], ["Argentine Basin", -45, -50], ["Falklands", -52, -58], ["Drake Passage", -58, -65], ["Scotia Sea", -58, -40],
+    ["Cape Basin", -38, 10], ["Agulhas Bank", -37, 25], ["Mozambique Channel", -18, 41], ["Madagascar Basin", -25, 52], ["Mascarene", -20, 60],
+    ["Arabian Sea", 15, 62], ["Gulf of Aden", 12, 48], ["Red Sea", 20, 38], ["Persian Gulf", 27, 52], ["Gulf of Oman", 24, 60],
+    ["Bay of Bengal", 13, 88], ["Laccadive Sea", 8, 75], ["Andaman Sea", 10, 96], ["Central Indian Ocean", -10, 80], ["Southern Indian Ocean", -40, 80],
+    ["Java Sea", -5, 110], ["South China Sea", 12, 113], ["Gulf of Siam", 10, 101], ["Celebes Sea", 3, 122], ["Banda Sea", -5, 128],
+    ["Timor Sea", -11, 128], ["Arafura Sea", -9, 136], ["Coral Sea", -16, 152], ["Tasman Sea", -38, 160], ["Great Australian Bight", -36, 132],
+    ["Indian Ocean (West Australia)", -25, 108], ["Philippine Sea", 18, 130], ["East China Sea", 28, 125], ["Yellow Sea", 36, 123], ["Sea of Japan", 40, 135],
+    ["Sea of Okhotsk", 53, 148], ["Bering Sea", 58, -175], ["Gulf of Alaska", 55, -145], ["North-East Pacific", 40, -140], ["California Current", 30, -122],
+    ["Gulf of California", 27, -111], ["Central American Pacific", 10, -95], ["Galapagos", 0, -92], ["Peru Basin", -15, -82], ["Chile Basin", -35, -78],
+    ["South Pacific", -30, -120], ["Polynesia", -15, -150], ["Marquesas", -8, -135], ["Hawaiian Waters", 20, -157], ["North Pacific", 35, -165],
+    ["Marianas", 15, 148], ["Carolines", 5, 150], ["Marshalls", 8, 168], ["Solomon Sea", -8, 155], ["Fiji Basin", -20, 178],
+    ["Samoa Basin", -14, -170], ["New Zealand waters", -45, 172], ["Southern Ocean", -60, 0], ["Ross Sea", -70, -175], ["Weddell Sea", -68, -40],
+    ["Mediterranean (West)", 38, 3], ["Tyrrhenian Sea", 40, 12], ["Ionian Sea", 37, 18], ["Adriatic Sea", 43, 15], ["Aegean Sea", 38, 25],
+    ["Eastern Mediterranean", 33, 30], ["Black Sea", 43, 34], ["Sea of Azov", 46, 37], ["Baltic Sea", 57, 19], ["Gulf of Bothnia", 63, 20],
+    ["Gulf of Finland", 60, 26], ["Skagerrak", 58, 9], ["Caspian Sea", 42, 50], ["Great Lakes", 45, -84], ["Lake Victoria", -1, 33], ["Lake Baikal", 53.5, 108]
+  ]
+}

@@ -1,0 +1,485 @@
+{
+ "start_hour": 0,
+ "armies": {
+  "GER": [
+   {
+    "state": 212,
+    "divisions": 36
+   }
+  ],
+  "ENG": [
+   {
+    "state": 1180,
+    "divisions": 20
+   }
+  ],
+  "FRA": [
+   {
+    "state": 1296,
+    "divisions": 60
+   }
+  ],
+  "ITA": [
+   {
+    "state": 893,
+    "divisions": 50
+   }
+  ],
+  "SOV": [
+   {
+    "state": 224,
+    "divisions": 110
+   }
+  ],
+  "JAP": [
+   {
+    "state": 797,
+    "divisions": 40
+   }
+  ],
+  "USA": [
+   {
+    "state": 750,
+    "divisions": 15
+   }
+  ],
+  "POL": [
+   {
+    "state": 1227,
+    "divisions": 40
+   }
+  ],
+  "CZE": [
+   {
+    "state": 1285,
+    "divisions": 25
+   }
+  ],
+  "AUS": [
+   {
+    "state": 118,
+    "divisions": 8
+   }
+  ],
+  "HUN": [
+   {
+    "state": 1264,
+    "divisions": 10
+   }
+  ],
+  "ROM": [
+   {
+    "state": 214,
+    "divisions": 25
+   }
+  ],
+  "YUG": [
+   {
+    "state": 580,
+    "divisions": 25
+   }
+  ],
+  "BUL": [
+   {
+    "state": 187,
+    "divisions": 10
+   }
+  ],
+  "GRE": [
+   {
+    "state": 890,
+    "divisions": 15
+   }
+  ],
+  "ALB": [
+   {
+    "state": 86,
+    "divisions": 3
+   }
+  ],
+  "TUR": [
+   {
+    "state": 1044,
+    "divisions": 22
+   }
+  ],
+  "SPA": [
+   {
+    "state": 1303,
+    "divisions": 24
+   }
+  ],
+  "POR": [
+   {
+    "state": 900,
+    "divisions": 8
+   }
+  ],
+  "SWI": [
+   {
+    "state": 207,
+    "divisions": 9
+   }
+  ],
+  "BEL": [
+   {
+    "state": 578,
+    "divisions": 12
+   }
+  ],
+  "HOL": [
+   {
+    "state": 905,
+    "divisions": 8
+   }
+  ],
+  "LUX": [
+   {
+    "state": 83,
+    "divisions": 1
+   }
+  ],
+  "DEN": [
+   {
+    "state": 968,
+    "divisions": 4
+   }
+  ],
+  "NOR": [
+   {
+    "state": 879,
+    "divisions": 6
+   }
+  ],
+  "SWE": [
+   {
+    "state": 878,
+    "divisions": 8
+   }
+  ],
+  "FIN": [
+   {
+    "state": 877,
+    "divisions": 9
+   }
+  ],
+  "EST": [
+   {
+    "state": 874,
+    "divisions": 3
+   }
+  ],
+  "LAT": [
+   {
+    "state": 873,
+    "divisions": 4
+   }
+  ],
+  "LIT": [
+   {
+    "state": 1082,
+    "divisions": 3
+   }
+  ],
+  "IRE": [
+   {
+    "state": 858,
+    "divisions": 2
+   }
+  ],
+  "CHI": [
+   {
+    "state": 779,
+    "divisions": 80
+   }
+  ],
+  "PRC": [
+   {
+    "state": 1126,
+    "divisions": 10
+   }
+  ],
+  "MAN": [
+   {
+    "state": 248,
+    "divisions": 15
+   }
+  ],
+  "SHX": [
+   {
+    "state": 1131,
+    "divisions": 10
+   }
+  ],
+  "GXC": [
+   {
+    "state": 320,
+    "divisions": 12
+   }
+  ],
+  "YUN": [
+   {
+    "state": 90,
+    "divisions": 6
+   }
+  ],
+  "XSM": [
+   {
+    "state": 1130,
+    "divisions": 8
+   }
+  ],
+  "SIK": [
+   {
+    "state": 12,
+    "divisions": 4
+   }
+  ],
+  "TIB": [
+   {
+    "state": 17,
+    "divisions": 2
+   }
+  ],
+  "MON": [
+   {
+    "state": 1233,
+    "divisions": 4
+   }
+  ],
+  "TAN": [
+   {
+    "state": 236,
+    "divisions": 1
+   }
+  ],
+  "PHI": [
+   {
+    "state": 704,
+    "divisions": 4
+   }
+  ],
+  "SIA": [
+   {
+    "state": 820,
+    "divisions": 8
+   }
+  ],
+  "RAJ": [
+   {
+    "state": 1050,
+    "divisions": 20
+   }
+  ],
+  "NEP": [
+   {
+    "state": 272,
+    "divisions": 2
+   }
+  ],
+  "BHU": [
+   {
+    "state": 566,
+    "divisions": 1
+   }
+  ],
+  "AFG": [
+   {
+    "state": 1175,
+    "divisions": 10
+   }
+  ],
+  "PER": [
+   {
+    "state": 945,
+    "divisions": 12
+   }
+  ],
+  "IRQ": [
+   {
+    "state": 269,
+    "divisions": 5
+   }
+  ],
+  "SAU": [
+   {
+    "state": 1075,
+    "divisions": 4
+   }
+  ],
+  "YEM": [
+   {
+    "state": 1035,
+    "divisions": 3
+   }
+  ],
+  "OMA": [
+   {
+    "state": 726,
+    "divisions": 1
+   }
+  ],
+  "EGY": [
+   {
+    "state": 719,
+    "divisions": 5
+   }
+  ],
+  "ETH": [
+   {
+    "state": 1266,
+    "divisions": 30
+   }
+  ],
+  "LIB": [
+   {
+    "state": 701,
+    "divisions": 1
+   }
+  ],
+  "SAF": [
+   {
+    "state": 1073,
+    "divisions": 4
+   }
+  ],
+  "CAN": [
+   {
+    "state": 346,
+    "divisions": 4
+   }
+  ],
+  "AST": [
+   {
+    "state": 622,
+    "divisions": 5
+   }
+  ],
+  "NZL": [
+   {
+    "state": 1031,
+    "divisions": 2
+   }
+  ],
+  "MEX": [
+   {
+    "state": 1237,
+    "divisions": 10
+   }
+  ],
+  "GUA": [
+   {
+    "state": 1096,
+    "divisions": 2
+   }
+  ],
+  "HON": [
+   {
+    "state": 1095,
+    "divisions": 1
+   }
+  ],
+  "ELS": [
+   {
+    "state": 766,
+    "divisions": 1
+   }
+  ],
+  "NIC": [
+   {
+    "state": 767,
+    "divisions": 1
+   }
+  ],
+  "COS": [
+   {
+    "state": 1101,
+    "divisions": 1
+   }
+  ],
+  "PAN": [
+   {
+    "state": 668,
+    "divisions": 1
+   }
+  ],
+  "CUB": [
+   {
+    "state": 1011,
+    "divisions": 3
+   }
+  ],
+  "HAI": [
+   {
+    "state": 169,
+    "divisions": 1
+   }
+  ],
+  "DOM": [
+   {
+    "state": 939,
+    "divisions": 2
+   }
+  ],
+  "VEN": [
+   {
+    "state": 683,
+    "divisions": 3
+   }
+  ],
+  "COL": [
+   {
+    "state": 1103,
+    "divisions": 4
+   }
+  ],
+  "ECU": [
+   {
+    "state": 192,
+    "divisions": 3
+   }
+  ],
+  "PRU": [
+   {
+    "state": 656,
+    "divisions": 6
+   }
+  ],
+  "BOL": [
+   {
+    "state": 4,
+    "divisions": 8
+   }
+  ],
+  "PAR": [
+   {
+    "state": 195,
+    "divisions": 8
+   }
+  ],
+  "URU": [
+   {
+    "state": 605,
+    "divisions": 3
+   }
+  ],
+  "ARG": [
+   {
+    "state": 608,
+    "divisions": 10
+   }
+  ],
+  "CHL": [
+   {
+    "state": 408,
+    "divisions": 6
+   }
+  ],
+  "BRA": [
+   {
+    "state": 598,
+    "divisions": 15
+   }
+  ]
+ }
+}

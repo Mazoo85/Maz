@@ -1,0 +1,91 @@
+{
+  "_comment": "Daily weather per strategic region. For each climate group, a transition table: from the current weather, weights for tomorrow's weather, scaled by the month's bias. Weights are relative; 'season' lists for each month (1..12) a multiplier per weather type.",
+  "types": ["clear", "rain", "storm", "snow", "blizzard", "sandstorm", "mud", "frost"],
+  "climates": {
+    "tropical": {
+      "from": {
+        "clear":  {"clear": 60, "rain": 30, "storm": 6, "mud": 4},
+        "rain":   {"clear": 35, "rain": 40, "storm": 10, "mud": 15},
+        "storm":  {"clear": 20, "rain": 40, "storm": 15, "mud": 25},
+        "mud":    {"clear": 40, "rain": 30, "storm": 5, "mud": 25}
+      },
+      "season": {
+        "rain":  [1.0, 1.0, 1.1, 1.3, 1.5, 1.6, 1.6, 1.6, 1.5, 1.3, 1.1, 1.0],
+        "storm": [0.8, 0.8, 1.0, 1.2, 1.4, 1.6, 1.6, 1.6, 1.6, 1.4, 1.0, 0.8]
+      }
+    },
+    "arid": {
+      "from": {
+        "clear":     {"clear": 88, "rain": 4, "sandstorm": 8},
+        "rain":      {"clear": 70, "rain": 25, "sandstorm": 2, "mud": 3},
+        "sandstorm": {"clear": 55, "sandstorm": 40, "rain": 5},
+        "mud":       {"clear": 70, "rain": 20, "mud": 10}
+      },
+      "season": {
+        "sandstorm": [0.6, 0.8, 1.3, 1.5, 1.4, 1.2, 1.0, 1.0, 1.0, 0.9, 0.7, 0.6],
+        "rain":      [1.4, 1.3, 1.1, 0.8, 0.5, 0.3, 0.3, 0.3, 0.5, 0.9, 1.3, 1.4]
+      }
+    },
+    "temperate": {
+      "from": {
+        "clear": {"clear": 62, "rain": 30, "storm": 4, "frost": 4},
+        "rain":  {"clear": 40, "rain": 38, "storm": 8, "mud": 14},
+        "storm": {"clear": 25, "rain": 45, "storm": 10, "mud": 20},
+        "mud":   {"clear": 45, "rain": 30, "mud": 25},
+        "frost": {"clear": 55, "frost": 35, "snow": 10},
+        "snow":  {"clear": 40, "snow": 35, "frost": 20, "rain": 5}
+      },
+      "season": {
+        "frost": [2.5, 2.2, 1.2, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.4, 1.5, 2.5],
+        "snow":  [2.5, 2.2, 1.0, 0.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.2, 1.2, 2.5],
+        "rain":  [1.0, 1.0, 1.1, 1.2, 1.1, 1.0, 0.9, 0.9, 1.0, 1.3, 1.3, 1.1],
+        "mud":   [0.8, 0.9, 1.5, 1.6, 1.2, 0.9, 0.7, 0.7, 0.9, 1.5, 1.6, 1.0]
+      }
+    },
+    "continental": {
+      "from": {
+        "clear":    {"clear": 60, "rain": 22, "storm": 3, "snow": 8, "frost": 7},
+        "rain":     {"clear": 40, "rain": 35, "storm": 7, "mud": 18},
+        "storm":    {"clear": 25, "rain": 40, "storm": 10, "mud": 25},
+        "mud":      {"clear": 40, "rain": 25, "mud": 30, "frost": 5},
+        "frost":    {"clear": 45, "frost": 35, "snow": 20},
+        "snow":     {"clear": 30, "snow": 40, "blizzard": 10, "frost": 20},
+        "blizzard": {"snow": 55, "blizzard": 25, "frost": 20}
+      },
+      "season": {
+        "snow":     [3.0, 2.8, 1.8, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.6, 2.0, 3.0],
+        "blizzard": [3.0, 2.8, 1.5, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 1.8, 3.0],
+        "frost":    [3.0, 2.8, 1.8, 0.6, 0.1, 0.0, 0.0, 0.0, 0.2, 1.0, 2.2, 3.0],
+        "rain":     [0.3, 0.3, 0.8, 1.2, 1.3, 1.3, 1.3, 1.3, 1.2, 1.0, 0.6, 0.3],
+        "mud":      [0.2, 0.3, 2.0, 2.5, 1.4, 0.9, 0.8, 0.8, 1.2, 2.2, 1.5, 0.3]
+      }
+    },
+    "polar": {
+      "from": {
+        "clear":    {"clear": 45, "snow": 30, "blizzard": 10, "frost": 15},
+        "snow":     {"clear": 25, "snow": 45, "blizzard": 15, "frost": 15},
+        "blizzard": {"snow": 50, "blizzard": 35, "frost": 15},
+        "frost":    {"clear": 40, "frost": 40, "snow": 20},
+        "rain":     {"clear": 50, "rain": 30, "mud": 20},
+        "mud":      {"clear": 50, "mud": 30, "rain": 20}
+      },
+      "season": {
+        "snow":     [1.5, 1.5, 1.3, 1.0, 0.6, 0.3, 0.2, 0.2, 0.5, 1.0, 1.3, 1.5],
+        "blizzard": [1.5, 1.5, 1.2, 0.8, 0.3, 0.1, 0.1, 0.1, 0.3, 0.9, 1.3, 1.5],
+        "frost":    [1.5, 1.5, 1.3, 1.0, 0.6, 0.3, 0.2, 0.2, 0.5, 1.0, 1.3, 1.5],
+        "rain":     [0.0, 0.0, 0.0, 0.3, 1.0, 1.5, 1.6, 1.5, 1.0, 0.3, 0.0, 0.0],
+        "mud":      [0.0, 0.0, 0.0, 0.5, 1.2, 1.2, 1.0, 1.0, 1.2, 0.4, 0.0, 0.0]
+      }
+    },
+    "ocean": {
+      "from": {
+        "clear": {"clear": 65, "rain": 25, "storm": 10},
+        "rain":  {"clear": 45, "rain": 40, "storm": 15},
+        "storm": {"clear": 30, "rain": 45, "storm": 25}
+      },
+      "season": {
+        "storm": [1.4, 1.3, 1.1, 0.9, 0.8, 0.8, 0.8, 0.9, 1.1, 1.3, 1.4, 1.4]
+      }
+    }
+  }
+}
