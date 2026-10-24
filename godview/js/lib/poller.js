@@ -5,6 +5,9 @@
  * the layer says OFFLINE and retries sooner, doubling the wait each time up to
  * a cap, then drops back to the normal interval the moment it answers again.
  * A stop() — or a refresh() — makes any answer still in flight be ignored.
+ * With offlineAfter set, a source that refuses now and then (a busy, rate-
+ * limited service) keeps its last good status until that many failures in a
+ * row, so one passing refusal does not flash OFFLINE.
  *
  * Timers are injectable so the tests can run a minute of polling instantly.
  */
@@ -15,6 +18,7 @@
     const intervalMs = opts.intervalMs;
     const retryMs = opts.retryMs || 5000;
     const maxBackoffMs = opts.maxBackoffMs || intervalMs * 5;
+    const offlineAfter = opts.offlineAfter || 1;
     const setTimer = opts.setTimer || ((fn, ms) => setTimeout(fn, ms));
     const clearTimer = opts.clearTimer || ((h) => clearTimeout(h));
 
@@ -55,7 +59,7 @@
       } catch (e) {
         if (!running || mine !== generation) return;
         failures++;
-        setStatus('offline');
+        if (failures >= offlineAfter) setStatus('offline');
       }
       timer = setTimer(tick, nextDelay());
     }

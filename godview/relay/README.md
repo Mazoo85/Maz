@@ -3,10 +3,19 @@
 Every free flight-data service (adsb.lol, adsb.fi, OpenSky, …) answers a server
 but refuses a web page: their answers carry no permission (CORS header) for
 anyone else's site. So GOD'S EYE VIEW's PLANES layer asks this relay instead. It
-runs free on Cloudflare Workers, asks **adsb.fi** for the aircraft around a point
-(**adsb.lol** if adsb.fi fails), and passes the answer back with permission for
-`https://mazoo85.github.io` only — other sites are refused, so nobody else can
-use up your free allowance.
+runs free on Cloudflare Workers, asks **adsb.lol**, then **OpenSky**, then
+**adsb.fi** for the aircraft around a point, and passes the first answer back with
+permission for `https://mazoo85.github.io` only — other sites are refused, so
+nobody else can use up your free allowance.
+
+Cloudflare's addresses are shared by many users, so the services sometimes say
+"too many requests" to them (adsb.fi refuses Cloudflare outright). The relay
+therefore remembers the last good answer for each area for two minutes and uses
+it when every source refuses, rather than leaving PLANES OFFLINE.
+
+**Is it working?** Open `https://<your relay>/check` in any browser. It shows
+which Cloudflare location answered and what each source said just now (no plane
+data). At least one source should say `"ok": true`.
 
 It was found by asking each service from GitHub Actions the way a phone would
 (21 Oct 2026): adsb.lol, adsb.fi and OpenSky all returned live aircraft but no
