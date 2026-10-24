@@ -12,14 +12,16 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Ask the relay as GOD'S EYE VIEW, around the world
+      - name: Ask the relay twelve times, as the phone would
         run: |
           R=https://godview-planes.cody-collins85-cc.workers.dev
-          for place in "20.00 -40.00 mid-Atlantic(app start)" "40.64 -73.78 New-York" "39.10 -94.60 Kansas-City" "51.47 -0.45 London" "48.86 2.35 Paris" "35.68 139.69 Tokyo"; do
-            set -- $place
-            curl -sS -m 30 -o b.json -H "Origin: https://mazoo85.github.io" "$R/planes?lat=$1&lng=$2"
-            python3 -c "import json,sys;d=json.load(open('b.json'));print(sys.argv[1].ljust(26),'source:',d.get('source'),' aircraft:',len(d.get('ac') or []),' error:',d.get('error'),d.get('details') or '')" "$3"
+          for n in $(seq 1 12); do
+            curl -sS -m 30 -o b.json -w "%{http_code} " -H "Origin: https://mazoo85.github.io" "$R/planes?lat=40.64&lng=-73.78"
+            python3 -c "import json;d=json.load(open('b.json'));print('source:',d.get('source'),' aircraft:',len(d.get('ac') or []),' ',d.get('error') or '',d.get('details') or '')"
+            sleep 5
           done
-          echo "=== direct, for comparison (no relay)"
-          curl -sS -m 30 -o fi.json "https://opendata.adsb.fi/api/v2/lat/40.6/lon/-73.8/dist/250"; python3 -c "import json;d=json.load(open('fi.json'));print('adsb.fi direct NY:',len(d.get('aircraft') or []))"
-          curl -sS -m 30 -o lol.json "https://api.adsb.lol/v2/point/40.6/-73.8/250"; python3 -c "import json;d=json.load(open('lol.json'));print('adsb.lol direct NY:',len(d.get('ac') or []))"
+      - name: The same services, asked from GitHub instead of Cloudflare
+        run: |
+          for u in "https://api.adsb.lol/v2/point/40.6/-73.8/250" "https://opendata.adsb.fi/api/v2/lat/40.6/lon/-73.8/dist/250" "https://opensky-network.org/api/states/all?lamin=36.5&lomin=-79.2&lamax=44.8&lomax=-68.3"; do
+            curl -sS -m 30 -o /dev/null -D h.txt -w "%{http_code} $u\n" "$u"; grep -i "ratelimit\|retry-after" h.txt || true
+          done
