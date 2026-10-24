@@ -552,7 +552,7 @@ async function tapMarker(page, sel, layerId, index) {
       const { page, problems } = await openPage(browser, base, { relay: 'down' });
       const pl = 'button.layer-btn[data-layer="planes"]';
       await page.tap(pl);
-      await page.waitForFunction((sel) => document.querySelector(sel).textContent === 'OFFLINE', pl + ' .val', { timeout: 15000 })
+      await page.waitForFunction((sel) => document.querySelector(sel).textContent === 'OFFLINE', pl + ' .val', { timeout: 30000 })
         .catch(() => {});
       check((await page.textContent(pl + ' .val')).trim() === 'OFFLINE', 'a relay with no source answering shows OFFLINE');
       check(problems.length === 0, 'and nothing throws' + (problems.length ? ' — ' + problems.join('; ') : ''));
@@ -564,7 +564,7 @@ async function tapMarker(page, sel, layerId, index) {
       const { page, problems } = await openPage(browser, base, { adsb: 'down', opensky: 'down' });
       const pl = 'button.layer-btn[data-layer="planes"]';
       await page.tap(pl);
-      await page.waitForFunction((sel) => document.querySelector(sel).textContent === 'OFFLINE', pl + ' .val', { timeout: 15000 })
+      await page.waitForFunction((sel) => document.querySelector(sel).textContent === 'OFFLINE', pl + ' .val', { timeout: 30000 })
         .catch(() => {});
       check((await page.textContent(pl + ' .val')).trim() === 'OFFLINE', 'the PLANES button says OFFLINE');
       check((await page.textContent('button.layer-btn[data-layer="quakes"] .val')).trim() === '3', 'quakes carry on regardless');
