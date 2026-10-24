@@ -207,6 +207,47 @@ test('failures go OFFLINE, back off, cap, and recover', async () => {
   eq(t.queue[0].ms, 60000, 'back to the normal interval');
 });
 
+test('with offlineAfter, a passing failure keeps the last good status and retries soon', async () => {
+  const t = fakeTimers();
+  const err = new Error('429');
+  const statuses = [];
+  const p = P.createPoller({
+    fetchOnce: scripted(['A', err, 'B', err, err, err]), intervalMs: 15000, retryMs: 4000, offlineAfter: 3,
+    onData: () => {}, onStatus: (s) => statuses.push(s), setTimer: t.set, clearTimer: t.clear
+  });
+  p.start();
+  await flush();
+  eq(p.status, 'live');
+  t.fire(); await flush();
+  eq(p.status, 'live', 'one refusal does not show OFFLINE');
+  eq(t.queue[0].ms, 4000, 'it retries soon instead of waiting the full interval');
+  t.fire(); await flush();
+  eq(p.status, 'live');
+  eq(p.failures, 0, 'a success clears the count');
+  t.fire(); await flush();
+  t.fire(); await flush();
+  eq(p.status, 'live', 'two in a row still live');
+  t.fire(); await flush();
+  eq(p.status, 'offline', 'the third in a row is OFFLINE');
+  eq(statuses.join(), 'loading,live,offline');
+});
+
+test('with offlineAfter, a first fetch that fails stays loading until the limit', async () => {
+  const t = fakeTimers();
+  const err = new Error('429');
+  const p = P.createPoller({
+    fetchOnce: scripted([err, err, err]), intervalMs: 15000, retryMs: 4000, offlineAfter: 3,
+    onData: () => {}, setTimer: t.set, clearTimer: t.clear
+  });
+  p.start();
+  await flush();
+  eq(p.status, 'loading');
+  t.fire(); await flush();
+  eq(p.status, 'loading');
+  t.fire(); await flush();
+  eq(p.status, 'offline');
+});
+
 test('a throwing onData counts as a failure, not a crash', async () => {
   const t = fakeTimers();
   const p = P.createPoller({
@@ -801,10 +842,13 @@ test('OpenSky answers when adsb.lol will not', async () => {
   eq(layer.credit, 'Planes: OpenSky Network');
 });
 
-test('both flight sources down is OFFLINE', async () => {
-  const { layer } = planesLayer({ adsb: 'down', opensky: 'down' });
+test('both flight sources down is OFFLINE after three tries', async () => {
+  const { layer, t } = planesLayer({ adsb: 'down', opensky: 'down' });
   layer.start();
   await flush();
+  eq(layer.status, 'loading', 'one failure is not OFFLINE yet');
+  t.fire(); await flush();
+  t.fire(); await flush();
   eq(layer.status, 'offline');
   eq(layer.count, 0);
 });
@@ -859,12 +903,34 @@ test('with a relay set, planes come through it and it is credited', async () => 
   eq(layer.credit, 'Planes: adsb.fi (via relay)');
 });
 
-test('a relay that is down is OFFLINE, without asking services that refuse web pages', async () => {
-  const { layer, asked } = planesLayer({ relay: 'down', adsb: 'ok', opensky: 'ok' }, 'https://gv.example.workers.dev');
+test('one relay hiccup keeps the planes on screen', async () => {
+  let n = 0;
+  const t = fakeTimers();
+  const layer = PLL.create({
+    relayUrl: 'https://gv.example.workers.dev',
+    fetchJson: () => (n++ === 1 ? Promise.reject(new Error('502')) : Promise.resolve({ source: 'adsb.lol', ac: ADSB.ac })),
+    getView: () => ({ lat: 40.64, lng: -73.78, altitude: 2 }),
+    setTimer: t.set,
+    clearTimer: t.clear
+  });
   layer.start();
   await flush();
-  eq(layer.status, 'offline');
-  eq(asked.length, 1);
+  eq(layer.count, 3);
+  t.fire(); await flush();
+  eq(layer.status, 'live', 'still live after one refusal');
+  eq(layer.count, 3, 'the planes stay');
+  eq(t.queue[0].ms, 4000, 'and it tries again in 4 seconds');
+});
+
+test('a relay that is down is OFFLINE, without asking services that refuse web pages', async () => {
+  const { layer, asked, t } = planesLayer({ relay: 'down', adsb: 'ok', opensky: 'ok' }, 'https://gv.example.workers.dev');
+  layer.start();
+  await flush();
+  t.fire(); await flush();
+  t.fire(); await flush();
+  eq(layer.status, 'offline', 'three refusals in a row');
+  eq(asked.length, 3);
+  assert(asked.every((u) => u.startsWith('https://gv.example.workers.dev/')), 'only the relay was asked');
 });
 
 test('stop clears the planes', async () => {

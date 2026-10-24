@@ -122,7 +122,12 @@
 
     const poller = P.createPoller({
       intervalMs: 15000,
-      retryMs: 15000,
+      /* The flight services, even through the relay, refuse now and then
+       * ("too many requests" on Cloudflare's shared addresses), so a refusal
+       * is retried within seconds, the planes stay on screen meanwhile, and
+       * only three in a row show OFFLINE. */
+      retryMs: 4000,
+      offlineAfter: 3,
       maxBackoffMs: 120000,
       setTimer: opts.setTimer,
       clearTimer: opts.clearTimer,
