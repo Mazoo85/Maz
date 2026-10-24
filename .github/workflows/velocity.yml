@@ -1,0 +1,28 @@
+name: Velocity
+
+# Velocity is a standalone browser racer with no build step. Its rules
+# (track, physics, AI, race) are plain modules, so the tests run in plain
+# Node in seconds. The 3D rendering (scene.js, app.js) is checked by hand
+# in a browser.
+
+on:
+  push:
+    paths:
+      - "velocity/**"
+      - ".github/workflows/velocity.yml"
+  pull_request:
+    paths:
+      - "velocity/**"
+      - ".github/workflows/velocity.yml"
+
+jobs:
+  logic:
+    name: Velocity logic tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run the logic tests
+        run: node velocity/tests/velocity-logic.test.js
