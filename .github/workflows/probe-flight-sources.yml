@@ -12,16 +12,12 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Ask the relay twelve times, as the phone would
+      - name: Is relay version 2 live, and what does it say
         run: |
           R=https://godview-planes.cody-collins85-cc.workers.dev
-          for n in $(seq 1 12); do
+          echo "=== /check"; curl -sS -m 40 "$R/check"; echo
+          for n in 1 2 3 4 5 6; do
             curl -sS -m 30 -o b.json -w "%{http_code} " -H "Origin: https://mazoo85.github.io" "$R/planes?lat=40.64&lng=-73.78"
-            python3 -c "import json;d=json.load(open('b.json'));print('source:',d.get('source'),' aircraft:',len(d.get('ac') or []),' ',d.get('error') or '',d.get('details') or '')"
+            python3 -c "import json;d=json.load(open('b.json'));print('source:',d.get('source'),' stale:',d.get('stale'),' aircraft:',len(d.get('ac') or []),' ',d.get('error') or '',d.get('details') or '')"
             sleep 5
-          done
-      - name: The same services, asked from GitHub instead of Cloudflare
-        run: |
-          for u in "https://api.adsb.lol/v2/point/40.6/-73.8/250" "https://opendata.adsb.fi/api/v2/lat/40.6/lon/-73.8/dist/250" "https://opensky-network.org/api/states/all?lamin=36.5&lomin=-79.2&lamax=44.8&lomax=-68.3"; do
-            curl -sS -m 30 -o /dev/null -D h.txt -w "%{http_code} $u\n" "$u"; grep -i "ratelimit\|retry-after" h.txt || true
           done
