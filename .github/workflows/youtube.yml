@@ -1,0 +1,27 @@
+name: YouTube for Claude
+
+# YouTube for Claude is a one-file Cloudflare Worker (an MCP server). Its tests
+# replace YouTube with a fake, so they run in plain Node in seconds, with no
+# network and no API key.
+
+on:
+  push:
+    paths:
+      - "youtube/**"
+      - ".github/workflows/youtube.yml"
+  pull_request:
+    paths:
+      - "youtube/**"
+      - ".github/workflows/youtube.yml"
+
+jobs:
+  logic:
+    name: Worker tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run the worker tests
+        run: node youtube/tests/worker.test.mjs

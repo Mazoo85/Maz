@@ -1,0 +1,10 @@
+// Cloudflare settings for YouTube for Claude, for deploying straight from GitHub
+// (Workers & Pages -> Create -> Import a repository, root directory youtube)
+// or with `npx wrangler deploy` from this folder. The two secrets
+// (YOUTUBE_API_KEY, CONNECTOR_PASSWORD) are added in the dashboard, never here.
+{
+  "name": "youtube-for-claude",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true
+}
