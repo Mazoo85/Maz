@@ -551,7 +551,13 @@ function sameSecret(a, b) {
 function authorized(request, pathPassword, env) {
   const expected = env && env.CONNECTOR_PASSWORD;
   if (!expected) return false;
-  if (pathPassword && sameSecret(decodeURIComponent(pathPassword), expected)) return true;
+  let given = pathPassword || '';
+  try {
+    given = decodeURIComponent(given);
+  } catch (e) {
+    given = '';
+  }
+  if (given && sameSecret(given, expected)) return true;
   const auth = request.headers.get('Authorization') || '';
   const m = /^Bearer\s+(.+)$/i.exec(auth);
   return !!(m && sameSecret(m[1].trim(), expected));

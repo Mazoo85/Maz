@@ -162,6 +162,7 @@ test('the wrong password, or none, is turned away', async () => {
   eq((await rpc('ping', {}, { path: '/mcp' })).status, 401);
   eq((await rpc('ping', {}, { path: '/mcp', bearer: 'nope' })).status, 401);
   eq((await rpc('ping', {}, { env: { YOUTUBE_API_KEY: 'k' } })).status, 401, 'no password set at all');
+  eq((await rpc('ping', {}, { path: '/mcp/%E0%A4%A' })).status, 401, 'a broken address is turned away, not crashed on');
 });
 
 test('the password works in the path and as a bearer token', async () => {
