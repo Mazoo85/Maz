@@ -38,6 +38,7 @@ with their full history.
 | [`tests`](tests) |
 | [`tools`](tools) |
 | [`web`](web) |
+| [`youtube`](youtube) |
 | [`zomboid`](zomboid) |
 
 ## Folded in from another repository
