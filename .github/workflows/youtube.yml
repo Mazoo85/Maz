@@ -25,3 +25,7 @@ jobs:
           node-version: "22"
       - name: Run the worker tests
         run: node youtube/tests/worker.test.mjs
+      - name: Install ffmpeg for the shorts maker
+        run: which ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+      - name: Run the shorts maker tests
+        run: node youtube/shorts/tests/shorts.test.mjs

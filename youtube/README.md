@@ -151,6 +151,7 @@ footage from the creator or from where they host the original. Two things to kno
 | `worker.js` | The whole server: link reading, the eight tools, the MCP handshake, the password check, `/check`. Self-contained so it can be pasted as it is. |
 | `wrangler.jsonc` | So Cloudflare can deploy it straight from GitHub. |
 | `setup.ps1` | The easy way on Windows: deploys to Cloudflare and stores the secrets for you. |
+| `shorts/` | [Archive shorts](shorts/README.md): turns public-domain and openly licensed footage from the Internet Archive and Wikimedia Commons into Shorts with captions and upload details. |
 | `tests/worker.test.mjs` | `node youtube/tests/worker.test.mjs`, with a fake YouTube, no network or key needed. |
 
 ## Changing it
