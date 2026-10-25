@@ -35,7 +35,9 @@ const INSTRUCTIONS =
   'Creative Commons (reusable) videos; pass license "any" to widen. Each video says whether it ' +
   'is reusable and carries a credit line to use when it is. Google allows ' + DAILY_QUOTA +
   ' quota units a day (search costs about 100, everything else about 1), so prefer get_video, ' +
-  'list_channel_videos and trending_videos over repeated searches. This server never downloads ' +
+  'list_channel_videos and trending_videos over repeated searches. For videos that are reusable AND ' +
+  'trending (rising fast right now), use rising_reusable_videos: the trending chart itself almost never ' +
+  'has a reusable video. This server never downloads ' +
   'videos or uploads anything.';
 
 /* ------------------------------------------------------------------ links */
@@ -126,6 +128,15 @@ function trim(text, max) {
   return s.length > max ? s.slice(0, max - 1).trimEnd() + '…' : s;
 }
 
+/* Views divided by days online (a video under a day old counts as one day),
+ * so a new video rising fast ranks above an old one that took years. */
+export function viewsPerDay(views, published, now) {
+  const at = Date.parse(published || '');
+  if (views === null || !Number.isFinite(at)) return null;
+  const days = Math.max(1, ((now === undefined ? Date.now() : now) - at) / 86400000);
+  return Math.round(views / days);
+}
+
 /* One video, the same shape in every answer, from a videos.list item. */
 export function shapeVideo(item) {
   const sn = item.snippet || {};
@@ -145,6 +156,7 @@ export function shapeVideo(item) {
     views: count(st.viewCount),
     likes: count(st.likeCount),
     comments: count(st.commentCount),
+    views_per_day: viewsPerDay(count(st.viewCount), sn.publishedAt),
     license: license,
     reusable: reusable,
     description: trim(sn.description, 500)
@@ -374,6 +386,48 @@ export const TOOLS = [
       let videos = (body.items || []).map(shapeVideo);
       if (args.reusable_only) videos = videos.filter((v) => v.reusable);
       return { result: { region_code: region, reusable_only: !!args.reusable_only, videos: videos }, quota: 1 };
+    }
+  },
+  {
+    name: 'rising_reusable_videos',
+    description: 'Reusable (Creative Commons) videos that are trending right now: published in the last few days and ranked by views per day, so the fastest-rising come first. Use this when the videos must be reusable AND trending AND popular; the trending chart itself almost never has a reusable video. Optionally narrowed to a topic. Costs about 101 quota units.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Optional topic, e.g. "funny animals". Leave out for every topic.' },
+        days: { type: 'integer', minimum: 1, maximum: 30, description: 'How far back to look, 1-30 days (default 7).' },
+        region_code: { type: 'string', description: 'Optional two-letter country code, e.g. US.' },
+        duration: { type: 'string', enum: Object.keys(DURATIONS), description: 'short (under 4 min), medium (4-20 min), long (over 20 min), any (default).' },
+        max_results: { type: 'integer', minimum: 1, maximum: 25, description: 'How many to return, 1-25 (default 10).' }
+      }
+    },
+    async run(args, env) {
+      const days = clampInt(args.days, 7, 1, 30);
+      const max = clampInt(args.max_results, 10, 1, 25);
+      const duration = DURATIONS[args.duration || 'any'];
+      if (!duration) throw new YouTubeError('duration must be one of ' + Object.keys(DURATIONS).join(', ') + '.');
+      const region = args.region_code ? String(args.region_code).toUpperCase() : undefined;
+      if (region && !/^[A-Z]{2}$/.test(region)) throw new YouTubeError('region_code must be a two-letter country code like US.');
+      const query = typeof args.query === 'string' && args.query.trim() ? args.query.trim() : undefined;
+      const since = new Date(Date.now() - days * 86400000).toISOString();
+      const body = await youtube(env, 'search', {
+        part: 'snippet',
+        type: 'video',
+        q: query,
+        videoLicense: 'creativeCommon',
+        order: 'viewCount',
+        publishedAfter: since,
+        videoDuration: duration === 'any' ? undefined : duration,
+        regionCode: region,
+        maxResults: 50,
+        safeSearch: 'moderate'
+      });
+      const ids = (body.items || []).map((i) => i.id && i.id.videoId).filter(Boolean);
+      const videos = (await videoDetails(env, ids))
+        .filter((v) => v.reusable)
+        .sort((a, b) => (b.views_per_day || 0) - (a.views_per_day || 0))
+        .slice(0, max);
+      return { result: { query: query || null, days: days, published_after: since, videos: videos }, quota: 100 + (ids.length ? 1 : 0) };
     }
   },
   {

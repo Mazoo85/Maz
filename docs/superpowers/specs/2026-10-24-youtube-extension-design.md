@@ -41,6 +41,7 @@ Every video in any answer has the same shape: `id`, `url`, `title`, `channel` (`
 |---|---|---|---|
 | `search_videos` | Find videos | `query`; optional `license` (creative_commons / any), `order` (relevance / date / views / rating), `duration` (any / short / medium / long), `published_after`, `channel_id`, `region_code`, `max_results` (1–25) | 100 + 1 |
 | `trending_videos` | What is popular now | optional `region_code` (default US), `category_id`, `reusable_only` (default false, because the chart cannot be filtered server-side and is usually empty for CC), `max_results` | 1 |
+| `rising_reusable_videos` | Reusable AND trending: CC videos from the last `days` (1–30, default 7), ranked by views per day (added 2026-10-25: the trending chart had 0 of 50 reusable) | optional `query`, `days`, `region_code`, `duration`, `max_results` (1–25) | 100 + 1 |
 | `get_video` | Details of one video | `video` (id or any YouTube link) | 1 |
 | `get_channel` | Details of a channel | `channel` (id, `@handle`, or link) → id, title, url, description, subscribers, video and view counts, uploads playlist id | 1 |
 | `list_channel_videos` | A channel's latest uploads | `channel`, optional `license`, `max_results` (1–50) | 1 + 1 + 1 (channel → uploads playlist → video details) |

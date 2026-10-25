@@ -60,7 +60,26 @@ function Get-NodeMajor {
   return 0
 }
 
+# ---------------------------------------------------------------- update?
+# A finished setup leaves "YouTube connector address.txt" on the Desktop. If it
+# is there, this run only updates the server: the key and password already on
+# Cloudflare stay, so the connector in claude.ai keeps working unchanged.
+$desktop = [Environment]::GetFolderPath('Desktop')
+if (-not $desktop -or -not (Test-Path $desktop)) { $desktop = $HOME }
+$note = Join-Path $desktop 'YouTube connector address.txt'
+$updating = $false
+if (Test-Path $note) {
+  $saved = [regex]::Match((Get-Content -Raw -Path $note), 'https://[A-Za-z0-9.-]+\.workers\.dev/mcp/(mazyt[a-z0-9]+)')
+  if ($saved.Success) {
+    $updating = $true
+    $password = $saved.Groups[1].Value
+    Write-Host 'Found your earlier setup on the Desktop, so this run just updates the server.' -ForegroundColor Green
+    Write-Host 'Your key, password and claude.ai connector stay exactly as they are.'
+  }
+}
+
 # ---------------------------------------------------------------- the key
+if (-not $updating) {
 # Some apps show a copied key as dots (AIzaSy•••), so a key that is not real
 # letters and digits is asked for again rather than stopping the setup.
 function Test-YouTubeKey($k) { return "$k" -match '^AIza[0-9A-Za-z_-]{30,}$' }
@@ -73,6 +92,7 @@ for ($try = 1; -not (Test-YouTubeKey $key); $try++) {
   if ($try -gt 3) { Stop-Setup 'that still does not look like a YouTube API key. It starts with AIza and has about 39 letters and digits.' }
   Write-Host 'Copy your key from https://console.cloud.google.com/apis/credentials (click Show key), then'
   $key = "$(Read-Host 'right-click here to paste it, and press Enter')".Trim()
+}
 }
 
 # ---------------------------------------------------------------- Node.js
@@ -133,6 +153,9 @@ if (-not $m.Success) { Stop-Setup 'the server deployed but Cloudflare did not sa
 $url = $m.Value
 
 # ---------------------------------------------------------------- secrets
+if ($updating) {
+  Say 'Keeping your YouTube key and password as they are'
+} else {
 Say 'Storing your YouTube key and a private password on Cloudflare'
 $chars = [char[]]'abcdefghijkmnopqrstuvwxyz23456789'
 $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
@@ -144,6 +167,7 @@ Set-WranglerSecret 'YOUTUBE_API_KEY' $key
 if ($LASTEXITCODE -ne 0) { Stop-Setup 'Cloudflare did not store the YouTube key.' }
 Set-WranglerSecret 'CONNECTOR_PASSWORD' $password
 if ($LASTEXITCODE -ne 0) { Stop-Setup 'Cloudflare did not store the password.' }
+}
 
 # ---------------------------------------------------------------- check
 Say "Checking $url/check (a brand-new address can take a minute to appear)"
@@ -155,16 +179,33 @@ for ($i = 0; $i -lt 18 -and -not ($check -and $check.youtube.ok -and $check.pass
 if (-not $check) { Stop-Setup "the server did not answer at $url/check after 90 seconds. Open that address in your browser in a few minutes; if it answers, the setup worked." }
 $check | ConvertTo-Json -Depth 4 | Write-Host
 if (-not $check.youtube.ok) { Stop-Setup ('YouTube refused the key: ' + $check.youtube.error) }
-if (-not $check.password_set) { Stop-Setup 'the password is not showing on the server yet. Run the same line again.' }
+if (-not $check.password_set -or -not $check.api_key_set) {
+  if ($updating) { Stop-Setup "the server on Cloudflare has lost its key or password. Delete '$note' from your Desktop and run the same line again for a fresh setup." }
+  Stop-Setup 'the password is not showing on the server yet. Run the same line again.'
+}
+if ($updating) {
+  $ping = '{"jsonrpc":"2.0","id":1,"method":"ping"}'
+  try {
+    Invoke-WebRequest -UseBasicParsing -Method Post -Uri "$url/mcp/$password" -Body $ping -ContentType 'application/json' -TimeoutSec 20 -ErrorAction Stop | Out-Null
+  } catch {
+    Stop-Setup "the password saved on your Desktop no longer opens the server. Delete '$note' from your Desktop and run the same line again for a fresh setup."
+  }
+  Write-Host ''
+  Write-Host 'Updated. YouTube for Claude is running the newest version.' -ForegroundColor Green
+  Write-Host 'Nothing to change in claude.ai: your connector address is the same.'
+  Write-Host 'Start a NEW chat to get the new tools.'
+  try {
+    Add-Type -AssemblyName PresentationFramework
+    [void][System.Windows.MessageBox]::Show("YouTube for Claude is updated.`n`nNothing to change in claude.ai. Start a new chat to use the new tools.", 'YouTube for Claude - updated')
+  } catch { }
+  return
+}
 
 # ---------------------------------------------------------------- done
 $connector = "$url/mcp/$password"
 try { Set-Clipboard -Value $connector } catch { }
 
-# Saved to the Desktop too, so the address cannot get lost in this window.
-$desktop = [Environment]::GetFolderPath('Desktop')
-if (-not $desktop -or -not (Test-Path $desktop)) { $desktop = $HOME }
-$note = Join-Path $desktop 'YouTube connector address.txt'
+# Saved to the Desktop too ($note), so the address cannot get lost in this window.
 @(
   'YouTube for Claude - your connector address',
   '',

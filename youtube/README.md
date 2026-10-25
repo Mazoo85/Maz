@@ -31,7 +31,12 @@ right-click in the PowerShell window to paste it, and press Enter.
 [`setup.ps1`](setup.ps1) installs Node.js if it is missing, opens Cloudflare in your browser
 so you can click **Allow** (make a free account there first if you have none), deploys the
 server, stores your key and a new private password, checks that it all answers, copies the
-connector address to your clipboard and opens the claude.ai Connectors page. Then do step 3.
+connector address to your clipboard, saves it on your Desktop as
+`YouTube connector address.txt` and opens the claude.ai Connectors page. Then do step 3.
+
+**To update** the server after a change here, run the same line again. It finds the file on
+your Desktop, so it skips the key, keeps your password, and your claude.ai connector carries
+on unchanged. Start a new chat to see new tools.
 
 ## Put it online (about 15 minutes, free, no card)
 
@@ -100,6 +105,7 @@ anywhere. If it leaks, change the `CONNECTOR_PASSWORD` secret and update the con
 |---|---|---|
 | `search_videos` | Find videos by words, with filters for order (relevance, date, views, rating), length, date, channel and country. Creative Commons only unless told `license: any`. | ~101 units |
 | `trending_videos` | The most popular videos right now in a country, optionally one category (10 Music, 20 Gaming, 24 Entertainment, 28 Science & Tech). `reusable_only` keeps just the Creative Commons ones. | 1 |
+| `rising_reusable_videos` | **Reusable and trending:** Creative Commons videos from the last 1-30 days (default 7), ranked by views per day so the fastest-rising come first. Optionally one topic or country. Use this rather than `trending_videos` when the videos must be reusable: the trending chart almost never has a reusable one. | ~101 |
 | `get_video` | Title, channel, length, views, likes, comment count, license, reusable or not, credit line. Takes an id or any YouTube link. | 1 |
 | `get_channel` | Title, subscribers, video and view counts. Takes a channel id, an `@handle` or a link. | 1 |
 | `list_channel_videos` | A channel's newest uploads with full details. Creative Commons only unless told `license: any`. | 3 |
@@ -141,7 +147,7 @@ Commons videos straight into a remix. Two things to know before building a chann
 
 | File | What it is |
 |---|---|
-| `worker.js` | The whole server: link reading, the seven tools, the MCP handshake, the password check, `/check`. Self-contained so it can be pasted as it is. |
+| `worker.js` | The whole server: link reading, the eight tools, the MCP handshake, the password check, `/check`. Self-contained so it can be pasted as it is. |
 | `wrangler.jsonc` | So Cloudflare can deploy it straight from GitHub. |
 | `setup.ps1` | The easy way on Windows: deploys to Cloudflare and stores the secrets for you. |
 | `tests/worker.test.mjs` | `node youtube/tests/worker.test.mjs`, with a fake YouTube, no network or key needed. |

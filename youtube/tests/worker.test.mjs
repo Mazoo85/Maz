@@ -11,7 +11,7 @@
  */
 import worker, {
   parseVideoId, parseChannel, parsePlaylistId, parseDuration, formatDuration,
-  shapeVideo, explainApiError, TOOLS
+  shapeVideo, explainApiError, viewsPerDay, TOOLS
 } from '../worker.js';
 
 const ENV = { YOUTUBE_API_KEY: 'test-key', CONNECTOR_PASSWORD: 'open sesame' };
@@ -211,15 +211,15 @@ test('notifications get 202 and no body', async () => {
   eq(r.body, null);
 });
 
-test('tools/list names the seven tools with schemas', async () => {
+test('tools/list names the eight tools with schemas', async () => {
   fakeNetwork({});
   const r = await rpc('tools/list', {});
   const names = r.body.result.tools.map((t) => t.name);
-  eq(names, ['search_videos', 'trending_videos', 'get_video', 'get_channel', 'list_channel_videos', 'list_playlist_videos', 'get_comments']);
+  eq(names, ['search_videos', 'trending_videos', 'rising_reusable_videos', 'get_video', 'get_channel', 'list_channel_videos', 'list_playlist_videos', 'get_comments']);
   for (const t of r.body.result.tools) {
     assert(t.description && t.inputSchema && t.inputSchema.type === 'object', t.name + ' has a description and schema');
   }
-  eq(TOOLS.length, 7);
+  eq(TOOLS.length, 8);
 });
 
 test('bad JSON, batches, unknown methods and unknown tools are refused clearly', async () => {
@@ -300,6 +300,42 @@ test('trending_videos reads the chart and can keep only reusable videos', async 
   eq(some.data.videos.map((v) => v.id), ['bbbbbbbbbbb']);
   eq(asked[1].searchParams.get('regionCode'), 'US', 'default country');
   assert(/region_code/.test((await call('trending_videos', { region_code: 'USA' })).text), 'bad country');
+});
+
+test('views per day ranks fast-rising videos, counting under a day as one day', () => {
+  const now = Date.parse('2026-10-25T00:00:00Z');
+  eq(viewsPerDay(1000, '2026-10-15T00:00:00Z', now), 100);
+  eq(viewsPerDay(500, '2026-10-24T18:00:00Z', now), 500, 'six hours old counts as one day');
+  eq(viewsPerDay(null, '2026-10-15T00:00:00Z', now), null);
+  eq(viewsPerDay(10, 'not a date', now), null);
+});
+
+test('rising_reusable_videos asks for recent Creative Commons videos and ranks by views per day', async () => {
+  const day = 86400000;
+  const ago = (d) => new Date(Date.now() - d * day).toISOString();
+  const asked = fakeNetwork({
+    search: { body: { items: ['aaaaaaaaaaa', 'bbbbbbbbbbb', 'ccccccccccc', 'ddddddddddd'].map((id) => ({ id: { videoId: id } })) } },
+    videos: { body: { items: [
+      video('aaaaaaaaaaa', { snippet: { title: 'old and big', channelTitle: 'A', publishedAt: ago(6) }, statistics: { viewCount: '600000' } }),
+      video('bbbbbbbbbbb', { snippet: { title: 'new and rising', channelTitle: 'B', publishedAt: ago(1) }, statistics: { viewCount: '300000' } }),
+      video('ccccccccccc', { snippet: { title: 'not reusable', channelTitle: 'C', publishedAt: ago(1) }, statistics: { viewCount: '9000000' }, status: { license: 'youtube' } }),
+      video('ddddddddddd', { snippet: { title: 'slow', channelTitle: 'D', publishedAt: ago(3) }, statistics: { viewCount: '3000' } })
+    ] } }
+  });
+  const r = await call('rising_reusable_videos', { query: 'funny animals', days: 3, region_code: 'us', max_results: 2 });
+  eq(r.isError, false, r.text);
+  const q = asked[0].searchParams;
+  eq([q.get('videoLicense'), q.get('order'), q.get('q'), q.get('regionCode'), q.get('maxResults')], ['creativeCommon', 'viewCount', 'funny animals', 'US', '50']);
+  const since = Date.parse(q.get('publishedAfter'));
+  assert(Math.abs(Date.now() - 3 * day - since) < 60000, 'looks back three days');
+  eq(r.data.videos.map((v) => v.title), ['new and rising', 'old and big'], 'fastest first, non-reusable dropped, capped');
+  eq(r.data.videos[0].views_per_day, 300000);
+  assert(r.data.videos.every((v) => v.reusable && v.credit), 'all reusable with credit');
+  eq(r.data.quota_used, 101);
+  const any = await call('rising_reusable_videos', {});
+  eq(asked[2].searchParams.has('q'), false, 'no topic means every topic');
+  eq(any.data.days, 7, 'default window');
+  assert(/region_code/.test((await call('rising_reusable_videos', { region_code: 'USA' })).text), 'bad country');
 });
 
 test('get_video returns one shaped video or says there is none', async () => {
@@ -392,7 +428,7 @@ test('/check reports setup state and whether YouTube answers, without secrets', 
   fakeNetwork({ videos: { body: { items: [{ id: 'x' }] } } });
   const ok = await (await worker.fetch(new Request('https://yt.example/check'), ENV)).json();
   eq([ok.api_key_set, ok.password_set, ok.youtube.ok], [true, true, true]);
-  eq(ok.tools.length, 7);
+  eq(ok.tools.length, 8);
   assert(!JSON.stringify(ok).includes('test-key') && !JSON.stringify(ok).includes('sesame'), 'no secrets');
   fakeNetwork({ videos: { status: 403, body: { error: { errors: [{ reason: 'accessNotConfigured' }] } } } });
   const bad = await (await worker.fetch(new Request('https://yt.example/check'), { YOUTUBE_API_KEY: 'k' })).json();
