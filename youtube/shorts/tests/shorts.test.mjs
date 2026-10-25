@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  classifyLicense, parseLength, archiveSearchUrl, archiveCandidates, archiveVideoFile,
+  classifyLicense, parseLength, archiveSearchUrl, archiveCandidates, archiveVideoFile, yearOf,
   commonsSearchUrl, commonsCandidates, creditLine
 } from '../sources.mjs';
 import { checkPlan, uploadDetails, wrap, sceneTotal, sceneArgs, PlanError } from '../compose.mjs';
@@ -76,11 +76,12 @@ test('lengths are read in every form the sites use', () => {
 
 /* ------------------------------------------------------- Internet Archive */
 
-test('the Archive search asks only for videos with an accepted license, most downloaded first', () => {
+test('the Archive search asks for licensed videos without wildcards (they break its search), most downloaded first', () => {
   const u = new URL(archiveSearchUrl('eiffel tower', 5));
-  assert(/mediatype:\(movies\)/.test(u.searchParams.get('q')));
-  assert(/publicdomain/.test(u.searchParams.get('q')) && /licenses\/by\//.test(u.searchParams.get('q')));
-  eq(u.searchParams.get('rows'), '5');
+  const q = u.searchParams.get('q');
+  assert(/mediatype:\(movies\)/.test(q) && /licenseurl:\[\* TO \*\]/.test(q), q);
+  assert(!/\*publicdomain\*/.test(q), 'no wildcard license filter');
+  eq(u.searchParams.get('rows'), '25', 'asks for extra, since some licenses get refused');
   eq(u.searchParams.getAll('sort[]'), ['downloads desc']);
 });
 
@@ -96,6 +97,20 @@ test('Archive results are licence-checked again, whatever the search returned', 
   eq(c[0].description, 'The tower & the fair');
   eq(c[0].page, 'https://archive.org/details/eiffel1889');
   eq([c[0].license, c[0].year, c[0].popularity], ['public domain', '1889', 5000]);
+});
+
+test('an Archive search error is reported, not mistaken for "nothing found"', () => {
+  let message = '';
+  try { archiveCandidates({ error: '[BACKEND_ERROR] Invalid or no response from Elasticsearch' }); } catch (e) { message = e.message; }
+  assert(/search failed: \[BACKEND_ERROR\]/.test(message), message);
+  eq(classifyLicense('http://creativecommons.org/licenses/publicdomain/').kind, 'public domain', "the Archive's old public-domain address");
+});
+
+test('the film year comes from the title before any upload date', () => {
+  eq(yearOf('Titanic_Disaster_-_Genuine_Footage_(1911-1912).webm'), '1911-1912');
+  eq(yearOf('La hantise (1912)'), '1912');
+  eq(yearOf('2014-03-02 12:00'), '2014');
+  eq(yearOf('no year'), null);
 });
 
 test('the largest h.264 file of an Archive item is chosen to cut from', () => {

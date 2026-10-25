@@ -30,10 +30,18 @@ function fail(message) {
   process.exit(1);
 }
 
+/* JSON from a site, waiting and retrying when it says "too many requests". */
 async function getJson(url) {
-  const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' } });
-  if (!res.ok) throw new Error(new URL(url).host + ' answered ' + res.status);
-  return res.json();
+  for (let attempt = 1; ; attempt++) {
+    const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' } });
+    if (res.status === 429 && attempt < 4) {
+      const wait = Math.min(30, Number(res.headers.get('retry-after')) || attempt * 5);
+      await new Promise((r) => setTimeout(r, wait * 1000));
+      continue;
+    }
+    if (!res.ok) throw new Error(new URL(url).host + ' answered ' + res.status);
+    return res.json();
+  }
 }
 
 function option(args, name, fallback) {
@@ -44,7 +52,7 @@ function option(args, name, fallback) {
 async function search(topic, rows) {
   const results = [];
   try {
-    const found = archiveCandidates(await getJson(archiveSearchUrl(topic, rows))).filter((c) => c.ok);
+    const found = archiveCandidates(await getJson(archiveSearchUrl(topic, rows))).filter((c) => c.ok).slice(0, rows);
     for (const c of found) {
       try {
         c.file = archiveVideoFile(await getJson(archiveMetadataUrl(c.id)));

@@ -23,9 +23,18 @@ this does the mechanical part.
 
 Videos on YouTube itself are never used: YouTube's terms forbid downloading them.
 
+**A label is not proof.** Anyone can mark their upload "public domain". Before a video is
+used, look at what it actually is: an old film or government footage is one thing; a modern
+compilation someone marked public domain (often full of other people's clips) is another,
+and must be skipped. Footage published before 1931 is public domain in the US by age, but
+companies that sell old newsreels (British Pathé, for example) may still file automatic
+claims on YouTube; uploading as private first shows any claim before the video goes public.
+
 ## Using it
 
 Needs Node.js 18+ and ffmpeg.
+Inside a Claude cloud session, Node's web requests must go through the session's proxy:
+put `NODE_USE_ENV_PROXY=1 NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt` before the command.
 
 ```sh
 node youtube/shorts/cli.mjs search "eiffel tower"         # usable videos, with license and length

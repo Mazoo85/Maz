@@ -48,13 +48,15 @@ function stripHtml(text) {
 /* ------------------------------------------------------- Internet Archive */
 
 export function archiveSearchUrl(topic, rows) {
-  const q = '(' + String(topic).replace(/[()]/g, ' ').trim() + ') AND mediatype:(movies) AND ' +
-    'licenseurl:(*publicdomain* OR *licenses/by/* OR *licenses/by-sa/*)';
+  // No license filter in the query: the Archive's search fails on wildcard
+  // license filters ("Invalid or no response from Elasticsearch"), so every
+  // result's license is checked here instead (archiveCandidates).
+  const q = '(' + String(topic).replace(/[()]/g, ' ').trim() + ') AND mediatype:(movies) AND licenseurl:[* TO *]';
   const u = new URL('https://archive.org/advancedsearch.php');
   u.searchParams.set('q', q);
   for (const f of ['identifier', 'title', 'licenseurl', 'year', 'downloads', 'description', 'creator']) u.searchParams.append('fl[]', f);
   u.searchParams.append('sort[]', 'downloads desc');
-  u.searchParams.set('rows', String(rows || 20));
+  u.searchParams.set('rows', String(Math.min(200, (rows || 20) * 5)));
   u.searchParams.set('output', 'json');
   return u.toString();
 }
@@ -62,6 +64,7 @@ export function archiveSearchUrl(topic, rows) {
 /* advancedsearch JSON -> candidates, licence-checked (the search filter is a
  * first pass only; every item is classified again here). */
 export function archiveCandidates(json) {
+  if (json && json.error) throw new Error('the Internet Archive search failed: ' + String(json.error).slice(0, 160));
   const docs = (json && json.response && json.response.docs) || [];
   return docs.map((d) => {
     const lic = classifyLicense(d.licenseurl);
@@ -106,6 +109,16 @@ export function archiveVideoFile(json) {
 
 /* ------------------------------------------------------ Wikimedia Commons */
 
+/* "Footage (1911-1912)" -> "1911-1912"; "2005-08-28" -> "2005"; else null.
+ * The title's year is the film's; a date field is often just the upload. */
+export function yearOf(text) {
+  const s = String(text || '').replace(/_/g, ' ');
+  const range = s.match(/\b(1[89]\d\d|20\d\d)\s*[-–]\s*(1[89]\d\d|20\d\d)\b/);
+  if (range) return range[1] + '-' + range[2];
+  const one = s.match(/\b(1[89]\d\d|20\d\d)\b/);
+  return one ? one[1] : null;
+}
+
 export function commonsSearchUrl(topic, rows) {
   const u = new URL('https://commons.wikimedia.org/w/api.php');
   u.searchParams.set('action', 'query');
@@ -135,7 +148,7 @@ export function commonsCandidates(json) {
       source: 'Wikimedia Commons',
       id: name,
       title: stripHtml(val('ObjectName')) || name.replace(/\.[a-z0-9]+$/i, '').replace(/_/g, ' '),
-      year: (stripHtml(val('DateTimeOriginal')).match(/\b(1[89]\d\d|20\d\d)\b/) || [null])[0],
+      year: yearOf(name) || yearOf(stripHtml(val('ObjectName'))) || yearOf(stripHtml(val('DateTimeOriginal'))),
       creator: stripHtml(val('Artist')) || null,
       page: info.descriptionurl || 'https://commons.wikimedia.org/wiki/' + encodeURIComponent(p.title || ''),
       license: lic.kind,
