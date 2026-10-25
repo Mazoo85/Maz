@@ -111,10 +111,17 @@ Set-Location $dir
 
 # ---------------------------------------------------------------- sign in
 Say 'Signing in to Cloudflare'
-Write-Host 'Your browser will open a Cloudflare page. Sign in if asked, then click Allow.'
-Write-Host 'Come back to this window afterwards.'
-Invoke-Wrangler login
-if ($LASTEXITCODE -ne 0) { Stop-Setup 'the Cloudflare sign-in did not finish.' }
+$who = (Invoke-Wrangler whoami 2>&1 | ForEach-Object { "$_" }) -join "`n"
+if ($who -match 'You are logged in') {
+  Write-Host 'Already signed in to Cloudflare. Skipping this step.'
+} else {
+  Write-Host ''
+  Write-Host '  >>> A Cloudflare tab is opening in your browser.' -ForegroundColor Yellow
+  Write-Host '  >>> Sign in if asked, click ALLOW, then come back to this window.' -ForegroundColor Yellow
+  Write-Host ''
+  Invoke-Wrangler login
+  if ($LASTEXITCODE -ne 0) { Stop-Setup 'the Cloudflare sign-in did not finish.' }
+}
 
 # ---------------------------------------------------------------- deploy
 Say 'Putting the server on Cloudflare'
@@ -153,10 +160,34 @@ if (-not $check.password_set) { Stop-Setup 'the password is not showing on the s
 # ---------------------------------------------------------------- done
 $connector = "$url/mcp/$password"
 try { Set-Clipboard -Value $connector } catch { }
+
+# Saved to the Desktop too, so the address cannot get lost in this window.
+$desktop = [Environment]::GetFolderPath('Desktop')
+if (-not $desktop -or -not (Test-Path $desktop)) { $desktop = $HOME }
+$note = Join-Path $desktop 'YouTube connector address.txt'
+@(
+  'YouTube for Claude - your connector address',
+  '',
+  $connector,
+  '',
+  'To finish, in claude.ai:',
+  '  1. Open https://claude.ai/settings/connectors',
+  '  2. Click "Add custom connector" (it may be behind a + or "Browse connectors" button).',
+  '  3. Name: YouTube',
+  '  4. Remote MCP server URL: the address above (it is also on your clipboard: Ctrl+V).',
+  '  5. Leave the other fields empty and click Add.',
+  '',
+  'Then start a NEW chat, switch YouTube on in the connectors menu by the message box, and ask:',
+  '  "What''s trending on YouTube in the UK right now?"',
+  '',
+  'This address contains your private password. Do not post it anywhere.'
+) | Set-Content -Path $note -Encoding UTF8
+
 Write-Host ''
 Write-Host 'All done. YouTube for Claude is running.' -ForegroundColor Green
 Write-Host ''
-Write-Host 'Your connector address (already copied to your clipboard):'
+Write-Host 'Your connector address (copied to your clipboard, and saved on your Desktop'
+Write-Host 'as "YouTube connector address.txt"):'
 Write-Host "  $connector" -ForegroundColor Yellow
 Write-Host ''
 Write-Host 'Last step, in the claude.ai page that is opening now:'
@@ -167,3 +198,10 @@ Write-Host '  4. Click Add.'
 Write-Host ''
 Write-Host 'That address contains your private password. Do not post it anywhere.'
 try { Start-Process 'https://claude.ai/settings/connectors' } catch { Write-Host 'Open https://claude.ai/settings/connectors in your browser.' }
+try { Start-Process notepad.exe -ArgumentList "`"$note`"" } catch { }
+try {
+  Add-Type -AssemblyName PresentationFramework
+  [void][System.Windows.MessageBox]::Show(
+    "YouTube for Claude is running.`n`nYour connector address is on your clipboard and in the Notepad window (also saved on your Desktop).`n`nIn claude.ai: Add custom connector > Name: YouTube > URL: press Ctrl+V > Add.",
+    'YouTube for Claude - done')
+} catch { }
