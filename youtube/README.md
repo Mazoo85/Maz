@@ -19,11 +19,14 @@ A standalone project: it is not part of MAZ ARCADE and not built on the Maz engi
 ## The easy way, on Windows (about 5 minutes)
 
 Do step 1 below to get your YouTube key. Then open **PowerShell** (Start menu, type
-`PowerShell`, press Enter) and paste this line, with your key in place of `AIza...`:
+`PowerShell`, press Enter), paste this line and press Enter:
 
 ```powershell
-$env:YT_KEY='AIza...'; irm https://raw.githubusercontent.com/Mazoo85/Maz/claude/youtube-extension/youtube/setup.ps1 | iex
+irm https://raw.githubusercontent.com/Mazoo85/Maz/claude/youtube-extension/youtube/setup.ps1 | iex
 ```
+
+It asks for your key first: copy it from the Google Cloud Credentials page (**Show key**),
+right-click in the PowerShell window to paste it, and press Enter.
 
 [`setup.ps1`](setup.ps1) installs Node.js if it is missing, opens Cloudflare in your browser
 so you can click **Allow** (make a free account there first if you have none), deploys the

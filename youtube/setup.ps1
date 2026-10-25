@@ -4,8 +4,9 @@
 # line to paste into claude.ai. You only click "Allow" once, in the browser.
 #
 # Run it by pasting this into PowerShell (Start menu -> type PowerShell -> Enter),
-# with your own YouTube key in place of AIza...:
+# (it asks for your YouTube key; or put it in place of AIza... to skip the question):
 #
+#   irm https://raw.githubusercontent.com/Mazoo85/Maz/claude/youtube-extension/youtube/setup.ps1 | iex
 #   $env:YT_KEY='AIza...'; irm https://raw.githubusercontent.com/Mazoo85/Maz/claude/youtube-extension/youtube/setup.ps1 | iex
 #
 # What it does, in order:
@@ -60,10 +61,18 @@ function Get-NodeMajor {
 }
 
 # ---------------------------------------------------------------- the key
+# Some apps show a copied key as dots (AIzaSy•••), so a key that is not real
+# letters and digits is asked for again rather than stopping the setup.
+function Test-YouTubeKey($k) { return "$k" -match '^AIza[0-9A-Za-z_-]{30,}$' }
 $key = "$env:YT_KEY".Trim()
-if (-not $key) { $key = (Read-Host 'Paste your YouTube API key (it starts with AIza)').Trim() }
-if ($key -notmatch '^AIza[0-9A-Za-z_-]{30,}$') {
-  Stop-Setup 'that does not look like a YouTube API key. It should start with AIza.'
+$env:YT_KEY = $null
+if ($key -and -not (Test-YouTubeKey $key)) {
+  Write-Host 'The key on that line was not the real key (it may have been copied as dots).' -ForegroundColor Yellow
+}
+for ($try = 1; -not (Test-YouTubeKey $key); $try++) {
+  if ($try -gt 3) { Stop-Setup 'that still does not look like a YouTube API key. It starts with AIza and has about 39 letters and digits.' }
+  Write-Host 'Copy your key from https://console.cloud.google.com/apis/credentials (click Show key), then'
+  $key = "$(Read-Host 'right-click here to paste it, and press Enter')".Trim()
 }
 
 # ---------------------------------------------------------------- Node.js
