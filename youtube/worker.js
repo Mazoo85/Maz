@@ -214,14 +214,15 @@ export function explainApiError(status, body) {
 }
 
 async function youtube(env, path, params) {
-  if (!env || !env.YOUTUBE_API_KEY) {
+  const key = secret(env, 'YOUTUBE_API_KEY');
+  if (!key) {
     throw new YouTubeError('No YouTube API key is set. Add the YOUTUBE_API_KEY secret on the Cloudflare worker.');
   }
   const url = new URL(API + path);
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v));
   }
-  url.searchParams.set('key', env.YOUTUBE_API_KEY);
+  url.searchParams.set('key', key);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
   let res;
@@ -540,6 +541,12 @@ function json(status, body) {
   });
 }
 
+/* A secret as stored, minus any stray newline or space a paste or a pipe added. */
+function secret(env, name) {
+  const v = env && env[name];
+  return typeof v === 'string' ? v.trim() : '';
+}
+
 function sameSecret(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length || !a.length) return false;
   let diff = 0;
@@ -549,7 +556,7 @@ function sameSecret(a, b) {
 
 /* The password may come in the path (/mcp/<password>) or as a bearer token. */
 function authorized(request, pathPassword, env) {
-  const expected = env && env.CONNECTOR_PASSWORD;
+  const expected = secret(env, 'CONNECTOR_PASSWORD');
   if (!expected) return false;
   let given = pathPassword || '';
   try {
@@ -566,8 +573,8 @@ function authorized(request, pathPassword, env) {
 async function check(env) {
   const out = {
     server: SERVER_NAME + ' ' + SERVER_VERSION,
-    api_key_set: !!(env && env.YOUTUBE_API_KEY),
-    password_set: !!(env && env.CONNECTOR_PASSWORD),
+    api_key_set: !!secret(env, 'YOUTUBE_API_KEY'),
+    password_set: !!secret(env, 'CONNECTOR_PASSWORD'),
     tools: TOOLS.map((t) => t.name)
   };
   try {

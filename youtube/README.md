@@ -16,6 +16,20 @@ Protocol (MCP), which is how claude.ai talks to a *custom connector*.
 
 A standalone project: it is not part of MAZ ARCADE and not built on the Maz engine.
 
+## The easy way, on Windows (about 5 minutes)
+
+Do step 1 below to get your YouTube key. Then open **PowerShell** (Start menu, type
+`PowerShell`, press Enter) and paste this line, with your key in place of `AIza...`:
+
+```powershell
+$env:YT_KEY='AIza...'; irm https://raw.githubusercontent.com/Mazoo85/Maz/claude/youtube-extension/youtube/setup.ps1 | iex
+```
+
+[`setup.ps1`](setup.ps1) installs Node.js if it is missing, opens Cloudflare in your browser
+so you can click **Allow** (make a free account there first if you have none), deploys the
+server, stores your key and a new private password, checks that it all answers, copies the
+connector address to your clipboard and opens the claude.ai Connectors page. Then do step 3.
+
 ## Put it online (about 15 minutes, free, no card)
 
 ### 1. Get a YouTube API key from Google
@@ -126,6 +140,7 @@ Commons videos straight into a remix. Two things to know before building a chann
 |---|---|
 | `worker.js` | The whole server: link reading, the seven tools, the MCP handshake, the password check, `/check`. Self-contained so it can be pasted as it is. |
 | `wrangler.jsonc` | So Cloudflare can deploy it straight from GitHub. |
+| `setup.ps1` | The easy way on Windows: deploys to Cloudflare and stores the secrets for you. |
 | `tests/worker.test.mjs` | `node youtube/tests/worker.test.mjs`, with a fake YouTube, no network or key needed. |
 
 ## Changing it

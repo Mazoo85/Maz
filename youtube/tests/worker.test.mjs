@@ -172,6 +172,15 @@ test('the password works in the path and as a bearer token', async () => {
   eq((await rpc('ping', {}, { path: '/mcp/open%20sesame/' })).status, 200, 'trailing slash');
 });
 
+test('a stray newline or space around a stored secret is ignored', async () => {
+  const asked = fakeNetwork({ videos: { body: { items: [video('aaaaaaaaaaa')] } } });
+  const env = { YOUTUBE_API_KEY: 'test-key\r\n', CONNECTOR_PASSWORD: ' open sesame\n' };
+  const r = await call('get_video', { video: 'aaaaaaaaaaa' }, { env: env });
+  eq(r.isError, false, r.text);
+  eq(asked[0].searchParams.get('key'), 'test-key');
+  eq((await rpc('ping', {}, { env: { CONNECTOR_PASSWORD: '\n' } })).status, 401, 'a blank password never matches');
+});
+
 test('other paths and methods get a hint', async () => {
   fakeNetwork({});
   const r404 = await worker.fetch(new Request('https://yt.example/'), ENV);
