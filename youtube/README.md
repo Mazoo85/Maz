@@ -133,8 +133,9 @@ Every video comes back in the same shape:
 ## About reusing videos
 
 A Creative Commons mark means the owner allows others to reuse the video **with credit**
-(the `credit` line is there to paste). YouTube's own Studio editor can also pull Creative
-Commons videos straight into a remix. Two things to know before building a channel on it:
+(the `credit` line is there to paste). This tool finds such videos but does not download
+them: YouTube's terms forbid downloading except through YouTube's own features, so get the
+footage from the creator or from where they host the original. Two things to know before building a channel on it:
 
 - Reusing someone's video unchanged, or with little added, counts as *reused content*
   under YouTube's rules: such channels are refused monetisation and can be removed. Add
