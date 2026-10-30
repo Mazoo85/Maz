@@ -26,6 +26,7 @@ with their full history.
 | [`film`](film) |
 | [`forge`](forge) |
 | [`godview`](godview) |
+| [`ladder`](ladder) |
 | [`livecams`](livecams) |
 | [`madlibs`](madlibs) |
 | [`mandala`](mandala) |
