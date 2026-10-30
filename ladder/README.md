@@ -37,20 +37,37 @@ A standalone app: it is not part of MAZ ARCADE.
 
 ## Patches
 
-Sixty-five factory sounds in ten groups, plus a plain **Init** patch to start from scratch:
+Ninety-two factory sounds in ten groups, plus a plain **Init** patch to start from scratch:
 
 | Group | Patches |
 |---|---|
 | **Bass** | Fat Bass, Sub Bass, Pedal Drop, Rubber Pluck, Acid Squelch, Funk Bass, Growl Bass, Reese Bass, Synth-Pop Bass |
 | **Lead** | Glide Lead, Prog Solo, Screaming Emphasis, Square Lead, Fifths Lead, Theremin, Chiptune Lead |
-| **Keys** | Electric Piano, Clav, Drawbar Organ, Poly Stab |
-| **Pads** | Warm Pad, Glass Pad, Slow Sweep, Supersaw Unison, Dark Drone |
+| **Keys** | Electric Piano, Clav, Drawbar Organ, Poly Stab, Bell Piano, Reed Piano, Lo-Fi Piano, Toy Piano, Harpsichord, Celesta, Mallet Keys, Muted Keys, Synth Keys, House Piano, Combo Organ, Church Organ, Gospel Organ |
+| **Pads** | Warm Pad, Glass Pad, Slow Sweep, Supersaw Unison, Dark Drone, Choir Pad, Shimmer Pad, Space Pad, PWM Pad, Breathing Pad, Rhythm Pad, Ambient Wash, Cinematic Swell, Soft Sine Pad, 80s Poly Pad, Vapor Pad, Glacier, Hollow Pad |
 | **Brass & strings** | Brass Section, Brass Stab, Velvet Strings, Solo Cello |
 | **Plucks** | Bright Pluck, Nylon Pluck, Kalimba, Marimba |
-| **Drums** | Analog Kick, 808 Boom, Hard Kick, Analog Tom, Syn Tom, Conga, Snare, Electro Snare, Rimshot, Hand Clap, Closed Hat, Open Hat, Shaker, Crash, Ride, Cowbell, Woodblock (one hit per key; the pitch follows the key, so play kicks and toms low) |
+| **Drums** | **Drum Kit** (a different drum on every key, below), then each drum on its own: Analog Kick, 808 Boom, Hard Kick, Analog Tom, Syn Tom, Conga, Snare, Electro Snare, Rimshot, Hand Clap, Closed Hat, Open Hat, Shaker, Crash, Ride, Cowbell, Woodblock (one hit per key; the pitch follows the key) |
 | **Effects** | Laser Zap, Siren, UFO, Wind, Ocean Waves |
 | **Experimental** | Filter Whistle, Wobble, Sample & Hold Computer, Metal Bells |
 | **Sequenced** | Pulse Arp, Latched Sequence, Berlin School, Chip Arp, Trance Gate, Random Bleeps (hold a chord) |
+
+### The drum kit
+
+Pick **Drum Kit** (or flip the **Drum kit** switch under Controllers) and every
+key plays its own drum, with its name on the key. The layout covers two octaves
+from C3 and repeats up and down the keyboard. It follows the drum-machine habit:
+kick on C, snare on D, hi-hats on the black keys.
+
+| | C | C♯ | D | D♯ | E | F | F♯ | G | G♯ | A | A♯ | B |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **C3 octave** | Kick | Rimshot | Snare | Clap | Electro snare | Low tom | Closed hat | Mid tom | Pedal hat | High tom | Open hat | Crash |
+| **C4 octave** | 808 boom | Woodblock | Hard kick | Cowbell | Low syn tom | Ride | Shaker | High syn tom | Tambourine | Low conga | High conga | Laser zap |
+
+Drums ring out after you let go, like real ones, and a closed or pedal hat cuts
+off a ringing open hat. On the computer keyboard, `A` is the kick, `S` the snare,
+`T` the closed hat and `U` the open hat. The sound knobs don't change the kit;
+Tempo, the arpeggiator, Echo & space and Volume do.
 
 Each patch sets its own Volume so they all play at about the same loudness;
 a test holds every patch to that. **Save** keeps your own in this browser.

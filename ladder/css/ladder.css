@@ -419,6 +419,44 @@ body:not(.powered) .power { animation: beckon 2.4s ease-in-out infinite; }
 .ctl.synced .ctl-value { color: var(--amber); }
 .ctl.synced-off .seg { opacity: 0.45; }
 
+/* drum kit mode */
+.kit-note {
+  display: none;
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  border-radius: 4px;
+  background: var(--panel-raise);
+  border-left: 3px solid var(--amber);
+  font-size: 14px;
+  color: var(--legend);
+}
+body.kit-on .kit-note { display: block; }
+body.kit-on :is(.sec-oscillators, .sec-mixer, .col-contours, .sec-modulation) { opacity: 0.4; }
+.key-drum {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  bottom: 22px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.05;
+  color: #6a4a1c;
+  text-align: center;
+  pointer-events: none;
+}
+.key.black .key-drum {
+  bottom: 10px;
+  font-size: 10px;
+  color: var(--amber);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  margin: 0 auto;
+  white-space: nowrap;
+}
+.key.black.drum .key-letter { display: none; }
+.key.white.drum .key-letter { bottom: 6px; }
+.key.white.drum .key-name { display: none; }
+
 /* arpeggiator dims when off */
 .sec-arp .row ~ .row { transition: opacity 0.2s; }
 body:not(.arp-on) .sec-arp .row ~ .row { opacity: 0.55; }

@@ -365,6 +365,76 @@ test('the factory list has something in every group', () => {
   assert.strictEqual(new Set(order).size, order.length);
 });
 
+function kitSynth() {
+  const kitPatch = L.PRESETS.find((p) => p.name === 'Drum Kit');
+  const s = new DSP.Synth(SR, L.engineParams(kitPatch.params));
+  s.setKit(L.kitDrums());
+  return s;
+}
+
+test('the drum kit has a different drum on each of its 24 keys', () => {
+  assert.strictEqual(L.KIT.length, DSP.KIT_KEYS);
+  assert.strictEqual(new Set(L.KIT.map((k) => k.name)).size, DSP.KIT_KEYS);
+  assert.strictEqual(new Set(L.KIT.map((k) => k.short)).size, DSP.KIT_KEYS);
+  const drums = L.kitDrums();
+  for (let slot = 0; slot < DSP.KIT_KEYS; slot++) assert.ok(drums[slot].params.aS === 0, L.KIT[slot].name + ' must die away by itself');
+  // Kick on C, snare on D, closed hat on F sharp, like a drum machine.
+  assert.strictEqual(L.KIT[DSP.kitSlot(48)].name, 'Kick');
+  assert.strictEqual(L.KIT[DSP.kitSlot(50)].name, 'Snare');
+  assert.strictEqual(L.KIT[DSP.kitSlot(54)].name, 'Closed hi-hat');
+  // The layout repeats every two octaves.
+  assert.strictEqual(DSP.kitSlot(24), DSP.kitSlot(48));
+  assert.strictEqual(DSP.kitSlot(72), 0);
+});
+
+test('every kit drum sounds, at a level that matches the rest of the kit', () => {
+  for (let slot = 0; slot < DSP.KIT_KEYS; slot++) {
+    const s = kitSynth();
+    s.noteOn(DSP.KIT_BASE + slot, 0.85);
+    const out = render(s, 1);
+    let loudest = 0;
+    const W = SR / 20;
+    for (let i = 0; i + W <= out.L.length; i += W) {
+      loudest = Math.max(loudest, Math.sqrt((rms(out.L, i, i + W) ** 2 + rms(out.R, i, i + W) ** 2) / 2));
+    }
+    const db = 20 * Math.log10(loudest);
+    assert.ok(db > -28 && db < -12, L.KIT[slot].name + ' is at ' + db.toFixed(1) + ' dB');
+  }
+});
+
+test('a kit key keeps ringing after it is let go, like a real drum', () => {
+  const s = kitSynth();
+  s.noteOn(59, 1); // crash
+  render(s, 0.02);
+  s.noteOff(59);
+  const tail = render(s, 0.5);
+  assert.ok(rms(tail.L, SR * 0.3, SR * 0.5) > 0.002, 'the crash was cut off');
+});
+
+test('a closed hi-hat chokes a ringing open one', () => {
+  const ringing = kitSynth();
+  ringing.noteOn(58, 1); // open hat
+  render(ringing, 0.05);
+  const open = render(ringing, 0.2);
+  const choked = kitSynth();
+  choked.noteOn(58, 1);
+  render(choked, 0.05);
+  choked.noteOn(54, 1); // closed hat
+  const cut = render(choked, 0.2);
+  // After the closed hat has died away (it is short), the open hat should be gone too.
+  assert.ok(rms(cut.L, SR * 0.15, SR * 0.2) < rms(open.L, SR * 0.15, SR * 0.2) * 0.1);
+});
+
+test('kit drums leave the voice clean for the next ordinary patch', () => {
+  const s = kitSynth();
+  s.noteOn(48, 1);
+  render(s, 0.05);
+  s.setParams(L.engineParams(Object.assign(L.defaults(), { cutoff: 18000, res: 0, m2: 0, fEnvAmt: 0 })));
+  s.noteOn(57, 1);
+  const out = render(s, 0.4);
+  assert.ok(Math.abs(pitch(out.L, SR * 0.1) - 220) < 1);
+});
+
 test('the computer keyboard covers an octave and a half from C', () => {
   assert.strictEqual(L.KEYMAP.a, 0);
   assert.strictEqual(L.KEYMAP.k, 12);

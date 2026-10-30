@@ -16,6 +16,7 @@
     // Controllers
     { id: 'glide', label: 'Glide', type: 'knob', min: 0, max: 2, def: 0, curve: 'pow', unit: 's' },
     { id: 'bendRange', label: 'Bend', type: 'knob', min: 1, max: 12, def: 2, step: 1, unit: 'st' },
+    { id: 'kit', label: 'Drum kit', type: 'bool', def: false },
     { id: 'voiceMode', label: 'Voices', type: 'enum', options: ['poly', 'mono', 'legato', 'unison'], def: 'poly' },
     { id: 'unisonDetune', label: 'Detune', type: 'knob', min: 0, max: 50, def: 12, unit: 'ct' },
     { id: 'spread', label: 'Width', type: 'knob', min: 0, max: 1, def: 0.5, unit: '%' },
@@ -401,6 +402,46 @@
       spread: 0.8, delayMix: 0.2, reverbMix: 0.3,
     }),
 
+    patch('Bell Piano', 'Keys', {
+      master: 0.62, o1Wave: 'sine', o2Wave: 'sine', o2Range: 2, o2Tune: 0, m2: 0.3, o3Wave: 'tri', o3Range: 1, o3Tune: 7, m3: 0.15, cutoff: 5000, res: 0, fEnvAmt: 0, aA: 0.002, aD: 2.5, aS: 0, aR: 0.8, velAmp: 0.8, spread: 0.7, reverbMix: 0.3,
+    }),
+    patch('Reed Piano', 'Keys', {
+      master: 0.8, o1Wave: 'tri', o2Wave: 'square', o2Range: 1, o2Tune: 0, m2: 0.15, cutoff: 1500, res: 0.2, fEnvAmt: 1.5, fD: 0.5, fS: 0.2, aA: 0.002, aD: 1.5, aS: 0.2, aR: 0.3, velAmp: 0.7, velFilter: 0.7, spread: 0.6, reverbMix: 0.2,
+    }),
+    patch('Lo-Fi Piano', 'Keys', {
+      master: 0.57, o1Wave: 'tri', o2Wave: 'saw', o2Tune: 0.15, m2: 0.2, noise: 0.03, cutoff: 1400, res: 0, fEnvAmt: 1.5, fD: 0.8, fS: 0, aA: 0.002, aD: 2, aS: 0, aR: 0.5, drive: 0.4, modDepth: 0.3, modPitch: 0.1, lfoRate: 0.6, velAmp: 0.7, reverbMix: 0.25,
+    }),
+    patch('Toy Piano', 'Keys', {
+      master: 0.73, o1Wave: 'tri', o1Range: 1, o2Wave: 'sine', o2Range: 2, o2Tune: 0.3, m2: 0.4, cutoff: 4000, res: 0.1, fEnvAmt: 0, aA: 0.001, aD: 0.7, aS: 0, aR: 0.3, velAmp: 0.7, reverbMix: 0.25,
+    }),
+    patch('Harpsichord', 'Keys', {
+      master: 0.74, o1Wave: 'pulse', pw: 0.12, o2Wave: 'saw', o2Range: 1, o2Tune: 0, m2: 0.5, cutoff: 2200, res: 0.3, fEnvAmt: 2, fD: 0.4, fS: 0.1, aA: 0.001, aD: 1.2, aS: 0, aR: 0.15, velAmp: 0.2, reverbMix: 0.25,
+    }),
+    patch('Celesta', 'Keys', {
+      master: 0.64, o1Wave: 'sine', o1Range: 1, o2Wave: 'tri', o2Range: 2, o2Tune: 0, m2: 0.2, cutoff: 6000, res: 0, fEnvAmt: 0, aA: 0.001, aD: 1.2, aS: 0, aR: 1, velAmp: 0.8, reverbMix: 0.4, reverbSize: 3,
+    }),
+    patch('Mallet Keys', 'Keys', {
+      master: 0.63, o1Wave: 'sine', o2Wave: 'sine', o2Range: 2, o2Tune: -0.2, m2: 0.25, cutoff: 4000, res: 0, fEnvAmt: 0, aA: 0.001, aD: 1.8, aS: 0, aR: 1.2, velAmp: 0.7, modDepth: 0.5, modPitch: 0.05, lfoRate: 5.5, spread: 0.8, reverbMix: 0.35,
+    }),
+    patch('Muted Keys', 'Keys', {
+      master: 0.72, o1Wave: 'square', m2: 0, cutoff: 500, res: 0.3, fEnvAmt: 2, fD: 0.15, fS: 0, aA: 0.001, aD: 0.25, aS: 0, aR: 0.1, velFilter: 0.6, delayMix: 0.15, reverbMix: 0.15,
+    }),
+    patch('Synth Keys', 'Keys', {
+      master: 0.65, o1Wave: 'saw', o2Wave: 'pulse', pw: 0.3, o2Tune: 0.07, cutoff: 1500, res: 0.25, fEnvAmt: 2.5, fD: 0.7, fS: 0.3, aD: 1, aS: 0.5, aR: 0.4, spread: 0.8, reverbMix: 0.25, delayMix: 0.1,
+    }),
+    patch('House Piano', 'Keys', {
+      master: 0.74, o1Wave: 'saw', o2Wave: 'square', o2Range: 1, o2Tune: 0.1, m2: 0.4, o3Wave: 'tri', o3Range: -1, o3Tune: 0, m3: 0.4, cutoff: 1800, res: 0.2, fEnvAmt: 2, fD: 0.3, fS: 0.1, aA: 0.001, aD: 0.7, aS: 0.1, aR: 0.25, spread: 0.7, delayMix: 0.2, reverbMix: 0.3,
+    }),
+    patch('Combo Organ', 'Keys', {
+      master: 0.48, o1Wave: 'square', o2Wave: 'square', o2Range: 1, o2Tune: 0, m2: 0.5, o3Wave: 'pulse', o3Range: -1, o3Tune: 0, pw: 0.3, m3: 0.3, cutoff: 2800, res: 0.1, fEnvAmt: 0, aA: 0.003, aS: 1, aR: 0.04, velAmp: 0, modDepth: 0.4, modPitch: 0.12, lfoRate: 6, reverbMix: 0.2,
+    }),
+    patch('Church Organ', 'Keys', {
+      master: 0.49, o1Wave: 'sine', o2Wave: 'sine', o2Range: 1, o2Tune: 0, o3Wave: 'square', o3Range: -1, o3Tune: 0, m1: 0.8, m2: 0.6, m3: 0.35, cutoff: 3000, res: 0, fEnvAmt: 0, aA: 0.08, aS: 1, aR: 0.6, velAmp: 0, spread: 1, reverbMix: 0.55, reverbSize: 5,
+    }),
+    patch('Gospel Organ', 'Keys', {
+      master: 0.51, o1Wave: 'sine', o2Wave: 'sine', o2Range: 1, o2Tune: 7, m2: 0.5, o3Wave: 'sine', o3Range: 2, o3Tune: 0, m3: 0.5, noise: 0.05, cutoff: 5000, res: 0, fEnvAmt: 1, fD: 0.05, fS: 0, aA: 0.002, aS: 1, aR: 0.08, velAmp: 0, modDepth: 0.35, modPitch: 0.1, lfoRate: 6.8, spread: 0.8, reverbMix: 0.25,
+    }),
+
     // ---- Pads
     patch('Warm Pad', 'Pads', {
       master: 0.64,
@@ -429,6 +470,46 @@
       voiceMode: 'unison', unisonDetune: 15, spread: 1, o1Range: -1, o2Range: -1, o2Wave: 'square',
       o2Tune: -0.2, noise: 0.1, cutoff: 320, res: 0.45, drive: 0.5, fEnvAmt: 0.5, fA: 2, fD: 3, fS: 0.5, aA: 2, aS: 1,
       aR: 4, modDepth: 1, modPitch: 0, modFilter: 1.5, lfoRate: 0.08, reverbMix: 0.5, reverbSize: 6,
+    }),
+
+    patch('Choir Pad', 'Pads', {
+      master: 0.63, o2Tune: 0.1, o3Wave: 'pulse', o3Range: 1, o3Tune: 0, pw: 0.2, m3: 0.3, cutoff: 1100, res: 0.5, keyTrack: 0.3, fEnvAmt: 0.3, fA: 0.9, fS: 1, aA: 0.9, aS: 1, aR: 1.8, modDepth: 0.25, modPitch: 0.08, lfoRate: 4.5, spread: 1, reverbMix: 0.5, reverbSize: 4,
+    }),
+    patch('Shimmer Pad', 'Pads', {
+      master: 0.78, voiceMode: 'unison', unisonDetune: 18, spread: 1, o2Range: 1, o2Tune: 7, m2: 0.4, cutoff: 4000, res: 0.2, fEnvAmt: 0, aA: 1.5, aS: 1, aR: 3, reverbMix: 0.6, reverbSize: 6, delayMix: 0.3, delayDiv: '1/4', delayFb: 0.55,
+    }),
+    patch('Space Pad', 'Pads', {
+      master: 0.65, o1Wave: 'tri', o2Wave: 'pulse', o2Range: 1, o2Tune: 0.05, noise: 0.05, cutoff: 1800, res: 0.6, fEnvAmt: 0, aA: 2, aS: 1, aR: 4, lfoRate: 0.15, modDepth: 1, modPitch: 0, modFilter: 1.5, spread: 1, reverbMix: 0.6, reverbSize: 6, delayMix: 0.35, delayFb: 0.5,
+    }),
+    patch('PWM Pad', 'Pads', {
+      master: 0.47, o1Wave: 'pulse', o2Wave: 'pulse', o2Tune: 0.08, pw: 0.3, cutoff: 2000, res: 0.1, fEnvAmt: 0.5, fA: 0.5, fS: 0.8, aA: 0.5, aS: 1, aR: 1.5, lfoRate: 0.5, modDepth: 1, modPitch: 0, modPw: 0.3, spread: 1, reverbMix: 0.4,
+    }),
+    patch('Breathing Pad', 'Pads', {
+      master: 0.67, o2Tune: 0.1, cutoff: 400, res: 0.4, fEnvAmt: 0, aA: 0.5, aS: 1, aR: 2, lfoSync: true, lfoDiv: '1 bar', lfoShape: 'tri', modDepth: 1, modPitch: 0, modFilter: 2, spread: 1, reverbMix: 0.45,
+    }),
+    patch('Rhythm Pad', 'Pads', {
+      master: 0.57, o2Tune: 0.1, o2Wave: 'square', cutoff: 300, res: 0.45, fEnvAmt: 0, aA: 0.1, aS: 1, aR: 1, lfoSync: true, lfoDiv: '1/8', lfoShape: 'square', modDepth: 1, modPitch: 0, modFilter: 3, spread: 1, delayMix: 0.25, reverbMix: 0.35,
+    }),
+    patch('Ambient Wash', 'Pads', {
+      master: 0.65, o1Wave: 'sine', o2Wave: 'tri', o2Range: 1, o2Tune: 0.06, noise: 0.3, cutoff: 2500, res: 0.3, fEnvAmt: 0, aA: 2, aS: 1, aR: 5, lfoRate: 0.1, modDepth: 1, modPitch: 0, modFilter: 0.8, spread: 1, reverbMix: 0.7, reverbSize: 6, delayMix: 0.3, delayFb: 0.6,
+    }),
+    patch('Cinematic Swell', 'Pads', {
+      master: 0.72, voiceMode: 'unison', unisonDetune: 12, spread: 1, o2Wave: 'square', o2Range: -1, o2Tune: 0, m2: 0.5, cutoff: 200, res: 0.3, fEnvAmt: 3.5, fA: 2.5, fD: 3, fS: 0.8, aA: 2, aS: 1, aR: 3, reverbMix: 0.5, reverbSize: 5,
+    }),
+    patch('Soft Sine Pad', 'Pads', {
+      master: 0.55, o1Wave: 'sine', o2Wave: 'sine', o2Range: 1, o2Tune: 0.08, m2: 0.4, cutoff: 3000, res: 0, fEnvAmt: 0, aA: 1, aS: 1, aR: 2.5, modDepth: 0.4, modPitch: 0.06, lfoRate: 4.8, spread: 1, reverbMix: 0.45,
+    }),
+    patch('80s Poly Pad', 'Pads', {
+      master: 0.58, o2Wave: 'pulse', pw: 0.3, o2Tune: 0.1, cutoff: 1300, res: 0.3, fEnvAmt: 1.5, fA: 0.4, fD: 1.5, fS: 0.4, aA: 0.3, aS: 1, aR: 1.2, modDepth: 0.2, modPitch: 0.06, lfoRate: 5, spread: 1, reverbMix: 0.4, delayMix: 0.15,
+    }),
+    patch('Vapor Pad', 'Pads', {
+      master: 0.53, o2Tune: 0.25, noise: 0.06, cutoff: 900, res: 0.15, fEnvAmt: 0, aA: 0.8, aS: 1, aR: 2, modDepth: 0.5, modPitch: 0.15, lfoRate: 0.4, drive: 0.4, spread: 1, reverbMix: 0.5,
+    }),
+    patch('Glacier', 'Pads', {
+      master: 0.78, o1Wave: 'tri', o2Wave: 'sine', o2Range: 2, o2Tune: 0, m2: 0.4, cutoff: 2200, res: 0.5, fEnvAmt: 0, aA: 2.5, aS: 1, aR: 4, lfoRate: 0.15, modDepth: 1, modPitch: 0, modFilter: 0.6, spread: 1, reverbMix: 0.65, reverbSize: 6,
+    }),
+    patch('Hollow Pad', 'Pads', {
+      master: 0.54, o1Wave: 'square', o2Wave: 'square', o2Range: 1, o2Tune: 0.07, m2: 0.5, cutoff: 1500, res: 0.35, fEnvAmt: 0.5, fA: 0.7, fS: 0.7, aA: 0.7, aS: 1, aR: 2, spread: 1, reverbMix: 0.45,
     }),
 
     // ---- Brass & strings
@@ -481,6 +562,9 @@
 
     // ---- Drums: one hit per key. The pitch follows the key, so play kicks and
     // toms low (around C2) and cymbals anywhere.
+    patch('Drum Kit', 'Drums', {
+      kit: true, reverbMix: 0.12, reverbSize: 1.4, delayMix: 0,
+    }),
     patch('Analog Kick', 'Drums', {
       master: 0.69, voiceMode: 'mono', o1Wave: 'sine', m1: 1, m2: 0, pitchEnv: 24, cutoff: 900, res: 0.1, keyTrack: 0, fEnvAmt: 0, fA: 0.001, fD: 0.05, fS: 0, fR: 0.05, aA: 0.001, aD: 0.45, aS: 0, aR: 0.3, velAmp: 0.6, drive: 0.45, delayMix: 0, reverbMix: 0.04,
     }),
@@ -509,7 +593,7 @@
       master: 1, o1Wave: 'tri', o1Range: 1, o2Wave: 'square', o2Range: 1, o2Tune: 5, m1: 0.8, m2: 0.4, noise: 0.3, pitchEnv: 5, cutoff: 2200, res: 0.6, keyTrack: 0.5, fEnvAmt: 1, fA: 0.001, fD: 0.02, fS: 0, aA: 0.001, aD: 0.05, aS: 0, aR: 0.04, velAmp: 0.6, drive: 0.6, delayMix: 0, reverbMix: 0.15,
     }),
     patch('Hand Clap', 'Drums', {
-      master: 1, m1: 0, m2: 0, noise: 1, cutoff: 1400, res: 0.45, keyTrack: 0.3, fEnvAmt: 1.5, fA: 0.001, fD: 0.12, fS: 0, aA: 0.004, aD: 0.16, aS: 0, aR: 0.2, velAmp: 0.6, drive: 0.8, delayMix: 0, reverbMix: 0.3, reverbSize: 1.2,
+      master: 1, m1: 0, m2: 0, noise: 1, cutoff: 1900, res: 0.4, keyTrack: 0.3, fEnvAmt: 1.5, fA: 0.001, fD: 0.12, fS: 0, aA: 0.004, aD: 0.16, aS: 0, aR: 0.2, velAmp: 0.6, drive: 1, delayMix: 0, reverbMix: 0.3, reverbSize: 1.2,
     }),
     patch('Closed Hat', 'Drums', {
       master: 1, m1: 0, m2: 0, noise: 1, cutoff: 9000, res: 0.3, keyTrack: 0, fEnvAmt: 1, fD: 0.05, fS: 0, aA: 0.001, aD: 0.06, aS: 0, aR: 0.05, velAmp: 0.7, drive: 1, delayMix: 0, reverbMix: 0.05,
@@ -631,12 +715,65 @@
     }),
   ];
 
+  // The drum kit: a different drum on every key for two octaves from C3, laid
+  // out the way drum machines and General MIDI put them (kick on C, snare on D,
+  // hi-hats on the black keys F#, G# and A#), then repeating up and down the
+  // keyboard. Each drum is a factory patch, tuned and tweaked for its key.
+  // play: the note it sounds at. choke: hits in the same group cut each other off.
+  const KIT = [
+    { name: 'Kick', short: 'Kick', drum: 'Analog Kick', play: 36 },
+    { name: 'Rimshot', short: 'Rim', drum: 'Rimshot', play: 36, pan: -0.2 },
+    { name: 'Snare', short: 'Snare', drum: 'Snare', play: 36 },
+    { name: 'Hand clap', short: 'Clap', drum: 'Hand Clap', play: 36, pan: 0.1 },
+    { name: 'Electro snare', short: 'Snr 2', drum: 'Electro Snare', play: 36 },
+    { name: 'Low tom', short: 'Tom L', drum: 'Analog Tom', play: 31, pan: 0.35 },
+    { name: 'Closed hi-hat', short: 'Hat', drum: 'Closed Hat', play: 36, pan: -0.3, choke: 'hat' },
+    { name: 'Mid tom', short: 'Tom M', drum: 'Analog Tom', play: 36, pan: 0.1 },
+    { name: 'Pedal hi-hat', short: 'Pedal', drum: 'Closed Hat', play: 36, pan: -0.3, choke: 'hat', set: { cutoff: 6500, aD: 0.11, aR: 0.08 } },
+    { name: 'High tom', short: 'Tom H', drum: 'Analog Tom', play: 41, pan: -0.15 },
+    { name: 'Open hi-hat', short: 'Open', drum: 'Open Hat', play: 36, pan: -0.3, choke: 'hat' },
+    { name: 'Crash cymbal', short: 'Crash', drum: 'Crash', play: 36, pan: 0.4 },
+    { name: '808 boom', short: '808', drum: '808 Boom', play: 36 },
+    { name: 'Woodblock', short: 'Block', drum: 'Woodblock', play: 36, pan: 0.3 },
+    { name: 'Hard kick', short: 'Kick 2', drum: 'Hard Kick', play: 36 },
+    { name: 'Cowbell', short: 'Bell', drum: 'Cowbell', play: 36, pan: 0.25 },
+    { name: 'Low syn tom', short: 'Syn L', drum: 'Syn Tom', play: 33, pan: 0.3 },
+    { name: 'Ride cymbal', short: 'Ride', drum: 'Ride', play: 36, pan: -0.35 },
+    { name: 'Shaker', short: 'Shake', drum: 'Shaker', play: 36, pan: 0.35 },
+    { name: 'High syn tom', short: 'Syn H', drum: 'Syn Tom', play: 40, pan: -0.3 },
+    { name: 'Tambourine', short: 'Tamb', drum: 'Shaker', play: 36, pan: 0.4, set: { o1Wave: 'square', o1Range: 2, o2Wave: 'square', o2Range: 2, o2Tune: 6.3, m1: 0.35, m2: 0.35, cutoff: 11000, aA: 0.004, aD: 0.22, aR: 0.18 } },
+    { name: 'Low conga', short: 'Cga L', drum: 'Conga', play: 31, pan: 0.2 },
+    { name: 'High conga', short: 'Cga H', drum: 'Conga', play: 38, pan: -0.2 },
+    { name: 'Laser zap', short: 'Zap', drum: 'Laser Zap', play: 60, set: { aD: 0.25, fD: 0.18, delayMix: 0 } },
+  ];
+
+  // Full settings for each kit drum, ready for the engine: { slot: { params, play, pan, choke } }.
+  function kitDrums() {
+    const out = {};
+    KIT.forEach((k, slot) => {
+      const base = PRESETS.find((p) => p.name === k.drum);
+      if (!base) throw new Error('Kit drum ' + k.name + ' needs the patch ' + k.drum);
+      const params = sanitizePatch(Object.assign({}, base.params, k.set || {}));
+      out[slot] = {
+        params: engineParams(params),
+        play: k.play,
+        pan: k.pan || 0,
+        choke: k.choke || null,
+        // Each drum patch was balanced with its own Volume; in the kit that becomes the drum's level.
+        gain: Math.pow(params.master / 0.7, 2),
+      };
+    });
+    return out;
+  }
+
   const api = {
     WAVES,
     PARAMS,
     BY_ID,
     OPTION_LABELS,
     PRESETS,
+    KIT,
+    kitDrums,
     KEYMAP,
     defaults,
     engineParams,

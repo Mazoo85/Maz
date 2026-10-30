@@ -201,6 +201,26 @@
     '1/16.': 0.375, '1/16': 0.25, '1/16T': 1 / 6, '1/32': 0.125,
   };
 
+  // A sound's settings that hold still for a block, worked out once. Every
+  // voice plays from one of these: the panel's, or its own drum's in a kit.
+  function soundConsts(p, sr) {
+    return {
+      p,
+      fc: envCoefs(p.fA, p.fD, p.fS, p.fR, sr),
+      ac: envCoefs(p.aA, p.aD, p.aS, p.aR, sr),
+      k: p.res * 4.15,
+      comp: 1 + p.res * 1.4,
+      drive: 0.6 + p.drive * 5,
+      kt: p.keyTrack / 12,
+      pitchEnv: (p.pitchEnv * LN2) / 12,
+    };
+  }
+
+  // A drum kit spans 24 keys from C3 and repeats every two octaves.
+  const KIT_BASE = 48;
+  const KIT_KEYS = 24;
+  const kitSlot = (note) => (((note - KIT_BASE) % KIT_KEYS) + KIT_KEYS) % KIT_KEYS;
+
   class Voice {
     constructor(index) {
       this.index = index;
@@ -218,6 +238,7 @@
       this.gl = Math.SQRT1_2;
       this.gr = Math.SQRT1_2;
       this.f = [0, 0, 0];
+      this.drum = null; // the kit drum this voice is playing, if any
     }
 
     get active() {
@@ -256,11 +277,53 @@
       this.arpGateLeft = 0;
       this.arpNote = -1;
       this.arpVel = 1;
+      this.kit = null;
+    }
+
+    // The drums of a kit, one per key: { slot: { params, play, pan, choke } }.
+    setKit(kit) {
+      this.kit = {};
+      const sr = this.sr;
+      for (const slot of Object.keys(kit || {})) {
+        const d = kit[slot];
+        const c = soundConsts(d.params, sr);
+        // Choked: cut off fast, like a closed hi-hat stopping an open one.
+        const choked = Object.assign({}, c, { ac: Object.assign({}, c.ac, { rel: Math.exp(-4.6 / (0.012 * sr)) }) });
+        this.kit[slot] = { c, choked, play: d.play, pan: d.pan || 0, choke: d.choke || null, gain: d.gain || 1 };
+      }
+    }
+
+    kitHit(note, vel) {
+      const d = this.kit[kitSlot(note)];
+      if (!d) return;
+      if (d.choke) {
+        for (const v of this.voices) {
+          if (v.active && v.drum && v.drum.choke === d.choke) {
+            v.kc = v.drum.choked;
+            v.fenv.gateOff();
+            v.aenv.gateOff();
+          }
+        }
+      }
+      const v = this.voices.find((x) => !x.active) || this.oldest(this.voices);
+      v.drum = d;
+      v.kc = d.c;
+      v.cur = v.target = d.play;
+      v.note = note;
+      v.vel = vel;
+      v.gate = true;
+      v.age = this.clock;
+      v.detune = 0;
+      v.setPan(d.pan);
+      v.fenv.gateOn();
+      v.aenv.gateOn();
+      this.updatePitch(v, 0);
     }
 
     setParams(next) {
       const p = this.p;
-      const modeChanged = 'voiceMode' in next && next.voiceMode !== p.voiceMode;
+      const modeChanged =
+        ('voiceMode' in next && next.voiceMode !== p.voiceMode) || ('kit' in next && next.kit !== p.kit);
       const arpChanged = 'arpOn' in next && next.arpOn !== p.arpOn;
       const latchOff = 'latch' in next && !next.latch && p.latch;
       Object.assign(p, next);
@@ -342,10 +405,16 @@
     startNote(note, vel) {
       const mode = this.p.voiceMode;
       this.clock++;
+      if (this.p.kit && this.kit) {
+        this.kitHit(note, vel);
+        return;
+      }
       if (mode === 'poly') {
         let v = this.voices.find((x) => x.gate && x.note === note);
         if (!v) v = this.voices.find((x) => !x.active);
         if (!v) v = this.oldest(this.voices.filter((x) => !x.gate)) || this.oldest(this.voices);
+        v.drum = null;
+        v.kc = null;
         v.cur = this.glideFrom(note);
         v.target = note;
         v.note = note;
@@ -367,10 +436,11 @@
     }
 
     stopNote(note) {
-      if (this.p.voiceMode === 'poly') {
+      if (this.p.voiceMode === 'poly' || (this.p.kit && this.kit)) {
         for (const v of this.voices) {
           if (v.gate && v.note === note) {
             v.gate = false;
+            if (v.drum) continue; // a drum is a one-shot: it rings out on its own
             v.fenv.gateOff();
             v.aenv.gateOff();
           }
@@ -404,6 +474,8 @@
       const n = group.length;
       group.forEach((v, i) => {
         const spread = n > 1 ? (2 * i) / (n - 1) - 1 : 0;
+        v.drum = null;
+        v.kc = null;
         if (!v.gate) v.cur = this.glideFrom(note);
         v.target = note;
         v.note = note;
@@ -429,10 +501,10 @@
 
     // Glide and the three oscillator frequencies, once per block.
     updatePitch(v, glideCoef) {
-      const p = this.p;
+      const p = v.kc ? v.kc.p : this.p;
       v.cur += (v.target - v.cur) * glideCoef;
       if (Math.abs(v.target - v.cur) < 1e-4) v.cur = v.target;
-      const base = v.cur + this.bend * p.bendRange + this.vibrato + v.detune / 100;
+      const base = v.cur + this.bend * this.p.bendRange + (v.kc ? 0 : this.vibrato) + v.detune / 100;
       v.f[0] = midiToFreq(base + 12 * p.o1Range);
       v.f[1] = midiToFreq(base + 12 * p.o2Range + p.o2Tune);
       v.f[2] = p.o3KeyOff
@@ -506,20 +578,8 @@
       const lfoForPitch = p.modSource === 'lfo' ? this.lfoOut : p.modSource === 'noise' ? this.noiseMod : 0;
       this.vibrato = lfoForPitch * wheelMod * p.modPitch;
       const glideCoef = p.glide > 0 ? 1 - Math.exp(-n / (p.glide * sr * 0.3)) : 1;
-      const fc = envCoefs(p.fA, p.fD, p.fS, p.fR, sr);
-      const ac = envCoefs(p.aA, p.aD, p.aS, p.aR, sr);
-      const k = p.res * 4.15;
-      const comp = 1 + p.res * 1.4;
-      const drive = 0.6 + p.drive * 5;
+      const panel = soundConsts(p, sr);
       const unisonGain = p.voiceMode === 'unison' ? 0.55 : 1;
-      const pwBase = p.pw;
-      const w1 = p.o1Wave;
-      const w2 = p.o2Wave;
-      const w3 = p.o3Wave;
-      const kt = p.keyTrack / 12;
-      const modF = p.modFilter * wheelMod;
-      const modPw = p.modPw * wheelMod;
-      const pitchEnv = (p.pitchEnv * LN2) / 12;
 
       for (const v of this.voices) if (v.active) this.updatePitch(v, glideCoef);
 
@@ -531,23 +591,25 @@
         for (let j = 0; j < VOICES; j++) {
           const v = this.voices[j];
           if (v.aenv.stage === IDLE) continue;
+          const c = v.kc || panel;
+          const q = c.p;
           const mod =
-            p.modSource === 'osc3' ? v.osc[2].out : p.modSource === 'noise' ? this.noiseMod * 4 : this.lfoOut;
-          const pw = Math.min(0.95, Math.max(0.05, pwBase + mod * modPw));
-          const fe = v.fenv.next(fc);
-          const ae = v.aenv.next(ac);
+            q.modSource === 'osc3' ? v.osc[2].out : q.modSource === 'noise' ? this.noiseMod * 4 : this.lfoOut;
+          const pw = Math.min(0.95, Math.max(0.05, q.pw + mod * q.modPw * wheelMod));
+          const fe = v.fenv.next(c.fc);
+          const ae = v.aenv.next(c.ac);
           // The filter contour also bends the pitch: the drop that makes a kick or a zap.
-          const bendUp = pitchEnv ? Math.exp(pitchEnv * fe) : 1;
-          const o1 = v.osc[0].next(v.f[0] * bendUp, sr, w1, pw);
-          const o2 = v.osc[1].next(v.f[1] * bendUp, sr, w2, pw);
-          const o3 = v.osc[2].next(p.o3KeyOff ? v.f[2] : v.f[2] * bendUp, sr, w3, pw);
+          const bendUp = c.pitchEnv ? Math.exp(c.pitchEnv * fe) : 1;
+          const o1 = v.osc[0].next(v.f[0] * bendUp, sr, q.o1Wave, pw);
+          const o2 = v.osc[1].next(v.f[1] * bendUp, sr, q.o2Wave, pw);
+          const o3 = v.osc[2].next(q.o3KeyOff ? v.f[2] : v.f[2] * bendUp, sr, q.o3Wave, pw);
           const nz = Math.random() * 2 - 1;
-          const mix = (o1 * p.m1 + o2 * p.m2 + o3 * p.m3 + nz * p.noise) * 0.45 * drive;
-          const velF = 1 - p.velFilter + p.velFilter * v.vel;
-          const oct = p.fEnvAmt * fe * velF + kt * (v.cur - 60) + modF * mod;
-          const cutoff = p.cutoff * Math.exp(oct * LN2);
-          const y = v.filter.process(mix, cutoff, k, sr) * comp;
-          const out = y * ae * (1 - p.velAmp + p.velAmp * v.vel) * unisonGain;
+          const mix = (o1 * q.m1 + o2 * q.m2 + o3 * q.m3 + nz * q.noise) * 0.45 * c.drive;
+          const velF = 1 - q.velFilter + q.velFilter * v.vel;
+          const oct = q.fEnvAmt * fe * velF + c.kt * (v.cur - 60) + q.modFilter * wheelMod * mod;
+          const cutoff = q.cutoff * Math.exp(oct * LN2);
+          const y = v.filter.process(mix, cutoff, c.k, sr) * c.comp;
+          const out = y * ae * (1 - q.velAmp + q.velAmp * v.vel) * (v.drum ? v.drum.gain : unisonGain);
           l += out * v.gl;
           r += out * v.gr;
         }
@@ -576,6 +638,9 @@
           break;
         case 'panic':
           this.panic();
+          break;
+        case 'kit':
+          this.setKit(m.kit);
           break;
         default:
           break;
@@ -629,6 +694,9 @@
     VOICES,
     UNISON,
     BEATS,
+    KIT_BASE,
+    KIT_KEYS,
+    kitSlot,
     midiToFreq,
     polyBlep,
     Oscillator,

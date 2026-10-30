@@ -56,7 +56,7 @@
   // ---------------------------------------------------------------- panel layout
 
   const SECTIONS = [
-    { id: 'controllers', title: 'Controllers', rows: [['glide', 'bendRange'], ['voiceMode'], ['unisonDetune', 'spread']] },
+    { id: 'controllers', title: 'Controllers', rows: [['glide', 'bendRange'], ['voiceMode'], ['unisonDetune', 'spread'], ['kit']] },
     {
       id: 'oscillators',
       title: 'Oscillator bank',
@@ -315,6 +315,17 @@
   function refreshControls() {
     for (const id of Object.keys(controls)) controls[id].update(state.params[id]);
     document.body.classList.toggle('arp-on', !!state.params.arpOn);
+    kitChanged();
+  }
+
+  // In a drum kit every key has its own drum, so the keys show their names and
+  // the sound-shaping sections step back (they do not change the kit).
+  let kitShown = null;
+  function kitChanged() {
+    const on = !!state.params.kit;
+    document.body.classList.toggle('kit-on', on);
+    if (kitShown !== on && keyEls.size) buildKeys();
+    kitShown = on;
   }
 
   // ---------------------------------------------------------------- params
@@ -330,6 +341,7 @@
     if (p.fx) applyFx(id, value);
     else send({ type: 'params', params: { [id]: value } });
     if (id === 'arpOn') document.body.classList.toggle('arp-on', !!value);
+    if (id === 'kit') kitChanged();
     if (id === 'delayDiv' && !state.params.delaySync) setParam('delaySync', true, quiet);
     if (id === 'lfoDiv' && !state.params.lfoSync) setParam('lfoSync', true, quiet);
     if (TEMPO_LINKED.has(id)) tempoChanged();
@@ -500,6 +512,7 @@
         node.port.onmessage = (e) => {
           if (e.data.type === 'voices') showVoices(e.data.mask);
         };
+        node.port.postMessage({ type: 'kit', kit: LL.kitDrums() });
         fx = buildFx(ctx, node);
         for (const p of LL.PARAMS) if (p.fx) applyFx(p.id, state.params[p.id]);
         tempoChanged();
@@ -745,6 +758,7 @@
         if (note % 12 === 0) k.appendChild(el('span', { class: 'key-name', text: LL.noteName(note) }));
         const letter = KEY_LETTER[note - typedBase];
         if (letter) k.appendChild(el('span', { class: 'key-letter', text: letter }));
+        drumLabel(k, note);
         box.appendChild(k);
         keyEls.set(note, k);
         w++;
@@ -757,11 +771,20 @@
       k.style.width = (0.62 / whites) * 100 + '%';
       const letter = KEY_LETTER[b.note - typedBase];
       if (letter) k.appendChild(el('span', { class: 'key-letter', text: letter }));
+      drumLabel(k, b.note);
       box.appendChild(k);
       keyEls.set(b.note, k);
     }
     $('#octave-label').textContent = LL.noteName(base) + '–' + LL.noteName(note - 1);
     for (const n of holds.keys()) paintKey(n);
+  }
+
+  function drumLabel(key, note) {
+    if (!state.params.kit) return;
+    const d = LL.KIT[DSP.kitSlot(note)];
+    key.appendChild(el('span', { class: 'key-drum', text: d.short }));
+    key.title = d.name;
+    key.classList.add('drum');
   }
 
   function noteAt(x, y) {
