@@ -300,6 +300,40 @@ test('page messages drive the engine the same way on either thread', () => {
   assert.strictEqual(s.activeMask(), 0);
 });
 
+// Loudness as heard after the patch's own Volume knob: the loudest 50 ms of a
+// chord (one note for bass and drums), so flipping through patches never
+// jumps from a whisper to a blast.
+function loudness(pr) {
+  const s = new DSP.Synth(SR, L.engineParams(pr.params));
+  const notes = pr.group === 'Drums' || pr.group === 'Bass' ? [36] : [48, 55, 60];
+  notes.forEach((n) => s.noteOn(n, 0.85));
+  const out = render(s, 2.5);
+  let loudest = 0;
+  const W = SR / 20;
+  for (let i = 0; i + W <= out.L.length; i += W) {
+    loudest = Math.max(loudest, Math.sqrt((rms(out.L, i, i + W) ** 2 + rms(out.R, i, i + W) ** 2) / 2));
+  }
+  return 20 * Math.log10(loudest) + 40 * Math.log10(pr.params.master / 0.7);
+}
+
+test('factory patches are all about as loud as each other', () => {
+  for (const pr of L.PRESETS) {
+    const db = loudness(pr);
+    assert.ok(db > -27 && db < -13, pr.name + ' is at ' + db.toFixed(1) + ' dB, outside -27..-13');
+  }
+});
+
+test('the factory list has something in every group', () => {
+  const groups = new Map();
+  for (const pr of L.PRESETS) groups.set(pr.group, (groups.get(pr.group) || 0) + 1);
+  for (const g of ['Bass', 'Lead', 'Keys', 'Pads', 'Brass & strings', 'Plucks', 'Drums', 'Effects', 'Experimental', 'Sequenced']) {
+    assert.ok(groups.get(g) >= 3, g + ' has only ' + (groups.get(g) || 0));
+  }
+  // Groups stay together, so the patch menu lists each one once.
+  const order = L.PRESETS.map((p) => p.group).filter((g, i, a) => g !== a[i - 1]);
+  assert.strictEqual(new Set(order).size, order.length);
+});
+
 test('the computer keyboard covers an octave and a half from C', () => {
   assert.strictEqual(L.KEYMAP.a, 0);
   assert.strictEqual(L.KEYMAP.k, 12);

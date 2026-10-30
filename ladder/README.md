@@ -36,9 +36,25 @@ A standalone app: it is not part of MAZ ARCADE.
 
 ## Patches
 
-Fifteen factory patches across bass, lead, poly, experimental and sequenced
-sounds. **Save** keeps your own in this browser. **Share** gives you a short
-patch code (`L24:…`) you can paste anywhere, and a box to load one back.
+Fifty-two factory sounds in ten groups, plus a plain **Init** patch to start from scratch:
+
+| Group | Patches |
+|---|---|
+| **Bass** | Fat Bass, Sub Bass, Pedal Drop, Rubber Pluck, Acid Squelch, Funk Bass, Growl Bass, Reese Bass, Synth-Pop Bass |
+| **Lead** | Glide Lead, Prog Solo, Screaming Emphasis, Square Lead, Fifths Lead, Theremin, Chiptune Lead |
+| **Keys** | Electric Piano, Clav, Drawbar Organ, Poly Stab |
+| **Pads** | Warm Pad, Glass Pad, Slow Sweep, Supersaw Unison, Dark Drone |
+| **Brass & strings** | Brass Section, Brass Stab, Velvet Strings, Solo Cello |
+| **Plucks** | Bright Pluck, Nylon Pluck, Kalimba, Marimba |
+| **Drums** | Analog Kick, Analog Tom, Snare, Closed Hat (each on one key; the pitch follows the key) |
+| **Effects** | Laser Zap, Siren, UFO, Wind, Ocean Waves |
+| **Experimental** | Filter Whistle, Wobble, Sample & Hold Computer, Metal Bells |
+| **Sequenced** | Pulse Arp, Latched Sequence, Berlin School, Chip Arp, Trance Gate, Random Bleeps (hold a chord) |
+
+Each patch sets its own Volume so they all play at about the same loudness;
+a test holds every patch to that. **Save** keeps your own in this browser.
+**Share** gives you a short patch code (`L24:…`) you can paste anywhere, and
+a box to load one back.
 The last sound you used is still there next time you open the page.
 
 ## Files
@@ -49,7 +65,7 @@ The last sound you used is still there next time you open the page.
 | `js/logic.js` | Every control's range, curve and readout, the factory patches, patch codes, the keyboard map. No sound, no page. |
 | `js/app.js` | The page: panel, knobs, keyboard, wheels, MIDI, effects, scope, saving. |
 | `css/ladder.css` | The look: black panel, walnut cheeks, amber lights. |
-| `tests/ladder-logic.test.js` | Plays notes through the real engine and measures what comes out: pitch, filter slope, self-oscillation, release, voice stealing, glide, arpeggiator timing, patch codes. |
+| `tests/ladder-logic.test.js` | Plays notes through the real engine and measures what comes out: pitch, filter slope, self-oscillation, release, voice stealing, glide, arpeggiator timing, patch codes, and that every factory patch sounds at a matching loudness. |
 
 ## Tests
 
