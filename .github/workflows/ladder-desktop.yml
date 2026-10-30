@@ -1,0 +1,54 @@
+name: Ladder 24 desktop
+
+# Builds the Ladder 24 desktop program (ladder/desktop, an Electron shell around
+# the same page) into an installer for each system: a Windows setup .exe, Mac
+# disk images for Apple-chip and Intel Macs, and a Linux AppImage. Each one is
+# kept as a download on the workflow run for 30 days.
+
+on:
+  push:
+    paths:
+      - "ladder/**"
+      - ".github/workflows/ladder-desktop.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: Ladder 24 for Windows
+            files: ladder/desktop/dist/*.exe
+          - os: macos-latest
+            name: Ladder 24 for Mac
+            files: ladder/desktop/dist/*.dmg
+          - os: ubuntu-latest
+            name: Ladder 24 for Linux
+            files: ladder/desktop/dist/*.AppImage
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: ladder/desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ladder/desktop/package-lock.json
+      - name: Install the build tools
+        run: npm ci
+      - name: Build the installer
+        run: npm run dist
+        env:
+          # No paid signing certificate: Windows and Mac will ask once before the first run.
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+          retention-days: 30

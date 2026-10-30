@@ -1,0 +1,82 @@
+{
+  "name": "ladder-24",
+  "productName": "Ladder 24",
+  "version": "1.0.0",
+  "description": "A polyphonic analog-style synthesizer with a 24 dB ladder filter, 330 sounds and 30 drum kits.",
+  "author": "Cody Collins",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "web": "node scripts/copy-web.js",
+    "start": "npm run web && electron .",
+    "dist": "npm run web && electron-builder --publish never"
+  },
+  "devDependencies": {
+    "electron": "33.4.11",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "io.github.mazoo85.ladder24",
+    "productName": "Ladder 24",
+    "files": [
+      "main.js",
+      "web/**/*"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "afterPack": "scripts/adhoc-sign.js",
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Ladder-24-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Ladder 24"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.music",
+      "identity": null,
+      "artifactName": "Ladder-24-${version}-${arch}.${ext}"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Audio",
+      "artifactName": "Ladder-24-${version}.${ext}"
+    },
+    "publish": null
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mazoo85/maz.git"
+  }
+}

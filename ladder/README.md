@@ -10,6 +10,10 @@ on a phone, the computer keyboard, or a USB MIDI keyboard.
 
 A standalone app: it is not part of MAZ ARCADE.
 
+**Desktop program:** the same synthesizer as an installable program for
+Windows, Mac and Linux lives in [`desktop/`](desktop/README.md), with the
+install steps.
+
 ## Playing it
 
 | | |

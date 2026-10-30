@@ -970,7 +970,7 @@
     try {
       midiAccess = await navigator.requestMIDIAccess();
     } catch (e) {
-      chip.textContent = 'MIDI keyboards are not available in this view';
+      chip.textContent = 'MIDI could not start here';
       chip.hidden = false;
       return;
     }
