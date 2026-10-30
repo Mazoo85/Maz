@@ -1,0 +1,27 @@
+name: Ladder 24
+
+# Ladder 24 is a standalone browser synthesizer with no build step. Its sound
+# engine and panel rules are plain scripts that also load in Node, so the tests
+# play notes through the real engine in seconds.
+
+on:
+  push:
+    paths:
+      - "ladder/**"
+      - ".github/workflows/ladder.yml"
+  pull_request:
+    paths:
+      - "ladder/**"
+      - ".github/workflows/ladder.yml"
+
+jobs:
+  logic:
+    name: Ladder 24 engine tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run the engine tests
+        run: node ladder/tests/ladder-logic.test.js

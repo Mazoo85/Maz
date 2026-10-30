@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ladder 24</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="A polyphonic analog-style synthesizer with a 24 dB ladder filter, three oscillators, arpeggiator and effects. Runs in the browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Michroma&display=swap">
+<link rel="stylesheet" href="css/ladder.css">
+</head>
+<body>
+<div class="case">
+  <div class="cheek" aria-hidden="true"></div>
+  <main class="panel">
+    <header class="topbar">
+      <div class="brand">
+        <h1 class="wordmark">Ladder 24</h1>
+        <span class="model">Polyphonic ladder synthesizer · 3 osc · 8 voice</span>
+      </div>
+      <div class="patchbar" aria-label="Patches">
+        <button type="button" class="btn btn-icon" id="patch-prev" aria-label="Previous patch">‹</button>
+        <select id="patch-select" aria-label="Patch"></select>
+        <button type="button" class="btn btn-icon" id="patch-next" aria-label="Next patch">›</button>
+        <span class="edited" id="edited" hidden>edited</span>
+        <button type="button" class="btn" id="save-btn">Save</button>
+        <button type="button" class="btn" id="share-btn">Share</button>
+        <button type="button" class="btn" id="delete-patch" hidden>Delete</button>
+      </div>
+      <button type="button" class="power" id="power" role="switch" aria-checked="false">
+        <span class="power-led" aria-hidden="true"></span>
+        <span class="power-label">Power</span>
+      </button>
+    </header>
+    <p class="status" id="status" role="status"></p>
+
+    <div class="drawer" id="drawer" hidden>
+      <form id="save-form" class="drawer-part" autocomplete="off">
+        <div id="drawer-save">
+          <label for="patch-name" class="drawer-label">Save this sound as</label>
+          <div class="drawer-row">
+            <input id="patch-name" maxlength="40" placeholder="Patch name">
+            <button type="submit" class="btn btn-go">Save patch</button>
+          </div>
+          <p class="drawer-note">Saved patches stay in this browser on this device. Use Share to move one somewhere else.</p>
+        </div>
+      </form>
+      <div id="drawer-share" class="drawer-part">
+        <label for="patch-code" class="drawer-label">Patch code for this sound</label>
+        <div class="drawer-row">
+          <textarea id="patch-code" rows="2" readonly></textarea>
+          <button type="button" class="btn btn-go" id="copy-code">Copy</button>
+        </div>
+        <form id="load-form" autocomplete="off">
+          <label for="paste-code" class="drawer-label">Load a patch code</label>
+          <div class="drawer-row">
+            <input id="paste-code" placeholder="Paste a code starting with L24:">
+            <button type="submit" class="btn btn-go">Load</button>
+          </div>
+        </form>
+      </div>
+      <p class="drawer-msg" id="drawer-msg" role="status"></p>
+      <button type="button" class="btn btn-icon drawer-close" id="drawer-close" aria-label="Close">×</button>
+    </div>
+
+    <div class="deck" id="deck"></div>
+  </main>
+  <div class="cheek" aria-hidden="true"></div>
+</div>
+
+<section class="playdeck" aria-label="Keyboard">
+  <div class="playbar">
+    <div class="octave">
+      <button type="button" class="btn btn-icon" id="oct-down" aria-label="Octave down">−</button>
+      <span id="octave-label" class="octave-label">C3–C5</span>
+      <button type="button" class="btn btn-icon" id="oct-up" aria-label="Octave up">+</button>
+    </div>
+    <p class="hint"><span class="hint-wide">Play with your keys: A W S E D F T G Y H U J K. Z and X change octave. Esc stops all notes.</span><span class="hint-narrow">Tap the keys to play. Slide for glissando.</span></p>
+    <span class="midi" id="midi" hidden></span>
+  </div>
+  <div class="playarea">
+    <div class="wheels">
+      <div class="wheel-wrap">
+        <div class="wheel" id="wheel-bend" role="slider" tabindex="0" aria-label="Pitch bend" aria-valuemin="-1" aria-valuemax="1" aria-valuenow="0"><span class="wheel-ridges"></span><span class="wheel-mark"></span></div>
+        <span class="wheel-label">Pitch</span>
+      </div>
+      <div class="wheel-wrap">
+        <div class="wheel" id="wheel-mod" role="slider" tabindex="0" aria-label="Modulation wheel" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0"><span class="wheel-ridges"></span><span class="wheel-mark"></span></div>
+        <span class="wheel-label">Mod</span>
+      </div>
+    </div>
+    <div class="keys-wrap">
+      <div class="keys" id="keys"></div>
+      <p class="keys-off">Tap a key or press Power to start the sound</p>
+    </div>
+  </div>
+</section>
+
+<template id="output-tpl">
+  <div class="scope-wrap">
+    <canvas id="scope" class="scope" aria-label="Oscilloscope showing the sound wave"></canvas>
+  </div>
+  <div class="voices">
+    <span class="voices-label">Voices</span>
+    <span class="voice-led"></span><span class="voice-led"></span><span class="voice-led"></span><span class="voice-led"></span>
+    <span class="voice-led"></span><span class="voice-led"></span><span class="voice-led"></span><span class="voice-led"></span>
+  </div>
+  <button type="button" class="btn btn-panic" id="panic">All notes off</button>
+</template>
+
+<script src="js/logic.js"></script>
+<script src="js/dsp.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
