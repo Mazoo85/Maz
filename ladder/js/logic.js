@@ -8,6 +8,369 @@
 (function (root) {
   'use strict';
 
+  // ---------------------------------------------------------------- drum kits
+  //
+  // A kit puts a different drum on every key for two octaves from C3, laid out
+  // the way drum machines and General MIDI do (kick on C, snare on D, hi-hats on
+  // the black keys F#, G# and A#), repeating up and down the keyboard.
+  //
+  // Each kit is a short description of its character; the recipes below turn it
+  // into 24 synthesized drums, the way an analog drum machine builds every sound
+  // from oscillators, noise and filters.
+
+  // [role, name, short label, choke group, pan]
+  const KIT_SLOTS = [
+    ['kick', 'Kick', 'Kick', null, 0],
+    ['rim', 'Rimshot', 'Rim', null, -0.2],
+    ['snare', 'Snare', 'Snare', null, 0],
+    ['clap', 'Hand clap', 'Clap', null, 0.1],
+    ['snare2', 'Snare 2', 'Snr 2', null, 0],
+    ['tomL', 'Low tom', 'Tom L', null, 0.35],
+    ['chh', 'Closed hi-hat', 'Hat', 'hat', -0.3],
+    ['tomM', 'Mid tom', 'Tom M', null, 0.1],
+    ['phh', 'Pedal hi-hat', 'Pedal', 'hat', -0.3],
+    ['tomH', 'High tom', 'Tom H', null, -0.15],
+    ['ohh', 'Open hi-hat', 'Open', 'hat', -0.3],
+    ['crash', 'Crash cymbal', 'Crash', null, 0.4],
+    ['kick2', 'Long kick', 'Kick 2', null, 0],
+    ['clave', 'Clave', 'Clave', null, 0.3],
+    ['kick3', 'Hard kick', 'Kick 3', null, 0],
+    ['cowbell', 'Cowbell', 'Bell', null, 0.25],
+    ['congaL', 'Low conga', 'Cga L', null, 0.3],
+    ['ride', 'Ride cymbal', 'Ride', null, -0.35],
+    ['shaker', 'Shaker', 'Shake', null, 0.35],
+    ['congaM', 'Mid conga', 'Cga M', null, 0.1],
+    ['tamb', 'Tambourine', 'Tamb', null, 0.4],
+    ['congaH', 'High conga', 'Cga H', null, -0.2],
+    ['fx', 'Effect', 'FX', null, 0],
+    ['splash', 'Splash cymbal', 'Splash', null, -0.4],
+  ];
+
+  // What every kit starts from; a kit only lists what it changes.
+  const KIT_BASE = {
+    kick: { hz: 55, sweep: 12, sweepTime: 0.04, decay: 0.5, click: 0.05, drive: 0.3, wave: 'sine' },
+    snare: { hz: 190, body: 0.7, noise: 0.9, cutoff: 6000, mode: 'lp24', decay: 0.2, sweep: 3, drive: 0.6, attack: 0.001 },
+    clap: { cutoff: 1300, res: 0.4, decay: 0.22, mode: 'bp' },
+    rim: { hz: 450, decay: 0.035, cutoff: 1800 },
+    tom: { hz: 90, sweep: 5, decay: 0.5, noise: 0.05, wave: 'sine', steps: [1, 1.33, 1.78] },
+    hat: { hz: 400, metal: 0.5, noise: 0.6, cutoff: 7500, res: 0.25, mode: 'hp12', closed: 0.05, pedal: 0.1, open: 0.45, drive: 0.6 },
+    cym: { crash: 1.6, ride: 1.1, splash: 0.7, cutoff: 5000, china: false },
+    conga: { hz: 165, decay: 0.25, sweep: 3, wave: 'sine', steps: [1, 1.5, 2.2] },
+    clave: { hz: 2500, decay: 0.03 },
+    cowbell: { hz: 540, decay: 0.35 },
+    shaker: { decay: 0.05, cutoff: 6000 },
+    tamb: { decay: 0.2 },
+    fx: 'zap',
+    room: 0.12,
+    maxCutoff: 18000,
+  };
+
+  const KITS = [
+    {
+      // The classic analog drum machine: a deep, clean sine kick with a long
+      // tail, a two-tone snare, metallic hats from detuned square waves, and
+      // its cowbell, clave, maracas and congas.
+      name: 'Classic 808',
+      kick: { hz: 52, sweep: 7, sweepTime: 0.03, decay: 0.9, click: 0.03, drive: 0.15 },
+      snare: { hz: 180, body: 0.8, noise: 0.65, cutoff: 9000, decay: 0.2, sweep: 2, drive: 0.3 },
+      clap: { cutoff: 1100, res: 0.35, decay: 0.25 },
+      rim: { hz: 455, decay: 0.03, cutoff: 1700 },
+      tom: { hz: 92, sweep: 4, decay: 0.45, noise: 0.04, steps: [1, 1.42, 1.9] },
+      hat: { metal: 0.55, noise: 0.35, cutoff: 7000, res: 0.3, closed: 0.045, pedal: 0.09, open: 0.4, drive: 0.5 },
+      cym: { crash: 1.5, ride: 1, splash: 0.6, cutoff: 5500 },
+      conga: { hz: 165, decay: 0.22, sweep: 2, steps: [1, 1.5, 2.25] },
+      clave: { hz: 2500, decay: 0.025 },
+      cowbell: { hz: 540, decay: 0.3 },
+      shaker: { decay: 0.04, cutoff: 7000 },
+      fx: 'sub',
+      names: { shaker: ['Maracas', 'Mrcs'], fx: ['808 sub boom', 'Sub'], kick2: ['Long 808 kick', '808 L'] },
+      room: 0.08,
+    },
+    {
+      name: 'Trap 808',
+      kick: { hz: 45, sweep: 12, decay: 1.8, drive: 0.5 },
+      snare: { hz: 200, body: 0.5, noise: 1, cutoff: 7000, mode: 'hp12', decay: 0.15 },
+      clap: { cutoff: 1500, decay: 0.18 },
+      hat: { closed: 0.03, pedal: 0.06, open: 0.3, cutoff: 9000 },
+      fx: 'laser',
+      room: 0.1,
+    },
+    {
+      name: 'Techno 909',
+      kick: { hz: 50, sweep: 20, sweepTime: 0.03, decay: 0.45, click: 0.25, drive: 0.6 },
+      snare: { hz: 200, body: 0.5, noise: 1, cutoff: 8000, mode: 'lp12', decay: 0.2, drive: 0.8 },
+      clap: { cutoff: 1300, decay: 0.25 },
+      tom: { hz: 110, sweep: 6, decay: 0.35, noise: 0.15 },
+      hat: { metal: 0.3, noise: 0.9, cutoff: 9000, mode: 'hp24', closed: 0.06, open: 0.5 },
+      cym: { crash: 2, ride: 1.4 },
+      room: 0.1,
+    },
+    {
+      name: 'House',
+      kick: { hz: 52, sweep: 16, decay: 0.4, click: 0.15, drive: 0.4 },
+      clap: { cutoff: 1600, res: 0.3, decay: 0.3 },
+      hat: { cutoff: 8000, closed: 0.05, open: 0.35 },
+      fx: 'vox',
+      room: 0.15,
+    },
+    {
+      name: 'Minimal Techno',
+      kick: { hz: 55, sweep: 10, decay: 0.25, click: 0.05, drive: 0.2 },
+      snare: { body: 0.3, noise: 0.6, cutoff: 4000, decay: 0.1 },
+      rim: { decay: 0.02 },
+      hat: { closed: 0.025, pedal: 0.05, open: 0.2, metal: 0.2, noise: 0.8, cutoff: 10000 },
+      conga: { decay: 0.15 },
+      fx: 'blip',
+      room: 0.05,
+    },
+    {
+      name: 'Rock',
+      kick: { hz: 58, sweep: 14, decay: 0.35, click: 0.35, drive: 0.6 },
+      snare: { hz: 190, body: 0.6, noise: 1, cutoff: 5000, decay: 0.3, drive: 1 },
+      tom: { hz: 85, sweep: 3, decay: 0.7, noise: 0.1 },
+      hat: { metal: 0.6, noise: 0.7, cutoff: 6000, closed: 0.08, open: 0.6 },
+      cym: { crash: 2.5, ride: 1.6 },
+      fx: 'gong',
+      room: 0.25,
+    },
+    {
+      name: 'Jazz Brushes',
+      kick: { hz: 60, sweep: 4, decay: 0.35, click: 0, drive: 0.05 },
+      snare: { body: 0.2, noise: 0.9, cutoff: 3000, mode: 'lp12', decay: 0.35, sweep: 0, drive: 0.2, attack: 0.02 },
+      tom: { hz: 100, decay: 0.6 },
+      hat: { metal: 0.5, noise: 0.4, cutoff: 6000, closed: 0.08, open: 0.8 },
+      cym: { ride: 2, crash: 2.5 },
+      fx: 'snap',
+      names: { snare: ['Brush snare', 'Brush'], snare2: ['Brush swish', 'Swish'] },
+      room: 0.3,
+    },
+    {
+      name: 'Funk',
+      kick: { hz: 60, sweep: 10, decay: 0.3, click: 0.2, drive: 0.4 },
+      snare: { hz: 220, body: 0.6, noise: 0.9, cutoff: 6500, decay: 0.18 },
+      hat: { closed: 0.04, open: 0.3, cutoff: 8000 },
+      fx: 'snap',
+      room: 0.12,
+    },
+    {
+      name: 'Boom Bap',
+      kick: { hz: 55, sweep: 10, decay: 0.5, click: 0.15, drive: 0.7 },
+      snare: { hz: 190, body: 0.6, noise: 1, cutoff: 4500, decay: 0.25, drive: 1 },
+      hat: { cutoff: 6000, closed: 0.05, open: 0.35 },
+      fx: 'vox',
+      room: 0.15,
+    },
+    {
+      name: 'Lo-Fi',
+      kick: { hz: 55, sweep: 8, decay: 0.4, drive: 0.6 },
+      snare: { cutoff: 2500, decay: 0.2, noise: 0.8 },
+      hat: { cutoff: 4500, mode: 'bp', closed: 0.05, open: 0.3 },
+      cym: { cutoff: 3000 },
+      fx: 'reverse',
+      maxCutoff: 4500,
+      room: 0.2,
+    },
+    {
+      name: 'Electro',
+      kick: { hz: 50, sweep: 18, decay: 0.6, drive: 0.4 },
+      snare: { hz: 250, body: 0.4, noise: 1, cutoff: 7000, mode: 'hp12', decay: 0.15, sweep: 12 },
+      clap: { cutoff: 1800, decay: 0.2 },
+      tom: { hz: 110, sweep: 12, decay: 0.3, wave: 'tri' },
+      hat: { closed: 0.03, open: 0.25, cutoff: 9000 },
+      room: 0.08,
+    },
+    {
+      name: 'Synthwave 80s',
+      kick: { hz: 55, sweep: 12, decay: 0.45, click: 0.1, drive: 0.4 },
+      snare: { hz: 200, body: 0.6, noise: 1, cutoff: 6000, decay: 0.45, drive: 0.8 },
+      clap: { decay: 0.35 },
+      tom: { hz: 90, sweep: 12, decay: 0.6, wave: 'tri', noise: 0.1 },
+      fx: 'laser',
+      room: 0.45,
+    },
+    {
+      name: 'Disco',
+      kick: { hz: 58, sweep: 10, decay: 0.35, click: 0.1 },
+      snare: { hz: 210, decay: 0.22 },
+      hat: { open: 0.35, closed: 0.05, cutoff: 8500 },
+      tom: { hz: 95, sweep: 14, decay: 0.5 },
+      fx: 'laser',
+      room: 0.2,
+    },
+    {
+      name: 'Drum & Bass',
+      kick: { hz: 58, sweep: 18, decay: 0.3, click: 0.25, drive: 0.6 },
+      snare: { hz: 230, body: 0.5, noise: 1, cutoff: 9000, mode: 'lp12', decay: 0.18, drive: 1 },
+      hat: { closed: 0.03, open: 0.25, cutoff: 10000, metal: 0.3, noise: 0.9 },
+      fx: 'reverse',
+      room: 0.15,
+    },
+    {
+      name: 'Dubstep',
+      kick: { hz: 50, sweep: 20, decay: 0.5, click: 0.2, drive: 0.8 },
+      snare: { hz: 180, body: 0.7, noise: 1, cutoff: 5000, decay: 0.35, drive: 1 },
+      clap: { decay: 0.3 },
+      fx: 'vox',
+      room: 0.3,
+    },
+    {
+      name: 'Industrial',
+      kick: { hz: 50, sweep: 24, decay: 0.4, click: 0.6, drive: 1 },
+      snare: { noise: 1, body: 0.6, cutoff: 4000, mode: 'bp', decay: 0.3, drive: 1 },
+      hat: { mode: 'bp', cutoff: 5000, res: 0.6, drive: 1 },
+      cym: { china: true },
+      fx: 'thunder',
+      room: 0.25,
+    },
+    {
+      name: 'Latin Percussion',
+      kick: { hz: 65, sweep: 5, decay: 0.3 },
+      tom: { hz: 180, wave: 'tri', decay: 0.35, noise: 0.2, sweep: 2 },
+      conga: { hz: 190, decay: 0.3, sweep: 2 },
+      cowbell: { hz: 700, decay: 0.4 },
+      clave: { hz: 2200, decay: 0.04 },
+      shaker: { decay: 0.08 },
+      fx: 'snap',
+      names: { kick: ['Bombo', 'Bombo'], tomL: ['Low timbale', 'Tim L'], tomM: ['Mid timbale', 'Tim M'], tomH: ['High timbale', 'Tim H'] },
+      room: 0.2,
+    },
+    {
+      name: 'Afrobeat',
+      kick: { hz: 60, sweep: 8, decay: 0.35 },
+      snare: { hz: 240, decay: 0.15, cutoff: 5000 },
+      tom: { hz: 110, decay: 0.4, sweep: 3 },
+      conga: { hz: 150, decay: 0.35 },
+      cowbell: { hz: 600 },
+      shaker: { decay: 0.07 },
+      fx: 'snap',
+      room: 0.18,
+    },
+    {
+      name: 'Reggae Dub',
+      kick: { hz: 52, sweep: 6, decay: 0.6 },
+      snare: { hz: 300, body: 0.8, noise: 0.4, cutoff: 3500, decay: 0.15 },
+      rim: { hz: 500, decay: 0.05 },
+      fx: 'laser',
+      room: 0.35,
+      patch: { delayMix: 0.3, delayDiv: '1/8.', delayFb: 0.55 },
+    },
+    {
+      name: 'Big Room EDM',
+      kick: { hz: 50, sweep: 24, decay: 0.5, click: 0.3, drive: 0.9 },
+      snare: { hz: 200, body: 0.5, noise: 1, cutoff: 9000, decay: 0.25 },
+      clap: { cutoff: 1500, decay: 0.35 },
+      hat: { cutoff: 10000 },
+      fx: 'reverse',
+      room: 0.3,
+    },
+    {
+      name: 'Chiptune',
+      kick: { hz: 60, sweep: 24, sweepTime: 0.06, decay: 0.2, wave: 'square', click: 0 },
+      snare: { body: 0, noise: 1, cutoff: 18000, decay: 0.12 },
+      hat: { metal: 0, noise: 1, cutoff: 12000, mode: 'lp24', closed: 0.03, pedal: 0.05, open: 0.15 },
+      tom: { wave: 'square', sweep: 12, decay: 0.2 },
+      conga: { wave: 'square', decay: 0.12 },
+      fx: 'blip',
+      room: 0,
+    },
+    {
+      name: 'Vintage Rhythm Box',
+      kick: { hz: 70, sweep: 2, decay: 0.25, click: 0 },
+      snare: { hz: 250, body: 0.5, noise: 0.6, cutoff: 3500, decay: 0.15 },
+      hat: { metal: 0.1, noise: 1, cutoff: 9000, closed: 0.03, open: 0.2 },
+      cym: { crash: 0.8, ride: 0.6, splash: 0.4 },
+      tom: { hz: 120, decay: 0.3, sweep: 1 },
+      conga: { hz: 220 },
+      clave: { hz: 2400 },
+      fx: 'blip',
+      room: 0.15,
+    },
+    {
+      name: 'UK Garage',
+      kick: { hz: 55, sweep: 12, decay: 0.3, click: 0.2 },
+      snare: { hz: 220, decay: 0.15, cutoff: 8000 },
+      clap: { cutoff: 1700, decay: 0.2 },
+      hat: { closed: 0.03, open: 0.25 },
+      shaker: { decay: 0.05 },
+      fx: 'vox',
+      room: 0.12,
+    },
+    {
+      name: 'Ambient',
+      kick: { hz: 50, sweep: 5, decay: 0.7, click: 0, drive: 0.1 },
+      snare: { body: 0.4, noise: 0.5, cutoff: 2500, decay: 0.5, drive: 0.1 },
+      hat: { cutoff: 6000, closed: 0.08, open: 1 },
+      cym: { crash: 3, ride: 2.2 },
+      fx: 'gong',
+      room: 0.55,
+    },
+    {
+      name: 'Metal',
+      kick: { hz: 62, sweep: 16, decay: 0.2, click: 0.7, drive: 0.8 },
+      snare: { hz: 220, body: 0.6, noise: 1, cutoff: 7000, decay: 0.25, drive: 1 },
+      tom: { hz: 80, sweep: 6, decay: 0.6, noise: 0.15 },
+      hat: { metal: 0.6, cutoff: 7000, open: 0.5 },
+      cym: { crash: 2.2, china: true },
+      fx: 'gong',
+      room: 0.2,
+    },
+    {
+      name: 'Glitch Beats',
+      kick: { hz: 60, sweep: 24, sweepTime: 0.01, decay: 0.15, click: 0.4 },
+      snare: { noise: 1, body: 0.3, cutoff: 12000, mode: 'hp24', decay: 0.06 },
+      clap: { decay: 0.08 },
+      tom: { sweep: 24, decay: 0.15, wave: 'square' },
+      hat: { closed: 0.028, pedal: 0.045, open: 0.12, mode: 'hp24' },
+      fx: 'blip',
+      room: 0.05,
+    },
+    {
+      name: 'Cinematic',
+      kick: { hz: 40, sweep: 6, decay: 2, click: 0.1, drive: 0.4 },
+      snare: { body: 0.4, noise: 1, cutoff: 3000, decay: 0.6 },
+      tom: { hz: 70, sweep: 2, decay: 1.4, noise: 0.1 },
+      cym: { crash: 3.5 },
+      fx: 'timpani',
+      names: { kick: ['Bass drum', 'Bass'], tomL: ['Low taiko', 'Tko L'], tomM: ['Mid taiko', 'Tko M'], tomH: ['High taiko', 'Tko H'], fx: ['Timpani', 'Timp'] },
+      room: 0.6,
+    },
+    {
+      name: 'Tribal',
+      kick: { hz: 50, sweep: 4, decay: 0.8, click: 0 },
+      snare: { hz: 160, body: 0.8, noise: 0.3, cutoff: 2000, decay: 0.3 },
+      tom: { hz: 75, sweep: 3, decay: 0.9, noise: 0.05 },
+      conga: { hz: 120, decay: 0.45 },
+      shaker: { decay: 0.12 },
+      fx: 'timpani',
+      room: 0.3,
+    },
+    {
+      name: 'Electronic Toms 80s',
+      kick: { hz: 55, sweep: 16, decay: 0.5 },
+      snare: { noise: 1, body: 0.4, cutoff: 6000, decay: 0.35 },
+      tom: { hz: 100, sweep: 18, decay: 0.7, wave: 'tri', noise: 0.15 },
+      conga: { hz: 180, sweep: 14, decay: 0.4, wave: 'tri' },
+      fx: 'laser',
+      room: 0.3,
+    },
+    {
+      name: 'Hand Percussion',
+      kick: { hz: 80, sweep: 4, decay: 0.3, click: 0 },
+      snare: { hz: 350, body: 0.6, noise: 0.6, cutoff: 4000, decay: 0.1 },
+      clap: { decay: 0.15 },
+      tom: { hz: 200, sweep: 3, decay: 0.18 },
+      conga: { hz: 180, decay: 0.3, sweep: 2 },
+      cowbell: { hz: 900 },
+      shaker: { decay: 0.1 },
+      tamb: { decay: 0.3 },
+      fx: 'snap',
+      names: { kick: ['Djembe bass', 'Djm B'], snare: ['Djembe slap', 'Slap'], tomL: ['Low bongo', 'Bgo L'], tomM: ['Mid bongo', 'Bgo M'], tomH: ['High bongo', 'Bgo H'], cowbell: ['Agogo', 'Agogo'] },
+      room: 0.2,
+    },
+  ];
+
+  const KIT_NAMES = KITS.map((k) => k.name);
+
   const WAVES = ['tri', 'saw', 'ramp', 'square', 'pulse', 'sine'];
 
   // type: knob | enum | bool. curve: lin | log | pow (cubic, fine control near 0).
@@ -17,6 +380,7 @@
     { id: 'glide', label: 'Glide', type: 'knob', min: 0, max: 2, def: 0, curve: 'pow', unit: 's' },
     { id: 'bendRange', label: 'Bend', type: 'knob', min: 1, max: 12, def: 2, step: 1, unit: 'st' },
     { id: 'kit', label: 'Drum kit', type: 'bool', def: false },
+    { id: 'kitId', label: 'Kit', type: 'enum', options: KIT_NAMES, def: KIT_NAMES[0] },
     { id: 'voiceMode', label: 'Voices', type: 'enum', options: ['poly', 'mono', 'legato', 'unison'], def: 'poly' },
     { id: 'unisonDetune', label: 'Detune', type: 'knob', min: 0, max: 50, def: 12, unit: 'ct' },
     { id: 'spread', label: 'Width', type: 'knob', min: 0, max: 1, def: 0.5, unit: '%' },
@@ -40,6 +404,7 @@
     { id: 'drive', label: 'Drive', type: 'knob', min: 0, max: 1, def: 0.2, unit: 'level' },
     // Filter
     { id: 'cutoff', label: 'Cutoff', type: 'knob', min: 20, max: 18000, def: 1200, curve: 'log', unit: 'hz' },
+    { id: 'filterMode', label: 'Mode', type: 'enum', options: ['lp24', 'lp12', 'bp', 'hp12', 'hp24'], def: 'lp24' },
     { id: 'res', label: 'Emphasis', type: 'knob', min: 0, max: 1, def: 0.35, unit: 'level' },
     { id: 'fEnvAmt', label: 'Contour', type: 'knob', min: -6, max: 6, def: 3, unit: 'oct', bipolar: true },
     { id: 'keyTrack', label: 'Key track', type: 'knob', min: 0, max: 1, def: 0.5, unit: '%' },
@@ -107,6 +472,11 @@
     updown: 'Up-down',
     order: 'Played',
     random: 'Random',
+    lp24: 'LP 24',
+    lp12: 'LP 12',
+    bp: 'BP',
+    hp12: 'HP 12',
+    hp24: 'HP 24',
     '1/8.': '1/8 dot',
     '1/4.': '1/4 dot',
     '1/8T': '1/8 trip',
@@ -273,13 +643,17 @@
 
   // A factory patch. Strict on purpose: a misspelt setting or choice would
   // otherwise be dropped without a word, so it stops the page loading instead.
-  function patch(name, group, changes) {
+  function checkSettings(name, changes) {
     for (const id of Object.keys(changes)) {
       const p = BY_ID[id];
       if (!p) throw new Error(name + ': no such setting "' + id + '"');
       if (p.type === 'enum' && !p.options.includes(changes[id])) throw new Error(name + ': ' + id + ' cannot be ' + changes[id]);
       if (p.type === 'knob' && (changes[id] < p.min || changes[id] > p.max)) throw new Error(name + ': ' + id + ' out of range');
     }
+  }
+
+  function patch(name, group, changes) {
+    checkSettings(name, changes);
     return { name, group, params: sanitizePatch(changes) };
   }
 
@@ -933,9 +1307,6 @@
 
     // ---- Drums: one hit per key. The pitch follows the key, so play kicks and
     // toms low (around C2) and cymbals anywhere.
-    patch('Drum Kit', 'Drums', {
-      kit: true, reverbMix: 0.12, reverbSize: 1.4, delayMix: 0,
-    }),
     patch('Analog Kick', 'Drums', {
       master: 0.69, voiceMode: 'mono', o1Wave: 'sine', m1: 1, m2: 0, pitchEnv: 24, cutoff: 900, res: 0.1, keyTrack: 0, fEnvAmt: 0, fA: 0.001, fD: 0.05, fS: 0, fR: 0.05, aA: 0.001, aD: 0.45, aS: 0, aR: 0.3, velAmp: 0.6, drive: 0.45, delayMix: 0, reverbMix: 0.04,
     }),
@@ -1023,6 +1394,14 @@
     patch('Triangle', 'Drums', {
       master: 0.75, o1Wave: 'sine', o1Range: 2, o2Wave: 'square', o2Range: 2, o2Tune: 6.1, m1: 1, m2: 0.1, cutoff: 8000, res: 0, keyTrack: 0, fEnvAmt: 0, aA: 0.001, aD: 1.5, aS: 0, aR: 1, velAmp: 0.6, delayMix: 0, reverbMix: 0.3,
     }),
+    patch('Clave', 'Drums', {
+      master: 1, o1Wave: 'sine', o1Range: 2, m1: 1, m2: 0, cutoff: 18000, res: 0, keyTrack: 0, fEnvAmt: 0, aA: 0.001, aD: 0.07, aS: 0, aR: 0.03, velAmp: 0.6, drive: 0.8, delayMix: 0, reverbMix: 0.2,
+    }),
+
+    // ---- Drum Kits: a different drum on every key
+    ...KITS.map((k) =>
+      patch(k.name, 'Drum Kits', Object.assign({ kit: true, kitId: k.name, delayMix: 0, reverbMix: k.room === undefined ? KIT_BASE.room : k.room, reverbSize: 1.6 }, k.patch || {}))
+    ),
 
     // ---- Effects
     patch('Laser Zap', 'Effects', {
@@ -1154,7 +1533,7 @@
       fEnvAmt: 2.5, fD: 0.9, fS: 0, aA: 0.002, aD: 1.8, aS: 0, aR: 1.5, reverbMix: 0.4, delayMix: 0.18,
     }),
     patch('Resonance Sweep', 'Experimental', {
-      master: 0.7, cutoff: 200, res: 0.9, fEnvAmt: 0, aS: 1, aR: 0.3, lfoRate: 0.25, modDepth: 1, modPitch: 0, modFilter: 3, reverbMix: 0.3,
+      master: 0.7, cutoff: 500, res: 0.9, fEnvAmt: 0, aS: 1, aR: 0.3, lfoRate: 0.25, modDepth: 1, modPitch: 0, modFilter: 3, reverbMix: 0.3,
     }),
     patch('Audio-Rate Filter', 'Experimental', {
       master: 0.66, o3Range: 0, o3Tune: 7, m3: 0, modSource: 'osc3', modDepth: 1, modPitch: 0, modFilter: 2.5, cutoff: 500, res: 0.6, fEnvAmt: 0, aS: 1, aR: 0.3, reverbMix: 0.2,
@@ -1343,60 +1722,199 @@
       master: 0.82, arpOn: true, arpMode: 'down', arpDiv: '1/4', arpOct: 2, arpGate: 0.8, bpm: 60, o2Tune: 0.1, cutoff: 1000, res: 0.2, fEnvAmt: 0.5, aA: 0.3, aS: 1, aR: 1.5, spread: 1, reverbMix: 0.6,
     }),
     patch('Drum Kit Arp', 'Sequenced', {
-      master: 0.86, kit: true, arpOn: true, latch: true, arpMode: 'order', arpDiv: '1/16', arpOct: 1, arpGate: 0.5, bpm: 100, reverbMix: 0.12, reverbSize: 1.4, delayMix: 0,
+      master: 0.86, kit: true, kitId: 'Techno 909', arpOn: true, latch: true, arpMode: 'order', arpDiv: '1/16', arpOct: 1, arpGate: 0.5, bpm: 100, reverbMix: 0.12, reverbSize: 1.4, delayMix: 0,
     }),
   ];
 
-  // The drum kit: a different drum on every key for two octaves from C3, laid
-  // out the way drum machines and General MIDI put them (kick on C, snare on D,
-  // hi-hats on the black keys F#, G# and A#), then repeating up and down the
-  // keyboard. Each drum is a factory patch, tuned and tweaked for its key.
-  // play: the note it sounds at. choke: hits in the same group cut each other off.
-  const KIT = [
-    { name: 'Kick', short: 'Kick', drum: 'Analog Kick', play: 36 },
-    { name: 'Rimshot', short: 'Rim', drum: 'Rimshot', play: 36, pan: -0.2 },
-    { name: 'Snare', short: 'Snare', drum: 'Snare', play: 36 },
-    { name: 'Hand clap', short: 'Clap', drum: 'Hand Clap', play: 36, pan: 0.1 },
-    { name: 'Electro snare', short: 'Snr 2', drum: 'Electro Snare', play: 36 },
-    { name: 'Low tom', short: 'Tom L', drum: 'Analog Tom', play: 31, pan: 0.35 },
-    { name: 'Closed hi-hat', short: 'Hat', drum: 'Closed Hat', play: 36, pan: -0.3, choke: 'hat' },
-    { name: 'Mid tom', short: 'Tom M', drum: 'Analog Tom', play: 36, pan: 0.1 },
-    { name: 'Pedal hi-hat', short: 'Pedal', drum: 'Closed Hat', play: 36, pan: -0.3, choke: 'hat', set: { cutoff: 6500, aD: 0.11, aR: 0.08 } },
-    { name: 'High tom', short: 'Tom H', drum: 'Analog Tom', play: 41, pan: -0.15 },
-    { name: 'Open hi-hat', short: 'Open', drum: 'Open Hat', play: 36, pan: -0.3, choke: 'hat' },
-    { name: 'Crash cymbal', short: 'Crash', drum: 'Crash', play: 36, pan: 0.4 },
-    { name: '808 boom', short: '808', drum: '808 Boom', play: 36 },
-    { name: 'Woodblock', short: 'Block', drum: 'Woodblock', play: 36, pan: 0.3 },
-    { name: 'Hard kick', short: 'Kick 2', drum: 'Hard Kick', play: 36 },
-    { name: 'Cowbell', short: 'Bell', drum: 'Cowbell', play: 36, pan: 0.25 },
-    { name: 'Low syn tom', short: 'Syn L', drum: 'Syn Tom', play: 33, pan: 0.3 },
-    { name: 'Ride cymbal', short: 'Ride', drum: 'Ride', play: 36, pan: -0.35 },
-    { name: 'Shaker', short: 'Shake', drum: 'Shaker', play: 36, pan: 0.35 },
-    { name: 'High syn tom', short: 'Syn H', drum: 'Syn Tom', play: 40, pan: -0.3 },
-    { name: 'Tambourine', short: 'Tamb', drum: 'Shaker', play: 36, pan: 0.4, set: { o1Wave: 'square', o1Range: 2, o2Wave: 'square', o2Range: 2, o2Tune: 6.3, m1: 0.35, m2: 0.35, cutoff: 11000, aA: 0.004, aD: 0.22, aR: 0.18 } },
-    { name: 'Low conga', short: 'Cga L', drum: 'Conga', play: 31, pan: 0.2 },
-    { name: 'High conga', short: 'Cga H', drum: 'Conga', play: 38, pan: -0.2 },
-    { name: 'Laser zap', short: 'Zap', drum: 'Laser Zap', play: 60, set: { aD: 0.25, fD: 0.18, delayMix: 0 } },
-  ];
+  // ---------------------------------------------------------------- drum recipes
 
-  // Full settings for each kit drum, ready for the engine: { slot: { params, play, pan, choke } }.
-  function kitDrums() {
+  const noteOfHz = (f) => 69 + 12 * Math.log2(f / 440);
+
+  // A plain one-shot drum voice every recipe starts from.
+  const DRUM = {
+    voiceMode: 'poly', o1Wave: 'sine', o1Range: 0, o2Wave: 'sine', o2Range: 0, o2Tune: 0, o3Wave: 'square',
+    o3Range: 0, o3Tune: 0, m1: 1, m2: 0, m3: 0, noise: 0, pitchEnv: 0, filterMode: 'lp24', cutoff: 18000,
+    res: 0, keyTrack: 0, fEnvAmt: 0, fA: 0.001, fD: 0.05, fS: 0, fR: 0.05, aA: 0.001, aD: 0.3, aS: 0, aR: 0.2,
+    velAmp: 0.6, velFilter: 0, drive: 0.3, modDepth: 0, glide: 0, o3KeyOff: false,
+  };
+
+  // Detuned square waves a little out of tune with each other: the metal in
+  // an analog hi-hat or cymbal.
+  const METAL = { o1Wave: 'square', o1Range: 1, o2Wave: 'square', o2Range: 1, o2Tune: 6.3, o3Wave: 'square', o3Range: 1, o3Tune: 4.1 };
+
+  function drum(play, settings) {
+    return { play, settings: Object.assign({}, DRUM, settings) };
+  }
+
+  const kickOf = (k) =>
+    drum(noteOfHz(k.hz), {
+      o1Wave: k.wave, noise: k.click, cutoff: 5000, pitchEnv: k.sweep, fD: k.sweepTime,
+      aD: k.decay, aR: Math.min(0.3, k.decay), drive: k.drive,
+    });
+
+  const snareOf = (s, alt) =>
+    drum(noteOfHz(s.hz), {
+      // Two tuned drum-head tones, a little under an octave and a half apart, plus the snares (noise).
+      m1: alt ? s.body * 0.4 : s.body, o2Range: 1, o2Tune: -1.5, m2: (alt ? s.body * 0.4 : s.body) * 0.6,
+      noise: s.noise, pitchEnv: s.sweep, fD: 0.02, filterMode: alt ? 'hp12' : s.mode,
+      cutoff: alt ? Math.min(18000, s.cutoff * 0.3) : s.cutoff, aA: s.attack, aD: alt ? s.decay * 0.8 : s.decay,
+      aR: 0.15, drive: s.drive,
+    });
+
+  const tomOf = (t, step) =>
+    drum(noteOfHz(t.hz * step), {
+      o1Wave: t.wave, noise: t.noise, cutoff: 3000, pitchEnv: t.sweep, fD: 0.08, aD: t.decay, aR: t.decay * 0.6,
+    });
+
+  const congaOf = (c, step) =>
+    drum(noteOfHz(c.hz * step), { o1Wave: c.wave, cutoff: 4000, pitchEnv: c.sweep, fD: 0.02, aD: c.decay, aR: c.decay * 0.6 });
+
+  const hatOf = (h, decay) =>
+    drum(noteOfHz(h.hz), Object.assign({}, METAL, {
+      m1: h.metal, m2: h.metal, m3: h.metal, noise: h.noise, filterMode: h.mode, cutoff: h.cutoff, res: h.res,
+      aD: decay, aR: 0.03, drive: h.drive,
+    }));
+
+  const cymbalOf = (c, decay, china) =>
+    drum(noteOfHz(420), Object.assign({}, METAL, {
+      m1: 0.5, m2: 0.5, m3: 0.5, noise: 0.8, filterMode: china ? 'bp' : 'hp12', cutoff: china ? c.cutoff * 1.3 : c.cutoff,
+      res: china ? 0.5 : 0.2, aD: decay, aR: decay * 0.7, drive: china ? 1 : 0.6,
+    }));
+
+  const FX = {
+    sub: () => drum(noteOfHz(45), { pitchEnv: 3, fD: 0.06, aD: 2.5, aR: 1, drive: 0.3 }),
+    zap: () => drum(60, { o1Wave: 'saw', m1: 0.8, pitchEnv: 24, fD: 0.12, cutoff: 3000, res: 0.5, aD: 0.25 }),
+    laser: () => drum(72, { pitchEnv: 24, fD: 0.2, aD: 0.3 }),
+    blip: () => drum(72, { o1Wave: 'square', pitchEnv: 12, fD: 0.02, aD: 0.08, aR: 0.05 }),
+    reverse: () => drum(60, { m1: 0, noise: 1, filterMode: 'hp12', cutoff: 2000, aA: 0.4, aD: 0.05, aR: 0.05, drive: 0.6 }),
+    gong: () =>
+      drum(48, Object.assign({}, METAL, { o1Range: -1, o2Range: -1, o3Range: -1, m2: 0.8, m3: 0.8, filterMode: 'bp', cutoff: 600, res: 0.5, aD: 2.5, aR: 1.5 })),
+    vox: () => drum(48, { o1Wave: 'saw', cutoff: 500, res: 0.9, fEnvAmt: 2, fD: 0.3, aD: 0.4 }),
+    thunder: () => drum(48, { m1: 0, noise: 1, cutoff: 450, res: 0.4, drive: 1, aD: 1.5, aR: 1 }),
+    snap: () => drum(84, { m1: 0.5, noise: 0.8, pitchEnv: 12, fD: 0.02, filterMode: 'bp', cutoff: 2500, res: 0.5, aD: 0.07, aR: 0.05, drive: 0.8 }),
+    timpani: () => drum(noteOfHz(90), { noise: 0.05, pitchEnv: 2, fD: 0.1, cutoff: 2000, aD: 2, aR: 1.2 }),
+  };
+
+  const ROLE = {
+    kick: (k) => kickOf(k.kick),
+    kick2: (k) => kickOf(Object.assign({}, k.kick, { hz: k.kick.hz * 0.9, decay: k.kick.decay * 2.5 + 0.3 })),
+    kick3: (k) => kickOf(Object.assign({}, k.kick, { click: 0.35, drive: 1, decay: k.kick.decay * 0.6, sweep: Math.min(24, k.kick.sweep + 12) })),
+    snare: (k) => snareOf(k.snare, false),
+    snare2: (k) => snareOf(k.snare, true),
+    clap: (k) =>
+      drum(60, {
+        m1: 0, noise: 1, filterMode: k.clap.mode, cutoff: k.clap.cutoff, res: k.clap.res, fEnvAmt: 1, fD: 0.1,
+        aA: 0.003, aD: k.clap.decay, aR: 0.2, drive: 0.9,
+      }),
+    rim: (k) =>
+      drum(noteOfHz(k.rim.hz), {
+        o1Wave: 'tri', o2Wave: 'square', o2Range: 2, o2Tune: -1.5, m2: 0.5, noise: 0.2, filterMode: 'bp',
+        cutoff: k.rim.cutoff, res: 0.3, aD: k.rim.decay, aR: 0.03, drive: 0.6,
+      }),
+    tomL: (k) => tomOf(k.tom, k.tom.steps[0]),
+    tomM: (k) => tomOf(k.tom, k.tom.steps[1]),
+    tomH: (k) => tomOf(k.tom, k.tom.steps[2]),
+    chh: (k) => hatOf(k.hat, k.hat.closed),
+    phh: (k) => hatOf(k.hat, k.hat.pedal),
+    ohh: (k) => hatOf(k.hat, k.hat.open),
+    crash: (k) => cymbalOf(k.cym, k.cym.crash, k.cym.china),
+    ride: (k) => Object.assign(cymbalOf(k.cym, k.cym.ride, false), {}),
+    splash: (k) => cymbalOf(k.cym, k.cym.splash, k.cym.china),
+    congaL: (k) => congaOf(k.conga, k.conga.steps[0]),
+    congaM: (k) => congaOf(k.conga, k.conga.steps[1]),
+    congaH: (k) => congaOf(k.conga, k.conga.steps[2]),
+    clave: (k) => drum(noteOfHz(k.clave.hz), { cutoff: 18000, aD: k.clave.decay, aR: 0.02 }),
+    cowbell: (k) =>
+      drum(noteOfHz(k.cowbell.hz), {
+        // Two square waves a sixth apart, through a band-pass: 540 and 800 Hz on the classic machine.
+        o1Wave: 'square', o2Wave: 'square', o2Tune: 6.8, m1: 0.7, m2: 0.7, filterMode: 'bp', cutoff: 1200, res: 0.25,
+        aD: k.cowbell.decay, aR: 0.1,
+      }),
+    shaker: (k) =>
+      drum(60, { m1: 0, noise: 1, filterMode: 'hp12', cutoff: k.shaker.cutoff, aA: 0.01, aD: k.shaker.decay, aR: 0.04, drive: 0.6 }),
+    tamb: (k) =>
+      drum(60, Object.assign({}, METAL, {
+        o1Range: 2, o2Range: 2, m1: 0.35, m2: 0.35, noise: 1, filterMode: 'hp12', cutoff: 8000, aA: 0.003,
+        aD: k.tamb.decay, aR: 0.1,
+      })),
+    fx: (k) => (FX[k.fx] || FX.zap)(),
+  };
+
+  function kitSpec(name) {
+    const kit = KITS.find((k) => k.name === name) || KITS[0];
     const out = {};
-    KIT.forEach((k, slot) => {
-      const base = PRESETS.find((p) => p.name === k.drum);
-      if (!base) throw new Error('Kit drum ' + k.name + ' needs the patch ' + k.drum);
-      const params = sanitizePatch(Object.assign({}, base.params, k.set || {}));
+    for (const key of Object.keys(KIT_BASE)) {
+      const base = KIT_BASE[key];
+      out[key] = base && typeof base === 'object' ? Object.assign({}, base, kit[key] || {}) : key in kit ? kit[key] : base;
+    }
+    out.name = kit.name;
+    out.names = kit.names || {};
+    out.patch = kit.patch || {};
+    return out;
+  }
+
+  // The names on the keys for a kit, cheap enough to call on every redraw.
+  function kitLayout(name) {
+    const k = kitSpec(name);
+    return KIT_SLOTS.map(([role, label, short]) => {
+      const own = k.names[role];
+      return { name: own ? own[0] : label, short: own ? own[1] : short };
+    });
+  }
+
+  // Full settings for each drum of a kit, ready for the engine: { slot: { params, play, pan, choke, gain } }.
+  function kitDrums(name) {
+    const k = kitSpec(name);
+    const levels = KIT_LEVELS[k.name] || [];
+    const out = {};
+    KIT_SLOTS.forEach(([role, , , choke, pan], slot) => {
+      const d = ROLE[role](k);
+      d.settings.cutoff = Math.min(d.settings.cutoff, k.maxCutoff);
+      checkSettings(k.name + ' ' + role, d.settings);
       out[slot] = {
-        params: engineParams(params),
-        play: k.play,
-        pan: k.pan || 0,
-        choke: k.choke || null,
-        // Each drum patch was balanced with its own Volume; in the kit that becomes the drum's level.
-        gain: Math.pow(params.master / 0.7, 2),
+        params: engineParams(sanitizePatch(d.settings)),
+        play: d.play,
+        pan,
+        choke,
+        gain: levels[slot] || 1,
       };
     });
     return out;
   }
+
+  // Each kit drum's level, measured so a kit plays evenly (see the tests).
+  const KIT_LEVELS = {
+    "Classic 808": [1.4, 2.08, 1.56, 1.43, 3.03, 1.11, 5.02, 1.11, 3.64, 1.12, 2.14, 1.12, 1.29, 3.5, 0.72, 0.91, 1.35, 1.14, 2.32, 1.35, 2.45, 1.37, 0.93, 1.21],
+    "Trap 808": [0.75, 1.89, 1.97, 1.33, 1.61, 1.08, 4.81, 1.09, 3.43, 1.09, 1.84, 1.09, 0.71, 3.24, 0.66, 0.87, 1.29, 1.11, 2.14, 1.3, 2.45, 1.31, 1.22, 1.19],
+    "Techno 909": [0.84, 1.91, 1.55, 1.24, 1.31, 1.18, 2.73, 1.18, 2.24, 1.19, 1.29, 1.07, 0.71, 3.24, 0.85, 0.87, 1.29, 1.09, 2.15, 1.3, 2.45, 1.31, 2.73, 1.18],
+    "House": [0.99, 1.91, 1.43, 1.23, 1.53, 1.09, 3.65, 1.09, 2.65, 1.09, 1.7, 1.08, 0.84, 3.24, 0.88, 0.87, 1.29, 1.1, 2.12, 1.3, 2.47, 1.31, 2.03, 1.17],
+    "Minimal Techno": [1.57, 2.43, 3.25, 1.34, 2.54, 1.09, 3.79, 1.09, 2.79, 1.09, 1.51, 1.07, 1.23, 3.24, 1.04, 0.88, 1.56, 1.12, 2.14, 1.57, 2.5, 1.58, 1.57, 1.19],
+    "Rock": [0.9, 1.9, 1.35, 1.36, 1.03, 1.03, 2.52, 1.03, 2.35, 1.03, 1.32, 1.07, 0.74, 3.24, 0.92, 0.87, 1.29, 1.08, 2.1, 1.3, 2.43, 1.31, 0.8, 1.19],
+    "Jazz Brushes": [2.48, 1.9, 4.24, 1.33, 1.95, 1.05, 3.43, 1.06, 3.16, 1.06, 1.68, 1.05, 2.03, 3.24, 0.92, 0.87, 1.29, 1.07, 2.13, 1.3, 2.48, 1.31, 1.55, 1.17],
+    "Funk": [1.09, 1.92, 1.64, 1.33, 1.62, 1.08, 4.19, 1.09, 2.68, 1.1, 1.77, 1.09, 0.86, 3.24, 0.97, 0.88, 1.3, 1.1, 2.14, 1.3, 2.45, 1.31, 1.48, 1.18],
+    "Boom Bap": [0.77, 1.91, 1.42, 1.35, 1.08, 1.09, 3.38, 1.09, 2.5, 1.1, 1.54, 1.07, 0.67, 3.24, 0.82, 0.87, 1.29, 1.12, 2.11, 1.3, 2.44, 1.31, 2.02, 1.18],
+    "Lo-Fi": [0.85, 1.9, 1.47, 1.32, 1.59, 1.09, 2.46, 1.09, 1.76, 1.09, 1.17, 1, 0.72, 5.39, 0.88, 0.87, 1.29, 1.01, 2.03, 1.3, 2.15, 1.31, 0.84, 1.08],
+    "Electro": [0.92, 1.93, 1.86, 1.19, 1.62, 1.45, 4.79, 1.46, 2.74, 1.47, 1.93, 1.09, 0.83, 3.24, 0.78, 0.87, 1.29, 1.11, 2.16, 1.3, 2.46, 1.31, 2.74, 1.18],
+    "Synthwave 80s": [0.97, 1.94, 1.22, 1.16, 1, 1.25, 3.8, 1.25, 2.6, 1.26, 1.56, 1.09, 0.84, 3.24, 0.84, 0.88, 1.29, 1.11, 2.12, 1.3, 2.47, 1.31, 1.22, 1.16],
+    "Disco": [1.17, 1.9, 1.39, 1.35, 1.49, 1.09, 3.7, 1.09, 2.83, 1.1, 1.71, 1.08, 0.97, 3.24, 0.92, 0.87, 1.29, 1.11, 2.12, 1.3, 2.47, 1.31, 1.22, 1.16],
+    "Drum & Bass": [0.92, 1.89, 1.49, 1.32, 1.3, 1.09, 3.34, 1.09, 1.95, 1.09, 1.36, 1.09, 0.74, 3.24, 0.97, 0.87, 1.29, 1.11, 2.11, 1.3, 2.46, 1.31, 0.84, 1.18],
+    "Dubstep": [0.75, 1.91, 1.16, 1.23, 0.98, 1.09, 3.65, 1.09, 2.6, 1.1, 1.57, 1.09, 0.65, 3.24, 0.82, 0.87, 1.29, 1.12, 2.11, 1.3, 2.46, 1.31, 2.04, 1.18],
+    "Industrial": [0.82, 1.9, 1.77, 1.37, 1.02, 1.09, 1.47, 1.09, 1.08, 1.1, 0.64, 0.61, 0.68, 3.24, 0.88, 0.87, 1.29, 1.12, 2.13, 1.3, 2.48, 1.31, 5.82, 0.66],
+    "Latin Percussion": [1.22, 1.92, 1.45, 1.32, 1.53, 1.4, 3.82, 1.41, 2.62, 1.43, 1.54, 1.09, 0.98, 2.84, 0.97, 0.79, 1.23, 1.11, 1.82, 1.23, 2.47, 1.25, 1.51, 1.17],
+    "Afrobeat": [1.19, 1.89, 1.65, 1.32, 1.71, 1.13, 3.71, 1.14, 2.61, 1.15, 1.56, 1.08, 0.97, 3.24, 0.92, 0.84, 1.18, 1.12, 1.94, 1.18, 2.45, 1.19, 1.44, 1.17],
+    "Reggae Dub": [1.04, 1.67, 1.36, 1.32, 3.17, 1.08, 3.66, 1.09, 2.63, 1.1, 1.56, 1.09, 0.94, 3.24, 0.78, 0.88, 1.3, 1.12, 2.13, 1.3, 2.41, 1.31, 1.22, 1.17],
+    "Big Room EDM": [0.74, 1.92, 1.61, 1.13, 1.35, 1.08, 3.97, 1.09, 2.84, 1.09, 1.72, 1.08, 0.65, 3.24, 0.82, 0.87, 1.29, 1.11, 2.12, 1.3, 2.43, 1.31, 0.83, 1.18],
+    "Chiptune": [1.06, 1.91, 2.04, 1.35, 2, 1.08, 4.54, 1.09, 3.89, 1.1, 2.31, 1.09, 0.77, 3.24, 0.98, 0.87, 1.32, 1.11, 2.1, 1.34, 2.5, 1.37, 1.57, 1.17],
+    "Vintage Rhythm Box": [1.29, 1.91, 1.88, 1.3, 2.14, 1.23, 2.94, 1.23, 1.68, 1.23, 1.27, 1.16, 1, 3.23, 1.04, 0.87, 1.3, 1.2, 2.09, 1.31, 2.45, 1.33, 1.57, 1.3],
+    "UK Garage": [1.23, 1.9, 1.59, 1.24, 1.79, 1.09, 4.27, 1.09, 2.64, 1.09, 1.8, 1.09, 0.98, 3.24, 0.97, 0.87, 1.29, 1.12, 2.17, 1.3, 2.48, 1.31, 2.05, 1.17],
+    "Ambient": [1.72, 1.89, 3.85, 1.3, 4.65, 1.09, 2.73, 1.09, 2.51, 1.1, 1.3, 1.03, 1.58, 3.24, 0.75, 0.87, 1.29, 1.06, 2.15, 1.3, 2.5, 1.31, 0.78, 1.17],
+    "Metal": [1.07, 1.95, 1.36, 1.35, 1.12, 1.06, 3.54, 1.06, 2.72, 1.06, 1.55, 0.59, 0.77, 3.24, 1.15, 0.87, 1.3, 1.11, 2.12, 1.3, 2.48, 1.31, 0.77, 0.66],
+    "Glitch Beats": [1.58, 1.91, 3.84, 1.91, 2.59, 1.23, 5.48, 1.25, 4.35, 1.28, 2.89, 1.07, 1.05, 3.24, 1.31, 0.87, 1.29, 1.12, 2.07, 1.3, 2.45, 1.31, 1.57, 1.17],
+    "Cinematic": [0.81, 1.89, 1.8, 1.35, 0.98, 0.96, 3.62, 0.96, 2.55, 0.96, 1.57, 1.03, 0.79, 3.24, 0.65, 0.87, 1.29, 1.1, 2.14, 1.3, 2.47, 1.31, 0.94, 1.17],
+    "Tribal": [1.01, 1.91, 1.05, 1.37, 3.11, 1, 3.65, 0.99, 2.64, 1, 1.56, 1.08, 0.93, 3.24, 0.73, 0.88, 1.11, 1.1, 1.63, 1.11, 2.47, 1.12, 0.93, 1.16],
+    "Electronic Toms 80s": [1.09, 1.91, 1.76, 1.32, 1.16, 1.22, 3.55, 1.23, 2.59, 1.24, 1.57, 1.08, 0.95, 3.24, 0.82, 0.87, 1.35, 1.12, 2.16, 1.36, 2.44, 1.38, 1.22, 1.17],
+    "Hand Percussion": [1.21, 1.9, 1.99, 1.49, 2.68, 1.46, 3.72, 1.47, 2.6, 1.49, 1.56, 1.08, 0.98, 3.24, 0.97, 0.8, 1.22, 1.12, 1.71, 1.23, 2.16, 1.24, 1.47, 1.15],
+  };
 
   const api = {
     WAVES,
@@ -1404,7 +1922,10 @@
     BY_ID,
     OPTION_LABELS,
     PRESETS,
-    KIT,
+    KITS,
+    KIT_NAMES,
+    KIT_SLOTS,
+    kitLayout,
     kitDrums,
     KEYMAP,
     defaults,

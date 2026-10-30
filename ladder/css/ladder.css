@@ -125,7 +125,7 @@ button { cursor: pointer; }
   border-radius: 4px;
   box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 255, 255, 0.06);
 }
-#section-select { width: 9rem; }
+#section-select { width: 10.5rem; }
 #patch-select option, #section-select option { background: var(--panel); color: var(--legend); }
 
 .edited {
@@ -381,6 +381,21 @@ body:not(.powered) .power { animation: beckon 2.4s ease-in-out infinite; }
   background: linear-gradient(180deg, #2a2219, #1c1712);
   box-shadow: inset 0 0 0 1px var(--amber), 0 0 8px var(--amber-glow);
 }
+
+/* a long choice list as a menu */
+.ctl-menu {
+  min-width: 0;
+  max-width: 12rem;
+  padding: 6px 8px;
+  background: var(--screen);
+  color: var(--trace);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  border: 1px solid #000;
+  border-radius: 4px;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8);
+}
+.ctl-menu option { background: var(--panel); color: var(--legend); }
 
 /* rocker switches */
 .ctl-bool { justify-content: center; align-self: center; }

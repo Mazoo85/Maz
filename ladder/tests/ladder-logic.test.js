@@ -158,6 +158,22 @@ test('the ladder filter cuts high notes far more than low ones (24 dB/oct)', () 
   assert.ok(db < -60, 'only ' + db.toFixed(1) + ' dB');
 });
 
+test('filter modes: high-pass keeps highs and cuts lows, band-pass cuts both sides', () => {
+  const level = (mode, hz) => {
+    const f = new DSP.LadderFilter();
+    let e = 0;
+    for (let i = 0; i < SR; i++) {
+      const y = f.process(0.1 * Math.sin((2 * Math.PI * hz * i) / SR), 1000, 0, SR, mode);
+      if (i > SR / 2) e += y * y;
+    }
+    return 10 * Math.log10(e);
+  };
+  assert.ok(level('hp24', 8000) - level('hp24', 125) > 60, 'hp24');
+  assert.ok(level('hp12', 8000) - level('hp12', 125) > 30, 'hp12');
+  assert.ok(level('lp12', 125) - level('lp12', 8000) > 30, 'lp12');
+  assert.ok(level('bp', 1000) - level('bp', 125) > 12 && level('bp', 1000) - level('bp', 8000) > 12, 'bp');
+});
+
 test('at full emphasis the filter rings by itself at the cutoff', () => {
   const f = new DSP.LadderFilter();
   const out = new Float32Array(SR);
@@ -309,6 +325,7 @@ test('every factory patch is valid and makes sound', () => {
     names.add(pr.name);
     assert.deepStrictEqual(L.sanitizePatch(pr.params), pr.params, pr.name);
     const s = new DSP.Synth(SR, L.engineParams(pr.params));
+    if (pr.params.kit) s.setKit(L.kitDrums(pr.params.kitId));
     s.noteOn(48, 0.9);
     s.noteOn(55, 0.9);
     const out = render(s, 0.6);
@@ -336,7 +353,8 @@ test('page messages drive the engine the same way on either thread', () => {
 // jumps from a whisper to a blast.
 function loudness(pr) {
   const s = new DSP.Synth(SR, L.engineParams(pr.params));
-  const notes = pr.group === 'Drums' || pr.group === 'Bass' ? [36] : [48, 55, 60];
+  if (pr.params.kit) s.setKit(L.kitDrums(pr.params.kitId));
+  const notes = pr.params.kit ? [48] : pr.group === 'Drums' || pr.group === 'Bass' ? [36] : [48, 55, 60];
   notes.forEach((n) => s.noteOn(n, 0.85));
   const out = render(s, 2.5);
   let loudest = 0;
@@ -357,7 +375,7 @@ test('factory patches are all about as loud as each other', () => {
 test('every section of the factory list holds 30 sounds', () => {
   const groups = new Map();
   for (const pr of L.PRESETS) groups.set(pr.group, (groups.get(pr.group) || 0) + 1);
-  for (const g of ['Bass', 'Lead', 'Keys', 'Pads', 'Brass & strings', 'Plucks', 'Drums', 'Effects', 'Experimental', 'Sequenced']) {
+  for (const g of ['Bass', 'Lead', 'Keys', 'Pads', 'Brass & strings', 'Plucks', 'Drums', 'Drum Kits', 'Effects', 'Experimental', 'Sequenced']) {
     assert.strictEqual(groups.get(g), 30, g + ' has ' + (groups.get(g) || 0));
   }
   // Groups stay together, so the patch menu lists each one once.
@@ -365,40 +383,73 @@ test('every section of the factory list holds 30 sounds', () => {
   assert.strictEqual(new Set(order).size, order.length);
 });
 
-function kitSynth() {
-  const kitPatch = L.PRESETS.find((p) => p.name === 'Drum Kit');
+function kitSynth(name) {
+  const kitPatch = L.PRESETS.find((p) => p.name === (name || L.KIT_NAMES[0]));
   const s = new DSP.Synth(SR, L.engineParams(kitPatch.params));
-  s.setKit(L.kitDrums());
+  s.setKit(L.kitDrums(kitPatch.params.kitId));
   return s;
 }
 
-test('the drum kit has a different drum on each of its 24 keys', () => {
-  assert.strictEqual(L.KIT.length, DSP.KIT_KEYS);
-  assert.strictEqual(new Set(L.KIT.map((k) => k.name)).size, DSP.KIT_KEYS);
-  assert.strictEqual(new Set(L.KIT.map((k) => k.short)).size, DSP.KIT_KEYS);
-  const drums = L.kitDrums();
-  for (let slot = 0; slot < DSP.KIT_KEYS; slot++) assert.ok(drums[slot].params.aS === 0, L.KIT[slot].name + ' must die away by itself');
-  // Kick on C, snare on D, closed hat on F sharp, like a drum machine.
-  assert.strictEqual(L.KIT[DSP.kitSlot(48)].name, 'Kick');
-  assert.strictEqual(L.KIT[DSP.kitSlot(50)].name, 'Snare');
-  assert.strictEqual(L.KIT[DSP.kitSlot(54)].name, 'Closed hi-hat');
-  // The layout repeats every two octaves.
+test('there are 30 drum kits, each with a different drum on each of its 24 keys', () => {
+  assert.strictEqual(L.KIT_NAMES.length, 30);
+  assert.strictEqual(new Set(L.KIT_NAMES).size, 30);
+  assert.strictEqual(L.KIT_SLOTS.length, DSP.KIT_KEYS);
+  for (const name of L.KIT_NAMES) {
+    const layout = L.kitLayout(name);
+    assert.strictEqual(new Set(layout.map((k) => k.name)).size, DSP.KIT_KEYS, name);
+    assert.strictEqual(new Set(layout.map((k) => k.short)).size, DSP.KIT_KEYS, name);
+    const drums = L.kitDrums(name);
+    for (let slot = 0; slot < DSP.KIT_KEYS; slot++) assert.strictEqual(drums[slot].params.aS, 0, name + ' ' + layout[slot].name + ' must die away by itself');
+    // Every kit has a patch of its own in the Drum Kits section.
+    assert.strictEqual(L.PRESETS.find((p) => p.name === name).group, 'Drum Kits');
+  }
+  // Kick on C, snare on D, closed hat on F sharp, like a drum machine; repeating every two octaves.
+  const layout = L.kitLayout('Classic 808');
+  assert.strictEqual(layout[DSP.kitSlot(48)].name, 'Kick');
+  assert.strictEqual(layout[DSP.kitSlot(50)].name, 'Snare');
+  assert.strictEqual(layout[DSP.kitSlot(54)].name, 'Closed hi-hat');
   assert.strictEqual(DSP.kitSlot(24), DSP.kitSlot(48));
   assert.strictEqual(DSP.kitSlot(72), 0);
 });
 
-test('every kit drum sounds, at a level that matches the rest of the kit', () => {
-  for (let slot = 0; slot < DSP.KIT_KEYS; slot++) {
-    const s = kitSynth();
-    s.noteOn(DSP.KIT_BASE + slot, 0.85);
-    const out = render(s, 1);
-    let loudest = 0;
-    const W = SR / 20;
-    for (let i = 0; i + W <= out.L.length; i += W) {
-      loudest = Math.max(loudest, Math.sqrt((rms(out.L, i, i + W) ** 2 + rms(out.R, i, i + W) ** 2) / 2));
+test('the kits really differ: no two kits have the same kick and snare', () => {
+  const seen = new Set();
+  for (const name of L.KIT_NAMES) {
+    const d = L.kitDrums(name);
+    const sig = JSON.stringify([d[0].params, d[0].play, d[2].params, d[2].play, d[6].params]);
+    assert.ok(!seen.has(sig), name + ' sounds the same as another kit');
+    seen.add(sig);
+  }
+});
+
+test('Classic 808: deep sine kick, cowbell at 540 and 800 Hz, high-passed metallic hats', () => {
+  const d = L.kitDrums('Classic 808');
+  const near = (a, b, tol) => Math.abs(a - b) < tol;
+  assert.strictEqual(d[0].params.o1Wave, 'sine');
+  assert.ok(near(DSP.midiToFreq(d[0].play), 52, 1), 'kick at ' + DSP.midiToFreq(d[0].play));
+  assert.ok(d[0].params.aD >= 0.8, 'the kick has the long 808 tail');
+  const bell = d[15];
+  assert.ok(near(DSP.midiToFreq(bell.play), 540, 2));
+  assert.ok(near(DSP.midiToFreq(bell.play + bell.params.o2Tune), 800, 6));
+  assert.strictEqual(d[6].params.filterMode, 'hp12');
+  assert.strictEqual(d[6].params.o1Wave, 'square');
+  assert.deepStrictEqual(L.kitLayout('Classic 808')[18].name, 'Maracas');
+});
+
+test('every drum of every kit sounds, at a level that matches the rest of its kit', () => {
+  for (const name of L.KIT_NAMES) {
+    for (let slot = 0; slot < DSP.KIT_KEYS; slot++) {
+      const s = kitSynth(name);
+      s.noteOn(DSP.KIT_BASE + slot, 0.85);
+      const out = render(s, 0.8);
+      let loudest = 0;
+      const W = SR / 20;
+      for (let i = 0; i + W <= out.L.length; i += W) {
+        loudest = Math.max(loudest, Math.sqrt((rms(out.L, i, i + W) ** 2 + rms(out.R, i, i + W) ** 2) / 2));
+      }
+      const db = 20 * Math.log10(loudest);
+      assert.ok(db > -28 && db < -12, name + ' ' + L.kitLayout(name)[slot].name + ' is at ' + db.toFixed(1) + ' dB');
     }
-    const db = 20 * Math.log10(loudest);
-    assert.ok(db > -28 && db < -12, L.KIT[slot].name + ' is at ' + db.toFixed(1) + ' dB');
   }
 });
 

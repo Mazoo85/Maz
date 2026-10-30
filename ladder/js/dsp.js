@@ -82,6 +82,7 @@
   class LadderFilter {
     constructor() {
       this.s = [0, 0, 0, 0];
+      this.out = [0, 0, 0, 0];
     }
 
     reset() {
@@ -89,7 +90,9 @@
     }
 
     // k is the feedback amount: 0 = none, about 4 = self-oscillation.
-    process(x, cutoff, k, sr) {
+    // mode picks the response by mixing the four stages, as the classic
+    // multimode ladders do: low-pass 24 or 12 dB, band-pass, high-pass 12 or 24 dB.
+    process(x, cutoff, k, sr, mode) {
       const fc = Math.min(Math.max(cutoff, 8), sr * 0.45);
       const g = Math.tan((Math.PI * fc) / sr);
       const G = g / (1 + g);
@@ -99,18 +102,32 @@
       const G4 = G2 * G2;
       const S = (G2 * G * s[0] + G2 * s[1] + G * s[2] + s[3]) * beta;
       const y4 = (G4 * x + S) / (1 + k * G4);
-      let y = Math.tanh(x - k * y4);
+      const u = Math.tanh(x - k * y4);
+      let y = u;
+      const st = this.out;
       for (let i = 0; i < 4; i++) {
         const v = (y - s[i]) * G;
         const out = v + s[i];
         s[i] = out + v;
         y = out;
+        st[i] = out;
       }
       if (!(y === y) || Math.abs(y) > 1e6) {
         this.reset();
         return 0;
       }
-      return y;
+      switch (mode) {
+        case 'lp12':
+          return st[1];
+        case 'bp':
+          return 2 * (st[0] - st[1]);
+        case 'hp12':
+          return u - 2 * st[0] + st[1];
+        case 'hp24':
+          return u - 4 * st[0] + 6 * st[1] - 4 * st[2] + st[3];
+        default:
+          return y;
+      }
     }
   }
 
@@ -608,7 +625,7 @@
           const velF = 1 - q.velFilter + q.velFilter * v.vel;
           const oct = q.fEnvAmt * fe * velF + c.kt * (v.cur - 60) + q.modFilter * wheelMod * mod;
           const cutoff = q.cutoff * Math.exp(oct * LN2);
-          const y = v.filter.process(mix, cutoff, c.k, sr) * c.comp;
+          const y = v.filter.process(mix, cutoff, c.k, sr, q.filterMode) * c.comp;
           const out = y * ae * (1 - q.velAmp + q.velAmp * v.vel) * (v.drum ? v.drum.gain : unisonGain);
           l += out * v.gl;
           r += out * v.gr;

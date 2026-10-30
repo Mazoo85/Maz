@@ -28,7 +28,7 @@ A standalone app: it is not part of MAZ ARCADE.
 | **Controllers** | Glide (portamento), bend range, voice mode (Poly 8 voices / Mono / Legato / Unison 5 stacked voices), unison detune, stereo width. |
 | **Oscillator bank** | Three oscillators, each with six band-limited waves (triangle, saw, ramp, square, pulse, sine) and a range switch from 32' to 2'. Oscillators 2 and 3 tune ±7 semitones. Pulse width. Osc 3 can leave the keyboard and run as a slow LFO. **Pitch env** bends every oscillator with the filter contour, ±24 semitones: the drop in a kick, a tom or a zap. |
 | **Mixer** | Levels for the three oscillators and white noise, plus Drive, which pushes the filter input into saturation. |
-| **Ladder filter** | A zero-delay-feedback model of the four-pole ladder, with a tanh at its input. Cutoff, Emphasis (resonance, which self-oscillates into a pure sine at the top), Contour amount (±6 octaves) and key tracking, with its own ADSR. |
+| **Ladder filter** | A zero-delay-feedback model of the four-pole ladder, with a tanh at its input. **Mode** mixes its four stages for low-pass 24 or 12 dB, band-pass, or high-pass 12 or 24 dB. Cutoff, Emphasis (resonance, which self-oscillates into a pure sine at the top), Contour amount (±6 octaves) and key tracking, with its own ADSR. |
 | **Loudness contour** | ADSR for the volume, and touch (velocity) amounts for volume and brightness. |
 | **Modulation** | Source (LFO, Osc 3 at audio rate, or smoothed noise), LFO shape (triangle, saw, square, sample & hold), rate or **Sync** to the tempo (4 bars down to 1/16), a base amount the mod wheel adds to, and depths to pitch, filter and pulse width. |
 | **Arpeggiator** | Up, down, up-down, as-played, random; 1–4 octaves; 1/4 to 1/32 steps including triplets, at the panel tempo; gate length; latch. It runs inside the audio engine, so the timing is sample-accurate. |
@@ -37,7 +37,7 @@ A standalone app: it is not part of MAZ ARCADE.
 
 ## Patches
 
-Three hundred factory sounds: **30 in each of ten sections**, plus a plain
+Three hundred and thirty factory sounds: **30 in each of eleven sections**, plus a plain
 **Init** patch to start from scratch. Pick a section in the first menu and a
 sound in the second; **‹ ›** step through every sound in order.
 
@@ -50,30 +50,41 @@ sound in the second; **‹ ›** step through every sound in order.
 | **Brass & strings** | Brass Section, Brass Stab, Velvet Strings, Solo Cello, Synth Brass, Soft Brass, Horn Section, Trombone, French Horn, Tuba, Brass Swell, Fanfare, Funk Horns, Saxophone, String Ensemble, Violin, Viola, Double Bass, Pizzicato, Tremolo Strings, Slow Strings, Chamber Strings, Cello Section, Orchestra Hit, Bright Strings, Dark Strings, Fiddle, Analog String Machine, Staccato Strings, Crescendo Strings |
 | **Plucks** | Bright Pluck, Nylon Pluck, Kalimba, Marimba, Harp, Koto, Banjo, Guitar Pluck, Muted Guitar, Twangy Pluck, Bell Pluck, Glass Pluck, Synth Pluck, Trance Pluck, Xylophone, Vibraphone, Steel Drum, Water Drop, Rubber Band, Short Pluck, Mandolin, Mbira, Lute, Clean Guitar, Electric Guitar, Funk Guitar, Chime, Blip, Dulcimer, Echo Pluck |
 | **Drums** | Drum Kit, Analog Kick, 808 Boom, Hard Kick, Analog Tom, Syn Tom, Conga, Snare, Electro Snare, Rimshot, Hand Clap, Closed Hat, Open Hat, Shaker, Crash, Ride, Cowbell, Woodblock, Rock Kick, Soft Kick, Brush Snare, Piccolo Snare, Big Room Clap, Finger Snap, Floor Tom, Timbale, Bongo, Splash Cymbal, China Cymbal, Triangle |
+| **Drum Kits** | Classic 808, Trap 808, Techno 909, House, Minimal Techno, Rock, Jazz Brushes, Funk, Boom Bap, Lo-Fi, Electro, Synthwave 80s, Disco, Drum & Bass, Dubstep, Industrial, Latin Percussion, Afrobeat, Reggae Dub, Big Room EDM, Chiptune, Vintage Rhythm Box, UK Garage, Ambient, Metal, Glitch Beats, Cinematic, Tribal, Electronic Toms 80s, Hand Percussion |
 | **Effects** | Laser Zap, Siren, UFO, Wind, Ocean Waves, Thunder, Rain, Heartbeat, Bubbles, Alarm, Radio Static, Robot Voice, Engine Rumble, Spaceship Hum, Teleport, Power Down, Power Up, Game Coin, Game Jump, Explosion, Wind Chimes, Birds, Crickets, Underwater, Ghost, Laser Gun, Phone Tone, Static Swell, Glitch, Train Horn |
 | **Experimental** | Filter Whistle, Wobble, Sample & Hold Computer, Metal Bells, Resonance Sweep, Audio-Rate Filter, Breath Whistle, Ringing Bass, Chaos Engine, Drive Feedback, Reverse Contour, Backwards Pad, Microtonal Drift, Detune Cloud, Tritone Machine, Spectral Sines, Gated Noise, Audio PWM, Slow Morph, Sub Harmonic, Stepped Filter, Random Melody, Tape Wobble, Talking Filter, Bent Bell, Feedback Scream, Noise Bell, Octave Jumper, Saw Swarm, Granular Fizz |
 | **Sequenced** | Pulse Arp, Latched Sequence, Berlin School, Chip Arp, Trance Gate, Random Bleeps, Octave Bass Arp, Disco Octaves, Synthwave Arp, Ambient Arp, Techno Stab Seq, Acid Sequence, Bell Arp, Chip Melody, Pluck Cascade, Triplet Run, Half-Time Arp, Driving Bass, Thirty-Second Ripple, Sequencer Lead, Flowing Arp, Random Sparkle, Dub Techno Chord, Electro Bounce, Hypnotic Loop, Harp Glissando, Marimba Pattern, Trance Lead Arp, Slow Motion, Drum Kit Arp |
 
-Drums play one hit per key, with the pitch following the key; **Drum Kit** puts
-a different drum on every key (below). Sequenced sounds run the arpeggiator:
+Drums play one hit per key, with the pitch following the key. Each sound in
+**Drum Kits** puts a different drum on every key (below). Sequenced sounds run the arpeggiator:
 hold a chord. **Drum Kit Arp** latches a drum pattern from the keys you hold.
 
-### The drum kit
+### Drum kits
 
-Pick **Drum Kit** (or flip the **Drum kit** switch under Controllers) and every
-key plays its own drum, with its name on the key. The layout covers two octaves
-from C3 and repeats up and down the keyboard. It follows the drum-machine habit:
-kick on C, snare on D, hi-hats on the black keys.
+Pick a kit from the **Drum Kits** section (or flip the **Drum kit** switch under
+Controllers and choose from its **Kit** menu) and every key plays its own drum,
+with its name on the key. The layout covers two octaves from C3 and repeats up
+and down the keyboard. Every kit uses the same drum-machine layout: kick on C,
+snare on D, hi-hats on the black keys.
 
 | | C | C♯ | D | D♯ | E | F | F♯ | G | G♯ | A | A♯ | B |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| **C3 octave** | Kick | Rimshot | Snare | Clap | Electro snare | Low tom | Closed hat | Mid tom | Pedal hat | High tom | Open hat | Crash |
-| **C4 octave** | 808 boom | Woodblock | Hard kick | Cowbell | Low syn tom | Ride | Shaker | High syn tom | Tambourine | Low conga | High conga | Laser zap |
+| **C3 octave** | Kick | Rimshot | Snare | Clap | Snare 2 | Low tom | Closed hat | Mid tom | Pedal hat | High tom | Open hat | Crash |
+| **C4 octave** | Long kick | Clave | Hard kick | Cowbell | Low conga | Ride | Shaker | Mid conga | Tambourine | High conga | Effect | Splash |
 
-Drums ring out after you let go, like real ones, and a closed or pedal hat cuts
-off a ringing open hat. On the computer keyboard, `A` is the kick, `S` the snare,
-`T` the closed hat and `U` the open hat. The sound knobs don't change the kit;
-Tempo, the arpeggiator, Echo & space and Volume do.
+Some kits rename a key for what it really is (bongos, timbales, taiko, djembe,
+maracas). Drums ring out after you let go, and a closed or pedal hat cuts off a
+ringing open hat. On the computer keyboard, `A` is the kick, `S` the snare, `T`
+the closed hat and `U` the open hat. The sound knobs don't change a kit; Tempo,
+the arpeggiator, Echo & space and Volume do.
+
+Each kit is a short description of its character (`KITS` in `js/logic.js`),
+turned into 24 drums by recipes that build every sound from oscillators, noise
+and filters, the way an analog drum machine does. **Classic 808** follows the
+original analog design: a deep sine kick with a long tail, a two-tone snare,
+hi-hats and cymbals from three detuned square waves (the original uses six) and noise through a high-pass
+filter, the 540/800 Hz cowbell, clave, maracas and three congas. It is a
+synthesized recreation, not samples of the hardware.
 
 Each patch sets its own Volume so they all play at about the same loudness;
 a test holds every patch to that. **Save** keeps your own in this browser.

@@ -56,7 +56,7 @@
   // ---------------------------------------------------------------- panel layout
 
   const SECTIONS = [
-    { id: 'controllers', title: 'Controllers', rows: [['glide', 'bendRange'], ['voiceMode'], ['unisonDetune', 'spread'], ['kit']] },
+    { id: 'controllers', title: 'Controllers', rows: [['glide', 'bendRange'], ['voiceMode'], ['unisonDetune', 'spread'], ['kit', 'kitId']] },
     {
       id: 'oscillators',
       title: 'Oscillator bank',
@@ -72,7 +72,7 @@
       id: 'filter',
       col: 'contours',
       title: 'Ladder filter · 24 dB/oct',
-      rows: [['cutoff', 'res', 'fEnvAmt', 'keyTrack'], ['fA', 'fD', 'fS', 'fR']],
+      rows: [['filterMode'], ['cutoff', 'res', 'fEnvAmt', 'keyTrack'], ['fA', 'fD', 'fS', 'fR']],
     },
     { id: 'loudness', col: 'contours', title: 'Loudness contour', rows: [['aA', 'aD', 'aS', 'aR'], ['velAmp', 'velFilter']] },
     {
@@ -229,7 +229,18 @@
     return { node: wrap, update };
   }
 
+  // A choice with many options (like the 30 drum kits) is a menu, not a row of buttons.
+  function menuControl(p) {
+    const id = 'm-' + p.id;
+    const sel = el('select', { id, class: 'ctl-menu' });
+    for (const opt of p.options) sel.appendChild(el('option', { value: opt, text: LL.OPTION_LABELS[opt] || opt }));
+    sel.addEventListener('change', () => setParam(p.id, sel.value));
+    const wrap = el('div', { class: 'ctl ctl-enum', 'data-id': p.id }, [el('label', { class: 'ctl-label', for: id, text: p.label }), sel]);
+    return { node: wrap, update: (v) => (sel.value = v) };
+  }
+
   function enumControl(p) {
+    if (p.options.length > 8) return menuControl(p);
     const group = el('div', { class: 'seg' + (ICON_ENUMS.has(p.id) ? ' seg-icons' : ''), role: 'radiogroup', 'aria-label': p.label });
     const buttons = p.options.map((opt) => {
       const label = LL.OPTION_LABELS[opt] || opt;
@@ -321,11 +332,20 @@
   // In a drum kit every key has its own drum, so the keys show their names and
   // the sound-shaping sections step back (they do not change the kit).
   let kitShown = null;
+  let kitSent = null;
   function kitChanged() {
     const on = !!state.params.kit;
+    const shown = on ? state.params.kitId : '';
     document.body.classList.toggle('kit-on', on);
-    if (kitShown !== on && keyEls.size) buildKeys();
-    kitShown = on;
+    if (kitShown !== shown && keyEls.size) buildKeys();
+    kitShown = shown;
+    sendKit();
+  }
+
+  function sendKit() {
+    if (!node || !state.params.kit || kitSent === state.params.kitId) return;
+    kitSent = state.params.kitId;
+    send({ type: 'kit', kit: LL.kitDrums(kitSent) });
   }
 
   // ---------------------------------------------------------------- params
@@ -341,7 +361,7 @@
     if (p.fx) applyFx(id, value);
     else send({ type: 'params', params: { [id]: value } });
     if (id === 'arpOn') document.body.classList.toggle('arp-on', !!value);
-    if (id === 'kit') kitChanged();
+    if (id === 'kit' || id === 'kitId') kitChanged();
     if (id === 'delayDiv' && !state.params.delaySync) setParam('delaySync', true, quiet);
     if (id === 'lfoDiv' && !state.params.lfoSync) setParam('lfoSync', true, quiet);
     if (TEMPO_LINKED.has(id)) tempoChanged();
@@ -512,7 +532,8 @@
         node.port.onmessage = (e) => {
           if (e.data.type === 'voices') showVoices(e.data.mask);
         };
-        node.port.postMessage({ type: 'kit', kit: LL.kitDrums() });
+        kitSent = null;
+        sendKit();
         fx = buildFx(ctx, node);
         for (const p of LL.PARAMS) if (p.fx) applyFx(p.id, state.params[p.id]);
         tempoChanged();
@@ -781,7 +802,7 @@
 
   function drumLabel(key, note) {
     if (!state.params.kit) return;
-    const d = LL.KIT[DSP.kitSlot(note)];
+    const d = LL.kitLayout(state.params.kitId)[DSP.kitSlot(note)];
     key.appendChild(el('span', { class: 'key-drum', text: d.short }));
     key.title = d.name;
     key.classList.add('drum');
