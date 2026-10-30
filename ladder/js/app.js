@@ -378,15 +378,7 @@
     setPowerUi('starting');
     powering = (async () => {
       try {
-        if (!ctx.audioWorklet) throw new Error('This browser cannot run the sound engine. Try a current Chrome, Edge, Firefox or Safari.');
-        const url = URL.createObjectURL(new Blob([DSP.source], { type: 'application/javascript' }));
-        await ctx.audioWorklet.addModule(url);
-        node = new AudioWorkletNode(ctx, 'ladder-24', {
-          numberOfInputs: 0,
-          numberOfOutputs: 1,
-          outputChannelCount: [2],
-          processorOptions: { params: LL.engineParams(state.params) },
-        });
+        node = await workletEngine(ctx).catch(() => mainThreadEngine(ctx));
         node.port.onmessage = (e) => {
           if (e.data.type === 'voices') showVoices(e.data.mask);
         };
@@ -405,6 +397,46 @@
       }
     })();
     return powering;
+  }
+
+  // The engine on its own audio thread: the best timing, and the normal path.
+  async function workletEngine(c) {
+    if (!c.audioWorklet) throw new Error('no AudioWorklet');
+    const url = URL.createObjectURL(new Blob([DSP.source], { type: 'application/javascript' }));
+    await c.audioWorklet.addModule(url);
+    return new AudioWorkletNode(c, 'ladder-24', {
+      numberOfInputs: 0,
+      numberOfOutputs: 1,
+      outputChannelCount: [2],
+      processorOptions: { params: LL.engineParams(state.params) },
+    });
+  }
+
+  // Fallback when the browser will not start a worklet (a page opened straight
+  // from disk, or a locked-down frame): the same engine on the page's thread,
+  // with a little more latency.
+  function mainThreadEngine(c) {
+    if (!c.createScriptProcessor) {
+      throw new Error('This browser cannot run the sound engine. Try a current Chrome, Edge, Firefox or Safari.');
+    }
+    const synth = new DSP.Synth(c.sampleRate, LL.engineParams(state.params));
+    const sp = c.createScriptProcessor(1024, 0, 2);
+    const port = { onmessage: null, postMessage: (m) => synth.handle(m) };
+    let lastMask = -1;
+    sp.onaudioprocess = (e) => {
+      const L = e.outputBuffer.getChannelData(0);
+      const R = e.outputBuffer.getChannelData(1);
+      L.fill(0);
+      R.fill(0);
+      for (let i = 0; i < L.length; i += 128) synth.render(L.subarray(i, i + 128), R.subarray(i, i + 128), 128);
+      const mask = synth.activeMask();
+      if (mask !== lastMask && port.onmessage) {
+        lastMask = mask;
+        port.onmessage({ data: { type: 'voices', mask } });
+      }
+    };
+    sp.port = port;
+    return sp;
   }
 
   function impulse(c, seconds) {

@@ -545,6 +545,32 @@
       }
     }
 
+    // One message from the page: a note, a wheel, new settings.
+    handle(m) {
+      switch (m.type) {
+        case 'params':
+          this.setParams(m.params);
+          break;
+        case 'on':
+          this.noteOn(m.note, m.vel);
+          break;
+        case 'off':
+          this.noteOff(m.note);
+          break;
+        case 'bend':
+          this.setBend(m.value);
+          break;
+        case 'wheel':
+          this.setWheel(m.value);
+          break;
+        case 'panic':
+          this.panic();
+          break;
+        default:
+          break;
+      }
+    }
+
     activeMask() {
       let m = 0;
       for (const v of this.voices) if (v.active) m |= 1 << v.index;
@@ -559,33 +585,7 @@
         this.synth = new Synth(sampleRate, options.processorOptions.params);
         this.sinceReport = 0;
         this.lastMask = -1;
-        this.port.onmessage = (e) => this.handle(e.data);
-      }
-
-      handle(m) {
-        const s = this.synth;
-        switch (m.type) {
-          case 'params':
-            s.setParams(m.params);
-            break;
-          case 'on':
-            s.noteOn(m.note, m.vel);
-            break;
-          case 'off':
-            s.noteOff(m.note);
-            break;
-          case 'bend':
-            s.setBend(m.value);
-            break;
-          case 'wheel':
-            s.setWheel(m.value);
-            break;
-          case 'panic':
-            s.panic();
-            break;
-          default:
-            break;
-        }
+        this.port.onmessage = (e) => this.synth.handle(e.data);
       }
 
       process(inputs, outputs) {

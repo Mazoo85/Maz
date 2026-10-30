@@ -287,6 +287,19 @@ test('every factory patch is valid and makes sound', () => {
   }
 });
 
+test('page messages drive the engine the same way on either thread', () => {
+  const s = synth();
+  s.handle({ type: 'on', note: 60, vel: 1 });
+  s.handle({ type: 'params', params: { voiceMode: 'mono' } });
+  assert.strictEqual(s.p.voiceMode, 'mono');
+  s.handle({ type: 'on', note: 64, vel: 1 });
+  s.handle({ type: 'bend', value: 5 });
+  assert.strictEqual(s.bend, 1);
+  s.handle({ type: 'panic' });
+  render(s, 0.01);
+  assert.strictEqual(s.activeMask(), 0);
+});
+
 test('the computer keyboard covers an octave and a half from C', () => {
   assert.strictEqual(L.KEYMAP.a, 0);
   assert.strictEqual(L.KEYMAP.k, 12);
