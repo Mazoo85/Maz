@@ -1,3 +1,6 @@
 node_modules/
 web/
 dist/
+
+# The repository ignores lock files; this one pins the build tools for CI.
+!package-lock.json

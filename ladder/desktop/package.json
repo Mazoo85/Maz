@@ -25,7 +25,7 @@
     ],
     "directories": {
       "output": "dist",
-      "buildResources": "build"
+      "buildResources": "icons"
     },
     "afterPack": "scripts/adhoc-sign.js",
     "win": {
