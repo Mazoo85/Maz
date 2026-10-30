@@ -99,6 +99,36 @@ test('osc range switch moves an octave per step', () => {
   assert.ok(Math.abs(f - 440) < 2, 'heard ' + f);
 });
 
+test('the pitch envelope drops the pitch at the start of a note, like a kick', () => {
+  const s = synth({ o1Wave: 'sine', m2: 0, cutoff: 18000, res: 0, fEnvAmt: 0, pitchEnv: 24, fA: 0.001, fD: 0.05, fS: 0, aS: 1 });
+  s.noteOn(45, 1); // A2, 110 Hz
+  const out = render(s, 0.6);
+  const early = pitch(out.L.subarray(0, Math.round(SR * 0.012)), 0);
+  const late = pitch(out.L, Math.round(SR * 0.4));
+  assert.ok(early > 200, 'starts at ' + early);
+  assert.ok(Math.abs(late - 110) < 1, 'settles at ' + late);
+});
+
+test('a synced LFO follows the tempo', () => {
+  const s = synth({ lfoSync: true, lfoDiv: '1/4', bpm: 120, lfoShape: 'saw' });
+  // 120 bpm quarter notes = 2 cycles a second, so in 1.2 s a saw wraps twice.
+  let wraps = 0;
+  let last = s.lfoPhase;
+  const block = new Float32Array(128);
+  for (let i = 0; i < Math.round((SR * 1.2) / 128); i++) {
+    s.render(block, block, 128);
+    if (s.lfoPhase < last) wraps++;
+    last = s.lfoPhase;
+  }
+  assert.strictEqual(wraps, 2);
+});
+
+test('every tempo-based choice has a length in beats', () => {
+  for (const id of ['arpDiv', 'lfoDiv', 'delayDiv']) {
+    for (const opt of L.BY_ID[id].options) assert.ok(DSP.BEATS[opt] > 0, id + ' ' + opt);
+  }
+});
+
 test('the note dies away after release', () => {
   const s = synth({ aR: 0.05 });
   s.noteOn(60, 1);
@@ -203,7 +233,7 @@ test('arpSequence orders', () => {
 });
 
 test('the arpeggiator steps in time with the tempo', () => {
-  const s = synth({ arpOn: true, arpBpm: 120, arpDiv: '1/16', arpOct: 1, arpMode: 'up' });
+  const s = synth({ arpOn: true, bpm: 120, arpDiv: '1/16', arpOct: 1, arpMode: 'up' });
   s.noteOn(60, 1);
   s.noteOn(64, 1);
   s.noteOn(67, 1);
@@ -267,7 +297,8 @@ test('sanitizePatch clamps, drops unknowns, and fixes bad choices', () => {
   assert.strictEqual(p.cutoff, 18000);
   assert.strictEqual(p.res, 0);
   assert.strictEqual(p.o1Wave, 'saw');
-  assert.strictEqual(p.arpBpm, 120);
+  assert.strictEqual(p.bpm, 120); // the old name still loads
+  assert.ok(!('arpBpm' in p));
   assert.ok(!('bogus' in p));
 });
 

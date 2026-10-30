@@ -64,7 +64,7 @@
         { tag: '1', ids: ['o1Wave', 'o1Range'] },
         { tag: '2', ids: ['o2Wave', 'o2Range', 'o2Tune'] },
         { tag: '3', ids: ['o3Wave', 'o3Range', 'o3Tune'] },
-        { ids: ['pw', 'o3KeyOff'] },
+        { ids: ['pw', 'pitchEnv', 'o3KeyOff'] },
       ],
     },
     { id: 'mixer', title: 'Mixer', rows: [['m1', 'm2'], ['m3', 'noise'], ['drive']] },
@@ -78,10 +78,14 @@
     {
       id: 'modulation',
       title: 'Modulation',
-      rows: [['modSource', 'lfoShape'], ['lfoRate', 'modDepth'], ['modPitch', 'modFilter', 'modPw']],
+      rows: [['modSource', 'lfoShape'], ['lfoRate', 'lfoSync', 'lfoDiv'], ['modDepth', 'modPitch', 'modFilter', 'modPw']],
     },
-    { id: 'arp', title: 'Arpeggiator', rows: [['arpOn', 'latch'], ['arpMode'], ['arpBpm', 'arpOct', 'arpGate'], ['arpDiv']] },
-    { id: 'fx', title: 'Echo & space', rows: [['delayTime', 'delayFb', 'delayMix'], ['reverbSize', 'reverbMix', 'master']] },
+    { id: 'arp', title: 'Arpeggiator', rows: [['arpOn', 'latch'], ['arpMode'], ['arpOct', 'arpGate'], ['arpDiv']] },
+    {
+      id: 'fx',
+      title: 'Echo & space',
+      rows: [['delaySync', 'delayDiv'], ['delayTime', 'delayFb', 'delayMix'], ['reverbSize', 'reverbMix', 'master']],
+    },
     { id: 'output', title: 'Output', custom: true },
   ];
 
@@ -233,7 +237,7 @@
         type: 'button',
         class: 'seg-btn',
         role: 'radio',
-        id: 'e-' + p.id + '-' + opt.replace(/\W/g, ''),
+        id: 'e-' + p.id + '-' + opt.replace('/', '-').replace('.', 'd').replace(/[^\w-]/g, ''),
         'aria-label': label,
         title: label,
         html: ICONS[opt] && ICON_ENUMS.has(p.id) ? icon(opt) : '',
@@ -326,6 +330,9 @@
     if (p.fx) applyFx(id, value);
     else send({ type: 'params', params: { [id]: value } });
     if (id === 'arpOn') document.body.classList.toggle('arp-on', !!value);
+    if (id === 'delayDiv' && !state.params.delaySync) setParam('delaySync', true, quiet);
+    if (id === 'lfoDiv' && !state.params.lfoSync) setParam('lfoSync', true, quiet);
+    if (TEMPO_LINKED.has(id)) tempoChanged();
     if (!quiet && !state.edited) {
       state.edited = true;
       renderPatchName();
@@ -334,12 +341,42 @@
     saveTimer = setTimeout(remember, 400);
   }
 
+  // Settings whose effect depends on the tempo, and the readouts that show it.
+  const TEMPO_LINKED = new Set(['bpm', 'delaySync', 'delayDiv', 'delayTime', 'lfoSync', 'lfoDiv', 'lfoRate']);
+
+  const echoSeconds = () =>
+    state.params.delaySync ? (60 / state.params.bpm) * DSP.BEATS[state.params.delayDiv] : state.params.delayTime;
+
+  function tempoChanged() {
+    const p = state.params;
+    if (fx) {
+      const t = Math.min(3.9, echoSeconds());
+      fx.dl.delayTime.setTargetAtTime(t, ctx.currentTime, 0.05);
+      fx.dr.delayTime.setTargetAtTime(t, ctx.currentTime, 0.05);
+    }
+    // A synced setting takes over from its free knob: dim the knob and show the time it is really using.
+    const echo = controls.delayTime.node;
+    echo.classList.toggle('synced', !!p.delaySync);
+    echo.querySelector('.ctl-value').textContent = p.delaySync
+      ? Math.round(echoSeconds() * 1000) + ' ms'
+      : LL.formatParam('delayTime', p.delayTime);
+    const lfo = controls.lfoRate.node;
+    lfo.classList.toggle('synced', !!p.lfoSync);
+    lfo.querySelector('.ctl-value').textContent = p.lfoSync
+      ? LL.formatParam('lfoRate', p.bpm / 60 / DSP.BEATS[p.lfoDiv])
+      : LL.formatParam('lfoRate', p.lfoRate);
+    controls.delayDiv.node.classList.toggle('synced-off', !p.delaySync);
+    controls.lfoDiv.node.classList.toggle('synced-off', !p.lfoSync);
+  }
+
   function remember() {
     store(STORE_CURRENT, { params: state.params, name: state.patchName, kind: state.patchKind, edited: state.edited });
   }
 
   function applyPatch(params, name, kind) {
+    const bpm = state.params.bpm;
     state.params = LL.sanitizePatch(params);
+    if (holdTempo) state.params.bpm = bpm;
     state.patchName = name;
     state.patchKind = kind;
     state.edited = false;
@@ -347,7 +384,88 @@
     send({ type: 'params', params: LL.engineParams(state.params) });
     for (const p of LL.PARAMS) if (p.fx) applyFx(p.id, state.params[p.id]);
     renderPatchName();
+    tempoChanged();
     remember();
+  }
+
+  // ---------------------------------------------------------------- tempo
+
+  let holdTempo = !!load('ladder24.holdTempo');
+  const taps = [];
+
+  function wireTempo() {
+    const box = $('#tempo');
+    const show = (v) => {
+      $('#tempo-value').textContent = String(Math.round(v));
+      box.setAttribute('aria-valuenow', String(v));
+      box.setAttribute('aria-valuetext', Math.round(v) + ' beats per minute');
+    };
+    controls.bpm = { node: box, update: show };
+    const nudge = (d) => setParam('bpm', state.params.bpm + d);
+    $('#tempo-down').addEventListener('click', () => nudge(-1));
+    $('#tempo-up').addEventListener('click', () => nudge(1));
+    let drag = null;
+    box.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      box.focus({ preventScroll: true });
+      box.setPointerCapture(e.pointerId);
+      drag = { y: e.clientY, x: e.clientX, v: state.params.bpm, id: e.pointerId };
+    });
+    box.addEventListener('pointermove', (e) => {
+      if (!drag || drag.id !== e.pointerId) return;
+      setParam('bpm', drag.v + (drag.y - e.clientY + e.clientX - drag.x) / (e.shiftKey ? 8 : 2));
+    });
+    const end = () => (drag = null);
+    box.addEventListener('pointerup', end);
+    box.addEventListener('pointercancel', end);
+    box.addEventListener('keydown', (e) => {
+      const d = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 10, PageDown: -10 }[e.key];
+      if (!d) return;
+      e.preventDefault();
+      e.stopPropagation();
+      nudge(d);
+    });
+    box.addEventListener('wheel', (e) => {
+      if (document.activeElement !== box) return;
+      e.preventDefault();
+      nudge(e.deltaY < 0 ? 1 : -1);
+    }, { passive: false });
+
+    // Tap along: the average gap between the last few taps sets the tempo.
+    $('#tap').addEventListener('click', () => {
+      const now = performance.now();
+      if (taps.length && now - taps[taps.length - 1] > 2000) taps.length = 0;
+      taps.push(now);
+      if (taps.length > 5) taps.shift();
+      if (taps.length >= 2) {
+        const gap = (taps[taps.length - 1] - taps[0]) / (taps.length - 1);
+        setParam('bpm', 60000 / gap);
+      }
+    });
+
+    const hold = $('#tempo-hold');
+    const showHold = () => hold.setAttribute('aria-pressed', String(holdTempo));
+    hold.addEventListener('click', () => {
+      holdTempo = !holdTempo;
+      store('ladder24.holdTempo', holdTempo);
+      showHold();
+      setStatus(holdTempo ? 'Tempo stays at ' + state.params.bpm + ' BPM when you change patch' : 'Each patch brings its own tempo');
+    });
+    showHold();
+    show(state.params.bpm);
+  }
+
+  // A light on every beat, so you can see the tempo the echo and arpeggiator follow.
+  function beatLight() {
+    const led = $('#beat-led');
+    if (!ctx || ctx.state !== 'running') {
+      led.classList.remove('on');
+      return;
+    }
+    const beats = (ctx.currentTime * state.params.bpm) / 60;
+    const beat = Math.floor(beats);
+    led.classList.toggle('on', beats - beat < 0.15);
+    led.classList.toggle('downbeat', beat % 4 === 0);
   }
 
   // ---------------------------------------------------------------- audio
@@ -384,6 +502,7 @@
         };
         fx = buildFx(ctx, node);
         for (const p of LL.PARAMS) if (p.fx) applyFx(p.id, state.params[p.id]);
+        tempoChanged();
         send({ type: 'wheel', value: wheels.mod.value });
         while (pending.length) node.port.postMessage(pending.shift());
         await ctx.resume();
@@ -461,8 +580,8 @@
 
     // Ping-pong echo with a darkening filter in the loop, like a tape or bucket-brigade unit.
     const echoIn = c.createGain();
-    const dl = c.createDelay(2);
-    const dr = c.createDelay(2);
+    const dl = c.createDelay(4);
+    const dr = c.createDelay(4);
     const tone = c.createBiquadFilter();
     tone.type = 'lowpass';
     tone.frequency.value = 3000;
@@ -509,10 +628,6 @@
     if (!fx) return;
     const t = ctx.currentTime;
     switch (id) {
-      case 'delayTime':
-        fx.dl.delayTime.setTargetAtTime(v, t, 0.05);
-        fx.dr.delayTime.setTargetAtTime(v, t, 0.05);
-        break;
       case 'delayFb':
         fx.feedback.gain.setTargetAtTime(v, t, 0.02);
         break;
@@ -907,6 +1022,7 @@
       }
       g.stroke();
       g.shadowBlur = 0;
+      beatLight();
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
@@ -1083,7 +1199,9 @@
       state.params = LL.sanitizePatch(first.params);
       state.patchName = first.name;
     }
+    wireTempo();
     refreshControls();
+    tempoChanged();
     wirePatches();
     wireWheels();
     wireKeys();

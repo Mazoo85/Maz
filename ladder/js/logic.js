@@ -29,6 +29,7 @@
     { id: 'o3Tune', label: 'Tune', type: 'knob', min: -7, max: 7, def: -0.06, unit: 'semi', bipolar: true },
     { id: 'o3Wave', label: 'Wave', type: 'enum', options: WAVES, def: 'square' },
     { id: 'o3KeyOff', label: 'Osc 3 as LFO', type: 'bool', def: false },
+    { id: 'pitchEnv', label: 'Pitch env', type: 'knob', min: -24, max: 24, def: 0, unit: 'semi', bipolar: true },
     { id: 'pw', label: 'Pulse width', type: 'knob', min: 0.05, max: 0.5, def: 0.3, unit: '%' },
     // Mixer
     { id: 'm1', label: 'Osc 1', type: 'knob', min: 0, max: 1, def: 0.8, unit: 'level' },
@@ -54,21 +55,26 @@
     { id: 'velFilter', label: 'Touch tone', type: 'knob', min: 0, max: 1, def: 0.3, unit: '%' },
     // Modulation
     { id: 'lfoRate', label: 'LFO rate', type: 'knob', min: 0.05, max: 30, def: 5, curve: 'log', unit: 'hz' },
+    { id: 'lfoSync', label: 'Sync', type: 'bool', def: false },
+    { id: 'lfoDiv', label: 'LFO length', type: 'enum', options: ['4 bars', '2 bars', '1 bar', '1/2', '1/4', '1/8', '1/8T', '1/16'], def: '1/4' },
     { id: 'lfoShape', label: 'Shape', type: 'enum', options: ['tri', 'saw', 'square', 'sh'], def: 'tri' },
     { id: 'modSource', label: 'Source', type: 'enum', options: ['lfo', 'osc3', 'noise'], def: 'lfo' },
     { id: 'modDepth', label: 'Amount', type: 'knob', min: 0, max: 1, def: 0, unit: '%' },
     { id: 'modPitch', label: '→ Pitch', type: 'knob', min: 0, max: 12, def: 0.3, curve: 'pow', unit: 'semi' },
     { id: 'modFilter', label: '→ Filter', type: 'knob', min: 0, max: 4, def: 0, unit: 'oct' },
     { id: 'modPw', label: '→ Width', type: 'knob', min: 0, max: 0.45, def: 0, unit: '%' },
+    // Tempo: drives the arpeggiator, a synced LFO and a synced echo
+    { id: 'bpm', label: 'Tempo', type: 'knob', min: 40, max: 240, def: 120, step: 1, unit: 'bpm' },
     // Arpeggiator
     { id: 'arpOn', label: 'Arp', type: 'bool', def: false },
     { id: 'latch', label: 'Latch', type: 'bool', def: false },
     { id: 'arpMode', label: 'Order', type: 'enum', options: ['up', 'down', 'updown', 'order', 'random'], def: 'up' },
-    { id: 'arpBpm', label: 'Tempo', type: 'knob', min: 40, max: 240, def: 120, step: 1, unit: 'bpm' },
     { id: 'arpDiv', label: 'Step', type: 'enum', options: ['1/4', '1/8', '1/8T', '1/16', '1/32'], def: '1/16' },
     { id: 'arpOct', label: 'Octaves', type: 'knob', min: 1, max: 4, def: 2, step: 1, unit: 'x' },
     { id: 'arpGate', label: 'Gate', type: 'knob', min: 0.05, max: 1, def: 0.5, unit: '%' },
     // Effects and output (these never reach the engine)
+    { id: 'delaySync', label: 'Sync', type: 'bool', def: true, fx: true },
+    { id: 'delayDiv', label: 'Echo length', type: 'enum', options: ['1/16', '1/8T', '1/8', '1/8.', '1/4T', '1/4', '1/4.', '1/2'], def: '1/8.', fx: true },
     { id: 'delayTime', label: 'Echo time', type: 'knob', min: 0.02, max: 1.5, def: 0.36, curve: 'log', unit: 's', fx: true },
     { id: 'delayFb', label: 'Repeats', type: 'knob', min: 0, max: 0.9, def: 0.35, unit: '%', fx: true },
     { id: 'delayMix', label: 'Echo', type: 'knob', min: 0, max: 1, def: 0.15, unit: '%', fx: true },
@@ -100,6 +106,10 @@
     updown: 'Up-down',
     order: 'Played',
     random: 'Random',
+    '1/8.': '1/8 dot',
+    '1/4.': '1/4 dot',
+    '1/8T': '1/8 trip',
+    '1/4T': '1/4 trip',
   };
 
   function defaults() {
@@ -191,6 +201,8 @@
   function sanitizePatch(params) {
     const out = defaults();
     if (params && typeof params === 'object') {
+      // Patches saved before the tempo moved out of the arpeggiator.
+      if ('arpBpm' in params && !('bpm' in params)) out.bpm = clampParam('bpm', params.arpBpm);
       for (const id of Object.keys(params)) {
         if (BY_ID[id]) out[id] = clampParam(id, params[id]);
       }
@@ -467,28 +479,58 @@
       fD: 0.1, fS: 0, aA: 0.001, aD: 0.35, aS: 0, aR: 0.3, velAmp: 0.7, reverbMix: 0.25,
     }),
 
-    // ---- Drums: one key each, the pitch follows the key you play
+    // ---- Drums: one hit per key. The pitch follows the key, so play kicks and
+    // toms low (around C2) and cymbals anywhere.
     patch('Analog Kick', 'Drums', {
-      master: 0.74,
-      voiceMode: 'mono', o1Wave: 'sine', o1Range: -1, m1: 1, m2: 0, cutoff: 60, res: 0.8, keyTrack: 0.5,
-      fEnvAmt: 5, fA: 0.001, fD: 0.05, fS: 0, fR: 0.05, aA: 0.001, aD: 0.4, aS: 0, aR: 0.25, velAmp: 0.6,
-      drive: 0.5, delayMix: 0, reverbMix: 0.05,
+      master: 0.69, voiceMode: 'mono', o1Wave: 'sine', m1: 1, m2: 0, pitchEnv: 24, cutoff: 900, res: 0.1, keyTrack: 0, fEnvAmt: 0, fA: 0.001, fD: 0.05, fS: 0, fR: 0.05, aA: 0.001, aD: 0.45, aS: 0, aR: 0.3, velAmp: 0.6, drive: 0.45, delayMix: 0, reverbMix: 0.04,
+    }),
+    patch('808 Boom', 'Drums', {
+      master: 0.67, voiceMode: 'mono', o1Wave: 'sine', m1: 1, m2: 0, pitchEnv: 12, cutoff: 600, res: 0, keyTrack: 0, fEnvAmt: 0, fA: 0.001, fD: 0.08, fS: 0, fR: 0.08, aA: 0.001, aD: 1.8, aS: 0, aR: 1.2, velAmp: 0.5, drive: 0.35, delayMix: 0, reverbMix: 0.03,
+    }),
+    patch('Hard Kick', 'Drums', {
+      master: 0.62, voiceMode: 'mono', o1Wave: 'sine', o2Wave: 'tri', m1: 1, m2: 0.4, o2Tune: 0, pitchEnv: 24, noise: 0.15, cutoff: 1500, res: 0.2, keyTrack: 0, fEnvAmt: 0, fA: 0.001, fD: 0.03, fS: 0, fR: 0.03, aA: 0.001, aD: 0.32, aS: 0, aR: 0.2, velAmp: 0.4, drive: 1, delayMix: 0, reverbMix: 0.04,
     }),
     patch('Analog Tom', 'Drums', {
-      master: 0.81,
-      o1Wave: 'sine', m1: 1, m2: 0, cutoff: 150, res: 0.75, keyTrack: 1, fEnvAmt: 3.5, fA: 0.001, fD: 0.08,
-      fS: 0, aA: 0.001, aD: 0.5, aS: 0, aR: 0.35, velAmp: 0.6, drive: 0.3, delayMix: 0, reverbMix: 0.15,
+      master: 0.81, o1Wave: 'sine', m1: 1, m2: 0, pitchEnv: 7, cutoff: 1200, res: 0.2, keyTrack: 0.5, fEnvAmt: 0, fA: 0.001, fD: 0.12, fS: 0, aA: 0.001, aD: 0.5, aS: 0, aR: 0.35, velAmp: 0.6, drive: 0.3, delayMix: 0, reverbMix: 0.15,
+    }),
+    patch('Syn Tom', 'Drums', {
+      master: 1, o1Wave: 'tri', m1: 1, m2: 0, noise: 0.12, pitchEnv: 12, cutoff: 900, res: 0.45, keyTrack: 1, fEnvAmt: 2, fA: 0.001, fD: 0.3, fS: 0, aA: 0.001, aD: 0.6, aS: 0, aR: 0.4, velAmp: 0.6, delayMix: 0.12, reverbMix: 0.2,
+    }),
+    patch('Conga', 'Drums', {
+      master: 1, o1Wave: 'sine', o1Range: 1, m1: 1, m2: 0, pitchEnv: 5, cutoff: 1800, res: 0.3, keyTrack: 1, fEnvAmt: 1, fA: 0.001, fD: 0.03, fS: 0, aA: 0.001, aD: 0.28, aS: 0, aR: 0.2, velAmp: 0.7, delayMix: 0, reverbMix: 0.15,
     }),
     patch('Snare', 'Drums', {
-      master: 0.95,
-      o1Wave: 'tri', o1Range: -1, m1: 0.7, m2: 0, noise: 1, cutoff: 3000, res: 0.2, keyTrack: 0.5, fEnvAmt: 2,
-      fA: 0.001, fD: 0.1, fS: 0, aA: 0.001, aD: 0.18, aS: 0, aR: 0.15, velAmp: 0.7, drive: 0.9, delayMix: 0,
-      reverbMix: 0.15,
+      master: 0.97, o1Wave: 'tri', m1: 0.7, m2: 0, noise: 1, pitchEnv: 7, cutoff: 3000, res: 0.2, keyTrack: 0.5, fEnvAmt: 2, fA: 0.001, fD: 0.08, fS: 0, aA: 0.001, aD: 0.18, aS: 0, aR: 0.15, velAmp: 0.7, drive: 0.9, delayMix: 0, reverbMix: 0.15,
+    }),
+    patch('Electro Snare', 'Drums', {
+      master: 0.82, o1Wave: 'sine', o1Range: 1, m1: 0.8, m2: 0, noise: 0.8, pitchEnv: 24, cutoff: 5000, res: 0.35, keyTrack: 0.3, fEnvAmt: 1, fA: 0.001, fD: 0.03, fS: 0, aA: 0.001, aD: 0.22, aS: 0, aR: 0.15, velAmp: 0.6, drive: 0.7, delayMix: 0.1, reverbMix: 0.2,
+    }),
+    patch('Rimshot', 'Drums', {
+      master: 1, o1Wave: 'tri', o1Range: 1, o2Wave: 'square', o2Range: 1, o2Tune: 5, m1: 0.8, m2: 0.4, noise: 0.3, pitchEnv: 5, cutoff: 2200, res: 0.6, keyTrack: 0.5, fEnvAmt: 1, fA: 0.001, fD: 0.02, fS: 0, aA: 0.001, aD: 0.05, aS: 0, aR: 0.04, velAmp: 0.6, drive: 0.6, delayMix: 0, reverbMix: 0.15,
+    }),
+    patch('Hand Clap', 'Drums', {
+      master: 1, m1: 0, m2: 0, noise: 1, cutoff: 1400, res: 0.45, keyTrack: 0.3, fEnvAmt: 1.5, fA: 0.001, fD: 0.12, fS: 0, aA: 0.004, aD: 0.16, aS: 0, aR: 0.2, velAmp: 0.6, drive: 0.8, delayMix: 0, reverbMix: 0.3, reverbSize: 1.2,
     }),
     patch('Closed Hat', 'Drums', {
-      master: 1,
-      m1: 0, m2: 0, noise: 1, cutoff: 9000, res: 0.3, keyTrack: 0, fEnvAmt: 1, fD: 0.05, fS: 0,
-      aA: 0.001, aD: 0.06, aS: 0, aR: 0.05, velAmp: 0.7, drive: 1, delayMix: 0, reverbMix: 0.05,
+      master: 1, m1: 0, m2: 0, noise: 1, cutoff: 9000, res: 0.3, keyTrack: 0, fEnvAmt: 1, fD: 0.05, fS: 0, aA: 0.001, aD: 0.06, aS: 0, aR: 0.05, velAmp: 0.7, drive: 1, delayMix: 0, reverbMix: 0.05,
+    }),
+    patch('Open Hat', 'Drums', {
+      master: 0.78, o1Wave: 'square', o1Range: 2, o2Wave: 'square', o2Range: 2, o2Tune: 6.3, m1: 0.2, m2: 0.2, noise: 1, cutoff: 11000, res: 0.3, keyTrack: 0, fEnvAmt: 0, aA: 0.001, aD: 0.45, aS: 0, aR: 0.35, velAmp: 0.6, drive: 0.9, delayMix: 0, reverbMix: 0.1,
+    }),
+    patch('Shaker', 'Drums', {
+      master: 1, m1: 0, m2: 0, noise: 1, cutoff: 7000, res: 0.15, keyTrack: 0, fEnvAmt: 0, aA: 0.025, aD: 0.09, aS: 0, aR: 0.08, velAmp: 0.7, drive: 0.8, delayMix: 0, reverbMix: 0.1,
+    }),
+    patch('Crash', 'Drums', {
+      master: 0.67, o1Wave: 'square', o1Range: 2, o2Wave: 'square', o2Range: 2, o2Tune: 6.3, o3Wave: 'square', o3Range: 2, o3Tune: 4.1, m1: 0.3, m2: 0.3, m3: 0.3, noise: 1, cutoff: 12000, res: 0.2, keyTrack: 0, fEnvAmt: 0, aA: 0.001, aD: 2, aS: 0, aR: 1.5, velAmp: 0.6, drive: 0.7, spread: 1, delayMix: 0, reverbMix: 0.3,
+    }),
+    patch('Ride', 'Drums', {
+      master: 0.66, o1Wave: 'square', o1Range: 2, o2Wave: 'square', o2Range: 2, o2Tune: 6.3, o3Wave: 'pulse', o3Range: 2, o3Tune: 4.1, pw: 0.3, m1: 0.6, m2: 0.6, m3: 0.4, noise: 0.35, cutoff: 8000, res: 0.35, keyTrack: 0, fEnvAmt: 0, aA: 0.001, aD: 1.2, aS: 0, aR: 0.9, velAmp: 0.6, drive: 0.4, spread: 0.8, delayMix: 0, reverbMix: 0.25,
+    }),
+    patch('Cowbell', 'Drums', {
+      master: 0.91, o1Wave: 'square', o1Range: 1, o2Wave: 'square', o2Range: 1, o2Tune: 6.8, m1: 0.7, m2: 0.7, cutoff: 2500, res: 0.4, keyTrack: 0.5, fEnvAmt: 1, fD: 0.05, fS: 0, aA: 0.001, aD: 0.3, aS: 0, aR: 0.2, velAmp: 0.6, delayMix: 0, reverbMix: 0.15,
+    }),
+    patch('Woodblock', 'Drums', {
+      master: 1, o1Wave: 'sine', o1Range: 2, m1: 1, m2: 0, pitchEnv: 3, cutoff: 3000, res: 0.5, keyTrack: 0.5, fEnvAmt: 1, fA: 0.001, fD: 0.02, fS: 0, aA: 0.001, aD: 0.06, aS: 0, aR: 0.05, velAmp: 0.6, delayMix: 0, reverbMix: 0.2,
     }),
 
     // ---- Effects
@@ -537,7 +579,7 @@
       master: 0.62,
       o1Wave: 'pulse', pw: 0.2, o2Wave: 'saw', o2Tune: 7, cutoff: 650, res: 0.72, fEnvAmt: 1, fD: 0.15,
       fS: 0.2, aS: 1, aR: 0.6, lfoRate: 8, lfoShape: 'sh', modDepth: 1, modPitch: 0, modFilter: 2.4,
-      delayMix: 0.3, delayTime: 0.25, delayFb: 0.5, reverbMix: 0.25,
+      delayMix: 0.3, delayDiv: '1/8', delayFb: 0.5, reverbMix: 0.25,
     }),
     patch('Metal Bells', 'Experimental', {
       master: 0.81,
@@ -549,42 +591,42 @@
     // ---- Sequenced: hold a chord and the arpeggiator plays it
     patch('Pulse Arp', 'Sequenced', {
       master: 1,
-      arpOn: true, arpMode: 'updown', arpDiv: '1/16', arpOct: 2, arpGate: 0.45, arpBpm: 118, o1Wave: 'pulse',
+      arpOn: true, arpMode: 'updown', arpDiv: '1/16', arpOct: 2, arpGate: 0.45, bpm: 118, o1Wave: 'pulse',
       pw: 0.25, o2Wave: 'saw', o2Tune: 7, m2: 0.35, cutoff: 480, res: 0.55, fEnvAmt: 3.4,
       fD: 0.16, fS: 0, fR: 0.12, aD: 0.22, aS: 0.2, aR: 0.12, delayTime: 0.381, delayFb: 0.45, delayMix: 0.3,
       reverbMix: 0.22,
     }),
     patch('Latched Sequence', 'Sequenced', {
       master: 0.65,
-      arpOn: true, latch: true, arpMode: 'order', arpDiv: '1/8', arpOct: 1, arpGate: 0.7, arpBpm: 100,
+      arpOn: true, latch: true, arpMode: 'order', arpDiv: '1/8', arpOct: 1, arpGate: 0.7, bpm: 100,
       voiceMode: 'mono', glide: 0.03, o1Range: -1, o2Range: -1, o2Tune: 0.1, cutoff: 380, res: 0.6,
       fEnvAmt: 3, fD: 0.22, fS: 0.1, aS: 1, aR: 0.1, drive: 0.5, delayMix: 0.25, delayTime: 0.45,
     }),
     patch('Berlin School', 'Sequenced', {
       master: 0.75,
-      arpOn: true, latch: true, arpMode: 'order', arpDiv: '1/16', arpOct: 2, arpGate: 0.5, arpBpm: 112,
+      arpOn: true, latch: true, arpMode: 'order', arpDiv: '1/16', arpOct: 2, arpGate: 0.5, bpm: 112,
       voiceMode: 'mono', o1Range: -1, o2Range: -1, o2Wave: 'square', o2Tune: 0.08, cutoff: 350, res: 0.65,
       fEnvAmt: 3.2, fD: 0.14, fS: 0, aS: 1, aR: 0.08, modDepth: 1, modPitch: 0, modFilter: 0.7, lfoRate: 0.07,
       delayMix: 0.35, delayTime: 0.4, delayFb: 0.5, reverbMix: 0.3,
     }),
     patch('Chip Arp', 'Sequenced', {
       master: 1,
-      arpOn: true, arpMode: 'up', arpDiv: '1/32', arpOct: 2, arpGate: 0.8, arpBpm: 130, voiceMode: 'mono',
+      arpOn: true, arpMode: 'up', arpDiv: '1/32', arpOct: 2, arpGate: 0.8, bpm: 130, voiceMode: 'mono',
       o1Wave: 'pulse', pw: 0.125, m2: 0, cutoff: 18000, res: 0, fEnvAmt: 0, aD: 0.1, aS: 0.5, aR: 0.03,
       velAmp: 0, delayMix: 0, reverbMix: 0.08,
     }),
     patch('Trance Gate', 'Sequenced', {
       master: 0.83,
-      arpOn: true, arpMode: 'updown', arpDiv: '1/16', arpOct: 1, arpGate: 0.3, arpBpm: 138,
+      arpOn: true, arpMode: 'updown', arpDiv: '1/16', arpOct: 1, arpGate: 0.3, bpm: 138,
       voiceMode: 'unison', unisonDetune: 20, spread: 0.9, o2Tune: 7, m2: 0.4, cutoff: 2600, res: 0.25,
       fEnvAmt: 1, fD: 0.2, fS: 0.5, aS: 1, aR: 0.05, delayMix: 0.3, delayTime: 0.326, delayFb: 0.4,
       reverbMix: 0.3,
     }),
     patch('Random Bleeps', 'Sequenced', {
       master: 1,
-      arpOn: true, arpMode: 'random', arpDiv: '1/16', arpOct: 3, arpGate: 0.35, arpBpm: 120, o1Wave: 'square',
+      arpOn: true, arpMode: 'random', arpDiv: '1/16', arpOct: 3, arpGate: 0.35, bpm: 120, o1Wave: 'square',
       m2: 0, cutoff: 900, res: 0.7, fEnvAmt: 2, fD: 0.1, fS: 0, aD: 0.15, aS: 0, aR: 0.1, lfoShape: 'sh',
-      lfoRate: 8, modDepth: 1, modPitch: 0, modFilter: 1.5, delayMix: 0.35, delayTime: 0.25, delayFb: 0.5,
+      lfoRate: 8, modDepth: 1, modPitch: 0, modFilter: 1.5, delayMix: 0.35, delayDiv: '1/8', delayFb: 0.5,
       reverbMix: 0.3,
     }),
   ];

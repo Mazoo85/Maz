@@ -192,7 +192,14 @@
     return up; // 'up', 'order', and the pool 'random' draws from
   }
 
-  const ARP_DIVISIONS = { '1/4': 1, '1/8': 0.5, '1/8T': 1 / 3, '1/16': 0.25, '1/32': 0.125 };
+  // Note lengths in beats (quarter notes), for everything that follows the tempo:
+  // the arpeggiator, a synced LFO, and the page's synced echo.
+  const BEATS = {
+    '4 bars': 16, '2 bars': 8, '1 bar': 4,
+    '1/2': 2, '1/4.': 1.5, '1/4': 1, '1/4T': 2 / 3,
+    '1/8.': 0.75, '1/8': 0.5, '1/8T': 1 / 3,
+    '1/16.': 0.375, '1/16': 0.25, '1/16T': 1 / 6, '1/32': 0.125,
+  };
 
   class Voice {
     constructor(index) {
@@ -435,7 +442,8 @@
 
     lfoStep(n) {
       const p = this.p;
-      let ph = this.lfoPhase + (p.lfoRate * n) / this.sr;
+      const rate = p.lfoSync ? p.bpm / 60 / (BEATS[p.lfoDiv] || 1) : p.lfoRate;
+      let ph = this.lfoPhase + (rate * n) / this.sr;
       if (ph >= 1) {
         ph -= Math.floor(ph);
         this.shValue = Math.random() * 2 - 1;
@@ -483,7 +491,7 @@
       if (this.arpNote >= 0) this.stopNote(this.arpNote);
       this.startNote(note, this.arpVel);
       this.arpNote = note;
-      const step = Math.max(1, Math.round((this.sr * 60 * (ARP_DIVISIONS[p.arpDiv] || 0.25)) / p.arpBpm));
+      const step = Math.max(1, Math.round((this.sr * 60 * (BEATS[p.arpDiv] || 0.25)) / p.bpm));
       this.arpCounter = step;
       this.arpGateLeft = Math.max(1, Math.round(step * p.arpGate));
       if (p.arpGate >= 1) this.arpGateLeft = 0; // full gate: notes tie into the next
@@ -511,6 +519,7 @@
       const kt = p.keyTrack / 12;
       const modF = p.modFilter * wheelMod;
       const modPw = p.modPw * wheelMod;
+      const pitchEnv = (p.pitchEnv * LN2) / 12;
 
       for (const v of this.voices) if (v.active) this.updatePitch(v, glideCoef);
 
@@ -525,13 +534,15 @@
           const mod =
             p.modSource === 'osc3' ? v.osc[2].out : p.modSource === 'noise' ? this.noiseMod * 4 : this.lfoOut;
           const pw = Math.min(0.95, Math.max(0.05, pwBase + mod * modPw));
-          const o1 = v.osc[0].next(v.f[0], sr, w1, pw);
-          const o2 = v.osc[1].next(v.f[1], sr, w2, pw);
-          const o3 = v.osc[2].next(v.f[2], sr, w3, pw);
-          const nz = Math.random() * 2 - 1;
-          const mix = (o1 * p.m1 + o2 * p.m2 + o3 * p.m3 + nz * p.noise) * 0.45 * drive;
           const fe = v.fenv.next(fc);
           const ae = v.aenv.next(ac);
+          // The filter contour also bends the pitch: the drop that makes a kick or a zap.
+          const bendUp = pitchEnv ? Math.exp(pitchEnv * fe) : 1;
+          const o1 = v.osc[0].next(v.f[0] * bendUp, sr, w1, pw);
+          const o2 = v.osc[1].next(v.f[1] * bendUp, sr, w2, pw);
+          const o3 = v.osc[2].next(p.o3KeyOff ? v.f[2] : v.f[2] * bendUp, sr, w3, pw);
+          const nz = Math.random() * 2 - 1;
+          const mix = (o1 * p.m1 + o2 * p.m2 + o3 * p.m3 + nz * p.noise) * 0.45 * drive;
           const velF = 1 - p.velFilter + p.velFilter * v.vel;
           const oct = p.fEnvAmt * fe * velF + kt * (v.cur - 60) + modF * mod;
           const cutoff = p.cutoff * Math.exp(oct * LN2);
@@ -617,7 +628,7 @@
   const api = {
     VOICES,
     UNISON,
-    ARP_DIVISIONS,
+    BEATS,
     midiToFreq,
     polyBlep,
     Oscillator,

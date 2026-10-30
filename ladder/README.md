@@ -18,6 +18,7 @@ A standalone app: it is not part of MAZ ARCADE.
 | **Computer keys** | `A W S E D F T G Y H U J K O L P ; '` play from C3. `Z` / `X` shift the octave. `Esc` stops every note. |
 | **MIDI keyboard** | Plug it in before pressing Power. Notes, velocity, pitch bend, mod wheel (CC 1) and sustain pedal (CC 64) all work. |
 | **Pitch / Mod wheels** | Drag up and down. Pitch springs back to centre. |
+| **Tempo** | At the top: drag the number, use − / +, or press **Tap** in time a few times. The light flashes on each beat (red on the first of four). **Hold** keeps your tempo when you change patch; otherwise each patch brings its own. |
 | **Knobs** | Drag up/down (or left/right). Hold Shift for fine moves. Double-click to reset. Arrow keys work once a knob has focus. |
 
 ## What is on the panel
@@ -25,18 +26,18 @@ A standalone app: it is not part of MAZ ARCADE.
 | Section | Controls |
 |---|---|
 | **Controllers** | Glide (portamento), bend range, voice mode (Poly 8 voices / Mono / Legato / Unison 5 stacked voices), unison detune, stereo width. |
-| **Oscillator bank** | Three oscillators, each with six band-limited waves (triangle, saw, ramp, square, pulse, sine) and a range switch from 32' to 2'. Oscillators 2 and 3 tune ±7 semitones. Pulse width. Osc 3 can leave the keyboard and run as a slow LFO. |
+| **Oscillator bank** | Three oscillators, each with six band-limited waves (triangle, saw, ramp, square, pulse, sine) and a range switch from 32' to 2'. Oscillators 2 and 3 tune ±7 semitones. Pulse width. Osc 3 can leave the keyboard and run as a slow LFO. **Pitch env** bends every oscillator with the filter contour, ±24 semitones: the drop in a kick, a tom or a zap. |
 | **Mixer** | Levels for the three oscillators and white noise, plus Drive, which pushes the filter input into saturation. |
 | **Ladder filter** | A zero-delay-feedback model of the four-pole ladder, with a tanh at its input. Cutoff, Emphasis (resonance, which self-oscillates into a pure sine at the top), Contour amount (±6 octaves) and key tracking, with its own ADSR. |
 | **Loudness contour** | ADSR for the volume, and touch (velocity) amounts for volume and brightness. |
-| **Modulation** | Source (LFO, Osc 3 at audio rate, or smoothed noise), LFO shape (triangle, saw, square, sample & hold) and rate, a base amount the mod wheel adds to, and depths to pitch, filter and pulse width. |
-| **Arpeggiator** | Up, down, up-down, as-played, random; 1–4 octaves; 1/4 to 1/32 steps including triplets; tempo; gate length; latch. It runs inside the audio engine, so the timing is sample-accurate. |
-| **Echo & space** | A ping-pong echo that darkens with each repeat, a generated reverb with an adjustable room size, and the master volume (with a limiter after it). |
+| **Modulation** | Source (LFO, Osc 3 at audio rate, or smoothed noise), LFO shape (triangle, saw, square, sample & hold), rate or **Sync** to the tempo (4 bars down to 1/16), a base amount the mod wheel adds to, and depths to pitch, filter and pulse width. |
+| **Arpeggiator** | Up, down, up-down, as-played, random; 1–4 octaves; 1/4 to 1/32 steps including triplets, at the panel tempo; gate length; latch. It runs inside the audio engine, so the timing is sample-accurate. |
+| **Echo & space** | A ping-pong echo that darkens with each repeat, **synced to the tempo** by default (1/16 to 1/2, dotted and triplet) or free-running in milliseconds, a generated reverb with an adjustable room size, and the master volume (with a limiter after it). |
 | **Output** | An oscilloscope, a light for each of the eight voices, and an all-notes-off button. |
 
 ## Patches
 
-Fifty-two factory sounds in ten groups, plus a plain **Init** patch to start from scratch:
+Sixty-five factory sounds in ten groups, plus a plain **Init** patch to start from scratch:
 
 | Group | Patches |
 |---|---|
@@ -46,7 +47,7 @@ Fifty-two factory sounds in ten groups, plus a plain **Init** patch to start fro
 | **Pads** | Warm Pad, Glass Pad, Slow Sweep, Supersaw Unison, Dark Drone |
 | **Brass & strings** | Brass Section, Brass Stab, Velvet Strings, Solo Cello |
 | **Plucks** | Bright Pluck, Nylon Pluck, Kalimba, Marimba |
-| **Drums** | Analog Kick, Analog Tom, Snare, Closed Hat (each on one key; the pitch follows the key) |
+| **Drums** | Analog Kick, 808 Boom, Hard Kick, Analog Tom, Syn Tom, Conga, Snare, Electro Snare, Rimshot, Hand Clap, Closed Hat, Open Hat, Shaker, Crash, Ride, Cowbell, Woodblock (one hit per key; the pitch follows the key, so play kicks and toms low) |
 | **Effects** | Laser Zap, Siren, UFO, Wind, Ocean Waves |
 | **Experimental** | Filter Whistle, Wobble, Sample & Hold Computer, Metal Bells |
 | **Sequenced** | Pulse Arp, Latched Sequence, Berlin School, Chip Arp, Trance Gate, Random Bleeps (hold a chord) |

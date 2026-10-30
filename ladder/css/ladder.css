@@ -153,6 +153,30 @@ button { cursor: pointer; }
 .btn-go { color: var(--amber); }
 .btn-danger { color: var(--danger); }
 
+.clock { display: flex; align-items: center; gap: 6px; }
+.tempo {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 5.6em;
+  justify-content: center;
+  padding: 6px 10px;
+  background: var(--screen);
+  border: 1px solid #000;
+  border-radius: 4px;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 255, 255, 0.06);
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.tempo-value { font-family: var(--font-mono); font-size: 17px; color: var(--trace); font-variant-numeric: tabular-nums; }
+.tempo-unit { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--legend-dim); }
+.beat-led { width: 10px; height: 10px; border-radius: 50%; background: var(--led-off); }
+.beat-led.on { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+.beat-led.on.downbeat { background: var(--led); box-shadow: 0 0 10px var(--led); }
+.btn-toggle[aria-pressed="true"] { color: var(--amber); box-shadow: inset 0 0 0 1px var(--amber), 0 0 8px var(--amber-glow); }
+
 .power {
   display: flex;
   align-items: center;
@@ -390,6 +414,11 @@ body:not(.powered) .power { animation: beckon 2.4s ease-in-out infinite; }
 .rocker[aria-checked="true"] .rocker-body i { background: linear-gradient(180deg, #ffc778 0%, #e08a22 49%, #b8691a 50%, #f2a03a 100%); }
 .rocker[aria-checked="true"] .rocker-led { background: var(--led); box-shadow: 0 0 8px var(--led); }
 
+/* a knob that a tempo-synced setting has taken over, and a length choice not in use */
+.ctl.synced .knob, .ctl.synced .ctl-label { opacity: 0.45; }
+.ctl.synced .ctl-value { color: var(--amber); }
+.ctl.synced-off .seg { opacity: 0.45; }
+
 /* arpeggiator dims when off */
 .sec-arp .row ~ .row { transition: opacity 0.2s; }
 body:not(.arp-on) .sec-arp .row ~ .row { opacity: 0.55; }
@@ -558,6 +587,7 @@ body.powered .keys-off { display: none; }
   .sec-output { order: -1; border-top: 0; }
   .wordmark { font-size: 18px; }
   .patchbar { width: 100%; order: 2; }
+  .clock { width: 100%; order: 3; flex-wrap: wrap; }
   .patchbar #patch-select { flex: 1 1 0; width: auto; }
   .playdeck { padding-inline: 10px; }
   .playarea { height: 120px; gap: 8px; }

@@ -29,6 +29,16 @@
         <button type="button" class="btn" id="share-btn">Share</button>
         <button type="button" class="btn" id="delete-patch" hidden>Delete</button>
       </div>
+      <div class="clock" aria-label="Tempo">
+        <span class="beat-led" id="beat-led" aria-hidden="true"></span>
+        <button type="button" class="btn btn-icon" id="tempo-down" aria-label="Slower">−</button>
+        <div class="tempo" id="tempo" role="slider" tabindex="0" aria-label="Tempo" aria-valuemin="40" aria-valuemax="240" title="Drag up or down to change the tempo">
+          <span class="tempo-value" id="tempo-value">120</span><span class="tempo-unit">BPM</span>
+        </div>
+        <button type="button" class="btn btn-icon" id="tempo-up" aria-label="Faster">+</button>
+        <button type="button" class="btn" id="tap" title="Tap along to set the tempo">Tap</button>
+        <button type="button" class="btn btn-toggle" id="tempo-hold" aria-pressed="false" title="Keep this tempo when you change patch">Hold</button>
+      </div>
       <button type="button" class="power" id="power" role="switch" aria-checked="false">
         <span class="power-led" aria-hidden="true"></span>
         <span class="power-label">Power</span>
