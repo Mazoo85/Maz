@@ -25,7 +25,7 @@
     ],
     "directories": {
       "output": "dist",
-      "buildResources": "icons"
+      "buildResources": "assets"
     },
     "afterPack": "scripts/adhoc-sign.js",
     "win": {
@@ -37,7 +37,8 @@
           ]
         }
       ],
-      "artifactName": "Ladder-24-Setup-${version}.${ext}"
+      "artifactName": "Ladder-24-Setup-${version}.${ext}",
+      "icon": "assets/icon.png"
     },
     "nsis": {
       "oneClick": false,
@@ -59,7 +60,8 @@
       ],
       "category": "public.app-category.music",
       "identity": null,
-      "artifactName": "Ladder-24-${version}-${arch}.${ext}"
+      "artifactName": "Ladder-24-${version}-${arch}.${ext}",
+      "icon": "assets/icon.png"
     },
     "linux": {
       "target": [
@@ -71,7 +73,8 @@
         }
       ],
       "category": "Audio",
-      "artifactName": "Ladder-24-${version}.${ext}"
+      "artifactName": "Ladder-24-${version}.${ext}",
+      "icon": "assets/icon.png"
     },
     "publish": null
   },
