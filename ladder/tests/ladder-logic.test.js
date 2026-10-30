@@ -354,11 +354,11 @@ test('factory patches are all about as loud as each other', () => {
   }
 });
 
-test('the factory list has something in every group', () => {
+test('every section of the factory list holds 30 sounds', () => {
   const groups = new Map();
   for (const pr of L.PRESETS) groups.set(pr.group, (groups.get(pr.group) || 0) + 1);
   for (const g of ['Bass', 'Lead', 'Keys', 'Pads', 'Brass & strings', 'Plucks', 'Drums', 'Effects', 'Experimental', 'Sequenced']) {
-    assert.ok(groups.get(g) >= 3, g + ' has only ' + (groups.get(g) || 0));
+    assert.strictEqual(groups.get(g), 30, g + ' has ' + (groups.get(g) || 0));
   }
   // Groups stay together, so the patch menu lists each one once.
   const order = L.PRESETS.map((p) => p.group).filter((g, i, a) => g !== a[i - 1]);

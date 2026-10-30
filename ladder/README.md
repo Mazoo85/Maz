@@ -37,20 +37,26 @@ A standalone app: it is not part of MAZ ARCADE.
 
 ## Patches
 
-Ninety-two factory sounds in ten groups, plus a plain **Init** patch to start from scratch:
+Three hundred factory sounds: **30 in each of ten sections**, plus a plain
+**Init** patch to start from scratch. Pick a section in the first menu and a
+sound in the second; **‹ ›** step through every sound in order.
 
-| Group | Patches |
+| Section | Sounds |
 |---|---|
-| **Bass** | Fat Bass, Sub Bass, Pedal Drop, Rubber Pluck, Acid Squelch, Funk Bass, Growl Bass, Reese Bass, Synth-Pop Bass |
-| **Lead** | Glide Lead, Prog Solo, Screaming Emphasis, Square Lead, Fifths Lead, Theremin, Chiptune Lead |
-| **Keys** | Electric Piano, Clav, Drawbar Organ, Poly Stab, Bell Piano, Reed Piano, Lo-Fi Piano, Toy Piano, Harpsichord, Celesta, Mallet Keys, Muted Keys, Synth Keys, House Piano, Combo Organ, Church Organ, Gospel Organ |
-| **Pads** | Warm Pad, Glass Pad, Slow Sweep, Supersaw Unison, Dark Drone, Choir Pad, Shimmer Pad, Space Pad, PWM Pad, Breathing Pad, Rhythm Pad, Ambient Wash, Cinematic Swell, Soft Sine Pad, 80s Poly Pad, Vapor Pad, Glacier, Hollow Pad |
-| **Brass & strings** | Brass Section, Brass Stab, Velvet Strings, Solo Cello |
-| **Plucks** | Bright Pluck, Nylon Pluck, Kalimba, Marimba |
-| **Drums** | **Drum Kit** (a different drum on every key, below), then each drum on its own: Analog Kick, 808 Boom, Hard Kick, Analog Tom, Syn Tom, Conga, Snare, Electro Snare, Rimshot, Hand Clap, Closed Hat, Open Hat, Shaker, Crash, Ride, Cowbell, Woodblock (one hit per key; the pitch follows the key) |
-| **Effects** | Laser Zap, Siren, UFO, Wind, Ocean Waves |
-| **Experimental** | Filter Whistle, Wobble, Sample & Hold Computer, Metal Bells |
-| **Sequenced** | Pulse Arp, Latched Sequence, Berlin School, Chip Arp, Trance Gate, Random Bleeps (hold a chord) |
+| **Bass** | Fat Bass, Sub Bass, Pedal Drop, Rubber Pluck, Acid Squelch, Funk Bass, Growl Bass, Reese Bass, Synth-Pop Bass, Round Bass, Punch Bass, Pluck Bass, Soul Bass, Wide Unison Bass, Detroit Bass, Electro Bass, 808 Glide Bass, Hoover Bass, Dub Bass, Squelchy Saw, Fingered Bass, Synced Wobble, Triplet Wobble, Gritty Bass, Velvet Sub, Hollow Bass, Snappy Bass, Rumble Bass, Fifth Stab Bass, Talking Bass |
+| **Lead** | Glide Lead, Prog Solo, Screaming Emphasis, Square Lead, Fifths Lead, Theremin, Chiptune Lead, Bright Saw Lead, Soft Flute Lead, Whistle Lead, Pan Pipe, Brass Lead, G-Funk Lead, Acid Lead, Nasal Lead, Detuned Lead, Fat Mono Lead, Portamento Lead, Handheld Game Lead, Laser Lead, Smooth Sine Lead, Overdrive Lead, Hollow Square Lead, Octave Lead, Weeping Lead, Oboe Lead, Clarinet Lead, Trumpet Lead, Wah Lead, Siren Lead |
+| **Keys** | Electric Piano, Clav, Drawbar Organ, Poly Stab, Bell Piano, Reed Piano, Lo-Fi Piano, Toy Piano, Harpsichord, Celesta, Mallet Keys, Muted Keys, Synth Keys, House Piano, Combo Organ, Church Organ, Gospel Organ, Bright Piano, Upright Piano, Glass Keys, Tine Piano, Bright Tines, Accordion, Harmonium, Music Box, Clavinet Wah, Mellow Keys, Stab Organ, Rock Organ, Bark Piano |
+| **Pads** | Warm Pad, Glass Pad, Slow Sweep, Supersaw Unison, Dark Drone, Choir Pad, Shimmer Pad, Space Pad, PWM Pad, Breathing Pad, Rhythm Pad, Ambient Wash, Cinematic Swell, Soft Sine Pad, 80s Poly Pad, Vapor Pad, Glacier, Hollow Pad, String Pad, Dream Pad, Night Pad, Sunrise Pad, Organ Pad, Two-Bar Sweep, Bell Pad, Frozen Pad, Sixteenth Gate Pad, Low Drone Pad, Airy Pad, Analog Brass Pad |
+| **Brass & strings** | Brass Section, Brass Stab, Velvet Strings, Solo Cello, Synth Brass, Soft Brass, Horn Section, Trombone, French Horn, Tuba, Brass Swell, Fanfare, Funk Horns, Saxophone, String Ensemble, Violin, Viola, Double Bass, Pizzicato, Tremolo Strings, Slow Strings, Chamber Strings, Cello Section, Orchestra Hit, Bright Strings, Dark Strings, Fiddle, Analog String Machine, Staccato Strings, Crescendo Strings |
+| **Plucks** | Bright Pluck, Nylon Pluck, Kalimba, Marimba, Harp, Koto, Banjo, Guitar Pluck, Muted Guitar, Twangy Pluck, Bell Pluck, Glass Pluck, Synth Pluck, Trance Pluck, Xylophone, Vibraphone, Steel Drum, Water Drop, Rubber Band, Short Pluck, Mandolin, Mbira, Lute, Clean Guitar, Electric Guitar, Funk Guitar, Chime, Blip, Dulcimer, Echo Pluck |
+| **Drums** | Drum Kit, Analog Kick, 808 Boom, Hard Kick, Analog Tom, Syn Tom, Conga, Snare, Electro Snare, Rimshot, Hand Clap, Closed Hat, Open Hat, Shaker, Crash, Ride, Cowbell, Woodblock, Rock Kick, Soft Kick, Brush Snare, Piccolo Snare, Big Room Clap, Finger Snap, Floor Tom, Timbale, Bongo, Splash Cymbal, China Cymbal, Triangle |
+| **Effects** | Laser Zap, Siren, UFO, Wind, Ocean Waves, Thunder, Rain, Heartbeat, Bubbles, Alarm, Radio Static, Robot Voice, Engine Rumble, Spaceship Hum, Teleport, Power Down, Power Up, Game Coin, Game Jump, Explosion, Wind Chimes, Birds, Crickets, Underwater, Ghost, Laser Gun, Phone Tone, Static Swell, Glitch, Train Horn |
+| **Experimental** | Filter Whistle, Wobble, Sample & Hold Computer, Metal Bells, Resonance Sweep, Audio-Rate Filter, Breath Whistle, Ringing Bass, Chaos Engine, Drive Feedback, Reverse Contour, Backwards Pad, Microtonal Drift, Detune Cloud, Tritone Machine, Spectral Sines, Gated Noise, Audio PWM, Slow Morph, Sub Harmonic, Stepped Filter, Random Melody, Tape Wobble, Talking Filter, Bent Bell, Feedback Scream, Noise Bell, Octave Jumper, Saw Swarm, Granular Fizz |
+| **Sequenced** | Pulse Arp, Latched Sequence, Berlin School, Chip Arp, Trance Gate, Random Bleeps, Octave Bass Arp, Disco Octaves, Synthwave Arp, Ambient Arp, Techno Stab Seq, Acid Sequence, Bell Arp, Chip Melody, Pluck Cascade, Triplet Run, Half-Time Arp, Driving Bass, Thirty-Second Ripple, Sequencer Lead, Flowing Arp, Random Sparkle, Dub Techno Chord, Electro Bounce, Hypnotic Loop, Harp Glissando, Marimba Pattern, Trance Lead Arp, Slow Motion, Drum Kit Arp |
+
+Drums play one hit per key, with the pitch following the key; **Drum Kit** puts
+a different drum on every key (below). Sequenced sounds run the arpeggiator:
+hold a chord. **Drum Kit Arp** latches a drum pattern from the keys you hold.
 
 ### The drum kit
 

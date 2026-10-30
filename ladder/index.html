@@ -18,11 +18,12 @@
     <header class="topbar">
       <div class="brand">
         <h1 class="wordmark">Ladder 24</h1>
-        <span class="model">Polyphonic ladder synthesizer · 3 osc · 8 voice</span>
+        <span class="model">Polyphonic ladder synthesizer</span>
       </div>
       <div class="patchbar" aria-label="Patches">
+        <select id="section-select" aria-label="Section"></select>
         <button type="button" class="btn btn-icon" id="patch-prev" aria-label="Previous patch">‹</button>
-        <select id="patch-select" aria-label="Patch"></select>
+        <select id="patch-select" aria-label="Sound"></select>
         <button type="button" class="btn btn-icon" id="patch-next" aria-label="Next patch">›</button>
         <span class="edited" id="edited" hidden>edited</span>
         <button type="button" class="btn" id="save-btn">Save</button>

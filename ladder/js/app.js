@@ -1059,32 +1059,42 @@
     );
   }
 
+  // Two menus: a section (Bass, Lead, ...) and the sounds in it. The section
+  // shown follows the sound that is playing.
+  let viewGroup = null;
+
   function renderPatchList() {
+    const list = allPatches();
+    const at = currentIndex();
+    if (at >= 0) viewGroup = list[at].group;
+    else if (!viewGroup) viewGroup = list[0].group;
+    const counts = new Map();
+    for (const p of list) counts.set(p.group, (counts.get(p.group) || 0) + 1);
+    const sections = $('#section-select');
+    sections.innerHTML = '';
+    for (const [g, n] of counts) sections.appendChild(el('option', { value: g, text: g + ' (' + n + ')' }));
+    sections.value = viewGroup;
     const sel = $('#patch-select');
     sel.innerHTML = '';
-    const groups = new Map();
-    allPatches().forEach((p, i) => {
-      if (!groups.has(p.group)) {
-        const og = el('optgroup', { label: p.group });
-        groups.set(p.group, og);
-        sel.appendChild(og);
-      }
-      groups.get(p.group).appendChild(el('option', { value: String(i), text: p.name }));
+    list.forEach((p, i) => {
+      if (p.group === viewGroup) sel.appendChild(el('option', { value: String(i), text: p.name }));
     });
-    renderPatchName();
+    if (at < 0) {
+      // A sound loaded from a patch code is in no section yet.
+      const o = el('option', { value: '', text: state.patchName });
+      o.disabled = true;
+      sel.prepend(o);
+      sel.value = '';
+    } else sel.value = String(at);
+    $('#edited').hidden = !state.edited;
+    $('#delete-patch').hidden = state.patchKind !== 'user';
   }
 
   function currentIndex() {
     return allPatches().findIndex((p) => p.name === state.patchName && p.kind === state.patchKind);
   }
 
-  function renderPatchName() {
-    const sel = $('#patch-select');
-    const i = currentIndex();
-    if (i >= 0) sel.value = String(i);
-    $('#edited').hidden = !state.edited;
-    $('#delete-patch').hidden = state.patchKind !== 'user';
-  }
+  const renderPatchName = renderPatchList;
 
   function choosePatch(i) {
     const list = allPatches();
@@ -1122,6 +1132,10 @@
       .map((p) => ({ name: p.name.slice(0, 40), params: LL.sanitizePatch(p.params) }));
     renderPatchList();
     $('#patch-select').addEventListener('change', (e) => choosePatch(Number(e.target.value)));
+    $('#section-select').addEventListener('change', (e) => {
+      viewGroup = e.target.value;
+      choosePatch(allPatches().findIndex((p) => p.group === viewGroup));
+    });
     $('#patch-prev').addEventListener('click', () => choosePatch(currentIndex() - 1));
     $('#patch-next').addEventListener('click', () => choosePatch(currentIndex() + 1));
     $('#save-btn').addEventListener('click', () => openDrawer('save'));

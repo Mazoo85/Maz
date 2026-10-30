@@ -85,7 +85,7 @@ button { cursor: pointer; }
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px 24px;
+  gap: 12px 18px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--rule);
 }
@@ -112,9 +112,9 @@ button { cursor: pointer; }
 
 .patchbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 
-#patch-select {
+#patch-select, #section-select {
   min-width: 0;
-  width: 15rem;
+  width: 12rem;
   max-width: 100%;
   padding: 7px 10px;
   background: var(--screen);
@@ -125,7 +125,8 @@ button { cursor: pointer; }
   border-radius: 4px;
   box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 255, 255, 0.06);
 }
-#patch-select optgroup, #patch-select option { background: var(--panel); color: var(--legend); }
+#section-select { width: 9rem; }
+#patch-select option, #section-select option { background: var(--panel); color: var(--legend); }
 
 .edited {
   font-family: var(--font-mono);
@@ -627,6 +628,7 @@ body.powered .keys-off { display: none; }
   .patchbar { width: 100%; order: 2; }
   .clock { width: 100%; order: 3; flex-wrap: wrap; }
   .patchbar #patch-select { flex: 1 1 0; width: auto; }
+  .patchbar #section-select { flex: 1 1 100%; width: auto; }
   .playdeck { padding-inline: 10px; }
   .playarea { height: 120px; gap: 8px; }
   .wheel { width: 24px; }
