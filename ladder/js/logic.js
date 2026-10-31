@@ -459,6 +459,7 @@
     { id: 'delayMix', label: 'Echo', type: 'knob', min: 0, max: 1, def: 0.15, unit: '%', fx: true },
     { id: 'reverbSize', label: 'Room', type: 'knob', min: 0.3, max: 6, def: 2.2, curve: 'log', unit: 's', fx: true },
     { id: 'reverbMix', label: 'Space', type: 'knob', min: 0, max: 1, def: 0.18, unit: '%', fx: true },
+    { id: 'springMix', label: 'Spring', type: 'knob', min: 0, max: 1, def: 0, unit: '%', fx: true },
     { id: 'master', label: 'Volume', type: 'knob', min: 0, max: 1, def: 0.7, unit: '%', fx: true },
   ];
 
@@ -682,14 +683,196 @@
     }
   }
 
-  function patch(name, group, changes) {
+  function patch(name, group, changes, about) {
     checkSettings(name, changes);
-    return { name, group, params: sanitizePatch(changes) };
+    return { name, group, params: sanitizePatch(changes), about: about || '' };
   }
 
   // Grouped in the order the patch menu shows them.
   const PRESETS = [
     patch('Init', 'Basics', {}),
+
+    // ---- Moog Classics: one sound for each famous model, with a note on the real instrument
+    patch(
+      'Switched-On Bach',
+      'Moog Classics',
+      { master: 0.59, o1Wave: 'pulse', pw: 0.3, o2Wave: 'square', o2Tune: 0.04, m2: 0.4, cutoff: 1200, res: 0.2, fEnvAmt: 2, fD: 0.3, fS: 0.4, aD: 0.5, aS: 0.6, aR: 0.2, reverbMix: 0.25 },
+      'Inspired by the Moog modular Wendy Carlos used for Switched-On Bach (1968), the record that made synthesizers famous: bright pulse waves through a gently closing filter.'
+    ),
+    patch(
+      'System 55 Brass',
+      'Moog Classics',
+      { master: 0.59, o2Tune: 0.1, o3Wave: 'saw', o3Range: 0, o3Tune: -0.08, m3: 0.6, cutoff: 600, res: 0.15, fEnvAmt: 2.8, fA: 0.07, fD: 0.6, fS: 0.5, aA: 0.04, aS: 0.9, aR: 0.3, spread: 0.7, reverbMix: 0.3 },
+      'Inspired by the System 55, the biggest of the 1970s Moog modular cabinets: three saw oscillators opening up like a brass section.'
+    ),
+    patch(
+      'Model D Bass',
+      'Moog Classics',
+      { master: 0.67, voiceMode: 'legato', o1Range: -1, o2Range: -1, o2Tune: 0.1, o3Wave: 'tri', o3Range: -2, o3Tune: 0, m3: 0.6, cutoff: 300, res: 0.3, fEnvAmt: 3.5, fD: 0.3, fS: 0.1, aS: 1, aR: 0.08, drive: 0.35, delayMix: 0, reverbMix: 0.04 },
+      'Inspired by the Minimoog Model D (1970), the most famous bass synth ever: three oscillators, one an octave lower, through the ladder filter.'
+    ),
+    patch(
+      'Model D Glide Solo',
+      'Moog Classics',
+      { master: 0.8, voiceMode: 'legato', glide: 0.15, o2Tune: 0.08, o3Wave: 'saw', o3Range: 1, o3Tune: -0.06, m3: 0.4, cutoff: 1500, res: 0.4, fEnvAmt: 1.8, fD: 0.6, fS: 0.5, aS: 1, aR: 0.3, modDepth: 0.15, modPitch: 0.3, lfoRate: 5.5, delayMix: 0.25, reverbMix: 0.25 },
+      "Inspired by the Minimoog's singing glide leads of 1970s progressive rock. Push the mod wheel for more vibrato."
+    ),
+    patch(
+      'Model D Overload',
+      'Moog Classics',
+      { master: 0.51, voiceMode: 'mono', o2Tune: 0.12, cutoff: 700, res: 0.5, drive: 1, fEnvAmt: 2.5, fD: 0.4, fS: 0.4, aS: 1, aR: 0.15, delayMix: 0.1 },
+      'Inspired by a famous Minimoog trick: its output patched back into its own mixer, overdriving the filter into a thick, gritty growl.'
+    ),
+    patch(
+      'Taurus Pedals',
+      'Moog Classics',
+      { master: 0.63, voiceMode: 'mono', o1Range: -1, o2Range: -1, o2Tune: 0.07, cutoff: 150, res: 0.45, fEnvAmt: 3, fD: 0.6, fS: 0.3, aS: 1, aR: 0.5, drive: 0.5, delayMix: 0, reverbMix: 0.06 },
+      'Inspired by the Taurus bass pedals (1975), played with the feet by Rush, Genesis and Yes. Play it low and hold it.'
+    ),
+    patch(
+      'Polymoog Strings',
+      'Moog Classics',
+      { master: 0.47, o1Wave: 'pulse', o2Wave: 'pulse', o2Tune: 0.12, pw: 0.3, cutoff: 2500, res: 0.1, fEnvAmt: 0, aA: 0.3, aS: 1, aR: 1, lfoRate: 4.5, modDepth: 1, modPitch: 0, modPw: 0.25, spread: 1, reverbMix: 0.4 },
+      'Inspired by the Polymoog (1975), one of the first synths that could play chords, and its shimmering string sound.'
+    ),
+    patch(
+      'Polymoog Vox',
+      'Moog Classics',
+      { master: 0.6, o2Wave: 'pulse', pw: 0.25, o2Tune: 0.1, cutoff: 900, res: 0.5, keyTrack: 0.3, fEnvAmt: 0.3, aA: 0.2, aS: 1, aR: 0.8, modDepth: 0.25, modPitch: 0.06, spread: 1, reverbMix: 0.4 },
+      "Inspired by the Polymoog's choir-like Vox Humana preset: a resonant filter giving the chord a vocal edge."
+    ),
+    patch(
+      'Micromoog Bass',
+      'Moog Classics',
+      { master: 0.92, voiceMode: 'mono', o1Range: -1, o2Wave: 'square', o2Range: -2, o2Tune: 0, m2: 0.5, cutoff: 400, res: 0.5, fEnvAmt: 3, fD: 0.2, fS: 0.1, aS: 0.9, aR: 0.08, delayMix: 0, reverbMix: 0.05 },
+      'Inspired by the Micromoog (1975), a one-oscillator Moog with a sub-octave below it, loved for simple, round bass.'
+    ),
+    patch(
+      'Multimoog Lead',
+      'Moog Classics',
+      { master: 0.85, voiceMode: 'legato', glide: 0.04, o2Tune: 0.07, cutoff: 1100, res: 0.55, fEnvAmt: 1.5, fD: 0.5, fS: 0.5, aS: 1, aR: 0.2, mod1Src: 'wheel', mod1Dst: 'cutoff', mod1Amt: 0.5, delayMix: 0.2 },
+      'Inspired by the Multimoog (1978), whose pressure-sensitive keys opened the filter. Here the mod wheel does it: push it to brighten.'
+    ),
+    patch(
+      'Prodigy Sync Lead',
+      'Moog Classics',
+      { master: 0.9, voiceMode: 'mono', sync: true, o2Tune: 5, m1: 0.3, m2: 1, cutoff: 2500, res: 0.3, fEnvAmt: 1, fD: 0.5, fS: 0.3, aS: 1, aR: 0.2, mod1Src: 'fenv', mod1Dst: 'osc2', mod1Amt: 0.6, delayMix: 0.2 },
+      'Inspired by the Moog Prodigy (1979) and its oscillator sync: the filter contour sweeps the synced oscillator for that tearing lead.'
+    ),
+    patch(
+      'Prodigy Bass',
+      'Moog Classics',
+      { master: 0.76, voiceMode: 'mono', o1Range: -1, o2Wave: 'square', o2Range: -1, cutoff: 250, res: 0.45, fEnvAmt: 3, fD: 0.15, fS: 0.1, aS: 0.9, aR: 0.08, delayMix: 0, reverbMix: 0.05 },
+      'Inspired by the Moog Prodigy, a cheap two-oscillator synth that sold over 11,000 and turned up on countless records.'
+    ),
+    patch(
+      'Rogue Bass',
+      'Moog Classics',
+      { master: 0.85, voiceMode: 'mono', o1Range: -1, o2Range: -1, o2Tune: 0.05, cutoff: 350, res: 0.3, fEnvAmt: 3, fD: 0.25, fS: 0.2, aS: 0.9, aR: 0.1, delayMix: 0, reverbMix: 0.05 },
+      'Inspired by the Moog Rogue (1981), a small, affordable two-oscillator bass machine.'
+    ),
+    patch(
+      'Source Sync Sweep',
+      'Moog Classics',
+      { master: 0.89, voiceMode: 'mono', sync: true, o2Tune: 7, m1: 0.2, m2: 1, cutoff: 2000, res: 0.35, fEnvAmt: 0.5, aS: 1, aR: 0.2, mod1Src: 'lfo', mod1Dst: 'osc2', mod1Amt: 0.4, lfoRate: 0.5, delayMix: 0.25 },
+      'Inspired by the Moog Source (1981), among the first synths to store sounds digitally, and its slowly sweeping sync sounds.'
+    ),
+    patch(
+      'Messenger Fold Bass',
+      'Moog Classics',
+      { master: 0.7, voiceMode: 'mono', o1Range: -1, o1Wave: 'tri', o2Range: -1, o2Wave: 'sine', m2: 0.5, fold: 0.5, cutoff: 900, res: 0.3, fEnvAmt: 2, fD: 0.25, fS: 0.3, aS: 1, aR: 0.1, mod1Src: 'fenv', mod1Dst: 'fold', mod1Amt: 0.4, delayMix: 0, reverbMix: 0.05 },
+      'Inspired by the Moog Messenger (2025), the newest Moog, and its wavefolder: the filter contour folds the wave for a bright snap.'
+    ),
+    patch(
+      'Memorymoog Brass',
+      'Moog Classics',
+      { master: 0.59, o2Tune: 0.12, o3Wave: 'saw', o3Range: 0, o3Tune: -0.1, m3: 0.6, cutoff: 700, res: 0.15, fEnvAmt: 2.5, fA: 0.08, fD: 0.6, fS: 0.5, aA: 0.05, aS: 0.9, aR: 0.35, spread: 0.8, reverbMix: 0.3 },
+      'Inspired by the Memorymoog (1982): six voices, each built like a whole Minimoog, made for huge brass chords.'
+    ),
+    patch(
+      'Memorymoog Pad',
+      'Moog Classics',
+      { master: 0.58, o2Tune: 0.1, o3Wave: 'saw', o3Range: 1, o3Tune: -0.08, m3: 0.4, cutoff: 1500, res: 0.1, fEnvAmt: 0.8, fA: 0.6, fS: 0.7, aA: 0.8, aS: 1, aR: 1.5, modDepth: 0.3, modPitch: 0.05, spread: 1, reverbMix: 0.45 },
+      "Inspired by the Memorymoog's lush, wide pads."
+    ),
+    patch(
+      'Memorymoog Unison',
+      'Moog Classics',
+      { master: 0.71, voiceMode: 'unison', unisonDetune: 15, spread: 0.8, o2Tune: 0.08, o3Wave: 'saw', o3Range: -1, o3Tune: 0, m3: 0.5, cutoff: 1400, res: 0.35, fEnvAmt: 1.5, fD: 0.4, fS: 0.5, aS: 1, aR: 0.25, delayMix: 0.2 },
+      "Inspired by the Memorymoog's unison mode: all its voices stacked on one note, enormous for leads."
+    ),
+    patch(
+      'Liberation Keytar',
+      'Moog Classics',
+      { master: 0.7, voiceMode: 'legato', glide: 0.05, o1Wave: 'square', o2Tune: 0.1, cutoff: 2000, res: 0.35, fEnvAmt: 1, aS: 1, aR: 0.2, modDepth: 0.2, modPitch: 0.3, lfoRate: 6, delayMix: 0.2 },
+      'Inspired by the Moog Liberation (1980), a synth worn like a guitar, with a ribbon on the neck for bends and vibrato.'
+    ),
+    patch(
+      'Opus 3 Strings',
+      'Moog Classics',
+      { master: 0.57, o2Range: 1, o2Tune: 0.2, cutoff: 3000, res: 0, fEnvAmt: 0, aA: 0.4, aS: 1, aR: 0.8, modDepth: 0.5, modPitch: 0.1, lfoRate: 6, spread: 1, reverbMix: 0.4 },
+      'Inspired by the Moog Opus 3 (1980), a string, organ and brass machine with a wobbly ensemble chorus.'
+    ),
+    patch(
+      'Voyager Lead',
+      'Moog Classics',
+      { master: 0.83, voiceMode: 'legato', glide: 0.05, o2Tune: 0.06, o3Wave: 'square', o3Range: 1, o3Tune: 0, m3: 0.3, cutoff: 1300, res: 0.45, fEnvAmt: 1.5, fD: 0.5, fS: 0.5, aS: 1, aR: 0.25, mod1Src: 'lfo', mod1Dst: 'cutoff', mod1Amt: 0.15, lfoRate: 5, delayMix: 0.25, reverbMix: 0.2 },
+      'Inspired by the Minimoog Voyager (2002), the first new Moog in twenty years and a much bigger Minimoog.'
+    ),
+    patch(
+      'Etherwave Theremin',
+      'Moog Classics',
+      { master: 0.79, voiceMode: 'legato', glide: 0.3, o1Wave: 'sine', o2Wave: 'tri', o2Tune: 0, m2: 0.15, cutoff: 5000, res: 0, fEnvAmt: 0, aA: 0.08, aS: 1, aR: 0.4, modDepth: 0.35, modPitch: 0.35, lfoRate: 6, bendRange: 12, reverbMix: 0.35 },
+      "Inspired by Moog's Etherwave theremin; Bob Moog started out building theremins. Try it on the theremin pad."
+    ),
+    patch(
+      'Little Phatty Bass',
+      'Moog Classics',
+      { master: 0.53, voiceMode: 'mono', o1Range: -1, o2Wave: 'square', o2Range: -1, o2Tune: 0.05, drive: 0.6, cutoff: 220, res: 0.55, fEnvAmt: 3.5, fD: 0.2, fS: 0.1, aS: 1, aR: 0.08, delayMix: 0, reverbMix: 0.05 },
+      'Inspired by the Little Phatty (2006), the last instrument Bob Moog designed, and its overdriven bass.'
+    ),
+    patch(
+      'Sub 37 Growl',
+      'Moog Classics',
+      { master: 0.5, voiceMode: 'mono', o1Range: -1, o2Range: -1, o2Tune: -0.1, o3Wave: 'square', o3Range: -2, o3Tune: 0, m3: 0.6, drive: 0.8, cutoff: 250, res: 0.65, fEnvAmt: 2, fD: 0.3, fS: 0.4, aS: 1, aR: 0.1, mod1Src: 'lfo', mod1Dst: 'cutoff', mod1Amt: 0.3, lfoSync: true, lfoDiv: '1/8', delayMix: 0, reverbMix: 0.05 },
+      'Inspired by the Sub 37 (2014), with its sub-oscillator and Multidrive, here with a tempo-synced filter wobble.'
+    ),
+    patch(
+      'Sub Phatty Wobble',
+      'Moog Classics',
+      { master: 0.54, voiceMode: 'mono', o1Range: -1, o2Wave: 'square', o2Range: -1, o2Tune: 0.08, cutoff: 180, res: 0.6, fEnvAmt: 0.5, aS: 1, aR: 0.1, drive: 0.6, lfoSync: true, lfoDiv: '1/4', modDepth: 1, modPitch: 0, modFilter: 2.5, delayMix: 0, reverbMix: 0.05 },
+      'Inspired by the Sub Phatty (2013), a small, loud Moog that became a staple of bass music.'
+    ),
+    patch(
+      'Minitaur Sub',
+      'Moog Classics',
+      { master: 0.71, voiceMode: 'mono', o1Range: -1, o2Wave: 'square', o2Range: -1, cutoff: 180, res: 0.3, fEnvAmt: 2, fD: 0.3, fS: 0.4, aS: 1, aR: 0.1, delayMix: 0, reverbMix: 0.03 },
+      "Inspired by the Minitaur (2012), a tabletop box carrying on the Taurus pedals' deep bass."
+    ),
+    patch(
+      'Mother-32 Patch',
+      'Moog Classics',
+      { master: 1, voiceMode: 'mono', o1Wave: 'pulse', m2: 0, cutoff: 500, res: 0.7, fEnvAmt: 3, fD: 0.15, fS: 0, aD: 0.4, aS: 0.3, aR: 0.1, mod1Src: 'lfo', mod1Dst: 'pw', mod1Amt: 0.6, lfoRate: 2, delayMix: 0.2 },
+      'Inspired by the Mother-32 (2015), a tabletop semi-modular you patch with cables: a resonant pulse with the LFO cabled to its width.'
+    ),
+    patch(
+      'DFAM Percussion',
+      'Moog Classics',
+      { master: 0.81, o1Wave: 'tri', o2Wave: 'square', o2Tune: 3.5, m2: 0.5, noise: 0.4, pitchEnv: 12, cutoff: 800, res: 0.6, fEnvAmt: 2, fA: 0.001, fD: 0.1, fS: 0, aA: 0.001, aD: 0.25, aS: 0, aR: 0.15, mod1Src: 'random', mod1Dst: 'pitch', mod1Amt: 0.3, delayMix: 0.15, reverbMix: 0.15 },
+      'Inspired by the DFAM drum synth (2018): a percussive voice where every hit is a little different, thanks to a cable from Random to pitch.'
+    ),
+    patch(
+      'Subharmonicon Drone',
+      'Moog Classics',
+      { master: 0.64, o1Wave: 'saw', o2Range: -1, o2Tune: 0, o3Wave: 'saw', o3Range: -1, o3Tune: -7, m3: 0.6, cutoff: 800, res: 0.4, fEnvAmt: 0, aA: 0.3, aS: 1, aR: 1, reverbMix: 0.35, delayMix: 0.2 },
+      'Inspired by the Subharmonicon (2020), which builds chords from notes below the one you play: here an octave and a twelfth underneath.'
+    ),
+    patch(
+      'Grandmother Spring Keys',
+      'Moog Classics',
+      { master: 0.71, o1Wave: 'tri', o2Wave: 'square', o2Tune: 0.1, m2: 0.4, cutoff: 1500, res: 0.2, fEnvAmt: 1.5, fD: 0.4, fS: 0.2, aD: 1, aS: 0.3, aR: 0.3, springMix: 0.5, reverbMix: 0 },
+      'Inspired by the Grandmother (2018) and its built-in spring reverb, the twangy echo of old guitar amps.'
+    ),
 
     // ---- Bass
     patch('Fat Bass', 'Bass', {
@@ -1946,7 +2129,52 @@
     "Hand Percussion": [1.21, 1.9, 1.99, 1.49, 2.68, 1.46, 3.72, 1.47, 2.6, 1.49, 1.56, 1.08, 0.98, 3.24, 0.97, 0.8, 1.22, 1.12, 1.71, 1.23, 2.16, 1.24, 1.47, 1.15],
   };
 
+  // A WAV file (16-bit stereo PCM) from two channels of samples.
+  function encodeWav(left, right, sampleRate) {
+    const frames = left.length;
+    const buf = new ArrayBuffer(44 + frames * 4);
+    const v = new DataView(buf);
+    const text = (at, str) => {
+      for (let i = 0; i < str.length; i++) v.setUint8(at + i, str.charCodeAt(i));
+    };
+    text(0, 'RIFF');
+    v.setUint32(4, 36 + frames * 4, true);
+    text(8, 'WAVE');
+    text(12, 'fmt ');
+    v.setUint32(16, 16, true);
+    v.setUint16(20, 1, true); // PCM
+    v.setUint16(22, 2, true); // stereo
+    v.setUint32(24, sampleRate, true);
+    v.setUint32(28, sampleRate * 4, true);
+    v.setUint16(32, 4, true);
+    v.setUint16(34, 16, true);
+    text(36, 'data');
+    v.setUint32(40, frames * 4, true);
+    for (let i = 0, at = 44; i < frames; i++, at += 4) {
+      v.setInt16(at, Math.round(Math.max(-1, Math.min(1, left[i])) * 32767), true);
+      v.setInt16(at + 2, Math.round(Math.max(-1, Math.min(1, right[i])) * 32767), true);
+    }
+    return new Uint8Array(buf);
+  }
+
+  // Sounds whose name, section or note matches every word typed, best matches first.
+  function searchPatches(list, query) {
+    const words = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return [];
+    const hits = [];
+    list.forEach((p, i) => {
+      const name = p.name.toLowerCase();
+      const hay = (name + ' ' + p.group + ' ' + (p.about || '')).toLowerCase();
+      if (!words.every((w) => hay.includes(w))) return;
+      const score = words.reduce((n, w) => n + (name.startsWith(w) ? 3 : name.includes(w) ? 2 : 1), 0);
+      hits.push({ i, score });
+    });
+    return hits.sort((a, b) => b.score - a.score || a.i - b.i).map((h) => h.i);
+  }
+
   const api = {
+    encodeWav,
+    searchPatches,
     WAVES,
     MOD_SOURCES,
     MOD_DESTS,

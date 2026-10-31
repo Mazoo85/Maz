@@ -970,7 +970,41 @@
     registerProcessor('ladder-recorder', RecorderProcessor);
   }
 
+  // A spring reverb's impulse response, made rather than recorded: springs
+  // carry high frequencies faster than low ones, so every echo arrives as a
+  // falling "boing" chirp, repeating each time the wave crosses the spring and
+  // back, inside a darker diffuse wash.
+  function springImpulse(sr, seconds) {
+    const n = Math.max(1, Math.round(sr * seconds));
+    const out = [new Float32Array(n), new Float32Array(n)];
+    const transit = [0.031, 0.037]; // two springs of different length, one per side
+    for (let ch = 0; ch < 2; ch++) {
+      const d = out[ch];
+      let seed = ch ? 0x9e3779b9 : 0x7f4a7c15;
+      const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296) * 2 - 1;
+      // Diffuse wash: noise, smoothed, dying away exponentially.
+      let lp = 0;
+      for (let i = 0; i < n; i++) {
+        lp += (rnd() - lp) * 0.25;
+        d[i] = lp * 0.25 * Math.exp((-5 * i) / n);
+      }
+      // The chirps: 4 kHz falling to 300 Hz over 25 ms, at every transit.
+      const chirpLen = Math.round(0.025 * sr);
+      for (let echo = 0, t0 = Math.round(transit[ch] * sr * 0.5); t0 < n; echo++, t0 += Math.round(transit[ch] * sr)) {
+        const amp = 0.9 * Math.exp((-4.5 * t0) / n) * (echo % 2 ? -1 : 1);
+        let phase = 0;
+        for (let i = 0; i < chirpLen && t0 + i < n; i++) {
+          const f = 4000 * Math.pow(300 / 4000, i / chirpLen);
+          phase += (2 * Math.PI * f) / sr;
+          d[t0 + i] += amp * Math.sin(phase) * Math.sin((Math.PI * i) / chirpLen);
+        }
+      }
+    }
+    return out;
+  }
+
   const api = {
+    springImpulse,
     VOICES,
     DRUM_VOICES,
     UNISON,

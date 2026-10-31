@@ -375,7 +375,7 @@ test('factory patches are all about as loud as each other', () => {
 test('every section of the factory list holds 30 sounds', () => {
   const groups = new Map();
   for (const pr of L.PRESETS) groups.set(pr.group, (groups.get(pr.group) || 0) + 1);
-  for (const g of ['Bass', 'Lead', 'Keys', 'Pads', 'Brass & strings', 'Plucks', 'Drums', 'Drum Kits', 'Effects', 'Experimental', 'Sequenced']) {
+  for (const g of ['Moog Classics', 'Bass', 'Lead', 'Keys', 'Pads', 'Brass & strings', 'Plucks', 'Drums', 'Drum Kits', 'Effects', 'Experimental', 'Sequenced']) {
     assert.strictEqual(groups.get(g), 30, g + ' has ' + (groups.get(g) || 0));
   }
   // Groups stay together, so the patch menu lists each one once.
@@ -583,6 +583,51 @@ test('the drum grid plays its kit on its own voices, so a melody keeps all eight
   assert.ok(s.drumVoices.some((v) => v.active), 'drums sounded');
   assert.strictEqual(s.voices.filter((v) => v.gate).length, 8, 'all eight held notes still playing');
   for (const x of out.L) assert.ok(Number.isFinite(x));
+});
+
+test('every Moog Classic says which instrument it is inspired by', () => {
+  for (const pr of L.PRESETS.filter((p) => p.group === 'Moog Classics')) {
+    assert.ok(/^Inspired by /.test(pr.about) && pr.about.length > 40, pr.name);
+  }
+});
+
+test('recordings save as a proper 16-bit stereo WAV file', () => {
+  const l = new Float32Array([0, 0.5, -1, 2]);
+  const r = new Float32Array([0, -0.5, 1, -2]);
+  const wav = L.encodeWav(l, r, 48000);
+  const v = new DataView(wav.buffer);
+  const text = (at, n) => String.fromCharCode(...wav.slice(at, at + n));
+  assert.strictEqual(text(0, 4), 'RIFF');
+  assert.strictEqual(text(8, 4), 'WAVE');
+  assert.strictEqual(v.getUint16(22, true), 2);
+  assert.strictEqual(v.getUint32(24, true), 48000);
+  assert.strictEqual(v.getUint32(40, true), 16);
+  assert.strictEqual(wav.length, 44 + 16);
+  assert.strictEqual(v.getInt16(44 + 4, true), Math.round(0.5 * 32767));
+  assert.strictEqual(v.getInt16(44 + 12, true), 32767, 'too loud is held at full scale, not wrapped');
+  assert.strictEqual(v.getInt16(44 + 14, true), -32767);
+});
+
+test('search finds sounds by name, section or note, best matches first', () => {
+  const names = (q) => L.searchPatches(L.PRESETS, q).map((i) => L.PRESETS[i].name);
+  assert.ok(names('808').includes('Classic 808'));
+  assert.ok(names('808').every((n) => n.includes('808')));
+  assert.ok(names('808')[0].startsWith('808'), 'a name that starts with the word comes first');
+  assert.ok(names('taurus').includes('Taurus Pedals'));
+  assert.ok(names('wendy carlos').includes('Switched-On Bach'), 'searches the notes too');
+  assert.ok(names('pad').length >= 30);
+  assert.deepStrictEqual(names(''), []);
+  assert.deepStrictEqual(names('zzzz'), []);
+});
+
+test('the spring reverb rings with repeating chirps and dies away', () => {
+  const [l, r] = DSP.springImpulse(SR, 2);
+  assert.strictEqual(l.length, SR * 2);
+  const early = rms(l, 0, SR * 0.3);
+  const late = rms(l, SR * 1.7, SR * 2);
+  assert.ok(early > 0.05 && late < early * 0.05, 'decays');
+  assert.notDeepStrictEqual(l.slice(0, 2000), r.slice(0, 2000), 'two different springs, one per side');
+  for (const x of l) assert.ok(Number.isFinite(x));
 });
 
 test('the computer keyboard covers an octave and a half from C', () => {
