@@ -371,6 +371,10 @@
 
   const KIT_NAMES = KITS.map((k) => k.name);
 
+  // Must match MOD_SOURCES and MOD_DESTS in dsp.js (a test checks).
+  const MOD_SOURCES = ['off', 'lfo', 'osc3', 'fenv', 'aenv', 'vel', 'wheel', 'key', 'noise', 'random'];
+  const MOD_DESTS = ['pitch', 'osc2', 'cutoff', 'res', 'pw', 'fm', 'fold', 'level'];
+
   const WAVES = ['tri', 'saw', 'ramp', 'square', 'pulse', 'sine'];
 
   // type: knob | enum | bool. curve: lin | log | pow (cubic, fine control near 0).
@@ -394,6 +398,9 @@
     { id: 'o3Tune', label: 'Tune', type: 'knob', min: -7, max: 7, def: -0.06, unit: 'semi', bipolar: true },
     { id: 'o3Wave', label: 'Wave', type: 'enum', options: WAVES, def: 'square' },
     { id: 'o3KeyOff', label: 'Osc 3 as LFO', type: 'bool', def: false },
+    { id: 'sync', label: 'Sync 2→1', type: 'bool', def: false },
+    { id: 'fm', label: 'FM 3→1', type: 'knob', min: 0, max: 1, def: 0, curve: 'pow', unit: '%' },
+    { id: 'fold', label: 'Fold', type: 'knob', min: 0, max: 1, def: 0, unit: '%' },
     { id: 'pitchEnv', label: 'Pitch env', type: 'knob', min: -24, max: 24, def: 0, unit: 'semi', bipolar: true },
     { id: 'pw', label: 'Pulse width', type: 'knob', min: 0.05, max: 0.5, def: 0.3, unit: '%' },
     // Mixer
@@ -429,6 +436,12 @@
     { id: 'modPitch', label: '→ Pitch', type: 'knob', min: 0, max: 12, def: 0.3, curve: 'pow', unit: 'semi' },
     { id: 'modFilter', label: '→ Filter', type: 'knob', min: 0, max: 4, def: 0, unit: 'oct' },
     { id: 'modPw', label: '→ Width', type: 'knob', min: 0, max: 0.45, def: 0, unit: '%' },
+    // Patch cables: the modulation matrix, four routes from a source to a destination
+    ...[1, 2, 3, 4].flatMap((i) => [
+      { id: 'mod' + i + 'Src', label: 'From', type: 'enum', menu: true, options: MOD_SOURCES, def: 'off' },
+      { id: 'mod' + i + 'Dst', label: 'To', type: 'enum', menu: true, options: MOD_DESTS, def: i === 1 ? 'cutoff' : i === 2 ? 'pitch' : i === 3 ? 'pw' : 'level' },
+      { id: 'mod' + i + 'Amt', label: 'Amount', type: 'knob', min: -1, max: 1, def: 0, unit: 'amt', bipolar: true },
+    ]),
     // Tempo: drives the arpeggiator, a synced LFO and a synced echo
     { id: 'bpm', label: 'Tempo', type: 'knob', min: 40, max: 240, def: 120, step: 1, unit: 'bpm' },
     // Arpeggiator
@@ -472,6 +485,21 @@
     updown: 'Up-down',
     order: 'Played',
     random: 'Random',
+    off: 'Off',
+    fenv: 'Filter env',
+    aenv: 'Amp env',
+    vel: 'Velocity',
+    wheel: 'Mod wheel',
+    key: 'Key',
+    random: 'Random',
+    pitch: 'Pitch',
+    osc2: 'Osc 2 pitch',
+    cutoff: 'Cutoff',
+    res: 'Emphasis',
+    pw: 'Pulse width',
+    fm: 'FM',
+    fold: 'Fold',
+    level: 'Volume',
     lp24: 'LP 24',
     lp12: 'LP 12',
     bp: 'BP',
@@ -562,6 +590,8 @@
         return Math.round(value) + (Math.round(value) === 1 ? ' oct' : ' octs');
       case 'level':
         return (value * 10).toFixed(1);
+      case 'amt':
+        return signed(value * 100, 0) + '%';
       default:
         return Math.round(value * 100) + '%';
     }
@@ -1918,6 +1948,8 @@
 
   const api = {
     WAVES,
+    MOD_SOURCES,
+    MOD_DESTS,
     PARAMS,
     BY_ID,
     OPTION_LABELS,

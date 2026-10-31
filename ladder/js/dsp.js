@@ -13,6 +13,7 @@
   const TAU = Math.PI * 2;
   const LN2 = Math.LN2;
   const VOICES = 8;
+  const DRUM_VOICES = 6; // the drum grid has its own, so beats never steal a melody's voices
   const UNISON = 5;
 
   function midiToFreq(note) {
@@ -37,6 +38,12 @@
     constructor(phase) {
       this.phase = phase === undefined ? Math.random() : phase;
       this.out = 0;
+      this.wrap = -1; // where this sample a new cycle began (0..1 of the step), or -1
+    }
+
+    // Hard sync: restart the cycle at the moment the master oscillator did.
+    syncTo(frac, freq, sr) {
+      this.phase = frac * Math.min(Math.abs(freq) / sr, 0.5);
     }
 
     // wave: 'tri' | 'saw' | 'ramp' | 'square' | 'pulse' | 'sine'
@@ -67,7 +74,11 @@
           y = 4 * Math.abs(t - 0.5) - 1;
       }
       let p = t + dt;
-      if (p >= 1) p -= 1;
+      this.wrap = -1;
+      if (p >= 1) {
+        p -= 1;
+        this.wrap = dt > 0 ? p / dt : 0;
+      }
       this.phase = p;
       this.out = y;
       return y;
@@ -230,7 +241,27 @@
       drive: 0.6 + p.drive * 5,
       kt: p.keyTrack / 12,
       pitchEnv: (p.pitchEnv * LN2) / 12,
+      mods: modRoutes(p),
     };
+  }
+
+  // The modulation matrix ("patch cables"): up to four routes from a source to
+  // a destination, each with a signed amount. Codes keep the per-sample loop cheap.
+  const MOD_SOURCES = ['off', 'lfo', 'osc3', 'fenv', 'aenv', 'vel', 'wheel', 'key', 'noise', 'random'];
+  const MOD_DESTS = ['pitch', 'osc2', 'cutoff', 'res', 'pw', 'fm', 'fold', 'level'];
+  // How far a full-amount route moves each destination.
+  const MOD_SCALE = [12, 12, 5, 1, 0.45, 1, 1, 1];
+  const MOD_SLOTS = 4;
+
+  function modRoutes(p) {
+    const out = [];
+    for (let i = 1; i <= MOD_SLOTS; i++) {
+      const src = MOD_SOURCES.indexOf(p['mod' + i + 'Src']);
+      const dst = MOD_DESTS.indexOf(p['mod' + i + 'Dst']);
+      const amt = p['mod' + i + 'Amt'] || 0;
+      if (src > 0 && dst >= 0 && amt !== 0) out.push({ src, dst, amt: amt * MOD_SCALE[dst] });
+    }
+    return out;
   }
 
   // A drum kit spans 24 keys from C3 and repeats every two octaves.
@@ -256,6 +287,11 @@
       this.gr = Math.SQRT1_2;
       this.f = [0, 0, 0];
       this.drum = null; // the kit drum this voice is playing, if any
+      this.rand = 0; // a random value picked at each note, for the Random mod source
+      this.level = 1; // the theremin pad's volume; 1 for everything else
+      this.lvl = 1;
+      this.theremin = false;
+      this.md = new Float64Array(MOD_DESTS.length);
     }
 
     get active() {
@@ -275,6 +311,8 @@
       this.p = Object.assign({}, params);
       this.voices = [];
       for (let i = 0; i < VOICES; i++) this.voices.push(new Voice(i));
+      this.drumVoices = [];
+      for (let i = 0; i < DRUM_VOICES; i++) this.drumVoices.push(new Voice(VOICES + i));
       this.bend = 0;
       this.wheel = 0;
       this.lfoPhase = 0;
@@ -295,26 +333,47 @@
       this.arpNote = -1;
       this.arpVel = 1;
       this.kit = null;
+      this.wheelMod = 0;
+      this.thereminVoice = null;
+      // Step sequencer and drum grid, sharing one clock.
+      this.seqRunning = false;
+      this.seqPattern = { length: 16, steps: [], swing: 0, gate: 0.5 };
+      this.drumPattern = { length: 16, rows: [] };
+      this.drumKit = null;
+      this.seqPos = 0;
+      this.seqCounter = 0;
+      this.seqGateLeft = 0;
+      this.seqNote = -1;
+      this.seqSlid = false;
+      this.stepNow = -1;
     }
 
     // The drums of a kit, one per key: { slot: { params, play, pan, choke } }.
-    setKit(kit) {
-      this.kit = {};
+    makeKit(kit) {
+      const out = {};
       const sr = this.sr;
       for (const slot of Object.keys(kit || {})) {
         const d = kit[slot];
         const c = soundConsts(d.params, sr);
         // Choked: cut off fast, like a closed hi-hat stopping an open one.
         const choked = Object.assign({}, c, { ac: Object.assign({}, c.ac, { rel: Math.exp(-4.6 / (0.012 * sr)) }) });
-        this.kit[slot] = { c, choked, play: d.play, pan: d.pan || 0, choke: d.choke || null, gain: d.gain || 1 };
+        out[slot] = { c, choked, play: d.play, pan: d.pan || 0, choke: d.choke || null, gain: d.gain || 1 };
       }
+      return out;
+    }
+
+    setKit(kit) {
+      this.kit = this.makeKit(kit);
     }
 
     kitHit(note, vel) {
-      const d = this.kit[kitSlot(note)];
+      this.hitDrum(this.kit[kitSlot(note)], this.voices, note, vel);
+    }
+
+    hitDrum(d, pool, note, vel) {
       if (!d) return;
       if (d.choke) {
-        for (const v of this.voices) {
+        for (const v of pool) {
           if (v.active && v.drum && v.drum.choke === d.choke) {
             v.kc = v.drum.choked;
             v.fenv.gateOff();
@@ -322,7 +381,8 @@
           }
         }
       }
-      const v = this.voices.find((x) => !x.active) || this.oldest(this.voices);
+      const v = pool.find((x) => !x.active) || this.oldest(pool);
+      this.freshVoice(v);
       v.drum = d;
       v.kc = d.c;
       v.cur = v.target = d.play;
@@ -430,6 +490,7 @@
         let v = this.voices.find((x) => x.gate && x.note === note);
         if (!v) v = this.voices.find((x) => !x.active);
         if (!v) v = this.oldest(this.voices.filter((x) => !x.gate)) || this.oldest(this.voices);
+        this.freshVoice(v);
         v.drum = null;
         v.kc = null;
         v.cur = this.glideFrom(note);
@@ -491,9 +552,13 @@
       const n = group.length;
       group.forEach((v, i) => {
         const spread = n > 1 ? (2 * i) / (n - 1) - 1 : 0;
+        if (v.theremin) this.freshVoice(v);
         v.drum = null;
         v.kc = null;
-        if (!v.gate) v.cur = this.glideFrom(note);
+        if (!v.gate) {
+          v.cur = this.glideFrom(note);
+          v.rand = Math.random() * 2 - 1;
+        }
         v.target = note;
         v.note = note;
         v.vel = vel;
@@ -508,6 +573,107 @@
         if (this.p.glide <= 0) v.cur = note;
         this.updatePitch(v, 0);
       });
+    }
+
+    freshVoice(v) {
+      v.theremin = false;
+      v.level = 1;
+      v.lvl = 1;
+      v.rand = Math.random() * 2 - 1;
+      if (this.thereminVoice === v) this.thereminVoice = null;
+    }
+
+    // The theremin pad: one voice whose pitch and volume follow the pointer
+    // smoothly, for as long as it is held. note may fall between keys.
+    theremin(on, note, level) {
+      let v = this.thereminVoice;
+      if (!on) {
+        if (v) {
+          v.gate = false;
+          v.fenv.gateOff();
+          v.aenv.gateOff();
+          this.thereminVoice = null;
+        }
+        return;
+      }
+      if (!v) {
+        v = this.voices.find((x) => !x.active) || this.oldest(this.voices);
+        this.freshVoice(v);
+        v.drum = null;
+        v.kc = null;
+        v.cur = note;
+        v.detune = 0;
+        v.vel = 1;
+        v.note = -2;
+        v.lvl = level;
+        v.theremin = true;
+        v.gate = true;
+        v.age = ++this.clock;
+        v.setPan(0);
+        v.fenv.gateOn();
+        v.aenv.gateOn();
+        this.thereminVoice = v;
+      }
+      v.target = note;
+      v.level = Math.max(0, Math.min(1, level));
+      this.updatePitch(v, 0);
+    }
+
+    // ---- step sequencer and drum grid
+
+    setTransport(running) {
+      if (running && !this.seqRunning) {
+        this.seqPos = 0;
+        this.seqCounter = 0;
+      }
+      if (!running && this.seqNote >= 0) {
+        this.stopNote(this.seqNote);
+        this.seqNote = -1;
+      }
+      this.seqRunning = running;
+      if (!running) this.stepNow = -1;
+    }
+
+    seqTick() {
+      if (this.seqGateLeft > 0 && --this.seqGateLeft === 0 && this.seqNote >= 0) {
+        this.stopNote(this.seqNote);
+        this.seqNote = -1;
+      }
+      if (--this.seqCounter > 0) return;
+      const mel = this.seqPattern;
+      const pos = this.seqPos;
+      // Sixteenth notes at the panel tempo; swing pushes every second one late.
+      const base = (this.sr * 60 * 0.25) / this.p.bpm;
+      const swing = mel.swing || 0;
+      const dur = Math.max(1, Math.round(base * (pos % 2 === 0 ? 1 + swing : 1 - swing)));
+      this.seqCounter = dur;
+
+      const st = mel.steps.length ? mel.steps[pos % mel.length] : null;
+      const prev = this.seqNote;
+      if (st && st.note !== null && st.note !== undefined) {
+        if (!(prev === st.note && this.seqSlid)) {
+          this.startNote(st.note, st.accent ? 1 : 0.75);
+          // Starting the new note before letting go of a slid one makes a mono sound glide.
+          if (prev >= 0 && prev !== st.note) this.stopNote(prev);
+        }
+        this.seqNote = st.note;
+        this.seqSlid = !!st.slide;
+        this.seqGateLeft = st.slide ? 0 : Math.max(1, Math.round(dur * (mel.gate || 0.5)));
+      } else if (prev >= 0) {
+        this.stopNote(prev);
+        this.seqNote = -1;
+        this.seqSlid = false;
+      }
+
+      const dr = this.drumPattern;
+      if (this.drumKit && dr.rows.length) {
+        for (const row of dr.rows) {
+          const hit = row.steps[pos % dr.length];
+          if (hit) this.hitDrum(this.drumKit[row.slot], this.drumVoices, -3, hit === 2 ? 1 : 0.7);
+        }
+      }
+      this.stepNow = pos;
+      this.seqPos = pos + 1;
     }
 
     oldest(list) {
@@ -598,41 +764,93 @@
       const panel = soundConsts(p, sr);
       const unisonGain = p.voiceMode === 'unison' ? 0.55 : 1;
 
-      for (const v of this.voices) if (v.active) this.updatePitch(v, glideCoef);
+      for (const v of this.voices) if (v.active) this.updatePitch(v, v.theremin ? 0.35 : glideCoef);
+      for (const v of this.drumVoices) if (v.active) this.updatePitch(v, 1);
+      this.wheelMod = wheelMod;
 
       for (let i = 0; i < n; i++) {
         if (p.arpOn) this.arpTick();
+        if (this.seqRunning) this.seqTick();
         this.noiseMod = this.noiseMod * 0.999 + (Math.random() * 2 - 1) * 0.04;
         let l = 0;
         let r = 0;
         for (let j = 0; j < VOICES; j++) {
           const v = this.voices[j];
           if (v.aenv.stage === IDLE) continue;
-          const c = v.kc || panel;
-          const q = c.p;
-          const mod =
-            q.modSource === 'osc3' ? v.osc[2].out : q.modSource === 'noise' ? this.noiseMod * 4 : this.lfoOut;
-          const pw = Math.min(0.95, Math.max(0.05, q.pw + mod * q.modPw * wheelMod));
-          const fe = v.fenv.next(c.fc);
-          const ae = v.aenv.next(c.ac);
-          // The filter contour also bends the pitch: the drop that makes a kick or a zap.
-          const bendUp = c.pitchEnv ? Math.exp(c.pitchEnv * fe) : 1;
-          const o1 = v.osc[0].next(v.f[0] * bendUp, sr, q.o1Wave, pw);
-          const o2 = v.osc[1].next(v.f[1] * bendUp, sr, q.o2Wave, pw);
-          const o3 = v.osc[2].next(q.o3KeyOff ? v.f[2] : v.f[2] * bendUp, sr, q.o3Wave, pw);
-          const nz = Math.random() * 2 - 1;
-          const mix = (o1 * q.m1 + o2 * q.m2 + o3 * q.m3 + nz * q.noise) * 0.45 * c.drive;
-          const velF = 1 - q.velFilter + q.velFilter * v.vel;
-          const oct = q.fEnvAmt * fe * velF + c.kt * (v.cur - 60) + q.modFilter * wheelMod * mod;
-          const cutoff = q.cutoff * Math.exp(oct * LN2);
-          const y = v.filter.process(mix, cutoff, c.k, sr, q.filterMode) * c.comp;
-          const out = y * ae * (1 - q.velAmp + q.velAmp * v.vel) * (v.drum ? v.drum.gain : unisonGain);
+          const out = this.voiceSample(v, v.kc || panel, unisonGain);
+          l += out * v.gl;
+          r += out * v.gr;
+        }
+        for (let j = 0; j < DRUM_VOICES; j++) {
+          const v = this.drumVoices[j];
+          if (v.aenv.stage === IDLE) continue;
+          const out = this.voiceSample(v, v.kc, 1);
           l += out * v.gl;
           r += out * v.gr;
         }
         L[i] += l * 0.32;
         R[i] += r * 0.32;
       }
+    }
+
+    // One sample of one voice, before panning.
+    voiceSample(v, c, unisonGain) {
+      const q = c.p;
+      const sr = this.sr;
+      const wheelMod = this.wheelMod;
+      const fe = v.fenv.next(c.fc);
+      const ae = v.aenv.next(c.ac);
+      const mod = q.modSource === 'osc3' ? v.osc[2].out : q.modSource === 'noise' ? this.noiseMod * 4 : this.lfoOut;
+
+      // The modulation matrix: each route adds its source, scaled, to a destination.
+      const md = v.md;
+      md.fill(0);
+      for (const m of c.mods) {
+        let x;
+        switch (m.src) {
+          case 1: x = this.lfoOut; break;
+          case 2: x = v.osc[2].out; break;
+          case 3: x = fe; break;
+          case 4: x = ae; break;
+          case 5: x = v.vel; break;
+          case 6: x = this.wheel; break;
+          case 7: x = (v.cur - 60) / 24; break;
+          case 8: x = this.noiseMod * 4; break;
+          default: x = v.rand;
+        }
+        md[m.dst] += x * m.amt;
+      }
+
+      const pw = Math.min(0.95, Math.max(0.05, q.pw + mod * q.modPw * wheelMod + md[4]));
+      // The filter contour also bends the pitch: the drop that makes a kick or a zap.
+      const bend = (c.pitchEnv ? Math.exp(c.pitchEnv * fe) : 1) * (md[0] ? Math.exp((md[0] / 12) * LN2) : 1);
+      const o3 = v.osc[2].next(q.o3KeyOff ? v.f[2] : v.f[2] * bend, sr, q.o3Wave, pw);
+      // FM: oscillator 3 swings oscillator 1's frequency, for bells, clangs and growls.
+      const fm = Math.max(0, q.fm + md[5]);
+      const o1 = v.osc[0].next(v.f[0] * bend * (fm ? 1 + 3 * fm * o3 : 1), sr, q.o1Wave, pw);
+      // Hard sync: oscillator 2 restarts every time oscillator 1 does, for the tearing sync lead.
+      const f2 = v.f[1] * bend * (md[1] ? Math.exp((md[1] / 12) * LN2) : 1);
+      if (q.sync && v.osc[0].wrap >= 0) v.osc[1].syncTo(v.osc[0].wrap, f2, sr);
+      const o2 = v.osc[1].next(f2, sr, q.o2Wave, pw);
+      const nz = Math.random() * 2 - 1;
+      let mix = (o1 * q.m1 + o2 * q.m2 + o3 * q.m3 + nz * q.noise) * 0.45 * c.drive;
+      // Wavefolder: past full scale the wave folds back on itself, adding bright overtones.
+      const fold = Math.min(1, Math.max(0, q.fold + md[6]));
+      if (fold > 0) mix = Math.sin(mix * (1 + fold * 6) * 1.2) * (0.8 + 0.2 * (1 - fold));
+      const velF = 1 - q.velFilter + q.velFilter * v.vel;
+      const oct = q.fEnvAmt * fe * velF + c.kt * (v.cur - 60) + q.modFilter * wheelMod * mod + md[2];
+      const cutoff = q.cutoff * Math.exp(oct * LN2);
+      let k = c.k;
+      let comp = c.comp;
+      if (md[3]) {
+        const res = Math.min(1, Math.max(0, q.res + md[3]));
+        k = res * 4.15;
+        comp = 1 + res * 1.4;
+      }
+      const y = v.filter.process(mix, cutoff, k, sr, q.filterMode) * comp;
+      v.lvl += (v.level - v.lvl) * 0.003;
+      const level = Math.max(0, 1 + md[7]) * v.lvl;
+      return y * ae * (1 - q.velAmp + q.velAmp * v.vel) * (v.drum ? v.drum.gain : unisonGain) * level;
     }
 
     // One message from the page: a note, a wheel, new settings.
@@ -659,6 +877,21 @@
         case 'kit':
           this.setKit(m.kit);
           break;
+        case 'theremin':
+          this.theremin(m.on, m.note, m.level);
+          break;
+        case 'transport':
+          this.setTransport(!!m.running);
+          break;
+        case 'pattern':
+          this.seqPattern = m.pattern;
+          break;
+        case 'drums':
+          this.drumPattern = m.drums;
+          break;
+        case 'drumkit':
+          this.drumKit = this.makeKit(m.kit);
+          break;
         default:
           break;
       }
@@ -678,6 +911,7 @@
         this.synth = new Synth(sampleRate, options.processorOptions.params);
         this.sinceReport = 0;
         this.lastMask = -1;
+        this.lastStep = -1;
         this.port.onmessage = (e) => this.synth.handle(e.data);
       }
 
@@ -692,6 +926,10 @@
         } else {
           this.synth.render(L, R, L.length);
         }
+        if (this.synth.stepNow !== this.lastStep) {
+          this.lastStep = this.synth.stepNow;
+          this.port.postMessage({ type: 'step', step: this.lastStep });
+        }
         this.sinceReport += L.length;
         if (this.sinceReport > 2048) {
           this.sinceReport = 0;
@@ -705,11 +943,40 @@
       }
     }
     registerProcessor('ladder-24', LadderProcessor);
+
+    // The Record button: passes the finished sound straight through and, while
+    // recording, sends a copy of every block to the page to be saved as a WAV.
+    class RecorderProcessor extends AudioWorkletProcessor {
+      constructor() {
+        super();
+        this.recording = false;
+        this.port.onmessage = (e) => (this.recording = !!e.data.recording);
+      }
+
+      process(inputs, outputs) {
+        const input = inputs[0];
+        const output = outputs[0];
+        for (let ch = 0; ch < output.length; ch++) {
+          if (input[ch]) output[ch].set(input[ch]);
+        }
+        if (this.recording && input.length) {
+          const l = new Float32Array(input[0]);
+          const r = new Float32Array(input[1] || input[0]);
+          this.port.postMessage({ l, r }, [l.buffer, r.buffer]);
+        }
+        return true;
+      }
+    }
+    registerProcessor('ladder-recorder', RecorderProcessor);
   }
 
   const api = {
     VOICES,
+    DRUM_VOICES,
     UNISON,
+    MOD_SOURCES,
+    MOD_DESTS,
+    MOD_SLOTS,
     BEATS,
     KIT_BASE,
     KIT_KEYS,

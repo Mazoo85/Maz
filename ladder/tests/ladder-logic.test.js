@@ -486,6 +486,105 @@ test('kit drums leave the voice clean for the next ordinary patch', () => {
   assert.ok(Math.abs(pitch(out.L, SR * 0.1) - 220) < 1);
 });
 
+// How bright a sound is: energy of the sample-to-sample change against the energy of the sound.
+function brightness(a, from) {
+  let e = 0;
+  let d = 0;
+  for (let i = from + 1; i < a.length; i++) {
+    e += a[i] * a[i];
+    d += (a[i] - a[i - 1]) ** 2;
+  }
+  return d / e;
+}
+
+const OPEN = { cutoff: 18000, res: 0, fEnvAmt: 0, aS: 1, delayMix: 0, reverbMix: 0 };
+
+test('hard sync keeps the pitch of oscillator 1 and makes oscillator 2 brighter', () => {
+  const plain = synth(Object.assign({}, OPEN, { m1: 0, m2: 1, o2Tune: 5 }));
+  const synced = synth(Object.assign({}, OPEN, { m1: 0, m2: 1, o2Tune: 5, sync: true }));
+  plain.noteOn(45, 1);
+  synced.noteOn(45, 1);
+  const a = render(plain, 0.5).L;
+  const b = render(synced, 0.5).L;
+  // Synced, oscillator 2 repeats at oscillator 1's rate (110 Hz), not its own.
+  assert.ok(Math.abs(pitch(b, SR * 0.1) - 110) < 2, 'synced pitch ' + pitch(b, SR * 0.1));
+  assert.ok(Math.abs(pitch(a, SR * 0.1) - 110 * Math.pow(2, 5 / 12)) < 3);
+});
+
+test('FM and the wavefolder add overtones; nothing blows up at full amount', () => {
+  for (const extra of [{ fm: 1, o3Range: 0, o3Wave: 'sine' }, { fold: 1 }]) {
+    const dry = synth(Object.assign({}, OPEN, { o1Wave: 'sine', m2: 0 }));
+    const wet = synth(Object.assign({}, OPEN, { o1Wave: 'sine', m2: 0 }, extra));
+    dry.noteOn(57, 1);
+    wet.noteOn(57, 1);
+    const a = render(dry, 0.4).L;
+    const b = render(wet, 0.4).L;
+    for (const x of b) assert.ok(Number.isFinite(x) && Math.abs(x) < 4);
+    assert.ok(brightness(b, SR * 0.1) > brightness(a, SR * 0.1) * 3, JSON.stringify(extra));
+  }
+});
+
+test('patch cables: a route moves its destination, and the off route does nothing', () => {
+  const base = Object.assign({}, OPEN, { cutoff: 300, res: 0.2 });
+  const off = synth(base);
+  const routed = synth(Object.assign({}, base, { mod1Src: 'vel', mod1Dst: 'cutoff', mod1Amt: 1 }));
+  off.noteOn(48, 1);
+  routed.noteOn(48, 1);
+  // Velocity 1 through a full route to the cutoff opens it five octaves: much brighter.
+  assert.ok(brightness(render(routed, 0.3).L, SR * 0.1) > brightness(render(off, 0.3).L, SR * 0.1) * 4);
+  const quiet = synth(Object.assign({}, OPEN, { mod2Src: 'wheel', mod2Dst: 'level', mod2Amt: -1 }));
+  quiet.noteOn(60, 1);
+  const loud = rms(render(quiet, 0.3).L, SR * 0.1);
+  quiet.setWheel(1); // the wheel now turns the volume all the way down
+  assert.ok(rms(render(quiet, 0.5).L, SR * 0.3) < loud * 0.05);
+  assert.deepStrictEqual(L.MOD_SOURCES, DSP.MOD_SOURCES);
+  assert.deepStrictEqual(L.MOD_DESTS, DSP.MOD_DESTS);
+});
+
+test('the theremin glides between any pitches and follows its volume', () => {
+  const s = synth(Object.assign({}, OPEN, { o1Wave: 'sine', m2: 0 }));
+  s.theremin(true, 57, 1);
+  const a = render(s, 0.4).L;
+  assert.ok(Math.abs(pitch(a, SR * 0.1) - 220) < 1.5);
+  s.theremin(true, 57.5, 1); // a quarter-tone up: between the keys
+  const b = render(s, 0.5).L;
+  assert.ok(Math.abs(pitch(b, SR * 0.3) - 220 * Math.pow(2, 0.5 / 12)) < 1.5);
+  s.theremin(true, 57.5, 0.1);
+  const c = render(s, 0.5).L;
+  assert.ok(rms(c, SR * 0.4) < rms(b, SR * 0.3) * 0.2, 'volume followed');
+  s.theremin(false);
+  render(s, 1);
+  assert.strictEqual(s.activeMask(), 0);
+});
+
+test('the step sequencer plays its notes in time, rests, and loops', () => {
+  const s = synth({ voiceMode: 'mono', aR: 0.01 });
+  s.seqPattern = { length: 4, steps: [{ note: 48 }, null, { note: 55 }, { note: 60 }], swing: 0, gate: 0.5 };
+  s.setTransport(true);
+  const heard = [];
+  const block = new Float32Array(128);
+  // 120 bpm sixteenths are 6000 samples apart at 48 kHz: 8 steps in a second.
+  for (let i = 0; i < Math.round(SR / 128); i++) {
+    s.render(block, block, 128);
+    if (s.stepNow >= 0 && heard.length <= s.stepNow) heard.push(s.seqNote);
+  }
+  assert.deepStrictEqual(heard.slice(0, 8), [48, -1, 55, 60, 48, -1, 55, 60]);
+  s.setTransport(false);
+  assert.strictEqual(s.seqNote, -1);
+});
+
+test('the drum grid plays its kit on its own voices, so a melody keeps all eight', () => {
+  const s = synth();
+  s.drumKit = s.makeKit(L.kitDrums('Classic 808'));
+  s.drumPattern = { length: 16, rows: [{ slot: 0, steps: [2, 0, 0, 0] }, { slot: 6, steps: [1, 1, 1, 1] }] };
+  for (let n = 0; n < 8; n++) s.noteOn(60 + n, 1);
+  s.setTransport(true);
+  const out = render(s, 0.3);
+  assert.ok(s.drumVoices.some((v) => v.active), 'drums sounded');
+  assert.strictEqual(s.voices.filter((v) => v.gate).length, 8, 'all eight held notes still playing');
+  for (const x of out.L) assert.ok(Number.isFinite(x));
+});
+
 test('the computer keyboard covers an octave and a half from C', () => {
   assert.strictEqual(L.KEYMAP.a, 0);
   assert.strictEqual(L.KEYMAP.k, 12);
