@@ -196,12 +196,12 @@ test('nothing blows up at the extremes of every knob', () => {
   }
 });
 
-test('poly plays up to 8 notes and steals the oldest after that', () => {
+test('poly plays up to 16 notes and steals the oldest after that', () => {
   const s = synth();
-  for (let n = 0; n < 9; n++) s.noteOn(48 + n, 1);
+  for (let n = 0; n < 17; n++) s.noteOn(40 + n, 1);
   render(s, 0.05);
   const notes = s.voices.map((v) => v.note).sort((a, b) => a - b);
-  assert.deepStrictEqual(notes, [49, 50, 51, 52, 53, 54, 55, 56]);
+  assert.deepStrictEqual(notes, Array.from({ length: 16 }, (_, i) => 41 + i));
 });
 
 test('mono returns to the still-held note when the top one is let go', () => {
@@ -664,6 +664,61 @@ test('starter beats fill 16 steps on the drum rows, and random melodies stay in 
   assert.strictEqual(steps.length, 32);
   for (const st of steps) if (st) assert.ok([0, 3, 5, 7, 10, 12, 15].includes(st.note - 48), 'note ' + st.note);
   assert.ok(steps.filter(Boolean).length > 16, 'mostly notes');
+});
+
+test('the sub-oscillator sounds an octave under oscillator 1', () => {
+  const s = synth(Object.assign({}, OPEN, { m1: 0, m2: 0, sub: 1 }));
+  s.noteOn(57, 1); // A3: oscillator 1 at 220 Hz, so the sub at 110
+  assert.ok(Math.abs(pitch(render(s, 0.5).L, SR * 0.1) - 110) < 1.5);
+});
+
+test('filter 2: its high-pass thins the sound out, in series or in parallel', () => {
+  const plain = synth(Object.assign({}, OPEN, { o1Wave: 'saw' }));
+  const hp = synth(Object.assign({}, OPEN, { o1Wave: 'saw', f2Mode: 'hp', f2Cutoff: 3000, f2Res: 0 }));
+  const par = synth(Object.assign({}, OPEN, { o1Wave: 'saw', f2Mode: 'notch', f2Route: 'parallel' }));
+  for (const s of [plain, hp, par]) s.noteOn(45, 1);
+  const a = render(plain, 0.4).L;
+  const b = render(hp, 0.4).L;
+  const c = render(par, 0.4).L;
+  assert.ok(brightness(b, SR * 0.1) > brightness(a, SR * 0.1) * 3, 'brighter balance once the lows are gone');
+  assert.ok(rms(b, SR * 0.1) < rms(a, SR * 0.1) * 0.6, 'and quieter');
+  for (const x of c) assert.ok(Number.isFinite(x));
+  for (const mode of ['lp', 'bp', 'hp', 'notch']) {
+    const f = new DSP.SVFilter();
+    for (let i = 0; i < 2000; i++) assert.ok(Number.isFinite(f.process(Math.sin(i), 18000, 1, SR, mode)), mode);
+  }
+});
+
+test('LFO 2, LFO 3 and envelope 3 drive the patch cables', () => {
+  const base = Object.assign({}, OPEN, { cutoff: 250, res: 0.2 });
+  for (const route of [
+    { mod1Src: 'env3', e3A: 0.001, e3D: 5, e3S: 1 },
+    { mod1Src: 'lfo2', lfo2Shape: 'square', lfo2Rate: 0.05 },
+    { mod1Src: 'lfo3', lfo3Shape: 'square', lfo3Rate: 0.05 },
+  ]) {
+    const off = synth(base);
+    const on = synth(Object.assign({}, base, route, { mod1Dst: 'cutoff', mod1Amt: 1 }));
+    off.noteOn(48, 1);
+    on.noteOn(48, 1);
+    const a = rms(render(off, 0.3).L, SR * 0.1);
+    const b = rms(render(on, 0.3).L, SR * 0.1);
+    assert.ok(Math.abs(b - a) > a * 0.3, route.mod1Src + ' moved the filter');
+  }
+});
+
+test('16 voices with everything switched on stay well inside real time', () => {
+  const p = Object.assign(L.defaults(), {
+    sub: 0.5, fold: 0.3, fm: 0.3, sync: true, f2Mode: 'bp',
+    mod1Src: 'lfo', mod1Dst: 'cutoff', mod1Amt: 0.4, mod2Src: 'env3', mod2Dst: 'f2cutoff', mod2Amt: 0.5,
+  });
+  const s = new DSP.Synth(SR, L.engineParams(p));
+  for (let n = 0; n < 16; n++) s.noteOn(36 + n * 2, 1);
+  const block = new Float32Array(128);
+  const t = Date.now();
+  for (let i = 0; i < Math.round(SR / 128); i++) s.render(block, block, 128);
+  const ms = Date.now() - t;
+  console.log('      (one second of the worst case took ' + ms + ' ms)');
+  assert.ok(ms < 900, 'took ' + ms + ' ms for one second of sound');
 });
 
 test('the computer keyboard covers an octave and a half from C', () => {

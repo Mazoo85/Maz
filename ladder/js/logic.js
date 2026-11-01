@@ -372,8 +372,8 @@
   const KIT_NAMES = KITS.map((k) => k.name);
 
   // Must match MOD_SOURCES and MOD_DESTS in dsp.js (a test checks).
-  const MOD_SOURCES = ['off', 'lfo', 'osc3', 'fenv', 'aenv', 'vel', 'wheel', 'key', 'noise', 'random'];
-  const MOD_DESTS = ['pitch', 'osc2', 'cutoff', 'res', 'pw', 'fm', 'fold', 'level'];
+  const MOD_SOURCES = ['off', 'lfo', 'osc3', 'fenv', 'aenv', 'vel', 'wheel', 'key', 'noise', 'random', 'lfo2', 'lfo3', 'env3'];
+  const MOD_DESTS = ['pitch', 'osc2', 'cutoff', 'res', 'pw', 'fm', 'fold', 'level', 'f2cutoff', 'sub'];
 
   const WAVES = ['tri', 'saw', 'ramp', 'square', 'pulse', 'sine'];
 
@@ -400,6 +400,7 @@
     { id: 'o3KeyOff', label: 'Osc 3 as LFO', type: 'bool', def: false },
     { id: 'sync', label: 'Sync 2→1', type: 'bool', def: false },
     { id: 'fm', label: 'FM 3→1', type: 'knob', min: 0, max: 1, def: 0, curve: 'pow', unit: '%' },
+    { id: 'sub', label: 'Sub osc', type: 'knob', min: 0, max: 1, def: 0, unit: 'level' },
     { id: 'fold', label: 'Fold', type: 'knob', min: 0, max: 1, def: 0, unit: '%' },
     { id: 'pitchEnv', label: 'Pitch env', type: 'knob', min: -24, max: 24, def: 0, unit: 'semi', bipolar: true },
     { id: 'pw', label: 'Pulse width', type: 'knob', min: 0.05, max: 0.5, def: 0.3, unit: '%' },
@@ -412,6 +413,11 @@
     // Filter
     { id: 'cutoff', label: 'Cutoff', type: 'knob', min: 20, max: 18000, def: 1200, curve: 'log', unit: 'hz' },
     { id: 'filterMode', label: 'Mode', type: 'enum', options: ['lp24', 'lp12', 'bp', 'hp12', 'hp24'], def: 'lp24' },
+    { id: 'f2Mode', label: 'Filter 2', type: 'enum', options: ['off', 'lp', 'bp', 'hp', 'notch'], def: 'off' },
+    { id: 'f2Route', label: 'Route', type: 'enum', options: ['series', 'parallel'], def: 'series' },
+    { id: 'f2Cutoff', label: 'Cutoff 2', type: 'knob', min: 20, max: 18000, def: 2000, curve: 'log', unit: 'hz' },
+    { id: 'f2Res', label: 'Res 2', type: 'knob', min: 0, max: 1, def: 0.2, unit: 'level' },
+    { id: 'f2Env', label: 'Contour 2', type: 'knob', min: -6, max: 6, def: 0, unit: 'oct', bipolar: true },
     { id: 'res', label: 'Emphasis', type: 'knob', min: 0, max: 1, def: 0.35, unit: 'level' },
     { id: 'fEnvAmt', label: 'Contour', type: 'knob', min: -6, max: 6, def: 3, unit: 'oct', bipolar: true },
     { id: 'keyTrack', label: 'Key track', type: 'knob', min: 0, max: 1, def: 0.5, unit: '%' },
@@ -436,10 +442,21 @@
     { id: 'modPitch', label: '→ Pitch', type: 'knob', min: 0, max: 12, def: 0.3, curve: 'pow', unit: 'semi' },
     { id: 'modFilter', label: '→ Filter', type: 'knob', min: 0, max: 4, def: 0, unit: 'oct' },
     { id: 'modPw', label: '→ Width', type: 'knob', min: 0, max: 0.45, def: 0, unit: '%' },
-    // Patch cables: the modulation matrix, four routes from a source to a destination
-    ...[1, 2, 3, 4].flatMap((i) => [
+    // More modulation sources for the patch cables: LFO 2, LFO 3 and a third envelope
+    ...[2, 3].flatMap((i) => [
+      { id: 'lfo' + i + 'Rate', label: 'Rate', type: 'knob', min: 0.05, max: 30, def: i === 2 ? 0.5 : 7, curve: 'log', unit: 'hz' },
+      { id: 'lfo' + i + 'Shape', label: 'Shape', type: 'enum', options: ['tri', 'saw', 'square', 'sh'], def: i === 2 ? 'tri' : 'sh' },
+      { id: 'lfo' + i + 'Sync', label: 'Sync', type: 'bool', def: false },
+      { id: 'lfo' + i + 'Div', label: 'Length', type: 'enum', options: ['4 bars', '2 bars', '1 bar', '1/2', '1/4', '1/8', '1/8T', '1/16'], def: '1 bar' },
+    ]),
+    { id: 'e3A', label: 'Attack', type: 'knob', min: 0.001, max: 10, def: 0.5, curve: 'log', unit: 's' },
+    { id: 'e3D', label: 'Decay', type: 'knob', min: 0.005, max: 10, def: 1, curve: 'log', unit: 's' },
+    { id: 'e3S', label: 'Sustain', type: 'knob', min: 0, max: 1, def: 0.5, unit: 'level' },
+    { id: 'e3R', label: 'Release', type: 'knob', min: 0.005, max: 10, def: 1, curve: 'log', unit: 's' },
+    // Patch cables: the modulation matrix, six routes from a source to a destination
+    ...[1, 2, 3, 4, 5, 6].flatMap((i) => [
       { id: 'mod' + i + 'Src', label: 'From', type: 'enum', menu: true, options: MOD_SOURCES, def: 'off' },
-      { id: 'mod' + i + 'Dst', label: 'To', type: 'enum', menu: true, options: MOD_DESTS, def: i === 1 ? 'cutoff' : i === 2 ? 'pitch' : i === 3 ? 'pw' : 'level' },
+      { id: 'mod' + i + 'Dst', label: 'To', type: 'enum', menu: true, options: MOD_DESTS, def: ['cutoff', 'pitch', 'pw', 'level', 'f2cutoff', 'fold'][i - 1] },
       { id: 'mod' + i + 'Amt', label: 'Amount', type: 'knob', min: -1, max: 1, def: 0, unit: 'amt', bipolar: true },
     ]),
     // Tempo: drives the arpeggiator, a synced LFO and a synced echo
@@ -487,6 +504,16 @@
     order: 'Played',
     random: 'Random',
     off: 'Off',
+    lfo2: 'LFO 2',
+    lfo3: 'LFO 3',
+    env3: 'Env 3',
+    f2cutoff: 'Cutoff 2',
+    sub: 'Sub osc',
+    lp: 'LP',
+    hp: 'HP',
+    notch: 'Notch',
+    series: 'Series',
+    parallel: 'Parallel',
     fenv: 'Filter env',
     aenv: 'Amp env',
     vel: 'Velocity',

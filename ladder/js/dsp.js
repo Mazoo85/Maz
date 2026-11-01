@@ -12,7 +12,7 @@
 
   const TAU = Math.PI * 2;
   const LN2 = Math.LN2;
-  const VOICES = 8;
+  const VOICES = 16;
   const DRUM_VOICES = 6; // the drum grid has its own, so beats never steal a melody's voices
   const UNISON = 5;
 
@@ -142,6 +142,47 @@
     }
   }
 
+  // State-variable filter (the trapezoidal "SVF"): low-pass, band-pass,
+  // high-pass and notch from one circuit, smoother and less fierce than the
+  // ladder. res 0..1; near 1 it rings.
+  class SVFilter {
+    constructor() {
+      this.a = 0;
+      this.b = 0;
+    }
+
+    reset() {
+      this.a = this.b = 0;
+    }
+
+    process(x, cutoff, res, sr, mode) {
+      const g = Math.tan((Math.PI * Math.min(Math.max(cutoff, 8), sr * 0.45)) / sr);
+      const k = 2 - 1.96 * res;
+      const a1 = 1 / (1 + g * (g + k));
+      const a2 = g * a1;
+      const a3 = g * a2;
+      const v3 = x - this.b;
+      const v1 = a1 * this.a + a2 * v3;
+      const v2 = this.b + a2 * this.a + a3 * v3;
+      this.a = 2 * v1 - this.a;
+      this.b = 2 * v2 - this.b;
+      if (!(v2 === v2) || Math.abs(v2) > 1e6) {
+        this.reset();
+        return 0;
+      }
+      switch (mode) {
+        case 'bp':
+          return v1;
+        case 'hp':
+          return x - k * v1 - v2;
+        case 'notch':
+          return x - k * v1;
+        default:
+          return v2;
+      }
+    }
+  }
+
   const IDLE = 0;
   const ATTACK = 1;
   const DECAY = 2;
@@ -241,17 +282,19 @@
       drive: 0.6 + p.drive * 5,
       kt: p.keyTrack / 12,
       pitchEnv: (p.pitchEnv * LN2) / 12,
+      e3c: envCoefs(p.e3A, p.e3D, p.e3S, p.e3R, sr),
+      f2: p.f2Mode !== 'off',
       mods: modRoutes(p),
     };
   }
 
   // The modulation matrix ("patch cables"): up to four routes from a source to
   // a destination, each with a signed amount. Codes keep the per-sample loop cheap.
-  const MOD_SOURCES = ['off', 'lfo', 'osc3', 'fenv', 'aenv', 'vel', 'wheel', 'key', 'noise', 'random'];
-  const MOD_DESTS = ['pitch', 'osc2', 'cutoff', 'res', 'pw', 'fm', 'fold', 'level'];
+  const MOD_SOURCES = ['off', 'lfo', 'osc3', 'fenv', 'aenv', 'vel', 'wheel', 'key', 'noise', 'random', 'lfo2', 'lfo3', 'env3'];
+  const MOD_DESTS = ['pitch', 'osc2', 'cutoff', 'res', 'pw', 'fm', 'fold', 'level', 'f2cutoff', 'sub'];
   // How far a full-amount route moves each destination.
-  const MOD_SCALE = [12, 12, 5, 1, 0.45, 1, 1, 1];
-  const MOD_SLOTS = 4;
+  const MOD_SCALE = [12, 12, 5, 1, 0.45, 1, 1, 1, 5, 1];
+  const MOD_SLOTS = 6;
 
   function modRoutes(p) {
     const out = [];
@@ -276,6 +319,9 @@
       this.filter = new LadderFilter();
       this.fenv = new Envelope();
       this.aenv = new Envelope();
+      this.e3 = new Envelope();
+      this.filter2 = new SVFilter();
+      this.subUp = true;
       this.note = -1;
       this.cur = 60;
       this.target = 60;
@@ -298,6 +344,18 @@
       return this.aenv.stage !== IDLE;
     }
 
+    envOn() {
+      this.fenv.gateOn();
+      this.aenv.gateOn();
+      this.e3.gateOn();
+    }
+
+    envOff() {
+      this.fenv.gateOff();
+      this.aenv.gateOff();
+      this.e3.gateOff();
+    }
+
     setPan(pan) {
       const a = ((pan + 1) * Math.PI) / 4;
       this.gl = Math.cos(a);
@@ -317,6 +375,11 @@
       this.wheel = 0;
       this.lfoPhase = 0;
       this.lfoOut = 0;
+      // LFO 2 and 3: free-running modulation sources for the patch cables.
+      this.lfoX = [
+        { phase: 0, out: 0, sh: 0 },
+        { phase: 0.33, out: 0, sh: 0 },
+      ];
       this.vibrato = 0;
       this.shValue = 0;
       this.noiseMod = 0;
@@ -376,8 +439,7 @@
         for (const v of pool) {
           if (v.active && v.drum && v.drum.choke === d.choke) {
             v.kc = v.drum.choked;
-            v.fenv.gateOff();
-            v.aenv.gateOff();
+            v.envOff();
           }
         }
       }
@@ -392,8 +454,7 @@
       v.age = this.clock;
       v.detune = 0;
       v.setPan(d.pan);
-      v.fenv.gateOn();
-      v.aenv.gateOn();
+      v.envOn();
       this.updatePitch(v, 0);
     }
 
@@ -424,8 +485,7 @@
       for (const v of this.voices) {
         v.gate = false;
         v.note = -1;
-        v.fenv.gateOff();
-        v.aenv.gateOff();
+        v.envOff();
       }
       this.stack = [];
       this.arpNote = -1;
@@ -443,6 +503,7 @@
       for (const v of this.voices) {
         v.fenv.reset();
         v.aenv.reset();
+        v.e3.reset();
         v.filter.reset();
       }
     }
@@ -501,8 +562,7 @@
         v.age = this.clock;
         v.detune = 0;
         v.setPan((((v.index * 5) % VOICES) / (VOICES - 1) * 2 - 1) * this.p.spread * 0.6);
-        v.fenv.gateOn();
-        v.aenv.gateOn();
+        v.envOn();
         this.updatePitch(v, 0);
       } else {
         const i = this.stack.indexOf(note);
@@ -519,8 +579,7 @@
           if (v.gate && v.note === note) {
             v.gate = false;
             if (v.drum) continue; // a drum is a one-shot: it rings out on its own
-            v.fenv.gateOff();
-            v.aenv.gateOff();
+            v.envOff();
           }
         }
         return;
@@ -537,8 +596,7 @@
       } else {
         for (const v of this.monoVoices()) {
           v.gate = false;
-          v.fenv.gateOff();
-          v.aenv.gateOff();
+          v.envOff();
         }
       }
     }
@@ -566,8 +624,7 @@
         v.setPan(spread * this.p.spread);
         v.age = this.clock;
         if (retrigger || !v.gate) {
-          v.fenv.gateOn();
-          v.aenv.gateOn();
+          v.envOn();
         }
         v.gate = true;
         if (this.p.glide <= 0) v.cur = note;
@@ -590,8 +647,7 @@
       if (!on) {
         if (v) {
           v.gate = false;
-          v.fenv.gateOff();
-          v.aenv.gateOff();
+          v.envOff();
           this.thereminVoice = null;
         }
         return;
@@ -610,8 +666,7 @@
         v.gate = true;
         v.age = ++this.clock;
         v.setPan(0);
-        v.fenv.gateOn();
-        v.aenv.gateOn();
+        v.envOn();
         this.thereminVoice = v;
       }
       v.target = note;
@@ -719,6 +774,22 @@
       }
     }
 
+    lfoXStep(n) {
+      const p = this.p;
+      this.lfoX.forEach((l, i) => {
+        const k = 'lfo' + (i + 2);
+        const rate = p[k + 'Sync'] ? p.bpm / 60 / (BEATS[p[k + 'Div']] || 1) : p[k + 'Rate'];
+        let ph = l.phase + (rate * n) / this.sr;
+        if (ph >= 1) {
+          ph -= Math.floor(ph);
+          l.sh = Math.random() * 2 - 1;
+        }
+        l.phase = ph;
+        const shape = p[k + 'Shape'];
+        l.out = shape === 'saw' ? 2 * ph - 1 : shape === 'square' ? (ph < 0.5 ? 1 : -1) : shape === 'sh' ? l.sh : 1 - 4 * Math.abs(ph - 0.5);
+      });
+    }
+
     arpTick() {
       if (this.arpGateLeft > 0 && --this.arpGateLeft === 0 && this.arpNote >= 0) {
         this.stopNote(this.arpNote);
@@ -757,6 +828,7 @@
       const p = this.p;
       const sr = this.sr;
       this.lfoStep(n);
+      this.lfoXStep(n);
       const wheelMod = Math.min(1, p.modDepth + this.wheel);
       const lfoForPitch = p.modSource === 'lfo' ? this.lfoOut : p.modSource === 'noise' ? this.noiseMod : 0;
       this.vibrato = lfoForPitch * wheelMod * p.modPitch;
@@ -800,11 +872,17 @@
       const wheelMod = this.wheelMod;
       const fe = v.fenv.next(c.fc);
       const ae = v.aenv.next(c.ac);
+      const e3 = v.e3.next(c.e3c);
       const mod = q.modSource === 'osc3' ? v.osc[2].out : q.modSource === 'noise' ? this.noiseMod * 4 : this.lfoOut;
 
       // The modulation matrix: each route adds its source, scaled, to a destination.
       const md = v.md;
-      md.fill(0);
+      if (c.mods.length) md.fill(0);
+      else if (v.mdUsed) {
+        md.fill(0);
+        v.mdUsed = false;
+      }
+      if (c.mods.length) v.mdUsed = true;
       for (const m of c.mods) {
         let x;
         switch (m.src) {
@@ -816,7 +894,10 @@
           case 6: x = this.wheel; break;
           case 7: x = (v.cur - 60) / 24; break;
           case 8: x = this.noiseMod * 4; break;
-          default: x = v.rand;
+          case 9: x = v.rand; break;
+          case 10: x = this.lfoX[0].out; break;
+          case 11: x = this.lfoX[1].out; break;
+          default: x = e3;
         }
         md[m.dst] += x * m.amt;
       }
@@ -828,12 +909,15 @@
       // FM: oscillator 3 swings oscillator 1's frequency, for bells, clangs and growls.
       const fm = Math.max(0, q.fm + md[5]);
       const o1 = v.osc[0].next(v.f[0] * bend * (fm ? 1 + 3 * fm * o3 : 1), sr, q.o1Wave, pw);
+      // Sub-oscillator: a square one octave under oscillator 1, flipping each time it starts a cycle.
+      if (v.osc[0].wrap >= 0) v.subUp = !v.subUp;
+      const sub = Math.max(0, q.sub + md[9]);
       // Hard sync: oscillator 2 restarts every time oscillator 1 does, for the tearing sync lead.
       const f2 = v.f[1] * bend * (md[1] ? Math.exp((md[1] / 12) * LN2) : 1);
       if (q.sync && v.osc[0].wrap >= 0) v.osc[1].syncTo(v.osc[0].wrap, f2, sr);
       const o2 = v.osc[1].next(f2, sr, q.o2Wave, pw);
       const nz = Math.random() * 2 - 1;
-      let mix = (o1 * q.m1 + o2 * q.m2 + o3 * q.m3 + nz * q.noise) * 0.45 * c.drive;
+      let mix = (o1 * q.m1 + o2 * q.m2 + o3 * q.m3 + (sub ? (v.subUp ? sub : -sub) : 0) + nz * q.noise) * 0.45 * c.drive;
       // Wavefolder: past full scale the wave folds back on itself, adding bright overtones.
       const fold = Math.min(1, Math.max(0, q.fold + md[6]));
       if (fold > 0) mix = Math.sin(mix * (1 + fold * 6) * 1.2) * (0.8 + 0.2 * (1 - fold));
@@ -847,7 +931,15 @@
         k = res * 4.15;
         comp = 1 + res * 1.4;
       }
-      const y = v.filter.process(mix, cutoff, k, sr, q.filterMode) * comp;
+      let y = v.filter.process(mix, cutoff, k, sr, q.filterMode) * comp;
+      if (c.f2) {
+        // Filter 2 after the ladder (series) or beside it (parallel).
+        const cut2 = q.f2Cutoff * Math.exp((q.f2Env * fe + c.kt * (v.cur - 60) + md[8]) * LN2);
+        y =
+          q.f2Route === 'parallel'
+            ? 0.6 * (y + v.filter2.process(mix, cut2, q.f2Res, sr, q.f2Mode) * 1.4)
+            : v.filter2.process(y, cut2, q.f2Res, sr, q.f2Mode);
+      }
       v.lvl += (v.level - v.lvl) * 0.003;
       const level = Math.max(0, 1 + md[7]) * v.lvl;
       return y * ae * (1 - q.velAmp + q.velAmp * v.vel) * (v.drum ? v.drum.gain : unisonGain) * level;
@@ -1019,6 +1111,7 @@
     polyBlep,
     Oscillator,
     LadderFilter,
+    SVFilter,
     Envelope,
     envCoefs,
     arpSequence,
