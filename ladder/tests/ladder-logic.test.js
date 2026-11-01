@@ -630,6 +630,21 @@ test('the spring reverb rings with repeating chirps and dies away', () => {
   for (const x of l) assert.ok(Number.isFinite(x));
 });
 
+test('starter beats fill 16 steps on the drum rows, and random melodies stay in key', () => {
+  for (const beat of L.STARTER_BEATS) {
+    const rows = L.beatRows(beat);
+    assert.strictEqual(rows.length, L.DRUM_ROWS.length);
+    for (const r of rows) assert.strictEqual(r.length, 16, beat.name);
+    assert.ok(rows[0].some((x) => x), beat.name + ' has a kick');
+  }
+  let seed = 1;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const steps = L.randomMelody(32, 48, rnd);
+  assert.strictEqual(steps.length, 32);
+  for (const st of steps) if (st) assert.ok([0, 3, 5, 7, 10, 12, 15].includes(st.note - 48), 'note ' + st.note);
+  assert.ok(steps.filter(Boolean).length > 16, 'mostly notes');
+});
+
 test('the computer keyboard covers an octave and a half from C', () => {
   assert.strictEqual(L.KEYMAP.a, 0);
   assert.strictEqual(L.KEYMAP.k, 12);

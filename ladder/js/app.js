@@ -65,6 +65,7 @@
         { tag: '2', ids: ['o2Wave', 'o2Range', 'o2Tune'] },
         { tag: '3', ids: ['o3Wave', 'o3Range', 'o3Tune'] },
         { ids: ['pw', 'pitchEnv', 'o3KeyOff'] },
+        { ids: ['fm', 'fold', 'sync'] },
       ],
     },
     { id: 'mixer', title: 'Mixer', rows: [['m1', 'm2'], ['m3', 'noise'], ['drive']] },
@@ -80,11 +81,16 @@
       title: 'Modulation',
       rows: [['modSource', 'lfoShape'], ['lfoRate', 'lfoSync', 'lfoDiv'], ['modDepth', 'modPitch', 'modFilter', 'modPw']],
     },
+    {
+      id: 'cables',
+      title: 'Patch cables',
+      rows: [1, 2, 3, 4].map((i) => ({ tag: String(i), ids: ['mod' + i + 'Src', 'mod' + i + 'Dst', 'mod' + i + 'Amt'] })),
+    },
     { id: 'arp', title: 'Arpeggiator', rows: [['arpOn', 'latch'], ['arpMode'], ['arpOct', 'arpGate'], ['arpDiv']] },
     {
       id: 'fx',
       title: 'Echo & space',
-      rows: [['delaySync', 'delayDiv'], ['delayTime', 'delayFb', 'delayMix'], ['reverbSize', 'reverbMix', 'master']],
+      rows: [['delaySync', 'delayDiv'], ['delayTime', 'delayFb', 'delayMix'], ['reverbSize', 'reverbMix', 'springMix', 'master']],
     },
     { id: 'output', title: 'Output', custom: true },
   ];
@@ -240,7 +246,7 @@
   }
 
   function enumControl(p) {
-    if (p.options.length > 8) return menuControl(p);
+    if (p.menu || p.options.length > 8) return menuControl(p);
     const group = el('div', { class: 'seg' + (ICON_ENUMS.has(p.id) ? ' seg-icons' : ''), role: 'radiogroup', 'aria-label': p.label });
     const buttons = p.options.map((opt) => {
       const label = LL.OPTION_LABELS[opt] || opt;
@@ -506,6 +512,8 @@
   let node = null;
   let fx = null;
   let powering = null;
+  let workletReady = false;
+  let recorder = null;
   const pending = [];
 
   function send(msg) {
@@ -531,10 +539,17 @@
         node = await workletEngine(ctx).catch(() => mainThreadEngine(ctx));
         node.port.onmessage = (e) => {
           if (e.data.type === 'voices') showVoices(e.data.mask);
+          else if (e.data.type === 'step') showStep(e.data.step);
         };
         kitSent = null;
         sendKit();
         fx = buildFx(ctx, node);
+        recorder = buildRecorder(ctx);
+        fx.analyser.disconnect();
+        fx.analyser.connect(recorder);
+        recorder.connect(ctx.destination);
+        drumKitSent = null;
+        sendSong();
         for (const p of LL.PARAMS) if (p.fx) applyFx(p.id, state.params[p.id]);
         tempoChanged();
         send({ type: 'wheel', value: wheels.mod.value });
@@ -557,6 +572,7 @@
     if (!c.audioWorklet) throw new Error('no AudioWorklet');
     const url = URL.createObjectURL(new Blob([DSP.source], { type: 'application/javascript' }));
     await c.audioWorklet.addModule(url);
+    workletReady = true;
     return new AudioWorkletNode(c, 'ladder-24', {
       numberOfInputs: 0,
       numberOfOutputs: 1,
@@ -576,6 +592,7 @@
     const sp = c.createScriptProcessor(1024, 0, 2);
     const port = { onmessage: null, postMessage: (m) => synth.handle(m) };
     let lastMask = -1;
+    let lastStep = -1;
     sp.onaudioprocess = (e) => {
       const L = e.outputBuffer.getChannelData(0);
       const R = e.outputBuffer.getChannelData(1);
@@ -586,6 +603,10 @@
       if (mask !== lastMask && port.onmessage) {
         lastMask = mask;
         port.onmessage({ data: { type: 'voices', mask } });
+      }
+      if (synth.stepNow !== lastStep && port.onmessage) {
+        lastStep = synth.stepNow;
+        port.onmessage({ data: { type: 'step', step: lastStep } });
       }
     };
     sp.port = port;
@@ -642,6 +663,20 @@
     conv.connect(revWet);
     revWet.connect(sum);
 
+    // Spring reverb, like the one built into the Grandmother.
+    const springIn = c.createGain();
+    const spring = c.createConvolver();
+    const springWet = c.createGain();
+    const [sl, sr] = DSP.springImpulse(c.sampleRate, 2.5);
+    const sb = c.createBuffer(2, sl.length, c.sampleRate);
+    sb.copyToChannel(sl, 0);
+    sb.copyToChannel(sr, 1);
+    spring.buffer = sb;
+    src.connect(springIn);
+    springIn.connect(spring);
+    spring.connect(springWet);
+    springWet.connect(sum);
+
     const limiter = c.createDynamicsCompressor();
     limiter.threshold.value = -8;
     limiter.knee.value = 6;
@@ -655,7 +690,7 @@
     limiter.connect(master);
     master.connect(analyser);
     analyser.connect(c.destination);
-    return { dl, dr, feedback, echoWet, conv, revWet, master, analyser, revTimer: 0 };
+    return { dl, dr, feedback, echoWet, conv, revWet, springWet, master, analyser, revTimer: 0 };
   }
 
   function applyFx(id, v) {
@@ -667,6 +702,9 @@
         break;
       case 'delayMix':
         fx.echoWet.gain.setTargetAtTime(v * 0.8, t, 0.02);
+        break;
+      case 'springMix':
+        fx.springWet.gain.setTargetAtTime(v * 1.2, t, 0.02);
         break;
       case 'reverbMix':
         fx.revWet.gain.setTargetAtTime(v * 0.9, t, 0.02);
@@ -704,6 +742,7 @@
 
   // ---------------------------------------------------------------- notes
 
+  let lastPlayed = 48;
   const holds = new Map(); // note -> how many things hold it (mouse, keys, MIDI)
   const sustained = new Set();
   let sustain = false;
@@ -717,6 +756,8 @@
     holds.set(note, n);
     sustained.delete(note);
     if (n === 1) send({ type: 'on', note, vel });
+    lastPlayed = note;
+    if (seqRec) recordStep(note);
     paintKey(note);
   }
 
@@ -855,6 +896,11 @@
     window.addEventListener('keydown', (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey || typing(e)) return;
       const key = e.key.toLowerCase();
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (!e.repeat) togglePlay();
+        return;
+      }
       if (e.key === 'Escape') {
         panic();
         return;
@@ -1075,40 +1121,59 @@
   // ---------------------------------------------------------------- patches
 
   function allPatches() {
-    return LL.PRESETS.map((p) => ({ name: p.name, group: p.group, params: p.params, kind: 'factory' })).concat(
+    return LL.PRESETS.map((p) => ({ name: p.name, group: p.group, params: p.params, kind: 'factory', about: p.about })).concat(
       state.userPatches.map((p) => ({ name: p.name, group: 'Your patches', params: p.params, kind: 'user' }))
     );
   }
 
   // Two menus: a section (Bass, Lead, ...) and the sounds in it. The section
-  // shown follows the sound that is playing.
+  // shown follows the sound that is playing. Two extra views: search results
+  // while something is typed in the search box, and your favourites (★).
   let viewGroup = null;
+  const FAV = '★ Favourites';
+  const FOUND = 'Search results';
+  let favourites = new Set(load('ladder24.favourites') || []);
+  const favKey = (p) => p.kind + ':' + p.name;
 
   function renderPatchList() {
     const list = allPatches();
     const at = currentIndex();
-    if (at >= 0) viewGroup = list[at].group;
-    else if (!viewGroup) viewGroup = list[0].group;
+    const query = $('#search').value.trim();
+    let shown;
+    if (query) {
+      viewGroup = FOUND;
+      shown = LL.searchPatches(list, query);
+    } else {
+      if (viewGroup === FOUND || !viewGroup) viewGroup = at >= 0 ? list[at].group : list[0].group;
+      if (viewGroup === FAV && !favourites.size) viewGroup = at >= 0 ? list[at].group : list[0].group;
+      if (viewGroup !== FAV && at >= 0) viewGroup = list[at].group;
+      shown = list.map((p, i) => i).filter((i) => (viewGroup === FAV ? favourites.has(favKey(list[i])) : list[i].group === viewGroup));
+    }
     const counts = new Map();
     for (const p of list) counts.set(p.group, (counts.get(p.group) || 0) + 1);
     const sections = $('#section-select');
     sections.innerHTML = '';
+    if (query) sections.appendChild(el('option', { value: FOUND, text: shown.length + ' found' }));
+    if (favourites.size) sections.appendChild(el('option', { value: FAV, text: FAV + ' (' + favourites.size + ')' }));
     for (const [g, n] of counts) sections.appendChild(el('option', { value: g, text: g + ' (' + n + ')' }));
     sections.value = viewGroup;
     const sel = $('#patch-select');
     sel.innerHTML = '';
-    list.forEach((p, i) => {
-      if (p.group === viewGroup) sel.appendChild(el('option', { value: String(i), text: p.name }));
-    });
-    if (at < 0) {
-      // A sound loaded from a patch code is in no section yet.
-      const o = el('option', { value: '', text: state.patchName });
+    for (const i of shown) sel.appendChild(el('option', { value: String(i), text: list[i].name }));
+    if (at < 0 || !shown.includes(at)) {
+      // The sound playing isn't in this list (loaded from a code, or outside the search).
+      const o = el('option', { value: '', text: query && !shown.length ? 'Nothing matches “' + query + '”' : state.patchName });
       o.disabled = true;
       sel.prepend(o);
       sel.value = '';
     } else sel.value = String(at);
     $('#edited').hidden = !state.edited;
     $('#delete-patch').hidden = state.patchKind !== 'user';
+    const fav = $('#fav');
+    const isFav = at >= 0 && favourites.has(favKey(list[at]));
+    fav.setAttribute('aria-pressed', String(isFav));
+    fav.title = isFav ? 'Remove from favourites' : 'Add to favourites';
+    $('#about').textContent = at >= 0 && list[at].about ? list[at].about : '';
   }
 
   function currentIndex() {
@@ -1122,6 +1187,17 @@
     const p = list[(i + list.length) % list.length];
     applyPatch(p.params, p.name, p.kind);
     if (!state.params.arpOn) panic();
+  }
+
+  // ‹ › move through favourites or search results while one is showing, otherwise through every sound.
+  function stepPatch(dir) {
+    const sel = $('#patch-select');
+    const shown = [...sel.options].filter((o) => o.value !== '').map((o) => Number(o.value));
+    const at = currentIndex();
+    if ((viewGroup === FAV || viewGroup === FOUND) && shown.length) {
+      const pos = shown.indexOf(at);
+      choosePatch(shown[(pos + dir + shown.length) % shown.length] ?? shown[0]);
+    } else choosePatch(at + dir);
   }
 
   function saveUserPatches() {
@@ -1154,11 +1230,40 @@
     renderPatchList();
     $('#patch-select').addEventListener('change', (e) => choosePatch(Number(e.target.value)));
     $('#section-select').addEventListener('change', (e) => {
-      viewGroup = e.target.value;
-      choosePatch(allPatches().findIndex((p) => p.group === viewGroup));
+      const g = e.target.value;
+      if (g === FOUND) return;
+      $('#search').value = '';
+      viewGroup = g;
+      const list = allPatches();
+      const first = g === FAV ? list.findIndex((p) => favourites.has(favKey(p))) : list.findIndex((p) => p.group === g);
+      choosePatch(first);
     });
-    $('#patch-prev').addEventListener('click', () => choosePatch(currentIndex() - 1));
-    $('#patch-next').addEventListener('click', () => choosePatch(currentIndex() + 1));
+    $('#search').addEventListener('input', renderPatchList);
+    $('#search').addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.target.value = '';
+        renderPatchList();
+      } else if (e.key === 'Enter') {
+        const first = LL.searchPatches(allPatches(), e.target.value)[0];
+        if (first !== undefined) choosePatch(first);
+      }
+    });
+    $('#fav').addEventListener('click', () => {
+      const list = allPatches();
+      const at = currentIndex();
+      if (at < 0) {
+        setStatus('Save this sound first, then it can be a favourite.');
+        return;
+      }
+      const key = favKey(list[at]);
+      if (favourites.has(key)) favourites.delete(key);
+      else favourites.add(key);
+      store('ladder24.favourites', [...favourites]);
+      setStatus(favourites.has(key) ? '★ Added “' + list[at].name + '” to favourites' : 'Removed “' + list[at].name + '” from favourites');
+      renderPatchList();
+    });
+    $('#patch-prev').addEventListener('click', () => stepPatch(-1));
+    $('#patch-next').addEventListener('click', () => stepPatch(1));
     $('#save-btn').addEventListener('click', () => openDrawer('save'));
     $('#share-btn').addEventListener('click', () => openDrawer('share'));
     $('#drawer-close').addEventListener('click', () => ($('#drawer').hidden = true));
@@ -1242,6 +1347,428 @@
     });
   }
 
+  // ---------------------------------------------------------------- studio: sequencer, drum grid, theremin
+
+  const SEQ_MAX = 32;
+  const song = loadSong();
+
+  function exampleSong() {
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const steps = LL.randomMelody(16, 48, rnd).concat(new Array(SEQ_MAX - 16).fill(null));
+    return { steps, length: 16, gate: 0.5, swing: 0, drums: LL.beatRows(LL.STARTER_BEATS[1]), kitId: 'Classic 808' };
+  }
+
+  // The pattern you're working on is kept in this browser, separate from the sound.
+  function loadSong() {
+    const base = exampleSong();
+    const saved = load('ladder24.song');
+    if (!saved || typeof saved !== 'object') return base;
+    const steps = Array.isArray(saved.steps) ? saved.steps.slice(0, SEQ_MAX) : base.steps;
+    while (steps.length < SEQ_MAX) steps.push(null);
+    return {
+      steps: steps.map((st) =>
+        st && Number.isFinite(st.note) ? { note: Math.max(0, Math.min(127, Math.round(st.note))), accent: !!st.accent, slide: !!st.slide } : null
+      ),
+      length: [8, 16, 32].includes(saved.length) ? saved.length : 16,
+      gate: Number.isFinite(saved.gate) ? Math.max(0.1, Math.min(1, saved.gate)) : 0.5,
+      swing: Number.isFinite(saved.swing) ? Math.max(0, Math.min(0.5, saved.swing)) : 0,
+      drums: LL.DRUM_ROWS.map((r, i) =>
+        Array.from({ length: 16 }, (_, j) => {
+          const v = saved.drums && saved.drums[i] && saved.drums[i][j];
+          return v === 1 || v === 2 ? v : 0;
+        })
+      ),
+      kitId: LL.KIT_NAMES.includes(saved.kitId) ? saved.kitId : base.kitId,
+    };
+  }
+
+  let songTimer = 0;
+  function songChanged() {
+    sendSong();
+    clearTimeout(songTimer);
+    songTimer = setTimeout(() => store('ladder24.song', song), 300);
+  }
+
+  let drumKitSent = null;
+  function sendSong() {
+    if (!node) return;
+    send({ type: 'pattern', pattern: { length: song.length, steps: song.steps.slice(0, song.length), swing: song.swing, gate: song.gate } });
+    send({ type: 'drums', drums: { length: 16, rows: LL.DRUM_ROWS.map((r, i) => ({ slot: r.slot, steps: song.drums[i] })) } });
+    if (drumKitSent !== song.kitId) {
+      drumKitSent = song.kitId;
+      send({ type: 'drumkit', kit: LL.kitDrums(song.kitId) });
+    }
+  }
+
+  let playing = false;
+  function togglePlay(force) {
+    const next = typeof force === 'boolean' ? force : !playing;
+    if (next && !ctx) power();
+    else if (next && ctx.state !== 'running') ctx.resume();
+    playing = next;
+    send({ type: 'transport', running: playing });
+    const b = $('#play');
+    b.setAttribute('aria-pressed', String(playing));
+    b.textContent = playing ? '■ Stop' : '▶ Play';
+    if (!playing) showStep(-1);
+  }
+
+  function showStep(step) {
+    document.querySelectorAll('.playing').forEach((c) => c.classList.remove('playing'));
+    if (step < 0) return;
+    const s = document.querySelector('.seq-step[data-i="' + (step % song.length) + '"]');
+    if (s) s.classList.add('playing');
+    document.querySelectorAll('.drum-cell[data-j="' + (step % 16) + '"]').forEach((c) => c.classList.add('playing'));
+  }
+
+  // ---- step sequencer
+
+  let seqRec = false;
+  let cursor = 0;
+
+  function recordStep(note) {
+    song.steps[cursor] = { note, accent: false, slide: false };
+    cursor = (cursor + 1) % song.length;
+    renderSeq();
+    songChanged();
+  }
+
+  function renderSeq() {
+    const grid = $('#seq-grid');
+    grid.innerHTML = '';
+    grid.style.setProperty('--cols', String(Math.min(16, song.length)));
+    for (let i = 0; i < song.length; i++) {
+      const st = song.steps[i];
+      const cell = el('div', { class: 'seq-step' + (st ? ' on' : '') + (i === cursor ? ' cursor' : '') + (i % 4 === 0 ? ' beat' : ''), 'data-i': String(i) });
+      const noteBtn = el('button', {
+        type: 'button',
+        class: 'seq-note',
+        id: 'seq-note-' + i,
+        'aria-label': 'Step ' + (i + 1) + ': ' + (st ? LL.noteName(st.note) : 'rest'),
+        text: st ? LL.noteName(st.note) : '·',
+      });
+      wireStepNote(noteBtn, i);
+      const acc = el('button', { type: 'button', class: 'seq-flag', id: 'seq-acc-' + i, title: 'Accent: play this step louder', text: 'A' });
+      const sl = el('button', { type: 'button', class: 'seq-flag', id: 'seq-slide-' + i, title: 'Slide into the next step', text: 'S' });
+      acc.setAttribute('aria-pressed', String(!!(st && st.accent)));
+      sl.setAttribute('aria-pressed', String(!!(st && st.slide)));
+      acc.disabled = sl.disabled = !st;
+      acc.addEventListener('click', () => {
+        st.accent = !st.accent;
+        renderSeq();
+        songChanged();
+      });
+      sl.addEventListener('click', () => {
+        st.slide = !st.slide;
+        renderSeq();
+        songChanged();
+      });
+      cell.append(noteBtn, el('div', { class: 'seq-flags' }, [acc, sl]));
+      grid.appendChild(cell);
+    }
+    $('#seq-rec').setAttribute('aria-pressed', String(seqRec));
+  }
+
+  // Click a step to switch it on or off; drag up or down (or use the arrow keys) to change its note.
+  function wireStepNote(btn, i) {
+    let drag = null;
+    const setNote = (n) => {
+      if (!song.steps[i]) song.steps[i] = { note: lastPlayed, accent: false, slide: false };
+      song.steps[i].note = Math.max(24, Math.min(96, n));
+      btn.textContent = LL.noteName(song.steps[i].note);
+      songChanged();
+    };
+    btn.addEventListener('pointerdown', (e) => {
+      btn.setPointerCapture(e.pointerId);
+      drag = { y: e.clientY, note: song.steps[i] ? song.steps[i].note : lastPlayed, moved: false };
+    });
+    btn.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const d = Math.round((drag.y - e.clientY) / 8);
+      if (d !== 0 || drag.moved) {
+        drag.moved = true;
+        setNote(drag.note + d);
+      }
+    });
+    btn.addEventListener('pointerup', () => {
+      if (drag && !drag.moved) {
+        song.steps[i] = song.steps[i] ? null : { note: lastPlayed, accent: false, slide: false };
+        songChanged();
+      }
+      drag = null;
+      cursor = i;
+      renderSeq();
+      const again = document.getElementById('seq-note-' + i);
+      if (again) again.focus({ preventScroll: true });
+    });
+    btn.addEventListener('keydown', (e) => {
+      const d = { ArrowUp: 1, ArrowDown: -1 }[e.key];
+      if (!d) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setNote((song.steps[i] ? song.steps[i].note : lastPlayed) + d * (e.shiftKey ? 12 : 1));
+      renderSeq();
+      document.getElementById('seq-note-' + i).focus({ preventScroll: true });
+    });
+  }
+
+  // ---- drum grid
+
+  function renderDrums() {
+    const grid = $('#drum-grid');
+    grid.innerHTML = '';
+    const layout = LL.kitLayout(song.kitId);
+    LL.DRUM_ROWS.forEach((row, r) => {
+      grid.appendChild(el('span', { class: 'drum-name', text: layout[row.slot].name }));
+      for (let j = 0; j < 16; j++) {
+        const v = song.drums[r][j];
+        const b = el('button', {
+          type: 'button',
+          class: 'drum-cell' + (v === 1 ? ' on' : v === 2 ? ' on accent' : '') + (j % 4 === 0 ? ' beat' : ''),
+          id: 'drum-' + r + '-' + j,
+          'data-j': String(j),
+          'aria-label': layout[row.slot].name + ', step ' + (j + 1) + ': ' + (v === 2 ? 'accent' : v ? 'on' : 'off'),
+        });
+        b.addEventListener('click', () => {
+          song.drums[r][j] = (song.drums[r][j] + 1) % 3;
+          renderDrums();
+          songChanged();
+          if (!playing && song.drums[r][j] && node) {
+            if (!ctx || ctx.state !== 'running') power();
+          }
+        });
+        grid.appendChild(b);
+      }
+    });
+  }
+
+  // ---- theremin pad: left to right is pitch (three octaves from C3), bottom to top is volume
+
+  function wireTheremin() {
+    const pad = $('#theremin');
+    const dot = $('#theremin-dot');
+    const readout = $('#theremin-note');
+    let held = null;
+    const at = (e) => {
+      const r = pad.getBoundingClientRect();
+      const x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+      const y = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+      let note = 48 + x * 36;
+      if ($('#theremin-snap').getAttribute('aria-pressed') === 'true') note = Math.round(note);
+      dot.style.left = x * 100 + '%';
+      dot.style.top = y * 100 + '%';
+      readout.textContent = LL.noteName(Math.round(note)) + (Math.abs(note - Math.round(note)) > 0.05 ? (note > Math.round(note) ? ' +' : ' −') : '');
+      return { note, level: Math.max(0.03, 1 - y) };
+    };
+    pad.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      if (!ctx) power();
+      else if (ctx.state !== 'running') ctx.resume();
+      pad.setPointerCapture(e.pointerId);
+      held = e.pointerId;
+      pad.classList.add('held');
+      const p = at(e);
+      send({ type: 'theremin', on: true, note: p.note, level: p.level });
+    });
+    pad.addEventListener('pointermove', (e) => {
+      if (held !== e.pointerId) return;
+      const p = at(e);
+      send({ type: 'theremin', on: true, note: p.note, level: p.level });
+    });
+    const end = (e) => {
+      if (held !== e.pointerId) return;
+      held = null;
+      pad.classList.remove('held');
+      send({ type: 'theremin', on: false });
+    };
+    pad.addEventListener('pointerup', end);
+    pad.addEventListener('pointercancel', end);
+    $('#theremin-snap').addEventListener('click', (e) => {
+      const b = e.currentTarget;
+      b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true'));
+    });
+  }
+
+  // ---- recording
+
+  let recording = false;
+  let recChunks = [];
+  let recStart = 0;
+  let recTimer = 0;
+  let recUrl = null;
+
+  function buildRecorder(c) {
+    if (workletReady) {
+      const n = new AudioWorkletNode(c, 'ladder-recorder', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2] });
+      n.port.onmessage = (e) => {
+        if (recording) recChunks.push(e.data);
+      };
+      return n;
+    }
+    const sp = c.createScriptProcessor(4096, 2, 2);
+    let on = false;
+    sp.onaudioprocess = (e) => {
+      const l = e.inputBuffer.getChannelData(0);
+      const r = e.inputBuffer.numberOfChannels > 1 ? e.inputBuffer.getChannelData(1) : l;
+      e.outputBuffer.getChannelData(0).set(l);
+      e.outputBuffer.getChannelData(1).set(r);
+      if (on && recording) recChunks.push({ l: new Float32Array(l), r: new Float32Array(r) });
+    };
+    sp.port = { postMessage: (m) => (on = !!m.recording) };
+    return sp;
+  }
+
+  const clock = (sec) => Math.floor(sec / 60) + ':' + String(Math.floor(sec % 60)).padStart(2, '0');
+
+  async function toggleRecord() {
+    const b = $('#rec');
+    if (!recording) {
+      await power();
+      if (!recorder) return;
+      recChunks = [];
+      recording = true;
+      recorder.port.postMessage({ recording: true });
+      recStart = performance.now();
+      b.setAttribute('aria-pressed', 'true');
+      b.textContent = '● 0:00';
+      recTimer = setInterval(() => (b.textContent = '● ' + clock((performance.now() - recStart) / 1000)), 250);
+      setStatus('Recording everything you play. Press the button again to stop.');
+      return;
+    }
+    recording = false;
+    recorder.port.postMessage({ recording: false });
+    clearInterval(recTimer);
+    b.setAttribute('aria-pressed', 'false');
+    b.textContent = '● Rec';
+    const frames = recChunks.reduce((n, c) => n + c.l.length, 0);
+    if (!frames) {
+      setStatus('Nothing was recorded. Press Rec, play, then press it again.', true);
+      return;
+    }
+    const L = new Float32Array(frames);
+    const R = new Float32Array(frames);
+    let at = 0;
+    for (const c of recChunks) {
+      L.set(c.l, at);
+      R.set(c.r, at);
+      at += c.l.length;
+    }
+    recChunks = [];
+    const wav = LL.encodeWav(L, R, ctx.sampleRate);
+    if (recUrl) URL.revokeObjectURL(recUrl);
+    recUrl = URL.createObjectURL(new Blob([wav], { type: 'audio/wav' }));
+    const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ').replace(':', '.');
+    const name = 'Ladder 24 - ' + state.patchName.replace(/[\\/:*?"<>|]/g, '') + ' - ' + stamp + '.wav';
+    const box = $('#take');
+    box.hidden = false;
+    $('#take-audio').src = recUrl;
+    $('#take-info').textContent = 'Recording, ' + clock(frames / ctx.sampleRate) + ' long.';
+    const save = $('#take-save');
+    save.href = recUrl;
+    save.download = name;
+    setStatus('Recorded ' + clock(frames / ctx.sampleRate) + '. Listen back, then save it as a WAV file.');
+  }
+
+  function wireStudio() {
+    // Tabs
+    const tabs = [...document.querySelectorAll('.studio-tab')];
+    const show = (id) => {
+      for (const t of tabs) {
+        const on = t.dataset.tab === id;
+        t.setAttribute('aria-selected', String(on));
+        $('#' + t.dataset.tab).hidden = !on;
+      }
+      store('ladder24.tab', id);
+    };
+    tabs.forEach((t) => t.addEventListener('click', () => show(t.dataset.tab)));
+    show(tabs.some((t) => t.dataset.tab === load('ladder24.tab')) ? load('ladder24.tab') : 'tab-seq');
+
+    $('#play').addEventListener('click', () => togglePlay());
+    const swing = $('#swing');
+    swing.value = String(Math.round(song.swing * 100));
+    swing.addEventListener('input', () => {
+      song.swing = Number(swing.value) / 100;
+      $('#swing-value').textContent = swing.value + '%';
+      songChanged();
+    });
+    $('#swing-value').textContent = swing.value + '%';
+
+    // Step sequencer controls
+    const len = $('#seq-length');
+    len.value = String(song.length);
+    len.addEventListener('change', () => {
+      song.length = Number(len.value);
+      cursor = Math.min(cursor, song.length - 1);
+      renderSeq();
+      songChanged();
+    });
+    const gate = $('#seq-gate');
+    gate.value = String(Math.round(song.gate * 100));
+    gate.addEventListener('input', () => {
+      song.gate = Number(gate.value) / 100;
+      songChanged();
+    });
+    $('#seq-rec').addEventListener('click', () => {
+      seqRec = !seqRec;
+      if (seqRec) setStatus('Step record: each key you play fills the next step. Rest leaves a gap.');
+      renderSeq();
+    });
+    $('#seq-rest').addEventListener('click', () => {
+      song.steps[cursor] = null;
+      cursor = (cursor + 1) % song.length;
+      renderSeq();
+      songChanged();
+    });
+    $('#seq-random').addEventListener('click', () => {
+      const root = 36 + 12 * Math.max(0, Math.min(2, Math.floor((lastPlayed - 36) / 12)));
+      const fresh = LL.randomMelody(song.length, root);
+      for (let i = 0; i < song.length; i++) song.steps[i] = fresh[i];
+      renderSeq();
+      songChanged();
+    });
+    $('#seq-clear').addEventListener('click', () => {
+      song.steps.fill(null);
+      cursor = 0;
+      renderSeq();
+      songChanged();
+    });
+
+    // Drum grid controls
+    const kit = $('#drum-kit');
+    for (const n of LL.KIT_NAMES) kit.appendChild(el('option', { value: n, text: n }));
+    kit.value = song.kitId;
+    kit.addEventListener('change', () => {
+      song.kitId = kit.value;
+      renderDrums();
+      songChanged();
+    });
+    const starter = $('#drum-starter');
+    for (const b of LL.STARTER_BEATS) starter.appendChild(el('option', { value: b.name, text: b.name }));
+    starter.addEventListener('change', () => {
+      const beat = LL.STARTER_BEATS.find((b) => b.name === starter.value);
+      if (beat) {
+        song.drums = LL.beatRows(beat);
+        renderDrums();
+        songChanged();
+        setStatus('Loaded the ' + beat.name + ' beat. Press Play.');
+      }
+      starter.value = '';
+    });
+    $('#drum-clear').addEventListener('click', () => {
+      song.drums = LL.DRUM_ROWS.map(() => new Array(16).fill(0));
+      renderDrums();
+      songChanged();
+    });
+
+    wireTheremin();
+    $('#rec').addEventListener('click', toggleRecord);
+    $('#take-close').addEventListener('click', () => ($('#take').hidden = true));
+    if (location.protocol !== 'ladder:') $('#take-note').hidden = false;
+    renderSeq();
+    renderDrums();
+  }
+
   // ---------------------------------------------------------------- start
 
   function start(saved) {
@@ -1264,6 +1791,7 @@
     wireWheels();
     wireKeys();
     buildKeys();
+    wireStudio();
     startScope();
 
     $('#power').addEventListener('click', () => {

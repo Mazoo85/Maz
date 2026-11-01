@@ -2172,7 +2172,63 @@
     return hits.sort((a, b) => b.score - a.score || a.i - b.i).map((h) => h.i);
   }
 
+  // ---------------------------------------------------------------- drum grid and step sequencer
+
+  // The drum grid's rows: which drum of the chosen kit each one plays (a kit slot).
+  const DRUM_ROWS = [
+    { role: 'kick', slot: 0 },
+    { role: 'snare', slot: 2 },
+    { role: 'clap', slot: 3 },
+    { role: 'chh', slot: 6 },
+    { role: 'ohh', slot: 10 },
+    { role: 'tomL', slot: 5 },
+    { role: 'tomH', slot: 9 },
+    { role: 'crash', slot: 11 },
+  ];
+
+  // Starter beats, one line per row in DRUM_ROWS order: x a hit, X an accented hit.
+  const STARTER_BEATS = [
+    { name: 'Four on the floor', rows: ['x...x...x...x...', '................', '....x.......x...', 'x.x.x.x.x.x.x.x.', '..x...x...x...x.', '', '', ''] },
+    { name: 'Hip-hop', rows: ['X.....x...x.....', '....X.......X...', '', 'x.x.x.x.x.x.x.x.', '..............x.', '', '', ''] },
+    { name: 'Trap', rows: ['X......x..x.....', '........X.......', '........x.......', 'xxxxxxxxxxxxxXxx', '......x.........', '', '', ''] },
+    { name: 'Rock', rows: ['X.......x.x.....', '....X.......X...', '', 'x.x.x.x.x.x.x.x.', '', '', '', 'X...............'] },
+    { name: 'Disco', rows: ['X...x...x...x...', '....X.......X...', '', 'x.x.x.x.x.x.x.x.', '..x...x...x...x.', '', '', ''] },
+    { name: 'Breakbeat', rows: ['X.........x.....', '....X..x.x..X..x', '', 'x.x.x.x.x.x.x.x.', '', '', '', ''] },
+    { name: 'Reggaeton', rows: ['X...x...X...x...', '...x..x....x..x.', '', 'x.x.x.x.x.x.x.x.', '', '', '', ''] },
+    { name: 'Drum & bass', rows: ['X.........x.....', '....X.......X...', '', 'x.xxx.x.x.xxx.x.', '', '', '', ''] },
+    { name: 'Tom groove', rows: ['X.......X.......', '....x.......x...', '', 'x.x.x.x.x.x.x.x.', '', '..x..x....x.....', 'x.....x.....x.x.', ''] },
+  ];
+
+  function beatRows(beat) {
+    return DRUM_ROWS.map((r, i) => {
+      const line = (beat.rows[i] || '').padEnd(16, '.');
+      return Array.from(line.slice(0, 16), (c) => (c === 'X' ? 2 : c === 'x' ? 1 : 0));
+    });
+  }
+
+  // A melody that always sounds right: notes from a minor pentatonic scale
+  // around the root, with rests, accents and the odd slide.
+  function randomMelody(length, root, rnd) {
+    const r = rnd || Math.random;
+    const scale = [0, 3, 5, 7, 10, 12, 15];
+    const steps = [];
+    let at = 0;
+    for (let i = 0; i < length; i++) {
+      if (i > 0 && r() < 0.25) {
+        steps.push(null);
+        continue;
+      }
+      at = Math.max(0, Math.min(scale.length - 1, at + Math.round((r() - 0.5) * 3)));
+      steps.push({ note: root + scale[at], accent: i % 4 === 0 || r() < 0.15, slide: r() < 0.12 });
+    }
+    return steps;
+  }
+
   const api = {
+    DRUM_ROWS,
+    STARTER_BEATS,
+    beatRows,
+    randomMelody,
     encodeWav,
     searchPatches,
     WAVES,

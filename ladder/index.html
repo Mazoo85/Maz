@@ -21,10 +21,12 @@
         <span class="model">Polyphonic ladder synthesizer</span>
       </div>
       <div class="patchbar" aria-label="Patches">
+        <input type="search" id="search" class="search" placeholder="Search sounds" aria-label="Search sounds" autocomplete="off">
         <select id="section-select" aria-label="Section"></select>
         <button type="button" class="btn btn-icon" id="patch-prev" aria-label="Previous patch">‹</button>
         <select id="patch-select" aria-label="Sound"></select>
         <button type="button" class="btn btn-icon" id="patch-next" aria-label="Next patch">›</button>
+        <button type="button" class="btn btn-icon fav" id="fav" aria-pressed="false" title="Add to favourites">★</button>
         <span class="edited" id="edited" hidden>edited</span>
         <button type="button" class="btn" id="save-btn">Save</button>
         <button type="button" class="btn" id="share-btn">Share</button>
@@ -40,12 +42,21 @@
         <button type="button" class="btn" id="tap" title="Tap along to set the tempo">Tap</button>
         <button type="button" class="btn btn-toggle" id="tempo-hold" aria-pressed="false" title="Keep this tempo when you change patch">Hold</button>
       </div>
+      <button type="button" class="btn rec" id="rec" aria-pressed="false" title="Record what you play to a WAV file">● Rec</button>
       <button type="button" class="power" id="power" role="switch" aria-checked="false">
         <span class="power-led" aria-hidden="true"></span>
         <span class="power-label">Power</span>
       </button>
     </header>
     <p class="status" id="status" role="status"></p>
+    <p class="about" id="about"></p>
+    <div class="take" id="take" hidden>
+      <span id="take-info">Recording</span>
+      <audio id="take-audio" controls></audio>
+      <a class="btn btn-go" id="take-save" href="#" download="Ladder 24.wav">Save WAV</a>
+      <button type="button" class="btn btn-icon" id="take-close" aria-label="Close">×</button>
+      <span class="take-note" id="take-note" hidden>If nothing downloads here, use the Ladder 24 desktop program to save recordings.</span>
+    </div>
 
     <div class="drawer" id="drawer" hidden>
       <form id="save-form" class="drawer-part" autocomplete="off">
@@ -82,6 +93,64 @@
   <div class="cheek" aria-hidden="true"></div>
 </div>
 
+<section class="studio" aria-label="Studio">
+  <div class="studio-bar">
+    <div class="studio-tabs" role="tablist" aria-label="Studio">
+      <button type="button" class="studio-tab" role="tab" data-tab="tab-seq" id="t-seq">Step sequencer</button>
+      <button type="button" class="studio-tab" role="tab" data-tab="tab-drums" id="t-drums">Drum grid</button>
+      <button type="button" class="studio-tab" role="tab" data-tab="tab-theremin" id="t-theremin">Theremin</button>
+    </div>
+    <div class="transport">
+      <button type="button" class="btn btn-go play" id="play" aria-pressed="false" title="Play the sequencer and drum grid together (space bar)">▶ Play</button>
+      <label class="slider-label" for="swing">Swing</label>
+      <input type="range" id="swing" min="0" max="50" step="1" value="0">
+      <output id="swing-value" for="swing">0%</output>
+    </div>
+  </div>
+
+  <div class="studio-panel" id="tab-seq" role="tabpanel" aria-labelledby="t-seq">
+    <div class="studio-controls">
+      <label class="slider-label" for="seq-length">Steps</label>
+      <select id="seq-length" class="ctl-menu"><option value="8">8</option><option value="16">16</option><option value="32">32</option></select>
+      <label class="slider-label" for="seq-gate">Note length</label>
+      <input type="range" id="seq-gate" min="10" max="100" step="5" value="50">
+      <button type="button" class="btn btn-toggle" id="seq-rec" aria-pressed="false" title="Each key you play fills the next step">Step record</button>
+      <button type="button" class="btn" id="seq-rest">Rest</button>
+      <button type="button" class="btn" id="seq-random" title="Fill the steps with a melody that fits together">Random melody</button>
+      <button type="button" class="btn" id="seq-clear">Clear</button>
+    </div>
+    <p class="studio-help">Click a step to switch it on or off. Drag a step up or down (or use the arrow keys) to change its note. <b>A</b> plays it louder, <b>S</b> slides into the next step.</p>
+    <div class="grid-scroll"><div class="seq-grid" id="seq-grid"></div></div>
+  </div>
+
+  <div class="studio-panel" id="tab-drums" role="tabpanel" aria-labelledby="t-drums" hidden>
+    <div class="studio-controls">
+      <label class="slider-label" for="drum-kit">Kit</label>
+      <select id="drum-kit" class="ctl-menu"></select>
+      <label class="slider-label" for="drum-starter">Starter beat</label>
+      <select id="drum-starter" class="ctl-menu"><option value="">Choose a beat…</option></select>
+      <button type="button" class="btn" id="drum-clear">Clear</button>
+    </div>
+    <p class="studio-help">Click a square to add a hit; click again for a louder hit, and once more to clear it. Sixteen steps make one bar.</p>
+    <div class="grid-scroll"><div class="drum-grid" id="drum-grid"></div></div>
+  </div>
+
+  <div class="studio-panel" id="tab-theremin" role="tabpanel" aria-labelledby="t-theremin" hidden>
+    <div class="studio-controls">
+      <button type="button" class="btn btn-toggle" id="theremin-snap" aria-pressed="false" title="Land on exact notes instead of sliding between them">Snap to notes</button>
+      <span class="theremin-note" id="theremin-note">—</span>
+    </div>
+    <p class="studio-help">Press and move inside the pad: left to right is pitch, bottom to top is volume. It plays the sound that is loaded; try Etherwave Theremin in Moog Classics.</p>
+    <div class="theremin" id="theremin">
+      <span class="theremin-oct" style="left:0%">C3</span>
+      <span class="theremin-oct" style="left:33.333%">C4</span>
+      <span class="theremin-oct" style="left:66.667%">C5</span>
+      <span class="theremin-oct theremin-oct-end">C6</span>
+      <span class="theremin-dot" id="theremin-dot"></span>
+    </div>
+  </div>
+</section>
+
 <section class="playdeck" aria-label="Keyboard">
   <div class="playbar">
     <div class="octave">
@@ -89,7 +158,7 @@
       <span id="octave-label" class="octave-label">C3–C5</span>
       <button type="button" class="btn btn-icon" id="oct-up" aria-label="Octave up">+</button>
     </div>
-    <p class="hint"><span class="hint-wide">Play with your keys: A W S E D F T G Y H U J K. Z and X change octave. Esc stops all notes.</span><span class="hint-narrow">Tap the keys to play. Slide for glissando.</span></p>
+    <p class="hint"><span class="hint-wide">Play with your keys: A W S E D F T G Y H U J K. Z and X change octave. Space plays the sequencer. Esc stops all notes.</span><span class="hint-narrow">Tap the keys to play. Slide for glissando.</span></p>
     <span class="midi" id="midi" hidden></span>
   </div>
   <div class="playarea">

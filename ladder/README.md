@@ -31,22 +31,46 @@ install steps.
 |---|---|
 | **Controllers** | Glide (portamento), bend range, voice mode (Poly 8 voices / Mono / Legato / Unison 5 stacked voices), unison detune, stereo width. |
 | **Oscillator bank** | Three oscillators, each with six band-limited waves (triangle, saw, ramp, square, pulse, sine) and a range switch from 32' to 2'. Oscillators 2 and 3 tune ±7 semitones. Pulse width. Osc 3 can leave the keyboard and run as a slow LFO. **Pitch env** bends every oscillator with the filter contour, ±24 semitones: the drop in a kick, a tom or a zap. |
+| **Sync, FM, Fold** | **Sync 2→1** restarts oscillator 2 every time oscillator 1 does (the tearing sync lead). **FM 3→1** lets oscillator 3 swing oscillator 1's pitch at audio rate (bells, clangs, growls). **Fold** folds the wave back on itself before the filter (the Messenger's trick). |
 | **Mixer** | Levels for the three oscillators and white noise, plus Drive, which pushes the filter input into saturation. |
 | **Ladder filter** | A zero-delay-feedback model of the four-pole ladder, with a tanh at its input. **Mode** mixes its four stages for low-pass 24 or 12 dB, band-pass, or high-pass 12 or 24 dB. Cutoff, Emphasis (resonance, which self-oscillates into a pure sine at the top), Contour amount (±6 octaves) and key tracking, with its own ADSR. |
 | **Loudness contour** | ADSR for the volume, and touch (velocity) amounts for volume and brightness. |
 | **Modulation** | Source (LFO, Osc 3 at audio rate, or smoothed noise), LFO shape (triangle, saw, square, sample & hold), rate or **Sync** to the tempo (4 bars down to 1/16), a base amount the mod wheel adds to, and depths to pitch, filter and pulse width. |
+| **Patch cables** | Four routes, each from a source (LFO, osc 3, filter or loudness envelope, velocity, mod wheel, key, noise, or a random value per note) to a destination (pitch, osc 2 pitch, cutoff, emphasis, pulse width, FM, fold, volume), with an amount that can go either way. |
 | **Arpeggiator** | Up, down, up-down, as-played, random; 1–4 octaves; 1/4 to 1/32 steps including triplets, at the panel tempo; gate length; latch. It runs inside the audio engine, so the timing is sample-accurate. |
-| **Echo & space** | A ping-pong echo that darkens with each repeat, **synced to the tempo** by default (1/16 to 1/2, dotted and triplet) or free-running in milliseconds, a generated reverb with an adjustable room size, and the master volume (with a limiter after it). |
+| **Echo & space** | A ping-pong echo that darkens with each repeat, **synced to the tempo** by default (1/16 to 1/2, dotted and triplet) or free-running in milliseconds, a generated reverb with an adjustable room size, a **spring reverb** (falling "boing" chirps, like the Grandmother's), and the master volume (with a limiter after it). |
 | **Output** | An oscilloscope, a light for each of the eight voices, and an all-notes-off button. |
+
+## Studio
+
+Under the panel, three tabs share one **Play** button (or the space bar) and a
+**Swing** slider. Everything follows the panel tempo.
+
+| Tab | What it does |
+|---|---|
+| **Step sequencer** | 8, 16 or 32 steps. Click a step to switch it on, drag it up or down to change its note, **A** for a louder step, **S** to slide into the next. **Step record** fills the next step with every key you play; **Rest** leaves a gap. **Random melody** fills the steps with notes from a scale that always fit together. |
+| **Drum grid** | Eight rows (kick, snare, clap, hats, toms, crash) by sixteen steps, playing any of the 30 drum kits on six voices of their own, so a beat never steals notes from what you play on top. Click once for a hit, twice for a louder one. **Starter beat** loads one of nine ready-made beats. |
+| **Theremin** | A pad you play by pressing and moving: left to right is pitch over three octaves, bottom to top is volume, sliding between notes like the real thing, or **Snap to notes**. |
+
+The pattern is kept in your browser, separate from the sound.
+
+## Recording
+
+**● Rec** in the top bar records everything you hear. Press it again to stop,
+listen back, and **Save WAV** for a 16-bit stereo file you can put in a video
+or load into music software. In the desktop program it asks where to save;
+some web views block downloads.
 
 ## Patches
 
-Three hundred and thirty factory sounds: **30 in each of eleven sections**, plus a plain
+Three hundred and sixty factory sounds: **30 in each of twelve sections**, plus a plain
 **Init** patch to start from scratch. Pick a section in the first menu and a
-sound in the second; **‹ ›** step through every sound in order.
+sound in the second; **‹ ›** step through every sound in order. Type in **Search sounds**
+to find one by name, section or note, and press **★** to add it to your **Favourites**.
 
 | Section | Sounds |
 |---|---|
+| **Moog Classics** | Switched-On Bach, System 55 Brass, Model D Bass, Model D Glide Solo, Model D Overload, Taurus Pedals, Polymoog Strings, Polymoog Vox, Micromoog Bass, Multimoog Lead, Prodigy Sync Lead, Prodigy Bass, Rogue Bass, Source Sync Sweep, Messenger Fold Bass, Memorymoog Brass, Memorymoog Pad, Memorymoog Unison, Liberation Keytar, Opus 3 Strings, Voyager Lead, Etherwave Theremin, Little Phatty Bass, Sub 37 Growl, Sub Phatty Wobble, Minitaur Sub, Mother-32 Patch, DFAM Percussion, Subharmonicon Drone, Grandmother Spring Keys (each with a note on the real instrument it is inspired by) |
 | **Bass** | Fat Bass, Sub Bass, Pedal Drop, Rubber Pluck, Acid Squelch, Funk Bass, Growl Bass, Reese Bass, Synth-Pop Bass, Round Bass, Punch Bass, Pluck Bass, Soul Bass, Wide Unison Bass, Detroit Bass, Electro Bass, 808 Glide Bass, Hoover Bass, Dub Bass, Squelchy Saw, Fingered Bass, Synced Wobble, Triplet Wobble, Gritty Bass, Velvet Sub, Hollow Bass, Snappy Bass, Rumble Bass, Fifth Stab Bass, Talking Bass |
 | **Lead** | Glide Lead, Prog Solo, Screaming Emphasis, Square Lead, Fifths Lead, Theremin, Chiptune Lead, Bright Saw Lead, Soft Flute Lead, Whistle Lead, Pan Pipe, Brass Lead, G-Funk Lead, Acid Lead, Nasal Lead, Detuned Lead, Fat Mono Lead, Portamento Lead, Handheld Game Lead, Laser Lead, Smooth Sine Lead, Overdrive Lead, Hollow Square Lead, Octave Lead, Weeping Lead, Oboe Lead, Clarinet Lead, Trumpet Lead, Wah Lead, Siren Lead |
 | **Keys** | Electric Piano, Clav, Drawbar Organ, Poly Stab, Bell Piano, Reed Piano, Lo-Fi Piano, Toy Piano, Harpsichord, Celesta, Mallet Keys, Muted Keys, Synth Keys, House Piano, Combo Organ, Church Organ, Gospel Organ, Bright Piano, Upright Piano, Glass Keys, Tine Piano, Bright Tines, Accordion, Harmonium, Music Box, Clavinet Wah, Mellow Keys, Stab Organ, Rock Organ, Bark Piano |
