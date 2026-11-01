@@ -629,7 +629,90 @@
     return buf;
   }
 
-  function buildFx(c, src) {
+  // The effects rack, in the order of an old pedalboard: distortion, ring
+  // modulator (like the Moogerfooger MF-102), phaser, chorus.
+  function buildRack(c, src) {
+    const rack = {};
+    const wire = (from, to) => (from.connect(to), to);
+
+    // Distortion: a soft-clipping curve, then a tone control.
+    const dist = c.createWaveShaper();
+    dist.oversample = '2x';
+    const tone = c.createBiquadFilter();
+    tone.type = 'lowpass';
+    rack.dist = dist;
+    rack.tone = tone;
+    wire(wire(src, dist), tone);
+
+    // Ring modulator: the sound multiplied by a sine, for clangs and robot voices.
+    const ringIn = c.createGain();
+    const ringDry = c.createGain();
+    const ringMul = c.createGain();
+    ringMul.gain.value = 0;
+    const ringWet = c.createGain();
+    const ringOut = c.createGain();
+    const carrier = c.createOscillator();
+    carrier.connect(ringMul.gain);
+    carrier.start();
+    tone.connect(ringIn);
+    ringIn.connect(ringDry).connect(ringOut);
+    ringIn.connect(ringMul).connect(ringWet).connect(ringOut);
+    Object.assign(rack, { carrier, ringDry, ringWet });
+
+    // Phaser: four all-pass stages swept by a slow LFO, with feedback.
+    const phDry = c.createGain();
+    const phWet = c.createGain();
+    const phOut = c.createGain();
+    const stages = [0, 1, 2, 3].map(() => {
+      const f = c.createBiquadFilter();
+      f.type = 'allpass';
+      f.frequency.value = 900;
+      f.Q.value = 0.6;
+      return f;
+    });
+    const phLfo = c.createOscillator();
+    const phDepth = c.createGain();
+    phDepth.gain.value = 700;
+    phLfo.connect(phDepth);
+    stages.forEach((f) => phDepth.connect(f.frequency));
+    phLfo.start();
+    const phFb = c.createGain();
+    const phLoop = c.createDelay(0.01);
+    phLoop.delayTime.value = 0;
+    ringOut.connect(phDry).connect(phOut);
+    ringOut.connect(stages[0]);
+    for (let i = 0; i < 3; i++) stages[i].connect(stages[i + 1]);
+    stages[3].connect(phWet).connect(phOut);
+    stages[3].connect(phFb).connect(phLoop).connect(stages[0]);
+    Object.assign(rack, { phLfo, phFb, phDry, phWet });
+
+    // Chorus: two short delays wobbled by an LFO, one per side, against each other.
+    const chDry = c.createGain();
+    const chWet = c.createGain();
+    const chOut = c.createGain();
+    const merge = c.createChannelMerger(2);
+    const chLfo = c.createOscillator();
+    const chDepthL = c.createGain();
+    const chDepthR = c.createGain();
+    const delays = [c.createDelay(0.05), c.createDelay(0.05)];
+    delays.forEach((d, i) => {
+      d.delayTime.value = 0.015;
+      phOut.connect(d);
+      d.connect(merge, 0, i);
+    });
+    chLfo.connect(chDepthL).connect(delays[0].delayTime);
+    chLfo.connect(chDepthR).connect(delays[1].delayTime);
+    chLfo.start();
+    merge.connect(chWet).connect(chOut);
+    phOut.connect(chDry).connect(chOut);
+    Object.assign(rack, { chLfo, chDepthL, chDepthR, chDry, chWet });
+    rack.out = chOut;
+    return rack;
+  }
+
+  function buildFx(c, engine) {
+    const rack = buildRack(c, engine);
+    const src = rack.out;
     const sum = c.createGain();
     src.connect(sum);
 
@@ -690,7 +773,7 @@
     limiter.connect(master);
     master.connect(analyser);
     analyser.connect(c.destination);
-    return { dl, dr, feedback, echoWet, conv, revWet, springWet, master, analyser, revTimer: 0 };
+    return { rack, dl, dr, feedback, echoWet, conv, revWet, springWet, master, analyser, revTimer: 0 };
   }
 
   function applyFx(id, v) {
@@ -702,6 +785,41 @@
         break;
       case 'delayMix':
         fx.echoWet.gain.setTargetAtTime(v * 0.8, t, 0.02);
+        break;
+      case 'distDrive':
+        // No curve at all when it's off, so a clean sound stays exactly clean.
+        fx.rack.dist.curve = v > 0 ? DSP.driveCurve(v) : null;
+        break;
+      case 'distTone':
+        fx.rack.tone.frequency.setTargetAtTime(v, t, 0.02);
+        break;
+      case 'ringFreq':
+        fx.rack.carrier.frequency.setTargetAtTime(v, t, 0.02);
+        break;
+      case 'ringMix':
+        fx.rack.ringDry.gain.setTargetAtTime(1 - v, t, 0.02);
+        fx.rack.ringWet.gain.setTargetAtTime(v, t, 0.02);
+        break;
+      case 'phaserRate':
+        fx.rack.phLfo.frequency.setTargetAtTime(v, t, 0.02);
+        break;
+      case 'phaserFb':
+        fx.rack.phFb.gain.setTargetAtTime(v, t, 0.02);
+        break;
+      case 'phaserMix':
+        fx.rack.phDry.gain.setTargetAtTime(1 - v * 0.5, t, 0.02);
+        fx.rack.phWet.gain.setTargetAtTime(v * 0.8, t, 0.02);
+        break;
+      case 'chorusRate':
+        fx.rack.chLfo.frequency.setTargetAtTime(v, t, 0.02);
+        break;
+      case 'chorusDepth':
+        fx.rack.chDepthL.gain.setTargetAtTime(v * 0.006, t, 0.02);
+        fx.rack.chDepthR.gain.setTargetAtTime(-v * 0.006, t, 0.02);
+        break;
+      case 'chorusMix':
+        fx.rack.chDry.gain.setTargetAtTime(1 - v * 0.4, t, 0.02);
+        fx.rack.chWet.gain.setTargetAtTime(v * 0.8, t, 0.02);
         break;
       case 'springMix':
         fx.springWet.gain.setTargetAtTime(v * 1.2, t, 0.02);

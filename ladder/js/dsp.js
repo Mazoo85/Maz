@@ -1192,7 +1192,22 @@
     return out;
   }
 
+  // The distortion's transfer curve: tanh, pushed harder as drive rises and
+  // scaled so full-scale input still comes out at full scale.
+  function driveCurve(drive, n) {
+    const size = n || 2048;
+    const curve = new Float32Array(size);
+    const k = 1 + drive * 30;
+    const norm = Math.tanh(k);
+    for (let i = 0; i < size; i++) {
+      const x = (i / (size - 1)) * 2 - 1;
+      curve[i] = Math.tanh(k * x) / norm;
+    }
+    return curve;
+  }
+
   const api = {
+    driveCurve,
     springImpulse,
     VOICES,
     DRUM_VOICES,

@@ -475,6 +475,17 @@
     { id: 'arpOct', label: 'Octaves', type: 'knob', min: 1, max: 4, def: 2, step: 1, unit: 'x' },
     { id: 'arpGate', label: 'Gate', type: 'knob', min: 0.05, max: 1, def: 0.5, unit: '%' },
     // Effects and output (these never reach the engine)
+    // Effects rack, in the order the sound passes through it
+    { id: 'distDrive', label: 'Distortion', type: 'knob', min: 0, max: 1, def: 0, unit: '%', fx: true },
+    { id: 'distTone', label: 'Tone', type: 'knob', min: 500, max: 16000, def: 7000, curve: 'log', unit: 'hz', fx: true },
+    { id: 'ringFreq', label: 'Ring freq', type: 'knob', min: 20, max: 4000, def: 440, curve: 'log', unit: 'hz', fx: true },
+    { id: 'ringMix', label: 'Ring mod', type: 'knob', min: 0, max: 1, def: 0, unit: '%', fx: true },
+    { id: 'phaserRate', label: 'Rate', type: 'knob', min: 0.05, max: 8, def: 0.4, curve: 'log', unit: 'hz', fx: true },
+    { id: 'phaserFb', label: 'Feedback', type: 'knob', min: 0, max: 0.85, def: 0.5, unit: '%', fx: true },
+    { id: 'phaserMix', label: 'Phaser', type: 'knob', min: 0, max: 1, def: 0, unit: '%', fx: true },
+    { id: 'chorusRate', label: 'Rate', type: 'knob', min: 0.05, max: 5, def: 0.6, curve: 'log', unit: 'hz', fx: true },
+    { id: 'chorusDepth', label: 'Depth', type: 'knob', min: 0, max: 1, def: 0.5, unit: '%', fx: true },
+    { id: 'chorusMix', label: 'Chorus', type: 'knob', min: 0, max: 1, def: 0, unit: '%', fx: true },
     { id: 'delaySync', label: 'Sync', type: 'bool', def: true, fx: true },
     { id: 'delayDiv', label: 'Echo length', type: 'enum', options: ['1/16', '1/8T', '1/8', '1/8.', '1/4T', '1/4', '1/4.', '1/2'], def: '1/8.', fx: true },
     { id: 'delayTime', label: 'Echo time', type: 'knob', min: 0.02, max: 1.5, def: 0.36, curve: 'log', unit: 's', fx: true },
@@ -487,6 +498,39 @@
   ];
 
   const BY_ID = {};
+  const LAYER_COMBOS = [
+    // [name, main sound, layer sound, mode, layer level, layer octave, split note, volume]
+    ['Piano & Strings', 'Bright Piano', 'Velvet Strings', 'layer', 0.6, 0, 60, 0.67],
+    ['Brass & Strings', 'Brass Section', 'String Ensemble', 'layer', 0.7, 0, 60, 0.54],
+    ['Organ & Choir', 'Drawbar Organ', 'Choir Pad', 'layer', 0.7, 0, 60, 0.47],
+    ['Supersaw & Sub', 'Supersaw Unison', 'Round Bass', 'layer', 0.8, -1, 60, 0.58],
+    ['Bell Piano Pad', 'Bell Piano', 'Warm Pad', 'layer', 0.6, 0, 60, 0.62],
+    ['Lead & Octave', 'Glide Lead', 'Square Lead', 'layer', 0.5, 1, 60, 0.61],
+    ['Electric Piano & Pad', 'Electric Piano', 'Soft Sine Pad', 'layer', 0.5, 0, 60, 0.63],
+    ['Pluck & Shimmer', 'Bright Pluck', 'Shimmer Pad', 'layer', 0.5, 0, 60, 0.77],
+    ['Harp & Strings', 'Harp', 'Slow Strings', 'layer', 0.6, 0, 60, 0.66],
+    ['Brass Swell Stack', 'Synth Brass', 'Brass Swell', 'layer', 0.7, 0, 60, 0.65],
+    ['Celesta Dream', 'Celesta', 'Dream Pad', 'layer', 0.6, 0, 60, 0.64],
+    ['Clav & Funk Horns', 'Clav', 'Funk Horns', 'layer', 0.7, 0, 60, 0.76],
+    ['Koto & Glass', 'Koto', 'Glass Pad', 'layer', 0.6, 0, 60, 0.85],
+    ['Marimba & Kalimba', 'Marimba', 'Kalimba', 'layer', 0.6, 1, 60, 0.78],
+    ['Choir & Bells', 'Choir Pad', 'Chime', 'layer', 0.4, 0, 60, 0.66],
+    ['Cinematic Stack', 'Cinematic Swell', 'Low Drone Pad', 'layer', 0.7, -1, 60, 0.62],
+    ['80s Poly Stack', '80s Poly Pad', 'Synth Keys', 'layer', 0.7, 0, 60, 0.54],
+    ['Vibes & Air', 'Vibraphone', 'Airy Pad', 'layer', 0.6, 0, 60, 0.62],
+    ['Organ & Strings', 'Rock Organ', 'String Pad', 'layer', 0.6, 0, 60, 0.37],
+    ['Fat Bass Stack', 'Fat Bass', 'Sub Bass', 'layer', 0.7, -1, 60, 0.52],
+    ['Bass & Piano', 'Bright Piano', 'Fingered Bass', 'split', 0.9, 0, 55, 0.7],
+    ['Bass & Lead', 'Glide Lead', 'Fat Bass', 'split', 0.9, 0, 60, 0.51],
+    ['Bass & Strings', 'Velvet Strings', 'Round Bass', 'split', 0.9, 0, 55, 0.54],
+    ['Taurus & Brass', 'Brass Section', 'Taurus Pedals', 'split', 0.9, 0, 48, 0.63],
+    ['Acid & Pad', 'Warm Pad', 'Acid Squelch', 'split', 0.9, 0, 55, 0.64],
+    ['Upright Bass & Keys', 'Electric Piano', 'Double Bass', 'split', 0.9, 0, 55, 0.68],
+    ['808 & Keys', 'Synth Keys', '808 Glide Bass', 'split', 0.9, 0, 53, 0.61],
+    ['Gospel Organ & Bass', 'Gospel Organ', 'Fingered Bass', 'split', 0.9, 0, 55, 0.56],
+    ['Synthwave Split', '80s Poly Pad', 'Synth-Pop Bass', 'split', 0.9, 0, 55, 0.63],
+    ['Model D & Polymoog', 'Polymoog Strings', 'Model D Bass', 'split', 0.9, 0, 55, 0.48],
+  ];
   for (const p of PARAMS) BY_ID[p.id] = p;
 
   const OPTION_LABELS = {
@@ -707,6 +751,30 @@
 
   function noteName(n) {
     return NOTE_NAMES[((n % 12) + 12) % 12] + (Math.floor(n / 12) - 1);
+  }
+
+  // "C3", "D#2", "Bb1" to a MIDI note (C4 = 60).
+  function noteFromName(name) {
+    const m = /^([A-Ga-g])([#b♯♭]?)(-?\d)$/.exec(String(name).trim());
+    if (!m) return null;
+    const base = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 }[m[1].toLowerCase()];
+    const acc = m[2] === '#' || m[2] === '♯' ? 1 : m[2] === 'b' || m[2] === '♭' ? -1 : 0;
+    return base + acc + 12 * (Number(m[3]) + 1);
+  }
+
+  // A line like "C2> . D#2 G2~ ." to steps: '.' rests, '>' accents, '~' slides into the next.
+  function stepsFromLine(line) {
+    return String(line)
+      .trim()
+      .split(/\s+/)
+      .map((tok) => {
+        if (tok === '.' || tok === '') return null;
+        const accent = tok.includes('>');
+        const slide = tok.includes('~');
+        const note = noteFromName(tok.replace(/[>~]/g, ''));
+        if (note === null) throw new Error('Not a note: ' + tok);
+        return { note, accent, slide };
+      });
   }
 
   function isBlack(n) {
@@ -1981,6 +2049,20 @@
     }),
   ];
 
+  // ---------------------------------------------------------------- Layers & Splits
+
+  for (const [name, main, layer, mode, level, oct, split, master] of LAYER_COMBOS) {
+    const base = PRESETS.find((p) => p.name === main);
+    if (!base || !PRESETS.find((p) => p.name === layer)) throw new Error(name + ': missing ' + main + ' or ' + layer);
+    const about =
+      mode === 'layer'
+        ? main + ' and ' + layer + ' on every key.'
+        : layer + ' below ' + noteName(split) + ', ' + main + ' from ' + noteName(split) + ' up.';
+    PRESETS.push(
+      patch(name, 'Layers & Splits', Object.assign({}, base.params, { layerMode: mode, layerSound: layer, layerLevel: level, layerOct: oct, splitNote: split, master }), about)
+    );
+  }
+
   // ---------------------------------------------------------------- drum recipes
 
   const noteOfHz = (f) => 69 + 12 * Math.log2(f / 440);
@@ -2352,6 +2434,9 @@
     encodePatch,
     decodePatch,
     noteName,
+    noteFromName,
+    stepsFromLine,
+    LAYER_COMBOS,
     isBlack,
   };
   if (typeof module === 'object' && module.exports) module.exports = api;

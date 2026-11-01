@@ -326,6 +326,7 @@ test('every factory patch is valid and makes sound', () => {
     assert.deepStrictEqual(L.sanitizePatch(pr.params), pr.params, pr.name);
     const s = new DSP.Synth(SR, L.engineParams(pr.params));
     if (pr.params.kit) s.setKit(L.kitDrums(pr.params.kitId));
+  if (pr.params.layerMode !== 'off') s.pB = L.engineParams(L.PRESETS.find((x) => x.name === pr.params.layerSound).params);
     s.noteOn(48, 0.9);
     s.noteOn(55, 0.9);
     const out = render(s, 0.6);
@@ -354,6 +355,7 @@ test('page messages drive the engine the same way on either thread', () => {
 function loudness(pr) {
   const s = new DSP.Synth(SR, L.engineParams(pr.params));
   if (pr.params.kit) s.setKit(L.kitDrums(pr.params.kitId));
+  if (pr.params.layerMode !== 'off') s.pB = L.engineParams(L.PRESETS.find((x) => x.name === pr.params.layerSound).params);
   const notes = pr.params.kit ? [48] : pr.group === 'Drums' || pr.group === 'Bass' ? [36] : [48, 55, 60];
   notes.forEach((n) => s.noteOn(n, 0.85));
   const out = render(s, 2.5);
@@ -375,7 +377,7 @@ test('factory patches are all about as loud as each other', () => {
 test('every section of the factory list holds 30 sounds', () => {
   const groups = new Map();
   for (const pr of L.PRESETS) groups.set(pr.group, (groups.get(pr.group) || 0) + 1);
-  for (const g of ['Moog Classics', 'Bass', 'Lead', 'Keys', 'Pads', 'Brass & strings', 'Plucks', 'Drums', 'Drum Kits', 'Effects', 'Experimental', 'Sequenced']) {
+  for (const g of ['Moog Classics', 'Bass', 'Lead', 'Keys', 'Pads', 'Brass & strings', 'Plucks', 'Drums', 'Drum Kits', 'Effects', 'Experimental', 'Sequenced', 'Layers & Splits']) {
     assert.strictEqual(groups.get(g), 30, g + ' has ' + (groups.get(g) || 0));
   }
   // Groups stay together, so the patch menu lists each one once.
@@ -777,6 +779,18 @@ test('every factory patch that layers names a real, playable sound', () => {
   for (const pr of L.PRESETS) {
     if (pr.params.layerMode !== 'off') assert.ok(names.has(pr.params.layerSound), pr.name + ' layers ' + pr.params.layerSound);
   }
+});
+
+test('the distortion curve is clean at zero, symmetric, and never past full scale', () => {
+  const clean = DSP.driveCurve(0, 1001);
+  const hot = DSP.driveCurve(1, 1001);
+  assert.ok(Math.abs(clean[750] - Math.tanh(0.5) / Math.tanh(1)) < 1e-6, 'gentle at zero drive');
+  for (let i = 0; i < 1001; i++) {
+    assert.ok(Math.abs(hot[i] + hot[1000 - i]) < 1e-6, 'symmetric');
+    assert.ok(Math.abs(hot[i]) <= 1 + 1e-9);
+    if (i) assert.ok(hot[i] >= hot[i - 1], 'never folds back');
+  }
+  assert.ok(hot[600] > 0.95, 'hard drive squares the wave off');
 });
 
 test('the computer keyboard covers an octave and a half from C', () => {
