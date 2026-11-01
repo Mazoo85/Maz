@@ -2157,6 +2157,60 @@
     return new Uint8Array(buf);
   }
 
+  // A .zip holding one file, stored without compression (WAV barely compresses).
+  // The web view can only hand over certain file types, and .wav isn't one of them.
+  const CRC_TABLE = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      t[n] = c >>> 0;
+    }
+    return t;
+  })();
+
+  function crc32(bytes) {
+    let c = 0xffffffff;
+    for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  }
+
+  function zipOne(filename, bytes) {
+    const name = new TextEncoder().encode(filename);
+    const crc = crc32(bytes);
+    const local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true);
+    local.setUint16(4, 20, true);
+    local.setUint16(6, 0x0800, true); // the name is UTF-8
+    local.setUint32(14, crc, true);
+    local.setUint32(18, bytes.length, true);
+    local.setUint32(22, bytes.length, true);
+    local.setUint16(26, name.length, true);
+    const central = new DataView(new ArrayBuffer(46));
+    central.setUint32(0, 0x02014b50, true);
+    central.setUint16(4, 20, true);
+    central.setUint16(6, 20, true);
+    central.setUint16(8, 0x0800, true);
+    central.setUint32(16, crc, true);
+    central.setUint32(20, bytes.length, true);
+    central.setUint32(24, bytes.length, true);
+    central.setUint16(28, name.length, true);
+    const end = new DataView(new ArrayBuffer(22));
+    const centralAt = 30 + name.length + bytes.length;
+    end.setUint32(0, 0x06054b50, true);
+    end.setUint16(8, 1, true);
+    end.setUint16(10, 1, true);
+    end.setUint32(12, 46 + name.length, true);
+    end.setUint32(16, centralAt, true);
+    const out = new Uint8Array(centralAt + 46 + name.length + 22);
+    let at = 0;
+    for (const part of [new Uint8Array(local.buffer), name, bytes, new Uint8Array(central.buffer), name, new Uint8Array(end.buffer)]) {
+      out.set(part, at);
+      at += part.length;
+    }
+    return out;
+  }
+
   // Sounds whose name, section or note matches every word typed, best matches first.
   function searchPatches(list, query) {
     const words = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
@@ -2225,6 +2279,8 @@
   }
 
   const api = {
+    crc32,
+    zipOne,
     DRUM_ROWS,
     STARTER_BEATS,
     beatRows,

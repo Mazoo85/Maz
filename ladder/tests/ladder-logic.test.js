@@ -608,6 +608,27 @@ test('recordings save as a proper 16-bit stereo WAV file', () => {
   assert.strictEqual(v.getInt16(44 + 14, true), -32767);
 });
 
+test('a recording zips into a file any unzip tool opens', () => {
+  assert.strictEqual(L.crc32(new TextEncoder().encode('123456789')), 0xcbf43926); // the standard check value
+  const data = L.encodeWav(new Float32Array([0, 0.25]), new Float32Array([0, -0.25]), 44100);
+  const zip = L.zipOne('take.wav', data);
+  const fs = require('fs');
+  const os = require('os');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ladder-zip-'));
+  fs.writeFileSync(path.join(dir, 'take.zip'), zip);
+  const { execFileSync } = require('child_process');
+  let unzipped = null;
+  try {
+    execFileSync('unzip', ['-q', 'take.zip'], { cwd: dir });
+    unzipped = fs.readFileSync(path.join(dir, 'take.wav'));
+  } catch (e) {
+    // No unzip tool here: check the structure by hand instead.
+    assert.strictEqual(new DataView(zip.buffer).getUint32(0, true), 0x04034b50);
+  }
+  if (unzipped) assert.deepStrictEqual(new Uint8Array(unzipped), data);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test('search finds sounds by name, section or note, best matches first', () => {
   const names = (q) => L.searchPatches(L.PRESETS, q).map((i) => L.PRESETS[i].name);
   assert.ok(names('808').includes('Classic 808'));

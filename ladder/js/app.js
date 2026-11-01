@@ -1764,7 +1764,27 @@
     wireTheremin();
     $('#rec').addEventListener('click', toggleRecord);
     $('#take-close').addEventListener('click', () => ($('#take').hidden = true));
+    // The desktop program and ordinary browsers save the WAV through the link. Inside
+    // the claude.ai viewer that link is blocked, so the WAV goes out zipped through
+    // the viewer's own save prompt (it doesn't take .wav files).
+    $('#take-save').addEventListener('click', async (e) => {
+      if (location.protocol === 'ladder:') return;
+      const downloads = window.claude && window.claude.use ? await window.claude.use('downloads').catch(() => null) : null;
+      if (!downloads) return; // a plain browser: the link's own download works
+      e.preventDefault();
+      const link = e.currentTarget;
+      try {
+        const wav = new Uint8Array(await (await fetch(link.href)).arrayBuffer());
+        await downloads.save({ filename: link.download.replace(/\.wav$/, '.zip'), data: LL.zipOne(link.download, wav) });
+        setStatus('Saved. Open the .zip to get the WAV.');
+      } catch (err) {
+        if (err && err.code === 'declined') return;
+        setStatus('This view cannot save files. Use the Ladder 24 desktop program to save recordings.', true);
+      }
+    });
     if (location.protocol !== 'ladder:') $('#take-note').hidden = false;
+    // Ask the viewer for the save capability early, so it is ready when Save is pressed.
+    if (window.claude && window.claude.use) window.claude.use('downloads').catch(() => null);
     renderSeq();
     renderDrums();
   }
