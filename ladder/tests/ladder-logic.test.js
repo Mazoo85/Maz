@@ -559,30 +559,80 @@ test('the theremin glides between any pitches and follows its volume', () => {
 
 test('the step sequencer plays its notes in time, rests, and loops', () => {
   const s = synth({ voiceMode: 'mono', aR: 0.01 });
-  s.seqPattern = { length: 4, steps: [{ note: 48 }, null, { note: 55 }, { note: 60 }], swing: 0, gate: 0.5 };
+  s.setSong({ patterns: [{ length: 4, gate: 0.5, steps: [{ note: 48 }, null, { note: 55 }, { note: 60 }], steps2: [], rows: [] }] });
   s.setTransport(true);
   const heard = [];
   const block = new Float32Array(128);
   // 120 bpm sixteenths are 6000 samples apart at 48 kHz: 8 steps in a second.
   for (let i = 0; i < Math.round(SR / 128); i++) {
     s.render(block, block, 128);
-    if (s.stepNow >= 0 && heard.length <= s.stepNow) heard.push(s.seqNote);
+    if (s.stepNow >= 0 && heard.length < s.seqPos) heard.push(s.tracks[0].note);
   }
   assert.deepStrictEqual(heard.slice(0, 8), [48, -1, 55, 60, 48, -1, 55, 60]);
   s.setTransport(false);
-  assert.strictEqual(s.seqNote, -1);
+  assert.strictEqual(s.tracks[0].note, -1);
 });
 
-test('the drum grid plays its kit on its own voices, so a melody keeps all eight', () => {
+test('the drum grid plays its kit on its own voices, so a melody keeps all its voices', () => {
   const s = synth();
   s.drumKit = s.makeKit(L.kitDrums('Classic 808'));
-  s.drumPattern = { length: 16, rows: [{ slot: 0, steps: [2, 0, 0, 0] }, { slot: 6, steps: [1, 1, 1, 1] }] };
-  for (let n = 0; n < 8; n++) s.noteOn(60 + n, 1);
+  s.setSong({ patterns: [{ length: 16, gate: 0.5, steps: [], steps2: [], rows: [{ slot: 0, steps: [2, 0, 0, 0] }, { slot: 6, steps: [1, 1, 1, 1] }] }] });
+  for (let n = 0; n < DSP.VOICES; n++) s.noteOn(48 + n, 1);
   s.setTransport(true);
   const out = render(s, 0.3);
   assert.ok(s.drumVoices.some((v) => v.active), 'drums sounded');
-  assert.strictEqual(s.voices.filter((v) => v.gate).length, 8, 'all eight held notes still playing');
+  assert.strictEqual(s.voices.filter((v) => v.gate).length, DSP.VOICES, 'every held note still playing');
   for (const x of out.L) assert.ok(Number.isFinite(x));
+});
+
+test('layers: every key plays both sounds, the layer sound transposed by its octave', () => {
+  const s = synth(Object.assign({}, OPEN, { layerMode: 'layer', layerOct: 1 }));
+  s.pB = L.engineParams(Object.assign(L.defaults(), OPEN, { o1Wave: 'sine' }));
+  s.noteOn(48, 1);
+  render(s, 0.05);
+  const on = s.voices.filter((v) => v.gate);
+  assert.strictEqual(on.length, 2);
+  assert.deepStrictEqual(on.map((v) => [v.part, v.target]).sort(), [[0, 48], [1, 60]]);
+  s.noteOff(48);
+  assert.strictEqual(s.voices.filter((v) => v.gate).length, 0, 'letting go releases both');
+});
+
+test('splits: notes below the split point play the layer sound only', () => {
+  const s = synth({ layerMode: 'split', splitNote: 60 });
+  s.pB = L.engineParams(L.defaults());
+  s.noteOn(40, 1);
+  s.noteOn(72, 1);
+  const parts = s.voices.filter((v) => v.gate).map((v) => [v.note, v.part]).sort((a, b) => a[0] - b[0]);
+  assert.deepStrictEqual(parts, [[40, 1], [72, 0]]);
+});
+
+test('a mono panel sound keeps its voice even when the layer sound is busy', () => {
+  const s = synth({ voiceMode: 'mono', layerMode: 'split', splitNote: 60 });
+  s.pB = L.engineParams(L.defaults());
+  for (let n = 36; n < 52; n++) s.noteOn(n, 1); // fill the layer sound's voices
+  s.noteOn(72, 1);
+  assert.strictEqual(s.voices[0].part, 0);
+  assert.strictEqual(s.voices[0].target, 72);
+});
+
+test('song mode plays the chain, with repeats, and track 2 plays the layer sound', () => {
+  const s = synth({ voiceMode: 'poly' });
+  s.pB = L.engineParams(L.defaults());
+  const pat = (note) => ({ length: 2, gate: 0.5, steps: [{ note }, null], steps2: [{ note: note + 12 }, null], rows: [] });
+  s.setSong({ patterns: [pat(48), pat(50), pat(52)], chain: [{ p: 0, n: 2 }, { p: 2, n: 1 }], songMode: true });
+  s.setTransport(true);
+  const played = [];
+  const block = new Float32Array(128);
+  let lastPos = 0;
+  for (let i = 0; i < Math.round((SR * 1.6) / 128); i++) {
+    s.render(block, block, 128);
+    // Each time a pattern starts again from its first step, note which one it is.
+    if (s.seqPos !== lastPos && s.stepNow === 0) played.push(s.patNow);
+    lastPos = s.seqPos;
+    if (s.tracks[1].note >= 0) assert.ok(s.voices.some((v) => v.part === 1 && v.gate), 'track 2 uses the layer sound');
+  }
+  // A twice, then C, then back to the start: A, A, C ...
+  assert.deepStrictEqual(played.slice(0, 6), [0, 0, 2, 0, 0, 2]);
 });
 
 test('every Moog Classic says which instrument it is inspired by', () => {
@@ -700,9 +750,9 @@ test('LFO 2, LFO 3 and envelope 3 drive the patch cables', () => {
     const on = synth(Object.assign({}, base, route, { mod1Dst: 'cutoff', mod1Amt: 1 }));
     off.noteOn(48, 1);
     on.noteOn(48, 1);
-    const a = rms(render(off, 0.3).L, SR * 0.1);
-    const b = rms(render(on, 0.3).L, SR * 0.1);
-    assert.ok(Math.abs(b - a) > a * 0.3, route.mod1Src + ' moved the filter');
+    const a = brightness(render(off, 0.3).L, SR * 0.1);
+    const b = brightness(render(on, 0.3).L, SR * 0.1);
+    assert.ok(Math.abs(b - a) > a * 0.5, route.mod1Src + ' moved the filter');
   }
 });
 
@@ -719,6 +769,14 @@ test('16 voices with everything switched on stay well inside real time', () => {
   const ms = Date.now() - t;
   console.log('      (one second of the worst case took ' + ms + ' ms)');
   assert.ok(ms < 900, 'took ' + ms + ' ms for one second of sound');
+});
+
+test('every factory patch that layers names a real, playable sound', () => {
+  const names = new Set(L.PRESETS.filter((p) => !p.params.kit).map((p) => p.name));
+  assert.ok(names.has(L.BY_ID.layerSound.def));
+  for (const pr of L.PRESETS) {
+    if (pr.params.layerMode !== 'off') assert.ok(names.has(pr.params.layerSound), pr.name + ' layers ' + pr.params.layerSound);
+  }
 });
 
 test('the computer keyboard covers an octave and a half from C', () => {

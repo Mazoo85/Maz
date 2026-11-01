@@ -384,6 +384,12 @@
     { id: 'glide', label: 'Glide', type: 'knob', min: 0, max: 2, def: 0, curve: 'pow', unit: 's' },
     { id: 'bendRange', label: 'Bend', type: 'knob', min: 1, max: 12, def: 2, step: 1, unit: 'st' },
     { id: 'kit', label: 'Drum kit', type: 'bool', def: false },
+    // Layer: a second sound stacked on every key, or below a split point
+    { id: 'layerMode', label: 'Layer', type: 'enum', options: ['off', 'layer', 'split'], def: 'off' },
+    { id: 'layerSound', label: 'Layer sound', type: 'text', def: 'Velvet Strings' },
+    { id: 'layerLevel', label: 'Level', type: 'knob', min: 0, max: 1.5, def: 0.8, unit: '%' },
+    { id: 'layerOct', label: 'Octave', type: 'knob', min: -2, max: 2, def: 0, step: 1, unit: 'shift' },
+    { id: 'splitNote', label: 'Split at', type: 'knob', min: 36, max: 84, def: 60, step: 1, unit: 'note' },
     { id: 'kitId', label: 'Kit', type: 'enum', options: KIT_NAMES, def: KIT_NAMES[0] },
     { id: 'voiceMode', label: 'Voices', type: 'enum', options: ['poly', 'mono', 'legato', 'unison'], def: 'poly' },
     { id: 'unisonDetune', label: 'Detune', type: 'knob', min: 0, max: 50, def: 12, unit: 'ct' },
@@ -504,6 +510,8 @@
     order: 'Played',
     random: 'Random',
     off: 'Off',
+    layer: 'Layer',
+    split: 'Split',
     lfo2: 'LFO 2',
     lfo3: 'LFO 3',
     env3: 'Env 3',
@@ -556,6 +564,7 @@
     if (!p) return undefined;
     if (p.type === 'bool') return value === true || value === 'true' || value === 1;
     if (p.type === 'enum') return p.options.includes(value) ? value : p.def;
+    if (p.type === 'text') return typeof value === 'string' ? value.slice(0, 60) : p.def;
     let v = Number(value);
     if (!Number.isFinite(v)) return p.def;
     v = Math.min(p.max, Math.max(p.min, v));
@@ -594,6 +603,7 @@
     const p = BY_ID[id];
     if (!p) return String(value);
     if (p.type === 'bool') return value ? 'On' : 'Off';
+    if (p.type === 'text') return String(value);
     if (p.type === 'enum') return OPTION_LABELS[value] || value;
     switch (p.unit) {
       case 'feet':
@@ -618,6 +628,10 @@
         return Math.round(value) + (Math.round(value) === 1 ? ' oct' : ' octs');
       case 'level':
         return (value * 10).toFixed(1);
+      case 'shift':
+        return value === 0 ? 'Same' : signed(value, 0) + ' oct';
+      case 'note':
+        return noteName(Math.round(value));
       case 'amt':
         return signed(value * 100, 0) + '%';
       default:
@@ -706,6 +720,7 @@
       const p = BY_ID[id];
       if (!p) throw new Error(name + ': no such setting "' + id + '"');
       if (p.type === 'enum' && !p.options.includes(changes[id])) throw new Error(name + ': ' + id + ' cannot be ' + changes[id]);
+    if (p.type === 'text' && typeof changes[id] !== 'string') throw new Error(name + ': ' + id + ' must be text');
       if (p.type === 'knob' && (changes[id] < p.min || changes[id] > p.max)) throw new Error(name + ': ' + id + ' out of range');
     }
   }
