@@ -5,6 +5,10 @@ and icon for Windows, Mac and Linux. It works with no internet connection (the
 panel's typefaces fall back to built-in ones offline) and talks to USB MIDI
 keyboards directly.
 
+**Let Claude do it:** paste the instructions in [INSTALL-WITH-CLAUDE.md](INSTALL-WITH-CLAUDE.md)
+into Claude Code on your computer and it downloads and installs the newest
+version for you.
+
 ## Getting the installer
 
 GitHub builds the installers whenever anything in `ladder/` changes
