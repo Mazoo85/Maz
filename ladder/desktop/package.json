@@ -1,7 +1,7 @@
 {
   "name": "ladder-24",
   "productName": "Ladder 24",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "A polyphonic analog-style synthesizer with a 24 dB ladder filter, 330 sounds and 30 drum kits.",
   "author": "Cody Collins",
   "license": "UNLICENSED",

@@ -2402,7 +2402,147 @@
     return steps;
   }
 
+  // ---------------------------------------------------------------- demo songs
+
+  // Each demo: the sound for track 1, the layer sound for track 2, a kit, a
+  // tempo, patterns written as lines of notes, and a chain. Drum lines follow
+  // DRUM_ROWS: kick, snare, clap, closed hat, open hat, low tom, high tom, crash.
+  const DEMO_SONGS = [
+    {
+      name: 'Synthwave Night',
+      sound: 'Synth-Pop Bass',
+      layer: 'Synth Pluck',
+      kitId: 'Synthwave 80s',
+      bpm: 100,
+      swing: 0,
+      patterns: [
+        {
+          t1: 'A1> . A1 . A1 . A1 . F1> . F1 . G1 . G1 .',
+          t2: 'A3 C4 E4 A4 A3 C4 E4 A4 F3 A3 C4 F4 G3 B3 D4 G4',
+          drums: ['X...x...X...x...', '....X.......X...', '', 'x.x.x.x.x.x.x.x.', '', '', '', 'X...............'],
+        },
+        {
+          t1: 'F1> . F1 . F1 . F1 . G1> . G1 . E1 . E1 .',
+          t2: 'F3 A3 C4 F4 F3 A3 C4 F4 G3 B3 D4 G4 E3 G#3 B3 E4',
+          drums: ['X...x...X...x...', '....X.......X..x', '', 'x.x.x.x.x.x.x.x.', '......x.......x.', '', '', ''],
+        },
+      ],
+      chain: [[0, 2], [1, 2]],
+    },
+    {
+      name: 'Boom Bap Groove',
+      sound: 'Soul Bass',
+      layer: 'Electric Piano',
+      kitId: 'Boom Bap',
+      bpm: 88,
+      swing: 0.15,
+      patterns: [
+        {
+          t1: 'D2> . . D2 . . F2 . G2 . . . F2 . D2 .',
+          t2: 'D4 . . . F4 . . . A4 . . . C5 . . .',
+          drums: ['X.....x...x.....', '....X.......X...', '', 'x.x.x.x.x.x.x.x.', '..............x.', '', '', ''],
+        },
+        {
+          t1: 'A#1> . . A#1 . . C2 . D2 . . . C2 . A#1 .',
+          t2: 'D4 . . . F4 . . . A#4 . . . A4 . . .',
+          drums: ['X.....x...x..x..', '....X.......X...', '', 'x.x.x.x.x.x.x.x.', '', '', '', ''],
+        },
+      ],
+      chain: [[0, 2], [1, 1], [0, 1]],
+    },
+    {
+      name: 'Acid Pulse',
+      sound: 'Acid Squelch',
+      layer: 'Poly Stab',
+      kitId: 'Techno 909',
+      bpm: 128,
+      swing: 0,
+      patterns: [
+        {
+          t1: 'C2> C2 C3~ C2 D#2 C2 G2~ C2 C2> C2 A#2~ C2 F2 C2 G2 D#2',
+          t2: '. . . . C4 . . . . . . . C4 . . .',
+          drums: ['X...x...X...x...', '', '....x.......x...', 'x.x.x.x.x.x.x.x.', '..x...x...x...x.', '', '', ''],
+        },
+        {
+          t1: 'F1> F1 F2~ F1 G#1 F1 C2~ F1 F1> F1 D#2~ F1 A#1 F1 C2 G#1',
+          t2: '. . . . F4 . . . . . . . F4 . . .',
+          drums: ['X...x...X...x...', '', '....x.......x...', 'x.x.x.x.x.x.x.x.', '..x...x...x...x.', '', '', 'X...............'],
+        },
+      ],
+      chain: [[0, 2], [1, 2]],
+    },
+    {
+      name: 'Berlin Drift',
+      sound: 'Model D Bass',
+      layer: 'Velvet Strings',
+      kitId: 'Vintage Rhythm Box',
+      bpm: 112,
+      swing: 0,
+      patterns: [
+        {
+          t1: 'E2 E2 B2 E2 G2 E2 D3 E2 E2 E2 B2 E2 A2 E2 G2 E2',
+          t2: 'E4~ E4~ E4~ E4~ E4~ E4~ E4~ E4 G4~ G4~ G4~ G4~ G4~ G4~ G4~ G4',
+          drums: ['X.......x.x.....', '....x.......x...', '', 'x.x.x.x.x.x.x.x.', '', '', '', ''],
+        },
+        {
+          t1: 'C2 C2 G2 C2 E2 C2 B2 C2 D2 D2 A2 D2 F#2 D2 A2 D2',
+          t2: 'C4~ C4~ C4~ C4~ C4~ C4~ C4~ C4 D4~ D4~ D4~ D4~ D4~ D4~ D4~ D4',
+          drums: ['X.......x.x.....', '....x.......x..x', '', 'x.x.x.x.x.x.x.x.', '', '..x.......x.....', '', ''],
+        },
+      ],
+      chain: [[0, 2], [1, 2]],
+    },
+  ];
+
+  const SONG_SLOTS = 8;
+  const SEQ_STEPS = 32;
+
+  function emptyPattern() {
+    return {
+      steps: new Array(SEQ_STEPS).fill(null),
+      steps2: new Array(SEQ_STEPS).fill(null),
+      length: 16,
+      gate: 0.5,
+      drums: DRUM_ROWS.map(() => new Array(16).fill(0)),
+    };
+  }
+
+  // A demo as a song the studio can load: eight pattern slots and a chain.
+  function demoSong(name) {
+    const d = DEMO_SONGS.find((x) => x.name === name);
+    if (!d) return null;
+    const patterns = [];
+    for (let i = 0; i < SONG_SLOTS; i++) {
+      const pt = emptyPattern();
+      const src = d.patterns[i];
+      if (src) {
+        const t1 = stepsFromLine(src.t1);
+        const t2 = stepsFromLine(src.t2);
+        pt.length = t1.length;
+        t1.forEach((st, j) => (pt.steps[j] = st));
+        t2.forEach((st, j) => (pt.steps2[j] = st));
+        pt.drums = beatRows({ rows: src.drums });
+        pt.gate = 0.6;
+      }
+      patterns.push(pt);
+    }
+    return {
+      patterns,
+      chain: d.chain.map(([p, n]) => ({ p, n })),
+      songMode: true,
+      edit: 0,
+      track: 0,
+      swing: d.swing,
+      kitId: d.kitId,
+    };
+  }
+
   const api = {
+    DEMO_SONGS,
+    SONG_SLOTS,
+    SEQ_STEPS,
+    emptyPattern,
+    demoSong,
     crc32,
     zipOne,
     DRUM_ROWS,

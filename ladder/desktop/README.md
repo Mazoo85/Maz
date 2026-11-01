@@ -14,9 +14,9 @@ at the bottom of the page:
 
 | Download | For | File inside |
 |---|---|---|
-| Ladder 24 for Windows | Windows 10 or 11 | `Ladder-24-Setup-1.1.0.exe` |
-| Ladder 24 for Mac | Apple-chip Macs (`arm64`) and Intel Macs (`x64`) | `Ladder-24-1.1.0-arm64.dmg`, `Ladder-24-1.1.0-x64.dmg` |
-| Ladder 24 for Linux | Linux, 64-bit | `Ladder-24-1.1.0.AppImage` |
+| Ladder 24 for Windows | Windows 10 or 11 | `Ladder-24-Setup-1.2.0.exe` |
+| Ladder 24 for Mac | Apple-chip Macs (`arm64`) and Intel Macs (`x64`) | `Ladder-24-1.2.0-arm64.dmg`, `Ladder-24-1.2.0-x64.dmg` |
+| Ladder 24 for Linux | Linux, 64-bit | `Ladder-24-1.2.0.AppImage` |
 
 Each download is a `.zip`; open it to get the installer.
 
@@ -25,7 +25,7 @@ Each download is a `.zip`; open it to get the installer.
 The program isn't signed with a paid Microsoft or Apple certificate, so each
 system asks once before the first run.
 
-**Windows.** Double-click `Ladder-24-Setup-1.1.0.exe`. If a blue "Windows
+**Windows.** Double-click `Ladder-24-Setup-1.2.0.exe`. If a blue "Windows
 protected your PC" box appears, click **More info**, then **Run anyway**. Follow
 the installer; it puts Ladder 24 in the Start menu and on the desktop. It
 installs for your user only and needs no administrator password.
@@ -37,7 +37,7 @@ developer: click **Done**, open **System Settings → Privacy & Security**,
 scroll down, click **Open Anyway** next to Ladder 24, and confirm. After that it
 opens normally.
 
-**Linux.** Make the file runnable (`chmod +x Ladder-24-1.1.0.AppImage`) and
+**Linux.** Make the file runnable (`chmod +x Ladder-24-1.2.0.AppImage`) and
 double-click it.
 
 ## Building it yourself

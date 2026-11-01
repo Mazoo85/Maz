@@ -2,7 +2,8 @@
 
 **A polyphonic analog-style synthesizer in the browser**, modelled on the classic
 1970s three-oscillator monosynths and their 24 dB/octave transistor-ladder
-filter, then taken further: eight voices, unison, an arpeggiator, echo and reverb.
+filter, then taken further: sixteen voices, layers and splits, two filters, three LFOs,
+a step sequencer with song mode, a drum grid, an effects rack and recording.
 
 Open `index.html` in any current browser and press **Power** (or just play a
 key). No build step, no server, no dependencies. Works with a mouse, a finger
@@ -29,27 +30,34 @@ install steps.
 
 | Section | Controls |
 |---|---|
-| **Controllers** | Glide (portamento), bend range, voice mode (Poly 8 voices / Mono / Legato / Unison 5 stacked voices), unison detune, stereo width. |
+| **Controllers** | Glide (portamento), bend range, voice mode (Poly 16 voices / Mono / Legato / Unison 5 stacked voices), unison detune, stereo width. |
 | **Oscillator bank** | Three oscillators, each with six band-limited waves (triangle, saw, ramp, square, pulse, sine) and a range switch from 32' to 2'. Oscillators 2 and 3 tune ±7 semitones. Pulse width. Osc 3 can leave the keyboard and run as a slow LFO. **Pitch env** bends every oscillator with the filter contour, ±24 semitones: the drop in a kick, a tom or a zap. |
+| **Sub osc** | A square wave one octave under oscillator 1. |
 | **Sync, FM, Fold** | **Sync 2→1** restarts oscillator 2 every time oscillator 1 does (the tearing sync lead). **FM 3→1** lets oscillator 3 swing oscillator 1's pitch at audio rate (bells, clangs, growls). **Fold** folds the wave back on itself before the filter (the Messenger's trick). |
 | **Mixer** | Levels for the three oscillators and white noise, plus Drive, which pushes the filter input into saturation. |
 | **Ladder filter** | A zero-delay-feedback model of the four-pole ladder, with a tanh at its input. **Mode** mixes its four stages for low-pass 24 or 12 dB, band-pass, or high-pass 12 or 24 dB. Cutoff, Emphasis (resonance, which self-oscillates into a pure sine at the top), Contour amount (±6 octaves) and key tracking, with its own ADSR. |
+| **Filter 2** | A state-variable filter (low-pass, band-pass, high-pass or notch) after the ladder (series) or beside it (parallel), with its own cutoff, resonance and contour amount. |
 | **Loudness contour** | ADSR for the volume, and touch (velocity) amounts for volume and brightness. |
 | **Modulation** | Source (LFO, Osc 3 at audio rate, or smoothed noise), LFO shape (triangle, saw, square, sample & hold), rate or **Sync** to the tempo (4 bars down to 1/16), a base amount the mod wheel adds to, and depths to pitch, filter and pulse width. |
-| **Patch cables** | Four routes, each from a source (LFO, osc 3, filter or loudness envelope, velocity, mod wheel, key, noise, or a random value per note) to a destination (pitch, osc 2 pitch, cutoff, emphasis, pulse width, FM, fold, volume), with an amount that can go either way. |
+| **More sources** | LFO 2 and LFO 3 (free or synced to the tempo) and a third envelope, for the patch cables. |
+| **Patch cables** | Six routes, each from a source (LFO, osc 3, filter or loudness envelope, velocity, mod wheel, key, noise, a random value per note, LFO 2, LFO 3 or envelope 3) to a destination (pitch, osc 2 pitch, cutoff, emphasis, pulse width, FM, fold, volume, filter 2 cutoff, sub level), with an amount that can go either way. |
+| **Layer & split** | A second sound on every key (**Layer**) or below a split point (**Split**), with its own level and octave. It is also what track 2 of the sequencer plays. |
 | **Arpeggiator** | Up, down, up-down, as-played, random; 1–4 octaves; 1/4 to 1/32 steps including triplets, at the panel tempo; gate length; latch. It runs inside the audio engine, so the timing is sample-accurate. |
+| **Effects rack** | Distortion (with tone), a ring modulator (like the Moogerfooger MF-102), a four-stage phaser with feedback, and a stereo chorus, in that order, before the echo. |
 | **Echo & space** | A ping-pong echo that darkens with each repeat, **synced to the tempo** by default (1/16 to 1/2, dotted and triplet) or free-running in milliseconds, a generated reverb with an adjustable room size, a **spring reverb** (falling "boing" chirps, like the Grandmother's), and the master volume (with a limiter after it). |
 | **Output** | An oscilloscope, a light for each of the eight voices, and an all-notes-off button. |
 
 ## Studio
 
-Under the panel, three tabs share one **Play** button (or the space bar) and a
+Under the panel, four tabs share one **Play** button (or the space bar) and a
 **Swing** slider. Everything follows the panel tempo.
 
 | Tab | What it does |
 |---|---|
-| **Step sequencer** | 8, 16 or 32 steps. Click a step to switch it on, drag it up or down to change its note, **A** for a louder step, **S** to slide into the next. **Step record** fills the next step with every key you play; **Rest** leaves a gap. **Random melody** fills the steps with notes from a scale that always fit together. |
+| **Patterns** | Eight patterns, **A** to **H**, each with two note tracks and a drum grid. Copy, Paste and Clear work on the one you are editing. |
+| **Step sequencer** | Two tracks: **1** plays the panel sound, **2** plays the layer sound. 8, 16 or 32 steps. Click a step to switch it on, drag it up or down to change its note, **A** for a louder step, **S** to slide into the next. **Step record** fills the next step with every key you play; **Rest** leaves a gap. **Random melody** fills the steps with notes from a scale that always fit together. |
 | **Drum grid** | Eight rows (kick, snare, clap, hats, toms, crash) by sixteen steps, playing any of the 30 drum kits on six voices of their own, so a beat never steals notes from what you play on top. Click once for a hit, twice for a louder one. **Starter beat** loads one of nine ready-made beats. |
+| **Song** | **Song mode** plays a chain of patterns, each one or more times, and starts again; off, Play loops the pattern you are editing. Pattern changes wait for the end of the bar. Four **demo songs** (Synthwave Night, Boom Bap Groove, Acid Pulse, Berlin Drift) load a whole song with its sounds, kit and tempo. |
 | **Theremin** | A pad you play by pressing and moving: left to right is pitch over three octaves, bottom to top is volume, sliding between notes like the real thing, or **Snap to notes**. |
 
 The pattern is kept in your browser, separate from the sound.
@@ -63,7 +71,7 @@ some web views block downloads.
 
 ## Patches
 
-Three hundred and sixty factory sounds: **30 in each of twelve sections**, plus a plain
+Three hundred and ninety factory sounds: **30 in each of thirteen sections**, plus a plain
 **Init** patch to start from scratch. Pick a section in the first menu and a
 sound in the second; **‹ ›** step through every sound in order. Type in **Search sounds**
 to find one by name, section or note, and press **★** to add it to your **Favourites**.
@@ -82,6 +90,7 @@ to find one by name, section or note, and press **★** to add it to your **Favo
 | **Effects** | Laser Zap, Siren, UFO, Wind, Ocean Waves, Thunder, Rain, Heartbeat, Bubbles, Alarm, Radio Static, Robot Voice, Engine Rumble, Spaceship Hum, Teleport, Power Down, Power Up, Game Coin, Game Jump, Explosion, Wind Chimes, Birds, Crickets, Underwater, Ghost, Laser Gun, Phone Tone, Static Swell, Glitch, Train Horn |
 | **Experimental** | Filter Whistle, Wobble, Sample & Hold Computer, Metal Bells, Resonance Sweep, Audio-Rate Filter, Breath Whistle, Ringing Bass, Chaos Engine, Drive Feedback, Reverse Contour, Backwards Pad, Microtonal Drift, Detune Cloud, Tritone Machine, Spectral Sines, Gated Noise, Audio PWM, Slow Morph, Sub Harmonic, Stepped Filter, Random Melody, Tape Wobble, Talking Filter, Bent Bell, Feedback Scream, Noise Bell, Octave Jumper, Saw Swarm, Granular Fizz |
 | **Sequenced** | Pulse Arp, Latched Sequence, Berlin School, Chip Arp, Trance Gate, Random Bleeps, Octave Bass Arp, Disco Octaves, Synthwave Arp, Ambient Arp, Techno Stab Seq, Acid Sequence, Bell Arp, Chip Melody, Pluck Cascade, Triplet Run, Half-Time Arp, Driving Bass, Thirty-Second Ripple, Sequencer Lead, Flowing Arp, Random Sparkle, Dub Techno Chord, Electro Bounce, Hypnotic Loop, Harp Glissando, Marimba Pattern, Trance Lead Arp, Slow Motion, Drum Kit Arp |
+| **Layers & Splits** | Piano & Strings, Brass & Strings, Organ & Choir, Supersaw & Sub, Bell Piano Pad, Lead & Octave, Electric Piano & Pad, Pluck & Shimmer, Harp & Strings, Brass Swell Stack, Celesta Dream, Clav & Funk Horns, Koto & Glass, Marimba & Kalimba, Choir & Bells, Cinematic Stack, 80s Poly Stack, Vibes & Air, Organ & Strings, Fat Bass Stack, Bass & Piano, Bass & Lead, Bass & Strings, Taurus & Brass, Acid & Pad, Upright Bass & Keys, 808 & Keys, Gospel Organ & Bass, Synthwave Split, Model D & Polymoog |
 
 Drums play one hit per key, with the pitch following the key. Each sound in
 **Drum Kits** puts a different drum on every key (below). Sequenced sounds run the arpeggiator:

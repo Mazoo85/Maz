@@ -65,7 +65,7 @@
         { tag: '2', ids: ['o2Wave', 'o2Range', 'o2Tune'] },
         { tag: '3', ids: ['o3Wave', 'o3Range', 'o3Tune'] },
         { ids: ['pw', 'pitchEnv', 'o3KeyOff'] },
-        { ids: ['fm', 'fold', 'sync'] },
+        { ids: ['sub', 'fm', 'fold', 'sync'] },
       ],
     },
     { id: 'mixer', title: 'Mixer', rows: [['m1', 'm2'], ['m3', 'noise'], ['drive']] },
@@ -73,7 +73,7 @@
       id: 'filter',
       col: 'contours',
       title: 'Ladder filter · 24 dB/oct',
-      rows: [['filterMode'], ['cutoff', 'res', 'fEnvAmt', 'keyTrack'], ['fA', 'fD', 'fS', 'fR']],
+      rows: [['filterMode'], ['cutoff', 'res', 'fEnvAmt', 'keyTrack'], ['fA', 'fD', 'fS', 'fR'], ['f2Mode', 'f2Route'], ['f2Cutoff', 'f2Res', 'f2Env']],
     },
     { id: 'loudness', col: 'contours', title: 'Loudness contour', rows: [['aA', 'aD', 'aS', 'aR'], ['velAmp', 'velFilter']] },
     {
@@ -82,9 +82,24 @@
       rows: [['modSource', 'lfoShape'], ['lfoRate', 'lfoSync', 'lfoDiv'], ['modDepth', 'modPitch', 'modFilter', 'modPw']],
     },
     {
+      id: 'sources',
+      title: 'More sources: LFO 2 · LFO 3 · Env 3',
+      rows: [
+        { tag: '2', ids: ['lfo2Rate', 'lfo2Shape', 'lfo2Sync', 'lfo2Div'] },
+        { tag: '3', ids: ['lfo3Rate', 'lfo3Shape', 'lfo3Sync', 'lfo3Div'] },
+        { tag: 'E', ids: ['e3A', 'e3D', 'e3S', 'e3R'] },
+      ],
+    },
+    {
       id: 'cables',
       title: 'Patch cables',
-      rows: [1, 2, 3, 4].map((i) => ({ tag: String(i), ids: ['mod' + i + 'Src', 'mod' + i + 'Dst', 'mod' + i + 'Amt'] })),
+      rows: [1, 2, 3, 4, 5, 6].map((i) => ({ tag: String(i), ids: ['mod' + i + 'Src', 'mod' + i + 'Dst', 'mod' + i + 'Amt'] })),
+    },
+    { id: 'layer', title: 'Layer & split', rows: [['layerMode'], ['layerSound'], ['layerLevel', 'layerOct', 'splitNote']] },
+    {
+      id: 'rack',
+      title: 'Effects rack',
+      rows: [['distDrive', 'distTone'], ['ringFreq', 'ringMix'], ['phaserRate', 'phaserFb', 'phaserMix'], ['chorusRate', 'chorusDepth', 'chorusMix']],
     },
     { id: 'arp', title: 'Arpeggiator', rows: [['arpOn', 'latch'], ['arpMode'], ['arpOct', 'arpGate'], ['arpDiv']] },
     {
@@ -245,6 +260,33 @@
     return { node: wrap, update: (v) => (sel.value = v) };
   }
 
+  // The layer sound: any sound except drum kits and the layer combinations themselves.
+  function layerSoundControl(p) {
+    const id = 'm-' + p.id;
+    const sel = el('select', { id, class: 'ctl-menu' });
+    const fill = () => {
+      sel.innerHTML = '';
+      const groups = new Map();
+      const add = (name, group) => {
+        if (!groups.has(group)) sel.appendChild(groups.set(group, el('optgroup', { label: group })).get(group));
+        groups.get(group).appendChild(el('option', { value: name, text: name }));
+      };
+      for (const pr of LL.PRESETS) if (!pr.params.kit && pr.params.layerMode === 'off') add(pr.name, pr.group);
+      for (const pr of state.userPatches) if (!pr.params.kit) add(pr.name, 'Your patches');
+      sel.value = state.params[p.id];
+    };
+    sel.addEventListener('focus', fill);
+    sel.addEventListener('change', () => setParam(p.id, sel.value));
+    const wrap = el('div', { class: 'ctl ctl-enum ctl-wide', 'data-id': p.id }, [el('label', { class: 'ctl-label', for: id, text: p.label }), sel]);
+    return {
+      node: wrap,
+      update: (v) => {
+        if (!sel.options.length || ![...sel.options].some((o) => o.value === v)) fill();
+        sel.value = v;
+      },
+    };
+  }
+
   function enumControl(p) {
     if (p.menu || p.options.length > 8) return menuControl(p);
     const group = el('div', { class: 'seg' + (ICON_ENUMS.has(p.id) ? ' seg-icons' : ''), role: 'radiogroup', 'aria-label': p.label });
@@ -314,7 +356,8 @@
           if (row.tag) r.appendChild(el('span', { class: 'row-tag', text: row.tag, title: 'Oscillator ' + row.tag }));
           for (const id of ids) {
             const p = LL.BY_ID[id];
-            const c = p.type === 'knob' ? knobControl(p) : p.type === 'enum' ? enumControl(p) : boolControl(p);
+            const c =
+              p.type === 'knob' ? knobControl(p) : p.type === 'enum' ? enumControl(p) : p.type === 'text' ? layerSoundControl(p) : boolControl(p);
             controls[id] = c;
             r.appendChild(c.node);
           }
@@ -348,6 +391,18 @@
     sendKit();
   }
 
+  // The layer sound (and track 2's sound) goes to the engine as a full set of settings.
+  function layerParams(name) {
+    const own = state.userPatches.find((p) => p.name === name);
+    const factory = LL.PRESETS.find((p) => p.name === name && !p.params.kit);
+    const found = factory || own;
+    return found ? LL.engineParams(found.params) : null;
+  }
+
+  function sendLayer() {
+    send({ type: 'partB', params: layerParams(state.params.layerSound) });
+  }
+
   function sendKit() {
     if (!node || !state.params.kit || kitSent === state.params.kitId) return;
     kitSent = state.params.kitId;
@@ -368,6 +423,8 @@
     else send({ type: 'params', params: { [id]: value } });
     if (id === 'arpOn') document.body.classList.toggle('arp-on', !!value);
     if (id === 'kit' || id === 'kitId') kitChanged();
+    if (id === 'layerSound') sendLayer();
+    if (id === 'layerMode') document.body.classList.toggle('layer-on', value !== 'off');
     if (id === 'delayDiv' && !state.params.delaySync) setParam('delaySync', true, quiet);
     if (id === 'lfoDiv' && !state.params.lfoSync) setParam('lfoSync', true, quiet);
     if (TEMPO_LINKED.has(id)) tempoChanged();
@@ -423,6 +480,8 @@
     for (const p of LL.PARAMS) if (p.fx) applyFx(p.id, state.params[p.id]);
     renderPatchName();
     tempoChanged();
+    sendLayer();
+    document.body.classList.toggle('layer-on', state.params.layerMode !== 'off');
     remember();
   }
 
@@ -518,7 +577,7 @@
 
   function send(msg) {
     if (node) node.port.postMessage(msg);
-    else if (msg.type !== 'params') pending.push(msg);
+    else if (msg.type !== 'params' && msg.type !== 'partB' && msg.type !== 'song') pending.push(msg);
   }
 
   function power() {
@@ -539,10 +598,11 @@
         node = await workletEngine(ctx).catch(() => mainThreadEngine(ctx));
         node.port.onmessage = (e) => {
           if (e.data.type === 'voices') showVoices(e.data.mask);
-          else if (e.data.type === 'step') showStep(e.data.step);
+          else if (e.data.type === 'step') showStep(e.data.step, e.data.pattern, e.data.chainAt);
         };
         kitSent = null;
         sendKit();
+        sendLayer();
         fx = buildFx(ctx, node);
         recorder = buildRecorder(ctx);
         fx.analyser.disconnect();
@@ -606,7 +666,7 @@
       }
       if (synth.stepNow !== lastStep && port.onmessage) {
         lastStep = synth.stepNow;
-        port.onmessage({ data: { type: 'step', step: lastStep } });
+        port.onmessage({ data: { type: 'step', step: lastStep, pattern: synth.patNow, chainAt: synth.chainAt } });
       }
     };
     sp.port = port;
@@ -1467,56 +1527,189 @@
 
   // ---------------------------------------------------------------- studio: sequencer, drum grid, theremin
 
-  const SEQ_MAX = 32;
-  const song = loadSong();
+  const SEQ_MAX = LL.SEQ_STEPS;
+
+  // The song: eight patterns (A-H), each with two note tracks and a drum grid,
+  // and a chain for song mode. song.steps, song.length, song.gate and
+  // song.drums always mean the pattern and track being edited.
+  const song = makeSong(loadSong());
+
+  function makeSong(data) {
+    // Attached as live properties (Object.assign would read each one once instead).
+    return Object.defineProperties(data, Object.getOwnPropertyDescriptors({
+      get pat() {
+        return this.patterns[this.edit];
+      },
+      get steps() {
+        return this.pat[this.track ? 'steps2' : 'steps'];
+      },
+      get length() {
+        return this.pat.length;
+      },
+      set length(v) {
+        this.pat.length = v;
+      },
+      get gate() {
+        return this.pat.gate;
+      },
+      set gate(v) {
+        this.pat.gate = v;
+      },
+      get drums() {
+        return this.pat.drums;
+      },
+      set drums(v) {
+        this.pat.drums = v;
+      },
+    }));
+  }
+
+  function songData() {
+    return { patterns: song.patterns, edit: song.edit, track: song.track, chain: song.chain, songMode: song.songMode, swing: song.swing, kitId: song.kitId };
+  }
 
   function exampleSong() {
     let seed = 7;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    const steps = LL.randomMelody(16, 48, rnd).concat(new Array(SEQ_MAX - 16).fill(null));
-    return { steps, length: 16, gate: 0.5, swing: 0, drums: LL.beatRows(LL.STARTER_BEATS[1]), kitId: 'Classic 808' };
+    const patterns = Array.from({ length: LL.SONG_SLOTS }, LL.emptyPattern);
+    patterns[0].steps = LL.randomMelody(16, 48, rnd).concat(new Array(SEQ_MAX - 16).fill(null));
+    patterns[0].drums = LL.beatRows(LL.STARTER_BEATS[1]);
+    return { patterns, edit: 0, track: 0, chain: [{ p: 0, n: 1 }], songMode: false, swing: 0, kitId: 'Classic 808' };
   }
 
-  // The pattern you're working on is kept in this browser, separate from the sound.
+  const cleanSteps = (list) => {
+    const out = (Array.isArray(list) ? list : []).slice(0, SEQ_MAX).map((st) =>
+      st && Number.isFinite(st.note) ? { note: Math.max(0, Math.min(127, Math.round(st.note))), accent: !!st.accent, slide: !!st.slide } : null
+    );
+    while (out.length < SEQ_MAX) out.push(null);
+    return out;
+  };
+  const cleanDrums = (rows) =>
+    LL.DRUM_ROWS.map((r, i) =>
+      Array.from({ length: 16 }, (_, j) => {
+        const v = rows && rows[i] && rows[i][j];
+        return v === 1 || v === 2 ? v : 0;
+      })
+    );
+  const cleanPattern = (pt) => ({
+    steps: cleanSteps(pt && pt.steps),
+    steps2: cleanSteps(pt && pt.steps2),
+    length: pt && [8, 16, 32].includes(pt.length) ? pt.length : 16,
+    gate: pt && Number.isFinite(pt.gate) ? Math.max(0.1, Math.min(1, pt.gate)) : 0.5,
+    drums: cleanDrums(pt && pt.drums),
+  });
+
+  // The song is kept in this browser, separate from the sound. Older saves held one pattern.
   function loadSong() {
-    const base = exampleSong();
     const saved = load('ladder24.song');
-    if (!saved || typeof saved !== 'object') return base;
-    const steps = Array.isArray(saved.steps) ? saved.steps.slice(0, SEQ_MAX) : base.steps;
-    while (steps.length < SEQ_MAX) steps.push(null);
+    if (!saved || typeof saved !== 'object') return exampleSong();
+    const old = !Array.isArray(saved.patterns);
+    const patterns = Array.from({ length: LL.SONG_SLOTS }, (_, i) => cleanPattern(old ? (i === 0 ? saved : null) : saved.patterns[i]));
+    const chain = (Array.isArray(saved.chain) ? saved.chain : [{ p: 0, n: 1 }])
+      .filter((c) => c && c.p >= 0 && c.p < LL.SONG_SLOTS)
+      .map((c) => ({ p: c.p | 0, n: Math.max(1, Math.min(8, c.n | 0 || 1)) }))
+      .slice(0, 32);
     return {
-      steps: steps.map((st) =>
-        st && Number.isFinite(st.note) ? { note: Math.max(0, Math.min(127, Math.round(st.note))), accent: !!st.accent, slide: !!st.slide } : null
-      ),
-      length: [8, 16, 32].includes(saved.length) ? saved.length : 16,
-      gate: Number.isFinite(saved.gate) ? Math.max(0.1, Math.min(1, saved.gate)) : 0.5,
+      patterns,
+      edit: saved.edit >= 0 && saved.edit < LL.SONG_SLOTS ? saved.edit | 0 : 0,
+      track: saved.track === 1 ? 1 : 0,
+      chain: chain.length ? chain : [{ p: 0, n: 1 }],
+      songMode: !!saved.songMode,
       swing: Number.isFinite(saved.swing) ? Math.max(0, Math.min(0.5, saved.swing)) : 0,
-      drums: LL.DRUM_ROWS.map((r, i) =>
-        Array.from({ length: 16 }, (_, j) => {
-          const v = saved.drums && saved.drums[i] && saved.drums[i][j];
-          return v === 1 || v === 2 ? v : 0;
-        })
-      ),
-      kitId: LL.KIT_NAMES.includes(saved.kitId) ? saved.kitId : base.kitId,
+      kitId: LL.KIT_NAMES.includes(saved.kitId) ? saved.kitId : 'Classic 808',
     };
   }
 
   let songTimer = 0;
   function songChanged() {
     sendSong();
+    renderPatternButtons();
     clearTimeout(songTimer);
-    songTimer = setTimeout(() => store('ladder24.song', song), 300);
+    songTimer = setTimeout(() => store('ladder24.song', songData()), 300);
   }
 
   let drumKitSent = null;
   function sendSong() {
     if (!node) return;
-    send({ type: 'pattern', pattern: { length: song.length, steps: song.steps.slice(0, song.length), swing: song.swing, gate: song.gate } });
-    send({ type: 'drums', drums: { length: 16, rows: LL.DRUM_ROWS.map((r, i) => ({ slot: r.slot, steps: song.drums[i] })) } });
+    send({
+      type: 'song',
+      patterns: song.patterns.map((pt) => ({
+        length: pt.length,
+        gate: pt.gate,
+        steps: pt.steps.slice(0, pt.length),
+        steps2: pt.steps2.slice(0, pt.length),
+        rows: LL.DRUM_ROWS.map((r, i) => ({ slot: r.slot, steps: pt.drums[i] })),
+      })),
+      chain: song.chain,
+      songMode: song.songMode,
+      editPattern: song.edit,
+      swing: song.swing,
+    });
     if (drumKitSent !== song.kitId) {
       drumKitSent = song.kitId;
       send({ type: 'drumkit', kit: LL.kitDrums(song.kitId) });
     }
+  }
+
+  const LETTERS = 'ABCDEFGH';
+  const hasContent = (pt) => pt.steps.some(Boolean) || pt.steps2.some(Boolean) || pt.drums.some((r) => r.some(Boolean));
+
+  function renderPatternButtons() {
+    document.querySelectorAll('.pat-btn').forEach((b, i) => {
+      b.setAttribute('aria-pressed', String(i === song.edit));
+      b.classList.toggle('filled', hasContent(song.patterns[i]));
+    });
+  }
+
+  function selectPattern(i) {
+    song.edit = i;
+    cursor = Math.min(cursor, song.length - 1);
+    renderSeq();
+    renderDrums();
+    syncSeqControls();
+    songChanged();
+  }
+
+  function syncSeqControls() {
+    $('#seq-length').value = String(song.length);
+    $('#seq-gate').value = String(Math.round(song.gate * 100));
+    document.querySelectorAll('.track-btn').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.track) === song.track)));
+  }
+
+  // ---- song tab: the chain
+
+  function renderChain() {
+    const list = $('#chain');
+    list.innerHTML = '';
+    song.chain.forEach((c, k) => {
+      const chip = el('div', { class: 'chain-chip', 'data-k': String(k) });
+      const letter = el('span', { class: 'chain-letter', text: LETTERS[c.p] });
+      const minus = el('button', { type: 'button', class: 'btn btn-icon', id: 'chain-less-' + k, 'aria-label': 'Play ' + LETTERS[c.p] + ' fewer times', text: '−' });
+      const times = el('span', { class: 'chain-times', text: '×' + c.n });
+      const plus = el('button', { type: 'button', class: 'btn btn-icon', id: 'chain-more-' + k, 'aria-label': 'Play ' + LETTERS[c.p] + ' more times', text: '+' });
+      const del = el('button', { type: 'button', class: 'btn btn-icon', id: 'chain-del-' + k, 'aria-label': 'Remove this ' + LETTERS[c.p] + ' from the song', text: '×' });
+      minus.addEventListener('click', () => {
+        c.n = Math.max(1, c.n - 1);
+        renderChain();
+        songChanged();
+      });
+      plus.addEventListener('click', () => {
+        c.n = Math.min(8, c.n + 1);
+        renderChain();
+        songChanged();
+      });
+      del.addEventListener('click', () => {
+        if (song.chain.length > 1) song.chain.splice(k, 1);
+        renderChain();
+        songChanged();
+      });
+      chip.append(letter, times, minus, plus, del);
+      list.appendChild(chip);
+    });
+    const bars = song.chain.reduce((n, c) => n + c.n * (song.patterns[c.p].length / 16), 0);
+    const secs = (bars * 4 * 60) / state.params.bpm;
+    $('#chain-length').textContent = song.chain.length + ' blocks · ' + Math.round(bars * 10) / 10 + ' bars · ' + clock(secs) + ' at ' + state.params.bpm + ' BPM';
+    $('#song-mode').setAttribute('aria-pressed', String(song.songMode));
   }
 
   let playing = false;
@@ -1532,9 +1725,16 @@
     if (!playing) showStep(-1);
   }
 
-  function showStep(step) {
+  function showStep(step, pattern, chainAt) {
     document.querySelectorAll('.playing').forEach((c) => c.classList.remove('playing'));
     if (step < 0) return;
+    const pb = document.querySelectorAll('.pat-btn')[pattern];
+    if (pb) pb.classList.add('playing');
+    if (song.songMode) {
+      const chip = document.querySelector('.chain-chip[data-k="' + chainAt + '"]');
+      if (chip) chip.classList.add('playing');
+    }
+    if (pattern !== undefined && pattern !== song.edit) return;
     const s = document.querySelector('.seq-step[data-i="' + (step % song.length) + '"]');
     if (s) s.classList.add('playing');
     document.querySelectorAll('.drum-cell[data-j="' + (step % 16) + '"]').forEach((c) => c.classList.add('playing'));
@@ -1817,6 +2017,7 @@
     len.value = String(song.length);
     len.addEventListener('change', () => {
       song.length = Number(len.value);
+      renderChain();
       cursor = Math.min(cursor, song.length - 1);
       renderSeq();
       songChanged();
@@ -1839,7 +2040,7 @@
       songChanged();
     });
     $('#seq-random').addEventListener('click', () => {
-      const root = 36 + 12 * Math.max(0, Math.min(2, Math.floor((lastPlayed - 36) / 12)));
+      const root = song.track ? 60 : 36 + 12 * Math.max(0, Math.min(2, Math.floor((lastPlayed - 36) / 12)));
       const fresh = LL.randomMelody(song.length, root);
       for (let i = 0; i < song.length; i++) song.steps[i] = fresh[i];
       renderSeq();
@@ -1879,6 +2080,75 @@
       songChanged();
     });
 
+    // Patterns A-H and the two tracks
+    const pats = $('#patterns');
+    for (let i = 0; i < LL.SONG_SLOTS; i++) {
+      const b = el('button', { type: 'button', class: 'pat-btn', id: 'pat-' + i, title: 'Edit pattern ' + LETTERS[i], text: LETTERS[i] });
+      b.addEventListener('click', () => selectPattern(i));
+      pats.appendChild(b);
+    }
+    document.querySelectorAll('.track-btn').forEach((b) =>
+      b.addEventListener('click', () => {
+        song.track = Number(b.dataset.track);
+        renderSeq();
+        syncSeqControls();
+        songChanged();
+      })
+    );
+    let clip = null;
+    $('#pat-copy').addEventListener('click', () => {
+      clip = JSON.parse(JSON.stringify(song.pat));
+      setStatus('Copied pattern ' + LETTERS[song.edit] + '. Pick another pattern and press Paste.');
+    });
+    $('#pat-paste').addEventListener('click', () => {
+      if (!clip) return setStatus('Copy a pattern first.');
+      song.patterns[song.edit] = JSON.parse(JSON.stringify(clip));
+      selectPattern(song.edit);
+      setStatus('Pasted into pattern ' + LETTERS[song.edit] + '.');
+    });
+    $('#pat-clear').addEventListener('click', () => {
+      song.patterns[song.edit] = LL.emptyPattern();
+      selectPattern(song.edit);
+    });
+
+    // Song tab
+    $('#song-mode').addEventListener('click', () => {
+      song.songMode = !song.songMode;
+      renderChain();
+      songChanged();
+      setStatus(song.songMode ? 'Song mode: Play runs the chain from the start.' : 'Loop mode: Play repeats the pattern you are editing.');
+    });
+    const add = $('#chain-add');
+    for (let i = 0; i < LL.SONG_SLOTS; i++) {
+      const b = el('button', { type: 'button', class: 'btn', id: 'chain-add-' + i, text: '+ ' + LETTERS[i] });
+      b.addEventListener('click', () => {
+        if (song.chain.length >= 32) return;
+        song.chain.push({ p: i, n: 1 });
+        renderChain();
+        songChanged();
+      });
+      add.appendChild(b);
+    }
+    const demos = $('#demo-song');
+    for (const d of LL.DEMO_SONGS) demos.appendChild(el('option', { value: d.name, text: d.name }));
+    demos.addEventListener('change', () => {
+      const d = LL.DEMO_SONGS.find((x) => x.name === demos.value);
+      demos.value = '';
+      if (!d) return;
+      const loaded = LL.demoSong(d.name);
+      Object.assign(song, { patterns: loaded.patterns, chain: loaded.chain, songMode: true, edit: 0, track: 0, swing: loaded.swing, kitId: loaded.kitId });
+      const main = LL.PRESETS.find((p) => p.name === d.sound);
+      applyPatch(Object.assign({}, main.params, { layerSound: d.layer, bpm: d.bpm }), main.name, 'factory');
+      state.edited = true;
+      renderPatchName();
+      $('#drum-kit').value = song.kitId;
+      $('#swing').value = String(Math.round(song.swing * 100));
+      $('#swing-value').textContent = $('#swing').value + '%';
+      selectPattern(0);
+      renderChain();
+      setStatus('Loaded the demo “' + d.name + '”: ' + d.sound + ' on track 1, ' + d.layer + ' on track 2. Press Play.');
+    });
+
     wireTheremin();
     $('#rec').addEventListener('click', toggleRecord);
     $('#take-close').addEventListener('click', () => ($('#take').hidden = true));
@@ -1905,6 +2175,9 @@
     if (window.claude && window.claude.use) window.claude.use('downloads').catch(() => null);
     renderSeq();
     renderDrums();
+    renderPatternButtons();
+    syncSeqControls();
+    renderChain();
   }
 
   // ---------------------------------------------------------------- start

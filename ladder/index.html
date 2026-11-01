@@ -98,6 +98,7 @@
     <div class="studio-tabs" role="tablist" aria-label="Studio">
       <button type="button" class="studio-tab" role="tab" data-tab="tab-seq" id="t-seq">Step sequencer</button>
       <button type="button" class="studio-tab" role="tab" data-tab="tab-drums" id="t-drums">Drum grid</button>
+      <button type="button" class="studio-tab" role="tab" data-tab="tab-song" id="t-song">Song</button>
       <button type="button" class="studio-tab" role="tab" data-tab="tab-theremin" id="t-theremin">Theremin</button>
     </div>
     <div class="transport">
@@ -108,8 +109,19 @@
     </div>
   </div>
 
+  <div class="pattern-bar">
+    <span class="slider-label">Pattern</span>
+    <div class="patterns" id="patterns" aria-label="Patterns"></div>
+    <button type="button" class="btn" id="pat-copy">Copy</button>
+    <button type="button" class="btn" id="pat-paste">Paste</button>
+    <button type="button" class="btn" id="pat-clear">Clear pattern</button>
+  </div>
+
   <div class="studio-panel" id="tab-seq" role="tabpanel" aria-labelledby="t-seq">
     <div class="studio-controls">
+      <span class="slider-label">Track</span>
+      <button type="button" class="btn btn-toggle track-btn" data-track="0" id="track-1" title="Track 1 plays the sound on the panel">1 · Main sound</button>
+      <button type="button" class="btn btn-toggle track-btn" data-track="1" id="track-2" title="Track 2 plays the layer sound (Layer &amp; split on the panel)">2 · Layer sound</button>
       <label class="slider-label" for="seq-length">Steps</label>
       <select id="seq-length" class="ctl-menu"><option value="8">8</option><option value="16">16</option><option value="32">32</option></select>
       <label class="slider-label" for="seq-gate">Note length</label>
@@ -133,6 +145,18 @@
     </div>
     <p class="studio-help">Click a square to add a hit; click again for a louder hit, and once more to clear it. Sixteen steps make one bar.</p>
     <div class="grid-scroll"><div class="drum-grid" id="drum-grid"></div></div>
+  </div>
+
+  <div class="studio-panel" id="tab-song" role="tabpanel" aria-labelledby="t-song" hidden>
+    <div class="studio-controls">
+      <button type="button" class="btn btn-toggle" id="song-mode" aria-pressed="false" title="On: Play runs the chain below. Off: Play loops the pattern you are editing.">Song mode</button>
+      <label class="slider-label" for="demo-song">Demo song</label>
+      <select id="demo-song" class="ctl-menu"><option value="">Load a demo…</option></select>
+      <span class="chain-length" id="chain-length"></span>
+    </div>
+    <p class="studio-help">The song plays these blocks in order and then starts again. Each block is a pattern played one or more times. Add patterns with the buttons; set repeats with − and +.</p>
+    <div class="chain" id="chain"></div>
+    <div class="chain-add" id="chain-add"></div>
   </div>
 
   <div class="studio-panel" id="tab-theremin" role="tabpanel" aria-labelledby="t-theremin" hidden>
@@ -185,6 +209,8 @@
   </div>
   <div class="voices">
     <span class="voices-label">Voices</span>
+    <span class="voice-led"></span><span class="voice-led"></span><span class="voice-led"></span><span class="voice-led"></span>
+    <span class="voice-led"></span><span class="voice-led"></span><span class="voice-led"></span><span class="voice-led"></span>
     <span class="voice-led"></span><span class="voice-led"></span><span class="voice-led"></span><span class="voice-led"></span>
     <span class="voice-led"></span><span class="voice-led"></span><span class="voice-led"></span><span class="voice-led"></span>
   </div>

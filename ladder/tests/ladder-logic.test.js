@@ -793,6 +793,35 @@ test('the distortion curve is clean at zero, symmetric, and never past full scal
   assert.ok(hot[600] > 0.95, 'hard drive squares the wave off');
 });
 
+test('demo songs load: real sounds, real kits, valid notes, a chain of real patterns', () => {
+  const names = new Set(L.PRESETS.map((p) => p.name));
+  for (const d of L.DEMO_SONGS) {
+    assert.ok(names.has(d.sound) && names.has(d.layer), d.name + ' sounds');
+    assert.ok(L.KIT_NAMES.includes(d.kitId), d.name + ' kit');
+    const song = L.demoSong(d.name);
+    assert.strictEqual(song.patterns.length, L.SONG_SLOTS);
+    for (const c of song.chain) assert.ok(song.patterns[c.p].steps.some(Boolean), d.name + ' chains an empty pattern');
+    for (const pt of song.patterns) for (const st of pt.steps.concat(pt.steps2)) if (st) assert.ok(st.note >= 12 && st.note <= 108);
+    // And it plays: both tracks and the drums through a real engine.
+    const s = synth({ bpm: d.bpm });
+    s.pB = L.engineParams(L.PRESETS.find((p) => p.name === d.layer).params);
+    s.drumKit = s.makeKit(L.kitDrums(d.kitId));
+    s.setSong({
+      patterns: song.patterns.map((pt) => ({ length: pt.length, gate: pt.gate, steps: pt.steps, steps2: pt.steps2, rows: L.DRUM_ROWS.map((r, i) => ({ slot: r.slot, steps: pt.drums[i] })) })),
+      chain: song.chain,
+      songMode: true,
+      swing: song.swing,
+    });
+    s.setTransport(true);
+    const out = render(s, 2);
+    assert.ok(rms(out.L) > 0.01, d.name + ' is silent');
+    for (const x of out.L) assert.ok(Number.isFinite(x));
+  }
+  assert.strictEqual(L.noteFromName('C4'), 60);
+  assert.strictEqual(L.noteFromName('A#1'), 34);
+  assert.throws(() => L.stepsFromLine('C4 H2'), /Not a note/);
+});
+
 test('the computer keyboard covers an octave and a half from C', () => {
   assert.strictEqual(L.KEYMAP.a, 0);
   assert.strictEqual(L.KEYMAP.k, 12);
