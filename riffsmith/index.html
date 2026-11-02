@@ -49,18 +49,43 @@
         <label>Tempo
           <input id="bpm" type="number" min="40" max="240" step="1" inputmode="numeric" />
         </label>
+        <label title="The grid for drawing notes, and for Arpeggio speed when it's set to Follow Snap">Snap
+          <select id="snap"></select>
+        </label>
         <label>Sound
           <select id="sound"></select>
         </label>
+        <button id="loadSample" class="small" hidden title="Choose an audio file to play the riff with">Load sample…</button>
+        <input id="sampleFile" type="file" accept="audio/*" hidden />
         <label class="check"><input id="loop" type="checkbox" checked /> Loop</label>
       </div>
       <div class="group end">
-        <button id="saveMidi" class="primary" title="Download as a MIDI file to drag into FL Studio or any music program">Save MIDI</button>
+        <details class="menu" id="presetMenu">
+          <summary>My presets</summary>
+          <div class="menu-body">
+            <button id="savePreset">Save current as a preset…</button>
+            <button id="deletePreset">Delete this preset</button>
+            <button id="exportPresets">Export my presets (file)</button>
+            <button id="importPresets">Import presets (file)…</button>
+            <input id="presetFile" type="file" accept=".json,application/json" hidden />
+          </div>
+        </details>
+        <button id="saveMidi" class="primary" title="Download as a MIDI file for any music program">Save MIDI</button>
       </div>
     </section>
 
     <section class="roll-wrap" aria-label="Piano roll">
-      <canvas id="roll" aria-label="Piano roll showing the riff's notes"></canvas>
+      <div class="roll-tools">
+        <div class="seg" role="group" aria-label="Editing tool">
+          <button id="toolDraw" class="on" aria-pressed="true" title="Click to add a note, drag to move, drag its end to resize">✏️ Draw</button>
+          <button id="toolErase" aria-pressed="false" title="Click a note to remove it (right-click does this with any tool)">⌫ Erase</button>
+        </div>
+        <label class="check" title="Faded outlines show the riff as it was before the step you're looking at">
+          <input type="checkbox" id="ghost" /> Show before this step
+        </label>
+        <p class="hint" id="rollHint">Click to add a note · drag to move · drag its end to resize · right-click to delete · drag in the strip at the bottom to set loudness</p>
+      </div>
+      <canvas id="roll" aria-label="Piano roll showing the riff's notes. Click to add notes, drag to move them."></canvas>
       <p id="summary" class="summary" aria-live="polite"></p>
     </section>
 
@@ -93,8 +118,8 @@
     </section>
 
     <footer class="foot">
-      <p>Space plays and stops · D rolls · Z / X step back and forward through your riffs.
-        Settings are remembered in this browser.</p>
+      <p>Space plays and stops · D rolls · Z / X step back and forward through your riffs (edits included).
+        Settings, edits and your presets are remembered in this browser.</p>
     </footer>
   </div>
 

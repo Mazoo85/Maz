@@ -431,6 +431,120 @@ test('notes never run past the end and never double up', () => {
   }
 });
 
+// --------------------------------------------------------- rhythm & snap
+
+test('rhythm chops: each pattern lands its notes where it says', () => {
+  Object.keys(R.RHYTHMS).forEach((name) => {
+    const r = R.generate(settings({ progression: { bars: 1, chordBars: 1 }, arp: { rhythm: name, rests: 0 },
+      groove: { on: false }, art: { on: false } }));
+    const want = R.RHYTHMS[name].map((p) => Math.round(p * 24));
+    const got = [...new Set(r.notes.map((n) => n.t))];
+    eq(got, want, name);
+  });
+});
+
+test('rhythm chops: off-beats skip the downbeat, the rest always start the chord', () => {
+  const off = R.generate(settings({ arp: { rhythm: 'offbeat' }, groove: { on: false } }));
+  assert(!off.notes.some((n) => n.t % R.BAR === 0), 'no downbeats on off-beats');
+  ['dotted', 'tresillo', 'random', 'trap'].forEach((name) => {
+    const r = R.generate(settings({ arp: { rhythm: name, rests: 0 }, groove: { on: false } }));
+    for (let bar = 0; bar < 4; bar++) assert(r.notes.some((n) => n.t === bar * R.BAR), name + ' bar ' + bar);
+  });
+});
+
+test('rhythm chops: a note rings up to the next one, times the gate', () => {
+  const r = R.generate(settings({ progression: { bars: 1 }, arp: { rhythm: 'dotted', gate: 1, rests: 0 },
+    groove: { on: false }, art: { on: false } }));
+  eq(r.notes.map((n) => n.len), [72, 72, 72, 72, 48, 48]);
+});
+
+test('random chops are seeded: same seed same rhythm, new seed new rhythm', () => {
+  const s = settings({ arp: { rhythm: 'random' }, groove: { on: false } });
+  eq(R.generate(s).notes, R.generate(s).notes);
+  const other = JSON.parse(JSON.stringify(s));
+  other.arp.seed = 99999;
+  assert(JSON.stringify(R.generate(other).notes.map((n) => n.t)) !==
+    JSON.stringify(R.generate(s).notes.map((n) => n.t)), 'rhythm changed');
+});
+
+test('speed "Follow Snap" spaces notes on the Snap grid', () => {
+  [96, 48, 32, 24, 16, 12].forEach((snap) => {
+    const r = R.generate(settings({ snap, arp: { rate: 'snap', rests: 0 }, groove: { on: false } }));
+    const starts = [...new Set(r.notes.map((n) => n.t))];
+    starts.forEach((t, i) => eq(t, i * snap, 'snap ' + snap));
+  });
+});
+
+test('snap is kept in range by normalize', () => {
+  eq(R.normalize({ snap: 7 }).snap, 24);
+  eq(R.normalize({ snap: 32 }).snap, 32);
+});
+
+// ----------------------------------------------------- per-note shaping
+
+test('levels: brightness, resonance and pitch wobble land on each note', () => {
+  const plain = R.generate(R.defaults()).notes;
+  plain.forEach((n) => { eq(n.modx, 1); eq(n.mody, 0); eq(n.fine, 0); });
+  const r = R.generate(settings({ levels: { filter: 0.7, filterVar: 0.5, resonance: 0.4, pitchVar: 1 } }));
+  r.notes.forEach((n) => {
+    assert(n.modx <= 0.7 && n.modx >= 0.2, 'modx ' + n.modx);
+    eq(n.mody, 0.4);
+    assert(Math.abs(n.fine) <= 50, 'fine ' + n.fine);
+  });
+  assert(new Set(r.notes.map((n) => n.fine)).size > 3, 'pitch wobble varies');
+});
+
+test('grooves: triplet feel pulls notes onto triplets, drunk loosens them', () => {
+  const trip = R.generate(settings({ arp: { rate: 16 }, groove: { template: 'triplet', amount: 1 } }));
+  trip.notes.forEach((n) => eq(n.t % 32, 0, 'on a triplet'));
+  const drunk = R.generate(settings({ groove: { template: 'drunk', amount: 1 } }));
+  assert(drunk.notes.some((n) => n.t % 24 !== 0), 'some notes off the grid');
+  ['mpc', 'dilla'].forEach((g) => {
+    const r = R.generate(settings({ groove: { template: g, amount: 1 } }));
+    assert(r.notes.some((n) => n.t % 24 !== 0), g + ' moves something');
+    assert(r.notes.some((n) => n.t === 0), g + ' keeps the downbeat');
+  });
+});
+
+// ----------------------------------------------------------------- tidy
+
+test('tidy cleans up hand-edited notes', () => {
+  const out = R.tidy([
+    { t: 10.4, len: 50, pitch: 60, vel: 2 },
+    { t: 10, len: 10, pitch: 60, vel: 0.5 },          // same start and pitch: dropped
+    { t: 40, len: 20, pitch: 60, vel: 0.5 },          // cuts the first note short
+    { t: -5, len: 10, pitch: 62, vel: 0.5 },          // before the start: dropped
+    { t: 380, len: 50, pitch: 64, vel: 0.5 },         // trimmed to the end
+    { t: 384, len: 10, pitch: 64, vel: 0.5 },         // at the end: dropped
+    { t: 0, len: 10, pitch: 200, vel: 0.5 }           // not a note: dropped
+  ], 384);
+  eq(out.map((n) => [n.t, n.len, n.pitch]), [[10, 30, 60], [40, 20, 60], [380, 4, 64]]);
+  eq(out[0].vel, 1);
+  eq(out[0].modx, 1, 'missing shaping gets defaults');
+});
+
+// ------------------------------------------------------------ your presets
+
+test('preset files round-trip and repair what they carry', () => {
+  const s = settings({ key: 3, progression: { mood: 'epic' }, arp: { rhythm: 'trap' } });
+  const file = R.writePresetFile([{ name: '  Late  night ', settings: s, sound: 'keys' }]);
+  const back = R.readPresetFile(file);
+  eq(back.length, 1);
+  eq(back[0].name, 'Late night');
+  eq(back[0].settings, s);
+  eq(back[0].sound, 'keys');
+  const fixed = R.readPresetFile(JSON.stringify({ presets: [{ name: 'x', settings: { key: 40 } }] }));
+  eq(fixed[0].settings.key, 11);
+});
+
+test('a bad preset file gives a clear message', () => {
+  ['not json', '{}', '{"presets": []}', '{"presets": [{"name": "x"}]}'].forEach((txt) => {
+    let msg = '';
+    try { R.readPresetFile(txt); } catch (e) { msg = e.message; }
+    assert(/preset/i.test(msg), 'message for ' + txt + ': ' + msg);
+  });
+});
+
 // ------------------------------------------------------------------ MIDI
 
 test('MIDI: a valid file that reads back to the same notes', () => {

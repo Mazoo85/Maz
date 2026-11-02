@@ -6,7 +6,7 @@
  */
 'use strict';
 
-var CACHE = 'riffsmith-v1';
+var CACHE = 'riffsmith-v2';
 var FILES = [
   './', './index.html', './css/style.css', './js/riff.js', './js/synth.js', './js/app.js',
   './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png'

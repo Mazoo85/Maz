@@ -108,8 +108,12 @@
       { key: 'pattern', label: 'Pattern', type: 'select', options: [
         ['up', 'Up'], ['down', 'Down'], ['updown', 'Up & down'], ['downup', 'Down & up'],
         ['converge', 'Outside in'], ['random', 'Random'], ['stab', 'Chord stabs']] },
+      { key: 'rhythm', label: 'Rhythm', type: 'select', options: [
+        ['even', 'Even (use Speed)'], ['offbeat', 'Off-beats'], ['dotted', 'Dotted'],
+        ['tresillo', 'Syncopated (3-3-2)'], ['bounce', 'Bounce'], ['gallop', 'Gallop'],
+        ['trap', 'Trap rolls'], ['random', 'Random chops']] },
       { key: 'rate', label: 'Speed', type: 'select', options: [
-        [4, '1/4 notes'], [8, '1/8 notes'], [16, '1/16 notes'], [32, '1/32 notes']] },
+        ['snap', 'Follow Snap'], [4, '1/4 notes'], [8, '1/8 notes'], [16, '1/16 notes'], [32, '1/32 notes']] },
       { key: 'triplet', label: 'Triplets', type: 'toggle' },
       { key: 'range', label: 'Octaves', type: 'select', options: [[1, '1'], [2, '2'], [3, '3'], [4, '4']] },
       { key: 'gate', label: 'Gate (note length)', type: 'range', min: 0.1, max: 1, step: 0.05, pct: true },
@@ -127,7 +131,11 @@
       { key: 'velocity', label: 'Velocity', type: 'range', min: 0.1, max: 1, step: 0.05, pct: true },
       { key: 'velVar', label: 'Velocity variation', type: 'range', min: 0, max: 1, step: 0.05, pct: true },
       { key: 'accent', label: 'Accent on the beat', type: 'range', min: 0, max: 1, step: 0.05, pct: true },
-      { key: 'panVar', label: 'Pan spread', type: 'range', min: 0, max: 1, step: 0.05, pct: true }
+      { key: 'panVar', label: 'Pan spread', type: 'range', min: 0, max: 1, step: 0.05, pct: true },
+      { key: 'filter', label: 'Brightness (filter)', type: 'range', min: 0, max: 1, step: 0.05, pct: true },
+      { key: 'filterVar', label: 'Brightness variation', type: 'range', min: 0, max: 1, step: 0.05, pct: true },
+      { key: 'resonance', label: 'Resonance', type: 'range', min: 0, max: 1, step: 0.05, pct: true },
+      { key: 'pitchVar', label: 'Pitch wobble', type: 'range', min: 0, max: 1, step: 0.05, pct: true }
     ],
     art: [
       { key: 'multiply', label: 'Length', type: 'range', min: 0.25, max: 2, step: 0.05, times: true },
@@ -138,7 +146,9 @@
     groove: [
       { key: 'template', label: 'Groove', type: 'select', options: [
         ['straight', 'Straight'], ['swing8', 'Swing (8ths)'], ['swing16', 'Swing (16ths)'],
-        ['shuffle', 'Shuffle'], ['laidback', 'Laid back'], ['push', 'Pushed (rushing)']] },
+        ['shuffle', 'Shuffle'], ['mpc', 'MPC swing'], ['dilla', 'Wonky (late 16ths)'],
+        ['triplet', 'Triplet feel'], ['laidback', 'Laid back'], ['push', 'Pushed (rushing)'],
+        ['drunk', 'Drunk (loose)']] },
       { key: 'amount', label: 'Amount', type: 'range', min: 0, max: 1, step: 0.05, pct: true },
       { key: 'humanize', label: 'Human feel', type: 'range', min: 0, max: 1, step: 0.05, pct: true }
     ],
@@ -153,16 +163,21 @@
     ]
   };
 
+  // The Snap grid, in ticks.
+  var SNAPS = [[96, '1/4'], [48, '1/8'], [32, '1/8 triplet'], [24, '1/16'], [16, '1/16 triplet'], [12, '1/32']];
+
   function defaults() {
     return {
       key: 9,          // A
       bpm: 120,
+      snap: 24,        // ticks: the grid for "Follow Snap" and for editing notes
       progression: { on: true, seed: 1, mood: 'sad', pattern: 'auto', bars: 4, chordBars: 1, variation: 0 },
       chords:      { on: true, seed: 2, type: 'triad', voicing: 'close', inversion: 'smooth', bass: false },
-      arp:         { on: true, seed: 3, pattern: 'updown', rate: 16, triplet: false, range: 2, gate: 0.7,
+      arp:         { on: true, seed: 3, pattern: 'updown', rhythm: 'even', rate: 16, triplet: false, range: 2, gate: 0.7,
                      rests: 0, flip: false, alternate: false },
       mirror:      { on: false, seed: 4, vertical: true, horizontal: false, where: 'bar' },
-      levels:      { on: true, seed: 5, velocity: 0.8, velVar: 0.15, accent: 0.3, panVar: 0 },
+      levels:      { on: true, seed: 5, velocity: 0.8, velVar: 0.15, accent: 0.3, panVar: 0,
+                     filter: 1, filterVar: 0, resonance: 0, pitchVar: 0 },
       art:         { on: true, seed: 6, multiply: 1, variation: 0, legato: false, ratchet: 0 },
       groove:      { on: true, seed: 7, template: 'straight', amount: 0.5, humanize: 0 },
       fit:         { on: true, seed: 8, scale: 'auto', low: 48, high: 84, mode: 'fold', octave: 0 }
@@ -246,7 +261,8 @@
     var src = input && typeof input === 'object' ? input : {};
     var out = {
       key: validValue({ type: 'range', min: 0, max: 11 }, src.key, d.key) | 0,
-      bpm: Math.round(validValue({ type: 'range', min: 40, max: 240 }, src.bpm, d.bpm))
+      bpm: Math.round(validValue({ type: 'range', min: 40, max: 240 }, src.bpm, d.bpm)),
+      snap: validValue({ type: 'select', options: SNAPS }, src.snap, d.snap)
     };
     STEPS.forEach(function (step) {
       var s = src[step.id] && typeof src[step.id] === 'object' ? src[step.id] : {};
@@ -307,6 +323,7 @@
       case 'arp':
         s.pattern = pick(rng, ['up', 'down', 'updown', 'downup', 'converge', 'random', 'stab']);
         s.rate = pick(rng, [8, 16, 16, 16, 32]);
+        s.rhythm = pick(rng, ['even', 'even', 'even', 'offbeat', 'dotted', 'tresillo', 'bounce', 'gallop', 'trap', 'random']);
         s.triplet = rng() < 0.15;
         s.range = pick(rng, [1, 2, 2, 3]);
         s.gate = pick(rng, [0.3, 0.5, 0.7, 0.9, 1]);
@@ -324,6 +341,10 @@
         s.velVar = pick(rng, [0, 0.1, 0.2, 0.35]);
         s.accent = pick(rng, [0, 0.2, 0.4, 0.6]);
         s.panVar = pick(rng, [0, 0, 0.2, 0.5]);
+        s.filter = pick(rng, [1, 1, 0.8, 0.6]);
+        s.filterVar = pick(rng, [0, 0, 0.2, 0.4]);
+        s.resonance = pick(rng, [0, 0, 0.2, 0.5]);
+        s.pitchVar = pick(rng, [0, 0, 0, 0.1, 0.25]);
         break;
       case 'art':
         s.multiply = pick(rng, [0.5, 0.75, 1, 1, 1.25]);
@@ -332,7 +353,8 @@
         s.ratchet = pick(rng, [0, 0, 0, 0.1, 0.25]);
         break;
       case 'groove':
-        s.template = pick(rng, ['straight', 'swing8', 'swing16', 'shuffle', 'laidback', 'push']);
+        s.template = pick(rng, ['straight', 'swing8', 'swing16', 'shuffle', 'mpc', 'dilla', 'triplet',
+          'laidback', 'push', 'drunk']);
         s.amount = pick(rng, [0.3, 0.5, 0.7]);
         s.humanize = pick(rng, [0, 0.1, 0.2, 0.4]);
         break;
@@ -524,9 +546,52 @@
     }
   }
 
-  function stepArp(notes, cfg, rng) {
-    var step = Math.round((BAR / cfg.rate) * (cfg.triplet ? 2 / 3 : 1));
-    var len = Math.max(3, Math.round(step * cfg.gate));
+  // Rhythm "chops": where notes start within one bar, in 16ths (16 to a bar).
+  // Fractions are faster hits — the trap roll's 32nds and triplets.
+  var RHYTHMS = {
+    offbeat:  [2, 6, 10, 14],
+    dotted:   [0, 3, 6, 9, 12, 14],
+    tresillo: [0, 3, 6, 8, 11, 14],
+    bounce:   [0, 3, 4, 7, 8, 11, 12, 15],
+    gallop:   [0, 2, 3, 4, 6, 7, 8, 10, 11, 12, 14, 15],
+    trap:     [0, 2, 4, 6, 8, 10, 12, 12.5, 13, 13.5, 14, 14 + 1 / 3, 14 + 2 / 3, 15, 15.25, 15.5, 15.75]
+  };
+
+  // A random chop for one bar: always the downbeat, then about half the 16ths.
+  function randomRhythm(rng) {
+    var out = [0];
+    for (var i = 1; i < 16; i++) if (rng() < 0.45) out.push(i);
+    return out;
+  }
+
+  // Note start times (and the gap to the next start) across one chord's span.
+  function onsetsFor(c, cfg, snap, rng) {
+    var onsets = [];
+    if (cfg.rhythm === 'even' || !cfg.rhythm) {
+      var step = cfg.rate === 'snap'
+        ? snap
+        : Math.round((BAR / cfg.rate) * (cfg.triplet ? 2 / 3 : 1));
+      for (var t = c.start; t < c.end - 1; t += step) onsets.push(t);
+    } else {
+      var sixteenth = BAR / 16;
+      for (var bar = Math.floor(c.start / BAR) * BAR; bar < c.end; bar += BAR) {
+        var pat = cfg.rhythm === 'random' ? randomRhythm(rng) : RHYTHMS[cfg.rhythm];
+        pat.forEach(function (pos) {
+          var at = bar + Math.round(pos * sixteenth);
+          if (at >= c.start && at < c.end - 1) onsets.push(at);
+        });
+      }
+      // Every chord is heard from its first moment — except on off-beats,
+      // where skipping the downbeat is the whole point.
+      if (cfg.rhythm !== 'offbeat' && (!onsets.length || onsets[0] !== c.start)) onsets.unshift(c.start);
+      if (!onsets.length) onsets.push(c.start + Math.min(BAR / 8, Math.floor((c.end - c.start) / 2)));
+    }
+    return onsets.map(function (t, i) {
+      return { t: t, gap: (i + 1 < onsets.length ? onsets[i + 1] : c.end) - t };
+    });
+  }
+
+  function stepArp(notes, cfg, snap, rng) {
     var out = [];
     chordsOf(notes).forEach(function (c, ci) {
       var degs = [];
@@ -538,18 +603,17 @@
       var flip = cfg.flip;
       if (cfg.alternate && ci % 2 === 1) flip = !flip;
       if (flip) seq = seq.slice().reverse();
-      var i = 0;
-      for (var t = c.start; t < c.end - 1; t += step, i++) {
-        if (cfg.rests > 0 && i > 0 && rng() < cfg.rests) continue; // never rest on a chord's first note
-        var noteLen = Math.min(len, c.end - t);
+      onsetsFor(c, cfg, snap, rng).forEach(function (on, i) {
+        if (cfg.rests > 0 && i > 0 && rng() < cfg.rests) return; // never rest on a chord's first note
+        var noteLen = Math.max(3, Math.min(Math.round(on.gap * cfg.gate), c.end - on.t));
         if (cfg.pattern === 'stab') {
           c.degs.forEach(function (d) {
-            out.push({ t: t, len: noteLen, deg: d, vel: 0.8, pan: 0, chord: c.index });
+            out.push({ t: on.t, len: noteLen, deg: d, vel: 0.8, pan: 0, chord: c.index });
           });
         } else {
-          out.push({ t: t, len: noteLen, deg: seq[i % seq.length], vel: 0.8, pan: 0, chord: c.index });
+          out.push({ t: on.t, len: noteLen, deg: seq[i % seq.length], vel: 0.8, pan: 0, chord: c.index });
         }
-      }
+      });
     });
     return out;
   }
@@ -602,7 +666,11 @@
       v += cfg.accent * (pos === 2 ? 0.3 : pos === 1 ? 0.15 : -0.12);
       return Object.assign({}, n, {
         vel: clamp(v, 0.05, 1),
-        pan: clamp((rng() * 2 - 1) * cfg.panVar, -1, 1)
+        pan: clamp((rng() * 2 - 1) * cfg.panVar, -1, 1),
+        // Per-note sound shaping, read by the built-in instruments.
+        modx: clamp(cfg.filter - rng() * cfg.filterVar, 0, 1),        // brightness
+        mody: clamp(cfg.resonance, 0, 1),                              // resonance
+        fine: Math.round((rng() * 2 - 1) * cfg.pitchVar * 50)          // cents
       });
     });
   }
@@ -647,6 +715,8 @@
     swing8:   [0, 4, 16, 4],    // offbeat 8ths pushed to the triplet
     swing16:  [0, 8, 0, 8],     // offbeat 16ths pushed to the triplet
     shuffle:  [0, 10, 16, 10],
+    mpc:      [0, 5, 0, 5],     // a gentle 16th swing, like an MPC at 58%
+    dilla:    [0, 10, -3, 12],  // late 16ths, a slightly early offbeat
     laidback: [3, 6, 6, 6],
     push:     [0, -4, -6, -4]
   };
@@ -654,8 +724,15 @@
   function stepGroove(notes, cfg, rng) {
     var shape = GROOVES[cfg.template] || GROOVES.straight;
     var sixteenth = PPQ / 4;
+    var trip = PPQ / 3; // an 8th-note triplet
     return notes.map(function (n) {
       var t = n.t;
+      if (cfg.template === 'triplet') {
+        // Pull each note towards the nearest triplet.
+        t += (Math.round(t / trip) * trip - t) * cfg.amount;
+      } else if (cfg.template === 'drunk') {
+        t += (rng() * 2 - 1) * 18 * cfg.amount;
+      }
       var grid = Math.round(t / sixteenth);
       if (Math.abs(grid * sixteenth - t) <= 3) t += shape[((grid % 4) + 4) % 4] * cfg.amount;
       t += (rng() * 2 - 1) * 6 * cfg.humanize;
@@ -693,7 +770,8 @@
           }
         }
       }
-      out.push({ t: n.t, len: n.len, pitch: clamp(p, 0, 127), vel: n.vel, pan: n.pan });
+      out.push({ t: n.t, len: n.len, pitch: clamp(p, 0, 127), vel: n.vel, pan: n.pan,
+                 modx: n.modx === undefined ? 1 : n.modx, mody: n.mody || 0, fine: n.fine || 0 });
     });
     return out;
   }
@@ -708,6 +786,37 @@
       return { t: n.t, len: n.len, name: NOTE_NAMES[pc] + triadQuality(steps, n.deg),
                roman: romanFor(steps, n.deg) };
     });
+  }
+
+  // Make a list of notes safe to play and save: nothing starts before 0 or at
+  // or past the end, nothing runs past the end, no two notes share a pitch
+  // and start, and a note is cut short where the same pitch starts again (a
+  // MIDI file can't hold two of the same note at once). Sorted by start, then
+  // pitch. Used on generated riffs and on notes edited by hand.
+  function tidy(notes, total) {
+    var seen = {};
+    var clean = [];
+    notes.forEach(function (n) {
+      var t = Math.round(n.t);
+      if (!(t >= 0) || t >= total || !(n.pitch >= 0 && n.pitch <= 127)) return;
+      var k = t + ':' + n.pitch;
+      if (seen[k]) return;
+      seen[k] = true;
+      clean.push({ t: t, len: Math.max(1, Math.min(Math.round(n.len), total - t)), pitch: n.pitch | 0,
+                   vel: Math.round(clamp(n.vel, 0.01, 1) * 1000) / 1000,
+                   pan: Math.round(clamp(n.pan || 0, -1, 1) * 1000) / 1000,
+                   modx: Math.round(clamp(n.modx === undefined ? 1 : n.modx, 0, 1) * 1000) / 1000,
+                   mody: Math.round(clamp(n.mody || 0, 0, 1) * 1000) / 1000,
+                   fine: Math.round(clamp(n.fine || 0, -100, 100)) });
+    });
+    clean.sort(function (a, b) { return a.t - b.t || a.pitch - b.pitch; });
+    var lastOf = {};
+    clean.forEach(function (n) {
+      var prev = lastOf[n.pitch];
+      if (prev && prev.t + prev.len > n.t) prev.len = n.t - prev.t;
+      lastOf[n.pitch] = n;
+    });
+    return clean;
   }
 
   // Build the riff. `upTo` (0..7) stops after that step, to hear the riff as it
@@ -727,7 +836,7 @@
 
     var notes = prog;
     if (run('chords', 1)) notes = stepChords(notes, settings.chords, stepRng('chords', settings.chords.seed));
-    if (run('arp', 2)) notes = stepArp(notes, settings.arp, stepRng('arp', settings.arp.seed));
+    if (run('arp', 2)) notes = stepArp(notes, settings.arp, settings.snap, stepRng('arp', settings.arp.seed));
     if (run('mirror', 3)) notes = stepMirror(notes, settings.mirror, total, stepRng('mirror', settings.mirror.seed));
     if (run('levels', 4)) notes = stepLevels(notes, settings.levels, stepRng('levels', settings.levels.seed));
     if (run('art', 5)) notes = stepArticulation(notes, settings.art, stepRng('art', settings.art.seed));
@@ -735,27 +844,7 @@
 
     var midi = stepToMidi(notes, settings, run('fit', 7));
 
-    // Tidy: nothing may run past the end, and no two notes may share a pitch
-    // and start.
-    var seen = {};
-    var clean = [];
-    midi.forEach(function (n) {
-      if (n.t >= total) return;
-      var k = n.t + ':' + n.pitch;
-      if (seen[k]) return;
-      seen[k] = true;
-      clean.push({ t: n.t, len: Math.max(1, Math.min(n.len, total - n.t)), pitch: n.pitch,
-                   vel: Math.round(n.vel * 1000) / 1000, pan: Math.round(n.pan * 1000) / 1000 });
-    });
-    clean.sort(function (a, b) { return a.t - b.t || a.pitch - b.pitch; });
-    // A note may not still be ringing when the same pitch starts again (a MIDI
-    // file can't hold two of the same note at once): cut it short there.
-    var lastOf = {};
-    clean.forEach(function (n) {
-      var prev = lastOf[n.pitch];
-      if (prev && prev.t + prev.len > n.t) prev.len = n.t - prev.t;
-      lastOf[n.pitch] = n;
-    });
+    var clean = tidy(midi, total);
 
     return { notes: clean, length: total, ppq: PPQ, bars: settings.progression.bars,
              chords: chordLabels(settings, prog), settings: settings };
@@ -852,12 +941,48 @@
     return normalize(s);
   }
 
+  // ------------------------------------------------------- your presets
+
+  // Your own presets travel as a small JSON file:
+  //   { "app": "riffsmith", "version": 1, "presets": [ { name, settings, sound } ] }
+  function cleanPresetName(name) {
+    return String(name == null ? '' : name).replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40);
+  }
+
+  function writePresetFile(presets) {
+    return JSON.stringify({
+      app: 'riffsmith', version: 1,
+      presets: presets.map(function (p) {
+        return { name: cleanPresetName(p.name), settings: normalize(p.settings), sound: p.sound || null };
+      })
+    }, null, 2);
+  }
+
+  // Read a preset file (or one preset on its own). Anything unreadable throws
+  // an Error with a message fit to show; settings are repaired by normalize.
+  function readPresetFile(text) {
+    var data;
+    try { data = JSON.parse(text); } catch (e) { throw new Error('That file isn\'t a Riffsmith preset file.'); }
+    var list = data && Array.isArray(data.presets) ? data.presets
+      : (data && data.settings ? [data] : null);
+    if (!list) throw new Error('That file isn\'t a Riffsmith preset file.');
+    var out = [];
+    list.forEach(function (p, i) {
+      if (!p || typeof p !== 'object' || !p.settings || typeof p.settings !== 'object') return;
+      out.push({ name: cleanPresetName(p.name) || 'Imported ' + (i + 1), settings: normalize(p.settings),
+                 sound: typeof p.sound === 'string' ? p.sound : null });
+    });
+    if (!out.length) throw new Error('No presets found in that file.');
+    return out;
+  }
+
   var api = {
-    PPQ: PPQ, BAR: BAR, STEPS: STEPS, CONTROLS: CONTROLS, SCALES: SCALES, MOODS: MOODS,
+    PPQ: PPQ, BAR: BAR, STEPS: STEPS, SNAPS: SNAPS, RHYTHMS: RHYTHMS, CONTROLS: CONTROLS, SCALES: SCALES, MOODS: MOODS,
     NOTE_NAMES: NOTE_NAMES, PRESETS: PRESETS,
-    defaults: defaults, normalize: normalize, generate: generate, toMidi: toMidi,
+    defaults: defaults, normalize: normalize, generate: generate, toMidi: toMidi, tidy: tidy,
     reroll: reroll, randomizeStep: randomizeStep, applyPreset: applyPreset,
-    controlsFor: controlsFor, noteName: noteName, snapToScale: snapToScale,
+    controlsFor: controlsFor, noteName: noteName,
+    writePresetFile: writePresetFile, readPresetFile: readPresetFile, cleanPresetName: cleanPresetName, snapToScale: snapToScale,
     mulberry32: mulberry32
   };
 
