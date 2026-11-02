@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="Riffsmith builds melodies, chords and arpeggios in eight steps. Roll the dice, hear it, save it as MIDI." />
+  <meta name="theme-color" content="#f3f1ec" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#121418" media="(prefers-color-scheme: dark)" />
+  <title>Riffsmith</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="masthead">
+      <div class="brand">
+        <img src="icons/icon.svg" alt="" width="34" height="34" />
+        <div>
+          <h1>Riffsmith</h1>
+          <p class="lede">A riff in eight steps. Roll the dice until something grabs you.</p>
+        </div>
+      </div>
+      <button id="install" class="ghost" hidden>Install app</button>
+    </header>
+
+    <section class="transport" aria-label="Playback and riff controls">
+      <div class="group">
+        <button id="play" class="primary play" title="Play / stop (Space)" aria-pressed="false">
+          <span class="ico" aria-hidden="true">▶</span><span class="txt">Play</span>
+        </button>
+        <button id="dice" class="accent" title="New riff with the same settings (D)">
+          <span aria-hidden="true">🎲</span> Roll
+        </button>
+        <button id="surprise" title="New settings and a new riff for every step that isn't kept">Surprise me</button>
+      </div>
+      <div class="group">
+        <button id="back" title="Previous riff (Z)" aria-label="Previous riff">◀ Back</button>
+        <button id="forward" title="Next riff (X)" aria-label="Next riff">Next ▶</button>
+      </div>
+      <div class="group fields">
+        <label>Preset
+          <select id="preset"></select>
+        </label>
+        <label>Key
+          <select id="key"></select>
+        </label>
+        <label>Tempo
+          <input id="bpm" type="number" min="40" max="240" step="1" inputmode="numeric" />
+        </label>
+        <label>Sound
+          <select id="sound"></select>
+        </label>
+        <label class="check"><input id="loop" type="checkbox" checked /> Loop</label>
+      </div>
+      <div class="group end">
+        <button id="saveMidi" class="primary" title="Download as a MIDI file to drag into FL Studio or any music program">Save MIDI</button>
+      </div>
+    </section>
+
+    <section class="roll-wrap" aria-label="Piano roll">
+      <canvas id="roll" aria-label="Piano roll showing the riff's notes"></canvas>
+      <p id="summary" class="summary" aria-live="polite"></p>
+    </section>
+
+    <section class="steps" aria-label="The eight steps">
+      <div class="tabs" id="tabs" role="tablist"></div>
+      <div class="panel" id="panel" role="tabpanel">
+        <div class="panel-head">
+          <div>
+            <h2 id="stepTitle"></h2>
+            <p id="stepBlurb" class="blurb"></p>
+          </div>
+          <label class="switch" title="Switch this step on or off">
+            <input type="checkbox" id="stepOn" />
+            <span class="slider" aria-hidden="true"></span>
+            <span class="switch-label">On</span>
+          </label>
+        </div>
+        <div class="controls" id="controls"></div>
+        <div class="panel-foot">
+          <button id="stepDice" title="New random result for this step only">🎲 Roll this step</button>
+          <button id="stepSurprise" title="New settings for this step only">Surprise this step</button>
+          <label class="check" title="Roll and Surprise me leave a kept step alone">
+            <input type="checkbox" id="stepLock" /> Keep this step
+          </label>
+          <label class="check" title="Hear and see the riff as it stood after this step">
+            <input type="checkbox" id="upTo" /> Only up to this step
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <p>Space plays and stops · D rolls · Z / X step back and forward through your riffs.
+        Settings are remembered in this browser.</p>
+    </footer>
+  </div>
+
+  <script src="js/riff.js"></script>
+  <script src="js/synth.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

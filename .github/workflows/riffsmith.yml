@@ -1,0 +1,27 @@
+name: Riffsmith
+
+# Riffsmith is a standalone browser app with no build step. Its engine (the
+# eight steps and the MIDI writer) is a plain module, so its tests run in plain
+# Node in seconds.
+
+on:
+  push:
+    paths:
+      - "riffsmith/**"
+      - ".github/workflows/riffsmith.yml"
+  pull_request:
+    paths:
+      - "riffsmith/**"
+      - ".github/workflows/riffsmith.yml"
+
+jobs:
+  logic:
+    name: Riffsmith logic tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run the logic tests
+        run: node riffsmith/tests/riff-logic.test.js
