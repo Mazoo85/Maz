@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Udio Rescue",
+  "version": "1.0.0",
+  "description": "Save copies of your own Udio songs, with their covers and lyrics, to your computer.",
+  "minimum_chrome_version": "111",
+  "permissions": ["downloads", "storage", "unlimitedStorage"],
+  "host_permissions": ["https://*.udio.com/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "Udio Rescue" },
+  "content_scripts": [
+    {
+      "matches": ["https://*.udio.com/*"],
+      "js": ["inject.js"],
+      "world": "MAIN",
+      "run_at": "document_start",
+      "all_frames": false
+    },
+    {
+      "matches": ["https://*.udio.com/*"],
+      "js": ["lib.js", "content.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ]
+}

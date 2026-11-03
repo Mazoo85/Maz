@@ -1,0 +1,36 @@
+name: Udio Rescue
+
+# Udio Rescue is a standalone Chrome extension with no build step. Its logic is
+# a plain module tested in Node; the end-to-end test loads the real extension
+# into Chromium against a pretend Udio site and checks the saved files.
+
+on:
+  push:
+    paths:
+      - "udio-rescue/**"
+      - ".github/workflows/udio-rescue.yml"
+  pull_request:
+    paths:
+      - "udio-rescue/**"
+      - ".github/workflows/udio-rescue.yml"
+
+jobs:
+  test:
+    name: Udio Rescue tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Logic tests
+        run: node udio-rescue/tests/udio-rescue.test.js
+      - name: The download zip matches the extension
+        run: python3 udio-rescue/build-zip.py --check
+      - name: Install Chromium
+        working-directory: udio-rescue/tests
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.0
+          npx playwright install --with-deps chromium
+      - name: End-to-end test
+        run: node udio-rescue/tests/e2e.cjs
