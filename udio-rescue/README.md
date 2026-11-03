@@ -99,8 +99,9 @@ your songs, lyrics, cookies or login.
 
 **A song says "failed".** Hover over the red label to see why. "Protected
 stream, skipped" means Udio encrypts that song's audio, and this tool won't
-break encryption. For anything else, press **2. Save selected songs** again
-later. Failed songs stay ticked.
+break encryption. For anything else, press **1. Find my songs** again (Udio's
+audio links can expire after a while, and this fetches fresh ones), then
+**2. Save selected songs**. Failed songs stay ticked.
 
 **To remove the extension** when you're done: go to `chrome://extensions` and
 press **Remove** on Udio Rescue. Your saved songs stay in your Downloads.
