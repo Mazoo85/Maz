@@ -2,7 +2,7 @@
 
 # Consolidation record
 
-Built on 2026-11-02 by `maz-consolidate`.
+Built on 2026-11-03 by `maz-consolidate`.
 
 Every directory below was added with `git subtree`, which keeps the source
 repository's entire history — every commit, author and date is still in

@@ -38,6 +38,7 @@ with their full history.
 | [`shooter`](shooter) |
 | [`tests`](tests) |
 | [`tools`](tools) |
+| [`udio-rescue`](udio-rescue) |
 | [`web`](web) |
 | [`zomboid`](zomboid) |
 
