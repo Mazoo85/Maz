@@ -31,6 +31,7 @@ with their full history.
 | [`mandala`](mandala) |
 | [`music`](music) |
 | [`names`](names) |
+| [`riffsmith`](riffsmith) |
 | [`scraper`](scraper) |
 | [`scripts`](scripts) |
 | [`shared`](shared) |
