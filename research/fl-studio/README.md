@@ -112,3 +112,7 @@ FL's Python modules.
   - internal engine details.
 
   Check these on image-line.com before relying on them.
+
+## Next step
+
+[BUILD-BRIEF.md](BUILD-BRIEF.md) is the hand-off for the Claude session on Cody's computer that will start building.
