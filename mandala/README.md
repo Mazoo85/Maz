@@ -31,6 +31,19 @@ A standalone app: it is not part of MAZ ARCADE.
 Your drawing is kept in the browser (localStorage), so it is still there when
 you come back.
 
+## Install it as an app
+
+Mandala Maker installs like any other app: its own icon, its own window, and
+it works with no internet once installed.
+
+- **Chrome or Edge on a computer:** press **Install app** under the canvas, or
+  the install icon at the right of the address bar.
+- **Safari on a Mac:** File → Add to Dock.
+- **iPhone or iPad:** Share → Add to Home Screen.
+- **Android:** Chrome's menu → Install app.
+
+Updates made to the website reach the installed app the next time it opens.
+
 ## Files
 
 | File | What it is |
@@ -38,4 +51,6 @@ you come back.
 | `js/mandala.js` | The engine: symmetry, ring motion, the Surprise-me generator, the save format. No DOM, so it is tested in plain Node. |
 | `js/app.js` | The page: canvas, touch and mouse drawing, buttons, saving. |
 | `css/style.css` | The look: warm paper in light mode, ink-dark in dark mode. |
+| `manifest.webmanifest`, `icons/` | What makes it installable: its name, icon and own window. The icon is a mandala drawn by the app's own Surprise me. |
+| `sw.js`, `js/install.js` | Offline support (a saved copy of every file, refreshed in the background) and the Install app button. |
 | `tests/mandala-logic.test.js` | `node mandala/tests/mandala-logic.test.js`. Runs in CI via `.github/workflows/mandala.yml`. |
