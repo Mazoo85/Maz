@@ -7,6 +7,9 @@
   <meta name="theme-color" content="#14121c" media="(prefers-color-scheme: dark)" />
   <title>Mandala Maker</title>
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-title" content="Mandala" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='7' fill='%23f6f1e7'/><g fill='none' stroke='%23b4532a' stroke-width='.9'><circle cx='8' cy='8' r='5.2'/><path d='M8 2.8c1.6 1.6 1.6 3.6 0 5.2-1.6-1.6-1.6-3.6 0-5.2zM8 13.2c1.6-1.6 1.6-3.6 0-5.2-1.6 1.6-1.6 3.6 0 5.2zM2.8 8c1.6-1.6 3.6-1.6 5.2 0-1.6 1.6-3.6 1.6-5.2 0zM13.2 8c-1.6-1.6-3.6-1.6-5.2 0 1.6 1.6 3.6 1.6 5.2 0z'/></g></svg>" />
 </head>
 <body>
@@ -29,6 +32,7 @@
           <button id="clear" title="Start again with a blank page">Clear</button>
           <button id="savePng" title="Download a picture of your mandala">Save picture</button>
           <button id="saveVideo" title="Record one breath of your moving mandala">Save video</button>
+          <button id="installApp" title="Install Mandala Maker on this device, so it opens like any other app, even offline" hidden>Install app</button>
         </div>
       </section>
 
@@ -80,5 +84,6 @@
 
   <script src="js/mandala.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/install.js"></script>
 </body>
 </html>

@@ -458,6 +458,38 @@ test('a video is never too short or too long', () => {
   eq(M.videoSeconds('spin', 0), 4);
 });
 
+console.log('\nMANDALA MAKER — install');
+
+const fs = require('fs');
+const APP = path.join(__dirname, '..');
+
+test('the app manifest is valid and opens the app in its own window', () => {
+  const m = JSON.parse(fs.readFileSync(path.join(APP, 'manifest.webmanifest'), 'utf8'));
+  eq(m.name, 'Mandala Maker');
+  eq(m.display, 'standalone');
+  eq(m.start_url, './');
+  assert(m.icons.some((i) => i.sizes === '192x192'), 'a 192px icon');
+  assert(m.icons.some((i) => i.sizes === '512x512' && i.purpose === 'any'), 'a 512px icon');
+  assert(m.icons.some((i) => i.purpose === 'maskable'), 'a maskable icon');
+  for (const i of m.icons) assert(fs.existsSync(path.join(APP, i.src)), 'missing ' + i.src);
+});
+
+test('every file the offline copy lists really exists', () => {
+  const sw = fs.readFileSync(path.join(APP, 'sw.js'), 'utf8');
+  const files = JSON.parse(sw.match(/var FILES = (\[[\s\S]*?\]);/)[1].replace(/'/g, '"'));
+  for (const f of files) {
+    if (f === './') continue;
+    assert(fs.existsSync(path.join(APP, f)), 'sw.js lists ' + f + ', which does not exist');
+  }
+});
+
+test('the offline copy includes every script and stylesheet the page loads', () => {
+  const html = fs.readFileSync(path.join(APP, 'index.html'), 'utf8');
+  const sw = fs.readFileSync(path.join(APP, 'sw.js'), 'utf8');
+  const used = [...html.matchAll(/(?:src|href)="([^"#:]+)"/g)].map((m) => m[1]);
+  for (const u of used) assert(sw.indexOf("'" + u + "'") !== -1, 'the page loads ' + u + ' but sw.js does not save it');
+});
+
 console.log('\n' + passed + ' passed, ' + failures.length + ' failed');
 if (failures.length) {
   for (const f of failures) console.log('  - ' + f);
