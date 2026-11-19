@@ -159,6 +159,36 @@
       </div>
       <label class="switch"><input type="checkbox" id="layer-buildings" checked /> <span>3D buildings <small>(zoom into a city)</small></span></label>
       <label class="switch"><input type="checkbox" id="layer-spin" checked /> <span>Spin the globe when zoomed out</span></label>
+
+      <h3 class="sub">Live and history</h3>
+      <label class="switch"><input type="checkbox" id="d-aurora" /> <span>Aurora forecast</span></label>
+      <p class="fine" id="d-aurora-note"></p>
+      <label class="switch"><input type="checkbox" id="d-volcanoes" /> <span>Volcanoes</span></label>
+      <p class="fine" id="d-volcanoes-note"></p>
+      <label class="switch"><input type="checkbox" id="d-launches" /> <span>Rocket launches</span></label>
+      <p class="fine" id="d-launches-note"></p>
+      <label class="switch"><input type="checkbox" id="d-battles" /> <span>Battles through history</span></label>
+      <div class="data-box" id="d-battles-box" hidden>
+        <div class="row years">
+          <label>From <input type="number" id="d-from" class="mono" value="1939" /></label>
+          <label>To <input type="number" id="d-to" class="mono" value="1945" /></label>
+        </div>
+        <div class="chips" id="d-eras"></div>
+        <input type="search" id="d-q" placeholder="Search a war or battle" aria-label="Search battles" />
+        <p class="fine" id="d-battles-count"></p>
+        <p class="fine">Negative years are BCE. Colours show the era.</p>
+      </div>
+      <label class="switch"><input type="checkbox" id="d-oldmaps" /> <span>Old maps</span></label>
+      <div class="data-box" id="d-oldmaps-box" hidden>
+        <div class="row">
+          <button type="button" class="btn" id="d-findmaps">Find old maps here</button>
+          <label class="opacity">See-through <input type="range" id="d-opacity" min="0.2" max="1" step="0.05" value="0.85" /></label>
+        </div>
+        <p class="fine" id="d-oldmaps-note">Zoom to a city or region, then press Find.</p>
+        <div class="map-list" id="d-maplist"></div>
+        <p class="fine">Each map keeps its library's licence; many are public domain.</p>
+      </div>
+      <p class="fine">Live aircraft, ships and lightning need the desktop program, Terra Desk.</p>
       <div class="segmented" role="radiogroup" aria-label="Units">
         <button type="button" role="radio" aria-checked="true" data-units="metric">Kilometres</button>
         <button type="button" role="radio" aria-checked="false" data-units="imperial">Miles</button>
@@ -168,7 +198,7 @@
         <button type="button" class="btn" id="real3d-settings">Real 3D key</button>
         <button type="button" class="btn" id="copy-link">Copy a link to this view</button>
       </div>
-      <p class="fine">Satellite photos: Esri World Imagery. Mountains: AWS Terrain Tiles. Names and buildings: OpenStreetMap via OpenFreeMap. Search: OpenStreetMap Nominatim.</p>
+      <p class="fine">Satellite photos: Esri World Imagery. Mountains: AWS Terrain Tiles. Names and buildings: OpenStreetMap via OpenFreeMap. Search: OpenStreetMap Nominatim. Aurora: NOAA SWPC. Volcanoes: Smithsonian Global Volcanism Program, USGS. Launches: The Space Devs. Battles: Wikidata (CC0). Old maps: Allmaps and the libraries that hold them.</p>
     </section>
   </aside>
 
@@ -194,6 +224,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
   <script src="js/geo.js"></script>
+  <script src="js/datalayers.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

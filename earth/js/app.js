@@ -1084,6 +1084,7 @@
     applyLayers();
     renderPlaces();
     updateTilt();
+    if (window.EarthData) window.EarthData.attach(map, { toast });   // live and history layers (datalayers.js)
     window.requestAnimationFrame(spinFrame);
   });
   renderMeasure();
