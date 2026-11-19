@@ -1,7 +1,7 @@
 name: Earth Explorer
 
-# Earth Explorer is a standalone browser app with no build step. Its maths and
-# saved-places file are a plain module, so its tests run in plain Node in
+# Earth Explorer is a standalone browser app with no build step. Its maths,
+# saved-places file and data layers are plain modules, so its tests run in plain Node in
 # seconds.
 
 on:
@@ -25,3 +25,5 @@ jobs:
           node-version: "22"
       - name: Run the logic tests
         run: node earth/tests/earth-logic.test.js
+      - name: Run the live and history layer tests
+        run: node earth/tests/datalayers.test.js

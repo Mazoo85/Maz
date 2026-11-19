@@ -29,6 +29,7 @@ browser. A standalone app: it is not part of MAZ ARCADE.
 | **Units** | Kilometres or miles, in Layers. |
 | **Share** | The view is kept in the page address, so *Copy a link to this view* sends someone exactly what you are looking at. |
 | **Me** | Flies to where you are (your browser asks first). |
+| **Live and history** | In Layers, from Cody's desktop globe Terra Desk: the **aurora forecast** for the next hour with the Kp index, **volcanoes** coloured by US alert level, upcoming **rocket launches** with countdowns at their pads, 8,740 **battles** from 1500 BCE to today (pick a span of years or an era, or search a war) and **old maps** laid over the place they show (zoom in, *Find old maps here*, tap one). Tap a point for details. Your choices are remembered. |
 
 Your places are kept in your browser on that device. **Save to a file** in
 My places writes `my-places.json`; **Open a file** on another device reads it
@@ -69,6 +70,13 @@ All free, with no sign-up. Credits show in the corner of the map.
 | Real 3D cities | [Google Photorealistic 3D Tiles](https://developers.google.com/maps/documentation/tile/3d-tiles), with your own key |
 | Search and name suggestions | [OpenStreetMap Nominatim](https://nominatim.org) — asked only when you press search or drop a pin |
 | The 3D map itself | [MapLibre GL JS](https://maplibre.org) 5.24.0 |
+| Aurora forecast and Kp | [NOAA Space Weather Prediction Center](https://www.swpc.noaa.gov/products/aurora-30-minute-forecast) (public domain) |
+| Volcanoes | [Smithsonian Global Volcanism Program](https://volcano.si.edu) Holocene list (in `data/`), alert levels from [USGS](https://volcanoes.usgs.gov) |
+| Rocket launches | [The Space Devs Launch Library 2](https://thespacedevs.com/llapi) (free; 15 requests an hour, asked only when the layer is switched on) |
+| Battles | [Wikidata](https://www.wikidata.org) (CC0, in `data/`) |
+| Old maps | [Allmaps](https://allmaps.org); each map keeps its library's licence |
+
+Live aircraft, ships and lightning are in the desktop program only: their services do not answer web pages.
 
 ## Files
 
@@ -77,5 +85,8 @@ All free, with no sign-up. Credits show in the corner of the map.
 | `index.html` | The page. |
 | `css/earth.css` | The look. |
 | `js/app.js` | The map, search, places, measuring and layers. |
+| `js/datalayers.js` | The live and history layers: the data handling (no browser needed) and their place on the map and in Layers. |
+| `data/` | `battles.json` and `volcanoes.json`, loaded only when their layer is switched on. |
 | `js/geo.js` | The maths (distances, areas, curved lines), number formatting and the saved-places file. No browser needed. |
 | `tests/earth-logic.test.js` | Tests for `geo.js`: `node earth/tests/earth-logic.test.js` |
+| `tests/datalayers.test.js` | Tests for `datalayers.js`: `node earth/tests/datalayers.test.js` |
