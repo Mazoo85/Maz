@@ -61,6 +61,7 @@ jobs:
       - name: Drive the app at phone size
         env:
           BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.url || '' }}
+          PRINT_SHOTS: webkit-1-globe,webkit-2-menu,webkit-layer-volcanoes,webkit-layer-trails,webkit-layer-worlds
         run: node terradesk/tests/terradesk-browser.test.cjs
       - name: Keep the pictures
         if: always()

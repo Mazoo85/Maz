@@ -68,8 +68,11 @@ function saveLong() {
 export let rawFetch = (...a) => nativeFetch(...a);
 export function _setRawFetch(f) { rawFetch = f; }               // tests
 
+// Services that answer apps but refuse web pages; asking them from Safari only fills its error log.
+export const PAGE_REFUSED = { 'volcano.si.edu': 'The Smithsonian weekly volcano report does not answer web pages.' };
 async function fetchOne(url, init) {
   const u = new URL(url), rule = HOSTS[u.hostname];
+  if (PAGE_REFUSED[u.hostname]) return { error: PAGE_REFUSED[u.hostname] };
   if (!rule || u.protocol !== 'https:') return { error: `${u.hostname} is not one of Terra Desk's data services` };
   const method = (init.method || 'GET').toUpperCase(), body = init.body == null ? null : String(init.body);
   const key = method + ' ' + url + (body ? ' ' + body.length + ':' + body.slice(0, 200) + body.slice(-200) : '');

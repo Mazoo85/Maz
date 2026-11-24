@@ -222,6 +222,12 @@ await t('long-lived answers survive closing the app; live ones do not', async ()
   assert.ok(!Object.keys(JSON.parse(store.get('terradesk.cache'))).some(k => k.includes('noaa-goes19')));
 });
 
+await t('a service that refuses web pages is not asked at all', async () => {
+  net.length = 0;
+  assert.match((await td.fetch('https://volcano.si.edu/news/WeeklyVolcanoRSS.xml')).error, /does not answer web pages/);
+  assert.equal(net.length, 0);
+});
+
 await t('a busy Overpass server hands over to its mirrors', async () => {
   net.length = 0;
   answer = url => url.includes('overpass-api.de') ? new Response('busy', { status: 429 }) : url.includes('kumi') ? new Response('', { status: 504 }) : new Response('{"elements":[]}');

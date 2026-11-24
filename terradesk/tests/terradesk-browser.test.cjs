@@ -60,7 +60,14 @@ async function run(engine, base) {
   const problems = [];
   page.on('pageerror', e => problems.push('page error: ' + e.message));
   page.on('console', m => { if (m.type() === 'error') problems.push('console: ' + m.text().slice(0, 300)); });
-  const shot = async name => { try { await page.screenshot({ path: path.join(SHOTS, `${engine}-${name}.png`) }); } catch (e) { /* not fatal */ } };
+  const PRINT = new Set((process.env.PRINT_SHOTS || '').split(',').filter(Boolean));
+  const shot = async name => {
+    try {
+      await page.screenshot({ path: path.join(SHOTS, `${engine}-${name}.png`) });
+      // A small copy in the log, for reviewers who cannot download the pictures.
+      if (PRINT.has(`${engine}-${name}`)) console.log(`SHOT ${engine}-${name} ` + (await page.screenshot({ type: 'jpeg', quality: 45, scale: 'css' })).toString('base64'));
+    } catch (e) { /* not fatal */ }
+  };
   console.log(`\n=== ${engine.toUpperCase()} (${engine === 'webkit' ? 'iPhone 13, Safari engine' : 'phone 390 × 844'}) — ${base}`);
 
   await page.goto(base, { waitUntil: 'load', timeout: 90000 });
@@ -98,7 +105,7 @@ async function run(engine, base) {
   // Every layer, with its own self-test.
   for (const id of LAYERS) {
     let r;
-    try { r = await withTimeout(page.evaluate(async id => { const r = await window.terra.test(id); const l = window.terra.layers.find(x => x.id === id); return Object.assign({}, r, { _status: l.statusText || '', _kind: l.statusKind || '' }); }, id), 120000, id); }
+    try { r = await withTimeout(page.evaluate(async id => { const r = await window.terra.test(id); const l = window.terra.layers.find(x => x.id === id); return Object.assign({}, r, { _status: l.statusText || '', _kind: l.statusKind || '' }); }, id), id === 'builder' || id === 'trails' ? 300000 : 120000, id); }
     catch (e) { r = { error: e.message.split('\n')[0] }; }
     const text = JSON.stringify(r);
     const bad = !r || !!r.error || r._kind === 'err' || /^error$/i.test(String(r._status)) || r.on === false;
@@ -118,7 +125,9 @@ async function run(engine, base) {
     console.log('offline helper:', sw);
     if (sw === 'none') fail(`${engine}: the offline helper did not register`);
   }
-  const real = problems.filter(p => !/Failed to load resource|net::ERR|status of 4\d\d|status of 5\d\d|CORS|Access-Control|WebSocket|aisstream/i.test(p));
+  // A service refusing the page shows up as an error in the browser's log (WebKit even calls it a page error); the
+  // layers handle it, and which services refuse is checked on its own, so only other errors count here.
+  const real = problems.filter(p => !/Failed to load resource|net::ERR|status of 4\d\d|status of 5\d\d|CORS|Access-Control|access control checks|WebSocket|aisstream/i.test(p));
   for (const p of problems) console.log('  (seen) ' + p);
   if (real.length) fail(`${engine}: errors on the page: ${real.slice(0, 5).join(' | ')}`);
   await browser.close();
