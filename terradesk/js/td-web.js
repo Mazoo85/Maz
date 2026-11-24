@@ -120,6 +120,8 @@ async function tdFetch(url, init = {}) {
     const alt = new URL(url); alt.hostname = m;
     try { r = await fetchOne(alt.toString(), init); } catch { /* next */ }
   }
+  if (MIRRORS[host] && (r.error || r.status === 429 || r.status >= 500) && !r.stale)
+    return { error: 'The map data service (Overpass) and its backups are busy or down right now. Try again in a few minutes.' };
   return r;
 }
 

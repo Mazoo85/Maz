@@ -235,6 +235,8 @@ await t('a busy Overpass server hands over to its mirrors', async () => {
   assert.equal(r.body, '{"elements":[]}');
   assert.deepEqual(net.map(x => new URL(x.url).hostname), ['overpass-api.de', 'overpass.kumi.systems', 'overpass.private.coffee']);
   assert.equal(net[2].init.method, 'POST'); assert.equal(net[2].init.body, 'data=x');
+  answer = () => { throw new TypeError('Load failed'); };
+  assert.match((await td.fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=y' })).error, /Overpass\) and its backups are busy or down/);
 });
 
 await t('planes come through the GOD’S EYE VIEW relay in the shape the aircraft layer reads', async () => {
