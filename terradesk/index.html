@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Terra Desk</title>
+<meta name="description" content="Terra Desk: a 3D globe of live ships, aircraft, launches, aurora, volcanoes, lightning, battles, old maps, other worlds, road trips and trails.">
+<meta name="theme-color" content="#05080d">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Terra Desk">
+<meta name="format-detection" content="telephone=no">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.147.0/Build/Cesium/Widgets/widgets.css">
+<link rel="stylesheet" href="styles.css">
+<script>window.CESIUM_BASE_URL = 'https://cdn.jsdelivr.net/npm/cesium@1.147.0/Build/Cesium/';</script>
+<script src="https://cdn.jsdelivr.net/npm/cesium@1.147.0/Build/Cesium/Cesium.js"></script>
+<script>
+  if (!window.Cesium) document.addEventListener('DOMContentLoaded', () => {
+    const p = document.createElement('p'); p.className = 'offline';
+    p.textContent = 'Terra Desk needs the internet the first time it opens. Connect, then reload.';
+    document.body.appendChild(p);
+  });
+</script>
+<script src="js/geo.js"></script>
+</head>
+<body>
+<div id="globe"></div>
+
+<button id="menuBtn" class="menuBtn" aria-label="Layers and tools" title="Layers and tools">☰</button>
+<div id="scrim" class="scrim"></div>
+<aside class="side" id="side">
+  <div class="brand"><img src="icon.png" alt=""><b>Terra Desk</b><span id="world" class="world">Earth</span><button id="menuClose" class="menuClose" aria-label="Close">✕</button></div>
+  <form id="search" class="search" autocomplete="off"><input id="q" type="search" placeholder="Search a place or coordinates" enterkeyhint="search"><button>Go</button></form>
+  <ul id="results" class="results" hidden></ul>
+  <div class="tools">
+    <button id="tPlaces" title="Saved places">Places</button><button id="tMeasure" title="Measure distance">Measure</button><button id="tHome" title="Whole Earth">Home</button><button id="tSettings" title="Keys and display">Settings</button>
+  </div>
+  <div id="layers" class="layers"></div>
+</aside>
+
+<section class="panel" id="panel" hidden>
+  <header><b id="panelTitle"></b><span class="grow"></span><button id="panelClose" title="Close">✕</button></header>
+  <div id="panelBody" class="pbody"></div>
+</section>
+
+<section class="detail" id="detail" hidden>
+  <header><b id="detailTitle"></b><span class="grow"></span><button id="detailClose" title="Close">✕</button></header>
+  <div id="detailBody" class="pbody"></div>
+</section>
+
+<footer class="status">
+  <span id="cursor">Tap the globe for coordinates</span><span class="grow"></span><span id="layerNote" class="muted"></span><span id="credits" class="credits"></span>
+</footer>
+
+<div id="toast" class="toast" hidden></div>
+<script type="module" src="js/td-web.js"></script>
+<script type="module" src="js/core.js"></script>
+</body>
+</html>

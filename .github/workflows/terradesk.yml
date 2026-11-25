@@ -1,0 +1,72 @@
+name: Terra Desk
+
+# Terra Desk for iPhone is a standalone browser app with no build step. Its bridge, offline helper and data are
+# checked in plain Node in seconds; then the real page is driven as an iPhone 13 in WebKit (Safari's engine) and as a
+# phone in Chromium, switching on every layer. Run it by hand ("Run workflow") with the live site's address to check
+# the published copy, where the outside services see the real mazoo85.github.io origin.
+
+on:
+  push:
+    paths:
+      - "terradesk/**"
+      - ".github/workflows/terradesk.yml"
+  pull_request:
+    paths:
+      - "terradesk/**"
+      - ".github/workflows/terradesk.yml"
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "Address to test (empty: this checkout on a local server)"
+        required: false
+        default: "https://mazoo85.github.io/Maz/terradesk/"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terradesk-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  logic:
+    name: Terra Desk logic tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Bridge, offline helper, data and home-screen checks
+        run: node terradesk/tests/terradesk-logic.test.mjs
+
+  browser:
+    name: Terra Desk on a phone (WebKit and Chromium)
+    needs: logic
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Playwright
+        working-directory: music/tests
+        run: npm install --no-audit --no-fund
+      - name: Install WebKit and Chromium
+        working-directory: music/tests
+        run: npx playwright install --with-deps webkit chromium
+      - name: Which outside services answer the page
+        run: node terradesk/tests/probe-services.mjs
+      - name: Drive the app at phone size
+        env:
+          BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.url || '' }}
+          PRINT_SHOTS: webkit-1-globe,webkit-2-menu,webkit-layer-volcanoes,webkit-layer-trails,webkit-layer-worlds
+        run: node terradesk/tests/terradesk-browser.test.cjs
+      - name: Keep the pictures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terradesk-screens
+          path: terradesk/tests/shots/
+          if-no-files-found: ignore
